@@ -44,7 +44,7 @@
 - 방향: `develop` ← `feature/*`
 - MR 제목도 커밋과 같은 형식: `feat: ...`
 - 설명에 작업 내용 + 관련 Jira 번호, 리뷰어 1명 이상 지정 후 승인 시 병합
-- 병합 방식: **Merge commit(`--no-ff`) 기본**, 병합 후 feature 브랜치 삭제
+- 병합 방식: **커밋 1~2개 → Merge commit(`--no-ff`), 3개 이상 → Squash**(제목은 `type: 제목`). 병합 후 feature 브랜치 삭제
 - MR은 작게 — 기능 하나 = MR 하나
 
 ## 📋 작업 사이클
