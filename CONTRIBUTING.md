@@ -22,28 +22,34 @@
 | 브랜치 | 역할 | 직접 push | 흐름 |
 |---|---|---|---|
 | `main` | 🚀 배포용. 항상 동작하는 상태 | ❌ 금지 | `develop` → `main` (배포 시점) |
-| `develop` | 🔧 통합 기준. 모든 작업이 모이는 곳 | ❌ 금지 | `feature/*` → `develop` |
-| `feature/*` | 🌱 실제 작업 브랜치 | ✅ 자유 | `develop`에서 분기 → `develop`으로 MR |
-| `fix/*` | 🐛 버그 수정 (흐름은 feature와 동일) | ✅ 자유 | 〃 |
+| `develop` | 🔧 통합 기준. 모든 작업이 모이는 곳 | ❌ 금지 | 작업 브랜치 → `develop` |
+| `feature/*` | 🌱 새 기능 | ✅ 자유 | `develop`에서 분기 → `develop`으로 MR |
+| `fix/*` | 🐛 버그 수정 | ✅ 자유 | 〃 |
+| `refactor/*` · `docs/*` · `chore/*` · `test/*` | ♻️ 브랜치 전체가 그 한 가지 작업일 때 (리팩터링 · 문서 · 설정/의존성 · 테스트) | ✅ 자유 | 〃 |
 
 > `main` · `develop`은 **Protected Branch**로 잠겨 있음(직접 push · force push 차단). 이미 설정돼 있으니 신경 쓸 필요 없음 — push 하려다 막히면 "아 MR 써야지" 하면 됨.
+>
+> 대부분의 작업은 `feature/*` · `fix/*`다. `refactor` · `docs` · `chore` · `test`는 **브랜치 전체가 순수하게 그 일만** 할 때만 쓴다(예: 리팩터링만 하는 브랜치). 포맷팅(`style`)은 보통 다른 작업에 딸려가므로 단독 브랜치를 거의 만들지 않는다.
 
 ### 브랜치 이름 규칙
 
 ```
-feature/<Jira번호>-<짧은-영문-설명>
-fix/<Jira번호>-<짧은-영문-설명>
+<prefix>/<Jira번호>-<짧은-영문-설명>
 ```
+
+- **prefix = 그 브랜치의 대표 커밋 type을 그대로 쓴다.** (아래 [커밋 type 목록](#type-목록)과 동일한 단어 사용 → 외울 게 하나로 통일됨)
+  - 단 새 기능은 관례상 `feat`가 아니라 **`feature/`**, 버그 수정은 **`fix/`**.
+  - 나머지는 커밋 type 이름 그대로: `refactor/` · `docs/` · `chore/` · `test/`.
+- **소문자 + 하이픈 + 영문**만. (한글 · 공백 브랜치명은 일부 환경에서 깨짐)
+- 앞에 **Jira 티켓 번호** → Jira ↔ GitLab 추적이 쉬워짐.
+- **브랜치 하나 = 티켓(작업) 하나.** 여러 작업 섞지 말 것.
 
 | ✅ 좋은 예 | ❌ 나쁜 예 |
 |---|---|
 | `feature/22-websocket-connection` | `feature/정현작업` (한글) |
-| `feature/42-redis-session` | `feat` (설명 없음) |
-| `fix/26-broadcast-npe` | `feature/작업중_이것저것` (범위 너무 큼) |
-
-- **소문자 + 하이픈 + 영문**만. (한글 · 공백 브랜치명은 일부 환경에서 깨짐)
-- 앞에 **Jira 티켓 번호** → Jira ↔ GitLab 추적이 쉬워짐.
-- **브랜치 하나 = 티켓(기능) 하나.** 여러 기능 섞지 말 것.
+| `fix/26-broadcast-npe` | `feat` (설명 없음) |
+| `refactor/31-wscodec-split` | `feature/작업중_이것저것` (범위 너무 큼) |
+| `docs/12-api-spec` | `feature/12-docs` (prefix와 내용 불일치) |
 
 ---
 

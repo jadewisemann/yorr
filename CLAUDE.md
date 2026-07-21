@@ -16,12 +16,13 @@
 
 ## 🌿 브랜치 이름
 ```
-feature/<Jira번호>-<짧은-영문-설명>
-fix/<Jira번호>-<짧은-영문-설명>
+<prefix>/<Jira번호>-<짧은-영문-설명>
 ```
+- **prefix = 그 브랜치의 대표 커밋 type.** 새 기능은 `feature/`, 버그는 `fix/`, 그 외는 커밋 type 그대로 `refactor/` · `docs/` · `chore/` · `test/`.
+  - 대부분은 `feature/` · `fix/`. 나머지는 브랜치 전체가 그 한 가지 작업일 때만. `style`은 단독 브랜치를 만들지 않는다.
 - **소문자 + 하이픈 + 영문만** (한글·공백 금지)
-- 앞에 Jira 티켓 번호, 브랜치 하나 = 티켓 하나
-- 예: `feature/22-websocket-connection`, `fix/26-broadcast-npe`
+- 앞에 Jira 티켓 번호, 브랜치 하나 = 작업 하나
+- 예: `feature/22-websocket-connection`, `fix/26-broadcast-npe`, `refactor/31-wscodec-split`
 
 ## ✍️ 커밋 메시지
 형식: `<type>: <제목>` (제목 50자 내외, 한글 OK, 끝에 마침표 X)
