@@ -1,0 +1,50 @@
+:root {
+  font-family: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #f7f8fb;
+  background: #172033;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --color-background: #172033;
+  --color-surface: #222d43;
+  --color-text: #f7f8fb;
+  --color-text-muted: #bac3d4;
+  --color-accent: #f7cb55;
+  --color-accent-strong: #ffe198;
+  --color-accent-contrast: #172033;
+  --color-focus: #8ecbff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--color-background);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--color-text);
+  background:
+    radial-gradient(circle at 50% 10%, rgb(247 203 85 / 12%), transparent 40%),
+    var(--color-background);
+}
+
+button,
+input {
+  touch-action: manipulation;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
