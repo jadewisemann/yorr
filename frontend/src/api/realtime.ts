@@ -1,5 +1,15 @@
-import type { ClientMessage, ServerMessage } from '../../contracts/ws-events'
-import type { ConnectionListener, MessageListener, RealtimeClient } from './RealtimeClient'
+import type { ClientMessage, ServerMessage } from './ws-events'
+
+export type MessageListener = (message: ServerMessage) => void
+export type ConnectionListener = (event: 'open' | 'close' | 'error') => void
+
+export interface RealtimeClient {
+  connect(): void
+  disconnect(): void
+  send(message: ClientMessage): void
+  onMessage(listener: MessageListener): () => void
+  onConnectionChange(listener: ConnectionListener): () => void
+}
 
 export class FakeRealtimeClient implements RealtimeClient {
   readonly sentMessages: ClientMessage[] = []
