@@ -1,2 +1,20 @@
 # IntelliJ IDEA
 .idea/
+
+# Node / frontend
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.vscode/
+.DS_Store
+Thumbs.db
