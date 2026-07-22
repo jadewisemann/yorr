@@ -1,0 +1,71 @@
+@theme inline {
+  --font-sans: var(--ds-font-sans);
+
+  --color-canvas: var(--ds-color-canvas);
+  --color-surface: var(--ds-color-surface);
+  --color-surface-raised: var(--ds-color-surface-raised);
+  --color-border: var(--ds-color-border);
+  --color-content: var(--ds-color-content);
+  --color-content-muted: var(--ds-color-content-muted);
+  --color-brand: var(--ds-color-brand);
+  --color-brand-strong: var(--ds-color-brand-strong);
+  --color-on-brand: var(--ds-color-on-brand);
+  --color-positive: var(--ds-color-positive);
+  --color-danger: var(--ds-color-danger);
+  --color-focus: var(--ds-color-focus);
+
+  --text-display: var(--ds-text-display);
+  --font-weight-medium: 600;
+  --font-weight-bold: 800;
+
+  --spacing-tap: var(--ds-size-tap);
+  --spacing-content: var(--ds-size-content);
+
+  --radius-control: var(--ds-radius-control);
+  --radius-card: var(--ds-radius-card);
+  --radius-panel: var(--ds-radius-panel);
+
+  --shadow-raised: var(--ds-shadow-raised);
+  --ease-snappy: var(--ds-ease-snappy);
+
+  --animate-spin-slow: spin-slow 700ms linear infinite;
+  --animate-dice-roll: dice-roll 500ms ease-in-out infinite alternate;
+}
+
+:root {
+  --ds-font-sans: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --ds-color-canvas: #172033;
+  --ds-color-surface: #222d43;
+  --ds-color-surface-raised: #2b3852;
+  --ds-color-border: #42516e;
+  --ds-color-content: #f7f8fb;
+  --ds-color-content-muted: #bac3d4;
+  --ds-color-brand: #f7cb55;
+  --ds-color-brand-strong: #ffe198;
+  --ds-color-on-brand: #172033;
+  --ds-color-positive: #69d79c;
+  --ds-color-danger: #ff8d94;
+  --ds-color-focus: #8ecbff;
+
+  --ds-text-display: clamp(1.75rem, 7vw, 2.5rem);
+  --ds-size-tap: 2.75rem;
+  --ds-size-content: 72rem;
+  --ds-radius-control: 0.5rem;
+  --ds-radius-card: 0.875rem;
+  --ds-radius-panel: 1.25rem;
+  --ds-shadow-raised: 0 0.75rem 2rem rgb(5 10 20 / 30%);
+  --ds-ease-snappy: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dice-roll {
+  to {
+    transform: rotate(8deg) scale(1.04);
+  }
+}

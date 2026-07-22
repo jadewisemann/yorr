@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { RoomSnapshot } from '../contracts/ws-events'
+import type { RoomSnapshot } from '../api/ws-events'
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'closed'
 

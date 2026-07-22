@@ -1,41 +1,34 @@
-:root {
-  font-family: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #f7f8fb;
-  background: #172033;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  --color-background: #172033;
-  --color-surface: #222d43;
-  --color-text: #f7f8fb;
-  --color-text-muted: #bac3d4;
-  --color-accent: #f7cb55;
-  --color-accent-strong: #ffe198;
-  --color-accent-contrast: #172033;
-  --color-focus: #8ecbff;
-}
+@import "tailwindcss";
+@import "./tokens.css";
 
-* {
-  box-sizing: border-box;
-}
+@layer base {
+  :root {
+    color: var(--ds-color-content);
+    background: var(--ds-color-canvas);
+    font-family: var(--ds-font-sans);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+  }
 
-html {
-  min-width: 320px;
-  background: var(--color-background);
-}
+  html {
+    min-width: 320px;
+    background: var(--ds-color-canvas);
+  }
 
-body {
-  min-width: 320px;
-  min-height: 100vh;
-  margin: 0;
-  color: var(--color-text);
-  background:
-    radial-gradient(circle at 50% 10%, rgb(247 203 85 / 12%), transparent 40%),
-    var(--color-background);
-}
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+    color: var(--ds-color-content);
+    background:
+      radial-gradient(circle at 50% 10%, rgb(247 203 85 / 12%), transparent 40%),
+      var(--ds-color-canvas);
+  }
 
-button,
-input {
-  touch-action: manipulation;
+  button,
+  input {
+    touch-action: manipulation;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
