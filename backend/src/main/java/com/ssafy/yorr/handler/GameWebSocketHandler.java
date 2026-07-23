@@ -1,5 +1,6 @@
 package com.ssafy.yorr.handler;
 
+import com.ssafy.yorr.ws.InMemoryRoomBroadcaster;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -26,9 +27,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GameWebSocketHandler.class);
     private final ObjectMapper objectMapper; // Boot4가 만드는 JsonMapper 빈이 여기 주입됨
+    private final InMemoryRoomBroadcaster broadcaster;
 
-    public GameWebSocketHandler(ObjectMapper objectMapper) {
+    public GameWebSocketHandler(ObjectMapper objectMapper, InMemoryRoomBroadcaster broadcaster) {
         this.objectMapper = objectMapper;
+        this.broadcaster = broadcaster;
     }
 
     // 연결이 열렸을 때 (콜센터: 전화 받음)
@@ -76,6 +79,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         log.info("연결 닫힘: {} / {}", session.getId(), status);
+        broadcaster.unregister(session);
     }
 
     /** sys.ping → sys.pong. pong은 서버 시각만 돌려주면 됨. */
