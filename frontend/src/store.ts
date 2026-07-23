@@ -1,6 +1,10 @@
 import { create } from 'zustand'
+<<<<<<< HEAD:frontend/src/app/store.ts
+import type { RoomSnapshot } from '../contracts/ws-events'
+=======
 import type { RoomSession } from '@/api/gameApi'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
+>>>>>>> 96e7252d9d23d7d509ed4819e8180e49c884c7c8:frontend/src/store.ts
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'closed'
 

@@ -1,36 +1,48 @@
+<<<<<<< HEAD:frontend/src/shared/styles/global.css
+:root {
+  font-family: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #f7f8fb;
+  background: #172033;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --color-background: #172033;
+  --color-surface: #222d43;
+  --color-text: #f7f8fb;
+  --color-text-muted: #bac3d4;
+  --color-accent: #f7cb55;
+  --color-accent-strong: #ffe198;
+  --color-accent-contrast: #172033;
+  --color-focus: #8ecbff;
+}
+=======
 /* class 탐지 범위를 src/로 고정한다. 자동 탐지에 맡기면 dist/·.codegraph/ 같은
    저장소 부산물까지 스캔해서 빌드마다 CSS 크기가 달라진다. */
 @import "tailwindcss" source("../");
 @import "./tokens.css";
+>>>>>>> 96e7252d9d23d7d509ed4819e8180e49c884c7c8:frontend/src/styles/global.css
 
-@layer base {
-  :root {
-    color: var(--ds-color-content);
-    background: var(--ds-color-canvas);
-    font-family: var(--ds-font-sans);
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-  }
+* {
+  box-sizing: border-box;
+}
 
-  html {
-    min-width: 320px;
-    background: var(--ds-color-canvas);
-  }
+html {
+  min-width: 320px;
+  background: var(--color-background);
+}
 
-  body {
-    min-width: 320px;
-    min-height: 100vh;
-    margin: 0;
-    color: var(--ds-color-content);
-    background:
-      radial-gradient(circle at 50% 10%, rgb(247 203 85 / 12%), transparent 40%),
-      var(--ds-color-canvas);
-  }
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--color-text);
+  background:
+    radial-gradient(circle at 50% 10%, rgb(247 203 85 / 12%), transparent 40%),
+    var(--color-background);
+}
 
-  button,
-  input {
-    touch-action: manipulation;
-  }
+button,
+input {
+  touch-action: manipulation;
 }
 
 @media (prefers-reduced-motion: reduce) {
