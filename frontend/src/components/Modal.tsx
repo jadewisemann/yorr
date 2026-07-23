@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useId, useRef } from 'react'
-import { cn } from '../cn'
+import { cn } from '@/cn'
 
 type ModalProps = {
   open: boolean

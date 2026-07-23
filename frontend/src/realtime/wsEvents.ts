@@ -45,54 +45,54 @@
  * ============================================================================
  */
 
-export const WS_PROTOCOL_VERSION = 1 as const;
+export const WS_PROTOCOL_VERSION = 1 as const
 
 /* ============================================================================
  * 1. 공통 원시 타입 & 도메인 모델
  * ==========================================================================*/
 
-export type PlayerId = string;
-export type RoomId = string;
-export type SessionToken = string;
+export type PlayerId = string
+export type RoomId = string
+export type SessionToken = string
 
-export type PlayerStatus = 'online' | 'away' | 'offline';
+export type PlayerStatus = 'online' | 'away' | 'offline'
 
 export interface Player {
-  playerId: PlayerId;
-  nickname: string;
-  status: PlayerStatus;
-  isHost: boolean;
+  playerId: PlayerId
+  nickname: string
+  status: PlayerStatus
+  isHost: boolean
 }
 
-export type RoomPhase = 'waiting' | 'playing' | 'finished';
+export type RoomPhase = 'waiting' | 'playing' | 'finished'
 
 /**
  * 방 전체 스냅샷. state.sync / room.joined / sys.reconnected 가 이걸 실어 보낸다.
  * game 필드(진행 상태)는 게임 도메인 소유 → GameState 참조.
  */
 export interface RoomSnapshot {
-  roomId: RoomId;
-  phase: RoomPhase;
-  hostId: PlayerId;
-  players: Player[];
+  roomId: RoomId
+  phase: RoomPhase
+  hostId: PlayerId
+  players: Player[]
   /** ⚠️ STUB: 게임 진행 중일 때만 존재. owner: 고용훈/유상은 */
-  game?: GameState;
+  game?: GameState
 }
 
 /* ----- 리액션 (SIGNAL-001 · 이정현) ----- */
 // 종류는 프론트 이모지 셋과 협의. 문자열 유니온으로 고정해 오타를 컴파일 타임에 차단.
-export type ReactionType = 'like' | 'laugh' | 'shock' | 'clap' | 'gg';
+export type ReactionType = 'like' | 'laugh' | 'shock' | 'clap' | 'gg'
 
 /* ----- 게임 도메인 원시 타입 (⚠️ STUB) ----- */
-export type DiceValue = 1 | 2 | 3 | 4 | 5 | 6;
-export type DiceSet = DiceValue[]; // 요트다이스 = 5개
+export type DiceValue = 1 | 2 | 3 | 4 | 5 | 6
+export type DiceSet = DiceValue[] // 요트다이스 = 5개
 
 /** ⚠️ STUB · owner: 고용훈(라운드) + 유상은(점수). 최종 필드 협의 필요. */
 export interface GameState {
-  roundNumber: number;
+  roundNumber: number
   /** epoch ms. 클라가 남은시간 = deadline - now 로 계산(타이머 tick 최소화). */
-  roundDeadline: number;
-  scores: Record<PlayerId, ScoreBoard>;
+  roundDeadline: number
+  scores: Record<PlayerId, ScoreBoard>
 }
 
 /* ----- 요트 정규룰 족보 (score.* / game.* · owner: 유상은 40·41·43) -----
@@ -111,37 +111,46 @@ export interface GameState {
  *  ※ 임의 족보에 0점 기록(포기)은 category 선택 그대로 + 점수 0 처리 → 별도 필드 불필요.
  *  ※ 3 of a Kind 없음(정규룰 = 12족보, 야찌 13족보와 구분).
  */
-export type YachtUpperCategory =
-  | 'ones' | 'twos' | 'threes' | 'fours' | 'fives' | 'sixes';
+export type YachtUpperCategory = 'ones' | 'twos' | 'threes' | 'fours' | 'fives' | 'sixes'
 export type YachtLowerCategory =
   | 'choice'
   | 'fourOfAKind'
   | 'fullHouse'
   | 'smallStraight'
   | 'largeStraight'
-  | 'yacht';
-export type YachtCategory = YachtUpperCategory | YachtLowerCategory;
+  | 'yacht'
+export type YachtCategory = YachtUpperCategory | YachtLowerCategory
 
 /** 족보 순회·검증용 상수(단일 출처). FE 점수판 렌더도 이 순서 참고 가능. */
 export const YACHT_CATEGORIES: readonly YachtCategory[] = [
-  'ones', 'twos', 'threes', 'fours', 'fives', 'sixes',
-  'choice', 'fourOfAKind', 'fullHouse', 'smallStraight', 'largeStraight', 'yacht',
-] as const;
+  'ones',
+  'twos',
+  'threes',
+  'fours',
+  'fives',
+  'sixes',
+  'choice',
+  'fourOfAKind',
+  'fullHouse',
+  'smallStraight',
+  'largeStraight',
+  'yacht',
+] as const
 
 /** 상단 보너스 규칙(정규룰): 상단 소계 ≥ 임계값 → 보너스. ✔ 63 → 35 확정. */
-export const UPPER_BONUS_THRESHOLD = 63;
-export const UPPER_BONUS_POINTS = 35;
+export const UPPER_BONUS_THRESHOLD = 63
+export const UPPER_BONUS_POINTS = 35
 
 /** 한 플레이어의 점수판. total 등 파생값은 서버가 계산해서 실어 보냄(클라 재계산 X). */
 export interface ScoreBoard {
   /** 족보별 점수. null = 미기입, number = 확정(0 = 포기). */
-  categories: Record<YachtCategory, number | null>;
+  categories: Record<YachtCategory, number | null>
   /** 상단(ones~sixes) 소계 — 보너스 판정 근거. */
-  upperSubtotal: number;
+  upperSubtotal: number
   /** 상단 보너스 (소계 ≥ UPPER_BONUS_THRESHOLD 면 UPPER_BONUS_POINTS, 아니면 0). */
-  upperBonus: number;
+  upperBonus: number
   /** 총점 = 상단 소계 + 보너스 + 하단 합. */
-  total: number;
+  total: number
 }
 
 /* ============================================================================
@@ -150,18 +159,18 @@ export interface ScoreBoard {
 
 export interface WsEnvelope<TType extends string, TPayload> {
   /** 메시지 종류. 판별자. 예: 'room.join' */
-  type: TType;
+  type: TType
   /** 서버 기준 epoch ms. 아웃바운드는 서버가 채운다. */
-  ts: number;
+  ts: number
   /** 이벤트별 데이터 */
-  payload: TPayload;
+  payload: TPayload
   /**
    * 방 컨텍스트. **입장 이후** 방 스코프 메시지에 서버/클라가 채운다.
    * (room.join 은 아직 방 밖이므로 payload.roomId 로 대상 지정)
    */
-  roomId?: RoomId;
+  roomId?: RoomId
   /** ack/상관관계용(선택). 클라가 채우면 서버가 echo 해준다. */
-  msgId?: string;
+  msgId?: string
 }
 
 /* ============================================================================
@@ -172,18 +181,18 @@ export interface WsEnvelope<TType extends string, TPayload> {
 
 // C→S: 앱 레벨 하트비트. heartbeatIntervalMs 주기로 전송.
 export interface SysPingPayload {
-  clientTs: number;
+  clientTs: number
 }
 // S→C: 하트비트 응답.
 export interface SysPongPayload {
-  serverTs: number;
+  serverTs: number
 }
 // S→C: 소켓 오픈 직후 서버 인사. 인증 전에 먼저 온다.
 export interface SysConnectedPayload {
-  serverTs: number;
-  protocolVersion: number;
+  serverTs: number
+  protocolVersion: number
   /** 클라 하트비트 주기(ms). 서버는 이 시간 * n 무응답 시 idle 종료. */
-  heartbeatIntervalMs: number;
+  heartbeatIntervalMs: number
 }
 // S→C: 서버가 연결을 끊기 직전 사유 통지.
 export type DisconnectReason =
@@ -191,20 +200,20 @@ export type DisconnectReason =
   | 'kicked'
   | 'idle_timeout'
   | 'replaced_by_new_session'
-  | 'protocol_error';
+  | 'protocol_error'
 export interface SysDisconnectPayload {
-  reason: DisconnectReason;
+  reason: DisconnectReason
 }
 // C→S: 끊겼다 돌아옴. 세션 토큰 제시 → 원래 방/상태 복원 요청.
 //   ⚠️ transport 는 이정현, **상태 복원 로직은 재접속 티켓(25, 박재영)** 과 공동.
 export interface SysReconnectPayload {
-  sessionToken: SessionToken;
+  sessionToken: SessionToken
   /** 마지막으로 받은 msgId(있으면). 서버가 이후만 재전송할 수 있음(선택). */
-  lastMsgId?: string;
+  lastMsgId?: string
 }
 // S→C: 재접속 승인 + 전체 상태 재동기화.
 export interface SysReconnectedPayload {
-  snapshot: RoomSnapshot;
+  snapshot: RoomSnapshot
 }
 
 /* ===== 인증(구 AUTH-001) · v0.2에서 room.join 으로 병합 =====
@@ -221,110 +230,106 @@ export interface SysReconnectedPayload {
 //   - sessionToken : 있으면 기존 세션 이어받기(재입장/중복세션 → 기존 대체), 없으면 신규 발급.
 //   JOIN 전 다른 메시지를 보내면 서버가 거부(error: AUTH_REQUIRED / NOT_IN_ROOM).
 export interface RoomJoinPayload {
-  roomId: RoomId;
-  nickname: string;
-  sessionToken?: SessionToken;
+  roomId: RoomId
+  nickname: string
+  sessionToken?: SessionToken
 }
 // C→S (006): 방 퇴장. roomId 는 envelope.
-export type RoomLeavePayload = Record<string, never>; // 빈 payload
+export type RoomLeavePayload = Record<string, never> // 빈 payload
 // C→S: 대기방 준비 토글.
 export interface RoomReadyPayload {
-  ready: boolean;
+  ready: boolean
 }
 // S→C (JOINED): 내 입장 확정 + 발급 세션 + 전체 스냅샷. (본인에게만)
 //   you = 서버가 발급한 내 playerId (티켓상 peerId → playerId로 통일 제안).
 //   sessionToken = 재접속 때 다시 제시할 토큰. 클라가 저장.
 export interface RoomJoinedPayload {
-  you: PlayerId;
-  sessionToken: SessionToken;
-  snapshot: RoomSnapshot;
+  you: PlayerId
+  sessionToken: SessionToken
+  snapshot: RoomSnapshot
 }
 // S→C: 다른 사람 입장(브로드캐스트).
 export interface RoomPlayerJoinedPayload {
-  player: Player;
+  player: Player
 }
 // S→C: 다른 사람 퇴장(브로드캐스트).
 export interface RoomPlayerLeftPayload {
-  playerId: PlayerId;
+  playerId: PlayerId
 }
 // S→C: 준비 상태 변경(브로드캐스트).
 export interface RoomReadyChangedPayload {
-  playerId: PlayerId;
-  ready: boolean;
+  playerId: PlayerId
+  ready: boolean
 }
 // S→C: 방 종료.
-export type RoomCloseReason =
-  | 'host_left'
-  | 'game_finished'
-  | 'empty'
-  | 'server_shutdown';
+export type RoomCloseReason = 'host_left' | 'game_finished' | 'empty' | 'server_shutdown'
 export interface RoomClosedPayload {
-  reason: RoomCloseReason;
+  reason: RoomCloseReason
 }
 
 /* ===== SIGNAL-001 · 리액션·상태 브로드캐스트 (이정현) ✅ ===== */
 
 // C→S: 리액션 전송.
 export interface ReactionSendPayload {
-  reaction: ReactionType;
+  reaction: ReactionType
 }
 // S→C: 리액션 브로드캐스트.
 export interface ReactionBroadcastPayload {
-  playerId: PlayerId;
-  reaction: ReactionType;
+  playerId: PlayerId
+  reaction: ReactionType
 }
 // S→C: 전체 상태 스냅샷 브로드캐스트.
 //   ⭐ MVP 권장: 상태가 작으니(2~6명) diff(state.patch) 하지 말고 이 "전체 스냅샷"만 쏜다.
 //     patch 는 성능 이슈 생길 때 도입 — 지금은 STUB.
 export interface StateSyncPayload {
-  snapshot: RoomSnapshot;
+  snapshot: RoomSnapshot
 }
 // S→C: 접속/이탈 등 presence 변경(브로드캐스트).
 export interface PresenceUpdatePayload {
-  playerId: PlayerId;
-  status: PlayerStatus;
+  playerId: PlayerId
+  status: PlayerStatus
 }
 
 /* ===== ⚠️ STUB: 게임 도메인 — owner 확정 전 임시 초안 ===== */
 
 // S→C ⚠️ owner 고용훈(23·24): 라운드 시작.
 export interface RoundStartPayload {
-  roundNumber: number;
-  deadline: number; // epoch ms
+  roundNumber: number
+  deadline: number // epoch ms
 }
 // C→S ⚠️ owner 고용훈: 이번 라운드 제출(로컬 계산된 주사위 + 기록할 족보 칸).
 //   category = 요트 족보 키 중 하나(YachtCategory). 0점 기록(포기)도 같은 방식.
 export interface RoundSubmitPayload {
-  roundNumber: number;
-  dice: DiceSet;
-  category: YachtCategory;
+  roundNumber: number
+  dice: DiceSet
+  category: YachtCategory
 }
 // S→C ⚠️ owner 고용훈: 라운드 종료 + 제출자 목록.
 export interface RoundEndPayload {
-  roundNumber: number;
-  submitted: PlayerId[];
+  roundNumber: number
+  submitted: PlayerId[]
 }
 // C→S ⚠️ owner 정유진/고용훈: 로컬 굴림 결과 보고(라이브 표시용, 선택).
 export interface DiceRollPayload {
-  dice: DiceSet;
+  dice: DiceSet
 }
 // S→C ⚠️ owner 정유진/고용훈: 남의 주사위 브로드캐스트(선택).
 export interface DiceBroadcastPayload {
-  playerId: PlayerId;
-  dice: DiceSet;
+  playerId: PlayerId
+  dice: DiceSet
 }
 // S→C ⚠️ owner 유상은(41): 점수 갱신.
 export interface ScoreUpdatePayload {
-  playerId: PlayerId;
-  scoreboard: ScoreBoard;
+  playerId: PlayerId
+  scoreboard: ScoreBoard
 }
 // S→C ⚠️ owner 유상은(43): 게임 종료 + 순위.
 export interface GameOverPayload {
-  rankings: Array<{ rank: number; playerId: PlayerId; total: number }>;
+  rankings: Array<{ rank: number; playerId: PlayerId; total: number }>
 }
 // S→C ⚠️ 성능 최적화 도입 시에만. 지금은 미사용(state.sync 로 대체).
 export interface StatePatchPayload {
-  changes: Partial<GameState>;
+  changes: Partial<GameState>
 }
 
 /* ===== 공통 에러 ===== */
@@ -339,14 +344,14 @@ export type WsErrorCode =
   | 'GAME_ALREADY_STARTED'
   | 'INVALID_MESSAGE'
   | 'RATE_LIMITED'
-  | 'INTERNAL';
+  | 'INTERNAL'
 
 export interface ErrorPayload {
-  code: WsErrorCode;
-  message: string;
+  code: WsErrorCode
+  message: string
   /** 문제된 원본 msgId(있으면) — 클라가 어떤 요청 실패인지 매칭. */
-  refMsgId?: string;
-  context?: Record<string, unknown>;
+  refMsgId?: string
+  context?: Record<string, unknown>
 }
 
 /* ============================================================================
@@ -365,7 +370,7 @@ export type ClientMessage =
   | WsEnvelope<'reaction.send', ReactionSendPayload>
   // ⚠️ STUB (게임 도메인)
   | WsEnvelope<'dice.roll', DiceRollPayload>
-  | WsEnvelope<'round.submit', RoundSubmitPayload>;
+  | WsEnvelope<'round.submit', RoundSubmitPayload>
 
 export type ServerMessage =
   // ✅ SYS-DC
@@ -391,13 +396,13 @@ export type ServerMessage =
   | WsEnvelope<'dice.broadcast', DiceBroadcastPayload>
   | WsEnvelope<'score.update', ScoreUpdatePayload>
   | WsEnvelope<'game.over', GameOverPayload>
-  | WsEnvelope<'state.patch', StatePatchPayload>;
+  | WsEnvelope<'state.patch', StatePatchPayload>
 
-export type WsMessage = ClientMessage | ServerMessage;
+export type WsMessage = ClientMessage | ServerMessage
 
 /** 각 방향의 type 문자열만 뽑은 유니온 (switch exhaustive 체크용) */
-export type ClientMessageType = ClientMessage['type'];
-export type ServerMessageType = ServerMessage['type'];
+export type ClientMessageType = ClientMessage['type']
+export type ServerMessageType = ServerMessage['type']
 
 /* ============================================================================
  * 5. 헬퍼 (FE 편의용) — discriminated union 의 실익
@@ -408,7 +413,7 @@ export function isServer<T extends ServerMessageType>(
   msg: ServerMessage,
   type: T,
 ): msg is Extract<ServerMessage, { type: T }> {
-  return msg.type === type;
+  return msg.type === type
 }
 
 /** 송신 메시지 빌더. ts 자동 세팅, type 에 맞는 payload 를 컴파일 타임에 강제. */
@@ -423,5 +428,5 @@ export function buildClientMessage<T extends ClientMessageType>(
     payload,
     ...(opts?.roomId !== undefined ? { roomId: opts.roomId } : {}),
     ...(opts?.msgId !== undefined ? { msgId: opts.msgId } : {}),
-  } as Extract<ClientMessage, { type: T }>;
+  } as Extract<ClientMessage, { type: T }>
 }

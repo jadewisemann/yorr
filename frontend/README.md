@@ -1,7 +1,8 @@
 # YORR Frontend
 
 React, Vite, TypeScript 기반의 YORR 모바일 웹 클라이언트다. 구조와 기술 선택의 기준은
-[`docs/frontend-architecture-and-stack.md`](docs/frontend-architecture-and-stack.md)를 따른다.
+[`docs/engineering/architecture-and-stack.md`](docs/engineering/architecture-and-stack.md)를 따른다.
+문서 전체 인덱스는 [`docs/README.md`](docs/README.md), 에이전트 작업 지침은 [`CLAUDE.md`](CLAUDE.md)를 참고한다.
 
 ## 시작하기
 
@@ -28,9 +29,12 @@ Playwright 브라우저가 없다면 최초 한 번 `npx playwright install`을 
 
 ## 디렉터리
 
-- `src/app`: 라우터, 전역 상태, 앱 부팅
-- `src/features`: 화면 흐름별 기능
-- `src/core`: API, 실시간 연결, 입력, 피드백, 세션
-- `src/domain/yacht`: 네트워크와 분리된 순수 게임 규칙
-- `src/shared`: 공통 UI, 유틸리티, 디자인 토큰
-- `src/contracts`: 프론트엔드와 백엔드가 공유하는 wire contract의 TypeScript SSOT
+- `src/app`: 라우터, 전역 provider, 앱 부팅, 개발 전용 화면
+- `src/screens`: URL에 대응하는 화면
+- `src/components`: 재사용 UI 컴포넌트
+- `src/api`: REST client와 호출 훅
+- `src/realtime`: WebSocket wire contract(`wsEvents.ts`)와 연결 client — FE/BE 공유 SSOT
+- `src/mocks`: MSW handler와 fixture
+- `src/store.ts` · `src/cn.ts` · `src/styles/`: 전역 상태, class 병합, 디자인 토큰
+
+레이어를 넘는 import는 `@/` alias를 쓴다 (`@/api/gameApi`). 같은 폴더 안은 상대경로를 쓴다.
