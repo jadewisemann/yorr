@@ -1,4 +1,6 @@
-@import "tailwindcss";
+/* class 탐지 범위를 src/로 고정한다. 자동 탐지에 맡기면 dist/·.codegraph/ 같은
+   저장소 부산물까지 스캔해서 빌드마다 CSS 크기가 달라진다. */
+@import "tailwindcss" source("../");
 @import "./tokens.css";
 
 @layer base {

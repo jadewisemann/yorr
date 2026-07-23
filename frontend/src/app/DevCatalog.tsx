@@ -1,14 +1,14 @@
 import { useState } from 'react'
-import { Button } from '../../shared/ui/Button'
-import { Dice } from '../../shared/ui/Dice'
-import { Modal } from '../../shared/ui/Modal'
-import { PlayerCard } from '../../shared/ui/PlayerCard'
-import { ScoreRow } from '../../shared/ui/ScoreRow'
-import { StatusPanel } from '../../shared/ui/StatusPanel'
+import { Button } from '@/components/Button'
+import { Dice } from '@/components/Dice'
+import { Modal } from '@/components/Modal'
+import { PlayerCard } from '@/components/PlayerCard'
+import { ScoreRow } from '@/components/ScoreRow'
+import { StatusPanel } from '@/components/StatusPanel'
 
 const sectionClassName = 'grid gap-4 rounded-panel border border-border bg-surface p-5'
 
-export function ComponentCatalogPage() {
+export function DevCatalog() {
   const [modalOpen, setModalOpen] = useState(false)
 
   if (!import.meta.env.DEV) {

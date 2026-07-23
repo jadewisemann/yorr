@@ -4,6 +4,9 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [tailwindcss(), react()],
+  resolve: {
+    alias: { '@': '/src' },
+  },
   server: {
     host: true,
     port: 5173,

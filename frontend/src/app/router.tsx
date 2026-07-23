@@ -1,6 +1,6 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router'
-import { ComponentCatalogPage } from '../features/catalog/ComponentCatalogPage'
-import { EntryPage } from '../features/entry/EntryPage'
+import { EntryPage } from '@/screens/EntryPage'
+import { DevCatalog } from './DevCatalog'
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -13,13 +13,13 @@ const indexRoute = createRoute({
   component: EntryPage,
 })
 
-const componentCatalogRoute = createRoute({
+const devCatalogRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/__dev/components',
-  component: ComponentCatalogPage,
+  component: DevCatalog,
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, componentCatalogRoute])
+const routeTree = rootRoute.addChildren([indexRoute, devCatalogRoute])
 
 export const router = createRouter({ routeTree })
 
