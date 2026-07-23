@@ -34,22 +34,25 @@
 ### 브랜치 이름 규칙
 
 ```
-<prefix>/<Jira번호>-<짧은-영문-설명>
+<prefix>/<Jira키>-<짧은-영문-설명>
 ```
 
 - **prefix = 그 브랜치의 대표 커밋 type을 그대로 쓴다.** (아래 [커밋 type 목록](#type-목록)과 동일한 단어 사용 → 외울 게 하나로 통일됨)
   - 단 새 기능은 관례상 `feat`가 아니라 **`feature/`**, 버그 수정은 **`fix/`**.
   - 나머지는 커밋 type 이름 그대로: `refactor/` · `docs/` · `chore/` · `test/`.
-- **소문자 + 하이픈 + 영문**만. (한글 · 공백 브랜치명은 일부 환경에서 깨짐)
-- 앞에 **Jira 티켓 번호** → Jira ↔ GitLab 추적이 쉬워짐.
+- Jira 키는 발급된 대문자 표기를 그대로 쓰고, 뒤의 설명은 **소문자 영문 + 하이픈**만 사용한다. (한글 · 공백은 일부 환경에서 깨짐)
+- 앞에 프로젝트 키와 번호를 합친 **Jira 전체 이슈 키**를 쓴다. 숫자만 쓰지 않는다.
+  - 형식: `S15P11A406-<번호>`
+  - 예: 티켓 `S15P11A406-22`의 브랜치는 `feature/S15P11A406-22-websocket-connection`
+- Jira 전체 이슈 키를 포함하면 Jira ↔ GitLab 추적이 쉬워진다.
 - **브랜치 하나 = 티켓(작업) 하나.** 여러 작업 섞지 말 것.
 
 | ✅ 좋은 예 | ❌ 나쁜 예 |
 |---|---|
-| `feature/22-websocket-connection` | `feature/정현작업` (한글) |
-| `fix/26-broadcast-npe` | `feat` (설명 없음) |
-| `refactor/31-wscodec-split` | `feature/작업중_이것저것` (범위 너무 큼) |
-| `docs/12-api-spec` | `feature/12-docs` (prefix와 내용 불일치) |
+| `feature/S15P11A406-22-websocket-connection` | `feature/22-websocket-connection` (프로젝트 키 누락) |
+| `fix/S15P11A406-26-broadcast-npe` | `feature/정현작업` (한글) |
+| `refactor/S15P11A406-31-wscodec-split` | `feat` (설명 없음) |
+| `docs/S15P11A406-12-api-spec` | `feature/S15P11A406-12-docs` (prefix와 내용 불일치) |
 
 ---
 
@@ -125,20 +128,20 @@ chore: Spring Boot 4.1 의존성 추가
 git checkout develop
 git pull origin develop
 
-# 2. 작업 브랜치 분기 (Jira 번호 + 설명)
-git checkout -b feature/22-websocket-connection
+# 2. 작업 브랜치 분기 (Jira 전체 이슈 키 + 설명)
+git checkout -b feature/S15P11A406-22-websocket-connection
 
 # 3. 작업 → 커밋 (컨벤션대로)
 git add .
 git commit -m "feat: WebSocket 연결 핸들러 구현"
 
 # 4. 원격에 push
-git push -u origin feature/22-websocket-connection
+git push -u origin feature/S15P11A406-22-websocket-connection
 
 # 5. GitLab 웹에서 MR 생성 (develop ← feature) → 리뷰어 지정
 
 # --- develop이 그새 바뀌어 충돌 나면: 내 브랜치에서 ---
-git checkout feature/22-websocket-connection
+git checkout feature/S15P11A406-22-websocket-connection
 git pull --rebase origin develop     # 개인 브랜치라 rebase OK
 # 충돌 해결 후
 git add .
@@ -176,7 +179,7 @@ Spring Boot · React/Vite · Python 멀티스택으로 **이미 설정됨**. 새
 - Jira: S15P11A406-<번호>
 
 ## ✅ 체크리스트
-- [ ] 브랜치명 규칙 준수 (`feature/<번호>-<설명>`)
+- [ ] 브랜치명 규칙 준수 (`feature/S15P11A406-<번호>-<설명>`)
 - [ ] 커밋 메시지 컨벤션 준수 (`type: 제목`)
 - [ ] 로컬에서 정상 동작 확인
 - [ ] 리뷰어 1명 이상 지정
