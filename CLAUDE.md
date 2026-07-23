@@ -16,13 +16,14 @@
 
 ## 🌿 브랜치 이름
 ```
-<prefix>/<Jira번호>-<짧은-영문-설명>
+<prefix>/<Jira키>-<짧은-영문-설명>
 ```
 - **prefix = 그 브랜치의 대표 커밋 type.** 새 기능은 `feature/`, 버그는 `fix/`, 그 외는 커밋 type 그대로 `refactor/` · `docs/` · `chore/` · `test/`.
   - 대부분은 `feature/` · `fix/`. 나머지는 브랜치 전체가 그 한 가지 작업일 때만. `style`은 단독 브랜치를 만들지 않는다.
-- **소문자 + 하이픈 + 영문만** (한글·공백 금지)
-- 앞에 Jira 티켓 번호, 브랜치 하나 = 작업 하나
-- 예: `feature/22-websocket-connection`, `fix/26-broadcast-npe`, `refactor/31-wscodec-split`
+- Jira 키는 발급된 대문자 표기를 그대로 쓰고, 뒤의 설명은 **소문자 영문 + 하이픈만** 사용 (한글·공백 금지)
+- 앞에 프로젝트 키와 번호를 합친 Jira 전체 이슈 키(`S15P11A406-<번호>`)를 쓰며, 숫자만 쓰지 않는다
+- 브랜치 하나 = 작업 하나
+- 예: `feature/S15P11A406-22-websocket-connection`, `fix/S15P11A406-26-broadcast-npe`, `refactor/S15P11A406-31-wscodec-split`
 
 ## ✍️ 커밋 메시지
 형식: `<type>: <제목>` (제목 50자 내외, 한글 OK, 끝에 마침표 X)
@@ -50,9 +51,9 @@
 ## 📋 작업 사이클
 ```bash
 git checkout develop && git pull origin develop      # 1. develop 최신화
-git checkout -b feature/22-websocket-connection      # 2. 작업 브랜치 분기
+git checkout -b feature/S15P11A406-22-websocket-connection      # 2. 작업 브랜치 분기
 # 3. 작업 → 커밋 (컨벤션대로)
-git push -u origin feature/22-websocket-connection   # 4. push
+git push -u origin feature/S15P11A406-22-websocket-connection   # 4. push
 # 5. GitLab에서 MR 생성 (develop ← feature) → 리뷰어 지정
 ```
 
