@@ -6,9 +6,13 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import com.ssafy.yorr.ws.WsProtocol;
 import com.ssafy.yorr.ws.dto.InboundEnvelope;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
+import com.ssafy.yorr.ws.dto.SysConnectedPayload;
 import com.ssafy.yorr.ws.dto.SysPongPayload;
+import com.ssafy.yorr.ws.dto.ErrorPayload;
+import com.ssafy.yorr.ws.dto.WsErrorCode;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,13 +34,16 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     // 연결이 열렸을 때 (콜센터: 전화 받음)
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        System.out.println("연결 열림: " + session.getId());
+        log.info("연결 열림: {}", session.getId());
 
-        String greeting = """
-            {"type":"sys.connected","ts":%d,"payload":{"serverTs":%d,"protocolVersion":1,"heartbeatIntervalMs":30000}}
-            """.formatted(System.currentTimeMillis(), System.currentTimeMillis()); // JSON을 손으로 문자열로 썼는데, 이건 임시 (DTO + Jackson으로 깔끔하게 바꿀 예정)
-
-        session.sendMessage(new TextMessage(greeting));
+        // 인증(room.join) 전에 먼저 보내는 서버 인사. 손으로 쓰던 JSON을 DTO + Jackson으로 교체.
+        WsEnvelope<SysConnectedPayload> connected = WsEnvelope.of(
+                "sys.connected",
+                new SysConnectedPayload(
+                        System.currentTimeMillis(),
+                        WsProtocol.PROTOCOL_VERSION,
+                        WsProtocol.HEARTBEAT_INTERVAL_MS));
+        send(session, connected);
     }
 
     // 클라이언트가 메시지를 보냈을 때 (콜센터: 손님 말 들음)
@@ -47,18 +54,20 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         try {
             in = objectMapper.readValue(message.getPayload(), InboundEnvelope.class);
         } catch (Exception e) {
-            // 메시지 경계 방어: 깨진 프레임 하나가 핸들러를 죽이지 않게 삼킨다
-            log.warn("깨진 WS 메시지 무시: {}", message.getPayload(), e);
+            log.warn("깨진 WS 메시지: {}", message.getPayload(), e);
+            sendError(session, WsErrorCode.INVALID_MESSAGE, "메시지 형식이 올바르지 않습니다.", null);
             return;
         }
 
         // 2) 봉투 라벨(type)만 보고 담당 핸들러로 배달
         switch (in.type()) {
             case "sys.ping" -> handleSysPing(session, in);
-            // 다음 단계에서 하나씩:
-            // case "room.join"     -> handleRoomJoin(session, in);
-            // case "room.leave"    -> handleRoomLeave(session, in);
-            // case "reaction.send" -> handleReactionSend(session, in);
+            // DTO 는 ws.dto 에 미러링 완료. 아래는 세션/방 레지스트리가 생기면 붙인다:
+            //   case "sys.reconnect" -> handleSysReconnect(session, in);   // 상태 복원(25번 티켓, 박재영)과 공동
+            //   case "room.join"     -> handleRoomJoin(session, in);       // RoomJoinPayload
+            //   case "room.leave"    -> handleRoomLeave(session, in);      // RoomLeavePayload
+            //   case "room.ready"    -> handleRoomReady(session, in);      // RoomReadyPayload
+            //   case "reaction.send" -> handleReactionSend(session, in);   // ReactionSendPayload
             default -> log.debug("아직 라우팅 안 붙은 type: {}", in.type());
         }
     }
@@ -66,7 +75,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     // 연결이 닫혔을 때 (콜센터: 전화 끊김)
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        System.out.println("연결 닫힘: " + session.getId() + " / " + status);
+        log.info("연결 닫힘: {} / {}", session.getId(), status);
     }
 
     /** sys.ping → sys.pong. pong은 서버 시각만 돌려주면 됨. */
@@ -81,5 +90,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private void send(WebSocketSession session, WsEnvelope<?> envelope) throws IOException {
         String json = objectMapper.writeValueAsString(envelope);
         session.sendMessage(new TextMessage(json));
+    }
+
+    /** 표준 에러 응답. refMsgId =  어떤 요청 실패인지 매칭용(없으면 null). **/
+    private void sendError(WebSocketSession session, WsErrorCode code, String message, String refMsgID) throws IOException{
+        send(session, WsEnvelope.of("error", new ErrorPayload(code, message, refMsgID, null)));
     }
 }
