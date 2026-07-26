@@ -21,6 +21,8 @@ import com.ssafy.yorr.ws.dto.RoomJoinPayload;
 import com.ssafy.yorr.ws.dto.RoomJoinedPayload;
 import com.ssafy.yorr.ws.dto.RoomPlayerJoinedPayload;
 import com.ssafy.yorr.ws.dto.RoomPlayerLeftPayload;
+import com.ssafy.yorr.ws.dto.RoomReadyPayload;
+import com.ssafy.yorr.ws.dto.RoomReadyChangedPayload;
 import com.ssafy.yorr.ws.dto.RoomSnapshot;
 
 import org.slf4j.Logger;
@@ -79,11 +81,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         // 2) 봉투 라벨(type)만 보고 담당 핸들러로 배달
         switch (in.type()) {
-            case "sys.ping"  -> handleSysPing(session, in);
-            case "room.join" -> handleRoomJoin(session, in);
+            case "sys.ping"   -> handleSysPing(session, in);
+            case "room.join"  -> handleRoomJoin(session, in);
+            case "room.leave" -> handleRoomLeave(session, in);
+            case "room.ready" -> handleRoomReady(session, in);
             // 다음 슬라이스에서 하나씩 (레지스트리·브로드캐스터는 이미 준비됨):
-            //   case "room.leave"    -> handleRoomLeave(session, in);      // RoomLeavePayload
-            //   case "room.ready"    -> handleRoomReady(session, in);      // RoomReadyPayload
             //   case "reaction.send" -> handleReactionSend(session, in);   // ReactionSendPayload
             //   case "sys.reconnect" -> handleSysReconnect(session, in);   // 상태 복원(25번 티켓, 박재영)과 공동
             default -> log.debug("아직 라우팅 안 붙은 type: {}", in.type());
@@ -161,7 +163,41 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         log.info("연결 닫힘: {} / {}", session.getId(), status);
-        // 명단에서 먼저 빼고(누구였는지 회수), 팬아웃에서 제거한 뒤, 남은 멤버에게 player_left 알림.
+        leaveRoom(session); // 명단·팬아웃 정리 + 남은 멤버에게 player_left
+    }
+
+    /**
+     * room.leave = 방 퇴장(payload 없음, 대상 방은 서버가 이미 앎). 소켓 자체는 유지한다.
+     * 명단 제거 + player_left 브로드캐스트는 소켓 종료와 동일하므로 {@link #leaveRoom}을 공유한다.
+     */
+    private void handleRoomLeave(WebSocketSession session, InboundEnvelope in) {
+        leaveRoom(session);
+    }
+
+    /**
+     * room.ready = 대기방 준비 토글. 방 전원에게 room.ready_changed 브로드캐스트.
+     * 서버가 authoritative라 본인도 포함해 쏜다(본인은 서버 확인 이벤트로 자기 UI 갱신).
+     */
+    private void handleRoomReady(WebSocketSession session, InboundEnvelope in) throws IOException {
+        RoomReadyPayload payload;
+        try {
+            payload = objectMapper.treeToValue(in.payload(), RoomReadyPayload.class);
+        } catch (Exception e) {
+            sendError(session, WsErrorCode.INVALID_MESSAGE, "room.ready payload가 올바르지 않습니다.", in.msgId());
+            return;
+        }
+        RoomSessionRegistry.Member me = registry.of(session);
+        if (me == null) {
+            sendError(session, WsErrorCode.NOT_IN_ROOM, "방에 입장한 뒤에만 준비할 수 있습니다.", in.msgId());
+            return;
+        }
+        broadcaster.broadcast(me.roomId(), WsEnvelope.of("room.ready_changed",
+                        new RoomReadyChangedPayload(me.playerId(), payload.ready()))
+                .withRoomId(me.roomId()));
+    }
+
+    /** 방 이탈 공통 처리: 명단 제거 → 팬아웃 제거 → 남은 멤버에게 player_left. room.leave·소켓 종료가 공유. */
+    private void leaveRoom(WebSocketSession session) {
         RoomSessionRegistry.Member gone = registry.remove(session);
         broadcaster.unregister(session); // 본인을 팬아웃에서 뺀 뒤 브로드캐스트 → 본인은 안 받음
         if (gone != null) {
