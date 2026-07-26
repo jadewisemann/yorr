@@ -43,7 +43,7 @@ public class RoundSynchronizationService {
         return roundStateStore.expireAtomically(roomId, expectedRoundNumber);
     }
 
-    public void remove(String roomId) {
-        roundStateStore.remove(roomId);
+    public boolean remove(String roomId) {
+        return roundStateStore.remove(roomId);
     }
 }

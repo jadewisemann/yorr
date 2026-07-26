@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 public enum RoomCloseReason {
     HOST_LEFT("host_left"),
     GAME_FINISHED("game_finished"),
+    NOT_ENOUGH_PLAYERS("not_enough_players"),
     EMPTY("empty"),
     SERVER_SHUTDOWN("server_shutdown");
 
