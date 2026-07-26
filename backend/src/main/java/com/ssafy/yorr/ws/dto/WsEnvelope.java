@@ -23,4 +23,9 @@ public record WsEnvelope<P>(
     public WsEnvelope<P> withMsgId(String msgId) {
         return new WsEnvelope<>(type, ts, payload, roomId, msgId);
     }
+
+    /** 입장 이후 방 스코프 메시지: envelope.roomId를 채운다(계약: 입장 후 메시지에 roomId 존재). */
+    public WsEnvelope<P> withRoomId(String roomId) {
+        return new WsEnvelope<>(type, ts, payload, roomId, msgId);
+    }
 }
