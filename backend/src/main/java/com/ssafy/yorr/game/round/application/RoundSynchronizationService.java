@@ -4,10 +4,12 @@ import com.ssafy.yorr.game.round.application.port.RoundStateStore;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.round.domain.RoundSubmission;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
+import com.ssafy.yorr.game.round.domain.RoundCompletion;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
+import java.util.Optional;
 
 @Service
 public class RoundSynchronizationService {
@@ -35,6 +37,10 @@ public class RoundSynchronizationService {
                 payload.category()
         );
         return roundStateStore.submitAtomically(roomId, submission);
+    }
+
+    public Optional<RoundCompletion> expire(String roomId, int expectedRoundNumber) {
+        return roundStateStore.expireAtomically(roomId, expectedRoundNumber);
     }
 
     public void remove(String roomId) {

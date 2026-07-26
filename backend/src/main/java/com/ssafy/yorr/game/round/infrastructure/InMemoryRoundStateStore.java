@@ -4,6 +4,7 @@ import com.ssafy.yorr.game.round.application.port.RoundStateStore;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.round.domain.RoundSubmission;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
+import com.ssafy.yorr.game.round.domain.RoundCompletion;
 import com.ssafy.yorr.game.round.domain.RoundSynchronizationException;
 import org.springframework.stereotype.Component;
 
@@ -55,6 +56,21 @@ public class InMemoryRoundStateStore implements RoundStateStore {
             return result.state();
         });
         return resultHolder.get();
+    }
+
+    @Override
+    public Optional<RoundCompletion> expireAtomically(String roomId, int expectedRoundNumber) {
+        validateRoomId(roomId);
+        AtomicReference<RoundCompletion> completionHolder = new AtomicReference<>();
+        states.computeIfPresent(roomId, (key, currentState) -> {
+            if (currentState.roundNumber() != expectedRoundNumber) {
+                return currentState;
+            }
+            RoundSubmissionResult result = currentState.expire();
+            completionHolder.set(result.completion().orElseThrow());
+            return result.state();
+        });
+        return Optional.ofNullable(completionHolder.get());
     }
 
     @Override
