@@ -2,10 +2,11 @@ import { cn } from '@/cn'
 
 type PlayerCardProps = {
   name: string
+  avatarSeed?: string
   score?: number
   status?: 'online' | 'away' | 'offline'
-  isHost?: boolean
   active?: boolean
+  current?: boolean
   className?: string
 }
 const statusLabel = {
@@ -14,15 +15,24 @@ const statusLabel = {
   offline: '연결 끊김',
 }
 
+const avatarTones = [
+  'bg-brand text-on-brand',
+  'bg-positive text-canvas',
+  'bg-focus text-canvas',
+  'bg-brand-strong text-on-brand',
+] as const
+
 export function PlayerCard({
   active = false,
   className,
-  isHost = false,
+  current = false,
   name,
+  avatarSeed = name,
   score,
   status = 'online',
 }: PlayerCardProps) {
-  const stateLabel = `${isHost ? '방장, ' : ''}${statusLabel[status]}`
+  const stateLabel = statusLabel[status]
+  const avatarTone = avatarTones[hashString(avatarSeed) % avatarTones.length]
 
   return (
     <article
@@ -35,16 +45,29 @@ export function PlayerCard({
       aria-label={`${name}, ${stateLabel}${score === undefined ? '' : `, ${score}점`}`}
     >
       <span
-        className="grid size-11 place-items-center rounded-full bg-brand font-bold text-on-brand"
+        className={cn('grid size-11 place-items-center rounded-full font-bold', avatarTone)}
         aria-hidden="true"
       >
         {name.slice(0, 1)}
       </span>
       <span className="min-w-0">
-        <span className="block truncate font-bold">{name}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate font-bold">{name}</span>
+          {current && (
+            <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-on-brand">
+              나
+            </span>
+          )}
+        </span>
         <span className="text-sm text-content-muted">{stateLabel}</span>
       </span>
       {score !== undefined && <strong className="font-bold tabular-nums">{score}</strong>}
     </article>
   )
+}
+
+function hashString(value: string) {
+  let hash = 0
+  for (const character of value) hash = (hash * 31 + (character.codePointAt(0) ?? 0)) >>> 0
+  return hash
 }

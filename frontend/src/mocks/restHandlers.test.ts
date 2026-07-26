@@ -8,25 +8,31 @@ const client = new HttpGameApiClient()
 
 describe('REST mock handlers', () => {
   it('방 생성·참가·대기실·게임·점수 흐름을 제공한다', async () => {
-    const host = await client.createRoom({ mode: 'party', gameType: 'yacht' })
-    const guest = await client.joinRoom(host.roomId, { nickname: '참가자' })
-    const lobby = await client.getLobby(host.roomId)
-    const game = await client.getGame(host.roomId)
-    const roll = await client.submitRoll(host.roomId, { dice: [1, 2, 3, 4, 6] })
-    const candidates = await client.getScoreCandidates(host.roomId)
-    const score = await client.submitScore(host.roomId, {
+    const creator = await client.createRoom({
+      mode: 'party',
+      gameType: 'yacht',
+      nickname: '느긋한 주사위',
+    })
+    const participant = await client.joinRoom(creator.roomCode, { nickname: '참가자' })
+    const lobby = await client.getLobby(creator.roomId)
+    const startedGame = await client.startGame(creator.roomId)
+    const game = await client.getGame(creator.roomId)
+    const roll = await client.submitRoll(creator.roomId, { dice: [1, 2, 3, 4, 6] })
+    const candidates = await client.getScoreCandidates(creator.roomId)
+    const score = await client.submitScore(creator.roomId, {
       category: 'choice',
       dice: [1, 2, 3, 4, 6],
     })
-    const scoreboard = await client.getScoreboard(host.roomId)
+    const scoreboard = await client.getScoreboard(creator.roomId)
 
-    expect(guest.you).not.toBe(host.you)
+    expect(participant.you).not.toBe(creator.you)
     expect(lobby.phase).toBe('waiting')
+    expect(startedGame.phase).toBe('playing')
     expect(game.phase).toBe('playing')
     expect(roll.game?.roundNumber).toBe(1)
     expect(candidates.candidates.choice).toBe(16)
     expect(score.categories.choice).toBe(16)
-    expect(scoreboard[host.you]).toBeDefined()
+    expect(scoreboard[creator.you]).toBeDefined()
   })
 
   it('오류 시나리오를 선택할 수 있다', async () => {

@@ -1,22 +1,24 @@
 import { describe, expect, it, vi } from 'vitest'
 import { buildClientMessage } from '@/realtime/wsEvents'
-import { guestSession, hostSession, MOCK_ROOM_ID } from './fixtures'
+import { creatorSession, MOCK_ROOM_ID, participantSession } from './fixtures'
 import { createRealtimeFixture } from './realtimeScenarios'
 
 describe('FakeRealtimeClient scenarios', () => {
   it('방장과 참가자 세션을 독립 제공한다', () => {
-    const host = createRealtimeFixture({ role: 'host' })
-    const guest = createRealtimeFixture({ role: 'guest' })
-    const hostMessages = vi.fn()
-    const guestMessages = vi.fn()
-    host.onMessage(hostMessages)
-    guest.onMessage(guestMessages)
+    const creator = createRealtimeFixture({ role: 'creator' })
+    const participant = createRealtimeFixture({ role: 'participant' })
+    const creatorMessages = vi.fn()
+    const participantMessages = vi.fn()
+    creator.onMessage(creatorMessages)
+    participant.onMessage(participantMessages)
 
-    host.send(buildClientMessage('room.join', { roomId: MOCK_ROOM_ID, nickname: '방장' }))
-    guest.send(buildClientMessage('room.join', { roomId: MOCK_ROOM_ID, nickname: '참가자' }))
+    creator.send(buildClientMessage('room.join', { sessionToken: creatorSession.sessionToken }))
+    participant.send(
+      buildClientMessage('room.join', { sessionToken: participantSession.sessionToken }),
+    )
 
-    expect(hostMessages.mock.calls[0]?.[0].payload.you).toBe(hostSession.you)
-    expect(guestMessages.mock.calls[0]?.[0].payload.you).toBe(guestSession.you)
+    expect(creatorMessages.mock.calls[0]?.[0].payload.you).toBe(creatorSession.you)
+    expect(participantMessages.mock.calls[0]?.[0].payload.you).toBe(participantSession.you)
   })
 
   it('오류·중복·역순 시나리오를 선택할 수 있다', () => {
@@ -30,7 +32,7 @@ describe('FakeRealtimeClient scenarios', () => {
     duplicate.onMessage(duplicateListener)
     outOfOrder.onMessage(outOfOrderListener)
 
-    error.send(buildClientMessage('room.join', { roomId: MOCK_ROOM_ID, nickname: '방장' }))
+    error.send(buildClientMessage('room.join', { sessionToken: creatorSession.sessionToken }))
     duplicate.send(buildClientMessage('dice.roll', { dice: [1, 2, 3, 4, 5] }))
     outOfOrder.send(
       buildClientMessage('round.submit', {
@@ -53,7 +55,7 @@ describe('FakeRealtimeClient scenarios', () => {
     const client = createRealtimeFixture({ scenario: 'reconnect' })
     client.onMessage(listener)
 
-    client.send(buildClientMessage('sys.reconnect', { sessionToken: hostSession.sessionToken }))
+    client.send(buildClientMessage('sys.reconnect', { sessionToken: creatorSession.sessionToken }))
 
     expect(listener.mock.calls[0]?.[0].type).toBe('sys.reconnected')
     expect(() =>

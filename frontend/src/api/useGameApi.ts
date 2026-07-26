@@ -14,6 +14,15 @@ export function useGame(roomId: string | null) {
   )
 }
 
+export function useStartGame() {
+  const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)
+
+  return useAsyncTask<[string], RoomSnapshot>(
+    (signal, roomId) => gameApiClient.startGame(roomId, { signal }),
+    { onSuccess: replaceRoomSnapshot },
+  )
+}
+
 export function useSubmitRoll() {
   const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)
 
