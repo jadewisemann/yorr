@@ -61,7 +61,6 @@ export interface Player {
   playerId: PlayerId
   nickname: string
   status: PlayerStatus
-  isHost: boolean
 }
 
 export type RoomPhase = 'waiting' | 'playing' | 'finished'
@@ -73,7 +72,6 @@ export type RoomPhase = 'waiting' | 'playing' | 'finished'
 export interface RoomSnapshot {
   roomId: RoomId
   phase: RoomPhase
-  hostId: PlayerId
   players: Player[]
   /** ⚠️ STUB: 게임 진행 중일 때만 존재. owner: 고용훈/유상은 */
   game?: GameState
@@ -226,13 +224,10 @@ export interface SysReconnectedPayload {
 
 // C→S (JOIN): 인증 + 방 입장 통합. 소켓 열고 보내는 사실상 첫 메시지.
 //   - roomId : 대상 방(REST로 방 생성·정원검증 27,박재영 → roomId 확보 후 여기로).
-//   - nickname : 표시 이름.
-//   - sessionToken : 있으면 기존 세션 이어받기(재입장/중복세션 → 기존 대체), 없으면 신규 발급.
+//   - sessionToken : REST 입장에서 발급된 세션을 실시간 방 채널에 연결.
 //   JOIN 전 다른 메시지를 보내면 서버가 거부(error: AUTH_REQUIRED / NOT_IN_ROOM).
 export interface RoomJoinPayload {
-  roomId: RoomId
-  nickname: string
-  sessionToken?: SessionToken
+  sessionToken: SessionToken
 }
 // C→S (006): 방 퇴장. roomId 는 envelope.
 export type RoomLeavePayload = Record<string, never> // 빈 payload
@@ -262,7 +257,7 @@ export interface RoomReadyChangedPayload {
   ready: boolean
 }
 // S→C: 방 종료.
-export type RoomCloseReason = 'host_left' | 'game_finished' | 'empty' | 'server_shutdown'
+export type RoomCloseReason = 'game_finished' | 'empty' | 'server_shutdown'
 export interface RoomClosedPayload {
   reason: RoomCloseReason
 }

@@ -1,10 +1,15 @@
 import { delay, HttpResponse, http } from 'msw'
-import type { SubmitScoreRequest } from '@/api/gameApi'
+import type {
+  CreateRoomRequest,
+  JoinRoomRequest,
+  RoomSession,
+  SubmitScoreRequest,
+} from '@/api/gameApi'
 import {
   createEmptyScoreBoard,
-  guestSession,
-  hostSession,
+  creatorSession,
   MOCK_ROOM_ID,
+  participantSession,
   playingRoomSnapshot,
   scoreCandidates,
   waitingRoomSnapshot,
@@ -34,13 +39,24 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
   }
 
   return [
-    http.post('/api/v1/rooms', async () => {
+    http.post('/api/v1/rooms', async ({ request }) => {
       await beforeResponse()
-      return unavailable() ?? HttpResponse.json(hostSession, { status: 201 })
+      const body = (await request.json()) as CreateRoomRequest
+      return (
+        unavailable() ??
+        HttpResponse.json(withNickname(creatorSession, body.nickname), { status: 201 })
+      )
     }),
-    http.post('/api/v1/rooms/:roomId/participants', async () => {
+    http.post('/api/v1/rooms/:roomCode/participants', async ({ params, request }) => {
       await beforeResponse()
-      return unavailable() ?? HttpResponse.json(guestSession, { status: 201 })
+      if (params.roomCode !== creatorSession.roomCode) {
+        return HttpResponse.json({ code: 'ROOM_NOT_FOUND' }, { status: 404 })
+      }
+      const body = (await request.json()) as JoinRoomRequest
+      return (
+        unavailable() ??
+        HttpResponse.json(withNickname(participantSession, body.nickname), { status: 201 })
+      )
     }),
     http.get('/api/v1/rooms/:roomId/lobby', async ({ params }) => {
       await beforeResponse()
@@ -50,6 +66,10 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       return unavailable() ?? HttpResponse.json(waitingRoomSnapshot)
     }),
     http.get('/api/v1/rooms/:roomId/game', async () => {
+      await beforeResponse()
+      return unavailable() ?? HttpResponse.json(playingRoomSnapshot)
+    }),
+    http.post('/api/v1/rooms/:roomId/game', async () => {
       await beforeResponse()
       return unavailable() ?? HttpResponse.json(playingRoomSnapshot)
     }),
@@ -74,4 +94,16 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       return unavailable() ?? HttpResponse.json(playingRoomSnapshot.game?.scores ?? {})
     }),
   ]
+}
+
+function withNickname(session: RoomSession, nickname: string): RoomSession {
+  return {
+    ...session,
+    snapshot: {
+      ...session.snapshot,
+      players: session.snapshot.players.map((player) =>
+        player.playerId === session.you ? { ...player, nickname } : player,
+      ),
+    },
+  }
 }

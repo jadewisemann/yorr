@@ -16,7 +16,7 @@ export class WebSocketRealtimeClient implements RealtimeClient {
   private readonly messageListeners = new Set<MessageListener>()
   private readonly connectionListeners = new Set<ConnectionListener>()
 
-  constructor(private readonly endpoint = '/ws/v1/game') {}
+  constructor(private readonly endpoint = import.meta.env.VITE_WS_URL ?? '/ws/v1/game') {}
 
   connect() {
     if (this.socket && this.socket.readyState < WebSocket.CLOSING) return

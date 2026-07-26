@@ -3,9 +3,9 @@ import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import type { ServerMessage } from '@/realtime/wsEvents'
 import { WS_PROTOCOL_VERSION } from '@/realtime/wsEvents'
 import {
-  guestSession,
-  hostSession,
+  creatorSession,
   MOCK_ROOM_ID,
+  participantSession,
   playingRoomSnapshot,
   scoreCandidates,
   serverMessage,
@@ -19,7 +19,7 @@ export type MockRealtimeScenario =
   | 'out-of-order'
   | 'reconnect'
 
-export type MockSessionRole = 'host' | 'guest'
+export type MockSessionRole = 'creator' | 'participant'
 
 export interface RealtimeFixtureOptions {
   role?: MockSessionRole
@@ -28,9 +28,9 @@ export interface RealtimeFixtureOptions {
 }
 
 export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
-  const role = options.role ?? 'host'
+  const role = options.role ?? 'creator'
   const scenario = options.scenario ?? 'success'
-  const session = role === 'host' ? hostSession : guestSession
+  const session = role === 'creator' ? creatorSession : participantSession
   const connected = serverMessage('sys.connected', {
     serverTs: 1_753_000_000_000,
     protocolVersion: WS_PROTOCOL_VERSION,
@@ -59,15 +59,20 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         ]
       }
 
+      const joinedSession =
+        message.payload.sessionToken === participantSession.sessionToken
+          ? participantSession
+          : session
+
       return [
         serverMessage(
           'room.joined',
           {
-            you: session.you,
-            sessionToken: session.sessionToken,
-            snapshot: session.snapshot,
+            you: joinedSession.you,
+            sessionToken: joinedSession.sessionToken,
+            snapshot: joinedSession.snapshot,
           },
-          { roomId: session.roomId, msgId: message.msgId },
+          { roomId: joinedSession.roomId, msgId: message.msgId },
         ),
       ]
     },

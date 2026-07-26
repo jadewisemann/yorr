@@ -11,18 +11,16 @@ import { YACHT_CATEGORIES } from '@/realtime/wsEvents'
 export const MOCK_ROOM_ID = 'room-yorr-64'
 export const MOCK_ROOM_CODE = 'YORR64'
 
-export const hostPlayer: Player = {
-  playerId: 'player-host',
-  nickname: '방장',
+export const creatorPlayer: Player = {
+  playerId: 'player-creator',
+  nickname: '느긋한 주사위',
   status: 'online',
-  isHost: true,
 }
 
-export const guestPlayer: Player = {
-  playerId: 'player-guest',
+export const participantPlayer: Player = {
+  playerId: 'player-participant',
   nickname: '참가자',
   status: 'online',
-  isHost: false,
 }
 
 export function createEmptyScoreBoard(): ScoreBoard {
@@ -40,8 +38,7 @@ export function createEmptyScoreBoard(): ScoreBoard {
 export const waitingRoomSnapshot: RoomSnapshot = {
   roomId: MOCK_ROOM_ID,
   phase: 'waiting',
-  hostId: hostPlayer.playerId,
-  players: [hostPlayer, guestPlayer],
+  players: [creatorPlayer, participantPlayer],
 }
 
 export const playingRoomSnapshot: RoomSnapshot = {
@@ -51,25 +48,25 @@ export const playingRoomSnapshot: RoomSnapshot = {
     roundNumber: 1,
     roundDeadline: 1_753_000_060_000,
     scores: {
-      [hostPlayer.playerId]: createEmptyScoreBoard(),
-      [guestPlayer.playerId]: createEmptyScoreBoard(),
+      [creatorPlayer.playerId]: createEmptyScoreBoard(),
+      [participantPlayer.playerId]: createEmptyScoreBoard(),
     },
   },
 }
 
-export const hostSession: RoomSession = {
+export const creatorSession: RoomSession = {
   roomId: MOCK_ROOM_ID,
   roomCode: MOCK_ROOM_CODE,
-  you: hostPlayer.playerId,
-  sessionToken: 'session-host-64',
+  you: creatorPlayer.playerId,
+  sessionToken: 'session-creator-64',
   snapshot: waitingRoomSnapshot,
 }
 
-export const guestSession: RoomSession = {
+export const participantSession: RoomSession = {
   roomId: MOCK_ROOM_ID,
   roomCode: MOCK_ROOM_CODE,
-  you: guestPlayer.playerId,
-  sessionToken: 'session-guest-64',
+  you: participantPlayer.playerId,
+  sessionToken: 'session-participant-64',
   snapshot: waitingRoomSnapshot,
 }
 

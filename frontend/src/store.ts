@@ -1,10 +1,7 @@
 import { create } from 'zustand'
-<<<<<<< HEAD:frontend/src/app/store.ts
-import type { RoomSnapshot } from '../contracts/ws-events'
-=======
 import type { RoomSession } from '@/api/gameApi'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
->>>>>>> 96e7252d9d23d7d509ed4819e8180e49c884c7c8:frontend/src/store.ts
+import { clearRoomSession, readRoomSession, saveRoomSession } from '@/roomSessionStorage'
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'closed'
 
@@ -20,17 +17,34 @@ interface AppState {
   reset: () => void
 }
 
+const restoredSession = readRoomSession()
+
 const initialState = {
   connectionStatus: 'idle' as const,
-  roomSession: null,
-  roomSnapshot: null,
+  roomSession: restoredSession ? withoutSnapshot(restoredSession) : null,
+  roomSnapshot: restoredSession?.snapshot ?? null,
 }
 
 export const useAppStore = create<AppState>((set) => ({
   ...initialState,
   setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
-  setRoomSession: ({ snapshot: roomSnapshot, ...roomSession }) =>
-    set({ roomSession, roomSnapshot }),
-  replaceRoomSnapshot: (roomSnapshot) => set({ roomSnapshot }),
-  reset: () => set(initialState),
+  setRoomSession: (session) => {
+    saveRoomSession(session)
+    set({ roomSession: withoutSnapshot(session), roomSnapshot: session.snapshot })
+  },
+  replaceRoomSnapshot: (roomSnapshot) =>
+    set((state) => {
+      if (state.roomSession && roomSnapshot) {
+        saveRoomSession({ ...state.roomSession, snapshot: roomSnapshot })
+      }
+      return { roomSnapshot }
+    }),
+  reset: () => {
+    clearRoomSession()
+    set({ connectionStatus: 'idle', roomSession: null, roomSnapshot: null })
+  },
 }))
+
+function withoutSnapshot({ snapshot: _snapshot, ...session }: RoomSession): ActiveRoomSession {
+  return session
+}

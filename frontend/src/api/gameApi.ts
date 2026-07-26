@@ -10,6 +10,7 @@ import { apiRequest } from './client'
 export interface CreateRoomRequest {
   mode: 'party' | 'online'
   gameType: 'yacht'
+  nickname: string
 }
 
 export interface JoinRoomRequest {
@@ -43,9 +44,14 @@ export interface ApiCallOptions {
 
 export interface GameApiClient {
   createRoom(request: CreateRoomRequest, options?: ApiCallOptions): Promise<RoomSession>
-  joinRoom(roomId: string, request: JoinRoomRequest, options?: ApiCallOptions): Promise<RoomSession>
+  joinRoom(
+    roomCode: string,
+    request: JoinRoomRequest,
+    options?: ApiCallOptions,
+  ): Promise<RoomSession>
   getLobby(roomId: string, options?: ApiCallOptions): Promise<RoomSnapshot>
   getGame(roomId: string, options?: ApiCallOptions): Promise<RoomSnapshot>
+  startGame(roomId: string, options?: ApiCallOptions): Promise<RoomSnapshot>
   submitRoll(
     roomId: string,
     request: SubmitRollRequest,
@@ -69,8 +75,8 @@ export class HttpGameApiClient implements GameApiClient {
     })
   }
 
-  joinRoom(roomId: string, request: JoinRoomRequest, options?: ApiCallOptions) {
-    return apiRequest<RoomSession>(`/rooms/${roomId}/participants`, {
+  joinRoom(roomCode: string, request: JoinRoomRequest, options?: ApiCallOptions) {
+    return apiRequest<RoomSession>(`/rooms/${roomCode}/participants`, {
       method: 'POST',
       body: JSON.stringify(request),
       ...requestSignal(options),
@@ -83,6 +89,13 @@ export class HttpGameApiClient implements GameApiClient {
 
   getGame(roomId: string, options?: ApiCallOptions) {
     return apiRequest<RoomSnapshot>(`/rooms/${roomId}/game`, requestSignal(options))
+  }
+
+  startGame(roomId: string, options?: ApiCallOptions) {
+    return apiRequest<RoomSnapshot>(`/rooms/${roomId}/game`, {
+      method: 'POST',
+      ...requestSignal(options),
+    })
   }
 
   submitRoll(roomId: string, request: SubmitRollRequest, options?: ApiCallOptions) {
