@@ -1,3 +1,5 @@
 package com.ssafy.yorr.user.dto;
 
-public record GuestCreateRequest(String nickname) {}
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public record GuestCreateRequest(String nickname, @JsonProperty("room_id") String roomId) {}

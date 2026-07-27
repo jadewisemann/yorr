@@ -6,6 +6,7 @@ import com.ssafy.yorr.ws.RoomBroadcaster;
 import com.ssafy.yorr.ws.dto.RoundEndPayload;
 import com.ssafy.yorr.ws.dto.RoundStartPayload;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -22,6 +23,7 @@ public class RoundTimerService {
     private final RoomBroadcaster broadcaster;
     private final Clock clock;
 
+    @Autowired
     public RoundTimerService(
             RoundSynchronizationService roundSynchronizationService,
             RoundDeadlineScheduler deadlineScheduler,

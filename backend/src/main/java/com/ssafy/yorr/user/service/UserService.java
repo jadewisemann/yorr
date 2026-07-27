@@ -34,7 +34,19 @@ public class UserService {
                 "nickname", displayName,
                 "tokenHash", hash(sessionToken)));
         redisTemplate.expire(key, GUEST_TTL);
-        return new GuestCreateResponse(userId, displayName, sessionToken);
+        return new GuestCreateResponse(userId, displayName, sessionToken, null);
+    }
+
+    public void assignRoom(String userId, String roomId, String roomCode, String hostId) {
+        redisTemplate.opsForHash().putAll(key(userId), Map.of(
+                "roomId", roomId,
+                "roomCode", roomCode,
+                "host", hostId));
+        redisTemplate.expire(key(userId), GUEST_TTL);
+    }
+
+    public void clearRoom(String userId) {
+        redisTemplate.opsForHash().delete(key(userId), "roomId", "roomCode", "host");
     }
 
     public UserIdentity authenticate(String userId, String authorization) {
