@@ -1,13 +1,34 @@
 import { useNavigate } from '@tanstack/react-router'
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { Button } from '@/components/Button'
 import { TextField } from '@/components/TextField'
 import { getRoomCodeError, normalizeRoomCode } from '@/roomCode'
+import { useAppStore } from '@/store'
 
 export function EntryPage() {
   const navigate = useNavigate()
   const [roomCode, setRoomCode] = useState('')
   const [roomCodeError, setRoomCodeError] = useState<string | null>(null)
+  const roomSession = useAppStore((state) => state.roomSession)
+  const roomSnapshot = useAppStore((state) => state.roomSnapshot)
+  const appNotice = useAppStore((state) => state.appNotice)
+
+  useEffect(() => {
+    if (!roomSession || !roomSnapshot) return
+    if (roomSnapshot.phase === 'waiting') {
+      void navigate({
+        to: '/rooms/$roomId/lobby',
+        params: { roomId: roomSession.roomId },
+        replace: true,
+      })
+    } else {
+      void navigate({
+        to: '/rooms/$roomId/game',
+        params: { roomId: roomSession.roomId },
+        replace: true,
+      })
+    }
+  }, [navigate, roomSession, roomSnapshot])
 
   const handleCreate = () => {
     void navigate({ to: '/join', search: { code: undefined } })
@@ -33,6 +54,14 @@ export function EntryPage() {
           YORR
         </h1>
         <p className="m-0 text-content-muted">흔들거나 탭해서 함께 즐기는 모바일 요트다이스</p>
+        {appNotice && (
+          <p
+            className="m-0 rounded-control bg-surface-raised p-3 text-sm text-content"
+            role="status"
+          >
+            {appNotice}
+          </p>
+        )}
         <Button className="mt-3 w-full rounded-full" size="lg" onClick={handleCreate}>
           방 만들기
         </Button>
@@ -48,6 +77,8 @@ export function EntryPage() {
             placeholder="YORR64"
             autoCapitalize="characters"
             autoComplete="off"
+            autoCorrect="off"
+            maxLength={12}
             errorMessage={roomCodeError}
             onChange={(event) => {
               setRoomCode(event.target.value)

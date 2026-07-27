@@ -46,4 +46,18 @@ describe('RealtimeSync', () => {
     client.emitMessage(serverMessage('room.player_left', { playerId: creatorPlayer.playerId }))
     expect(useAppStore.getState().roomSnapshot?.players).not.toContainEqual(creatorPlayer)
   })
+
+  it('clears a closed or expired room instead of reconnecting forever', async () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(serverMessage('room.closed', { reason: 'server_shutdown' }))
+
+    await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
+    expect(useAppStore.getState().appNotice).toContain('방이 종료')
+  })
 })

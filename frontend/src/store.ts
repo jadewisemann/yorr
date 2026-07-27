@@ -8,9 +8,11 @@ export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecti
 export type ActiveRoomSession = Omit<RoomSession, 'snapshot'>
 
 interface AppState {
+  appNotice: string | null
   connectionStatus: ConnectionStatus
   roomSession: ActiveRoomSession | null
   roomSnapshot: RoomSnapshot | null
+  setAppNotice: (notice: string | null) => void
   setConnectionStatus: (status: ConnectionStatus) => void
   setRoomSession: (session: RoomSession) => void
   replaceRoomSnapshot: (snapshot: RoomSnapshot | null) => void
@@ -20,6 +22,7 @@ interface AppState {
 const restoredSession = readRoomSession()
 
 const initialState = {
+  appNotice: null,
   connectionStatus: 'idle' as const,
   roomSession: restoredSession ? withoutSnapshot(restoredSession) : null,
   roomSnapshot: restoredSession?.snapshot ?? null,
@@ -27,6 +30,7 @@ const initialState = {
 
 export const useAppStore = create<AppState>((set) => ({
   ...initialState,
+  setAppNotice: (appNotice) => set({ appNotice }),
   setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
   setRoomSession: (session) => {
     saveRoomSession(session)
@@ -41,7 +45,7 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   reset: () => {
     clearRoomSession()
-    set({ connectionStatus: 'idle', roomSession: null, roomSnapshot: null })
+    set({ appNotice: null, connectionStatus: 'idle', roomSession: null, roomSnapshot: null })
   },
 }))
 
