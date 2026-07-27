@@ -6,6 +6,7 @@ import { PlayerCard } from '@/components/PlayerCard'
 import { ScoreRow } from '@/components/ScoreRow'
 import { StatusPanel } from '@/components/StatusPanel'
 import { TextField } from '@/components/TextField'
+import { PhysicsDiceDemo } from './PhysicsDiceDemo'
 
 const sectionClassName = 'grid gap-4 rounded-panel border border-border bg-surface p-5'
 
@@ -51,6 +52,14 @@ export function DevCatalog() {
           <Dice value={5} held />
           <Dice value={6} rolling size="lg" />
         </div>
+      </section>
+
+      <section className={sectionClassName}>
+        <h2 className="text-xl font-bold">Physics dice renderer</h2>
+        <p className="text-sm text-content-muted">
+          결과 입력형 Three.js·Rapier 렌더러의 굴림, KEEP, 품질 preset을 검증합니다.
+        </p>
+        <PhysicsDiceDemo />
       </section>
 
       <section className={sectionClassName}>
