@@ -10,7 +10,9 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import com.ssafy.yorr.user.dto.GuestCreateResponse;
 import com.ssafy.yorr.user.service.UserService;
-import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
+import com.ssafy.yorr.game.exception.ScoreConfirmationException;
+import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionResult;
+import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
 import com.ssafy.yorr.game.round.application.RoundTimerService;
 import com.ssafy.yorr.game.round.domain.RoundCompletion;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
@@ -23,6 +25,7 @@ import com.ssafy.yorr.ws.dto.SysPongPayload;
 import com.ssafy.yorr.ws.dto.ErrorPayload;
 import com.ssafy.yorr.ws.dto.RoundEndPayload;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
+import com.ssafy.yorr.ws.dto.ScoreUpdatePayload;
 import com.ssafy.yorr.ws.dto.WsErrorCode;
 import com.ssafy.yorr.ws.dto.RoomJoinPayload;
 import com.ssafy.yorr.ws.dto.RoomJoinedPayload;
@@ -52,20 +55,20 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final InMemoryRoomBroadcaster broadcaster;
     private final RoomSessionRegistry registry; // 방 명단(누가 어느 방에)
     private final UserService userService;      // 게스트 정체성 발급(티켓 70 재사용)
-    private final RoundSynchronizationService roundSynchronizationService;
+    private final ScoreRoundSubmissionService scoreRoundSubmissionService;
     private final RoundTimerService roundTimerService;
 
     public GameWebSocketHandler(ObjectMapper objectMapper,
                                 InMemoryRoomBroadcaster broadcaster,
                                 RoomSessionRegistry registry,
                                 UserService userService,
-                                RoundSynchronizationService roundSynchronizationService,
+                                ScoreRoundSubmissionService scoreRoundSubmissionService,
                                 RoundTimerService roundTimerService) {
         this.objectMapper = objectMapper;
         this.broadcaster = broadcaster;
         this.registry = registry;
         this.userService = userService;
-        this.roundSynchronizationService = roundSynchronizationService;
+        this.scoreRoundSubmissionService = scoreRoundSubmissionService;
         this.roundTimerService = roundTimerService;
     }
 
@@ -316,17 +319,40 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
 
         try {
-            RoundSubmissionResult result = roundSynchronizationService.submit(roomId, playerId, payload);
-            if (result.roundCompleted()) {
-                RoundCompletion completion = result.completion().orElseThrow();
+            ScoreRoundSubmissionResult result = scoreRoundSubmissionService.submit(roomId, playerId, payload);
+            broadcastScoreUpdate(roomId, result, in.msgId());
+            RoundSubmissionResult roundResult = result.round();
+            if (roundResult.roundCompleted()) {
+                RoundCompletion completion = roundResult.completion().orElseThrow();
                 roundTimerService.cancel(roomId, completion.roundNumber());
                 broadcastRoundEnd(roomId, completion);
             }
+        } catch (ScoreConfirmationException e) {
+            sendError(session, toWsErrorCode(e.reason()), e.getMessage(), in.msgId());
         } catch (RoundSynchronizationException e) {
             sendError(session, toWsErrorCode(e.reason()), e.getMessage(), in.msgId());
         } catch (IllegalArgumentException e) {
             sendError(session, WsErrorCode.INVALID_MESSAGE, e.getMessage(), in.msgId());
         }
+    }
+
+    private void broadcastScoreUpdate(
+            String roomId,
+            ScoreRoundSubmissionResult result,
+            String requestMessageId
+    ) {
+        broadcaster.broadcast(
+                roomId,
+                WsEnvelope.of(
+                                "score.update",
+                                new ScoreUpdatePayload(
+                                        result.score().playerId(),
+                                        result.score().scoreboard()
+                                )
+                        )
+                        .withRoomId(roomId)
+                        .withMsgId(requestMessageId)
+        );
     }
 
     private void broadcastRoundEnd(
@@ -354,6 +380,19 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                  ROUND_MISMATCH,
                  ALREADY_SUBMITTED -> WsErrorCode.INVALID_MESSAGE;
             case ROUND_NOT_INITIALIZED -> WsErrorCode.INTERNAL;
+        };
+    }
+
+    private static WsErrorCode toWsErrorCode(ScoreConfirmationException.Reason reason) {
+        return switch (reason) {
+            case INVALID_CATEGORY,
+                 INVALID_DICE,
+                 GAME_NOT_ACTIVE,
+                 ROUND_ALREADY_SCORED,
+                 CATEGORY_ALREADY_USED -> WsErrorCode.INVALID_MESSAGE;
+            case GAME_NOT_FOUND -> WsErrorCode.ROOM_NOT_FOUND;
+            case PLAYER_NOT_IN_GAME -> WsErrorCode.NOT_IN_ROOM;
+            case STORE_FAILURE -> WsErrorCode.INTERNAL;
         };
     }
 

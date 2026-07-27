@@ -9,11 +9,32 @@ room:{roomCode}          capacity, members, hostId, phase, gameId
 room:{roomCode}:players  userId -> nickname
 room:{roomCode}:scores   userId -> score (초기값 0)
 game:{gameId}            roomCode
+game:{gameId}:scoreboard:{playerId}
+                         category -> score, _upperSubtotal, _upperBonus, _total
+game:{gameId}:score-submissions:{playerId}
+                         roundNumber -> request signature
 ```
 
 `phase`는 `LOBBY`, `PLAYING`, `FINISHED` 중 하나입니다. 방 생성자는 `hostId`이며 게임 시작 권한을 가집니다.
 
-WebSocket 서버는 `/ws/v1/game`에 열려 있지만, **현재 구현된 메시지는 `sys.ping`/`sys.pong`뿐입니다.** `room.join`, `room.snapshot` broadcast는 다음 WebSocket 연결 관리 작업의 범위입니다. 구현되지 않은 room WebSocket 메시지를 지금 보내면 처리되지 않습니다.
+플레이어별 점수판은 값이 `0`인 카테고리와 아직 제출하지 않은 카테고리를
+구분하기 위해 미제출 카테고리 필드를 저장하지 않습니다. 점수 확정은
+`ScoreConfirmationService`가 주사위와 카테고리를 검증하고 서버에서 점수를
+다시 계산한 뒤 처리합니다. 점수판, 카테고리 사용 이력, 라운드 요청 이력,
+방별 누적 점수는 Lua 스크립트 한 번으로 원자적으로 갱신됩니다.
+이때 방 존재 여부, 방의 현재 `gameId`, `PLAYING` 상태, 참가자 여부를 같은
+스크립트 안에서 먼저 검증하므로 오래된 게임 매핑으로 현재 방 점수를 변경할 수 없습니다.
+
+점수 확정 핵심 로직은 전송 계층과 분리되어 있고, 게임 중 확정 요청은 WebSocket
+`round.submit`에서 호출합니다. 라운드 입력 검증 후 점수를 먼저 저장하고,
+저장에 성공한 경우에만 제출 완료 상태를 반영합니다. 성공하면 `score.update`를
+먼저 브로드캐스트하고, 전원 제출 완료 시 이어서 `round.end`를 전송합니다.
+점수 저장이 실패하면 해당 플레이어는 미제출 상태로 유지됩니다.
+
+WebSocket 서버는 `/ws/v1/game`에 열려 있으며 `sys.ping`, `room.join`,
+`room.leave`, `room.ready`, `reaction.send`, `round.submit`을 처리합니다.
+`round.submit` 성공 시 `score.update`가 전송되고, 전원 제출 완료 시
+`round.end`가 이어서 전송됩니다.
 
 ## 프론트 REST 흐름
 

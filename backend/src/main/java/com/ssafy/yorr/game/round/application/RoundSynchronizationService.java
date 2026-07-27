@@ -27,8 +27,20 @@ public class RoundSynchronizationService {
     }
 
     public RoundSubmissionResult submit(String roomId, String playerId, RoundSubmitPayload payload) {
+        return submit(roomId, playerId, payload, () -> {});
+    }
+
+    public RoundSubmissionResult submit(
+            String roomId,
+            String playerId,
+            RoundSubmitPayload payload,
+            Runnable beforeStateChange
+    ) {
         if (payload == null) {
             throw new IllegalArgumentException("payload must not be null");
+        }
+        if (beforeStateChange == null) {
+            throw new IllegalArgumentException("beforeStateChange must not be null");
         }
         RoundSubmission submission = new RoundSubmission(
                 playerId,
@@ -36,7 +48,7 @@ public class RoundSynchronizationService {
                 payload.dice(),
                 payload.category()
         );
-        return roundStateStore.submitAtomically(roomId, submission);
+        return roundStateStore.submitAtomically(roomId, submission, beforeStateChange);
     }
 
     public Optional<RoundCompletion> expire(String roomId, int expectedRoundNumber) {

@@ -10,6 +10,35 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ScoreCategoryTest {
 
     @Test
+    void mapsEveryCategoryToItsApiKeyAndBack() {
+        assertThat(Arrays.stream(ScoreCategory.values()).map(ScoreCategory::apiKey))
+                .containsExactly(
+                        "ones",
+                        "twos",
+                        "threes",
+                        "fours",
+                        "fives",
+                        "sixes",
+                        "choice",
+                        "fourOfAKind",
+                        "fullHouse",
+                        "smallStraight",
+                        "largeStraight",
+                        "yacht"
+                );
+        for (ScoreCategory category : ScoreCategory.values()) {
+            assertThat(ScoreCategory.fromApiKey(category.apiKey())).isEqualTo(category);
+        }
+    }
+
+    @Test
+    void rejectsUnknownApiKey() {
+        assertThatThrownBy(() -> ScoreCategory.fromApiKey("unknown"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+
+    @Test
     void definesTwelveCategoriesInExpectedOrder() {
         assertThat(ScoreCategory.values()).containsExactly(
                 ScoreCategory.ACES,
