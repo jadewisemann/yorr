@@ -24,6 +24,11 @@ import com.ssafy.yorr.ws.dto.RoomPlayerLeftPayload;
 import com.ssafy.yorr.ws.dto.RoomReadyPayload;
 import com.ssafy.yorr.ws.dto.RoomReadyChangedPayload;
 import com.ssafy.yorr.ws.dto.RoomSnapshot;
+import com.ssafy.yorr.ws.dto.PlayerStatus;
+import com.ssafy.yorr.ws.dto.PresenceUpdatePayload;
+import com.ssafy.yorr.ws.dto.ReactionSendPayload;
+import com.ssafy.yorr.ws.dto.ReactionBroadcastPayload;
+import com.ssafy.yorr.ws.dto.StateSyncPayload;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,8 +90,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             case "room.join"  -> handleRoomJoin(session, in);
             case "room.leave" -> handleRoomLeave(session, in);
             case "room.ready" -> handleRoomReady(session, in);
+            case "reaction.send" -> handleReactionSend(session, in);
             // 다음 슬라이스에서 하나씩 (레지스트리·브로드캐스터는 이미 준비됨):
-            //   case "reaction.send" -> handleReactionSend(session, in);   // ReactionSendPayload
             //   case "sys.reconnect" -> handleSysReconnect(session, in);   // 상태 복원(25번 티켓, 박재영)과 공동
             default -> log.debug("아직 라우팅 안 붙은 type: {}", in.type());
         }
@@ -130,6 +135,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 .withRoomId(payload.roomId()));
 
         // (3) 기존 멤버에게만: room.player_joined (본인은 아직 팬아웃 미등록 → 안 받음)
+        //     접속 자체는 player_joined(Player.status 포함)가 알리므로 여기서 presence는 쏘지 않는다.
         broadcaster.broadcast(payload.roomId(), WsEnvelope.of("room.player_joined",
                         new RoomPlayerJoinedPayload(self.toPlayer()))
                 .withRoomId(payload.roomId()));
@@ -196,6 +202,33 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 .withRoomId(me.roomId()));
     }
 
+    /**
+     * reaction.send → reaction.broadcast. 방 전원(본인 포함)에게 "누가 무슨 리액션을 보냈는지" 뿌린다.
+     * 리액션은 보낸 본인도 확인 겸 받는 게 자연스러워 자기 세션도 포함해 방송한다.
+     */
+    private void handleReactionSend(WebSocketSession session, InboundEnvelope in) throws IOException {
+        ReactionSendPayload payload;
+        try {
+            payload = objectMapper.treeToValue(in.payload(), ReactionSendPayload.class);
+        } catch (Exception e) {
+            // 알 수 없는 reaction 값이면 ReactionType 역직렬화에서 여기로 떨어진다.
+            sendError(session, WsErrorCode.INVALID_MESSAGE, "reaction.send payload가 올바르지 않습니다.", in.msgId());
+            return;
+        }
+        if (payload == null || payload.reaction() == null) {
+            sendError(session, WsErrorCode.INVALID_MESSAGE, "reaction 종류가 필요합니다.", in.msgId());
+            return;
+        }
+        RoomSessionRegistry.Member me = registry.of(session);
+        if (me == null) {
+            sendError(session, WsErrorCode.NOT_IN_ROOM, "방에 입장한 뒤에만 리액션을 보낼 수 있습니다.", in.msgId());
+            return;
+        }
+        broadcaster.broadcast(me.roomId(), WsEnvelope.of("reaction.broadcast",
+                        new ReactionBroadcastPayload(me.playerId(), payload.reaction()))
+                .withRoomId(me.roomId()));
+    }
+
     /** 방 이탈 공통 처리: 명단 제거 → 팬아웃 제거 → 남은 멤버에게 player_left. room.leave·소켓 종료가 공유. */
     private void leaveRoom(WebSocketSession session) {
         RoomSessionRegistry.Member gone = registry.remove(session);
@@ -205,6 +238,31 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                             new RoomPlayerLeftPayload(gone.playerId()))
                     .withRoomId(gone.roomId()));
         }
+    }
+
+    /**
+     * presence.update 브로드캐스트: 플레이어의 접속 상태(online/away/offline) "전이"를 방에 알림.
+     * <p>
+     * 입장/퇴장 자체는 player_joined(status 포함)/player_left가 커버하므로 여기서 발화하지 않는다.
+     * 재접속·유휴 감지(티켓 25)가 online↔away↔offline 전이 시 호출하는 진입점이다. (현재 in-repo 호출자 없음)
+     */
+    public void broadcastPresence(String roomId, String playerId, PlayerStatus status) {
+        broadcaster.broadcast(roomId, WsEnvelope.of("presence.update",
+                        new PresenceUpdatePayload(playerId, status))
+                .withRoomId(roomId));
+    }
+
+    /**
+     * state.sync: 방 전체 스냅샷을 방에 브로드캐스트(계약 MVP 권장 = state.patch 대신 전체 스냅샷).
+     * <p>
+     * 대기방 명단 변화는 granular 이벤트(player_joined/left · presence.update)로 이미 커버되므로
+     * 로비에서는 자동 발화하지 않는다. 게임 상태(RoomSnapshot.game)가 바뀌는 라운드/점수 도메인
+     * (티켓 23·28·41)이 "전체 상태 재동기화"가 필요할 때 호출하는 진입점이다.
+     */
+    public void broadcastStateSync(String roomId) {
+        broadcaster.broadcast(roomId, WsEnvelope.of("state.sync",
+                        new StateSyncPayload(registry.snapshot(roomId)))
+                .withRoomId(roomId));
     }
 
     /** sys.ping → sys.pong. pong은 서버 시각만 돌려주면 됨. */
