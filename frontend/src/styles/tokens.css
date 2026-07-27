@@ -13,6 +13,10 @@
   --color-positive: var(--ds-color-positive);
   --color-danger: var(--ds-color-danger);
   --color-focus: var(--ds-color-focus);
+  --color-physics-die: var(--ds-color-physics-die);
+  --color-physics-pip: var(--ds-color-physics-pip);
+  --color-physics-accent: var(--ds-color-physics-accent);
+  --color-physics-danger: var(--ds-color-physics-danger);
 
   --text-display: var(--ds-text-display);
   --font-weight-medium: 600;
@@ -47,6 +51,13 @@
   --ds-color-positive: #69d79c;
   --ds-color-danger: #ff8d94;
   --ds-color-focus: #8ecbff;
+  --ds-color-physics-die: #e7e9df;
+  --ds-color-physics-pip: #171b18;
+  --ds-color-physics-accent: #c6f640;
+  --ds-color-physics-danger: #ff523f;
+  --ds-color-physics-surface: #e8eadf;
+  --ds-color-physics-line: #b9c0b3;
+  --ds-physics-tray: radial-gradient(circle at 50% 48%, #171c15, #0d100e 72%);
 
   --ds-text-display: clamp(1.75rem, 7vw, 2.5rem);
   --ds-size-tap: 2.75rem;
