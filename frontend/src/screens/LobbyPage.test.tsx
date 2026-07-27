@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { creatorSession } from '@/mocks/fixtures'
+import { creatorSession, participantSession } from '@/mocks/fixtures'
 import { useAppStore } from '@/store'
 import { LobbyPage } from './LobbyPage'
 
@@ -29,7 +29,7 @@ describe('LobbyPage', () => {
     expect(screen.getByText('나')).toBeVisible()
   })
 
-  it('lets any participant start once two players are present', async () => {
+  it('lets the host start once two players are present', async () => {
     const user = userEvent.setup()
     render(<LobbyPage roomId={creatorSession.roomId} />)
 
@@ -42,6 +42,15 @@ describe('LobbyPage', () => {
       params: { roomId: creatorSession.roomId },
       replace: true,
     })
+  })
+
+  it('keeps a participant waiting for the host', () => {
+    useAppStore.getState().setRoomSession(participantSession)
+
+    render(<LobbyPage roomId={participantSession.roomId} />)
+
+    expect(screen.getByRole('button', { name: '게임 시작' })).toBeDisabled()
+    expect(screen.getByText('호스트가 게임을 시작하면 자동으로 이동해요.')).toBeVisible()
   })
 
   it('keeps link-copy fallback available next to the QR code', async () => {

@@ -30,6 +30,14 @@ describe('room session storage', () => {
     expect(readRoomSession(storage)).toBeNull()
   })
 
+  it('rejects a session without an explicit room membership role', () => {
+    const storage = createStorage()
+    const { membershipRole: _membershipRole, ...sessionWithoutRole } = creatorSession
+    storage.setItem('yorr.room-session', JSON.stringify(sessionWithoutRole))
+
+    expect(readRoomSession(storage)).toBeNull()
+  })
+
   it('clears a stored session', () => {
     const storage = createStorage()
     saveRoomSession(creatorSession, storage)

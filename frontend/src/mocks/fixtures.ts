@@ -58,6 +58,7 @@ export const creatorSession: RoomSession = {
   roomId: MOCK_ROOM_ID,
   roomCode: MOCK_ROOM_CODE,
   you: creatorPlayer.playerId,
+  membershipRole: 'host',
   sessionToken: 'session-creator-64',
   snapshot: waitingRoomSnapshot,
 }
@@ -66,6 +67,7 @@ export const participantSession: RoomSession = {
   roomId: MOCK_ROOM_ID,
   roomCode: MOCK_ROOM_CODE,
   you: participantPlayer.playerId,
+  membershipRole: 'participant',
   sessionToken: 'session-participant-64',
   snapshot: waitingRoomSnapshot,
 }

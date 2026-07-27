@@ -43,7 +43,7 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
     const session = roomCode
       ? await joinRoom.execute(roomCode, { nickname: resolved.nickname })
       : await createRoom.execute({
-          mode: 'party',
+          mode: 'online',
           gameType: 'yacht',
           nickname: resolved.nickname,
         })
@@ -62,7 +62,7 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
       <section className="grid w-full max-w-lg gap-6 rounded-panel border border-border bg-surface p-6 shadow-raised">
         <header className="grid gap-2 text-center">
           <p className="m-0 text-sm font-bold text-brand-strong">
-            {roomCode ? `초대 코드 ${roomCode}` : '새로운 파티'}
+            {roomCode ? `초대 코드 ${roomCode}` : '온라인 프라이빗 룸'}
           </p>
           <h1 className="m-0 text-display font-bold text-content">어떤 이름으로 참가할까요?</h1>
         </header>
