@@ -8,7 +8,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -20,10 +19,6 @@ import static com.ssafy.yorr.game.exception.ScoreConfirmationException.Reason.ST
 
 @Repository
 public class RedisScoreBoardStore implements ScoreBoardStore {
-
-    private static final String UPPER_SUBTOTAL_FIELD = "_upperSubtotal";
-    private static final String UPPER_BONUS_FIELD = "_upperBonus";
-    private static final String TOTAL_FIELD = "_total";
 
     private static final long SUCCESS = 0L;
     private static final long GAME_MISSING = 1L;
@@ -162,30 +157,15 @@ public class RedisScoreBoardStore implements ScoreBoardStore {
     private ScoreBoard readScoreBoard(String gameId, String playerId) {
         Map<Object, Object> stored = redisTemplate.<Object, Object>opsForHash()
                 .entries(RoomRedisKeys.gameScoreboardKey(gameId, playerId));
-        LinkedHashMap<String, Integer> categories = new LinkedHashMap<>();
-        for (ScoreCategory category : ScoreCategory.values()) {
-            categories.put(category.apiKey(), integerValue(stored.get(category.apiKey()), null));
-        }
-        return new ScoreBoard(
-                categories,
-                integerValue(stored.get(UPPER_SUBTOTAL_FIELD), 0),
-                integerValue(stored.get(UPPER_BONUS_FIELD), 0),
-                integerValue(stored.get(TOTAL_FIELD), 0)
-        );
-    }
-
-    private static Integer integerValue(Object value, Integer defaultValue) {
-        if (value == null) {
-            return defaultValue;
-        }
         try {
-            return Integer.valueOf(value.toString());
-        } catch (NumberFormatException exception) {
+            return RedisScoreBoardMapper.fromHash(stored);
+        } catch (IllegalArgumentException exception) {
             throw new ScoreConfirmationException(
                     STORE_FAILURE,
-                    "Redis 점수 값이 올바른 정수가 아닙니다: " + value,
+                    "Redis 점수판 값이 올바르지 않습니다: " + playerId,
                     exception
             );
         }
     }
+
 }
