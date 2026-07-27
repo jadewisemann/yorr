@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useId, useRef } from 'react'
 import { cn } from '@/cn'
+import { useDialogBackground } from '@/useDialogBackground'
 
 type ModalProps = {
   open: boolean
@@ -13,22 +14,29 @@ export function Modal({ children, className, onClose, open, title }: ModalProps)
   const titleId = useId()
   const closeRef = useRef<HTMLButtonElement>(null)
 
+  // 부모가 매 렌더 새 onClose를 넘겨도 포커스를 다시 뺏지 않도록 ref로 읽는다.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
+  // 포커스 effect보다 먼저 선언한다 — cleanup 순서 때문이다(BottomSheet와 동일).
+  useDialogBackground(open)
+
   useEffect(() => {
     if (!open) return
     const previousFocus = document.activeElement as HTMLElement | null
     closeRef.current?.focus()
-    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onClose()
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onCloseRef.current()
     document.addEventListener('keydown', closeOnEscape)
     return () => {
       document.removeEventListener('keydown', closeOnEscape)
       previousFocus?.focus()
     }
-  }, [onClose, open])
+  }, [open])
 
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+    <div className="fixed inset-0 z-modal grid place-items-center p-4">
       <button
         className="absolute inset-0 cursor-default bg-black/70"
         type="button"

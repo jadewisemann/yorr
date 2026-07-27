@@ -1,0 +1,56 @@
+import { cn } from '@/cn'
+import type { ConnectionStatus } from '@/store'
+
+interface ConnectionBannerProps {
+  className?: string
+  status: ConnectionStatus
+}
+
+const messages: Partial<Record<ConnectionStatus, { detail: string; title: string }>> = {
+  connecting: { title: '연결하는 중…', detail: '잠시만 기다려 주세요.' },
+  reconnecting: {
+    title: '다시 연결하는 중…',
+    detail: '현재 주사위와 점수는 서버에 저장돼 있습니다.',
+  },
+  closed: { title: '연결이 끊겼습니다', detail: '네트워크를 확인한 뒤 다시 시도해 주세요.' },
+}
+
+/**
+ * 정상 연결이면 배너를 그리지 않는다 — 자리는 비워 두고 레이아웃을 밀지 않는다.
+ *
+ * 다만 live region 컨테이너 자체는 항상 남긴다. 영역과 내용이 같은 프레임에 함께
+ * 들어오면 스크린리더가 변화를 놓치는 경우가 많다 — 빈 영역을 먼저 두고 글만 바꾼다.
+ *
+ * 연결이 끊긴 상태는 조작이 통째로 잠기므로 assertive로 즉시 알린다.
+ */
+export function ConnectionBanner({ className, status }: ConnectionBannerProps) {
+  const message = messages[status]
+
+  return (
+    <div
+      aria-live={status === 'closed' ? 'assertive' : 'polite'}
+      className={cn(
+        message &&
+          'flex items-center gap-2.5 border-b border-border bg-surface-sunken px-gutter py-2',
+        className,
+      )}
+      role={status === 'closed' ? 'alert' : 'status'}
+    >
+      {message && (
+        <>
+          <span
+            aria-hidden="true"
+            className={cn(
+              'size-2.5 flex-none rounded-full border-2',
+              status === 'closed' ? 'border-danger' : 'border-brand',
+            )}
+          />
+          <p className="m-0 min-w-0 text-[12.5px] font-bold text-content">
+            {message.title}
+            <span className="ml-2 font-medium text-content-muted">{message.detail}</span>
+          </p>
+        </>
+      )}
+    </div>
+  )
+}

@@ -7,8 +7,10 @@ import type {
 } from '@/api/gameApi'
 import {
   createEmptyScoreBoard,
+  createPlayingRoomSnapshot,
   creatorSession,
   MOCK_ROOM_ID,
+  MOCK_ROUND_DURATION_MS,
   participantSession,
   playingRoomSnapshot,
   scoreCandidates,
@@ -55,17 +57,18 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       }
       return unavailable() ?? HttpResponse.json(waitingRoomSnapshot)
     }),
+    // 라운드 deadline은 고정값이면 항상 만료 상태로 보인다. 응답 시각 기준으로 새로 잡아준다.
     http.get('/api/v1/rooms/:roomId/game', async () => {
       await beforeResponse()
-      return unavailable() ?? HttpResponse.json(playingRoomSnapshot)
+      return unavailable() ?? HttpResponse.json(liveRoundSnapshot())
     }),
     http.post('/api/v1/rooms/:roomId/game', async () => {
       await beforeResponse()
-      return unavailable() ?? HttpResponse.json(playingRoomSnapshot)
+      return unavailable() ?? HttpResponse.json(liveRoundSnapshot())
     }),
     http.post('/api/v1/rooms/:roomId/game/rolls', async () => {
       await beforeResponse()
-      return unavailable() ?? HttpResponse.json(playingRoomSnapshot)
+      return unavailable() ?? HttpResponse.json(liveRoundSnapshot())
     }),
     http.get('/api/v1/rooms/:roomId/scores/candidates', async () => {
       await beforeResponse()
@@ -84,6 +87,10 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       return unavailable() ?? HttpResponse.json(playingRoomSnapshot.game?.scores ?? {})
     }),
   ]
+}
+
+function liveRoundSnapshot() {
+  return createPlayingRoomSnapshot(Date.now() + MOCK_ROUND_DURATION_MS)
 }
 
 function toEnterRoomResponse(session: RoomSession, nickname: string): EnterRoomResponse {
