@@ -3,6 +3,7 @@ package com.ssafy.yorr.game.round.application.port;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.round.domain.RoundSubmission;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
+import com.ssafy.yorr.game.round.domain.RoundCompletion;
 
 import java.util.Optional;
 
@@ -16,6 +17,12 @@ public interface RoundStateStore {
      * the same round more than once.
      */
     RoundSubmissionResult submitAtomically(String roomId, RoundSubmission submission);
+
+    /**
+     * Completes the round only when it is still the expected current round.
+     * Returns empty when the room was removed or another path already advanced it.
+     */
+    Optional<RoundCompletion> expireAtomically(String roomId, int expectedRoundNumber);
 
     Optional<RoundState> findByRoomId(String roomId);
 

@@ -11,6 +11,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import com.ssafy.yorr.user.dto.GuestCreateResponse;
 import com.ssafy.yorr.user.service.UserService;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
+import com.ssafy.yorr.game.round.application.RoundTimerService;
 import com.ssafy.yorr.game.round.domain.RoundCompletion;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
 import com.ssafy.yorr.game.round.domain.RoundSynchronizationException;
@@ -52,17 +53,20 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final RoomSessionRegistry registry; // 방 명단(누가 어느 방에)
     private final UserService userService;      // 게스트 정체성 발급(티켓 70 재사용)
     private final RoundSynchronizationService roundSynchronizationService;
+    private final RoundTimerService roundTimerService;
 
     public GameWebSocketHandler(ObjectMapper objectMapper,
                                 InMemoryRoomBroadcaster broadcaster,
                                 RoomSessionRegistry registry,
                                 UserService userService,
-                                RoundSynchronizationService roundSynchronizationService) {
+                                RoundSynchronizationService roundSynchronizationService,
+                                RoundTimerService roundTimerService) {
         this.objectMapper = objectMapper;
         this.broadcaster = broadcaster;
         this.registry = registry;
         this.userService = userService;
         this.roundSynchronizationService = roundSynchronizationService;
+        this.roundTimerService = roundTimerService;
     }
 
     // 연결이 열렸을 때 (콜센터: 전화 받음)
@@ -314,7 +318,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         try {
             RoundSubmissionResult result = roundSynchronizationService.submit(roomId, playerId, payload);
             if (result.roundCompleted()) {
-                broadcastRoundEnd(roomId, result.completion().orElseThrow());
+                RoundCompletion completion = result.completion().orElseThrow();
+                roundTimerService.cancel(roomId, completion.roundNumber());
+                broadcastRoundEnd(roomId, completion);
             }
         } catch (RoundSynchronizationException e) {
             sendError(session, toWsErrorCode(e.reason()), e.getMessage(), in.msgId());

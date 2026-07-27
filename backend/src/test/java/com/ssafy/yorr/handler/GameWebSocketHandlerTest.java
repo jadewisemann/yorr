@@ -1,6 +1,7 @@
 package com.ssafy.yorr.handler;
 
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
+import com.ssafy.yorr.game.round.application.RoundTimerService;
 import com.ssafy.yorr.game.round.infrastructure.InMemoryRoundStateStore;
 import com.ssafy.yorr.user.service.UserService;
 import com.ssafy.yorr.ws.InMemoryRoomBroadcaster;
@@ -31,6 +32,7 @@ class GameWebSocketHandlerTest {
     private InMemoryRoomBroadcaster broadcaster;
     private RoomSessionRegistry registry;
     private RoundSynchronizationService roundSynchronizationService;
+    private RoundTimerService roundTimerService;
     private TestGameWebSocketHandler handler;
 
     @BeforeEach
@@ -39,12 +41,14 @@ class GameWebSocketHandlerTest {
         broadcaster = new InMemoryRoomBroadcaster(objectMapper);
         registry = new RoomSessionRegistry();
         roundSynchronizationService = new RoundSynchronizationService(new InMemoryRoundStateStore());
+        roundTimerService = mock(RoundTimerService.class);
         handler = new TestGameWebSocketHandler(
                 objectMapper,
                 broadcaster,
                 registry,
                 mock(UserService.class),
-                roundSynchronizationService
+                roundSynchronizationService,
+                roundTimerService
         );
     }
 
@@ -65,6 +69,7 @@ class GameWebSocketHandlerTest {
 
         handler.handle(playerB, submitMessage("room-a", "player-b-message"));
 
+        verify(roundTimerService).cancel("room-a", 1);
         assertRoundEndWasSent(playerA);
         assertRoundEndWasSent(playerB);
     }
@@ -125,9 +130,10 @@ class GameWebSocketHandlerTest {
                 InMemoryRoomBroadcaster broadcaster,
                 RoomSessionRegistry registry,
                 UserService userService,
-                RoundSynchronizationService roundSynchronizationService
+                RoundSynchronizationService roundSynchronizationService,
+                RoundTimerService roundTimerService
         ) {
-            super(objectMapper, broadcaster, registry, userService, roundSynchronizationService);
+            super(objectMapper, broadcaster, registry, userService, roundSynchronizationService, roundTimerService);
         }
 
         void handle(WebSocketSession session, TextMessage message) throws Exception {

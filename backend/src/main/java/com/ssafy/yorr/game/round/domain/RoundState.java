@@ -55,9 +55,17 @@ public final class RoundState {
             return new RoundSubmissionResult(waitingState, null);
         }
 
+        return complete(nextSubmissions);
+    }
+
+    public RoundSubmissionResult expire() {
+        return complete(submissions);
+    }
+
+    private RoundSubmissionResult complete(Map<String, RoundSubmission> completedSubmissions) {
         RoundCompletion completion = new RoundCompletion(
                 roundNumber,
-                nextSubmissions.keySet().stream().toList(),
+                completedSubmissions.keySet().stream().toList(),
                 roundNumber + 1
         );
         RoundState nextRoundState = new RoundState(roundNumber + 1, participantIds, Map.of());
