@@ -19,6 +19,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const matchingRoom = roomSession?.roomId === roomId
   const canStart =
     matchingRoom &&
+    roomSession.membershipRole === 'host' &&
     connectionStatus === 'connected' &&
     roomSnapshot?.phase === 'waiting' &&
     roomSnapshot.players.length >= 2
@@ -84,9 +85,11 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
         </Button>
         {!canStart && (
           <p className="m-0 text-sm text-content-muted">
-            {connectionStatus === 'connected'
-              ? '2명부터 시작할 수 있어요.'
-              : '연결된 뒤 게임을 시작할 수 있어요.'}
+            {roomSession.membershipRole === 'participant'
+              ? '호스트가 게임을 시작하면 자동으로 이동해요.'
+              : connectionStatus === 'connected'
+                ? '2명부터 시작할 수 있어요.'
+                : '연결된 뒤 게임을 시작할 수 있어요.'}
           </p>
         )}
         {startGame.error && (

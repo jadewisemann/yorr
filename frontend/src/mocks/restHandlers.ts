@@ -3,6 +3,7 @@ import type {
   CreateRoomRequest,
   JoinRoomRequest,
   RoomSession,
+  RoomSessionResponse,
   SubmitScoreRequest,
 } from '@/api/gameApi'
 import {
@@ -96,9 +97,10 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
   ]
 }
 
-function withNickname(session: RoomSession, nickname: string): RoomSession {
+function withNickname(session: RoomSession, nickname: string): RoomSessionResponse {
+  const { membershipRole: _membershipRole, ...response } = session
   return {
-    ...session,
+    ...response,
     snapshot: {
       ...session.snapshot,
       players: session.snapshot.players.map((player) =>

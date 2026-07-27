@@ -17,13 +17,18 @@ export interface JoinRoomRequest {
   nickname: string
 }
 
+export type RoomMembershipRole = 'host' | 'participant'
+
 export interface RoomSession {
   roomId: string
   roomCode: string
   you: PlayerId
+  membershipRole: RoomMembershipRole
   sessionToken: string
   snapshot: RoomSnapshot
 }
+
+export type RoomSessionResponse = Omit<RoomSession, 'membershipRole'>
 
 export interface SubmitRollRequest {
   dice: DiceSet
@@ -68,19 +73,19 @@ export interface GameApiClient {
 
 export class HttpGameApiClient implements GameApiClient {
   createRoom(request: CreateRoomRequest, options?: ApiCallOptions) {
-    return apiRequest<RoomSession>('/rooms', {
+    return apiRequest<RoomSessionResponse>('/rooms', {
       method: 'POST',
       body: JSON.stringify(request),
       ...requestSignal(options),
-    })
+    }).then((session) => withMembershipRole(session, 'host'))
   }
 
   joinRoom(roomCode: string, request: JoinRoomRequest, options?: ApiCallOptions) {
-    return apiRequest<RoomSession>(`/rooms/${roomCode}/participants`, {
+    return apiRequest<RoomSessionResponse>(`/rooms/${roomCode}/participants`, {
       method: 'POST',
       body: JSON.stringify(request),
       ...requestSignal(options),
-    })
+    }).then((session) => withMembershipRole(session, 'participant'))
   }
 
   getLobby(roomId: string, options?: ApiCallOptions) {
@@ -127,6 +132,13 @@ export class HttpGameApiClient implements GameApiClient {
 }
 
 export const gameApiClient: GameApiClient = new HttpGameApiClient()
+
+function withMembershipRole(
+  session: RoomSessionResponse,
+  membershipRole: RoomMembershipRole,
+): RoomSession {
+  return { ...session, membershipRole }
+}
 
 function requestSignal(options?: ApiCallOptions): Pick<RequestInit, 'signal'> | undefined {
   return options?.signal ? { signal: options.signal } : undefined

@@ -1,9 +1,10 @@
-import type { RoomSession } from '@/api/gameApi'
+import type { RoomMembershipRole, RoomSession } from '@/api/gameApi'
 import type { Player, RoomPhase, RoomSnapshot } from '@/realtime/wsEvents'
 
 const roomSessionStorageKey = 'yorr.room-session'
 const roomPhases: readonly RoomPhase[] = ['waiting', 'playing', 'finished']
 const playerStatuses = ['online', 'away', 'offline'] as const
+const membershipRoles: readonly RoomMembershipRole[] = ['host', 'participant']
 
 interface SessionStorage {
   getItem(key: string): string | null
@@ -48,6 +49,7 @@ function isRoomSession(value: unknown): value is RoomSession {
     isString(value.roomId) &&
     isString(value.roomCode) &&
     isString(value.you) &&
+    membershipRoles.includes(value.membershipRole as RoomMembershipRole) &&
     isString(value.sessionToken) &&
     isRoomSnapshot(value.snapshot) &&
     value.snapshot.roomId === value.roomId

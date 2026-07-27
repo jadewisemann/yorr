@@ -9,7 +9,7 @@ const client = new HttpGameApiClient()
 describe('REST mock handlers', () => {
   it('방 생성·참가·대기실·게임·점수 흐름을 제공한다', async () => {
     const creator = await client.createRoom({
-      mode: 'party',
+      mode: 'online',
       gameType: 'yacht',
       nickname: '느긋한 주사위',
     })
@@ -25,6 +25,8 @@ describe('REST mock handlers', () => {
     })
     const scoreboard = await client.getScoreboard(creator.roomId)
 
+    expect(creator.membershipRole).toBe('host')
+    expect(participant.membershipRole).toBe('participant')
     expect(participant.you).not.toBe(creator.you)
     expect(lobby.phase).toBe('waiting')
     expect(startedGame.phase).toBe('playing')
@@ -33,6 +35,21 @@ describe('REST mock handlers', () => {
     expect(candidates.candidates.choice).toBe(16)
     expect(score.categories.choice).toBe(16)
     expect(scoreboard[creator.you]).toBeDefined()
+  })
+
+  it('REST 응답 계약에는 프론트 전용 역할을 추가하지 않는다', async () => {
+    const response = await fetch('/api/v1/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'online',
+        gameType: 'yacht',
+        nickname: '호스트',
+      }),
+    })
+    const body = (await response.json()) as Record<string, unknown>
+
+    expect(body).not.toHaveProperty('membershipRole')
   })
 
   it('오류 시나리오를 선택할 수 있다', async () => {

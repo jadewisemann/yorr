@@ -44,10 +44,46 @@ describe('FakeRealtimeClient scenarios', () => {
 
     expect(errorListener.mock.calls[0]?.[0].type).toBe('error')
     expect(duplicateListener).toHaveBeenCalledTimes(2)
+    expect(duplicateListener.mock.calls.map(([message]) => message.type)).toEqual([
+      'dice.broadcast',
+      'dice.broadcast',
+    ])
     expect(outOfOrderListener.mock.calls.map(([message]) => message.type)).toEqual([
       'round.end',
       'score.update',
     ])
+  })
+
+  it('굴림과 제출을 같은 게임 상태로 왕복한다', () => {
+    const listener = vi.fn()
+    const client = createRealtimeFixture({ role: 'participant' })
+    client.onMessage(listener)
+
+    client.send(
+      buildClientMessage(
+        'dice.roll',
+        { dice: [1, 2, 3, 4, 5] },
+        { roomId: MOCK_ROOM_ID, msgId: 'roll-1' },
+      ),
+    )
+    client.send(
+      buildClientMessage(
+        'round.submit',
+        {
+          roundNumber: 1,
+          dice: [1, 2, 3, 4, 5],
+          category: 'choice',
+        },
+        { roomId: MOCK_ROOM_ID, msgId: 'submit-1' },
+      ),
+    )
+
+    expect(listener.mock.calls.map(([message]) => message.type)).toEqual([
+      'dice.broadcast',
+      'score.update',
+      'round.end',
+    ])
+    expect(listener.mock.calls[1]?.[0].payload.scoreboard.categories.choice).toBe(16)
   })
 
   it('재접속 snapshot을 제공하고 미처리 이벤트를 실패시킨다', () => {
