@@ -45,6 +45,17 @@
  * ============================================================================
  */
 
+import type { DiceSet } from '@/domain/dice'
+import type { YachtCategory } from '@/domain/scoring'
+
+export type { DiceSet, DiceValue } from '@/domain/dice'
+export type { YachtCategory, YachtLowerCategory, YachtUpperCategory } from '@/domain/scoring'
+export {
+  UPPER_BONUS_POINTS,
+  UPPER_BONUS_THRESHOLD,
+  YACHT_CATEGORIES,
+} from '@/domain/scoring'
+
 export const WS_PROTOCOL_VERSION = 1 as const
 
 /* ============================================================================
@@ -81,10 +92,6 @@ export interface RoomSnapshot {
 // 종류는 프론트 이모지 셋과 협의. 문자열 유니온으로 고정해 오타를 컴파일 타임에 차단.
 export type ReactionType = 'like' | 'laugh' | 'shock' | 'clap' | 'gg'
 
-/* ----- 게임 도메인 원시 타입 (⚠️ STUB) ----- */
-export type DiceValue = 1 | 2 | 3 | 4 | 5 | 6
-export type DiceSet = DiceValue[] // 요트다이스 = 5개
-
 /** ⚠️ STUB · owner: 고용훈(라운드) + 유상은(점수). 최종 필드 협의 필요. */
 export interface GameState {
   roundNumber: number
@@ -109,36 +116,6 @@ export interface GameState {
  *  ※ 임의 족보에 0점 기록(포기)은 category 선택 그대로 + 점수 0 처리 → 별도 필드 불필요.
  *  ※ 3 of a Kind 없음(정규룰 = 12족보, 야찌 13족보와 구분).
  */
-export type YachtUpperCategory = 'ones' | 'twos' | 'threes' | 'fours' | 'fives' | 'sixes'
-export type YachtLowerCategory =
-  | 'choice'
-  | 'fourOfAKind'
-  | 'fullHouse'
-  | 'smallStraight'
-  | 'largeStraight'
-  | 'yacht'
-export type YachtCategory = YachtUpperCategory | YachtLowerCategory
-
-/** 족보 순회·검증용 상수(단일 출처). FE 점수판 렌더도 이 순서 참고 가능. */
-export const YACHT_CATEGORIES: readonly YachtCategory[] = [
-  'ones',
-  'twos',
-  'threes',
-  'fours',
-  'fives',
-  'sixes',
-  'choice',
-  'fourOfAKind',
-  'fullHouse',
-  'smallStraight',
-  'largeStraight',
-  'yacht',
-] as const
-
-/** 상단 보너스 규칙(정규룰): 상단 소계 ≥ 임계값 → 보너스. ✔ 63 → 35 확정. */
-export const UPPER_BONUS_THRESHOLD = 63
-export const UPPER_BONUS_POINTS = 35
-
 /** 한 플레이어의 점수판. total 등 파생값은 서버가 계산해서 실어 보냄(클라 재계산 X). */
 export interface ScoreBoard {
   /** 족보별 점수. null = 미기입, number = 확정(0 = 포기). */
