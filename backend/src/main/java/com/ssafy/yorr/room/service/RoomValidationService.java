@@ -1,70 +1,101 @@
 package com.ssafy.yorr.room.service;
 
 import com.ssafy.yorr.room.RoomRedisKeys;
-import com.ssafy.yorr.room.dto.RoomStatusDTO;
-import lombok.AllArgsConstructor;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
+import com.ssafy.yorr.room.dto.GameStartResponse;
+import com.ssafy.yorr.room.dto.JoinResult;
+import com.ssafy.yorr.room.dto.RoomPhase;
+import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
+import com.ssafy.yorr.room.dto.RoomSnapshot;
+import com.ssafy.yorr.user.UserIdentity;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
-@Service
-@AllArgsConstructor
-public class RoomValidationService {
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
-    private static final DefaultRedisScript<Long> JOIN_ROOM = new DefaultRedisScript<>("""
+@Service
+@RequiredArgsConstructor
+public class RoomValidationService implements RoomService {
+
+    private static final DefaultRedisScript<Long> JOIN = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
-            if redis.call('SISMEMBER', KEYS[2], ARGV[1]) == 1 then return 4 end
-            if redis.call('HGET', KEYS[1], 'started') == 'true' then return 2 end
-            if tonumber(redis.call('HGET', KEYS[1], 'members')) >= tonumber(redis.call('HGET', KEYS[1], 'capacity')) then return 3 end
-            redis.call('SADD', KEYS[2], ARGV[1])
+            if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 2 end
+            if redis.call('HEXISTS', KEYS[2], ARGV[1]) == 1 then return 4 end
+            if redis.call('HLEN', KEYS[2]) >= tonumber(redis.call('HGET', KEYS[1], 'capacity')) then return 3 end
+            redis.call('HSET', KEYS[2], ARGV[1], ARGV[2])
+            redis.call('HSET', KEYS[3], ARGV[1], '0')
             redis.call('HINCRBY', KEYS[1], 'members', 1)
             local ttl = redis.call('PTTL', KEYS[1])
-            if ttl > 0 then redis.call('PEXPIRE', KEYS[2], ttl) end
+            if ttl > 0 then redis.call('PEXPIRE', KEYS[2], ttl); redis.call('PEXPIRE', KEYS[3], ttl) end
             return 1
             """, Long.class);
-    private static final DefaultRedisScript<Long> START_GAME = new DefaultRedisScript<>("""
-            if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
-            if redis.call('HGET', KEYS[1], 'started') == 'true' then return 0 end
-            if tonumber(redis.call('HGET', KEYS[1], 'members')) < tonumber(redis.call('HGET', KEYS[1], 'capacity')) then return 0 end
-            redis.call('HSET', KEYS[1], 'started', 'true')
-            return 1
-            """, Long.class);
-    private static final DefaultRedisScript<Long> LEAVE_ROOM = new DefaultRedisScript<>("""
+    private static final DefaultRedisScript<Long> LEAVE = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
-            if redis.call('SREM', KEYS[2], ARGV[1]) == 0 then return -1 end
+            if redis.call('HDEL', KEYS[2], ARGV[1]) == 0 then return -1 end
+            redis.call('HDEL', KEYS[3], ARGV[1])
             local members = redis.call('HINCRBY', KEYS[1], 'members', -1)
-            if members <= 0 then
-                redis.call('DEL', KEYS[1])
-                redis.call('DEL', KEYS[2])
-                return 0
-            end
-            return members
+            if members <= 0 then redis.call('DEL', KEYS[1]); redis.call('DEL', KEYS[2]); redis.call('DEL', KEYS[3]); return 0 end
+            return 1
+            """, Long.class);
+    private static final DefaultRedisScript<Long> START = new DefaultRedisScript<>("""
+            if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
+            if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 0 end
+            if redis.call('HLEN', KEYS[2]) < tonumber(redis.call('HGET', KEYS[1], 'capacity')) then return 0 end
+            redis.call('HSET', KEYS[1], 'phase', 'PLAYING', 'gameId', ARGV[1])
+            redis.call('HSET', KEYS[3], 'roomCode', ARGV[2])
+            local ttl = redis.call('PTTL', KEYS[1])
+            if ttl > 0 then redis.call('PEXPIRE', KEYS[3], ttl) end
+            return 1
             """, Long.class);
 
     private final RedisTemplate<String, String> redisTemplate;
 
-    public RoomStatusDTO getStatus(String id) {
-        var room = redisTemplate.<Object, Object>opsForHash().entries(RoomRedisKeys.PREFIX + id);
-        if (room.isEmpty()) return RoomStatusDTO.notFound();
-        return new RoomStatusDTO(true, Integer.parseInt((String) room.get(RoomRedisKeys.CAPACITY)),
-                Integer.parseInt((String) room.get(RoomRedisKeys.MEMBERS)),
-                Boolean.parseBoolean((String) room.get(RoomRedisKeys.STARTED)));
+    @Override
+    public JoinResult join(String roomCode, UserIdentity user, String sessionToken) {
+        Long result = redisTemplate.execute(JOIN, List.of(RoomRedisKeys.roomKey(roomCode),
+                RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode)), user.userId(), user.nickname());
+        if (Long.valueOf(0).equals(result)) throw new IllegalArgumentException("room_not_found");
+        if (Long.valueOf(2).equals(result)) throw new IllegalStateException("game_started");
+        if (Long.valueOf(3).equals(result)) throw new IllegalStateException("room_full");
+        return new JoinResult(user.userId(), sessionToken, getSnapshot(roomCode));
     }
 
-    public long joinRoom(String id, String playerId) {
-        Long result = redisTemplate.execute(JOIN_ROOM,
-                java.util.List.of(RoomRedisKeys.PREFIX + id, RoomRedisKeys.membersKey(id)), playerId);
-        return result == null ? 0 : result;
+    @Override
+    public boolean leave(String roomCode, String playerId) {
+        Long result = redisTemplate.execute(LEAVE, List.of(RoomRedisKeys.roomKey(roomCode),
+                RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode)), playerId);
+        return result != null && result >= 0;
     }
 
-    public boolean startGame(String id) {
-        Long result = redisTemplate.execute(START_GAME, java.util.List.of(RoomRedisKeys.PREFIX + id));
-        return Long.valueOf(1).equals(result);
+    @Override
+    public RoomSnapshot getSnapshot(String roomCode) {
+        Map<Object, Object> room = redisTemplate.<Object, Object>opsForHash().entries(RoomRedisKeys.roomKey(roomCode));
+        if (room.isEmpty()) return RoomSnapshot.notFound(roomCode);
+        Map<Object, Object> players = redisTemplate.<Object, Object>opsForHash().entries(RoomRedisKeys.playersKey(roomCode));
+        Map<Object, Object> scores = redisTemplate.<Object, Object>opsForHash().entries(RoomRedisKeys.scoresKey(roomCode));
+        List<RoomPlayerSnapshot> snapshots = players.entrySet().stream()
+                .map(player -> new RoomPlayerSnapshot((String) player.getKey(), (String) player.getValue(),
+                        Integer.parseInt((String) scores.getOrDefault(player.getKey(), "0"))))
+                .sorted(Comparator.comparing(RoomPlayerSnapshot::playerId))
+                .toList();
+        return new RoomSnapshot(roomCode, (String) room.get("gameId"), (String) room.get("hostId"),
+                RoomPhase.valueOf((String) room.get("phase")), Integer.parseInt((String) room.get("capacity")), snapshots);
     }
 
-    public long leaveRoom(String id, String playerId) {
-        Long result = redisTemplate.execute(LEAVE_ROOM,
-                java.util.List.of(RoomRedisKeys.PREFIX + id, RoomRedisKeys.membersKey(id)), playerId);
-        return result == null ? -1 : result;
+    public GameStartResponse startGame(String roomCode) {
+        String gameId = UUID.randomUUID().toString();
+        Long result = redisTemplate.execute(START, List.of(RoomRedisKeys.roomKey(roomCode), RoomRedisKeys.playersKey(roomCode),
+                RoomRedisKeys.gameKey(gameId)), gameId, roomCode);
+        if (!Long.valueOf(1).equals(result)) throw new IllegalStateException("game_not_ready");
+        return new GameStartResponse(gameId, getSnapshot(roomCode));
+    }
+
+    public RoomSnapshot getGameSnapshot(String gameId) {
+        Object roomCode = redisTemplate.<Object, Object>opsForHash().get(RoomRedisKeys.gameKey(gameId), "roomCode");
+        return roomCode == null ? RoomSnapshot.notFound(null) : getSnapshot((String) roomCode);
     }
 }

@@ -2,12 +2,21 @@ package com.ssafy.yorr.room;
 
 public final class RoomRedisKeys {
     public static final String PREFIX = "room:";
-    public static final String CAPACITY = "capacity";
-    public static final String MEMBERS = "members";
-    public static final String STARTED = "started";
 
-    public static String membersKey(String roomId) {
-        return PREFIX + roomId + ":members";
+    public static String roomKey(String roomCode) {
+        return PREFIX + roomCode;
+    }
+
+    public static String playersKey(String roomCode) {
+        return roomKey(roomCode) + ":players";
+    }
+
+    public static String scoresKey(String roomCode) {
+        return roomKey(roomCode) + ":scores";
+    }
+
+    public static String gameKey(String gameId) {
+        return "game:" + gameId;
     }
 
     private RoomRedisKeys() {}
