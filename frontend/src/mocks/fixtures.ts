@@ -41,18 +41,25 @@ export const waitingRoomSnapshot: RoomSnapshot = {
   players: [creatorPlayer, participantPlayer],
 }
 
-export const playingRoomSnapshot: RoomSnapshot = {
-  ...waitingRoomSnapshot,
-  phase: 'playing',
-  game: {
-    roundNumber: 1,
-    roundDeadline: 1_753_000_060_000,
-    scores: {
-      [creatorPlayer.playerId]: createEmptyScoreBoard(),
-      [participantPlayer.playerId]: createEmptyScoreBoard(),
+export const MOCK_ROUND_DURATION_MS = 30_000
+
+export function createPlayingRoomSnapshot(roundDeadline: number): RoomSnapshot {
+  return {
+    ...waitingRoomSnapshot,
+    phase: 'playing',
+    game: {
+      roundNumber: 1,
+      roundDeadline,
+      scores: {
+        [creatorPlayer.playerId]: createEmptyScoreBoard(),
+        [participantPlayer.playerId]: createEmptyScoreBoard(),
+      },
     },
-  },
+  }
 }
+
+/** 테스트용 고정 스냅샷. 실행 중인 mock 서버는 아래 handler에서 현재 시각 기준 deadline을 준다. */
+export const playingRoomSnapshot: RoomSnapshot = createPlayingRoomSnapshot(1_753_000_060_000)
 
 export const creatorSession = {
   roomId: MOCK_ROOM_ID,

@@ -8,6 +8,7 @@
       "!test-results",
       "!ref",
       "!docs",
+      "!design_handoff_yorr_landing",
       "!public/mockServiceWorker.js"
     ]
   },

@@ -19,7 +19,8 @@
 
   body {
     min-width: 320px;
-    min-height: 100vh;
+    /* dvh를 써야 iOS 브라우저 크롬이 접혔다 펴질 때 100svh 화면 아래로 빈 스크롤이 생기지 않는다. */
+    min-height: 100dvh;
     margin: 0;
     color: var(--ds-color-content);
     background:

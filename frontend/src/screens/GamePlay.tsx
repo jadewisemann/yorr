@@ -1,0 +1,575 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSubmitScore } from '@/api/useGameApi'
+import { cn } from '@/cn'
+import { BottomSheet } from '@/components/BottomSheet'
+import { Button } from '@/components/Button'
+import { CategorySheet } from '@/components/CategorySheet'
+import { ConnectionBanner } from '@/components/ConnectionBanner'
+import { KeepTray } from '@/components/KeepTray'
+import { Modal } from '@/components/Modal'
+import { PhysicsDiceScene } from '@/components/PhysicsDiceScene'
+import {
+  type PlayerProgress,
+  type PlayerProgressEntry,
+  PlayerProgressStrip,
+} from '@/components/PlayerProgressStrip'
+import { RollCounter } from '@/components/RollCounter'
+import { RoundTimer } from '@/components/RoundTimer'
+import { ScoreMatrix } from '@/components/ScoreMatrix'
+import { ScorePanel } from '@/components/ScorePanel'
+import { ToastHost, useToast } from '@/components/ToastHost'
+import type { DiceIndex } from '@/domain/dice'
+import {
+  type CategoryScores,
+  calculateScoreCandidates,
+  YACHT_CATEGORIES,
+  type YachtCategory,
+} from '@/domain/scoring'
+import {
+  createYachtGame,
+  getPendingRoll,
+  type YachtGameAction,
+  yachtGameReducer,
+} from '@/domain/yachtGame'
+import type { Player, PlayerId, RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
+import { type ActiveRoomSession, useAppStore } from '@/store'
+import { useCountdown } from '@/useCountdown'
+import { useMediaQuery } from '@/useMediaQuery'
+import { categoryLabel, categoryShortLabel, isRecorded } from '@/yachtCategoryView'
+
+/** 이 폭부터 점수표를 시트 대신 좌측 상시 패널로 승격한다(와이어프레임 1c). */
+const WIDE_LAYOUT = '(min-width: 1024px)'
+const TOTAL_ROUNDS = 12
+const MAX_ROLLS = 3
+
+interface GamePlayProps {
+  roomId: string
+  session: ActiveRoomSession
+  snapshot: RoomSnapshot
+}
+
+export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
+  const wide = useMediaQuery(WIDE_LAYOUT)
+  const connectionStatus = useAppStore((state) => state.connectionStatus)
+  const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)
+  const submitScore = useSubmitScore()
+  const { message: toastMessage, showToast } = useToast()
+
+  const [tab, setTab] = useState<'dice' | 'scores'>('dice')
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [zeroConfirm, setZeroConfirm] = useState<YachtCategory | null>(null)
+  const [viewedPlayerId, setViewedPlayerId] = useState<PlayerId>(session.you)
+
+  const game = snapshot.game
+  const roundNumber = game?.roundNumber ?? 1
+  const remainingMs = useCountdown(game?.roundDeadline ?? null)
+  const myBoard = game?.scores[session.you]
+  const viewedBoard = game?.scores[viewedPlayerId]
+  const recorded = viewedBoard?.categories ?? {}
+
+  const [local, setLocal] = useState(() => createYachtGame(Date.now() >>> 0, roundNumber))
+  // 서버가 다음 라운드로 넘기면 로컬 굴림 상태를 새로 시작한다.
+  if (local.roundNumber !== roundNumber) setLocal(createYachtGame(local.seed, roundNumber))
+
+  const dispatch = useCallback((action: YachtGameAction) => {
+    setLocal((state) => yachtGameReducer(state, action))
+  }, [])
+
+  const usedCategories = YACHT_CATEGORIES.filter((category) =>
+    isRecorded(myBoard?.categories[category]),
+  )
+  const candidates: CategoryScores = local.dice
+    ? calculateScoreCandidates(local.dice, usedCategories)
+    : {}
+  const recommended = topCandidates(candidates)
+
+  // 재연결 중에는 조작을 잠근다. 서버 상태와 어긋난 굴림·확정이 가장 위험하다.
+  const locked = connectionStatus === 'reconnecting' || connectionStatus === 'closed'
+  const submitted = local.phase === 'roundComplete'
+  const rollsLeft = MAX_ROLLS - local.rollCount
+  const canRoll =
+    !locked &&
+    !submitted &&
+    rollsLeft > 0 &&
+    (local.phase === 'ready' || local.phase === 'choosing')
+  const canConfirm = !locked && local.phase === 'choosing' && local.selectedCategory !== null
+  const rolling = local.phase === 'rolling'
+  // CTA는 "굴리기 / 확정하기" 두 상태로만 고정한다. 굴림 중에는 라벨만 바꾸고 잠근다(1a 최대 리스크).
+  const primaryLabel = rolling ? '굴리는 중' : canRoll ? '굴리기' : '확정하기'
+
+  const players = toProgressEntries(snapshot.players, game?.scores, roundNumber, session.you)
+  const doneCount = players.filter((player) => player.progress === 'done').length
+
+  const mergeMyScoreBoard = useCallback(
+    (board: ScoreBoard) => {
+      const current = useAppStore.getState().roomSnapshot
+      if (!current?.game) return
+      replaceRoomSnapshot({
+        ...current,
+        game: { ...current.game, scores: { ...current.game.scores, [session.you]: board } },
+      })
+    },
+    [replaceRoomSnapshot, session.you],
+  )
+
+  const diceRef = useRef(local.dice)
+  diceRef.current = local.dice
+
+  const submitCategory = useCallback(
+    async (category: YachtCategory) => {
+      const dice = diceRef.current
+      if (!dice) return
+      dispatch({ type: 'categorySelected', category })
+      dispatch({ type: 'submissionStarted' })
+      const board = await submitScore.execute(roomId, { category, dice })
+      if (!board) {
+        dispatch({ type: 'submissionFailed' })
+        showToast('점수를 기록하지 못했어요. 다시 시도해 주세요.')
+        return
+      }
+      dispatch({ type: 'submissionSucceeded' })
+      setSheetOpen(false)
+      mergeMyScoreBoard(board)
+    },
+    [dispatch, mergeMyScoreBoard, roomId, showToast, submitScore.execute],
+  )
+
+  const rollSequenceRef = useRef(0)
+  const handleRoll = () => {
+    if (!canRoll) return
+    rollSequenceRef.current += 1
+    dispatch({ type: 'rollRequested', requestId: `r${roundNumber}-${rollSequenceRef.current}` })
+  }
+
+  const handleConfirm = () => {
+    const category = local.selectedCategory
+    if (!category || !canConfirm) return
+    if ((candidates[category] ?? 0) === 0) {
+      setZeroConfirm(category)
+      return
+    }
+    void submitCategory(category)
+  }
+
+  // 마지막 굴림이 끝나면 족보 시트를 자동으로 연다(1d 인터랙션 명세).
+  useEffect(() => {
+    if (wide || submitted) return
+    if (local.phase === 'choosing' && local.rollCount >= MAX_ROLLS) setSheetOpen(true)
+  }, [local.phase, local.rollCount, submitted, wide])
+
+  useTimeoutAutoRecord({
+    candidates,
+    // 'choosing'이 아니면 reducer가 기록 전이를 거부한다. 서버에만 기록되는 어긋남을 막는다.
+    enabled: !locked && !submitted && local.phase === 'choosing' && local.dice !== null,
+    expired: game?.roundDeadline !== undefined && remainingMs <= 0,
+    onRecord: (category, score) => {
+      showToast(`시간이 지나 ${categoryLabel[category]} ${score}점이 기록됐습니다.`)
+      void submitCategory(category)
+    },
+    roundNumber,
+  })
+
+  useShortcuts(wide, { onConfirm: handleConfirm, onRoll: handleRoll, dispatch })
+
+  const diceScene = (
+    <div className="relative min-h-0 flex-1">
+      <PhysicsDiceScene
+        dice={local.dice}
+        held={local.held}
+        onHeldToggle={(index) => dispatch({ type: 'holdToggled', index })}
+        onRollComplete={(requestId) => dispatch({ type: 'rollCompleted', requestId })}
+        request={getPendingRoll(local)}
+      />
+    </div>
+  )
+
+  const header = (
+    <header className="flex-none px-gutter pt-3">
+      {/* 화면 최상위 heading. 시각적으로는 RoundTimer가 같은 정보를 그린다. */}
+      <h1 className="sr-only">
+        요르 게임 진행 중 · {roundNumber} / {TOTAL_ROUNDS} 라운드
+      </h1>
+      <RoundTimer remainingMs={remainingMs} roundNumber={roundNumber} totalRounds={TOTAL_ROUNDS} />
+      <PlayerProgressStrip className="mt-2.5" players={players} />
+    </header>
+  )
+
+  // 내 차례가 끝나면 CTA 자리를 진행 표시로 바꾼다. 빈 화면을 만들지 않는다(1d).
+  const waitingNotice = (
+    <p className="m-0 flex min-h-15 flex-1 items-center justify-center rounded-panel border border-dashed border-border px-4 text-center text-sm font-semibold text-content-muted">
+      {snapshot.players.length}명 중 {doneCount + 1}명 완료 · 다음 라운드를 기다리는 중
+    </p>
+  )
+
+  const zeroModal = (
+    <ZeroScoreModal
+      category={zeroConfirm}
+      onCancel={() => setZeroConfirm(null)}
+      onConfirm={() => {
+        const category = zeroConfirm
+        setZeroConfirm(null)
+        if (category) void submitCategory(category)
+      }}
+    />
+  )
+
+  // 넓은 화면에는 탭이 없다 — 점수표가 좌측 상시 패널로 항상 떠 있다.
+  const showDice = wide || tab === 'dice'
+
+  const keyboardHint = (
+    <p className="m-0 px-gutter text-center text-xs text-content-faint">
+      웹에는 센서가 없습니다 — 클릭으로 굴리고 Space·Enter·1~5 키도 씁니다
+    </p>
+  )
+
+  const recommendations = (
+    <section className="flex-none px-gutter">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h2 className="m-0 text-[11px] font-semibold text-content-muted">추천 족보</h2>
+        <button
+          className="-mr-1 min-h-tap cursor-pointer border-0 bg-transparent px-1 text-[11.5px] font-semibold text-content underline focus-visible:outline-3 focus-visible:outline-focus"
+          onClick={() => setSheetOpen(true)}
+          type="button"
+        >
+          전체 {YACHT_CATEGORIES.length}개 ▸
+        </button>
+      </div>
+      <ul className="grid list-none grid-cols-3 gap-2 p-0">
+        {recommended.length === 0 ? (
+          <li className="col-span-3 rounded-card border border-dashed border-border py-4 text-center text-[11.5px] text-content-faint">
+            주사위를 굴리면 추천 족보가 나타납니다
+          </li>
+        ) : (
+          recommended.map(([category, score], index) => (
+            <li key={category}>
+              <button
+                className={cn(
+                  'flex min-h-[3.625rem] w-full cursor-pointer flex-col items-center justify-center gap-px rounded-card bg-surface transition-colors focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2 disabled:cursor-not-allowed',
+                  local.selectedCategory === category
+                    ? 'border-2 border-brand'
+                    : 'border border-border',
+                )}
+                disabled={locked || submitted}
+                key={category}
+                onClick={() => {
+                  dispatch({ type: 'categorySelected', category })
+                  setSheetOpen(true)
+                }}
+                type="button"
+              >
+                <span className="text-[11px] font-semibold text-content">
+                  {categoryShortLabel[category]}
+                </span>
+                <span className="font-mono text-[18px] font-bold text-content tabular-nums">
+                  {score}
+                </span>
+                <span className="text-[9px] font-semibold text-content-faint">
+                  {index === 0 ? '최고 점수' : '사용 가능'}
+                </span>
+              </button>
+            </li>
+          ))
+        )}
+      </ul>
+    </section>
+  )
+
+  const actions = submitted ? (
+    waitingNotice
+  ) : wide ? (
+    <>
+      <Button
+        className="min-h-15 w-[300px] rounded-panel text-[17px]"
+        disabled={!canRoll}
+        loading={rolling}
+        onClick={handleRoll}
+        size="lg"
+      >
+        {rolling ? '굴리는 중' : '굴리기'}
+        {!rolling && <span className="ml-2 text-xs font-medium opacity-70">Space</span>}
+      </Button>
+      <Button
+        className="min-h-15 w-[220px] rounded-panel text-[15px]"
+        disabled={!canConfirm}
+        loading={submitScore.isLoading}
+        onClick={handleConfirm}
+        size="lg"
+        variant="secondary"
+      >
+        확정하기 <span className="ml-2 text-xs font-medium">Enter</span>
+      </Button>
+    </>
+  ) : (
+    <Button
+      className="min-h-15 flex-1 rounded-panel text-[17px]"
+      disabled={!(canRoll || canConfirm)}
+      loading={submitScore.isLoading || rolling}
+      onClick={canRoll ? handleRoll : handleConfirm}
+      size="lg"
+    >
+      {primaryLabel}
+    </Button>
+  )
+
+  return (
+    <>
+      {/*
+        레이아웃과 탭이 바뀌어도 트리 한 벌만 쓴다. 넓이별로 다른 트리를 반환하면
+        React가 위치가 같고 타입이 다른 노드를 갈아끼우면서 주사위 영역을 언마운트하고,
+        그때마다 rapier 물리 월드와 WebGL 컨텍스트가 통째로 재생성된다.
+      */}
+      <main
+        className={cn(
+          'h-svh bg-canvas text-content',
+          wide ? 'grid grid-cols-[360px_1fr]' : 'flex flex-col',
+        )}
+      >
+        {wide ? (
+          <ScorePanel
+            candidates={candidates}
+            onSelect={(category) => dispatch({ type: 'categorySelected', category })}
+            onViewPlayer={setViewedPlayerId}
+            players={snapshot.players}
+            recorded={recorded}
+            selectedCategory={local.selectedCategory}
+            total={viewedBoard?.total ?? 0}
+            upperSubtotal={viewedBoard?.upperSubtotal ?? 0}
+            viewedPlayerId={viewedPlayerId}
+            you={session.you}
+          />
+        ) : null}
+
+        <div className="flex min-h-0 flex-1 flex-col">
+          <ConnectionBanner status={connectionStatus} />
+          {header}
+
+          {/* 점수표 탭에서도 감추기만 한다 — 언마운트하면 물리 월드를 다시 만든다. */}
+          <div className={cn('flex min-h-0 flex-1 flex-col', !showDice && 'hidden')}>
+            <KeepTray
+              className={cn('mx-gutter flex-none', wide ? 'mt-4' : 'mt-3')}
+              dice={local.dice}
+              held={local.held}
+              locked={locked || local.rollCount >= MAX_ROLLS}
+              onRelease={(index) => dispatch({ type: 'holdToggled', index })}
+            />
+            {diceScene}
+            {wide ? keyboardHint : recommendations}
+            <footer
+              className={cn(
+                'flex flex-none items-center px-gutter',
+                wide ? 'gap-4 py-5' : 'gap-3 pt-3',
+              )}
+            >
+              <RollCounter rollsUsed={local.rollCount} />
+              {actions}
+            </footer>
+          </div>
+
+          {!wide && tab === 'scores' ? (
+            <ScoreMatrix
+              className="min-h-0 flex-1"
+              players={toMatrixPlayers(snapshot.players, game?.scores, session.you)}
+            />
+          ) : null}
+
+          {wide ? null : (
+            <nav
+              aria-label="게임 화면 전환"
+              className="mt-3 flex flex-none border-t border-border pb-[env(safe-area-inset-bottom)]"
+            >
+              {(['dice', 'scores'] as const).map((value) => (
+                <button
+                  aria-current={tab === value}
+                  className={cn(
+                    'min-h-14 flex-1 cursor-pointer border-0 bg-transparent text-[13px] focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-[-3px]',
+                    tab === value
+                      ? 'border-b-[3px] border-brand font-bold text-content'
+                      : 'font-semibold text-content-muted',
+                  )}
+                  key={value}
+                  onClick={() => setTab(value)}
+                  type="button"
+                >
+                  {value === 'dice' ? '주사위' : '점수표'}
+                </button>
+              ))}
+            </nav>
+          )}
+        </div>
+      </main>
+
+      {wide ? null : (
+        <BottomSheet onClose={() => setSheetOpen(false)} open={sheetOpen} title="족보 선택">
+          <CategorySheet
+            candidates={candidates}
+            onConfirm={handleConfirm}
+            onSelect={(category) => dispatch({ type: 'categorySelected', category })}
+            recorded={myBoard?.categories ?? {}}
+            selectedCategory={local.selectedCategory}
+            submitting={submitScore.isLoading}
+            total={myBoard?.total ?? 0}
+          />
+        </BottomSheet>
+      )}
+
+      <ToastHost message={toastMessage} />
+      {zeroModal}
+    </>
+  )
+}
+
+function ZeroScoreModal({
+  category,
+  onCancel,
+  onConfirm,
+}: {
+  category: YachtCategory | null
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <Modal
+      onClose={onCancel}
+      open={category !== null}
+      title={category ? `${categoryLabel[category]}를 0점으로 확정할까요?` : ''}
+    >
+      <p className="m-0 text-sm text-content-muted">이 족보는 다시 사용할 수 없습니다.</p>
+      <div className="mt-5 flex gap-2">
+        <Button className="flex-1" onClick={onCancel} variant="secondary">
+          취소
+        </Button>
+        <Button className="flex-1" onClick={onConfirm}>
+          0점 확정
+        </Button>
+      </div>
+    </Modal>
+  )
+}
+
+/** 웹 전용 단축키. 리스너를 매 렌더 다시 붙이지 않도록 최신 핸들러만 ref로 넘긴다. */
+function useShortcuts(
+  enabled: boolean,
+  handlers: {
+    dispatch: (action: YachtGameAction) => void
+    onConfirm: () => void
+    onRoll: () => void
+  },
+) {
+  const handlersRef = useRef(handlers)
+  handlersRef.current = handlers
+
+  useEffect(() => {
+    if (!enabled) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      // 버튼·입력처럼 Space·Enter가 고유 동작인 요소에 포커스가 있으면 단축키를 양보한다.
+      // 여기서 preventDefault하면 그 요소의 활성화 자체가 막힌다.
+      if (
+        event.target instanceof Element &&
+        event.target.closest(
+          'a[href],button,input,select,textarea,[contenteditable],[role="button"]',
+        )
+      ) {
+        return
+      }
+      if (event.code === 'Space') {
+        event.preventDefault()
+        handlersRef.current.onRoll()
+        return
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        handlersRef.current.onConfirm()
+        return
+      }
+      const slot = Number(event.key)
+      if (Number.isInteger(slot) && slot >= 1 && slot <= 5) {
+        handlersRef.current.dispatch({ type: 'holdToggled', index: (slot - 1) as DiceIndex })
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [enabled])
+}
+
+/**
+ * 시간이 다 되면 남은 족보 중 최고 점수를 자동 기록한다. 조작을 막는 모달은 띄우지 않는다.
+ * ⚠️ 이 규칙(최고점 자동 vs 최저 손실)은 와이어프레임 1d에서 제품 결정 대기 항목이다.
+ */
+function useTimeoutAutoRecord({
+  candidates,
+  enabled,
+  expired,
+  onRecord,
+  roundNumber,
+}: {
+  candidates: CategoryScores
+  enabled: boolean
+  expired: boolean
+  onRecord: (category: YachtCategory, score: number) => void
+  roundNumber: number
+}) {
+  const latestRef = useRef({ candidates, onRecord })
+  const recordedRoundRef = useRef<number | null>(null)
+  latestRef.current = { candidates, onRecord }
+
+  useEffect(() => {
+    if (!expired || !enabled) return
+    if (recordedRoundRef.current === roundNumber) return
+    const best = topCandidates(latestRef.current.candidates)[0]
+    if (!best) return
+    recordedRoundRef.current = roundNumber
+    latestRef.current.onRecord(best[0], best[1])
+  }, [enabled, expired, roundNumber])
+}
+
+function topCandidates(candidates: CategoryScores): Array<[YachtCategory, number]> {
+  return (Object.entries(candidates) as Array<[YachtCategory, number]>)
+    .sort(([, left], [, right]) => right - left)
+    .slice(0, 3)
+}
+
+function toProgressEntries(
+  players: Player[],
+  scores: Record<PlayerId, ScoreBoard> | undefined,
+  roundNumber: number,
+  you: PlayerId,
+): PlayerProgressEntry[] {
+  return players
+    .filter((player) => player.playerId !== you)
+    .map((player) => ({
+      nickname: player.nickname,
+      playerId: player.playerId,
+      progress: progressOf(player, scores?.[player.playerId], roundNumber),
+    }))
+}
+
+/**
+ * 서버 계약에 플레이어별 "굴리는 중/완료" 필드가 없다.
+ * 점수판에 채워진 칸 수가 끝낸 라운드 수와 같으므로 그걸로 유추한다.
+ */
+function progressOf(
+  player: Player,
+  board: ScoreBoard | undefined,
+  roundNumber: number,
+): PlayerProgress {
+  if (player.status !== 'online') return 'reconnecting'
+  const filled = YACHT_CATEGORIES.filter((category) => isRecorded(board?.categories[category]))
+  return filled.length >= roundNumber ? 'done' : 'rolling'
+}
+
+function toMatrixPlayers(
+  players: Player[],
+  scores: Record<PlayerId, ScoreBoard> | undefined,
+  you: PlayerId,
+) {
+  const ordered = [...players].sort((left, right) => {
+    if (left.playerId === you) return -1
+    if (right.playerId === you) return 1
+    return 0
+  })
+  return ordered.map((player) => ({
+    nickname: player.playerId === you ? '나' : player.nickname,
+    playerId: player.playerId,
+    scoreboard: scores?.[player.playerId],
+  }))
+}

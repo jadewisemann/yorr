@@ -3,9 +3,10 @@ import { expect, test } from '@playwright/test'
 test('shows the mobile entry screen', async ({ page }) => {
   await page.goto('/')
 
-  await expect(page.getByRole('heading', { name: 'YORR' })).toBeVisible()
+  await expect(page.getByText('YORR', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
   await expect(page.getByRole('button', { name: '방 만들기' })).toBeVisible()
-  await expect(page.getByRole('textbox', { name: '초대 코드' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: '방 코드' })).toBeVisible()
 })
 
 test('opens a valid invite link at nickname entry', async ({ page }) => {

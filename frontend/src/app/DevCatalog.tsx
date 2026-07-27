@@ -86,9 +86,11 @@ export function DevCatalog() {
           <PlayerCard name="요르" score={92} status="offline" />
         </div>
         <div className="grid gap-2">
-          <ScoreRow label="Full House" score={28} selected onSelect={() => undefined} />
+          <ScoreRow label="Full House" score={28} state="selected" onSelect={() => undefined} />
           <ScoreRow label="Yacht" score={50} onSelect={() => undefined} />
-          <ScoreRow label="Choice" disabled onSelect={() => undefined} />
+          <ScoreRow label="Choice" score={17} state="used" onSelect={() => undefined} />
+          <ScoreRow label="4 of a Kind" score={0} state="zeroed" onSelect={() => undefined} />
+          <ScoreRow label="S. Straight" score={15} size="sm" onSelect={() => undefined} />
         </div>
       </section>
 
