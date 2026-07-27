@@ -19,6 +19,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry){
         registry
                 .addHandler(gameWebSocketHandler, "/ws/v1/game")
-                .setAllowedOrigins("*"); // 배포 때는 프론트 도메인만 허용으로 바꿔야함
+                .setAllowedOrigins(
+                        "https://yorr-testground.vercel.app",
+                        "https://yorr-playground.vercel.app"
+                ); // 배포 때는 프론트 도메인만 허용으로 바꿔야함
     }
 }
