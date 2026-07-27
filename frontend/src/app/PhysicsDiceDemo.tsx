@@ -19,6 +19,7 @@ export function PhysicsDiceDemo() {
   const [dice, setDice] = useState<DiceSet | null>(null)
   const [held, setHeld] = useState<HeldDice>(NO_HELD_DICE)
   const [request, setRequest] = useState<PhysicsDiceRollRequest | null>(null)
+  const [releaseRequestId, setReleaseRequestId] = useState<string | null>(null)
   const [quality, setQuality] = useState<PhysicsDiceQuality>('balanced')
   const [phase, setPhase] = useState<PhysicsDicePhase>('idle')
   const seedRef = useRef(73)
@@ -35,6 +36,7 @@ export function PhysicsDiceDemo() {
       seed: seedRef.current,
     })
     nextSeedRef.current = plan.nextSeed
+    setReleaseRequestId(null)
     setRequest(plan)
   }
 
@@ -43,6 +45,7 @@ export function PhysicsDiceDemo() {
       if (!current || current.requestId !== requestId) return current
       setDice(completedDice)
       seedRef.current = nextSeedRef.current
+      setReleaseRequestId(null)
       return null
     })
   }
@@ -57,6 +60,13 @@ export function PhysicsDiceDemo() {
       <div className="flex flex-wrap items-center gap-3">
         <Button onClick={roll} disabled={Boolean(request)}>
           {request ? '굴리는 중' : '3D 주사위 굴리기'}
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => setReleaseRequestId(request?.requestId ?? null)}
+          disabled={!request || phase !== 'shaking'}
+        >
+          던지기
         </Button>
         <label className="flex items-center gap-2 text-sm text-content-muted">
           품질
@@ -77,6 +87,7 @@ export function PhysicsDiceDemo() {
         <PhysicsDiceScene
           dice={dice}
           held={held}
+          releaseRequestId={releaseRequestId}
           request={request}
           quality={quality}
           onHeldToggle={toggle}

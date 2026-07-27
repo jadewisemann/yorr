@@ -367,7 +367,6 @@ export class PhysicsDiceWorld {
           )
         })
       }
-      if (time - this.shakeStartedAt >= SCENE.bowl.autoTiltMs) this.pour()
       return
     }
     if (this.phase !== 'pouring') return

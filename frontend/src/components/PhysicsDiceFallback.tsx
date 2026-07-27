@@ -13,6 +13,7 @@ type PhysicsDiceFallbackProps = {
   message?: string
   onHeldToggle?: (index: PhysicsDiceIndex) => void
   onRollComplete: (requestId: string, dice: PhysicsDiceSet) => void
+  releaseRequestId: string | null
   request: PhysicsDiceRollRequest | null
 }
 
@@ -25,17 +26,30 @@ export function PhysicsDiceFallback({
   message,
   onHeldToggle,
   onRollComplete,
+  releaseRequestId,
   request,
 }: PhysicsDiceFallbackProps) {
+  const onRollCompleteRef = useRef(onRollComplete)
   const completedRef = useRef(new Set<string>())
-  const displayedDice = request?.targetDice ?? dice ?? INITIAL_DICE
+  onRollCompleteRef.current = onRollComplete
+  const displayedDice =
+    request && releaseRequestId === request.requestId ? request.targetDice : (dice ?? INITIAL_DICE)
 
   useEffect(() => {
-    if (!request || completedRef.current.has(request.requestId)) return
-    completedRef.current.add(request.requestId)
-    const frame = requestAnimationFrame(() => onRollComplete(request.requestId, request.targetDice))
+    if (
+      !request ||
+      releaseRequestId !== request.requestId ||
+      completedRef.current.has(request.requestId)
+    ) {
+      return
+    }
+    const frame = requestAnimationFrame(() => {
+      if (completedRef.current.has(request.requestId)) return
+      completedRef.current.add(request.requestId)
+      onRollCompleteRef.current(request.requestId, request.targetDice)
+    })
     return () => cancelAnimationFrame(frame)
-  }, [onRollComplete, request])
+  }, [releaseRequestId, request])
 
   return (
     <section
@@ -56,6 +70,7 @@ export function PhysicsDiceFallback({
             disabled={!onHeldToggle || Boolean(request)}
             onClick={() => onHeldToggle?.(index as PhysicsDiceIndex)}
             aria-label={`${value} 주사위${held[index] ? ' KEEP 해제' : ' KEEP'}`}
+            aria-pressed={held[index] ?? false}
           >
             <Dice value={value} held={held[index] ?? false} rolling={Boolean(request)} size="sm" />
           </button>

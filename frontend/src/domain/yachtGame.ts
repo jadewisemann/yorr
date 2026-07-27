@@ -33,7 +33,7 @@ export interface YachtGameState {
 
 export type YachtGameAction =
   | { type: 'rollRequested'; requestId: string }
-  | { type: 'rollCompleted'; requestId: string }
+  | { type: 'rollCompleted'; requestId: string; dice?: DiceSet }
   | { type: 'holdToggled'; index: DiceIndex }
   | { type: 'categorySelected'; category: YachtCategory }
   | { type: 'submissionStarted' }
@@ -67,7 +67,7 @@ export function yachtGameReducer(state: YachtGameState, action: YachtGameAction)
     case 'rollRequested':
       return requestRoll(state, action.requestId)
     case 'rollCompleted':
-      return completeRoll(state, action.requestId)
+      return completeRoll(state, action.requestId, action.dice)
     case 'holdToggled':
       return toggleHold(state, action.index)
     case 'categorySelected':
@@ -120,7 +120,7 @@ function requestRoll(state: YachtGameState, requestId: string): YachtGameState {
   }
 }
 
-function completeRoll(state: YachtGameState, requestId: string): YachtGameState {
+function completeRoll(state: YachtGameState, requestId: string, dice?: DiceSet): YachtGameState {
   if (
     state.phase !== 'rolling' ||
     !state.pendingRoll ||
@@ -133,7 +133,7 @@ function completeRoll(state: YachtGameState, requestId: string): YachtGameState 
     ...state,
     phase: 'choosing',
     seed: state.pendingRoll.nextSeed,
-    dice: state.pendingRoll.targetDice,
+    dice: dice ?? state.pendingRoll.targetDice,
     rollCount: incrementRollCount(state.rollCount),
     pendingRoll: null,
   }
