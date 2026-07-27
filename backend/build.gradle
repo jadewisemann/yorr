@@ -45,6 +45,12 @@ dependencies {
 	// .env
 	developmentOnly platform('me.paulschwarz:spring-dotenv-bom:5.1.0')
 	developmentOnly 'me.paulschwarz:springboot4-dotenv'
+
+	// prometheus
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
