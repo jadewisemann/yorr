@@ -49,10 +49,11 @@ function isRoomSession(value: unknown): value is RoomSession {
     isString(value.roomId) &&
     isString(value.roomCode) &&
     isString(value.you) &&
+    isString(value.nickname) &&
     membershipRoles.includes(value.membershipRole as RoomMembershipRole) &&
     isString(value.sessionToken) &&
-    isRoomSnapshot(value.snapshot) &&
-    value.snapshot.roomId === value.roomId
+    (value.snapshot === null ||
+      (isRoomSnapshot(value.snapshot) && value.snapshot.roomId === value.roomId))
   )
 }
 

@@ -20,6 +20,15 @@ describe('room session storage', () => {
     expect(readRoomSession(storage)).toEqual(creatorSession)
   })
 
+  it('restores an entered room while realtime snapshot is pending', () => {
+    const storage = createStorage()
+    const pendingSession = { ...creatorSession, snapshot: null }
+
+    saveRoomSession(pendingSession, storage)
+
+    expect(readRoomSession(storage)).toEqual(pendingSession)
+  })
+
   it('rejects malformed or mismatched sessions', () => {
     const storage = createStorage()
     storage.setItem(

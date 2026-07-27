@@ -1,9 +1,8 @@
 import { delay, HttpResponse, http } from 'msw'
 import type {
-  CreateRoomRequest,
-  JoinRoomRequest,
+  EnterRoomRequest,
+  EnterRoomResponse,
   RoomSession,
-  RoomSessionResponse,
   SubmitScoreRequest,
 } from '@/api/gameApi'
 import {
@@ -42,22 +41,12 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
   return [
     http.post('/api/v1/rooms', async ({ request }) => {
       await beforeResponse()
-      const body = (await request.json()) as CreateRoomRequest
-      return (
-        unavailable() ??
-        HttpResponse.json(withNickname(creatorSession, body.nickname), { status: 201 })
-      )
-    }),
-    http.post('/api/v1/rooms/:roomCode/participants', async ({ params, request }) => {
-      await beforeResponse()
-      if (params.roomCode !== creatorSession.roomCode) {
-        return HttpResponse.json({ code: 'ROOM_NOT_FOUND' }, { status: 404 })
+      const body = (await request.json()) as EnterRoomRequest
+      const session = body.room_id ? participantSession : creatorSession
+      if (body.room_id && body.room_id !== creatorSession.roomCode) {
+        return HttpResponse.text('room_not_found', { status: 404 })
       }
-      const body = (await request.json()) as JoinRoomRequest
-      return (
-        unavailable() ??
-        HttpResponse.json(withNickname(participantSession, body.nickname), { status: 201 })
-      )
+      return unavailable() ?? HttpResponse.json(toEnterRoomResponse(session, body.nickname))
     }),
     http.get('/api/v1/rooms/:roomId/lobby', async ({ params }) => {
       await beforeResponse()
@@ -97,15 +86,11 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
   ]
 }
 
-function withNickname(session: RoomSession, nickname: string): RoomSessionResponse {
-  const { membershipRole: _membershipRole, ...response } = session
+function toEnterRoomResponse(session: RoomSession, nickname: string): EnterRoomResponse {
   return {
-    ...response,
-    snapshot: {
-      ...session.snapshot,
-      players: session.snapshot.players.map((player) =>
-        player.playerId === session.you ? { ...player, nickname } : player,
-      ),
-    },
+    id: session.you,
+    nickname,
+    token: session.sessionToken,
+    room_id: session.roomId,
   }
 }

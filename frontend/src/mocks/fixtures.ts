@@ -8,7 +8,7 @@ import type {
 } from '@/realtime/wsEvents'
 import { YACHT_CATEGORIES } from '@/realtime/wsEvents'
 
-export const MOCK_ROOM_ID = 'room-yorr-64'
+export const MOCK_ROOM_ID = 'YORR64'
 export const MOCK_ROOM_CODE = 'YORR64'
 
 export const creatorPlayer: Player = {
@@ -54,23 +54,25 @@ export const playingRoomSnapshot: RoomSnapshot = {
   },
 }
 
-export const creatorSession: RoomSession = {
+export const creatorSession = {
   roomId: MOCK_ROOM_ID,
   roomCode: MOCK_ROOM_CODE,
   you: creatorPlayer.playerId,
+  nickname: creatorPlayer.nickname,
   membershipRole: 'host',
   sessionToken: 'session-creator-64',
   snapshot: waitingRoomSnapshot,
-}
+} satisfies RoomSession
 
-export const participantSession: RoomSession = {
+export const participantSession = {
   roomId: MOCK_ROOM_ID,
   roomCode: MOCK_ROOM_CODE,
   you: participantPlayer.playerId,
+  nickname: participantPlayer.nickname,
   membershipRole: 'participant',
   sessionToken: 'session-participant-64',
   snapshot: waitingRoomSnapshot,
-}
+} satisfies RoomSession
 
 export const scoreCandidates: ScoreCandidates = {
   candidates: {

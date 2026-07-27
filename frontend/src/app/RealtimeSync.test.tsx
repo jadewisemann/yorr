@@ -23,7 +23,11 @@ describe('RealtimeSync', () => {
     await waitFor(() => expect(useAppStore.getState().connectionStatus).toBe('connected'))
     expect(client.sentMessages[0]).toMatchObject({
       type: 'room.join',
-      payload: { sessionToken: creatorSession.sessionToken },
+      payload: {
+        roomId: creatorSession.roomId,
+        nickname: creatorSession.nickname,
+        sessionToken: creatorSession.sessionToken,
+      },
     })
   })
 

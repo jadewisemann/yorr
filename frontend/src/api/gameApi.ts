@@ -8,13 +8,23 @@ import type {
 import { apiRequest } from './client'
 
 export interface CreateRoomRequest {
-  mode: 'party' | 'online'
-  gameType: 'yacht'
   nickname: string
 }
 
 export interface JoinRoomRequest {
   nickname: string
+}
+
+export interface EnterRoomRequest {
+  nickname: string
+  room_id?: string
+}
+
+export interface EnterRoomResponse {
+  id: string
+  nickname: string
+  token: string
+  room_id: string
 }
 
 export type RoomMembershipRole = 'host' | 'participant'
@@ -23,12 +33,11 @@ export interface RoomSession {
   roomId: string
   roomCode: string
   you: PlayerId
+  nickname: string
   membershipRole: RoomMembershipRole
   sessionToken: string
-  snapshot: RoomSnapshot
+  snapshot: RoomSnapshot | null
 }
-
-export type RoomSessionResponse = Omit<RoomSession, 'membershipRole'>
 
 export interface SubmitRollRequest {
   dice: DiceSet
@@ -73,19 +82,18 @@ export interface GameApiClient {
 
 export class HttpGameApiClient implements GameApiClient {
   createRoom(request: CreateRoomRequest, options?: ApiCallOptions) {
-    return apiRequest<RoomSessionResponse>('/rooms', {
-      method: 'POST',
-      body: JSON.stringify(request),
-      ...requestSignal(options),
-    }).then((session) => withMembershipRole(session, 'host'))
+    return enterRoom({ nickname: request.nickname }, 'host', options)
   }
 
   joinRoom(roomCode: string, request: JoinRoomRequest, options?: ApiCallOptions) {
-    return apiRequest<RoomSessionResponse>(`/rooms/${roomCode}/participants`, {
-      method: 'POST',
-      body: JSON.stringify(request),
-      ...requestSignal(options),
-    }).then((session) => withMembershipRole(session, 'participant'))
+    return enterRoom(
+      {
+        nickname: request.nickname,
+        room_id: roomCode,
+      },
+      'participant',
+      options,
+    )
   }
 
   getLobby(roomId: string, options?: ApiCallOptions) {
@@ -133,13 +141,48 @@ export class HttpGameApiClient implements GameApiClient {
 
 export const gameApiClient: GameApiClient = new HttpGameApiClient()
 
-function withMembershipRole(
-  session: RoomSessionResponse,
+function enterRoom(
+  request: EnterRoomRequest,
   membershipRole: RoomMembershipRole,
-): RoomSession {
-  return { ...session, membershipRole }
+  options?: ApiCallOptions,
+) {
+  return apiRequest<unknown>('/rooms', {
+    method: 'POST',
+    body: JSON.stringify(request),
+    ...requestSignal(options),
+  }).then((response) => toRoomSession(response, membershipRole))
+}
+
+function toRoomSession(response: unknown, membershipRole: RoomMembershipRole): RoomSession {
+  if (
+    !isRecord(response) ||
+    !isNonEmptyString(response.id) ||
+    !isNonEmptyString(response.nickname) ||
+    !isNonEmptyString(response.token) ||
+    !isNonEmptyString(response.room_id)
+  ) {
+    throw new Error('Invalid enter room response')
+  }
+
+  return {
+    roomId: response.room_id,
+    roomCode: response.room_id,
+    you: response.id,
+    nickname: response.nickname,
+    membershipRole,
+    sessionToken: response.token,
+    snapshot: null,
+  }
 }
 
 function requestSignal(options?: ApiCallOptions): Pick<RequestInit, 'signal'> | undefined {
   return options?.signal ? { signal: options.signal } : undefined
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0
 }
