@@ -1,0 +1,27 @@
+# Git / IDE
+.git
+.gitignore
+.gitattributes
+.idea
+*.iml
+
+# Gradle 빌드용 파일 — Jenkins에서 이미 빌드하므로 제외
+.gradle
+gradle
+gradlew
+gradlew.bat
+src
+
+# 기존 빌드 결과 중 배포용 JAR만 포함
+build/*
+!build/app.jar
+
+# 로컬 설정 및 불필요한 파일
+.env
+.env.*
+*.log
+README*
+compose.yaml
+compose.yml
+compose.*.yaml
+compose.*.yml

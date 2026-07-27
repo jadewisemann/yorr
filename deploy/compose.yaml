@@ -1,0 +1,23 @@
+services:
+  backend:
+    image: ${BACKEND_IMAGE}
+    container_name: ${BACKEND_CONTAINER}
+    restart: unless-stopped
+
+    env_file:
+      - ${BACKEND_ENV_FILE}
+
+    networks:
+      backend-network: {}
+      proxy-network:
+        aliases:
+          - ${BACKEND_ALIAS}
+
+networks:
+  backend-network:
+    external: true
+    name: ${BACKEND_NETWORK}
+
+  proxy-network:
+    external: true
+    name: app-network
