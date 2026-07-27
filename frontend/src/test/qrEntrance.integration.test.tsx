@@ -1,0 +1,163 @@
+import { act, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { gameApiClient } from '@/api/gameApi'
+import { creatorSession, serverMessage } from '@/mocks/fixtures'
+import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
+import { useAppStore } from '@/store'
+import { installUserAgentMock, mockApiError, renderAppHarness, resetAppTestState } from './harness'
+
+describe('QR entrance integration', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    resetAppTestState()
+  })
+
+  it('joins through a normalized invite link and reaches a realtime lobby', async () => {
+    const { realtimeClient, user } = renderAppHarness({
+      initialPath: '/join?code=yorr64',
+    })
+
+    await user.type(await screen.findByRole('textbox', { name: '닉네임' }), 'QR 참가자')
+    await user.click(screen.getByRole('button', { name: '대기실 입장' }))
+
+    expect(await screen.findByRole('heading', { name: '대기실' })).toBeVisible()
+    expect(screen.getByRole('img', { name: '방 YORR64 초대 QR 코드' })).toBeVisible()
+    expect(useAppStore.getState().roomSession?.roomCode).toBe('YORR64')
+    await waitFor(() =>
+      expect(realtimeClient.sentMessages[0]).toMatchObject({
+        type: 'room.join',
+        payload: { sessionToken: useAppStore.getState().roomSession?.sessionToken },
+      }),
+    )
+  })
+
+  it('blocks an invalid invite before REST and accepts a corrected code', async () => {
+    const joinRoom = vi.spyOn(gameApiClient, 'joinRoom')
+    const { user } = renderAppHarness({ initialPath: '/join?code=bad!' })
+
+    expect(await screen.findByRole('heading', { name: '초대 코드를 확인해 주세요' })).toBeVisible()
+    expect(joinRoom).not.toHaveBeenCalled()
+
+    const codeInput = screen.getByRole('textbox', { name: '초대 코드' })
+    await user.clear(codeInput)
+    await user.type(codeInput, ' yorr64 ')
+    await user.click(screen.getByRole('button', { name: '수정한 코드로 참가' }))
+
+    expect(await screen.findByText('초대 코드 YORR64')).toBeVisible()
+    expect(joinRoom).not.toHaveBeenCalled()
+  })
+
+  it('keeps the nickname after a room error and prevents duplicate submissions', async () => {
+    mockApiError({
+      code: 'ROOM_FULL',
+      path: '/api/v1/rooms/YORR64/participants',
+      status: 409,
+    })
+    const joinRoom = vi.spyOn(gameApiClient, 'joinRoom')
+    const { user } = renderAppHarness({ initialPath: '/join?code=YORR64' })
+    const nicknameInput = await screen.findByRole('textbox', { name: '닉네임' })
+
+    await user.type(nicknameInput, '가득찬 방')
+    const submit = screen.getByRole('button', { name: '대기실 입장' })
+    await Promise.all([user.click(submit), user.click(submit)])
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '방이 가득 찼어요. 다른 초대 코드로 참가해 주세요.',
+    )
+    expect(nicknameInput).toHaveValue('가득찬 방')
+    expect(joinRoom).toHaveBeenCalledTimes(1)
+    expect(useAppStore.getState().roomSession).toBeNull()
+  })
+
+  it('copies and shares the canonical invitation from the lobby', async () => {
+    const { browserApis, user } = renderAppHarness({
+      browserApis: true,
+      initialPath: `/rooms/${creatorSession.roomId}/lobby`,
+      session: creatorSession,
+    })
+
+    try {
+      const inviteUrl = `${window.location.origin}/join?code=${creatorSession.roomCode}`
+
+      await user.click(await screen.findByRole('button', { name: '링크 복사' }))
+      await user.click(screen.getByRole('button', { name: '공유' }))
+
+      expect(browserApis?.writeText).toHaveBeenCalledWith(inviteUrl)
+      expect(browserApis?.share).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: inviteUrl,
+        }),
+      )
+      expect(screen.getByText('초대 링크를 복사했어요.')).toBeVisible()
+    } finally {
+      browserApis?.restore()
+    }
+  })
+
+  it('does not display a stored room under a mismatched room URL', async () => {
+    const { router } = renderAppHarness({
+      initialPath: '/rooms/different-room/lobby',
+      session: creatorSession,
+    })
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/rooms/${creatorSession.roomId}/lobby`),
+    )
+    expect(screen.queryByText('방 different-room')).not.toBeInTheDocument()
+    expect(await screen.findByText(`방 ${creatorSession.roomCode}`)).toBeVisible()
+  })
+
+  it('moves to the game when realtime changes the room phase', async () => {
+    const realtimeClient = new FakeRealtimeClient()
+    const { router } = renderAppHarness({
+      initialPath: `/rooms/${creatorSession.roomId}/lobby`,
+      realtimeClient,
+      session: creatorSession,
+    })
+
+    await screen.findByRole('heading', { name: '대기실' })
+    act(() => {
+      realtimeClient.emitMessage(
+        serverMessage('state.sync', {
+          snapshot: { ...creatorSession.snapshot, phase: 'playing' },
+        }),
+      )
+    })
+
+    expect(await screen.findByRole('heading', { name: '게임이 시작됐어요' })).toBeVisible()
+    expect(router.state.location.pathname).toBe(`/rooms/${creatorSession.roomId}/game`)
+  })
+
+  it('clears a closed room and returns to the home notice', async () => {
+    const realtimeClient = new FakeRealtimeClient()
+    renderAppHarness({
+      initialPath: `/rooms/${creatorSession.roomId}/lobby`,
+      realtimeClient,
+      session: creatorSession,
+    })
+
+    await screen.findByRole('heading', { name: '대기실' })
+    act(() => {
+      realtimeClient.emitMessage(serverMessage('room.closed', { reason: 'server_shutdown' }))
+    })
+
+    expect(await screen.findByRole('heading', { name: 'YORR' })).toBeVisible()
+    expect(screen.getByText('방이 종료되어 홈으로 이동했어요.')).toBeVisible()
+    expect(useAppStore.getState().roomSession).toBeNull()
+  })
+
+  it('lets an in-app browser user continue without blocking entrance', async () => {
+    const userAgent = installUserAgentMock('Mozilla/5.0 KAKAOTALK Android')
+
+    try {
+      const { user } = renderAppHarness()
+
+      expect(await screen.findByRole('heading', { name: '외부 브라우저를 권장해요' })).toBeVisible()
+      await user.click(screen.getByRole('button', { name: '그냥 진행' }))
+
+      expect(await screen.findByRole('heading', { name: 'YORR' })).toBeVisible()
+    } finally {
+      userAgent.restore()
+    }
+  })
+})

@@ -1,6 +1,7 @@
 import { RouterProvider } from '@tanstack/react-router'
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
 import { WebSocketRealtimeClient } from '@/realtime/realtimeClient'
+import { InAppBrowserGate } from './InAppBrowserGate'
 import { RealtimeSync } from './RealtimeSync'
 import { router } from './router'
 
@@ -11,8 +12,10 @@ const realtimeClient =
 
 export function App() {
   return (
-    <RealtimeSync client={realtimeClient}>
-      <RouterProvider router={router} />
-    </RealtimeSync>
+    <InAppBrowserGate>
+      <RealtimeSync client={realtimeClient}>
+        <RouterProvider router={router} />
+      </RealtimeSync>
+    </InAppBrowserGate>
   )
 }

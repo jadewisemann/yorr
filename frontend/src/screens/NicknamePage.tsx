@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { useCreateRoom, useJoinRoom } from '@/api/useRoomApi'
+import { toUserError } from '@/api/userError'
 import { Button } from '@/components/Button'
 import { TextField } from '@/components/TextField'
 import {
@@ -10,6 +11,7 @@ import {
   resolveNickname,
   saveNickname,
 } from '@/nickname'
+import { useAppStore } from '@/store'
 
 interface NicknamePageProps {
   roomCode?: string | undefined
@@ -22,14 +24,22 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
   const [suggestion] = useState(generateNickname)
   const [nickname, setNickname] = useState(() => readSavedNickname() ?? '')
   const [validationError, setValidationError] = useState<string | null>(null)
+  const submittingRef = useRef(false)
   const task = roomCode ? joinRoom : createRoom
+  const userError = task.error ? toUserError(task.error) : null
+
+  useEffect(() => {
+    if (userError?.clearsSession) useAppStore.getState().reset()
+  }, [userError])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (submittingRef.current) return
     const resolved = resolveNickname(nickname, suggestion)
     setValidationError(resolved.error)
     if (resolved.error) return
 
+    submittingRef.current = true
     const session = roomCode
       ? await joinRoom.execute(roomCode, { nickname: resolved.nickname })
       : await createRoom.execute({
@@ -37,6 +47,7 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
           gameType: 'yacht',
           nickname: resolved.nickname,
         })
+    submittingRef.current = false
     if (!session) return
 
     saveNickname(resolved.nickname)
@@ -73,10 +84,21 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
           <Button type="submit" size="lg" loading={task.isLoading} className="w-full">
             대기실 입장
           </Button>
-          {task.error && (
-            <p className="m-0 text-center text-sm text-danger" role="alert">
-              입장하지 못했어요: {task.error.message}
-            </p>
+          {userError && (
+            <div className="grid gap-2 text-center">
+              <p className="m-0 text-sm text-danger" role="alert">
+                {userError.message}
+              </p>
+              {userError.canChangeRoom && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void navigate({ to: '/' })}
+                >
+                  {roomCode ? '다른 코드 입력' : '홈으로'}
+                </Button>
+              )}
+            </div>
           )}
         </form>
       </section>
