@@ -19,5 +19,13 @@ public final class RoomRedisKeys {
         return "game:" + gameId;
     }
 
+    public static String gameScoreboardKey(String gameId, String playerId) {
+        return gameKey(gameId) + ":scoreboard:" + playerId;
+    }
+
+    public static String gameScoreSubmissionsKey(String gameId, String playerId) {
+        return gameKey(gameId) + ":score-submissions:" + playerId;
+    }
+
     private RoomRedisKeys() {}
 }

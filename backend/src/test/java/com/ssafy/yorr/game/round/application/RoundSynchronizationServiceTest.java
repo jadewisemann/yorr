@@ -96,6 +96,26 @@ class RoundSynchronizationServiceTest {
         );
     }
 
+    @Test
+    void failedPreCommitActionDoesNotRecordSubmission() {
+        service.initialize("room-a", 1, List.of("player-a"));
+
+        assertThatThrownBy(() -> service.submit(
+                "room-a",
+                "player-a",
+                payload(1),
+                () -> {
+                    throw new IllegalStateException("score store failed");
+                }
+        )).isInstanceOf(IllegalStateException.class)
+                .hasMessage("score store failed");
+
+        assertThat(store.findByRoomId("room-a")).hasValueSatisfying(state -> {
+            assertThat(state.roundNumber()).isEqualTo(1);
+            assertThat(state.submittedPlayerIds()).isEmpty();
+        });
+    }
+
     private static RoundSubmitPayload payload(int roundNumber) {
         return new RoundSubmitPayload(roundNumber, List.of(1, 2, 3, 4, 5), "smallStraight");
     }

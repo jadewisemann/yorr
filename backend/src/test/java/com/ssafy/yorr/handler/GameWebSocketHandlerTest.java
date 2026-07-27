@@ -1,8 +1,17 @@
 package com.ssafy.yorr.handler;
 
+import com.ssafy.yorr.game.domain.ScoreBoard;
+import com.ssafy.yorr.game.dto.ScoreConfirmationCommand;
+import com.ssafy.yorr.game.dto.ScoreConfirmationResult;
+import com.ssafy.yorr.game.exception.ScoreConfirmationException;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
+import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
 import com.ssafy.yorr.game.round.application.RoundTimerService;
 import com.ssafy.yorr.game.round.infrastructure.InMemoryRoundStateStore;
+import com.ssafy.yorr.game.service.ScoreConfirmationService;
+import com.ssafy.yorr.room.dto.RoomPhase;
+import com.ssafy.yorr.room.dto.RoomSnapshot;
+import com.ssafy.yorr.room.service.RoomService;
 import com.ssafy.yorr.user.service.UserService;
 import com.ssafy.yorr.ws.InMemoryRoomBroadcaster;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
@@ -19,10 +28,17 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import static com.ssafy.yorr.game.exception.ScoreConfirmationException.Reason.STORE_FAILURE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,7 +47,11 @@ class GameWebSocketHandlerTest {
     private ObjectMapper objectMapper;
     private InMemoryRoomBroadcaster broadcaster;
     private RoomSessionRegistry registry;
+    private InMemoryRoundStateStore roundStateStore;
     private RoundSynchronizationService roundSynchronizationService;
+    private ScoreConfirmationService scoreConfirmationService;
+    private RoomService roomService;
+    private ScoreRoundSubmissionService scoreRoundSubmissionService;
     private RoundTimerService roundTimerService;
     private TestGameWebSocketHandler handler;
 
@@ -40,20 +60,42 @@ class GameWebSocketHandlerTest {
         objectMapper = new JsonMapper();
         broadcaster = new InMemoryRoomBroadcaster(objectMapper);
         registry = new RoomSessionRegistry();
-        roundSynchronizationService = new RoundSynchronizationService(new InMemoryRoundStateStore());
+        roundStateStore = new InMemoryRoundStateStore();
+        roundSynchronizationService = new RoundSynchronizationService(roundStateStore);
+        scoreConfirmationService = mock(ScoreConfirmationService.class);
+        roomService = mock(RoomService.class);
+        scoreRoundSubmissionService = new ScoreRoundSubmissionService(
+                roundSynchronizationService,
+                scoreConfirmationService,
+                roomService
+        );
         roundTimerService = mock(RoundTimerService.class);
+        when(roomService.getSnapshot(any())).thenAnswer(invocation -> {
+            String roomId = invocation.getArgument(0);
+            return new RoomSnapshot(
+                    roomId,
+                    "game-a",
+                    "player-a",
+                    RoomPhase.PLAYING,
+                    2,
+                    List.of()
+            );
+        });
+        when(scoreConfirmationService.confirm(any())).thenAnswer(invocation ->
+                confirmedScore(invocation.getArgument(0))
+        );
         handler = new TestGameWebSocketHandler(
                 objectMapper,
                 broadcaster,
                 registry,
                 mock(UserService.class),
-                roundSynchronizationService,
+                scoreRoundSubmissionService,
                 roundTimerService
         );
     }
 
     @Test
-    void broadcastsRoundEndToEveryRoomSessionWhenLastSubmissionCompletes() throws Exception {
+    void broadcastsScoreUpdateBeforeRoundEndWhenLastSubmissionCompletes() throws Exception {
         roundSynchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
         WebSocketSession playerA = sessionWithPlayer("player-a");
         WebSocketSession playerB = sessionWithPlayer("player-b");
@@ -64,14 +106,40 @@ class GameWebSocketHandlerTest {
 
         handler.handle(playerA, submitMessage("room-a", "player-a-message"));
 
-        verify(playerA, never()).sendMessage(org.mockito.ArgumentMatchers.any());
-        verify(playerB, never()).sendMessage(org.mockito.ArgumentMatchers.any());
+        assertSingleScoreUpdate(playerA, "player-a", "player-a-message");
+        assertSingleScoreUpdate(playerB, "player-a", "player-a-message");
+        clearInvocations(playerA, playerB);
 
         handler.handle(playerB, submitMessage("room-a", "player-b-message"));
 
         verify(roundTimerService).cancel("room-a", 1);
-        assertRoundEndWasSent(playerA);
-        assertRoundEndWasSent(playerB);
+        assertScoreUpdateThenRoundEnd(playerA, "player-b", "player-b-message");
+        assertScoreUpdateThenRoundEnd(playerB, "player-b", "player-b-message");
+    }
+
+    @Test
+    void scoreStoreFailureDoesNotMarkPlayerSubmitted() throws Exception {
+        roundSynchronizationService.initialize("room-a", 1, List.of("player-a"));
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        broadcaster.register("room-a", playerA);
+        doThrow(new ScoreConfirmationException(STORE_FAILURE, "redis unavailable"))
+                .when(scoreConfirmationService)
+                .confirm(any());
+
+        handler.handle(playerA, submitMessage("room-a", "failed-score-message"));
+
+        ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(playerA).sendMessage(captor.capture());
+        String response = ((TextMessage) captor.getValue()).getPayload();
+        assertThat(response).contains("\"type\":\"error\"");
+        assertThat(response).contains("\"code\":\"INTERNAL\"");
+        assertThat(response).contains("\"refMsgId\":\"failed-score-message\"");
+        assertThat(roundStateStore.findByRoomId("room-a")).hasValueSatisfying(state -> {
+            assertThat(state.roundNumber()).isEqualTo(1);
+            assertThat(state.submittedPlayerIds()).isEmpty();
+        });
+        verify(roundTimerService, never()).cancel(any(), anyInt());
     }
 
     @Test
@@ -103,16 +171,55 @@ class GameWebSocketHandlerTest {
         return new TextMessage(message);
     }
 
-    private static void assertRoundEndWasSent(WebSocketSession session) throws Exception {
+    private static void assertSingleScoreUpdate(
+            WebSocketSession session,
+            String playerId,
+            String msgId
+    ) throws Exception {
         ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
         verify(session).sendMessage(captor.capture());
         String response = ((TextMessage) captor.getValue()).getPayload();
 
-        assertThat(response).contains("\"type\":\"round.end\"");
+        assertThat(response).contains("\"type\":\"score.update\"");
         assertThat(response).contains("\"roomId\":\"room-a\"");
-        assertThat(response).doesNotContain("\"msgId\"");
-        assertThat(response).contains("\"roundNumber\":1");
-        assertThat(response).contains("\"submitted\":[\"player-a\",\"player-b\"]");
+        assertThat(response).contains("\"msgId\":\"" + msgId + "\"");
+        assertThat(response).contains("\"playerId\":\"" + playerId + "\"");
+        assertThat(response).contains("\"smallStraight\":15");
+        assertThat(response).contains("\"total\":15");
+    }
+
+    private static void assertScoreUpdateThenRoundEnd(
+            WebSocketSession session,
+            String playerId,
+            String msgId
+    ) throws Exception {
+        ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(session, times(2)).sendMessage(captor.capture());
+        List<WebSocketMessage<?>> messages = captor.getAllValues();
+        String scoreUpdate = ((TextMessage) messages.get(0)).getPayload();
+        String roundEnd = ((TextMessage) messages.get(1)).getPayload();
+
+        assertThat(scoreUpdate).contains("\"type\":\"score.update\"");
+        assertThat(scoreUpdate).contains("\"msgId\":\"" + msgId + "\"");
+        assertThat(scoreUpdate).contains("\"playerId\":\"" + playerId + "\"");
+        assertThat(scoreUpdate).contains("\"total\":15");
+
+        assertThat(roundEnd).contains("\"type\":\"round.end\"");
+        assertThat(roundEnd).contains("\"roomId\":\"room-a\"");
+        assertThat(roundEnd).doesNotContain("\"msgId\"");
+        assertThat(roundEnd).contains("\"roundNumber\":1");
+        assertThat(roundEnd).contains("\"submitted\":[\"player-a\",\"player-b\"]");
+    }
+
+    private static ScoreConfirmationResult confirmedScore(ScoreConfirmationCommand command) {
+        return new ScoreConfirmationResult(
+                command.gameId(),
+                command.playerId(),
+                command.roundNumber(),
+                command.category(),
+                15,
+                new ScoreBoard(Map.of("smallStraight", 15), 0, 0, 15)
+        );
     }
 
     private static WebSocketSession sessionWithPlayer(String playerId) {
@@ -130,10 +237,10 @@ class GameWebSocketHandlerTest {
                 InMemoryRoomBroadcaster broadcaster,
                 RoomSessionRegistry registry,
                 UserService userService,
-                RoundSynchronizationService roundSynchronizationService,
+                ScoreRoundSubmissionService scoreRoundSubmissionService,
                 RoundTimerService roundTimerService
         ) {
-            super(objectMapper, broadcaster, registry, userService, roundSynchronizationService, roundTimerService);
+            super(objectMapper, broadcaster, registry, userService, scoreRoundSubmissionService, roundTimerService);
         }
 
         void handle(WebSocketSession session, TextMessage message) throws Exception {

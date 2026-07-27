@@ -37,10 +37,17 @@ public class InMemoryRoundStateStore implements RoundStateStore {
     }
 
     @Override
-    public RoundSubmissionResult submitAtomically(String roomId, RoundSubmission submission) {
+    public RoundSubmissionResult submitAtomically(
+            String roomId,
+            RoundSubmission submission,
+            Runnable beforeStateChange
+    ) {
         validateRoomId(roomId);
         if (submission == null) {
             throw new IllegalArgumentException("submission must not be null");
+        }
+        if (beforeStateChange == null) {
+            throw new IllegalArgumentException("beforeStateChange must not be null");
         }
 
         AtomicReference<RoundSubmissionResult> resultHolder = new AtomicReference<>();
@@ -52,6 +59,7 @@ public class InMemoryRoundStateStore implements RoundStateStore {
                 );
             }
             RoundSubmissionResult result = currentState.submit(submission);
+            beforeStateChange.run();
             resultHolder.set(result);
             return result.state();
         });

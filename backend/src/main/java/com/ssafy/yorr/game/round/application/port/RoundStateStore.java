@@ -14,9 +14,15 @@ public interface RoundStateStore {
     /**
      * Applies one submission and stores the returned state as one atomic operation.
      * Implementations must prevent two concurrent final submissions from completing
-     * the same round more than once.
+     * the same round more than once. The callback runs after submission validation
+     * and before the state change is committed. If it fails, the current round state
+     * must remain unchanged.
      */
-    RoundSubmissionResult submitAtomically(String roomId, RoundSubmission submission);
+    RoundSubmissionResult submitAtomically(
+            String roomId,
+            RoundSubmission submission,
+            Runnable beforeStateChange
+    );
 
     /**
      * Completes the round only when it is still the expected current round.
