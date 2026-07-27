@@ -13,6 +13,7 @@ import { PhysicsDiceFallback } from './PhysicsDiceFallback'
 type PhysicsDiceSceneProps = {
   dice: PhysicsDiceSet | null
   held: PhysicsHeldDice
+  releaseRequestId: string | null
   onError?: (error: Error) => void
   onHeldToggle?: (index: PhysicsDiceIndex) => void
   onPhaseChange?: (phase: PhysicsDicePhase) => void
@@ -24,10 +25,12 @@ type PhysicsDiceSceneProps = {
 type PhysicsDiceWorldInstance = InstanceType<
   typeof import('@/rendering/physics-dice/World').PhysicsDiceWorld
 >
+const DIE_KEYS = ['die-1', 'die-2', 'die-3', 'die-4', 'die-5'] as const
 
 export function PhysicsDiceScene({
   dice,
   held,
+  releaseRequestId,
   onError,
   onHeldToggle,
   onPhaseChange,
@@ -38,14 +41,15 @@ export function PhysicsDiceScene({
   const containerRef = useRef<HTMLDivElement>(null)
   const worldRef = useRef<PhysicsDiceWorldInstance | null>(null)
   const callbacksRef = useRef({ onError, onHeldToggle, onPhaseChange, onRollComplete })
-  const latestRef = useRef({ dice, held, quality, request })
+  const latestRef = useRef({ dice, held, quality, releaseRequestId, request })
   const startedRequestsRef = useRef(new Set<string>())
+  const releasedRequestsRef = useRef(new Set<string>())
   const completedRequestsRef = useRef(new Set<string>())
   const [fallbackMessage, setFallbackMessage] = useState<string | null>(null)
   const [resizing, setResizing] = useState(false)
 
   callbacksRef.current = { onError, onHeldToggle, onPhaseChange, onRollComplete }
-  latestRef.current = { dice, held, quality, request }
+  latestRef.current = { dice, held, quality, releaseRequestId, request }
 
   useEffect(() => {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -80,14 +84,23 @@ export function PhysicsDiceScene({
           container,
           quality: latestRef.current.quality,
         })
-        worldRef.current = createdWorld
         await createdWorld.init()
         if (disposed) return
+        worldRef.current = createdWorld
         const latest = latestRef.current
+        createdWorld.applyQuality(latest.quality)
         createdWorld.syncCommittedDice(latest.dice, latest.held)
         if (latest.request && !startedRequestsRef.current.has(latest.request.requestId)) {
           startedRequestsRef.current.add(latest.request.requestId)
           createdWorld.startRoll(latest.request)
+        }
+        if (
+          latest.request &&
+          latest.releaseRequestId === latest.request.requestId &&
+          !releasedRequestsRef.current.has(latest.request.requestId)
+        ) {
+          releasedRequestsRef.current.add(latest.request.requestId)
+          createdWorld.pour()
         }
       })
       .catch((cause: unknown) => {
@@ -119,6 +132,20 @@ export function PhysicsDiceScene({
   }, [request])
 
   useEffect(() => {
+    const world = worldRef.current
+    if (
+      !world ||
+      !request ||
+      releaseRequestId !== request.requestId ||
+      releasedRequestsRef.current.has(request.requestId)
+    ) {
+      return
+    }
+    releasedRequestsRef.current.add(request.requestId)
+    world.pour()
+  }, [releaseRequestId, request])
+
+  useEffect(() => {
     worldRef.current?.applyQuality(quality)
   }, [quality])
 
@@ -128,6 +155,7 @@ export function PhysicsDiceScene({
         dice={dice}
         held={held}
         message={fallbackMessage}
+        releaseRequestId={releaseRequestId}
         request={request}
         {...(onHeldToggle ? { onHeldToggle } : {})}
         onRollComplete={onRollComplete}
@@ -136,12 +164,29 @@ export function PhysicsDiceScene({
   }
 
   return (
-    <div
+    <section
       className="absolute inset-0 overflow-hidden"
       aria-label="사발과 KEEP 슬롯이 있는 3D 주사위 트레이"
-      role="img"
     >
       <div ref={containerRef} className="absolute inset-0" />
+      {dice && (
+        <fieldset className="absolute inset-x-2 bottom-2 z-10 flex justify-center gap-2">
+          <legend className="sr-only">주사위 KEEP 선택</legend>
+          {dice.map((value, index) => (
+            <button
+              key={DIE_KEYS[index]}
+              type="button"
+              className="min-h-11 min-w-11 rounded-control border border-border bg-surface/90 px-3 py-2 font-bold shadow-raised backdrop-blur-sm disabled:cursor-default disabled:opacity-60"
+              disabled={!onHeldToggle || Boolean(request)}
+              onClick={() => onHeldToggle?.(index as PhysicsDiceIndex)}
+              aria-label={`${index + 1}번 주사위, ${value}${held[index] ? ', KEEP 해제' : ', KEEP'}`}
+              aria-pressed={held[index] ?? false}
+            >
+              {value}
+            </button>
+          ))}
+        </fieldset>
+      )}
       {resizing && (
         <div
           className="absolute inset-0 grid place-items-center bg-surface/75 font-mono text-xs text-content-muted backdrop-blur-sm"
@@ -150,6 +195,6 @@ export function PhysicsDiceScene({
           3D 화면 크기를 조정하고 있어요.
         </div>
       )}
-    </div>
+    </section>
   )
 }

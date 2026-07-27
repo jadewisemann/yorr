@@ -23,6 +23,7 @@ describe('PhysicsDiceFallback', () => {
       <PhysicsDiceFallback
         dice={null}
         held={request.held}
+        releaseRequestId={null}
         request={request}
         onRollComplete={onRollComplete}
       />,
@@ -31,6 +32,7 @@ describe('PhysicsDiceFallback', () => {
       <PhysicsDiceFallback
         dice={null}
         held={request.held}
+        releaseRequestId={request.requestId}
         request={request}
         onRollComplete={onRollComplete}
       />,
@@ -38,8 +40,45 @@ describe('PhysicsDiceFallback', () => {
 
     act(() => frameCallbacks[0]?.(0))
     expect(onRollComplete).toHaveBeenCalledOnce()
-    expect(onRollComplete).toHaveBeenCalledWith('roll-73')
+    expect(onRollComplete).toHaveBeenCalledWith('roll-73', request.targetDice)
 
+    vi.restoreAllMocks()
+  })
+
+  it('완료 대기 중 callback이 바뀌어도 최신 callback으로 한 번 완료한다', () => {
+    const initialCallback = vi.fn()
+    const latestCallback = vi.fn()
+    const frameCallbacks: FrameRequestCallback[] = []
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frameCallbacks.push(callback)
+      return frameCallbacks.length
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)
+
+    const view = render(
+      <PhysicsDiceFallback
+        dice={null}
+        held={request.held}
+        releaseRequestId={request.requestId}
+        request={request}
+        onRollComplete={initialCallback}
+      />,
+    )
+    view.rerender(
+      <PhysicsDiceFallback
+        dice={null}
+        held={request.held}
+        releaseRequestId={request.requestId}
+        request={request}
+        onRollComplete={latestCallback}
+      />,
+    )
+
+    act(() => frameCallbacks[0]?.(0))
+
+    expect(initialCallback).not.toHaveBeenCalled()
+    expect(latestCallback).toHaveBeenCalledOnce()
+    expect(latestCallback).toHaveBeenCalledWith('roll-73', request.targetDice)
     vi.restoreAllMocks()
   })
 })
