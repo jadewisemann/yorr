@@ -12,7 +12,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**")
                 .allowedOrigins(
                         "https://yorr-testground.vercel.app",
-                        "http://localhost:5173"
+                        "https://yorr-playground.vercel.app"
                 )
                 .allowedMethods(
                         "GET",
