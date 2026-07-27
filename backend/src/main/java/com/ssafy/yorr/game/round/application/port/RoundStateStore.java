@@ -26,5 +26,5 @@ public interface RoundStateStore {
 
     Optional<RoundState> findByRoomId(String roomId);
 
-    void remove(String roomId);
+    boolean remove(String roomId);
 }

@@ -80,9 +80,9 @@ public class InMemoryRoundStateStore implements RoundStateStore {
     }
 
     @Override
-    public void remove(String roomId) {
+    public boolean remove(String roomId) {
         validateRoomId(roomId);
-        states.remove(roomId);
+        return states.remove(roomId) != null;
     }
 
     private static void validateRoomId(String roomId) {

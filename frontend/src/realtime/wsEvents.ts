@@ -257,7 +257,12 @@ export interface RoomReadyChangedPayload {
   ready: boolean
 }
 // S→C: 방 종료.
-export type RoomCloseReason = 'game_finished' | 'empty' | 'server_shutdown'
+export type RoomCloseReason =
+  | 'host_left'
+  | 'game_finished'
+  | 'not_enough_players'
+  | 'empty'
+  | 'server_shutdown'
 export interface RoomClosedPayload {
   reason: RoomCloseReason
 }
