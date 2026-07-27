@@ -45,14 +45,33 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
 }
 
 async function readErrorPayload(response: Response): Promise<ApiErrorPayload | undefined> {
-  if (!response.headers.get('Content-Type')?.includes('application/json')) return undefined
+  const contentType = response.headers.get('Content-Type')
 
   try {
-    const payload: unknown = await response.json()
-    return isApiErrorPayload(payload) ? payload : undefined
+    if (contentType?.includes('application/json')) {
+      const payload: unknown = await response.json()
+      if (isApiErrorPayload(payload)) return payload
+      if (typeof payload === 'string') return textErrorPayload(payload)
+      return undefined
+    }
+
+    const payload = await response.text()
+    return payload ? textErrorPayload(payload) : undefined
   } catch {
     return undefined
   }
+}
+
+function textErrorPayload(message: string): ApiErrorPayload {
+  const code =
+    {
+      game_started: 'GAME_ALREADY_STARTED',
+      invalid_nickname: 'INVALID_NICKNAME',
+      room_full: 'ROOM_FULL',
+      room_not_found: 'ROOM_NOT_FOUND',
+    }[message] ?? message.toUpperCase()
+
+  return { code, message }
 }
 
 function isApiErrorPayload(payload: unknown): payload is ApiErrorPayload {

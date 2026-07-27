@@ -26,7 +26,11 @@ describe('QR entrance integration', () => {
     await waitFor(() =>
       expect(realtimeClient.sentMessages[0]).toMatchObject({
         type: 'room.join',
-        payload: { sessionToken: useAppStore.getState().roomSession?.sessionToken },
+        payload: {
+          roomId: 'YORR64',
+          nickname: 'QR 참가자',
+          sessionToken: useAppStore.getState().roomSession?.sessionToken,
+        },
       }),
     )
   })
@@ -50,7 +54,7 @@ describe('QR entrance integration', () => {
   it('keeps the nickname after a room error and prevents duplicate submissions', async () => {
     mockApiError({
       code: 'ROOM_FULL',
-      path: '/api/v1/rooms/YORR64/participants',
+      path: '/api/v1/rooms',
       status: 409,
     })
     const joinRoom = vi.spyOn(gameApiClient, 'joinRoom')

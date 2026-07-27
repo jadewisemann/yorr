@@ -25,11 +25,11 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
     roomSnapshot.players.length >= 2
 
   useEffect(() => {
-    if (!roomSession || !roomSnapshot || !matchingRoom) {
+    if (!roomSession || !matchingRoom) {
       void navigate({ to: '/', replace: true })
       return
     }
-    if (roomSnapshot.phase !== 'waiting') {
+    if (roomSnapshot && roomSnapshot.phase !== 'waiting') {
       void navigate({
         to: '/rooms/$roomId/game',
         params: { roomId: roomSession.roomId },
@@ -43,7 +43,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
     await startGame.execute(roomSession.roomId)
   }
 
-  if (!roomSession || !roomSnapshot || !matchingRoom) return null
+  if (!roomSession || !matchingRoom) return null
 
   return (
     <main className="mx-auto grid min-h-dvh w-full max-w-2xl content-center gap-6 p-6 text-content">
@@ -55,49 +55,59 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
 
       <InvitationPanel roomCode={roomSession.roomCode} />
 
-      <div className="flex items-center justify-between text-sm text-content-muted">
-        <span>현재 인원 {roomSnapshot.players.length} / 최대 6명</span>
-        <span role="status">{connectionLabel(connectionStatus)}</span>
-      </div>
+      {!roomSnapshot && (
+        <p className="m-0 text-center text-sm text-content-muted" role="status">
+          실시간 대기실에 연결하고 있어요.
+        </p>
+      )}
 
-      <section className="grid gap-3" aria-label={`참가자 ${roomSnapshot.players.length}명`}>
-        {roomSnapshot.players.map((player) => (
-          <PlayerCard
-            key={player.playerId}
-            name={player.nickname}
-            avatarSeed={player.playerId}
-            status={player.status}
-            current={player.playerId === roomSession.you}
-            active={player.playerId === roomSession.you}
-          />
-        ))}
-      </section>
+      {roomSnapshot && (
+        <>
+          <div className="flex items-center justify-between text-sm text-content-muted">
+            <span>현재 인원 {roomSnapshot.players.length} / 최대 6명</span>
+            <span role="status">{connectionLabel(connectionStatus)}</span>
+          </div>
 
-      <div className="grid gap-2 text-center">
-        <Button
-          size="lg"
-          className="w-full"
-          disabled={!canStart}
-          loading={startGame.isLoading}
-          onClick={handleStart}
-        >
-          게임 시작
-        </Button>
-        {!canStart && (
-          <p className="m-0 text-sm text-content-muted">
-            {roomSession.membershipRole === 'participant'
-              ? '호스트가 게임을 시작하면 자동으로 이동해요.'
-              : connectionStatus === 'connected'
-                ? '2명부터 시작할 수 있어요.'
-                : '연결된 뒤 게임을 시작할 수 있어요.'}
-          </p>
-        )}
-        {startGame.error && (
-          <p className="m-0 text-sm text-danger" role="alert">
-            게임을 시작하지 못했어요: {startGame.error.message}
-          </p>
-        )}
-      </div>
+          <section className="grid gap-3" aria-label={`참가자 ${roomSnapshot.players.length}명`}>
+            {roomSnapshot.players.map((player) => (
+              <PlayerCard
+                key={player.playerId}
+                name={player.nickname}
+                avatarSeed={player.playerId}
+                status={player.status}
+                current={player.playerId === roomSession.you}
+                active={player.playerId === roomSession.you}
+              />
+            ))}
+          </section>
+
+          <div className="grid gap-2 text-center">
+            <Button
+              size="lg"
+              className="w-full"
+              disabled={!canStart}
+              loading={startGame.isLoading}
+              onClick={handleStart}
+            >
+              게임 시작
+            </Button>
+            {!canStart && (
+              <p className="m-0 text-sm text-content-muted">
+                {roomSession.membershipRole === 'participant'
+                  ? '호스트가 게임을 시작하면 자동으로 이동해요.'
+                  : connectionStatus === 'connected'
+                    ? '2명부터 시작할 수 있어요.'
+                    : '연결된 뒤 게임을 시작할 수 있어요.'}
+              </p>
+            )}
+            {startGame.error && (
+              <p className="m-0 text-sm text-danger" role="alert">
+                게임을 시작하지 못했어요: {startGame.error.message}
+              </p>
+            )}
+          </div>
+        </>
+      )}
     </main>
   )
 }

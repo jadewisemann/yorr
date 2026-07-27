@@ -40,21 +40,20 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
     if (resolved.error) return
 
     submittingRef.current = true
-    const session = roomCode
-      ? await joinRoom.execute(roomCode, { nickname: resolved.nickname })
-      : await createRoom.execute({
-          mode: 'online',
-          gameType: 'yacht',
-          nickname: resolved.nickname,
-        })
-    submittingRef.current = false
-    if (!session) return
+    try {
+      const session = roomCode
+        ? await joinRoom.execute(roomCode, { nickname: resolved.nickname })
+        : await createRoom.execute({ nickname: resolved.nickname })
+      if (!session) return
 
-    saveNickname(resolved.nickname)
-    await navigate({
-      to: '/rooms/$roomId/lobby',
-      params: { roomId: session.roomId },
-    })
+      saveNickname(resolved.nickname)
+      await navigate({
+        to: '/rooms/$roomId/lobby',
+        params: { roomId: session.roomId },
+      })
+    } finally {
+      submittingRef.current = false
+    }
   }
 
   return (

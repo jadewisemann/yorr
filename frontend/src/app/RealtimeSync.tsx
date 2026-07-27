@@ -11,10 +11,11 @@ interface RealtimeSyncProps {
 const reconnectDelayMs = 1_000
 
 export function RealtimeSync({ children, client }: RealtimeSyncProps) {
-  const sessionToken = useAppStore((state) => state.roomSession?.sessionToken)
+  const roomId = useAppStore((state) => state.roomSession?.roomId)
+  const nickname = useAppStore((state) => state.roomSession?.nickname)
 
   useEffect(() => {
-    if (!sessionToken) {
+    if (!roomId || !nickname) {
       client.disconnect()
       useAppStore.getState().setConnectionStatus('idle')
       return
@@ -50,11 +51,18 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
       if (!active) return
 
       if (event === 'open') {
+        const roomSession = useAppStore.getState().roomSession
+        if (!roomSession) return
+
         useAppStore.getState().setConnectionStatus('connected')
         client.send(
           hasConnected
-            ? buildClientMessage('sys.reconnect', { sessionToken })
-            : buildClientMessage('room.join', { sessionToken }),
+            ? buildClientMessage('sys.reconnect', { sessionToken: roomSession.sessionToken })
+            : buildClientMessage('room.join', {
+                roomId: roomSession.roomId,
+                nickname: roomSession.nickname,
+                sessionToken: roomSession.sessionToken,
+              }),
         )
         hasConnected = true
         return
@@ -80,7 +88,7 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
       unsubscribeConnection()
       client.disconnect()
     }
-  }, [client, sessionToken])
+  }, [client, nickname, roomId])
 
   return children
 }
@@ -93,6 +101,17 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
       startHeartbeat(message.payload.heartbeatIntervalMs)
       return
     case 'room.joined':
+      if (store.roomSession) {
+        store.setRoomSession({
+          ...store.roomSession,
+          you: message.payload.you,
+          sessionToken: message.payload.sessionToken,
+          snapshot: message.payload.snapshot,
+        })
+        return
+      }
+      store.replaceRoomSnapshot(message.payload.snapshot)
+      return
     case 'sys.reconnected':
     case 'state.sync':
       store.replaceRoomSnapshot(message.payload.snapshot)

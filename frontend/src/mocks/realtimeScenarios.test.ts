@@ -12,9 +12,19 @@ describe('FakeRealtimeClient scenarios', () => {
     creator.onMessage(creatorMessages)
     participant.onMessage(participantMessages)
 
-    creator.send(buildClientMessage('room.join', { sessionToken: creatorSession.sessionToken }))
+    creator.send(
+      buildClientMessage('room.join', {
+        roomId: creatorSession.roomId,
+        nickname: creatorSession.nickname,
+        sessionToken: creatorSession.sessionToken,
+      }),
+    )
     participant.send(
-      buildClientMessage('room.join', { sessionToken: participantSession.sessionToken }),
+      buildClientMessage('room.join', {
+        roomId: participantSession.roomId,
+        nickname: participantSession.nickname,
+        sessionToken: participantSession.sessionToken,
+      }),
     )
 
     expect(creatorMessages.mock.calls[0]?.[0].payload.you).toBe(creatorSession.you)
@@ -32,7 +42,13 @@ describe('FakeRealtimeClient scenarios', () => {
     duplicate.onMessage(duplicateListener)
     outOfOrder.onMessage(outOfOrderListener)
 
-    error.send(buildClientMessage('room.join', { sessionToken: creatorSession.sessionToken }))
+    error.send(
+      buildClientMessage('room.join', {
+        roomId: creatorSession.roomId,
+        nickname: creatorSession.nickname,
+        sessionToken: creatorSession.sessionToken,
+      }),
+    )
     duplicate.send(buildClientMessage('dice.roll', { dice: [1, 2, 3, 4, 5] }))
     outOfOrder.send(
       buildClientMessage('round.submit', {

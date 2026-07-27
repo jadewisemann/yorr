@@ -27,10 +27,18 @@ describe('NicknamePage', () => {
 
     await waitFor(() => expect(navigate).toHaveBeenCalled())
     expect(suggestion).toBeTruthy()
-    expect(useAppStore.getState().roomSnapshot?.players[0]?.nickname).toBe(suggestion)
+    expect(useAppStore.getState().roomSession).toMatchObject({
+      roomId: 'YORR64',
+      roomCode: 'YORR64',
+      you: 'player-creator',
+      nickname: suggestion,
+      membershipRole: 'host',
+      sessionToken: 'session-creator-64',
+    })
+    expect(useAppStore.getState().roomSnapshot).toBeNull()
     expect(navigate).toHaveBeenCalledWith({
       to: '/rooms/$roomId/lobby',
-      params: { roomId: 'room-yorr-64' },
+      params: { roomId: 'YORR64' },
     })
   })
 
@@ -45,10 +53,13 @@ describe('NicknamePage', () => {
 
     await waitFor(() => expect(navigate).toHaveBeenCalled())
     const state = useAppStore.getState()
-    expect(state.roomSession?.roomCode).toBe('YORR64')
-    expect(
-      state.roomSnapshot?.players.find((player) => player.playerId === state.roomSession?.you),
-    ).toMatchObject({ nickname: '수상한 선장' })
+    expect(state.roomSession).toMatchObject({
+      roomCode: 'YORR64',
+      membershipRole: 'participant',
+      you: 'player-participant',
+      nickname: '수상한 선장',
+    })
+    expect(state.roomSnapshot).toBeNull()
   })
 
   it('keeps invalid markup out of the request and explains the rule', async () => {

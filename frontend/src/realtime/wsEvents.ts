@@ -204,6 +204,8 @@ export interface SysReconnectedPayload {
 //   - sessionToken : REST 입장에서 발급된 세션을 실시간 방 채널에 연결.
 //   JOIN 전 다른 메시지를 보내면 서버가 거부(error: AUTH_REQUIRED / NOT_IN_ROOM).
 export interface RoomJoinPayload {
+  roomId: RoomId
+  nickname: string
   sessionToken: SessionToken
 }
 // C→S (006): 방 퇴장. roomId 는 envelope.
