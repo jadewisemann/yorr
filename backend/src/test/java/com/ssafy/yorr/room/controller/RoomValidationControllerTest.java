@@ -1,6 +1,9 @@
 package com.ssafy.yorr.room.controller;
 
 import com.ssafy.yorr.handler.GameWebSocketHandler;
+import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
+import com.ssafy.yorr.game.round.application.RoundTimerService;
+import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.room.dto.GameStartResponse;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
@@ -18,6 +21,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -34,6 +38,8 @@ class RoomValidationControllerTest {
     private UserService userService;
     private RoomSessionRegistry registry;
     private GameWebSocketHandler handler;
+    private RoundSynchronizationService roundSynchronizationService;
+    private RoundTimerService roundTimerService;
     private RoomValidationController controller;
 
     @BeforeEach
@@ -42,11 +48,22 @@ class RoomValidationControllerTest {
         userService = mock(UserService.class);
         registry = mock(RoomSessionRegistry.class);
         handler = mock(GameWebSocketHandler.class);
-        controller = new RoomValidationController(roomService, userService, registry, handler);
+        roundSynchronizationService = mock(RoundSynchronizationService.class);
+        roundTimerService = mock(RoundTimerService.class);
+        controller = new RoomValidationController(
+                roomService,
+                userService,
+                registry,
+                handler,
+                roundSynchronizationService,
+                roundTimerService
+        );
 
         when(userService.authenticate(HOST_ID, AUTH))
                 .thenReturn(new UserIdentity(HOST_ID, "호스트", UserType.GUEST));
         when(roomService.getSnapshot(ROOM)).thenReturn(lobbyWithHost());
+        when(roundSynchronizationService.initialize(anyString(), anyInt(), any()))
+                .thenReturn(RoundState.start(1, List.of(HOST_ID, "guest-1")));
     }
 
     private RoomSnapshot lobbyWithHost() {
@@ -67,8 +84,14 @@ class RoomValidationControllerTest {
         ResponseEntity<?> response = controller.startGame(ROOM, HOST_ID, AUTH);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
+        verify(roundSynchronizationService).initialize(
+                ROOM,
+                1,
+                List.of(HOST_ID, "guest-1")
+        );
         verify(registry).markPhase(ROOM, com.ssafy.yorr.ws.dto.RoomPhase.PLAYING);
         verify(handler).broadcastStateSync(ROOM);
+        verify(roundTimerService).start(ROOM, 1, HOST_ID);
     }
 
     @Test

@@ -19,6 +19,7 @@ interface ScorePanelPlayer {
 interface ScorePanelProps {
   candidates: CategoryScores
   className?: string
+  disabled?: boolean
   onSelect: (category: YachtCategory) => void
   onViewPlayer: (playerId: PlayerId) => void
   players: ScorePanelPlayer[]
@@ -38,6 +39,7 @@ interface ScorePanelProps {
 export function ScorePanel({
   candidates,
   className,
+  disabled = false,
   onSelect,
   onViewPlayer,
   players,
@@ -75,7 +77,7 @@ export function ScorePanel({
         key={category}
         label={categoryLabel[category]}
         // 남의 점수표는 읽기 전용이다.
-        {...(mine ? { onSelect: () => onSelect(category) } : {})}
+        {...(mine && !disabled ? { onSelect: () => onSelect(category) } : {})}
         score={isRecorded(recordedScore) ? recordedScore : mine ? candidates[category] : undefined}
         size="sm"
         state={categoryRowState(recordedScore, mine && selectedCategory === category)}

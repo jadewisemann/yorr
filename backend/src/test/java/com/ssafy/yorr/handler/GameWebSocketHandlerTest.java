@@ -18,6 +18,7 @@ import com.ssafy.yorr.user.UserType;
 import com.ssafy.yorr.ws.InMemoryRoomBroadcaster;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
 import com.ssafy.yorr.ws.dto.RoomJoinPayload;
+import com.ssafy.yorr.ws.dto.DiceRollPayload;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
 import org.junit.jupiter.api.BeforeEach;
@@ -94,6 +95,7 @@ class GameWebSocketHandlerTest {
                 registry,
                 mock(UserService.class),
                 scoreRoundSubmissionService,
+                roundSynchronizationService,
                 roundTimerService
         );
     }
@@ -110,13 +112,16 @@ class GameWebSocketHandlerTest {
 
         handler.handle(playerA, submitMessage("room-a", "player-a-message"));
 
+        verify(roundTimerService).cancel("room-a", 1);
+        verify(roundTimerService).start("room-a", 1, "player-b");
         assertSingleScoreUpdate(playerA, "player-a", "player-a-message");
         assertSingleScoreUpdate(playerB, "player-a", "player-a-message");
         clearInvocations(playerA, playerB);
 
         handler.handle(playerB, submitMessage("room-a", "player-b-message"));
 
-        verify(roundTimerService).cancel("room-a", 1);
+        verify(roundTimerService, times(2)).cancel("room-a", 1);
+        verify(roundTimerService).start("room-a", 2, "player-a");
         assertScoreUpdateThenRoundEnd(playerA, "player-b", "player-b-message");
         assertScoreUpdateThenRoundEnd(playerB, "player-b", "player-b-message");
     }
@@ -147,6 +152,43 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
+    void rejectsScoreSubmissionFromPlayerWhoDoesNotOwnTheTurn() throws Exception {
+        roundSynchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
+        WebSocketSession playerB = sessionWithPlayer("player-b");
+        registry.join("room-a", playerB, "player-b", "Player B");
+        broadcaster.register("room-a", playerB);
+
+        handler.handle(playerB, submitMessage("room-a", "out-of-turn-message"));
+
+        ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(playerB).sendMessage(captor.capture());
+        String response = ((TextMessage) captor.getValue()).getPayload();
+        assertThat(response).contains("\"type\":\"error\"");
+        assertThat(response).contains("\"code\":\"INVALID_MESSAGE\"");
+        assertThat(response).contains("\"refMsgId\":\"out-of-turn-message\"");
+        verify(scoreConfirmationService, never()).confirm(any());
+        assertThat(roundStateStore.findByRoomId("room-a")).hasValueSatisfying(state ->
+                assertThat(state.activePlayerId()).isEqualTo("player-a")
+        );
+    }
+
+    @Test
+    void restartsTheCurrentPlayersTimerAfterEachAcceptedRoll() throws Exception {
+        roundSynchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        broadcaster.register("room-a", playerA);
+
+        handler.handle(playerA, rollMessage("room-a", 1, "roll-one"));
+        handler.handle(playerA, rollMessage("room-a", 2, "roll-two"));
+
+        verify(roundTimerService, times(2)).start("room-a", 1, "player-a");
+        assertThat(roundStateStore.findByRoomId("room-a")).hasValueSatisfying(state ->
+                assertThat(state.activeRollCount()).isEqualTo(2)
+        );
+    }
+
+    @Test
     void rejectsSubmissionForRoomOtherThanSessionRoom() throws Exception {
         roundSynchronizationService.initialize("room-a", 1, List.of("player-a"));
         WebSocketSession session = sessionWithPlayer("player-a");
@@ -168,7 +210,14 @@ class GameWebSocketHandlerTest {
     void reusesExistingGuestForWebSocketReconnect() throws Exception {
         UserService userService = mock(UserService.class);
         handler = new TestGameWebSocketHandler(
-                objectMapper, broadcaster, registry, userService, scoreRoundSubmissionService, roundTimerService);
+                objectMapper,
+                broadcaster,
+                registry,
+                userService,
+                scoreRoundSubmissionService,
+                roundSynchronizationService,
+                roundTimerService
+        );
         when(userService.authenticateSession("token-a"))
                 .thenReturn(new UserIdentity("player-a", "Player A", UserType.GUEST));
         WebSocketSession session = sessionWithPlayer("player-a");
@@ -189,6 +238,17 @@ class GameWebSocketHandlerTest {
                 "round.submit",
                 System.currentTimeMillis(),
                 new RoundSubmitPayload(1, List.of(1, 2, 3, 4, 5), "smallStraight"),
+                roomId,
+                msgId
+        ));
+        return new TextMessage(message);
+    }
+
+    private TextMessage rollMessage(String roomId, int rollCount, String msgId) throws Exception {
+        String message = objectMapper.writeValueAsString(new WsEnvelope<>(
+                "dice.roll",
+                System.currentTimeMillis(),
+                new DiceRollPayload(1, rollCount, List.of(1, 2, 3, 4, 5)),
                 roomId,
                 msgId
         ));
@@ -262,9 +322,18 @@ class GameWebSocketHandlerTest {
                 RoomSessionRegistry registry,
                 UserService userService,
                 ScoreRoundSubmissionService scoreRoundSubmissionService,
+                RoundSynchronizationService roundSynchronizationService,
                 RoundTimerService roundTimerService
         ) {
-            super(objectMapper, broadcaster, registry, userService, scoreRoundSubmissionService, roundTimerService);
+            super(
+                    objectMapper,
+                    broadcaster,
+                    registry,
+                    userService,
+                    scoreRoundSubmissionService,
+                    roundSynchronizationService,
+                    roundTimerService
+            );
         }
 
         void handle(WebSocketSession session, TextMessage message) throws Exception {

@@ -126,6 +126,13 @@ describe('QR entrance integration', () => {
           snapshot: { ...creatorSession.snapshot, phase: 'playing' },
         }),
       )
+      realtimeClient.emitMessage(
+        serverMessage('round.start', {
+          activePlayerId: creatorSession.you,
+          deadline: Date.now() + 30_000,
+          roundNumber: 1,
+        }),
+      )
     })
 
     expect(await screen.findByRole('button', { name: '굴리기' })).toBeVisible()

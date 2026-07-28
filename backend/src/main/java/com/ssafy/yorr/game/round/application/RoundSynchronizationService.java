@@ -5,7 +5,9 @@ import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.round.domain.RoundSubmission;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
 import com.ssafy.yorr.game.round.domain.RoundCompletion;
+import com.ssafy.yorr.game.round.domain.RoundSynchronizationException;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
+import com.ssafy.yorr.ws.dto.DiceRollPayload;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
@@ -51,8 +53,28 @@ public class RoundSynchronizationService {
         return roundStateStore.submitAtomically(roomId, submission, beforeStateChange);
     }
 
-    public Optional<RoundCompletion> expire(String roomId, int expectedRoundNumber) {
-        return roundStateStore.expireAtomically(roomId, expectedRoundNumber);
+    public Optional<RoundSubmissionResult> expire(
+            String roomId,
+            int expectedRoundNumber,
+            String expectedActivePlayerId
+    ) {
+        return roundStateStore.expireAtomically(roomId, expectedRoundNumber, expectedActivePlayerId);
+    }
+
+    public RoundState recordRoll(String roomId, String playerId, DiceRollPayload payload) {
+        if (payload == null || payload.dice() == null || payload.dice().size() != 5
+                || payload.dice().stream().anyMatch(value -> value == null || value < 1 || value > 6)) {
+            throw new RoundSynchronizationException(
+                    RoundSynchronizationException.Reason.INVALID_DICE,
+                    "exactly five dice values between 1 and 6 are required"
+            );
+        }
+        return roundStateStore.recordRollAtomically(
+                roomId,
+                playerId,
+                payload.roundNumber(),
+                payload.rollCount()
+        );
     }
 
     public boolean remove(String roomId) {

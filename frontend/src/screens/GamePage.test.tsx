@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MotionGestureEvent } from '@/input/motionTypes'
-import { creatorSession, playingRoomSnapshot } from '@/mocks/fixtures'
+import { creatorSession, participantSession, playingRoomSnapshot } from '@/mocks/fixtures'
 import type { PhysicsDiceSet } from '@/rendering/physics-dice/types'
 import { useAppStore } from '@/store'
 import { GamePage } from './GamePage'
@@ -58,7 +58,10 @@ vi.mock('@/components/PhysicsDiceScene', () => ({
 }))
 
 vi.mock('@/realtime/RealtimeClientContext', () => ({
-  useRealtimeClient: () => ({ send: vi.fn() }),
+  useRealtimeClient: () => ({
+    onMessage: vi.fn(() => () => undefined),
+    send: vi.fn(),
+  }),
 }))
 
 describe('GamePage motion roll flow', () => {
@@ -124,5 +127,19 @@ describe('GamePage motion roll flow', () => {
     fireEvent.click(screen.getByRole('button', { name: '센서 사용 시작하기' }))
 
     expect(mocks.requestPermission).toHaveBeenCalledOnce()
+  })
+
+  it('내 턴이 아니면 주사위 입력을 잠그고 현재 플레이어를 안내한다', () => {
+    useAppStore.getState().setRoomSession({
+      ...participantSession,
+      snapshot: playingRoomSnapshot,
+    })
+
+    render(<GamePage roomId={participantSession.roomId} />)
+
+    expect(
+      screen.getByText(`${playingRoomSnapshot.players[0]?.nickname}님의 턴입니다`),
+    ).toBeVisible()
+    expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
   })
 })

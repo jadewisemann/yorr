@@ -162,6 +162,18 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
         },
       })
       return
+    case 'round.start':
+      if (!store.roomSnapshot) return
+      store.replaceRoomSnapshot({
+        ...store.roomSnapshot,
+        game: {
+          activePlayerId: message.payload.activePlayerId,
+          roundDeadline: message.payload.deadline,
+          roundNumber: message.payload.roundNumber,
+          scores: store.roomSnapshot.game?.scores ?? {},
+        },
+      })
+      return
     case 'room.closed':
       store.reset()
       useAppStore.getState().setAppNotice('방이 종료되어 홈으로 이동했어요.')

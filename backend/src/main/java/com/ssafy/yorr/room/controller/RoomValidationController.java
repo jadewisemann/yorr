@@ -1,6 +1,9 @@
 package com.ssafy.yorr.room.controller;
 
 import com.ssafy.yorr.handler.GameWebSocketHandler;
+import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
+import com.ssafy.yorr.game.round.application.RoundTimerService;
+import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.room.dto.GameStartResponse;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.room.service.RoomValidationService;
@@ -20,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Comparator;
+
 @RestController
 @RequestMapping("/api/v1/rooms")
 @CrossOrigin("*")
@@ -31,6 +36,8 @@ public class RoomValidationController {
     private final UserService userService;
     private final RoomSessionRegistry registry;
     private final GameWebSocketHandler gameWebSocketHandler;
+    private final RoundSynchronizationService roundSynchronizationService;
+    private final RoundTimerService roundTimerService;
 
     @DeleteMapping("/{roomCode}/players/me")
     @Operation(summary = "방 나가기")
@@ -65,10 +72,21 @@ public class RoomValidationController {
         }
         try {
             GameStartResponse result = roomService.startGame(roomCode);
+            RoundState firstTurn = roundSynchronizationService.initialize(
+                    roomCode,
+                    1,
+                    result.snapshot().players().stream()
+                            .sorted(Comparator.comparing(
+                                    player -> !player.playerId().equals(result.snapshot().hostId())
+                            ))
+                            .map(player -> player.playerId())
+                            .toList()
+            );
             // 시작을 누른 호스트는 이 HTTP 응답으로 게임 화면에 들어가지만, 나머지 참가자는 소켓으로만 알 수 있다.
             // 여기서 방송하지 않으면 참가자는 대기실에 그대로 남는다.
             registry.markPhase(roomCode, RoomPhase.PLAYING);
             gameWebSocketHandler.broadcastStateSync(roomCode);
+            roundTimerService.start(roomCode, firstTurn.roundNumber(), firstTurn.activePlayerId());
             return ResponseEntity.ok(result);
         } catch (IllegalStateException e) {
             return ResponseEntity.status(409).body(e.getMessage());

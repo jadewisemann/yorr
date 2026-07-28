@@ -4,7 +4,6 @@ import com.ssafy.yorr.game.round.application.port.RoundStateStore;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.round.domain.RoundSubmission;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
-import com.ssafy.yorr.game.round.domain.RoundCompletion;
 import com.ssafy.yorr.game.round.domain.RoundSynchronizationException;
 import org.springframework.stereotype.Component;
 
@@ -67,18 +66,46 @@ public class InMemoryRoundStateStore implements RoundStateStore {
     }
 
     @Override
-    public Optional<RoundCompletion> expireAtomically(String roomId, int expectedRoundNumber) {
+    public RoundState recordRollAtomically(
+            String roomId,
+            String playerId,
+            int roundNumber,
+            int rollCount
+    ) {
         validateRoomId(roomId);
-        AtomicReference<RoundCompletion> completionHolder = new AtomicReference<>();
+        AtomicReference<RoundState> resultHolder = new AtomicReference<>();
+        states.compute(roomId, (key, currentState) -> {
+            if (currentState == null) {
+                throw new RoundSynchronizationException(
+                        RoundSynchronizationException.Reason.ROUND_NOT_INITIALIZED,
+                        "round state is not initialized for room: " + roomId
+                );
+            }
+            RoundState result = currentState.recordRoll(playerId, roundNumber, rollCount);
+            resultHolder.set(result);
+            return result;
+        });
+        return resultHolder.get();
+    }
+
+    @Override
+    public Optional<RoundSubmissionResult> expireAtomically(
+            String roomId,
+            int expectedRoundNumber,
+            String expectedActivePlayerId
+    ) {
+        validateRoomId(roomId);
+        AtomicReference<RoundSubmissionResult> resultHolder = new AtomicReference<>();
         states.computeIfPresent(roomId, (key, currentState) -> {
-            if (currentState.roundNumber() != expectedRoundNumber) {
+            if (currentState.roundNumber() != expectedRoundNumber
+                    || !currentState.activePlayerId().equals(expectedActivePlayerId)) {
                 return currentState;
             }
             RoundSubmissionResult result = currentState.expire();
-            completionHolder.set(result.completion().orElseThrow());
+            resultHolder.set(result);
             return result.state();
         });
-        return Optional.ofNullable(completionHolder.get());
+        return Optional.ofNullable(resultHolder.get());
     }
 
     @Override

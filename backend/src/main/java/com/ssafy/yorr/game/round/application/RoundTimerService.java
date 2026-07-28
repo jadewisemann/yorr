@@ -2,6 +2,7 @@ package com.ssafy.yorr.game.round.application;
 
 import com.ssafy.yorr.game.round.application.port.RoundDeadlineScheduler;
 import com.ssafy.yorr.game.round.domain.RoundCompletion;
+import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
 import com.ssafy.yorr.ws.RoomBroadcaster;
 import com.ssafy.yorr.ws.dto.RoundEndPayload;
 import com.ssafy.yorr.ws.dto.RoundStartPayload;
@@ -44,18 +45,18 @@ public class RoundTimerService {
         this.clock = clock;
     }
 
-    public Instant start(String roomId, int roundNumber) {
+    public Instant start(String roomId, int roundNumber, String activePlayerId) {
         Instant deadline = clock.instant().plus(ROUND_DURATION);
         deadlineScheduler.schedule(
                 roomId,
                 roundNumber,
                 deadline,
-                () -> expireAndBroadcast(roomId, roundNumber)
+                () -> expireAndBroadcast(roomId, roundNumber, activePlayerId)
         );
         broadcaster.broadcast(roomId, new WsEnvelope<>(
                 "round.start",
                 clock.millis(),
-                new RoundStartPayload(roundNumber, deadline.toEpochMilli()),
+                new RoundStartPayload(roundNumber, deadline.toEpochMilli(), activePlayerId),
                 roomId,
                 null
         ));
@@ -70,9 +71,15 @@ public class RoundTimerService {
         deadlineScheduler.cancelRoom(roomId);
     }
 
-    private void expireAndBroadcast(String roomId, int roundNumber) {
-        roundSynchronizationService.expire(roomId, roundNumber)
+    private void expireAndBroadcast(String roomId, int roundNumber, String activePlayerId) {
+        roundSynchronizationService.expire(roomId, roundNumber, activePlayerId)
+                .ifPresent(result -> advanceAndBroadcast(roomId, result));
+    }
+
+    private void advanceAndBroadcast(String roomId, RoundSubmissionResult result) {
+        result.completion()
                 .ifPresent(completion -> broadcaster.broadcast(roomId, roundEnd(roomId, completion)));
+        start(roomId, result.state().roundNumber(), result.state().activePlayerId());
     }
 
     private WsEnvelope<RoundEndPayload> roundEnd(String roomId, RoundCompletion completion) {

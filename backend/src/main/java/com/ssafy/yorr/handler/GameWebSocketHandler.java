@@ -13,6 +13,7 @@ import com.ssafy.yorr.user.service.UserService;
 import com.ssafy.yorr.game.exception.ScoreConfirmationException;
 import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionResult;
 import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
+import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
 import com.ssafy.yorr.game.round.application.RoundTimerService;
 import com.ssafy.yorr.game.round.domain.RoundCompletion;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
@@ -25,6 +26,7 @@ import com.ssafy.yorr.ws.dto.SysPongPayload;
 import com.ssafy.yorr.ws.dto.ErrorPayload;
 import com.ssafy.yorr.ws.dto.RoundEndPayload;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
+import com.ssafy.yorr.ws.dto.DiceRollPayload;
 import com.ssafy.yorr.ws.dto.ScoreUpdatePayload;
 import com.ssafy.yorr.ws.dto.WsErrorCode;
 import com.ssafy.yorr.ws.dto.RoomJoinPayload;
@@ -56,6 +58,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final RoomSessionRegistry registry; // 방 명단(누가 어느 방에)
     private final UserService userService;      // 게스트 정체성 발급(티켓 70 재사용)
     private final ScoreRoundSubmissionService scoreRoundSubmissionService;
+    private final RoundSynchronizationService roundSynchronizationService;
     private final RoundTimerService roundTimerService;
 
     public GameWebSocketHandler(ObjectMapper objectMapper,
@@ -63,12 +66,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                                 RoomSessionRegistry registry,
                                 UserService userService,
                                 ScoreRoundSubmissionService scoreRoundSubmissionService,
+                                RoundSynchronizationService roundSynchronizationService,
                                 RoundTimerService roundTimerService) {
         this.objectMapper = objectMapper;
         this.broadcaster = broadcaster;
         this.registry = registry;
         this.userService = userService;
         this.scoreRoundSubmissionService = scoreRoundSubmissionService;
+        this.roundSynchronizationService = roundSynchronizationService;
         this.roundTimerService = roundTimerService;
     }
 
@@ -107,6 +112,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             case "room.leave" -> handleRoomLeave(session, in);
             case "room.ready" -> handleRoomReady(session, in);
             case "reaction.send" -> handleReactionSend(session, in);
+            case "dice.roll" -> handleDiceRoll(session, in);
             case "round.submit" -> handleRoundSubmit(session, in);
             // 다음 슬라이스에서 하나씩 (레지스트리·브로드캐스터는 이미 준비됨):
             //   case "sys.reconnect" -> handleSysReconnect(session, in);   // 상태 복원(25번 티켓, 박재영)과 공동
@@ -294,7 +300,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         send(session, pong);
     }
 
-    /** round.submit → 모든 참가자 제출 완료 시 round.end. */
+    /** round.submit → 점수 브로드캐스트 후 다음 플레이어 턴 시작. 마지막 플레이어면 round.end도 전송한다. */
     private void handleRoundSubmit(WebSocketSession session, InboundEnvelope in) throws IOException {
         String roomId = in.roomId();
         if (roomId == null || roomId.isBlank()) {
@@ -326,17 +332,48 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             ScoreRoundSubmissionResult result = scoreRoundSubmissionService.submit(roomId, playerId, payload);
             broadcastScoreUpdate(roomId, result, in.msgId());
             RoundSubmissionResult roundResult = result.round();
+            roundTimerService.cancel(roomId, payload.roundNumber());
             if (roundResult.roundCompleted()) {
                 RoundCompletion completion = roundResult.completion().orElseThrow();
-                roundTimerService.cancel(roomId, completion.roundNumber());
                 broadcastRoundEnd(roomId, completion);
             }
+            roundTimerService.start(
+                    roomId,
+                    roundResult.state().roundNumber(),
+                    roundResult.state().activePlayerId()
+            );
         } catch (ScoreConfirmationException e) {
             sendError(session, toWsErrorCode(e.reason()), e.getMessage(), in.msgId());
         } catch (RoundSynchronizationException e) {
             sendError(session, toWsErrorCode(e.reason()), e.getMessage(), in.msgId());
         } catch (IllegalArgumentException e) {
             sendError(session, WsErrorCode.INVALID_MESSAGE, e.getMessage(), in.msgId());
+        }
+    }
+
+    private void handleDiceRoll(WebSocketSession session, InboundEnvelope in) throws IOException {
+        String roomId = in.roomId();
+        RoomSessionRegistry.Member member = registry.of(session);
+        if (roomId == null || roomId.isBlank() || member == null || !roomId.equals(member.roomId())) {
+            sendError(session, WsErrorCode.NOT_IN_ROOM, "current room membership is required", in.msgId());
+            return;
+        }
+
+        DiceRollPayload payload;
+        try {
+            payload = objectMapper.treeToValue(in.payload(), DiceRollPayload.class);
+        } catch (Exception exception) {
+            sendError(session, WsErrorCode.INVALID_MESSAGE, "invalid dice.roll payload", in.msgId());
+            return;
+        }
+
+        try {
+            var state = roundSynchronizationService.recordRoll(roomId, member.playerId(), payload);
+            roundTimerService.start(roomId, state.roundNumber(), state.activePlayerId());
+        } catch (RoundSynchronizationException exception) {
+            sendError(session, toWsErrorCode(exception.reason()), exception.getMessage(), in.msgId());
+        } catch (IllegalArgumentException exception) {
+            sendError(session, WsErrorCode.INVALID_MESSAGE, exception.getMessage(), in.msgId());
         }
     }
 
@@ -379,9 +416,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             case INVALID_ROUND,
                  INVALID_PLAYER,
                  INVALID_DICE,
+                 INVALID_ROLL,
                  INVALID_CATEGORY,
                  ROUND_ALREADY_INITIALIZED,
                  ROUND_MISMATCH,
+                 NOT_ACTIVE_PLAYER,
                  ALREADY_SUBMITTED -> WsErrorCode.INVALID_MESSAGE;
             case ROUND_NOT_INITIALIZED -> WsErrorCode.INTERNAL;
         };
@@ -403,7 +442,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     /** 공통 송신 헬퍼: 봉투 → JSON 문자열 → 소켓 전송. */
     private void send(WebSocketSession session, WsEnvelope<?> envelope) throws IOException {
         String json = objectMapper.writeValueAsString(envelope);
-        session.sendMessage(new TextMessage(json));
+        synchronized (session) {
+            session.sendMessage(new TextMessage(json));
+        }
     }
 
     /** 표준 에러 응답. refMsgId =  어떤 요청 실패인지 매칭용(없으면 null). **/

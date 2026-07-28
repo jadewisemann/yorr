@@ -68,12 +68,19 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   const [releaseRequestId, setReleaseRequestId] = useState<string | null>(null)
   const [rollInputMode, setRollInputMode] = useState<RollInputMode | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const pendingSubmissionRef = useRef<{
+    category: YachtCategory
+    msgId: string
+  } | null>(null)
   // 닫은 안내가 "어느 상태의 안내였는지"를 담는다. boolean으로 두면 상태가 바뀌어도 계속 닫혀
   // 새 안내를 놓친다 — 값이 달라지는 순간 자동으로 다시 뜨게 하려는 의도다.
   const [dismissedNotice, setDismissedNotice] = useState<MotionAvailability | null>(null)
 
   const game = snapshot.game
   const roundNumber = game?.roundNumber ?? 1
+  const activePlayerId = game?.activePlayerId
+  const isMyTurn = activePlayerId === session.you
+  const activePlayer = snapshot.players.find((player) => player.playerId === activePlayerId)
   const remainingMs = useCountdown(game?.roundDeadline ?? null)
   const myBoard = game?.scores[session.you]
   const viewedBoard = game?.scores[viewedPlayerId]
@@ -96,7 +103,7 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   const recommended = topCandidates(candidates)
 
   // 재연결 중에는 조작을 잠근다. 서버 상태와 어긋난 굴림·확정이 가장 위험하다.
-  const locked = connectionStatus === 'reconnecting' || connectionStatus === 'closed'
+  const locked = connectionStatus === 'reconnecting' || connectionStatus === 'closed' || !isMyTurn
   const submitted = local.phase === 'roundComplete'
   const rollsLeft = MAX_ROLLS - local.rollCount
   const canRoll =
@@ -110,37 +117,59 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   const primaryLabel = rolling ? '굴리는 중' : canRoll ? '굴리기' : '확정하기'
 
   const players = toProgressEntries(snapshot.players, game?.scores, roundNumber, session.you)
-  const doneCount = players.filter((player) => player.progress === 'done').length
 
   const diceRef = useRef(local.dice)
   diceRef.current = local.dice
 
   const submitCategory = useCallback(
-    async (category: YachtCategory) => {
+    (category: YachtCategory) => {
       const dice = diceRef.current
       if (!dice) return
+      const msgId = `round-${roundNumber}-${Date.now()}`
       dispatch({ type: 'categorySelected', category })
       dispatch({ type: 'submissionStarted' })
+      pendingSubmissionRef.current = { category, msgId }
       setSubmitting(true)
       try {
         realtimeClient.send(
-          buildClientMessage(
-            'round.submit',
-            { category, dice, roundNumber },
-            { roomId, msgId: `round-${roundNumber}-${Date.now()}` },
-          ),
+          buildClientMessage('round.submit', { category, dice, roundNumber }, { roomId, msgId }),
         )
       } catch {
+        pendingSubmissionRef.current = null
         dispatch({ type: 'submissionFailed' })
-        showToast('점수를 기록하지 못했어요. 다시 시도해 주세요.')
-        return
-      } finally {
         setSubmitting(false)
+        showToast('점수를 기록하지 못했어요. 다시 시도해 주세요.')
       }
-      dispatch({ type: 'submissionSucceeded' })
-      setSheetOpen(false)
     },
     [dispatch, realtimeClient, roomId, roundNumber, showToast],
+  )
+
+  useEffect(
+    () =>
+      realtimeClient.onMessage((message) => {
+        const pending = pendingSubmissionRef.current
+        if (!pending) return
+
+        if (
+          message.type === 'score.update' &&
+          message.msgId === pending.msgId &&
+          message.payload.playerId === session.you
+        ) {
+          pendingSubmissionRef.current = null
+          dispatch({ type: 'submissionSucceeded' })
+          setSubmitting(false)
+          setSheetOpen(false)
+          return
+        }
+
+        if (message.type === 'error' && message.payload.refMsgId === pending.msgId) {
+          pendingSubmissionRef.current = null
+          dispatch({ type: 'submissionFailed' })
+          setSubmitting(false)
+          showToast(message.payload.message)
+        }
+      }),
+    [dispatch, realtimeClient, session.you, showToast],
   )
 
   const rollSequenceRef = useRef(0)
@@ -219,10 +248,22 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   }
 
   const completeRoll = (requestId: string, dice: DiceSet) => {
+    const rollCount = (local.rollCount + 1) as 1 | 2 | 3
     dispatch({ type: 'rollCompleted', requestId, dice })
     setReleaseRequestId(null)
     setRollInputMode(null)
     motion.resetGesture('roll-complete')
+    try {
+      realtimeClient.send(
+        buildClientMessage(
+          'dice.roll',
+          { dice, rollCount, roundNumber },
+          { roomId, msgId: `roll-${roundNumber}-${rollCount}-${Date.now()}` },
+        ),
+      )
+    } catch {
+      showToast('타이머를 갱신하지 못했어요. 연결 상태를 확인해 주세요.')
+    }
   }
 
   const handleConfirm = () => {
@@ -232,7 +273,7 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
       setZeroConfirm(category)
       return
     }
-    void submitCategory(category)
+    submitCategory(category)
   }
 
   // 마지막 굴림이 끝나면 족보 시트를 자동으로 연다(1d 인터랙션 명세).
@@ -244,16 +285,16 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   useTimeoutAutoRecord({
     candidates,
     // 'choosing'이 아니면 reducer가 기록 전이를 거부한다. 서버에만 기록되는 어긋남을 막는다.
-    enabled: !locked && !submitted && local.phase === 'choosing' && local.dice !== null,
+    enabled: isMyTurn && !locked && !submitted && local.phase === 'choosing' && local.dice !== null,
     expired: game?.roundDeadline !== undefined && remainingMs <= 0,
     onRecord: (category, score) => {
       showToast(`시간이 지나 ${categoryLabel[category]} ${score}점이 기록됐습니다.`)
-      void submitCategory(category)
+      submitCategory(category)
     },
     roundNumber,
   })
 
-  useShortcuts(wide, { onConfirm: handleConfirm, onRoll: handleRoll, dispatch })
+  useShortcuts(wide && isMyTurn, { onConfirm: handleConfirm, onRoll: handleRoll, dispatch })
 
   const diceScene = (
     <div
@@ -307,7 +348,11 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   // 내 차례가 끝나면 CTA 자리를 진행 표시로 바꾼다. 빈 화면을 만들지 않는다(1d).
   const waitingNotice = (
     <p className="m-0 flex min-h-15 flex-1 items-center justify-center rounded-panel border border-dashed border-border px-4 text-center text-sm font-semibold text-content-muted">
-      {snapshot.players.length}명 중 {doneCount + 1}명 완료 · 다음 라운드를 기다리는 중
+      {submitted
+        ? '점수가 반영됐습니다 · 다음 턴을 기다리는 중'
+        : activePlayer
+          ? `${activePlayer.nickname}님의 턴입니다`
+          : '턴 정보를 동기화하는 중'}
     </p>
   )
 
@@ -318,7 +363,7 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
       onConfirm={() => {
         const category = zeroConfirm
         setZeroConfirm(null)
-        if (category) void submitCategory(category)
+        if (category) submitCategory(category)
       }}
     />
   )
@@ -386,42 +431,43 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
     </section>
   )
 
-  const actions = submitted ? (
-    waitingNotice
-  ) : wide ? (
-    <>
+  const actions =
+    submitted || !isMyTurn ? (
+      waitingNotice
+    ) : wide ? (
+      <>
+        <Button
+          className="min-h-15 w-[300px] rounded-panel text-[17px]"
+          disabled={!canRoll}
+          loading={rolling}
+          onClick={handleRoll}
+          size="lg"
+        >
+          {rolling ? '굴리는 중' : '굴리기'}
+          {!rolling && <span className="ml-2 text-xs font-medium opacity-70">Space</span>}
+        </Button>
+        <Button
+          className="min-h-15 w-[220px] rounded-panel text-[15px]"
+          disabled={!canConfirm}
+          loading={submitting}
+          onClick={handleConfirm}
+          size="lg"
+          variant="secondary"
+        >
+          확정하기 <span className="ml-2 text-xs font-medium">Enter</span>
+        </Button>
+      </>
+    ) : (
       <Button
-        className="min-h-15 w-[300px] rounded-panel text-[17px]"
-        disabled={!canRoll}
-        loading={rolling}
-        onClick={handleRoll}
+        className="min-h-15 flex-1 rounded-panel text-[17px]"
+        disabled={!(canRoll || canConfirm)}
+        loading={submitting || rolling}
+        onClick={canRoll ? handleRoll : handleConfirm}
         size="lg"
       >
-        {rolling ? '굴리는 중' : '굴리기'}
-        {!rolling && <span className="ml-2 text-xs font-medium opacity-70">Space</span>}
+        {primaryLabel}
       </Button>
-      <Button
-        className="min-h-15 w-[220px] rounded-panel text-[15px]"
-        disabled={!canConfirm}
-        loading={submitting}
-        onClick={handleConfirm}
-        size="lg"
-        variant="secondary"
-      >
-        확정하기 <span className="ml-2 text-xs font-medium">Enter</span>
-      </Button>
-    </>
-  ) : (
-    <Button
-      className="min-h-15 flex-1 rounded-panel text-[17px]"
-      disabled={!(canRoll || canConfirm)}
-      loading={submitting || rolling}
-      onClick={canRoll ? handleRoll : handleConfirm}
-      size="lg"
-    >
-      {primaryLabel}
-    </Button>
-  )
+    )
 
   return (
     <>
@@ -439,6 +485,7 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
         {wide ? (
           <ScorePanel
             candidates={candidates}
+            disabled={!isMyTurn}
             onSelect={(category) => dispatch({ type: 'categorySelected', category })}
             onViewPlayer={setViewedPlayerId}
             players={snapshot.players}
@@ -514,6 +561,7 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
         <BottomSheet onClose={() => setSheetOpen(false)} open={sheetOpen} title="족보 선택">
           <CategorySheet
             candidates={candidates}
+            disabled={!isMyTurn}
             onConfirm={handleConfirm}
             onSelect={(category) => dispatch({ type: 'categorySelected', category })}
             recorded={myBoard?.categories ?? {}}

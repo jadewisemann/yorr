@@ -27,6 +27,7 @@ const finishedSnapshot: RoomSnapshot = {
     { playerId: 'p3', nickname: '아주긴닉네임입니다', status: 'online' },
   ],
   game: {
+    activePlayerId: hostSession.you,
     roundNumber: 12,
     roundDeadline: 0,
     scores: {

@@ -48,6 +48,7 @@ export function createPlayingRoomSnapshot(roundDeadline: number): RoomSnapshot {
     ...waitingRoomSnapshot,
     phase: 'playing',
     game: {
+      activePlayerId: creatorPlayer.playerId,
       roundNumber: 1,
       roundDeadline,
       scores: {

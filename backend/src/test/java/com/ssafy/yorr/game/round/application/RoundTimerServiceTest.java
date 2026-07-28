@@ -50,7 +50,7 @@ class RoundTimerServiceTest {
     void broadcastsRoundStartWithServerDeadline() {
         synchronizationService.initialize("room-a", 1, List.of("player-a"));
 
-        Instant deadline = timerService.start("room-a", 1);
+        Instant deadline = timerService.start("room-a", 1, "player-a");
 
         assertThat(deadline).isEqualTo(NOW.plusSeconds(25));
         assertThat(scheduler.deadline).isEqualTo(deadline);
@@ -59,28 +59,34 @@ class RoundTimerServiceTest {
         assertThat(message.ts()).isEqualTo(NOW.toEpochMilli());
         assertThat(message.roomId()).isEqualTo("room-a");
         assertThat(message.msgId()).isNull();
-        assertThat(message.payload()).isEqualTo(new RoundStartPayload(1, deadline.toEpochMilli()));
+        assertThat(message.payload()).isEqualTo(
+                new RoundStartPayload(1, deadline.toEpochMilli(), "player-a")
+        );
     }
 
     @Test
-    void timeoutCompletesRoundWithOnlySubmittedPlayers() {
+    void timeoutAdvancesToTheNextPlayersTurn() {
         synchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
-        synchronizationService.submit("room-a", "player-a", payload(1));
-        timerService.start("room-a", 1);
+        timerService.start("room-a", 1, "player-a");
         reset(broadcaster);
 
         scheduler.fire();
 
         WsEnvelope<?> message = capturedBroadcast();
-        assertThat(message.type()).isEqualTo("round.end");
-        assertThat(message.payload()).isEqualTo(new RoundEndPayload(1, List.of("player-a")));
-        assertThat(stateStore.findByRoomId("room-a").orElseThrow().roundNumber()).isEqualTo(2);
+        assertThat(message.type()).isEqualTo("round.start");
+        assertThat(message.payload()).isEqualTo(
+                new RoundStartPayload(1, NOW.plusSeconds(25).toEpochMilli(), "player-b")
+        );
+        assertThat(stateStore.findByRoomId("room-a")).hasValueSatisfying(state -> {
+            assertThat(state.roundNumber()).isEqualTo(1);
+            assertThat(state.activePlayerId()).isEqualTo("player-b");
+        });
     }
 
     @Test
     void staleTimeoutDoesNotCompleteAlreadyAdvancedRound() {
         synchronizationService.initialize("room-a", 1, List.of("player-a"));
-        timerService.start("room-a", 1);
+        timerService.start("room-a", 1, "player-a");
         synchronizationService.submit("room-a", "player-a", payload(1));
         reset(broadcaster);
 
