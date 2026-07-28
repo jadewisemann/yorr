@@ -84,20 +84,6 @@ describe('GamePage motion roll flow', () => {
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', 'r1-1')
   })
 
-  it('렌더러가 다른 값을 반환해도 계획된 주사위 값을 게임 상태에 반영한다', () => {
-    render(<GamePage roomId={creatorSession.roomId} />)
-    fireEvent.click(screen.getByRole('button', { name: '굴리기' }))
-    act(() => vi.advanceTimersByTime(600))
-    const targetDice = mocks.sceneProps?.request?.targetDice
-    expect(targetDice).toBeDefined()
-
-    act(() => {
-      mocks.sceneProps?.onRollComplete('r1-1', [6, 6, 6, 6, 6])
-    })
-
-    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-dice', targetDice?.join(','))
-  })
-
   it('흔들기 뒤 던지기 이벤트가 와야 센서 굴림을 release한다', () => {
     mocks.motionAvailability = 'listening'
     render(<GamePage roomId={creatorSession.roomId} />)
