@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type {
   PhysicsDiceIndex,
+  PhysicsDiceMotionPulse,
   PhysicsDicePhase,
   PhysicsDiceQuality,
   PhysicsDiceRollRequest,
@@ -13,6 +14,9 @@ import { PhysicsDiceFallback } from './PhysicsDiceFallback'
 type PhysicsDiceSceneProps = {
   dice: PhysicsDiceSet | null
   held: PhysicsHeldDice
+  /** true면 사발 흔들림이 canned 애니메이션 대신 motionPulse 에너지를 따라간다. */
+  motionFollow?: boolean
+  motionPulse?: PhysicsDiceMotionPulse | null
   releaseRequestId: string | null
   onError?: (error: Error) => void
   onHeldToggle?: (index: PhysicsDiceIndex) => void
@@ -30,6 +34,8 @@ const DIE_KEYS = ['die-1', 'die-2', 'die-3', 'die-4', 'die-5'] as const
 export function PhysicsDiceScene({
   dice,
   held,
+  motionFollow,
+  motionPulse,
   releaseRequestId,
   onError,
   onHeldToggle,
@@ -41,15 +47,16 @@ export function PhysicsDiceScene({
   const containerRef = useRef<HTMLDivElement>(null)
   const worldRef = useRef<PhysicsDiceWorldInstance | null>(null)
   const callbacksRef = useRef({ onError, onHeldToggle, onPhaseChange, onRollComplete })
-  const latestRef = useRef({ dice, held, quality, releaseRequestId, request })
+  const latestRef = useRef({ dice, held, motionFollow, quality, releaseRequestId, request })
   const startedRequestsRef = useRef(new Set<string>())
   const releasedRequestsRef = useRef(new Set<string>())
   const completedRequestsRef = useRef(new Set<string>())
+  const lastPulseIdRef = useRef(0)
   const [fallbackMessage, setFallbackMessage] = useState<string | null>(null)
   const [resizing, setResizing] = useState(false)
 
   callbacksRef.current = { onError, onHeldToggle, onPhaseChange, onRollComplete }
-  latestRef.current = { dice, held, quality, releaseRequestId, request }
+  latestRef.current = { dice, held, motionFollow, quality, releaseRequestId, request }
 
   useEffect(() => {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -89,6 +96,7 @@ export function PhysicsDiceScene({
         worldRef.current = createdWorld
         const latest = latestRef.current
         createdWorld.applyQuality(latest.quality)
+        if (latest.motionFollow !== undefined) createdWorld.setMotionFollow(latest.motionFollow)
         createdWorld.syncCommittedDice(latest.dice, latest.held)
         if (latest.request && !startedRequestsRef.current.has(latest.request.requestId)) {
           startedRequestsRef.current.add(latest.request.requestId)
@@ -148,6 +156,17 @@ export function PhysicsDiceScene({
   useEffect(() => {
     worldRef.current?.applyQuality(quality)
   }, [quality])
+
+  useEffect(() => {
+    if (motionFollow === undefined) return
+    worldRef.current?.setMotionFollow(motionFollow)
+  }, [motionFollow])
+
+  useEffect(() => {
+    if (!motionPulse || motionPulse.id === lastPulseIdRef.current) return
+    lastPulseIdRef.current = motionPulse.id
+    worldRef.current?.applyShakePulse(motionPulse.direction, motionPulse.strength)
+  }, [motionPulse])
 
   if (fallbackMessage) {
     return (
