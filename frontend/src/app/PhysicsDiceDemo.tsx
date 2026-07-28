@@ -13,6 +13,7 @@ import {
   toggleHeldDie,
 } from '@/domain/dice'
 import type {
+  PhysicsDiceMotionPulse,
   PhysicsDicePhase,
   PhysicsDiceQuality,
   PhysicsDiceRollRequest,
@@ -26,8 +27,20 @@ export function PhysicsDiceDemo() {
   const [quality, setQuality] = useState<PhysicsDiceQuality>('balanced')
   const [phase, setPhase] = useState<PhysicsDicePhase>('idle')
   const [forcedTargetInput, setForcedTargetInput] = useState('')
+  const [motionFollow, setMotionFollow] = useState(false)
+  const [motionPulse, setMotionPulse] = useState<PhysicsDiceMotionPulse | null>(null)
   const seedRef = useRef(73)
   const requestSequenceRef = useRef(0)
+  const pulseSequenceRef = useRef(0)
+
+  const sendPulse = () => {
+    pulseSequenceRef.current += 1
+    setMotionPulse({
+      id: pulseSequenceRef.current,
+      direction: pulseSequenceRef.current % 2 === 0 ? 'right' : 'left',
+      strength: 0.8,
+    })
+  }
   const forcedValues = forcedTargetInput
     .replace(/[^1-6]/g, '')
     .split('')
@@ -105,6 +118,21 @@ export function PhysicsDiceDemo() {
             aria-label="다음 굴림의 목표값 다섯 자리 (1-6)"
           />
         </label>
+        <label className="flex items-center gap-2 text-sm text-content-muted">
+          <input
+            type="checkbox"
+            checked={motionFollow}
+            onChange={(event) => setMotionFollow(event.target.checked)}
+          />
+          모션 팔로우
+        </label>
+        <Button
+          variant="secondary"
+          onClick={sendPulse}
+          disabled={!motionFollow || phase !== 'shaking'}
+        >
+          흔들기 펄스
+        </Button>
         <span className="font-mono text-xs text-content-muted">
           PHASE: {phase}
           {request ? ` · TARGET: ${request.targetDice.join('')}` : ''}
@@ -114,6 +142,8 @@ export function PhysicsDiceDemo() {
         <PhysicsDiceScene
           dice={dice}
           held={held}
+          motionFollow={motionFollow}
+          motionPulse={motionPulse}
           releaseRequestId={releaseRequestId}
           request={request}
           quality={quality}
