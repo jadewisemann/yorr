@@ -10,7 +10,11 @@ export function useGame(gameId: string | null) {
   return useAsyncQuery<RoomSnapshot>(
     gameId ? `game:${gameId}` : null,
     (signal) => requireId(gameId, 'Game ID', (id) => gameApiClient.getGame(id, { signal })),
-    { onSuccess: replaceRoomSnapshot },
+    {
+      onSuccess: (snapshot) => {
+        replaceRoomSnapshot(preserveRealtimeGame(snapshot))
+      },
+    },
   )
 }
 
@@ -31,12 +35,13 @@ export function useStartGame() {
     {
       onSuccess: (result) => {
         if (!roomSession) return
+        const snapshot = preserveRealtimeGame(result.snapshot)
         setRoomSession({
           ...roomSession,
           gameId: result.gameId,
-          snapshot: result.snapshot,
+          snapshot,
         })
-        replaceRoomSnapshot(result.snapshot)
+        replaceRoomSnapshot(snapshot)
       },
     },
   )
@@ -46,6 +51,11 @@ export function useScoreCandidates() {
   return useAsyncTask<[string, ScoreCandidatesRequest], ScoreCandidates>(
     (signal, gameId, request) => gameApiClient.getScoreCandidates(gameId, request, { signal }),
   )
+}
+
+function preserveRealtimeGame(snapshot: RoomSnapshot): RoomSnapshot {
+  const realtimeGame = useAppStore.getState().roomSnapshot?.game
+  return realtimeGame ? { ...snapshot, game: realtimeGame } : snapshot
 }
 
 function requireId<TData>(

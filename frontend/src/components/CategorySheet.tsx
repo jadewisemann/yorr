@@ -13,6 +13,7 @@ interface CategorySheetProps {
   /** 서버가 확정한 내 점수판. null = 미기입. */
   recorded: Partial<Record<YachtCategory, number | null>>
   selectedCategory: YachtCategory | null
+  disabled?: boolean
   submitting?: boolean
   total: number
 }
@@ -31,6 +32,7 @@ export function CategorySheet({
   onSelect,
   recorded,
   selectedCategory,
+  disabled = false,
   submitting = false,
   total,
 }: CategorySheetProps) {
@@ -63,7 +65,7 @@ export function CategorySheet({
             <ScoreRow
               key={category}
               label={categoryLabel[category]}
-              onSelect={() => onSelect(category)}
+              {...(!disabled ? { onSelect: () => onSelect(category) } : {})}
               score={isRecorded(recordedScore) ? recordedScore : candidates[category]}
               state={state}
             />
@@ -73,7 +75,7 @@ export function CategorySheet({
 
       <div className="mt-auto grid gap-2 pt-3">
         <Button
-          disabled={selectedCategory === null}
+          disabled={disabled || selectedCategory === null}
           loading={submitting}
           onClick={onConfirm}
           size="lg"

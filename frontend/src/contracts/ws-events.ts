@@ -90,6 +90,7 @@ export type DiceSet = DiceValue[] // 요트다이스 = 5개
 /** ⚠️ STUB · owner: 고용훈(라운드) + 유상은(점수). 최종 필드 협의 필요. */
 export interface GameState {
   roundNumber: number
+  activePlayerId: PlayerId
   /** epoch ms. 클라가 남은시간 = deadline - now 로 계산(타이머 tick 최소화). */
   roundDeadline: number
   scores: Record<PlayerId, ScoreBoard>
@@ -301,6 +302,7 @@ export interface PresenceUpdatePayload {
 export interface RoundStartPayload {
   roundNumber: number
   deadline: number // epoch ms
+  activePlayerId: PlayerId
 }
 // C→S ⚠️ owner 고용훈: 이번 라운드 제출(로컬 계산된 주사위 + 기록할 족보 칸).
 //   category = 요트 족보 키 중 하나(YachtCategory). 0점 기록(포기)도 같은 방식.
@@ -314,8 +316,10 @@ export interface RoundEndPayload {
   roundNumber: number
   submitted: PlayerId[]
 }
-// C→S ⚠️ owner 정유진/고용훈: 로컬 굴림 결과 보고(라이브 표시용, 선택).
+// C→S: 서버가 굴림 순서를 검증하고 현재 턴의 25초 deadline을 갱신한다.
 export interface DiceRollPayload {
+  roundNumber: number
+  rollCount: 1 | 2 | 3
   dice: DiceSet
 }
 // S→C ⚠️ owner 정유진/고용훈: 남의 주사위 브로드캐스트(선택).

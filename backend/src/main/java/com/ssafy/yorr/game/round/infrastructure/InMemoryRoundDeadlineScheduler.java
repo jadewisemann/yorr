@@ -13,6 +13,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 public class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
@@ -23,6 +24,7 @@ public class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
         return thread;
     });
     private final ConcurrentMap<String, ScheduledRound> scheduledRounds = new ConcurrentHashMap<>();
+    private final AtomicLong generations = new AtomicLong();
 
     @Override
     public void schedule(String roomId, int roundNumber, Instant deadline, Runnable timeoutAction) {
@@ -37,12 +39,16 @@ public class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
         }
 
         long delayMillis = Math.max(0, Duration.between(Instant.now(), deadline).toMillis());
+        long generation = generations.incrementAndGet();
         ScheduledFuture<?> future = executor.schedule(
-                () -> runIfCurrent(roomId, roundNumber, timeoutAction),
+                () -> runIfCurrent(roomId, roundNumber, generation, timeoutAction),
                 delayMillis,
                 TimeUnit.MILLISECONDS
         );
-        ScheduledRound previous = scheduledRounds.put(roomId, new ScheduledRound(roundNumber, future));
+        ScheduledRound previous = scheduledRounds.put(
+                roomId,
+                new ScheduledRound(roundNumber, generation, future)
+        );
         if (previous != null) {
             previous.future().cancel(false);
         }
@@ -67,10 +73,15 @@ public class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
         }
     }
 
-    private void runIfCurrent(String roomId, int roundNumber, Runnable timeoutAction) {
+    private void runIfCurrent(
+            String roomId,
+            int roundNumber,
+            long generation,
+            Runnable timeoutAction
+    ) {
         AtomicBoolean current = new AtomicBoolean(false);
         scheduledRounds.computeIfPresent(roomId, (key, scheduled) -> {
-            if (scheduled.roundNumber() == roundNumber) {
+            if (scheduled.roundNumber() == roundNumber && scheduled.generation() == generation) {
                 current.set(true);
                 return null;
             }
@@ -86,6 +97,6 @@ public class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
         executor.shutdownNow();
     }
 
-    private record ScheduledRound(int roundNumber, ScheduledFuture<?> future) {
+    private record ScheduledRound(int roundNumber, long generation, ScheduledFuture<?> future) {
     }
 }

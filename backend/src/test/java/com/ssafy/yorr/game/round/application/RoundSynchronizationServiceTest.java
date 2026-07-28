@@ -49,7 +49,7 @@ class RoundSynchronizationServiceTest {
     }
 
     @Test
-    void completesRoundExactlyOnceUnderConcurrentSubmissions() throws Exception {
+    void advancesOnlyAfterEachPlayerSubmitsInTurnOrder() {
         int participantCount = 20;
         List<String> participants = new ArrayList<>();
         for (int index = 0; index < participantCount; index++) {
@@ -57,31 +57,17 @@ class RoundSynchronizationServiceTest {
         }
         service.initialize("room-a", 1, participants);
 
-        CountDownLatch start = new CountDownLatch(1);
-        ExecutorService executor = Executors.newFixedThreadPool(participantCount);
-        try {
-            List<Future<RoundSubmissionResult>> futures = new ArrayList<>();
-            for (String playerId : participants) {
-                futures.add(executor.submit(() -> {
-                    start.await();
-                    return service.submit("room-a", playerId, payload(1));
-                }));
-            }
-
-            start.countDown();
-            List<RoundSubmissionResult> results = new ArrayList<>();
-            for (Future<RoundSubmissionResult> future : futures) {
-                results.add(future.get());
-            }
-
-            assertThat(results).filteredOn(RoundSubmissionResult::roundCompleted).hasSize(1);
-            assertThat(store.findByRoomId("room-a")).hasValueSatisfying(state -> {
-                assertThat(state.roundNumber()).isEqualTo(2);
-                assertThat(state.submittedPlayerIds()).isEmpty();
-            });
-        } finally {
-            executor.shutdownNow();
+        List<RoundSubmissionResult> results = new ArrayList<>();
+        for (String playerId : participants) {
+            results.add(service.submit("room-a", playerId, payload(1)));
         }
+
+        assertThat(results).filteredOn(RoundSubmissionResult::roundCompleted).hasSize(1);
+        assertThat(store.findByRoomId("room-a")).hasValueSatisfying(state -> {
+            assertThat(state.roundNumber()).isEqualTo(2);
+            assertThat(state.submittedPlayerIds()).isEmpty();
+            assertThat(state.activePlayerId()).isEqualTo("player-0");
+        });
     }
 
     @Test

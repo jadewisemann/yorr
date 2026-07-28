@@ -104,7 +104,7 @@ describe('GamePlay', () => {
     await user.click(within(sheet).getByRole('button', { name: /^Choice/ }))
     await user.click(within(sheet).getByRole('button', { name: /Choice에 \d+점 확정/ }))
 
-    expect(await screen.findByText(/명 완료 · 다음 라운드를 기다리는 중/)).toBeVisible()
+    expect(await screen.findByText('점수가 반영됐습니다 · 다음 턴을 기다리는 중')).toBeVisible()
   })
 
   it('asks for confirmation before recording a zero', async () => {

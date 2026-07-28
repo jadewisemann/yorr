@@ -3,7 +3,6 @@ package com.ssafy.yorr.game.round.application.port;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.round.domain.RoundSubmission;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
-import com.ssafy.yorr.game.round.domain.RoundCompletion;
 
 import java.util.Optional;
 
@@ -24,11 +23,22 @@ public interface RoundStateStore {
             Runnable beforeStateChange
     );
 
+    RoundState recordRollAtomically(
+            String roomId,
+            String playerId,
+            int roundNumber,
+            int rollCount
+    );
+
     /**
      * Completes the round only when it is still the expected current round.
      * Returns empty when the room was removed or another path already advanced it.
      */
-    Optional<RoundCompletion> expireAtomically(String roomId, int expectedRoundNumber);
+    Optional<RoundSubmissionResult> expireAtomically(
+            String roomId,
+            int expectedRoundNumber,
+            String expectedActivePlayerId
+    );
 
     Optional<RoundState> findByRoomId(String roomId);
 

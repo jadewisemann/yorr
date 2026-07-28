@@ -49,7 +49,13 @@ describe('FakeRealtimeClient scenarios', () => {
         sessionToken: creatorSession.sessionToken,
       }),
     )
-    duplicate.send(buildClientMessage('dice.roll', { dice: [1, 2, 3, 4, 5] }))
+    duplicate.send(
+      buildClientMessage('dice.roll', {
+        dice: [1, 2, 3, 4, 5],
+        rollCount: 1,
+        roundNumber: 1,
+      }),
+    )
     outOfOrder.send(
       buildClientMessage('round.submit', {
         roundNumber: 1,
@@ -78,7 +84,7 @@ describe('FakeRealtimeClient scenarios', () => {
     client.send(
       buildClientMessage(
         'dice.roll',
-        { dice: [1, 2, 3, 4, 5] },
+        { dice: [1, 2, 3, 4, 5], rollCount: 1, roundNumber: 1 },
         { roomId: MOCK_ROOM_ID, msgId: 'roll-1' },
       ),
     )
