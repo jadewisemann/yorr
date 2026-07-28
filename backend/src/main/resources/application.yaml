@@ -60,11 +60,6 @@ management:
     health:
       show-details: never
 
-  metrics:
-    tags:
-      application: ${spring.application.name:yorr}
-      environment: ${APP_ENV:local}
-
 logging:
   level:
     org.hibernate.SQL: debug
