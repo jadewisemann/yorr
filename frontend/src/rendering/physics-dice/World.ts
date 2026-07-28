@@ -21,7 +21,7 @@ import {
 import type { PhysicsDiceGeometries, PhysicsDiceMaterials } from './model'
 import { quaternionForTopValue } from './model'
 import { createPhysicsDiceRandom, type PhysicsDiceRandom } from './random'
-import { readTopDice } from './result'
+import { cubeAlignmentOffset, predictNaturalDice } from './remap'
 import type { AlignmentEntry, DieEntry, LayoutEntry } from './runtimeTypes'
 import { containDiceInBowl, containDiceInTray } from './safety'
 import { createStage } from './stage'
@@ -145,6 +145,9 @@ export class PhysicsDiceWorld {
     this.request = request
     this.settledDice = null
     this.layoutAnimating = false
+    this.entries.forEach((entry) => {
+      entry.visualOffset.identity()
+    })
     this.random = createPhysicsDiceRandom(request.seed)
     this.updateHeldOrder(request.held)
     this.held = [...request.held]
@@ -299,12 +302,13 @@ export class PhysicsDiceWorld {
     const simulating = this.phase === 'shaking' || this.phase === 'pouring'
     if (simulating) this.accumulator += elapsed
     this.updateBowl(time)
+    const rollingEntries = this.entries.filter((entry) => !this.held[entry.index])
     while (simulating && this.accumulator >= this.world.timestep) {
       this.world.step()
+      if (this.phase === 'shaking') containDiceInBowl(this.entries, this.held, this.bowlBody)
+      if (this.phase === 'pouring' && this.diceReleased) containDiceInTray(rollingEntries)
       this.accumulator -= this.world.timestep
     }
-    if (this.phase === 'shaking') containDiceInBowl(this.entries, this.held, this.bowlBody)
-    if (this.phase === 'pouring' && this.diceReleased) containDiceInTray(this.entries, this.held)
     if (this.phase === 'aligning') this.updateResultAlignment(time)
     else if (this.layoutAnimating) this.updateLayoutTransition(time)
     else {
@@ -312,7 +316,9 @@ export class PhysicsDiceWorld {
         const position = entry.body.translation()
         const rotation = entry.body.rotation()
         entry.mesh.position.set(position.x, position.y, position.z)
-        entry.mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w)
+        entry.mesh.quaternion
+          .set(rotation.x, rotation.y, rotation.z, rotation.w)
+          .multiply(entry.visualOffset)
       })
     }
     this.checkSettled(time)
@@ -372,6 +378,9 @@ export class PhysicsDiceWorld {
       return
     }
     if (this.phase !== 'pouring') return
+    // 쏟은 뒤에는 그릇 바디를 더 움직이지 않는다 — 예측 복제 시뮬과 실제 진행이 같은
+    // 월드 상태를 보게 하기 위한 결정론 조건 (그릇은 이미 기울인 마지막 포즈로 고정).
+    if (this.diceReleased) return
     const elapsed = time - this.pourStartedAt
     const progress = Math.min(1, elapsed / SCENE.bowl.tiltDurationMs)
     const eased = progress < 0.5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2
@@ -455,6 +464,25 @@ export class PhysicsDiceWorld {
         true,
       )
     })
+    this.planVisualRemap()
+  }
+
+  /**
+   * 쏟아짐 직후 복제 시뮬로 자연 결과를 예측하고, 주사위가 공중에서 빠르게 회전하는
+   * 지금 시점에 표시 면을 목표값으로 바꿔 끼운다. 예측이 실패해도 정렬 단계가
+   * targetDice로 수렴하므로 연출 품질만 떨어질 뿐 결과는 항상 정확하다.
+   */
+  private planVisualRemap() {
+    const request = this.request
+    if (!request) return
+    const natural = predictNaturalDice(this.world, this.entries, this.held)
+    if (!natural) return
+    this.entries.forEach((entry) => {
+      if (this.held[entry.index]) return
+      entry.visualOffset.copy(
+        cubeAlignmentOffset(request.targetDice[entry.index], natural[entry.index]),
+      )
+    })
   }
 
   private checkSettled(time: number) {
@@ -486,7 +514,7 @@ export class PhysicsDiceWorld {
     this.callbacks.onPhaseChange('aligning')
     this.alignmentStartedAt = time
     this.bowlExitStartedAt = time
-    this.settledDice = readTopDice(this.entries)
+    this.settledDice = this.request.targetDice
     this.alignmentEntries = prepareAlignmentEntries(
       this.entries,
       this.held,
@@ -510,6 +538,11 @@ export class PhysicsDiceWorld {
     const completed = this.request
     const completedDice = this.settledDice
     this.committedDice = [...completedDice]
+    // 오프셋 베이크: 정렬이 body를 목표값의 canonical 회전으로 고정했으므로
+    // 이후 idle 동기화(body × offset)가 어긋나지 않게 오프셋을 소거한다.
+    this.entries.forEach((entry) => {
+      entry.visualOffset.identity()
+    })
     this.request = null
     this.phase = 'idle'
     this.callbacks.onPhaseChange('idle')

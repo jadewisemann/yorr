@@ -42,7 +42,15 @@ export function createDiceInstances(scene: THREE.Scene, world: RAPIER.World) {
       body,
     )
     scene.add(mesh, outline)
-    entries.push({ mesh, body, collider, outline, index: dieIndex, enteredTray: false })
+    entries.push({
+      mesh,
+      body,
+      collider,
+      outline,
+      index: dieIndex,
+      enteredTray: false,
+      visualOffset: new THREE.Quaternion(),
+    })
   }
 
   return { entries, geometries, materials }

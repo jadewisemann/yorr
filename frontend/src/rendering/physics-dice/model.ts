@@ -193,6 +193,12 @@ export function quaternionForTopValue(value: PhysicsDiceValue) {
   return new THREE.Quaternion().setFromEuler(new THREE.Euler(...rotations[value]))
 }
 
+export function faceNormalForValue(value: PhysicsDiceValue): THREE.Vector3 {
+  const face = FACE_NORMALS.find((entry) => entry.value === value)
+  if (!face) throw new RangeError(`No face normal for dice value ${value}`)
+  return face.normal.clone()
+}
+
 export function topFaceFromQuaternion(rotation: THREE.QuaternionLike): PhysicsDiceValue {
   const quaternion = new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w)
   return FACE_NORMALS.reduce(

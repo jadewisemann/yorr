@@ -17,6 +17,7 @@ export interface PhysicsDiceRollRequest {
   requestId: string
   seed: number
   held: PhysicsHeldDice
+  targetDice: PhysicsDiceSet
 }
 
 export interface PhysicsDiceWorldCallbacks {
