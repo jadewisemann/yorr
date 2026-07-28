@@ -34,7 +34,7 @@ public class RoomController {
             var guest = userService.createGuest(request.nickname());
             String roomId = request.roomId();
             if (roomId == null || roomId.isBlank()) {
-                roomId = roomCreateService.createRoom(4, guest.userId());
+                roomId = roomCreateService.createRoom(6, guest.userId());
             }
             JoinResult joined = roomService.join(roomId, new UserIdentity(
                     guest.userId(), guest.nickname(), UserType.GUEST), guest.sessionToken());
