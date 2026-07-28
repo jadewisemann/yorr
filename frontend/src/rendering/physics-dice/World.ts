@@ -572,7 +572,7 @@ export class PhysicsDiceWorld {
     this.callbacks.onPhaseChange('aligning')
     this.alignmentStartedAt = time
     this.bowlExitStartedAt = time
-    this.settledDice = this.request.targetDice
+    this.settledDice = [...this.request.targetDice]
     this.alignmentEntries = prepareAlignmentEntries(
       this.entries,
       this.held,

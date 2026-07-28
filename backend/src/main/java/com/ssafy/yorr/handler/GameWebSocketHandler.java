@@ -27,6 +27,7 @@ import com.ssafy.yorr.ws.dto.ErrorPayload;
 import com.ssafy.yorr.ws.dto.RoundEndPayload;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
 import com.ssafy.yorr.ws.dto.DiceRollPayload;
+import com.ssafy.yorr.ws.dto.DiceBroadcastPayload;
 import com.ssafy.yorr.ws.dto.ScoreUpdatePayload;
 import com.ssafy.yorr.ws.dto.WsErrorCode;
 import com.ssafy.yorr.ws.dto.RoomJoinPayload;
@@ -369,6 +370,21 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         try {
             var state = roundSynchronizationService.recordRoll(roomId, member.playerId(), payload);
+            broadcaster.broadcast(
+                    roomId,
+                    WsEnvelope.of(
+                                    "dice.broadcast",
+                                    new DiceBroadcastPayload(
+                                            member.playerId(),
+                                            state.roundNumber(),
+                                            state.activeRollCount(),
+                                            state.activeDice(),
+                                            payload.held()
+                                    )
+                            )
+                            .withRoomId(roomId)
+                            .withMsgId(in.msgId())
+            );
             roundTimerService.start(roomId, state.roundNumber(), state.activePlayerId());
         } catch (RoundSynchronizationException exception) {
             sendError(session, toWsErrorCode(exception.reason()), exception.getMessage(), in.msgId());

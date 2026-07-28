@@ -27,7 +27,9 @@ public interface RoundStateStore {
             String roomId,
             String playerId,
             int roundNumber,
-            int rollCount
+            int rollCount,
+            java.util.List<Boolean> held,
+            java.util.List<Integer> rolledDice
     );
 
     /**

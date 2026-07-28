@@ -10,14 +10,20 @@ import {
 } from './yachtGame'
 
 describe('yachtGame reducer', () => {
+  const serverDice = createDiceSet([6, 5, 4, 3, 2])
+
   it('stores the dice reported by the matching renderer completion', () => {
     const initial = createYachtGame(42)
-    const rolling = yachtGameReducer(initial, { type: 'rollRequested', requestId: 'roll-1' })
+    const rolling = yachtGameReducer(initial, {
+      type: 'rollRequested',
+      requestId: 'roll-1',
+      targetDice: serverDice,
+    })
     const renderedDice = createDiceSet([6, 5, 4, 3, 2])
 
     expect(rolling.phase).toBe('rolling')
     expect(rolling.dice).toBeNull()
-    expect(getPendingRoll(rolling)?.targetDice).toHaveLength(5)
+    expect(getPendingRoll(rolling)?.targetDice).toEqual(serverDice)
     expect(
       yachtGameReducer(rolling, {
         type: 'rollCompleted',
@@ -47,14 +53,24 @@ describe('yachtGame reducer', () => {
 
     expect(state.rollCount).toBe(3)
     expect(yachtGameReducer(state, { type: 'holdToggled', index: 1 })).toBe(state)
-    expect(yachtGameReducer(state, { type: 'rollRequested', requestId: 'four' })).toBe(state)
+    expect(
+      yachtGameReducer(state, {
+        type: 'rollRequested',
+        requestId: 'four',
+        targetDice: serverDice,
+      }),
+    ).toBe(state)
   })
 
   it('clears a selected category when another roll starts', () => {
     let state = finishRoll(createYachtGame(1), 'one')
     state = yachtGameReducer(state, { type: 'categorySelected', category: 'choice' })
 
-    const rolling = yachtGameReducer(state, { type: 'rollRequested', requestId: 'two' })
+    const rolling = yachtGameReducer(state, {
+      type: 'rollRequested',
+      requestId: 'two',
+      targetDice: serverDice,
+    })
 
     expect(rolling.selectedCategory).toBeNull()
   })
@@ -63,8 +79,15 @@ describe('yachtGame reducer', () => {
     const rolling = yachtGameReducer(createYachtGame(1), {
       type: 'rollRequested',
       requestId: 'one',
+      targetDice: serverDice,
     })
-    expect(yachtGameReducer(rolling, { type: 'rollRequested', requestId: 'two' })).toBe(rolling)
+    expect(
+      yachtGameReducer(rolling, {
+        type: 'rollRequested',
+        requestId: 'two',
+        targetDice: serverDice,
+      }),
+    ).toBe(rolling)
 
     let choosing = yachtGameReducer(rolling, {
       type: 'rollCompleted',
@@ -76,9 +99,13 @@ describe('yachtGame reducer', () => {
 
     expect(submitting.phase).toBe('submitting')
     expect(yachtGameReducer(submitting, { type: 'submissionStarted' })).toBe(submitting)
-    expect(yachtGameReducer(submitting, { type: 'rollRequested', requestId: 'two' })).toBe(
-      submitting,
-    )
+    expect(
+      yachtGameReducer(submitting, {
+        type: 'rollRequested',
+        requestId: 'two',
+        targetDice: serverDice,
+      }),
+    ).toBe(submitting)
   })
 
   it('returns to category selection when submission fails', () => {
@@ -143,7 +170,7 @@ describe('yachtGame reducer', () => {
 })
 
 function finishRoll(state: YachtGameState, requestId: string) {
-  const rolling = yachtGameReducer(state, { type: 'rollRequested', requestId })
   const dice = createDiceSet([1, 2, 3, 4, 5])
+  const rolling = yachtGameReducer(state, { type: 'rollRequested', requestId, targetDice: dice })
   return yachtGameReducer(rolling, { type: 'rollCompleted', requestId, dice })
 }

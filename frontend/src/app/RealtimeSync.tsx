@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect } from 'react'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import type { RealtimeClient } from '@/realtime/realtimeClient'
-import { buildClientMessage, type ServerMessage } from '@/realtime/wsEvents'
+import { buildClientMessage, type RoomSnapshot, type ServerMessage } from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
 
 interface RealtimeSyncProps {
@@ -94,6 +94,17 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
   return <RealtimeClientProvider client={client}>{children}</RealtimeClientProvider>
 }
 
+/**
+ * 서버의 전체 스냅샷(state.sync · room.joined · sys.reconnected)에는 게임 진행 상태(game)가 실려
+ * 있지 않다. 그대로 갈아끼우면 score.update로 모아온 **모든 플레이어의 점수판**이 통째로 사라지고,
+ * game이 없는 동안 도착한 score.update는 아래 핸들러에서 그냥 버려진다.
+ * 대기방으로 되돌아가는 경우가 아니면 지금 들고 있는 진행 상태를 유지한다.
+ */
+function keepGameState(snapshot: RoomSnapshot, current: RoomSnapshot | null): RoomSnapshot {
+  if (snapshot.game || snapshot.phase === 'waiting' || !current?.game) return snapshot
+  return { ...snapshot, game: current.game }
+}
+
 function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs: number) => void) {
   const store = useAppStore.getState()
 
@@ -107,15 +118,15 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
           ...store.roomSession,
           you: message.payload.you,
           sessionToken: message.payload.sessionToken,
-          snapshot: message.payload.snapshot,
+          snapshot: keepGameState(message.payload.snapshot, store.roomSnapshot),
         })
         return
       }
-      store.replaceRoomSnapshot(message.payload.snapshot)
+      store.replaceRoomSnapshot(keepGameState(message.payload.snapshot, store.roomSnapshot))
       return
     case 'sys.reconnected':
     case 'state.sync':
-      store.replaceRoomSnapshot(message.payload.snapshot)
+      store.replaceRoomSnapshot(keepGameState(message.payload.snapshot, store.roomSnapshot))
       return
     case 'room.player_joined':
       if (!store.roomSnapshot) return

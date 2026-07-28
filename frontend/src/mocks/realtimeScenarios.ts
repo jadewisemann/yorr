@@ -1,6 +1,6 @@
 import type { FakeMessageHandlers } from '@/realtime/fakeRealtimeClient'
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
-import type { ServerMessage } from '@/realtime/wsEvents'
+import type { DiceSet, ServerMessage } from '@/realtime/wsEvents'
 import { WS_PROTOCOL_VERSION } from '@/realtime/wsEvents'
 import {
   creatorSession,
@@ -36,6 +36,7 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
     protocolVersion: WS_PROTOCOL_VERSION,
     heartbeatIntervalMs: 15_000,
   })
+  let serverDice: DiceSet = [1, 2, 3, 4, 5]
 
   const handlers: FakeMessageHandlers = {
     'sys.ping': (message) => [
@@ -83,13 +84,25 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         { roomId: MOCK_ROOM_ID, msgId: message.msgId },
       ),
     ],
-    'dice.roll': (message) => [
-      serverMessage(
-        'dice.broadcast',
-        { playerId: session.you, dice: message.payload.dice },
-        { roomId: MOCK_ROOM_ID, msgId: message.msgId },
-      ),
-    ],
+    'dice.roll': (message) => {
+      const rolled: DiceSet = [6, 5, 4, 3, 2]
+      serverDice = rolled.map((value, index) =>
+        message.payload.held[index] ? serverDice[index] : value,
+      ) as unknown as DiceSet
+      return [
+        serverMessage(
+          'dice.broadcast',
+          {
+            playerId: session.you,
+            roundNumber: message.payload.roundNumber,
+            rollCount: message.payload.rollCount,
+            dice: serverDice,
+            held: message.payload.held,
+          },
+          { roomId: MOCK_ROOM_ID, msgId: message.msgId },
+        ),
+      ]
+    },
     'round.submit': (message) => {
       const scoreboard = playingRoomSnapshot.game?.scores[session.you]
       if (!scoreboard) return []

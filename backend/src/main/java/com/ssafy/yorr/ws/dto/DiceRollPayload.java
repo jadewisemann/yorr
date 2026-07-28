@@ -5,10 +5,10 @@ import java.util.List;
 public record DiceRollPayload(
         int roundNumber,
         int rollCount,
-        List<Integer> dice
+        List<Boolean> held
 ) {
 
     public DiceRollPayload {
-        dice = dice == null ? null : List.copyOf(dice);
+        held = held == null ? null : List.copyOf(held);
     }
 }

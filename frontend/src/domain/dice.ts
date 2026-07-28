@@ -18,7 +18,7 @@ export interface CreateRollRequestInput {
   requestId: string
   seed: number
   held: HeldDice
-  currentDice: DiceSet | null
+  currentDice?: DiceSet | null
   targetDice?: DiceSet
 }
 
@@ -44,7 +44,7 @@ export function toggleHeldDie(held: HeldDice, index: DiceIndex): HeldDice {
 }
 
 export function createRollRequest({
-  currentDice,
+  currentDice = null,
   held,
   requestId,
   seed,
@@ -55,7 +55,7 @@ export function createRollRequest({
     requestId,
     seed: normalizedSeed,
     held: [...held],
-    targetDice: targetDice ?? rollDice(normalizedSeed, held, currentDice),
+    targetDice: targetDice ? [...targetDice] : rollDice(normalizedSeed, held, currentDice),
   }
 }
 
