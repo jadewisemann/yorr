@@ -32,7 +32,7 @@ import {
   yachtGameReducer,
 } from '@/domain/yachtGame'
 import { createRollFeedback } from '@/feedback/createRollFeedback'
-import type { MotionGestureEvent } from '@/input/motionTypes'
+import type { MotionAvailability, MotionGestureEvent } from '@/input/motionTypes'
 import type { RollInputMode } from '@/input/RollIntent'
 import { useMotionRollInput } from '@/input/useMotionRollInput'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
@@ -68,6 +68,9 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   const [releaseRequestId, setReleaseRequestId] = useState<string | null>(null)
   const [rollInputMode, setRollInputMode] = useState<RollInputMode | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // 닫은 안내가 "어느 상태의 안내였는지"를 담는다. boolean으로 두면 상태가 바뀌어도 계속 닫혀
+  // 새 안내를 놓친다 — 값이 달라지는 순간 자동으로 다시 뜨게 하려는 의도다.
+  const [dismissedNotice, setDismissedNotice] = useState<MotionAvailability | null>(null)
 
   const game = snapshot.game
   const roundNumber = game?.roundNumber ?? 1
@@ -278,10 +281,11 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
           지금 던지기
         </Button>
       )}
-      {isPermissionNoticeState(motion.availability) && (
+      {isPermissionNoticeState(motion.availability) && dismissedNotice !== motion.availability && (
         <div className="absolute inset-x-3 top-3 z-30">
           <MotionPermissionPanel
             availability={motion.availability}
+            onClose={() => setDismissedNotice(motion.availability)}
             onRequestPermission={motion.requestPermission}
           />
         </div>
