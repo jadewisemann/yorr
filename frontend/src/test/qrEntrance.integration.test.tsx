@@ -52,10 +52,15 @@ describe('QR entrance integration', () => {
   })
 
   it('keeps the nickname after a room error and prevents duplicate submissions', async () => {
+    // 두 번째 클릭이 "첫 요청이 진행 중"인 동안 도달하도록 응답을 보류해 타이밍을 고정한다.
+    let respondWithRoomFull!: () => void
     mockApiError({
       code: 'ROOM_FULL',
       path: '/api/v1/rooms',
       status: 409,
+      until: new Promise<void>((resolve) => {
+        respondWithRoomFull = resolve
+      }),
     })
     const joinRoom = vi.spyOn(gameApiClient, 'joinRoom')
     const { user } = renderAppHarness({ initialPath: '/join?code=YORR64' })
@@ -64,6 +69,8 @@ describe('QR entrance integration', () => {
     await user.type(nicknameInput, '가득찬 방')
     const submit = screen.getByRole('button', { name: '대기실 입장' })
     await Promise.all([user.click(submit), user.click(submit)])
+    expect(joinRoom).toHaveBeenCalledTimes(1)
+    respondWithRoomFull()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '방이 가득 찼어요. 다른 초대 코드로 참가해 주세요.',
