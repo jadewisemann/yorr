@@ -13,8 +13,11 @@ import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.room.service.RoomService;
 import com.ssafy.yorr.user.service.UserService;
+import com.ssafy.yorr.user.UserIdentity;
+import com.ssafy.yorr.user.UserType;
 import com.ssafy.yorr.ws.InMemoryRoomBroadcaster;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
+import com.ssafy.yorr.ws.dto.RoomJoinPayload;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +44,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 class GameWebSocketHandlerTest {
 
@@ -158,6 +162,26 @@ class GameWebSocketHandlerTest {
         assertThat(response).contains("\"type\":\"error\"");
         assertThat(response).contains("\"code\":\"NOT_IN_ROOM\"");
         assertThat(response).contains("\"refMsgId\":\"wrong-room-message\"");
+    }
+
+    @Test
+    void reusesExistingGuestForWebSocketReconnect() throws Exception {
+        UserService userService = mock(UserService.class);
+        handler = new TestGameWebSocketHandler(
+                objectMapper, broadcaster, registry, userService, scoreRoundSubmissionService, roundTimerService);
+        when(userService.authenticateSession("token-a"))
+                .thenReturn(new UserIdentity("player-a", "Player A", UserType.GUEST));
+        WebSocketSession session = sessionWithPlayer("player-a");
+        TextMessage message = new TextMessage(objectMapper.writeValueAsString(new WsEnvelope<>(
+                "room.join", System.currentTimeMillis(), new RoomJoinPayload("room-a", "ignored", "token-a"), null, "join-a")));
+
+        handler.handle(session, message);
+
+        verify(userService).authenticateSession("token-a");
+        verifyNoMoreInteractions(userService);
+        ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(session).sendMessage(captor.capture());
+        assertThat(((TextMessage) captor.getValue()).getPayload()).contains("\"you\":\"player-a\"");
     }
 
     private TextMessage submitMessage(String roomId, String msgId) throws Exception {

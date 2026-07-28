@@ -34,6 +34,7 @@ public class UserService {
                 "nickname", displayName,
                 "tokenHash", hash(sessionToken)));
         redisTemplate.expire(key, GUEST_TTL);
+        redisTemplate.opsForValue().set(tokenKey(sessionToken), userId, GUEST_TTL);
         return new GuestCreateResponse(userId, displayName, sessionToken, null);
     }
 
@@ -50,7 +51,17 @@ public class UserService {
     }
 
     public UserIdentity authenticate(String userId, String authorization) {
-        String token = bearerToken(authorization);
+        return authenticateCredentials(userId, bearerToken(authorization));
+    }
+
+    public UserIdentity authenticateSession(String sessionToken) {
+        if (sessionToken == null || sessionToken.isBlank()) throw new IllegalArgumentException("invalid_guest_session");
+        String userId = redisTemplate.opsForValue().get(tokenKey(sessionToken));
+        if (userId == null) throw new IllegalArgumentException("invalid_guest_session");
+        return authenticateCredentials(userId, sessionToken);
+    }
+
+    private UserIdentity authenticateCredentials(String userId, String token) {
         var user = redisTemplate.<Object, Object>opsForHash().entries(key(userId));
         Object storedHash = user.get("tokenHash");
         Object storedType = user.get("type");
@@ -68,6 +79,7 @@ public class UserService {
             throw new IllegalArgumentException("invalid_guest_session");
         }
         redisTemplate.expire(key(userId), GUEST_TTL);
+        redisTemplate.expire(tokenKey(token), GUEST_TTL);
         return new UserIdentity(userId, nickname, userType);
     }
 
@@ -101,5 +113,9 @@ public class UserService {
 
     private static String key(String userId) {
         return "user:" + userId;
+    }
+
+    private static String tokenKey(String token) {
+        return "user:token:" + hash(token);
     }
 }

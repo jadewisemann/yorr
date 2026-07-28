@@ -175,6 +175,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
      * @throws IllegalArgumentException 닉네임이 유효하지 않을 때(UserService 규칙)
      */
     private Identity resolveIdentity(RoomJoinPayload payload) {
+        if (payload.sessionToken() != null && !payload.sessionToken().isBlank()) {
+            var user = userService.authenticateSession(payload.sessionToken());
+            return new Identity(user.userId(), payload.sessionToken(), user.nickname());
+        }
         GuestCreateResponse guest = userService.createGuest(payload.nickname());
         return new Identity(guest.userId(), guest.sessionToken(), guest.nickname());
     }

@@ -41,10 +41,10 @@ public class RoomValidationService implements RoomService {
             if members <= 0 then redis.call('DEL', KEYS[1]); redis.call('DEL', KEYS[2]); redis.call('DEL', KEYS[3]); return 0 end
             return 1
             """, Long.class);
-    private static final DefaultRedisScript<Long> START = new DefaultRedisScript<>("""
+    static final DefaultRedisScript<Long> START = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
             if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 0 end
-            if redis.call('HLEN', KEYS[2]) < tonumber(redis.call('HGET', KEYS[1], 'capacity')) then return 0 end
+            if redis.call('HLEN', KEYS[2]) < 1 then return 0 end
             redis.call('HSET', KEYS[1], 'phase', 'PLAYING', 'gameId', ARGV[1])
             redis.call('HSET', KEYS[3], 'roomCode', ARGV[2])
             local ttl = redis.call('PTTL', KEYS[1])
