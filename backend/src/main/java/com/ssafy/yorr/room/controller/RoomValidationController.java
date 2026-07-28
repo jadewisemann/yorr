@@ -1,10 +1,13 @@
 package com.ssafy.yorr.room.controller;
 
+import com.ssafy.yorr.handler.GameWebSocketHandler;
 import com.ssafy.yorr.room.dto.GameStartResponse;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.room.service.RoomValidationService;
 import com.ssafy.yorr.user.UserIdentity;
 import com.ssafy.yorr.user.service.UserService;
+import com.ssafy.yorr.ws.RoomSessionRegistry;
+import com.ssafy.yorr.ws.dto.RoomPhase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +29,8 @@ public class RoomValidationController {
 
     private final RoomValidationService roomService;
     private final UserService userService;
+    private final RoomSessionRegistry registry;
+    private final GameWebSocketHandler gameWebSocketHandler;
 
     @DeleteMapping("/{roomCode}/players/me")
     @Operation(summary = "방 나가기")
@@ -60,6 +65,10 @@ public class RoomValidationController {
         }
         try {
             GameStartResponse result = roomService.startGame(roomCode);
+            // 시작을 누른 호스트는 이 HTTP 응답으로 게임 화면에 들어가지만, 나머지 참가자는 소켓으로만 알 수 있다.
+            // 여기서 방송하지 않으면 참가자는 대기실에 그대로 남는다.
+            registry.markPhase(roomCode, RoomPhase.PLAYING);
+            gameWebSocketHandler.broadcastStateSync(roomCode);
             return ResponseEntity.ok(result);
         } catch (IllegalStateException e) {
             return ResponseEntity.status(409).body(e.getMessage());

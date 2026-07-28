@@ -40,6 +40,8 @@ public class RoomSessionRegistry {
     private final Map<String, Map<String, Member>> rooms = new ConcurrentHashMap<>();
     // sessionId -> Member : 소켓이 끊길 때 "세션만으로" 누구였는지 역추적.
     private final Map<String, Member> bySession = new ConcurrentHashMap<>();
+    // roomId -> 진행 단계(없으면 WAITING). 게임 시작은 REST 가 처리하므로 그쪽에서 markPhase 로 알려준다.
+    private final Map<String, RoomPhase> phases = new ConcurrentHashMap<>();
 
     /**
      * 방 입장. 그 방의 첫 입장자가 host가 된다.
@@ -67,9 +69,20 @@ public class RoomSessionRegistry {
         Map<String, Member> members = rooms.get(member.roomId());
         if (members != null) {
             members.remove(member.playerId());
-            if (members.isEmpty()) rooms.remove(member.roomId());
+            if (members.isEmpty()) {
+                rooms.remove(member.roomId());
+                phases.remove(member.roomId()); // 방 코드가 재사용돼도 이전 단계가 남지 않도록 같이 버린다.
+            }
         }
         return member;
+    }
+
+    /**
+     * 방 진행 단계를 갱신한다. 게임 시작처럼 <b>REST 가 상태를 바꾸는</b> 경로에서 호출해야,
+     * 뒤이은 state.sync 브로드캐스트가 바뀐 phase 를 실어 나간다.
+     */
+    public void markPhase(String roomId, RoomPhase phase) {
+        phases.put(roomId, phase);
     }
 
     /** 이 세션의 현재 멤버(없으면 null). */
@@ -78,7 +91,8 @@ public class RoomSessionRegistry {
     }
 
     /**
-     * 대기방 스냅샷. 게임 진행상태(RoomSnapshot.game)는 게임 도메인 소관이라 여기선 채우지 않는다.
+     * 방 스냅샷. 세부 게임 진행상태(RoomSnapshot.game)는 게임 도메인 소관이라 여기선 채우지 않고,
+     * phase 만 {@link #markPhase} 로 갱신된 값을 싣는다(기본 WAITING).
      * ⚠️ players 순서는 ConcurrentHashMap 특성상 입장 순서를 보장하지 않는다(대기방 명단엔 무해).
      */
     public RoomSnapshot snapshot(String roomId) {
@@ -91,6 +105,6 @@ public class RoomSessionRegistry {
                 if (m.host()) hostId = m.playerId();
             }
         }
-        return new RoomSnapshot(roomId, RoomPhase.WAITING, hostId, players);
+        return new RoomSnapshot(roomId, phases.getOrDefault(roomId, RoomPhase.WAITING), hostId, players);
     }
 }
