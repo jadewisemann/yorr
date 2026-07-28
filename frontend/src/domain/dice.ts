@@ -11,12 +11,15 @@ export interface DiceRollRequest {
   requestId: string
   seed: number
   held: HeldDice
+  targetDice: DiceSet
 }
 
 export interface CreateRollRequestInput {
   requestId: string
   seed: number
   held: HeldDice
+  currentDice: DiceSet | null
+  targetDice?: DiceSet
 }
 
 export function isDiceValue(value: unknown): value is DiceValue {
@@ -41,15 +44,28 @@ export function toggleHeldDie(held: HeldDice, index: DiceIndex): HeldDice {
 }
 
 export function createRollRequest({
+  currentDice,
   held,
   requestId,
   seed,
+  targetDice,
 }: CreateRollRequestInput): DiceRollRequest {
+  const normalizedSeed = normalizeSeed(seed)
   return {
     requestId,
-    seed: normalizeSeed(seed),
+    seed: normalizedSeed,
     held: [...held],
+    targetDice: targetDice ?? rollDice(normalizedSeed, held, currentDice),
   }
+}
+
+export function rollDice(seed: number, held: HeldDice, currentDice: DiceSet | null): DiceSet {
+  let state = normalizeSeed(seed)
+  return held.map((isHeld, index) => {
+    if (isHeld && currentDice) return currentDice[index]
+    state = advanceSeed(state)
+    return (Math.floor((state / 2 ** 32) * 6) + 1) as DiceValue
+  }) as unknown as DiceSet
 }
 
 export function nextRollSeed(seed: number) {

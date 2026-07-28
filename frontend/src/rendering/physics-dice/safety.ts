@@ -46,13 +46,18 @@ export function containDiceInBowl(
   })
 }
 
-export function containDiceInTray(entries: DieEntry[], held: PhysicsHeldDice) {
+/** DieEntry의 부분 shape — 예측용 복제 월드의 바디에도 같은 보정을 적용하기 위한 최소 단위. */
+export interface TrayOccupant {
+  body: RAPIER.RigidBody
+  enteredTray: boolean
+}
+
+export function containDiceInTray(entries: TrayOccupant[]) {
   const margin = (CONFIG.defaults.diceSize * SCENE.bowlDiceScale) / 2 + SCENE.safety.margin
   const maxX = SCENE.tray.rollingHalfWidth - margin
   const minZ = SCENE.tray.rollingMinZ + margin
   const maxZ = SCENE.tray.rollingMaxZ - margin
   entries.forEach((entry) => {
-    if (held[entry.index]) return
     const position = entry.body.translation()
     const velocity = entry.body.linvel()
     const next = { x: position.x, y: position.y, z: position.z }

@@ -9,6 +9,8 @@ export type DieEntry = {
   index: PhysicsDiceIndex
   mesh: THREE.Group
   outline: THREE.Mesh<THREE.ShapeGeometry, THREE.MeshBasicMaterial>
+  /** 큐브 대칭 회전 — 물리 바디는 그대로 두고 표시 면만 목표값으로 바꾼다. */
+  visualOffset: THREE.Quaternion
 }
 
 export type AlignmentEntry = {

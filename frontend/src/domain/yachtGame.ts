@@ -116,6 +116,7 @@ function requestRoll(state: YachtGameState, requestId: string): YachtGameState {
       requestId,
       seed: state.seed,
       held: state.held,
+      currentDice: state.dice,
     }),
   }
 }

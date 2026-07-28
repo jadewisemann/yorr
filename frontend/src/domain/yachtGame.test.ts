@@ -17,7 +17,7 @@ describe('yachtGame reducer', () => {
 
     expect(rolling.phase).toBe('rolling')
     expect(rolling.dice).toBeNull()
-    expect(getPendingRoll(rolling)).not.toHaveProperty('targetDice')
+    expect(getPendingRoll(rolling)?.targetDice).toHaveLength(5)
     expect(
       yachtGameReducer(rolling, {
         type: 'rollCompleted',
