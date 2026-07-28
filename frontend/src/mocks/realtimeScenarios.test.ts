@@ -51,7 +51,7 @@ describe('FakeRealtimeClient scenarios', () => {
     )
     duplicate.send(
       buildClientMessage('dice.roll', {
-        dice: [1, 2, 3, 4, 5],
+        held: [false, false, false, false, false],
         rollCount: 1,
         roundNumber: 1,
       }),
@@ -84,7 +84,7 @@ describe('FakeRealtimeClient scenarios', () => {
     client.send(
       buildClientMessage(
         'dice.roll',
-        { dice: [1, 2, 3, 4, 5], rollCount: 1, roundNumber: 1 },
+        { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
         { roomId: MOCK_ROOM_ID, msgId: 'roll-1' },
       ),
     )

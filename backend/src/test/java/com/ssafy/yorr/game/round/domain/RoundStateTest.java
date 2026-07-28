@@ -52,12 +52,20 @@ class RoundStateTest {
     void recordsEachRollExactlyOnceAndResetsForTheNextPlayer() {
         RoundState state = RoundState.start(1, List.of("player-a", "player-b"));
 
-        RoundState afterFirstRoll = state.recordRoll("player-a", 1, 1);
-        RoundState afterSecondRoll = afterFirstRoll.recordRoll("player-a", 1, 2);
+        RoundState afterFirstRoll = state.recordRoll(
+                "player-a", 1, 1, noHeld(), List.of(1, 2, 3, 4, 5));
+        RoundState afterSecondRoll = afterFirstRoll.recordRoll(
+                "player-a",
+                1,
+                2,
+                List.of(true, false, true, false, true),
+                List.of(6, 6, 6, 6, 6)
+        );
         RoundState nextPlayer = afterSecondRoll.submit(submission("player-a", 1)).state();
 
         assertThat(afterFirstRoll.activeRollCount()).isEqualTo(1);
         assertThat(afterSecondRoll.activeRollCount()).isEqualTo(2);
+        assertThat(afterSecondRoll.activeDice()).containsExactly(1, 6, 3, 6, 5);
         assertThat(nextPlayer.activePlayerId()).isEqualTo("player-b");
         assertThat(nextPlayer.activeRollCount()).isZero();
     }
@@ -66,7 +74,8 @@ class RoundStateTest {
     void rejectsSkippedOrDuplicateRollCounts() {
         RoundState state = RoundState.start(1, List.of("player-a"));
 
-        assertThatThrownBy(() -> state.recordRoll("player-a", 1, 2))
+        assertThatThrownBy(() -> state.recordRoll(
+                "player-a", 1, 2, noHeld(), List.of(1, 2, 3, 4, 5)))
                 .isInstanceOfSatisfying(RoundSynchronizationException.class, exception ->
                         assertThat(exception.reason())
                                 .isEqualTo(RoundSynchronizationException.Reason.INVALID_ROLL)
@@ -106,5 +115,9 @@ class RoundStateTest {
 
     private static RoundSubmission submission(String playerId, int roundNumber) {
         return new RoundSubmission(playerId, roundNumber, List.of(1, 2, 3, 4, 5), "smallStraight");
+    }
+
+    private static List<Boolean> noHeld() {
+        return List.of(false, false, false, false, false);
     }
 }

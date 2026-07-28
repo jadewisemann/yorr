@@ -53,7 +53,8 @@ class RoundTimerServiceTest {
         Instant deadline = timerService.start("room-a", 1, "player-a");
 
         assertThat(deadline).isEqualTo(NOW.plusSeconds(25));
-        assertThat(scheduler.deadline).isEqualTo(deadline);
+        // 클라의 마감 자동 기록(round.submit)이 도착할 틈을 주고 나서 강제 진행한다.
+        assertThat(scheduler.deadline).isEqualTo(deadline.plus(RoundTimerService.EXPIRY_GRACE));
         WsEnvelope<?> message = capturedBroadcast();
         assertThat(message.type()).isEqualTo("round.start");
         assertThat(message.ts()).isEqualTo(NOW.toEpochMilli());

@@ -16,13 +16,15 @@ public final class RoundState {
     private final Map<String, RoundSubmission> submissions;
     private final int activePlayerIndex;
     private final int activeRollCount;
+    private final List<Integer> activeDice;
 
     private RoundState(
             int roundNumber,
             List<String> participantOrder,
             Map<String, RoundSubmission> submissions,
             int activePlayerIndex,
-            int activeRollCount
+            int activeRollCount,
+            List<Integer> activeDice
     ) {
         this.roundNumber = validateRoundNumber(roundNumber);
         this.participantOrder = List.copyOf(participantOrder);
@@ -30,13 +32,20 @@ public final class RoundState {
         this.submissions = Collections.unmodifiableMap(new LinkedHashMap<>(submissions));
         this.activePlayerIndex = activePlayerIndex;
         this.activeRollCount = activeRollCount;
+        this.activeDice = activeDice == null ? null : List.copyOf(activeDice);
     }
 
     public static RoundState start(int roundNumber, Collection<String> participantIds) {
-        return new RoundState(roundNumber, immutableParticipants(participantIds), Map.of(), 0, 0);
+        return new RoundState(roundNumber, immutableParticipants(participantIds), Map.of(), 0, 0, null);
     }
 
-    public RoundState recordRoll(String playerId, int submittedRoundNumber, int rollCount) {
+    public RoundState recordRoll(
+            String playerId,
+            int submittedRoundNumber,
+            int rollCount,
+            List<Boolean> held,
+            List<Integer> rolledDice
+    ) {
         validateCurrentPlayer(playerId, submittedRoundNumber);
         if (rollCount < 1 || rollCount > 3 || rollCount != activeRollCount + 1) {
             throw new RoundSynchronizationException(
@@ -44,12 +53,29 @@ public final class RoundState {
                     "rollCount must advance exactly once and stay between 1 and 3"
             );
         }
+        validateHeld(held);
+        validateDice(rolledDice);
+        if (activeDice == null && held.stream().anyMatch(Boolean.TRUE::equals)) {
+            throw new RoundSynchronizationException(
+                    RoundSynchronizationException.Reason.INVALID_ROLL,
+                    "dice cannot be held before the first roll"
+            );
+        }
+        List<Integer> nextDice = new java.util.ArrayList<>(rolledDice);
+        if (activeDice != null) {
+            for (int index = 0; index < held.size(); index++) {
+                if (Boolean.TRUE.equals(held.get(index))) {
+                    nextDice.set(index, activeDice.get(index));
+                }
+            }
+        }
         return new RoundState(
                 roundNumber,
                 participantOrder,
                 submissions,
                 activePlayerIndex,
-                rollCount
+                rollCount,
+                nextDice
         );
     }
 
@@ -74,7 +100,14 @@ public final class RoundState {
     private RoundSubmissionResult advance(Map<String, RoundSubmission> currentSubmissions) {
         if (activePlayerIndex < participantOrder.size() - 1) {
             return new RoundSubmissionResult(
-                    new RoundState(roundNumber, participantOrder, currentSubmissions, activePlayerIndex + 1, 0),
+                    new RoundState(
+                            roundNumber,
+                            participantOrder,
+                            currentSubmissions,
+                            activePlayerIndex + 1,
+                            0,
+                            null
+                    ),
                     null
             );
         }
@@ -87,7 +120,14 @@ public final class RoundState {
                 completedSubmissions.keySet().stream().toList(),
                 roundNumber + 1
         );
-        RoundState nextRoundState = new RoundState(roundNumber + 1, participantOrder, Map.of(), 0, 0);
+        RoundState nextRoundState = new RoundState(
+                roundNumber + 1,
+                participantOrder,
+                Map.of(),
+                0,
+                0,
+                null
+        );
         return new RoundSubmissionResult(nextRoundState, completion);
     }
 
@@ -109,6 +149,10 @@ public final class RoundState {
 
     public int activeRollCount() {
         return activeRollCount;
+    }
+
+    public List<Integer> activeDice() {
+        return activeDice;
     }
 
     public Map<String, RoundSubmission> submissions() {
@@ -174,5 +218,24 @@ public final class RoundState {
             }
         }
         return List.copyOf(copy);
+    }
+
+    private static void validateHeld(List<Boolean> held) {
+        if (held == null || held.size() != 5 || held.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new RoundSynchronizationException(
+                    RoundSynchronizationException.Reason.INVALID_ROLL,
+                    "held must contain exactly five boolean values"
+            );
+        }
+    }
+
+    private static void validateDice(List<Integer> dice) {
+        if (dice == null || dice.size() != 5
+                || dice.stream().anyMatch(value -> value == null || value < 1 || value > 6)) {
+            throw new RoundSynchronizationException(
+                    RoundSynchronizationException.Reason.INVALID_DICE,
+                    "exactly five dice values between 1 and 6 are required"
+            );
+        }
     }
 }

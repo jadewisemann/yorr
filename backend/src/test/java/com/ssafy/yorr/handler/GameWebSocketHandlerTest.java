@@ -189,6 +189,35 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
+    void broadcastsTheServerGeneratedDiceToEveryPlayerInTheRoom() throws Exception {
+        roundSynchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        WebSocketSession playerB = sessionWithPlayer("player-b");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        broadcaster.register("room-a", playerA);
+        broadcaster.register("room-a", playerB);
+
+        handler.handle(playerA, rollMessage("room-a", 1, "roll-one"));
+
+        ArgumentCaptor<WebSocketMessage<?>> playerACaptor =
+                ArgumentCaptor.forClass(WebSocketMessage.class);
+        ArgumentCaptor<WebSocketMessage<?>> playerBCaptor =
+                ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(playerA).sendMessage(playerACaptor.capture());
+        verify(playerB).sendMessage(playerBCaptor.capture());
+        String playerAMessage = ((TextMessage) playerACaptor.getValue()).getPayload();
+        String playerBMessage = ((TextMessage) playerBCaptor.getValue()).getPayload();
+
+        assertThat(playerAMessage).isEqualTo(playerBMessage);
+        assertThat(playerAMessage).contains("\"type\":\"dice.broadcast\"");
+        assertThat(playerAMessage).contains("\"playerId\":\"player-a\"");
+        assertThat(playerAMessage).contains("\"roundNumber\":1");
+        assertThat(playerAMessage).contains("\"rollCount\":1");
+        assertThat(playerAMessage).contains("\"dice\":[");
+        assertThat(playerAMessage).contains("\"held\":[false,false,false,false,false]");
+    }
+
+    @Test
     void rejectsSubmissionForRoomOtherThanSessionRoom() throws Exception {
         roundSynchronizationService.initialize("room-a", 1, List.of("player-a"));
         WebSocketSession session = sessionWithPlayer("player-a");
@@ -248,7 +277,7 @@ class GameWebSocketHandlerTest {
         String message = objectMapper.writeValueAsString(new WsEnvelope<>(
                 "dice.roll",
                 System.currentTimeMillis(),
-                new DiceRollPayload(1, rollCount, List.of(1, 2, 3, 4, 5)),
+                new DiceRollPayload(1, rollCount, List.of(false, false, false, false, false)),
                 roomId,
                 msgId
         ));

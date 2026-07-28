@@ -89,6 +89,43 @@ describe('RealtimeSync', () => {
     })
   })
 
+  it('keeps every player scoreboard when the server resends a snapshot without game state', () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(
+      serverMessage('round.start', {
+        activePlayerId: creatorPlayer.playerId,
+        deadline: 2_000,
+        roundNumber: 1,
+      }),
+    )
+    client.emitMessage(
+      serverMessage('score.update', {
+        playerId: participantPlayer.playerId,
+        scoreboard: { ...createEmptyScoreBoard(), total: 24 },
+      }),
+    )
+    // 서버 스냅샷에는 game이 없다. 갈아끼우면 상대 점수판까지 사라진다.
+    client.emitMessage(
+      serverMessage('state.sync', {
+        snapshot: {
+          roomId: creatorSession.roomId,
+          phase: 'playing',
+          players: [creatorPlayer, participantPlayer],
+        },
+      }),
+    )
+
+    expect(useAppStore.getState().roomSnapshot?.game?.scores).toMatchObject({
+      [participantPlayer.playerId]: { total: 24 },
+    })
+  })
+
   it('clears a closed or expired room instead of reconnecting forever', async () => {
     const client = createRealtimeFixture({ role: 'creator' })
     render(

@@ -33,7 +33,7 @@ export interface YachtGameState {
 }
 
 export type YachtGameAction =
-  | { type: 'rollRequested'; requestId: string }
+  | { type: 'rollRequested'; requestId: string; targetDice: DiceSet; held?: HeldDice }
   | { type: 'rollCompleted'; requestId: string; dice: DiceSet }
   | { type: 'holdToggled'; index: DiceIndex }
   | { type: 'categorySelected'; category: YachtCategory }
@@ -66,7 +66,7 @@ export function createYachtGame(seed: number, roundNumber = 1): YachtGameState {
 export function yachtGameReducer(state: YachtGameState, action: YachtGameAction): YachtGameState {
   switch (action.type) {
     case 'rollRequested':
-      return requestRoll(state, action.requestId)
+      return requestRoll(state, action.requestId, action.targetDice, action.held)
     case 'rollCompleted':
       return completeRoll(state, action.requestId, action.dice)
     case 'holdToggled':
@@ -104,7 +104,12 @@ export function getScoreSummary(state: YachtGameState): ScoreSummary {
   return calculateScoreSummary(state.scores)
 }
 
-function requestRoll(state: YachtGameState, requestId: string): YachtGameState {
+function requestRoll(
+  state: YachtGameState,
+  requestId: string,
+  targetDice: DiceSet,
+  heldOverride?: HeldDice,
+): YachtGameState {
   const canRoll = (state.phase === 'ready' || state.phase === 'choosing') && state.rollCount < 3
   if (!canRoll) return state
 
@@ -115,9 +120,10 @@ function requestRoll(state: YachtGameState, requestId: string): YachtGameState {
     pendingRoll: createRollRequest({
       requestId,
       seed: state.seed,
-      held: state.held,
-      currentDice: state.dice,
+      held: heldOverride ?? state.held,
+      targetDice,
     }),
+    held: heldOverride ?? state.held,
   }
 }
 

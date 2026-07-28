@@ -291,16 +291,19 @@ export interface RoundEndPayload {
   roundNumber: number
   submitted: PlayerId[]
 }
-// C→S: 서버가 굴림 순서를 검증하고 현재 턴의 25초 deadline을 갱신한다.
+// C→S: KEEP 상태와 굴림 순서만 요청한다. 주사위 숫자는 서버가 생성한다.
 export interface DiceRollPayload {
   roundNumber: number
   rollCount: 1 | 2 | 3
-  dice: DiceSet
+  held: readonly [boolean, boolean, boolean, boolean, boolean]
 }
-// S→C ⚠️ owner 정유진/고용훈: 남의 주사위 브로드캐스트(선택).
+// S→C: 서버가 확정한 결과를 방 전체에 브로드캐스트한다.
 export interface DiceBroadcastPayload {
   playerId: PlayerId
+  roundNumber: number
+  rollCount: 1 | 2 | 3
   dice: DiceSet
+  held: readonly [boolean, boolean, boolean, boolean, boolean]
 }
 // S→C ⚠️ owner 유상은(41): 점수 갱신.
 export interface ScoreUpdatePayload {

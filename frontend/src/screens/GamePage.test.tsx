@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   gestureCallback: null as ((event: MotionGestureEvent) => void) | null,
   motionAvailability: 'unsupported',
   navigate: vi.fn(),
+  realtimeListener: null as ((message: never) => void) | null,
   requestPermission: vi.fn(),
   resetGesture: vi.fn(),
   sceneProps: null as DiceSceneProps | null,
@@ -59,8 +60,39 @@ vi.mock('@/components/PhysicsDiceScene', () => ({
 
 vi.mock('@/realtime/RealtimeClientContext', () => ({
   useRealtimeClient: () => ({
-    onMessage: vi.fn(() => () => undefined),
-    send: vi.fn(),
+    onMessage: vi.fn((listener: (message: never) => void) => {
+      mocks.realtimeListener = listener
+      return () => {
+        if (mocks.realtimeListener === listener) mocks.realtimeListener = null
+      }
+    }),
+    send: vi.fn(
+      (message: {
+        msgId?: string
+        payload: {
+          held: readonly [boolean, boolean, boolean, boolean, boolean]
+          rollCount: 1 | 2 | 3
+          roundNumber: number
+        }
+        roomId?: string
+        type: string
+      }) => {
+        if (message.type !== 'dice.roll') return
+        mocks.realtimeListener?.({
+          type: 'dice.broadcast',
+          ts: Date.now(),
+          roomId: message.roomId,
+          msgId: message.msgId,
+          payload: {
+            playerId: 'player-creator',
+            roundNumber: message.payload.roundNumber,
+            rollCount: message.payload.rollCount,
+            dice: [6, 5, 4, 3, 2],
+            held: message.payload.held,
+          },
+        } as never)
+      },
+    ),
   }),
 }))
 
@@ -70,6 +102,7 @@ describe('GamePage motion roll flow', () => {
     mocks.gestureCallback = null
     mocks.motionAvailability = 'unsupported'
     mocks.navigate.mockReset()
+    mocks.realtimeListener = null
     mocks.requestPermission.mockReset()
     mocks.resetGesture.mockReset()
     mocks.sceneProps = null

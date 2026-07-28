@@ -1,9 +1,10 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPlayingRoomSnapshot, creatorSession } from '@/mocks/fixtures'
+import { createPlayingRoomSnapshot, creatorSession, participantSession } from '@/mocks/fixtures'
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
+import { buildClientMessage } from '@/realtime/wsEvents'
 import type { PhysicsDiceRollRequest, PhysicsDiceSet } from '@/rendering/physics-dice/types'
 import { useAppStore } from '@/store'
 import { GamePlay } from './GamePlay'
@@ -16,13 +17,20 @@ vi.mock('@/components/PhysicsDiceScene', () => ({
   PhysicsDiceScene: ({
     onHeldToggle,
     onRollComplete,
+    releaseRequestId,
     request,
   }: {
     onHeldToggle?: (index: 0) => void
     onRollComplete: (requestId: string, dice: PhysicsDiceSet) => void
+    releaseRequestId: string | null
     request: PhysicsDiceRollRequest | null
   }) => (
-    <div>
+    <div
+      data-release={releaseRequestId ?? ''}
+      data-request={request?.requestId ?? ''}
+      data-target={request?.targetDice.join(',') ?? ''}
+      data-testid="dice-scene"
+    >
       {request && (
         <button onClick={() => onRollComplete(request.requestId, [6, 5, 4, 3, 2])} type="button">
           굴림 완료
@@ -50,6 +58,21 @@ function renderGame() {
   }
 }
 
+function renderObserver() {
+  const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
+  const client = createRealtimeFixture({ role: 'creator' })
+  const { snapshot: _participantSnapshot, ...observerSession } = participantSession
+  useAppStore.setState({ connectionStatus: 'connected', roomSnapshot: snapshot })
+  return {
+    ...render(
+      <RealtimeClientProvider client={client}>
+        <GamePlay roomId={observerSession.roomId} session={observerSession} snapshot={snapshot} />
+      </RealtimeClientProvider>,
+    ),
+    client,
+  }
+}
+
 describe('GamePlay', () => {
   beforeEach(() => useAppStore.getState().reset())
 
@@ -65,6 +88,31 @@ describe('GamePlay', () => {
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
     expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
     expect(screen.getByText('굴림 2회 남음')).toBeVisible()
+  })
+
+  it('plays the active player server roll for every other participant', () => {
+    const { client } = renderObserver()
+
+    act(() => {
+      client.send(
+        buildClientMessage(
+          'dice.roll',
+          {
+            held: [false, false, false, false, false],
+            rollCount: 1,
+            roundNumber: 1,
+          },
+          { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
+        ),
+      )
+    })
+
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-target', '6,5,4,3,2')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-request',
+      'remote-player-creator-1-1-remote-roll-1',
+    )
+    expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
   })
 
   it('shows recommended categories once dice have settled', async () => {

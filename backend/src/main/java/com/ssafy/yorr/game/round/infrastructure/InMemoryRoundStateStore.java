@@ -8,6 +8,7 @@ import com.ssafy.yorr.game.round.domain.RoundSynchronizationException;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -70,7 +71,9 @@ public class InMemoryRoundStateStore implements RoundStateStore {
             String roomId,
             String playerId,
             int roundNumber,
-            int rollCount
+            int rollCount,
+            List<Boolean> held,
+            List<Integer> rolledDice
     ) {
         validateRoomId(roomId);
         AtomicReference<RoundState> resultHolder = new AtomicReference<>();
@@ -81,7 +84,13 @@ public class InMemoryRoundStateStore implements RoundStateStore {
                         "round state is not initialized for room: " + roomId
                 );
             }
-            RoundState result = currentState.recordRoll(playerId, roundNumber, rollCount);
+            RoundState result = currentState.recordRoll(
+                    playerId,
+                    roundNumber,
+                    rollCount,
+                    held,
+                    rolledDice
+            );
             resultHolder.set(result);
             return result;
         });
