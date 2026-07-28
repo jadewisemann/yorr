@@ -62,6 +62,7 @@ export function createPlayingRoomSnapshot(roundDeadline: number): RoomSnapshot {
 export const playingRoomSnapshot: RoomSnapshot = createPlayingRoomSnapshot(1_753_000_060_000)
 
 export const creatorSession = {
+  gameId: null,
   roomId: MOCK_ROOM_ID,
   roomCode: MOCK_ROOM_CODE,
   you: creatorPlayer.playerId,
@@ -72,6 +73,7 @@ export const creatorSession = {
 } satisfies RoomSession
 
 export const participantSession = {
+  gameId: null,
   roomId: MOCK_ROOM_ID,
   roomCode: MOCK_ROOM_CODE,
   you: participantPlayer.playerId,

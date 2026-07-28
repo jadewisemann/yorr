@@ -1,8 +1,8 @@
-import type { RoomSnapshot } from '@/realtime/wsEvents'
+import type { PlayerId } from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
 import type { CreateRoomRequest, JoinRoomRequest, RoomSession } from './gameApi'
 import { gameApiClient } from './gameApi'
-import { useAsyncQuery, useAsyncTask } from './useAsyncTask'
+import { useAsyncTask } from './useAsyncTask'
 
 export function useCreateRoom() {
   const setRoomSession = useAppStore((state) => state.setRoomSession)
@@ -22,19 +22,15 @@ export function useJoinRoom() {
   )
 }
 
-export function useLobby(roomId: string | null) {
-  const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)
-
-  return useAsyncQuery<RoomSnapshot>(
-    roomId ? `lobby:${roomId}` : null,
-    (signal) => requireRoomId(roomId, (id) => gameApiClient.getLobby(id, { signal })),
-    { onSuccess: replaceRoomSnapshot },
+export function useLeaveRoom() {
+  return useAsyncTask<[string, PlayerId, string], boolean>(
+    (signal, roomCode, userId, sessionToken) =>
+      gameApiClient
+        .leaveRoom(roomCode, {
+          signal,
+          sessionToken,
+          userId,
+        })
+        .then(() => true),
   )
-}
-
-function requireRoomId<TData>(
-  roomId: string | null,
-  request: (roomId: string) => Promise<TData>,
-): Promise<TData> {
-  return roomId ? request(roomId) : Promise.reject(new Error('Room ID is required'))
 }

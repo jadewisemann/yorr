@@ -48,6 +48,7 @@ function isRoomSession(value: unknown): value is RoomSession {
   return (
     isString(value.roomId) &&
     isString(value.roomCode) &&
+    (value.gameId === null || isString(value.gameId)) &&
     isString(value.you) &&
     isString(value.nickname) &&
     membershipRoles.includes(value.membershipRole as RoomMembershipRole) &&

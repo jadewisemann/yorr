@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useStartGame } from '@/api/useGameApi'
+import { useLeaveRoom } from '@/api/useRoomApi'
 import { BottomSheet } from '@/components/BottomSheet'
 import { Button } from '@/components/Button'
 import { type RankedPlayer, ResultRanking } from '@/components/ResultRanking'
@@ -19,6 +20,7 @@ export function GameResult({ session, snapshot }: GameResultProps) {
   const navigate = useNavigate()
   const reset = useAppStore((state) => state.reset)
   const startGame = useStartGame()
+  const leaveRoom = useLeaveRoom()
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const ranked = toRanking(snapshot, session.you)
@@ -28,14 +30,16 @@ export function GameResult({ session, snapshot }: GameResultProps) {
   const myBoard = snapshot.game?.scores[session.you]
   const isHost = session.membershipRole === 'host'
 
-  const handleLeave = () => {
+  const handleLeave = async () => {
+    const left = await leaveRoom.execute(session.roomCode, session.you, session.sessionToken)
+    if (!left) return
     reset()
     void navigate({ to: '/', replace: true })
   }
 
   const handleRematch = async () => {
     if (!isHost) return
-    await startGame.execute(session.roomId)
+    await startGame.execute()
   }
 
   return (
@@ -80,9 +84,14 @@ export function GameResult({ session, snapshot }: GameResultProps) {
           >
             같은 멤버로 다시
           </Button>
-          <Button onClick={handleLeave} variant="secondary">
+          <Button loading={leaveRoom.isLoading} onClick={handleLeave} variant="secondary">
             나가기
           </Button>
+          {leaveRoom.error && (
+            <p className="m-0 text-center text-sm text-danger" role="alert">
+              방을 나가지 못했어요: {leaveRoom.error.message}
+            </p>
+          )}
           <p className="m-0 text-center text-[10.5px] text-content-muted">
             {isHost ? '재대결은 방장이 시작합니다' : '방장이 다시 시작하기를 기다리는 중'}
           </p>

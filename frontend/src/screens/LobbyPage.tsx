@@ -40,7 +40,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
 
   const handleStart = async () => {
     if (!roomSession || !canStart) return
-    await startGame.execute(roomSession.roomId)
+    await startGame.execute()
   }
 
   if (!roomSession || !matchingRoom) return null

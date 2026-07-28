@@ -1,59 +1,57 @@
-import type { PlayerId, RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
+import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
-import type { ScoreCandidates, SubmitRollRequest, SubmitScoreRequest } from './gameApi'
+import type { GameStartResult, ScoreCandidates, ScoreCandidatesRequest } from './gameApi'
 import { gameApiClient } from './gameApi'
 import { useAsyncQuery, useAsyncTask } from './useAsyncTask'
 
-export function useGame(roomId: string | null) {
+export function useGame(gameId: string | null) {
   const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)
 
   return useAsyncQuery<RoomSnapshot>(
-    roomId ? `game:${roomId}` : null,
-    (signal) => requireRoomId(roomId, (id) => gameApiClient.getGame(id, { signal })),
+    gameId ? `game:${gameId}` : null,
+    (signal) => requireId(gameId, 'Game ID', (id) => gameApiClient.getGame(id, { signal })),
     { onSuccess: replaceRoomSnapshot },
   )
 }
 
 export function useStartGame() {
   const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)
+  const roomSession = useAppStore((state) => state.roomSession)
+  const setRoomSession = useAppStore((state) => state.setRoomSession)
 
-  return useAsyncTask<[string], RoomSnapshot>(
-    (signal, roomId) => gameApiClient.startGame(roomId, { signal }),
-    { onSuccess: replaceRoomSnapshot },
+  return useAsyncTask<[], GameStartResult>(
+    (signal) =>
+      roomSession
+        ? gameApiClient.startGame(roomSession.roomCode, {
+            signal,
+            sessionToken: roomSession.sessionToken,
+            userId: roomSession.you,
+          })
+        : Promise.reject(new Error('Room session is required')),
+    {
+      onSuccess: (result) => {
+        if (!roomSession) return
+        setRoomSession({
+          ...roomSession,
+          gameId: result.gameId,
+          snapshot: result.snapshot,
+        })
+        replaceRoomSnapshot(result.snapshot)
+      },
+    },
   )
 }
 
-export function useSubmitRoll() {
-  const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)
-
-  return useAsyncTask<[string, SubmitRollRequest], RoomSnapshot>(
-    (signal, roomId, request) => gameApiClient.submitRoll(roomId, request, { signal }),
-    { onSuccess: replaceRoomSnapshot },
+export function useScoreCandidates() {
+  return useAsyncTask<[string, ScoreCandidatesRequest], ScoreCandidates>(
+    (signal, gameId, request) => gameApiClient.getScoreCandidates(gameId, request, { signal }),
   )
 }
 
-export function useScoreCandidates(roomId: string | null) {
-  return useAsyncQuery<ScoreCandidates>(roomId ? `score-candidates:${roomId}` : null, (signal) =>
-    requireRoomId(roomId, (id) => gameApiClient.getScoreCandidates(id, { signal })),
-  )
-}
-
-export function useSubmitScore() {
-  return useAsyncTask<[string, SubmitScoreRequest], ScoreBoard>((signal, roomId, request) =>
-    gameApiClient.submitScore(roomId, request, { signal }),
-  )
-}
-
-export function useScoreboard(roomId: string | null) {
-  return useAsyncQuery<Record<PlayerId, ScoreBoard>>(
-    roomId ? `scoreboard:${roomId}` : null,
-    (signal) => requireRoomId(roomId, (id) => gameApiClient.getScoreboard(id, { signal })),
-  )
-}
-
-function requireRoomId<TData>(
-  roomId: string | null,
-  request: (roomId: string) => Promise<TData>,
+function requireId<TData>(
+  id: string | null,
+  label: string,
+  request: (id: string) => Promise<TData>,
 ): Promise<TData> {
-  return roomId ? request(roomId) : Promise.reject(new Error('Room ID is required'))
+  return id ? request(id) : Promise.reject(new Error(`${label} is required`))
 }
