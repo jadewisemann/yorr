@@ -1,7 +1,7 @@
 import RAPIER from '@dimforge/rapier3d-compat'
 import * as THREE from 'three'
 import { PHYSICS_DICE_CONFIG } from './config'
-import { quaternionForTopValue, topFaceFromQuaternion } from './model'
+import { quaternionForTopValue } from './model'
 import type { AlignmentEntry, DieEntry, LayoutEntry } from './runtimeTypes'
 import type { PhysicsDiceIndex, PhysicsDiceSet, PhysicsHeldDice } from './types'
 
@@ -92,10 +92,7 @@ export function lineUpDice(
           0.55,
         )
     const scale = isHeld ? keepSlotScale() : resultDieScale()
-    const targetQuaternion =
-      topFaceFromQuaternion(entry.mesh.quaternion) === committedDice[entry.index]
-        ? entry.mesh.quaternion
-        : quaternionForTopValue(committedDice[entry.index])
+    const targetQuaternion = quaternionForTopValue(committedDice[entry.index])
     entry.mesh.visible = true
     entry.mesh.position.copy(position)
     entry.mesh.quaternion.copy(targetQuaternion)
@@ -126,10 +123,7 @@ export function prepareLayoutEntries(
       ? keepSlotPosition(slotIndex)
       : new THREE.Vector3((row - (rolling.length - 1) / 2) * resultSpacing(), resultCenterY(), 0.55)
     const targetScale = isHeld ? keepSlotScale() : resultDieScale()
-    const targetQuaternion =
-      topFaceFromQuaternion(entry.mesh.quaternion) === committedDice[entry.index]
-        ? entry.mesh.quaternion.clone()
-        : quaternionForTopValue(committedDice[entry.index])
+    const targetQuaternion = quaternionForTopValue(committedDice[entry.index])
     entry.body.setBodyType(RAPIER.RigidBodyType.Fixed, true)
     entry.body.setTranslation(targetPosition, true)
     entry.body.setRotation(targetQuaternion, true)
@@ -187,13 +181,16 @@ export function prepareAlignmentEntries(
     const targetPosition = isHeld
       ? keepSlotPosition(slotIndex)
       : new THREE.Vector3((row - (rolling.length - 1) / 2) * resultSpacing(), resultCenterY(), 0.55)
+    const targetQuaternion = quaternionForTopValue(settledDice[entry.index])
     entry.body.setBodyType(RAPIER.RigidBodyType.Fixed, true)
+    entry.body.setTranslation(targetPosition, true)
+    entry.body.setRotation(targetQuaternion, true)
     return {
       entry,
       held: isHeld,
       slotIndex,
       targetPosition,
-      targetQuaternion: quaternionForTopValue(settledDice[entry.index]),
+      targetQuaternion,
       targetScale: isHeld ? keepSlotScale() : resultDieScale(),
       fromPosition: entry.mesh.position.clone(),
       fromQuaternion: entry.mesh.quaternion.clone(),
@@ -220,8 +217,8 @@ export function updateAlignmentEntries(entries: AlignmentEntry[], progress: numb
     const scale = THREE.MathUtils.lerp(item.fromScale, item.targetScale, scaleEased)
     item.entry.mesh.scale.setScalar(scale)
     item.entry.outline.visible = item.held || scaleProgress > 0.3
-    item.entry.outline.position.set(item.targetPosition.x, 0.04, item.targetPosition.z)
-    item.entry.outline.scale.set(item.targetScale, item.targetScale, 1)
+    item.entry.outline.position.set(item.entry.mesh.position.x, 0.04, item.entry.mesh.position.z)
+    item.entry.outline.scale.set(scale, scale, 1)
     item.entry.outline.material.opacity = item.held
       ? 0.92
       : Math.max(0, 0.12 * ((scaleProgress - 0.3) / 0.7))

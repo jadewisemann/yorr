@@ -16,7 +16,6 @@ export type PhysicsDicePhase = 'idle' | 'shaking' | 'pouring' | 'aligning'
 export interface PhysicsDiceRollRequest {
   requestId: string
   seed: number
-  targetDice: PhysicsDiceSet
   held: PhysicsHeldDice
 }
 

@@ -193,29 +193,6 @@ export function quaternionForTopValue(value: PhysicsDiceValue) {
   return new THREE.Quaternion().setFromEuler(new THREE.Euler(...rotations[value]))
 }
 
-export function closestQuaternionForTopValue(
-  value: PhysicsDiceValue,
-  current: THREE.QuaternionLike,
-) {
-  const currentQuaternion = new THREE.Quaternion(current.x, current.y, current.z, current.w)
-  const base = quaternionForTopValue(value)
-  let closest = base
-  let closestDot = -Infinity
-
-  for (let turn = 0; turn < 4; turn += 1) {
-    const yaw = new THREE.Quaternion().setFromAxisAngle(UP, (turn * Math.PI) / 2)
-    const candidate = yaw.multiply(base.clone())
-    const dot = currentQuaternion.dot(candidate)
-    const distance = Math.abs(dot)
-    if (distance <= closestDot) continue
-    if (dot < 0) candidate.set(-candidate.x, -candidate.y, -candidate.z, -candidate.w)
-    closest = candidate
-    closestDot = distance
-  }
-
-  return closest
-}
-
 export function topFaceFromQuaternion(rotation: THREE.QuaternionLike): PhysicsDiceValue {
   const quaternion = new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w)
   return FACE_NORMALS.reduce(

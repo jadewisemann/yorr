@@ -2,11 +2,12 @@ import { useRef, useState } from 'react'
 import { Button } from '@/components/Button'
 import { PhysicsDiceScene } from '@/components/PhysicsDiceScene'
 import {
+  createRollRequest,
   type DiceIndex,
   type DiceSet,
   type HeldDice,
   NO_HELD_DICE,
-  planRoll,
+  nextRollSeed,
   toggleHeldDie,
 } from '@/domain/dice'
 import type {
@@ -24,30 +25,24 @@ export function PhysicsDiceDemo() {
   const [phase, setPhase] = useState<PhysicsDicePhase>('idle')
   const seedRef = useRef(73)
   const requestSequenceRef = useRef(0)
-  const nextSeedRef = useRef(73)
-
   const roll = () => {
     if (request) return
     requestSequenceRef.current += 1
-    const plan = planRoll({
-      currentDice: dice,
+    const nextRequest = createRollRequest({
       held,
       requestId: `dev-roll-${requestSequenceRef.current}`,
       seed: seedRef.current,
     })
-    nextSeedRef.current = plan.nextSeed
     setReleaseRequestId(null)
-    setRequest(plan)
+    setRequest(nextRequest)
   }
 
   const complete = (requestId: string, completedDice: DiceSet) => {
-    setRequest((current) => {
-      if (!current || current.requestId !== requestId) return current
-      setDice(completedDice)
-      seedRef.current = nextSeedRef.current
-      setReleaseRequestId(null)
-      return null
-    })
+    if (!request || request.requestId !== requestId) return
+    setDice(completedDice)
+    seedRef.current = nextRollSeed(request.seed)
+    setReleaseRequestId(null)
+    setRequest(null)
   }
 
   const toggle = (index: DiceIndex) => {

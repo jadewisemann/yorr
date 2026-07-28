@@ -7,18 +7,15 @@ export type DiceIndex = 0 | 1 | 2 | 3 | 4
 
 export const NO_HELD_DICE: HeldDice = Object.freeze([false, false, false, false, false] as const)
 
-export interface RollPlan {
+export interface DiceRollRequest {
   requestId: string
   seed: number
-  nextSeed: number
-  targetDice: DiceSet
   held: HeldDice
 }
 
-export interface PlanRollInput {
+export interface CreateRollRequestInput {
   requestId: string
   seed: number
-  currentDice: DiceSet | null
   held: HeldDice
 }
 
@@ -43,32 +40,20 @@ export function toggleHeldDie(held: HeldDice, index: DiceIndex): HeldDice {
   return next
 }
 
-export function planRoll({ currentDice, held, requestId, seed }: PlanRollInput): RollPlan {
-  if (!currentDice && held.some(Boolean)) {
-    throw new Error('Dice cannot be held before the first roll')
-  }
-
-  let nextSeed = normalizeSeed(seed)
-  const values: number[] = []
-
-  for (let index = 0; index < 5; index += 1) {
-    const heldValue = currentDice?.[index]
-    if (held[index] && heldValue !== undefined) {
-      values.push(heldValue)
-      continue
-    }
-
-    nextSeed = advanceSeed(nextSeed)
-    values.push(Math.floor((nextSeed / 2 ** 32) * 6) + 1)
-  }
-
+export function createRollRequest({
+  held,
+  requestId,
+  seed,
+}: CreateRollRequestInput): DiceRollRequest {
   return {
     requestId,
     seed: normalizeSeed(seed),
-    nextSeed,
-    targetDice: createDiceSet(values),
     held: [...held],
   }
+}
+
+export function nextRollSeed(seed: number) {
+  return advanceSeed(normalizeSeed(seed))
 }
 
 function normalizeSeed(seed: number) {

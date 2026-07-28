@@ -22,7 +22,7 @@ vi.mock('@/components/PhysicsDiceScene', () => ({
   }) => (
     <div>
       {request && (
-        <button onClick={() => onRollComplete(request.requestId, request.targetDice)} type="button">
+        <button onClick={() => onRollComplete(request.requestId, [6, 5, 4, 3, 2])} type="button">
           굴림 완료
         </button>
       )}

@@ -5,7 +5,6 @@ import { PhysicsDiceFallback } from './PhysicsDiceFallback'
 const request = {
   requestId: 'roll-73',
   seed: 73,
-  targetDice: [6, 5, 4, 3, 2],
   held: [false, false, false, false, false],
 } as const
 
@@ -40,7 +39,10 @@ describe('PhysicsDiceFallback', () => {
 
     act(() => frameCallbacks[0]?.(0))
     expect(onRollComplete).toHaveBeenCalledOnce()
-    expect(onRollComplete).toHaveBeenCalledWith('roll-73', request.targetDice)
+    expect(onRollComplete).toHaveBeenCalledWith(
+      'roll-73',
+      expect.arrayContaining([expect.any(Number)]),
+    )
 
     vi.restoreAllMocks()
   })
@@ -78,7 +80,10 @@ describe('PhysicsDiceFallback', () => {
 
     expect(initialCallback).not.toHaveBeenCalled()
     expect(latestCallback).toHaveBeenCalledOnce()
-    expect(latestCallback).toHaveBeenCalledWith('roll-73', request.targetDice)
+    expect(latestCallback).toHaveBeenCalledWith(
+      'roll-73',
+      expect.arrayContaining([expect.any(Number)]),
+    )
     vi.restoreAllMocks()
   })
 })

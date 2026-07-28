@@ -40,9 +40,9 @@ vi.mock('@/rendering/physics-dice/World', () => ({
 const request: PhysicsDiceRollRequest = {
   requestId: 'roll-73',
   seed: 73,
-  targetDice: [6, 5, 4, 3, 2],
   held: [false, false, false, false, false],
 }
+const rolledDice = [6, 5, 4, 3, 2] as const
 
 describe('PhysicsDiceScene', () => {
   beforeEach(() => {
@@ -86,11 +86,11 @@ describe('PhysicsDiceScene', () => {
     expect(worlds[0]?.pour).toHaveBeenCalledOnce()
 
     act(() => {
-      worlds[0]?.callbacks.onRollComplete(request.requestId, request.targetDice)
-      worlds[0]?.callbacks.onRollComplete(request.requestId, request.targetDice)
+      worlds[0]?.callbacks.onRollComplete(request.requestId, rolledDice)
+      worlds[0]?.callbacks.onRollComplete(request.requestId, rolledDice)
     })
     expect(onRollComplete).toHaveBeenCalledOnce()
-    expect(onRollComplete).toHaveBeenCalledWith(request.requestId, request.targetDice)
+    expect(onRollComplete).toHaveBeenCalledWith(request.requestId, rolledDice)
 
     view.unmount()
     expect(worlds[0]?.destroy).toHaveBeenCalledOnce()

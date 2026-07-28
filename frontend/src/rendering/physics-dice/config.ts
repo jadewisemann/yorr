@@ -114,7 +114,12 @@ export const PHYSICS_DICE_CONFIG = {
       lineUpEnd: 0.68,
       lift: 0.52,
     },
-    settlement: { stableFrames: 14 },
+    settlement: {
+      angularSpeed: 0.18,
+      linearSpeed: 0.13,
+      minRollDurationMs: 900,
+      stableFrames: 14,
+    },
     safety: { margin: 0.16, bounce: 0.52 },
   },
 } as const
