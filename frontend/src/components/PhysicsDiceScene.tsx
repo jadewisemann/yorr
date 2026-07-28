@@ -29,7 +29,6 @@ type PhysicsDiceSceneProps = {
 type PhysicsDiceWorldInstance = InstanceType<
   typeof import('@/rendering/physics-dice/World').PhysicsDiceWorld
 >
-const DIE_KEYS = ['die-1', 'die-2', 'die-3', 'die-4', 'die-5'] as const
 
 export function PhysicsDiceScene({
   dice,
@@ -188,24 +187,6 @@ export function PhysicsDiceScene({
       aria-label="사발과 KEEP 슬롯이 있는 3D 주사위 트레이"
     >
       <div ref={containerRef} className="absolute inset-0" />
-      {dice && (
-        <fieldset className="absolute inset-x-2 bottom-2 z-10 flex justify-center gap-2">
-          <legend className="sr-only">주사위 KEEP 선택</legend>
-          {dice.map((value, index) => (
-            <button
-              key={DIE_KEYS[index]}
-              type="button"
-              className="min-h-11 min-w-11 rounded-control border border-border bg-surface/90 px-3 py-2 font-bold shadow-raised backdrop-blur-sm disabled:cursor-default disabled:opacity-60"
-              disabled={!onHeldToggle || Boolean(request)}
-              onClick={() => onHeldToggle?.(index as PhysicsDiceIndex)}
-              aria-label={`${index + 1}번 주사위, ${value}${held[index] ? ', KEEP 해제' : ', KEEP'}`}
-              aria-pressed={held[index] ?? false}
-            >
-              {value}
-            </button>
-          ))}
-        </fieldset>
-      )}
       {resizing && (
         <div
           className="absolute inset-0 grid place-items-center bg-surface/75 font-mono text-xs text-content-muted backdrop-blur-sm"

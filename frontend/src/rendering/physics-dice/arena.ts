@@ -36,23 +36,14 @@ export function createTray(scene: THREE.Scene, world: RAPIER.World) {
       .setRestitution(0.2),
   )
 
-  const floorMaterial = new THREE.MeshStandardMaterial({
-    transparent: true,
-    opacity: 0.14,
-    roughness: 0.96,
-  })
-  const playFieldMaterial = new THREE.MeshStandardMaterial({
-    transparent: true,
-    opacity: 0.1,
-    roughness: 1,
-  })
-  const rimMaterial = new THREE.MeshStandardMaterial({
-    transparent: true,
-    opacity: 0.5,
-    roughness: 0.72,
-    metalness: 0.05,
-  })
-  const trayMaterials: THREE.Material[] = [floorMaterial, playFieldMaterial, rimMaterial]
+  // 디자인 Yacht Play 3D — 벽·질감 없는 평면 무대. 바닥은 그림자만 받고,
+  // 킵 레일은 분리선(악센트) 아래로 화면 끝까지 깔리는 플랫 밴드다.
+  // RAIL_SPAN은 카메라 최대 프러스텀보다 크게 잡아 어떤 종횡비에서도 가장자리가 안 보이게 한다.
+  const RAIL_SPAN = 40
+  const floorMaterial = new THREE.ShadowMaterial({ opacity: 0.3 })
+  const railMaterial = new THREE.MeshBasicMaterial()
+  const railLineMaterial = new THREE.MeshBasicMaterial()
+  const trayMaterials: THREE.Material[] = [floorMaterial, railMaterial, railLineMaterial]
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(tray.halfSize * 2, tray.halfSize * 2),
     floorMaterial,
@@ -60,43 +51,15 @@ export function createTray(scene: THREE.Scene, world: RAPIER.World) {
   floor.rotation.x = -Math.PI / 2
   floor.position.y = 0.002
   floor.receiveShadow = true
-  const playField = new THREE.Mesh(
-    new THREE.PlaneGeometry(tray.rollingHalfWidth * 2, halfDepth * 2),
-    playFieldMaterial,
-  )
-  playField.rotation.x = -Math.PI / 2
-  playField.position.set(0, 0.008, centerZ)
-  playField.receiveShadow = true
-  scene.add(floor, playField)
+  const rail = new THREE.Mesh(new THREE.PlaneGeometry(RAIL_SPAN, RAIL_SPAN), railMaterial)
+  rail.rotation.x = -Math.PI / 2
+  rail.position.set(0, 0.004, tray.separatorZ + RAIL_SPAN / 2)
+  const railLine = new THREE.Mesh(new THREE.PlaneGeometry(RAIL_SPAN, 0.05), railLineMaterial)
+  railLine.rotation.x = -Math.PI / 2
+  railLine.position.set(0, 0.005, tray.separatorZ + 0.025)
+  scene.add(floor, rail, railLine)
 
-  const sideGeometry = new THREE.BoxGeometry(tray.rimWidth, tray.rimHeight, tray.halfSize * 2)
-  const edgeGeometry = new THREE.BoxGeometry(tray.halfSize * 2, tray.rimHeight, tray.rimWidth)
-  const rims = [
-    new THREE.Mesh(sideGeometry, rimMaterial),
-    new THREE.Mesh(sideGeometry, rimMaterial),
-    new THREE.Mesh(edgeGeometry, rimMaterial),
-    new THREE.Mesh(edgeGeometry, rimMaterial),
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        tray.rollingHalfWidth * 2 + tray.rimWidth,
-        tray.rimHeight * 0.7,
-        tray.rimWidth,
-      ),
-      rimMaterial,
-    ),
-  ]
-  rims[0]?.position.set(-tray.halfSize, tray.rimHeight / 2, 0)
-  rims[1]?.position.set(tray.halfSize, tray.rimHeight / 2, 0)
-  rims[2]?.position.set(0, tray.rimHeight / 2, -tray.halfSize)
-  rims[3]?.position.set(0, tray.rimHeight / 2, tray.halfSize)
-  rims[4]?.position.set(0, tray.rimHeight * 0.35, tray.separatorZ)
-  rims.forEach((rim) => {
-    rim.castShadow = true
-    rim.receiveShadow = true
-    scene.add(rim)
-  })
-
-  return { floorMaterial, playFieldMaterial, trayMaterials }
+  return { floorMaterial, railMaterial, railLineMaterial, trayMaterials }
 }
 
 export function createBowl(scene: THREE.Scene, world: RAPIER.World) {
@@ -190,36 +153,25 @@ export function createBowl(scene: THREE.Scene, world: RAPIER.World) {
   return { bowlBody, bowlGroup, bowlInner, bowlInnerMaterial, bowlMaterials }
 }
 
+/**
+ * 킵 슬롯 — 카드 프레임·그림자 대신 주사위 발치에 깔리는 평면 막대 하나.
+ * 점유된 슬롯은 악센트, 빈 슬롯은 muted 색으로 positionKeepSlots가 바꿔 끼운다.
+ */
 export function createKeepSlots(scene: THREE.Scene, geometries: PhysicsDiceGeometries) {
-  const fill = new THREE.MeshBasicMaterial({
-    transparent: true,
-    opacity: SCENE.keepSlots.fillOpacity,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  })
-  const frame = new THREE.MeshBasicMaterial({
-    transparent: true,
-    opacity: SCENE.keepSlots.frameOpacity,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  })
-  const shadow = new THREE.MeshBasicMaterial({
-    color: 0x000000,
-    transparent: true,
-    opacity: SCENE.keepSlots.shadowOpacity,
-    depthTest: false,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  })
-  const keepSlotMaterials: THREE.Material[] = [fill, frame, shadow]
+  const slot = SCENE.keepSlots
+  const occupied = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
+  const empty = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
+  const keepSlotMaterials: THREE.Material[] = [occupied, empty]
+  // 그룹이 rotateX(-90°)로 눕기 때문에 로컬 -y가 화면 아래(+z)다.
+  const barOffset =
+    PHYSICS_DICE_CONFIG.scene.baseDiceSize *
+      (0.5 + slot.borderOffsetRatio + slot.borderWidthRatio) +
+    slot.barGap
   const keepSlots = Array.from({ length: 5 }, () => {
     const group = new THREE.Group()
-    const shadowMesh = new THREE.Mesh(geometries.slotFill, shadow)
-    shadowMesh.position.set(SCENE.keepSlots.shadowOffset, -SCENE.keepSlots.shadowOffset, -0.002)
-    const fillMesh = new THREE.Mesh(geometries.slotFill, fill)
-    const frameMesh = new THREE.Mesh(geometries.slotFrame, frame)
-    frameMesh.position.z = 0.002
-    group.add(shadowMesh, fillMesh, frameMesh)
+    const bar = new THREE.Mesh(geometries.slotBar, empty)
+    bar.position.y = -barOffset
+    group.add(bar)
     group.rotation.x = -Math.PI / 2
     scene.add(group)
     return group

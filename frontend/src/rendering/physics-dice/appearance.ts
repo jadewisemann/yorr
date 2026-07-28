@@ -7,11 +7,11 @@ export interface AppearanceResources {
   bowlInnerMaterial: THREE.MeshStandardMaterial
   bowlMaterials: THREE.Material[]
   entries: DieEntry[]
-  floorMaterial: THREE.MeshStandardMaterial
   geometries: PhysicsDiceGeometries
   keepSlotMaterials: THREE.Material[]
   materials: PhysicsDiceMaterials
-  playFieldMaterial: THREE.MeshStandardMaterial
+  railMaterial: THREE.MeshBasicMaterial
+  railLineMaterial: THREE.MeshBasicMaterial
   trayMaterials: THREE.Material[]
 }
 
@@ -21,8 +21,8 @@ export function syncAppearance(resources: AppearanceResources) {
   resources.materials.die.color.set(color('--ds-color-physics-die', '#e7e9df'))
   resources.materials.dark.color.set(color('--ds-color-physics-pip', '#171b18'))
   resources.materials.red.color.set(color('--ds-color-physics-danger', '#ff523f'))
-  resources.floorMaterial.color.set(color('--ds-color-physics-accent', '#c6f640'))
-  resources.playFieldMaterial.color.set(color('--ds-color-physics-surface', '#e8eadf'))
+  resources.railMaterial.color.set(color('--ds-color-physics-rail', '#1e2941'))
+  resources.railLineMaterial.color.set(color('--ds-color-physics-accent', '#c6f640'))
   resources.bowlInnerMaterial.color
     .set(color('--ds-color-physics-danger', '#ff523f'))
     .multiplyScalar(0.42)
@@ -30,11 +30,11 @@ export function syncAppearance(resources: AppearanceResources) {
   resources.entries.forEach((entry) => {
     entry.outline.material.color.set(color('--ds-color-physics-accent', '#c6f640'))
   })
-  const [fill, frame] = resources.keepSlotMaterials
-  if (fill instanceof THREE.MeshBasicMaterial)
-    fill.color.set(color('--ds-color-physics-surface', '#e8eadf'))
-  if (frame instanceof THREE.MeshBasicMaterial)
-    frame.color.set(color('--ds-color-physics-line', '#b9c0b3'))
+  const [occupied, empty] = resources.keepSlotMaterials
+  if (occupied instanceof THREE.MeshBasicMaterial)
+    occupied.color.set(color('--ds-color-physics-accent', '#c6f640'))
+  if (empty instanceof THREE.MeshBasicMaterial)
+    empty.color.set(color('--ds-color-physics-slot', '#42516e'))
 }
 
 export function disposeAppearance(

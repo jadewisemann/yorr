@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPlayingRoomSnapshot, creatorSession, participantSession } from '@/mocks/fixtures'
@@ -76,7 +76,7 @@ function renderObserver() {
 describe('GamePlay', () => {
   beforeEach(() => useAppStore.getState().reset())
 
-  it('keeps the primary CTA to roll and confirm only', async () => {
+  it('keeps a single roll CTA', async () => {
     const { user } = renderGame()
 
     expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
@@ -115,19 +115,21 @@ describe('GamePlay', () => {
     expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
   })
 
-  it('shows recommended categories once dice have settled', async () => {
+  it('previews scores on the quick strip once dice have settled', async () => {
     const { user } = renderGame()
 
-    expect(screen.getByText('주사위를 굴리면 추천 족보가 나타납니다')).toBeVisible()
+    // 굴리기 전에는 예상 점수가 없어 칩이 잠긴다.
+    expect(screen.getByRole('button', { name: 'Choice' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: '굴리기' }))
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
 
-    expect(screen.getByText('최고 점수')).toBeVisible()
-    expect(screen.getAllByText('사용 가능')).toHaveLength(2)
+    // [6,5,4,3,2] → L. Straight 30이 최고 점수로 맨 앞에 온다.
+    expect(screen.getByRole('button', { name: 'L. Straight 30점 기록' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Choice 20점 기록' })).toBeEnabled()
   })
 
-  it('opens the category sheet automatically after the last roll', async () => {
+  it('opens the record panel automatically after the last roll', async () => {
     const { user } = renderGame()
 
     for (let roll = 0; roll < 3; roll += 1) {
@@ -136,21 +138,21 @@ describe('GamePlay', () => {
     }
 
     expect(screen.getByText('굴림 소진')).toBeVisible()
-    const sheet = await screen.findByRole('dialog', { name: '족보 선택' })
-    expect(within(sheet).getByRole('heading', { name: '족보 선택' })).toBeVisible()
-    expect(screen.getByRole('button', { name: '확정하기' })).toBeDisabled()
+    // 패널이 열리면 토글이 "접기"로 바뀌고 전체 점수시트가 드러난다.
+    const toggle = await screen.findByRole('button', { name: /접기/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    // 시트 행(정확히 "Choice 20")이 드러난다 — 퀵 칩("Choice 20점 기록")과 구분.
+    expect(screen.getByRole('button', { name: 'Choice 20' })).toBeVisible()
   })
 
-  it('records the chosen category and then waits for the other players', async () => {
+  it('records a category in one tap and then waits for the other players', async () => {
     const { user } = renderGame()
 
     await user.click(screen.getByRole('button', { name: '굴리기' }))
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
-    await user.click(screen.getByRole('button', { name: `전체 12개 ▸` }))
 
-    const sheet = await screen.findByRole('dialog', { name: '족보 선택' })
-    await user.click(within(sheet).getByRole('button', { name: /^Choice/ }))
-    await user.click(within(sheet).getByRole('button', { name: /Choice에 \d+점 확정/ }))
+    // 퀵 칩은 peek 상태에서도 보인다 — 시트를 열 필요 없이 한 번에 기록한다.
+    await user.click(screen.getByRole('button', { name: 'Choice 20점 기록' }))
 
     expect(await screen.findByText('점수가 반영됐습니다 · 다음 턴을 기다리는 중')).toBeVisible()
   })
@@ -160,17 +162,14 @@ describe('GamePlay', () => {
 
     await user.click(screen.getByRole('button', { name: '굴리기' }))
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
-    await user.click(screen.getByRole('button', { name: '전체 12개 ▸' }))
 
-    const sheet = await screen.findByRole('dialog', { name: '족보 선택' })
-    const zeroRow = within(sheet)
+    const zeroChip = screen
       .getAllByRole('button')
-      .find((button) => button.getAttribute('aria-label')?.endsWith(' 0'))
-    expect(zeroRow).toBeDefined()
-    if (!zeroRow) return
+      .find((button) => button.getAttribute('aria-label')?.endsWith(' 0점 기록'))
+    expect(zeroChip).toBeDefined()
+    if (!zeroChip) return
 
-    await user.click(zeroRow)
-    await user.click(within(sheet).getByRole('button', { name: /0점 확정$/ }))
+    await user.click(zeroChip)
 
     expect(await screen.findByRole('dialog', { name: /0점으로 확정할까요\?/ })).toBeVisible()
   })

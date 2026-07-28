@@ -31,13 +31,15 @@ export function RoundTimer({
   return (
     <div className={cn('flex items-center gap-3', className)}>
       {!compact && (
-        <span className="flex-none rounded-full border border-border px-3 py-1.5 text-xs font-bold text-content">
+        <span className="flex-none border-2 border-content px-3 py-1.5 text-xs font-bold text-content">
           라운드 {roundNumber}/{totalRounds}
         </span>
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[10.5px] font-medium text-content-faint">남은 시간</span>
+          <span className="text-[10.5px] font-medium tracking-[0.08em] text-content-faint uppercase">
+            남은 시간
+          </span>
           <span
             aria-label="남은 시간"
             className={cn(
@@ -49,11 +51,11 @@ export function RoundTimer({
             {formatCountdown(remainingMs)}
           </span>
         </div>
-        <div className="mt-1 h-[7px] overflow-hidden rounded-full bg-surface-sunken">
+        <div className="mt-1 h-[7px] overflow-hidden bg-surface-sunken">
           {/* width 대신 scaleX로 줄인다 — 레이아웃을 건드리지 않고 합성만으로 처리된다. */}
           <div
             className={cn(
-              'h-full origin-left rounded-full transition-[transform,background-color] duration-1000 ease-linear',
+              'h-full origin-left transition-[transform,background-color] duration-1000 ease-linear',
               warning ? 'bg-danger' : 'bg-brand',
             )}
             style={{ transform: `scaleX(${ratio})` }}

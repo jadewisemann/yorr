@@ -90,13 +90,19 @@
 
   --animate-spin-slow: spin-slow 700ms linear infinite;
   --animate-dice-roll: dice-roll 500ms ease-in-out infinite alternate;
+
+  /* 굴림 결과 족보 콜아웃 — 등급이 높을수록 겹쳐 쓰는 연출이 늘어난다. */
+  --animate-callout-pop: callout-pop 480ms var(--ds-ease-snappy) both;
+  --animate-callout-ring: callout-ring 900ms ease-out both;
+  --animate-callout-flash: callout-flash 700ms ease-out both;
+  --animate-callout-burst: callout-burst 800ms ease-out both;
 }
 
 :root {
-  /* Inter는 한글 글리프가 없어서 한글은 자연히 뒤의 한글 폰트로 떨어진다.
-     디자인 핸드오프가 지정한 Noto Sans KR을 Pretendard 다음 순위로 둔다. */
+  /* Modernist 디자인 시스템(Yacht Play Screens)의 구조 + 기존 다크 네이비·옐로 팔레트.
+     Archivo는 한글 글리프가 없어 한글은 자연히 뒤의 Pretendard·Noto Sans KR로 떨어진다. */
   --ds-font-sans:
-    Inter, Pretendard, "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    Archivo, Pretendard, "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   --ds-color-canvas: #172033;
   --ds-color-surface: #222d43;
@@ -114,9 +120,11 @@
   --ds-color-physics-pip: #171b18;
   --ds-color-physics-accent: #c6f640;
   --ds-color-physics-danger: #ff523f;
-  --ds-color-physics-surface: #e8eadf;
-  --ds-color-physics-line: #b9c0b3;
-  --ds-physics-tray: radial-gradient(circle at 50% 48%, #171c15, #0d100e 72%);
+  /* 3D 트레이 UI(디자인 Yacht Play 3D) — 질감 없는 평면 배색.
+     롤링 존(tray)보다 킵 레일(rail)이 한 단계 밝고, 빈 슬롯 바는 slot을 쓴다. */
+  --ds-physics-tray: #10182a;
+  --ds-color-physics-rail: #1e2941;
+  --ds-color-physics-slot: #42516e;
 
   /* 랜딩 히어로 전용 팔레트. 앱 본편(canvas/surface/brand)보다 어둡고 채도가 낮은
      별도 계열이라 semantic 토큰을 재사용하지 않고 landing 네임스페이스로 분리한다. */
@@ -187,10 +195,11 @@
   --ds-size-content: 72rem;
   /* 화면 좌우 거터 — 390px에서 20px, 320px에서 16px. */
   --ds-size-gutter: 1.25rem;
-  --ds-radius-control: 0.5rem;
-  --ds-radius-card: 0.875rem;
-  --ds-radius-panel: 1.25rem;
-  --ds-radius-sheet: 1.25rem;
+  /* Modernist는 radius 0 — 각진 모서리가 시스템의 정체성이다. */
+  --ds-radius-control: 0px;
+  --ds-radius-card: 0px;
+  --ds-radius-panel: 0px;
+  --ds-radius-sheet: 0px;
   --ds-shadow-raised: 0 0.75rem 2rem rgb(5 10 20 / 30%);
   --ds-shadow-overlay: 0 -1.5rem 3rem rgb(5 10 20 / 55%);
   --ds-ease-snappy: cubic-bezier(0.2, 0, 0, 1);
@@ -221,5 +230,51 @@
 @keyframes dice-roll {
   to {
     transform: rotate(8deg) scale(1.04);
+  }
+}
+
+@keyframes callout-pop {
+  0% {
+    transform: scale(0.55);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes callout-ring {
+  from {
+    transform: scale(0.7);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+@keyframes callout-flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes callout-burst {
+  from {
+    transform: rotate(var(--burst-angle, 0deg)) translateY(-2.5rem) scaleY(0.4);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(var(--burst-angle, 0deg)) translateY(-8.5rem) scaleY(1);
+    opacity: 0;
   }
 }

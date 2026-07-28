@@ -13,13 +13,11 @@ export function RollCounter({ className, maxRolls = 3, rollsUsed }: RollCounterP
 
   return (
     <div className={cn('flex-none text-center', className)}>
-      <div aria-hidden="true" className="flex justify-center gap-1">
+      {/* Modernist 롤 핍 — 남은 굴림은 accent 막대, 쓴 굴림은 회색 막대. */}
+      <div aria-hidden="true" className="flex justify-center gap-1.5">
         {slots.map((slot, index) => (
           <span
-            className={cn(
-              'size-2.5 rounded-full',
-              index < rollsUsed ? 'bg-brand' : 'border border-content-faint',
-            )}
+            className={cn('h-2 w-8', index < maxRolls - rollsUsed ? 'bg-brand' : 'bg-border')}
             key={slot}
           />
         ))}

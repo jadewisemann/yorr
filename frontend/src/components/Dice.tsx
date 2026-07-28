@@ -21,9 +21,9 @@ export function Dice({ className, held = false, rolling = false, size = 'md', va
   return (
     <div
       className={cn(
-        'grid aspect-square grid-cols-3 grid-rows-3 rounded-card border-2 border-border bg-surface-raised text-content shadow-raised',
+        'grid aspect-square grid-cols-3 grid-rows-3 rounded-card border-2 border-content bg-surface-raised text-content shadow-raised',
         sizes[size],
-        held && 'border-brand ring-1 ring-brand',
+        held && 'ring-3 ring-brand',
         rolling && 'animate-dice-roll motion-reduce:animate-none',
         className,
       )}
@@ -33,7 +33,7 @@ export function Dice({ className, held = false, rolling = false, size = 'md', va
       {dots[value].map((position) => (
         <span
           key={position}
-          className="size-2.5 place-self-center rounded-full bg-current"
+          className="size-2.5 place-self-center bg-current"
           style={{ gridArea: `${Math.ceil(position / 3)} / ${((position - 1) % 3) + 1}` }}
         />
       ))}

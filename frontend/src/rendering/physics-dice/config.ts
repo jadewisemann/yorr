@@ -22,34 +22,46 @@ export const PHYSICS_DICE_CONFIG = {
     resultDiceScale: 1.35,
     resultGap: 0.12,
     selectionBorder: { offsetRatio: 0.045, widthRatio: 0.018, cornerRadiusRatio: 0.151 },
-    camera: { simulationHalfWidth: 4.25, resultHalfWidth: 4.25, minHalfHeight: 3.35 },
+    /* maxHalfHeight·minHalfWidth — 세로로 긴 화면에서 빈 바닥 대신 좌우를 잘라낸다.
+       minHalfWidth는 킵 슬롯 5개(±3.14)가 항상 보이는 하한이다. */
+    camera: {
+      simulationHalfWidth: 4.25,
+      resultHalfWidth: 4.25,
+      minHalfHeight: 3.35,
+      maxHalfHeight: 4.6,
+      minHalfWidth: 3.3,
+    },
+    /* 디자인 Yacht Play 3D — 롤링 존이 위, 킵 레일이 아래(+z, 화면 아래쪽). */
     tray: {
       halfSize: 2.9,
       rollingHalfWidth: 2.5,
-      rollingMinZ: -1.35,
-      rollingMaxZ: 2.5,
+      rollingMinZ: -2.5,
+      rollingMaxZ: 1.35,
       entryApronMaxX: 5.5,
-      slotZ: -2.28,
-      rimWidth: 0.18,
-      rimHeight: 0.24,
-      separatorZ: -1.5,
+      resultRowZ: -0.6,
+      slotZ: 2.28,
+      separatorZ: 1.5,
     },
     keepSlots: {
-      diceScale: 0.72,
+      /* 킵해도 주사위가 작아지지 않는다 — 결과 줄(resultDiceScale)과 같은 크기로 레일에 앉는다. */
+      diceScale: 1.35,
       gapRatio: 0.12,
       borderOffsetRatio: 0.065,
       borderWidthRatio: 0.016,
-      cornerRadiusRatio: 0.151,
-      fillOpacity: 0.64,
-      frameOpacity: 0.42,
-      shadowOpacity: 0.16,
-      shadowOffset: 0.035,
+      /* 슬롯 바 — 카드 프레임 대신 주사위 아래 깔리는 평면 막대(디자인의 rail bar).
+         그룹 스케일(diceScale)이 곱해지므로 로컬 값은 그만큼 얇게 잡는다. */
+      barDepth: 0.05,
+      barGap: 0.09,
       moveDurationMs: 380,
     },
     bowl: {
       autoTiltMs: 2400,
-      startX: 3.35,
-      startZ: 0.45,
+      /* 사발은 롤링 존 가운데(start)에서 흔들리다가, 기울이는 동안 쏟는 위치(pour)까지
+         미끄러지며 쏟고 그대로 오른쪽으로 퇴장한다 — 좁은 화면에서도 흔드는 동안은 잘리지 않는다. */
+      startX: 0,
+      startZ: -0.6,
+      pourX: 2.9,
+      pourZ: -0.6,
       hoverY: 0.28,
       tiltDurationMs: 520,
       rotationPivotY: 0.72,

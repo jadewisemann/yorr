@@ -35,7 +35,7 @@ export function ScoreMatrix({ className, players }: ScoreMatrixProps) {
         <th
           className={cn(
             stickyLabel,
-            'border-b border-border/40 bg-surface text-[12px] font-semibold text-content-muted',
+            'border-b border-border/40 bg-canvas text-[12px] font-semibold text-content-muted',
           )}
           scope="row"
         >
@@ -67,7 +67,7 @@ export function ScoreMatrix({ className, players }: ScoreMatrixProps) {
             <th
               className={cn(
                 stickyLabel,
-                'border-b-2 border-border bg-surface text-[10.5px] font-bold text-content-muted',
+                'border-b-2 border-content bg-canvas text-[10.5px] font-bold text-content-muted',
               )}
               scope="col"
             >
@@ -76,7 +76,7 @@ export function ScoreMatrix({ className, players }: ScoreMatrixProps) {
             {players.map((player, index) => (
               <th
                 className={cn(
-                  'min-w-14 border-b-2 border-border bg-surface px-1 py-2.5 text-center text-[10.5px] font-bold',
+                  'min-w-14 border-b-2 border-content bg-canvas px-1 py-2.5 text-center text-[10.5px] font-bold',
                   index === 0 ? 'text-content' : 'text-content-muted',
                 )}
                 key={player.playerId}
