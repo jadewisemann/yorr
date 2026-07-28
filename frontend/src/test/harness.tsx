@@ -22,6 +22,8 @@ interface MockApiErrorOptions {
   code: string
   path: string
   status?: number
+  /** 응답을 보류할 promise — 요청이 진행 중인 구간을 테스트가 직접 제어할 때 사용한다. */
+  until?: Promise<unknown>
 }
 
 export function renderAppHarness(options: AppHarnessOptions = {}) {
@@ -57,17 +59,18 @@ export function resetAppTestState() {
   safely(() => window.sessionStorage.clear())
 }
 
-export function mockApiError({ code, path, status = 400 }: MockApiErrorOptions) {
+export function mockApiError({ code, path, status = 400, until }: MockApiErrorOptions) {
   mockApiServer.use(
-    http.post(path, () =>
-      HttpResponse.json(
+    http.post(path, async () => {
+      await until
+      return HttpResponse.json(
         {
           code,
           message: code,
         },
         { status },
-      ),
-    ),
+      )
+    }),
   )
 }
 
