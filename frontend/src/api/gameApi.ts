@@ -1,10 +1,4 @@
-import type {
-  DiceSet,
-  PlayerId,
-  RoomSnapshot,
-  ScoreBoard,
-  YachtCategory,
-} from '@/realtime/wsEvents'
+import type { DiceSet, PlayerId, RoomSnapshot, YachtCategory } from '@/realtime/wsEvents'
 import { apiRequest } from './client'
 
 export interface CreateRoomRequest {
@@ -30,6 +24,7 @@ export interface EnterRoomResponse {
 export type RoomMembershipRole = 'host' | 'participant'
 
 export interface RoomSession {
+  gameId: string | null
   roomId: string
   roomCode: string
   you: PlayerId
@@ -39,7 +34,7 @@ export interface RoomSession {
   snapshot: RoomSnapshot | null
 }
 
-export interface SubmitRollRequest {
+export interface ScoreCandidatesRequest {
   dice: DiceSet
 }
 
@@ -47,13 +42,18 @@ export interface ScoreCandidates {
   candidates: Record<YachtCategory, number>
 }
 
-export interface SubmitScoreRequest {
-  category: YachtCategory
-  dice: DiceSet
+export interface GameStartResult {
+  gameId: string
+  snapshot: RoomSnapshot
 }
 
 export interface ApiCallOptions {
   signal?: AbortSignal
+}
+
+export interface AuthenticatedApiCallOptions extends ApiCallOptions {
+  sessionToken: string
+  userId: PlayerId
 }
 
 export interface GameApiClient {
@@ -63,21 +63,14 @@ export interface GameApiClient {
     request: JoinRoomRequest,
     options?: ApiCallOptions,
   ): Promise<RoomSession>
-  getLobby(roomId: string, options?: ApiCallOptions): Promise<RoomSnapshot>
-  getGame(roomId: string, options?: ApiCallOptions): Promise<RoomSnapshot>
-  startGame(roomId: string, options?: ApiCallOptions): Promise<RoomSnapshot>
-  submitRoll(
-    roomId: string,
-    request: SubmitRollRequest,
+  getGame(gameId: string, options?: ApiCallOptions): Promise<RoomSnapshot>
+  startGame(roomCode: string, options: AuthenticatedApiCallOptions): Promise<GameStartResult>
+  getScoreCandidates(
+    gameId: string,
+    request: ScoreCandidatesRequest,
     options?: ApiCallOptions,
-  ): Promise<RoomSnapshot>
-  getScoreCandidates(roomId: string, options?: ApiCallOptions): Promise<ScoreCandidates>
-  submitScore(
-    roomId: string,
-    request: SubmitScoreRequest,
-    options?: ApiCallOptions,
-  ): Promise<ScoreBoard>
-  getScoreboard(roomId: string, options?: ApiCallOptions): Promise<Record<PlayerId, ScoreBoard>>
+  ): Promise<ScoreCandidates>
+  leaveRoom(roomCode: string, options: AuthenticatedApiCallOptions): Promise<void>
 }
 
 export class HttpGameApiClient implements GameApiClient {
@@ -96,46 +89,32 @@ export class HttpGameApiClient implements GameApiClient {
     )
   }
 
-  getLobby(roomId: string, options?: ApiCallOptions) {
-    return apiRequest<RoomSnapshot>(`/rooms/${roomId}/lobby`, requestSignal(options))
+  getGame(gameId: string, options?: ApiCallOptions) {
+    return apiRequest<unknown>(`/games/${gameId}`, requestSignal(options)).then(toRoomSnapshot)
   }
 
-  getGame(roomId: string, options?: ApiCallOptions) {
-    return apiRequest<RoomSnapshot>(`/rooms/${roomId}/game`, requestSignal(options))
-  }
-
-  startGame(roomId: string, options?: ApiCallOptions) {
-    return apiRequest<RoomSnapshot>(`/rooms/${roomId}/game`, {
+  startGame(roomCode: string, options: AuthenticatedApiCallOptions) {
+    return apiRequest<unknown>(`/rooms/${roomCode}/games`, {
       method: 'POST',
       ...requestSignal(options),
-    })
+      headers: authenticatedHeaders(options),
+    }).then(toGameStartResult)
   }
 
-  submitRoll(roomId: string, request: SubmitRollRequest, options?: ApiCallOptions) {
-    return apiRequest<RoomSnapshot>(`/rooms/${roomId}/game/rolls`, {
+  getScoreCandidates(gameId: string, request: ScoreCandidatesRequest, options?: ApiCallOptions) {
+    return apiRequest<unknown>(`/games/${gameId}/score-candidates`, {
       method: 'POST',
       body: JSON.stringify(request),
       ...requestSignal(options),
-    })
+    }).then(toScoreCandidates)
   }
 
-  getScoreCandidates(roomId: string, options?: ApiCallOptions) {
-    return apiRequest<ScoreCandidates>(`/rooms/${roomId}/scores/candidates`, requestSignal(options))
-  }
-
-  submitScore(roomId: string, request: SubmitScoreRequest, options?: ApiCallOptions) {
-    return apiRequest<ScoreBoard>(`/rooms/${roomId}/scores`, {
-      method: 'POST',
-      body: JSON.stringify(request),
+  leaveRoom(roomCode: string, options: AuthenticatedApiCallOptions) {
+    return apiRequest<void>(`/rooms/${roomCode}/players/me`, {
+      method: 'DELETE',
       ...requestSignal(options),
+      headers: authenticatedHeaders(options),
     })
-  }
-
-  getScoreboard(roomId: string, options?: ApiCallOptions) {
-    return apiRequest<Record<PlayerId, ScoreBoard>>(
-      `/rooms/${roomId}/scores`,
-      requestSignal(options),
-    )
   }
 }
 
@@ -165,6 +144,7 @@ function toRoomSession(response: unknown, membershipRole: RoomMembershipRole): R
   }
 
   return {
+    gameId: null,
     roomId: response.room_id,
     roomCode: response.room_id,
     you: response.id,
@@ -172,6 +152,75 @@ function toRoomSession(response: unknown, membershipRole: RoomMembershipRole): R
     membershipRole,
     sessionToken: response.token,
     snapshot: null,
+  }
+}
+
+function toGameStartResult(response: unknown): GameStartResult {
+  if (!isRecord(response) || !isNonEmptyString(response.gameId)) {
+    throw new Error('Invalid game start response')
+  }
+
+  return {
+    gameId: response.gameId,
+    snapshot: toRoomSnapshot(response.snapshot),
+  }
+}
+
+function toRoomSnapshot(response: unknown): RoomSnapshot {
+  if (!isRecord(response)) {
+    throw new Error('Invalid room snapshot response')
+  }
+
+  const phase = toRoomPhase(response.phase)
+
+  if (
+    !isNonEmptyString(response.roomCode) ||
+    phase === undefined ||
+    !Array.isArray(response.players) ||
+    !response.players.every(isRestRoomPlayer)
+  ) {
+    throw new Error('Invalid room snapshot response')
+  }
+
+  return {
+    roomId: response.roomCode,
+    phase,
+    players: response.players.map((player) => ({
+      playerId: player.playerId,
+      nickname: player.nickname,
+      status: 'online',
+    })),
+  }
+}
+
+function toScoreCandidates(response: unknown): ScoreCandidates {
+  if (!isRecord(response) || !isRecord(response.candidates)) {
+    throw new Error('Invalid score candidates response')
+  }
+
+  const entries = Object.entries(response.candidates)
+  if (!entries.every(([, score]) => typeof score === 'number' && Number.isInteger(score))) {
+    throw new Error('Invalid score candidates response')
+  }
+
+  return { candidates: Object.fromEntries(entries) as Record<YachtCategory, number> }
+}
+
+function isRestRoomPlayer(value: unknown): value is { nickname: string; playerId: string } {
+  return isRecord(value) && isNonEmptyString(value.playerId) && isNonEmptyString(value.nickname)
+}
+
+function toRoomPhase(value: unknown): RoomSnapshot['phase'] | undefined {
+  if (value === 'LOBBY') return 'waiting'
+  if (value === 'PLAYING') return 'playing'
+  if (value === 'FINISHED') return 'finished'
+  return undefined
+}
+
+function authenticatedHeaders(options: AuthenticatedApiCallOptions) {
+  return {
+    Authorization: `Bearer ${options.sessionToken}`,
+    'X-User-Id': options.userId,
   }
 }
 

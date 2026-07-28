@@ -12,7 +12,7 @@ export function GamePage({ roomId }: { roomId: string }) {
   const matchingRoom = roomSession?.roomId === roomId
 
   // 진행 상태(game)는 WebSocket state.sync로도 오지만, 새로고침·직접 진입에 대비해 한 번 받아둔다.
-  useGame(matchingRoom ? roomId : null)
+  useGame(matchingRoom ? roomSession.gameId : null)
 
   useEffect(() => {
     if (!roomSession || !roomSnapshot || !matchingRoom) {

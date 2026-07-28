@@ -1,20 +1,12 @@
 import { delay, HttpResponse, http } from 'msw'
-import type {
-  EnterRoomRequest,
-  EnterRoomResponse,
-  RoomSession,
-  SubmitScoreRequest,
-} from '@/api/gameApi'
+import type { EnterRoomRequest, EnterRoomResponse, RoomSession } from '@/api/gameApi'
 import {
-  createEmptyScoreBoard,
-  createPlayingRoomSnapshot,
   creatorSession,
   MOCK_ROOM_ID,
-  MOCK_ROUND_DURATION_MS,
   participantSession,
   playingRoomSnapshot,
   scoreCandidates,
-  waitingRoomSnapshot,
+  type waitingRoomSnapshot,
 } from './fixtures'
 
 export type MockRestScenario = 'success' | 'delay' | 'error'
@@ -50,47 +42,56 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       }
       return unavailable() ?? HttpResponse.json(toEnterRoomResponse(session, body.nickname))
     }),
-    http.get('/api/v1/rooms/:roomId/lobby', async ({ params }) => {
+    http.get('/api/v1/games/:gameId', async ({ params }) => {
       await beforeResponse()
-      if (params.roomId !== MOCK_ROOM_ID) {
+      if (params.gameId !== 'mock-game-id') {
+        return HttpResponse.json({ code: 'GAME_NOT_FOUND' }, { status: 404 })
+      }
+      return unavailable() ?? HttpResponse.json(toRestRoomSnapshot(playingRoomSnapshot))
+    }),
+    http.post('/api/v1/rooms/:roomCode/games', async ({ params }) => {
+      await beforeResponse()
+      if (params.roomCode !== MOCK_ROOM_ID) {
         return HttpResponse.json({ code: 'ROOM_NOT_FOUND' }, { status: 404 })
       }
-      return unavailable() ?? HttpResponse.json(waitingRoomSnapshot)
+      return (
+        unavailable() ??
+        HttpResponse.json({
+          gameId: 'mock-game-id',
+          snapshot: toRestRoomSnapshot(playingRoomSnapshot),
+        })
+      )
     }),
-    // 라운드 deadline은 고정값이면 항상 만료 상태로 보인다. 응답 시각 기준으로 새로 잡아준다.
-    http.get('/api/v1/rooms/:roomId/game', async () => {
+    http.post('/api/v1/games/:gameId/score-candidates', async ({ params }) => {
       await beforeResponse()
-      return unavailable() ?? HttpResponse.json(liveRoundSnapshot())
-    }),
-    http.post('/api/v1/rooms/:roomId/game', async () => {
-      await beforeResponse()
-      return unavailable() ?? HttpResponse.json(liveRoundSnapshot())
-    }),
-    http.post('/api/v1/rooms/:roomId/game/rolls', async () => {
-      await beforeResponse()
-      return unavailable() ?? HttpResponse.json(liveRoundSnapshot())
-    }),
-    http.get('/api/v1/rooms/:roomId/scores/candidates', async () => {
-      await beforeResponse()
+      if (params.gameId !== 'mock-game-id') {
+        return HttpResponse.json({ code: 'GAME_NOT_FOUND' }, { status: 404 })
+      }
       return unavailable() ?? HttpResponse.json(scoreCandidates)
     }),
-    http.post('/api/v1/rooms/:roomId/scores', async ({ request }) => {
+    http.delete('/api/v1/rooms/:roomCode/players/me', async ({ params }) => {
       await beforeResponse()
-      const body = (await request.json()) as SubmitScoreRequest
-      const scoreboard = createEmptyScoreBoard()
-      scoreboard.categories[body.category] = scoreCandidates.candidates[body.category]
-      scoreboard.total = scoreCandidates.candidates[body.category]
-      return unavailable() ?? HttpResponse.json(scoreboard)
-    }),
-    http.get('/api/v1/rooms/:roomId/scores', async () => {
-      await beforeResponse()
-      return unavailable() ?? HttpResponse.json(playingRoomSnapshot.game?.scores ?? {})
+      if (params.roomCode !== MOCK_ROOM_ID) {
+        return HttpResponse.json({ code: 'ROOM_NOT_FOUND' }, { status: 404 })
+      }
+      return unavailable() ?? new HttpResponse(null, { status: 204 })
     }),
   ]
 }
 
-function liveRoundSnapshot() {
-  return createPlayingRoomSnapshot(Date.now() + MOCK_ROUND_DURATION_MS)
+function toRestRoomSnapshot(snapshot: typeof waitingRoomSnapshot) {
+  return {
+    roomCode: snapshot.roomId,
+    gameId: snapshot.phase === 'playing' ? 'mock-game-id' : null,
+    hostId: creatorSession.you,
+    phase: snapshot.phase.toUpperCase(),
+    capacity: 6,
+    players: snapshot.players.map((player) => ({
+      playerId: player.playerId,
+      nickname: player.nickname,
+      score: 0,
+    })),
+  }
 }
 
 function toEnterRoomResponse(session: RoomSession, nickname: string): EnterRoomResponse {

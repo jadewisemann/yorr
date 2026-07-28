@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useSubmitScore } from '@/api/useGameApi'
 import { cn } from '@/cn'
 import { BottomSheet } from '@/components/BottomSheet'
 import { Button } from '@/components/Button'
@@ -36,7 +35,9 @@ import { createRollFeedback } from '@/feedback/createRollFeedback'
 import type { MotionGestureEvent } from '@/input/motionTypes'
 import type { RollInputMode } from '@/input/RollIntent'
 import { useMotionRollInput } from '@/input/useMotionRollInput'
+import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import type { Player, PlayerId, RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
+import { buildClientMessage } from '@/realtime/wsEvents'
 import { type ActiveRoomSession, useAppStore } from '@/store'
 import { useCountdown } from '@/useCountdown'
 import { useMediaQuery } from '@/useMediaQuery'
@@ -57,8 +58,7 @@ interface GamePlayProps {
 export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   const wide = useMediaQuery(WIDE_LAYOUT)
   const connectionStatus = useAppStore((state) => state.connectionStatus)
-  const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)
-  const submitScore = useSubmitScore()
+  const realtimeClient = useRealtimeClient()
   const { message: toastMessage, showToast } = useToast()
 
   const [tab, setTab] = useState<'dice' | 'scores'>('dice')
@@ -67,6 +67,7 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   const [viewedPlayerId, setViewedPlayerId] = useState<PlayerId>(session.you)
   const [releaseRequestId, setReleaseRequestId] = useState<string | null>(null)
   const [rollInputMode, setRollInputMode] = useState<RollInputMode | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const game = snapshot.game
   const roundNumber = game?.roundNumber ?? 1
@@ -108,18 +109,6 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   const players = toProgressEntries(snapshot.players, game?.scores, roundNumber, session.you)
   const doneCount = players.filter((player) => player.progress === 'done').length
 
-  const mergeMyScoreBoard = useCallback(
-    (board: ScoreBoard) => {
-      const current = useAppStore.getState().roomSnapshot
-      if (!current?.game) return
-      replaceRoomSnapshot({
-        ...current,
-        game: { ...current.game, scores: { ...current.game.scores, [session.you]: board } },
-      })
-    },
-    [replaceRoomSnapshot, session.you],
-  )
-
   const diceRef = useRef(local.dice)
   diceRef.current = local.dice
 
@@ -129,17 +118,26 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
       if (!dice) return
       dispatch({ type: 'categorySelected', category })
       dispatch({ type: 'submissionStarted' })
-      const board = await submitScore.execute(roomId, { category, dice })
-      if (!board) {
+      setSubmitting(true)
+      try {
+        realtimeClient.send(
+          buildClientMessage(
+            'round.submit',
+            { category, dice, roundNumber },
+            { roomId, msgId: `round-${roundNumber}-${Date.now()}` },
+          ),
+        )
+      } catch {
         dispatch({ type: 'submissionFailed' })
         showToast('점수를 기록하지 못했어요. 다시 시도해 주세요.')
         return
+      } finally {
+        setSubmitting(false)
       }
       dispatch({ type: 'submissionSucceeded' })
       setSheetOpen(false)
-      mergeMyScoreBoard(board)
     },
-    [dispatch, mergeMyScoreBoard, roomId, showToast, submitScore.execute],
+    [dispatch, realtimeClient, roomId, roundNumber, showToast],
   )
 
   const rollSequenceRef = useRef(0)
@@ -401,7 +399,7 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
       <Button
         className="min-h-15 w-[220px] rounded-panel text-[15px]"
         disabled={!canConfirm}
-        loading={submitScore.isLoading}
+        loading={submitting}
         onClick={handleConfirm}
         size="lg"
         variant="secondary"
@@ -413,7 +411,7 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
     <Button
       className="min-h-15 flex-1 rounded-panel text-[17px]"
       disabled={!(canRoll || canConfirm)}
-      loading={submitScore.isLoading || rolling}
+      loading={submitting || rolling}
       onClick={canRoll ? handleRoll : handleConfirm}
       size="lg"
     >
@@ -516,7 +514,7 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
             onSelect={(category) => dispatch({ type: 'categorySelected', category })}
             recorded={myBoard?.categories ?? {}}
             selectedCategory={local.selectedCategory}
-            submitting={submitScore.isLoading}
+            submitting={submitting}
             total={myBoard?.total ?? 0}
           />
         </BottomSheet>

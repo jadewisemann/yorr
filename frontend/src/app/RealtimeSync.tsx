@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect } from 'react'
+import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import type { RealtimeClient } from '@/realtime/realtimeClient'
 import { buildClientMessage, type ServerMessage } from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
@@ -90,7 +91,7 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
     }
   }, [client, nickname, roomId])
 
-  return children
+  return <RealtimeClientProvider client={client}>{children}</RealtimeClientProvider>
 }
 
 function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs: number) => void) {
@@ -146,6 +147,19 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
             ? { ...player, status: message.payload.status }
             : player,
         ),
+      })
+      return
+    case 'score.update':
+      if (!store.roomSnapshot?.game) return
+      store.replaceRoomSnapshot({
+        ...store.roomSnapshot,
+        game: {
+          ...store.roomSnapshot.game,
+          scores: {
+            ...store.roomSnapshot.game.scores,
+            [message.payload.playerId]: message.payload.scoreboard,
+          },
+        },
       })
       return
     case 'room.closed':

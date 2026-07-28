@@ -57,6 +57,10 @@ vi.mock('@/components/PhysicsDiceScene', () => ({
   },
 }))
 
+vi.mock('@/realtime/RealtimeClientContext', () => ({
+  useRealtimeClient: () => ({ send: vi.fn() }),
+}))
+
 describe('GamePage motion roll flow', () => {
   beforeEach(() => {
     vi.useFakeTimers()
