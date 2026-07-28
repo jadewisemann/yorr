@@ -6,6 +6,12 @@ import { InvitationPanel } from '@/components/InvitationPanel'
 import { PlayerCard } from '@/components/PlayerCard'
 import { useAppStore } from '@/store'
 
+/**
+ * 시작 가능한 최소 인원. 서버도 1명부터 허용한다(RoomValidationService의 START 스크립트).
+ * 조건식과 안내 문구 두 곳에 숫자를 적으면 한쪽만 고쳐져 어긋나므로 여기서만 정의한다.
+ */
+const MIN_PLAYERS_TO_START = 1
+
 interface LobbyPageProps {
   roomId: string
 }
@@ -22,7 +28,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
     roomSession.membershipRole === 'host' &&
     connectionStatus === 'connected' &&
     roomSnapshot?.phase === 'waiting' &&
-    roomSnapshot.players.length >= 2
+    roomSnapshot.players.length >= MIN_PLAYERS_TO_START
 
   useEffect(() => {
     if (!roomSession || !matchingRoom) {
@@ -96,7 +102,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
                 {roomSession.membershipRole === 'participant'
                   ? '호스트가 게임을 시작하면 자동으로 이동해요.'
                   : connectionStatus === 'connected'
-                    ? '2명부터 시작할 수 있어요.'
+                    ? `${MIN_PLAYERS_TO_START}명부터 시작할 수 있어요.`
                     : '연결된 뒤 게임을 시작할 수 있어요.'}
               </p>
             )}

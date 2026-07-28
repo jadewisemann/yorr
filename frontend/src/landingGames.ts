@@ -15,7 +15,7 @@ export interface LandingGame {
 
 /** 랜딩 히어로의 게임 목록. 순서가 곧 화면의 01–05 인덱스다. */
 export const landingGames: [LandingGame, ...LandingGame[]] = [
-  { key: 'yacht', name: '요트 다이스', players: '2–6인', duration: '한 판 4–5분', live: true },
+  { key: 'yacht', name: '요트 다이스', players: '1–6인', duration: '한 판 4–5분', live: true },
   { key: 'liars', name: '라이어스 다이스', players: '2–6인', duration: '한 판 6분', live: false },
   { key: 'duel', name: '정오의 결투', players: '2–4인', duration: '한 판 1분', live: false },
   { key: 'pingpong', name: '탁구', players: '2인', duration: '한 판 3분', live: false },

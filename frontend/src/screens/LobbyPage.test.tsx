@@ -1,7 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { creatorSession, participantSession } from '@/mocks/fixtures'
+import {
+  creatorPlayer,
+  creatorSession,
+  participantSession,
+  waitingRoomSnapshot,
+} from '@/mocks/fixtures'
 import { useAppStore } from '@/store'
 import { LobbyPage } from './LobbyPage'
 
@@ -29,7 +34,7 @@ describe('LobbyPage', () => {
     expect(screen.getByText('나')).toBeVisible()
   })
 
-  it('lets the host start once two players are present', async () => {
+  it('lets the host start the game', async () => {
     const user = userEvent.setup()
     render(<LobbyPage roomId={creatorSession.roomId} />)
 
@@ -42,6 +47,20 @@ describe('LobbyPage', () => {
       params: { roomId: creatorSession.roomId },
       replace: true,
     })
+  })
+
+  // 서버는 1명부터 허용하는데 화면만 2명을 요구하던 버그(S15P11A406-91)를 고정한다.
+  it('lets the host start alone', async () => {
+    const user = userEvent.setup()
+    useAppStore.getState().replaceRoomSnapshot({ ...waitingRoomSnapshot, players: [creatorPlayer] })
+
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    expect(screen.getByRole('button', { name: '게임 시작' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: '게임 시작' }))
+
+    await waitFor(() => expect(navigate).toHaveBeenCalled())
+    expect(useAppStore.getState().roomSnapshot?.phase).toBe('playing')
   })
 
   it('keeps a participant waiting for the host', () => {
