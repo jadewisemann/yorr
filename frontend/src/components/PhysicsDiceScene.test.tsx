@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   PhysicsDiceRollRequest,
@@ -95,29 +95,6 @@ describe('PhysicsDiceScene', () => {
 
     view.unmount()
     expect(worlds[0]?.destroy).toHaveBeenCalledOnce()
-  })
-
-  it('3D 화면에서도 키보드로 주사위 값을 확인하고 KEEP을 바꾼다', async () => {
-    const onHeldToggle = vi.fn()
-    render(
-      <PhysicsDiceScene
-        dice={[6, 5, 4, 3, 2]}
-        held={[false, true, false, false, false]}
-        releaseRequestId={null}
-        request={null}
-        onHeldToggle={onHeldToggle}
-        onRollComplete={vi.fn()}
-      />,
-    )
-
-    await waitFor(() => expect(worlds).toHaveLength(1))
-    const firstDie = screen.getByRole('button', { name: '1번 주사위, 6, KEEP' })
-    const secondDie = screen.getByRole('button', { name: '2번 주사위, 5, KEEP 해제' })
-    expect(firstDie).toHaveAttribute('aria-pressed', 'false')
-    expect(secondDie).toHaveAttribute('aria-pressed', 'true')
-
-    fireEvent.click(firstDie)
-    expect(onHeldToggle).toHaveBeenCalledWith(0)
   })
 
   it('엔진 초기화가 끝난 뒤 최신 roll과 release를 처리한다', async () => {

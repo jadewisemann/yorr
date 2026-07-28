@@ -54,8 +54,7 @@ export interface PhysicsDiceGeometries {
   body: RoundedBoxGeometry
   outline: THREE.ShapeGeometry
   pip: THREE.CircleGeometry
-  slotFill: THREE.ShapeGeometry
-  slotFrame: THREE.ShapeGeometry
+  slotBar: THREE.PlaneGeometry
 }
 
 export interface PhysicsDiceMaterials {
@@ -81,16 +80,7 @@ export function createPhysicsDiceGeometries(): PhysicsDiceGeometries {
       BASE_SIZE * (selection.cornerRadiusRatio + selection.offsetRatio + selection.widthRatio),
       BASE_SIZE * (selection.cornerRadiusRatio + selection.offsetRatio),
     ),
-    slotFrame: roundedRectRingGeometry(
-      slotOuter,
-      slotInner,
-      BASE_SIZE * (slot.cornerRadiusRatio + slot.borderOffsetRatio + slot.borderWidthRatio),
-      BASE_SIZE * (slot.cornerRadiusRatio + slot.borderOffsetRatio),
-    ),
-    slotFill: roundedRectGeometry(
-      slotOuter,
-      BASE_SIZE * (slot.cornerRadiusRatio + slot.borderOffsetRatio + slot.borderWidthRatio),
-    ),
+    slotBar: new THREE.PlaneGeometry(slotOuter * 2, slot.barDepth),
   }
 }
 
@@ -247,10 +237,6 @@ function roundedRectRingGeometry(
   hole.lineTo(-innerHalf + innerRadius, -innerHalf)
   shape.holes.push(hole)
   return new THREE.ShapeGeometry(shape, 6)
-}
-
-function roundedRectGeometry(half: number, radius: number) {
-  return new THREE.ShapeGeometry(roundedRectPath(new THREE.Shape(), half, radius), 6)
 }
 
 function roundedRectPath<T extends THREE.Path>(path: T, half: number, radius: number): T {

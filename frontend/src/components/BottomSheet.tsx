@@ -105,7 +105,7 @@ export function BottomSheet({ children, className, onClose, open, title }: Botto
         aria-label={title}
         aria-modal="true"
         className={cn(
-          'absolute inset-x-0 bottom-0 flex h-[76%] flex-col rounded-t-panel border-t border-border bg-surface px-4 pt-2.5 pb-6 shadow-overlay',
+          'absolute inset-x-0 bottom-0 flex h-[76%] flex-col rounded-t-panel border-t-2 border-content bg-canvas px-4 pt-2.5 pb-6 shadow-overlay',
           className,
         )}
         ref={sheetRef}
@@ -119,7 +119,7 @@ export function BottomSheet({ children, className, onClose, open, title }: Botto
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
         >
-          <span aria-hidden="true" className="mx-auto block h-1 w-10 rounded-full bg-border" />
+          <span aria-hidden="true" className="mx-auto block h-1 w-[3.375rem] bg-border" />
         </div>
         {children}
       </div>

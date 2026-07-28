@@ -3,6 +3,7 @@ import type { EnterRoomRequest, EnterRoomResponse, RoomSession } from '@/api/gam
 import {
   creatorSession,
   MOCK_ROOM_ID,
+  MOCK_ROUND_DURATION_MS,
   participantSession,
   playingRoomSnapshot,
   scoreCandidates,
@@ -91,6 +92,11 @@ function toRestRoomSnapshot(snapshot: typeof waitingRoomSnapshot) {
       nickname: player.nickname,
       score: 0,
     })),
+    // 실서버는 round.start(WS)로 턴을 알리지만 mock WS는 서버 주도 push가 없다.
+    // REST 스냅샷에 game을 실어 mock 환경에서도 "내 턴"이 성립하게 한다.
+    game: snapshot.game
+      ? { ...snapshot.game, roundDeadline: Date.now() + MOCK_ROUND_DURATION_MS }
+      : null,
   }
 }
 

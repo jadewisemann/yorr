@@ -1,3 +1,5 @@
+/* Modernist 디자인 시스템의 헤딩·숫자 폰트. 한글은 폰트 스택 뒤 순위로 떨어진다. */
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap");
 /* class 탐지 범위를 src/로 고정한다. 자동 탐지에 맡기면 dist/·.codegraph/ 같은
    저장소 부산물까지 스캔해서 빌드마다 CSS 크기가 달라진다. */
 @import "tailwindcss" source("../");

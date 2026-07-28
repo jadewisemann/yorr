@@ -1,4 +1,4 @@
-import type { DiceSet, PlayerId, RoomSnapshot, YachtCategory } from '@/realtime/wsEvents'
+import type { DiceSet, GameState, PlayerId, RoomSnapshot, YachtCategory } from '@/realtime/wsEvents'
 import { apiRequest } from './client'
 
 export interface CreateRoomRequest {
@@ -182,6 +182,8 @@ function toRoomSnapshot(response: unknown): RoomSnapshot {
     throw new Error('Invalid room snapshot response')
   }
 
+  const game = toGameState(response.game)
+
   return {
     roomId: response.roomCode,
     phase,
@@ -190,6 +192,30 @@ function toRoomSnapshot(response: unknown): RoomSnapshot {
       nickname: player.nickname,
       status: 'online',
     })),
+    ...(game ? { game } : {}),
+  }
+}
+
+/**
+ * REST 스냅샷의 진행 상태. 계약 초안(realtime-and-api.md)의 선택 필드라
+ * 없거나 형태가 다르면 조용히 무시한다 — 진행 상태의 SSOT는 WS(state.sync·round.start)다.
+ */
+function toGameState(value: unknown): GameState | undefined {
+  if (
+    !isRecord(value) ||
+    !isNonEmptyString(value.activePlayerId) ||
+    typeof value.roundNumber !== 'number' ||
+    typeof value.roundDeadline !== 'number' ||
+    !isRecord(value.scores)
+  ) {
+    return undefined
+  }
+
+  return {
+    activePlayerId: value.activePlayerId,
+    roundNumber: value.roundNumber,
+    roundDeadline: value.roundDeadline,
+    scores: value.scores as GameState['scores'],
   }
 }
 
