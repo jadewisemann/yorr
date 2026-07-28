@@ -1,10 +1,11 @@
 import {
+  createRollRequest,
   type DiceIndex,
+  type DiceRollRequest,
   type DiceSet,
   type HeldDice,
   NO_HELD_DICE,
-  planRoll,
-  type RollPlan,
+  nextRollSeed,
   toggleHeldDie,
 } from './dice'
 import {
@@ -28,12 +29,12 @@ export interface YachtGameState {
   rollCount: RollCount
   scores: CategoryScores
   selectedCategory: YachtCategory | null
-  pendingRoll: RollPlan | null
+  pendingRoll: DiceRollRequest | null
 }
 
 export type YachtGameAction =
   | { type: 'rollRequested'; requestId: string }
-  | { type: 'rollCompleted'; requestId: string; dice?: DiceSet }
+  | { type: 'rollCompleted'; requestId: string; dice: DiceSet }
   | { type: 'holdToggled'; index: DiceIndex }
   | { type: 'categorySelected'; category: YachtCategory }
   | { type: 'submissionStarted' }
@@ -85,7 +86,7 @@ export function yachtGameReducer(state: YachtGameState, action: YachtGameAction)
   }
 }
 
-export function getPendingRoll(state: YachtGameState): RollPlan | null {
+export function getPendingRoll(state: YachtGameState): DiceRollRequest | null {
   return state.phase === 'rolling' ? state.pendingRoll : null
 }
 
@@ -111,16 +112,15 @@ function requestRoll(state: YachtGameState, requestId: string): YachtGameState {
     ...state,
     phase: 'rolling',
     selectedCategory: null,
-    pendingRoll: planRoll({
+    pendingRoll: createRollRequest({
       requestId,
       seed: state.seed,
-      currentDice: state.dice,
       held: state.held,
     }),
   }
 }
 
-function completeRoll(state: YachtGameState, requestId: string, dice?: DiceSet): YachtGameState {
+function completeRoll(state: YachtGameState, requestId: string, dice: DiceSet): YachtGameState {
   if (
     state.phase !== 'rolling' ||
     !state.pendingRoll ||
@@ -132,8 +132,8 @@ function completeRoll(state: YachtGameState, requestId: string, dice?: DiceSet):
   return {
     ...state,
     phase: 'choosing',
-    seed: state.pendingRoll.nextSeed,
-    dice: dice ?? state.pendingRoll.targetDice,
+    seed: nextRollSeed(state.pendingRoll.seed),
+    dice,
     rollCount: incrementRollCount(state.rollCount),
     pendingRoll: null,
   }

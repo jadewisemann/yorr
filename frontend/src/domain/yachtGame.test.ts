@@ -10,20 +10,28 @@ import {
 } from './yachtGame'
 
 describe('yachtGame reducer', () => {
-  it('does not expose target dice until the matching renderer completion', () => {
+  it('stores the dice reported by the matching renderer completion', () => {
     const initial = createYachtGame(42)
     const rolling = yachtGameReducer(initial, { type: 'rollRequested', requestId: 'roll-1' })
+    const renderedDice = createDiceSet([6, 5, 4, 3, 2])
 
     expect(rolling.phase).toBe('rolling')
     expect(rolling.dice).toBeNull()
-    expect(getPendingRoll(rolling)?.targetDice).toBeDefined()
-    expect(yachtGameReducer(rolling, { type: 'rollCompleted', requestId: 'stale' })).toBe(rolling)
+    expect(getPendingRoll(rolling)).not.toHaveProperty('targetDice')
+    expect(
+      yachtGameReducer(rolling, {
+        type: 'rollCompleted',
+        requestId: 'stale',
+        dice: renderedDice,
+      }),
+    ).toBe(rolling)
 
     const completed = yachtGameReducer(rolling, {
       type: 'rollCompleted',
       requestId: 'roll-1',
+      dice: renderedDice,
     })
-    expect(completed.dice).toEqual(getPendingRoll(rolling)?.targetDice)
+    expect(completed.dice).toEqual(renderedDice)
     expect(completed.rollCount).toBe(1)
   })
 
@@ -58,7 +66,11 @@ describe('yachtGame reducer', () => {
     })
     expect(yachtGameReducer(rolling, { type: 'rollRequested', requestId: 'two' })).toBe(rolling)
 
-    let choosing = yachtGameReducer(rolling, { type: 'rollCompleted', requestId: 'one' })
+    let choosing = yachtGameReducer(rolling, {
+      type: 'rollCompleted',
+      requestId: 'one',
+      dice: createDiceSet([1, 2, 3, 4, 5]),
+    })
     choosing = yachtGameReducer(choosing, { type: 'categorySelected', category: 'choice' })
     const submitting = yachtGameReducer(choosing, { type: 'submissionStarted' })
 
@@ -132,5 +144,6 @@ describe('yachtGame reducer', () => {
 
 function finishRoll(state: YachtGameState, requestId: string) {
   const rolling = yachtGameReducer(state, { type: 'rollRequested', requestId })
-  return yachtGameReducer(rolling, { type: 'rollCompleted', requestId })
+  const dice = createDiceSet([1, 2, 3, 4, 5])
+  return yachtGameReducer(rolling, { type: 'rollCompleted', requestId, dice })
 }

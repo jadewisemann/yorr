@@ -7,6 +7,7 @@ import { CategorySheet } from '@/components/CategorySheet'
 import { ConnectionBanner } from '@/components/ConnectionBanner'
 import { KeepTray } from '@/components/KeepTray'
 import { Modal } from '@/components/Modal'
+import { MotionPermissionPanel } from '@/components/MotionPermissionPanel'
 import { PhysicsDiceScene } from '@/components/PhysicsDiceScene'
 import {
   type PlayerProgress,
@@ -18,7 +19,7 @@ import { RoundTimer } from '@/components/RoundTimer'
 import { ScoreMatrix } from '@/components/ScoreMatrix'
 import { ScorePanel } from '@/components/ScorePanel'
 import { ToastHost, useToast } from '@/components/ToastHost'
-import type { DiceIndex } from '@/domain/dice'
+import type { DiceIndex, DiceSet } from '@/domain/dice'
 import {
   type CategoryScores,
   calculateScoreCandidates,
@@ -31,6 +32,10 @@ import {
   type YachtGameAction,
   yachtGameReducer,
 } from '@/domain/yachtGame'
+import { createRollFeedback } from '@/feedback/createRollFeedback'
+import type { MotionGestureEvent } from '@/input/motionTypes'
+import type { RollInputMode } from '@/input/RollIntent'
+import { useMotionRollInput } from '@/input/useMotionRollInput'
 import type { Player, PlayerId, RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
 import { type ActiveRoomSession, useAppStore } from '@/store'
 import { useCountdown } from '@/useCountdown'
@@ -41,6 +46,7 @@ import { categoryLabel, categoryShortLabel, isRecorded } from '@/yachtCategoryVi
 const WIDE_LAYOUT = '(min-width: 1024px)'
 const TOTAL_ROUNDS = 12
 const MAX_ROLLS = 3
+const TAP_RELEASE_DELAY_MS = 600
 
 interface GamePlayProps {
   roomId: string
@@ -59,6 +65,8 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [zeroConfirm, setZeroConfirm] = useState<YachtCategory | null>(null)
   const [viewedPlayerId, setViewedPlayerId] = useState<PlayerId>(session.you)
+  const [releaseRequestId, setReleaseRequestId] = useState<string | null>(null)
+  const [rollInputMode, setRollInputMode] = useState<RollInputMode | null>(null)
 
   const game = snapshot.game
   const roundNumber = game?.roundNumber ?? 1
@@ -135,10 +143,85 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   )
 
   const rollSequenceRef = useRef(0)
+  const inputModeRef = useRef(rollInputMode)
+  const feedbackRef = useRef<ReturnType<typeof createRollFeedback> | null>(null)
+  inputModeRef.current = rollInputMode
+  if (!feedbackRef.current) feedbackRef.current = createRollFeedback()
+
+  const beginRoll = useCallback(
+    (inputMode: RollInputMode) => {
+      if (!canRoll) return
+      rollSequenceRef.current += 1
+      setReleaseRequestId(null)
+      setRollInputMode(inputMode)
+      dispatch({
+        type: 'rollRequested',
+        requestId: `r${roundNumber}-${rollSequenceRef.current}`,
+      })
+    },
+    [canRoll, dispatch, roundNumber],
+  )
+
+  const handleGestureEvent = useCallback(
+    (event: MotionGestureEvent) => {
+      switch (event.type) {
+        case 'shakePulse':
+          feedbackRef.current?.shakePulse(event.direction, event.strength)
+          return
+        case 'shakeStarted':
+          feedbackRef.current?.armed()
+          beginRoll('motion')
+          return
+        case 'throwDetected': {
+          const request = getPendingRoll(local)
+          if (!request || inputModeRef.current !== 'motion') return
+          feedbackRef.current?.thrown()
+          setReleaseRequestId(request.requestId)
+          return
+        }
+        case 'shakeArmed':
+        case 'gestureCancelled':
+          return
+      }
+    },
+    [beginRoll, local],
+  )
+
+  const motion = useMotionRollInput(handleGestureEvent)
+  const pendingRoll = getPendingRoll(local)
+
+  useEffect(() => {
+    if (!pendingRoll || rollInputMode !== 'tap') return
+    const timeout = setTimeout(
+      () => setReleaseRequestId(pendingRoll.requestId),
+      TAP_RELEASE_DELAY_MS,
+    )
+    return () => clearTimeout(timeout)
+  }, [pendingRoll, rollInputMode])
+
+  useEffect(
+    () => () => {
+      feedbackRef.current?.dispose()
+    },
+    [],
+  )
+
   const handleRoll = () => {
     if (!canRoll) return
-    rollSequenceRef.current += 1
-    dispatch({ type: 'rollRequested', requestId: `r${roundNumber}-${rollSequenceRef.current}` })
+    beginRoll('tap')
+  }
+
+  const confirmThrow = () => {
+    if (!pendingRoll || releaseRequestId === pendingRoll.requestId) return
+    feedbackRef.current?.thrown()
+    setReleaseRequestId(pendingRoll.requestId)
+  }
+
+  const completeRoll = (requestId: string, dice: DiceSet) => {
+    dispatch({ type: 'rollCompleted', requestId, dice })
+    setReleaseRequestId(null)
+    setRollInputMode(null)
+    motion.resetGesture('roll-complete')
   }
 
   const handleConfirm = () => {
@@ -172,14 +255,39 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   useShortcuts(wide, { onConfirm: handleConfirm, onRoll: handleRoll, dispatch })
 
   const diceScene = (
-    <div className="relative min-h-0 flex-1">
+    <div
+      className={cn(
+        'relative min-h-0 flex-1 transition-transform motion-reduce:transform-none',
+        motion.lastPulseDirection === 'left' && '-translate-x-1',
+        motion.lastPulseDirection === 'right' && 'translate-x-1',
+      )}
+    >
       <PhysicsDiceScene
         dice={local.dice}
         held={local.held}
+        releaseRequestId={releaseRequestId}
+        onError={() => feedbackRef.current?.error()}
         onHeldToggle={(index) => dispatch({ type: 'holdToggled', index })}
-        onRollComplete={(requestId) => dispatch({ type: 'rollCompleted', requestId })}
-        request={getPendingRoll(local)}
+        onRollComplete={completeRoll}
+        request={pendingRoll}
       />
+      {pendingRoll && rollInputMode === 'motion' && (
+        <Button
+          className="absolute top-3 right-3 z-20 shadow-raised"
+          disabled={releaseRequestId !== null}
+          onClick={confirmThrow}
+        >
+          지금 던지기
+        </Button>
+      )}
+      {isPermissionNoticeState(motion.availability) && (
+        <div className="absolute inset-x-3 top-3 z-30">
+          <MotionPermissionPanel
+            availability={motion.availability}
+            onRequestPermission={motion.requestPermission}
+          />
+        </div>
+      )}
     </div>
   )
 
@@ -218,7 +326,9 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
 
   const keyboardHint = (
     <p className="m-0 px-gutter text-center text-xs text-content-faint">
-      웹에는 센서가 없습니다 — 클릭으로 굴리고 Space·Enter·1~5 키도 씁니다
+      {motion.inputMode === 'motion'
+        ? getGestureMessage(motion, Boolean(pendingRoll && rollInputMode === 'motion'))
+        : '버튼으로 굴리고 Space·Enter·1~5 키도 씁니다'}
     </p>
   )
 
@@ -526,6 +636,45 @@ function topCandidates(candidates: CategoryScores): Array<[YachtCategory, number
   return (Object.entries(candidates) as Array<[YachtCategory, number]>)
     .sort(([, left], [, right]) => right - left)
     .slice(0, 3)
+}
+
+function getGestureMessage(
+  motion: ReturnType<typeof useMotionRollInput>,
+  pendingMotionRoll: boolean,
+) {
+  if (motion.availability === 'permissionRequired') {
+    return '센서로 흔들려면 먼저 센서 사용을 시작해 주세요'
+  }
+  if (motion.availability === 'requesting') return '센서 권한을 확인하고 있어요'
+  if (motion.availability === 'denied') return '센서 권한이 거부되어 버튼 모드로 전환했어요'
+  if (motion.availability === 'insecure') return 'HTTPS가 아니어서 센서를 사용할 수 없어요'
+  if (motion.availability === 'unsupported') return '이 브라우저는 센서를 지원하지 않아요'
+  if (motion.availability === 'silent') return '센서값이 없어 버튼 모드로 전환했어요'
+  if (motion.availability === 'error') return '센서를 시작하지 못해 버튼 모드로 전환했어요'
+  if (motion.gestureState === 'calibrating') {
+    return '센서를 보정하고 있어요. 잠시 휴대폰을 고정해 주세요'
+  }
+  if (pendingMotionRoll || motion.gestureState === 'shaking') {
+    return '좋아요! 휴대폰을 꽉 잡고 앞으로 휙 움직이세요'
+  }
+  if (motion.gestureState === 'armed') return '앞으로 휙 움직이거나 지금 던지기를 누르세요'
+  if (motion.gestureState === 'shakeCandidate') return '조금 더 좌우로 흔들어 주세요'
+  if (motion.gestureState === 'cooldown' || motion.gestureState === 'thrown') {
+    return '주사위를 던졌어요'
+  }
+  return '휴대폰을 꽉 잡고 좌우로 흔들어 주세요'
+}
+
+function isPermissionNoticeState(
+  availability: ReturnType<typeof useMotionRollInput>['availability'],
+): availability is 'permissionRequired' | 'requesting' | 'denied' | 'error' | 'insecure' {
+  return (
+    availability === 'permissionRequired' ||
+    availability === 'requesting' ||
+    availability === 'denied' ||
+    availability === 'error' ||
+    availability === 'insecure'
+  )
 }
 
 function toProgressEntries(

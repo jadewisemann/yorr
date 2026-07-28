@@ -192,6 +192,8 @@ export class PhysicsDiceWorld {
       entry.mesh.visible = true
       entry.mesh.scale.setScalar(simulationDieScale())
       entry.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true)
+      entry.body.setLinearDamping(CONFIG.defaults.linearDamping)
+      entry.body.setAngularDamping(CONFIG.defaults.angularDamping)
       entry.body.setTranslation(
         {
           x: SCENE.bowl.startX + Math.cos(angle) * radius,
@@ -456,19 +458,24 @@ export class PhysicsDiceWorld {
   }
 
   private checkSettled(time: number) {
-    if (this.phase !== 'pouring' || !this.diceReleased || time - this.rollStartedAt < 900) return
-    const stable = this.entries
-      .filter((entry) => !this.held[entry.index])
-      .every((entry) => {
-        const linear = entry.body.linvel()
-        const angular = entry.body.angvel()
-        return (
-          entry.body.isSleeping() ||
-          (Math.hypot(linear.x, linear.y, linear.z) < 0.13 &&
-            Math.hypot(angular.x, angular.y, angular.z) < 0.18)
-        )
-      })
-    this.stableFrames = stable ? this.stableFrames + 1 : 0
+    if (
+      this.phase !== 'pouring' ||
+      !this.diceReleased ||
+      time - this.rollStartedAt < SCENE.settlement.minRollDurationMs
+    ) {
+      return
+    }
+    const active = this.entries.filter((entry) => !this.held[entry.index])
+    const physicallySettled = active.every((entry) => {
+      const linear = entry.body.linvel()
+      const angular = entry.body.angvel()
+      return (
+        entry.body.isSleeping() ||
+        (Math.hypot(linear.x, linear.y, linear.z) < SCENE.settlement.linearSpeed &&
+          Math.hypot(angular.x, angular.y, angular.z) < SCENE.settlement.angularSpeed)
+      )
+    })
+    this.stableFrames = physicallySettled ? this.stableFrames + 1 : 0
     if (this.stableFrames < SCENE.settlement.stableFrames) return
     this.startResultAlignment(time)
   }
@@ -499,14 +506,14 @@ export class PhysicsDiceWorld {
     this.resize()
     updateAlignmentEntries(this.alignmentEntries, progress)
     this.updateBowlExit(time)
-    if (progress < 1 || !this.request) return
+    if (progress < 1 || !this.request || !this.settledDice) return
     const completed = this.request
-    const settledDice = this.settledDice ?? completed.targetDice
-    this.committedDice = [...settledDice]
+    const completedDice = this.settledDice
+    this.committedDice = [...completedDice]
     this.request = null
     this.phase = 'idle'
     this.callbacks.onPhaseChange('idle')
-    this.callbacks.onRollComplete(completed.requestId, settledDice)
+    this.callbacks.onRollComplete(completed.requestId, completedDice)
   }
 
   private updateBowlExit(time: number) {
