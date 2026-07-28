@@ -2,6 +2,8 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPlayingRoomSnapshot, creatorSession } from '@/mocks/fixtures'
+import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
+import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import type { PhysicsDiceRollRequest, PhysicsDiceSet } from '@/rendering/physics-dice/types'
 import { useAppStore } from '@/store'
 import { GamePlay } from './GamePlay'
@@ -39,7 +41,11 @@ function renderGame() {
   const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
   useAppStore.setState({ connectionStatus: 'connected', roomSnapshot: snapshot })
   return {
-    ...render(<GamePlay roomId={session.roomId} session={session} snapshot={snapshot} />),
+    ...render(
+      <RealtimeClientProvider client={createRealtimeFixture()}>
+        <GamePlay roomId={session.roomId} session={session} snapshot={snapshot} />
+      </RealtimeClientProvider>,
+    ),
     user: userEvent.setup(),
   }
 }
