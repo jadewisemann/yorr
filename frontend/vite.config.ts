@@ -19,6 +19,10 @@ export default defineConfig(({ mode }) => {
     server: {
       host: true,
       port: 5173,
+      // 실기기 모션 센서 테스트용. iOS Safari는 보안 컨텍스트(HTTPS)가 아니면 devicemotion을
+      // 아예 막으므로 http://<LAN IP>:5173 으로는 확인할 수 없다. 터널로 HTTPS 주소를 열어
+      // 폰에서 접속할 때 vite가 그 호스트를 거부하지 않도록 허용한다(dev 서버 전용).
+      allowedHosts: ['.trycloudflare.com', '.ngrok-free.dev', '.ngrok-free.app', '.ngrok.io'],
       // dev 전용. VITE_API_BASE_URL 은 상대경로(/api/v1)로 둬야 MSW 핸들러가 그대로 동작하므로,
       // 백엔드는 절대 URL 대신 이 프록시로 붙인다. production build 에는 영향 없다.
       proxy: {

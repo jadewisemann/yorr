@@ -159,13 +159,25 @@ export class MotionGestureRecognizer {
     }
   }
 
+  /**
+   * 던지기 판정. <b>전후 축의 부호를 보지 않는다.</b>
+   * <p>
+   * iOS Safari는 가속도 부호 규약이 Chrome과 반대여서, 앞으로 스냅해도 forward가 음수로 들어온다.
+   * 예전에는 peak·impulse·directionRatio가 모두 양수 방향만 봤기 때문에 아이폰에서는 아무리 세게
+   * 휘둘러도 이 판정을 통과할 수 없었다(흔들기는 |horizontal|을 써서 영향이 없었다).
+   * <p>
+   * 던지기의 본질은 "앞으로"가 아니라 "한 축을 따라 날카롭게"다. 좌우 흔들기와의 구분은 부호가
+   * 아니라 축 우세 조건({@link MotionGestureConfig.throwDirectionRatio})이 담당하므로, 절댓값으로
+   * 판정해도 흔드는 동작이 던지기로 오인되지 않는다.
+   */
   private detectThrow(sample: NormalizedMotionSample, events: MotionGestureEvent[]) {
     if (this.gestureState !== 'shaking' && this.gestureState !== 'armed') return
     if (sample.at - this.shakeStartedAt < this.config.throwArmDelayMs) return
 
+    const snap = Math.abs(sample.forward)
     this.forwardImpulse.push({
       at: sample.at,
-      value: Math.max(0, sample.forward) * (sample.dt / 1_000),
+      value: snap * (sample.dt / 1_000),
     })
     const cutoff = sample.at - this.config.throwImpulseWindowMs
     while (this.forwardImpulse[0] && this.forwardImpulse[0].at < cutoff) {
@@ -174,9 +186,9 @@ export class MotionGestureRecognizer {
 
     const impulse = this.forwardImpulse.reduce((sum, entry) => sum + entry.value, 0)
     const jerk = Math.abs(sample.forward - this.lastForward) / (sample.dt / 1_000)
-    const directionRatio = sample.magnitude > 0 ? Math.max(0, sample.forward) / sample.magnitude : 0
+    const directionRatio = sample.magnitude > 0 ? snap / sample.magnitude : 0
     if (
-      sample.forward < this.effectiveThresholds.throwPeak ||
+      snap < this.effectiveThresholds.throwPeak ||
       impulse < this.effectiveThresholds.throwImpulse ||
       jerk < this.effectiveThresholds.throwJerk ||
       directionRatio < this.config.throwDirectionRatio
@@ -186,7 +198,7 @@ export class MotionGestureRecognizer {
 
     const confidence = Math.min(
       1,
-      (sample.forward / this.effectiveThresholds.throwPeak +
+      (snap / this.effectiveThresholds.throwPeak +
         impulse / this.effectiveThresholds.throwImpulse +
         jerk / this.effectiveThresholds.throwJerk +
         directionRatio / this.config.throwDirectionRatio) /
