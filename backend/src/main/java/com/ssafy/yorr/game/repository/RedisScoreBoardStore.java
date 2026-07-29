@@ -154,6 +154,11 @@ public class RedisScoreBoardStore implements ScoreBoardStore {
         return readScoreBoard(gameId, playerId);
     }
 
+    @Override
+    public ScoreBoard findScoreBoard(String gameId, String playerId) {
+        return readScoreBoard(gameId, playerId);
+    }
+
     private ScoreBoard readScoreBoard(String gameId, String playerId) {
         Map<Object, Object> stored = redisTemplate.<Object, Object>opsForHash()
                 .entries(RoomRedisKeys.gameScoreboardKey(gameId, playerId));

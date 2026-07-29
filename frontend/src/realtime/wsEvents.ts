@@ -304,6 +304,11 @@ export interface DiceBroadcastPayload {
   rollCount: 1 | 2 | 3
   dice: DiceSet
   held: readonly [boolean, boolean, boolean, boolean, boolean]
+  /**
+   * 마감 시각이 지나 서버가 턴 주인을 대신해 굴린 결과. 내가 보낸 dice.roll의 응답이 아니어도
+   * 그대로 반영해야 한다 — 서버 상태가 이미 이 값으로 확정됐다.
+   */
+  auto?: boolean
 }
 // S→C ⚠️ owner 유상은(41): 점수 갱신.
 export interface ScoreUpdatePayload {
@@ -329,6 +334,8 @@ export type WsErrorCode =
   | 'NOT_IN_ROOM'
   | 'ALREADY_IN_ROOM'
   | 'GAME_ALREADY_STARTED'
+  /** 내 턴이 아닌데 굴림·기록을 시도했다. 조작을 되돌리고 안내만 띄운다. */
+  | 'NOT_YOUR_TURN'
   | 'INVALID_MESSAGE'
   | 'RATE_LIMITED'
   | 'INTERNAL'

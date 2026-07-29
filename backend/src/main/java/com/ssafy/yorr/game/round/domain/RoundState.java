@@ -10,6 +10,9 @@ import java.util.Set;
 
 public final class RoundState {
 
+    /** 한 턴에 허용되는 굴림 횟수. 이 수에 도달하면 남은 굴림이 없다. */
+    public static final int MAX_ROLL_COUNT = 3;
+
     private final int roundNumber;
     private final List<String> participantOrder;
     private final Set<String> participantIds;
@@ -17,6 +20,7 @@ public final class RoundState {
     private final int activePlayerIndex;
     private final int activeRollCount;
     private final List<Integer> activeDice;
+    private final List<Boolean> activeHeld;
 
     private RoundState(
             int roundNumber,
@@ -24,7 +28,8 @@ public final class RoundState {
             Map<String, RoundSubmission> submissions,
             int activePlayerIndex,
             int activeRollCount,
-            List<Integer> activeDice
+            List<Integer> activeDice,
+            List<Boolean> activeHeld
     ) {
         this.roundNumber = validateRoundNumber(roundNumber);
         this.participantOrder = List.copyOf(participantOrder);
@@ -33,10 +38,19 @@ public final class RoundState {
         this.activePlayerIndex = activePlayerIndex;
         this.activeRollCount = activeRollCount;
         this.activeDice = activeDice == null ? null : List.copyOf(activeDice);
+        this.activeHeld = activeHeld == null ? null : List.copyOf(activeHeld);
     }
 
     public static RoundState start(int roundNumber, Collection<String> participantIds) {
-        return new RoundState(roundNumber, immutableParticipants(participantIds), Map.of(), 0, 0, null);
+        return new RoundState(
+                roundNumber,
+                immutableParticipants(participantIds),
+                Map.of(),
+                0,
+                0,
+                null,
+                null
+        );
     }
 
     public RoundState recordRoll(
@@ -47,10 +61,10 @@ public final class RoundState {
             List<Integer> rolledDice
     ) {
         validateCurrentPlayer(playerId, submittedRoundNumber);
-        if (rollCount < 1 || rollCount > 3 || rollCount != activeRollCount + 1) {
+        if (rollCount < 1 || rollCount > MAX_ROLL_COUNT || rollCount != activeRollCount + 1) {
             throw new RoundSynchronizationException(
                     RoundSynchronizationException.Reason.INVALID_ROLL,
-                    "rollCount must advance exactly once and stay between 1 and 3"
+                    "rollCount must advance exactly once and stay between 1 and " + MAX_ROLL_COUNT
             );
         }
         validateHeld(held);
@@ -75,8 +89,36 @@ public final class RoundState {
                 submissions,
                 activePlayerIndex,
                 rollCount,
-                nextDice
+                nextDice,
+                held
         );
+    }
+
+    /**
+     * 마감 시각이 지났을 때 서버가 현재 턴 소유자를 대신해 한 번 굴린다.
+     * <p>
+     * 마지막 굴림에 쓰인 KEEP({@link #activeHeld()})을 그대로 유지해 플레이어가 모아둔 족보를
+     * 날리지 않는다. 굴림이 남지 않은 턴은 이 메서드로 진행할 수 없다 — 호출자가 먼저
+     * {@link #hasRollsLeft()}로 확인하고 없으면 점수 기록으로 넘어가야 한다.
+     */
+    public RoundState autoRoll(List<Integer> rolledDice) {
+        if (!hasRollsLeft()) {
+            throw new RoundSynchronizationException(
+                    RoundSynchronizationException.Reason.INVALID_ROLL,
+                    "no rolls left to auto roll for round " + roundNumber
+            );
+        }
+        return recordRoll(
+                activePlayerId(),
+                roundNumber,
+                activeRollCount + 1,
+                activeHeld == null ? NO_HELD : activeHeld,
+                rolledDice
+        );
+    }
+
+    public boolean hasRollsLeft() {
+        return activeRollCount < MAX_ROLL_COUNT;
     }
 
     public RoundSubmissionResult submit(RoundSubmission submission) {
@@ -106,6 +148,7 @@ public final class RoundState {
                             currentSubmissions,
                             activePlayerIndex + 1,
                             0,
+                            null,
                             null
                     ),
                     null
@@ -126,6 +169,7 @@ public final class RoundState {
                 Map.of(),
                 0,
                 0,
+                null,
                 null
         );
         return new RoundSubmissionResult(nextRoundState, completion);
@@ -153,6 +197,11 @@ public final class RoundState {
 
     public List<Integer> activeDice() {
         return activeDice;
+    }
+
+    /** 마지막 굴림에 쓰인 KEEP. 첫 굴림 전에는 null. */
+    public List<Boolean> activeHeld() {
+        return activeHeld;
     }
 
     public Map<String, RoundSubmission> submissions() {
@@ -219,6 +268,8 @@ public final class RoundState {
         }
         return List.copyOf(copy);
     }
+
+    private static final List<Boolean> NO_HELD = List.of(false, false, false, false, false);
 
     private static void validateHeld(List<Boolean> held) {
         if (held == null || held.size() != 5 || held.stream().anyMatch(java.util.Objects::isNull)) {

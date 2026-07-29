@@ -164,7 +164,7 @@ class GameWebSocketHandlerTest {
         verify(playerB).sendMessage(captor.capture());
         String response = ((TextMessage) captor.getValue()).getPayload();
         assertThat(response).contains("\"type\":\"error\"");
-        assertThat(response).contains("\"code\":\"INVALID_MESSAGE\"");
+        assertThat(response).contains("\"code\":\"NOT_YOUR_TURN\"");
         assertThat(response).contains("\"refMsgId\":\"out-of-turn-message\"");
         verify(scoreConfirmationService, never()).confirm(any());
         assertThat(roundStateStore.findByRoomId("room-a")).hasValueSatisfying(state ->
@@ -215,6 +215,31 @@ class GameWebSocketHandlerTest {
         assertThat(playerAMessage).contains("\"rollCount\":1");
         assertThat(playerAMessage).contains("\"dice\":[");
         assertThat(playerAMessage).contains("\"held\":[false,false,false,false,false]");
+        // 플레이어가 직접 굴린 결과다 — 마감 자동 굴림과 구분된다.
+        assertThat(playerAMessage).contains("\"auto\":false");
+    }
+
+    @Test
+    void rejectsDiceRollFromPlayerWhoDoesNotOwnTheTurn() throws Exception {
+        roundSynchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
+        WebSocketSession playerB = sessionWithPlayer("player-b");
+        registry.join("room-a", playerB, "player-b", "Player B");
+        broadcaster.register("room-a", playerB);
+
+        handler.handle(playerB, rollMessage("room-a", 1, "out-of-turn-roll"));
+
+        ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(playerB).sendMessage(captor.capture());
+        String response = ((TextMessage) captor.getValue()).getPayload();
+        assertThat(response).contains("\"type\":\"error\"");
+        assertThat(response).contains("\"code\":\"NOT_YOUR_TURN\"");
+        assertThat(response).contains("\"refMsgId\":\"out-of-turn-roll\"");
+        // 남의 턴에 보낸 굴림은 상태를 전혀 건드리지 못한다.
+        assertThat(roundStateStore.findByRoomId("room-a")).hasValueSatisfying(state -> {
+            assertThat(state.activeRollCount()).isZero();
+            assertThat(state.activeDice()).isNull();
+        });
+        verify(roundTimerService, never()).start(any(), anyInt(), any());
     }
 
     @Test

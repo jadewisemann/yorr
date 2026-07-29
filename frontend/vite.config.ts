@@ -4,9 +4,12 @@ import { defineConfig, loadEnv } from 'vite'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  // MSW 를 끄면(VITE_ENABLE_MSW=false) 로컬 백엔드 대신 배포된 dev 서버로 붙는다.
-  // 배포 서버는 API 를 /dev-api/v1/... 로 노출하므로 /api → /dev-api 로 rewrite 한다.
-  const useRemoteApi = env.VITE_ENABLE_MSW === 'false'
+  // MSW 를 끄면(VITE_ENABLE_MSW=false) mock 대신 실제 서버에 붙는다.
+  // 어느 서버인지는 VITE_API_TARGET 이 정한다:
+  //   remote(기본) → 배포된 dev 서버. API 를 /dev-api/v1/... 로 노출하므로 /api → /dev-api rewrite.
+  //   local        → 내 PC 의 백엔드(localhost:8080). 서버 코드까지 같이 확인할 때 쓴다.
+  // VITE_WS_URL 은 프록시를 타지 않으니 여기와 같은 서버를 가리키게 따로 맞춰야 한다.
+  const useRemoteApi = env.VITE_ENABLE_MSW === 'false' && env.VITE_API_TARGET !== 'local'
 
   return {
     plugins: [tailwindcss(), react()],

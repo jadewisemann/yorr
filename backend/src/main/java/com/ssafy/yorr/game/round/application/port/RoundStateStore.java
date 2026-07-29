@@ -33,6 +33,18 @@ public interface RoundStateStore {
     );
 
     /**
+     * Rolls once on behalf of the active player, but only while the expected turn is
+     * still current and it still has rolls left. Returns empty when the turn already
+     * moved on or the roll budget is spent — the caller then records a score instead.
+     */
+    Optional<RoundState> autoRollAtomically(
+            String roomId,
+            int expectedRoundNumber,
+            String expectedActivePlayerId,
+            java.util.List<Integer> rolledDice
+    );
+
+    /**
      * Completes the round only when it is still the expected current round.
      * Returns empty when the room was removed or another path already advanced it.
      */

@@ -1,11 +1,12 @@
 package com.ssafy.yorr.game.round.application;
 
 import com.ssafy.yorr.game.round.application.port.RoundDeadlineScheduler;
-import com.ssafy.yorr.game.round.infrastructure.InMemoryRoundStateStore;
+import com.ssafy.yorr.game.round.domain.RoundState;
+import com.ssafy.yorr.game.round.domain.RoundSubmission;
+import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
 import com.ssafy.yorr.ws.RoomBroadcaster;
 import com.ssafy.yorr.ws.dto.RoundEndPayload;
 import com.ssafy.yorr.ws.dto.RoundStartPayload;
-import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,25 +22,24 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class RoundTimerServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-07-26T00:00:00Z");
 
-    private InMemoryRoundStateStore stateStore;
-    private RoundSynchronizationService synchronizationService;
     private FakeRoundDeadlineScheduler scheduler;
     private RoomBroadcaster broadcaster;
+    private RoundTimeoutResolver timeoutResolver;
     private RoundTimerService timerService;
 
     @BeforeEach
     void setUp() {
-        stateStore = new InMemoryRoundStateStore();
-        synchronizationService = new RoundSynchronizationService(stateStore);
         scheduler = new FakeRoundDeadlineScheduler();
         broadcaster = mock(RoomBroadcaster.class);
+        timeoutResolver = mock(RoundTimeoutResolver.class);
         timerService = new RoundTimerService(
-                synchronizationService,
+                timeoutResolver,
                 scheduler,
                 broadcaster,
                 Clock.fixed(NOW, ZoneOffset.UTC)
@@ -48,12 +48,10 @@ class RoundTimerServiceTest {
 
     @Test
     void broadcastsRoundStartWithServerDeadline() {
-        synchronizationService.initialize("room-a", 1, List.of("player-a"));
-
         Instant deadline = timerService.start("room-a", 1, "player-a");
 
         assertThat(deadline).isEqualTo(NOW.plusSeconds(25));
-        // 클라의 마감 자동 기록(round.submit)이 도착할 틈을 주고 나서 강제 진행한다.
+        // 마감 직전에 떠난 round.submit이 도착할 틈을 주고 나서 강제 진행한다.
         assertThat(scheduler.deadline).isEqualTo(deadline.plus(RoundTimerService.EXPIRY_GRACE));
         WsEnvelope<?> message = capturedBroadcast();
         assertThat(message.type()).isEqualTo("round.start");
@@ -66,29 +64,44 @@ class RoundTimerServiceTest {
     }
 
     @Test
-    void timeoutAdvancesToTheNextPlayersTurn() {
-        synchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
+    void givesTheSameTurnFreshTimeAfterAnAutomaticRoll() {
+        when(timeoutResolver.resolve("room-a", 1, "player-a"))
+                .thenReturn(RoundTimeoutResolution.autoRolled());
         timerService.start("room-a", 1, "player-a");
         reset(broadcaster);
 
         scheduler.fire();
 
-        WsEnvelope<?> message = capturedBroadcast();
-        assertThat(message.type()).isEqualTo("round.start");
-        assertThat(message.payload()).isEqualTo(
-                new RoundStartPayload(1, NOW.plusSeconds(25).toEpochMilli(), "player-b")
+        // 턴 주인은 그대로다 — 남은 굴림을 직접 쓸 시간을 다시 준다.
+        assertThat(capturedBroadcast().payload()).isEqualTo(
+                new RoundStartPayload(1, NOW.plusSeconds(25).toEpochMilli(), "player-a")
         );
-        assertThat(stateStore.findByRoomId("room-a")).hasValueSatisfying(state -> {
-            assertThat(state.roundNumber()).isEqualTo(1);
-            assertThat(state.activePlayerId()).isEqualTo("player-b");
-        });
+        assertThat(scheduler.timeoutAction).isNotNull();
     }
 
     @Test
-    void staleTimeoutDoesNotCompleteAlreadyAdvancedRound() {
-        synchronizationService.initialize("room-a", 1, List.of("player-a"));
+    void startsTheNextPlayersTurnWhenTheTimeoutRecordedAScore() {
+        RoundState nextTurn = RoundState.start(1, List.of("player-a", "player-b"))
+                .submit(new RoundSubmission(
+                        "player-a", 1, List.of(1, 2, 3, 4, 5), "smallStraight"))
+                .state();
+        when(timeoutResolver.resolve("room-a", 1, "player-a"))
+                .thenReturn(RoundTimeoutResolution.advanced(new RoundSubmissionResult(nextTurn, null)));
         timerService.start("room-a", 1, "player-a");
-        synchronizationService.submit("room-a", "player-a", payload(1));
+        reset(broadcaster);
+
+        scheduler.fire();
+
+        assertThat(capturedBroadcast().payload()).isEqualTo(
+                new RoundStartPayload(1, NOW.plusSeconds(25).toEpochMilli(), "player-b")
+        );
+    }
+
+    @Test
+    void staleTimeoutBroadcastsNothing() {
+        when(timeoutResolver.resolve("room-a", 1, "player-a"))
+                .thenReturn(RoundTimeoutResolution.stale());
+        timerService.start("room-a", 1, "player-a");
         reset(broadcaster);
 
         scheduler.fire();
@@ -97,17 +110,32 @@ class RoundTimerServiceTest {
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any()
         );
-        assertThat(stateStore.findByRoomId("room-a").orElseThrow().roundNumber()).isEqualTo(2);
+    }
+
+    @Test
+    void announcesRoundEndBeforeTheNextRoundStarts() {
+        RoundSubmissionResult completed = RoundState.start(1, List.of("player-a"))
+                .submit(new RoundSubmission(
+                        "player-a", 1, List.of(1, 2, 3, 4, 5), "smallStraight"));
+        when(timeoutResolver.resolve("room-a", 1, "player-a"))
+                .thenReturn(RoundTimeoutResolution.advanced(completed));
+        timerService.start("room-a", 1, "player-a");
+        reset(broadcaster);
+
+        scheduler.fire();
+
+        ArgumentCaptor<WsEnvelope<?>> captor = ArgumentCaptor.forClass(WsEnvelope.class);
+        verify(broadcaster, org.mockito.Mockito.times(2))
+                .broadcast(org.mockito.ArgumentMatchers.eq("room-a"), captor.capture());
+        assertThat(captor.getAllValues().get(0).payload())
+                .isEqualTo(new RoundEndPayload(1, List.of("player-a")));
+        assertThat(captor.getAllValues().get(1).type()).isEqualTo("round.start");
     }
 
     private WsEnvelope<?> capturedBroadcast() {
         ArgumentCaptor<WsEnvelope<?>> captor = ArgumentCaptor.forClass(WsEnvelope.class);
         verify(broadcaster).broadcast(org.mockito.ArgumentMatchers.eq("room-a"), captor.capture());
         return captor.getValue();
-    }
-
-    private static RoundSubmitPayload payload(int roundNumber) {
-        return new RoundSubmitPayload(roundNumber, List.of(1, 2, 3, 4, 5), "smallStraight");
     }
 
     private static class FakeRoundDeadlineScheduler implements RoundDeadlineScheduler {

@@ -72,14 +72,23 @@ public class RoundSynchronizationService {
         return roundStateStore.expireAtomically(roomId, expectedRoundNumber, expectedActivePlayerId);
     }
 
+    /**
+     * 마감 시각이 지난 턴을 대신해 한 번 굴린다. 굴림이 남지 않았거나 그 사이 턴이 넘어갔으면
+     * 비어 있는 값을 돌려준다 — 호출자는 그때 점수 기록으로 넘어간다.
+     */
+    public Optional<RoundState> autoRoll(String roomId, int roundNumber, String activePlayerId) {
+        return roundStateStore.autoRollAtomically(roomId, roundNumber, activePlayerId, rollDice());
+    }
+
+    public Optional<RoundState> findByRoomId(String roomId) {
+        return roundStateStore.findByRoomId(roomId);
+    }
+
     public RoundState recordRoll(String roomId, String playerId, DiceRollPayload payload) {
         if (payload == null) {
             throw new IllegalArgumentException("payload must not be null");
         }
-        List<Integer> rolledDice = java.util.stream.IntStream.range(0, 5)
-                .map(ignored -> dieRoller.getAsInt())
-                .boxed()
-                .toList();
+        List<Integer> rolledDice = rollDice();
         return roundStateStore.recordRollAtomically(
                 roomId,
                 playerId,
@@ -92,5 +101,12 @@ public class RoundSynchronizationService {
 
     public boolean remove(String roomId) {
         return roundStateStore.remove(roomId);
+    }
+
+    private List<Integer> rollDice() {
+        return java.util.stream.IntStream.range(0, 5)
+                .map(ignored -> dieRoller.getAsInt())
+                .boxed()
+                .toList();
     }
 }
