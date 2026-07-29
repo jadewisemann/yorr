@@ -113,10 +113,15 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   const locked = connectionStatus === 'reconnecting' || connectionStatus === 'closed' || !isMyTurn
   const submitted = local.phase === 'roundComplete'
   const rollsLeft = MAX_ROLLS - local.rollCount
+  // 킵 레일(트레이 하단 밴드) 라벨 — 위치가 곧 킵 표시이므로 개수·합만 조용히 병기한다.
+  const keptCount = local.held.filter(Boolean).length
+  // 다섯 개를 전부 킵하면 굴릴 주사위가 0개다(QA S15P11A406-102).
+  const allKept = local.dice !== null && keptCount === 5
   const canRoll =
     !locked &&
     !submitted &&
     !requestingRoll &&
+    !allKept &&
     rollsLeft > 0 &&
     (local.phase === 'ready' || local.phase === 'choosing')
   const rolling = local.phase === 'rolling' || requestingRoll
@@ -438,8 +443,6 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
       : `롤링 존 · ${activePlayer.nickname}의 턴`
     : '턴 동기화 중'
 
-  // 킵 레일(트레이 하단 밴드) 라벨 — 위치가 곧 킵 표시이므로 개수·합만 조용히 병기한다.
-  const keptCount = local.held.filter(Boolean).length
   const keptSum = local.dice
     ? local.dice.reduce((sum, value, index) => sum + (local.held[index] ? value : 0), 0)
     : 0
@@ -459,7 +462,10 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
         <RollCounter rollsUsed={local.rollCount} />
       </div>
       <div className="pointer-events-none absolute bottom-2.5 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
-        킵 레일 · {keptCount > 0 ? `${keptCount}/5 · 합 ${keptSum}` : '비어 있음'}
+        킵 레일 ·{' '}
+        {keptCount > 0
+          ? `${keptCount}/5 · 합 ${keptSum}${allKept ? ' · 해제해야 굴릴 수 있어요' : ''}`
+          : '비어 있음'}
       </div>
       <PhysicsDiceScene
         dice={local.dice}
@@ -703,9 +709,11 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
     ? '점수가 반영됐습니다. 다음 턴을 기다립니다.'
     : !isMyTurn
       ? `${activePlayer?.nickname ?? '—'}님이 굴리는 중입니다.`
-      : rolled
-        ? '주사위를 홀드하고 다시 굴리거나, 점수표의 열린 족보를 탭해 기록하세요.'
-        : `라운드 ${roundNumber} — 굴려서 시작하세요.`
+      : allKept
+        ? '주사위를 모두 킵했습니다. 하나 이상 해제하거나 족보를 기록하세요.'
+        : rolled
+          ? '주사위를 홀드하고 다시 굴리거나, 점수표의 열린 족보를 탭해 기록하세요.'
+          : `라운드 ${roundNumber} — 굴려서 시작하세요.`
 
   return (
     <>

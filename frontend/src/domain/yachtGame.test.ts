@@ -62,6 +62,39 @@ describe('yachtGame reducer', () => {
     ).toBe(state)
   })
 
+  it('ignores roll requests when every die is kept', () => {
+    let state = finishRoll(createYachtGame(7), 'one')
+    for (const index of [0, 1, 2, 3, 4] as const) {
+      state = yachtGameReducer(state, { type: 'holdToggled', index })
+    }
+
+    expect(
+      yachtGameReducer(state, {
+        type: 'rollRequested',
+        requestId: 'two',
+        targetDice: serverDice,
+      }),
+    ).toBe(state)
+    expect(
+      yachtGameReducer(state, {
+        type: 'rollRequested',
+        requestId: 'two',
+        targetDice: serverDice,
+        held: [true, true, true, true, true],
+      }),
+    ).toBe(state)
+
+    // 첫 굴림 전에는 주사위가 없으므로 held와 무관하게 굴릴 수 있어야 한다.
+    const fresh = createYachtGame(7)
+    expect(
+      yachtGameReducer(fresh, {
+        type: 'rollRequested',
+        requestId: 'first',
+        targetDice: serverDice,
+      }).phase,
+    ).toBe('rolling')
+  })
+
   it('clears a selected category when another roll starts', () => {
     let state = finishRoll(createYachtGame(1), 'one')
     state = yachtGameReducer(state, { type: 'categorySelected', category: 'choice' })

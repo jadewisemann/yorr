@@ -144,39 +144,51 @@ export function ScoreSheet({
     )
   }
 
-  const metaRow = (label: string, values: string[], emphasis = false) => (
-    <div
-      className={cn(
-        'grid items-center gap-1 px-3',
-        emphasis
-          ? 'min-h-12 border-t-2 border-content'
-          : 'min-h-8 border-y border-border bg-surface-sunken',
-      )}
-      style={columns}
-    >
-      <span
+  const metaRow = (
+    label: string,
+    values: string[],
+    options?: { achieved?: boolean[]; emphasis?: boolean },
+  ) => {
+    const emphasis = options?.emphasis ?? false
+    return (
+      <div
         className={cn(
-          'truncate font-bold tracking-[0.08em] uppercase',
-          emphasis ? 'text-[11px] text-content-muted' : 'text-[10.5px] text-content-muted',
+          'grid items-center gap-1 px-3',
+          emphasis
+            ? 'min-h-12 border-t-2 border-content'
+            : 'min-h-8 border-y border-border bg-surface-sunken',
         )}
+        style={columns}
       >
-        {label}
-      </span>
-      {values.map((value, index) => (
         <span
           className={cn(
-            'text-center font-mono font-bold tabular-nums',
-            emphasis ? 'text-[20px] text-brand-strong' : 'text-[12px] text-content-muted',
-            cellHighlight(players[index]?.playerId ?? ''),
+            'truncate font-bold tracking-[0.08em] uppercase',
+            emphasis ? 'text-[11px] text-content-muted' : 'text-[10.5px] text-content-muted',
           )}
-          // biome-ignore lint/suspicious/noArrayIndexKey: 열 순서 = players 순서로 고정이다
-          key={index}
         >
-          {value}
+          {label}
         </span>
-      ))}
-    </div>
-  )
+        {values.map((value, index) => (
+          <span
+            className={cn(
+              'text-center font-mono font-bold tabular-nums',
+              emphasis
+                ? 'text-[20px] text-brand-strong'
+                : options?.achieved?.[index]
+                  ? // 보너스 달성 강조(QA S15P11A406-102) — 달성한 플레이어의 셀만 brand로 띄운다.
+                    'text-[13px] text-brand-strong'
+                  : 'text-[12px] text-content-muted',
+              cellHighlight(players[index]?.playerId ?? ''),
+            )}
+            // biome-ignore lint/suspicious/noArrayIndexKey: 열 순서 = players 순서로 고정이다
+            key={index}
+          >
+            {value}
+          </span>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <section
@@ -209,18 +221,24 @@ export function ScoreSheet({
       {metaRow(
         `소계 / ${UPPER_BONUS_THRESHOLD}`,
         players.map((player) => String(player.scoreboard?.upperSubtotal ?? 0)),
+        {
+          achieved: players.map(
+            (player) => (player.scoreboard?.upperSubtotal ?? 0) >= UPPER_BONUS_THRESHOLD,
+          ),
+        },
       )}
       {metaRow(
         `보너스 +${UPPER_BONUS_POINTS}`,
         players.map((player) =>
           (player.scoreboard?.upperBonus ?? 0) > 0 ? `+${UPPER_BONUS_POINTS}` : '—',
         ),
+        { achieved: players.map((player) => (player.scoreboard?.upperBonus ?? 0) > 0) },
       )}
       {YACHT_LOWER_CATEGORIES.map(renderCategoryRow)}
       {metaRow(
         '합계',
         players.map((player) => String(player.scoreboard?.total ?? 0)),
-        true,
+        { emphasis: true },
       )}
     </section>
   )
