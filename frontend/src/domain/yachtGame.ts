@@ -113,6 +113,10 @@ function requestRoll(
   const canRoll = (state.phase === 'ready' || state.phase === 'choosing') && state.rollCount < 3
   if (!canRoll) return state
 
+  // 다섯 개를 전부 킵하면 굴릴 주사위가 0개다 — 요청 자체를 무시한다.
+  const nextHeld = heldOverride ?? state.held
+  if (state.dice !== null && nextHeld.every(Boolean)) return state
+
   return {
     ...state,
     phase: 'rolling',
@@ -120,10 +124,10 @@ function requestRoll(
     pendingRoll: createRollRequest({
       requestId,
       seed: state.seed,
-      held: heldOverride ?? state.held,
+      held: nextHeld,
       targetDice,
     }),
-    held: heldOverride ?? state.held,
+    held: nextHeld,
   }
 }
 
