@@ -23,6 +23,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -91,7 +93,10 @@ class RoomValidationControllerTest {
         );
         verify(registry).markPhase(ROOM, com.ssafy.yorr.ws.dto.RoomPhase.PLAYING);
         verify(handler).broadcastStateSync(ROOM);
-        verify(roundTimerService).start(ROOM, 1, HOST_ID);
+        verify(roundTimerService).start(
+                eq(ROOM),
+                argThat(state -> state.roundNumber() == 1 && state.activePlayerId().equals(HOST_ID))
+        );
     }
 
     @Test

@@ -142,7 +142,10 @@ public class InMemoryRoundStateStore implements RoundStateStore {
             int expectedRoundNumber,
             String expectedActivePlayerId
     ) {
-        return currentState.roundNumber() != expectedRoundNumber
+        // 종료된 게임의 타이머가 취소 직전에 발화할 수 있다. 그 턴은 이미 지난 턴으로 취급해야
+        // 끝난 게임에서 서버가 대신 굴리거나 라운드가 되살아나지 않는다.
+        return currentState.isFinished()
+                || currentState.roundNumber() != expectedRoundNumber
                 || !currentState.activePlayerId().equals(expectedActivePlayerId);
     }
 

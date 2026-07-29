@@ -90,7 +90,7 @@ public class RoundTimeoutResolver {
                 roundSynchronizationService.autoRoll(roomId, roundNumber, activePlayerId);
         if (autoRolled.isPresent()) {
             broadcastAutoRoll(roomId, activePlayerId, autoRolled.get());
-            return RoundTimeoutResolution.autoRolled();
+            return RoundTimeoutResolution.autoRolled(autoRolled.get());
         }
 
         // 자동 굴림이 안 됐다 = 턴이 이미 넘어갔거나 굴림을 다 썼다. 둘을 구분해야 한다.

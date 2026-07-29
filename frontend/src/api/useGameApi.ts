@@ -47,6 +47,24 @@ export function useStartGame() {
   )
 }
 
+/**
+ * 대기실로 돌아가기. 화면 전환은 서버가 보내는 state.sync(phase=waiting)가 담당한다 —
+ * 여기서 스냅샷을 직접 갈아끼우면 나만 먼저 옮겨가 다른 참가자와 상태가 갈린다.
+ */
+export function useReturnToLobby() {
+  const roomSession = useAppStore((state) => state.roomSession)
+
+  return useAsyncTask<[], void>((signal) =>
+    roomSession
+      ? gameApiClient.returnToLobby(roomSession.roomCode, {
+          signal,
+          sessionToken: roomSession.sessionToken,
+          userId: roomSession.you,
+        })
+      : Promise.reject(new Error('Room session is required')),
+  )
+}
+
 export function useScoreCandidates() {
   return useAsyncTask<[string, ScoreCandidatesRequest], ScoreCandidates>(
     (signal, gameId, request) => gameApiClient.getScoreCandidates(gameId, request, { signal }),

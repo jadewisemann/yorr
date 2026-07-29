@@ -12,8 +12,11 @@ public final class RoundState {
 
     /** 한 턴에 허용되는 굴림 횟수. 이 수에 도달하면 남은 굴림이 없다. */
     public static final int MAX_ROLL_COUNT = 3;
+    /** 요트 정규룰 족보 수 = 한 게임의 라운드 수. 참가자가 이 횟수만큼 기록하면 점수판이 꽉 찬다. */
+    public static final int DEFAULT_TOTAL_ROUNDS = 12;
 
     private final int roundNumber;
+    private final int totalRounds;
     private final List<String> participantOrder;
     private final Set<String> participantIds;
     private final Map<String, RoundSubmission> submissions;
@@ -21,17 +24,22 @@ public final class RoundState {
     private final int activeRollCount;
     private final List<Integer> activeDice;
     private final List<Boolean> activeHeld;
+    /** 마지막 라운드까지 끝난 터미널 상태. 굴림·제출을 모두 거부한다. */
+    private final boolean finished;
 
     private RoundState(
             int roundNumber,
+            int totalRounds,
             List<String> participantOrder,
             Map<String, RoundSubmission> submissions,
             int activePlayerIndex,
             int activeRollCount,
             List<Integer> activeDice,
-            List<Boolean> activeHeld
+            List<Boolean> activeHeld,
+            boolean finished
     ) {
         this.roundNumber = validateRoundNumber(roundNumber);
+        this.totalRounds = validateTotalRounds(totalRounds, roundNumber);
         this.participantOrder = List.copyOf(participantOrder);
         this.participantIds = Collections.unmodifiableSet(new LinkedHashSet<>(participantOrder));
         this.submissions = Collections.unmodifiableMap(new LinkedHashMap<>(submissions));
@@ -39,17 +47,24 @@ public final class RoundState {
         this.activeRollCount = activeRollCount;
         this.activeDice = activeDice == null ? null : List.copyOf(activeDice);
         this.activeHeld = activeHeld == null ? null : List.copyOf(activeHeld);
+        this.finished = finished;
     }
 
     public static RoundState start(int roundNumber, Collection<String> participantIds) {
+        return start(roundNumber, participantIds, DEFAULT_TOTAL_ROUNDS);
+    }
+
+    public static RoundState start(int roundNumber, Collection<String> participantIds, int totalRounds) {
         return new RoundState(
                 roundNumber,
+                totalRounds,
                 immutableParticipants(participantIds),
                 Map.of(),
                 0,
                 0,
                 null,
-                null
+                null,
+                false
         );
     }
 
@@ -85,12 +100,14 @@ public final class RoundState {
         }
         return new RoundState(
                 roundNumber,
+                totalRounds,
                 participantOrder,
                 submissions,
                 activePlayerIndex,
                 rollCount,
                 nextDice,
-                held
+                held,
+                false
         );
     }
 
@@ -136,6 +153,12 @@ public final class RoundState {
     }
 
     public RoundSubmissionResult expire() {
+        if (finished) {
+            throw new RoundSynchronizationException(
+                    RoundSynchronizationException.Reason.GAME_ALREADY_FINISHED,
+                    "이미 종료된 게임은 만료 진행할 수 없습니다: round " + roundNumber
+            );
+        }
         return advance(submissions);
     }
 
@@ -144,12 +167,14 @@ public final class RoundState {
             return new RoundSubmissionResult(
                     new RoundState(
                             roundNumber,
+                            totalRounds,
                             participantOrder,
                             currentSubmissions,
                             activePlayerIndex + 1,
                             0,
                             null,
-                            null
+                            null,
+                            false
                     ),
                     null
             );
@@ -157,26 +182,55 @@ public final class RoundState {
         return complete(currentSubmissions);
     }
 
+    /**
+     * 마지막 참가자의 턴이 끝났다. 라운드 상한에 닿았으면 다음 라운드를 만들지 않고
+     * 터미널 상태로 전이한다 — 여기서 멈추지 않으면 라운드가 무한히 증가한다.
+     */
     private RoundSubmissionResult complete(Map<String, RoundSubmission> completedSubmissions) {
+        boolean gameCompleted = roundNumber >= totalRounds;
         RoundCompletion completion = new RoundCompletion(
                 roundNumber,
                 completedSubmissions.keySet().stream().toList(),
-                roundNumber + 1
+                gameCompleted ? roundNumber : roundNumber + 1,
+                gameCompleted
         );
-        RoundState nextRoundState = new RoundState(
-                roundNumber + 1,
-                participantOrder,
-                Map.of(),
-                0,
-                0,
-                null,
-                null
-        );
+        RoundState nextRoundState = gameCompleted
+                ? new RoundState(
+                        roundNumber,
+                        totalRounds,
+                        participantOrder,
+                        completedSubmissions,
+                        activePlayerIndex,
+                        0,
+                        null,
+                        null,
+                        true
+                )
+                : new RoundState(
+                        roundNumber + 1,
+                        totalRounds,
+                        participantOrder,
+                        Map.of(),
+                        0,
+                        0,
+                        null,
+                        null,
+                        false
+                );
         return new RoundSubmissionResult(nextRoundState, completion);
     }
 
     public int roundNumber() {
         return roundNumber;
+    }
+
+    public int totalRounds() {
+        return totalRounds;
+    }
+
+    /** 마지막 라운드까지 끝났는지. true면 새 턴 타이머를 걸지 않는다. */
+    public boolean isFinished() {
+        return finished;
     }
 
     public Set<String> participantIds() {
@@ -213,6 +267,13 @@ public final class RoundState {
     }
 
     private void validateCurrentPlayer(String playerId, int submittedRoundNumber) {
+        // 종료 판정보다 늦게 도착한 굴림·제출. 라운드 번호가 우연히 맞아도 받지 않는다.
+        if (finished) {
+            throw new RoundSynchronizationException(
+                    RoundSynchronizationException.Reason.GAME_ALREADY_FINISHED,
+                    "이미 종료된 게임입니다: round " + roundNumber + "/" + totalRounds
+            );
+        }
         if (submittedRoundNumber != roundNumber) {
             throw new RoundSynchronizationException(
                     RoundSynchronizationException.Reason.ROUND_MISMATCH,
@@ -241,6 +302,22 @@ public final class RoundState {
             );
         }
         return roundNumber;
+    }
+
+    private static int validateTotalRounds(int totalRounds, int roundNumber) {
+        if (totalRounds < 1) {
+            throw new RoundSynchronizationException(
+                    RoundSynchronizationException.Reason.INVALID_ROUND,
+                    "totalRounds must be at least 1"
+            );
+        }
+        if (roundNumber > totalRounds) {
+            throw new RoundSynchronizationException(
+                    RoundSynchronizationException.Reason.INVALID_ROUND,
+                    "roundNumber must not exceed totalRounds: " + roundNumber + " > " + totalRounds
+            );
+        }
+        return totalRounds;
     }
 
     private static List<String> immutableParticipants(Collection<String> participantIds) {

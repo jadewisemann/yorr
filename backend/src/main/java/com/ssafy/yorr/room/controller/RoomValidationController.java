@@ -72,6 +72,9 @@ public class RoomValidationController {
         }
         try {
             GameStartResponse result = roomService.startGame(roomCode);
+            // START(Lua)가 phase=LOBBY만 통과시키므로 여기 왔다면 진행 중인 게임은 없다.
+            // 지난 게임의 라운드 상태가 남아 있으면 initialize가 거부되므로 먼저 버린다(재대결 경로).
+            roundSynchronizationService.remove(roomCode);
             RoundState firstTurn = roundSynchronizationService.initialize(
                     roomCode,
                     1,
@@ -86,10 +89,44 @@ public class RoomValidationController {
             // 여기서 방송하지 않으면 참가자는 대기실에 그대로 남는다.
             registry.markPhase(roomCode, RoomPhase.PLAYING);
             gameWebSocketHandler.broadcastStateSync(roomCode);
-            roundTimerService.start(roomCode, firstTurn.roundNumber(), firstTurn.activePlayerId());
+            roundTimerService.start(roomCode, firstTurn);
             return ResponseEntity.ok(result);
         } catch (IllegalStateException e) {
             return ResponseEntity.status(409).body(e.getMessage());
         }
+    }
+
+    /**
+     * 끝난 게임을 대기실로 되돌린다. 결과 화면에서 호스트가 누르면 방 전원이 대기실로 이동한다.
+     * <p>
+     * 방 전체가 한 번에 옮겨가는 이유: 화면 전환이 phase(스냅샷) 기준이라 한 명만 대기실로 보낼 수 없다.
+     * 되돌린 뒤에는 게임 시작 조건(phase=LOBBY)이 다시 성립해 같은 멤버로 새 게임을 시작할 수 있다.
+     */
+    @PostMapping("/{roomCode}/lobby")
+    @Operation(summary = "대기실로 돌아가기", description = "종료된 게임에서 host만 호출할 수 있습니다.")
+    public ResponseEntity<?> returnToLobby(@PathVariable String roomCode, @RequestHeader("X-User-Id") String userId,
+                                          @RequestHeader("Authorization") String authorization) {
+        UserIdentity user;
+        try {
+            user = userService.authenticate(userId, authorization);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(401).body(e.getMessage());
+        }
+        RoomSnapshot snapshot = roomService.getSnapshot(roomCode);
+        if (snapshot.phase() == null) return ResponseEntity.notFound().build();
+        if (!user.userId().equals(snapshot.hostId())
+                || snapshot.players().stream().noneMatch(player -> user.userId().equals(player.playerId()))) {
+            return ResponseEntity.status(403).body("host_only");
+        }
+
+        // 저장소 전이가 권위다. 여기서 막히면(진행 중이거나 이미 대기실) 아무것도 건드리지 않는다.
+        if (!roomService.returnToLobby(roomCode)) {
+            return ResponseEntity.status(409).body("not_finished");
+        }
+        roundTimerService.cancelRoom(roomCode);
+        roundSynchronizationService.remove(roomCode);
+        registry.markPhase(roomCode, RoomPhase.WAITING);
+        gameWebSocketHandler.broadcastStateSync(roomCode);
+        return ResponseEntity.noContent().build();
     }
 }

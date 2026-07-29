@@ -190,9 +190,25 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
           roundDeadline: message.payload.deadline,
           roundNumber: message.payload.roundNumber,
           scores: store.roomSnapshot.game?.scores ?? {},
+          turnOrder: message.payload.turnOrder,
         },
       })
       return
+    /**
+     * 게임 종료. 이 핸들러가 없으면 서버가 종료를 알려도 화면이 계속 게임에 머문다.
+     * 뒤따르는 state.sync도 phase를 finished로 바꾸지만, 순서에 의존하지 않도록 여기서도 바꾼다.
+     */
+    case 'game.over': {
+      const snapshot = store.roomSnapshot
+      if (!snapshot) return
+      const game = snapshot.game
+      store.replaceRoomSnapshot({
+        ...snapshot,
+        phase: 'finished',
+        ...(game ? { game: { ...game, rankings: message.payload.rankings } } : {}),
+      })
+      return
+    }
     case 'room.closed':
       store.endSession('room_closed')
       return

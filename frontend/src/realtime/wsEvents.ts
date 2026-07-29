@@ -100,6 +100,10 @@ export interface GameState {
   /** epoch ms. 클라가 남은시간 = deadline - now 로 계산(타이머 tick 최소화). */
   roundDeadline: number
   scores: Record<PlayerId, ScoreBoard>
+  /** 서버가 확정한 턴 순서(round.start). 아직 못 받았으면 비어 있다. */
+  turnOrder?: PlayerId[]
+  /** game.over로 받은 최종 순위. 결과 화면은 로컬 재계산 대신 이 값을 쓴다. */
+  rankings?: GameOverPayload['rankings']
 }
 
 /* ----- 요트 정규룰 족보 (score.* / game.* · owner: 유상은 40·41·43) -----
@@ -278,6 +282,11 @@ export interface RoundStartPayload {
   roundNumber: number
   deadline: number // epoch ms
   activePlayerId: PlayerId
+  /**
+   * 서버가 확정한 턴 순서. RoomSnapshot.players 순서는 서버 명단(맵) 순서라 턴 순서를 뜻하지 않는다 —
+   * 상단 진행 표시는 반드시 이 값으로 그린다.
+   */
+  turnOrder: PlayerId[]
 }
 // C→S ⚠️ owner 고용훈: 이번 라운드 제출(로컬 계산된 주사위 + 기록할 족보 칸).
 //   category = 요트 족보 키 중 하나(YachtCategory). 0점 기록(포기)도 같은 방식.

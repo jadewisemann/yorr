@@ -141,6 +141,7 @@ describe('QR entrance integration', () => {
           activePlayerId: creatorSession.you,
           deadline: Date.now() + 30_000,
           roundNumber: 1,
+          turnOrder: [creatorSession.you],
         }),
       )
     })

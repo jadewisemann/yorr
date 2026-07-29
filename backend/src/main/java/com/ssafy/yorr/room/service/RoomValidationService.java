@@ -52,6 +52,27 @@ public class RoomValidationService implements RoomService {
             return 1
             """, Long.class);
 
+    /**
+     * 끝난 게임을 대기실로 되돌린다. FINISHED에서만 통과하므로 진행 중인 게임을 되돌릴 수는 없다.
+     * <p>
+     * 총점 해시(scores)를 0으로 되돌리는 게 핵심이다 — 이건 gameId가 아니라 방에 매달려 있어서
+     * 초기화하지 않으면 다음 게임 순위에 지난 게임 점수가 그대로 얹힌다.
+     * 점수판(game:{id}:scoreboard:*)은 gameId별로 따로 쌓이므로 지우지 않는다(결과 조회용으로 남는다).
+     */
+    static final DefaultRedisScript<Long> RETURN_TO_LOBBY = new DefaultRedisScript<>("""
+            if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
+            if redis.call('HGET', KEYS[1], 'phase') ~= 'FINISHED' then return 0 end
+            redis.call('HSET', KEYS[1], 'phase', 'LOBBY')
+            redis.call('HDEL', KEYS[1], 'gameId')
+            local players = redis.call('HKEYS', KEYS[2])
+            for i = 1, #players do
+                redis.call('HSET', KEYS[3], players[i], '0')
+            end
+            local ttl = redis.call('PTTL', KEYS[1])
+            if ttl > 0 then redis.call('PEXPIRE', KEYS[3], ttl) end
+            return 1
+            """, Long.class);
+
     private final RedisTemplate<String, String> redisTemplate;
 
     @Override
@@ -92,6 +113,13 @@ public class RoomValidationService implements RoomService {
                 RoomRedisKeys.gameKey(gameId)), gameId, roomCode);
         if (!Long.valueOf(1).equals(result)) throw new IllegalStateException("game_not_ready");
         return new GameStartResponse(gameId, getSnapshot(roomCode));
+    }
+
+    /** @return 이 호출이 실제로 대기실로 되돌렸는지. 이미 대기실이면 false(멱등). */
+    public boolean returnToLobby(String roomCode) {
+        Long result = redisTemplate.execute(RETURN_TO_LOBBY, List.of(RoomRedisKeys.roomKey(roomCode),
+                RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode)));
+        return Long.valueOf(1).equals(result);
     }
 
     public RoomSnapshot getGameSnapshot(String gameId) {

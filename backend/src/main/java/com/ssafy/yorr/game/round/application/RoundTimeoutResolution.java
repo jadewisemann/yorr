@@ -1,11 +1,12 @@
 package com.ssafy.yorr.game.round.application;
 
+import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
 
 /**
  * 마감 시각이 지난 턴을 서버가 어떻게 처리했는지. 타이머는 이 결과만 보고 다음 동작을 정한다.
  */
-public record RoundTimeoutResolution(Kind kind, RoundSubmissionResult advanced) {
+public record RoundTimeoutResolution(Kind kind, RoundSubmissionResult advanced, RoundState rolled) {
 
     public enum Kind {
         /** 그 사이 플레이어가 직접 제출해 턴이 이미 넘어갔다 — 아무것도 하지 않는다. */
@@ -17,17 +18,21 @@ public record RoundTimeoutResolution(Kind kind, RoundSubmissionResult advanced) 
     }
 
     public static RoundTimeoutResolution stale() {
-        return new RoundTimeoutResolution(Kind.STALE, null);
+        return new RoundTimeoutResolution(Kind.STALE, null, null);
     }
 
-    public static RoundTimeoutResolution autoRolled() {
-        return new RoundTimeoutResolution(Kind.AUTO_ROLLED, null);
+    /** 굴린 뒤 상태를 함께 넘긴다 — 같은 턴에 다시 걸 round.start가 턴 순서를 실어야 한다. */
+    public static RoundTimeoutResolution autoRolled(RoundState rolled) {
+        if (rolled == null) {
+            throw new IllegalArgumentException("rolled state must not be null");
+        }
+        return new RoundTimeoutResolution(Kind.AUTO_ROLLED, null, rolled);
     }
 
     public static RoundTimeoutResolution advanced(RoundSubmissionResult result) {
         if (result == null) {
             throw new IllegalArgumentException("advanced result must not be null");
         }
-        return new RoundTimeoutResolution(Kind.ADVANCED, result);
+        return new RoundTimeoutResolution(Kind.ADVANCED, result, null);
     }
 }

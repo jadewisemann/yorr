@@ -65,6 +65,8 @@ export interface GameApiClient {
   ): Promise<RoomSession>
   getGame(gameId: string, options?: ApiCallOptions): Promise<RoomSnapshot>
   startGame(roomCode: string, options: AuthenticatedApiCallOptions): Promise<GameStartResult>
+  /** 종료된 게임을 대기실로 되돌린다(host 전용). 방 전원이 함께 이동한다. */
+  returnToLobby(roomCode: string, options: AuthenticatedApiCallOptions): Promise<void>
   getScoreCandidates(
     gameId: string,
     request: ScoreCandidatesRequest,
@@ -99,6 +101,14 @@ export class HttpGameApiClient implements GameApiClient {
       ...requestSignal(options),
       headers: authenticatedHeaders(options),
     }).then(toGameStartResult)
+  }
+
+  returnToLobby(roomCode: string, options: AuthenticatedApiCallOptions) {
+    return apiRequest<void>(`/rooms/${roomCode}/lobby`, {
+      method: 'POST',
+      ...requestSignal(options),
+      headers: authenticatedHeaders(options),
+    })
   }
 
   getScoreCandidates(gameId: string, request: ScoreCandidatesRequest, options?: ApiCallOptions) {

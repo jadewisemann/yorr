@@ -111,6 +111,7 @@ describe('RealtimeSync', () => {
         activePlayerId: creatorPlayer.playerId,
         deadline: 2_000,
         roundNumber: 1,
+        turnOrder: [creatorPlayer.playerId],
       }),
     )
     client.emitMessage(
@@ -143,6 +144,7 @@ describe('RealtimeSync', () => {
         activePlayerId: creatorPlayer.playerId,
         deadline: 2_000,
         roundNumber: 1,
+        turnOrder: [creatorPlayer.playerId],
       }),
     )
     client.emitMessage(
@@ -165,6 +167,74 @@ describe('RealtimeSync', () => {
     expect(useAppStore.getState().roomSnapshot?.game?.scores).toMatchObject({
       [participantPlayer.playerId]: { total: 24 },
     })
+  })
+
+  /**
+   * game.over 핸들러가 없으면 서버가 종료를 알려도 화면이 게임에 머문다(QA 9번의 클라 쪽 절반).
+   * 순위는 서버 확정값을 그대로 저장해 결과 화면이 로컬 재계산에 의존하지 않게 한다.
+   */
+  it('switches the room to finished and stores server rankings on game.over', () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(
+      serverMessage('round.start', {
+        activePlayerId: creatorPlayer.playerId,
+        deadline: 2_000,
+        roundNumber: 12,
+        turnOrder: [creatorPlayer.playerId, participantPlayer.playerId],
+      }),
+    )
+    client.emitMessage(
+      serverMessage('game.over', {
+        rankings: [
+          { rank: 1, playerId: participantPlayer.playerId, total: 205 },
+          { rank: 2, playerId: creatorPlayer.playerId, total: 180 },
+        ],
+      }),
+    )
+
+    const snapshot = useAppStore.getState().roomSnapshot
+    expect(snapshot?.phase).toBe('finished')
+    expect(snapshot?.game?.rankings).toEqual([
+      { rank: 1, playerId: participantPlayer.playerId, total: 205 },
+      { rank: 2, playerId: creatorPlayer.playerId, total: 180 },
+    ])
+  })
+
+  /** 대기실 복귀는 phase=waiting 스냅샷으로 전달된다 — 지난 게임 진행 상태는 함께 버려야 한다. */
+  it('drops game state when the room goes back to the lobby', () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(
+      serverMessage('round.start', {
+        activePlayerId: creatorPlayer.playerId,
+        deadline: 2_000,
+        roundNumber: 12,
+        turnOrder: [creatorPlayer.playerId],
+      }),
+    )
+    client.emitMessage(
+      serverMessage('state.sync', {
+        snapshot: {
+          roomId: creatorSession.roomId,
+          phase: 'waiting',
+          players: [creatorPlayer, participantPlayer],
+        },
+      }),
+    )
+
+    expect(useAppStore.getState().roomSnapshot?.phase).toBe('waiting')
+    expect(useAppStore.getState().roomSnapshot?.game).toBeUndefined()
   })
 
   it('clears a closed or expired room instead of reconnecting forever', async () => {
