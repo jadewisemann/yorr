@@ -5,6 +5,7 @@ import com.ssafy.yorr.game.dto.ScoreConfirmationCommand;
 import com.ssafy.yorr.game.dto.ScoreConfirmationResult;
 import com.ssafy.yorr.game.exception.ScoreConfirmationException;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
+import com.ssafy.yorr.game.round.application.GameReconnectSnapshotService;
 import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionResult;
 import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
 import com.ssafy.yorr.game.round.application.RoundTimerService;
@@ -26,6 +27,7 @@ import com.ssafy.yorr.ws.dto.DiceHoldPayload;
 import com.ssafy.yorr.ws.dto.DiceRollPayload;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
+import com.ssafy.yorr.ws.dto.GameState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -69,6 +71,7 @@ class GameWebSocketHandlerTest {
     private ScoreRoundSubmissionService scoreRoundSubmissionService;
     private RoundTimerService roundTimerService;
     private FakeRoomCloseScheduler roomCloseScheduler;
+    private GameReconnectSnapshotService reconnectSnapshotService;
     private TestGameWebSocketHandler handler;
 
     @BeforeEach
@@ -88,6 +91,7 @@ class GameWebSocketHandlerTest {
         );
         roundTimerService = mock(RoundTimerService.class);
         roomCloseScheduler = new FakeRoomCloseScheduler();
+        reconnectSnapshotService = mock(GameReconnectSnapshotService.class);
         when(roomService.getSnapshot(any())).thenAnswer(invocation -> {
             String roomId = invocation.getArgument(0);
             return new RoomSnapshot(
@@ -112,7 +116,8 @@ class GameWebSocketHandlerTest {
                 roundSynchronizationService,
                 roundTimerService,
                 roomService,
-                roomCloseScheduler
+                roomCloseScheduler,
+                reconnectSnapshotService
         );
     }
 
@@ -434,7 +439,8 @@ class GameWebSocketHandlerTest {
                 roundSynchronizationService,
                 roundTimerService,
                 roomService,
-                roomCloseScheduler
+                roomCloseScheduler,
+                reconnectSnapshotService
         );
         when(userService.authenticateSession("token-a"))
                 .thenReturn(new UserIdentity("player-a", "Player A", UserType.GUEST));
@@ -449,6 +455,77 @@ class GameWebSocketHandlerTest {
         ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
         verify(session).sendMessage(captor.capture());
         assertThat(((TextMessage) captor.getValue()).getPayload()).contains("\"you\":\"player-a\"");
+    }
+
+    @Test
+    void reconnectsPlayingMemberWithGameSnapshotAndReplacesPreviousSocket() throws Exception {
+        UserService userService = mock(UserService.class);
+        handler = handlerWith(userService);
+        when(userService.authenticateSession("token-a"))
+                .thenReturn(new UserIdentity("player-a", "Player A", UserType.GUEST));
+
+        WebSocketSession oldSession = session("old-session");
+        WebSocketSession newSession = session("new-session");
+        registry.join("room-a", oldSession, "player-a", "Player A");
+        registry.markPhase("room-a", com.ssafy.yorr.ws.dto.RoomPhase.PLAYING);
+        broadcaster.register("room-a", oldSession);
+
+        var game = new GameState(
+                3,
+                "player-a",
+                1_800_000_000_000L,
+                Map.of("player-a", new ScoreBoard(Map.of("ones", 3), 3, 0, 3)),
+                List.of("player-a")
+        );
+        var reconnectSnapshot = new com.ssafy.yorr.ws.dto.RoomSnapshot(
+                "room-a",
+                com.ssafy.yorr.ws.dto.RoomPhase.PLAYING,
+                "player-a",
+                List.of(),
+                game
+        );
+        when(reconnectSnapshotService.snapshot("room-a", "player-a"))
+                .thenReturn(reconnectSnapshot);
+
+        handler.handle(newSession, joinMessage("token-a", "reconnect-a"));
+
+        ArgumentCaptor<WebSocketMessage<?>> oldCaptor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(oldSession).sendMessage(oldCaptor.capture());
+        assertThat(((TextMessage) oldCaptor.getValue()).getPayload())
+                .contains("\"type\":\"sys.disconnect\"")
+                .contains("\"reason\":\"replaced_by_new_session\"");
+        verify(oldSession).close(CloseStatus.POLICY_VIOLATION);
+
+        ArgumentCaptor<WebSocketMessage<?>> newCaptor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(newSession, times(2)).sendMessage(newCaptor.capture());
+        assertThat(newCaptor.getAllValues().stream()
+                .map(message -> ((TextMessage) message).getPayload())
+                .toList())
+                .anyMatch(json -> json.contains("\"type\":\"sys.reconnected\"")
+                        && json.contains("\"roundNumber\":3")
+                        && json.contains("\"activePlayerId\":\"player-a\"")
+                        && json.contains("\"scores\""))
+                .anyMatch(json -> json.contains("\"type\":\"presence.update\"")
+                        && json.contains("\"status\":\"online\""));
+        assertThat(registry.of(oldSession)).isNull();
+        assertThat(registry.of(newSession).playerId()).isEqualTo("player-a");
+    }
+
+    @Test
+    void rejectsNewPlayerJoiningAnActiveGame() throws Exception {
+        UserService userService = mock(UserService.class);
+        handler = handlerWith(userService);
+        when(userService.authenticateSession("token-b"))
+                .thenReturn(new UserIdentity("player-b", "Player B", UserType.GUEST));
+        registry.join("room-a", session("existing-session"), "player-a", "Player A");
+        registry.markPhase("room-a", com.ssafy.yorr.ws.dto.RoomPhase.PLAYING);
+
+        WebSocketSession newcomer = session("newcomer-session");
+        handler.handle(newcomer, joinMessage("token-b", "join-active"));
+
+        String response = singleResponse(newcomer);
+        assertThat(response).contains("\"code\":\"GAME_ALREADY_STARTED\"");
+        assertThat(registry.of(newcomer)).isNull();
     }
 
     /**
@@ -588,7 +665,8 @@ class GameWebSocketHandlerTest {
                 roundSynchronizationService,
                 roundTimerService,
                 roomService,
-                roomCloseScheduler
+                roomCloseScheduler,
+                reconnectSnapshotService
         );
     }
 
@@ -681,8 +759,12 @@ class GameWebSocketHandlerTest {
     }
 
     private static WebSocketSession sessionWithPlayer(String playerId) {
+        return session(playerId + "-session");
+    }
+
+    private static WebSocketSession session(String sessionId) {
         WebSocketSession session = mock(WebSocketSession.class);
-        when(session.getId()).thenReturn(playerId + "-session");
+        when(session.getId()).thenReturn(sessionId);
         when(session.getAttributes()).thenReturn(new HashMap<>());
         when(session.isOpen()).thenReturn(true);
         return session;
@@ -729,7 +811,8 @@ class GameWebSocketHandlerTest {
                 RoundSynchronizationService roundSynchronizationService,
                 RoundTimerService roundTimerService,
                 RoomService roomService,
-                RoomCloseScheduler roomCloseScheduler
+                RoomCloseScheduler roomCloseScheduler,
+                GameReconnectSnapshotService reconnectSnapshotService
         ) {
             super(
                     objectMapper,
@@ -741,7 +824,8 @@ class GameWebSocketHandlerTest {
                     roundSynchronizationService,
                     roundTimerService,
                     roomService,
-                    roomCloseScheduler
+                    roomCloseScheduler,
+                    reconnectSnapshotService
             );
         }
 

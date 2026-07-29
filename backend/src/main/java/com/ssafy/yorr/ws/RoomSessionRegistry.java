@@ -63,6 +63,12 @@ public class RoomSessionRegistry {
         return member;
     }
 
+    /** 방 안에서 이 playerId가 차지하고 있는 자리. 재접속과 중복 세션 판정에 사용한다. */
+    public Member find(String roomId, String playerId) {
+        Map<String, Member> members = rooms.get(roomId);
+        return members == null ? null : members.get(playerId);
+    }
+
     /**
      * room.leave 또는 대기방 세션 종료 시 명단에서 제거.
      *
@@ -112,6 +118,7 @@ public class RoomSessionRegistry {
         phases.put(roomId, phase);
     }
 
+    /** 현재 방 단계. 아직 기록되지 않은 방은 대기실로 취급한다. */
     public RoomPhase phaseOf(String roomId) {
         return phases.getOrDefault(roomId, RoomPhase.WAITING);
     }

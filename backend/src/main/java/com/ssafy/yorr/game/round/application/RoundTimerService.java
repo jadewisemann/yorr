@@ -18,7 +18,9 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class RoundTimerService {
@@ -41,6 +43,7 @@ public class RoundTimerService {
     private final RoomBroadcaster broadcaster;
     private final GameCompletionService gameCompletionService;
     private final Clock clock;
+    private final Map<String, ActiveDeadline> activeDeadlines = new ConcurrentHashMap<>();
 
     @Autowired
     public RoundTimerService(
@@ -71,6 +74,7 @@ public class RoundTimerService {
         Instant deadline = clock.instant().plus(ROUND_DURATION);
         int roundNumber = state.roundNumber();
         String activePlayerId = state.activePlayerId();
+        activeDeadlines.put(roomId, new ActiveDeadline(roundNumber, deadline));
         // 클라에는 마감 시각을 그대로 알리고, 강제 진행만 EXPIRY_GRACE 뒤로 미룬다.
         deadlineScheduler.schedule(
                 roomId,
@@ -95,10 +99,19 @@ public class RoundTimerService {
 
     public void cancel(String roomId, int roundNumber) {
         deadlineScheduler.cancel(roomId, roundNumber);
+        activeDeadlines.computeIfPresent(roomId, (key, active) ->
+                active.roundNumber() == roundNumber ? null : active);
     }
 
     public void cancelRoom(String roomId) {
         deadlineScheduler.cancelRoom(roomId);
+        activeDeadlines.remove(roomId);
+    }
+
+    /** 재접속 스냅샷이 현재 턴의 서버 마감 시각을 그대로 복원할 때 사용한다. */
+    public Optional<Instant> currentDeadline(String roomId) {
+        ActiveDeadline active = activeDeadlines.get(roomId);
+        return active == null ? Optional.empty() : Optional.of(active.deadline());
     }
 
     /**
@@ -117,7 +130,7 @@ public class RoundTimerService {
                 .orElseGet(() -> round.state().roundNumber());
 
         // 이전 턴 타이머를 가장 먼저 끊는다. 뒤로 밀면 그 사이 만료가 발화해 턴이 두 번 넘어갈 수 있다.
-        deadlineScheduler.cancel(roomId, endedRoundNumber);
+        cancel(roomId, endedRoundNumber);
 
         if (result.score() != null) {
             broadcastScoreUpdate(roomId, result.score(), requestMsgId);
@@ -173,5 +186,8 @@ public class RoundTimerService {
                 roomId,
                 null
         );
+    }
+
+    private record ActiveDeadline(int roundNumber, Instant deadline) {
     }
 }
