@@ -60,7 +60,9 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
       {/* 다이얼로그는 main 밖에 둔다 — Modal이 main에 inert를 걸어 안에 있으면
           모달 자신까지 클릭이 막힌다(GamePage·GameResult와 같은 배치). */}
       <RoomExitGuard onClose={() => setExitRequested(false)} open={exitRequested} roomId={roomId} />
-      <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-5 px-gutter pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-content">
+      {/* 뷰포트 높이로 프레임을 고정하고 페이지 스크롤을 막는다 — 참가자가 많아져도
+          스크롤은 아래 참가자 목록 안에서만 일어난다(QA FND-6, GamePlay와 같은 패턴). */}
+      <main className="mx-auto flex h-svh w-full max-w-2xl flex-col gap-5 overflow-hidden px-gutter pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-content">
         {/* 디자인 03 헤더 — 좌측 타이틀·코드·연결 상태, 우측 나가기. */}
         <header className="flex items-center gap-3 border-b border-border pb-3.5">
           <div className="grid min-w-0 flex-1 gap-1">
@@ -102,7 +104,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
 
         {roomSnapshot && (
           <>
-            <div className="flex items-baseline justify-between">
+            <div className="flex flex-none items-baseline justify-between">
               <span className="text-[15px] font-semibold">참가 인원</span>
               <span className="font-mono text-base font-bold tabular-nums">
                 {roomSnapshot.players.length}
@@ -110,8 +112,10 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
               </span>
             </div>
 
+            {/* min-h-0 + overflow-y-auto: 참가자가 늘어나도 스크롤은 이 목록 안에서만
+                일어난다 — 헤더·초대 카드·시작 버튼은 항상 고정 위치에 남는다(QA FND-6). */}
             <section
-              className="grid gap-2.5"
+              className="grid min-h-0 flex-1 auto-rows-min gap-2.5 overflow-y-auto"
               aria-label={`참가자 ${roomSnapshot.players.length}명`}
             >
               {roomSnapshot.players.map((player) => (
@@ -135,7 +139,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
               )}
             </section>
 
-            <div className="mt-auto grid gap-2 border-t border-border pt-3.5 text-center">
+            <div className="grid flex-none gap-2 border-t border-border pt-3.5 text-center">
               <Button
                 size="lg"
                 className="min-h-[3.625rem] w-full rounded-panel text-lg"
