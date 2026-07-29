@@ -33,7 +33,17 @@ export interface YachtGameState {
 }
 
 export type YachtGameAction =
-  | { type: 'rollRequested'; requestId: string; targetDice: DiceSet; held?: HeldDice }
+  /**
+   * `forced`는 서버가 마감 시각에 대신 굴린 결과를 뜻한다. 서버 상태가 이미 그 값으로 확정됐으니
+   * 로컬 phase가 무엇이든(애니메이션 중이라도) 받아들여야 한다 — 거부하면 화면만 뒤처진다.
+   */
+  | {
+      type: 'rollRequested'
+      requestId: string
+      targetDice: DiceSet
+      held?: HeldDice
+      forced?: boolean
+    }
   | { type: 'rollCompleted'; requestId: string; dice: DiceSet }
   | { type: 'holdToggled'; index: DiceIndex }
   | { type: 'categorySelected'; category: YachtCategory }
@@ -66,7 +76,7 @@ export function createYachtGame(seed: number, roundNumber = 1): YachtGameState {
 export function yachtGameReducer(state: YachtGameState, action: YachtGameAction): YachtGameState {
   switch (action.type) {
     case 'rollRequested':
-      return requestRoll(state, action.requestId, action.targetDice, action.held)
+      return requestRoll(state, action.requestId, action.targetDice, action.held, action.forced)
     case 'rollCompleted':
       return completeRoll(state, action.requestId, action.dice)
     case 'holdToggled':
@@ -109,8 +119,13 @@ function requestRoll(
   requestId: string,
   targetDice: DiceSet,
   heldOverride?: HeldDice,
+  forced = false,
 ): YachtGameState {
-  const canRoll = (state.phase === 'ready' || state.phase === 'choosing') && state.rollCount < 3
+  // 서버가 대신 굴린 결과는 이미 확정된 사실이라 phase 게이트를 통과시킨다.
+  // 굴림 예산은 서버가 지키므로 rollCount 상한만 남긴다.
+  const canRoll = forced
+    ? state.phase !== 'roundComplete' && state.rollCount < 3
+    : (state.phase === 'ready' || state.phase === 'choosing') && state.rollCount < 3
   if (!canRoll) return state
 
   return {

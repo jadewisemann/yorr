@@ -30,7 +30,7 @@ import type { MotionAvailability, MotionGestureEvent } from '@/input/motionTypes
 import type { RollInputMode } from '@/input/RollIntent'
 import { useMotionRollInput } from '@/input/useMotionRollInput'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
-import type { Player, PlayerId, RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
+import type { ErrorPayload, Player, PlayerId, RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
 import { buildClientMessage } from '@/realtime/wsEvents'
 import type { PhysicsDiceMotionPulse } from '@/rendering/physics-dice/types'
 import { type ActiveRoomSession, useAppStore } from '@/store'
@@ -122,6 +122,9 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   const rolling = local.phase === 'rolling' || requestingRoll
   // 기록은 점수표·퀵 칩을 탭하는 원큐 흐름이다(디자인 Yacht Play Screens). CTA는 굴리기 하나만 남는다.
   const canPick = !locked && !submitting && local.phase === 'choosing'
+  // 내 턴이 아니면 트레이는 관전 화면이다. 여기서 홀드를 토글하면 서버가 모르는 킵이 생겨
+  // 다음 굴림·마감 자동 굴림이 화면과 다르게 동작한다.
+  const canHold = !locked && !submitted && local.phase === 'choosing' && local.rollCount < MAX_ROLLS
 
   // 디자인의 한 장 점수시트 — 모든 플레이어를 열로 눕힌다. 내 열이 항상 첫 번째다.
   const sheetPlayers = toMatrixPlayers(snapshot.players, game?.scores, session.you)
@@ -158,11 +161,37 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
     [dispatch, realtimeClient, roomId, roundNumber, showToast],
   )
 
+  // 서버 마감 처리로 점수가 들어왔을 때 "무엇이 기록됐는지"를 알리기 위해 직전 점수판을 들고 있는다.
+  // 렌더 시점의 값이라 리스너 안에서는 항상 갱신 전 상태다 — 그게 diff의 기준이다.
+  const previousBoardRef = useRef(myBoard)
+  previousBoardRef.current = myBoard
+  const autoRecordedRoundRef = useRef<number | null>(null)
+
   useEffect(
     () =>
       realtimeClient.onMessage((message) => {
         const pending = pendingSubmissionRef.current
-        if (!pending) return
+        if (!pending) {
+          // 내가 보낸 제출이 없는데 내 점수가 갱신됐다 = 서버가 마감 처리로 대신 기록했다.
+          // 점수판만 조용히 바뀌면 왜 그 칸이 채워졌는지 알 수 없어 라운드 파악이 어려워진다.
+          if (
+            message.type === 'score.update' &&
+            message.payload.playerId === session.you &&
+            autoRecordedRoundRef.current !== roundNumber
+          ) {
+            const recorded = newlyRecordedCategory(
+              previousBoardRef.current,
+              message.payload.scoreboard,
+            )
+            if (recorded) {
+              autoRecordedRoundRef.current = roundNumber
+              showToast(
+                `시간이 지나 ${categoryLabel[recorded[0]]} ${recorded[1]}점으로 자동 기록됐어요.`,
+              )
+            }
+          }
+          return
+        }
 
         if (
           message.type === 'score.update' &&
@@ -180,10 +209,10 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
           pendingSubmissionRef.current = null
           dispatch({ type: 'submissionFailed' })
           setSubmitting(false)
-          showToast(message.payload.message)
+          showToast(turnAwareErrorMessage(message.payload))
         }
       }),
-    [dispatch, realtimeClient, session.you, showToast],
+    [dispatch, realtimeClient, roundNumber, session.you, showToast],
   )
 
   const rollSequenceRef = useRef(0)
@@ -245,15 +274,18 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
           }
 
           const ownRoll = message.payload.playerId === session.you
+          // 마감 시각이 지나 서버가 대신 굴린 결과. 내가 요청한 게 아니어도 반영해야 한다 —
+          // 서버 상태는 이미 이 값이고, 버리면 다음 굴림·기록이 전부 어긋난다.
+          const forced = message.payload.auto === true
           const pending = pendingRollRequestRef.current
-          if (ownRoll && (!pending || message.msgId !== pending.msgId)) return
+          if (ownRoll && !forced && (!pending || message.msgId !== pending.msgId)) return
 
-          const requestId = ownRoll
-            ? (pending?.requestId ?? `own-${message.msgId ?? message.ts}`)
-            : `remote-${message.payload.playerId}-${message.payload.roundNumber}-${message.payload.rollCount}-${message.msgId ?? message.ts}`
-          const animationMode: RollAnimationMode = ownRoll
-            ? (pending?.inputMode ?? 'tap')
-            : 'remote'
+          const requestId =
+            ownRoll && !forced
+              ? (pending?.requestId ?? `own-${message.msgId ?? message.ts}`)
+              : `${forced ? 'auto' : 'remote'}-${message.payload.playerId}-${message.payload.roundNumber}-${message.payload.rollCount}-${message.msgId ?? message.ts}`
+          const animationMode: RollAnimationMode =
+            ownRoll && !forced ? (pending?.inputMode ?? 'tap') : 'remote'
 
           pendingRollRequestRef.current = null
           setRequestingRoll(false)
@@ -261,10 +293,14 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
           setRollInputMode(animationMode)
           dispatch({
             type: 'rollRequested',
+            forced,
             held: message.payload.held as HeldDice,
             requestId,
             targetDice: message.payload.dice,
           })
+          if (ownRoll && forced) {
+            showToast(`시간이 지나 서버가 ${message.payload.rollCount}번째 주사위를 굴렸어요.`)
+          }
           if (ownRoll && queuedMotionReleaseRef.current) {
             queuedMotionReleaseRef.current = false
             setReleaseRequestId(requestId)
@@ -277,7 +313,7 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
           pendingRollRequestRef.current = null
           setRequestingRoll(false)
           setRollInputMode(null)
-          showToast(message.payload.message)
+          showToast(turnAwareErrorMessage(message.payload))
         }
       }),
     [activePlayerId, dispatch, realtimeClient, roomId, roundNumber, session.you, showToast],
@@ -382,18 +418,6 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
     if (local.phase === 'choosing' && local.rollCount >= MAX_ROLLS) setSheetOpen(true)
   }, [local.phase, local.rollCount, submitted, wide])
 
-  useTimeoutAutoRecord({
-    candidates,
-    // 'choosing'이 아니면 reducer가 기록 전이를 거부한다. 서버에만 기록되는 어긋남을 막는다.
-    enabled: isMyTurn && !locked && !submitted && local.phase === 'choosing' && local.dice !== null,
-    expired: game?.roundDeadline !== undefined && remainingMs <= 0,
-    onRecord: (category, score) => {
-      showToast(`시간이 지나 ${categoryLabel[category]} ${score}점이 기록됐습니다.`)
-      submitCategory(category)
-    },
-    roundNumber,
-  })
-
   useShortcuts(wide && isMyTurn, { onRoll: handleRoll, dispatch })
 
   const playerBadges = (
@@ -444,7 +468,10 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
         motionPulse={motionPulse}
         releaseRequestId={releaseRequestId}
         onError={() => feedbackRef.current?.error()}
-        onHeldToggle={(index) => dispatch({ type: 'holdToggled', index })}
+        onHeldToggle={(index) => {
+          if (!canHold) return
+          dispatch({ type: 'holdToggled', index })
+        }}
         onRollComplete={completeRoll}
         request={pendingRoll}
       />
@@ -616,12 +643,7 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
   )
 
   // 킵 레일을 통째로 비우는 보조 동작(디자인 Yacht Play 3D의 Release all).
-  const canReleaseAll =
-    keptCount > 0 &&
-    !locked &&
-    !submitted &&
-    local.phase === 'choosing' &&
-    local.rollCount < MAX_ROLLS
+  const canReleaseAll = keptCount > 0 && canHold
   const releaseAll = () => {
     local.held.forEach((isHeld, index) => {
       if (isHeld) dispatch({ type: 'holdToggled', index: index as DiceIndex })
@@ -852,34 +874,27 @@ function useShortcuts(
 }
 
 /**
- * 시간이 다 되면 남은 족보 중 최고 점수를 자동 기록한다. 조작을 막는 모달은 띄우지 않는다.
- * ⚠️ 이 규칙(최고점 자동 vs 최저 손실)은 와이어프레임 1d에서 제품 결정 대기 항목이다.
+ * 마감 처리는 서버가 한다 — 남은 굴림이 있으면 대신 굴리고, 다 쓰면 남은 족보 중 하나를 기록한 뒤
+ * 턴을 넘긴다(RoundTimeoutResolver). 클라이언트가 같은 일을 하면 두 경로가 경합하면서 어느 쪽도
+ * 기록되지 않는 창이 생기므로 여기서는 아무것도 하지 않는다.
  */
-function useTimeoutAutoRecord({
-  candidates,
-  enabled,
-  expired,
-  onRecord,
-  roundNumber,
-}: {
-  candidates: CategoryScores
-  enabled: boolean
-  expired: boolean
-  onRecord: (category: YachtCategory, score: number) => void
-  roundNumber: number
-}) {
-  const latestRef = useRef({ candidates, onRecord })
-  const recordedRoundRef = useRef<number | null>(null)
-  latestRef.current = { candidates, onRecord }
+function turnAwareErrorMessage(payload: ErrorPayload): string {
+  if (payload.code === 'NOT_YOUR_TURN') return '지금은 내 차례가 아니에요.'
+  return payload.message
+}
 
-  useEffect(() => {
-    if (!expired || !enabled) return
-    if (recordedRoundRef.current === roundNumber) return
-    const best = topCandidates(latestRef.current.candidates)[0]
-    if (!best) return
-    recordedRoundRef.current = roundNumber
-    latestRef.current.onRecord(best[0], best[1])
-  }, [enabled, expired, roundNumber])
+/** 두 점수판을 비교해 이번에 새로 채워진 족보 하나를 찾는다. 없으면 null. */
+function newlyRecordedCategory(
+  previous: ScoreBoard | undefined,
+  next: ScoreBoard,
+): [YachtCategory, number] | null {
+  for (const category of YACHT_CATEGORIES) {
+    const after = next.categories[category]
+    if (after !== null && after !== undefined && !isRecorded(previous?.categories[category])) {
+      return [category, after]
+    }
+  }
+  return null
 }
 
 function topCandidates(candidates: CategoryScores): Array<[YachtCategory, number]> {

@@ -379,7 +379,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                                             state.roundNumber(),
                                             state.activeRollCount(),
                                             state.activeDice(),
-                                            payload.held()
+                                            payload.held(),
+                                            false
                                     )
                             )
                             .withRoomId(roomId)
@@ -429,15 +430,17 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private static WsErrorCode toWsErrorCode(RoundSynchronizationException.Reason reason) {
         return switch (reason) {
             case PLAYER_NOT_IN_ROUND -> WsErrorCode.NOT_IN_ROOM;
+            // 남의 턴에 굴리거나 기록하려 한 경우 · 이미 제출을 끝낸 턴을 또 건드린 경우.
+            // 클라이언트가 "지금은 내 차례가 아니다"로 구분해 안내할 수 있게 전용 코드를 준다.
+            case NOT_ACTIVE_PLAYER,
+                 ALREADY_SUBMITTED -> WsErrorCode.NOT_YOUR_TURN;
             case INVALID_ROUND,
                  INVALID_PLAYER,
                  INVALID_DICE,
                  INVALID_ROLL,
                  INVALID_CATEGORY,
                  ROUND_ALREADY_INITIALIZED,
-                 ROUND_MISMATCH,
-                 NOT_ACTIVE_PLAYER,
-                 ALREADY_SUBMITTED -> WsErrorCode.INVALID_MESSAGE;
+                 ROUND_MISMATCH -> WsErrorCode.INVALID_MESSAGE;
             case ROUND_NOT_INITIALIZED -> WsErrorCode.INTERNAL;
         };
     }

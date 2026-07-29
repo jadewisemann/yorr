@@ -1,7 +1,13 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPlayingRoomSnapshot, creatorSession, participantSession } from '@/mocks/fixtures'
+import {
+  createEmptyScoreBoard,
+  createPlayingRoomSnapshot,
+  creatorSession,
+  participantSession,
+  serverMessage,
+} from '@/mocks/fixtures'
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import { buildClientMessage } from '@/realtime/wsEvents'
@@ -47,13 +53,15 @@ const { snapshot: _snapshot, ...session } = creatorSession
 
 function renderGame() {
   const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
+  const client = createRealtimeFixture()
   useAppStore.setState({ connectionStatus: 'connected', roomSnapshot: snapshot })
   return {
     ...render(
-      <RealtimeClientProvider client={createRealtimeFixture()}>
+      <RealtimeClientProvider client={client}>
         <GamePlay roomId={session.roomId} session={session} snapshot={snapshot} />
       </RealtimeClientProvider>,
     ),
+    client,
     user: userEvent.setup(),
   }
 }
@@ -70,6 +78,7 @@ function renderObserver() {
       </RealtimeClientProvider>,
     ),
     client,
+    user: userEvent.setup(),
   }
 }
 
@@ -113,6 +122,79 @@ describe('GamePlay', () => {
       'remote-player-creator-1-1-remote-roll-1',
     )
     expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
+  })
+
+  it('applies the server timeout roll even though the player never requested it', async () => {
+    const { client, user } = renderGame()
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'dice.broadcast',
+          {
+            auto: true,
+            dice: [6, 6, 6, 6, 6],
+            held: [false, false, false, false, false],
+            playerId: creatorSession.you,
+            rollCount: 1,
+            roundNumber: 1,
+          },
+          { roomId: creatorSession.roomId },
+        ),
+      )
+    })
+
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-target', '6,6,6,6,6')
+    expect(await screen.findByText(/시간이 지나 서버가 1번째 주사위를 굴렸어요/)).toBeVisible()
+
+    // 서버가 쓴 굴림 1회가 로컬 카운터에도 반영돼 남은 굴림이 2회로 줄어든다.
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    expect(screen.getByText('굴림 2회 남음')).toBeVisible()
+  })
+
+  it('tells the player which category the server recorded on their behalf', async () => {
+    const { client } = renderGame()
+    const board = createEmptyScoreBoard()
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'score.update',
+          {
+            playerId: creatorSession.you,
+            scoreboard: { ...board, categories: { ...board.categories, choice: 20 }, total: 20 },
+          },
+          { roomId: creatorSession.roomId },
+        ),
+      )
+    })
+
+    expect(await screen.findByText(/시간이 지나 Choice 20점으로 자동 기록됐어요/)).toBeVisible()
+  })
+
+  it('ignores dice holds while another player owns the turn', async () => {
+    const { client, user } = renderObserver()
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'dice.broadcast',
+          {
+            dice: [6, 5, 4, 3, 2],
+            held: [false, false, false, false, false],
+            playerId: creatorSession.you,
+            rollCount: 1,
+            roundNumber: 1,
+          },
+          { roomId: participantSession.roomId },
+        ),
+      )
+    })
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+
+    // 관전자가 트레이를 탭해도 킵이 생기지 않는다 — 서버가 모르는 킵은 다음 굴림을 어긋나게 한다.
+    await user.click(screen.getByRole('button', { name: '첫 주사위 킵' }))
+    expect(screen.getByText('킵 레일 · 비어 있음')).toBeVisible()
   })
 
   it('previews scores on the quick strip once dice have settled', async () => {

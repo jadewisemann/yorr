@@ -14,6 +14,8 @@ public enum WsErrorCode {
     NOT_IN_ROOM,
     ALREADY_IN_ROOM,
     GAME_ALREADY_STARTED,
+    /** 내 턴이 아닌데 굴림·기록을 시도했다. 클라이언트는 조작을 되돌리고 안내만 띄운다. */
+    NOT_YOUR_TURN,
     INVALID_MESSAGE,
     RATE_LIMITED,
     INTERNAL

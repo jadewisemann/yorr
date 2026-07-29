@@ -98,6 +98,27 @@ public class InMemoryRoundStateStore implements RoundStateStore {
     }
 
     @Override
+    public Optional<RoundState> autoRollAtomically(
+            String roomId,
+            int expectedRoundNumber,
+            String expectedActivePlayerId,
+            List<Integer> rolledDice
+    ) {
+        validateRoomId(roomId);
+        AtomicReference<RoundState> resultHolder = new AtomicReference<>();
+        states.computeIfPresent(roomId, (key, currentState) -> {
+            if (isStaleTurn(currentState, expectedRoundNumber, expectedActivePlayerId)
+                    || !currentState.hasRollsLeft()) {
+                return currentState;
+            }
+            RoundState result = currentState.autoRoll(rolledDice);
+            resultHolder.set(result);
+            return result;
+        });
+        return Optional.ofNullable(resultHolder.get());
+    }
+
+    @Override
     public Optional<RoundSubmissionResult> expireAtomically(
             String roomId,
             int expectedRoundNumber,
@@ -106,8 +127,7 @@ public class InMemoryRoundStateStore implements RoundStateStore {
         validateRoomId(roomId);
         AtomicReference<RoundSubmissionResult> resultHolder = new AtomicReference<>();
         states.computeIfPresent(roomId, (key, currentState) -> {
-            if (currentState.roundNumber() != expectedRoundNumber
-                    || !currentState.activePlayerId().equals(expectedActivePlayerId)) {
+            if (isStaleTurn(currentState, expectedRoundNumber, expectedActivePlayerId)) {
                 return currentState;
             }
             RoundSubmissionResult result = currentState.expire();
@@ -115,6 +135,15 @@ public class InMemoryRoundStateStore implements RoundStateStore {
             return result.state();
         });
         return Optional.ofNullable(resultHolder.get());
+    }
+
+    private static boolean isStaleTurn(
+            RoundState currentState,
+            int expectedRoundNumber,
+            String expectedActivePlayerId
+    ) {
+        return currentState.roundNumber() != expectedRoundNumber
+                || !currentState.activePlayerId().equals(expectedActivePlayerId);
     }
 
     @Override

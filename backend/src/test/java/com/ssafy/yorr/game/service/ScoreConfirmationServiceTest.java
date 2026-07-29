@@ -55,6 +55,16 @@ class ScoreConfirmationServiceTest {
     }
 
     @Test
+    void listsOnlyCategoriesThatAreStillEmpty() {
+        store.scoreboard = new ScoreBoard(Map.of("yacht", 0, "fullHouse", 19), 0, 0, 19);
+
+        assertThat(service.openCategories("game-1", "player-1"))
+                .doesNotContain(ScoreCategory.YACHT, ScoreCategory.FULL_HOUSE)
+                .hasSize(ScoreCategory.values().length - 2)
+                .startsWith(ScoreCategory.ACES);
+    }
+
+    @Test
     void rejectsUnknownCategory() {
         assertThatThrownBy(() -> service.confirm(command(
                 1,
@@ -121,6 +131,11 @@ class ScoreConfirmationServiceTest {
             this.category = category;
             this.score = score;
             this.requestSignature = requestSignature;
+            return scoreboard;
+        }
+
+        @Override
+        public ScoreBoard findScoreBoard(String gameId, String playerId) {
             return scoreboard;
         }
     }

@@ -21,33 +21,34 @@ public class RoundTimerService {
     /**
      * 강제 진행을 마감 시각보다 이만큼 늦춘다.
      * <p>
-     * 클라이언트는 마감 시각에 남은 족보 중 최고점을 round.submit으로 자동 기록한다. 서버가 마감
-     * 즉시 턴을 넘기면 그 요청이 NOT_ACTIVE_PLAYER로 거절되고, 점수는 본인·상대 어느 점수판에도
-     * 남지 않는다(score.update가 아예 발행되지 않음). 왕복 시간과 클라 시계 오차를 흡수할 만큼만 준다.
+     * 마감 처리 자체는 서버가 한다({@link RoundTimeoutResolver}). 다만 플레이어가 마감 직전에
+     * 누른 round.submit이 아직 날아오는 중일 수 있고, 그 요청이 NOT_YOUR_TURN으로 거절되면
+     * 본인이 고른 족보 대신 서버가 고른 족보가 기록된다. 왕복 시간과 클라 시계 오차를 흡수할
+     * 만큼만 준다.
      */
-    static final Duration EXPIRY_GRACE = Duration.ofSeconds(3);
+    static final Duration EXPIRY_GRACE = Duration.ofSeconds(1);
 
-    private final RoundSynchronizationService roundSynchronizationService;
+    private final RoundTimeoutResolver timeoutResolver;
     private final RoundDeadlineScheduler deadlineScheduler;
     private final RoomBroadcaster broadcaster;
     private final Clock clock;
 
     @Autowired
     public RoundTimerService(
-            RoundSynchronizationService roundSynchronizationService,
+            RoundTimeoutResolver timeoutResolver,
             RoundDeadlineScheduler deadlineScheduler,
             RoomBroadcaster broadcaster
     ) {
-        this(roundSynchronizationService, deadlineScheduler, broadcaster, Clock.systemUTC());
+        this(timeoutResolver, deadlineScheduler, broadcaster, Clock.systemUTC());
     }
 
     RoundTimerService(
-            RoundSynchronizationService roundSynchronizationService,
+            RoundTimeoutResolver timeoutResolver,
             RoundDeadlineScheduler deadlineScheduler,
             RoomBroadcaster broadcaster,
             Clock clock
     ) {
-        this.roundSynchronizationService = roundSynchronizationService;
+        this.timeoutResolver = timeoutResolver;
         this.deadlineScheduler = deadlineScheduler;
         this.broadcaster = broadcaster;
         this.clock = clock;
@@ -81,8 +82,16 @@ public class RoundTimerService {
     }
 
     private void expireAndBroadcast(String roomId, int roundNumber, String activePlayerId) {
-        roundSynchronizationService.expire(roomId, roundNumber, activePlayerId)
-                .ifPresent(result -> advanceAndBroadcast(roomId, result));
+        RoundTimeoutResolution resolution =
+                timeoutResolver.resolve(roomId, roundNumber, activePlayerId);
+        switch (resolution.kind()) {
+            // 서버가 대신 굴렸을 뿐 턴 주인은 그대로다. 같은 턴에 남은 굴림을 쓸 시간을 다시 준다.
+            case AUTO_ROLLED -> start(roomId, roundNumber, activePlayerId);
+            case ADVANCED -> advanceAndBroadcast(roomId, resolution.advanced());
+            case STALE -> {
+                // 플레이어가 직접 제출해 이미 턴이 넘어갔다. 그쪽 경로가 타이머를 다시 걸었다.
+            }
+        }
     }
 
     private void advanceAndBroadcast(String roomId, RoundSubmissionResult result) {

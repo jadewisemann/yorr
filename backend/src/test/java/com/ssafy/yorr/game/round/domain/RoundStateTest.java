@@ -71,6 +71,53 @@ class RoundStateTest {
     }
 
     @Test
+    void autoRollKeepsTheDiceHeldOnTheLastRollAndConsumesOneRoll() {
+        RoundState afterFirstRoll = RoundState.start(1, List.of("player-a"))
+                .recordRoll("player-a", 1, 1, noHeld(), List.of(6, 6, 6, 2, 1));
+        RoundState afterSecondRoll = afterFirstRoll.recordRoll(
+                "player-a",
+                1,
+                2,
+                List.of(true, true, true, false, false),
+                List.of(1, 1, 1, 5, 5)
+        );
+
+        RoundState autoRolled = afterSecondRoll.autoRoll(List.of(4, 4, 4, 4, 4));
+
+        assertThat(afterSecondRoll.activeHeld()).containsExactly(true, true, true, false, false);
+        assertThat(autoRolled.activeRollCount()).isEqualTo(3);
+        assertThat(autoRolled.hasRollsLeft()).isFalse();
+        // 킵한 6·6·6은 살아남고 나머지 두 칸만 다시 굴렸다.
+        assertThat(autoRolled.activeDice()).containsExactly(6, 6, 6, 4, 4);
+    }
+
+    @Test
+    void autoRollRerollsEverythingWhenThePlayerNeverRolled() {
+        RoundState state = RoundState.start(1, List.of("player-a"));
+
+        RoundState autoRolled = state.autoRoll(List.of(3, 3, 3, 3, 3));
+
+        assertThat(autoRolled.activeRollCount()).isEqualTo(1);
+        assertThat(autoRolled.activeDice()).containsExactly(3, 3, 3, 3, 3);
+        assertThat(autoRolled.activePlayerId()).isEqualTo("player-a");
+    }
+
+    @Test
+    void rejectsAutoRollWhenTheRollBudgetIsSpent() {
+        RoundState state = RoundState.start(1, List.of("player-a"))
+                .recordRoll("player-a", 1, 1, noHeld(), List.of(1, 2, 3, 4, 5))
+                .recordRoll("player-a", 1, 2, noHeld(), List.of(1, 2, 3, 4, 5))
+                .recordRoll("player-a", 1, 3, noHeld(), List.of(1, 2, 3, 4, 5));
+
+        assertThat(state.hasRollsLeft()).isFalse();
+        assertThatThrownBy(() -> state.autoRoll(List.of(6, 6, 6, 6, 6)))
+                .isInstanceOfSatisfying(RoundSynchronizationException.class, exception ->
+                        assertThat(exception.reason())
+                                .isEqualTo(RoundSynchronizationException.Reason.INVALID_ROLL)
+                );
+    }
+
+    @Test
     void rejectsSkippedOrDuplicateRollCounts() {
         RoundState state = RoundState.start(1, List.of("player-a"));
 

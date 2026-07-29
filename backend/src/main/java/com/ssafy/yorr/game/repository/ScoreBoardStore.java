@@ -13,4 +13,7 @@ public interface ScoreBoardStore {
             int score,
             String requestSignature
     );
+
+    /** 확정된 점수만 담긴 현재 점수판. 아직 기록하지 않은 족보는 값이 null이다. */
+    ScoreBoard findScoreBoard(String gameId, String playerId);
 }
