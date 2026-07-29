@@ -22,3 +22,7 @@ Thumbs.db
 
 # CodeGraph index
 .codegraph/
+
+# Local planning and reference materials
+/docs/
+/.dev.md
