@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -71,8 +71,7 @@ function renderGame() {
   }
 }
 
-function renderObserver() {
-  const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
+function renderObserver(snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)) {
   const client = createRealtimeFixture({ role: 'creator' })
   const { snapshot: _participantSnapshot, ...observerSession } = participantSession
   useAppStore.setState({ connectionStatus: 'connected', roomSnapshot: snapshot })
@@ -132,6 +131,47 @@ describe('GamePlay', () => {
       'remote-player-creator-1-1-remote-roll-1',
     )
     expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
+  })
+
+  it('previews a remote roll in the active player column', async () => {
+    const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
+    const creatorBoard = snapshot.game?.scores[creatorSession.you]
+    if (!snapshot.game || !creatorBoard) throw new Error('playing snapshot is missing game scores')
+    snapshot.game.scores[creatorSession.you] = {
+      ...creatorBoard,
+      categories: { ...creatorBoard.categories, ones: 1 },
+      upperSubtotal: 1,
+      total: 1,
+    }
+
+    const { client, user } = renderObserver(snapshot)
+    expect(screen.getByText('기록 — 느긋한 주사위')).toBeVisible()
+
+    act(() => {
+      client.send(
+        buildClientMessage(
+          'dice.roll',
+          {
+            held: [false, false, false, false, false],
+            rollCount: 1,
+            roundNumber: 1,
+          },
+          { roomId: participantSession.roomId, msgId: 'remote-preview-1' },
+        ),
+      )
+    })
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+
+    const scoreSheet = screen.getByRole('region', { name: '플레이어별 점수표' })
+    const choiceRow = within(scoreSheet).getByText('초이스').closest('div')
+    expect(choiceRow).not.toBeNull()
+    if (!choiceRow) return
+    expect(Array.from(choiceRow.children, (cell) => cell.textContent)).toEqual([
+      '초이스',
+      '·',
+      '20',
+    ])
+    expect(screen.queryByRole('button', { name: '에이스 0점 기록' })).not.toBeInTheDocument()
   })
 
   it('applies the server timeout roll even though the player never requested it', async () => {
