@@ -31,7 +31,7 @@ export function RoundTimer({
   return (
     <div className={cn('flex items-center gap-3', className)}>
       {!compact && (
-        <span className="flex-none border-2 border-content px-3 py-1.5 text-xs font-bold text-content">
+        <span className="flex-none rounded-control border border-border px-3 py-1.5 text-xs font-bold text-content">
           라운드 {roundNumber}/{totalRounds}
         </span>
       )}
@@ -51,7 +51,7 @@ export function RoundTimer({
             {formatCountdown(remainingMs)}
           </span>
         </div>
-        <div className="mt-1 h-[7px] overflow-hidden bg-surface-sunken">
+        <div className="mt-1 h-[7px] overflow-hidden rounded-full bg-surface-sunken">
           {/* width 대신 scaleX로 줄인다 — 레이아웃을 건드리지 않고 합성만으로 처리된다. */}
           <div
             className={cn(

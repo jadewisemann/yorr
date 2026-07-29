@@ -86,7 +86,7 @@ export function RecordPanel({
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: 위와 동일 — 이 탭은 포인터 사용자용 지름길이다 */}
       <div
         className={cn(
-          'absolute inset-x-0 bottom-0 z-sheet flex h-[78%] flex-col border-t-2 border-content bg-canvas shadow-overlay transition-transform duration-base ease-snappy',
+          'absolute inset-x-0 bottom-0 z-sheet flex h-[78%] flex-col rounded-t-sheet border-t border-border bg-canvas shadow-overlay transition-transform duration-base ease-snappy',
           // peek: 손잡이(2.75rem) + 퀵 칩 영역(5.75rem)만 남기고 아래로 밀어둔다.
           open ? 'translate-y-0' : 'translate-y-[calc(100%-8.5rem)] cursor-pointer',
         )}
@@ -127,7 +127,7 @@ export function RecordPanel({
           </button>
         </div>
 
-        <div className="flex-none border-b-2 border-content pb-3">{quick}</div>
+        <div className="flex-none border-b border-border pb-3">{quick}</div>
 
         <div className="min-h-0 flex-1 overflow-hidden" id={sheetId}>
           {children}

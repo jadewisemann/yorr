@@ -99,20 +99,20 @@
 }
 
 :root {
-  /* Modernist 디자인 시스템(Yacht Play Screens)의 구조 + 기존 다크 네이비·옐로 팔레트.
+  /* S15P11A406-105 디자인 레퍼런스 팔레트 — 웜 다크(진갈색·블랙) 배경 + 골드 액센트.
      Archivo는 한글 글리프가 없어 한글은 자연히 뒤의 Pretendard·Noto Sans KR로 떨어진다. */
   --ds-font-sans:
     Archivo, Pretendard, "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
-  --ds-color-canvas: #172033;
-  --ds-color-surface: #222d43;
-  --ds-color-surface-raised: #2b3852;
-  --ds-color-border: #42516e;
-  --ds-color-content: #f7f8fb;
-  --ds-color-content-muted: #bac3d4;
-  --ds-color-brand: #f7cb55;
-  --ds-color-brand-strong: #ffe198;
-  --ds-color-on-brand: #172033;
+  --ds-color-canvas: #17130c;
+  --ds-color-surface: #221c12;
+  --ds-color-surface-raised: #2b2418;
+  --ds-color-border: #4a4030;
+  --ds-color-content: #f5eedd;
+  --ds-color-content-muted: #c7bca2;
+  --ds-color-brand: #e9c46a;
+  --ds-color-brand-strong: #f6dfa0;
+  --ds-color-on-brand: #1d1508;
   --ds-color-positive: #69d79c;
   --ds-color-danger: #ff8d94;
   --ds-color-focus: #8ecbff;
@@ -122,9 +122,9 @@
   --ds-color-physics-danger: #ff523f;
   /* 3D 트레이 UI(디자인 Yacht Play 3D) — 질감 없는 평면 배색.
      롤링 존(tray)보다 킵 레일(rail)이 한 단계 밝고, 빈 슬롯 바는 slot을 쓴다. */
-  --ds-physics-tray: #10182a;
-  --ds-color-physics-rail: #1e2941;
-  --ds-color-physics-slot: #42516e;
+  --ds-physics-tray: #120e07;
+  --ds-color-physics-rail: #201a0f;
+  --ds-color-physics-slot: #4a4030;
 
   /* 랜딩 히어로 전용 팔레트. 앱 본편(canvas/surface/brand)보다 어둡고 채도가 낮은
      별도 계열이라 semantic 토큰을 재사용하지 않고 landing 네임스페이스로 분리한다. */
@@ -177,11 +177,20 @@
 
   /* 1d 신규 3색 — muted가 "보조 텍스트"와 "미기입·비활성"을 겸해 위계가 2단뿐이라
      content-faint를 분리하고, 킵 트레이·시트 배경 구분용 sunken과 scrim을 추가한다. */
-  --ds-color-surface-sunken: #1c2639;
-  /* surface 위 4.70:1, sunken 위 5.11:1, canvas 위 5.55:1 — 9~12px 본문에 쓰이므로
-     WCAG 1.4.3 일반 텍스트 기준 4.5:1을 넘겨야 한다(직전 #5f6b81은 2.56:1로 미달). */
-  --ds-color-content-faint: #8b97ad;
-  --ds-color-scrim: rgb(10 15 26 / 66%);
+  --ds-color-surface-sunken: #1c170e;
+  /* surface 위 5.6:1, canvas 위 6.1:1 — 9~12px 본문에 쓰이므로
+     WCAG 1.4.3 일반 텍스트 기준 4.5:1을 넘겨야 한다. */
+  --ds-color-content-faint: #a2937c;
+  --ds-color-scrim: rgb(10 8 4 / 66%);
+  /* 굴림 콜아웃 골드 텍스트의 화이트 글로우 — 외곽선 대신 글자에서 빛이 퍼지는 느낌으로
+     3D 트레이 위에서 글자를 띄운다. 팝 애니메이션이 0에서 이 값까지 키운다. */
+  --ds-callout-glow:
+    0 0 0.04em rgb(255 252 240 / 95%), 0 0 0.16em rgb(255 248 224 / 65%),
+    0 0 0.45em rgb(255 240 200 / 40%), 0 0.08em 0.6em rgb(0 0 0 / 35%);
+  --ds-callout-glow-none:
+    0 0 0 rgb(255 252 240 / 0%), 0 0 0 rgb(255 248 224 / 0%), 0 0 0 rgb(255 240 200 / 0%),
+    0 0 0 rgb(0 0 0 / 0%);
+
   /* "사용 완료" 족보의 빗금. 색 말고 패턴으로도 구분되게 하는 두 번째 채널이다. */
   --ds-hatch-used: repeating-linear-gradient(
     45deg,
@@ -195,13 +204,13 @@
   --ds-size-content: 72rem;
   /* 화면 좌우 거터 — 390px에서 20px, 320px에서 16px. */
   --ds-size-gutter: 1.25rem;
-  /* Modernist는 radius 0 — 각진 모서리가 시스템의 정체성이다. */
-  --ds-radius-control: 0px;
-  --ds-radius-card: 0px;
-  --ds-radius-panel: 0px;
-  --ds-radius-sheet: 0px;
-  --ds-shadow-raised: 0 0.75rem 2rem rgb(5 10 20 / 30%);
-  --ds-shadow-overlay: 0 -1.5rem 3rem rgb(5 10 20 / 55%);
+  /* S15P11A406-105 레퍼런스는 라운드 카드·버튼 — 각진 Modernist radius 0을 대체한다. */
+  --ds-radius-control: 0.625rem;
+  --ds-radius-card: 0.75rem;
+  --ds-radius-panel: 1rem;
+  --ds-radius-sheet: 1.25rem;
+  --ds-shadow-raised: 0 0.75rem 2rem rgb(8 6 2 / 35%);
+  --ds-shadow-overlay: 0 -1.5rem 3rem rgb(8 6 2 / 55%);
   --ds-ease-snappy: cubic-bezier(0.2, 0, 0, 1);
   --ds-motion-fast: 120ms;
   --ds-motion-base: 220ms;
@@ -237,6 +246,7 @@
   0% {
     transform: scale(0.55);
     opacity: 0;
+    text-shadow: var(--ds-callout-glow-none);
   }
   60% {
     transform: scale(1.08);
@@ -245,6 +255,7 @@
   100% {
     transform: scale(1);
     opacity: 1;
+    text-shadow: var(--ds-callout-glow);
   }
 }
 

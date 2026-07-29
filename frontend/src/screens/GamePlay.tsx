@@ -463,9 +463,12 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
       <div className="pointer-events-none absolute top-3 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
         {trayLabel}
       </div>
-      <div className="pointer-events-none absolute top-2.5 right-3 z-10">
-        <RollCounter rollsUsed={local.rollCount} />
-      </div>
+      {/* 넓은 화면은 레퍼런스대로 하단 바 좌측에 둔다 — 트레이 안에는 모바일만 남긴다. */}
+      {!wide && (
+        <div className="pointer-events-none absolute top-2.5 right-3 z-10">
+          <RollCounter rollsUsed={local.rollCount} />
+        </div>
+      )}
       <div className="pointer-events-none absolute bottom-2.5 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
         킵 레일 ·{' '}
         {keptCount > 0
@@ -539,21 +542,37 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   )
 
   // 디자인의 한 줄 스테이터스 바 — 라운드·차례·남은 굴림·선두를 좌에서 우로 눕힌다.
+  // 레퍼런스의 라운드 배지 — 현재 라운드만 밝고 전체 라운드는 흐리다.
+  const roundBadge = (
+    <span className="flex-none rounded-control border border-border px-2.5 py-1 text-[13px] font-bold whitespace-nowrap">
+      R {roundNumber}
+      <span className="font-semibold text-content-faint">/{TOTAL_ROUNDS}</span>
+    </span>
+  )
+
   const header = (
     <header
       className={cn(
-        'flex flex-none items-center border-b-2 border-content px-gutter',
+        'flex flex-none items-center border-b border-border px-gutter',
         wide ? 'h-[4.25rem] gap-5' : 'h-14 gap-2.5',
       )}
     >
       <h1 className="sr-only">
         요르 게임 진행 중 · {roundNumber} / {TOTAL_ROUNDS} 라운드
       </h1>
-      <span className={cn('font-bold', wide ? 'text-xl' : 'text-[15px]')}>YACHT</span>
+      {/* 레퍼런스의 타이틀 스택 — 한글 타이틀 + 자간 넓은 영문 캡션. */}
+      <span className="flex flex-none flex-col leading-tight">
+        <span className={cn('font-bold', wide ? 'text-xl' : 'text-[15px]')}>요트 다이스</span>
+        {wide && (
+          <span className="text-[9.5px] font-bold tracking-[0.3em] text-content-faint uppercase">
+            Yacht Dice
+          </span>
+        )}
+      </span>
       {wide ? (
         <>
           <span aria-hidden="true" className="h-6 w-px flex-none bg-border" />
-          <HeaderStat label="라운드" value={`${roundNumber}/${TOTAL_ROUNDS}`} />
+          {/* 라운드는 우측 배지(R n/12)가, 진행 차례는 상단 TurnStrip이 맡는다. */}
           <div className="ml-auto w-52 min-w-0">
             <RoundTimer
               compact
@@ -563,13 +582,11 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
             />
           </div>
           <HeaderStat label="선두" value={leaderLabel} />
+          {roundBadge}
           {leaveButton}
         </>
       ) : (
         <>
-          <span className="flex-none text-[11px] font-semibold text-content-muted">
-            R {roundNumber}/{TOTAL_ROUNDS}
-          </span>
           <div className="min-w-0 flex-1">
             <RoundTimer
               compact
@@ -578,6 +595,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
               totalRounds={TOTAL_ROUNDS}
             />
           </div>
+          {roundBadge}
           {leaveButton}
         </>
       )}
@@ -634,7 +652,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
             <button
               aria-label={`${categoryLabel[category]}${score === null ? '' : ` ${score}점 기록`}`}
               className={cn(
-                'flex h-[4.125rem] min-w-[5.5rem] cursor-pointer flex-col items-start justify-between px-2.5 py-2 text-left transition-colors focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55',
+                'flex h-[4.125rem] min-w-[5.5rem] cursor-pointer flex-col items-start justify-between rounded-control px-2.5 py-2 text-left transition-colors focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55',
                 best
                   ? 'border-2 border-brand bg-brand text-on-brand'
                   : 'border border-border bg-surface text-content',
@@ -755,10 +773,11 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
               className={cn(
                 'flex flex-none items-center px-gutter',
                 wide
-                  ? 'gap-4 border-t-2 border-content py-4'
+                  ? 'gap-4 border-t border-border py-4'
                   : 'gap-2.5 pt-2 pb-[calc(8.75rem+env(safe-area-inset-bottom))]',
               )}
             >
+              {wide && <RollCounter rollsUsed={local.rollCount} />}
               {actions}
               {wide ? (
                 <p className="m-0 ml-auto max-w-80 text-right text-xs leading-relaxed text-content-muted">
@@ -783,10 +802,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
 
         {/* 디자인 Yacht Play 3D — 점수시트는 우측 상시 패널(520px)이다. */}
         {wide ? (
-          <section
-            aria-label="점수 시트"
-            className="flex min-h-0 flex-col border-l-2 border-content"
-          >
+          <section aria-label="점수 시트" className="flex min-h-0 flex-col border-l border-border">
             <div className="flex flex-none items-center justify-between gap-2 px-4 py-3">
               <span className="text-[11px] font-bold tracking-[0.1em] uppercase">점수 시트</span>
               <span className="truncate text-[11px] text-content-faint">{sheetHint}</span>

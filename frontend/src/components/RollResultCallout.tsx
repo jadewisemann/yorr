@@ -20,19 +20,12 @@ const tierByHand: Record<SpecialHand, 1 | 2 | 3> = {
 /** 연출이 화려할수록 오래 보여준다. 다음 조작을 막지 않게 pointer-events는 항상 끈다. */
 const durationMsByTier = { 1: 1400, 2: 1800, 3: 2400 } as const
 
-const captionByHand: Record<SpecialHand, string> = {
-  fourOfAKind: 'Nice Roll',
-  fullHouse: 'Nice Roll',
-  smallStraight: 'Nice Roll',
-  largeStraight: 'Great Roll',
-  yacht: 'Jackpot',
-}
-
 const BURST_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315]
 
 /**
  * 굴림이 끝나면 성립한 족보를 큰 글자로 알려주는 오버레이.
- * 부모에서 key로 굴림마다 리마운트해 타이머·애니메이션을 처음부터 다시 돈다.
+ * 디자인 레퍼런스(S15P11A406-105)의 "요트!!!" — 박스 없는 대형 골드 텍스트에
+ * 등급만큼 느낌표를 붙인다. 부모에서 key로 굴림마다 리마운트해 연출을 처음부터 다시 돈다.
  */
 export function RollResultCallout({ hand, onDone }: RollResultCalloutProps) {
   const tier = tierByHand[hand]
@@ -62,7 +55,7 @@ export function RollResultCallout({ hand, onDone }: RollResultCalloutProps) {
         {tier >= 2 && (
           <span
             aria-hidden="true"
-            className="absolute inset-0 -m-5 animate-callout-ring border-4 border-brand motion-reduce:hidden"
+            className="absolute inset-0 -m-5 animate-callout-ring rounded-full border-4 border-brand motion-reduce:hidden"
           />
         )}
         {tier === 3 &&
@@ -76,16 +69,15 @@ export function RollResultCallout({ hand, onDone }: RollResultCalloutProps) {
           ))}
         <p
           className={cn(
-            'relative m-0 animate-callout-pop border-4 bg-canvas px-8 py-4 text-center shadow-raised motion-reduce:animate-none',
-            tier === 3 ? 'border-brand' : 'border-content',
+            'relative m-0 animate-callout-pop px-6 text-center leading-none font-bold break-keep text-brand-strong motion-reduce:animate-none',
+            // 트레이 위에 바로 얹히므로 화이트 글로우로 배경과 분리한다.
+            // 팝 keyframes가 글로우를 0에서 이 값까지 키운다 — 여기 정적 값은 motion-reduce용.
+            '[text-shadow:var(--ds-callout-glow)]',
+            tier === 3 ? 'text-[clamp(4rem,16vw,7.5rem)]' : 'text-[clamp(3rem,12vw,5.5rem)]',
           )}
         >
-          <span className="block text-[11px] font-bold tracking-[0.14em] text-brand uppercase">
-            {captionByHand[hand]}
-          </span>
-          <span className="block text-4xl leading-tight font-bold text-content">
-            {categoryLabel[hand]}
-          </span>
+          {categoryLabel[hand]}
+          {'!'.repeat(tier)}
         </p>
       </div>
     </div>
