@@ -32,6 +32,14 @@ public interface RoundStateStore {
             java.util.List<Integer> rolledDice
     );
 
+    /** Stores the KEEP the active player changed between rolls. */
+    RoundState recordHoldAtomically(
+            String roomId,
+            String playerId,
+            int roundNumber,
+            java.util.List<Boolean> held
+    );
+
     /**
      * Rolls once on behalf of the active player, but only while the expected turn is
      * still current and it still has rolls left. Returns empty when the turn already

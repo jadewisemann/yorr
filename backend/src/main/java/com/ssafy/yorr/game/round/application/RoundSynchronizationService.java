@@ -7,6 +7,7 @@ import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
 import com.ssafy.yorr.game.round.domain.RoundCompletion;
 import com.ssafy.yorr.game.round.domain.RoundSynchronizationException;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
+import com.ssafy.yorr.ws.dto.DiceHoldPayload;
 import com.ssafy.yorr.ws.dto.DiceRollPayload;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -96,6 +97,19 @@ public class RoundSynchronizationService {
                 payload.rollCount(),
                 payload.held(),
                 rolledDice
+        );
+    }
+
+    /** 굴림 사이에 바꾼 KEEP을 서버 상태에 반영한다. 관전자 방송과 마감 자동 굴림이 이 값을 쓴다. */
+    public RoundState recordHold(String roomId, String playerId, DiceHoldPayload payload) {
+        if (payload == null) {
+            throw new IllegalArgumentException("payload must not be null");
+        }
+        return roundStateStore.recordHoldAtomically(
+                roomId,
+                playerId,
+                payload.roundNumber(),
+                payload.held()
         );
     }
 

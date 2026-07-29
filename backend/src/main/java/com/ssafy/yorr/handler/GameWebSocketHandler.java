@@ -26,6 +26,8 @@ import com.ssafy.yorr.ws.dto.ErrorPayload;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
 import com.ssafy.yorr.ws.dto.DiceRollPayload;
 import com.ssafy.yorr.ws.dto.DiceBroadcastPayload;
+import com.ssafy.yorr.ws.dto.DiceHoldPayload;
+import com.ssafy.yorr.ws.dto.DiceHoldChangedPayload;
 import com.ssafy.yorr.ws.dto.WsErrorCode;
 import com.ssafy.yorr.ws.dto.RoomJoinPayload;
 import com.ssafy.yorr.ws.dto.RoomJoinedPayload;
@@ -111,6 +113,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             case "room.ready" -> handleRoomReady(session, in);
             case "reaction.send" -> handleReactionSend(session, in);
             case "dice.roll" -> handleDiceRoll(session, in);
+            case "dice.hold" -> handleDiceHold(session, in);
             case "round.submit" -> handleRoundSubmit(session, in);
             // 다음 슬라이스에서 하나씩 (레지스트리·브로드캐스터는 이미 준비됨):
             //   case "sys.reconnect" -> handleSysReconnect(session, in);   // 상태 복원(25번 티켓, 박재영)과 공동
@@ -390,6 +393,50 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                             .withMsgId(in.msgId())
             );
             roundTimerService.start(roomId, state);
+        } catch (RoundSynchronizationException exception) {
+            sendError(session, toWsErrorCode(exception.reason()), exception.getMessage(), in.msgId());
+        } catch (IllegalArgumentException exception) {
+            sendError(session, WsErrorCode.INVALID_MESSAGE, exception.getMessage(), in.msgId());
+        }
+    }
+
+    /**
+     * dice.hold → dice.hold_changed. 굴림 사이에 바뀐 KEEP을 방 전원에게 알린다.
+     * <p>
+     * 타이머는 다시 걸지 않는다. KEEP 토글로 마감이 계속 미뤄지면 턴이 끝나지 않는다 —
+     * 시간을 늘려주는 행동은 굴림과 제출뿐이다.
+     */
+    private void handleDiceHold(WebSocketSession session, InboundEnvelope in) throws IOException {
+        String roomId = in.roomId();
+        RoomSessionRegistry.Member member = registry.of(session);
+        if (roomId == null || roomId.isBlank() || member == null || !roomId.equals(member.roomId())) {
+            sendError(session, WsErrorCode.NOT_IN_ROOM, "방에 입장한 뒤에만 KEEP을 바꿀 수 있습니다.", in.msgId());
+            return;
+        }
+
+        DiceHoldPayload payload;
+        try {
+            payload = objectMapper.treeToValue(in.payload(), DiceHoldPayload.class);
+        } catch (Exception exception) {
+            sendError(session, WsErrorCode.INVALID_MESSAGE, "dice.hold payload가 올바르지 않습니다.", in.msgId());
+            return;
+        }
+
+        try {
+            var state = roundSynchronizationService.recordHold(roomId, member.playerId(), payload);
+            broadcaster.broadcast(
+                    roomId,
+                    WsEnvelope.of(
+                                    "dice.hold_changed",
+                                    new DiceHoldChangedPayload(
+                                            member.playerId(),
+                                            state.roundNumber(),
+                                            state.activeHeld()
+                                    )
+                            )
+                            .withRoomId(roomId)
+                            .withMsgId(in.msgId())
+            );
         } catch (RoundSynchronizationException exception) {
             sendError(session, toWsErrorCode(exception.reason()), exception.getMessage(), in.msgId());
         } catch (IllegalArgumentException exception) {

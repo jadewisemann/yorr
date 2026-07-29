@@ -46,6 +46,11 @@ export type YachtGameAction =
     }
   | { type: 'rollCompleted'; requestId: string; dice: DiceSet }
   | { type: 'holdToggled'; index: DiceIndex }
+  /**
+   * 서버가 알려준 턴 주인의 KEEP으로 통째로 맞춘다. 관전자가 상대의 KEEP을 따라가는 경로다.
+   * 토글(holdToggled)과 달리 전체 배열을 받는다 — 한 번 놓쳐도 다음 동기화에서 복구된다.
+   */
+  | { type: 'heldSynced'; held: HeldDice }
   | { type: 'categorySelected'; category: YachtCategory }
   | { type: 'submissionStarted' }
   | { type: 'submissionSucceeded' }
@@ -81,6 +86,8 @@ export function yachtGameReducer(state: YachtGameState, action: YachtGameAction)
       return completeRoll(state, action.requestId, action.dice)
     case 'holdToggled':
       return toggleHold(state, action.index)
+    case 'heldSynced':
+      return syncHeld(state, action.held)
     case 'categorySelected':
       return selectCategory(state, action.category)
     case 'submissionStarted':
@@ -168,6 +175,15 @@ function completeRoll(state: YachtGameState, requestId: string, dice: DiceSet): 
 function toggleHold(state: YachtGameState, index: DiceIndex): YachtGameState {
   if (state.phase !== 'choosing' || !state.dice || state.rollCount >= 3) return state
   return { ...state, held: toggleHeldDie(state.held, index) }
+}
+
+/**
+ * 서버가 확정한 KEEP으로 맞춘다. 주사위가 깔린 뒤에만 의미가 있고, 굴림 애니메이션 중에는
+ * 그 굴림에 쓸 held가 이미 정해져 있으므로 건드리지 않는다.
+ */
+function syncHeld(state: YachtGameState, held: HeldDice): YachtGameState {
+  if (state.phase !== 'choosing' || !state.dice) return state
+  return { ...state, held }
 }
 
 function selectCategory(state: YachtGameState, category: YachtCategory): YachtGameState {

@@ -270,6 +270,58 @@ describe('GamePlay', () => {
     expect(screen.getByText('킵 레일 · 비어 있음')).toBeVisible()
   })
 
+  it('mirrors the active player’s keeps to everyone else', async () => {
+    const { client, user } = renderObserver()
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'dice.broadcast',
+          {
+            dice: [6, 5, 4, 3, 2],
+            held: [false, false, false, false, false],
+            playerId: creatorSession.you,
+            rollCount: 1,
+            roundNumber: 1,
+          },
+          { roomId: participantSession.roomId },
+        ),
+      )
+    })
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    expect(screen.getByText('킵 레일 · 비어 있음')).toBeVisible()
+
+    // 턴 주인이 굴림 사이에 킵을 바꾸면 관전자 화면도 따라와야 한다.
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'dice.hold_changed',
+          {
+            held: [true, true, false, false, false],
+            playerId: creatorSession.you,
+            roundNumber: 1,
+          },
+          { roomId: participantSession.roomId },
+        ),
+      )
+    })
+
+    expect(await screen.findByText(/킵 레일 · 2\/5 · 합 11/)).toBeVisible()
+  })
+
+  it('tells the server when keeps change between rolls', async () => {
+    const { client, user } = renderGame()
+
+    await user.click(screen.getByRole('button', { name: '굴리기' }))
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await user.click(screen.getByRole('button', { name: '첫 주사위 킵' }))
+
+    // 굴림 사이의 킵 변경이 서버로 나가야 상대 화면이 따라올 수 있다.
+    const hold = client.sentMessages.filter((message) => message.type === 'dice.hold')
+    expect(hold).toHaveLength(1)
+    expect(hold[0]?.payload).toEqual({ held: [true, false, false, false, false], roundNumber: 1 })
+  })
+
   it('keeps the fixed category order while previewing quick-strip scores', async () => {
     const { user } = renderGame()
 

@@ -12,7 +12,13 @@ import { RoundTimer } from '@/components/RoundTimer'
 import { ScoreSheet } from '@/components/ScoreSheet'
 import { ToastHost, useToast } from '@/components/ToastHost'
 import { TurnStrip, type TurnStripPlayer } from '@/components/TurnStrip'
-import type { DiceIndex, DiceSet, HeldDice } from '@/domain/dice'
+import {
+  type DiceIndex,
+  type DiceSet,
+  type HeldDice,
+  NO_HELD_DICE,
+  toggleHeldDie,
+} from '@/domain/dice'
 import {
   type CategoryScores,
   calculateScoreCandidates,
@@ -235,6 +241,22 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   inputModeRef.current = rollInputMode
   if (!feedbackRef.current) feedbackRef.current = createRollFeedback()
 
+  /**
+   * 바뀐 KEEP을 서버에 알린다. dice.roll이 실어 나르는 held는 "그 굴림에 쓴 값"이라,
+   * 굴린 뒤에 바꾼 KEEP은 이 경로가 없으면 다음 굴림 전까지 상대 화면에 반영되지 않는다.
+   * 실패해도 조용히 넘어간다 — 내 화면은 이미 맞고, 다음 토글이나 굴림이 상태를 복구한다.
+   */
+  const publishHeld = useCallback(
+    (held: HeldDice) => {
+      try {
+        realtimeClient.send(buildClientMessage('dice.hold', { held, roundNumber }, { roomId }))
+      } catch {
+        // 연결이 끊긴 상태다. ConnectionBanner가 이미 알리고 있다.
+      }
+    },
+    [realtimeClient, roomId, roundNumber],
+  )
+
   const beginRoll = useCallback(
     (inputMode: RollInputMode) => {
       if (!canRoll) return
@@ -313,6 +335,21 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
             queuedMotionReleaseRef.current = false
             setReleaseRequestId(requestId)
           }
+          return
+        }
+
+        if (message.type === 'dice.hold_changed') {
+          // 내가 보낸 것의 메아리는 무시한다 — 내 화면이 이미 맞고, 연달아 탭하는 중이면
+          // 뒤늦게 온 이전 상태가 방금 누른 KEEP을 되돌려 버린다.
+          if (
+            message.roomId !== roomId ||
+            message.payload.roundNumber !== roundNumber ||
+            message.payload.playerId !== activePlayerId ||
+            message.payload.playerId === session.you
+          ) {
+            return
+          }
+          dispatch({ type: 'heldSynced', held: message.payload.held as HeldDice })
           return
         }
 
@@ -486,6 +523,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         onHeldToggle={(index) => {
           if (!canHold) return
           dispatch({ type: 'holdToggled', index })
+          publishHeld(toggleHeldDie(local.held, index))
         }}
         onRollComplete={completeRoll}
         request={pendingRoll}
@@ -671,6 +709,8 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     local.held.forEach((isHeld, index) => {
       if (isHeld) dispatch({ type: 'holdToggled', index: index as DiceIndex })
     })
+    // 토글마다 보내면 최대 5번이 나간다 — 결과 한 번만 알린다.
+    publishHeld(NO_HELD_DICE)
   }
 
   // 기록은 점수표·칩 탭으로 끝나므로 CTA는 굴리기 하나다(디자인 하단 바).

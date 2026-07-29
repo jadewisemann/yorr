@@ -324,6 +324,17 @@ export interface DiceRollPayload {
   rollCount: 1 | 2 | 3
   held: readonly [boolean, boolean, boolean, boolean, boolean]
 }
+// C→S: 굴림 사이에 바꾼 KEEP을 알린다(전체 배열).
+export interface DiceHoldPayload {
+  roundNumber: number
+  held: readonly [boolean, boolean, boolean, boolean, boolean]
+}
+// S→C: 턴 주인의 KEEP이 바뀌었다. 주사위 값은 그대로다.
+export interface DiceHoldChangedPayload {
+  playerId: PlayerId
+  roundNumber: number
+  held: readonly [boolean, boolean, boolean, boolean, boolean]
+}
 // S→C: 서버가 확정한 결과를 방 전체에 브로드캐스트한다.
 export interface DiceBroadcastPayload {
   playerId: PlayerId
@@ -388,6 +399,7 @@ export type ClientMessage =
   | WsEnvelope<'reaction.send', ReactionSendPayload>
   // ⚠️ STUB (게임 도메인)
   | WsEnvelope<'dice.roll', DiceRollPayload>
+  | WsEnvelope<'dice.hold', DiceHoldPayload>
   | WsEnvelope<'round.submit', RoundSubmitPayload>
 
 export type ServerMessage =
@@ -412,6 +424,7 @@ export type ServerMessage =
   | WsEnvelope<'round.start', RoundStartPayload>
   | WsEnvelope<'round.end', RoundEndPayload>
   | WsEnvelope<'dice.broadcast', DiceBroadcastPayload>
+  | WsEnvelope<'dice.hold_changed', DiceHoldChangedPayload>
   | WsEnvelope<'score.update', ScoreUpdatePayload>
   | WsEnvelope<'game.over', GameOverPayload>
   | WsEnvelope<'state.patch', StatePatchPayload>

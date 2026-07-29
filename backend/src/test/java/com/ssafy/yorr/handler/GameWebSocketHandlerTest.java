@@ -20,6 +20,7 @@ import com.ssafy.yorr.user.UserType;
 import com.ssafy.yorr.ws.InMemoryRoomBroadcaster;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
 import com.ssafy.yorr.ws.dto.RoomJoinPayload;
+import com.ssafy.yorr.ws.dto.DiceHoldPayload;
 import com.ssafy.yorr.ws.dto.DiceRollPayload;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
@@ -41,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -251,6 +253,72 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
+    void broadcastsKeepChangesBetweenRollsToEveryPlayerInTheRoom() throws Exception {
+        roundSynchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        WebSocketSession playerB = sessionWithPlayer("player-b");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        broadcaster.register("room-a", playerA);
+        broadcaster.register("room-a", playerB);
+        handler.handle(playerA, rollMessage("room-a", 1, "roll-one"));
+        clearInvocations(playerA, playerB);
+
+        handler.handle(playerA, holdMessage("room-a", List.of(true, true, false, false, false), "hold-one"));
+
+        ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(playerB).sendMessage(captor.capture());
+        String response = ((TextMessage) captor.getValue()).getPayload();
+        assertThat(response).contains("\"type\":\"dice.hold_changed\"");
+        assertThat(response).contains("\"playerId\":\"player-a\"");
+        assertThat(response).contains("\"held\":[true,true,false,false,false]");
+        // KEEP 변경은 마감 타이머를 다시 걸지 않는다 — 토글로 턴을 무한히 늘릴 수 없어야 한다.
+        verify(roundTimerService, times(1)).start(any(), any());
+        assertThat(roundStateStore.findByRoomId("room-a")).hasValueSatisfying(state ->
+                assertThat(state.activeHeld()).containsExactly(true, true, false, false, false)
+        );
+    }
+
+    @Test
+    void rejectsKeepChangeFromPlayerWhoDoesNotOwnTheTurn() throws Exception {
+        roundSynchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        WebSocketSession playerB = sessionWithPlayer("player-b");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        registry.join("room-a", playerB, "player-b", "Player B");
+        broadcaster.register("room-a", playerA);
+        broadcaster.register("room-a", playerB);
+        handler.handle(playerA, rollMessage("room-a", 1, "roll-one"));
+        clearInvocations(playerA, playerB);
+
+        handler.handle(playerB, holdMessage("room-a", List.of(true, false, false, false, false), "steal-hold"));
+
+        ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(playerB).sendMessage(captor.capture());
+        String response = ((TextMessage) captor.getValue()).getPayload();
+        assertThat(response).contains("\"code\":\"NOT_YOUR_TURN\"");
+        assertThat(response).contains("\"refMsgId\":\"steal-hold\"");
+        assertThat(roundStateStore.findByRoomId("room-a")).hasValueSatisfying(state ->
+                assertThat(state.activeHeld()).containsExactly(false, false, false, false, false)
+        );
+    }
+
+    @Test
+    void rejectsKeepChangeBeforeTheFirstRoll() throws Exception {
+        roundSynchronizationService.initialize("room-a", 1, List.of("player-a"));
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        broadcaster.register("room-a", playerA);
+
+        handler.handle(playerA, holdMessage("room-a", List.of(true, false, false, false, false), "early-hold"));
+
+        ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(playerA).sendMessage(captor.capture());
+        assertThat(((TextMessage) captor.getValue()).getPayload())
+                .contains("\"code\":\"INVALID_MESSAGE\"")
+                .contains("\"refMsgId\":\"early-hold\"");
+    }
+
+    @Test
     void rejectsSubmissionForRoomOtherThanSessionRoom() throws Exception {
         roundSynchronizationService.initialize("room-a", 1, List.of("player-a"));
         WebSocketSession session = sessionWithPlayer("player-a");
@@ -375,6 +443,17 @@ class GameWebSocketHandlerTest {
                 "dice.roll",
                 System.currentTimeMillis(),
                 new DiceRollPayload(1, rollCount, List.of(false, false, false, false, false)),
+                roomId,
+                msgId
+        ));
+        return new TextMessage(message);
+    }
+
+    private TextMessage holdMessage(String roomId, List<Boolean> held, String msgId) throws Exception {
+        String message = objectMapper.writeValueAsString(new WsEnvelope<>(
+                "dice.hold",
+                System.currentTimeMillis(),
+                new DiceHoldPayload(1, held),
                 roomId,
                 msgId
         ));
