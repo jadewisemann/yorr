@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:real": "cross-env VITE_ENABLE_MSW=false VITE_WS_URL=/ws/v1/game vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "format": "biome format --write .",
@@ -38,6 +39,7 @@
     "@types/three": "0.180.0",
     "@vitejs/plugin-react": "^6.0.4",
     "@vitest/coverage-v8": "^4.1.10",
+    "cross-env": "^10.1.0",
     "jsdom": "^29.1.1",
     "msw": "^2.15.0",
     "tailwindcss": "^4.3.3",
