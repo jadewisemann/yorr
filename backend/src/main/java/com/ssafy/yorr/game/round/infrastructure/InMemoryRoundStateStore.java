@@ -98,6 +98,29 @@ public class InMemoryRoundStateStore implements RoundStateStore {
     }
 
     @Override
+    public RoundState recordHoldAtomically(
+            String roomId,
+            String playerId,
+            int roundNumber,
+            List<Boolean> held
+    ) {
+        validateRoomId(roomId);
+        AtomicReference<RoundState> resultHolder = new AtomicReference<>();
+        states.compute(roomId, (key, currentState) -> {
+            if (currentState == null) {
+                throw new RoundSynchronizationException(
+                        RoundSynchronizationException.Reason.ROUND_NOT_INITIALIZED,
+                        "round state is not initialized for room: " + roomId
+                );
+            }
+            RoundState result = currentState.recordHold(playerId, roundNumber, held);
+            resultHolder.set(result);
+            return result;
+        });
+        return resultHolder.get();
+    }
+
+    @Override
     public Optional<RoundState> autoRollAtomically(
             String roomId,
             int expectedRoundNumber,

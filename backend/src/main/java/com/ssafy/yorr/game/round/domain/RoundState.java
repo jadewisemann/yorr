@@ -112,9 +112,38 @@ public final class RoundState {
     }
 
     /**
+     * 굴림 사이에 바꾼 KEEP을 기록한다.
+     * <p>
+     * 이게 없으면 서버가 아는 KEEP은 "마지막 굴림에 쓴 값"에 머문다. 그러면 관전자에게 뿌릴
+     * KEEP도, 마감 자동 굴림이 유지할 KEEP도 실제와 어긋난다. 주사위가 깔리기 전에는 KEEP이
+     * 성립하지 않으므로 첫 굴림 전 호출은 거부한다.
+     */
+    public RoundState recordHold(String playerId, int submittedRoundNumber, List<Boolean> held) {
+        validateCurrentPlayer(playerId, submittedRoundNumber);
+        if (activeDice == null) {
+            throw new RoundSynchronizationException(
+                    RoundSynchronizationException.Reason.INVALID_ROLL,
+                    "dice cannot be held before the first roll"
+            );
+        }
+        validateHeld(held);
+        return new RoundState(
+                roundNumber,
+                totalRounds,
+                participantOrder,
+                submissions,
+                activePlayerIndex,
+                activeRollCount,
+                activeDice,
+                held,
+                false
+        );
+    }
+
+    /**
      * 마감 시각이 지났을 때 서버가 현재 턴 소유자를 대신해 한 번 굴린다.
      * <p>
-     * 마지막 굴림에 쓰인 KEEP({@link #activeHeld()})을 그대로 유지해 플레이어가 모아둔 족보를
+     * 마지막으로 알린 KEEP({@link #activeHeld()})을 그대로 유지해 플레이어가 모아둔 족보를
      * 날리지 않는다. 굴림이 남지 않은 턴은 이 메서드로 진행할 수 없다 — 호출자가 먼저
      * {@link #hasRollsLeft()}로 확인하고 없으면 점수 기록으로 넘어가야 한다.
      */

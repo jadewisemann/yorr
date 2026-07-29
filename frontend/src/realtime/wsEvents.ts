@@ -306,6 +306,24 @@ export interface DiceRollPayload {
   rollCount: 1 | 2 | 3
   held: readonly [boolean, boolean, boolean, boolean, boolean]
 }
+/**
+ * C→S: 굴림 사이에 KEEP을 바꿨다고 알린다.
+ *
+ * dice.roll 이 실어 나르는 held 는 "그 굴림에 쓴 KEEP"이라, 굴린 뒤에 바꾼 KEEP은 다음 굴림
+ * 전까지 서버도 상대도 알 수 없었다. 그래서 관전자 화면의 KEEP이 실제와 달랐고, 마감 자동
+ * 굴림도 낡은 KEEP으로 굴렸다. 토글이 일어난 즉시 전체 배열을 보낸다(증분이 아니라 전체 —
+ * 메시지가 유실돼도 다음 토글에서 상태가 복구된다).
+ */
+export interface DiceHoldPayload {
+  roundNumber: number
+  held: readonly [boolean, boolean, boolean, boolean, boolean]
+}
+/** S→C: 턴 주인의 KEEP이 바뀌었다. 주사위 값은 그대로이므로 굴림 애니메이션을 트리거하지 않는다. */
+export interface DiceHoldChangedPayload {
+  playerId: PlayerId
+  roundNumber: number
+  held: readonly [boolean, boolean, boolean, boolean, boolean]
+}
 // S→C: 서버가 확정한 결과를 방 전체에 브로드캐스트한다.
 export interface DiceBroadcastPayload {
   playerId: PlayerId
@@ -373,6 +391,7 @@ export type ClientMessage =
   | WsEnvelope<'reaction.send', ReactionSendPayload>
   // ⚠️ STUB (게임 도메인)
   | WsEnvelope<'dice.roll', DiceRollPayload>
+  | WsEnvelope<'dice.hold', DiceHoldPayload>
   | WsEnvelope<'round.submit', RoundSubmitPayload>
 
 export type ServerMessage =
@@ -397,6 +416,7 @@ export type ServerMessage =
   | WsEnvelope<'round.start', RoundStartPayload>
   | WsEnvelope<'round.end', RoundEndPayload>
   | WsEnvelope<'dice.broadcast', DiceBroadcastPayload>
+  | WsEnvelope<'dice.hold_changed', DiceHoldChangedPayload>
   | WsEnvelope<'score.update', ScoreUpdatePayload>
   | WsEnvelope<'game.over', GameOverPayload>
   | WsEnvelope<'state.patch', StatePatchPayload>

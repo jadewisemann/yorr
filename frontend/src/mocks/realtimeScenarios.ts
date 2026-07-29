@@ -103,6 +103,17 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         ),
       ]
     },
+    'dice.hold': (message) => [
+      serverMessage(
+        'dice.hold_changed',
+        {
+          held: message.payload.held,
+          playerId: session.you,
+          roundNumber: message.payload.roundNumber,
+        },
+        { roomId: MOCK_ROOM_ID, msgId: message.msgId },
+      ),
+    ],
     'round.submit': (message) => {
       const scoreboard = playingRoomSnapshot.game?.scores[session.you]
       if (!scoreboard) return []
