@@ -111,11 +111,14 @@ describe('QR entrance integration', () => {
       session: creatorSession,
     })
 
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe(`/rooms/${creatorSession.roomId}/lobby`),
-    )
+    // 홈으로 강제 리다이렉트하던 시절과 달리, 이제 홈에서 복귀 배너로 선택을 받는다.
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
     expect(screen.queryByText('방 different-room')).not.toBeInTheDocument()
-    expect(await screen.findByText(`방 ${creatorSession.roomCode}`)).toBeVisible()
+    expect(
+      await screen.findByText(
+        (_, element) => element?.textContent === `${creatorSession.roomCode} 방에 참여 중이에요`,
+      ),
+    ).toBeVisible()
   })
 
   it('moves to the game when realtime changes the room phase', async () => {

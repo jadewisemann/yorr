@@ -10,6 +10,8 @@ interface RealtimeSyncProps {
 }
 
 const reconnectDelayMs = 1_000
+/** 이 횟수만큼 연속으로 재연결에 실패하면 세션을 포기한다(FSM: any → idle). */
+const maxReconnectAttempts = 10
 
 export function RealtimeSync({ children, client }: RealtimeSyncProps) {
   const roomId = useAppStore((state) => state.roomSession?.roomId)
@@ -23,7 +25,7 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
     }
 
     let active = true
-    let hasConnected = false
+    let reconnectAttempts = 0
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined
     let heartbeatTimer: ReturnType<typeof setInterval> | undefined
 
@@ -55,22 +57,28 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
         const roomSession = useAppStore.getState().roomSession
         if (!roomSession) return
 
+        reconnectAttempts = 0
         useAppStore.getState().setConnectionStatus('connected')
+        // 재접속도 room.join으로 통일한다. 서버가 sessionToken으로 기존 정체성을 복원하며,
+        // sys.reconnect는 아직 서버에 라우팅이 없어 보내면 조용히 버려진다(티켓 25에서 이관).
         client.send(
-          hasConnected
-            ? buildClientMessage('sys.reconnect', { sessionToken: roomSession.sessionToken })
-            : buildClientMessage('room.join', {
-                roomId: roomSession.roomId,
-                nickname: roomSession.nickname,
-                sessionToken: roomSession.sessionToken,
-              }),
+          buildClientMessage('room.join', {
+            roomId: roomSession.roomId,
+            nickname: roomSession.nickname,
+            sessionToken: roomSession.sessionToken,
+          }),
         )
-        hasConnected = true
         return
       }
 
       stopHeartbeat()
       if (event === 'error') return
+
+      reconnectAttempts += 1
+      if (reconnectAttempts > maxReconnectAttempts) {
+        useAppStore.getState().endSession('disconnected')
+        return
+      }
 
       useAppStore.getState().setConnectionStatus('reconnecting')
       reconnectTimer = setTimeout(() => {
@@ -186,8 +194,7 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
       })
       return
     case 'room.closed':
-      store.reset()
-      useAppStore.getState().setAppNotice('방이 종료되어 홈으로 이동했어요.')
+      store.endSession('room_closed')
       return
     case 'error':
       if (
@@ -195,8 +202,7 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
         message.payload.code === 'AUTH_FAILED' ||
         message.payload.code === 'AUTH_REQUIRED'
       ) {
-        store.reset()
-        useAppStore.getState().setAppNotice('입장 정보가 만료됐어요. 방에 다시 참가해 주세요.')
+        store.endSession('expired')
       }
       return
     default:

@@ -49,9 +49,11 @@ interface GamePlayProps {
   roomId: string
   session: ActiveRoomSession
   snapshot: RoomSnapshot
+  /** 헤더의 '나가기'가 눌리면 부모(GamePage)가 확인 모달을 연다. */
+  onLeaveRequest: () => void
 }
 
-export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
+export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlayProps) {
   const wide = useMediaQuery(WIDE_LAYOUT)
   const connectionStatus = useAppStore((state) => state.connectionStatus)
   const realtimeClient = useRealtimeClient()
@@ -523,6 +525,16 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
     </div>
   )
 
+  const leaveButton = (
+    <button
+      className="flex-none cursor-pointer rounded-full border border-border bg-transparent px-3 py-1.5 text-[12px] font-semibold text-content-muted transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
+      onClick={onLeaveRequest}
+      type="button"
+    >
+      나가기
+    </button>
+  )
+
   // 디자인의 한 줄 스테이터스 바 — 라운드·차례·남은 굴림·선두를 좌에서 우로 눕힌다.
   const header = (
     <header
@@ -553,6 +565,7 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
             />
           </div>
           <HeaderStat label="선두" value={leaderLabel} />
+          {leaveButton}
         </>
       ) : (
         <>
@@ -568,6 +581,7 @@ export function GamePlay({ roomId, session, snapshot }: GamePlayProps) {
             />
           </div>
           {playerBadges}
+          {leaveButton}
         </>
       )}
     </header>

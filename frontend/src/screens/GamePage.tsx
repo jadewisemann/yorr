@@ -1,14 +1,16 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useGame } from '@/api/useGameApi'
 import { useAppStore } from '@/store'
 import { GamePlay } from './GamePlay'
 import { GameResult } from './GameResult'
+import { RoomExitGuard } from './RoomExitGuard'
 
 export function GamePage({ roomId }: { roomId: string }) {
   const navigate = useNavigate()
   const roomSession = useAppStore((state) => state.roomSession)
   const roomSnapshot = useAppStore((state) => state.roomSnapshot)
+  const [exitRequested, setExitRequested] = useState(false)
   const matchingRoom = roomSession?.roomId === roomId
 
   // 진행 상태(game)는 WebSocket state.sync로도 오지만, 새로고침·직접 진입에 대비해 한 번 받아둔다.
@@ -29,9 +31,20 @@ export function GamePage({ roomId }: { roomId: string }) {
   }, [matchingRoom, navigate, roomSession, roomSnapshot])
 
   if (!roomSession || !roomSnapshot || !matchingRoom) return null
-  if (roomSnapshot.phase === 'finished') {
-    return <GameResult session={roomSession} snapshot={roomSnapshot} />
-  }
 
-  return <GamePlay roomId={roomId} session={roomSession} snapshot={roomSnapshot} />
+  return (
+    <>
+      <RoomExitGuard onClose={() => setExitRequested(false)} open={exitRequested} roomId={roomId} />
+      {roomSnapshot.phase === 'finished' ? (
+        <GameResult session={roomSession} snapshot={roomSnapshot} />
+      ) : (
+        <GamePlay
+          onLeaveRequest={() => setExitRequested(true)}
+          roomId={roomId}
+          session={roomSession}
+          snapshot={roomSnapshot}
+        />
+      )}
+    </>
+  )
 }

@@ -58,7 +58,12 @@ function renderGame() {
   return {
     ...render(
       <RealtimeClientProvider client={client}>
-        <GamePlay roomId={session.roomId} session={session} snapshot={snapshot} />
+        <GamePlay
+          onLeaveRequest={() => {}}
+          roomId={session.roomId}
+          session={session}
+          snapshot={snapshot}
+        />
       </RealtimeClientProvider>,
     ),
     client,
@@ -74,7 +79,12 @@ function renderObserver() {
   return {
     ...render(
       <RealtimeClientProvider client={client}>
-        <GamePlay roomId={observerSession.roomId} session={observerSession} snapshot={snapshot} />
+        <GamePlay
+          onLeaveRequest={() => {}}
+          roomId={observerSession.roomId}
+          session={observerSession}
+          snapshot={snapshot}
+        />
       </RealtimeClientProvider>,
     ),
     client,
