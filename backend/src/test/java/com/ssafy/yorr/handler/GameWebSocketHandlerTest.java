@@ -10,6 +10,7 @@ import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
 import com.ssafy.yorr.game.round.application.RoundTimerService;
 import com.ssafy.yorr.game.round.infrastructure.InMemoryRoundStateStore;
 import com.ssafy.yorr.game.service.ScoreConfirmationService;
+import com.ssafy.yorr.room.port.RoomCloseScheduler;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.room.service.RoomService;
@@ -27,12 +28,14 @@ import com.ssafy.yorr.ws.dto.WsEnvelope;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +65,7 @@ class GameWebSocketHandlerTest {
     private RoomService roomService;
     private ScoreRoundSubmissionService scoreRoundSubmissionService;
     private RoundTimerService roundTimerService;
+    private FakeRoomCloseScheduler roomCloseScheduler;
     private TestGameWebSocketHandler handler;
 
     @BeforeEach
@@ -79,6 +83,7 @@ class GameWebSocketHandlerTest {
                 roomService
         );
         roundTimerService = mock(RoundTimerService.class);
+        roomCloseScheduler = new FakeRoomCloseScheduler();
         when(roomService.getSnapshot(any())).thenAnswer(invocation -> {
             String roomId = invocation.getArgument(0);
             return new RoomSnapshot(
@@ -100,7 +105,9 @@ class GameWebSocketHandlerTest {
                 mock(UserService.class),
                 scoreRoundSubmissionService,
                 roundSynchronizationService,
-                roundTimerService
+                roundTimerService,
+                roomService,
+                roomCloseScheduler
         );
     }
 
@@ -319,6 +326,79 @@ class GameWebSocketHandlerTest {
     }
 
     @Test
+    void stopsTheTimerAndSchedulesCloseWhenTheLastSocketLeaves() throws Exception {
+        roundSynchronizationService.initialize("room-a", 1, List.of("player-a"));
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        broadcaster.register("room-a", playerA);
+
+        handler.afterConnectionClosed(playerA, CloseStatus.NORMAL);
+
+        // 타이머는 즉시 끊는다 — 빈 방에서 자동 굴림·자동 기록이 계속 돌면 안 된다.
+        verify(roundTimerService).cancelRoom("room-a");
+        assertThat(roomCloseScheduler.isPending("room-a")).isTrue();
+        assertThat(roomCloseScheduler.lastDelay).isEqualTo(GameWebSocketHandler.EMPTY_ROOM_GRACE);
+        // 진행 상태는 아직 살려둔다 — 새로고침으로 돌아올 수 있다.
+        assertThat(roundStateStore.findByRoomId("room-a")).isPresent();
+        verify(roomService, never()).close(any());
+    }
+
+    @Test
+    void closesTheRoomWhenNobodyReturnsBeforeTheGraceEnds() throws Exception {
+        roundSynchronizationService.initialize("room-a", 1, List.of("player-a"));
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        broadcaster.register("room-a", playerA);
+        handler.afterConnectionClosed(playerA, CloseStatus.NORMAL);
+
+        roomCloseScheduler.fire("room-a");
+
+        verify(roomService).close("room-a");
+        assertThat(roundStateStore.findByRoomId("room-a")).isEmpty();
+    }
+
+    @Test
+    void keepsTheRoomWhenSomeoneReturnsDuringTheGrace() throws Exception {
+        UserService userService = mock(UserService.class);
+        when(userService.authenticateSession("token-a"))
+                .thenReturn(new UserIdentity("player-a", "Player A", UserType.GUEST));
+        handler = handlerWith(userService);
+        roundSynchronizationService.initialize("room-a", 1, List.of("player-a"));
+        WebSocketSession first = sessionWithPlayer("player-a");
+        registry.join("room-a", first, "player-a", "Player A");
+        broadcaster.register("room-a", first);
+        handler.afterConnectionClosed(first, CloseStatus.NORMAL);
+        assertThat(roomCloseScheduler.isPending("room-a")).isTrue();
+
+        // 새로고침으로 돌아온다 — 같은 세션 토큰, 새 소켓.
+        WebSocketSession second = sessionWithPlayer("player-a-again");
+        handler.handle(second, joinMessage("token-a", "rejoin-a"));
+
+        assertThat(roomCloseScheduler.isPending("room-a")).isFalse();
+        verify(roomService, never()).close(any());
+        // 끊어둔 마감 타이머를 다시 걸어야 남은 라운드가 진행된다.
+        verify(roundTimerService).start(eq("room-a"), argThat(state -> state.roundNumber() == 1));
+        assertThat(roundStateStore.findByRoomId("room-a")).isPresent();
+    }
+
+    @Test
+    void keepsTheRoomWhileAnotherPlayerIsStillConnected() throws Exception {
+        roundSynchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        WebSocketSession playerB = sessionWithPlayer("player-b");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        registry.join("room-a", playerB, "player-b", "Player B");
+        broadcaster.register("room-a", playerA);
+        broadcaster.register("room-a", playerB);
+
+        handler.afterConnectionClosed(playerA, CloseStatus.NORMAL);
+
+        assertThat(roomCloseScheduler.isPending("room-a")).isFalse();
+        verify(roundTimerService, never()).cancelRoom(any());
+        verify(roomService, never()).close(any());
+    }
+
+    @Test
     void rejectsSubmissionForRoomOtherThanSessionRoom() throws Exception {
         roundSynchronizationService.initialize("room-a", 1, List.of("player-a"));
         WebSocketSession session = sessionWithPlayer("player-a");
@@ -346,7 +426,9 @@ class GameWebSocketHandlerTest {
                 userService,
                 scoreRoundSubmissionService,
                 roundSynchronizationService,
-                roundTimerService
+                roundTimerService,
+                roomService,
+                roomCloseScheduler
         );
         when(userService.authenticateSession("token-a"))
                 .thenReturn(new UserIdentity("player-a", "Player A", UserType.GUEST));
@@ -407,7 +489,9 @@ class GameWebSocketHandlerTest {
                 userService,
                 scoreRoundSubmissionService,
                 roundSynchronizationService,
-                roundTimerService
+                roundTimerService,
+                roomService,
+                roomCloseScheduler
         );
     }
 
@@ -487,6 +571,35 @@ class GameWebSocketHandlerTest {
         return session;
     }
 
+    /** 유예를 실시간으로 기다리지 않고 원할 때 터뜨린다. */
+    private static final class FakeRoomCloseScheduler implements RoomCloseScheduler {
+
+        private final Map<String, Runnable> pending = new HashMap<>();
+        private Duration lastDelay;
+
+        @Override
+        public void schedule(String roomId, Duration delay, Runnable closeTask) {
+            lastDelay = delay;
+            pending.put(roomId, closeTask);
+        }
+
+        @Override
+        public boolean cancel(String roomId) {
+            return pending.remove(roomId) != null;
+        }
+
+        boolean isPending(String roomId) {
+            return pending.containsKey(roomId);
+        }
+
+        void fire(String roomId) {
+            Runnable task = pending.remove(roomId);
+            if (task != null) {
+                task.run();
+            }
+        }
+    }
+
     private static class TestGameWebSocketHandler extends GameWebSocketHandler {
 
         TestGameWebSocketHandler(
@@ -496,7 +609,9 @@ class GameWebSocketHandlerTest {
                 UserService userService,
                 ScoreRoundSubmissionService scoreRoundSubmissionService,
                 RoundSynchronizationService roundSynchronizationService,
-                RoundTimerService roundTimerService
+                RoundTimerService roundTimerService,
+                RoomService roomService,
+                RoomCloseScheduler roomCloseScheduler
         ) {
             super(
                     objectMapper,
@@ -505,7 +620,9 @@ class GameWebSocketHandlerTest {
                     userService,
                     scoreRoundSubmissionService,
                     roundSynchronizationService,
-                    roundTimerService
+                    roundTimerService,
+                    roomService,
+                    roomCloseScheduler
             );
         }
 

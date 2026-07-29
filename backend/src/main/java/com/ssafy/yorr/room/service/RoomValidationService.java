@@ -41,6 +41,26 @@ public class RoomValidationService implements RoomService {
             if members <= 0 then redis.call('DEL', KEYS[1]); redis.call('DEL', KEYS[2]); redis.call('DEL', KEYS[3]); return 0 end
             return 1
             """, Long.class);
+    /**
+     * 방을 통째로 지운다. 게임 키는 참가자 수가 가변이라 KEYS로 미리 넘길 수 없어 스크립트 안에서
+     * 조립한다({@link com.ssafy.yorr.game.repository.RedisGameCompletionStore}와 같은 규약).
+     * 단일 Redis 전제 — 클러스터로 가면 참가자별 삭제를 애플리케이션으로 올려야 한다.
+     */
+    private static final DefaultRedisScript<Long> CLOSE = new DefaultRedisScript<>("""
+            local gameId = redis.call('HGET', KEYS[1], 'gameId')
+            if gameId then
+                local players = redis.call('HKEYS', KEYS[2])
+                for i = 1, #players do
+                    redis.call('DEL', 'game:' .. gameId .. ':scoreboard:' .. players[i])
+                    redis.call('DEL', 'game:' .. gameId .. ':score-submissions:' .. players[i])
+                end
+                redis.call('DEL', 'game:' .. gameId)
+            end
+            redis.call('DEL', KEYS[1])
+            redis.call('DEL', KEYS[2])
+            redis.call('DEL', KEYS[3])
+            return 1
+            """, Long.class);
     static final DefaultRedisScript<Long> START = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
             if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 0 end
@@ -90,6 +110,12 @@ public class RoomValidationService implements RoomService {
         Long result = redisTemplate.execute(LEAVE, List.of(RoomRedisKeys.roomKey(roomCode),
                 RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode)), playerId);
         return result != null && result >= 0;
+    }
+
+    @Override
+    public void close(String roomCode) {
+        redisTemplate.execute(CLOSE, List.of(RoomRedisKeys.roomKey(roomCode),
+                RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode)));
     }
 
     @Override
