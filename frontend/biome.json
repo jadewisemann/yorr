@@ -37,7 +37,8 @@
     "rules": {
       "preset": "recommended",
       "complexity": {
-        "noImportantStyles": "off"
+        "noImportantStyles": "off",
+        "noExcessiveCognitiveComplexity": "warn"
       }
     }
   },
