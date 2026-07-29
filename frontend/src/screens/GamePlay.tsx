@@ -85,6 +85,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const activePlayer = snapshot.players.find((player) => player.playerId === activePlayerId)
   const remainingMs = useCountdown(game?.roundDeadline ?? null)
   const myBoard = game?.scores[session.you]
+  const activeBoard = activePlayerId ? game?.scores[activePlayerId] : undefined
 
   const [local, setLocal] = useState(() => createYachtGame(Date.now() >>> 0, roundNumber))
   // 서버가 다음 라운드로 넘기면 로컬 굴림 상태를 새로 시작한다.
@@ -105,7 +106,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   }, [])
 
   const usedCategories = YACHT_CATEGORIES.filter((category) =>
-    isRecorded(myBoard?.categories[category]),
+    isRecorded(activeBoard?.categories[category]),
   )
   const candidates: CategoryScores = local.dice
     ? calculateScoreCandidates(local.dice, usedCategories)
@@ -633,7 +634,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
 
   // 디자인의 quick chips — 열린 족보 전체를 점수순으로 눕히고 탭 한 번에 기록한다.
   const openCategories = YACHT_CATEGORIES.filter(
-    (category) => !isRecorded(myBoard?.categories[category]),
+    (category) => !isRecorded(activeBoard?.categories[category]),
   )
   const rolled = local.dice !== null
   const quickCategories = rolled
@@ -792,7 +793,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
                 open={sheetOpen}
                 quick={quickStrip}
                 subtitle={`${openCategories.length}개 남음`}
-                title="기록 — 나"
+                title={`기록 — ${isMyTurn ? '나' : (activePlayer?.nickname ?? '—')}`}
               >
                 {scoreSheet('h-full')}
               </RecordPanel>

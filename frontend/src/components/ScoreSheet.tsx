@@ -72,7 +72,7 @@ export function ScoreSheet({
   you,
 }: ScoreSheetProps) {
   const rolled = Object.keys(candidates).length > 0
-  const me = players.find((player) => player.playerId === you)
+  const activePlayer = players.find((player) => player.playerId === activePlayerId)
   // 첫 열은 아이콘+한글 라벨("스몰 스트레이트")이 320px 2열에서도 잘리지 않을 폭.
   const columns = {
     gridTemplateColumns: `minmax(8rem, 1.3fr) repeat(${players.length}, minmax(2.75rem, 1fr))`,
@@ -82,14 +82,15 @@ export function ScoreSheet({
     playerId === activePlayerId ? 'bg-surface' : undefined
 
   const renderCategoryRow = (category: YachtCategory) => {
-    const myRecorded = me?.scoreboard?.categories[category]
-    const preview = !isRecorded(myRecorded) && rolled ? (candidates[category] ?? 0) : null
-    const clickable = canPick && preview !== null
+    const activeRecorded = activePlayer?.scoreboard?.categories[category]
+    const preview =
+      activePlayer && !isRecorded(activeRecorded) && rolled ? (candidates[category] ?? 0) : null
+    const clickable = activePlayerId === you && canPick && preview !== null
     const best = preview !== null && category === bestCategory
 
     const cells = players.map((player) => {
       const value = player.scoreboard?.categories[category]
-      const isPreviewCell = player.playerId === you && preview !== null
+      const isPreviewCell = player.playerId === activePlayerId && preview !== null
       return (
         <span
           className={cn(
