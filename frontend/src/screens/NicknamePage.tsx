@@ -59,7 +59,7 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
   return (
     // 디자인 02 — 카드 없이 풀스크린. 좌상단 뒤로가기·코드 칩, 좌측 정렬 헤드라인,
     // 하단 고정 CTA. 배경엔 방 코드 워터마크가 아주 흐리게 깔린다.
-    <main className="relative mx-auto flex min-h-dvh w-full max-w-lg flex-col overflow-hidden px-gutter pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-content">
+    <main className="relative mx-auto flex min-h-dvh w-full max-w-2xl flex-col overflow-hidden px-gutter pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-content">
       <span
         aria-hidden="true"
         className="pointer-events-none absolute top-32 -left-7 font-mono text-[11.875rem] leading-none font-bold tracking-[-0.04em] text-white/4 select-none"
