@@ -4,6 +4,7 @@
     "includes": [
       "**",
       "!dist",
+      "!coverage",
       "!playwright-report",
       "!test-results",
       "!ref",
