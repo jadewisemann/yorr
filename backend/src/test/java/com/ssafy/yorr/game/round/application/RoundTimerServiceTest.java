@@ -61,6 +61,7 @@ class RoundTimerServiceTest {
         Instant deadline = timerService.start("room-a", RoundState.start(1, DUO));
 
         assertThat(deadline).isEqualTo(NOW.plusSeconds(25));
+        assertThat(timerService.currentDeadline("room-a")).contains(deadline);
         // 마감 직전에 떠난 round.submit이 도착할 틈을 주고 나서 강제 진행한다.
         assertThat(scheduler.deadline).isEqualTo(deadline.plus(RoundTimerService.EXPIRY_GRACE));
         WsEnvelope<?> message = capturedBroadcast();
@@ -181,6 +182,7 @@ class RoundTimerServiceTest {
 
         assertThat(capturedBroadcasts(1).get(0).type()).isEqualTo("round.end");
         assertThat(scheduler.timeoutAction).isNull();
+        assertThat(timerService.currentDeadline("room-a")).isEmpty();
     }
 
     /** 종료 전이가 실패해도 다음 턴을 걸지 않는다 — 걸면 상한을 넘긴 라운드가 계속 진행된다. */

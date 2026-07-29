@@ -17,6 +17,7 @@ import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionResult;
 import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
 import com.ssafy.yorr.game.round.application.RoundTimerService;
+import com.ssafy.yorr.game.round.application.GameReconnectSnapshotService;
 import com.ssafy.yorr.game.round.domain.RoundSynchronizationException;
 import com.ssafy.yorr.ws.WsProtocol;
 import com.ssafy.yorr.ws.dto.InboundEnvelope;
@@ -44,6 +45,8 @@ import com.ssafy.yorr.ws.dto.ReactionBroadcastPayload;
 import com.ssafy.yorr.ws.dto.StateSyncPayload;
 import com.ssafy.yorr.ws.dto.DisconnectReason;
 import com.ssafy.yorr.ws.dto.SysDisconnectPayload;
+import com.ssafy.yorr.ws.dto.SysReconnectedPayload;
+import com.ssafy.yorr.ws.dto.RoomPhase;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,6 +81,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
      * 방을 파괴하므로, 그 왕복이 끝날 만큼만 준다. 이 시간 동안 마감 타이머는 멈춰 있다.
      */
     static final Duration EMPTY_ROOM_GRACE = Duration.ofSeconds(30);
+    private final GameReconnectSnapshotService reconnectSnapshotService;
 
     public GameWebSocketHandler(ObjectMapper objectMapper,
                                 InMemoryRoomBroadcaster broadcaster,
@@ -88,7 +92,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                                 RoundSynchronizationService roundSynchronizationService,
                                 RoundTimerService roundTimerService,
                                 RoomService roomService,
-                                RoomCloseScheduler roomCloseScheduler) {
+                                RoomCloseScheduler roomCloseScheduler,
+                                GameReconnectSnapshotService reconnectSnapshotService) {
         this.objectMapper = objectMapper;
         this.broadcaster = broadcaster;
         this.registry = registry;
@@ -99,6 +104,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         this.roundTimerService = roundTimerService;
         this.roomService = roomService;
         this.roomCloseScheduler = roomCloseScheduler;
+        this.reconnectSnapshotService = reconnectSnapshotService;
     }
 
     // 연결이 열렸을 때 (콜센터: 전화 받음)
@@ -180,8 +186,39 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        // (1) 명단 등록 (첫 입장자 = host). self엔 확정된 host 여부가 들어있음.
+        RoomSessionRegistry.Member previous = registry.find(payload.roomId(), id.playerId());
+        boolean reconnecting = previous != null;
+        if (registry.phaseOf(payload.roomId()) == RoomPhase.PLAYING && !reconnecting) {
+            sendError(session, WsErrorCode.GAME_ALREADY_STARTED,
+                    "이미 시작된 게임에는 새로 참가할 수 없습니다.", in.msgId());
+            return;
+        }
+
+        // (1) 명단 등록. 같은 playerId면 자리와 host를 유지하고 새 소켓으로 교체한다.
         RoomSessionRegistry.Member self = registry.join(payload.roomId(), session, id.playerId(), id.nickname());
+        disconnectPreviousSession(previous, session);
+
+        if (reconnecting) {
+            broadcaster.register(payload.roomId(), session);
+            final RoomSnapshot snapshot;
+            try {
+                snapshot = reconnectSnapshotService.snapshot(payload.roomId(), id.playerId());
+            } catch (RuntimeException exception) {
+                log.error("재접속 상태 스냅샷 생성 실패: player={} room={}",
+                        id.playerId(), payload.roomId(), exception);
+                broadcaster.unregister(session);
+                sendError(session, WsErrorCode.INTERNAL,
+                        "게임 상태를 복원하지 못했습니다. 잠시 후 다시 시도해 주세요.", in.msgId());
+                return;
+            }
+            send(session, WsEnvelope.of("sys.reconnected", new SysReconnectedPayload(snapshot))
+                    .withRoomId(payload.roomId())
+                    .withMsgId(in.msgId()));
+            broadcastPresence(payload.roomId(), id.playerId(), PlayerStatus.ONLINE);
+            log.info("room.reconnected: player={} room={}", id.playerId(), payload.roomId());
+            return;
+        }
+
         RoomSnapshot snapshot = registry.snapshot(payload.roomId()); // 본인 포함 전체 명단
 
         // (2) 본인에게: room.joined (발급 playerId·세션토큰·전체 스냅샷). 본인에게만.
@@ -211,6 +248,26 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         roundSynchronizationService.findByRoomId(roomId)
                 .filter(state -> !state.isFinished())
                 .ifPresent(state -> roundTimerService.start(roomId, state));
+    }
+
+    private void disconnectPreviousSession(
+            RoomSessionRegistry.Member previous,
+            WebSocketSession replacement
+    ) {
+        if (previous == null || previous.session() == null || previous.session() == replacement) {
+            return;
+        }
+        WebSocketSession old = previous.session();
+        broadcaster.unregister(old);
+        try {
+            if (old.isOpen()) {
+                send(old, WsEnvelope.of("sys.disconnect",
+                        new SysDisconnectPayload(DisconnectReason.REPLACED_BY_NEW_SESSION)));
+                old.close(CloseStatus.POLICY_VIOLATION);
+            }
+        } catch (IOException exception) {
+            log.debug("교체된 이전 소켓 정리 실패: {}", old.getId(), exception);
+        }
     }
 
     /**

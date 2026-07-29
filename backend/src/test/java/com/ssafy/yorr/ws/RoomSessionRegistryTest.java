@@ -106,4 +106,19 @@ class RoomSessionRegistryTest {
         assertThat(registry.of(newSession)).isEqualTo(reconnected);
         assertThat(registry.snapshot("ROOM1").players()).hasSize(1);
     }
+
+    @Test
+    void replacesSamePlayersSocketWithoutLosingHostRole() {
+        WebSocketSession oldSession = session();
+        WebSocketSession replacement = session();
+
+        registry.join("ROOM1", oldSession, "player-1", "호스트");
+        RoomSessionRegistry.Member reconnected =
+                registry.join("ROOM1", replacement, "player-1", "호스트");
+
+        assertThat(reconnected.host()).isTrue();
+        assertThat(registry.of(oldSession)).isNull();
+        assertThat(registry.of(replacement)).isEqualTo(reconnected);
+        assertThat(registry.snapshot("ROOM1").players()).hasSize(1);
+    }
 }
