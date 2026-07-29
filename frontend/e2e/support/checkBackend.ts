@@ -7,7 +7,7 @@
 const DEPLOYED_DEV_ORIGIN = 'https://i15a406.p.ssafy.io'
 
 export default async function checkBackend() {
-  const origin = process.env.VITE_BACKEND_ORIGIN || 'http://localhost:8080'
+  const origin = process.env.VITE_BACKEND_ORIGIN || DEPLOYED_DEV_ORIGIN
   const apiPrefix = origin === DEPLOYED_DEV_ORIGIN ? '/dev-api' : '/api'
   const probeUrl = `${origin}${apiPrefix}/v1/rooms`
 
@@ -15,14 +15,19 @@ export default async function checkBackend() {
     // 4xx 라도 응답이 오면 서버는 떠 있는 것이다. 연결 실패만 미기동으로 본다.
     await fetch(probeUrl, { method: 'POST', signal: AbortSignal.timeout(5_000) })
   } catch {
+    const guidance =
+      origin === DEPLOYED_DEV_ORIGIN
+        ? [
+            '배포 dev 서버가 내려간 상태면 로컬 백엔드로 우회할 수 있습니다:',
+            '  cd backend && docker compose up -d && ./gradlew bootRun',
+            '  VITE_BACKEND_ORIGIN=http://localhost:8080 npm run test:e2e:real',
+          ]
+        : ['로컬 백엔드를 먼저 띄우세요: cd backend && docker compose up -d && ./gradlew bootRun']
+
     throw new Error(
-      [
-        `real E2E 를 시작할 수 없습니다: 백엔드(${origin})가 응답하지 않습니다.`,
-        '로컬 백엔드를 먼저 띄우세요: cd backend && docker compose up -d && ./gradlew bootRun',
-        '로컬 기동이 어려우면 배포 dev 서버로 우회할 수 있습니다:',
-        `  VITE_BACKEND_ORIGIN=${DEPLOYED_DEV_ORIGIN} npm run test:e2e:real`,
-        '  (테스트가 만든 방이 공용 dev 서버에 남는 점은 팀에 공유)',
-      ].join('\n'),
+      [`real E2E 를 시작할 수 없습니다: 백엔드(${origin})가 응답하지 않습니다.`, ...guidance].join(
+        '\n',
+      ),
     )
   }
 }

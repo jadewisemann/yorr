@@ -6,14 +6,13 @@ import { defineConfig, loadEnv } from 'vite'
 // 배포 dev 서버는 REST 를 /dev-api/v1/..., WS 를 /dev-ws/v1/... 로 노출한다.
 // 로컬 백엔드(localhost:8080)는 접두어 없이 /api/v1, /ws/v1 그대로다.
 const DEPLOYED_DEV_ORIGIN = 'https://i15a406.p.ssafy.io'
-const LOCAL_BACKEND_ORIGIN = 'http://localhost:8080'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
-  // 실서버 모드(VITE_ENABLE_MSW=false)의 기본 대상은 로컬 백엔드.
-  // 로컬 기동이 어려우면 VITE_BACKEND_ORIGIN 으로 배포 dev 서버를 지정한다 (.env.example 참고).
-  const backendOrigin = env.VITE_BACKEND_ORIGIN || LOCAL_BACKEND_ORIGIN
+  // 실서버 모드(VITE_ENABLE_MSW=false)의 기본 대상은 배포 dev 서버 — env 없이 바로 돈다.
+  // 로컬 백엔드를 쓰려면 VITE_BACKEND_ORIGIN=http://localhost:8080 (.env.example 참고).
+  const backendOrigin = env.VITE_BACKEND_ORIGIN || DEPLOYED_DEV_ORIGIN
   const useDeployedPrefix = backendOrigin === DEPLOYED_DEV_ORIGIN
 
   // 브라우저가 실은 Origin(127.0.0.1:4306 등)이 백엔드 CORS 허용 목록에 없으면
