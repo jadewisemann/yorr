@@ -47,7 +47,11 @@ import org.slf4j.LoggerFactory;
 
 import tools.jackson.databind.ObjectMapper;   // ← Jackson 3 (Boot 4)
 
+import com.ssafy.yorr.room.port.RoomCloseScheduler;
+import com.ssafy.yorr.room.service.RoomService;
+
 import java.io.IOException;
+import java.time.Duration;
 
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
@@ -60,6 +64,16 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final ScoreRoundSubmissionService scoreRoundSubmissionService;
     private final RoundSynchronizationService roundSynchronizationService;
     private final RoundTimerService roundTimerService;
+    private final RoomService roomService;                     // 빈 방 닫기(Redis 키 정리)
+    private final RoomCloseScheduler roomCloseScheduler;       // 유예 뒤 닫기 예약
+
+    /**
+     * 마지막 참가자의 소켓이 끊긴 뒤 방을 닫기까지 기다리는 시간.
+     * <p>
+     * 새로고침·터널 통과 같은 짧은 단절은 소켓을 끊고 다시 연결한다. 즉시 닫으면 본인이 자기
+     * 방을 파괴하므로, 그 왕복이 끝날 만큼만 준다. 이 시간 동안 마감 타이머는 멈춰 있다.
+     */
+    static final Duration EMPTY_ROOM_GRACE = Duration.ofSeconds(30);
 
     public GameWebSocketHandler(ObjectMapper objectMapper,
                                 InMemoryRoomBroadcaster broadcaster,
@@ -67,7 +81,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                                 UserService userService,
                                 ScoreRoundSubmissionService scoreRoundSubmissionService,
                                 RoundSynchronizationService roundSynchronizationService,
-                                RoundTimerService roundTimerService) {
+                                RoundTimerService roundTimerService,
+                                RoomService roomService,
+                                RoomCloseScheduler roomCloseScheduler) {
         this.objectMapper = objectMapper;
         this.broadcaster = broadcaster;
         this.registry = registry;
@@ -75,6 +91,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         this.scoreRoundSubmissionService = scoreRoundSubmissionService;
         this.roundSynchronizationService = roundSynchronizationService;
         this.roundTimerService = roundTimerService;
+        this.roomService = roomService;
+        this.roomCloseScheduler = roomCloseScheduler;
     }
 
     // 연결이 열렸을 때 (콜센터: 전화 받음)
@@ -172,7 +190,20 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         // (4) 이제 팬아웃 대상에 본인 등록 → 이후 방 브로드캐스트 수신
         broadcaster.register(payload.roomId(), session);
+
+        // (5) 비어서 닫히기를 기다리던 방이면 살려낸다. 취소된 예약이 있었다 = 방금 전까지
+        //     아무도 없었다는 뜻이라, 그때 끊어둔 마감 타이머를 여기서 다시 걸어준다.
+        if (roomCloseScheduler.cancel(payload.roomId())) {
+            resumeRoundTimer(payload.roomId());
+        }
         log.info("room.join: player={} room={} host={}", id.playerId(), payload.roomId(), self.host());
+    }
+
+    /** 빈 방에서 끊어둔 마감 타이머를 복귀 시 다시 건다. 진행 중인 라운드가 없으면 아무것도 하지 않는다. */
+    private void resumeRoundTimer(String roomId) {
+        roundSynchronizationService.findByRoomId(roomId)
+                .filter(state -> !state.isFinished())
+                .ifPresent(state -> roundTimerService.start(roomId, state));
     }
 
     /**
@@ -275,12 +306,35 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                         new RoomPlayerLeftPayload(gone.playerId()))
                 .withRoomId(gone.roomId()));
 
-        // 아무도 남지 않으면 진행 상태와 마감 타이머를 버린다. 안 버리면 빈 방에서
-        // 만료 → 다음 턴 → 만료가 25초마다 영원히 반복된다(스케줄 태스크·메모리 누수).
-        if (registry.snapshot(gone.roomId()).players().isEmpty()) {
-            roundTimerService.cancelRoom(gone.roomId());
-            roundSynchronizationService.remove(gone.roomId());
+        if (!registry.snapshot(gone.roomId()).players().isEmpty()) {
+            return;
         }
+        // 마감 타이머는 즉시 끊는다. 남겨두면 빈 방에서 만료 → 자동 굴림 → 만료가 25초마다
+        // 반복되고, 없는 사람 몫으로 점수가 기록된다.
+        roundTimerService.cancelRoom(gone.roomId());
+        // 진행 상태는 아직 버리지 않는다 — 새로고침은 "끊고 다시 연결"이라 여기서 버리면
+        // 돌아온 사람이 자기 게임을 잃는다. 유예 뒤에도 비어 있으면 그때 닫는다.
+        roomCloseScheduler.schedule(
+                gone.roomId(),
+                EMPTY_ROOM_GRACE,
+                () -> closeRoomIfStillEmpty(gone.roomId())
+        );
+    }
+
+    /**
+     * 유예가 끝났다. 여전히 아무도 없으면 방을 완전히 닫는다.
+     * <p>
+     * 예약 시점과 실행 시점 사이에 누군가 돌아올 수 있어 여기서 한 번 더 확인한다
+     * (예약 취소와 이 검사는 서로를 보완한다 — 취소가 늦게 도착해도 방이 죽지 않는다).
+     */
+    private void closeRoomIfStillEmpty(String roomId) {
+        if (!registry.snapshot(roomId).players().isEmpty()) {
+            return;
+        }
+        roundTimerService.cancelRoom(roomId);
+        roundSynchronizationService.remove(roomId);
+        roomService.close(roomId);
+        log.info("빈 방을 닫았습니다: room={}", roomId);
     }
 
     /**
