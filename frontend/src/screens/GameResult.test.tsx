@@ -51,18 +51,18 @@ describe('GameResult', () => {
     expect(rows[1]).toHaveTextContent('민지(나)')
   })
 
-  it('lets the host start a rematch and anyone leave', async () => {
+  it('lets the host move everyone back to the lobby and anyone leave', async () => {
     const user = userEvent.setup()
     render(<GameResult session={hostSession} snapshot={finishedSnapshot} />)
 
-    expect(screen.getByRole('button', { name: '같은 멤버로 다시' })).toBeEnabled()
-    expect(screen.getByText('재대결은 방장이 시작합니다')).toBeVisible()
+    expect(screen.getByRole('button', { name: '대기실로' })).toBeEnabled()
+    expect(screen.getByText('대기실로 돌아가면 같은 멤버로 다시 시작할 수 있어요')).toBeVisible()
 
     await user.click(screen.getByRole('button', { name: '나가기' }))
     expect(navigate).toHaveBeenCalledWith({ to: '/', replace: true })
   })
 
-  it('blocks the rematch for participants', () => {
+  it('blocks the lobby move for participants', () => {
     render(
       <GameResult
         session={{ ...hostSession, membershipRole: 'participant' }}
@@ -70,8 +70,8 @@ describe('GameResult', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: '같은 멤버로 다시' })).toBeDisabled()
-    expect(screen.getByText('방장이 다시 시작하기를 기다리는 중')).toBeVisible()
+    expect(screen.getByRole('button', { name: '대기실로' })).toBeDisabled()
+    expect(screen.getByText('방장이 대기실로 옮기기를 기다리는 중')).toBeVisible()
   })
 
   it('opens the full scoresheet in a sheet', async () => {

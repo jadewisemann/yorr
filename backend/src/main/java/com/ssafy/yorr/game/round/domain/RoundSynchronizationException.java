@@ -24,6 +24,8 @@ public class RoundSynchronizationException extends RuntimeException {
         ROUND_MISMATCH,
         PLAYER_NOT_IN_ROUND,
         NOT_ACTIVE_PLAYER,
-        ALREADY_SUBMITTED
+        ALREADY_SUBMITTED,
+        /** 마지막 라운드까지 끝난 게임에 굴림·제출이 들어왔다. 종료 후 지연 요청의 1차 방어선. */
+        GAME_ALREADY_FINISHED
     }
 }

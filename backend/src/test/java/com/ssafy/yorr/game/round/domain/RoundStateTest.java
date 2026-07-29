@@ -160,6 +160,62 @@ class RoundStateTest {
                 );
     }
 
+    /**
+     * 마지막 라운드의 마지막 제출은 다음 라운드를 만들지 않는다.
+     * 여기서 멈추지 않으면 라운드가 13, 14…로 무한히 증가한다(게임이 종료되지 않던 원인).
+     */
+    @Test
+    void marksTheGameCompletedInsteadOfOpeningAnotherRound() {
+        RoundState state = RoundState.start(2, List.of("player-a"), 2);
+
+        RoundSubmissionResult result = state.submit(submission("player-a", 2));
+
+        assertThat(result.completion()).hasValueSatisfying(completion -> {
+            assertThat(completion.gameCompleted()).isTrue();
+            assertThat(completion.roundNumber()).isEqualTo(2);
+            assertThat(completion.nextRoundNumber()).isEqualTo(2);
+        });
+        assertThat(result.state().isFinished()).isTrue();
+        assertThat(result.state().roundNumber()).isEqualTo(2);
+    }
+
+    @Test
+    void keepsOpeningRoundsUntilTheLastOne() {
+        RoundState state = RoundState.start(1, List.of("player-a"), 2);
+
+        RoundSubmissionResult result = state.submit(submission("player-a", 1));
+
+        assertThat(result.completion()).hasValueSatisfying(completion ->
+                assertThat(completion.gameCompleted()).isFalse()
+        );
+        assertThat(result.state().isFinished()).isFalse();
+        assertThat(result.state().roundNumber()).isEqualTo(2);
+    }
+
+    /** 종료 후 도착한 제출·굴림은 거부한다. 받아주면 끝난 게임의 점수판이 다시 바뀐다. */
+    @Test
+    void rejectsEverythingOnceTheGameIsFinished() {
+        RoundState finished = RoundState.start(1, List.of("player-a"), 1)
+                .submit(submission("player-a", 1))
+                .state();
+
+        assertThatThrownBy(() -> finished.submit(submission("player-a", 1)))
+                .isInstanceOfSatisfying(RoundSynchronizationException.class, exception ->
+                        assertThat(exception.reason())
+                                .isEqualTo(RoundSynchronizationException.Reason.GAME_ALREADY_FINISHED)
+                );
+        assertThatThrownBy(() -> finished.recordRoll("player-a", 1, 1, noHeld(), List.of(1, 2, 3, 4, 5)))
+                .isInstanceOfSatisfying(RoundSynchronizationException.class, exception ->
+                        assertThat(exception.reason())
+                                .isEqualTo(RoundSynchronizationException.Reason.GAME_ALREADY_FINISHED)
+                );
+        assertThatThrownBy(finished::expire)
+                .isInstanceOfSatisfying(RoundSynchronizationException.class, exception ->
+                        assertThat(exception.reason())
+                                .isEqualTo(RoundSynchronizationException.Reason.GAME_ALREADY_FINISHED)
+                );
+    }
+
     private static RoundSubmission submission(String playerId, int roundNumber) {
         return new RoundSubmission(playerId, roundNumber, List.of(1, 2, 3, 4, 5), "smallStraight");
     }

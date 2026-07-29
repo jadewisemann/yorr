@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
-import { useStartGame } from '@/api/useGameApi'
+import { useReturnToLobby } from '@/api/useGameApi'
 import { useLeaveSession } from '@/api/useRoomApi'
 import { BottomSheet } from '@/components/BottomSheet'
 import { Button } from '@/components/Button'
@@ -18,7 +18,7 @@ interface GameResultProps {
 /** ⑦ 최종 결과. 결과 확인 3초 → 재대결 1탭이 목표다. */
 export function GameResult({ session, snapshot }: GameResultProps) {
   const navigate = useNavigate()
-  const startGame = useStartGame()
+  const returnToLobby = useReturnToLobby()
   const { isLeaving, leave } = useLeaveSession()
   const [sheetOpen, setSheetOpen] = useState(false)
 
@@ -34,9 +34,11 @@ export function GameResult({ session, snapshot }: GameResultProps) {
     void navigate({ to: '/', replace: true })
   }
 
-  const handleRematch = async () => {
+  // 대기실 복귀는 방 전체가 함께 움직인다(화면 전환이 phase 기준이라 혼자 옮겨갈 수 없다).
+  // 이동 자체는 서버의 state.sync를 받은 라우팅이 처리하므로 여기서 navigate하지 않는다.
+  const handleReturnToLobby = async () => {
     if (!isHost) return
-    await startGame.execute()
+    await returnToLobby.execute()
   }
 
   return (
@@ -75,21 +77,23 @@ export function GameResult({ session, snapshot }: GameResultProps) {
         <div className="mt-auto grid gap-2 pt-4">
           <Button
             disabled={!isHost}
-            loading={startGame.isLoading}
-            onClick={handleRematch}
+            loading={returnToLobby.isLoading}
+            onClick={handleReturnToLobby}
             size="lg"
           >
-            같은 멤버로 다시
+            대기실로
           </Button>
           <Button loading={isLeaving} onClick={handleLeave} variant="secondary">
             나가기
           </Button>
           <p className="m-0 text-center text-[10.5px] text-content-muted">
-            {isHost ? '재대결은 방장이 시작합니다' : '방장이 다시 시작하기를 기다리는 중'}
+            {isHost
+              ? '대기실로 돌아가면 같은 멤버로 다시 시작할 수 있어요'
+              : '방장이 대기실로 옮기기를 기다리는 중'}
           </p>
-          {startGame.error && (
+          {returnToLobby.error && (
             <p className="m-0 text-center text-sm text-danger" role="alert">
-              다시 시작하지 못했어요: {startGame.error.message}
+              대기실로 돌아가지 못했어요: {returnToLobby.error.message}
             </p>
           )}
         </div>
@@ -109,7 +113,23 @@ export function GameResult({ session, snapshot }: GameResultProps) {
   )
 }
 
+/**
+ * 순위는 서버가 game.over로 보낸 값을 그대로 쓴다(총점도 서버 확정값). 로컬 재계산은
+ * score.update를 하나라도 놓치면 서버와 다른 등수를 보여주므로 폴백으로만 남긴다.
+ */
 function toRanking(snapshot: RoomSnapshot, you: string): RankedPlayer[] {
+  const serverRankings = snapshot.game?.rankings
+  if (serverRankings && serverRankings.length > 0) {
+    const nicknameById = new Map(
+      snapshot.players.map((player) => [player.playerId, player.nickname]),
+    )
+    return serverRankings.map((ranking) => ({
+      nickname: nicknameById.get(ranking.playerId) ?? ranking.playerId,
+      playerId: ranking.playerId,
+      total: ranking.total,
+    }))
+  }
+
   return snapshot.players
     .map((player) => ({
       nickname: player.nickname,

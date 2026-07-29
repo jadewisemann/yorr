@@ -63,6 +63,13 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
         })
       )
     }),
+    http.post('/api/v1/rooms/:roomCode/lobby', async ({ params }) => {
+      await beforeResponse()
+      if (params.roomCode !== MOCK_ROOM_ID) {
+        return HttpResponse.json({ code: 'ROOM_NOT_FOUND' }, { status: 404 })
+      }
+      return unavailable() ?? new HttpResponse(null, { status: 204 })
+    }),
     http.post('/api/v1/games/:gameId/score-candidates', async ({ params }) => {
       await beforeResponse()
       if (params.gameId !== 'mock-game-id') {

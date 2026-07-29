@@ -15,8 +15,6 @@ import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionResult;
 import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
 import com.ssafy.yorr.game.round.application.RoundTimerService;
-import com.ssafy.yorr.game.round.domain.RoundCompletion;
-import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
 import com.ssafy.yorr.game.round.domain.RoundSynchronizationException;
 import com.ssafy.yorr.ws.WsProtocol;
 import com.ssafy.yorr.ws.dto.InboundEnvelope;
@@ -24,11 +22,9 @@ import com.ssafy.yorr.ws.dto.WsEnvelope;
 import com.ssafy.yorr.ws.dto.SysConnectedPayload;
 import com.ssafy.yorr.ws.dto.SysPongPayload;
 import com.ssafy.yorr.ws.dto.ErrorPayload;
-import com.ssafy.yorr.ws.dto.RoundEndPayload;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
 import com.ssafy.yorr.ws.dto.DiceRollPayload;
 import com.ssafy.yorr.ws.dto.DiceBroadcastPayload;
-import com.ssafy.yorr.ws.dto.ScoreUpdatePayload;
 import com.ssafy.yorr.ws.dto.WsErrorCode;
 import com.ssafy.yorr.ws.dto.RoomJoinPayload;
 import com.ssafy.yorr.ws.dto.RoomJoinedPayload;
@@ -261,10 +257,18 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private void leaveRoom(WebSocketSession session) {
         RoomSessionRegistry.Member gone = registry.remove(session);
         broadcaster.unregister(session); // 본인을 팬아웃에서 뺀 뒤 브로드캐스트 → 본인은 안 받음
-        if (gone != null) {
-            broadcaster.broadcast(gone.roomId(), WsEnvelope.of("room.player_left",
-                            new RoomPlayerLeftPayload(gone.playerId()))
-                    .withRoomId(gone.roomId()));
+        if (gone == null) {
+            return;
+        }
+        broadcaster.broadcast(gone.roomId(), WsEnvelope.of("room.player_left",
+                        new RoomPlayerLeftPayload(gone.playerId()))
+                .withRoomId(gone.roomId()));
+
+        // 아무도 남지 않으면 진행 상태와 마감 타이머를 버린다. 안 버리면 빈 방에서
+        // 만료 → 다음 턴 → 만료가 25초마다 영원히 반복된다(스케줄 태스크·메모리 누수).
+        if (registry.snapshot(gone.roomId()).players().isEmpty()) {
+            roundTimerService.cancelRoom(gone.roomId());
+            roundSynchronizationService.remove(gone.roomId());
         }
     }
 
@@ -331,18 +335,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         try {
             ScoreRoundSubmissionResult result = scoreRoundSubmissionService.submit(roomId, playerId, payload);
-            broadcastScoreUpdate(roomId, result, in.msgId());
-            RoundSubmissionResult roundResult = result.round();
-            roundTimerService.cancel(roomId, payload.roundNumber());
-            if (roundResult.roundCompleted()) {
-                RoundCompletion completion = roundResult.completion().orElseThrow();
-                broadcastRoundEnd(roomId, completion);
-            }
-            roundTimerService.start(
-                    roomId,
-                    roundResult.state().roundNumber(),
-                    roundResult.state().activePlayerId()
-            );
+            // 점수 방송·라운드 종료·다음 턴 시작·게임 종료 판단은 전부 advanceTurn 한 곳에 있다.
+            // 마감 만료 경로(RoundTimerService)와 같은 코드를 지나야 두 경로가 어긋나지 않는다.
+            roundTimerService.advanceTurn(roomId, result, in.msgId());
         } catch (ScoreConfirmationException e) {
             sendError(session, toWsErrorCode(e.reason()), e.getMessage(), in.msgId());
         } catch (RoundSynchronizationException e) {
@@ -386,45 +381,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                             .withRoomId(roomId)
                             .withMsgId(in.msgId())
             );
-            roundTimerService.start(roomId, state.roundNumber(), state.activePlayerId());
+            roundTimerService.start(roomId, state);
         } catch (RoundSynchronizationException exception) {
             sendError(session, toWsErrorCode(exception.reason()), exception.getMessage(), in.msgId());
         } catch (IllegalArgumentException exception) {
             sendError(session, WsErrorCode.INVALID_MESSAGE, exception.getMessage(), in.msgId());
         }
-    }
-
-    private void broadcastScoreUpdate(
-            String roomId,
-            ScoreRoundSubmissionResult result,
-            String requestMessageId
-    ) {
-        broadcaster.broadcast(
-                roomId,
-                WsEnvelope.of(
-                                "score.update",
-                                new ScoreUpdatePayload(
-                                        result.score().playerId(),
-                                        result.score().scoreboard()
-                                )
-                        )
-                        .withRoomId(roomId)
-                        .withMsgId(requestMessageId)
-        );
-    }
-
-    private void broadcastRoundEnd(
-            String roomId,
-            RoundCompletion completion
-    ) {
-        WsEnvelope<RoundEndPayload> roundEnd = new WsEnvelope<>(
-                "round.end",
-                System.currentTimeMillis(),
-                new RoundEndPayload(completion.roundNumber(), completion.submittedPlayerIds()),
-                roomId,
-                null
-        );
-        broadcaster.broadcast(roomId, roundEnd);
     }
 
     private static WsErrorCode toWsErrorCode(RoundSynchronizationException.Reason reason) {
@@ -440,7 +402,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                  INVALID_ROLL,
                  INVALID_CATEGORY,
                  ROUND_ALREADY_INITIALIZED,
-                 ROUND_MISMATCH -> WsErrorCode.INVALID_MESSAGE;
+                 ROUND_MISMATCH,
+                 // 종료 후 지연 요청. 클라 화면이 아직 결과로 넘어가지 않은 정상 상황이라 INTERNAL이 아니다.
+                 GAME_ALREADY_FINISHED -> WsErrorCode.INVALID_MESSAGE;
             case ROUND_NOT_INITIALIZED -> WsErrorCode.INTERNAL;
         };
     }

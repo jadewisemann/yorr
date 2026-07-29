@@ -303,6 +303,8 @@ export interface RoundStartPayload {
   roundNumber: number
   deadline: number // epoch ms
   activePlayerId: PlayerId
+  /** 서버가 확정한 턴 순서. RoomSnapshot.players 순서는 턴 순서가 아니다. */
+  turnOrder: PlayerId[]
 }
 // C→S ⚠️ owner 고용훈: 이번 라운드 제출(로컬 계산된 주사위 + 기록할 족보 칸).
 //   category = 요트 족보 키 중 하나(YachtCategory). 0점 기록(포기)도 같은 방식.

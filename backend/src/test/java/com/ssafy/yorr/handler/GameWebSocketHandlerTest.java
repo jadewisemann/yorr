@@ -5,6 +5,7 @@ import com.ssafy.yorr.game.dto.ScoreConfirmationCommand;
 import com.ssafy.yorr.game.dto.ScoreConfirmationResult;
 import com.ssafy.yorr.game.exception.ScoreConfirmationException;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
+import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionResult;
 import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
 import com.ssafy.yorr.game.round.application.RoundTimerService;
 import com.ssafy.yorr.game.round.infrastructure.InMemoryRoundStateStore;
@@ -37,8 +38,8 @@ import java.util.Map;
 import static com.ssafy.yorr.game.exception.ScoreConfirmationException.Reason.STORE_FAILURE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -100,8 +101,13 @@ class GameWebSocketHandlerTest {
         );
     }
 
+    /**
+     * 점수 방송·라운드 종료·다음 턴·게임 종료 판단은 전부 advanceTurn 한 곳에 있다(마감 만료 경로와 공유).
+     * 핸들러의 책임은 "확정된 제출 결과와 요청 msgId를 그대로 넘기는 것"까지다.
+     * 방송 내용·순서는 {@code RoundTimerServiceTest}가 검증한다.
+     */
     @Test
-    void broadcastsScoreUpdateBeforeRoundEndWhenLastSubmissionCompletes() throws Exception {
+    void delegatesTurnAdvanceToTheSharedPathWithTheRequestMsgId() throws Exception {
         roundSynchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
         WebSocketSession playerA = sessionWithPlayer("player-a");
         WebSocketSession playerB = sessionWithPlayer("player-b");
@@ -112,18 +118,16 @@ class GameWebSocketHandlerTest {
 
         handler.handle(playerA, submitMessage("room-a", "player-a-message"));
 
-        verify(roundTimerService).cancel("room-a", 1);
-        verify(roundTimerService).start("room-a", 1, "player-b");
-        assertSingleScoreUpdate(playerA, "player-a", "player-a-message");
-        assertSingleScoreUpdate(playerB, "player-a", "player-a-message");
-        clearInvocations(playerA, playerB);
+        ScoreRoundSubmissionResult firstTurn = capturedAdvance("player-a-message");
+        assertThat(firstTurn.score().playerId()).isEqualTo("player-a");
+        assertThat(firstTurn.round().roundCompleted()).isFalse();
+        assertThat(firstTurn.round().state().activePlayerId()).isEqualTo("player-b");
 
         handler.handle(playerB, submitMessage("room-a", "player-b-message"));
 
-        verify(roundTimerService, times(2)).cancel("room-a", 1);
-        verify(roundTimerService).start("room-a", 2, "player-a");
-        assertScoreUpdateThenRoundEnd(playerA, "player-b", "player-b-message");
-        assertScoreUpdateThenRoundEnd(playerB, "player-b", "player-b-message");
+        ScoreRoundSubmissionResult lastTurn = capturedAdvance("player-b-message");
+        assertThat(lastTurn.round().roundCompleted()).isTrue();
+        assertThat(lastTurn.round().state().roundNumber()).isEqualTo(2);
     }
 
     @Test
@@ -148,7 +152,7 @@ class GameWebSocketHandlerTest {
             assertThat(state.roundNumber()).isEqualTo(1);
             assertThat(state.submittedPlayerIds()).isEmpty();
         });
-        verify(roundTimerService, never()).cancel(any(), anyInt());
+        verify(roundTimerService, never()).advanceTurn(any(), any(), any());
     }
 
     @Test
@@ -182,7 +186,10 @@ class GameWebSocketHandlerTest {
         handler.handle(playerA, rollMessage("room-a", 1, "roll-one"));
         handler.handle(playerA, rollMessage("room-a", 2, "roll-two"));
 
-        verify(roundTimerService, times(2)).start("room-a", 1, "player-a");
+        verify(roundTimerService, times(2)).start(
+                eq("room-a"),
+                argThat(state -> state.roundNumber() == 1 && state.activePlayerId().equals("player-a"))
+        );
         assertThat(roundStateStore.findByRoomId("room-a")).hasValueSatisfying(state ->
                 assertThat(state.activeRollCount()).isEqualTo(2)
         );
@@ -239,7 +246,7 @@ class GameWebSocketHandlerTest {
             assertThat(state.activeRollCount()).isZero();
             assertThat(state.activeDice()).isNull();
         });
-        verify(roundTimerService, never()).start(any(), anyInt(), any());
+        verify(roundTimerService, never()).start(any(), any());
     }
 
     @Test
@@ -309,44 +316,12 @@ class GameWebSocketHandlerTest {
         return new TextMessage(message);
     }
 
-    private static void assertSingleScoreUpdate(
-            WebSocketSession session,
-            String playerId,
-            String msgId
-    ) throws Exception {
-        ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
-        verify(session).sendMessage(captor.capture());
-        String response = ((TextMessage) captor.getValue()).getPayload();
-
-        assertThat(response).contains("\"type\":\"score.update\"");
-        assertThat(response).contains("\"roomId\":\"room-a\"");
-        assertThat(response).contains("\"msgId\":\"" + msgId + "\"");
-        assertThat(response).contains("\"playerId\":\"" + playerId + "\"");
-        assertThat(response).contains("\"smallStraight\":15");
-        assertThat(response).contains("\"total\":15");
-    }
-
-    private static void assertScoreUpdateThenRoundEnd(
-            WebSocketSession session,
-            String playerId,
-            String msgId
-    ) throws Exception {
-        ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
-        verify(session, times(2)).sendMessage(captor.capture());
-        List<WebSocketMessage<?>> messages = captor.getAllValues();
-        String scoreUpdate = ((TextMessage) messages.get(0)).getPayload();
-        String roundEnd = ((TextMessage) messages.get(1)).getPayload();
-
-        assertThat(scoreUpdate).contains("\"type\":\"score.update\"");
-        assertThat(scoreUpdate).contains("\"msgId\":\"" + msgId + "\"");
-        assertThat(scoreUpdate).contains("\"playerId\":\"" + playerId + "\"");
-        assertThat(scoreUpdate).contains("\"total\":15");
-
-        assertThat(roundEnd).contains("\"type\":\"round.end\"");
-        assertThat(roundEnd).contains("\"roomId\":\"room-a\"");
-        assertThat(roundEnd).doesNotContain("\"msgId\"");
-        assertThat(roundEnd).contains("\"roundNumber\":1");
-        assertThat(roundEnd).contains("\"submitted\":[\"player-a\",\"player-b\"]");
+    /** advanceTurn에 넘어간 제출 결과. 마지막 호출 하나만 본다(테스트마다 제출 1건). */
+    private ScoreRoundSubmissionResult capturedAdvance(String msgId) {
+        ArgumentCaptor<ScoreRoundSubmissionResult> captor =
+                ArgumentCaptor.forClass(ScoreRoundSubmissionResult.class);
+        verify(roundTimerService).advanceTurn(eq("room-a"), captor.capture(), eq(msgId));
+        return captor.getValue();
     }
 
     private static ScoreConfirmationResult confirmedScore(ScoreConfirmationCommand command) {

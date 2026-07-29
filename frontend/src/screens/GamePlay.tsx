@@ -9,8 +9,9 @@ import { RecordPanel } from '@/components/RecordPanel'
 import { RollCounter } from '@/components/RollCounter'
 import { RollResultCallout } from '@/components/RollResultCallout'
 import { RoundTimer } from '@/components/RoundTimer'
-import { PlayerBadge, ScoreSheet } from '@/components/ScoreSheet'
+import { ScoreSheet } from '@/components/ScoreSheet'
 import { ToastHost, useToast } from '@/components/ToastHost'
+import { TurnStrip, type TurnStripPlayer } from '@/components/TurnStrip'
 import type { DiceIndex, DiceSet, HeldDice } from '@/domain/dice'
 import {
   type CategoryScores,
@@ -425,18 +426,20 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     if (local.phase === 'choosing' && local.rollCount >= MAX_ROLLS) setSheetOpen(true)
   }, [local.phase, local.rollCount, submitted, wide])
 
+  useMyTurnAlert({
+    isMyTurn: isMyTurn && !submitted,
+    onAlert: () => {
+      showToast('내 차례예요! 주사위를 굴려 주세요')
+      vibrateForMyTurn()
+    },
+  })
+
   useShortcuts(wide && isMyTurn, { onRoll: handleRoll, dispatch })
 
-  const playerBadges = (
-    <div className="flex flex-none items-center gap-1.5">
-      {sheetPlayers.map((player) => (
-        <PlayerBadge
-          active={player.playerId === activePlayerId}
-          key={player.playerId}
-          nickname={player.nickname}
-        />
-      ))}
-    </div>
+  // 상단 진행 표시 — 서버가 준 턴 순서 그대로다(명단 순서는 턴 순서가 아니다).
+  const turnPlayers = toTurnStripPlayers(snapshot.players, game?.turnOrder, game?.scores)
+  const turnStrip = (
+    <TurnStrip activePlayerId={activePlayerId} players={turnPlayers} you={session.you} />
   )
 
   const trayLabel = activePlayer
@@ -551,11 +554,6 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         <>
           <span aria-hidden="true" className="h-6 w-px flex-none bg-border" />
           <HeaderStat label="라운드" value={`${roundNumber}/${TOTAL_ROUNDS}`} />
-          <HeaderStat
-            accent
-            label="지금 차례"
-            value={activePlayer ? (isMyTurn ? '나' : activePlayer.nickname) : '—'}
-          />
           <div className="ml-auto w-52 min-w-0">
             <RoundTimer
               compact
@@ -580,21 +578,17 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
               totalRounds={TOTAL_ROUNDS}
             />
           </div>
-          {playerBadges}
           {leaveButton}
         </>
       )}
     </header>
   )
 
-  // 내 차례가 끝나면 CTA 자리를 진행 표시로 바꾼다. 빈 화면을 만들지 않는다(1d).
+  // 내 차례가 아니면 CTA 자리를 비워둔다. "누가 진행 중인지"는 상단 스트립이 항상 보여주므로
+  // 여기서 같은 정보를 반복하지 않는다(중복 표시가 오히려 시선을 아래로 끌었다).
   const waitingNotice = (
     <p className="m-0 flex min-h-15 flex-1 items-center justify-center rounded-panel border border-dashed border-border px-4 text-center text-sm font-semibold text-content-muted">
-      {submitted
-        ? '점수가 반영됐습니다 · 다음 턴을 기다리는 중'
-        : activePlayer
-          ? `${activePlayer.nickname}님의 턴입니다`
-          : '턴 정보를 동기화하는 중'}
+      {submitted ? '점수가 반영됐습니다' : '상단에서 진행 순서를 확인하세요'}
     </p>
   )
 
@@ -751,6 +745,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
             status={connectionStatus}
           />
           {header}
+          {turnStrip}
 
           {/* 모바일 기록 패널이 이 컨테이너 아래에 붙는다 — 주사위 씬은 항상 같은 자리다. */}
           <div className={cn('flex min-h-0 flex-1 flex-col', !wide && 'relative')}>
@@ -919,6 +914,31 @@ function newlyRecordedCategory(
   return null
 }
 
+/**
+ * 내 차례가 시작되는 순간 한 번 알린다(QA 7번). 턴이 넘어가면 다시 무장된다.
+ * 렌더마다 발화하지 않도록 직전 값과 비교한다 — 상태가 아니라 "전이"가 트리거다.
+ */
+function useMyTurnAlert({ isMyTurn, onAlert }: { isMyTurn: boolean; onAlert: () => void }) {
+  const wasMyTurnRef = useRef(false)
+  const onAlertRef = useRef(onAlert)
+  onAlertRef.current = onAlert
+
+  useEffect(() => {
+    if (isMyTurn && !wasMyTurnRef.current) onAlertRef.current()
+    wasMyTurnRef.current = isMyTurn
+  }, [isMyTurn])
+}
+
+/** 짧은 두 번 진동. 미지원(iOS Safari 등)이면 조용히 넘어간다 — 토스트가 이미 알린다. */
+function vibrateForMyTurn() {
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return
+  try {
+    navigator.vibrate([90, 60, 90])
+  } catch {
+    // 사용자 제스처 없이 호출하면 던지는 브라우저가 있다. 알림 실패가 게임을 막아선 안 된다.
+  }
+}
+
 function topCandidates(candidates: CategoryScores): Array<[YachtCategory, number]> {
   return (Object.entries(candidates) as Array<[YachtCategory, number]>)
     .sort(([, left], [, right]) => right - left)
@@ -962,6 +982,28 @@ function isPermissionNoticeState(
     availability === 'error' ||
     availability === 'insecure'
   )
+}
+
+/**
+ * 서버가 준 턴 순서대로 늘어놓는다. 순서를 못 받았거나 명단에 없는 id는 뒤로 밀어
+ * 표시가 비지 않게 한다(재접속 직후 turnOrder가 아직 없을 수 있다).
+ */
+function toTurnStripPlayers(
+  players: Player[],
+  turnOrder: PlayerId[] | undefined,
+  scores: Record<PlayerId, ScoreBoard> | undefined,
+): TurnStripPlayer[] {
+  const byId = new Map(players.map((player) => [player.playerId, player]))
+  const ordered = (turnOrder ?? [])
+    .map((playerId) => byId.get(playerId))
+    .filter((player): player is Player => player !== undefined)
+  const orderedIds = new Set(ordered.map((player) => player.playerId))
+  const rest = players.filter((player) => !orderedIds.has(player.playerId))
+  return [...ordered, ...rest].map((player) => ({
+    nickname: player.nickname,
+    playerId: player.playerId,
+    total: scores?.[player.playerId]?.total ?? 0,
+  }))
 }
 
 function toMatrixPlayers(
