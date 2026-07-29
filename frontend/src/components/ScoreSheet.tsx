@@ -8,6 +8,7 @@ import {
 } from '@/domain/scoring'
 import type { PlayerId, ScoreBoard } from '@/realtime/wsEvents'
 import { categoryLabel, isRecorded } from '@/yachtCategoryView'
+import { CategoryIcon } from './CategoryIcon'
 
 export interface ScoreSheetPlayer {
   nickname: string
@@ -72,8 +73,9 @@ export function ScoreSheet({
 }: ScoreSheetProps) {
   const rolled = Object.keys(candidates).length > 0
   const me = players.find((player) => player.playerId === you)
+  // 첫 열은 아이콘+한글 라벨("스몰 스트레이트")이 320px 2열에서도 잘리지 않을 폭.
   const columns = {
-    gridTemplateColumns: `minmax(5.25rem, 1.3fr) repeat(${players.length}, minmax(2.75rem, 1fr))`,
+    gridTemplateColumns: `minmax(8rem, 1.3fr) repeat(${players.length}, minmax(2.75rem, 1fr))`,
   }
 
   const cellHighlight = (playerId: PlayerId) =>
@@ -116,8 +118,9 @@ export function ScoreSheet({
         'cursor-pointer transition-colors hover:bg-brand/10 focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-[-3px]',
     )
     const label = (
-      <span className="truncate text-[14px] font-semibold text-content">
-        {categoryLabel[category]}
+      <span className="flex min-w-0 items-center gap-1.5 text-[14px] font-semibold text-content">
+        <CategoryIcon category={category} className="size-4 flex-none text-content-muted" />
+        <span className="truncate">{categoryLabel[category]}</span>
       </span>
     )
 
@@ -155,7 +158,7 @@ export function ScoreSheet({
         className={cn(
           'grid items-center gap-1 px-3',
           emphasis
-            ? 'min-h-12 border-t-2 border-content'
+            ? 'min-h-12 border-t-2 border-border'
             : 'min-h-8 border-y border-border bg-surface-sunken',
         )}
         style={columns}
@@ -200,7 +203,7 @@ export function ScoreSheet({
       tabIndex={0}
     >
       <div
-        className="sticky top-0 z-sticky grid min-h-9 items-center gap-1 border-b-2 border-content bg-canvas px-3"
+        className="sticky top-0 z-sticky grid min-h-9 items-center gap-1 border-b border-border bg-canvas px-3"
         style={columns}
       >
         <span className="text-[10px] font-bold tracking-[0.08em] text-content-muted uppercase">

@@ -106,7 +106,7 @@ describe('GamePlay', () => {
 
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
     expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
-    expect(screen.getByText('굴림 2회 남음')).toBeVisible()
+    expect(screen.getByText('남은 굴리기 2회')).toBeVisible()
   })
 
   it('plays the active player server roll for every other participant', () => {
@@ -159,7 +159,7 @@ describe('GamePlay', () => {
 
     // 서버가 쓴 굴림 1회가 로컬 카운터에도 반영돼 남은 굴림이 2회로 줄어든다.
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
-    expect(screen.getByText('굴림 2회 남음')).toBeVisible()
+    expect(screen.getByText('남은 굴리기 2회')).toBeVisible()
   })
 
   it('tells the player which category the server recorded on their behalf', async () => {
@@ -179,7 +179,7 @@ describe('GamePlay', () => {
       )
     })
 
-    expect(await screen.findByText(/시간이 지나 Choice 20점으로 자동 기록됐어요/)).toBeVisible()
+    expect(await screen.findByText(/시간이 지나 초이스 20점으로 자동 기록됐어요/)).toBeVisible()
   })
 
   it('ignores dice holds while another player owns the turn', async () => {
@@ -211,14 +211,14 @@ describe('GamePlay', () => {
     const { user } = renderGame()
 
     // 굴리기 전에는 예상 점수가 없어 칩이 잠긴다.
-    expect(screen.getByRole('button', { name: 'Choice' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '초이스' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: '굴리기' }))
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
 
-    // [6,5,4,3,2] → L. Straight 30이 최고 점수로 맨 앞에 온다.
-    expect(screen.getByRole('button', { name: 'L. Straight 30점 기록' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Choice 20점 기록' })).toBeEnabled()
+    // [6,5,4,3,2] → 라지 스트레이트 30이 최고 점수로 맨 앞에 온다.
+    expect(screen.getByRole('button', { name: '라지 스트레이트 30점 기록' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeEnabled()
   })
 
   it('opens the record panel automatically after the last roll', async () => {
@@ -233,8 +233,8 @@ describe('GamePlay', () => {
     // 패널이 열리면 토글이 "접기"로 바뀌고 전체 점수시트가 드러난다.
     const toggle = await screen.findByRole('button', { name: /접기/ })
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    // 시트 행(정확히 "Choice 20")이 드러난다 — 퀵 칩("Choice 20점 기록")과 구분.
-    expect(screen.getByRole('button', { name: 'Choice 20' })).toBeVisible()
+    // 시트 행(정확히 "초이스 20")이 드러난다 — 퀵 칩("초이스 20점 기록")과 구분.
+    expect(screen.getByRole('button', { name: '초이스 20' })).toBeVisible()
   })
 
   it('records a category in one tap and then waits for the other players', async () => {
@@ -244,7 +244,7 @@ describe('GamePlay', () => {
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
 
     // 퀵 칩은 peek 상태에서도 보인다 — 시트를 열 필요 없이 한 번에 기록한다.
-    await user.click(screen.getByRole('button', { name: 'Choice 20점 기록' }))
+    await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
 
     expect(await screen.findByText('점수가 반영됐습니다')).toBeVisible()
   })

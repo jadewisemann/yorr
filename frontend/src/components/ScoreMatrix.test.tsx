@@ -25,7 +25,7 @@ describe('ScoreMatrix', () => {
   it('writes a dash for a blank cell rather than leaving it empty', () => {
     render(<ScoreMatrix players={players} />)
 
-    const row = screen.getByRole('rowheader', { name: 'Twos' }).closest('tr')
+    const row = screen.getByRole('rowheader', { name: /듀스/ }).closest('tr')
     expect(row).not.toBeNull()
     if (!row) return
     expect(
@@ -38,7 +38,7 @@ describe('ScoreMatrix', () => {
   it('keeps a recorded zero distinct from a blank', () => {
     render(<ScoreMatrix players={players} />)
 
-    const row = screen.getByRole('rowheader', { name: 'Yacht' }).closest('tr')
+    const row = screen.getByRole('rowheader', { name: /요트/ }).closest('tr')
     expect(row).not.toBeNull()
     if (!row) return
     const [mine, theirs] = within(row).getAllByRole('cell')

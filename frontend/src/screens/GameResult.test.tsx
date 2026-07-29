@@ -82,6 +82,6 @@ describe('GameResult', () => {
 
     const sheet = await screen.findByRole('dialog', { name: '전체 점수표' })
     expect(within(sheet).getByRole('columnheader', { name: '나' })).toBeVisible()
-    expect(within(sheet).getAllByRole('rowheader')[0]).toHaveTextContent('Ones')
+    expect(within(sheet).getAllByRole('rowheader')[0]).toHaveTextContent('에이스')
   })
 })

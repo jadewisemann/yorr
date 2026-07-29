@@ -9,29 +9,27 @@ import type { YachtCategory } from '@/domain/scoring'
  */
 export type ScoreRowState = 'available' | 'selected' | 'used' | 'zeroed'
 
-/** 와이어프레임이 지정한 족보 표기. 짧은 영문 표기가 320px 2열에서 줄바꿈 없이 들어간다. */
+/** S15P11A406-105 디자인 레퍼런스가 지정한 한글 족보 표기. 포커 = 4 of a Kind. */
 export const categoryLabel: Record<YachtCategory, string> = {
-  ones: 'Ones',
-  twos: 'Twos',
-  threes: 'Threes',
-  fours: 'Fours',
-  fives: 'Fives',
-  sixes: 'Sixes',
-  choice: 'Choice',
-  fourOfAKind: '4 of a Kind',
-  fullHouse: 'Full House',
-  smallStraight: 'S. Straight',
-  largeStraight: 'L. Straight',
-  yacht: 'Yacht',
+  ones: '에이스',
+  twos: '듀스',
+  threes: '트레이',
+  fours: '포',
+  fives: '파이브',
+  sixes: '식스',
+  choice: '초이스',
+  fourOfAKind: '포커',
+  fullHouse: '풀하우스',
+  smallStraight: '스몰 스트레이트',
+  largeStraight: '라지 스트레이트',
+  yacht: '요트',
 }
 
-/** 추천 족보 3열 그리드처럼 폭이 더 좁은 자리에서 쓰는 표기. */
+/** 퀵 칩처럼 폭이 좁은 자리에서 쓰는 표기 — 레퍼런스의 DEV 단축키 표기(라지·스몰)를 따른다. */
 export const categoryShortLabel: Record<YachtCategory, string> = {
   ...categoryLabel,
-  fourOfAKind: '4 Kind',
-  fullHouse: 'F.House',
-  smallStraight: 'S.Straight',
-  largeStraight: 'L.Straight',
+  smallStraight: '스몰',
+  largeStraight: '라지',
 }
 
 /**
