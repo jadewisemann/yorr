@@ -111,7 +111,6 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const candidates: CategoryScores = local.dice
     ? calculateScoreCandidates(local.dice, usedCategories)
     : {}
-  const recommended = topCandidates(candidates)
 
   // 재연결 중에는 조작을 잠근다. 서버 상태와 어긋난 굴림·확정이 가장 위험하다.
   const locked = connectionStatus === 'reconnecting' || connectionStatus === 'closed' || !isMyTurn
@@ -403,11 +402,12 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     setRollInputMode(null)
     if (isMyTurn) {
       motion.resetGesture('roll-complete')
-      // 킵 포함 5개가 만든 족보를 알린다. 이미 기록한 족보면 쓸 수 없으니 조용히 넘어간다.
-      const hand = detectSpecialHand(completedDice)
-      if (hand && !isRecorded(myBoard?.categories[hand])) {
-        setRollHighlight({ hand, id: Date.now() })
-      }
+    }
+    // 서버 브로드캐스트를 재생한 모든 참가자에게 같은 족보 연출을 보여준다.
+    // 이미 기록한 족보면 다시 쓸 수 없으므로 현재 턴 플레이어의 점수판을 기준으로 건너뛴다.
+    const hand = detectSpecialHand(completedDice)
+    if (hand && !isRecorded(activeBoard?.categories[hand])) {
+      setRollHighlight({ hand, id: Date.now() })
     }
   }
 
@@ -632,32 +632,22 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     </p>
   )
 
-  // 디자인의 quick chips — 열린 족보 전체를 점수순으로 눕히고 탭 한 번에 기록한다.
+  // 디자인의 quick chips — 열린 족보를 고정 순서로 눕히고 탭 한 번에 기록한다.
   const openCategories = YACHT_CATEGORIES.filter(
     (category) => !isRecorded(activeBoard?.categories[category]),
   )
   const rolled = local.dice !== null
-  const quickCategories = rolled
-    ? [...openCategories].sort((left, right) => (candidates[right] ?? 0) - (candidates[left] ?? 0))
-    : openCategories
-  const bestCategory = rolled && !submitted ? (recommended[0]?.[0] ?? null) : null
 
   // 디자인 기록 패널의 퀵 칩 — peek 상태에서도 보이는 원큐 기록 스트립.
   const quickStrip = (
     <ul className="m-0 flex list-none gap-2 overflow-x-auto px-4 py-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {quickCategories.map((category) => {
+      {openCategories.map((category) => {
         const score = rolled ? (candidates[category] ?? 0) : null
-        const best = category === bestCategory
         return (
           <li className="flex-none" key={category}>
             <button
               aria-label={`${categoryLabel[category]}${score === null ? '' : ` ${score}점 기록`}`}
-              className={cn(
-                'flex h-[4.125rem] min-w-[5.5rem] cursor-pointer flex-col items-start justify-between rounded-control px-2.5 py-2 text-left transition-colors focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55',
-                best
-                  ? 'border-2 border-brand bg-brand text-on-brand'
-                  : 'border border-border bg-surface text-content',
-              )}
+              className="flex h-[4.125rem] min-w-[5.5rem] cursor-pointer flex-col items-start justify-between rounded-control border border-border bg-surface px-2.5 py-2 text-left text-content transition-colors focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55"
               disabled={!canPick || !rolled}
               onClick={() => pickCategory(category)}
               type="button"
@@ -715,7 +705,6 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const scoreSheet = (className?: string) => (
     <ScoreSheet
       activePlayerId={activePlayerId}
-      bestCategory={bestCategory}
       candidates={candidates}
       canPick={canPick}
       {...(className ? { className } : {})}
@@ -954,12 +943,6 @@ function vibrateForMyTurn() {
   } catch {
     // 사용자 제스처 없이 호출하면 던지는 브라우저가 있다. 알림 실패가 게임을 막아선 안 된다.
   }
-}
-
-function topCandidates(candidates: CategoryScores): Array<[YachtCategory, number]> {
-  return (Object.entries(candidates) as Array<[YachtCategory, number]>)
-    .sort(([, left], [, right]) => right - left)
-    .slice(0, 3)
 }
 
 function getGestureMessage(

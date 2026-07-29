@@ -19,8 +19,6 @@ export interface ScoreSheetPlayer {
 interface ScoreSheetProps {
   /** 지금 턴인 플레이어. 해당 열을 하이라이트한다. */
   activePlayerId?: PlayerId | undefined
-  /** 굴림 미리보기 중 최고 점수 족보. 굴리기 전이면 null. */
-  bestCategory: YachtCategory | null
   /** 현재 주사위로 얻을 수 있는 점수. 굴리기 전이면 비어 있다. */
   candidates: CategoryScores
   /** 내 열의 미기입 행을 탭하면 바로 기록할 수 있는 상태인지. */
@@ -63,7 +61,6 @@ export function PlayerBadge({
  */
 export function ScoreSheet({
   activePlayerId,
-  bestCategory,
   candidates,
   canPick,
   className,
@@ -86,7 +83,6 @@ export function ScoreSheet({
     const preview =
       activePlayer && !isRecorded(activeRecorded) && rolled ? (candidates[category] ?? 0) : null
     const clickable = activePlayerId === you && canPick && preview !== null
-    const best = preview !== null && category === bestCategory
 
     const cells = players.map((player) => {
       const value = player.scoreboard?.categories[category]
@@ -97,9 +93,7 @@ export function ScoreSheet({
             'justify-self-stretch py-1 text-center font-mono text-[15px] font-bold tabular-nums',
             cellHighlight(player.playerId),
             isPreviewCell
-              ? best
-                ? 'bg-brand text-on-brand'
-                : 'bg-brand/15 text-brand-strong'
+              ? 'bg-brand/15 text-brand-strong'
               : isRecorded(value)
                 ? value === 0
                   ? 'text-danger'

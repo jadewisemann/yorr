@@ -133,6 +133,29 @@ describe('GamePlay', () => {
     expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
   })
 
+  it('shows the active player special-hand effect to every other participant', async () => {
+    const { client, user } = renderObserver()
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'dice.broadcast',
+          {
+            dice: [6, 6, 6, 6, 6],
+            held: [false, false, false, false, false],
+            playerId: creatorSession.you,
+            rollCount: 1,
+            roundNumber: 1,
+          },
+          { roomId: participantSession.roomId },
+        ),
+      )
+    })
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+
+    expect(screen.getByText('요트!!!')).toBeVisible()
+  })
+
   it('previews a remote roll in the active player column', async () => {
     const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
     const creatorBoard = snapshot.game?.scores[creatorSession.you]
@@ -247,7 +270,7 @@ describe('GamePlay', () => {
     expect(screen.getByText('킵 레일 · 비어 있음')).toBeVisible()
   })
 
-  it('previews scores on the quick strip once dice have settled', async () => {
+  it('keeps the fixed category order while previewing quick-strip scores', async () => {
     const { user } = renderGame()
 
     // 굴리기 전에는 예상 점수가 없어 칩이 잠긴다.
@@ -256,9 +279,13 @@ describe('GamePlay', () => {
     await user.click(screen.getByRole('button', { name: '굴리기' }))
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
 
-    // [6,5,4,3,2] → 라지 스트레이트 30이 최고 점수로 맨 앞에 온다.
-    expect(screen.getByRole('button', { name: '라지 스트레이트 30점 기록' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeEnabled()
+    const sixes = screen.getByRole('button', { name: '식스 6점 기록' })
+    const choice = screen.getByRole('button', { name: '초이스 20점 기록' })
+    const largeStraight = screen.getByRole('button', { name: '라지 스트레이트 30점 기록' })
+    expect(sixes).toBeEnabled()
+    expect(choice.compareDocumentPosition(largeStraight) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
   })
 
   it('opens the record panel automatically after the last roll', async () => {
