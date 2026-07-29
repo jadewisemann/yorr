@@ -14,7 +14,8 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "npm run build && playwright test"
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:real": "cross-env VITE_WS_URL=/ws/v1/game npm run build && cross-env E2E_TARGET=real playwright test"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.19.0",
