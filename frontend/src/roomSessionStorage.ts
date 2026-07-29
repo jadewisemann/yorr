@@ -12,6 +12,13 @@ interface SessionStorage {
   removeItem(key: string): void
 }
 
+/**
+ * 세션 토큰은 localStorage가 아니라 sessionStorage에만 둔다.
+ *
+ * 새로고침과 같은 탭의 짧은 복구에는 살아 있어야 하지만, 브라우저를 닫은 뒤까지 계정 없는
+ * 참가자 권한을 장기간 남길 이유는 없다. 저장소가 복원돼도 자동 입장하지 않고 사용자가
+ * 명시적으로 "이어서 하기"를 고른 뒤에만 토큰을 서버에 제시한다.
+ */
 export function readRoomSession(storage = getSessionStorage()) {
   if (!storage) return null
 

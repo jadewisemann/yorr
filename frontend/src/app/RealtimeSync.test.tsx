@@ -63,7 +63,7 @@ describe('RealtimeSync', () => {
     })
   })
 
-  it('gives up and clears the session after repeated reconnect failures', async () => {
+  it('keeps the session token and waits for an explicit retry after repeated failures', async () => {
     const client = createRealtimeFixture({ role: 'creator' })
     render(
       <RealtimeSync client={client}>
@@ -74,8 +74,32 @@ describe('RealtimeSync', () => {
 
     for (let attempt = 0; attempt < 11; attempt += 1) client.emitConnection('close')
 
-    expect(useAppStore.getState().roomSession).toBeNull()
-    expect(useAppStore.getState().appNotice).toContain('연결이 계속 끊겨')
+    expect(useAppStore.getState().roomSession?.sessionToken).toBe(creatorSession.sessionToken)
+    expect(useAppStore.getState().roomResumeReason).toBe('disconnected')
+    expect(sessionStorage.getItem('yorr.room-session')).toContain(creatorSession.sessionToken)
+    expect(useAppStore.getState().appNotice).toContain('다시 연결')
+  })
+
+  it('does not auto-join a paused session until the user resumes it', async () => {
+    useAppStore.getState().endSession('disconnected')
+    const client = createRealtimeFixture({ role: 'creator' })
+
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    expect(client.sentMessages).toHaveLength(0)
+    expect(useAppStore.getState().connectionStatus).toBe('closed')
+
+    useAppStore.getState().resumeRoomSession()
+
+    await waitFor(() => expect(useAppStore.getState().connectionStatus).toBe('connected'))
+    expect(client.sentMessages[0]).toMatchObject({
+      type: 'room.join',
+      payload: { sessionToken: creatorSession.sessionToken },
+    })
   })
 
   it('updates presence and roster from realtime events', () => {
@@ -249,5 +273,21 @@ describe('RealtimeSync', () => {
 
     await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
     expect(useAppStore.getState().appNotice).toContain('방이 종료')
+  })
+
+  it('clears a saved token when the server rejects it as expired', async () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(
+      serverMessage('error', { code: 'SESSION_EXPIRED', message: 'session expired' }),
+    )
+
+    await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
+    expect(sessionStorage.getItem('yorr.room-session')).toBeNull()
   })
 })

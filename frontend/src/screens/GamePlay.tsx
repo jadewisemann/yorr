@@ -1088,6 +1088,7 @@ function toTurnStripPlayers(
   return [...ordered, ...rest].map((player) => ({
     nickname: player.nickname,
     playerId: player.playerId,
+    status: player.status,
     total: scores?.[player.playerId]?.total ?? 0,
   }))
 }

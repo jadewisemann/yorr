@@ -16,11 +16,12 @@ const maxReconnectAttempts = 10
 export function RealtimeSync({ children, client }: RealtimeSyncProps) {
   const roomId = useAppStore((state) => state.roomSession?.roomId)
   const nickname = useAppStore((state) => state.roomSession?.nickname)
+  const roomResumeReason = useAppStore((state) => state.roomResumeReason)
 
   useEffect(() => {
-    if (!roomId || !nickname) {
+    if (!roomId || !nickname || roomResumeReason) {
       client.disconnect()
-      useAppStore.getState().setConnectionStatus('idle')
+      if (!roomResumeReason) useAppStore.getState().setConnectionStatus('idle')
       return
     }
 
@@ -97,7 +98,7 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
       unsubscribeConnection()
       client.disconnect()
     }
-  }, [client, nickname, roomId])
+  }, [client, nickname, roomId, roomResumeReason])
 
   return <RealtimeClientProvider client={client}>{children}</RealtimeClientProvider>
 }

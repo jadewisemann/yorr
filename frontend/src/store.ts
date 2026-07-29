@@ -10,19 +10,22 @@ import {
 } from '@/sessionFsm'
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'closed'
+export type RoomResumeReason = 'restored' | 'disconnected'
 
 export type ActiveRoomSession = Omit<RoomSession, 'snapshot'>
 
 interface AppState {
   appNotice: string | null
   connectionStatus: ConnectionStatus
+  roomResumeReason: RoomResumeReason | null
   roomSession: ActiveRoomSession | null
   roomSnapshot: RoomSnapshot | null
   setAppNotice: (notice: string | null) => void
   setConnectionStatus: (status: ConnectionStatus) => void
   setRoomSession: (session: RoomSession) => void
+  resumeRoomSession: () => void
   replaceRoomSnapshot: (snapshot: RoomSnapshot | null) => void
-  /** 세션 FSM의 종료 전이(any → idle). 이유에 맞는 안내 문구까지 함께 처리한다. */
+  /** 세션 FSM의 종료·복귀 대기 전이. 이유에 맞는 토큰 정책과 안내를 함께 처리한다. */
   endSession: (reason: SessionEndReason) => void
   reset: () => void
 }
@@ -37,6 +40,7 @@ const restoredSession = readRoomSession()
 const initialState = {
   appNotice: null,
   connectionStatus: 'idle' as const,
+  roomResumeReason: restoredSession ? ('restored' as const) : null,
   roomSession: restoredSession ? withoutSnapshot(restoredSession) : null,
   roomSnapshot: restoredSession?.snapshot ?? null,
 }
@@ -47,8 +51,14 @@ export const useAppStore = create<AppState>((set) => ({
   setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
   setRoomSession: (session) => {
     saveRoomSession(session)
-    set({ roomSession: withoutSnapshot(session), roomSnapshot: session.snapshot })
+    set({
+      appNotice: null,
+      roomResumeReason: null,
+      roomSession: withoutSnapshot(session),
+      roomSnapshot: session.snapshot,
+    })
   },
+  resumeRoomSession: () => set({ appNotice: null, roomResumeReason: null }),
   replaceRoomSnapshot: (roomSnapshot) =>
     set((state) => {
       if (state.roomSession && roomSnapshot) {
@@ -57,17 +67,33 @@ export const useAppStore = create<AppState>((set) => ({
       return { roomSnapshot }
     }),
   endSession: (reason) => {
+    if (reason === 'disconnected') {
+      set({
+        appNotice: sessionEndNotices.disconnected,
+        connectionStatus: 'closed',
+        roomResumeReason: 'disconnected',
+      })
+      return
+    }
+
     clearRoomSession()
     set({
       appNotice: sessionEndNotices[reason],
       connectionStatus: 'idle',
+      roomResumeReason: null,
       roomSession: null,
       roomSnapshot: null,
     })
   },
   reset: () => {
     clearRoomSession()
-    set({ appNotice: null, connectionStatus: 'idle', roomSession: null, roomSnapshot: null })
+    set({
+      appNotice: null,
+      connectionStatus: 'idle',
+      roomResumeReason: null,
+      roomSession: null,
+      roomSnapshot: null,
+    })
   },
 }))
 
