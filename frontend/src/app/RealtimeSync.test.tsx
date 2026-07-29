@@ -37,6 +37,47 @@ describe('RealtimeSync', () => {
     })
   })
 
+  // 서버에 sys.reconnect 라우팅이 없어(티켓 25) 재접속도 room.join으로 복귀해야 한다.
+  // sys.reconnect를 보내면 조용히 버려져 "연결됨인데 방에 없는" limbo가 된다.
+  it('re-sends room.join with the saved session on reconnect', async () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+    await waitFor(() => expect(useAppStore.getState().connectionStatus).toBe('connected'))
+    client.sentMessages.length = 0
+
+    client.emitConnection('close')
+    expect(useAppStore.getState().connectionStatus).toBe('reconnecting')
+    client.emitConnection('open')
+
+    expect(client.sentMessages[0]).toMatchObject({
+      type: 'room.join',
+      payload: {
+        roomId: creatorSession.roomId,
+        nickname: creatorSession.nickname,
+        sessionToken: creatorSession.sessionToken,
+      },
+    })
+  })
+
+  it('gives up and clears the session after repeated reconnect failures', async () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+    await waitFor(() => expect(useAppStore.getState().connectionStatus).toBe('connected'))
+
+    for (let attempt = 0; attempt < 11; attempt += 1) client.emitConnection('close')
+
+    expect(useAppStore.getState().roomSession).toBeNull()
+    expect(useAppStore.getState().appNotice).toContain('연결이 계속 끊겨')
+  })
+
   it('updates presence and roster from realtime events', () => {
     const client = createRealtimeFixture({ role: 'creator' })
     render(

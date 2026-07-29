@@ -2,6 +2,12 @@ import { create } from 'zustand'
 import type { RoomSession } from '@/api/gameApi'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { clearRoomSession, readRoomSession, saveRoomSession } from '@/roomSessionStorage'
+import {
+  type SessionEndReason,
+  type SessionPhase,
+  sessionEndNotices,
+  sessionPhaseOf,
+} from '@/sessionFsm'
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'closed'
 
@@ -16,7 +22,14 @@ interface AppState {
   setConnectionStatus: (status: ConnectionStatus) => void
   setRoomSession: (session: RoomSession) => void
   replaceRoomSnapshot: (snapshot: RoomSnapshot | null) => void
+  /** 세션 FSM의 종료 전이(any → idle). 이유에 맞는 안내 문구까지 함께 처리한다. */
+  endSession: (reason: SessionEndReason) => void
   reset: () => void
+}
+
+/** 세션 FSM의 현재 상태. 구독 컴포넌트는 이 selector 하나만 보면 된다. */
+export function selectSessionPhase(state: AppState): SessionPhase {
+  return sessionPhaseOf(state.roomSession, state.roomSnapshot)
 }
 
 const restoredSession = readRoomSession()
@@ -43,6 +56,15 @@ export const useAppStore = create<AppState>((set) => ({
       }
       return { roomSnapshot }
     }),
+  endSession: (reason) => {
+    clearRoomSession()
+    set({
+      appNotice: sessionEndNotices[reason],
+      connectionStatus: 'idle',
+      roomSession: null,
+      roomSnapshot: null,
+    })
+  },
   reset: () => {
     clearRoomSession()
     set({ appNotice: null, connectionStatus: 'idle', roomSession: null, roomSnapshot: null })

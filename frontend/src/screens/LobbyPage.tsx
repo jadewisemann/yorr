@@ -1,10 +1,11 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useStartGame } from '@/api/useGameApi'
 import { Button } from '@/components/Button'
 import { InvitationPanel } from '@/components/InvitationPanel'
 import { PlayerCard } from '@/components/PlayerCard'
 import { useAppStore } from '@/store'
+import { RoomExitGuard } from './RoomExitGuard'
 
 /**
  * 시작 가능한 최소 인원. 서버도 1명부터 허용한다(RoomValidationService의 START 스크립트).
@@ -22,6 +23,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const roomSnapshot = useAppStore((state) => state.roomSnapshot)
   const connectionStatus = useAppStore((state) => state.connectionStatus)
   const startGame = useStartGame()
+  const [exitRequested, setExitRequested] = useState(false)
   const matchingRoom = roomSession?.roomId === roomId
   const canStart =
     matchingRoom &&
@@ -53,6 +55,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
 
   return (
     <main className="mx-auto grid min-h-dvh w-full max-w-2xl content-center gap-6 p-6 text-content">
+      <RoomExitGuard onClose={() => setExitRequested(false)} open={exitRequested} roomId={roomId} />
       <header className="grid gap-2 text-center">
         <p className="m-0 font-bold tracking-widest text-brand-strong">방 {roomSession.roomCode}</p>
         <h1 className="m-0 text-display font-bold">대기실</h1>
@@ -111,6 +114,9 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
                 게임을 시작하지 못했어요: {startGame.error.message}
               </p>
             )}
+            <Button onClick={() => setExitRequested(true)} type="button" variant="secondary">
+              방 나가기
+            </Button>
           </div>
         </>
       )}

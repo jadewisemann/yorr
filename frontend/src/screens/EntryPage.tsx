@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useLeaveSession } from '@/api/useRoomApi'
 import { cn } from '@/cn'
 import { HeroCanvas } from '@/components/HeroCanvas'
 import { LandingGameList } from '@/components/LandingGameList'
@@ -8,7 +9,8 @@ import { LandingHeroCopy } from '@/components/LandingHeroCopy'
 import { LandingRoomCodeForm } from '@/components/LandingRoomCodeForm'
 import { LANDING_PANEL_ID, landingGameAt, landingGames, landingTabId } from '@/landingGames'
 import { normalizeRoomCode } from '@/roomCode'
-import { useAppStore } from '@/store'
+import { sessionScreenOf } from '@/sessionFsm'
+import { selectSessionPhase, useAppStore } from '@/store'
 import { useMediaQuery } from '@/useMediaQuery'
 
 /** 이 폭 아래로는 세로 목록 대신 칩 레일 + 바텀시트 구조로 완전히 바꾼다. */
@@ -27,29 +29,10 @@ export function EntryPage() {
   const [activeIndex, setActiveIndex] = useState(0)
   const [code, setCode] = useState('')
   const [notifyNotice, setNotifyNotice] = useState<string | null>(null)
-  const roomSession = useAppStore((state) => state.roomSession)
-  const roomSnapshot = useAppStore((state) => state.roomSnapshot)
   const appNotice = useAppStore((state) => state.appNotice)
 
   const game = landingGameAt(activeIndex)
   const notice = notifyNotice ?? appNotice
-
-  useEffect(() => {
-    if (!roomSession || !roomSnapshot) return
-    if (roomSnapshot.phase === 'waiting') {
-      void navigate({
-        to: '/rooms/$roomId/lobby',
-        params: { roomId: roomSession.roomId },
-        replace: true,
-      })
-    } else {
-      void navigate({
-        to: '/rooms/$roomId/game',
-        params: { roomId: roomSession.roomId },
-        replace: true,
-      })
-    }
-  }, [navigate, roomSession, roomSnapshot])
 
   const handleSelect = (index: number) => {
     setActiveIndex(index)
@@ -109,6 +92,7 @@ export function EntryPage() {
               role="tabpanel"
             >
               <LandingHeroCopy game={game} layout="wide" />
+              <ActiveRoomBanner />
               {notice && (
                 <p className={noticeBase} role="status">
                   {notice}
@@ -187,6 +171,7 @@ export function EntryPage() {
         </div>
 
         <div className="flex flex-col gap-2.5 px-5 pt-0.5">
+          <ActiveRoomBanner />
           {notice && (
             <p className={cn(noticeBase, 'text-center')} role="status">
               {notice}
@@ -217,5 +202,54 @@ export function EntryPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+/**
+ * 참여 중인 방이 있을 때만 뜨는 복귀 배너. (S15P11A406-101)
+ * 예전처럼 홈에서 방으로 강제 리다이렉트하면 세션이 있는 한 홈으로 돌아올 수도,
+ * 세션을 정리할 수도 없다 — 돌아갈지 나갈지는 사용자가 고른다.
+ */
+function ActiveRoomBanner() {
+  const navigate = useNavigate()
+  const roomSession = useAppStore((state) => state.roomSession)
+  const sessionPhase = useAppStore(selectSessionPhase)
+  const { isLeaving, leave } = useLeaveSession()
+
+  if (!roomSession) return null
+
+  const handleReturn = () => {
+    void navigate({
+      to: sessionScreenOf(sessionPhase) === 'game' ? '/rooms/$roomId/game' : '/rooms/$roomId/lobby',
+      params: { roomId: roomSession.roomId },
+    })
+  }
+
+  return (
+    <div
+      className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl bg-landing-well px-4 py-3"
+      role="status"
+    >
+      <p className="m-0 min-w-0 text-[13px]/[1.4] font-landing-medium text-landing-text-strong">
+        <strong className="font-landing-bold">{roomSession.roomCode}</strong> 방에 참여 중이에요
+      </p>
+      <div className="flex flex-none items-center gap-2">
+        <button
+          className="cursor-pointer rounded-full border-0 bg-landing-accent px-4 py-2 text-[13px] font-landing-bold text-landing-accent-ink focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2"
+          onClick={handleReturn}
+          type="button"
+        >
+          돌아가기
+        </button>
+        <button
+          className="cursor-pointer rounded-full border-0 bg-transparent px-2 py-2 text-[13px] font-landing-bold text-landing-text-secondary underline-offset-2 hover:underline focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2 disabled:opacity-60"
+          disabled={isLeaving}
+          onClick={() => void leave()}
+          type="button"
+        >
+          나가기
+        </button>
+      </div>
+    </div>
   )
 }

@@ -26,6 +26,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
   useNavigate: () => mocks.navigate,
+  // RoomExitGuard의 이탈 차단은 라우터 통합 영역 — 화면 단위 테스트에선 항상 idle로 둔다.
+  useBlocker: () => ({ status: 'idle' }),
 }))
 
 vi.mock('@/input/useMotionRollInput', () => ({
