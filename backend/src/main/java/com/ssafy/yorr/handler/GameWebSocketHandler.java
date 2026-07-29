@@ -8,6 +8,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import com.ssafy.yorr.user.SessionAuthenticationException;
 import com.ssafy.yorr.user.dto.GuestCreateResponse;
 import com.ssafy.yorr.user.service.UserService;
 import com.ssafy.yorr.game.exception.ScoreConfirmationException;
@@ -140,6 +141,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         final Identity id;
         try {
             id = resolveIdentity(payload);
+        } catch (SessionAuthenticationException e) {
+            // 토큰 만료·불일치. INVALID_MESSAGE로 뭉개면 클라가 세션 종료로 다루지 않아
+            // 대기실에서 안내 없이 멈춘다 — 전용 코드를 줘야 재입장 복구 경로가 돈다.
+            sendError(session, WsErrorCode.SESSION_EXPIRED,
+                    "입장 정보가 만료됐습니다. 방에 다시 참가해 주세요.", in.msgId());
+            return;
         } catch (IllegalArgumentException e) {
             sendError(session, WsErrorCode.INVALID_MESSAGE, "닉네임이 올바르지 않습니다.", in.msgId());
             return;
@@ -175,6 +182,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
      *    방향 = Redis에 token→userId 역인덱스(옵션 b)로 복원. **계약(RoomJoinPayload)엔 userId 추가하지 않음.**
      *    지금은 token 유무와 무관하게 항상 신규 게스트를 발급한다.
      *
+     * @throws SessionAuthenticationException 세션 토큰이 만료·불일치일 때
      * @throws IllegalArgumentException 닉네임이 유효하지 않을 때(UserService 규칙)
      */
     private Identity resolveIdentity(RoomJoinPayload payload) {
