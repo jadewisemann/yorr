@@ -400,4 +400,85 @@ describe('GamePlay', () => {
 
     expect(await screen.findByRole('dialog', { name: /0점으로 확정할까요\?/ })).toBeVisible()
   })
+
+  /** QA FND-3: 제출 직후엔 activePlayerId가 아직 나라서, 내 이름을 "OO의 턴"으로 반복하는 대신
+   *  대기 중임을 분명히 말해야 한다. */
+  it('shows a waiting label instead of repeating my own turn after I submit', async () => {
+    const { user } = renderGame()
+
+    await user.click(screen.getByRole('button', { name: '굴리기' }))
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
+
+    expect(await screen.findByText('제출 완료 · 대기 중')).toBeVisible()
+    expect(screen.queryByText('내 턴이에요')).not.toBeInTheDocument()
+  })
+
+  /** QA FND-9: 닉네임은 임의 입력이라 받침 유무를 알 수 없다 — "(으)로"와 같은 방식으로 이/가를 적는다. */
+  it('writes the subject particle as (이)가 for arbitrary nicknames', () => {
+    renderObserver()
+
+    expect(screen.getByText('느긋한 주사위(이)가 굴리는 중')).toBeVisible()
+  })
+
+  /**
+   * QA FND-5: 남의 턴을 구경하며 열어둔 점수시트가 턴이 넘어간 뒤에도 남아있으면 안 된다.
+   * round.start는 RealtimeSync(상위 컴포넌트)가 듣고 snapshot prop을 새로 내려주는 몫이라, 이
+   * 단위 테스트에선 그 결과를 직접 흉내내 새 snapshot으로 rerender한다.
+   */
+  it('closes the record panel once the turn moves away from the player I was watching', async () => {
+    const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
+    if (!snapshot.game) throw new Error('playing snapshot is missing game state')
+    const { snapshot: _observerSnapshot, ...observerSession } = participantSession
+    const { client, rerender, user } = renderObserver(snapshot)
+
+    for (let rollCount = 1; rollCount <= 3; rollCount += 1) {
+      act(() => {
+        client.emitMessage(
+          serverMessage(
+            'dice.broadcast',
+            {
+              dice: [6, 5, 4, 3, 2],
+              held: [false, false, false, false, false],
+              playerId: creatorSession.you,
+              rollCount: rollCount as 1 | 2 | 3,
+              roundNumber: 1,
+            },
+            { roomId: participantSession.roomId },
+          ),
+        )
+      })
+      await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    }
+
+    const toggle = await screen.findByRole('button', { name: /접기/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+
+    const nextSnapshot = {
+      ...snapshot,
+      game: {
+        ...snapshot.game,
+        activePlayerId: participantSession.you,
+        roundDeadline: Date.now() + 25_000,
+        roundNumber: 2,
+        turnOrder: [creatorSession.you, participantSession.you],
+      },
+    }
+    rerender(
+      <RealtimeClientProvider client={client}>
+        <GamePlay
+          onLeaveRequest={() => {}}
+          roomId={observerSession.roomId}
+          session={observerSession}
+          snapshot={nextSnapshot}
+        />
+      </RealtimeClientProvider>,
+    )
+
+    expect(await screen.findByText('내 턴이에요')).toBeVisible()
+    expect(screen.getByRole('button', { name: /전체 시트/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+  })
 })

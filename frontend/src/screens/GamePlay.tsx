@@ -105,6 +105,8 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     setReleaseRequestId(null)
     setRollInputMode(null)
     setRequestingRoll(false)
+    // 남의 턴을 구경하며 열어둔 점수시트가 턴이 넘어간 뒤에도 남아있으면 안 된다(QA FND-5).
+    setSheetOpen(false)
   }, [activePlayerId, roundNumber])
 
   const dispatch = useCallback((action: YachtGameAction) => {
@@ -592,22 +594,30 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
       </span>
       <span
         className={cn(
-          'flex items-center gap-1.5 truncate text-[15px] font-semibold',
+          'flex items-center gap-1.5 truncate text-[16px] font-bold transition-colors duration-base',
           !isMyTurn && activePlayer && 'text-[#FF8A86]',
         )}
       >
         <span
           aria-hidden="true"
           className={cn(
-            'size-[7px] flex-none rounded-full',
-            isMyTurn
+            'size-2 flex-none rounded-full transition-colors duration-base',
+            isMyTurn && !submitted
               ? 'bg-positive'
               : activePlayer
-                ? 'bg-brand-strong shadow-[0_0_8px_rgb(229_57_53_/_90%)]'
+                ? 'bg-brand-strong shadow-[0_0_8px_rgb(229_57_53_/_90%)] motion-safe:animate-ring-pulse'
                 : 'bg-content-faint',
           )}
         />
-        {isMyTurn ? '내 턴이에요' : activePlayer ? `${activePlayer.nickname}의 턴` : '턴 동기화 중'}
+        {/* 내 제출이 끝났는데 activePlayerId가 아직 나인 구간엔 내 이름을 그대로 반복하는 대신
+            "대기 중"임을 분명히 한다 — 서버의 다음 round.start를 기다리는 상태다(QA FND-3). */}
+        {isMyTurn && !submitted
+          ? '내 턴이에요'
+          : isMyTurn && submitted
+            ? '제출 완료 · 대기 중'
+            : activePlayer
+              ? `${activePlayer.nickname}의 턴`
+              : '턴 동기화 중'}
       </span>
     </span>
   )
@@ -687,7 +697,8 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         aria-hidden="true"
         className="size-2 flex-none rounded-[2px] bg-brand-strong motion-safe:animate-ring-pulse"
       />
-      {activePlayer ? `${activePlayer.nickname}이 굴리는 중` : '턴 동기화 중'}
+      {/* 닉네임은 임의 입력이라 받침 유무를 알 수 없다 — "(으)로"와 같은 방식으로 이/가를 표기한다(QA FND-9). */}
+      {activePlayer ? `${activePlayer.nickname}(이)가 굴리는 중` : '턴 동기화 중'}
     </p>
   )
 
