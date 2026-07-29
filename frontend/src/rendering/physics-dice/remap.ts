@@ -78,7 +78,8 @@ export function predictNaturalDice(
   }
 }
 
-function isBodySettled(body: RAPIER.RigidBody) {
+/** 물리적으로 멈췄는지. 예측 복제 시뮬과 실제 진행이 같은 기준을 쓰도록 여기서만 정의한다. */
+export function isBodySettled(body: RAPIER.RigidBody) {
   if (body.isSleeping()) return true
   const linear = body.linvel()
   const angular = body.angvel()
