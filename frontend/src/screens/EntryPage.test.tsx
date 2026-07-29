@@ -1,6 +1,8 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { creatorSession } from '@/mocks/fixtures'
+import { useAppStore } from '@/store'
 import { EntryPage } from './EntryPage'
 
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
@@ -32,6 +34,7 @@ function useLayout(wide: boolean) {
 describe('EntryPage', () => {
   beforeEach(() => {
     navigate.mockReset()
+    useAppStore.getState().reset()
     useLayout(false)
   })
   afterEach(() => vi.restoreAllMocks())
@@ -128,5 +131,37 @@ describe('EntryPage', () => {
     await user.keyboard('{ArrowDown}')
     expect(first).toHaveFocus()
     expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
+  })
+
+  it('asks before reconnecting a preserved room session', async () => {
+    const user = userEvent.setup()
+    useAppStore.getState().setRoomSession(creatorSession)
+    useAppStore.getState().endSession('disconnected')
+
+    render(<EntryPage />)
+
+    const recovery = screen.getByRole('region', { name: '진행 중인 방' })
+    expect(within(recovery).getByText('진행 중인 방이 있어요')).toBeVisible()
+    expect(within(recovery).getByRole('button', { name: '다시 연결' })).toBeVisible()
+
+    await user.click(within(recovery).getByRole('button', { name: '다시 연결' }))
+
+    expect(useAppStore.getState().roomResumeReason).toBeNull()
+    expect(navigate).toHaveBeenCalledWith({
+      to: '/rooms/$roomId/lobby',
+      params: { roomId: creatorSession.roomId },
+    })
+  })
+
+  it('explicitly leaves a preserved room and clears its token', async () => {
+    const user = userEvent.setup()
+    useAppStore.getState().setRoomSession(creatorSession)
+    useAppStore.getState().endSession('disconnected')
+
+    render(<EntryPage />)
+    await user.click(screen.getByRole('button', { name: '나가기' }))
+
+    await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
+    expect(sessionStorage.getItem('yorr.room-session')).toBeNull()
   })
 })

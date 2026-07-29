@@ -117,9 +117,9 @@ describe('QR entrance integration', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
     expect(screen.queryByText('방 different-room')).not.toBeInTheDocument()
     expect(
-      await screen.findByText(
-        (_, element) => element?.textContent === `${creatorSession.roomCode} 방에 참여 중이에요`,
-      ),
+      await screen.findByText(`${creatorSession.roomCode} 방에 참여 중이에요`, {
+        selector: 'strong',
+      }),
     ).toBeVisible()
   })
 

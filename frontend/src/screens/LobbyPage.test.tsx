@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   creatorPlayer,
   creatorSession,
+  participantPlayer,
   participantSession,
   waitingRoomSnapshot,
 } from '@/mocks/fixtures'
@@ -34,6 +35,17 @@ describe('LobbyPage', () => {
     expect(screen.getByText('느긋한 주사위')).toBeVisible()
     expect(screen.getByText('참가자')).toBeVisible()
     expect(screen.getByText('나')).toBeVisible()
+  })
+
+  it('shows an explicit badge when a participant is offline', () => {
+    useAppStore.getState().replaceRoomSnapshot({
+      ...waitingRoomSnapshot,
+      players: [creatorPlayer, { ...participantPlayer, status: 'offline' }],
+    })
+
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    expect(screen.getByText('연결 끊김')).toBeVisible()
   })
 
   it('lets the host start the game', async () => {

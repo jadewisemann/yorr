@@ -10,6 +10,7 @@ export function GamePage({ roomId }: { roomId: string }) {
   const navigate = useNavigate()
   const roomSession = useAppStore((state) => state.roomSession)
   const roomSnapshot = useAppStore((state) => state.roomSnapshot)
+  const roomResumeReason = useAppStore((state) => state.roomResumeReason)
   const [exitRequested, setExitRequested] = useState(false)
   const matchingRoom = roomSession?.roomId === roomId
 
@@ -17,7 +18,7 @@ export function GamePage({ roomId }: { roomId: string }) {
   useGame(matchingRoom ? roomSession.gameId : null)
 
   useEffect(() => {
-    if (!roomSession || !roomSnapshot || !matchingRoom) {
+    if (!roomSession || !roomSnapshot || !matchingRoom || roomResumeReason) {
       void navigate({ to: '/', replace: true })
       return
     }
@@ -28,9 +29,9 @@ export function GamePage({ roomId }: { roomId: string }) {
         replace: true,
       })
     }
-  }, [matchingRoom, navigate, roomSession, roomSnapshot])
+  }, [matchingRoom, navigate, roomResumeReason, roomSession, roomSnapshot])
 
-  if (!roomSession || !roomSnapshot || !matchingRoom) return null
+  if (!roomSession || !roomSnapshot || !matchingRoom || roomResumeReason) return null
 
   return (
     <>

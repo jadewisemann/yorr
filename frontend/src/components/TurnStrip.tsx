@@ -1,9 +1,10 @@
 import { cn } from '@/cn'
-import type { PlayerId } from '@/realtime/wsEvents'
+import type { PlayerId, PlayerStatus } from '@/realtime/wsEvents'
 
 export interface TurnStripPlayer {
   playerId: PlayerId
   nickname: string
+  status: PlayerStatus
   total: number
 }
 
@@ -62,6 +63,11 @@ export function TurnStrip({ players, activePlayerId, className, you }: TurnStrip
                     {player.nickname}
                     {mine && ' (나)'}
                   </span>
+                  {player.status === 'offline' && (
+                    <span className="flex-none rounded-full border border-warning/40 bg-warning/12 px-1.5 py-0.5 text-[9px]/none font-bold text-warning">
+                      연결 끊김
+                    </span>
+                  )}
                 </span>
                 <span
                   className={cn(

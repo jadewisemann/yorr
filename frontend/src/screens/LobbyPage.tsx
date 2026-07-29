@@ -22,6 +22,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const navigate = useNavigate()
   const roomSession = useAppStore((state) => state.roomSession)
   const roomSnapshot = useAppStore((state) => state.roomSnapshot)
+  const roomResumeReason = useAppStore((state) => state.roomResumeReason)
   const connectionStatus = useAppStore((state) => state.connectionStatus)
   const startGame = useStartGame()
   const [exitRequested, setExitRequested] = useState(false)
@@ -34,7 +35,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
     roomSnapshot.players.length >= MIN_PLAYERS_TO_START
 
   useEffect(() => {
-    if (!roomSession || !matchingRoom) {
+    if (!roomSession || !matchingRoom || roomResumeReason) {
       void navigate({ to: '/', replace: true })
       return
     }
@@ -45,14 +46,14 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
         replace: true,
       })
     }
-  }, [matchingRoom, navigate, roomSession, roomSnapshot])
+  }, [matchingRoom, navigate, roomResumeReason, roomSession, roomSnapshot])
 
   const handleStart = async () => {
     if (!roomSession || !canStart) return
     await startGame.execute()
   }
 
-  if (!roomSession || !matchingRoom) return null
+  if (!roomSession || !matchingRoom || roomResumeReason) return null
 
   return (
     <>

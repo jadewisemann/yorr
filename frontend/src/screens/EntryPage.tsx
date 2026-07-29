@@ -223,25 +223,43 @@ export function EntryPage() {
 function ActiveRoomBanner() {
   const navigate = useNavigate()
   const roomSession = useAppStore((state) => state.roomSession)
+  const roomResumeReason = useAppStore((state) => state.roomResumeReason)
+  const resumeRoomSession = useAppStore((state) => state.resumeRoomSession)
   const sessionPhase = useAppStore(selectSessionPhase)
   const { isLeaving, leave } = useLeaveSession()
 
   if (!roomSession) return null
 
   const handleReturn = () => {
+    resumeRoomSession()
     void navigate({
       to: sessionScreenOf(sessionPhase) === 'game' ? '/rooms/$roomId/game' : '/rooms/$roomId/lobby',
       params: { roomId: roomSession.roomId },
     })
   }
 
+  const needsResume = roomResumeReason !== null
+  const returnLabel = roomResumeReason === 'disconnected' ? '다시 연결' : '이어서 하기'
+
   return (
-    <div
-      className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl bg-landing-well px-4 py-3"
-      role="status"
+    <section
+      aria-label="진행 중인 방"
+      className={cn(
+        'flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border px-4 py-3',
+        needsResume
+          ? 'border-landing-accent/45 bg-landing-accent-tint shadow-landing-panel'
+          : 'border-transparent bg-landing-well',
+      )}
     >
       <p className="m-0 min-w-0 text-[13px]/[1.4] font-landing-medium text-landing-text-strong">
-        <strong className="font-landing-bold">{roomSession.roomCode}</strong> 방에 참여 중이에요
+        <strong className="block font-landing-bold">
+          {needsResume ? '진행 중인 방이 있어요' : `${roomSession.roomCode} 방에 참여 중이에요`}
+        </strong>
+        {needsResume && (
+          <span className="text-landing-text-secondary">
+            {roomSession.roomCode} · {roomSession.nickname}
+          </span>
+        )}
       </p>
       <div className="flex flex-none items-center gap-2">
         <button
@@ -249,7 +267,7 @@ function ActiveRoomBanner() {
           onClick={handleReturn}
           type="button"
         >
-          돌아가기
+          {needsResume ? returnLabel : '돌아가기'}
         </button>
         <button
           className="cursor-pointer rounded-full border-0 bg-transparent px-2 py-2 text-[13px] font-landing-bold text-landing-text-secondary underline-offset-2 hover:underline focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2 disabled:opacity-60"
@@ -260,6 +278,6 @@ function ActiveRoomBanner() {
           나가기
         </button>
       </div>
-    </div>
+    </section>
   )
 }

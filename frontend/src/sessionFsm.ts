@@ -8,14 +8,15 @@ import type { RoomSnapshot } from '@/realtime/wsEvents'
  *
  *   idle ──join 성공──▶ joining ──첫 snapshot──▶ inLobby ⇄ inGame ──▶ finished
  *     ▲                                                                │(재대결는 inGame으로)
- *     └────── leave 완료 · room.closed · 세션 만료 · 재연결 포기 ──────────┘
+ *     └────── leave 완료 · room.closed · 세션 만료 ────────────────────────┘
  *
- * 종료 전이(→ idle)는 전부 store.endSession(reason) 한 곳으로 모은다.
+ * 종료·중단 전이는 전부 store.endSession(reason) 한 곳으로 모은다. 재연결 포기는 토큰을
+ * 지우지 않고 복귀 확인 상태로 멈추며, 나머지 이유만 idle로 끝난다.
  */
 
 export type SessionPhase = 'idle' | 'joining' | 'inLobby' | 'inGame' | 'finished'
 
-/** 세션이 idle로 돌아가는 이유. 사용자 안내 문구가 이유마다 다르다. */
+/** 세션을 끝내거나 복귀 확인 상태로 멈추는 이유. 사용자 안내 문구가 이유마다 다르다. */
 export type SessionEndReason = 'left' | 'room_closed' | 'expired' | 'disconnected'
 
 interface SessionLike {
@@ -44,5 +45,5 @@ export const sessionEndNotices: Record<SessionEndReason, string | null> = {
   left: null,
   room_closed: '방이 종료되어 홈으로 이동했어요.',
   expired: '입장 정보가 만료됐어요. 방에 다시 참가해 주세요.',
-  disconnected: '연결이 계속 끊겨 방에서 나왔어요. 다시 참가해 주세요.',
+  disconnected: '연결이 계속 끊겼어요. 네트워크를 확인한 뒤 다시 연결해 주세요.',
 }

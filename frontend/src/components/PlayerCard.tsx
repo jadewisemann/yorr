@@ -59,7 +59,13 @@ export function PlayerCard({
             </span>
           )}
         </span>
-        <span className="text-sm text-content-muted">{stateLabel}</span>
+        {status === 'offline' ? (
+          <span className="mt-1 inline-flex rounded-full border border-warning/40 bg-warning/12 px-2 py-0.5 text-xs font-bold text-warning">
+            {stateLabel}
+          </span>
+        ) : (
+          <span className="text-sm text-content-muted">{stateLabel}</span>
+        )}
       </span>
       {score !== undefined && <strong className="font-bold tabular-nums">{score}</strong>}
     </article>
