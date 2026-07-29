@@ -71,7 +71,8 @@ export function InvalidInvitePage({ initialCode }: InvalidInvitePageProps) {
           autoCorrect="off"
           maxLength={12}
           errorMessage={error}
-          helpText="코드는 영문과 숫자 4자예요 · 소문자로 입력해도 대문자로 바뀌어요"
+          // 실제 검증(roomCode.ts getRoomCodeError)은 4~12자를 허용한다 — 힌트도 여기 맞춘다(QA FND-2).
+          helpText="코드는 영문과 숫자 4~12자예요 · 소문자로 입력해도 대문자로 바뀌어요"
           className="font-mono text-2xl font-bold tracking-[0.18em]"
           onChange={(event) => {
             setRoomCode(event.target.value)

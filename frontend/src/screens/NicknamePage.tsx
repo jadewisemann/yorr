@@ -113,7 +113,9 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
           helpText={
             <>
               비워두면 <span className="font-semibold text-content">{suggestion}</span>
-              (으)로 입장해요 · 한글·영문·숫자 2~{NICKNAME_MAX_LENGTH}자
+              {/* 실제 검증(nickname.ts getNicknameError)은 빈 값만 거부해 최소 1자를 허용한다 —
+                  안내 문구도 여기 맞춘다(QA FND-1). */}
+              (으)로 입장해요 · 한글·영문·숫자 1~{NICKNAME_MAX_LENGTH}자
             </>
           }
           errorMessage={validationError}
