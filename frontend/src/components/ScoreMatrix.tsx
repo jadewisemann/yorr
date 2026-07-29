@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/cn'
 import {
+  UPPER_BONUS_POINTS,
   UPPER_BONUS_THRESHOLD,
   YACHT_LOWER_CATEGORIES,
   YACHT_UPPER_CATEGORIES,
@@ -99,14 +100,22 @@ export function ScoreMatrix({ className, players }: ScoreMatrixProps) {
             >
               보너스 /{UPPER_BONUS_THRESHOLD}
             </th>
-            {players.map((player) => (
-              <td
-                className="border-b border-border bg-surface-sunken px-1 py-2 text-center font-mono text-[11px] font-bold text-content-muted tabular-nums"
-                key={player.playerId}
-              >
-                {player.scoreboard?.upperSubtotal ?? 0}
-              </td>
-            ))}
+            {players.map((player) => {
+              // 보너스 달성 강조(QA S15P11A406-102) — 달성 셀은 +35를 병기하고 brand로 띄운다.
+              const achieved = (player.scoreboard?.upperBonus ?? 0) > 0
+              return (
+                <td
+                  className={cn(
+                    'border-b border-border bg-surface-sunken px-1 py-2 text-center font-mono text-[11px] font-bold tabular-nums',
+                    achieved ? 'text-brand-strong' : 'text-content-muted',
+                  )}
+                  key={player.playerId}
+                >
+                  {player.scoreboard?.upperSubtotal ?? 0}
+                  {achieved ? ` +${UPPER_BONUS_POINTS}` : ''}
+                </td>
+              )
+            })}
           </tr>
           {renderRows(YACHT_LOWER_CATEGORIES)}
         </tbody>
