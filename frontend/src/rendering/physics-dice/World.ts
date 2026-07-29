@@ -19,9 +19,9 @@ import {
   updateLayoutEntries,
 } from './layout'
 import type { PhysicsDiceGeometries, PhysicsDiceMaterials } from './model'
-import { quaternionForTopValue } from './model'
+import { quaternionForTopValue, topFaceFromQuaternion } from './model'
 import { createPhysicsDiceRandom, type PhysicsDiceRandom } from './random'
-import { cubeAlignmentOffset, predictNaturalDice } from './remap'
+import { cubeAlignmentOffset, isBodySettled, predictNaturalDice } from './remap'
 import type { AlignmentEntry, DieEntry, LayoutEntry } from './runtimeTypes'
 import { containDiceInBowl, containDiceInTray } from './safety'
 import { createStage } from './stage'
@@ -38,6 +38,8 @@ import type {
 const CONFIG = PHYSICS_DICE_CONFIG
 const SCENE = CONFIG.scene
 const UP = new THREE.Vector3(0, 1, 0)
+/** 보정 없음. 예측 실패 시 지난 굴림의 오프셋을 지우는 데 쓴다. */
+const IDENTITY_OFFSET = new THREE.Quaternion()
 const NO_HELD: PhysicsHeldDice = [false, false, false, false, false]
 const INITIAL_DICE: PhysicsDiceSet = [1, 2, 3, 4, 5]
 let rapierReady: Promise<typeof RAPIER> | undefined
@@ -553,33 +555,51 @@ export class PhysicsDiceWorld {
     const request = this.request
     if (!request) return
     const natural = predictNaturalDice(this.world, this.entries, this.held)
-    if (!natural) return
     this.entries.forEach((entry) => {
       if (this.held[entry.index]) return
+      // 예측이 실패하면 오프셋을 비운다. 그대로 두면 지난 굴림의 보정이 남아 엉뚱한 면이 보인다.
       entry.visualOffset.copy(
-        cubeAlignmentOffset(request.targetDice[entry.index], natural[entry.index]),
+        natural
+          ? cubeAlignmentOffset(request.targetDice[entry.index], natural[entry.index])
+          : IDENTITY_OFFSET,
+      )
+    })
+  }
+
+  /**
+   * 멈춘 주사위의 표시 면을 목표값으로 다시 맞춘다.
+   * <p>
+   * {@link planVisualRemap}의 예측은 월드를 스냅샷 복제해 미리 굴려 본 결과이고, 그 재시뮬레이션은
+   * 실제 진행과 완전히 같지 않다. 주사위 튐은 카오스적이어서 아주 작은 차이도 다른 면으로 갈리므로,
+   * 예측이 어긋난 주사위는 바닥에 멈춘 뒤에도 잘못된 눈을 보여줬다(결과 정렬 단계에서야 목표값으로
+   * 바뀌어 "눈금이 갑자기 바뀌는" 것으로 보였다).
+   * <p>
+   * 그래서 멈춘 주사위는 예측을 믿지 않고 <b>실제 자세에서</b> 오프셋을 다시 구한다. body 자세만 보고
+   * 유도하므로 매 프레임 호출해도 결과가 같다(멱등). 아직 구르는 주사위는 건드리지 않는다 —
+   * 매 프레임 다시 맞추면 회전이 어색해진다.
+   */
+  private correctSettledVisuals() {
+    const request = this.request
+    if (!request) return
+    this.entries.forEach((entry) => {
+      if (this.held[entry.index] || !isBodySettled(entry.body)) return
+      entry.visualOffset.copy(
+        cubeAlignmentOffset(
+          request.targetDice[entry.index],
+          topFaceFromQuaternion(entry.body.rotation()),
+        ),
       )
     })
   }
 
   private checkSettled(time: number) {
-    if (
-      this.phase !== 'pouring' ||
-      !this.diceReleased ||
-      time - this.rollStartedAt < SCENE.settlement.minRollDurationMs
-    ) {
-      return
-    }
+    if (this.phase !== 'pouring' || !this.diceReleased) return
+    // 멈춘 주사위는 최소 굴림 시간과 무관하게 곧바로 표시 면을 맞춘다 —
+    // 멈춘 채 잘못된 눈을 보여주는 구간이 곧 이 버그였다.
+    this.correctSettledVisuals()
+    if (time - this.rollStartedAt < SCENE.settlement.minRollDurationMs) return
     const active = this.entries.filter((entry) => !this.held[entry.index])
-    const physicallySettled = active.every((entry) => {
-      const linear = entry.body.linvel()
-      const angular = entry.body.angvel()
-      return (
-        entry.body.isSleeping() ||
-        (Math.hypot(linear.x, linear.y, linear.z) < SCENE.settlement.linearSpeed &&
-          Math.hypot(angular.x, angular.y, angular.z) < SCENE.settlement.angularSpeed)
-      )
-    })
+    const physicallySettled = active.every((entry) => isBodySettled(entry.body))
     this.stableFrames = physicallySettled ? this.stableFrames + 1 : 0
     if (this.stableFrames < SCENE.settlement.stableFrames) return
     this.startResultAlignment(time)
