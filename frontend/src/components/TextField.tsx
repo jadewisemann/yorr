@@ -31,8 +31,9 @@ export function TextField({
       <input
         id={inputId}
         className={cn(
-          'min-h-tap w-full rounded-control border bg-surface-raised px-4 py-3 text-base text-content outline-none transition-[border-color,box-shadow] placeholder:text-content-muted focus-visible:border-focus focus-visible:ring-2 focus-visible:ring-focus/30 disabled:cursor-not-allowed disabled:opacity-55',
-          errorMessage ? 'border-danger' : 'border-border',
+          // 디자인 시스템 04 INPUT — 딥 서피스 위 화이트 포커스 링(1.5px 보더 + 4px 글로우).
+          'min-h-14 w-full rounded-card border bg-surface px-4 py-3 text-[17px] text-content outline-none transition-[border-color,box-shadow] placeholder:text-content-faint focus-visible:border-focus focus-visible:ring-4 focus-visible:ring-focus/10 disabled:cursor-not-allowed disabled:opacity-55',
+          errorMessage ? 'border-danger bg-brand/6' : 'border-border',
           className,
         )}
         aria-describedby={descriptionIds}

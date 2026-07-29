@@ -53,11 +53,12 @@ export function RoomExitGuard({ onClose, open = false, roomId }: RoomExitGuardPr
         <p className="m-0 text-sm text-content-muted">
           나가면 이 방의 진행 상황에서 빠지고, 다시 들어오려면 초대 코드가 필요해요.
         </p>
-        <div className="grid grid-cols-2 gap-2">
+        {/* 디자인 22 — 안전한 선택(머무르기)이 위, 파괴적 동작은 레드 틴트 아웃라인. */}
+        <div className="grid gap-2.5">
           <Button onClick={stay} type="button" variant="secondary">
             머무르기
           </Button>
-          <Button loading={isLeaving} onClick={confirmLeave} type="button">
+          <Button loading={isLeaving} onClick={confirmLeave} type="button" variant="danger">
             나가기
           </Button>
         </div>

@@ -13,10 +13,10 @@ export type { HeroGameKey }
 /** 히어로 장면 목표 프레임(30fps). 장식용 장면에 60/120Hz를 다 쓰지 않는다. */
 const MIN_FRAME_S = 1 / 30
 
-const IVORY = 0xdcd6c7
-const INK = 0x0c1424
-const GOLD = 0xd9b24c
-const SLATE = 0x24314a
+const IVORY = 0xf4f1e8
+const INK = 0x0b0b0c
+const ACCENT = 0xe53935
+const SLATE = 0x24252a
 
 type PipCount = 1 | 2 | 3 | 4 | 5 | 6
 
@@ -69,9 +69,9 @@ function pipTexture(pips: PipCount) {
   canvas.height = size
   const context = canvas.getContext('2d')
   if (!context) throw new Error('주사위 텍스처를 그릴 수 없습니다.')
-  context.fillStyle = '#ded8c9'
+  context.fillStyle = '#f4f1e8'
   context.fillRect(0, 0, size, size)
-  context.fillStyle = '#1a2334'
+  context.fillStyle = '#0b0b0c'
   for (const [x, y] of PIP_LAYOUT[pips]) {
     context.beginPath()
     context.arc(x * size, y * size, size * 0.075, 0, Math.PI * 2)
@@ -137,15 +137,15 @@ export class HeroScene {
 
     this.camera.position.set(0, 0.4, 9)
 
-    this.scene.add(new THREE.HemisphereLight(0xa8bcd8, 0x1a2438, 1.55))
-    const key = new THREE.DirectionalLight(0xf2ecdc, 0.5)
+    this.scene.add(new THREE.HemisphereLight(0xd9d9dd, 0x141517, 1.55))
+    const key = new THREE.DirectionalLight(0xf5f5f2, 0.5)
     key.position.set(3.5, 5.5, 5)
     key.castShadow = true
     key.shadow.mapSize.set(512, 512)
     key.shadow.camera.near = 1
     key.shadow.camera.far = 30
     this.scene.add(key)
-    const fill = new THREE.DirectionalLight(0xc9d3e2, 0.18)
+    const fill = new THREE.DirectionalLight(0xb9babf, 0.18)
     fill.position.set(-6, -2, -4)
     this.scene.add(fill)
 
@@ -393,14 +393,14 @@ export class HeroScene {
       const angle = (index / 6) * Math.PI * 2
       const chamber = new THREE.Mesh(
         new THREE.CylinderGeometry(0.26, 0.26, 0.78, 24),
-        lambert(0x0a101d),
+        lambert(0x0d0e10),
       )
       chamber.position.set(Math.cos(angle) * 0.72, 0, Math.sin(angle) * 0.72)
       drum.add(chamber)
       if (index < 2) {
         const round = new THREE.Mesh(
           new THREE.CylinderGeometry(0.22, 0.22, 0.84, 20),
-          lambert(GOLD),
+          lambert(ACCENT),
         )
         round.position.copy(chamber.position)
         drum.add(round)
@@ -411,7 +411,7 @@ export class HeroScene {
     drum.userData = { spin: 0.42 } satisfies SpinBob
     group.add(drum)
 
-    const cartridge = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.5, 8, 20), lambert(GOLD))
+    const cartridge = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.5, 8, 20), lambert(ACCENT))
     cartridge.position.set(-1.9, -0.5, 0.6)
     cartridge.rotation.z = 1.1
     cartridge.castShadow = true
@@ -430,7 +430,7 @@ function paddle(color: number) {
   const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.13, 48), lambert(color))
   blade.rotation.x = Math.PI / 2
   group.add(blade)
-  const grip = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.9, 8, 16), lambert(0x3a2a1c))
+  const grip = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.9, 8, 16), lambert(0x202125))
   grip.position.y = -1.25
   group.add(grip)
   return group
@@ -438,7 +438,7 @@ function paddle(color: number) {
 
 function buildPingpong() {
   const group = new THREE.Group()
-  const near = paddle(0xc0392b)
+  const near = paddle(0xe53935)
   near.position.set(-1.5, 0.2, 0)
   near.rotation.set(0.2, 0.5, 0.25)
   group.add(near)
@@ -446,7 +446,7 @@ function buildPingpong() {
   far.position.set(1.6, -0.1, -0.6)
   far.rotation.set(-0.15, -0.6, -0.3)
   group.add(far)
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.34, 32, 32), lambert(GOLD))
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.34, 32, 32), lambert(ACCENT))
   ball.position.set(0.1, 1.1, 0.7)
   ball.userData = { bob: 1 } satisfies SpinBob
   group.add(ball)
@@ -461,16 +461,16 @@ function buildFishing() {
   group.add(rod)
   const hook = new THREE.Mesh(
     new THREE.TorusGeometry(0.5, 0.08, 16, 48, Math.PI * 1.35),
-    lambert(GOLD),
+    lambert(ACCENT),
   )
   hook.position.set(1.35, -1.1, 0)
   hook.rotation.z = -0.4
   hook.userData = { bob: 0.6 } satisfies SpinBob
   group.add(hook)
-  const line = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.5, 8), lambert(0x8c9ab4))
+  const line = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.5, 8), lambert(0x82838a))
   line.position.set(1.32, -0.2, 0)
   group.add(line)
-  const bobber = new THREE.Mesh(new THREE.SphereGeometry(0.42, 32, 32), lambert(0xc0392b))
+  const bobber = new THREE.Mesh(new THREE.SphereGeometry(0.42, 32, 32), lambert(0xe53935))
   bobber.position.set(-1.9, -1.5, 0.6)
   bobber.userData = { bob: 1.3 } satisfies SpinBob
   group.add(bobber)

@@ -172,10 +172,10 @@ describe('GamePage motion roll flow', () => {
 
     render(<GamePage roomId={participantSession.roomId} />)
 
-    // 누가 진행 중인지는 하단 문구가 아니라 상단 진행 스트립이 알린다(QA 6·11번).
+    // 누가 진행 중인지는 하단 문구가 아니라 상단 진행 스트립·헤더가 알린다(QA 6·11번).
     const turnOrder = screen.getByRole('list', { name: '턴 순서' })
     expect(turnOrder).toHaveTextContent(String(playingRoomSnapshot.players[0]?.nickname))
-    expect(screen.getByText(`${playingRoomSnapshot.players[0]?.nickname} 차례`)).toBeVisible()
+    expect(screen.getByText(`${playingRoomSnapshot.players[0]?.nickname}의 턴`)).toBeVisible()
     // 내 이름도 상단에서 찾을 수 있어야 한다 — 내 칩에는 "나" 태그가 붙는다.
     expect(turnOrder).toHaveTextContent(participantSession.nickname)
     expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()

@@ -86,7 +86,7 @@ export function RecordPanel({
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: 위와 동일 — 이 탭은 포인터 사용자용 지름길이다 */}
       <div
         className={cn(
-          'absolute inset-x-0 bottom-0 z-sheet flex h-[78%] flex-col rounded-t-sheet border-t border-border bg-canvas shadow-overlay transition-transform duration-base ease-snappy',
+          'absolute inset-x-0 bottom-0 z-sheet flex h-[78%] flex-col rounded-t-sheet border-t border-white/14 bg-surface shadow-overlay transition-transform duration-base ease-snappy',
           // peek: 손잡이(2.75rem) + 퀵 칩 영역(5.75rem)만 남기고 아래로 밀어둔다.
           open ? 'translate-y-0' : 'translate-y-[calc(100%-8.5rem)] cursor-pointer',
         )}
@@ -108,7 +108,7 @@ export function RecordPanel({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
         >
-          <span aria-hidden="true" className="mx-auto block h-1 w-[3.375rem] bg-border" />
+          <span aria-hidden="true" className="mx-auto block h-1 w-11 rounded-full bg-white/24" />
           <button
             aria-controls={sheetId}
             aria-expanded={open}

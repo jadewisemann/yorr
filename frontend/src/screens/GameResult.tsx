@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useReturnToLobby } from '@/api/useGameApi'
 import { useLeaveSession } from '@/api/useRoomApi'
+import { cn } from '@/cn'
 import { BottomSheet } from '@/components/BottomSheet'
 import { Button } from '@/components/Button'
 import { type RankedPlayer, ResultRanking } from '@/components/ResultRanking'
@@ -43,22 +44,47 @@ export function GameResult({ session, snapshot }: GameResultProps) {
 
   return (
     <>
-      <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-gutter pt-6 pb-[max(1.875rem,env(safe-area-inset-bottom))] text-content">
+      <main className="relative mx-auto flex min-h-dvh w-full max-w-2xl flex-col overflow-hidden px-gutter pt-6 pb-[max(1.875rem,env(safe-area-inset-bottom))] text-content">
+        {/* 디자인 08 — 상단에서 은은하게 퍼지는 레드 글로우. 정보가 아니라 분위기다. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-24 left-1/2 h-[21rem] w-[26rem] -translate-x-1/2 [background:radial-gradient(50%_55%_at_50%_30%,rgb(229_57_53_/_20%)_0%,transparent_72%)]"
+        />
         <p aria-live="polite" className="sr-only" role="status">
           게임 종료, {ranked.length}명 중 {myRank}위, {me?.total ?? 0}점
         </p>
 
-        <h1 className="m-0 text-2xl font-bold">{myRank}위</h1>
-        <p className="m-0 mt-1 text-[12.5px] text-content-muted">
+        <span className="relative inline-flex w-fit items-center gap-2 rounded-full border border-border bg-white/6 px-3 py-1.5 font-mono text-[10px] font-bold tracking-[0.16em] text-content-muted uppercase">
           {snapshot.game?.roundNumber ?? 12}라운드 종료
-        </p>
+        </span>
+        <div className="relative mt-3 flex items-end gap-3">
+          <h1 className="m-0 font-mono text-[5.5rem] leading-[0.85] font-bold tracking-[-0.05em]">
+            {myRank}
+            <span className="font-sans text-[2.25rem] font-bold tracking-[-0.02em]">위</span>
+          </h1>
+          <span aria-hidden="true" className="pb-1.5 text-sm text-content-muted">
+            {ranked.length}명 중
+          </span>
+        </div>
 
-        <section className="mt-4 flex items-center justify-between gap-4 rounded-panel border-2 border-brand p-4.5">
+        <section className="relative mt-5 flex items-center justify-between gap-4 rounded-[1.25rem] border border-white/18 bg-surface-raised p-4.5">
           <div className="min-w-0">
-            <p className="m-0 truncate text-sm font-bold">{session.nickname}</p>
-            <p className="m-0 mt-1 text-[11px] text-content-muted">
+            <p className="m-0 flex items-center gap-2 truncate text-[17px] font-bold">
+              {session.nickname}
+              <span className="rounded-[6px] bg-content px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.1em] text-canvas">
+                ME
+              </span>
+            </p>
+            <p
+              className={cn(
+                'm-0 mt-1.5 text-[13px]',
+                myBoard && myBoard.upperBonus >= UPPER_BONUS_POINTS
+                  ? 'text-positive'
+                  : 'text-content-muted',
+              )}
+            >
               {myBoard && myBoard.upperBonus >= UPPER_BONUS_POINTS
-                ? '상단 보너스 달성'
+                ? `상단 보너스 +${UPPER_BONUS_POINTS} 달성`
                 : '상단 보너스 미달'}
             </p>
           </div>
@@ -67,15 +93,20 @@ export function GameResult({ session, snapshot }: GameResultProps) {
           </strong>
         </section>
 
-        <h2 className="mt-5 mb-2 text-xs font-bold text-content-muted">순위</h2>
-        <ResultRanking players={ranked} you={session.you} />
+        <div className="relative mt-6 mb-2 flex items-baseline justify-between">
+          <h2 className="m-0 font-mono text-[11px] font-bold tracking-[0.14em] text-content-muted uppercase">
+            Final Standings
+          </h2>
+          <span className="text-[13px] text-content-muted">총점 기준</span>
+        </div>
+        <ResultRanking className="relative" players={ranked} you={session.you} />
 
-        <Button className="mt-3.5 w-full" onClick={() => setSheetOpen(true)} variant="secondary">
-          전체 점수표 보기
-        </Button>
-
-        <div className="mt-auto grid gap-2 pt-4">
+        <div className="relative mt-auto grid gap-2 border-t border-border pt-4">
+          <Button className="w-full" onClick={() => setSheetOpen(true)} variant="ghost">
+            전체 점수표 보기
+          </Button>
           <Button
+            className="min-h-[3.625rem] rounded-panel text-lg"
             disabled={!isHost}
             loading={returnToLobby.isLoading}
             onClick={handleReturnToLobby}
@@ -83,7 +114,12 @@ export function GameResult({ session, snapshot }: GameResultProps) {
           >
             대기실로
           </Button>
-          <Button loading={isLeaving} onClick={handleLeave} variant="secondary">
+          <Button
+            className="text-content-muted hover:text-content"
+            loading={isLeaving}
+            onClick={handleLeave}
+            variant="ghost"
+          >
             나가기
           </Button>
           <p className="m-0 text-center text-[10.5px] text-content-muted">

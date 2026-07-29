@@ -47,7 +47,9 @@ describe('QR entrance integration', () => {
     await user.type(codeInput, ' yorr64 ')
     await user.click(screen.getByRole('button', { name: '수정한 코드로 참가' }))
 
-    expect(await screen.findByText('초대 코드 YORR64')).toBeVisible()
+    // 코드 칩이 "초대 코드"와 코드를 나눠 그리므로 두 조각을 각각 확인한다.
+    expect(await screen.findByText('초대 코드')).toBeVisible()
+    expect(screen.getAllByText('YORR64').length).toBeGreaterThan(0)
     expect(joinRoom).not.toHaveBeenCalled()
   })
 
@@ -91,7 +93,7 @@ describe('QR entrance integration', () => {
       const inviteUrl = `${window.location.origin}/join?code=${creatorSession.roomCode}`
 
       await user.click(await screen.findByRole('button', { name: '링크 복사' }))
-      await user.click(screen.getByRole('button', { name: '공유' }))
+      await user.click(screen.getByRole('button', { name: '공유하기' }))
 
       expect(browserApis?.writeText).toHaveBeenCalledWith(inviteUrl)
       expect(browserApis?.share).toHaveBeenCalledWith(

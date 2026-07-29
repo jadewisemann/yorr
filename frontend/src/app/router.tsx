@@ -12,11 +12,12 @@ import { GamePage } from '@/screens/GamePage'
 import { InvalidInvitePage } from '@/screens/InvalidInvitePage'
 import { LobbyPage } from '@/screens/LobbyPage'
 import { NicknamePage } from '@/screens/NicknamePage'
+import { NotFoundPage } from '@/screens/NotFoundPage'
 import { DevCatalog } from './DevCatalog'
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
-  notFoundComponent: () => <main>페이지를 찾을 수 없습니다.</main>,
+  notFoundComponent: NotFoundPage,
 })
 
 const indexRoute = createRoute({

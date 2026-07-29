@@ -17,8 +17,9 @@ export function LandingHeroCopy({ game, layout }: LandingHeroCopyProps) {
         className={cn(
           'inline-flex items-center rounded-full font-landing-bold tracking-[0.02em]',
           wide ? 'h-[30px] px-3.5 text-[12px]/none' : 'h-7 px-[13px] text-[11.5px]/none',
+          // 디자인 01 PLAYABLE NOW — 레드는 CTA 전용이라 상태 배지는 그린 틴트를 쓴다.
           game.live
-            ? 'bg-landing-accent text-landing-accent-ink'
+            ? 'border border-positive/36 bg-positive/12 text-positive'
             : 'bg-landing-badge text-landing-badge-text shadow-landing-badge',
         )}
       >
