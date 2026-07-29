@@ -1,5 +1,6 @@
 package com.ssafy.yorr.user.service;
 
+import com.ssafy.yorr.user.SessionAuthenticationException;
 import com.ssafy.yorr.user.UserIdentity;
 import com.ssafy.yorr.user.UserType;
 import com.ssafy.yorr.user.dto.GuestCreateResponse;
@@ -55,9 +56,9 @@ public class UserService {
     }
 
     public UserIdentity authenticateSession(String sessionToken) {
-        if (sessionToken == null || sessionToken.isBlank()) throw new IllegalArgumentException("invalid_guest_session");
+        if (sessionToken == null || sessionToken.isBlank()) throw new SessionAuthenticationException();
         String userId = redisTemplate.opsForValue().get(tokenKey(sessionToken));
-        if (userId == null) throw new IllegalArgumentException("invalid_guest_session");
+        if (userId == null) throw new SessionAuthenticationException();
         return authenticateCredentials(userId, sessionToken);
     }
 
@@ -70,13 +71,13 @@ public class UserService {
                 || !(storedType instanceof String type) || !(storedNickname instanceof String nickname)
                 || !MessageDigest.isEqual(hash(token).getBytes(StandardCharsets.UTF_8),
                 tokenHash.getBytes(StandardCharsets.UTF_8))) {
-            throw new IllegalArgumentException("invalid_guest_session");
+            throw new SessionAuthenticationException();
         }
         UserType userType;
         try {
             userType = UserType.valueOf(type);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("invalid_guest_session");
+            throw new SessionAuthenticationException();
         }
         redisTemplate.expire(key(userId), GUEST_TTL);
         redisTemplate.expire(tokenKey(token), GUEST_TTL);
@@ -91,7 +92,7 @@ public class UserService {
 
     private static String bearerToken(String authorization) {
         if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() == 7) {
-            throw new IllegalArgumentException("invalid_guest_session");
+            throw new SessionAuthenticationException();
         }
         return authorization.substring(7);
     }

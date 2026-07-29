@@ -13,6 +13,7 @@ import com.ssafy.yorr.game.service.ScoreConfirmationService;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.room.service.RoomService;
+import com.ssafy.yorr.user.SessionAuthenticationException;
 import com.ssafy.yorr.user.service.UserService;
 import com.ssafy.yorr.user.UserIdentity;
 import com.ssafy.yorr.user.UserType;
@@ -292,6 +293,70 @@ class GameWebSocketHandlerTest {
         ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
         verify(session).sendMessage(captor.capture());
         assertThat(((TextMessage) captor.getValue()).getPayload()).contains("\"you\":\"player-a\"");
+    }
+
+    /**
+     * 만료된 토큰은 SESSION_EXPIRED로 알려야 한다. INVALID_MESSAGE로 뭉개면 클라이언트가
+     * 세션 종료로 다루지 않아 대기실에서 안내 없이 멈춘다(S15P11A406-110).
+     */
+    @Test
+    void reportsExpiredSessionTokenAsSessionExpired() throws Exception {
+        UserService userService = mock(UserService.class);
+        handler = handlerWith(userService);
+        when(userService.authenticateSession("stale-token")).thenThrow(new SessionAuthenticationException());
+
+        WebSocketSession session = sessionWithPlayer("player-a");
+        handler.handle(session, joinMessage("stale-token", "join-stale"));
+
+        String response = singleResponse(session);
+        assertThat(response).contains("\"type\":\"error\"");
+        assertThat(response).contains("\"code\":\"SESSION_EXPIRED\"");
+        assertThat(response).contains("\"refMsgId\":\"join-stale\"");
+        // 인증이 실패했으므로 명단에도 올라가지 않는다.
+        assertThat(registry.of(session)).isNull();
+    }
+
+    /** 닉네임 규칙 위반은 그대로 INVALID_MESSAGE다 — 두 실패가 다시 뭉치지 않게 함께 고정한다. */
+    @Test
+    void stillReportsInvalidNicknameAsInvalidMessage() throws Exception {
+        UserService userService = mock(UserService.class);
+        handler = handlerWith(userService);
+        when(userService.createGuest(any())).thenThrow(new IllegalArgumentException("invalid_nickname"));
+
+        WebSocketSession session = sessionWithPlayer("player-a");
+        handler.handle(session, joinMessage(null, "join-bad-nickname"));
+
+        String response = singleResponse(session);
+        assertThat(response).contains("\"code\":\"INVALID_MESSAGE\"");
+        assertThat(response).contains("닉네임");
+    }
+
+    private TestGameWebSocketHandler handlerWith(UserService userService) {
+        return new TestGameWebSocketHandler(
+                objectMapper,
+                broadcaster,
+                registry,
+                userService,
+                scoreRoundSubmissionService,
+                roundSynchronizationService,
+                roundTimerService
+        );
+    }
+
+    private TextMessage joinMessage(String sessionToken, String msgId) {
+        return new TextMessage(objectMapper.writeValueAsString(new WsEnvelope<>(
+                "room.join",
+                System.currentTimeMillis(),
+                new RoomJoinPayload("room-a", "닉네임", sessionToken),
+                null,
+                msgId
+        )));
+    }
+
+    private static String singleResponse(WebSocketSession session) throws Exception {
+        ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(session).sendMessage(captor.capture());
+        return ((TextMessage) captor.getValue()).getPayload();
     }
 
     private TextMessage submitMessage(String roomId, String msgId) throws Exception {
