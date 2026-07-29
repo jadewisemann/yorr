@@ -28,11 +28,11 @@ public class RoomSessionRegistry {
             String roomId,
             String nickname,
             boolean host,
+            PlayerStatus status,
             WebSocketSession session
     ) {
-        /** 계약(ws-events.ts)의 Player로 변환. 대기방이라 status는 online 고정. */
         public Player toPlayer() {
-            return new Player(playerId, nickname, PlayerStatus.ONLINE, host);
+            return new Player(playerId, nickname, status, host);
         }
     }
 
@@ -51,15 +51,20 @@ public class RoomSessionRegistry {
     public Member join(String roomId, WebSocketSession session, String playerId, String nickname) {
         Map<String, Member> members = rooms.computeIfAbsent(roomId, k -> new ConcurrentHashMap<>());
         // 첫 입장자 = 방장. 최초 입장 동시성 경합은 단일 인스턴스 전제에선 무시(원자화는 42에서).
-        boolean host = members.isEmpty();
-        Member member = new Member(playerId, roomId, nickname, host, session);
+        Member existing = members.get(playerId);
+        boolean host = existing != null ? existing.host() : members.isEmpty();
+        Member member = new Member(
+                playerId, roomId, nickname, host, PlayerStatus.ONLINE, session);
         members.put(playerId, member);
+        if (existing != null && existing.session() != null) {
+            bySession.remove(existing.session().getId(), existing);
+        }
         bySession.put(session.getId(), member);
         return member;
     }
 
     /**
-     * 세션 종료 / room.leave 시 명단에서 제거.
+     * room.leave 또는 대기방 세션 종료 시 명단에서 제거.
      *
      * @return 빠진 Member(원래 방에 없었으면 null). room.player_left 브로드캐스트에 쓴다.
      */
@@ -78,11 +83,37 @@ public class RoomSessionRegistry {
     }
 
     /**
+     * 게임 중 비명시 연결 종료를 명단 이탈이 아닌 offline 전이로 기록한다.
+     * 이미 새 세션으로 교체된 뒤 예전 소켓의 close가 도착하면 현재 멤버는 건드리지 않는다.
+     */
+    public Member markOffline(WebSocketSession session) {
+        Member member = bySession.remove(session.getId());
+        if (member == null) return null;
+        Map<String, Member> members = rooms.get(member.roomId());
+        if (members == null) return null;
+
+        Member offline = new Member(
+                member.playerId(),
+                member.roomId(),
+                member.nickname(),
+                member.host(),
+                PlayerStatus.OFFLINE,
+                null
+        );
+        boolean replaced = members.replace(member.playerId(), member, offline);
+        return replaced ? offline : null;
+    }
+
+    /**
      * 방 진행 단계를 갱신한다. 게임 시작처럼 <b>REST 가 상태를 바꾸는</b> 경로에서 호출해야,
      * 뒤이은 state.sync 브로드캐스트가 바뀐 phase 를 실어 나간다.
      */
     public void markPhase(String roomId, RoomPhase phase) {
         phases.put(roomId, phase);
+    }
+
+    public RoomPhase phaseOf(String roomId) {
+        return phases.getOrDefault(roomId, RoomPhase.WAITING);
     }
 
     /** 이 세션의 현재 멤버(없으면 null). */

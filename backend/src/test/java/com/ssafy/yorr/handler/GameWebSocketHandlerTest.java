@@ -19,6 +19,7 @@ import com.ssafy.yorr.user.service.UserService;
 import com.ssafy.yorr.user.UserIdentity;
 import com.ssafy.yorr.user.UserType;
 import com.ssafy.yorr.ws.InMemoryRoomBroadcaster;
+import com.ssafy.yorr.ws.HeartbeatMonitor;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
 import com.ssafy.yorr.ws.dto.RoomJoinPayload;
 import com.ssafy.yorr.ws.dto.DiceHoldPayload;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
 import tools.jackson.databind.ObjectMapper;
@@ -59,6 +61,7 @@ class GameWebSocketHandlerTest {
     private ObjectMapper objectMapper;
     private InMemoryRoomBroadcaster broadcaster;
     private RoomSessionRegistry registry;
+    private HeartbeatMonitor heartbeatMonitor;
     private InMemoryRoundStateStore roundStateStore;
     private RoundSynchronizationService roundSynchronizationService;
     private ScoreConfirmationService scoreConfirmationService;
@@ -73,6 +76,7 @@ class GameWebSocketHandlerTest {
         objectMapper = new JsonMapper();
         broadcaster = new InMemoryRoomBroadcaster(objectMapper);
         registry = new RoomSessionRegistry();
+        heartbeatMonitor = mock(HeartbeatMonitor.class);
         roundStateStore = new InMemoryRoundStateStore();
         roundSynchronizationService = new RoundSynchronizationService(roundStateStore);
         scoreConfirmationService = mock(ScoreConfirmationService.class);
@@ -102,6 +106,7 @@ class GameWebSocketHandlerTest {
                 objectMapper,
                 broadcaster,
                 registry,
+                heartbeatMonitor,
                 mock(UserService.class),
                 scoreRoundSubmissionService,
                 roundSynchronizationService,
@@ -423,6 +428,7 @@ class GameWebSocketHandlerTest {
                 objectMapper,
                 broadcaster,
                 registry,
+                heartbeatMonitor,
                 userService,
                 scoreRoundSubmissionService,
                 roundSynchronizationService,
@@ -481,11 +487,102 @@ class GameWebSocketHandlerTest {
         assertThat(response).contains("닉네임");
     }
 
+    @Test
+    void keepsPlayingMemberOfflineAndBroadcastsPresenceOnUnexpectedClose() throws Exception {
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        WebSocketSession playerB = sessionWithPlayer("player-b");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        registry.join("room-a", playerB, "player-b", "Player B");
+        registry.markPhase("room-a", com.ssafy.yorr.ws.dto.RoomPhase.PLAYING);
+        roundSynchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
+        broadcaster.register("room-a", playerA);
+        broadcaster.register("room-a", playerB);
+
+        handler.afterConnectionClosed(playerA, CloseStatus.NORMAL);
+
+        assertThat(registry.snapshot("room-a").players()).hasSize(2);
+        assertThat(registry.snapshot("room-a").players())
+                .filteredOn(player -> player.playerId().equals("player-a"))
+                .singleElement()
+                .satisfies(player ->
+                        assertThat(player.status())
+                                .isEqualTo(com.ssafy.yorr.ws.dto.PlayerStatus.OFFLINE));
+        String response = singleResponse(playerB);
+        assertThat(response).contains("\"type\":\"presence.update\"");
+        assertThat(response).contains("\"playerId\":\"player-a\"");
+        assertThat(response).contains("\"status\":\"offline\"");
+        assertThat(response).doesNotContain("room.player_left");
+        verify(roundTimerService, never()).cancelRoom("room-a");
+        assertThat(roundStateStore.findByRoomId("room-a")).isPresent();
+    }
+
+    @Test
+    void removesWaitingMemberOnUnexpectedClose() throws Exception {
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        WebSocketSession playerB = sessionWithPlayer("player-b");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        registry.join("room-a", playerB, "player-b", "Player B");
+        broadcaster.register("room-a", playerA);
+        broadcaster.register("room-a", playerB);
+
+        handler.afterConnectionClosed(playerA, CloseStatus.NORMAL);
+
+        assertThat(registry.snapshot("room-a").players())
+                .extracting(player -> player.playerId())
+                .containsExactly("player-b");
+        assertThat(singleResponse(playerB)).contains("\"type\":\"room.player_left\"");
+    }
+
+    @Test
+    void explicitLeaveStillRemovesPlayingMember() throws Exception {
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        WebSocketSession playerB = sessionWithPlayer("player-b");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        registry.join("room-a", playerB, "player-b", "Player B");
+        registry.markPhase("room-a", com.ssafy.yorr.ws.dto.RoomPhase.PLAYING);
+        broadcaster.register("room-a", playerA);
+        broadcaster.register("room-a", playerB);
+
+        handler.handle(playerA, leaveMessage());
+
+        assertThat(registry.snapshot("room-a").players())
+                .extracting(player -> player.playerId())
+                .containsExactly("player-b");
+        assertThat(singleResponse(playerB)).contains("\"type\":\"room.player_left\"");
+    }
+
+    @Test
+    void heartbeatTimeoutSendsReasonBeforeClosingTheSocket() throws Exception {
+        WebSocketSession session = sessionWithPlayer("player-a");
+        handler.afterConnectionEstablished(session);
+        ArgumentCaptor<Runnable> timeout = ArgumentCaptor.forClass(Runnable.class);
+        verify(heartbeatMonitor).track(eq(session), timeout.capture());
+        clearInvocations(session);
+
+        timeout.getValue().run();
+
+        String response = singleResponse(session);
+        assertThat(response).contains("\"type\":\"sys.disconnect\"");
+        assertThat(response).contains("\"reason\":\"idle_timeout\"");
+        verify(session).close(CloseStatus.POLICY_VIOLATION);
+    }
+
+    @Test
+    void recordsEachPingBeforeSendingPong() throws Exception {
+        WebSocketSession session = sessionWithPlayer("player-a");
+
+        handler.handle(session, pingMessage());
+
+        verify(heartbeatMonitor).recordPing(session);
+        assertThat(singleResponse(session)).contains("\"type\":\"sys.pong\"");
+    }
+
     private TestGameWebSocketHandler handlerWith(UserService userService) {
         return new TestGameWebSocketHandler(
                 objectMapper,
                 broadcaster,
                 registry,
+                heartbeatMonitor,
                 userService,
                 scoreRoundSubmissionService,
                 roundSynchronizationService,
@@ -520,6 +617,26 @@ class GameWebSocketHandlerTest {
                 msgId
         ));
         return new TextMessage(message);
+    }
+
+    private TextMessage leaveMessage() throws Exception {
+        return new TextMessage(objectMapper.writeValueAsString(new WsEnvelope<>(
+                "room.leave",
+                System.currentTimeMillis(),
+                Map.of(),
+                "room-a",
+                "leave-a"
+        )));
+    }
+
+    private TextMessage pingMessage() throws Exception {
+        return new TextMessage(objectMapper.writeValueAsString(new WsEnvelope<>(
+                "sys.ping",
+                System.currentTimeMillis(),
+                Map.of("clientTs", System.currentTimeMillis()),
+                null,
+                "ping-a"
+        )));
     }
 
     private TextMessage rollMessage(String roomId, int rollCount, String msgId) throws Exception {
@@ -606,6 +723,7 @@ class GameWebSocketHandlerTest {
                 ObjectMapper objectMapper,
                 InMemoryRoomBroadcaster broadcaster,
                 RoomSessionRegistry registry,
+                HeartbeatMonitor heartbeatMonitor,
                 UserService userService,
                 ScoreRoundSubmissionService scoreRoundSubmissionService,
                 RoundSynchronizationService roundSynchronizationService,
@@ -617,6 +735,7 @@ class GameWebSocketHandlerTest {
                     objectMapper,
                     broadcaster,
                     registry,
+                    heartbeatMonitor,
                     userService,
                     scoreRoundSubmissionService,
                     roundSynchronizationService,

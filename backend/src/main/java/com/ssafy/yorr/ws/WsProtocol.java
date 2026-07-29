@@ -14,4 +14,7 @@ public final class WsProtocol {
 
     /** 클라 하트비트 주기(ms). 서버는 이 값의 배수만큼 무응답이면 idle 종료(추후 25번 티켓). */
     public static final int HEARTBEAT_INTERVAL_MS = 30_000;
+    public static final int HEARTBEAT_TIMEOUT_MULTIPLIER = 3;
+    public static final long HEARTBEAT_TIMEOUT_MS =
+            (long) HEARTBEAT_INTERVAL_MS * HEARTBEAT_TIMEOUT_MULTIPLIER;
 }
