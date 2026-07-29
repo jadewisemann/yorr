@@ -179,12 +179,12 @@ export function ScoreSheet({
   )
 
   return (
-    // 표 안에 포커스 요소가 없을 수 있어 스크롤 컨테이너가 tab을 받아야 한다(WCAG 2.1.1).
-    // biome-ignore lint/a11y/noNoninteractiveTabindex: 스크롤 영역은 포커스를 받아야 한다
     <section
       aria-label="플레이어별 점수표"
       // overscroll-contain: 시트 스크롤이 끝에 닿아도 뒤 페이지로 번지지 않는다.
       className={cn('overflow-auto overscroll-contain', className)}
+      // 표 안에 포커스 요소가 없을 수 있어 스크롤 컨테이너가 tab을 받아야 한다(WCAG 2.1.1).
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: 스크롤 영역은 포커스를 받아야 한다
       tabIndex={0}
     >
       <div
