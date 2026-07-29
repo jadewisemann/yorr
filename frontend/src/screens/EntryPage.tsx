@@ -76,11 +76,16 @@ export function EntryPage() {
 
         <div className="absolute inset-0 z-3 flex flex-col px-[clamp(20px,4vw,54px)] py-[clamp(20px,3vh,30px)]">
           <div className="flex flex-none items-center justify-between gap-4">
-            <span className="text-[21px]/none font-bold tracking-[-0.03em] text-landing-text">
-              YORR
+            <span className="flex items-baseline gap-2.5">
+              <span className="font-mono text-[21px]/none font-bold tracking-[-0.03em] text-landing-text">
+                YO<span className="text-landing-accent">R</span>R
+              </span>
+              <span className="font-mono text-[10px]/none font-bold tracking-[0.24em] text-landing-text-muted uppercase">
+                Arcade
+              </span>
             </span>
-            <span className="text-[12px]/none font-landing-bold tracking-[0.02em] text-landing-text-secondary">
-              링크 하나로 2~6인 · 한 판 5분
+            <span className="text-[13px]/none font-landing-bold tracking-[0.02em] text-landing-text-secondary">
+              설치도 회원가입도 없어요
             </span>
           </div>
 
@@ -150,8 +155,13 @@ export function EntryPage() {
       </div>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-3 flex items-center justify-between gap-3 px-5 pt-[max(18px,env(safe-area-inset-top))]">
-        <span className="text-[19px]/none font-bold tracking-[-0.03em] text-landing-text">
-          YORR
+        <span className="flex items-baseline gap-2">
+          <span className="font-mono text-[19px]/none font-bold tracking-[-0.03em] text-landing-text">
+            YO<span className="text-landing-accent">R</span>R
+          </span>
+          <span className="font-mono text-[9px]/none font-bold tracking-[0.22em] text-landing-text-muted uppercase">
+            Arcade
+          </span>
         </span>
         <span className="text-[11px]/none font-landing-bold tracking-[0.02em] text-landing-text-secondary">
           2~6인 · 5분

@@ -365,7 +365,7 @@ describe('GamePlay', () => {
     // 퀵 칩은 peek 상태에서도 보인다 — 시트를 열 필요 없이 한 번에 기록한다.
     await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
 
-    expect(await screen.findByText('점수가 반영됐습니다')).toBeVisible()
+    expect(await screen.findByText('점수가 반영됐습니다. 다음 턴을 기다립니다.')).toBeVisible()
   })
 
   /** QA 7번. 내 차례가 시작될 때만 알리고, 렌더마다 다시 알리지 않는다. */

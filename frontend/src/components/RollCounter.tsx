@@ -13,11 +13,14 @@ export function RollCounter({ className, maxRolls = 3, rollsUsed }: RollCounterP
 
   return (
     <div className={cn('flex flex-none items-center gap-2', className)}>
-      {/* 남은 굴림은 골드 도트, 쓴 굴림은 흐린 도트. */}
+      {/* 남은 굴림은 화이트 스퀘어, 쓴 굴림은 아웃라인(디자인 04 ROLL 표시). */}
       <div aria-hidden="true" className="flex gap-1.5">
         {slots.map((slot, index) => (
           <span
-            className={cn('size-2.5 rounded-full', index < remaining ? 'bg-brand' : 'bg-border')}
+            className={cn(
+              'size-2.5 rounded-[3px]',
+              index < remaining ? 'bg-content' : 'border border-white/28 bg-transparent',
+            )}
             key={slot}
           />
         ))}

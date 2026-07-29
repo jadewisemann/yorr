@@ -12,10 +12,9 @@ interface RoundTimerProps {
 }
 
 /**
- * 상단 단일 앵커 타이머. 라운드·남은 시간·진행 바를 한 덩어리로 묶어
- * "1초 판단"이 되도록 한다(와이어프레임 1a 개선 ①).
- *
- * 점멸은 쓰지 않는다 — 임박은 색 전환과 숫자 굵기로만 알린다.
+ * 원형 링 타이머(디자인 시스템 05) — conic-gradient가 남은 비율만큼 차 있다.
+ * 임박(5초 이하 경고 구간)은 링·숫자가 레드로 바뀌고 은은한 글로우가 붙는다.
+ * 점멸 대신 펄스 스케일만 쓰고, 모션 감소 설정에서는 색 전환만 남긴다.
  */
 export function RoundTimer({
   className,
@@ -35,32 +34,26 @@ export function RoundTimer({
           라운드 {roundNumber}/{totalRounds}
         </span>
       )}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[10.5px] font-medium tracking-[0.08em] text-content-faint uppercase">
-            남은 시간
-          </span>
-          <span
-            aria-label="남은 시간"
-            className={cn(
-              'font-mono text-xl tabular-nums transition-colors',
-              warning ? 'font-bold text-danger' : 'font-medium text-content',
-            )}
-            role="timer"
-          >
-            {formatCountdown(remainingMs)}
-          </span>
-        </div>
-        <div className="mt-1 h-[7px] overflow-hidden rounded-full bg-surface-sunken">
-          {/* width 대신 scaleX로 줄인다 — 레이아웃을 건드리지 않고 합성만으로 처리된다. */}
-          <div
-            className={cn(
-              'h-full origin-left transition-[transform,background-color] duration-1000 ease-linear',
-              warning ? 'bg-danger' : 'bg-brand',
-            )}
-            style={{ transform: `scaleX(${ratio})` }}
-          />
-        </div>
+      <div
+        className={cn(
+          'grid size-13 flex-none place-items-center rounded-full',
+          warning &&
+            'shadow-[0_0_18px_rgb(229_57_53_/_28%)] motion-safe:animate-ring-pulse motion-reduce:animate-none',
+        )}
+        style={{
+          background: `conic-gradient(${warning ? 'var(--ds-color-brand)' : 'var(--ds-color-content)'} ${ratio}turn, rgb(255 255 255 / 12%) ${ratio}turn 1turn)`,
+        }}
+      >
+        <span
+          aria-label="남은 시간"
+          className={cn(
+            'grid size-[2.7rem] place-items-center rounded-full bg-canvas font-mono text-[15px] tabular-nums transition-colors',
+            warning ? 'font-bold text-brand-strong' : 'font-medium text-content',
+          )}
+          role="timer"
+        >
+          {formatCountdown(remainingMs)}
+        </span>
       </div>
       <p aria-live="assertive" className="sr-only">
         {warningNotice}

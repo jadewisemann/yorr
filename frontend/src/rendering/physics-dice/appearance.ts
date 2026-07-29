@@ -26,7 +26,7 @@ export function syncAppearance(resources: AppearanceResources) {
   resources.bowlInnerMaterial.color
     .set(color('--ds-color-physics-danger', '#ff523f'))
     .multiplyScalar(0.42)
-  resources.ambient.groundColor.set(0x253021)
+  resources.ambient.groundColor.set(0x1a1b1e)
   resources.entries.forEach((entry) => {
     entry.outline.material.color.set(color('--ds-color-physics-accent', '#c6f640'))
   })

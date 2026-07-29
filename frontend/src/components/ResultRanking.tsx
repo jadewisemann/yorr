@@ -22,23 +22,43 @@ export function ResultRanking({ className, players, you }: ResultRankingProps) {
     <ol className={cn('grid list-none gap-2 p-0', className)}>
       {players.map((player, index) => {
         const mine = player.playerId === you
+        const winner = index === 0
         return (
           <li
             className={cn(
-              'flex min-h-[3.375rem] items-center gap-3 rounded-card px-3.5',
-              mine ? 'border-2 border-brand bg-surface-raised' : 'border border-border bg-surface',
-              index === 0 && !mine && 'bg-surface-raised',
+              // 디자인 08 FINAL STANDINGS — 1위는 레드 틴트 + 글로우, 내 행은 밝은 보더.
+              'flex min-h-[3.375rem] items-center gap-3 rounded-panel border px-3.5',
+              winner
+                ? 'border-brand/45 bg-brand/10 shadow-[0_0_0_3px_rgb(229_57_53_/_14%)]'
+                : mine
+                  ? 'border-white/22 bg-surface-raised'
+                  : 'border-border bg-surface',
             )}
             key={player.playerId}
           >
-            <span className="w-6 flex-none font-mono text-[15px] font-bold text-content tabular-nums">
+            <span
+              className={cn(
+                'w-6 flex-none text-center font-mono text-[17px] font-bold tabular-nums',
+                winner ? 'text-brand-strong' : mine ? 'text-content' : 'text-content-faint',
+              )}
+            >
               {index + 1}
             </span>
-            <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-content">
+            <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-content">
               {player.nickname}
-              {mine && <span className="ml-1 font-bold text-brand-strong">(나)</span>}
+              {mine && <span className="ml-1 font-bold text-content-muted">(나)</span>}
+              {winner && (
+                <span className="ml-2 rounded-[6px] bg-brand/20 px-1.5 py-0.5 align-middle font-mono text-[10px] font-bold tracking-[0.1em] text-[#FF8A86]">
+                  WIN
+                </span>
+              )}
             </span>
-            <span className="flex-none font-mono text-[17px] font-bold text-content tabular-nums">
+            <span
+              className={cn(
+                'flex-none font-mono text-[19px] font-bold tabular-nums',
+                winner ? 'text-brand-strong' : 'text-content',
+              )}
+            >
               {player.total}
             </span>
           </li>

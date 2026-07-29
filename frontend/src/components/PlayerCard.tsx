@@ -37,8 +37,8 @@ export function PlayerCard({
   return (
     <article
       className={cn(
-        'grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-card border border-border bg-surface p-3',
-        active && 'border-brand ring-1 ring-brand',
+        'grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-panel border border-border bg-surface-raised p-3',
+        active && 'border-white/18',
         status === 'offline' && 'opacity-60',
         className,
       )}
@@ -54,7 +54,7 @@ export function PlayerCard({
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate font-bold">{name}</span>
           {current && (
-            <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-on-brand">
+            <span className="shrink-0 rounded-[6px] bg-content px-2 py-0.5 text-xs font-bold text-canvas">
               나
             </span>
           )}

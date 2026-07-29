@@ -70,7 +70,7 @@ describe('LobbyPage', () => {
 
     render(<LobbyPage roomId={participantSession.roomId} />)
 
-    expect(screen.getByRole('button', { name: '게임 시작' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '게임 시작 · 호스트 전용' })).toBeDisabled()
     expect(screen.getByText('호스트가 게임을 시작하면 자동으로 이동해요.')).toBeVisible()
   })
 

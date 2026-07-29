@@ -34,15 +34,50 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
   const externalUrl = getAndroidExternalUrl(userAgent)
 
   return (
-    <main className="grid min-h-dvh place-items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-      <section className="grid w-full max-w-lg gap-5 rounded-panel border border-border bg-surface p-6 text-center shadow-raised">
-        <h1 className="m-0 text-display font-bold text-content">외부 브라우저를 권장해요</h1>
-        <p className="m-0 text-content-muted">
-          카메라·센서와 공유 기능을 안정적으로 사용하려면 Chrome 또는 Safari에서 열어 주세요.
+    // 디자인 14 — 좌측 정렬 풀스크린 안내. 무엇이 되고 무엇이 제한되는지 체크리스트로 보여준다.
+    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-6 px-gutter pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-content">
+      <div className="grid gap-3">
+        <h1 className="m-0 text-[27px] font-bold tracking-[-0.02em]">외부 브라우저를 권장해요</h1>
+        <p className="m-0 text-[15px] leading-[1.6] text-content-muted">
+          Chrome 또는 Safari에서 열면 흔들기 센서와 링크 공유가 안정적으로 동작해요. 인앱
+          브라우저에서는 일부 기능이 제한될 수 있어요.
         </p>
+      </div>
+
+      <ul className="m-0 grid list-none gap-2.5 rounded-panel border border-border bg-surface p-4 text-sm">
+        <li className="flex items-center gap-2.5">
+          <span
+            aria-hidden="true"
+            className="grid size-[18px] flex-none place-items-center rounded-[6px] bg-positive/20 text-[10px] leading-none font-bold text-positive"
+          >
+            ✓
+          </span>
+          흔들어서 주사위 굴리기
+        </li>
+        <li className="flex items-center gap-2.5">
+          <span
+            aria-hidden="true"
+            className="grid size-[18px] flex-none place-items-center rounded-[6px] bg-positive/20 text-[10px] leading-none font-bold text-positive"
+          >
+            ✓
+          </span>
+          초대 링크 공유와 복사
+        </li>
+        <li className="flex items-center gap-2.5 text-content-muted">
+          <span
+            aria-hidden="true"
+            className="grid size-[18px] flex-none place-items-center rounded-[6px] bg-warning/20 text-[10px] leading-none font-bold text-warning"
+          >
+            !
+          </span>
+          인앱에서는 센서가 동작하지 않을 수 있어요
+        </li>
+      </ul>
+
+      <div className="mt-auto grid gap-2.5">
         {externalUrl && (
           <a
-            className="inline-flex min-h-tap items-center justify-center rounded-card bg-brand px-6 py-3 font-bold text-on-brand"
+            className="inline-flex min-h-[3.625rem] items-center justify-center rounded-panel bg-brand px-6 py-3 text-lg font-bold text-on-brand shadow-cta"
             href={externalUrl}
           >
             Chrome에서 열기
@@ -56,10 +91,15 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
             {copyMessage}
           </p>
         )}
-        <Button type="button" variant="ghost" onClick={continueHere}>
+        <Button
+          className="text-content-muted hover:text-content"
+          type="button"
+          variant="ghost"
+          onClick={continueHere}
+        >
           그냥 진행
         </Button>
-      </section>
+      </div>
     </main>
   )
 }

@@ -30,8 +30,11 @@ export function ConnectionBanner({ className, status }: ConnectionBannerProps) {
     <div
       aria-live={status === 'closed' ? 'assertive' : 'polite'}
       className={cn(
-        message &&
-          'flex items-center gap-2.5 border-b border-border bg-surface-sunken px-gutter py-2',
+        // 색상만으로 상태를 구분하지 않는다(디자인 시스템 05) — 점 모양·라벨을 함께 쓴다.
+        message && 'flex items-center gap-2.5 border-b px-gutter py-2',
+        status === 'connecting' && 'border-border bg-white/6',
+        status === 'reconnecting' && 'border-warning/40 bg-warning/12',
+        status === 'closed' && 'border-brand/42 bg-brand/12',
         className,
       )}
       role={status === 'closed' ? 'alert' : 'status'}
@@ -41,11 +44,24 @@ export function ConnectionBanner({ className, status }: ConnectionBannerProps) {
           <span
             aria-hidden="true"
             className={cn(
-              'size-2.5 flex-none rounded-full border-2',
-              status === 'closed' ? 'border-danger' : 'border-brand',
+              'flex-none',
+              status === 'closed'
+                ? 'h-0.5 w-2.5 bg-danger'
+                : status === 'reconnecting'
+                  ? 'size-2 rounded-[2px] bg-warning'
+                  : 'size-2.5 rounded-full border-2 border-content-muted',
             )}
           />
-          <p className="m-0 min-w-0 text-[12.5px] font-bold text-content">
+          <p
+            className={cn(
+              'm-0 min-w-0 text-[12.5px] font-bold',
+              status === 'reconnecting'
+                ? 'text-warning'
+                : status === 'closed'
+                  ? 'text-danger'
+                  : 'text-content',
+            )}
+          >
             {message.title}
             <span className="ml-2 font-medium text-content-muted">{message.detail}</span>
           </p>

@@ -57,35 +57,89 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
   }
 
   return (
-    <main className="grid min-h-dvh place-items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-      <section className="grid w-full max-w-lg gap-6 rounded-panel border border-border bg-surface p-6 shadow-raised">
-        <header className="grid gap-2 text-center">
-          <p className="m-0 text-sm font-bold text-brand-strong">
-            {roomCode ? `초대 코드 ${roomCode}` : '온라인 프라이빗 룸'}
-          </p>
-          <h1 className="m-0 text-display font-bold text-content">어떤 이름으로 참가할까요?</h1>
-        </header>
-        <form className="grid gap-5" onSubmit={handleSubmit} noValidate>
-          <TextField
-            label="닉네임"
-            value={nickname}
-            placeholder={suggestion}
-            helpText={`비워두면 ${suggestion}(으)로 입장해요.`}
-            errorMessage={validationError}
-            maxLength={NICKNAME_MAX_LENGTH + 1}
-            autoComplete="nickname"
-            disabled={task.isLoading}
-            onChange={(event) => {
-              setNickname(event.target.value)
-              setValidationError(null)
-            }}
-          />
-          <Button type="submit" size="lg" loading={task.isLoading} className="w-full">
-            대기실 입장
-          </Button>
+    // 디자인 02 — 카드 없이 풀스크린. 좌상단 뒤로가기·코드 칩, 좌측 정렬 헤드라인,
+    // 하단 고정 CTA. 배경엔 방 코드 워터마크가 아주 흐리게 깔린다.
+    <main className="relative mx-auto flex min-h-dvh w-full max-w-lg flex-col overflow-hidden px-gutter pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-content">
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute top-32 -left-7 font-mono text-[11.875rem] leading-none font-bold tracking-[-0.04em] text-white/4 select-none"
+      >
+        {roomCode ?? 'YORR'}
+      </span>
+
+      <header className="relative flex items-center gap-3">
+        <button
+          aria-label="뒤로 가기"
+          className="grid size-11 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-lg text-content transition-colors hover:bg-surface-raised focus-visible:outline-3 focus-visible:outline-focus"
+          onClick={() => void navigate({ to: '/' })}
+          type="button"
+        >
+          ‹
+        </button>
+        <span className="inline-flex h-[2.125rem] items-center gap-2 rounded-full border border-border bg-white/6 px-3.5 text-[13px] font-semibold">
+          {roomCode ? (
+            <>
+              초대 코드{' '}
+              <span className="font-mono font-bold tracking-[0.1em] text-content">{roomCode}</span>
+            </>
+          ) : (
+            '온라인 프라이빗 룸'
+          )}
+        </span>
+      </header>
+
+      <div className="relative mt-11 grid gap-2.5">
+        <h1 className="m-0 text-[28px] leading-[1.3] font-bold tracking-[-0.02em]">
+          어떤 이름으로
+          <br />
+          참가할까요?
+        </h1>
+        <p className="m-0 text-[15px] text-content-muted">
+          {roomCode
+            ? '같은 방 친구들에게 이 이름이 보여요'
+            : '방을 만들면 초대 링크가 바로 생성돼요'}
+        </p>
+      </div>
+
+      <form
+        className="relative mt-8 flex min-h-0 flex-1 flex-col gap-4"
+        onSubmit={handleSubmit}
+        noValidate
+      >
+        <TextField
+          label={<span className="sr-only">닉네임</span>}
+          value={nickname}
+          placeholder={suggestion}
+          helpText={
+            <>
+              비워두면 <span className="font-semibold text-content">{suggestion}</span>
+              (으)로 입장해요 · 한글·영문·숫자 2~{NICKNAME_MAX_LENGTH}자
+            </>
+          }
+          errorMessage={validationError}
+          maxLength={NICKNAME_MAX_LENGTH + 1}
+          autoComplete="nickname"
+          disabled={task.isLoading}
+          onChange={(event) => {
+            setNickname(event.target.value)
+            setValidationError(null)
+          }}
+        />
+        <div className="mt-auto grid gap-3">
+          {!roomCode && (
+            <p className="m-0 flex items-center gap-2.5 rounded-card border border-border bg-surface px-3.5 py-3 text-sm text-content-muted">
+              <span
+                aria-hidden="true"
+                className="grid size-5 flex-none place-items-center rounded-[6px] bg-white/10 text-[11px] leading-none font-bold text-content"
+              >
+                1
+              </span>
+              방을 만든 사람이 호스트가 돼요
+            </p>
+          )}
           {userError && (
-            <div className="grid gap-2 text-center">
-              <p className="m-0 text-sm text-danger" role="alert">
+            <div className="grid gap-2 rounded-card border border-brand/36 bg-brand/8 px-3.5 py-3 text-left">
+              <p className="m-0 text-sm text-[#FF8A86]" role="alert">
                 {userError.message}
               </p>
               {userError.canChangeRoom && (
@@ -99,8 +153,20 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
               )}
             </div>
           )}
-        </form>
-      </section>
+          <Button
+            type="submit"
+            size="lg"
+            loading={task.isLoading}
+            className="min-h-[3.625rem] w-full rounded-panel text-lg"
+          >
+            {task.isLoading
+              ? roomCode
+                ? '입장하는 중이에요'
+                : '방을 만들고 있어요'
+              : '대기실 입장'}
+          </Button>
+        </div>
+      </form>
     </main>
   )
 }

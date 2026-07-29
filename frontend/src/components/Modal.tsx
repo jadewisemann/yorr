@@ -46,7 +46,7 @@ export function Modal({ children, className, onClose, open, title }: ModalProps)
       <section
         className={cn(
           'relative',
-          'w-full max-w-lg rounded-panel border border-border bg-surface p-6 text-content shadow-raised',
+          'w-full max-w-lg rounded-[1.25rem] border border-white/18 bg-surface-raised p-6 text-content shadow-raised',
           className,
         )}
         role="dialog"

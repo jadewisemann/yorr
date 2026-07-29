@@ -2,15 +2,20 @@ import type { ButtonHTMLAttributes } from 'react'
 import { cn } from '@/cn'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'ghost'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
   size?: 'sm' | 'md' | 'lg'
   loading?: boolean
 }
 
+/**
+ * 버튼 위계(디자인 시스템 03) — 한 화면에 레드 Primary는 하나.
+ * Secondary는 아이보리 화이트, Tertiary(ghost)는 아웃라인, Danger는 레드 틴트 아웃라인.
+ */
 const variants = {
-  primary: 'bg-brand text-on-brand hover:bg-brand-strong',
-  secondary: 'border-border bg-surface-raised text-content hover:border-brand',
-  ghost: 'bg-transparent text-content hover:bg-surface-raised',
+  primary: 'bg-brand text-on-brand shadow-cta hover:bg-brand-strong disabled:shadow-none',
+  secondary: 'bg-[#F2F2F0] text-[#111214] hover:bg-white',
+  ghost: 'border-white/18 bg-transparent text-content hover:bg-white/6',
+  danger: 'border-brand/55 bg-brand/10 text-danger hover:bg-brand/18',
 } as const
 
 const sizes = {

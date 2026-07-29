@@ -67,7 +67,7 @@ export function createBowl(scene: THREE.Scene, world: RAPIER.World) {
   const bowlGroup = new THREE.Group()
   bowlGroup.visible = false
   const shellMaterial = new THREE.MeshStandardMaterial({
-    color: 0x161a17,
+    color: 0x141517,
     roughness: 0.72,
     metalness: 0.08,
     side: THREE.DoubleSide,
@@ -78,7 +78,7 @@ export function createBowl(scene: THREE.Scene, world: RAPIER.World) {
     side: THREE.DoubleSide,
   })
   const rimMaterial = new THREE.MeshStandardMaterial({
-    color: 0x2a302b,
+    color: 0x24252a,
     roughness: 0.55,
     metalness: 0.12,
   })

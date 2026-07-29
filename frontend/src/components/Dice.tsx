@@ -21,9 +21,10 @@ export function Dice({ className, held = false, rolling = false, size = 'md', va
   return (
     <div
       className={cn(
-        'grid aspect-square grid-cols-3 grid-rows-3 rounded-card border-2 border-content bg-surface-raised text-content shadow-raised',
+        // 아이보리 화이트 바디 + 딥 블랙 눈(디자인 시스템 06). 킵은 레드 보더·글로우로 구분한다.
+        'grid aspect-square grid-cols-3 grid-rows-3 rounded-[18%] border border-black/15 bg-physics-die text-physics-pip shadow-raised',
         sizes[size],
-        held && 'ring-3 ring-brand',
+        held && 'border-2 border-brand-strong ring-4 ring-brand/30',
         rolling && 'animate-dice-roll motion-reduce:animate-none',
         className,
       )}
@@ -33,7 +34,7 @@ export function Dice({ className, held = false, rolling = false, size = 'md', va
       {dots[value].map((position) => (
         <span
           key={position}
-          className="size-2.5 place-self-center bg-current"
+          className="size-2.5 place-self-center rounded-full bg-current"
           style={{ gridArea: `${Math.ceil(position / 3)} / ${((position - 1) % 3) + 1}` }}
         />
       ))}

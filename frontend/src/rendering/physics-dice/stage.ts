@@ -21,7 +21,7 @@ export function createStage(container: HTMLElement) {
   renderer.domElement.className = 'h-full w-full touch-manipulation'
   container.appendChild(renderer.domElement)
 
-  const ambient = new THREE.HemisphereLight(0xffffff, 0x344032, 1.65)
+  const ambient = new THREE.HemisphereLight(0xffffff, 0x1a1b1e, 1.65)
   scene.add(ambient)
   const keyLight = new THREE.DirectionalLight(0xffffff, 3.4)
   keyLight.position.set(-4, 8, -3)

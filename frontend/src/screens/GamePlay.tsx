@@ -493,7 +493,9 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const diceScene = (
     <div
       className={cn(
-        'relative min-h-0 flex-1 transition-transform [background:var(--ds-physics-tray)] motion-reduce:transform-none',
+        // 디자인 04 트레이 — 라운드 코너·헤어라인 보더·상단 하이라이트의 매트 블랙 그릇.
+        'relative min-h-0 flex-1 overflow-hidden rounded-[1.375rem] border border-white/8 shadow-[inset_0_2px_0_rgb(255_255_255_/_6%),inset_0_-26px_46px_rgb(0_0_0_/_62%)] transition-transform [background:var(--ds-physics-tray)] motion-reduce:transform-none',
+        wide ? 'mx-gutter my-3' : 'mx-gutter mt-3 mb-1',
         motion.lastPulseDirection === 'left' && '-translate-x-1',
         motion.lastPulseDirection === 'right' && 'translate-x-1',
       )}
@@ -570,72 +572,96 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     </div>
   )
 
+  // 디자인 04 헤더의 ✕ — 나가기는 아이콘 버튼 하나로 줄인다(확인 모달이 뒤에 있다).
   const leaveButton = (
     <button
-      className="flex-none cursor-pointer rounded-full border border-border bg-transparent px-3 py-1.5 text-[12px] font-semibold text-content-muted transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
+      aria-label="나가기"
+      className="grid size-10 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-[15px] text-content-muted transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
       onClick={onLeaveRequest}
       type="button"
     >
-      나가기
+      ✕
     </button>
   )
 
-  // 디자인의 한 줄 스테이터스 바 — 라운드·차례·남은 굴림·선두를 좌에서 우로 눕힌다.
-  // 레퍼런스의 라운드 배지 — 현재 라운드만 밝고 전체 라운드는 흐리다.
-  const roundBadge = (
-    <span className="flex-none rounded-control border border-border px-2.5 py-1 text-[13px] font-bold whitespace-nowrap">
-      R {roundNumber}
-      <span className="font-semibold text-content-faint">/{TOTAL_ROUNDS}</span>
+  // ROUND 라벨 아래 "누구 턴인지"를 점·색으로 병기한다(디자인 04·05).
+  const turnStatus = (
+    <span className="flex min-w-0 flex-col gap-0.5">
+      <span className="font-mono text-[11px] leading-none font-bold tracking-[0.16em] text-content-muted uppercase">
+        Round {String(roundNumber).padStart(2, '0')} / {TOTAL_ROUNDS}
+      </span>
+      <span
+        className={cn(
+          'flex items-center gap-1.5 truncate text-[15px] font-semibold',
+          !isMyTurn && activePlayer && 'text-[#FF8A86]',
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className={cn(
+            'size-[7px] flex-none rounded-full',
+            isMyTurn
+              ? 'bg-positive'
+              : activePlayer
+                ? 'bg-brand-strong shadow-[0_0_8px_rgb(229_57_53_/_90%)]'
+                : 'bg-content-faint',
+          )}
+        />
+        {isMyTurn ? '내 턴이에요' : activePlayer ? `${activePlayer.nickname}의 턴` : '턴 동기화 중'}
+      </span>
     </span>
+  )
+
+  const timerRing = (
+    <RoundTimer
+      compact
+      remainingMs={remainingMs}
+      roundNumber={roundNumber}
+      totalRounds={TOTAL_ROUNDS}
+    />
   )
 
   const header = (
     <header
       className={cn(
-        'flex flex-none items-center border-b border-border px-gutter',
-        wide ? 'h-[4.25rem] gap-5' : 'h-14 gap-2.5',
+        'flex flex-none items-center px-gutter',
+        wide ? 'h-[4.5rem] gap-5 border-b border-border' : 'h-[4.25rem] gap-3',
       )}
     >
       <h1 className="sr-only">
         요르 게임 진행 중 · {roundNumber} / {TOTAL_ROUNDS} 라운드
       </h1>
-      {/* 레퍼런스의 타이틀 스택 — 한글 타이틀 + 자간 넓은 영문 캡션. */}
-      <span className="flex flex-none flex-col leading-tight">
-        <span className={cn('font-bold', wide ? 'text-xl' : 'text-[15px]')}>요트 다이스</span>
-        {wide && (
-          <span className="text-[9.5px] font-bold tracking-[0.3em] text-content-faint uppercase">
-            Yacht Dice
-          </span>
-        )}
-      </span>
       {wide ? (
+        // 디자인 23 데스크톱 헤더 — ✕ · 라운드/턴 · 선두 · 연결 상태 · 링 타이머.
         <>
-          <span aria-hidden="true" className="h-6 w-px flex-none bg-border" />
-          {/* 라운드는 우측 배지(R n/12)가, 진행 차례는 상단 TurnStrip이 맡는다. */}
-          <div className="ml-auto w-52 min-w-0">
-            <RoundTimer
-              compact
-              remainingMs={remainingMs}
-              roundNumber={roundNumber}
-              totalRounds={TOTAL_ROUNDS}
-            />
-          </div>
-          <HeaderStat label="선두" value={leaderLabel} />
-          {roundBadge}
           {leaveButton}
+          {turnStatus}
+          <span aria-hidden="true" className="h-8 w-px flex-none bg-border" />
+          <HeaderStat label="선두" value={leaderLabel} />
+          <span className="flex-1" />
+          <span className="inline-flex h-[2.125rem] flex-none items-center gap-2 rounded-full border border-border bg-white/6 px-3.5 text-[13px] font-semibold">
+            <span
+              aria-hidden="true"
+              className={cn(
+                'size-[7px] rounded-full',
+                connectionStatus === 'connected' ? 'bg-positive' : 'bg-warning',
+              )}
+            />
+            {connectionStatus === 'connected'
+              ? '연결됨'
+              : connectionStatus === 'reconnecting'
+                ? '재연결 중'
+                : connectionStatus === 'closed'
+                  ? '연결 끊김'
+                  : '연결 중'}
+          </span>
+          {timerRing}
         </>
       ) : (
         <>
-          <div className="min-w-0 flex-1">
-            <RoundTimer
-              compact
-              remainingMs={remainingMs}
-              roundNumber={roundNumber}
-              totalRounds={TOTAL_ROUNDS}
-            />
-          </div>
-          {roundBadge}
           {leaveButton}
+          <div className="min-w-0 flex-1">{turnStatus}</div>
+          {timerRing}
         </>
       )}
     </header>
@@ -643,9 +669,25 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
 
   // 내 차례가 아니면 CTA 자리를 비워둔다. "누가 진행 중인지"는 상단 스트립이 항상 보여주므로
   // 여기서 같은 정보를 반복하지 않는다(중복 표시가 오히려 시선을 아래로 끌었다).
-  const waitingNotice = (
-    <p className="m-0 flex min-h-15 flex-1 items-center justify-center rounded-panel border border-dashed border-border px-4 text-center text-sm font-semibold text-content-muted">
-      {submitted ? '점수가 반영됐습니다' : '상단에서 진행 순서를 확인하세요'}
+  const waitingNotice = submitted ? (
+    // 디자인 21 — 기록 완료는 그린 틴트로 "끝났다"를 말한다.
+    <p className="m-0 flex min-h-15 flex-1 items-center justify-center gap-2.5 rounded-panel border border-positive/40 bg-positive/10 px-4 text-center text-sm font-semibold text-positive">
+      <span
+        aria-hidden="true"
+        className="grid size-5 flex-none place-items-center rounded-[7px] bg-positive/20 text-[11px] leading-none font-bold"
+      >
+        ✓
+      </span>
+      점수가 반영됐습니다. 다음 턴을 기다립니다.
+    </p>
+  ) : (
+    // 디자인 21 하단 바 — 남의 턴에는 누가 굴리는지 펄스 도트와 함께 보여준다.
+    <p className="m-0 flex min-h-15 flex-1 items-center justify-center gap-2.5 rounded-panel border border-border bg-surface px-4 text-center text-sm font-semibold text-content-muted">
+      <span
+        aria-hidden="true"
+        className="size-2 flex-none rounded-[2px] bg-brand-strong motion-safe:animate-ring-pulse"
+      />
+      {activePlayer ? `${activePlayer.nickname}이 굴리는 중` : '턴 동기화 중'}
     </p>
   )
 
@@ -885,11 +927,15 @@ function ZeroScoreModal({
       title={category ? `${categoryLabel[category]}를 0점으로 확정할까요?` : ''}
     >
       <p className="m-0 text-sm text-content-muted">이 족보는 다시 사용할 수 없습니다.</p>
-      <div className="mt-5 flex gap-2">
-        <Button className="flex-1" onClick={onCancel} variant="secondary">
+      {/* 디자인 19 — 안전한 선택(취소)이 위, 확정은 다크 레드(잃는 선택임을 색으로도 말한다). */}
+      <div className="mt-5 grid gap-2.5">
+        <Button onClick={onCancel} variant="secondary">
           취소
         </Button>
-        <Button className="flex-1" onClick={onConfirm}>
+        <Button
+          className="bg-[#8F1D1D] text-[#FFE9E8] shadow-none hover:bg-[#A32421]"
+          onClick={onConfirm}
+        >
           0점 확정
         </Button>
       </div>

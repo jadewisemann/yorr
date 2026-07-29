@@ -34,36 +34,55 @@ export function InvitationPanel({ roomCode }: InvitationPanelProps) {
   }
 
   return (
+    // 디자인 03 초대 카드 — QR 좌측, ROOM CODE·링크·액션 우측의 가로 배치.
     <section
-      className="grid gap-4 rounded-panel border border-border bg-surface p-5 text-center shadow-raised"
+      className="grid gap-3 rounded-[1.25rem] border border-border bg-surface-raised p-4 shadow-raised"
       aria-labelledby="invite-title"
     >
-      <div className="grid gap-1">
-        <h2 id="invite-title" className="m-0 text-lg font-bold">
-          친구 초대하기
-        </h2>
-        <p className="m-0 text-sm text-content-muted">QR을 스캔하면 코드 입력 없이 참가해요.</p>
-      </div>
-      <QrFallback>
-        <QRCodeSVG
-          className="mx-auto h-auto w-full max-w-52 rounded-control bg-white p-3"
-          value={inviteUrl}
-          level="M"
-          marginSize={1}
-          title={`방 ${roomCode} 초대 QR 코드`}
-        />
-      </QrFallback>
-      <p className="m-0 text-2xl font-bold tracking-[0.2em] text-brand-strong">{roomCode}</p>
-      <p className="m-0 break-all text-xs text-content-muted">{inviteUrl}</p>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Button type="button" variant="secondary" onClick={copyInvite}>
-          링크 복사
-        </Button>
-        {canShare && (
-          <Button type="button" variant="secondary" onClick={shareInvite}>
-            공유
-          </Button>
-        )}
+      <h2 className="sr-only" id="invite-title">
+        친구 초대하기
+      </h2>
+      <div className="flex items-stretch gap-4">
+        <QrFallback>
+          <QRCodeSVG
+            className="size-[7.375rem] flex-none rounded-card bg-white p-2"
+            value={inviteUrl}
+            level="M"
+            marginSize={1}
+            title={`방 ${roomCode} 초대 QR 코드`}
+          />
+        </QrFallback>
+        <div className="flex min-w-0 flex-1 flex-col justify-between gap-2 text-left">
+          <div className="grid gap-1">
+            <span className="font-mono text-[11px] font-bold tracking-[0.14em] text-content-muted uppercase">
+              Room Code
+            </span>
+            <span className="font-mono text-4xl leading-none font-bold tracking-[0.1em]">
+              {roomCode}
+            </span>
+          </div>
+          <p className="m-0 truncate font-mono text-[13px] text-content-muted">{inviteUrl}</p>
+          <div className="flex gap-2">
+            <Button
+              className="min-h-11 flex-1 px-3 text-sm"
+              onClick={copyInvite}
+              type="button"
+              variant="secondary"
+            >
+              링크 복사
+            </Button>
+            {canShare && (
+              <Button
+                className="min-h-11 flex-1 px-3 text-sm"
+                onClick={shareInvite}
+                type="button"
+                variant="ghost"
+              >
+                공유하기
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
       {copyMessage && (
         <p className="m-0 text-sm text-content-muted" role="status" aria-live="polite">
