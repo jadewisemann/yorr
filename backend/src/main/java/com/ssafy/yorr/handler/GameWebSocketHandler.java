@@ -1,6 +1,7 @@
 package com.ssafy.yorr.handler;
 
 import com.ssafy.yorr.ws.InMemoryRoomBroadcaster;
+import com.ssafy.yorr.ws.HeartbeatMonitor;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -41,6 +42,8 @@ import com.ssafy.yorr.ws.dto.PresenceUpdatePayload;
 import com.ssafy.yorr.ws.dto.ReactionSendPayload;
 import com.ssafy.yorr.ws.dto.ReactionBroadcastPayload;
 import com.ssafy.yorr.ws.dto.StateSyncPayload;
+import com.ssafy.yorr.ws.dto.DisconnectReason;
+import com.ssafy.yorr.ws.dto.SysDisconnectPayload;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,6 +63,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper; // Boot4가 만드는 JsonMapper 빈이 여기 주입됨
     private final InMemoryRoomBroadcaster broadcaster;
     private final RoomSessionRegistry registry; // 방 명단(누가 어느 방에)
+    private final HeartbeatMonitor heartbeatMonitor;
     private final UserService userService;      // 게스트 정체성 발급(티켓 70 재사용)
     private final ScoreRoundSubmissionService scoreRoundSubmissionService;
     private final RoundSynchronizationService roundSynchronizationService;
@@ -78,6 +82,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     public GameWebSocketHandler(ObjectMapper objectMapper,
                                 InMemoryRoomBroadcaster broadcaster,
                                 RoomSessionRegistry registry,
+                                HeartbeatMonitor heartbeatMonitor,
                                 UserService userService,
                                 ScoreRoundSubmissionService scoreRoundSubmissionService,
                                 RoundSynchronizationService roundSynchronizationService,
@@ -87,6 +92,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         this.objectMapper = objectMapper;
         this.broadcaster = broadcaster;
         this.registry = registry;
+        this.heartbeatMonitor = heartbeatMonitor;
         this.userService = userService;
         this.scoreRoundSubmissionService = scoreRoundSubmissionService;
         this.roundSynchronizationService = roundSynchronizationService;
@@ -108,6 +114,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                         WsProtocol.PROTOCOL_VERSION,
                         WsProtocol.HEARTBEAT_INTERVAL_MS));
         send(session, connected);
+        heartbeatMonitor.track(session, () -> disconnectIdleSession(session));
     }
 
     // 클라이언트가 메시지를 보냈을 때 (콜센터: 손님 말 들음)
@@ -235,12 +242,26 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         log.info("연결 닫힘: {} / {}", session.getId(), status);
-        leaveRoom(session); // 명단·팬아웃 정리 + 남은 멤버에게 player_left
+        heartbeatMonitor.untrack(session);
+        RoomSessionRegistry.Member member = registry.of(session);
+        if (member == null) {
+            broadcaster.unregister(session);
+            return;
+        }
+        if (registry.phaseOf(member.roomId()) == com.ssafy.yorr.ws.dto.RoomPhase.PLAYING) {
+            broadcaster.unregister(session);
+            RoomSessionRegistry.Member offline = registry.markOffline(session);
+            if (offline != null) {
+                broadcastPresence(offline.roomId(), offline.playerId(), PlayerStatus.OFFLINE);
+            }
+            return;
+        }
+        leaveRoom(session);
     }
 
     /**
      * room.leave = 방 퇴장(payload 없음, 대상 방은 서버가 이미 앎). 소켓 자체는 유지한다.
-     * 명단 제거 + player_left 브로드캐스트는 소켓 종료와 동일하므로 {@link #leaveRoom}을 공유한다.
+     * 명단 제거 + player_left 브로드캐스트는 대기방 소켓 종료와 {@link #leaveRoom}을 공유한다.
      */
     private void handleRoomLeave(WebSocketSession session, InboundEnvelope in) {
         leaveRoom(session);
@@ -295,7 +316,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 .withRoomId(me.roomId()));
     }
 
-    /** 방 이탈 공통 처리: 명단 제거 → 팬아웃 제거 → 남은 멤버에게 player_left. room.leave·소켓 종료가 공유. */
+    /** 명시 퇴장 처리: 명단 제거 → 팬아웃 제거 → 남은 멤버에게 player_left. */
     private void leaveRoom(WebSocketSession session) {
         RoomSessionRegistry.Member gone = registry.remove(session);
         broadcaster.unregister(session); // 본인을 팬아웃에서 뺀 뒤 브로드캐스트 → 본인은 안 받음
@@ -364,10 +385,28 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     /** sys.ping → sys.pong. pong은 서버 시각만 돌려주면 됨. */
     private void handleSysPing(WebSocketSession session, InboundEnvelope in) throws IOException {
+        heartbeatMonitor.recordPing(session);
         // ping의 clientTs는 클라가 RTT/시계오프셋 계산에 씀 → 서버는 안 봐도 OK
         WsEnvelope<SysPongPayload> pong =
                 WsEnvelope.of("sys.pong", new SysPongPayload(System.currentTimeMillis()));
         send(session, pong);
+    }
+
+    private void disconnectIdleSession(WebSocketSession session) {
+        try {
+            send(session, WsEnvelope.of(
+                    "sys.disconnect",
+                    new SysDisconnectPayload(DisconnectReason.IDLE_TIMEOUT)
+            ));
+        } catch (IOException e) {
+            log.debug("heartbeat timeout 통지 실패: {}", session.getId(), e);
+        } finally {
+            try {
+                session.close(CloseStatus.POLICY_VIOLATION);
+            } catch (IOException e) {
+                log.debug("heartbeat timeout 세션 종료 실패: {}", session.getId(), e);
+            }
+        }
     }
 
     /** round.submit → 점수 브로드캐스트 후 다음 플레이어 턴 시작. 마지막 플레이어면 round.end도 전송한다. */

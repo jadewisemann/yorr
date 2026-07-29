@@ -1,6 +1,7 @@
 package com.ssafy.yorr.ws;
 
 import com.ssafy.yorr.ws.dto.RoomPhase;
+import com.ssafy.yorr.ws.dto.PlayerStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.socket.WebSocketSession;
@@ -70,5 +71,39 @@ class RoomSessionRegistryTest {
         registry.join("ROOM1", session(), "player-2", "새 호스트");
 
         assertThat(registry.snapshot("ROOM1").phase()).isEqualTo(RoomPhase.WAITING);
+    }
+
+    @Test
+    void keepsPlayingMemberOfflineWithoutRemovingTheirPlace() {
+        WebSocketSession player = session();
+        registry.join("ROOM1", player, "player-1", "플레이어");
+        registry.markPhase("ROOM1", RoomPhase.PLAYING);
+
+        RoomSessionRegistry.Member offline = registry.markOffline(player);
+
+        assertThat(offline.status()).isEqualTo(PlayerStatus.OFFLINE);
+        assertThat(registry.of(player)).isNull();
+        assertThat(registry.snapshot("ROOM1").players()).singleElement().satisfies(snapshot -> {
+            assertThat(snapshot.playerId()).isEqualTo("player-1");
+            assertThat(snapshot.status()).isEqualTo(PlayerStatus.OFFLINE);
+            assertThat(snapshot.isHost()).isTrue();
+        });
+        assertThat(registry.phaseOf("ROOM1")).isEqualTo(RoomPhase.PLAYING);
+    }
+
+    @Test
+    void reconnectsOfflineMemberAsOnlineWithoutChangingHostRole() {
+        WebSocketSession oldSession = session();
+        registry.join("ROOM1", oldSession, "player-1", "플레이어");
+        registry.markOffline(oldSession);
+        WebSocketSession newSession = session();
+
+        RoomSessionRegistry.Member reconnected =
+                registry.join("ROOM1", newSession, "player-1", "플레이어");
+
+        assertThat(reconnected.status()).isEqualTo(PlayerStatus.ONLINE);
+        assertThat(reconnected.host()).isTrue();
+        assertThat(registry.of(newSession)).isEqualTo(reconnected);
+        assertThat(registry.snapshot("ROOM1").players()).hasSize(1);
     }
 }
