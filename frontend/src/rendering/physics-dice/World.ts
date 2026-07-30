@@ -280,10 +280,14 @@ export class PhysicsDiceWorld {
     const mass = CONFIG.defaults.mass
     this.entries.forEach((entry) => {
       if (this.held[entry.index]) return
+      // 세게 흔들수록 높이 튀긴다 — 목표 높이에서 역산해 중력과 무관하게 같은 그림을 만든다.
+      const liftSpeed = Math.sqrt(
+        2 * CONFIG.defaults.gravity * SCENE.bowl.shakeKickHeight * (0.25 + 0.75 * clamped),
+      )
       entry.body.applyImpulse(
         {
           x: sign * SCENE.bowl.followPulseImpulse * (0.5 + clamped) * mass,
-          y: SCENE.bowl.followPulseLift * (0.5 + clamped) * mass,
+          y: liftSpeed * mass,
           z: (this.random.next() - 0.5) * SCENE.bowl.shakeRandomImpulse,
         },
         true,
@@ -432,6 +436,19 @@ export class PhysicsDiceWorld {
           const centerX = x - position.x
           const centerZ = z - position.z
           const mass = CONFIG.defaults.mass
+          // 바닥 근처 주사위만 목표 높이 √(2gh)로 튀긴다 — 임펄스 상수는 중력을 올리면
+          // 홉이 죽지만, 높이로 지정하면 중력과 무관하게 같은 그림이 나온다.
+          const kickRandom = this.random.next()
+          const altitude = position.y - SCENE.bowl.hoverY
+          const kickSpeed =
+            altitude < SCENE.bowl.shakeKickAltitude
+              ? Math.sqrt(
+                  2 *
+                    CONFIG.defaults.gravity *
+                    SCENE.bowl.shakeKickHeight *
+                    (0.3 + 0.7 * kickRandom),
+                )
+              : 0
           entry.body.applyImpulse(
             {
               x:
@@ -440,9 +457,7 @@ export class PhysicsDiceWorld {
                   centerZ * SCENE.bowl.shakeOrbitStrength +
                   (this.random.next() - 0.5) * SCENE.bowl.shakeRandomImpulse) *
                   intensity,
-              y:
-                (SCENE.bowl.shakeLiftImpulse + this.random.next() * SCENE.bowl.shakeRandomImpulse) *
-                intensity,
+              y: kickSpeed * mass * intensity,
               z:
                 (bowlVelocityZ - velocity.z) * SCENE.bowl.shakeFollowStrength * mass +
                 (centerZ * SCENE.bowl.shakeCenterStrength +
@@ -466,9 +481,6 @@ export class PhysicsDiceWorld {
       return
     }
     if (this.phase !== 'pouring') return
-    // 쏟은 뒤에는 그릇 바디를 더 움직이지 않는다 — 예측 복제 시뮬과 실제 진행이 같은
-    // 월드 상태를 보게 하기 위한 결정론 조건 (그릇은 이미 기울인 마지막 포즈로 고정).
-    if (this.diceReleased) return
     // 기울이는 동안 사발이 start→pour로 미끄러진다(tiltedBowlPosition이 보간) —
     // 쏟으면서 오른쪽으로 빠져나가는 한 동작이고, 퇴장 애니메이션이 그대로 이어받는다.
     const elapsed = time - this.pourStartedAt
@@ -477,14 +489,21 @@ export class PhysicsDiceWorld {
     const angle =
       THREE.MathUtils.degToRad(SCENE.bowl.tiltDegrees) * SCENE.bowl.tiltDirection * eased
     const position = tiltedBowlPosition(eased, angle)
+    // 비주얼은 던진 뒤에도 기울이기를 끝까지 이어간다 — 사발이 뒤집히는 그림 위로
+    // 주사위가 터져 나온다.
+    this.bowlGroup.position.set(position.x, position.y, position.z)
+    this.bowlGroup.rotation.set(0, 0, angle)
+    if (this.diceReleased) return
+    // 뒤집어지는 순간(releaseTiltProgress)에 주사위를 던지고 사발 바디를 치운다 —
+    // 이후 사발은 순수 비주얼이고 주사위와 물리적으로 상호작용하지 않는다.
+    // (릴리스 뒤 바디를 움직이지 않는 것은 예측 복제 시뮬과의 결정론 조건이기도 하다.)
+    if (progress >= SCENE.bowl.releaseTiltProgress) {
+      this.releaseFromBowl()
+      return
+    }
     const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle)
     this.bowlBody.setNextKinematicTranslation(position)
     this.bowlBody.setNextKinematicRotation(rotation)
-    this.bowlGroup.position.set(position.x, position.y, position.z)
-    this.bowlGroup.rotation.set(0, 0, angle)
-    if (progress >= 1 && elapsed >= SCENE.bowl.tiltDurationMs + SCENE.bowl.spillPushDurationMs) {
-      this.releaseFromBowl()
-    }
   }
 
   /** follow 모드에서 마지막 펄스 이후 지수 감쇠한 흔들림 세기(0~1). tap 모드는 항상 1. */

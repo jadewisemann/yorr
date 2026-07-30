@@ -148,6 +148,15 @@ export function createBowl(scene: THREE.Scene, world: RAPIER.World) {
       bowlBody,
     )
   }
+  // 보이지 않는 뚜껑 — 사발 입구를 막아 흔들림 임펄스를 세게 줘도 주사위가 못 나온다.
+  // 메시 없이 콜라이더만 있으므로 화면에는 안 보인다(S15P11A406-129).
+  world.createCollider(
+    RAPIER.ColliderDesc.cylinder(SCENE.bowl.colliderLidHalfHeight, SCENE.bowl.colliderLidRadius)
+      .setTranslation(0, SCENE.bowl.colliderLidY, 0)
+      .setFriction(0.4)
+      .setRestitution(0.45),
+    bowlBody,
+  )
   bowlBody.setTranslation({ x: 10, y: -5, z: 0 }, false)
 
   return { bowlBody, bowlGroup, bowlInner, bowlInnerMaterial, bowlMaterials }

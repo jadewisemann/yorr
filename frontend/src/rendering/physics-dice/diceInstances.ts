@@ -41,7 +41,10 @@ export function createDiceInstances(scene: THREE.Scene, world: RAPIER.World) {
       RAPIER.ColliderDesc.cuboid(halfSize, halfSize, halfSize)
         .setMass(PHYSICS_DICE_CONFIG.defaults.mass)
         .setFriction(PHYSICS_DICE_CONFIG.defaults.friction)
-        .setRestitution(PHYSICS_DICE_CONFIG.defaults.restitution),
+        .setRestitution(PHYSICS_DICE_CONFIG.defaults.restitution)
+        /* Max 결합 — 트레이 바닥(0.24)과의 반발이 평균으로 깎이지 않고 주사위 값이 그대로
+           쓰인다. 던져진 뒤 눈에 보이는 튕김이 여기서 나온다(S15P11A406-129). */
+        .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max),
       body,
     )
     scene.add(mesh, outline)
