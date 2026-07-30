@@ -29,6 +29,7 @@ import { detectSpecialHand, type SpecialHand } from '@/domain/specialHands'
 import {
   createYachtGame,
   getPendingRoll,
+  restoreYachtGame,
   type YachtGameAction,
   yachtGameReducer,
 } from '@/domain/yachtGame'
@@ -95,7 +96,15 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const myBoard = game?.scores[session.you]
   const activeBoard = activePlayerId ? game?.scores[activePlayerId] : undefined
 
-  const [local, setLocal] = useState(() => createYachtGame(Date.now() >>> 0, roundNumber))
+  // 마운트 시점의 굴림 진행은 서버 스냅샷에서 되살린다. 턴 중간에 새로고침·재접속하면
+  // 0부터 세기 시작해 다음 dice.roll이 서버의 activeRollCount와 어긋난다(INVALID_ROLL).
+  const [local, setLocal] = useState(() =>
+    restoreYachtGame(Date.now() >>> 0, roundNumber, {
+      rollCount: game?.rollCount ?? 0,
+      dice: game?.dice ?? null,
+      held: game?.held ?? null,
+    }),
+  )
   // 서버가 다음 라운드로 넘기면 로컬 굴림 상태를 새로 시작한다.
   if (local.roundNumber !== roundNumber) setLocal(createYachtGame(local.seed, roundNumber))
 
@@ -143,10 +152,14 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   // 내 턴이 아니면 트레이는 관전 화면이다. 여기서 홀드를 토글하면 서버가 모르는 킵이 생겨
   // 다음 굴림·마감 자동 굴림이 화면과 다르게 동작한다.
   const canHold = !locked && !submitted && local.phase === 'choosing' && local.rollCount < MAX_ROLLS
-  // rollCount는 굴림이 끝날 때 올라간다 — 마지막 굴림이 날아가는 동안에도 "마지막"임을 알아야
-  // 그 굴림의 정렬부터 킵 주사위까지 한 줄로 눕는다(S15P11A406-94).
-  const lastRollInPlay =
-    local.rollCount >= MAX_ROLLS || (local.phase === 'rolling' && local.rollCount === MAX_ROLLS - 1)
+  // rollCount는 서버 브로드캐스트 시점에 올라간다 — 마지막 굴림이 날아가는 중에도 이미
+  // MAX_ROLLS라, 그 굴림의 정렬부터 킵 주사위까지 한 줄로 눕는다(S15P11A406-94).
+  const lastRollInPlay = local.rollCount >= MAX_ROLLS
+  // 굴리는 중이면 rollCount가 곧 그 굴림의 번호고, 멈춘 상태면 다음에 굴릴 번호를 보여준다.
+  const currentRollNumber =
+    local.phase === 'rolling' ? local.rollCount : Math.min(MAX_ROLLS, local.rollCount + 1)
+  // 굴림 카운터는 "끝난 굴림"만 센다. 날아가는 중인 굴림을 미리 채우면 착지 전에 소진돼 보인다.
+  const settledRollCount = local.phase === 'rolling' ? local.rollCount - 1 : local.rollCount
 
   // 디자인의 한 장 점수시트 — 모든 플레이어를 열로 눕힌다. 내 열이 항상 첫 번째다.
   const sheetPlayers = toMatrixPlayers(snapshot.players, game?.scores, session.you)
@@ -334,6 +347,8 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
             forced,
             held: message.payload.held as HeldDice,
             requestId,
+            // 굴림 횟수는 서버가 센 값을 그대로 받는다 — 클라가 따로 세면 어긋난다.
+            rollCount: message.payload.rollCount,
             targetDice: message.payload.dice,
           })
           if (ownRoll && forced) {
@@ -500,7 +515,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
 
   const trayLabel = activePlayer
     ? isMyTurn
-      ? `롤링 존 · 나 · 굴림 ${Math.min(MAX_ROLLS, local.rollCount + 1)}/${MAX_ROLLS}`
+      ? `롤링 존 · 나 · 굴림 ${currentRollNumber}/${MAX_ROLLS}`
       : `롤링 존 · ${activePlayer.nickname}의 턴`
     : '턴 동기화 중'
 
@@ -537,7 +552,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
       </div>
       {/* 남은 굴리기는 트레이 우측 상단 — 시선이 머무는 곳이 트레이고, 푸터에 두면 영역을 차지한다. */}
       <div className="pointer-events-none absolute top-2.5 right-3 z-10">
-        <RollCounter rollsUsed={local.rollCount} />
+        <RollCounter rollsUsed={settledRollCount} />
       </div>
       {/* 하단 밴드 — 킵 레일 라벨(좌)과 안내문(가운데)을 같은 grid에 둔다. 안내문을 따로
           absolute로 가운데 두면 좁은 폭에서 좌측 라벨과 겹친다. 1fr auto 1fr이므로

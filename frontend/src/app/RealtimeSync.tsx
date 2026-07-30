@@ -182,19 +182,51 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
         },
       })
       return
-    case 'round.start':
-      if (!store.roomSnapshot) return
+    /**
+     * round.start는 새 턴에만 오는 게 아니다 — 서버는 굴림마다 마감을 연장하며 같은 턴에도
+     * 다시 보낸다. 그래서 굴림 진행을 무조건 0으로 되돌리면 안 된다. 턴이 실제로 바뀌었을
+     * 때만 초기화하고, 같은 턴이면 지금까지의 진행을 그대로 들고 간다.
+     */
+    case 'round.start': {
+      const snapshot = store.roomSnapshot
+      if (!snapshot) return
+      const current = snapshot.game
+      const sameTurn =
+        current?.roundNumber === message.payload.roundNumber &&
+        current?.activePlayerId === message.payload.activePlayerId
       store.replaceRoomSnapshot({
-        ...store.roomSnapshot,
+        ...snapshot,
         game: {
           activePlayerId: message.payload.activePlayerId,
           roundDeadline: message.payload.deadline,
           roundNumber: message.payload.roundNumber,
-          scores: store.roomSnapshot.game?.scores ?? {},
+          scores: current?.scores ?? {},
           turnOrder: message.payload.turnOrder,
+          rollCount: sameTurn ? (current?.rollCount ?? 0) : 0,
+          ...(sameTurn && current?.dice ? { dice: current.dice } : {}),
+          ...(sameTurn && current?.held ? { held: current.held } : {}),
         },
       })
       return
+    }
+    /**
+     * 굴림 진행의 권위값은 서버다. 스냅샷 갱신을 여기서 해두면 턴 중간에 마운트된 화면도
+     * (재접속 직후처럼) 서버와 같은 굴림 횟수에서 이어갈 수 있다.
+     */
+    case 'dice.broadcast': {
+      const snapshot = store.roomSnapshot
+      if (!snapshot?.game || snapshot.game.roundNumber !== message.payload.roundNumber) return
+      store.replaceRoomSnapshot({
+        ...snapshot,
+        game: {
+          ...snapshot.game,
+          rollCount: message.payload.rollCount,
+          dice: message.payload.dice,
+          held: message.payload.held,
+        },
+      })
+      return
+    }
     /**
      * 게임 종료. 이 핸들러가 없으면 서버가 종료를 알려도 화면이 계속 게임에 머문다.
      * 뒤따르는 state.sync도 phase를 finished로 바꾸지만, 순서에 의존하지 않도록 여기서도 바꾼다.
