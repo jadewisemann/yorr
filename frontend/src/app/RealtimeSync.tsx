@@ -221,6 +221,11 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
       ) {
         store.endSession('expired')
       }
+      // 오프라인 자동 퇴장 뒤의 재접속 room.join은 이 코드로 거절된다(신규 참가는 REST에서
+      // 이미 막힌다). 세션을 끝내지 않으면 게임 화면이 갱신 없이 영원히 멈춘다.
+      if (message.payload.code === 'GAME_ALREADY_STARTED') {
+        store.endSession('removed')
+      }
       return
     default:
       return

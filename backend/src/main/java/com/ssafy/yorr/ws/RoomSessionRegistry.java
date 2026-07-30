@@ -111,6 +111,27 @@ public class RoomSessionRegistry {
     }
 
     /**
+     * 게임 중 이탈(명시적 나가기·오프라인 자동 퇴장)을 playerId로 제거한다.
+     * 오프라인 멤버는 세션이 없어 {@link #remove}로 지울 수 없으므로 별도 경로가 필요하다.
+     *
+     * @return 빠진 Member(원래 방에 없었으면 null). room.player_left 브로드캐스트에 쓴다.
+     */
+    public Member removePlayer(String roomId, String playerId) {
+        Map<String, Member> members = rooms.get(roomId);
+        if (members == null) return null;
+        Member member = members.remove(playerId);
+        if (member == null) return null;
+        if (member.session() != null) {
+            bySession.remove(member.session().getId(), member);
+        }
+        if (members.isEmpty()) {
+            rooms.remove(roomId);
+            phases.remove(roomId);
+        }
+        return member;
+    }
+
+    /**
      * 방 진행 단계를 갱신한다. 게임 시작처럼 <b>REST 가 상태를 바꾸는</b> 경로에서 호출해야,
      * 뒤이은 state.sync 브로드캐스트가 바뀐 phase 를 실어 나간다.
      */

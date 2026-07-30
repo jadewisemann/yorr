@@ -62,6 +62,13 @@ public interface RoundStateStore {
             String expectedActivePlayerId
     );
 
+    /**
+     * Removes a departed participant from the turn order without advancing the turn.
+     * The active player must be advanced past first (see expireAtomically). Returns
+     * the updated state, or empty when the room has no round state.
+     */
+    Optional<RoundState> removeParticipantAtomically(String roomId, String playerId);
+
     Optional<RoundState> findByRoomId(String roomId);
 
     boolean remove(String roomId);

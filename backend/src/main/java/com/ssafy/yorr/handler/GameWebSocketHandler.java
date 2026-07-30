@@ -214,6 +214,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             send(session, WsEnvelope.of("sys.reconnected", new SysReconnectedPayload(snapshot))
                     .withRoomId(payload.roomId())
                     .withMsgId(in.msgId()));
+            // 복귀했으니 오프라인 결석은 처음부터 다시 센다 — 안 지우면 한참 뒤의 짧은 끊김 한 번에 퇴장당한다.
+            roundTimerService.clearOfflineMisses(payload.roomId(), id.playerId());
             broadcastPresence(payload.roomId(), id.playerId(), PlayerStatus.ONLINE);
             log.info("room.reconnected: player={} room={}", id.playerId(), payload.roomId());
             return;
@@ -318,9 +320,17 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     /**
      * room.leave = 방 퇴장(payload 없음, 대상 방은 서버가 이미 앎). 소켓 자체는 유지한다.
-     * 명단 제거 + player_left 브로드캐스트는 대기방 소켓 종료와 {@link #leaveRoom}을 공유한다.
+     * 대기방에서는 명단 제거 + player_left 브로드캐스트를 소켓 종료와 {@link #leaveRoom}으로 공유한다.
+     * 게임 중에는 턴 순서·Redis 명단까지 함께 정리해야 하므로 이탈 단일 경로
+     * ({@link RoundTimerService#removePlayer})로 보낸다.
      */
     private void handleRoomLeave(WebSocketSession session, InboundEnvelope in) {
+        RoomSessionRegistry.Member member = registry.of(session);
+        if (member != null && registry.phaseOf(member.roomId()) == RoomPhase.PLAYING) {
+            broadcaster.unregister(session); // 본인을 팬아웃에서 뺀 뒤 player_left가 나간다
+            roundTimerService.removePlayer(member.roomId(), member.playerId());
+            return;
+        }
         leaveRoom(session);
     }
 

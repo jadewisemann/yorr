@@ -249,6 +249,40 @@ public final class RoundState {
         return new RoundSubmissionResult(nextRoundState, completion);
     }
 
+    /**
+     * 게임 중 이탈(명시적 나가기·오프라인 자동 퇴장)한 참가자를 턴 순서에서 뺀다.
+     * <p>
+     * 활성 플레이어는 뺄 수 없다 — 호출자가 먼저 {@link #expire()}로 턴을 넘긴 뒤 불러야
+     * 라운드 완료·게임 종료 판정이 기존 진행 경로 하나로 유지된다. 마지막 남은 참가자도
+     * 항상 활성이므로 뺄 수 없다 — 그 경우 호출자가 라운드 상태 전체를 버려야 한다.
+     * 이미 기록된 제출은 지우지 않는다(점수 이력은 이탈과 무관하게 남는다).
+     */
+    public RoundState withoutParticipant(String playerId) {
+        if (finished || !participantIds.contains(playerId)) {
+            return this;
+        }
+        if (activePlayerId().equals(playerId)) {
+            throw new RoundSynchronizationException(
+                    RoundSynchronizationException.Reason.INVALID_PLAYER,
+                    "active player must be advanced past before removal: " + playerId
+            );
+        }
+        int removedIndex = participantOrder.indexOf(playerId);
+        List<String> nextOrder = new java.util.ArrayList<>(participantOrder);
+        nextOrder.remove(removedIndex);
+        return new RoundState(
+                roundNumber,
+                totalRounds,
+                nextOrder,
+                submissions,
+                removedIndex < activePlayerIndex ? activePlayerIndex - 1 : activePlayerIndex,
+                activeRollCount,
+                activeDice,
+                activeHeld,
+                false
+        );
+    }
+
     public int roundNumber() {
         return roundNumber;
     }
