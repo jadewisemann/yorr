@@ -290,4 +290,23 @@ describe('RealtimeSync', () => {
     await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
     expect(localStorage.getItem('yorr.room-session')).toBeNull()
   })
+
+  /**
+   * 유예가 끝나 서버가 방을 닫은 뒤의 "이어서 하기". 세션을 정리하지 않으면 복귀 배너가
+   * 계속 뜨고, 누를 때마다 같은 실패를 반복한다(S15P11A406-136).
+   */
+  it('clears the session when the server says the room is gone', async () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(serverMessage('error', { code: 'ROOM_NOT_FOUND', message: 'room closed' }))
+
+    await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
+    expect(useAppStore.getState().appNotice).toContain('방이 종료')
+    expect(localStorage.getItem('yorr.room-session')).toBeNull()
+  })
 })

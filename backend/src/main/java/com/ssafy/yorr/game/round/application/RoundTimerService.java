@@ -105,6 +105,9 @@ public class RoundTimerService {
             handleOfflineTurn(roomId, state);
             return null;
         }
+        // 턴이 시작될 때마다 방 수명을 다시 센다. 이게 없으면 TTL이 "생성 후 40분"이라, 한 판이
+        // 그보다 길어지는 순간(6인 × 12라운드면 충분히 가능) 플레이 중인 방이 사라진다.
+        roomService.touch(roomId);
         Instant deadline = clock.instant().plus(ROUND_DURATION);
         int roundNumber = state.roundNumber();
         String activePlayerId = state.activePlayerId();

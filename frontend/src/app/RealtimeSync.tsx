@@ -258,6 +258,11 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
       if (message.payload.code === 'GAME_ALREADY_STARTED') {
         store.endSession('removed')
       }
+      // 유예가 끝나 서버가 방을 닫은 뒤의 "이어서 하기". 저장된 세션은 이미 쓸 수 없으므로
+      // 정리해 홈으로 보낸다 — 안 그러면 배너가 계속 뜨고 누를 때마다 같은 실패를 반복한다.
+      if (message.payload.code === 'ROOM_NOT_FOUND') {
+        store.endSession('room_closed')
+      }
       return
     default:
       return
