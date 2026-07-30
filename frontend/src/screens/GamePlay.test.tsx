@@ -368,14 +368,15 @@ describe('GamePlay', () => {
     expect(await screen.findByText('점수가 반영됐습니다. 다음 턴을 기다립니다.')).toBeVisible()
   })
 
-  /** QA 7번. 내 차례가 시작될 때만 알리고, 렌더마다 다시 알리지 않는다. */
+  /** QA 7번. 내 차례가 시작될 때만 알리고, 렌더마다 다시 알리지 않는다.
+   *  하단 토스트는 시선 밖이라, 족보 이펙트와 같은 대형 콜아웃으로 알린다. */
   it('alerts once when my turn begins', async () => {
     const vibrate = vi.fn()
     vi.stubGlobal('navigator', Object.assign(globalThis.navigator, { vibrate }))
 
     const { user } = renderGame()
 
-    expect(await screen.findByText('내 차례예요! 주사위를 굴려 주세요')).toBeVisible()
+    expect(await screen.findByText('내 차례!')).toBeVisible()
     expect(vibrate).toHaveBeenCalledTimes(1)
 
     // 굴려서 리렌더가 여러 번 일어나도 알림은 늘지 않는다.

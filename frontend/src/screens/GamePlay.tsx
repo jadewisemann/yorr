@@ -7,7 +7,7 @@ import { MotionPermissionPanel } from '@/components/MotionPermissionPanel'
 import { PhysicsDiceScene } from '@/components/PhysicsDiceScene'
 import { RecordPanel } from '@/components/RecordPanel'
 import { RollCounter } from '@/components/RollCounter'
-import { RollResultCallout } from '@/components/RollResultCallout'
+import { EffectCallout, RollResultCallout } from '@/components/RollResultCallout'
 import { RoundTimer } from '@/components/RoundTimer'
 import { ScoreSheet } from '@/components/ScoreSheet'
 import { ToastHost, useToast } from '@/components/ToastHost'
@@ -76,6 +76,8 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const [submitting, setSubmitting] = useState(false)
   // 굴림마다 id를 새로 발급해 같은 족보가 연속으로 떠도 리마운트되게 한다.
   const [rollHighlight, setRollHighlight] = useState<{ hand: SpecialHand; id: number } | null>(null)
+  // 내 차례 시작 콜아웃 — 토스트보다 눈에 띄는 족보 이펙트와 같은 연출로 알린다. id = 리마운트 키.
+  const [turnCallout, setTurnCallout] = useState<number | null>(null)
   const pendingSubmissionRef = useRef<{
     category: YachtCategory
     msgId: string
@@ -469,7 +471,8 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   useMyTurnAlert({
     isMyTurn: isMyTurn && !submitted,
     onAlert: () => {
-      showToast('내 차례예요! 주사위를 굴려 주세요')
+      // 하단 토스트는 시선 밖이라 놓치기 쉽다 — 족보 이펙트와 같은 대형 콜아웃으로 알린다.
+      setTurnCallout(Date.now())
       vibrateForMyTurn()
     },
   })
@@ -560,6 +563,14 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           hand={rollHighlight.hand}
           key={rollHighlight.id}
           onDone={() => setRollHighlight(null)}
+        />
+      )}
+      {turnCallout !== null && (
+        <EffectCallout
+          key={turnCallout}
+          onDone={() => setTurnCallout(null)}
+          text="내 차례!"
+          tier={2}
         />
       )}
       {pendingRoll && rollInputMode === 'motion' && (

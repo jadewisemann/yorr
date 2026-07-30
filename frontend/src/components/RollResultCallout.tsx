@@ -8,7 +8,13 @@ interface RollResultCalloutProps {
   onDone: () => void
 }
 
-/** 1 = 팝만, 2 = 팝 + 확산 링, 3 = 팝 + 링 + 화면 플래시 + 버스트. */
+interface EffectCalloutProps {
+  text: string
+  /** 1 = 팝만, 2 = 팝 + 확산 링, 3 = 팝 + 링 + 화면 플래시 + 버스트. */
+  tier: 1 | 2 | 3
+  onDone: () => void
+}
+
 const tierByHand: Record<SpecialHand, 1 | 2 | 3> = {
   fourOfAKind: 1,
   fullHouse: 1,
@@ -29,7 +35,16 @@ const BURST_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315]
  */
 export function RollResultCallout({ hand, onDone }: RollResultCalloutProps) {
   const tier = tierByHand[hand]
+  return (
+    <EffectCallout onDone={onDone} text={`${categoryLabel[hand]}${'!'.repeat(tier)}`} tier={tier} />
+  )
+}
 
+/**
+ * 족보 콜아웃의 연출을 임의 문구로 재사용하는 오버레이(내 차례 알림 등).
+ * 부모에서 key로 리마운트해야 연출이 처음부터 다시 돈다.
+ */
+export function EffectCallout({ onDone, text, tier }: EffectCalloutProps) {
   // 부모(카운트다운)가 매초 리렌더하며 onDone을 새로 만든다. deps에 넣으면
   // 타임아웃이 계속 리셋돼 콜아웃이 닫히지 않으므로 ref로 최신 핸들러만 읽는다.
   const onDoneRef = useRef(onDone)
@@ -76,8 +91,7 @@ export function RollResultCallout({ hand, onDone }: RollResultCalloutProps) {
             tier === 3 ? 'text-[clamp(4rem,16vw,7.5rem)]' : 'text-[clamp(3rem,12vw,5.5rem)]',
           )}
         >
-          {categoryLabel[hand]}
-          {'!'.repeat(tier)}
+          {text}
         </p>
       </div>
     </div>
