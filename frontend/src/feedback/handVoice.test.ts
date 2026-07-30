@@ -1,98 +1,188 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createHandVoice } from './handVoice'
 
-/** 재생된 음성의 파일명을 순서대로 모은다. 어떤 말이 나갔는지가 이 모듈의 관심사다. */
-function trackPlayback() {
-  const played: string[] = []
-  const paused: string[] = []
-  vi.spyOn(window.HTMLMediaElement.prototype, 'play').mockImplementation(function (
-    this: HTMLAudioElement,
-  ) {
-    played.push(fileName(this.src))
-    return Promise.resolve()
-  })
-  vi.spyOn(window.HTMLMediaElement.prototype, 'pause').mockImplementation(function (
-    this: HTMLAudioElement,
-  ) {
-    paused.push(fileName(this.src))
-  })
-  return { paused, played }
+/**
+ * jsdom에는 Web Audio가 없어서 최소한만 흉내낸다. 검증 대상은 "어떤 말이 언제 나갔는가"와
+ * "미리 디코딩해 두는가"라서, 노드 그래프는 연결 여부만 들고 있으면 충분하다.
+ */
+function fakeWebAudio() {
+  const started: string[] = []
+  const stopped: string[] = []
+  const decoded: string[] = []
+  let resumeCount = 0
+
+  class FakeBufferSource {
+    buffer: { tag: string } | null = null
+    onended: (() => void) | null = null
+    connected = false
+    connect() {
+      this.connected = true
+    }
+    start() {
+      if (!this.buffer) throw new Error('buffer 없이 start')
+      if (!this.connected) throw new Error('연결 없이 start')
+      started.push(this.buffer.tag)
+    }
+    stop() {
+      stopped.push(this.buffer?.tag ?? '?')
+    }
+  }
+
+  class FakeAudioContext {
+    state: AudioContextState = 'suspended'
+    destination = {}
+    createGain() {
+      return { gain: { value: 0 }, connect: () => undefined }
+    }
+    createBufferSource() {
+      return new FakeBufferSource()
+    }
+    // 파일 경로를 그대로 태그로 실어 보내 어떤 음성이 재생됐는지 추적한다.
+    decodeAudioData(data: ArrayBuffer) {
+      const tag = new TextDecoder().decode(data)
+      decoded.push(tag)
+      return Promise.resolve({ tag })
+    }
+    resume() {
+      resumeCount += 1
+      this.state = 'running'
+      return Promise.resolve()
+    }
+    close() {
+      this.state = 'closed'
+      return Promise.resolve()
+    }
+  }
+
+  vi.stubGlobal('AudioContext', FakeAudioContext)
+  vi.stubGlobal('fetch', (url: string) =>
+    Promise.resolve({
+      arrayBuffer: () => Promise.resolve(new TextEncoder().encode(fileName(url)).buffer),
+    }),
+  )
+
+  return {
+    decoded,
+    started,
+    stopped,
+    get resumeCount() {
+      return resumeCount
+    },
+  }
 }
 
 function fileName(src: string) {
   return src.slice(src.lastIndexOf('/') + 1)
 }
 
+/** 디코딩(fetch → decodeAudioData)이 끝나기를 기다린다. 그 전에는 play()가 조용히 넘어간다. */
+async function settlePreload() {
+  for (let index = 0; index < 5; index += 1) await Promise.resolve()
+}
+
 describe('createHandVoice', () => {
-  let playback: ReturnType<typeof trackPlayback>
+  let audio: ReturnType<typeof fakeWebAudio>
 
   beforeEach(() => {
-    playback = trackPlayback()
+    audio = fakeWebAudio()
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 
-  it('족보에 맞는 음성을 재생한다', () => {
+  it('족보에 맞는 음성을 재생한다', async () => {
     const voice = createHandVoice()
+    await settlePreload()
 
     voice.play('yacht')
     voice.play('fourOfAKind')
 
-    expect(playback.played).toEqual(['yacht.wav', 'four-of-a-kind.wav'])
+    expect(audio.started).toEqual(['yacht.wav', 'four-of-a-kind.wav'])
     voice.dispose()
   })
 
-  it('앞선 콜아웃이 아직 말하는 중이면 끊고 새 족보를 외친다', () => {
+  it('제스처를 기다리지 않고 다섯 음성을 미리 디코딩한다', async () => {
+    // iOS Safari의 <audio>는 play()마다 파이프라인을 세워 0.6~0.8초 늦게 났다.
+    // 미리 디코딩해 두는 것이 그 지연을 없애는 핵심이라 여기서 못 박는다.
     const voice = createHandVoice()
+    await settlePreload()
+
+    expect([...audio.decoded].sort()).toEqual([
+      'four-of-a-kind.wav',
+      'full-house.wav',
+      'large-straight.wav',
+      'small-straight.wav',
+      'yacht.wav',
+    ])
+    voice.dispose()
+  })
+
+  it('앞선 콜아웃이 아직 말하는 중이면 끊고 새 족보를 외친다', async () => {
+    const voice = createHandVoice()
+    await settlePreload()
 
     voice.play('smallStraight')
     voice.play('largeStraight')
 
-    expect(playback.paused).toContain('small-straight.wav')
-    expect(playback.played).toEqual(['small-straight.wav', 'large-straight.wav'])
+    expect(audio.stopped).toEqual(['small-straight.wav'])
+    expect(audio.started).toEqual(['small-straight.wav', 'large-straight.wav'])
     voice.dispose()
   })
 
-  it('음소거 상태에서는 아무 소리도 내지 않는다', () => {
+  it('음소거 상태에서는 아무 소리도 내지 않는다', async () => {
     const voice = createHandVoice({ muted: true })
+    await settlePreload()
 
     voice.play('yacht')
 
-    expect(playback.played).toEqual([])
+    expect(audio.started).toEqual([])
     voice.dispose()
   })
 
-  it('재생 중에 음소거하면 즉시 멈춘다', () => {
+  it('재생 중에 음소거하면 즉시 멈춘다', async () => {
     const voice = createHandVoice()
+    await settlePreload()
     voice.play('fullHouse')
 
     voice.setMuted(true)
     voice.play('yacht')
 
-    expect(playback.paused).toContain('full-house.wav')
-    expect(playback.played).toEqual(['full-house.wav'])
+    expect(audio.stopped).toEqual(['full-house.wav'])
+    expect(audio.started).toEqual(['full-house.wav'])
     voice.dispose()
   })
 
-  it('첫 사용자 제스처에서 다섯 음성을 무음으로 예열해 자동재생 잠금을 푼다', () => {
+  it('첫 사용자 제스처에서 AudioContext 잠금을 푼다', async () => {
     const voice = createHandVoice()
+    await settlePreload()
 
     document.dispatchEvent(new Event('pointerdown'))
 
-    // 굴림 완료는 탭보다 한참 뒤라 이 예열 없이는 iOS에서 첫 족보 음성이 막힌다.
-    expect(playback.played).toHaveLength(5)
-    expect(playback.played).toContain('yacht.wav')
+    // 굴림 완료는 탭보다 한참 뒤라 이 해제 없이는 iOS에서 첫 족보 음성이 막힌다.
+    expect(audio.resumeCount).toBe(1)
     voice.dispose()
   })
 
-  it('dispose 뒤에는 제스처가 음성을 예열하지 않는다', () => {
+  it('제스처와 같은 틱에 콜아웃이 와도 목소리가 나간다', async () => {
     const voice = createHandVoice()
+    await settlePreload()
+
+    document.dispatchEvent(new Event('pointerdown'))
+    voice.play('yacht')
+
+    expect(audio.started).toEqual(['yacht.wav'])
+    voice.dispose()
+  })
+
+  it('dispose 뒤에는 제스처가 잠금을 풀지 않는다', async () => {
+    const voice = createHandVoice()
+    await settlePreload()
     voice.dispose()
 
     document.dispatchEvent(new Event('pointerdown'))
 
-    expect(playback.played).toEqual([])
+    expect(audio.resumeCount).toBe(0)
   })
 })
