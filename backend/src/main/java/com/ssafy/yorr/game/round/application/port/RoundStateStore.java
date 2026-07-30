@@ -5,6 +5,7 @@ import com.ssafy.yorr.game.round.domain.RoundSubmission;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
 
 import java.util.Optional;
+import java.util.Set;
 
 public interface RoundStateStore {
 
@@ -70,6 +71,13 @@ public interface RoundStateStore {
     Optional<RoundState> removeParticipantAtomically(String roomId, String playerId);
 
     Optional<RoundState> findByRoomId(String roomId);
+
+    /**
+     * 라운드 상태를 들고 있는 모든 방. 방이 사라졌는데도 남은 항목을 주기적으로 걷어내는
+     * 스윕이 이 목록을 쓴다 — 이게 없으면 회수 경로가 유예 타이머 하나뿐이고, 그 타이머는
+     * 프로세스 재시작에 사라져 아무도 치우지 않는 상태가 된다.
+     */
+    Set<String> roomIds();
 
     boolean remove(String roomId);
 }

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -188,6 +189,12 @@ public class InMemoryRoundStateStore implements RoundStateStore {
     public Optional<RoundState> findByRoomId(String roomId) {
         validateRoomId(roomId);
         return Optional.ofNullable(states.get(roomId));
+    }
+
+    @Override
+    public Set<String> roomIds() {
+        // 스윕이 순회 중 remove를 호출하므로 살아있는 keySet을 그대로 주면 안 된다.
+        return Set.copyOf(states.keySet());
     }
 
     @Override
