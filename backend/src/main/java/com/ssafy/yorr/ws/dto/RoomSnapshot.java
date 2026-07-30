@@ -12,13 +12,18 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record RoomSnapshot(
         String roomId,
+        String gameCode,
         RoomPhase phase,
         String hostId,
         List<Player> players,
-        GameState game
+        Object game
 ) {
     public RoomSnapshot(String roomId, RoomPhase phase, String hostId, List<Player> players) {
-        this(roomId, phase, hostId, players, null);
+        this(roomId, null, phase, hostId, players, null);
+    }
+
+    public RoomSnapshot(String roomId, RoomPhase phase, String hostId, List<Player> players, Object game) {
+        this(roomId, null, phase, hostId, players, game);
     }
 
     public RoomSnapshot {

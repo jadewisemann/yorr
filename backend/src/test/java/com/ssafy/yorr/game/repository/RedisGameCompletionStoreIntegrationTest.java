@@ -71,6 +71,7 @@ class RedisGameCompletionStoreIntegrationTest {
         redisTemplate.opsForHash().put(RoomRedisKeys.roomKey(ROOM_CODE), "gameId", GAME_ID);
         redisTemplate.opsForHash().put(RoomRedisKeys.roomKey(ROOM_CODE), "capacity", "6");
         redisTemplate.opsForHash().put(RoomRedisKeys.roomKey(ROOM_CODE), "hostId", PLAYERS.get(0));
+        redisTemplate.opsForHash().put(RoomRedisKeys.roomKey(ROOM_CODE), "gameCode", "YACHT_DICE");
         PLAYERS.forEach(playerId -> {
             redisTemplate.opsForHash().put(RoomRedisKeys.playersKey(ROOM_CODE), playerId, playerId);
             redisTemplate.opsForHash().put(RoomRedisKeys.scoresKey(ROOM_CODE), playerId, "0");

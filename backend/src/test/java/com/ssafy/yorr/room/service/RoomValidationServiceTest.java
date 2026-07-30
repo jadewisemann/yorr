@@ -10,6 +10,13 @@ class RoomValidationServiceTest {
     @Test
     void startsWithAtLeastOnePlayer() {
         assertThat(RoomValidationService.START.getScriptAsString())
-                .contains("redis.call('HLEN', KEYS[2]) < 1");
+                .contains("redis.call('HLEN', KEYS[2]) < 1")
+                .contains("'gameCode', gameCode");
+    }
+
+    @Test
+    void rollbackOnlyTouchesTheGameThatFailedToInitialize() {
+        assertThat(RoomValidationService.ROLLBACK_START.getScriptAsString())
+                .contains("redis.call('HGET', KEYS[1], 'gameId') ~= ARGV[1]");
     }
 }

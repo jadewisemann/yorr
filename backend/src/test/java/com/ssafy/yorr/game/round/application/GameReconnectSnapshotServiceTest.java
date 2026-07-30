@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import com.ssafy.yorr.game.yacht.YachtDiceState;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -50,16 +51,16 @@ class GameReconnectSnapshotServiceTest {
 
         var snapshot = service.snapshot("room-a", "player-a");
 
-        assertThat(snapshot.game()).isNotNull();
-        assertThat(snapshot.game().roundNumber()).isEqualTo(4);
-        assertThat(snapshot.game().activePlayerId()).isEqualTo("player-a");
-        assertThat(snapshot.game().roundDeadline()).isEqualTo(deadline.toEpochMilli());
-        assertThat(snapshot.game().turnOrder()).containsExactly("player-a", "player-b");
-        assertThat(snapshot.game().scores()).containsEntry("player-a", score);
+        YachtDiceState game = (YachtDiceState) snapshot.game();
+        assertThat(game.roundNumber()).isEqualTo(4);
+        assertThat(game.activePlayerId()).isEqualTo("player-a");
+        assertThat(game.roundDeadline()).isEqualTo(deadline.toEpochMilli());
+        assertThat(game.turnOrder()).containsExactly("player-a", "player-b");
+        assertThat(game.scores()).containsEntry("player-a", score);
         // 아직 굴리지 않은 턴 — 굴림 0회, 주사위·KEEP은 없음(직렬화에서 빠진다).
-        assertThat(snapshot.game().rollCount()).isZero();
-        assertThat(snapshot.game().dice()).isNull();
-        assertThat(snapshot.game().held()).isNull();
+        assertThat(game.rollCount()).isZero();
+        assertThat(game.dice()).isNull();
+        assertThat(game.held()).isNull();
     }
 
     /**
@@ -94,7 +95,7 @@ class GameReconnectSnapshotServiceTest {
                 scoreService
         );
 
-        var game = service.snapshot("room-a", "player-a").game();
+        YachtDiceState game = (YachtDiceState) service.snapshot("room-a", "player-a").game();
 
         assertThat(game.rollCount()).isEqualTo(2);
         // KEEP한 두 자리는 첫 굴림 값이 그대로 유지된 채 내려간다.
