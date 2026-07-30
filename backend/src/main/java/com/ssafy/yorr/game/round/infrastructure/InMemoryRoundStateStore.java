@@ -173,6 +173,18 @@ public class InMemoryRoundStateStore implements RoundStateStore {
     }
 
     @Override
+    public Optional<RoundState> removeParticipantAtomically(String roomId, String playerId) {
+        validateRoomId(roomId);
+        AtomicReference<RoundState> resultHolder = new AtomicReference<>();
+        states.computeIfPresent(roomId, (key, currentState) -> {
+            RoundState result = currentState.withoutParticipant(playerId);
+            resultHolder.set(result);
+            return result;
+        });
+        return Optional.ofNullable(resultHolder.get());
+    }
+
+    @Override
     public Optional<RoundState> findByRoomId(String roomId) {
         validateRoomId(roomId);
         return Optional.ofNullable(states.get(roomId));

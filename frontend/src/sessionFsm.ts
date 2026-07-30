@@ -17,7 +17,7 @@ import type { RoomSnapshot } from '@/realtime/wsEvents'
 export type SessionPhase = 'idle' | 'joining' | 'inLobby' | 'inGame' | 'finished'
 
 /** 세션을 끝내거나 복귀 확인 상태로 멈추는 이유. 사용자 안내 문구가 이유마다 다르다. */
-export type SessionEndReason = 'left' | 'room_closed' | 'expired' | 'disconnected'
+export type SessionEndReason = 'left' | 'room_closed' | 'expired' | 'disconnected' | 'removed'
 
 interface SessionLike {
   roomId: string
@@ -46,4 +46,5 @@ export const sessionEndNotices: Record<SessionEndReason, string | null> = {
   room_closed: '방이 종료되어 홈으로 이동했어요.',
   expired: '입장 정보가 만료됐어요. 방에 다시 참가해 주세요.',
   disconnected: '연결이 계속 끊겼어요. 네트워크를 확인한 뒤 다시 연결해 주세요.',
+  removed: '자리를 오래 비워 게임에서 나가게 됐어요. 게임이 끝나면 다시 참가할 수 있어요.',
 }

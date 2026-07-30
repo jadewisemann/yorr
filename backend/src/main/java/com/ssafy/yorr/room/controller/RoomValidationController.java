@@ -51,6 +51,11 @@ public class RoomValidationController {
         }
         if (!roomService.leave(roomCode, user.userId())) return ResponseEntity.notFound().build();
         userService.clearRoom(user.userId());
+        // 게임 중 명시적 퇴장: 뒤따르는 소켓 close는 markOffline으로 빠지므로(끊김과 구분 불가)
+        // 여기서 WS 명단·턴 순서까지 정리해야 "나가도 오프라인으로 방에 남는" 문제가 없다.
+        if (registry.phaseOf(roomCode) == RoomPhase.PLAYING) {
+            roundTimerService.removePlayer(roomCode, user.userId());
+        }
         return ResponseEntity.noContent().build();
     }
 
