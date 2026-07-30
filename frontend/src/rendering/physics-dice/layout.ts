@@ -68,6 +68,64 @@ export function tiltedBowlPosition(progress: number, angle: number) {
   }
 }
 
+/** 주사위 한 개가 앉을 자리. 킵 레일 슬롯이거나 결과 줄의 한 칸이다. */
+interface DicePlacement {
+  /** 킵 레일에 앉는지. lineUpAll이면 킵된 주사위도 결과 줄로 오므로 항상 false다. */
+  onKeepRail: boolean
+  position: THREE.Vector3
+  scale: number
+  slotIndex: number
+}
+
+/**
+ * 결과 줄과 킵 레일 중 각 주사위가 갈 자리를 한 번에 계산한다. 세 배치 경로(즉시 배치 ·
+ * 킵 토글 전환 · 굴림 후 정렬)가 같은 규칙을 써야 하므로 규칙은 여기 한 곳에만 둔다.
+ *
+ * `lineUpAll`이면 킵 여부를 무시하고 다섯 개를 주사위 번호 순서대로 결과 줄에 눕힌다 —
+ * 마지막 굴림 뒤에는 킵을 바꿀 수 없어서 레일에 남겨 둘 이유가 없다(S15P11A406-94).
+ */
+function planDicePlacements(
+  entries: DieEntry[],
+  held: PhysicsHeldDice,
+  heldOrder: PhysicsDiceIndex[],
+  lineUpAll: boolean,
+) {
+  const heldSlots = new Map(heldOrder.map((index, slot) => [index, slot]))
+  const rowIndices = entries
+    .filter((entry) => lineUpAll || !held[entry.index])
+    .map((entry) => entry.index)
+
+  return new Map<number, DicePlacement>(
+    entries.map((entry) => {
+      const onKeepRail = !lineUpAll && held[entry.index]
+      const slotIndex = heldSlots.get(entry.index) ?? 0
+      const row = rowIndices.indexOf(entry.index)
+      return [
+        entry.index,
+        {
+          onKeepRail,
+          slotIndex,
+          position: onKeepRail
+            ? keepSlotPosition(slotIndex)
+            : new THREE.Vector3(
+                (row - (rowIndices.length - 1) / 2) * resultSpacing(),
+                resultCenterY(),
+                SCENE.tray.resultRowZ,
+              ),
+          scale: onKeepRail ? keepSlotScale() : resultDieScale(),
+        },
+      ]
+    }),
+  )
+}
+
+/** planDicePlacements가 모든 주사위를 담으므로 조회 실패는 없다 — 타입만 좁힌다. */
+function placementOf(placements: Map<number, DicePlacement>, index: number): DicePlacement {
+  const placement = placements.get(index)
+  if (!placement) throw new Error(`주사위 ${index}의 배치를 계산하지 못했습니다`)
+  return placement
+}
+
 export function positionKeepSlots(
   slots: THREE.Group[],
   heldCount: number,
@@ -92,20 +150,11 @@ export function lineUpDice(
   held: PhysicsHeldDice,
   heldOrder: PhysicsDiceIndex[],
   committedDice: PhysicsDiceSet,
+  lineUpAll = false,
 ) {
-  const heldSlots = new Map(heldOrder.map((index, slot) => [index, slot]))
-  const rollingIndices = entries.filter((entry) => !held[entry.index]).map((entry) => entry.index)
+  const placements = planDicePlacements(entries, held, heldOrder, lineUpAll)
   entries.forEach((entry) => {
-    const isHeld = held[entry.index]
-    const row = rollingIndices.indexOf(entry.index)
-    const position = isHeld
-      ? keepSlotPosition(heldSlots.get(entry.index) ?? 0)
-      : new THREE.Vector3(
-          (row - (rollingIndices.length - 1) / 2) * resultSpacing(),
-          resultCenterY(),
-          SCENE.tray.resultRowZ,
-        )
-    const scale = isHeld ? keepSlotScale() : resultDieScale()
+    const { onKeepRail, position, scale } = placementOf(placements, entry.index)
     const targetQuaternion = quaternionForTopValue(committedDice[entry.index])
     entry.mesh.visible = true
     entry.mesh.position.copy(position)
@@ -117,7 +166,7 @@ export function lineUpDice(
     entry.outline.position.set(position.x, 0.04, position.z)
     entry.outline.scale.set(scale, scale, 1)
     entry.outline.visible = true
-    entry.outline.material.opacity = isHeld ? 0.92 : 0.12
+    entry.outline.material.opacity = onKeepRail ? 0.92 : 0.12
   })
 }
 
@@ -126,21 +175,16 @@ export function prepareLayoutEntries(
   held: PhysicsHeldDice,
   heldOrder: PhysicsDiceIndex[],
   committedDice: PhysicsDiceSet,
+  lineUpAll = false,
 ): LayoutEntry[] {
-  const heldSlots = new Map(heldOrder.map((index, slot) => [index, slot]))
-  const rolling = entries.filter((entry) => !held[entry.index]).map((entry) => entry.index)
+  const placements = planDicePlacements(entries, held, heldOrder, lineUpAll)
   return entries.map((entry) => {
-    const isHeld = held[entry.index]
-    const slotIndex = heldSlots.get(entry.index) ?? 0
-    const row = rolling.indexOf(entry.index)
-    const targetPosition = isHeld
-      ? keepSlotPosition(slotIndex)
-      : new THREE.Vector3(
-          (row - (rolling.length - 1) / 2) * resultSpacing(),
-          resultCenterY(),
-          SCENE.tray.resultRowZ,
-        )
-    const targetScale = isHeld ? keepSlotScale() : resultDieScale()
+    const {
+      onKeepRail,
+      position: targetPosition,
+      scale: targetScale,
+      slotIndex,
+    } = placementOf(placements, entry.index)
     const targetQuaternion = quaternionForTopValue(committedDice[entry.index])
     entry.body.setBodyType(RAPIER.RigidBodyType.Fixed, true)
     entry.body.setTranslation(targetPosition, true)
@@ -148,7 +192,7 @@ export function prepareLayoutEntries(
     entry.outline.visible = true
     return {
       entry,
-      held: isHeld,
+      held: onKeepRail,
       slotIndex,
       targetPosition,
       targetQuaternion,
@@ -189,31 +233,27 @@ export function prepareAlignmentEntries(
   held: PhysicsHeldDice,
   heldOrder: PhysicsDiceIndex[],
   settledDice: PhysicsDiceSet,
+  lineUpAll = false,
 ): AlignmentEntry[] {
-  const rolling = entries.filter((entry) => !held[entry.index])
-  const heldSlots = new Map(heldOrder.map((index, slot) => [index, slot]))
+  const placements = planDicePlacements(entries, held, heldOrder, lineUpAll)
   return entries.map((entry) => {
-    const isHeld = held[entry.index]
-    const slotIndex = heldSlots.get(entry.index) ?? 0
-    const row = rolling.indexOf(entry)
-    const targetPosition = isHeld
-      ? keepSlotPosition(slotIndex)
-      : new THREE.Vector3(
-          (row - (rolling.length - 1) / 2) * resultSpacing(),
-          resultCenterY(),
-          SCENE.tray.resultRowZ,
-        )
+    const {
+      onKeepRail,
+      position: targetPosition,
+      scale: targetScale,
+      slotIndex,
+    } = placementOf(placements, entry.index)
     const targetQuaternion = quaternionForTopValue(settledDice[entry.index])
     entry.body.setBodyType(RAPIER.RigidBodyType.Fixed, true)
     entry.body.setTranslation(targetPosition, true)
     entry.body.setRotation(targetQuaternion, true)
     return {
       entry,
-      held: isHeld,
+      held: onKeepRail,
       slotIndex,
       targetPosition,
       targetQuaternion,
-      targetScale: isHeld ? keepSlotScale() : resultDieScale(),
+      targetScale,
       fromPosition: entry.mesh.position.clone(),
       fromQuaternion: entry.mesh.quaternion.clone(),
       fromScale: entry.mesh.scale.x,

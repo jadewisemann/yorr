@@ -82,6 +82,7 @@ export class PhysicsDiceWorld {
   private layoutAnimating = false
   private layoutEntries: LayoutEntry[] = []
   private layoutStartedAt = 0
+  private lineUpAll = false
   private materials!: PhysicsDiceMaterials
   private motionFollow = false
   private phase: 'idle' | 'shaking' | 'pouring' | 'aligning' = 'idle'
@@ -242,6 +243,19 @@ export class PhysicsDiceWorld {
     this.invalidate()
   }
 
+  /**
+   * 킵된 주사위까지 결과 줄에 함께 눕힐지. 마지막 굴림이 시작되는 순간 켜고, 그 굴림의 정렬과
+   * 이후 idle 배치가 같은 규칙을 쓰게 한다 — 정렬 직후 킵 주사위가 레일로 되돌아가면 안 된다.
+   * 굴리는 중(idle이 아닐 때)에는 값만 갈아두고, 진행 중인 애니메이션은 건드리지 않는다.
+   */
+  setLineUpAll(enabled: boolean) {
+    if (this.lineUpAll === enabled) return
+    this.lineUpAll = enabled
+    if (!this.world || this.phase !== 'idle' || this.layoutAnimating) return
+    this.lineUpDice()
+    this.invalidate()
+  }
+
   setMotionFollow(enabled: boolean) {
     this.motionFollow = enabled
   }
@@ -326,7 +340,7 @@ export class PhysicsDiceWorld {
     this.renderer.setSize(width, height, false)
     this.appliedWidth = width
     this.appliedHeight = height
-    positionKeepSlots(this.keepSlots, this.heldOrder.length, this.keepSlotMaterials)
+    positionKeepSlots(this.keepSlots, this.occupiedKeepSlots(), this.keepSlotMaterials)
     this.invalidate()
   }
 
@@ -350,9 +364,14 @@ export class PhysicsDiceWorld {
     this.cameraHorizontal = resultCameraWidth()
     this.bowlGroup.visible = false
     this.bowlBody.setTranslation({ x: 10, y: -5, z: 0 }, false)
-    placeDice(this.entries, this.held, this.heldOrder, this.committedDice)
-    positionKeepSlots(this.keepSlots, this.heldOrder.length, this.keepSlotMaterials)
+    placeDice(this.entries, this.held, this.heldOrder, this.committedDice, this.lineUpAll)
+    positionKeepSlots(this.keepSlots, this.occupiedKeepSlots(), this.keepSlotMaterials)
     this.resize()
+  }
+
+  /** 레일 바를 악센트로 칠할 슬롯 수. 다섯 개를 한 줄로 눕히면 레일은 비어 있다. */
+  private occupiedKeepSlots() {
+    return this.lineUpAll ? 0 : this.heldOrder.length
   }
 
   private frame = (time: number) => {
@@ -487,6 +506,7 @@ export class PhysicsDiceWorld {
       this.held,
       this.heldOrder,
       this.committedDice,
+      this.lineUpAll,
     )
     this.resize()
     this.invalidate()
@@ -617,7 +637,10 @@ export class PhysicsDiceWorld {
       this.held,
       this.heldOrder,
       this.settledDice,
+      this.lineUpAll,
     )
+    // 레일이 비는 순간을 정렬 시작과 맞춘다 — 주사위가 줄로 떠난 뒤 악센트 바만 남으면 안 된다.
+    positionKeepSlots(this.keepSlots, this.occupiedKeepSlots(), this.keepSlotMaterials)
   }
 
   private updateResultAlignment(time: number) {

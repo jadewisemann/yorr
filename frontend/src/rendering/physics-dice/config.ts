@@ -2,12 +2,17 @@ export const PHYSICS_DICE_CONFIG = {
   defaults: {
     diceSize: 0.76,
     mass: 1.15,
-    gravity: 18,
+    /* 실제 스케일(≈490)에는 한참 못 미치는 슬로모션 영역이지만, 18에서는 주사위가 떠 있는
+       시간이 길어 "천천히 떨어진다"는 인상이 남았다(S15P11A406-94). 낙하를 체감할 만큼
+       올리고, 대신 아래 spillLiftSpeed를 낮춰 궤적을 뜨는 대신 뻗는 쪽으로 바꾼다. */
+    gravity: 30,
     friction: 0.74,
     restitution: 0.34,
     linearDamping: 0.16,
     angularDamping: 0.2,
-    throwForce: 3,
+    /* 쏟는 속도·측면 임펄스·토크에 함께 곱해지는 던지는 힘. 중력과 같이 올려야
+       "강하게 던져서 빨리 떨어진다"가 되고, 한쪽만 올리면 굴러가거나 낙하만 빨라진다. */
+    throwForce: 4.2,
     simulationHz: 60,
   },
   quality: {
@@ -83,14 +88,16 @@ export const PHYSICS_DICE_CONFIG = {
       shakeFollowStrength: 0.055,
       shakeCenterStrength: 0.025,
       shakeOrbitStrength: 0.075,
-      shakeLiftImpulse: 0.14,
+      /* 사발 안에서 주사위를 띄우는 힘 — 중력에 비례해 올린다. 중력만 올리면 주사위가
+         바닥에 눌려 흔드는 동안 굴러다니지 않는다. */
+      shakeLiftImpulse: 0.24,
       shakeRandomImpulse: 0.06,
       followDecayMs: 340,
       followMinIntensity: 0.04,
       followPulseFloor: 0.4,
       followPulseGain: 0.6,
       followPulseImpulse: 0.55,
-      followPulseLift: 0.1,
+      followPulseLift: 0.17,
       followStartEnergy: 0.75,
       spawnBaseY: 0.58,
       spawnRangeY: 0.08,
@@ -109,7 +116,9 @@ export const PHYSICS_DICE_CONFIG = {
       spillForceMultiplier: 1,
       spillMinimumSpeed: 2,
       spillRandomSpeed: 0.8,
-      spillLiftSpeed: 0.55,
+      /* throwForce가 곱해지는 값이라 그대로 두면 던지는 힘을 올린 만큼 더 높이 뜬다.
+         체공을 늘리지 않으려고 낮춘다 — 수평은 강해지고 궤적은 낮아진다. */
+      spillLiftSpeed: 0.4,
       spillFanSpeed: 0.22,
       spillRandomZ: 0.25,
       spillTorque: 0.9,
