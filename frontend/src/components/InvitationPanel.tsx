@@ -42,7 +42,10 @@ export function InvitationPanel({ roomCode }: InvitationPanelProps) {
       <h2 className="sr-only" id="invite-title">
         친구 초대하기
       </h2>
-      <div className="flex items-stretch gap-4">
+      {/* min-w-0: 이 행 자체가 section(grid)의 아이템이라 기본 min-width가 auto(내용 기준)다.
+          안쪽 텍스트 열에만 min-w-0을 줘도 이 바깥 grid 아이템이 여전히 내용 기준 최소폭을
+          고집해 방 코드가 긴 좁은 화면에서 행 전체가 넘쳤다(QA FND-4). */}
+      <div className="flex min-w-0 items-stretch gap-4">
         <QrFallback>
           <QRCodeSVG
             className="size-[7.375rem] flex-none rounded-card bg-white p-2"
@@ -53,11 +56,13 @@ export function InvitationPanel({ roomCode }: InvitationPanelProps) {
           />
         </QrFallback>
         <div className="flex min-w-0 flex-1 flex-col justify-between gap-2 text-left">
-          <div className="grid gap-1">
+          <div className="grid min-w-0 gap-1">
             <span className="font-mono text-[11px] font-bold tracking-[0.14em] text-content-muted uppercase">
               Room Code
             </span>
-            <span className="font-mono text-4xl leading-none font-bold tracking-[0.1em]">
+            {/* truncate: 최대 12자 방 코드는 clamp로도 아주 좁은 화면에선 살짝 넘칠 수 있다 —
+                이 칸은 강조용 큰 표기일 뿐, 코드 전문은 위 헤더와 아래 링크에도 그대로 있다. */}
+            <span className="block truncate font-mono text-[clamp(1.5rem,7vw,2.25rem)] leading-none font-bold tracking-[0.1em]">
               {roomCode}
             </span>
           </div>

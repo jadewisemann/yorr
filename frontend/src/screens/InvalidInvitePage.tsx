@@ -24,7 +24,7 @@ export function InvalidInvitePage({ initialCode }: InvalidInvitePageProps) {
 
   return (
     // 디자인 13 — 카드 없이 풀스크린. 좌상단 뒤로가기, 레드 경고 아이콘, 좌측 정렬 헤드라인.
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-gutter pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-content">
+    <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-gutter pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-content">
       <header>
         <button
           aria-label="뒤로 가기"
@@ -71,7 +71,8 @@ export function InvalidInvitePage({ initialCode }: InvalidInvitePageProps) {
           autoCorrect="off"
           maxLength={12}
           errorMessage={error}
-          helpText="코드는 영문과 숫자 4자예요 · 소문자로 입력해도 대문자로 바뀌어요"
+          // 실제 검증(roomCode.ts getRoomCodeError)은 4~12자를 허용한다 — 힌트도 여기 맞춘다(QA FND-2).
+          helpText="코드는 영문과 숫자 4~12자예요 · 소문자로 입력해도 대문자로 바뀌어요"
           className="font-mono text-2xl font-bold tracking-[0.18em]"
           onChange={(event) => {
             setRoomCode(event.target.value)

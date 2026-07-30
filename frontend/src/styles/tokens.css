@@ -99,9 +99,12 @@
   /* 타이머 임박 펄스(디자인 yorrRingPulse) — 점멸 대신 스케일만 살짝 움직인다. */
   --animate-ring-pulse: ring-pulse 900ms ease-in-out infinite;
 
+  /* 턴 전환 강조(QA FND-7) — 활성 턴 카드는 한 번 튀고, 헤더 턴 라벨은 짧게 번쩍인다. */
+  --animate-turn-pop: turn-pop 420ms var(--ds-ease-snappy) both;
+  --animate-turn-flash: turn-flash 700ms ease-out both;
+
   /* 굴림 결과 족보 콜아웃 — 등급이 높을수록 겹쳐 쓰는 연출이 늘어난다. */
   --animate-callout-pop: callout-pop 480ms var(--ds-ease-snappy) both;
-  --animate-callout-ring: callout-ring 900ms ease-out both;
   --animate-callout-flash: callout-flash 700ms ease-out both;
   --animate-callout-burst: callout-burst 800ms ease-out both;
 }
@@ -267,6 +270,31 @@
   }
 }
 
+@keyframes turn-pop {
+  0% {
+    transform: scale(0.94);
+  }
+
+  55% {
+    transform: scale(1.045);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes turn-flash {
+  0% {
+    color: #fff;
+    text-shadow: 0 0 14px rgb(255 77 72 / 60%);
+  }
+
+  100% {
+    text-shadow: 0 0 0 rgb(255 77 72 / 0%);
+  }
+}
+
 @keyframes callout-pop {
   0% {
     transform: scale(0.55);
@@ -281,17 +309,6 @@
     transform: scale(1);
     opacity: 1;
     text-shadow: var(--ds-callout-glow);
-  }
-}
-
-@keyframes callout-ring {
-  from {
-    transform: scale(0.7);
-    opacity: 1;
-  }
-  to {
-    transform: scale(1.7);
-    opacity: 0;
   }
 }
 

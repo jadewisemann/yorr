@@ -44,7 +44,9 @@ export function GameResult({ session, snapshot }: GameResultProps) {
 
   return (
     <>
-      <main className="relative mx-auto flex min-h-dvh w-full max-w-2xl flex-col overflow-hidden px-gutter pt-6 pb-[max(1.875rem,env(safe-area-inset-bottom))] text-content">
+      {/* 뷰포트 높이로 프레임을 고정하고 페이지 스크롤을 막는다 — 인원이 많아져도
+          스크롤은 아래 랭킹 목록 안에서만 일어난다(QA FND-6, LobbyPage·GamePlay와 같은 패턴). */}
+      <main className="relative mx-auto flex h-svh w-full max-w-2xl flex-col overflow-hidden px-gutter pt-6 pb-[max(1.875rem,env(safe-area-inset-bottom))] text-content">
         {/* 디자인 08 — 상단에서 은은하게 퍼지는 레드 글로우. 정보가 아니라 분위기다. */}
         <div
           aria-hidden="true"
@@ -99,9 +101,15 @@ export function GameResult({ session, snapshot }: GameResultProps) {
           </h2>
           <span className="text-[13px] text-content-muted">총점 기준</span>
         </div>
-        <ResultRanking className="relative" players={ranked} you={session.you} />
+        {/* min-h-0 + overflow-y-auto: 랭킹이 늘어나도 스크롤은 이 목록 안에서만 일어난다 —
+            내 점수 카드·하단 버튼은 항상 고정 위치에 남는다(QA FND-6). */}
+        <ResultRanking
+          className="relative min-h-0 flex-1 auto-rows-min content-start overflow-y-auto"
+          players={ranked}
+          you={session.you}
+        />
 
-        <div className="relative mt-auto grid gap-2 border-t border-border pt-4">
+        <div className="relative grid flex-none gap-2 border-t border-border pt-4">
           <Button className="w-full" onClick={() => setSheetOpen(true)} variant="ghost">
             전체 점수표 보기
           </Button>

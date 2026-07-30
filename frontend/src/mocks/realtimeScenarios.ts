@@ -1,15 +1,17 @@
+import { type CategoryScores, calculateScoreSummary, scoreCategory } from '@/domain/scoring'
 import type { FakeMessageHandlers } from '@/realtime/fakeRealtimeClient'
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
-import type { DiceSet, ServerMessage } from '@/realtime/wsEvents'
+import type { DiceSet, ScoreBoard, ServerMessage } from '@/realtime/wsEvents'
 import { WS_PROTOCOL_VERSION } from '@/realtime/wsEvents'
 import {
   creatorSession,
   MOCK_ROOM_ID,
+  MOCK_ROUND_DURATION_MS,
   participantSession,
   playingRoomSnapshot,
-  scoreCandidates,
   serverMessage,
 } from './fixtures'
+import { loadMockRoomSnapshot, saveMockRoomSnapshot } from './mockRoomState'
 
 export type MockRealtimeScenario =
   | 'success'
@@ -65,13 +67,24 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
           ? participantSession
           : session
 
+      // 실서버처럼 mock이 기억하는 현재 방 상태(진행 phase·점수판)를 돌려준다 —
+      // 새로고침 후 재접속해도 게임이 대기 중으로 되돌아가지 않는다(QA 참고 항목).
+      // 저장된 마감 시각은 이미 지났을 수 있으니 지금 기준으로 새로 준다.
+      const stored = loadMockRoomSnapshot()
+      const snapshot = stored?.game
+        ? {
+            ...stored,
+            game: { ...stored.game, roundDeadline: Date.now() + MOCK_ROUND_DURATION_MS },
+          }
+        : (stored ?? joinedSession.snapshot)
+
       return [
         serverMessage(
           'room.joined',
           {
             you: joinedSession.you,
             sessionToken: joinedSession.sessionToken,
-            snapshot: joinedSession.snapshot,
+            snapshot,
           },
           { roomId: joinedSession.roomId, msgId: message.msgId },
         ),
@@ -115,16 +128,34 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
       ),
     ],
     'round.submit': (message) => {
-      const scoreboard = playingRoomSnapshot.game?.scores[session.you]
+      const stored = loadMockRoomSnapshot()
+      const scoreboard =
+        stored?.game?.scores[session.you] ?? playingRoomSnapshot.game?.scores[session.you]
       if (!scoreboard) return []
 
-      const updatedScoreboard = {
-        ...scoreboard,
-        categories: {
-          ...scoreboard.categories,
-          [message.payload.category]: scoreCandidates.candidates[message.payload.category],
-        },
-        total: scoreCandidates.candidates[message.payload.category],
+      // 실서버처럼 제출된 주사위로 점수를 계산한다 — 정적 후보값을 돌려주면 클라이언트가
+      // 로컬로 계산해 보여준 값과 제출 결과가 어긋난다(QA 참고 항목).
+      const categories = {
+        ...scoreboard.categories,
+        [message.payload.category]: scoreCategory(message.payload.dice, message.payload.category),
+      }
+      const summary = calculateScoreSummary(toRecordedScores(categories))
+      const updatedScoreboard: ScoreBoard = {
+        categories,
+        upperSubtotal: summary.upperSubtotal,
+        upperBonus: summary.upperBonus,
+        total: summary.total,
+      }
+
+      // 진행 중이던 방 상태에 점수를 반영해 둔다 — 재접속(room.join) 때 그대로 복원된다.
+      if (stored?.game) {
+        saveMockRoomSnapshot({
+          ...stored,
+          game: {
+            ...stored.game,
+            scores: { ...stored.game.scores, [session.you]: updatedScoreboard },
+          },
+        })
       }
       const scoreUpdate = serverMessage(
         'score.update',
@@ -146,6 +177,13 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
     delayMs: scenario === 'delay' ? (options.delayMs ?? 300) : 0,
     strict: true,
   })
+}
+
+/** null(미기입)을 뺀 확정 점수만 남긴다 — 소계·보너스·총점 계산용. */
+function toRecordedScores(categories: ScoreBoard['categories']): CategoryScores {
+  return Object.fromEntries(
+    Object.entries(categories).filter(([, score]) => score !== null),
+  ) as CategoryScores
 }
 
 function duplicateMessages(handlers: FakeMessageHandlers, duplicate: boolean): FakeMessageHandlers {
