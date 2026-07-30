@@ -302,6 +302,9 @@ export class PhysicsDiceWorld {
     this.phase = 'pouring'
     this.pourStartedAt = performance.now()
     this.rollStartedAt = this.pourStartedAt
+    // 기울이기가 끝나면 곧바로 퇴장한다 — 던져진 주사위 위에 사발이 머물러
+    // 시각적으로 겹치지 않게, 정렬 단계를 기다리지 않는다.
+    this.bowlExitStartedAt = this.pourStartedAt + SCENE.bowl.tiltDurationMs
     this.stableFrames = 0
     this.callbacks.onPhaseChange('pouring')
     this.invalidate()
@@ -490,9 +493,10 @@ export class PhysicsDiceWorld {
       THREE.MathUtils.degToRad(SCENE.bowl.tiltDegrees) * SCENE.bowl.tiltDirection * eased
     const position = tiltedBowlPosition(eased, angle)
     // 비주얼은 던진 뒤에도 기울이기를 끝까지 이어간다 — 사발이 뒤집히는 그림 위로
-    // 주사위가 터져 나온다.
+    // 주사위가 터져 나온다. 기울이기가 끝나면 곧바로 퇴장 애니메이션이 이어받는다.
     this.bowlGroup.position.set(position.x, position.y, position.z)
     this.bowlGroup.rotation.set(0, 0, angle)
+    if (progress >= 1) this.updateBowlExit(time)
     if (this.diceReleased) return
     // 뒤집어지는 순간(releaseTiltProgress)에 주사위를 던지고 사발 바디를 치운다 —
     // 이후 사발은 순수 비주얼이고 주사위와 물리적으로 상호작용하지 않는다.
@@ -653,7 +657,8 @@ export class PhysicsDiceWorld {
     this.phase = 'aligning'
     this.callbacks.onPhaseChange('aligning')
     this.alignmentStartedAt = time
-    this.bowlExitStartedAt = time
+    // bowlExitStartedAt은 pour()가 이미 잡았다 — 퇴장은 기울이기 직후 시작해서
+    // 대개 정렬 전에 끝나 있고, updateResultAlignment의 updateBowlExit은 no-op이 된다.
     this.settledDice = [...this.request.targetDice]
     this.alignmentEntries = prepareAlignmentEntries(
       this.entries,

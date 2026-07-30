@@ -28,9 +28,10 @@
  * 3. **비행·착지**: 풀 중력 낙하. 반발 결합을 Max로 두고 restitution을 올려 바닥·서로에게
  *    튕기고, fan·randomZ로 퍼진다.
  */
-/* 재생 속도는 √GRAVITY_SCALE 배 — 12(3.5배)는 QA에서 "너무 빠르다", 6이면 2.4배.
-   느리다/빠르다 조정은 이 숫자 하나만 만진다. 나머지는 전부 여기서 유도된다. */
-const GRAVITY_SCALE = 6
+/* 재생 속도는 √GRAVITY_SCALE 배 — QA에서 12(3.5배)·6(2.4배)은 "배속 같다", 1도 급해 보여
+   0.8배(0.8² = 0.64)로 확정. 빨라진 체감은 뚜껑 사발의 격렬한 흔들림·높은 반발 튕김이
+   이미 만들어 준다. 느리다/빠르다 조정은 이 숫자 하나만 만진다. 나머지는 전부 유도된다. */
+const GRAVITY_SCALE = 0.64
 const SPEEDUP = Math.sqrt(GRAVITY_SCALE)
 
 export const PHYSICS_DICE_CONFIG = {
@@ -222,9 +223,11 @@ export const PHYSICS_DICE_CONFIG = {
       /* 정착을 못 해도 굴림을 끝내는 상한(쏟기 시작 기준). 이게 없으면 주사위가 계속 튀는
          동안 checkSettled가 영원히 정렬로 넘어가지 못해 게임이 굴림 중에 멈춘다 —
          닮음을 깨고 gravity만 올린 조합에서 실제로 12.6초까지 나왔다.
-         실측 최악값은 쏟기 시작 후 약 1.15초(체공 740ms + 정착 400ms)라 여유를 크게 둔다.
-         결과값은 targetDice로 이미 확정되어 있으므로 조기 마감이 점수를 바꾸지 않는다. */
-      maxRollDurationMs: 2600,
+         고정분 900ms(기울이기 520 + 밀기 220 + 여유)에 비행 여유 2900ms을 재생 속도로 나눠
+         더한다 — 느리게 재생할수록 정상 굴림도 오래 걸리므로 상한도 함께 늘어야 정상 굴림을
+         자르지 않는다(0.8배 실측 최악 3407ms < 4525ms). 결과값은 targetDice로 확정되어
+         있어 조기 마감이 점수를 바꾸지 않는다. */
+      maxRollDurationMs: 900 + 2900 / SPEEDUP,
     },
     safety: { margin: 0.16, bounce: 0.52 },
   },
