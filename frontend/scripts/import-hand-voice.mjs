@@ -16,12 +16,26 @@
  * 모든 포맷을 그대로 받을 수 있다. `decodeAudioData`가 컨텍스트 샘플레이트로 리샘플까지
  * 해주므로 변환 단계가 하나로 줄어든다.
  */
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, extname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
 
-const SLUGS = ['yacht', 'large-straight', 'small-straight', 'full-house', 'four-of-a-kind']
+/**
+ * 슬러그 → 콜아웃이 화면에 떠 있는 시간(ms).
+ * `RollResultCallout.tsx`의 `tierByHand` × `durationMsByTier`가 원본이다 —
+ * 저쪽을 조정하면 여기도 같이 맞춰야 목소리가 텍스트보다 오래 남지 않는다.
+ */
+const CALLOUT_MS = {
+  yacht: 2400,
+  'large-straight': 1800,
+  'small-straight': 1400,
+  'full-house': 1400,
+  'four-of-a-kind': 1400,
+}
+const SLUGS = Object.keys(CALLOUT_MS)
+/** 목소리가 텍스트보다 먼저 끝나야 한다. 이만큼 여유를 남겨 경고 기준으로 쓴다. */
+const CALLOUT_MARGIN_MS = 200
 
 const SAMPLE_RATE = 22050
 /** 정규화 목표 피크. 1.0은 클리핑 위험이 있어 -1dB 정도로 둔다. */
@@ -49,6 +63,9 @@ if (missing.length === SLUGS.length) {
 if (missing.length > 0) {
   console.log(`! 없는 파일은 기존 에셋을 그대로 둡니다: ${missing.join(', ')}\n`)
 }
+
+// 에셋을 전부 지운 상태(첫 녹음 직전)에는 폴더 자체가 없다.
+mkdirSync(outputDir, { recursive: true })
 
 const browser = await chromium.launch()
 const page = await browser.newPage()
@@ -200,9 +217,12 @@ function shape({ samples }, slug) {
     warnings.push(
       `${slug}: 배경 잡음이 큽니다(피크의 ${Math.round((100 * noiseFloor) / peak)}%) — 조용한 곳에서 다시 녹음하면 트림이 깔끔해집니다.`,
     )
-  if (durationMs > 2200)
+  const budgetMs = CALLOUT_MS[slug] - CALLOUT_MARGIN_MS
+  if (durationMs > budgetMs)
     warnings.push(
-      `${slug}: ${Math.round(durationMs)}ms로 깁니다 — 한 파일에 여러 줄이 들어갔는지 확인해 주세요(콜아웃은 최대 2.4초 동안만 떠 있습니다).`,
+      `${slug}: ${Math.round(durationMs)}ms로 깁니다(권장 ${budgetMs}ms 이내) — ` +
+        `이 족보의 콜아웃은 ${CALLOUT_MS[slug]}ms만 떠 있어 목소리가 끝나기 전에 텍스트가 사라집니다. ` +
+        `더 빠르게 다시 녹음하거나 RollResultCallout의 표시 시간을 늘려야 합니다.`,
     )
   if (durationMs < 200)
     warnings.push(
