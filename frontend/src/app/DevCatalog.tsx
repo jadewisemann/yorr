@@ -6,6 +6,7 @@ import { PlayerCard } from '@/components/PlayerCard'
 import { ScoreRow } from '@/components/ScoreRow'
 import { StatusPanel } from '@/components/StatusPanel'
 import { TextField } from '@/components/TextField'
+import { HandVoiceLab } from './HandVoiceLab'
 import { PhysicsDiceDemo } from './PhysicsDiceDemo'
 
 const sectionClassName = 'grid gap-4 rounded-panel border border-border bg-surface p-5'
@@ -60,6 +61,15 @@ export function DevCatalog() {
           결과 입력형 Three.js·Rapier 렌더러의 굴림, KEEP, 품질 preset을 검증합니다.
         </p>
         <PhysicsDiceDemo />
+      </section>
+
+      <section className={sectionClassName}>
+        <h2 className="text-xl font-bold">Hand callout and voice</h2>
+        <p className="text-sm text-content-muted">
+          숫자키 1~5로 족보 콜아웃과 직접 녹음한 음성을 게임 없이 확인합니다. 소리가 나지 않으면
+          화면을 한 번 클릭해 브라우저 자동재생 잠금을 풀어주세요.
+        </p>
+        <HandVoiceLab />
       </section>
 
       <section className={sectionClassName}>
