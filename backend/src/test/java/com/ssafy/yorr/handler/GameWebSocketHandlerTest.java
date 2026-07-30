@@ -664,10 +664,14 @@ class GameWebSocketHandlerTest {
 
         handler.handle(playerA, leaveMessage());
 
-        assertThat(registry.snapshot("room-a").players())
-                .extracting(player -> player.playerId())
-                .containsExactly("player-b");
-        assertThat(singleResponse(playerB)).contains("\"type\":\"room.player_left\"");
+        // 게임 중 퇴장은 명단 제거·턴 순서 정리·방송이 한 덩어리라 RoundTimerService가 맡는다
+        // (소켓 종료는 offline 처리로 빠지므로 그 경로와 구분해야 한다). 핸들러의 책임은
+        // 팬아웃에서 빼고 그쪽에 위임하는 것까지다 — 실제 제거는 RoundTimerServiceTest가 검증한다.
+        verify(roundTimerService).removePlayer("room-a", "player-a");
+        // 팬아웃에서도 빠졌는지 — 이후 방 방송이 본인에게 가지 않아야 한다.
+        clearInvocations(playerA);
+        broadcaster.broadcast("room-a", WsEnvelope.of("state.sync", Map.of()).withRoomId("room-a"));
+        verify(playerA, never()).sendMessage(any());
     }
 
     @Test
