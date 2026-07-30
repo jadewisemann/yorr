@@ -7,7 +7,7 @@ import { MotionPermissionPanel } from '@/components/MotionPermissionPanel'
 import { PhysicsDiceScene } from '@/components/PhysicsDiceScene'
 import { RecordPanel } from '@/components/RecordPanel'
 import { RollCounter } from '@/components/RollCounter'
-import { RollResultCallout } from '@/components/RollResultCallout'
+import { EffectCallout, RollResultCallout } from '@/components/RollResultCallout'
 import { RoundTimer } from '@/components/RoundTimer'
 import { ScoreSheet } from '@/components/ScoreSheet'
 import { ToastHost, useToast } from '@/components/ToastHost'
@@ -76,6 +76,8 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const [submitting, setSubmitting] = useState(false)
   // 굴림마다 id를 새로 발급해 같은 족보가 연속으로 떠도 리마운트되게 한다.
   const [rollHighlight, setRollHighlight] = useState<{ hand: SpecialHand; id: number } | null>(null)
+  // 내 차례 시작 콜아웃 — 토스트보다 눈에 띄는 족보 이펙트와 같은 연출로 알린다. id = 리마운트 키.
+  const [turnCallout, setTurnCallout] = useState<number | null>(null)
   const pendingSubmissionRef = useRef<{
     category: YachtCategory
     msgId: string
@@ -105,6 +107,8 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     setReleaseRequestId(null)
     setRollInputMode(null)
     setRequestingRoll(false)
+    // 남의 턴을 구경하며 열어둔 점수시트가 턴이 넘어간 뒤에도 남아있으면 안 된다(QA FND-5).
+    setSheetOpen(false)
   }, [activePlayerId, roundNumber])
 
   const dispatch = useCallback((action: YachtGameAction) => {
@@ -467,8 +471,18 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   useMyTurnAlert({
     isMyTurn: isMyTurn && !submitted,
     onAlert: () => {
-      showToast('내 차례예요! 주사위를 굴려 주세요')
+      // 하단 토스트는 시선 밖이라 놓치기 쉽다 — 족보 이펙트와 같은 대형 콜아웃으로 알린다.
+      setTurnCallout(Date.now())
       vibrateForMyTurn()
+    },
+  })
+
+  useRoundStartNotice({
+    roundNumber,
+    onNotice: () => {
+      // 내 턴 시작은 useMyTurnAlert가 이미 알린다 — 여기선 관전 중일 때만 띄운다.
+      if (isMyTurn || !activePlayer) return
+      showToast(`라운드 ${roundNumber} 시작 — ${activePlayer.nickname}의 턴이에요`)
     },
   })
 
@@ -490,6 +504,19 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     ? local.dice.reduce((sum, value, index) => sum + (local.held[index] ? value : 0), 0)
     : 0
 
+  const rolled = local.dice !== null
+
+  // 지금 뭘 하면 되는지 문장으로 알려준다. 트레이 우측 상단(배지 아래)에 떠 있다.
+  const statusText = submitted
+    ? '점수가 반영됐습니다. 다음 턴을 기다립니다.'
+    : !isMyTurn
+      ? `${activePlayer?.nickname ?? '—'}님이 굴리는 중입니다.`
+      : allKept
+        ? '주사위를 모두 킵했습니다. 하나 이상 해제하거나 족보를 기록하세요.'
+        : rolled
+          ? '주사위를 홀드하고 다시 굴리거나, 점수표의 열린 족보를 탭해 기록하세요.'
+          : `라운드 ${roundNumber} — 굴려서 시작하세요.`
+
   const diceScene = (
     <div
       className={cn(
@@ -503,12 +530,16 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
       <div className="pointer-events-none absolute top-3 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
         {trayLabel}
       </div>
-      {/* 넓은 화면은 레퍼런스대로 하단 바 좌측에 둔다 — 트레이 안에는 모바일만 남긴다. */}
-      {!wide && (
-        <div className="pointer-events-none absolute top-2.5 right-3 z-10">
-          <RollCounter rollsUsed={local.rollCount} />
-        </div>
-      )}
+      {/* 남은 굴리기·상태 안내는 트레이 우측 상단에 떠 있다 — 시선이 머무는 곳이 트레이고,
+          푸터에 두면 영역을 차지한다. 안내문은 와이드에서만(모바일은 기록 패널이 안내를 겸한다). */}
+      <div className="pointer-events-none absolute top-2.5 right-3 z-10 grid justify-items-end gap-2">
+        <RollCounter rollsUsed={local.rollCount} />
+        {wide && (
+          <p className="m-0 max-w-72 text-right text-sm leading-relaxed text-content-muted">
+            {statusText}
+          </p>
+        )}
+      </div>
       <div className="pointer-events-none absolute bottom-2.5 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
         킵 레일 ·{' '}
         {keptCount > 0
@@ -549,6 +580,14 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           hand={rollHighlight.hand}
           key={rollHighlight.id}
           onDone={() => setRollHighlight(null)}
+        />
+      )}
+      {turnCallout !== null && (
+        <EffectCallout
+          key={turnCallout}
+          onDone={() => setTurnCallout(null)}
+          text="내 차례!"
+          tier={2}
         />
       )}
       {pendingRoll && rollInputMode === 'motion' && (
@@ -592,22 +631,33 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
       </span>
       <span
         className={cn(
-          'flex items-center gap-1.5 truncate text-[15px] font-semibold',
+          'flex items-center gap-1.5 truncate text-[16px] font-bold transition-colors duration-base',
+          // 턴 주인이 바뀌면 라벨을 리마운트해 짧은 flash로 전환을 알린다(QA FND-7).
+          'motion-safe:animate-turn-flash',
           !isMyTurn && activePlayer && 'text-[#FF8A86]',
         )}
+        key={activePlayerId ?? 'sync'}
       >
         <span
           aria-hidden="true"
           className={cn(
-            'size-[7px] flex-none rounded-full',
-            isMyTurn
+            'size-2 flex-none rounded-full transition-colors duration-base',
+            isMyTurn && !submitted
               ? 'bg-positive'
               : activePlayer
-                ? 'bg-brand-strong shadow-[0_0_8px_rgb(229_57_53_/_90%)]'
+                ? 'bg-brand-strong shadow-[0_0_8px_rgb(229_57_53_/_90%)] motion-safe:animate-ring-pulse'
                 : 'bg-content-faint',
           )}
         />
-        {isMyTurn ? '내 턴이에요' : activePlayer ? `${activePlayer.nickname}의 턴` : '턴 동기화 중'}
+        {/* 내 제출이 끝났는데 activePlayerId가 아직 나인 구간엔 내 이름을 그대로 반복하는 대신
+            "대기 중"임을 분명히 한다 — 서버의 다음 round.start를 기다리는 상태다(QA FND-3). */}
+        {isMyTurn && !submitted
+          ? '내 턴이에요'
+          : isMyTurn && submitted
+            ? '제출 완료 · 대기 중'
+            : activePlayer
+              ? `${activePlayer.nickname}의 턴`
+              : '턴 동기화 중'}
       </span>
     </span>
   )
@@ -687,7 +737,8 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         aria-hidden="true"
         className="size-2 flex-none rounded-[2px] bg-brand-strong motion-safe:animate-ring-pulse"
       />
-      {activePlayer ? `${activePlayer.nickname}이 굴리는 중` : '턴 동기화 중'}
+      {/* 닉네임은 임의 입력이라 받침 유무를 알 수 없다 — "(으)로"와 같은 방식으로 이/가를 표기한다(QA FND-9). */}
+      {activePlayer ? `${activePlayer.nickname}(이)가 굴리는 중` : '턴 동기화 중'}
     </p>
   )
 
@@ -703,20 +754,10 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     />
   )
 
-  const keyboardHint = (
-    // 높이를 고정하고 한 줄로 자른다 — 문구 길이 변화가 3D 트레이 높이를 흔들지 않게.
-    <p className="m-0 flex h-9 items-center justify-center truncate px-gutter text-xs whitespace-nowrap text-content-faint">
-      {motion.inputMode === 'motion'
-        ? getGestureMessage(motion, Boolean(pendingRoll && rollInputMode === 'motion'))
-        : '버튼으로 굴리고 Space·Enter·1~5 키도 씁니다'}
-    </p>
-  )
-
   // 디자인의 quick chips — 열린 족보를 고정 순서로 눕히고 탭 한 번에 기록한다.
   const openCategories = YACHT_CATEGORIES.filter(
     (category) => !isRecorded(activeBoard?.categories[category]),
   )
-  const rolled = local.dice !== null
 
   // 디자인 기록 패널의 퀵 칩 — peek 상태에서도 보이는 원큐 기록 스트립.
   const quickStrip = (
@@ -802,17 +843,6 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
       ? '행을 탭하면 바로 기록됩니다'
       : '먼저 주사위를 굴리세요'
 
-  // 디자인 하단 바 우측 안내문. 지금 뭘 하면 되는지 문장으로 알려준다.
-  const statusText = submitted
-    ? '점수가 반영됐습니다. 다음 턴을 기다립니다.'
-    : !isMyTurn
-      ? `${activePlayer?.nickname ?? '—'}님이 굴리는 중입니다.`
-      : allKept
-        ? '주사위를 모두 킵했습니다. 하나 이상 해제하거나 족보를 기록하세요.'
-        : rolled
-          ? '주사위를 홀드하고 다시 굴리거나, 점수표의 열린 족보를 탭해 기록하세요.'
-          : `라운드 ${roundNumber} — 굴려서 시작하세요.`
-
   return (
     <>
       {/*
@@ -840,22 +870,16 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           {/* 모바일 기록 패널이 이 컨테이너 아래에 붙는다 — 주사위 씬은 항상 같은 자리다. */}
           <div className={cn('flex min-h-0 flex-1 flex-col', !wide && 'relative')}>
             {diceScene}
-            {wide ? keyboardHint : null}
             <footer
               className={cn(
                 'flex flex-none items-center px-gutter',
                 wide
-                  ? 'gap-4 border-t border-border py-4'
+                  ? // 안내문은 트레이 우측 상단으로 올라갔다 — 푸터에는 버튼만 가운데에 남는다.
+                    'justify-center gap-4 border-t border-border py-4'
                   : 'gap-2.5 pt-2 pb-[calc(8.75rem+env(safe-area-inset-bottom))]',
               )}
             >
-              {wide && <RollCounter rollsUsed={local.rollCount} />}
               {actions}
-              {wide ? (
-                <p className="m-0 ml-auto max-w-80 text-right text-xs leading-relaxed text-content-muted">
-                  {statusText}
-                </p>
-              ) : null}
             </footer>
 
             {wide ? null : (
@@ -1021,6 +1045,30 @@ function useMyTurnAlert({ isMyTurn, onAlert }: { isMyTurn: boolean; onAlert: () 
   }, [isMyTurn])
 }
 
+/**
+ * 라운드가 바뀌는 순간 한 번 알린다(QA FND-7). 관전자에게도 전환 신호를 주되,
+ * 턴마다 띄우면 피로하므로 라운드 시작으로 한정한다.
+ */
+function useRoundStartNotice({
+  onNotice,
+  roundNumber,
+}: {
+  onNotice: () => void
+  roundNumber: number
+}) {
+  const previousRoundRef = useRef<number | null>(null)
+  const onNoticeRef = useRef(onNotice)
+  onNoticeRef.current = onNotice
+
+  useEffect(() => {
+    const previous = previousRoundRef.current
+    previousRoundRef.current = roundNumber
+    // 첫 렌더(중간 입장·재접속 포함)는 "전환"이 아니다 — 라운드가 실제로 바뀔 때만 알린다.
+    if (previous === null || previous === roundNumber) return
+    onNoticeRef.current()
+  }, [roundNumber])
+}
+
 /** 짧은 두 번 진동. 미지원(iOS Safari 등)이면 조용히 넘어간다 — 토스트가 이미 알린다. */
 function vibrateForMyTurn() {
   if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return
@@ -1029,33 +1077,6 @@ function vibrateForMyTurn() {
   } catch {
     // 사용자 제스처 없이 호출하면 던지는 브라우저가 있다. 알림 실패가 게임을 막아선 안 된다.
   }
-}
-
-function getGestureMessage(
-  motion: ReturnType<typeof useMotionRollInput>,
-  pendingMotionRoll: boolean,
-) {
-  if (motion.availability === 'permissionRequired') {
-    return '센서로 흔들려면 먼저 센서 사용을 시작해 주세요'
-  }
-  if (motion.availability === 'requesting') return '센서 권한을 확인하고 있어요'
-  if (motion.availability === 'denied') return '센서 권한이 거부되어 버튼 모드로 전환했어요'
-  if (motion.availability === 'insecure') return 'HTTPS가 아니어서 센서를 사용할 수 없어요'
-  if (motion.availability === 'unsupported') return '이 브라우저는 센서를 지원하지 않아요'
-  if (motion.availability === 'silent') return '센서값이 없어 버튼 모드로 전환했어요'
-  if (motion.availability === 'error') return '센서를 시작하지 못해 버튼 모드로 전환했어요'
-  if (motion.gestureState === 'calibrating') {
-    return '센서를 보정하고 있어요. 잠시 휴대폰을 고정해 주세요'
-  }
-  if (pendingMotionRoll || motion.gestureState === 'shaking') {
-    return '좋아요! 휴대폰을 꽉 잡고 앞으로 휙 움직이세요'
-  }
-  if (motion.gestureState === 'armed') return '앞으로 휙 움직이거나 지금 던지기를 누르세요'
-  if (motion.gestureState === 'shakeCandidate') return '조금 더 좌우로 흔들어 주세요'
-  if (motion.gestureState === 'cooldown' || motion.gestureState === 'thrown') {
-    return '주사위를 던졌어요'
-  }
-  return '휴대폰을 꽉 잡고 좌우로 흔들어 주세요'
 }
 
 function isPermissionNoticeState(

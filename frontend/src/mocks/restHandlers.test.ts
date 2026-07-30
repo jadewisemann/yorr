@@ -1,13 +1,17 @@
 import { HttpResponse, http } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { HttpGameApiClient } from '@/api/gameApi'
 import { creatorSession, participantSession } from './fixtures'
+import { clearMockRoomSnapshot } from './mockRoomState'
 import { createRestHandlers } from './restHandlers'
 import { mockApiServer } from './server'
 
 const client = new HttpGameApiClient()
 
 describe('REST mock handlers', () => {
+  // startGame이 방 상태를 기억하므로, 테스트 순서에 따라 응답이 달라지지 않게 지운다.
+  beforeEach(() => clearMockRoomSnapshot())
+
   it('OpenAPI에 정의된 방·게임 REST 흐름을 제공한다', async () => {
     const creator = await client.createRoom({
       nickname: '느긋한 주사위',

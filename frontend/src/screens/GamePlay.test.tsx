@@ -105,7 +105,7 @@ describe('GamePlay', () => {
 
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
     expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
-    expect(screen.getByText('남은 굴리기 2회')).toBeVisible()
+    expect(screen.getByText('2회 남음')).toBeVisible()
   })
 
   it('plays the active player server roll for every other participant', () => {
@@ -222,7 +222,7 @@ describe('GamePlay', () => {
 
     // 서버가 쓴 굴림 1회가 로컬 카운터에도 반영돼 남은 굴림이 2회로 줄어든다.
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
-    expect(screen.getByText('남은 굴리기 2회')).toBeVisible()
+    expect(screen.getByText('2회 남음')).toBeVisible()
   })
 
   it('tells the player which category the server recorded on their behalf', async () => {
@@ -368,14 +368,15 @@ describe('GamePlay', () => {
     expect(await screen.findByText('점수가 반영됐습니다. 다음 턴을 기다립니다.')).toBeVisible()
   })
 
-  /** QA 7번. 내 차례가 시작될 때만 알리고, 렌더마다 다시 알리지 않는다. */
+  /** QA 7번. 내 차례가 시작될 때만 알리고, 렌더마다 다시 알리지 않는다.
+   *  하단 토스트는 시선 밖이라, 족보 이펙트와 같은 대형 콜아웃으로 알린다. */
   it('alerts once when my turn begins', async () => {
     const vibrate = vi.fn()
     vi.stubGlobal('navigator', Object.assign(globalThis.navigator, { vibrate }))
 
     const { user } = renderGame()
 
-    expect(await screen.findByText('내 차례예요! 주사위를 굴려 주세요')).toBeVisible()
+    expect(await screen.findByText('내 차례!')).toBeVisible()
     expect(vibrate).toHaveBeenCalledTimes(1)
 
     // 굴려서 리렌더가 여러 번 일어나도 알림은 늘지 않는다.
@@ -399,5 +400,118 @@ describe('GamePlay', () => {
     await user.click(zeroChip)
 
     expect(await screen.findByRole('dialog', { name: /0점으로 확정할까요\?/ })).toBeVisible()
+  })
+
+  /** QA FND-3: 제출 직후엔 activePlayerId가 아직 나라서, 내 이름을 "OO의 턴"으로 반복하는 대신
+   *  대기 중임을 분명히 말해야 한다. */
+  it('shows a waiting label instead of repeating my own turn after I submit', async () => {
+    const { user } = renderGame()
+
+    await user.click(screen.getByRole('button', { name: '굴리기' }))
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
+
+    expect(await screen.findByText('제출 완료 · 대기 중')).toBeVisible()
+    expect(screen.queryByText('내 턴이에요')).not.toBeInTheDocument()
+  })
+
+  /** QA FND-9: 닉네임은 임의 입력이라 받침 유무를 알 수 없다 — "(으)로"와 같은 방식으로 이/가를 적는다. */
+  it('writes the subject particle as (이)가 for arbitrary nicknames', () => {
+    renderObserver()
+
+    expect(screen.getByText('느긋한 주사위(이)가 굴리는 중')).toBeVisible()
+  })
+
+  /**
+   * QA FND-5: 남의 턴을 구경하며 열어둔 점수시트가 턴이 넘어간 뒤에도 남아있으면 안 된다.
+   * round.start는 RealtimeSync(상위 컴포넌트)가 듣고 snapshot prop을 새로 내려주는 몫이라, 이
+   * 단위 테스트에선 그 결과를 직접 흉내내 새 snapshot으로 rerender한다.
+   */
+  it('closes the record panel once the turn moves away from the player I was watching', async () => {
+    const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
+    if (!snapshot.game) throw new Error('playing snapshot is missing game state')
+    const { snapshot: _observerSnapshot, ...observerSession } = participantSession
+    const { client, rerender, user } = renderObserver(snapshot)
+
+    for (let rollCount = 1; rollCount <= 3; rollCount += 1) {
+      act(() => {
+        client.emitMessage(
+          serverMessage(
+            'dice.broadcast',
+            {
+              dice: [6, 5, 4, 3, 2],
+              held: [false, false, false, false, false],
+              playerId: creatorSession.you,
+              rollCount: rollCount as 1 | 2 | 3,
+              roundNumber: 1,
+            },
+            { roomId: participantSession.roomId },
+          ),
+        )
+      })
+      await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    }
+
+    const toggle = await screen.findByRole('button', { name: /접기/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+
+    const nextSnapshot = {
+      ...snapshot,
+      game: {
+        ...snapshot.game,
+        activePlayerId: participantSession.you,
+        roundDeadline: Date.now() + 25_000,
+        roundNumber: 2,
+        turnOrder: [creatorSession.you, participantSession.you],
+      },
+    }
+    rerender(
+      <RealtimeClientProvider client={client}>
+        <GamePlay
+          onLeaveRequest={() => {}}
+          roomId={observerSession.roomId}
+          session={observerSession}
+          snapshot={nextSnapshot}
+        />
+      </RealtimeClientProvider>,
+    )
+
+    expect(await screen.findByText('내 턴이에요')).toBeVisible()
+    expect(screen.getByRole('button', { name: /전체 시트/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+  })
+
+  /** QA FND-7: 라운드가 바뀌는 순간은 관전자에게도 알린다. 첫 렌더(중간 입장)는 전환이 아니다. */
+  it('announces a new round to spectators, but not on first render', async () => {
+    const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
+    if (!snapshot.game) throw new Error('playing snapshot is missing game state')
+    const { snapshot: _observerSnapshot, ...observerSession } = participantSession
+    const { client, rerender } = renderObserver(snapshot)
+
+    expect(screen.queryByText(/라운드 \d+ 시작/)).not.toBeInTheDocument()
+
+    // round.start 반영은 RealtimeSync 몫이라 새 snapshot으로 rerender해 흉내낸다(위 테스트와 동일).
+    const nextSnapshot = {
+      ...snapshot,
+      game: {
+        ...snapshot.game,
+        roundDeadline: Date.now() + 25_000,
+        roundNumber: 2,
+      },
+    }
+    rerender(
+      <RealtimeClientProvider client={client}>
+        <GamePlay
+          onLeaveRequest={() => {}}
+          roomId={observerSession.roomId}
+          session={observerSession}
+          snapshot={nextSnapshot}
+        />
+      </RealtimeClientProvider>,
+    )
+
+    expect(await screen.findByText('라운드 2 시작 — 느긋한 주사위의 턴이에요')).toBeVisible()
   })
 })
