@@ -9,6 +9,7 @@ import {
 import type { PlayerId, ScoreBoard } from '@/realtime/wsEvents'
 import { categoryLabel, isRecorded } from '@/yachtCategoryView'
 import { CategoryIcon } from './CategoryIcon'
+import { Tooltip } from './Tooltip'
 
 export interface ScoreSheetPlayer {
   nickname: string
@@ -201,8 +202,13 @@ export function ScoreSheet({
         className="sticky top-0 z-sticky grid min-h-9 items-center gap-1 border-b border-border bg-canvas px-3"
         style={columns}
       >
-        <span className="text-[10px] font-bold tracking-[0.08em] text-content-muted uppercase">
+        <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.08em] text-content-muted uppercase">
           족보
+          <Tooltip
+            align="start"
+            content="내 차례에 굴리면 내 열에 미리보기 점수가 떠요. 그 숫자를 탭하면 바로 기록됩니다."
+            label="점수 기록 방법"
+          />
         </span>
         {players.map((player) => (
           <span className="justify-self-center" key={player.playerId}>

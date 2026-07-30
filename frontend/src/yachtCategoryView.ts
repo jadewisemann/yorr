@@ -33,6 +33,25 @@ export const categoryShortLabel: Record<YachtCategory, string> = {
 }
 
 /**
+ * 족보 조건·점수 한 줄 설명(도움말 모달·툴팁 공용).
+ * 점수 계산의 SSOT는 domain/scoring.ts다 — 여기 문구는 그 규칙의 표기일 뿐이다.
+ */
+export const categoryDescription: Record<YachtCategory, string> = {
+  ones: '주사위 중 1의 합',
+  twos: '주사위 중 2의 합',
+  threes: '주사위 중 3의 합',
+  fours: '주사위 중 4의 합',
+  fives: '주사위 중 5의 합',
+  sixes: '주사위 중 6의 합',
+  choice: '주사위 5개의 합',
+  fourOfAKind: '같은 눈 4개 이상 → 주사위 전체 합',
+  fullHouse: '같은 눈 3개 + 같은 눈 2개 → 주사위 전체 합',
+  smallStraight: '연속된 눈 4개 → 15점',
+  largeStraight: '연속된 눈 5개 → 30점',
+  yacht: '같은 눈 5개 → 50점',
+}
+
+/**
  * 기록된 점수와 선택 여부로 행 상태를 정한다.
  * 0점으로 확정한 족보는 "사용됨"과 구분해서 보여줘야 손실이 눈에 남는다.
  */
