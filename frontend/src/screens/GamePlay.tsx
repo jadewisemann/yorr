@@ -34,6 +34,7 @@ import {
   yachtGameReducer,
 } from '@/domain/yachtGame'
 import { createRollFeedback } from '@/feedback/createRollFeedback'
+import { createHandVoice, type HandVoice } from '@/feedback/handVoice'
 import type { MotionAvailability, MotionGestureEvent } from '@/input/motionTypes'
 import type { RollInputMode } from '@/input/RollIntent'
 import { useMotionRollInput } from '@/input/useMotionRollInput'
@@ -41,6 +42,7 @@ import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import type { ErrorPayload, Player, PlayerId, RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
 import { buildClientMessage } from '@/realtime/wsEvents'
 import type { PhysicsDiceMotionPulse } from '@/rendering/physics-dice/types'
+import { readSoundMuted, saveSoundMuted } from '@/soundPreference'
 import { type ActiveRoomSession, useAppStore } from '@/store'
 import { useCountdown } from '@/useCountdown'
 import { useMediaQuery } from '@/useMediaQuery'
@@ -79,6 +81,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const [rollHighlight, setRollHighlight] = useState<{ hand: SpecialHand; id: number } | null>(null)
   // 내 차례 시작 콜아웃 — 토스트보다 눈에 띄는 족보 이펙트와 같은 연출로 알린다. id = 리마운트 키.
   const [turnCallout, setTurnCallout] = useState<number | null>(null)
+  const [soundMuted, setSoundMuted] = useState(readSoundMuted)
   const pendingSubmissionRef = useRef<{
     category: YachtCategory
     msgId: string
@@ -259,6 +262,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   } | null>(null)
   const queuedMotionReleaseRef = useRef(false)
   const feedbackRef = useRef<ReturnType<typeof createRollFeedback> | null>(null)
+  const handVoiceRef = useRef<HandVoice | null>(null)
   inputModeRef.current = rollInputMode
   if (!feedbackRef.current) feedbackRef.current = createRollFeedback()
 
@@ -442,6 +446,36 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     },
     [],
   )
+
+  /*
+   * 음성 재생기는 제스처 리스너를 걸고 오디오 요소를 들고 있으므로 수명을 effect가 소유한다.
+   * 렌더 중에 만들고 cleanup에서 버리면 StrictMode의 mount → cleanup → mount에서
+   * 버려진 객체만 남아 자동재생 잠금이 풀리지 않는다.
+   */
+  useEffect(() => {
+    const voice = createHandVoice({ muted: readSoundMuted() })
+    handVoiceRef.current = voice
+    return () => {
+      voice.dispose()
+      handVoiceRef.current = null
+    }
+  }, [])
+
+  /*
+   * 족보 콜아웃이 화면에 뜨는 커밋에서 같이 외친다(S15P11A406-138). 텍스트와 목소리가
+   * 같은 상태(rollHighlight) 하나에서 나오므로 어긋나지 않는다 — 이미 기록한 족보처럼
+   * 연출을 건너뛴 굴림에는 목소리도 나오지 않는다.
+   */
+  useEffect(() => {
+    if (rollHighlight) handVoiceRef.current?.play(rollHighlight.hand)
+  }, [rollHighlight])
+
+  const toggleSound = () => {
+    const muted = !soundMuted
+    setSoundMuted(muted)
+    saveSoundMuted(muted)
+    handVoiceRef.current?.setMuted(muted)
+  }
 
   const handleRoll = () => {
     if (!canRoll) return
@@ -652,6 +686,20 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     </button>
   )
 
+  /* 족보 목소리는 갑자기 크게 튀어나오는 연출이다 — 조용한 곳에서 끌 방법이 화면 안에 있어야 한다.
+     ✕과 같은 아이콘 버튼 규격으로 맞춰 헤더 폭을 더 쓰지 않는다. */
+  const soundButton = (
+    <button
+      aria-label={soundMuted ? '소리 켜기' : '소리 끄기'}
+      aria-pressed={!soundMuted}
+      className="grid size-10 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-[15px] text-content-muted transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
+      onClick={toggleSound}
+      type="button"
+    >
+      <span aria-hidden="true">{soundMuted ? '🔇' : '🔊'}</span>
+    </button>
+  )
+
   // ROUND 라벨 아래 "누구 턴인지"를 점·색으로 병기한다(디자인 04·05).
   const turnStatus = (
     <span className="flex min-w-0 flex-col gap-0.5">
@@ -734,12 +782,14 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
                   ? '연결 끊김'
                   : '연결 중'}
           </span>
+          {soundButton}
           {timerRing}
         </>
       ) : (
         <>
           {leaveButton}
           <div className="min-w-0 flex-1">{turnStatus}</div>
+          {soundButton}
           {timerRing}
         </>
       )}
