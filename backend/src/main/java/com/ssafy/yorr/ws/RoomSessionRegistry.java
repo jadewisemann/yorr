@@ -42,6 +42,15 @@ public class RoomSessionRegistry {
     private final Map<String, Member> bySession = new ConcurrentHashMap<>();
     // roomId -> 진행 단계(없으면 WAITING). 게임 시작은 REST 가 처리하므로 그쪽에서 markPhase 로 알려준다.
     private final Map<String, RoomPhase> phases = new ConcurrentHashMap<>();
+    private final Map<String, String> gameCodes = new ConcurrentHashMap<>();
+
+    public void registerGame(String roomId, String gameCode) {
+        if (gameCode == null || gameCode.isBlank()) throw new IllegalArgumentException("invalid_game_code");
+        gameCodes.compute(roomId, (ignored, current) -> {
+            if (current != null && !current.equals(gameCode)) throw new IllegalStateException("room_game_mismatch");
+            return gameCode;
+        });
+    }
 
     /**
      * 방 입장. 그 방의 첫 입장자가 host가 된다.
@@ -82,6 +91,7 @@ public class RoomSessionRegistry {
             members.remove(member.playerId());
             if (members.isEmpty()) {
                 rooms.remove(member.roomId());
+                gameCodes.remove(member.roomId());
                 phases.remove(member.roomId()); // 방 코드가 재사용돼도 이전 단계가 남지 않도록 같이 버린다.
             }
         }
@@ -126,6 +136,7 @@ public class RoomSessionRegistry {
         }
         if (members.isEmpty()) {
             rooms.remove(roomId);
+            gameCodes.remove(roomId);
             phases.remove(roomId);
         }
         return member;
@@ -142,6 +153,10 @@ public class RoomSessionRegistry {
     /** 현재 방 단계. 아직 기록되지 않은 방은 대기실로 취급한다. */
     public RoomPhase phaseOf(String roomId) {
         return phases.getOrDefault(roomId, RoomPhase.WAITING);
+    }
+
+    public String gameCodeOf(String roomId) {
+        return gameCodes.get(roomId);
     }
 
     /** 이 세션의 현재 멤버(없으면 null). */
@@ -164,6 +179,7 @@ public class RoomSessionRegistry {
                 if (m.host()) hostId = m.playerId();
             }
         }
-        return new RoomSnapshot(roomId, phases.getOrDefault(roomId, RoomPhase.WAITING), hostId, players);
+        return new RoomSnapshot(roomId, gameCodes.get(roomId),
+                phases.getOrDefault(roomId, RoomPhase.WAITING), hostId, players, null);
     }
 }
