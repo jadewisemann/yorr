@@ -20,7 +20,12 @@ public class RoomCreateService {
 
     private static final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final SecureRandom RANDOM = new SecureRandom();
-    private static final Duration ROOM_TTL = Duration.ofMinutes(40);
+    /**
+     * 방 키의 수명. 활동이 있으면 {@link RoomValidationService#touch}가 이 값으로 다시 늘리므로,
+     * 실제 소멸 조건은 "이 시간 동안 아무 활동이 없었다"다. 같은 패키지의 갱신 경로가 같은
+     * 값을 써야 하므로 package-private으로 공개한다.
+     */
+    static final Duration ROOM_TTL = Duration.ofMinutes(40);
     private static final DefaultRedisScript<Long> CREATE = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 1 then return 0 end
             redis.call('HSET', KEYS[1], 'capacity', ARGV[1], 'members', '0', 'phase', 'LOBBY', 'hostId', ARGV[2])
