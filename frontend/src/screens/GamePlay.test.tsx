@@ -481,4 +481,36 @@ describe('GamePlay', () => {
       'false',
     )
   })
+
+  /** QA FND-7: 라운드가 바뀌는 순간은 관전자에게도 알린다. 첫 렌더(중간 입장)는 전환이 아니다. */
+  it('announces a new round to spectators, but not on first render', async () => {
+    const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
+    if (!snapshot.game) throw new Error('playing snapshot is missing game state')
+    const { snapshot: _observerSnapshot, ...observerSession } = participantSession
+    const { client, rerender } = renderObserver(snapshot)
+
+    expect(screen.queryByText(/라운드 \d+ 시작/)).not.toBeInTheDocument()
+
+    // round.start 반영은 RealtimeSync 몫이라 새 snapshot으로 rerender해 흉내낸다(위 테스트와 동일).
+    const nextSnapshot = {
+      ...snapshot,
+      game: {
+        ...snapshot.game,
+        roundDeadline: Date.now() + 25_000,
+        roundNumber: 2,
+      },
+    }
+    rerender(
+      <RealtimeClientProvider client={client}>
+        <GamePlay
+          onLeaveRequest={() => {}}
+          roomId={observerSession.roomId}
+          session={observerSession}
+          snapshot={nextSnapshot}
+        />
+      </RealtimeClientProvider>,
+    )
+
+    expect(await screen.findByText('라운드 2 시작 — 느긋한 주사위의 턴이에요')).toBeVisible()
+  })
 })

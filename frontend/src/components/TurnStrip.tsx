@@ -42,7 +42,8 @@ export function TurnStrip({ players, activePlayerId, className, you }: TurnStrip
                   // 디자인 04의 턴 카드 — 위에 점·이름, 아래에 점수. 현재 턴만 레드 틴트로 뜬다.
                   'grid gap-1 rounded-card border px-2.5 py-2',
                   active
-                    ? 'border-brand bg-brand/12 shadow-[0_0_0_3px_rgb(229_57_53_/_16%)]'
+                    ? // 턴이 넘어오는 순간 카드가 한 번 튀어 "전환됐다"를 알린다(QA FND-7).
+                      'border-brand bg-brand/12 shadow-[0_0_0_3px_rgb(229_57_53_/_16%)] motion-safe:animate-turn-pop'
                     : 'border-border bg-surface-raised',
                 )}
               >

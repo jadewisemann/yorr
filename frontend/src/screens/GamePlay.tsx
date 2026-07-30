@@ -474,6 +474,15 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     },
   })
 
+  useRoundStartNotice({
+    roundNumber,
+    onNotice: () => {
+      // 내 턴 시작은 useMyTurnAlert가 이미 알린다 — 여기선 관전 중일 때만 띄운다.
+      if (isMyTurn || !activePlayer) return
+      showToast(`라운드 ${roundNumber} 시작 — ${activePlayer.nickname}의 턴이에요`)
+    },
+  })
+
   useShortcuts(wide && isMyTurn, { onRoll: handleRoll, dispatch })
 
   // 상단 진행 표시 — 서버가 준 턴 순서 그대로다(명단 순서는 턴 순서가 아니다).
@@ -595,8 +604,11 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
       <span
         className={cn(
           'flex items-center gap-1.5 truncate text-[16px] font-bold transition-colors duration-base',
+          // 턴 주인이 바뀌면 라벨을 리마운트해 짧은 flash로 전환을 알린다(QA FND-7).
+          'motion-safe:animate-turn-flash',
           !isMyTurn && activePlayer && 'text-[#FF8A86]',
         )}
+        key={activePlayerId ?? 'sync'}
       >
         <span
           aria-hidden="true"
@@ -1030,6 +1042,30 @@ function useMyTurnAlert({ isMyTurn, onAlert }: { isMyTurn: boolean; onAlert: () 
     if (isMyTurn && !wasMyTurnRef.current) onAlertRef.current()
     wasMyTurnRef.current = isMyTurn
   }, [isMyTurn])
+}
+
+/**
+ * 라운드가 바뀌는 순간 한 번 알린다(QA FND-7). 관전자에게도 전환 신호를 주되,
+ * 턴마다 띄우면 피로하므로 라운드 시작으로 한정한다.
+ */
+function useRoundStartNotice({
+  onNotice,
+  roundNumber,
+}: {
+  onNotice: () => void
+  roundNumber: number
+}) {
+  const previousRoundRef = useRef<number | null>(null)
+  const onNoticeRef = useRef(onNotice)
+  onNoticeRef.current = onNotice
+
+  useEffect(() => {
+    const previous = previousRoundRef.current
+    previousRoundRef.current = roundNumber
+    // 첫 렌더(중간 입장·재접속 포함)는 "전환"이 아니다 — 라운드가 실제로 바뀔 때만 알린다.
+    if (previous === null || previous === roundNumber) return
+    onNoticeRef.current()
+  }, [roundNumber])
 }
 
 /** 짧은 두 번 진동. 미지원(iOS Safari 등)이면 조용히 넘어간다 — 토스트가 이미 알린다. */
