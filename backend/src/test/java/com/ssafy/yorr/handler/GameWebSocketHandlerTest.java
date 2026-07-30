@@ -475,7 +475,10 @@ class GameWebSocketHandlerTest {
                 "player-a",
                 1_800_000_000_000L,
                 Map.of("player-a", new ScoreBoard(Map.of("ones", 3), 3, 0, 3)),
-                List.of("player-a")
+                List.of("player-a"),
+                2,
+                List.of(6, 6, 3, 2, 1),
+                List.of(true, true, false, false, false)
         );
         var reconnectSnapshot = new com.ssafy.yorr.ws.dto.RoomSnapshot(
                 "room-a",

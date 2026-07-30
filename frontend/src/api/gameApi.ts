@@ -226,6 +226,9 @@ function toGameState(value: unknown): GameState | undefined {
     roundNumber: value.roundNumber,
     roundDeadline: value.roundDeadline,
     scores: value.scores as GameState['scores'],
+    // REST 초안에는 굴림 진행이 없다. 실제 값은 WS 스냅샷이 채우고, 이 응답은
+    // preserveRealtimeGame이 WS 진행을 덮지 않도록 막아준다.
+    rollCount: typeof value.rollCount === 'number' ? value.rollCount : 0,
   }
 }
 

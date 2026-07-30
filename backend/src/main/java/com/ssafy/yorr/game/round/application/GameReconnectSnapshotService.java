@@ -52,7 +52,11 @@ public class GameReconnectSnapshotService {
                 round.activePlayerId(),
                 deadline,
                 gameScoreQueryService.getScoreboards(roomId, playerId),
-                round.participantOrder()
+                round.participantOrder(),
+                // 굴림 진행까지 실어야 재접속한 클라이언트가 이어서 굴릴 수 있다.
+                round.activeRollCount(),
+                round.activeDice(),
+                round.activeHeld()
         );
         return new RoomSnapshot(
                 room.roomId(),

@@ -30,6 +30,7 @@ const finishedSnapshot: RoomSnapshot = {
     activePlayerId: hostSession.you,
     roundNumber: 12,
     roundDeadline: 0,
+    rollCount: 0,
     scores: {
       [hostSession.you]: boardWithTotal(198),
       'player-participant': boardWithTotal(214),

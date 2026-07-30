@@ -5,6 +5,8 @@ import {
   getPendingRoll,
   getRoundSubmission,
   getScoreSummary,
+  type RollCount,
+  restoreYachtGame,
   type YachtGameState,
   yachtGameReducer,
 } from './yachtGame'
@@ -17,12 +19,15 @@ describe('yachtGame reducer', () => {
     const rolling = yachtGameReducer(initial, {
       type: 'rollRequested',
       requestId: 'roll-1',
+      rollCount: 1,
       targetDice: serverDice,
     })
     const renderedDice = createDiceSet([6, 5, 4, 3, 2])
 
     expect(rolling.phase).toBe('rolling')
     expect(rolling.dice).toBeNull()
+    // 굴림 횟수는 서버가 알려준 시점에 올라간다 — 착지를 기다리지 않는다.
+    expect(rolling.rollCount).toBe(1)
     expect(getPendingRoll(rolling)?.targetDice).toEqual(serverDice)
     expect(
       yachtGameReducer(rolling, {
@@ -41,6 +46,41 @@ describe('yachtGame reducer', () => {
     expect(completed.rollCount).toBe(1)
   })
 
+  /**
+   * 마감 자동 굴림이 진행 중인 굴림을 교체하는 경로. 클라가 굴림 횟수를 직접 세면 교체로
+   * 버려지는 완료 콜백만큼 증가분이 사라져 다음 dice.roll이 서버에서 거부됐다(INVALID_ROLL).
+   */
+  it('keeps the server roll count when a forced roll replaces an in-flight roll', () => {
+    const afterFirst = finishRoll(createYachtGame(3), 'one')
+    const rolling = yachtGameReducer(afterFirst, {
+      type: 'rollRequested',
+      requestId: 'two',
+      rollCount: 2,
+      targetDice: serverDice,
+    })
+    expect(rolling.rollCount).toBe(2)
+
+    const forced = yachtGameReducer(rolling, {
+      type: 'rollRequested',
+      requestId: 'auto',
+      rollCount: 3,
+      targetDice: serverDice,
+      forced: true,
+    })
+    expect(forced.rollCount).toBe(3)
+
+    // 교체된 이전 굴림의 완료 콜백은 버려지지만 카운트는 서버 값 그대로 남는다.
+    expect(
+      yachtGameReducer(forced, { type: 'rollCompleted', requestId: 'two', dice: serverDice }),
+    ).toBe(forced)
+    const settled = yachtGameReducer(forced, {
+      type: 'rollCompleted',
+      requestId: 'auto',
+      dice: serverDice,
+    })
+    expect(settled.rollCount).toBe(3)
+  })
+
   it('blocks hold before the first roll and all roll interactions after the third roll', () => {
     const initial = createYachtGame(7)
     expect(yachtGameReducer(initial, { type: 'holdToggled', index: 0 })).toBe(initial)
@@ -57,6 +97,7 @@ describe('yachtGame reducer', () => {
       yachtGameReducer(state, {
         type: 'rollRequested',
         requestId: 'four',
+        rollCount: 3,
         targetDice: serverDice,
       }),
     ).toBe(state)
@@ -72,6 +113,7 @@ describe('yachtGame reducer', () => {
       yachtGameReducer(state, {
         type: 'rollRequested',
         requestId: 'two',
+        rollCount: 2,
         targetDice: serverDice,
       }),
     ).toBe(state)
@@ -79,6 +121,7 @@ describe('yachtGame reducer', () => {
       yachtGameReducer(state, {
         type: 'rollRequested',
         requestId: 'two',
+        rollCount: 2,
         targetDice: serverDice,
         held: [true, true, true, true, true],
       }),
@@ -90,6 +133,7 @@ describe('yachtGame reducer', () => {
       yachtGameReducer(fresh, {
         type: 'rollRequested',
         requestId: 'first',
+        rollCount: 1,
         targetDice: serverDice,
       }).phase,
     ).toBe('rolling')
@@ -102,6 +146,7 @@ describe('yachtGame reducer', () => {
     const rolling = yachtGameReducer(state, {
       type: 'rollRequested',
       requestId: 'two',
+      rollCount: 2,
       targetDice: serverDice,
     })
 
@@ -112,12 +157,14 @@ describe('yachtGame reducer', () => {
     const rolling = yachtGameReducer(createYachtGame(1), {
       type: 'rollRequested',
       requestId: 'one',
+      rollCount: 1,
       targetDice: serverDice,
     })
     expect(
       yachtGameReducer(rolling, {
         type: 'rollRequested',
         requestId: 'two',
+        rollCount: 2,
         targetDice: serverDice,
       }),
     ).toBe(rolling)
@@ -136,6 +183,7 @@ describe('yachtGame reducer', () => {
       yachtGameReducer(submitting, {
         type: 'rollRequested',
         requestId: 'two',
+        rollCount: 2,
         targetDice: serverDice,
       }),
     ).toBe(submitting)
@@ -202,8 +250,57 @@ describe('yachtGame reducer', () => {
   })
 })
 
+describe('restoreYachtGame', () => {
+  const serverDice = createDiceSet([6, 5, 4, 3, 2])
+
+  it('restores mid-turn roll progress so the next roll matches the server count', () => {
+    const restored = restoreYachtGame(11, 4, {
+      rollCount: 2,
+      dice: serverDice,
+      held: [true, false, true, false, false],
+    })
+
+    expect(restored).toMatchObject({
+      phase: 'choosing',
+      roundNumber: 4,
+      rollCount: 2,
+      dice: serverDice,
+    })
+    expect(restored.held).toEqual([true, false, true, false, false])
+
+    // 복원 직후의 다음 굴림은 서버가 기대하는 3번째여야 한다.
+    const rolling = yachtGameReducer(restored, {
+      type: 'rollRequested',
+      requestId: 'three',
+      rollCount: 3,
+      targetDice: serverDice,
+    })
+    expect(rolling.phase).toBe('rolling')
+    expect(rolling.rollCount).toBe(3)
+  })
+
+  it('starts fresh when the turn has no dice on the table yet', () => {
+    expect(restoreYachtGame(11, 1, { rollCount: 0 })).toMatchObject({
+      phase: 'ready',
+      rollCount: 0,
+      dice: null,
+      held: NO_HELD_DICE,
+    })
+  })
+
+  it('clamps a roll count outside the contract instead of breaking the counter', () => {
+    expect(restoreYachtGame(11, 1, { rollCount: 9, dice: serverDice }).rollCount).toBe(3)
+    expect(restoreYachtGame(11, 1, { rollCount: -1, dice: serverDice }).rollCount).toBe(0)
+  })
+})
+
 function finishRoll(state: YachtGameState, requestId: string) {
   const dice = createDiceSet([1, 2, 3, 4, 5])
-  const rolling = yachtGameReducer(state, { type: 'rollRequested', requestId, targetDice: dice })
+  const rolling = yachtGameReducer(state, {
+    type: 'rollRequested',
+    requestId,
+    rollCount: (state.rollCount + 1) as RollCount,
+    targetDice: dice,
+  })
   return yachtGameReducer(rolling, { type: 'rollCompleted', requestId, dice })
 }
