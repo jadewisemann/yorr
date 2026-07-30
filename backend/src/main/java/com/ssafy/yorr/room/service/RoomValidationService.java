@@ -61,6 +61,29 @@ public class RoomValidationService implements RoomService {
             redis.call('DEL', KEYS[3])
             return 1
             """, Long.class);
+    /**
+     * 활동 시각을 갱신한다(sliding TTL). 방 키의 TTL을 처음부터 다시 세고, 함께 만료돼야 하는
+     * 키들을 그 시각에 맞춘다. 게임 키는 참가자 수가 가변이라 스크립트 안에서 조립한다
+     * ({@link #CLOSE}와 같은 규약 — 단일 Redis 전제).
+     */
+    static final DefaultRedisScript<Long> TOUCH = new DefaultRedisScript<>("""
+            if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
+            redis.call('EXPIRE', KEYS[1], ARGV[1])
+            local ttl = redis.call('PTTL', KEYS[1])
+            if ttl <= 0 then return 1 end
+            redis.call('PEXPIRE', KEYS[2], ttl)
+            redis.call('PEXPIRE', KEYS[3], ttl)
+            local gameId = redis.call('HGET', KEYS[1], 'gameId')
+            if gameId then
+                redis.call('PEXPIRE', 'game:' .. gameId, ttl)
+                local players = redis.call('HKEYS', KEYS[2])
+                for i = 1, #players do
+                    redis.call('PEXPIRE', 'game:' .. gameId .. ':scoreboard:' .. players[i], ttl)
+                    redis.call('PEXPIRE', 'game:' .. gameId .. ':score-submissions:' .. players[i], ttl)
+                end
+            end
+            return 1
+            """, Long.class);
     static final DefaultRedisScript<Long> START = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
             if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 0 end
@@ -116,6 +139,13 @@ public class RoomValidationService implements RoomService {
     public void close(String roomCode) {
         redisTemplate.execute(CLOSE, List.of(RoomRedisKeys.roomKey(roomCode),
                 RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode)));
+    }
+
+    @Override
+    public void touch(String roomCode) {
+        redisTemplate.execute(TOUCH, List.of(RoomRedisKeys.roomKey(roomCode),
+                        RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode)),
+                String.valueOf(RoomCreateService.ROOM_TTL.toSeconds()));
     }
 
     @Override

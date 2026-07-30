@@ -75,12 +75,23 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final RoomCloseScheduler roomCloseScheduler;       // 유예 뒤 닫기 예약
 
     /**
-     * 마지막 참가자의 소켓이 끊긴 뒤 방을 닫기까지 기다리는 시간.
+     * 마지막 참가자의 소켓이 끊긴 뒤 <b>대기실</b>을 닫기까지 기다리는 시간.
      * <p>
      * 새로고침·터널 통과 같은 짧은 단절은 소켓을 끊고 다시 연결한다. 즉시 닫으면 본인이 자기
-     * 방을 파괴하므로, 그 왕복이 끝날 만큼만 준다. 이 시간 동안 마감 타이머는 멈춰 있다.
+     * 방을 파괴하므로, 그 왕복이 끝날 만큼만 준다. 대기실은 잃을 진행 상태가 없어 짧게 준다.
      */
-    static final Duration EMPTY_ROOM_GRACE = Duration.ofSeconds(30);
+    static final Duration EMPTY_LOBBY_GRACE = Duration.ofSeconds(30);
+    /**
+     * <b>진행 중인 게임</b>이 비었을 때의 유예. 대기실보다 훨씬 길게 준다.
+     * <p>
+     * 여기서 방을 닫으면 점수판·라운드 진행처럼 되돌릴 수 없는 값이 사라진다. 모바일에서
+     * 앱 전환·화면 잠금·전화 수신은 30초를 쉽게 넘기므로 대기실 기준의 시간을 그대로 쓰면
+     * 잠깐 화면을 벗어난 사람의 게임을 서버가 스스로 파괴한다(S15P11A406-136). 재접속 상태
+     * 복원(S15P11A406-113)이 복원하려는 대상을 서버가 먼저 지워버리는 모순이기도 하다.
+     * <p>
+     * 방 자체의 TTL(40분)이 상한이므로 그보다 길게 잡을 이유는 없다.
+     */
+    static final Duration ACTIVE_GAME_GRACE = Duration.ofMinutes(10);
     private final GameReconnectSnapshotService reconnectSnapshotService;
 
     public GameWebSocketHandler(ObjectMapper objectMapper,
@@ -168,6 +179,15 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
         if (payload == null || payload.roomId() == null || payload.roomId().isBlank()) {
             sendError(session, WsErrorCode.INVALID_MESSAGE, "roomId가 필요합니다.", in.msgId());
+            return;
+        }
+
+        // 방 존재의 권위는 Redis다. 이 검사가 없으면 이미 닫힌 방에도 입장이 되고, 메모리에만
+        // 존재하는 유령 방이 만들어진다 — 사용자는 대기실 화면에 앉아 있는데 게임 시작이 404로
+        // 실패하는 막힌 상태가 된다(S15P11A406-136). 틀린 화면보다 정직한 실패가 낫다.
+        if (roomIsGone(payload.roomId())) {
+            sendError(session, WsErrorCode.ROOM_NOT_FOUND,
+                    "방이 종료됐습니다. 홈에서 새로 시작해 주세요.", in.msgId());
             return;
         }
 
@@ -404,9 +424,32 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         // 돌아온 사람이 자기 게임을 잃는다. 유예 뒤에도 비어 있으면 그때 닫는다.
         roomCloseScheduler.schedule(
                 gone.roomId(),
-                EMPTY_ROOM_GRACE,
+                emptyRoomGrace(gone.roomId()),
                 () -> closeRoomIfStillEmpty(gone.roomId())
         );
+    }
+
+    /**
+     * 이 방을 닫기까지 줄 유예. 기준은 phase가 아니라 <b>"잃을 것이 있는지"</b>다.
+     * <p>
+     * registry의 phase는 마지막 참가자가 빠지는 순간 함께 버려지므로({@code RoomSessionRegistry.remove})
+     * 이 시점엔 신뢰할 수 없다. 라운드 상태가 남아 있다 = 진행 중인 게임이 있다는 뜻이고,
+     * 그게 곧 서둘러 닫으면 안 되는 이유다.
+     */
+    private Duration emptyRoomGrace(String roomId) {
+        return roundSynchronizationService.findByRoomId(roomId).isPresent()
+                ? ACTIVE_GAME_GRACE
+                : EMPTY_LOBBY_GRACE;
+    }
+
+    /**
+     * Redis에 이 방이 남아 있는지. phase가 없으면 방 해시 자체가 사라진 것이다
+     * ({@code RoomValidationService.getSnapshot}이 그때 {@code RoomSnapshot.notFound}를 준다) —
+     * REST 경로도 같은 기준으로 404를 낸다.
+     */
+    private boolean roomIsGone(String roomId) {
+        com.ssafy.yorr.room.dto.RoomSnapshot room = roomService.getSnapshot(roomId);
+        return room == null || room.phase() == null;
     }
 
     /**
