@@ -105,7 +105,7 @@ describe('GamePlay', () => {
 
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
     expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
-    expect(screen.getByText('남은 굴리기 2회')).toBeVisible()
+    expect(screen.getByText('2회 남음')).toBeVisible()
   })
 
   it('plays the active player server roll for every other participant', () => {
@@ -222,7 +222,7 @@ describe('GamePlay', () => {
 
     // 서버가 쓴 굴림 1회가 로컬 카운터에도 반영돼 남은 굴림이 2회로 줄어든다.
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
-    expect(screen.getByText('남은 굴리기 2회')).toBeVisible()
+    expect(screen.getByText('2회 남음')).toBeVisible()
   })
 
   it('tells the player which category the server recorded on their behalf', async () => {
