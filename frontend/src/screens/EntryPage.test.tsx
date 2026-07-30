@@ -162,6 +162,6 @@ describe('EntryPage', () => {
     await user.click(screen.getByRole('button', { name: '나가기' }))
 
     await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
-    expect(sessionStorage.getItem('yorr.room-session')).toBeNull()
+    expect(localStorage.getItem('yorr.room-session')).toBeNull()
   })
 })

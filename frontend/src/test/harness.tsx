@@ -57,6 +57,7 @@ export function renderAppHarness(options: AppHarnessOptions = {}) {
 export function resetAppTestState() {
   safely(() => useAppStore.getState().reset())
   safely(() => window.sessionStorage.clear())
+  safely(() => window.localStorage.clear())
 }
 
 export function mockApiError({ code, path, status = 400, until }: MockApiErrorOptions) {
