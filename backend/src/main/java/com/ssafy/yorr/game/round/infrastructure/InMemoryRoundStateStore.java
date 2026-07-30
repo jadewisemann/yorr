@@ -5,7 +5,6 @@ import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.round.domain.RoundSubmission;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
 import com.ssafy.yorr.game.round.domain.RoundSynchronizationException;
-import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 import java.util.List;
@@ -18,7 +17,6 @@ import java.util.concurrent.atomic.AtomicReference;
  * Single-application-instance store. A Redis-backed implementation can replace
  * this adapter while keeping {@link RoundStateStore#submitAtomically} atomic.
  */
-@Component
 public class InMemoryRoundStateStore implements RoundStateStore {
 
     private final ConcurrentMap<String, RoundState> states = new ConcurrentHashMap<>();
