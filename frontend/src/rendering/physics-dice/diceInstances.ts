@@ -30,7 +30,10 @@ export function createDiceInstances(scene: THREE.Scene, world: RAPIER.World) {
         .setLinearDamping(PHYSICS_DICE_CONFIG.defaults.linearDamping)
         .setAngularDamping(PHYSICS_DICE_CONFIG.defaults.angularDamping)
         .setCanSleep(true)
-        .setCcdEnabled(true),
+        .setCcdEnabled(true)
+        /* soft CCD — 빠르게 움직이는 작은 물체가 서로를 뚫는 것을 예측으로 막는다.
+           스텝 주기만 올려서는 주사위끼리 관통이 0.136에서 더 안 내려가는데 이걸 켜면 0.073. */
+        .setSoftCcdPrediction(PHYSICS_DICE_CONFIG.defaults.softCcdPrediction),
     )
     const halfSize =
       PHYSICS_DICE_CONFIG.defaults.diceSize * PHYSICS_DICE_CONFIG.scene.colliderHalfRatio
@@ -38,7 +41,10 @@ export function createDiceInstances(scene: THREE.Scene, world: RAPIER.World) {
       RAPIER.ColliderDesc.cuboid(halfSize, halfSize, halfSize)
         .setMass(PHYSICS_DICE_CONFIG.defaults.mass)
         .setFriction(PHYSICS_DICE_CONFIG.defaults.friction)
-        .setRestitution(PHYSICS_DICE_CONFIG.defaults.restitution),
+        .setRestitution(PHYSICS_DICE_CONFIG.defaults.restitution)
+        /* Max 결합 — 트레이 바닥(0.24)과의 반발이 평균으로 깎이지 않고 주사위 값이 그대로
+           쓰인다. 던져진 뒤 눈에 보이는 튕김이 여기서 나온다(S15P11A406-129). */
+        .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max),
       body,
     )
     scene.add(mesh, outline)
