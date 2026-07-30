@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '@/cn'
 import { Button } from '@/components/Button'
 import { ConnectionBanner } from '@/components/ConnectionBanner'
+import { GameHelpModal } from '@/components/GameHelpModal'
 import { Modal } from '@/components/Modal'
 import { MotionPermissionPanel } from '@/components/MotionPermissionPanel'
 import { PhysicsDiceScene } from '@/components/PhysicsDiceScene'
@@ -11,7 +12,9 @@ import { EffectCallout, RollResultCallout } from '@/components/RollResultCallout
 import { RoundTimer } from '@/components/RoundTimer'
 import { ScoreSheet } from '@/components/ScoreSheet'
 import { ToastHost, useToast } from '@/components/ToastHost'
+import { Tooltip } from '@/components/Tooltip'
 import { TurnStrip, type TurnStripPlayer } from '@/components/TurnStrip'
+import { TutorialGuide } from '@/components/TutorialGuide'
 import {
   type DiceIndex,
   type DiceSet,
@@ -42,6 +45,7 @@ import type { ErrorPayload, Player, PlayerId, RoomSnapshot, ScoreBoard } from '@
 import { buildClientMessage } from '@/realtime/wsEvents'
 import type { PhysicsDiceMotionPulse } from '@/rendering/physics-dice/types'
 import { type ActiveRoomSession, useAppStore } from '@/store'
+import { hideTutorial, isTutorialHidden } from '@/tutorialPreference'
 import { useCountdown } from '@/useCountdown'
 import { useMediaQuery } from '@/useMediaQuery'
 import { categoryLabel, categoryShortLabel, isRecorded } from '@/yachtCategoryView'
@@ -86,6 +90,9 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   // 닫은 안내가 "어느 상태의 안내였는지"를 담는다. boolean으로 두면 상태가 바뀌어도 계속 닫혀
   // 새 안내를 놓친다 — 값이 달라지는 순간 자동으로 다시 뜨게 하려는 의도다.
   const [dismissedNotice, setDismissedNotice] = useState<MotionAvailability | null>(null)
+  const [helpOpen, setHelpOpen] = useState(false)
+  // 첫 진입 코치마크. "다시 보지 않기"는 쿠키로 영구 숨김, 그냥 닫으면 이번 판만 닫힌다.
+  const [tutorialOpen, setTutorialOpen] = useState(() => !isTutorialHidden())
 
   const game = snapshot.game
   const roundNumber = game?.roundNumber ?? 1
@@ -525,6 +532,10 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
 
   const rolled = local.dice !== null
 
+  // 코치마크와 자리를 나눠 쓴다 — 권한 안내가 떠 있는 동안에는 코치마크를 미룬다.
+  const permissionNoticeVisible =
+    isPermissionNoticeState(motion.availability) && dismissedNotice !== motion.availability
+
   /* 지금 뭘 하면 되는지 한 문장으로 알려준다. 트레이 하단 가운데에 한 줄로 눕히므로
      개행 없이 들어갈 길이를 유지한다 — 길어지면 킵 레일 라벨과 부딪힌다(S15P11A406-94). */
   const statusText = submitted
@@ -551,18 +562,32 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         {trayLabel}
       </div>
       {/* 남은 굴리기는 트레이 우측 상단 — 시선이 머무는 곳이 트레이고, 푸터에 두면 영역을 차지한다. */}
-      <div className="pointer-events-none absolute top-2.5 right-3 z-10">
+      <div className="pointer-events-none absolute top-2.5 right-3 z-10 flex items-center gap-1.5">
         <RollCounter rollsUsed={settledRollCount} />
+        {/* 트레이 탭은 굴리기·홀드 조작이라, 툴팁 트리거에만 pointer-events를 되살린다. */}
+        <Tooltip
+          align="end"
+          className="pointer-events-auto text-content-faint"
+          content="턴마다 최대 3번 굴릴 수 있어요. 주사위 눈이 남은 횟수예요."
+          label="남은 굴리기 설명"
+        />
       </div>
       {/* 하단 밴드 — 킵 레일 라벨(좌)과 안내문(가운데)을 같은 grid에 둔다. 안내문을 따로
           absolute로 가운데 두면 좁은 폭에서 좌측 라벨과 겹친다. 1fr auto 1fr이므로
           가운데 칼럼은 트레이 정중앙에 놓이고, 라벨은 자기 칼럼 안에서만 접힌다. */}
       <div className="pointer-events-none absolute inset-x-4 bottom-2.5 z-10 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
-        <span className="text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
+        <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
           킵 레일 ·{' '}
           {keptCount > 0
             ? `${keptCount}/5 · 합 ${keptSum}${allKept ? ' · 해제해야 굴릴 수 있어요' : ''}`
             : '비어 있음'}
+          <Tooltip
+            align="start"
+            className="pointer-events-auto"
+            content="주사위를 탭하면 킵돼서 여기 줄지어요. 킵한 주사위는 다시 굴리지 않고, 한 번 더 탭하면 풀려요."
+            label="킵 레일 설명"
+            side="top"
+          />
         </span>
         {/* 안내문은 와이드에서만 — 모바일은 기록 패널이 안내를 겸한다. */}
         {wide ? (
@@ -637,6 +662,26 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           />
         </div>
       )}
+      {/* 첫 판 마스코트 가이드 — 실제 굴림·킵·기록에 반응해 다음 안내로 넘어간다.
+          권한 안내 패널이 떠 있는 동안에는 겹치지 않게 미룬다. */}
+      {tutorialOpen && !permissionNoticeVisible && (
+        <TutorialGuide
+          isMyTurn={isMyTurn && !submitted}
+          kept={keptCount > 0}
+          onFinish={() => {
+            // 끝까지 봤으면 다음 게임에서 또 처음부터 반복하지 않는다.
+            hideTutorial()
+            setTutorialOpen(false)
+          }}
+          onNeverShowAgain={() => {
+            hideTutorial()
+            setTutorialOpen(false)
+          }}
+          onSkip={() => setTutorialOpen(false)}
+          rolled={rolled}
+          submitted={submitted}
+        />
+      )}
     </div>
   )
 
@@ -649,6 +694,18 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
       type="button"
     >
       ✕
+    </button>
+  )
+
+  // 규칙·족보는 언제든 다시 볼 수 있어야 한다 — 나가기와 같은 급의 아이콘 버튼 하나.
+  const helpButton = (
+    <button
+      aria-label="게임 도움말"
+      className="grid size-10 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-[15px] font-bold text-content-muted transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
+      onClick={() => setHelpOpen(true)}
+      type="button"
+    >
+      ?
     </button>
   )
 
@@ -734,12 +791,14 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
                   ? '연결 끊김'
                   : '연결 중'}
           </span>
+          {helpButton}
           {timerRing}
         </>
       ) : (
         <>
           {leaveButton}
           <div className="min-w-0 flex-1">{turnStatus}</div>
+          {helpButton}
           {timerRing}
         </>
       )}
@@ -939,6 +998,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
 
       <ToastHost message={toastMessage} />
       {zeroModal}
+      <GameHelpModal onClose={() => setHelpOpen(false)} open={helpOpen} />
     </>
   )
 }
