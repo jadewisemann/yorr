@@ -10,7 +10,7 @@ interface RollResultCalloutProps {
 
 interface EffectCalloutProps {
   text: string
-  /** 1 = 팝만, 2 = 팝 + 확산 링, 3 = 팝 + 링 + 화면 플래시 + 버스트. */
+  /** 1 = 팝, 2 = 팝(조금 더 오래), 3 = 팝 + 화면 플래시 + 버스트. */
   tier: 1 | 2 | 3
   onDone: () => void
 }
@@ -57,7 +57,8 @@ export function EffectCallout({ onDone, text, tier }: EffectCalloutProps) {
 
   return (
     <div
-      className="pointer-events-none absolute inset-0 z-20 grid place-items-center overflow-hidden"
+      // 텍스트는 트레이 상단에 둔다 — 가운데에 얹으면 방금 굴린 주사위를 가린다.
+      className="pointer-events-none absolute inset-0 z-20 grid items-start justify-items-center overflow-hidden pt-10"
       role="status"
     >
       {tier === 3 && (
@@ -67,12 +68,6 @@ export function EffectCallout({ onDone, text, tier }: EffectCalloutProps) {
         />
       )}
       <div className="relative grid place-items-center">
-        {tier >= 2 && (
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 -m-5 animate-callout-ring rounded-full border-4 border-brand motion-reduce:hidden"
-          />
-        )}
         {tier === 3 &&
           BURST_ANGLES.map((angle) => (
             <span

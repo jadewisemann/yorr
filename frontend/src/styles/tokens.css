@@ -105,7 +105,6 @@
 
   /* 굴림 결과 족보 콜아웃 — 등급이 높을수록 겹쳐 쓰는 연출이 늘어난다. */
   --animate-callout-pop: callout-pop 480ms var(--ds-ease-snappy) both;
-  --animate-callout-ring: callout-ring 900ms ease-out both;
   --animate-callout-flash: callout-flash 700ms ease-out both;
   --animate-callout-burst: callout-burst 800ms ease-out both;
 }
@@ -310,17 +309,6 @@
     transform: scale(1);
     opacity: 1;
     text-shadow: var(--ds-callout-glow);
-  }
-}
-
-@keyframes callout-ring {
-  from {
-    transform: scale(0.7);
-    opacity: 1;
-  }
-  to {
-    transform: scale(1.7);
-    opacity: 0;
   }
 }
 
