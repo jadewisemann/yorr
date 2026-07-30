@@ -1,0 +1,337 @@
+@theme inline {
+  --font-sans: var(--ds-font-sans);
+
+  --color-canvas: var(--ds-color-canvas);
+  --color-surface: var(--ds-color-surface);
+  --color-surface-raised: var(--ds-color-surface-raised);
+  --color-border: var(--ds-color-border);
+  --color-content: var(--ds-color-content);
+  --color-content-muted: var(--ds-color-content-muted);
+  --color-brand: var(--ds-color-brand);
+  --color-brand-strong: var(--ds-color-brand-strong);
+  --color-on-brand: var(--ds-color-on-brand);
+  --color-positive: var(--ds-color-positive);
+  --color-warning: var(--ds-color-warning);
+  --color-danger: var(--ds-color-danger);
+  --color-focus: var(--ds-color-focus);
+  --color-physics-die: var(--ds-color-physics-die);
+  --color-physics-pip: var(--ds-color-physics-pip);
+  --color-physics-accent: var(--ds-color-physics-accent);
+  --color-physics-danger: var(--ds-color-physics-danger);
+
+  /* 와이어프레임 1d 신규 3색 — 기존 11색은 그대로 둔다. */
+  --color-surface-sunken: var(--ds-color-surface-sunken);
+  --color-content-faint: var(--ds-color-content-faint);
+  --color-scrim: var(--ds-color-scrim);
+
+  --color-landing-panel: var(--ds-landing-panel);
+  --color-landing-well: var(--ds-landing-well);
+  --color-landing-soft: var(--ds-landing-soft);
+  --color-landing-field: var(--ds-landing-field);
+  --color-landing-bar: var(--ds-landing-bar);
+  --color-landing-hairline: var(--ds-landing-hairline);
+  --color-landing-hairline-strong: var(--ds-landing-hairline-strong);
+  --color-landing-accent: var(--ds-landing-accent);
+  --color-landing-accent-ink: var(--ds-landing-accent-ink);
+  --color-landing-accent-tint: var(--ds-landing-accent-tint);
+  --color-landing-accent-text: var(--ds-landing-accent-text);
+  --color-landing-text: var(--ds-landing-text);
+  --color-landing-text-strong: var(--ds-landing-text-strong);
+  --color-landing-text-muted: var(--ds-landing-text-muted);
+  --color-landing-text-faint: var(--ds-landing-text-faint);
+  --color-landing-placeholder: var(--ds-landing-placeholder);
+  --color-landing-disabled: var(--ds-landing-disabled);
+
+  --shadow-landing-panel: var(--ds-landing-shadow-panel);
+  --shadow-landing-card: var(--ds-landing-shadow-card);
+  --shadow-landing-card-quiet: var(--ds-landing-shadow-card-quiet);
+  --shadow-landing-card-inset: var(--ds-landing-shadow-card-inset);
+  --shadow-landing-popover: var(--ds-landing-shadow-popover);
+  --shadow-landing-cta: var(--ds-landing-shadow-cta);
+  --shadow-landing-cta-sheet: var(--ds-landing-shadow-cta-sheet);
+
+  --text-display: var(--ds-text-display);
+  --text-title: var(--ds-text-title);
+  /* 디자인 시스템 최대 굵기는 700 — 800은 Pretendard에서 뭉개진다. */
+  --font-weight-medium: 600;
+  --font-weight-bold: 700;
+  /* 랜딩은 앱 화면(600/800)보다 한 단계 가벼운 자체 굵기 스케일을 쓴다.
+     landing-* 색 토큰과 같은 이유로 분리한다 — 값을 컴포넌트에 직접 적지 않는다. */
+  --font-weight-landing-medium: 500;
+  --font-weight-landing-bold: 700;
+
+  --spacing-tap: var(--ds-size-tap);
+  --spacing-content: var(--ds-size-content);
+  --spacing-gutter: var(--ds-size-gutter);
+
+  --radius-control: var(--ds-radius-control);
+  --radius-card: var(--ds-radius-card);
+  --radius-panel: var(--ds-radius-panel);
+  --radius-sheet: var(--ds-radius-sheet);
+
+  --shadow-raised: var(--ds-shadow-raised);
+  --shadow-overlay: var(--ds-shadow-overlay);
+  --shadow-cta: var(--ds-shadow-cta);
+  --ease-snappy: var(--ds-ease-snappy);
+
+  /* 숫자·코드·라벨은 전부 Space Grotesk(tabular) — 디자인의 NUMERALS 규칙. */
+  --font-mono: "Space Grotesk", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* 1d 모션 스케일 — fast(킵 토글) / base(시트·전환) / roll(주사위) */
+  --duration-fast: var(--ds-motion-fast);
+  --duration-base: var(--ds-motion-base);
+  --duration-roll: var(--ds-motion-roll);
+
+  /* 전역 레이어 순서. 화면마다 40·50·60을 손으로 적으면 어느 게 위인지 알 수 없다. */
+  --z-index-sticky: var(--ds-z-sticky);
+  --z-index-banner: var(--ds-z-banner);
+  --z-index-sheet: var(--ds-z-sheet);
+  --z-index-modal: var(--ds-z-modal);
+  --z-index-toast: var(--ds-z-toast);
+
+  --animate-spin-slow: spin-slow 700ms linear infinite;
+  --animate-dice-roll: dice-roll 500ms ease-in-out infinite alternate;
+  /* 타이머 임박 펄스(디자인 yorrRingPulse) — 점멸 대신 스케일만 살짝 움직인다. */
+  --animate-ring-pulse: ring-pulse 900ms ease-in-out infinite;
+
+  /* 턴 전환 강조(QA FND-7) — 활성 턴 카드는 한 번 튀고, 헤더 턴 라벨은 짧게 번쩍인다. */
+  --animate-turn-pop: turn-pop 420ms var(--ds-ease-snappy) both;
+  --animate-turn-flash: turn-flash 700ms ease-out both;
+
+  /* 굴림 결과 족보 콜아웃 — 등급이 높을수록 겹쳐 쓰는 연출이 늘어난다. */
+  --animate-callout-pop: callout-pop 480ms var(--ds-ease-snappy) both;
+  --animate-callout-flash: callout-flash 700ms ease-out both;
+  --animate-callout-burst: callout-burst 800ms ease-out both;
+}
+
+:root {
+  /* S15P11A406-117 다크 디자인 시스템 v1 — 블랙·화이트 + 레드 포인트.
+     레드는 CTA·현재 턴·킵·경고·결과 강조에만 쓰고 정보 영역은 블랙·그레이를 유지한다.
+     Space Grotesk는 한글 글리프가 없어 한글은 자연히 뒤의 Pretendard로 떨어진다. */
+  --ds-font-sans:
+    "Space Grotesk", "Pretendard Variable", Pretendard, "Noto Sans KR", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --ds-color-canvas: #08090a;
+  --ds-color-surface: #111214;
+  --ds-color-surface-raised: #18191c;
+  --ds-color-border: rgb(255 255 255 / 10%);
+  --ds-color-content: #f7f7f5;
+  --ds-color-content-muted: #a4a5aa;
+  --ds-color-brand: #e53935;
+  --ds-color-brand-strong: #ff4d48;
+  --ds-color-on-brand: #ffffff;
+  --ds-color-positive: #8fcb9b;
+  --ds-color-warning: #e9b44c;
+  --ds-color-danger: #ff6b66;
+  --ds-color-focus: #f7f7f5;
+  /* 주사위 — 아이보리 화이트 바디, 딥 블랙 눈. 킵 강조는 레드. */
+  --ds-color-physics-die: #f4f1e8;
+  --ds-color-physics-pip: #0b0b0c;
+  --ds-color-physics-accent: #ff4d48;
+  --ds-color-physics-danger: #e53935;
+  /* 3D 트레이 — 매트 블랙 비네팅(위가 살짝 밝고 아래로 잠긴다). */
+  --ds-physics-tray: radial-gradient(120% 85% at 50% 18%, #24252a 0%, #141517 48%, #0a0b0c 100%);
+  --ds-color-physics-rail: #0d0e10;
+  --ds-color-physics-slot: rgb(255 255 255 / 14%);
+
+  /* 랜딩 히어로 전용 팔레트 — 본편과 같은 블랙 계열로 통일하되
+     반투명 패널·헤어라인은 랜딩에서만 쓰므로 네임스페이스를 유지한다. */
+  --ds-landing-panel: rgb(17 18 20 / 86%);
+  --ds-landing-well: rgb(8 9 10 / 55%);
+  --ds-landing-soft: rgb(255 255 255 / 7%);
+  /* 코드 입력 필드 바닥. 팝오버·시트(#18191c)보다 한 단 낮게 가라앉힌다. */
+  --ds-landing-field: #111214;
+  --ds-landing-bar: rgb(255 255 255 / 22%);
+  --ds-landing-hairline: rgb(255 255 255 / 10%);
+  --ds-landing-hairline-strong: rgb(255 255 255 / 18%);
+  --ds-landing-accent: #e53935;
+  --ds-landing-accent-ink: #ffffff;
+  --ds-landing-accent-tint: rgb(229 57 53 / 16%);
+  --ds-landing-accent-text: #ff8a86;
+  --ds-landing-text: #ffffff;
+  --ds-landing-text-strong: #f7f7f5;
+  --ds-landing-text-muted: #a4a5aa;
+  --ds-landing-text-faint: #8a8b92;
+  --ds-landing-disabled: #202125;
+  /* 코드 입력 예시("YORR64")를 그린다. 형식을 알려주는 실제 정보이므로 4.5:1을 맞춘다. */
+  --ds-landing-placeholder: #8a8b92;
+
+  /* 화면 바닥 — 가운데 위에서 떨어지는 화이트 스포트라이트와 CTA 아래 레드 글로우.
+     3D는 히어로 카드 안에서만 돌아가므로 배경은 순수 장식이다. */
+  --ds-landing-bg:
+    radial-gradient(40% 30% at 50% 78%, rgb(229 57 53 / 10%) 0%, rgb(229 57 53 / 0) 70%),
+    radial-gradient(58% 52% at 50% 34%, rgb(255 255 255 / 9%) 0%, rgb(255 255 255 / 0) 66%), #08090a;
+  /* 선택된 히어로 카드 바닥과 그 위에 겹치는 세 레이어(광택 · 스포트라이트 · 하단 스크림). */
+  --ds-landing-card: radial-gradient(88% 78% at 50% 16%, #2a2b30 0%, #16171a 46%, #090a0b 100%);
+  --ds-landing-card-glow: radial-gradient(
+    52% 62% at 50% 0%,
+    rgb(255 255 255 / 20%) 0%,
+    rgb(255 255 255 / 0) 72%
+  );
+  --ds-landing-card-scrim: linear-gradient(
+    180deg,
+    rgb(8 9 10 / 0) 0%,
+    rgb(8 9 10 / 72%) 42%,
+    rgb(8 9 10 / 96%) 100%
+  );
+  --ds-landing-accent-line: linear-gradient(
+    90deg,
+    rgb(229 57 53 / 0) 0%,
+    #e53935 50%,
+    rgb(229 57 53 / 0) 100%
+  );
+  /* 양옆에 반쯤 걸친 이웃 카드 — 내용 없이 덩어리만 남긴다. */
+  --ds-landing-ghost: radial-gradient(90% 70% at 50% 34%, #1c1d21 0%, #0d0e10 70%);
+
+  --ds-landing-shadow-panel: inset 0 0 0 1px rgb(255 255 255 / 10%);
+  --ds-landing-shadow-card: 0 40px 80px rgb(0 0 0 / 72%), 0 0 90px rgb(229 57 53 / 14%);
+  --ds-landing-shadow-card-quiet: 0 40px 80px rgb(0 0 0 / 70%);
+  --ds-landing-shadow-card-inset:
+    inset 0 2px 0 rgb(255 255 255 / 7%), inset 0 -80px 120px rgb(0 0 0 / 72%);
+  --ds-landing-shadow-popover: 0 34px 70px rgb(0 0 0 / 76%);
+  --ds-landing-shadow-cta: 0 16px 36px rgb(229 57 53 / 32%);
+  --ds-landing-shadow-cta-sheet: 0 14px 30px rgb(229 57 53 / 32%);
+
+  /* 1d 신규 3색 — muted가 "보조 텍스트"와 "미기입·비활성"을 겸해 위계가 2단뿐이라
+     content-faint를 분리하고, 킵 트레이·시트 배경 구분용 sunken과 scrim을 추가한다. */
+  --ds-color-surface-sunken: #0d0e10;
+  /* 디자인 Disabled Text(#67686E)는 캔버스 위 3.6:1이라 9~12px 본문에 못 쓴다.
+     같은 계열에서 4.5:1을 넘는 밝기로 올린다 — 비활성 컨트롤은 opacity로 처리한다. */
+  --ds-color-content-faint: #82838a;
+  --ds-color-scrim: rgb(0 0 0 / 66%);
+  /* 굴림 콜아웃 텍스트의 화이트 글로우 — 외곽선 대신 글자에서 빛이 퍼지는 느낌으로
+     3D 트레이 위에서 글자를 띄운다. 팝 애니메이션이 0에서 이 값까지 키운다. */
+  --ds-callout-glow:
+    0 0 0.04em rgb(255 255 255 / 95%), 0 0 0.16em rgb(255 244 242 / 60%),
+    0 0 0.45em rgb(255 77 72 / 45%), 0 0.08em 0.6em rgb(0 0 0 / 35%);
+  --ds-callout-glow-none:
+    0 0 0 rgb(255 255 255 / 0%), 0 0 0 rgb(255 244 242 / 0%), 0 0 0 rgb(255 77 72 / 0%),
+    0 0 0 rgb(0 0 0 / 0%);
+
+  /* "사용 완료" 족보의 빗금. 색 말고 패턴으로도 구분되게 하는 두 번째 채널이다. */
+  --ds-hatch-used: repeating-linear-gradient(
+    45deg,
+    rgb(255 255 255 / 4%) 0 3px,
+    rgb(255 255 255 / 9%) 3px 6px
+  );
+
+  --ds-text-display: clamp(1.75rem, 7vw, 2.5rem);
+  --ds-text-title: clamp(1.25rem, 5vw, 1.375rem);
+  --ds-size-tap: 2.75rem;
+  --ds-size-content: 72rem;
+  /* 화면 좌우 거터 — 390px에서 20px, 320px에서 16px. */
+  --ds-size-gutter: 1.25rem;
+  /* S15P11A406-117 다크 시스템 — 컨트롤 12·카드 14·패널 18·시트 26px 라운드. */
+  --ds-radius-control: 0.75rem;
+  --ds-radius-card: 0.875rem;
+  --ds-radius-panel: 1.125rem;
+  --ds-radius-sheet: 1.625rem;
+  --ds-shadow-raised: 0 0.75rem 2rem rgb(0 0 0 / 50%);
+  --ds-shadow-overlay: 0 -1.5rem 3.75rem rgb(0 0 0 / 70%);
+  /* 레드 CTA 전용 글로우 — 한 화면에 하나뿐인 Primary가 떠 보이게 한다. */
+  --ds-shadow-cta: 0 12px 26px rgb(229 57 53 / 30%);
+  --ds-ease-snappy: cubic-bezier(0.2, 0, 0, 1);
+  --ds-motion-fast: 120ms;
+  --ds-motion-base: 220ms;
+  --ds-motion-roll: 520ms;
+
+  /* z-index 스케일 — base 0 / sticky 10 / banner 20 / sheet 40 / modal 50 / toast 60 */
+  --ds-z-sticky: 10;
+  --ds-z-banner: 20;
+  --ds-z-sheet: 40;
+  --ds-z-modal: 50;
+  --ds-z-toast: 60;
+}
+
+@media (max-width: 22.5rem) {
+  :root {
+    --ds-size-gutter: 1rem;
+  }
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dice-roll {
+  to {
+    transform: rotate(8deg) scale(1.04);
+  }
+}
+
+@keyframes ring-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.82;
+  }
+}
+
+@keyframes turn-pop {
+  0% {
+    transform: scale(0.94);
+  }
+
+  55% {
+    transform: scale(1.045);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes turn-flash {
+  0% {
+    color: #fff;
+    text-shadow: 0 0 14px rgb(255 77 72 / 60%);
+  }
+
+  100% {
+    text-shadow: 0 0 0 rgb(255 77 72 / 0%);
+  }
+}
+
+@keyframes callout-pop {
+  0% {
+    transform: scale(0.55);
+    opacity: 0;
+    text-shadow: var(--ds-callout-glow-none);
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    text-shadow: var(--ds-callout-glow);
+  }
+}
+
+@keyframes callout-flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes callout-burst {
+  from {
+    transform: rotate(var(--burst-angle, 0deg)) translateY(-2.5rem) scaleY(0.4);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(var(--burst-angle, 0deg)) translateY(-8.5rem) scaleY(1);
+    opacity: 0;
+  }
+}
