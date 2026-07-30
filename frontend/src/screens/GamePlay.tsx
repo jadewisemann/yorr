@@ -517,12 +517,10 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
       <div className="pointer-events-none absolute top-3 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
         {trayLabel}
       </div>
-      {/* 넓은 화면은 레퍼런스대로 하단 바 좌측에 둔다 — 트레이 안에는 모바일만 남긴다. */}
-      {!wide && (
-        <div className="pointer-events-none absolute top-2.5 right-3 z-10">
-          <RollCounter rollsUsed={local.rollCount} />
-        </div>
-      )}
+      {/* 남은 굴리기는 모든 폭에서 트레이 우측 상단에 떠 있다 — 시선이 머무는 곳이 트레이다. */}
+      <div className="pointer-events-none absolute top-2.5 right-3 z-10">
+        <RollCounter rollsUsed={local.rollCount} />
+      </div>
       <div className="pointer-events-none absolute bottom-2.5 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
         킵 레일 ·{' '}
         {keptCount > 0
@@ -737,15 +735,6 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     />
   )
 
-  const keyboardHint = (
-    // 높이를 고정하고 한 줄로 자른다 — 문구 길이 변화가 3D 트레이 높이를 흔들지 않게.
-    <p className="m-0 flex h-9 items-center justify-center truncate px-gutter text-xs whitespace-nowrap text-content-faint">
-      {motion.inputMode === 'motion'
-        ? getGestureMessage(motion, Boolean(pendingRoll && rollInputMode === 'motion'))
-        : '버튼으로 굴리고 Space·Enter·1~5 키도 씁니다'}
-    </p>
-  )
-
   // 디자인의 quick chips — 열린 족보를 고정 순서로 눕히고 탭 한 번에 기록한다.
   const openCategories = YACHT_CATEGORIES.filter(
     (category) => !isRecorded(activeBoard?.categories[category]),
@@ -874,22 +863,26 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           {/* 모바일 기록 패널이 이 컨테이너 아래에 붙는다 — 주사위 씬은 항상 같은 자리다. */}
           <div className={cn('flex min-h-0 flex-1 flex-col', !wide && 'relative')}>
             {diceScene}
-            {wide ? keyboardHint : null}
             <footer
               className={cn(
-                'flex flex-none items-center px-gutter',
+                'flex-none px-gutter',
                 wide
-                  ? 'gap-4 border-t border-border py-4'
-                  : 'gap-2.5 pt-2 pb-[calc(8.75rem+env(safe-area-inset-bottom))]',
+                  ? // 좌우 1fr 스페이서로 버튼을 정확히 가운데에 둔다 — 우측 안내문 폭에 밀리지 않게.
+                    'grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-t border-border py-4'
+                  : 'flex items-center gap-2.5 pt-2 pb-[calc(8.75rem+env(safe-area-inset-bottom))]',
               )}
             >
-              {wide && <RollCounter rollsUsed={local.rollCount} />}
-              {actions}
               {wide ? (
-                <p className="m-0 ml-auto max-w-80 text-right text-xs leading-relaxed text-content-muted">
-                  {statusText}
-                </p>
-              ) : null}
+                <>
+                  <span aria-hidden="true" />
+                  <div className="flex items-center justify-center gap-4">{actions}</div>
+                  <p className="m-0 max-w-80 justify-self-end text-right text-xs leading-relaxed text-content-muted">
+                    {statusText}
+                  </p>
+                </>
+              ) : (
+                actions
+              )}
             </footer>
 
             {wide ? null : (
@@ -1087,33 +1080,6 @@ function vibrateForMyTurn() {
   } catch {
     // 사용자 제스처 없이 호출하면 던지는 브라우저가 있다. 알림 실패가 게임을 막아선 안 된다.
   }
-}
-
-function getGestureMessage(
-  motion: ReturnType<typeof useMotionRollInput>,
-  pendingMotionRoll: boolean,
-) {
-  if (motion.availability === 'permissionRequired') {
-    return '센서로 흔들려면 먼저 센서 사용을 시작해 주세요'
-  }
-  if (motion.availability === 'requesting') return '센서 권한을 확인하고 있어요'
-  if (motion.availability === 'denied') return '센서 권한이 거부되어 버튼 모드로 전환했어요'
-  if (motion.availability === 'insecure') return 'HTTPS가 아니어서 센서를 사용할 수 없어요'
-  if (motion.availability === 'unsupported') return '이 브라우저는 센서를 지원하지 않아요'
-  if (motion.availability === 'silent') return '센서값이 없어 버튼 모드로 전환했어요'
-  if (motion.availability === 'error') return '센서를 시작하지 못해 버튼 모드로 전환했어요'
-  if (motion.gestureState === 'calibrating') {
-    return '센서를 보정하고 있어요. 잠시 휴대폰을 고정해 주세요'
-  }
-  if (pendingMotionRoll || motion.gestureState === 'shaking') {
-    return '좋아요! 휴대폰을 꽉 잡고 앞으로 휙 움직이세요'
-  }
-  if (motion.gestureState === 'armed') return '앞으로 휙 움직이거나 지금 던지기를 누르세요'
-  if (motion.gestureState === 'shakeCandidate') return '조금 더 좌우로 흔들어 주세요'
-  if (motion.gestureState === 'cooldown' || motion.gestureState === 'thrown') {
-    return '주사위를 던졌어요'
-  }
-  return '휴대폰을 꽉 잡고 좌우로 흔들어 주세요'
 }
 
 function isPermissionNoticeState(
