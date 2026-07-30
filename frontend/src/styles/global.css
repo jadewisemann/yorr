@@ -1,0 +1,53 @@
+/* 다크 디자인 시스템 v1 — 디스플레이·숫자는 Space Grotesk, 한글 본문은 Pretendard로 떨어진다. */
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap");
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css");
+/* class 탐지 범위를 src/로 고정한다. 자동 탐지에 맡기면 dist/·.codegraph/ 같은
+   저장소 부산물까지 스캔해서 빌드마다 CSS 크기가 달라진다. */
+@import "tailwindcss" source("../");
+@import "./tokens.css";
+
+@layer base {
+  :root {
+    color: var(--ds-color-content);
+    background: var(--ds-color-canvas);
+    font-family: var(--ds-font-sans);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    /* 한국어 어절 단위 줄바꿈 — 단어 중간에서 꺾이지 않게 전역 적용한다.
+       keep-all만 두면 긴 URL·코드가 넘치므로 overflow-wrap으로 안전망을 친다. */
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  html {
+    min-width: 320px;
+    background: var(--ds-color-canvas);
+  }
+
+  body {
+    min-width: 320px;
+    /* dvh를 써야 iOS 브라우저 크롬이 접혔다 펴질 때 100svh 화면 아래로 빈 스크롤이 생기지 않는다. */
+    min-height: 100dvh;
+    margin: 0;
+    color: var(--ds-color-content);
+    background:
+      radial-gradient(90% 55% at 50% 10%, rgb(255 255 255 / 7%), transparent 68%),
+      var(--ds-color-canvas);
+  }
+
+  button,
+  input {
+    touch-action: manipulation;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
