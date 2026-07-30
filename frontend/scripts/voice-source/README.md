@@ -7,6 +7,22 @@
 node scripts/import-hand-voice.mjs
 ```
 
+> 이 폴더의 녹음 원본은 `.gitignore` 대상이다 — **변환 결과 wav를 커밋해야** 다른 기기로 넘어간다.
+> 원본만 넣어두고 push하면 아무것도 전달되지 않는다.
+
+## 처음 실행하는 기기라면
+
+변환은 Chromium의 Web Audio(`decodeAudioData`)를 디코더로 쓴다. 그 기기에 브라우저가
+없으면 첫 실행에서 실패하므로 한 번만 받아두면 된다.
+
+```bash
+npm ci
+npx playwright install chromium
+```
+
+macOS에서는 음성 메모·QuickTime 녹음(`.m4a`)을 그대로 이 폴더에 넣으면 된다 —
+변환 스크립트가 포맷·샘플레이트·채널을 알아서 맞춘다.
+
 ## 파일 이름
 
 확장자는 무엇이든 된다 — 폰 음성메모(`.m4a`), 브라우저 녹음(`.webm`), Audacity(`.wav` · `.mp3`)
