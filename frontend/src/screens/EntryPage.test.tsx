@@ -31,6 +31,11 @@ function useLayout(wide: boolean) {
   })
 }
 
+/** 코드 입력은 팝오버·바텀시트 안에 있다 — 배경에 같은 이름의 버튼이 있으므로 항상 좁혀 찾는다. */
+function codeDialog() {
+  return within(screen.getByRole('dialog', { name: '초대받은 방에 참가' }))
+}
+
 describe('EntryPage', () => {
   beforeEach(() => {
     navigate.mockReset()
@@ -39,54 +44,36 @@ describe('EntryPage', () => {
   })
   afterEach(() => vi.restoreAllMocks())
 
-  it('opens on the released game with room creation and code entry', () => {
+  it('opens on the released game with its play call to action', () => {
     render(<EntryPage />)
 
     expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
-    expect(screen.getByText('지금 플레이 가능')).toBeVisible()
-    expect(screen.getByRole('button', { name: '방 만들기' })).toBeVisible()
-    expect(screen.getByRole('textbox', { name: '방 코드' })).toBeVisible()
-    expect(screen.getByRole('button', { name: '참가' })).toBeDisabled()
+    expect(screen.getByText('PLAYABLE NOW')).toBeVisible()
+    expect(screen.getByRole('button', { name: '요트 다이스 플레이' })).toBeVisible()
   })
 
   it('opens nickname entry for a new room', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)
 
-    await user.click(screen.getByRole('button', { name: '방 만들기' }))
+    await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
 
     expect(navigate).toHaveBeenCalledWith({ to: '/join', search: { code: undefined } })
   })
 
-  it('sanitizes the room code and only enables join once it is valid', async () => {
-    const user = userEvent.setup()
-    render(<EntryPage />)
-    const input = screen.getByRole('textbox', { name: '방 코드' })
-
-    await user.type(input, 'yo!r')
-    expect(input).toHaveValue('YOR')
-    expect(screen.getByRole('button', { name: '참가' })).toBeDisabled()
-
-    await user.type(input, 'r64')
-    expect(input).toHaveValue('YORR64')
-
-    await user.click(screen.getByRole('button', { name: '참가' }))
-    expect(navigate).toHaveBeenCalledWith({ to: '/join', search: { code: 'YORR64' } })
-  })
-
-  it('swaps the hero to an unreleased game and offers launch notification instead', async () => {
+  it('locks the call to action for a game that has not shipped', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)
 
     await user.click(screen.getByRole('tab', { name: /라이어스 다이스/ }))
 
     expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
-    expect(screen.getByText('준비 중')).toBeVisible()
-    expect(screen.queryByRole('button', { name: '방 만들기' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '출시 알림 받기' })).toBeVisible()
+    expect(screen.getByText('COMING SOON')).toBeVisible()
+    expect(screen.queryByRole('button', { name: /플레이$/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '준비 중인 게임' })).toBeDisabled()
   })
 
-  it('wraps around the tablist with the arrow keys and keeps focus on the selected tab', async () => {
+  it('wraps around the carousel tablist with the arrow keys and keeps focus on the selection', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)
 
@@ -102,35 +89,53 @@ describe('EntryPage', () => {
     expect(screen.getByRole('heading', { name: '낚시' })).toBeVisible()
   })
 
-  it('renders the vertical game list on the wide layout', () => {
-    useLayout(true)
-    render(<EntryPage />)
-
-    const tablist = screen.getByRole('tablist', { name: '게임 선택' })
-    expect(tablist).toHaveAttribute('aria-orientation', 'vertical')
-    expect(within(tablist).getAllByRole('tab')).toHaveLength(5)
-    expect(within(tablist).getByText('05')).toBeVisible()
-  })
-
-  it('walks the vertical game list with the keyboard and wraps around', async () => {
+  it('steps through the carousel with the arrow buttons on the wide layout', async () => {
     useLayout(true)
     const user = userEvent.setup()
     render(<EntryPage />)
 
-    const tabs = within(screen.getByRole('tablist', { name: '게임 선택' })).getAllByRole('tab')
-    const [first] = tabs
-    const last = tabs[tabs.length - 1]
-    if (!first || !last) throw new Error('game list is empty')
+    // 첫 게임에서는 되돌아갈 곳이 없다 — 감싸지 않고 막는다(점 목록의 방향키만 감싼다).
+    expect(screen.getByRole('button', { name: '이전 게임' })).toBeDisabled()
 
-    first.focus()
-    await user.keyboard('{End}')
-    expect(last).toHaveFocus()
-    expect(last).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('heading', { name: '낚시' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: '다음 게임' }))
 
-    await user.keyboard('{ArrowDown}')
-    expect(first).toHaveFocus()
-    expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: /라이어스 다이스/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: '이전 게임' })).toBeEnabled()
+  })
+
+  it('sanitizes the room code in the code dialog and only enables join once it is valid', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    await user.click(screen.getByRole('button', { name: '코드로 참가' }))
+    const dialog = codeDialog()
+    const input = dialog.getByRole('textbox', { name: '방 코드' })
+    expect(dialog.getByRole('button', { name: '코드로 참가' })).toBeDisabled()
+
+    await user.type(input, 'yo!r')
+    expect(input).toHaveValue('YOR')
+    expect(dialog.getByRole('button', { name: '코드로 참가' })).toBeDisabled()
+
+    await user.type(input, 'r64')
+    expect(input).toHaveValue('YORR64')
+
+    await user.click(dialog.getByRole('button', { name: '코드로 참가' }))
+    expect(navigate).toHaveBeenCalledWith({ to: '/join', search: { code: 'YORR64' } })
+  })
+
+  it('closes the code dialog again without joining', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    await user.click(screen.getByRole('button', { name: '코드로 참가' }))
+    await user.click(codeDialog().getByRole('button', { name: '코드 입력 닫기' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(navigate).not.toHaveBeenCalled()
   })
 
   it('asks before reconnecting a preserved room session', async () => {
@@ -141,7 +146,7 @@ describe('EntryPage', () => {
     render(<EntryPage />)
 
     const recovery = screen.getByRole('region', { name: '진행 중인 방' })
-    expect(within(recovery).getByText('진행 중인 방이 있어요')).toBeVisible()
+    expect(within(recovery).getByText('진행 중인 게임이 있어요')).toBeVisible()
     expect(within(recovery).getByRole('button', { name: '다시 연결' })).toBeVisible()
 
     await user.click(within(recovery).getByRole('button', { name: '다시 연결' }))
