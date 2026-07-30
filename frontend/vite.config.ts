@@ -19,7 +19,8 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: true,
-      port: 5173,
+      // 5173이 기본. 다른 세션·워크트리의 dev 서버와 겹칠 때 PORT로 바꿔 띄울 수 있다.
+      port: Number(env.PORT ?? 5173),
       // 실기기 모션 센서 테스트용. iOS Safari는 보안 컨텍스트(HTTPS)가 아니면 devicemotion을
       // 아예 막으므로 http://<LAN IP>:5173 으로는 확인할 수 없다. 터널로 HTTPS 주소를 열어
       // 폰에서 접속할 때 vite가 그 호스트를 거부하지 않도록 허용한다(dev 서버 전용).
