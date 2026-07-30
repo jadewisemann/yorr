@@ -6,5 +6,6 @@ public record GuestCreateResponse(
         @JsonProperty("id") String userId,
         String nickname,
         @JsonProperty("token") String sessionToken,
-        @JsonProperty("room_id") String roomId
+        @JsonProperty("room_id") String roomId,
+        @JsonProperty("game_code") String gameCode
 ) {}

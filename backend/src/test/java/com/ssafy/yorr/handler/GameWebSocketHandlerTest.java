@@ -5,6 +5,8 @@ import com.ssafy.yorr.game.dto.ScoreConfirmationCommand;
 import com.ssafy.yorr.game.dto.ScoreConfirmationResult;
 import com.ssafy.yorr.game.exception.ScoreConfirmationException;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
+import com.ssafy.yorr.game.module.GameModuleRegistry;
+import com.ssafy.yorr.game.yacht.YachtDiceGameModule;
 import com.ssafy.yorr.game.round.application.GameReconnectSnapshotService;
 import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionResult;
 import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
@@ -27,7 +29,7 @@ import com.ssafy.yorr.ws.dto.DiceHoldPayload;
 import com.ssafy.yorr.ws.dto.DiceRollPayload;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
-import com.ssafy.yorr.ws.dto.GameState;
+import com.ssafy.yorr.game.yacht.YachtDiceState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -79,6 +81,8 @@ class GameWebSocketHandlerTest {
         objectMapper = new JsonMapper();
         broadcaster = new InMemoryRoomBroadcaster(objectMapper);
         registry = new RoomSessionRegistry();
+        registry.registerGame("room-a", YachtDiceGameModule.CODE);
+        registry.registerGame("room-b", YachtDiceGameModule.CODE);
         heartbeatMonitor = mock(HeartbeatMonitor.class);
         roundStateStore = new InMemoryRoundStateStore();
         roundSynchronizationService = new RoundSynchronizationService(roundStateStore);
@@ -96,9 +100,10 @@ class GameWebSocketHandlerTest {
             String roomId = invocation.getArgument(0);
             return new RoomSnapshot(
                     roomId,
+                    YachtDiceGameModule.CODE,
                     "game-a",
                     "player-a",
-                    RoomPhase.PLAYING,
+                    RoomPhase.LOBBY,
                     2,
                     List.of()
             );
@@ -509,7 +514,7 @@ class GameWebSocketHandlerTest {
         registry.markPhase("room-a", com.ssafy.yorr.ws.dto.RoomPhase.PLAYING);
         broadcaster.register("room-a", oldSession);
 
-        var game = new GameState(
+        var game = new YachtDiceState(
                 3,
                 "player-a",
                 1_800_000_000_000L,
@@ -559,8 +564,10 @@ class GameWebSocketHandlerTest {
         handler = handlerWith(userService);
         when(userService.authenticateSession("token-b"))
                 .thenReturn(new UserIdentity("player-b", "Player B", UserType.GUEST));
+        when(roomService.getSnapshot("room-a")).thenReturn(new RoomSnapshot(
+                "room-a", YachtDiceGameModule.CODE, "game-a", "player-a",
+                RoomPhase.PLAYING, 2, List.of()));
         registry.join("room-a", session("existing-session"), "player-a", "Player A");
-        registry.markPhase("room-a", com.ssafy.yorr.ws.dto.RoomPhase.PLAYING);
 
         WebSocketSession newcomer = session("newcomer-session");
         handler.handle(newcomer, joinMessage("token-b", "join-active"));
@@ -866,12 +873,17 @@ class GameWebSocketHandlerTest {
                     registry,
                     heartbeatMonitor,
                     userService,
-                    scoreRoundSubmissionService,
-                    roundSynchronizationService,
-                    roundTimerService,
                     roomService,
                     roomCloseScheduler,
-                    reconnectSnapshotService
+                    new GameModuleRegistry(List.of(new YachtDiceGameModule(
+                            roundSynchronizationService,
+                            roundTimerService,
+                            registry,
+                            broadcaster,
+                            scoreRoundSubmissionService,
+                            reconnectSnapshotService,
+                            objectMapper
+                    )))
             );
         }
 

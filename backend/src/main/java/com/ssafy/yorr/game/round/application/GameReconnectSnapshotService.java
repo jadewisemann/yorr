@@ -3,7 +3,7 @@ package com.ssafy.yorr.game.round.application;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.service.GameScoreQueryService;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
-import com.ssafy.yorr.ws.dto.GameState;
+import com.ssafy.yorr.game.yacht.YachtDiceState;
 import com.ssafy.yorr.ws.dto.RoomPhase;
 import com.ssafy.yorr.ws.dto.RoomSnapshot;
 import org.springframework.stereotype.Service;
@@ -47,7 +47,7 @@ public class GameReconnectSnapshotService {
                 ))
                 .toEpochMilli();
 
-        GameState game = new GameState(
+        YachtDiceState game = new YachtDiceState(
                 round.roundNumber(),
                 round.activePlayerId(),
                 deadline,
@@ -60,6 +60,7 @@ public class GameReconnectSnapshotService {
         );
         return new RoomSnapshot(
                 room.roomId(),
+                room.gameCode(),
                 room.phase(),
                 room.hostId(),
                 room.players(),
