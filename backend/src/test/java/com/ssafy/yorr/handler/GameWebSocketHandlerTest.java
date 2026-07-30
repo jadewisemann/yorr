@@ -347,10 +347,49 @@ class GameWebSocketHandlerTest {
         // 타이머는 즉시 끊는다 — 빈 방에서 자동 굴림·자동 기록이 계속 돌면 안 된다.
         verify(roundTimerService).cancelRoom("room-a");
         assertThat(roomCloseScheduler.isPending("room-a")).isTrue();
-        assertThat(roomCloseScheduler.lastDelay).isEqualTo(GameWebSocketHandler.EMPTY_ROOM_GRACE);
+        // 진행 중인 게임이라 대기실보다 긴 유예를 준다 — 30초는 앱 전환·화면 잠금에 너무 짧다.
+        assertThat(roomCloseScheduler.lastDelay).isEqualTo(GameWebSocketHandler.ACTIVE_GAME_GRACE);
         // 진행 상태는 아직 살려둔다 — 새로고침으로 돌아올 수 있다.
         assertThat(roundStateStore.findByRoomId("room-a")).isPresent();
         verify(roomService, never()).close(any());
+    }
+
+    /** 대기실은 잃을 진행 상태가 없다. 새로고침 왕복만큼만 주고 닫는다. */
+    @Test
+    void schedulesTheShortGraceWhenAnEmptyLobbyLosesItsLastSocket() throws Exception {
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        broadcaster.register("room-a", playerA);
+
+        handler.afterConnectionClosed(playerA, CloseStatus.NORMAL);
+
+        assertThat(roomCloseScheduler.isPending("room-a")).isTrue();
+        assertThat(roomCloseScheduler.lastDelay).isEqualTo(GameWebSocketHandler.EMPTY_LOBBY_GRACE);
+    }
+
+    /**
+     * 유예가 끝나 방이 닫힌 뒤의 "이어서 하기". 메모리에만 존재하는 유령 방에 입장시키면
+     * 사용자가 대기실 화면에서 게임 시작이 404로 실패하는 막힌 상태가 된다(S15P11A406-136).
+     */
+    @Test
+    void rejectsJoinWhenTheRoomIsGoneFromRedis() throws Exception {
+        UserService userService = mock(UserService.class);
+        handler = handlerWith(userService);
+        when(userService.authenticateSession("token-a"))
+                .thenReturn(new UserIdentity("player-a", "Player A", UserType.GUEST));
+        when(roomService.getSnapshot("room-a"))
+                .thenReturn(com.ssafy.yorr.room.dto.RoomSnapshot.notFound("room-a"));
+        WebSocketSession session = session("gone-room-session");
+
+        handler.handle(session, joinMessage("token-a", "join-gone"));
+
+        ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(session).sendMessage(captor.capture());
+        assertThat(((TextMessage) captor.getValue()).getPayload())
+                .contains("\"code\":\"ROOM_NOT_FOUND\"")
+                .contains("\"refMsgId\":\"join-gone\"");
+        // 명단에 들어가지 않아야 한다 — 들어가면 그게 곧 유령 방이다.
+        assertThat(registry.of(session)).isNull();
     }
 
     @Test
