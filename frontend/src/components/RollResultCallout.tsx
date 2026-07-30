@@ -57,6 +57,7 @@ export function EffectCallout({ onDone, text, tier }: EffectCalloutProps) {
 
   // 문구는 절대 줄바꿈하지 않는다 — 좁은 화면에서 폭을 넘치면 전체 폰트를 비율로 줄인다.
   const textRef = useRef<HTMLParagraphElement>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 값을 직접 읽진 않지만 text·tier가 바뀌면 렌더된 폭이 달라져 다시 재야 한다
   useLayoutEffect(() => {
     const element = textRef.current
     const overlay = element?.closest('[role="status"]')
