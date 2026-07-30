@@ -6,7 +6,9 @@ import com.ssafy.yorr.game.round.application.port.RoundDeadlineScheduler;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.round.domain.RoundSubmission;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
+import com.ssafy.yorr.room.service.RoomService;
 import com.ssafy.yorr.ws.RoomBroadcaster;
+import com.ssafy.yorr.ws.RoomSessionRegistry;
 import com.ssafy.yorr.ws.dto.RoundEndPayload;
 import com.ssafy.yorr.ws.dto.RoundStartPayload;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
@@ -52,6 +54,9 @@ class RoundTimerServiceTest {
                 scheduler,
                 broadcaster,
                 gameCompletionService,
+                mock(RoundSynchronizationService.class),
+                new RoomSessionRegistry(),
+                mock(RoomService.class),
                 Clock.fixed(NOW, ZoneOffset.UTC)
         );
     }
