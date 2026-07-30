@@ -1,4 +1,4 @@
-import type { RoomSession, ScoreCandidates } from '@/api/gameApi'
+import type { RoomSession } from '@/api/gameApi'
 import type {
   Player,
   RoomSnapshot,
@@ -84,23 +84,6 @@ export const participantSession = {
   sessionToken: 'session-participant-64',
   snapshot: waitingRoomSnapshot,
 } satisfies RoomSession
-
-export const scoreCandidates: ScoreCandidates = {
-  candidates: {
-    ones: 1,
-    twos: 4,
-    threes: 6,
-    fours: 0,
-    fives: 5,
-    sixes: 0,
-    choice: 16,
-    fourOfAKind: 0,
-    fullHouse: 0,
-    smallStraight: 0,
-    largeStraight: 0,
-    yacht: 0,
-  },
-}
 
 export function serverMessage<T extends ServerMessage['type']>(
   type: T,
