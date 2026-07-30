@@ -3,6 +3,10 @@
   족보 콜아웃 음성(S15P11A406-138) 생성기.
 
 .DESCRIPTION
+  기본 경로는 직접 녹음이다 — scripts/voice-source/에 녹음을 넣고
+  scripts/import-hand-voice.mjs를 돌리면 된다. 이 스크립트는 녹음이 없을 때
+  임시 음성을 채우는 fallback이다(기계음 티가 나므로 대체 전까지만 쓴다).
+
   Windows SAPI의 한국어 여성 음성(Microsoft Heami)으로 public/audio/hand-voice/*.wav를 만든다.
   SAPI 원본은 앞뒤 무음이 100ms 넘게 붙고 피크가 40% 정도라 그대로 쓰면 콜아웃 텍스트가
   뜬 뒤에 뒤늦게, 작게 들린다. 그래서 생성 → 무음 트림 → 피크 정규화까지 여기서 끝낸다.

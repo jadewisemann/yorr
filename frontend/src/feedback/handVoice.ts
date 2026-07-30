@@ -2,8 +2,9 @@ import { SPECIAL_HANDS_BY_RANK, type SpecialHand } from '@/domain/specialHands'
 
 /**
  * `public/audio/hand-voice/`의 콜아웃 음성. 화면에 뜨는 족보 텍스트와 같은 말을 읽는다.
- * 성우 녹음이나 다른 TTS로 교체할 때는 같은 경로에 덮어쓰면 코드 변경이 필요 없다
- * (생성 스크립트는 `scripts/generate-hand-voice.ps1`).
+ * 직접 녹음한 파일을 `scripts/voice-source/`에 넣고 `scripts/import-hand-voice.mjs`를
+ * 돌리면 이 경로에 만들어진다 — 목소리를 바꿔도 코드는 그대로다.
+ * 파일이 없거나 재생이 막히면 조용히 넘어가고 콜아웃 텍스트만 남는다.
  */
 const SOURCE_BY_HAND: Record<SpecialHand, string> = {
   fourOfAKind: '/audio/hand-voice/four-of-a-kind.wav',
