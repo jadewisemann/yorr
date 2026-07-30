@@ -1,28 +1,50 @@
+/**
+ * 이 씬은 주사위 한 변 0.76유닛 = 실물 약 16mm이므로 축척이 실물의 약 47배다. 그래서 실제
+ * 중력에 대응하는 값은 9.81 × 47.5 ≈ 466이고, 원래 튜닝(중력 30)은 움직임 자체는 자연스러웠지만
+ * 1/15 슬로모션이었다 — 그게 "천천히 떨어진다"의 실체다.
+ *
+ * 여기서 중요한 건 **중력만 올리면 안 된다**는 점이다. 낙하를 빠르게 하는 올바른 방법은
+ * 물리 닮음(dynamic similarity)을 지켜 "같은 움직임을 빠르게 재생"하는 것이다.
+ * 중력을 GRAVITY_SCALE배 하면 SPEEDUP = √GRAVITY_SCALE 로:
+ *
+ * - 속도 · 각속도 · 임펄스        → × SPEEDUP
+ * - 감쇠 계수(1/초) · 정착 임계 속도 → × SPEEDUP
+ * - 시간 간격(임펄스 주입 주기 등)   → ÷ SPEEDUP
+ * - 거리 · 마찰 · 반발 계수(무차원)  → 그대로
+ *
+ * 이 관계가 깨지면 궤적의 **모양**이 바뀐다. S15P11A406-129에서 중력만 12배 올리고 속도를
+ * 1.7배만 올렸을 때, 비행 중 회전이 0.71 → 0.35바퀴로 반토막 나고 사발 안 회전 속도가
+ * 3.5 → 0.5로 떨어져 "주사위가 안 구르고 그냥 처박힌다"가 됐다. 그래서 값을 하나씩 적지 않고
+ * 아래처럼 **원래의 자연스러운 튜닝 × SPEEDUP** 으로 유도한다 — 반쪽만 바꾸는 실수를 막는다.
+ */
+const GRAVITY_SCALE = 12
+const SPEEDUP = Math.sqrt(GRAVITY_SCALE)
+
 export const PHYSICS_DICE_CONFIG = {
   defaults: {
     diceSize: 0.76,
     mass: 1.15,
-    /* 주사위 한 변이 0.76 유닛이므로 이 씬의 축척은 실물(≈16mm) 대비 약 47배다 —
-       즉 실제 중력에 대응하는 값은 9.81×47.5 ≈ 466이고, 30은 여전히 1/15 슬로모션이었다
-       (18 → 30으로 올린 S15P11A406-94 뒤에도 "천천히 떨어진다"가 남은 이유).
-       실측(40시드)으로 360에서 낙하 정착이 1283ms → 368ms가 되고, 466까지 올려도
-       체감·침투가 더 나아지지 않으면서 스텝 비용만 늘어 360으로 잡았다.
-       ⚠ gravity를 올리면 simulationHz를 반드시 함께 올려야 한다 — 아래 주석 참고. */
-    gravity: 360,
+    gravity: 30 * GRAVITY_SCALE,
     friction: 0.74,
     restitution: 0.34,
-    linearDamping: 0.16,
-    angularDamping: 0.2,
-    /* 쏟는 속도·측면 임펄스·토크에 함께 곱해지는 던지는 힘. 중력과 같이 올려야
-       "강하게 던져서 빨리 떨어진다"가 되고, 한쪽만 올리면 굴러가거나 낙하만 빨라진다. */
-    throwForce: 7.2,
-    /* 물리 스텝 주기. gravity와 짝을 맞춰야 하는 값이다 — 한 스텝에 주사위가 자기 몸통의
-       몇 할을 지나가는지(step/width)가 곧 관통 깊이를 결정한다. 60Hz·gravity 30에서는
-       최고 속도 기준 몸통의 53%를 한 스텝에 지나가 주사위끼리 최대 0.304(몸통 폭의 57%)까지
-       파고들었고, 이것이 "물리 엔진 오류·겹침"으로 보였다. 300Hz에서는 21%/0.090로 줄어든다.
-       gravity만 올리고 이 값을 두면 오히려 최악이 된다 — gravity 240·60Hz 실측에서 한 굴림이
-       12.6초까지 튀었다(step/width 0.98). 60fps 프레임당 정확히 5 서브스텝이라 계산이 깔끔하다. */
-    simulationHz: 300,
+    /* 감쇠는 "초당" 비율이라 시간이 빨라진 만큼 함께 올려야 같은 거리에서 같이 잦아든다. */
+    linearDamping: 0.16 * SPEEDUP,
+    angularDamping: 0.2 * SPEEDUP,
+    /* 쏟는 속도 · 측면 임펄스에 곱해지는 던지는 힘 — 속도 차원이라 × SPEEDUP. */
+    throwForce: 4.2 * SPEEDUP,
+    /* 물리 스텝 주기. 한 스텝에 주사위가 자기 몸통의 몇 할을 지나가는지가 관통 깊이를 정한다.
+       60Hz · 중력 30에서는 몸통의 53%를 한 스텝에 지나가 주사위끼리 몸통 폭의 57%(0.284)까지
+       파고들었다("겹침"). 속도가 SPEEDUP배 빨라졌으므로 주기도 그만큼 이상 올려야 한다 —
+       480Hz에서 23% · 0.073으로 줄었다. 60fps 프레임당 8 서브스텝. */
+    simulationHz: 480,
+    /* Rapier soft CCD — 빠르고 작은 물체의 관통을 예측으로 막는다(문서 권장). 0.15면 포화하고
+       그 이상 올려도 관통이 더 줄지 않는다. 스텝만 올려서는 0.136이 하한인데 이걸 켜면 0.073. */
+    softCcdPrediction: 0.15,
+    /* 사발에서 주사위를 꺼낼 때의 초기 속도·각속도(원래 3 · 2 · 19). World.startRoll이 쓴다 —
+       하드코딩해 두면 SPEEDUP을 바꿀 때 같이 안 올라가서 회전이 모자라진다. */
+    spawnLinearSpeed: 3 * SPEEDUP,
+    spawnLiftSpeed: 2 * SPEEDUP,
+    spawnAngularSpeed: 19 * SPEEDUP,
   },
   quality: {
     eco: { pixelRatio: 1, shadows: false, shadowSize: 0 },
@@ -90,25 +112,31 @@ export const PHYSICS_DICE_CONFIG = {
       tiltDegrees: 104,
       visualTiltDegrees: 104,
       tiltDirection: 1,
-      shakeIntervalMs: 105,
+      /* 임펄스를 주입하는 주기 — 눈에 보이는 연출이 아니라 물리 타이밍이라 ÷ SPEEDUP.
+         사발 안 회전 속도를 좌우하는 건 임펄스의 크기보다 이 **주입 빈도**였다:
+         105ms 그대로 두면 3.5 → 1.8로 죽고, ÷SPEEDUP(≈30ms)로 줄이면 3.0으로 돌아온다.
+         반면 진폭·주파수를 2~3배 키워도 1.8 → 1.9밖에 안 올라간다. */
+      shakeIntervalMs: 105 / SPEEDUP,
+      /* 아래 진폭·주파수·yaw는 눈에 보이는 사발 연출이라 그대로 둔다 — 시간 축척을 여기까지
+         적용하면 사발이 8Hz로 떨려 정신없어진다. */
       shakeOffsetX: 0.13,
       shakeOffsetZ: 0.11,
       shakeYaw: 0.075,
+      /* 무차원 — (사발 속도 − 주사위 속도)에 곱하므로 속도가 커지면 임펄스도 자동으로 커진다. */
       shakeFollowStrength: 0.055,
-      shakeCenterStrength: 0.025,
-      shakeOrbitStrength: 0.075,
-      /* 사발 안에서 주사위를 띄우는 힘. 중력을 12배로 올릴 때 같이 올려야 하나 실측해 봤는데,
-         사발 안 평균 속도는 임펄스를 12배까지 키워도 2.07 → 2.13으로 거의 그대로였다
-         (사발의 kinematic 운동과 중력이 지배적이라 이 임펄스는 활기를 좌우하지 않는다).
-         오히려 키우면 비스듬히 멈추는 주사위만 200개 중 4개 → 15개로 늘어 그대로 둔다. */
-      shakeLiftImpulse: 0.24,
-      shakeRandomImpulse: 0.06,
+      /* 거리에 곱해 임펄스를 만드는 계수라 × SPEEDUP. */
+      shakeCenterStrength: 0.025 * SPEEDUP,
+      shakeOrbitStrength: 0.075 * SPEEDUP,
+      shakeLiftImpulse: 0.24 * SPEEDUP,
+      shakeRandomImpulse: 0.06 * SPEEDUP,
+      /* 흔드는 동안 주사위를 굴리는 토크 임펄스(원래 0.55, World.updateBowl이 쓴다). */
+      shakeTorqueImpulse: 0.55 * SPEEDUP,
       followDecayMs: 340,
       followMinIntensity: 0.04,
       followPulseFloor: 0.4,
       followPulseGain: 0.6,
-      followPulseImpulse: 0.55,
-      followPulseLift: 0.17,
+      followPulseImpulse: 0.55 * SPEEDUP,
+      followPulseLift: 0.17 * SPEEDUP,
       followStartEnergy: 0.75,
       spawnBaseY: 0.58,
       spawnRangeY: 0.08,
@@ -127,12 +155,14 @@ export const PHYSICS_DICE_CONFIG = {
       spillForceMultiplier: 1,
       spillMinimumSpeed: 2,
       spillRandomSpeed: 0.8,
-      /* throwForce가 곱해지는 값이라 그대로 두면 던지는 힘을 올린 만큼 더 높이 뜬다.
-         체공을 늘리지 않으려고 낮춘다 — 수평은 강해지고 궤적은 낮아진다. */
+      /* 아래 spill 값들은 throwForce(= 4.2 × SPEEDUP)가 곱해지므로 이미 속도 차원이 맞다.
+         따로 만지면 궤적 모양이 어긋난다 — 원래 튜닝 값을 그대로 둔다. */
       spillLiftSpeed: 0.4,
       spillFanSpeed: 0.22,
       spillRandomZ: 0.25,
-      spillTorque: 0.9,
+      /* throwForce가 곱해지지 않는 토크라 여기서 직접 × SPEEDUP 해야 한다.
+         이걸 빼먹으면 주사위가 비행 중 덜 회전해 미끄러지듯 처박힌다. */
+      spillTorque: 0.9 * SPEEDUP,
       spillSideImpulse: 1.15,
       spillSideImpulseVariance: 0.12,
       visual: {
@@ -154,14 +184,19 @@ export const PHYSICS_DICE_CONFIG = {
       lift: 0.52,
     },
     settlement: {
-      angularSpeed: 0.18,
-      linearSpeed: 0.13,
-      minRollDurationMs: 900,
-      stableFrames: 14,
+      /* 정착 판정 임계 **속도**라 × SPEEDUP. 안 올리면 세상이 빨라진 만큼 기준만 엄격해져서
+         주사위가 멈춘 뒤에도 한참 정착으로 안 넘어간다. */
+      angularSpeed: 0.18 * SPEEDUP,
+      linearSpeed: 0.13 * SPEEDUP,
+      /* 시간이라 ÷ SPEEDUP. */
+      minRollDurationMs: 900 / SPEEDUP,
+      /* 렌더 프레임 수(≈60fps)로 세므로 시간 축척을 따라 줄인다 — 14프레임(233ms)을 그대로 두면
+         이미 멈춘 주사위를 233ms 더 쳐다보는 지연이 붙는다. */
+      stableFrames: 5,
       /* 정착을 못 해도 굴림을 끝내는 상한(쏟기 시작 기준). 이게 없으면 주사위가 계속 튀는
          동안 checkSettled가 영원히 정렬로 넘어가지 못해 게임이 굴림 중에 멈춘다 —
-         gravity를 올리고 simulationHz를 안 올린 조합에서 실제로 12.6초까지 나왔다.
-         실측 최악값은 쏟기 시작 후 약 1.6초(체공 740ms + 정착 840ms)라 넉넉히 잡는다.
+         닮음을 깨고 gravity만 올린 조합에서 실제로 12.6초까지 나왔다.
+         실측 최악값은 쏟기 시작 후 약 1.15초(체공 740ms + 정착 400ms)라 여유를 크게 둔다.
          결과값은 targetDice로 이미 확정되어 있으므로 조기 마감이 점수를 바꾸지 않는다. */
       maxRollDurationMs: 2600,
     },

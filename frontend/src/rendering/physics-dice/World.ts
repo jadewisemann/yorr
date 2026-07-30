@@ -223,17 +223,17 @@ export class PhysicsDiceWorld {
       entry.body.setRotation(this.randomQuaternion(), true)
       entry.body.setLinvel(
         {
-          x: (this.random.next() - 0.5) * 3,
-          y: this.random.next() * 2,
-          z: (this.random.next() - 0.5) * 3,
+          x: (this.random.next() - 0.5) * CONFIG.defaults.spawnLinearSpeed,
+          y: this.random.next() * CONFIG.defaults.spawnLiftSpeed,
+          z: (this.random.next() - 0.5) * CONFIG.defaults.spawnLinearSpeed,
         },
         true,
       )
       entry.body.setAngvel(
         {
-          x: (this.random.next() - 0.5) * 19,
-          y: (this.random.next() - 0.5) * 19,
-          z: (this.random.next() - 0.5) * 19,
+          x: (this.random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
+          y: (this.random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
+          z: (this.random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
         },
         true,
       )
@@ -452,11 +452,12 @@ export class PhysicsDiceWorld {
             },
             true,
           )
+          const torque = SCENE.bowl.shakeTorqueImpulse * intensity
           entry.body.applyTorqueImpulse(
             {
-              x: (this.random.next() - 0.5) * 0.55 * intensity,
-              y: (this.random.next() - 0.5) * 0.55 * intensity,
-              z: (this.random.next() - 0.5) * 0.55 * intensity,
+              x: (this.random.next() - 0.5) * torque,
+              y: (this.random.next() - 0.5) * torque,
+              z: (this.random.next() - 0.5) * torque,
             },
             true,
           )

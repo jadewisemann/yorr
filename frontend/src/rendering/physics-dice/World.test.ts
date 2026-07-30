@@ -6,52 +6,108 @@ import { PHYSICS_DICE_CONFIG } from './config'
 import { createDiceInstances } from './diceInstances'
 import { createPhysicsDiceRandom } from './random'
 import { isBodySettled } from './remap'
-import type { DieEntry } from './runtimeTypes'
 import { containDiceInBowl, containDiceInTray } from './safety'
 import type { PhysicsHeldDice } from './types'
 
 /**
  * 주사위 물리 회귀 테스트(S15P11A406-129).
  *
- * `gravity` · `simulationHz` · `throwForce`는 서로 짝이 맞아야 하는 값이라 하나만 만지면
- * 티켓의 증상이 다시 나온다. 이전 수정(S15P11A406-94)이 중력만 18 → 30으로 올리고 스텝 주기를
- * 그대로 둬서 증상이 남았기 때문에, 값 하나가 아니라 **관계**를 잠근다:
+ * 이 티켓은 같은 증상으로 두 번 돌아왔다. 첫 시도는 중력만 18 → 30, 두 번째는 30 → 360으로
+ * 올렸는데 **속도·각속도·감쇠를 함께 올리지 않아** 물리 닮음이 깨졌다. 그래서 낙하는 빨라졌지만
+ * 비행 중 회전이 0.71 → 0.35바퀴, 사발 안 회전 속도가 3.5 → 0.5로 죽어서 주사위가 구르지 않고
+ * 미끄러지듯 처박혔다("하나도 안 자연스러워").
  *
- * 1. **겹침·관통** — 한 스텝에 주사위가 자기 몸통의 몇 할을 지나가는지가 관통 깊이를 정한다.
- *    60Hz · 중력 30에서는 몸통의 53%를 한 스텝에 지나가 주사위끼리 몸통 폭의 57%까지 파고들었다.
- * 2. **천천히 떨어짐** — 쏟은 뒤 정착까지 걸리는 시간(수정 전 평균 1283ms).
- * 3. **굴림이 안 끝남** — 중력만 올린 조합에서는 한 굴림이 12.6초까지 튀었다. 상한이 있어야 한다.
+ * 그래서 이 테스트는 값이 아니라 **움직임의 모양**을 잠근다. 수정 전(중력 30) 튜닝을 기준선으로
+ * 같은 시드로 함께 돌려서, 현재 설정이 "같은 움직임을 빠르게 재생"인지 비율로 확인한다:
  *
- * 값을 여기 복제하면 config를 바꿔도 통과해버리므로 전부 config에서 읽는다.
+ * - `turns`    — 비행 중 총 회전수. 이게 줄면 주사위가 미끄러진다.
+ * - `bowlSpin` — 사발 안 평균 각속도. 이게 줄면 주사위가 사발 바닥에 눌려 안 구른다.
+ * - `apex` · `travel` — 궤적의 높이·거리.
+ * - `maxPen`   — 주사위끼리 실제 침투 깊이(narrow-phase). "겹침"의 실체.
+ *
+ * 값을 여기 복제하면 config를 바꿔도 통과해버리므로 현재 값은 전부 config에서 읽는다.
  */
 const CONFIG = PHYSICS_DICE_CONFIG
 const SCENE = CONFIG.scene
 const NO_HELD: PhysicsHeldDice = [false, false, false, false, false]
-const SEEDS = [7, 9180, 18353, 27526, 36699, 45872, 55045, 64218, 73391, 82564, 91737, 100910]
-const DIE_HALF = CONFIG.defaults.diceSize * SCENE.colliderHalfRatio * SCENE.bowlDiceScale
-const DIE_WIDTH = DIE_HALF * 2
+const SEEDS = Array.from({ length: 24 }, (_, i) => 7 + i * 9173)
+const RENDER_HZ = 60
 
-/** 주사위끼리의 실제 침투 깊이(narrow-phase). 회전한 큐브라 AABB 근사는 크게 과대평가한다. */
-function dicePenetration(world: RAPIER.World, entries: DieEntry[]) {
-  let worst = 0
-  for (let a = 0; a < entries.length; a += 1) {
-    for (let b = a + 1; b < entries.length; b += 1) {
-      const first = entries[a]?.collider
-      const second = entries[b]?.collider
-      if (!first || !second) continue
-      world.contactPair(first, second, (manifold) => {
-        for (let index = 0; index < manifold.numContacts(); index += 1) {
-          const dist = manifold.contactDist(index)
-          if (dist < 0) worst = Math.max(worst, -dist)
-        }
-      })
-    }
-  }
-  return worst
+/** 수정 전(중력 30) 튜닝 — 느렸지만 움직임 자체는 자연스러웠던 기준선 */
+const ORIGINAL = {
+  gravity: 30,
+  hz: 60,
+  throwForce: 4.2,
+  linearDamping: 0.16,
+  angularDamping: 0.2,
+  spillTorque: 0.9,
+  shakeLift: 0.24,
+  shakeRandom: 0.06,
+  shakeCenter: 0.025,
+  shakeOrbit: 0.075,
+  shakeTorque: 0.55,
+  shakeInterval: 105,
+  settleLinear: 0.13,
+  settleAngular: 0.18,
+  stableFrames: 14,
+  spawnLinear: 3,
+  spawnLift: 2,
+  spawnAngular: 19,
+  softCcd: 0,
 }
 
-/** World의 startRoll → releaseFromBowl 물리 경로를 렌더러 없이 그대로 재현한다. */
-function simulateRoll(seed: number) {
+type Overrides = Partial<typeof ORIGINAL> | null
+type NumberMap = Record<string, number>
+
+/** config는 `as const`지만 런타임에는 평범한 객체다 — 기준선 비교를 위해 잠시 바꿔 쓴다. */
+interface MutableConfig {
+  defaults: NumberMap
+  scene: { bowl: NumberMap; settlement: NumberMap }
+}
+
+const MUTABLE = PHYSICS_DICE_CONFIG as unknown as MutableConfig
+
+function override(o: Overrides) {
+  if (!o) return null
+  const d = MUTABLE.defaults
+  const bowl = MUTABLE.scene.bowl
+  const settle = MUTABLE.scene.settlement
+  const before = {
+    d: { ...d },
+    bowl: { ...bowl },
+    settle: { ...settle },
+  }
+  if (o.gravity !== undefined) d.gravity = o.gravity
+  if (o.hz !== undefined) d.simulationHz = o.hz
+  if (o.throwForce !== undefined) d.throwForce = o.throwForce
+  if (o.linearDamping !== undefined) d.linearDamping = o.linearDamping
+  if (o.angularDamping !== undefined) d.angularDamping = o.angularDamping
+  if (o.softCcd !== undefined) d.softCcdPrediction = o.softCcd
+  if (o.spawnLinear !== undefined) d.spawnLinearSpeed = o.spawnLinear
+  if (o.spawnLift !== undefined) d.spawnLiftSpeed = o.spawnLift
+  if (o.spawnAngular !== undefined) d.spawnAngularSpeed = o.spawnAngular
+  if (o.spillTorque !== undefined) bowl.spillTorque = o.spillTorque
+  if (o.shakeLift !== undefined) bowl.shakeLiftImpulse = o.shakeLift
+  if (o.shakeRandom !== undefined) bowl.shakeRandomImpulse = o.shakeRandom
+  if (o.shakeCenter !== undefined) bowl.shakeCenterStrength = o.shakeCenter
+  if (o.shakeOrbit !== undefined) bowl.shakeOrbitStrength = o.shakeOrbit
+  if (o.shakeTorque !== undefined) bowl.shakeTorqueImpulse = o.shakeTorque
+  if (o.shakeInterval !== undefined) bowl.shakeIntervalMs = o.shakeInterval
+  if (o.settleLinear !== undefined) settle.linearSpeed = o.settleLinear
+  if (o.settleAngular !== undefined) settle.angularSpeed = o.settleAngular
+  if (o.stableFrames !== undefined) settle.stableFrames = o.stableFrames
+  return before
+}
+
+function restore(before: ReturnType<typeof override>) {
+  if (!before) return
+  Object.assign(MUTABLE.defaults, before.d)
+  Object.assign(MUTABLE.scene.bowl, before.bowl)
+  Object.assign(MUTABLE.scene.settlement, before.settle)
+}
+
+/** World의 shaking → pour → releaseFromBowl → checkSettled를 렌더러 없이 그대로 재현한다. */
+function simulate(seed: number) {
   const scene = new THREE.Scene()
   const world = new RAPIER.World({ x: 0, y: -CONFIG.defaults.gravity, z: 0 })
   world.timestep = 1 / CONFIG.defaults.simulationHz
@@ -59,16 +115,22 @@ function simulateRoll(seed: number) {
   const { bowlBody } = createBowl(scene, world)
   const { entries } = createDiceInstances(scene, world)
   const random = createPhysicsDiceRandom(seed)
+  const half = CONFIG.defaults.diceSize * SCENE.colliderHalfRatio * SCENE.bowlDiceScale
+  // World.frame은 렌더 프레임마다 checkSettled를 부른다 — 서브스텝마다가 아니다.
+  const substepsPerFrame = Math.max(1, Math.round(CONFIG.defaults.simulationHz / RENDER_HZ))
 
   bowlBody.setTranslation(
     { x: SCENE.bowl.startX, y: SCENE.bowl.hoverY, z: SCENE.bowl.startZ },
     true,
   )
   entries.forEach((entry) => {
-    entry.collider.setShape(new RAPIER.Cuboid(DIE_HALF, DIE_HALF, DIE_HALF))
+    entry.collider.setShape(new RAPIER.Cuboid(half, half, half))
     const angle = (entry.index / entries.length) * Math.PI * 2 - Math.PI / 2
     const radius = SCENE.bowl.spawnRadius + (random.next() - 0.5) * SCENE.bowl.spawnJitter
     entry.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true)
+    entry.body.setLinearDamping(CONFIG.defaults.linearDamping)
+    entry.body.setAngularDamping(CONFIG.defaults.angularDamping)
+    entry.body.setSoftCcdPrediction(CONFIG.defaults.softCcdPrediction)
     entry.body.setTranslation(
       {
         x: SCENE.bowl.startX + Math.cos(angle) * radius,
@@ -78,23 +140,75 @@ function simulateRoll(seed: number) {
       true,
     )
     entry.body.setLinvel(
-      { x: (random.next() - 0.5) * 3, y: random.next() * 2, z: (random.next() - 0.5) * 3 },
+      {
+        x: (random.next() - 0.5) * CONFIG.defaults.spawnLinearSpeed,
+        y: random.next() * CONFIG.defaults.spawnLiftSpeed,
+        z: (random.next() - 0.5) * CONFIG.defaults.spawnLinearSpeed,
+      },
       true,
     )
     entry.body.setAngvel(
       {
-        x: (random.next() - 0.5) * 19,
-        y: (random.next() - 0.5) * 19,
-        z: (random.next() - 0.5) * 19,
+        x: (random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
+        y: (random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
+        z: (random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
       },
       true,
     )
     entry.body.wakeUp()
   })
 
-  for (let step = 0; step < Math.round(1.2 * CONFIG.defaults.simulationHz); step += 1) {
+  // 흔들기 1.2초 — 사발 연출 주기는 config 그대로, 임펄스 주입은 shakeIntervalMs 그대로
+  let bowlAngvelSum = 0
+  let bowlSamples = 0
+  let lastKick = -1e9
+  const shakeSteps = Math.round(1.2 * CONFIG.defaults.simulationHz)
+  for (let step = 0; step < shakeSteps; step += 1) {
+    const timeMs = (step / CONFIG.defaults.simulationHz) * 1000
+    const elapsed = timeMs / 1000
+    const x = SCENE.bowl.startX + Math.sin(elapsed * 15) * SCENE.bowl.shakeOffsetX
+    const z = SCENE.bowl.startZ + Math.sin(elapsed * 19 + 0.8) * SCENE.bowl.shakeOffsetZ
+    const bvx = Math.cos(elapsed * 15) * 15 * SCENE.bowl.shakeOffsetX
+    const bvz = Math.cos(elapsed * 19 + 0.8) * 19 * SCENE.bowl.shakeOffsetZ
+    bowlBody.setNextKinematicTranslation({ x, y: SCENE.bowl.hoverY, z })
+    if (timeMs - lastKick >= SCENE.bowl.shakeIntervalMs) {
+      lastKick = timeMs
+      const mass = CONFIG.defaults.mass
+      entries.forEach((entry) => {
+        const p = entry.body.translation()
+        const v = entry.body.linvel()
+        entry.body.applyImpulse(
+          {
+            x:
+              (bvx - v.x) * SCENE.bowl.shakeFollowStrength * mass +
+              (x - p.x) * SCENE.bowl.shakeCenterStrength -
+              (z - p.z) * SCENE.bowl.shakeOrbitStrength,
+            y: SCENE.bowl.shakeLiftImpulse + random.next() * SCENE.bowl.shakeRandomImpulse,
+            z:
+              (bvz - v.z) * SCENE.bowl.shakeFollowStrength * mass +
+              (z - p.z) * SCENE.bowl.shakeCenterStrength +
+              (x - p.x) * SCENE.bowl.shakeOrbitStrength,
+          },
+          true,
+        )
+        const torque = SCENE.bowl.shakeTorqueImpulse
+        entry.body.applyTorqueImpulse(
+          {
+            x: (random.next() - 0.5) * torque,
+            y: (random.next() - 0.5) * torque,
+            z: (random.next() - 0.5) * torque,
+          },
+          true,
+        )
+      })
+    }
     world.step()
     containDiceInBowl(entries, NO_HELD, bowlBody)
+    for (const entry of entries) {
+      const a = entry.body.angvel()
+      bowlAngvelSum += Math.hypot(a.x, a.y, a.z)
+      bowlSamples += 1
+    }
   }
 
   bowlBody.setTranslation({ x: 10, y: -5, z: 0 }, true)
@@ -102,22 +216,18 @@ function simulateRoll(seed: number) {
   entries.forEach((entry, index) => {
     entry.enteredTray = false
     const fan = index - (entries.length - 1) / 2
-    const velocity = entry.body.linvel()
+    const v = entry.body.linvel()
     const targetX =
       (SCENE.bowl.spillMinimumSpeed + random.next() * SCENE.bowl.spillRandomSpeed) *
       force *
       SCENE.bowl.spillForceMultiplier *
       SCENE.bowl.spillDirectionX
-    const inheritedX = velocity.x * 0.7
     entry.body.setLinvel(
       {
-        x:
-          SCENE.bowl.spillDirectionX < 0
-            ? Math.min(inheritedX, targetX)
-            : Math.max(inheritedX, targetX),
-        y: Math.max(velocity.y * 0.7, SCENE.bowl.spillLiftSpeed * force),
+        x: Math.min(v.x * 0.7, targetX),
+        y: Math.max(v.y * 0.7, SCENE.bowl.spillLiftSpeed * force),
         z:
-          velocity.z * 0.65 +
+          v.z * 0.65 +
           fan * SCENE.bowl.spillFanSpeed * force +
           (random.next() - 0.5) * SCENE.bowl.spillRandomZ,
       },
@@ -146,74 +256,156 @@ function simulateRoll(seed: number) {
     )
   })
 
-  let stableSteps = 0
-  let settledMs: number | null = null
-  let maxPenetration = 0
+  let rotation = 0
+  let apex = 0
+  let travel = 0
+  let maxPen = 0
   let maxSpeed = 0
+  let stableFrames = 0
+  let settledMs: number | null = null
+  const restY = CONFIG.defaults.diceSize * SCENE.bowlDiceScale * 0.5
+  const startX = entries.map((e) => e.body.translation().x)
   const maxSteps = Math.round(30 * CONFIG.defaults.simulationHz)
+
   for (let step = 0; step < maxSteps; step += 1) {
     world.step()
     containDiceInTray(entries)
     for (const entry of entries) {
-      const velocity = entry.body.linvel()
-      maxSpeed = Math.max(maxSpeed, Math.hypot(velocity.x, velocity.y, velocity.z))
+      const a = entry.body.angvel()
+      rotation += Math.hypot(a.x, a.y, a.z) * world.timestep
+      const p = entry.body.translation()
+      apex = Math.max(apex, p.y - restY)
+      const v = entry.body.linvel()
+      maxSpeed = Math.max(maxSpeed, Math.hypot(v.x, v.y, v.z))
     }
-    maxPenetration = Math.max(maxPenetration, dicePenetration(world, entries))
-    stableSteps = entries.every((entry) => isBodySettled(entry.body)) ? stableSteps + 1 : 0
-    if (stableSteps >= SCENE.settlement.stableFrames) {
-      settledMs = Math.round((step / CONFIG.defaults.simulationHz) * 1000)
-      break
+    for (let a = 0; a < entries.length; a += 1) {
+      for (let b = a + 1; b < entries.length; b += 1) {
+        const ca = entries[a]?.collider
+        const cb = entries[b]?.collider
+        if (!ca || !cb) continue
+        world.contactPair(ca, cb, (mf) => {
+          for (let i = 0; i < mf.numContacts(); i += 1) {
+            if (mf.contactDist(i) < 0) maxPen = Math.max(maxPen, -mf.contactDist(i))
+          }
+        })
+      }
+    }
+    // 렌더 프레임 경계에서만 정착을 본다 — World.checkSettled와 같은 빈도
+    if (step % substepsPerFrame === 0) {
+      stableFrames = entries.every((e) => isBodySettled(e.body)) ? stableFrames + 1 : 0
+      if (stableFrames >= SCENE.settlement.stableFrames) {
+        settledMs = Math.round((step / CONFIG.defaults.simulationHz) * 1000)
+        break
+      }
     }
   }
-
-  const restY = entries.map((entry) => entry.body.translation().y)
-  const escaped = entries.some((entry) => {
-    const position = entry.body.translation()
-    return Math.abs(position.x) > SCENE.tray.entryApronMaxX || position.y < -1
+  entries.forEach((e, i) => {
+    travel += Math.abs(e.body.translation().x - (startX[i] ?? 0))
   })
+  const escaped = entries.some((e) => {
+    const p = e.body.translation()
+    return Math.abs(p.x) > SCENE.tray.entryApronMaxX || p.y < -1
+  })
+  const maxRestY = Math.max(...entries.map((e) => e.body.translation().y))
   world.free()
-  return { settledMs, maxPenetration, maxSpeed, restY, escaped }
+
+  return {
+    settledMs,
+    turns: rotation / (2 * Math.PI) / entries.length,
+    apex,
+    travel: travel / entries.length,
+    maxPen,
+    maxSpeed,
+    escaped,
+    bowlSpin: bowlAngvelSum / Math.max(1, bowlSamples),
+    maxRestY,
+  }
+}
+
+function measure(name: string, o: Overrides) {
+  const before = override(o)
+  const runs = SEEDS.map((seed) => simulate(seed))
+  const hz = CONFIG.defaults.simulationHz
+  const width = CONFIG.defaults.diceSize * SCENE.colliderHalfRatio * SCENE.bowlDiceScale * 2
+  restore(before)
+  const avg = (pick: (r: (typeof runs)[0]) => number) =>
+    runs.reduce((s, r) => s + pick(r), 0) / runs.length
+  const settled = runs.filter((r) => r.settledMs !== null).map((r) => r.settledMs as number)
+  return {
+    name,
+    settleAvg: Math.round(settled.reduce((a, b) => a + b, 0) / Math.max(1, settled.length)),
+    settleMax: settled.length ? Math.max(...settled) : -1,
+    hangs: runs.length - settled.length,
+    turns: avg((r) => r.turns),
+    apex: avg((r) => r.apex),
+    travel: avg((r) => r.travel),
+    maxPen: Math.max(...runs.map((r) => r.maxPen)),
+    stepW: Math.max(...runs.map((r) => r.maxSpeed)) / hz / width,
+    bowlSpin: avg((r) => r.bowlSpin),
+    escaped: runs.filter((r) => r.escaped).length,
+    stacked: runs.filter((r) => r.maxRestY > width).length,
+  }
 }
 
 beforeAll(async () => {
   await RAPIER.init()
 })
 
-it('쏟은 주사위가 트레이 안에서 빠르게 바닥에 안착한다', () => {
-  const runs = SEEDS.map((seed) => simulateRoll(seed))
+/** 두 측정을 한 번만 돌려 세 테스트가 함께 쓴다(각 24시드 × 5주사위). */
+let current: ReturnType<typeof measure>
+let original: ReturnType<typeof measure>
 
-  for (const run of runs) {
-    expect(run.escaped).toBe(false)
-    expect(run.settledMs).not.toBeNull()
-    // 바닥에 눕는다 — 다른 주사위 위에 올라탄 채로 끝나지 않는다.
-    for (const y of run.restY) expect(y).toBeLessThan(DIE_WIDTH)
-  }
-
-  const settled = runs.map((run) => run.settledMs as number)
-  const average = settled.reduce((sum, value) => sum + value, 0) / settled.length
-  // 수정 전(중력 30)에는 평균 1283ms · 최악 2900ms였다 — "천천히 떨어진다"의 실체.
-  expect(average).toBeLessThan(700)
-  expect(Math.max(...settled)).toBeLessThan(1600)
+beforeAll(() => {
+  current = measure('현재 config', null)
+  original = measure('원본 g=30', ORIGINAL)
 })
 
-it('굴러가는 주사위가 서로를 눈에 보이게 파고들지 않는다', () => {
-  const runs = SEEDS.map((seed) => simulateRoll(seed))
-  const worstPenetration = Math.max(...runs.map((run) => run.maxPenetration))
-  const worstStepTravel =
-    Math.max(...runs.map((run) => run.maxSpeed)) / CONFIG.defaults.simulationHz
+it('쏟은 주사위가 트레이 안에서 빠르게 안착한다', () => {
+  expect(current.hangs).toBe(0)
+  expect(current.escaped).toBe(0)
+  // 다른 주사위 위에 올라탄 채 끝나지 않는다.
+  expect(current.stacked).toBe(0)
+  // 수정 전에는 평균 1301ms · 최악 2633ms였다 — "천천히 떨어진다"의 실체.
+  expect(current.settleAvg).toBeLessThan(600)
+  expect(current.settleMax).toBeLessThan(1200)
+  // 원본보다 확실히 빨라야 이 티켓이 해결된 것이다.
+  expect(current.settleAvg).toBeLessThan(original.settleAvg * 0.5)
+})
 
+it('주사위가 서로를 눈에 보이게 파고들지 않는다', () => {
+  const width = CONFIG.defaults.diceSize * SCENE.colliderHalfRatio * SCENE.bowlDiceScale * 2
   // 한 스텝 이동량이 몸통의 1/3을 넘으면 접촉이 이미 깊이 파고든 뒤에 발견된다 —
-  // gravity를 올리면서 simulationHz를 안 올리면 여기서 먼저 걸린다.
-  expect(worstStepTravel / DIE_WIDTH).toBeLessThan(0.34)
-  // 수정 전에는 몸통 폭의 57%(0.304)까지 파고들어 "겹침"으로 보였다.
-  expect(worstPenetration / DIE_WIDTH).toBeLessThan(0.25)
+  // gravity·throwForce를 올리면서 simulationHz를 안 올리면 여기서 걸린다.
+  expect(current.stepW).toBeLessThan(0.34)
+  // 수정 전에는 몸통 폭의 57%(0.284)까지 파고들었다.
+  expect(current.maxPen / width).toBeLessThan(0.2)
+  expect(current.maxPen).toBeLessThan(original.maxPen * 0.6)
+})
+
+it('빨라지기만 하고 움직임의 모양은 원본과 같다', () => {
+  // 이 테스트가 이 티켓의 핵심이다. 중력만 올려 닮음을 깨면 낙하는 빨라지지만
+  // 아래 비율이 무너진다(1차 커밋 실측: turns 49% · bowlSpin 14%).
+  const ratio = {
+    turns: current.turns / original.turns,
+    bowlSpin: current.bowlSpin / original.bowlSpin,
+    apex: current.apex / original.apex,
+    travel: current.travel / original.travel,
+  }
+  // 비행 중 회전수 — 줄면 주사위가 구르지 않고 미끄러진다.
+  expect(ratio.turns).toBeGreaterThan(0.7)
+  // 사발 안 회전 — 줄면 주사위가 바닥에 눌려 흔들어도 안 구른다.
+  expect(ratio.bowlSpin).toBeGreaterThan(0.7)
+  // 궤적 높이·거리는 원본에서 크게 벗어나면 안 된다(너무 낮으면 처박히고, 너무 멀면 미끄러진다).
+  expect(ratio.apex).toBeGreaterThan(0.75)
+  expect(ratio.apex).toBeLessThan(1.35)
+  expect(ratio.travel).toBeGreaterThan(0.75)
+  expect(ratio.travel).toBeLessThan(1.35)
 })
 
 it('정착하지 못한 굴림도 상한 안에서 끝난다', () => {
   // checkSettled는 minRollDurationMs 뒤부터 정착을 보고, 끝내 성립하지 않으면
   // maxRollDurationMs에서 강제로 정렬로 넘어간다(없으면 굴림이 영원히 끝나지 않는다).
-  // 상한은 실측 최악값(체공 + 정착)보다 커야 정상 굴림을 잘라먹지 않는다.
-  const worstRoll = SCENE.bowl.tiltDurationMs + SCENE.bowl.spillPushDurationMs + 1600
+  const worstRoll = SCENE.bowl.tiltDurationMs + SCENE.bowl.spillPushDurationMs + current.settleMax
   expect(SCENE.settlement.maxRollDurationMs).toBeGreaterThan(SCENE.settlement.minRollDurationMs)
-  expect(SCENE.settlement.maxRollDurationMs).toBeGreaterThanOrEqual(worstRoll)
+  expect(SCENE.settlement.maxRollDurationMs).toBeGreaterThan(worstRoll)
 })
