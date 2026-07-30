@@ -76,7 +76,7 @@ describe('RealtimeSync', () => {
 
     expect(useAppStore.getState().roomSession?.sessionToken).toBe(creatorSession.sessionToken)
     expect(useAppStore.getState().roomResumeReason).toBe('disconnected')
-    expect(sessionStorage.getItem('yorr.room-session')).toContain(creatorSession.sessionToken)
+    expect(localStorage.getItem('yorr.room-session')).toContain(creatorSession.sessionToken)
     expect(useAppStore.getState().appNotice).toContain('다시 연결')
   })
 
@@ -288,6 +288,6 @@ describe('RealtimeSync', () => {
     )
 
     await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
-    expect(sessionStorage.getItem('yorr.room-session')).toBeNull()
+    expect(localStorage.getItem('yorr.room-session')).toBeNull()
   })
 })

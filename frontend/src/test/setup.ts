@@ -26,6 +26,19 @@ Object.defineProperty(window, 'matchMedia', {
     }) as unknown as MediaQueryList,
 })
 
+// vitest jsdom 환경에는 localStorage가 없다(Node 실험 전역과 충돌). 방 세션 영속화가
+// localStorage를 쓰므로 전 테스트 공통 인메모리 스텁을 둔다. 격리는 harness의 clear()가 맡는다.
+const localStorageData = new Map<string, string>()
+Object.defineProperty(window, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem: (key: string) => localStorageData.get(key) ?? null,
+    setItem: (key: string, value: string) => void localStorageData.set(key, value),
+    removeItem: (key: string) => void localStorageData.delete(key),
+    clear: () => localStorageData.clear(),
+  },
+})
+
 beforeAll(() => mockApiServer.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => {
   cleanup()

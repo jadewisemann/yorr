@@ -2,45 +2,64 @@ import type { RoomMembershipRole, RoomSession } from '@/api/gameApi'
 import type { Player, RoomPhase, RoomSnapshot } from '@/realtime/wsEvents'
 
 const roomSessionStorageKey = 'yorr.room-session'
+/**
+ * 방 자체가 서버(Redis)에서 40분 TTL로 사라진다. 그보다 오래 남긴 세션은
+ * 복구가 아니라 "이어서 하기 → 방 없음" 실패만 만들므로 수명을 방에 맞춘다.
+ */
+const roomSessionTtlMs = 40 * 60 * 1000
 const roomPhases: readonly RoomPhase[] = ['waiting', 'playing', 'finished']
 const playerStatuses = ['online', 'away', 'offline'] as const
 const membershipRoles: readonly RoomMembershipRole[] = ['host', 'participant']
 
-interface SessionStorage {
+interface StorageLike {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
   removeItem(key: string): void
 }
 
+/** 저장 봉투. 만료는 저장소의 관심사라 세션 계약(RoomSession)에 섞지 않는다. */
+interface StoredRoomSession {
+  session: RoomSession
+  expiresAt: number
+}
+
 /**
- * 세션 토큰은 localStorage가 아니라 sessionStorage에만 둔다.
+ * 세션 토큰은 localStorage에 만료 시각과 함께 둔다.
  *
- * 새로고침과 같은 탭의 짧은 복구에는 살아 있어야 하지만, 브라우저를 닫은 뒤까지 계정 없는
- * 참가자 권한을 장기간 남길 이유는 없다. 저장소가 복원돼도 자동 입장하지 않고 사용자가
- * 명시적으로 "이어서 하기"를 고른 뒤에만 토큰을 서버에 제시한다.
+ * 새로고침만이 아니라 브라우저를 껐다 켠 뒤에도 진행 중이던 방으로 돌아갈 수 있어야 한다
+ * (서버는 토큰을 24시간 보관하므로 클라이언트 사본만이 격차였다). 대신 계정 없는 참가자
+ * 권한이 장기간 남지 않도록 저장할 때마다 방 수명만큼의 만료를 기록하고, 지나면 폐기한다.
+ * 저장소가 복원돼도 자동 입장하지 않고 사용자가 명시적으로 "이어서 하기"를 고른 뒤에만
+ * 토큰을 서버에 제시한다.
  */
-export function readRoomSession(storage = getSessionStorage()) {
+export function readRoomSession(storage = getLocalStorage()) {
   if (!storage) return null
 
   try {
     const value: unknown = JSON.parse(storage.getItem(roomSessionStorageKey) ?? 'null')
-    return isRoomSession(value) ? value : null
+    if (!isStoredRoomSession(value)) return null
+    if (value.expiresAt <= Date.now()) {
+      storage.removeItem(roomSessionStorageKey)
+      return null
+    }
+    return value.session
   } catch {
     return null
   }
 }
 
-export function saveRoomSession(session: RoomSession, storage = getSessionStorage()) {
+export function saveRoomSession(session: RoomSession, storage = getLocalStorage()) {
   if (!storage) return
 
   try {
-    storage.setItem(roomSessionStorageKey, JSON.stringify(session))
+    const stored: StoredRoomSession = { expiresAt: Date.now() + roomSessionTtlMs, session }
+    storage.setItem(roomSessionStorageKey, JSON.stringify(stored))
   } catch {
     // Storage can be blocked in private browsing or embedded webviews.
   }
 }
 
-export function clearRoomSession(storage = getSessionStorage()) {
+export function clearRoomSession(storage = getLocalStorage()) {
   if (!storage) return
 
   try {
@@ -48,6 +67,15 @@ export function clearRoomSession(storage = getSessionStorage()) {
   } catch {
     // Clearing storage must not block leaving a room locally.
   }
+}
+
+function isStoredRoomSession(value: unknown): value is StoredRoomSession {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.expiresAt === 'number' &&
+    Number.isFinite(value.expiresAt) &&
+    isRoomSession(value.session)
+  )
 }
 
 function isRoomSession(value: unknown): value is RoomSession {
@@ -92,9 +120,9 @@ function isString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0
 }
 
-function getSessionStorage(): SessionStorage | undefined {
+function getLocalStorage(): StorageLike | undefined {
   try {
-    return globalThis.sessionStorage
+    return globalThis.localStorage
   } catch {
     return undefined
   }
