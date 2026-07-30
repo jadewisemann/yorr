@@ -6,8 +6,14 @@ import { containDiceInTray, type TrayOccupant } from './safety'
 import type { PhysicsDiceIndex, PhysicsDiceSet, PhysicsDiceValue, PhysicsHeldDice } from './types'
 
 const SETTLEMENT = PHYSICS_DICE_CONFIG.scene.settlement
-const MAX_PREDICTION_SECONDS = 20
-const STABLE_STEPS = 20
+/**
+ * 예측 시뮬은 한 프레임 안에서 동기로 끝까지 돌리므로 상한이 곧 최악의 프레임 지연이다.
+ * simulationHz를 300으로 올린 뒤 20초 상한은 6000스텝(≈수십~수백 ms 정지)이 되어버린다.
+ * 실측 정착은 1초 안쪽이라 4초면 충분히 넉넉하고, 실패해도 정렬 단계가 목표값으로 수렴한다.
+ */
+const MAX_PREDICTION_SECONDS = 4
+/** 스텝이 아니라 시간으로 잡는다 — simulationHz를 바꿔도 "얼마나 가만히 있었나"가 같아야 한다. */
+const STABLE_SECONDS = 0.12
 
 /**
  * 목표면 법선을 자연 결과면 법선으로 보내는 큐브 대칭 회전.
@@ -59,12 +65,13 @@ export function predictNaturalDice(
       if (body && !held[entry.index]) rolling.push({ body, enteredTray: entry.enteredTray })
     })
     const maxSteps = Math.ceil(MAX_PREDICTION_SECONDS / clone.timestep)
+    const stableTarget = Math.max(1, Math.round(STABLE_SECONDS / clone.timestep))
     let stableSteps = 0
     for (let step = 0; step < maxSteps; step += 1) {
       clone.step()
       containDiceInTray(rolling)
       stableSteps = rolling.every((occupant) => isBodySettled(occupant.body)) ? stableSteps + 1 : 0
-      if (stableSteps >= STABLE_STEPS) {
+      if (stableSteps >= stableTarget) {
         return bodies.map((body) =>
           body ? topFaceFromQuaternion(body.rotation()) : 1,
         ) as unknown as PhysicsDiceSet

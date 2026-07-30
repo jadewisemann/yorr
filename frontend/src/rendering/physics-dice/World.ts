@@ -617,11 +617,14 @@ export class PhysicsDiceWorld {
     // 멈춘 주사위는 최소 굴림 시간과 무관하게 곧바로 표시 면을 맞춘다 —
     // 멈춘 채 잘못된 눈을 보여주는 구간이 곧 이 버그였다.
     this.correctSettledVisuals()
-    if (time - this.rollStartedAt < SCENE.settlement.minRollDurationMs) return
+    const elapsed = time - this.rollStartedAt
+    if (elapsed < SCENE.settlement.minRollDurationMs) return
     const active = this.entries.filter((entry) => !this.held[entry.index])
     const physicallySettled = active.every((entry) => isBodySettled(entry.body))
     this.stableFrames = physicallySettled ? this.stableFrames + 1 : 0
-    if (this.stableFrames < SCENE.settlement.stableFrames) return
+    // 상한을 넘으면 아직 튀고 있어도 정렬로 넘어간다 — 안 그러면 굴림이 영원히 끝나지 않는다.
+    const timedOut = elapsed >= SCENE.settlement.maxRollDurationMs
+    if (this.stableFrames < SCENE.settlement.stableFrames && !timedOut) return
     this.startResultAlignment(time)
   }
 
