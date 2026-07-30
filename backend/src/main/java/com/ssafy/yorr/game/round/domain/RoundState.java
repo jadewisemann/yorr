@@ -68,6 +68,23 @@ public final class RoundState {
         );
     }
 
+    public static RoundState restore(
+            int roundNumber,
+            int totalRounds,
+            List<String> participantOrder,
+            Map<String, RoundSubmission> submissions,
+            int activePlayerIndex,
+            int activeRollCount,
+            List<Integer> activeDice,
+            List<Boolean> activeHeld,
+            boolean finished
+    ) {
+        return new RoundState(
+                roundNumber, totalRounds, participantOrder, submissions, activePlayerIndex,
+                activeRollCount, activeDice, activeHeld, finished
+        );
+    }
+
     public RoundState recordRoll(
             String playerId,
             int submittedRoundNumber,
@@ -310,6 +327,10 @@ public final class RoundState {
 
     public int activeRollCount() {
         return activeRollCount;
+    }
+
+    public int activePlayerIndex() {
+        return activePlayerIndex;
     }
 
     public List<Integer> activeDice() {
