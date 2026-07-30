@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { cn } from '@/cn'
 import type { SpecialHand } from '@/domain/specialHands'
 import { categoryLabel } from '@/yachtCategoryView'
@@ -55,6 +55,22 @@ export function EffectCallout({ onDone, text, tier }: EffectCalloutProps) {
     return () => clearTimeout(timeout)
   }, [tier])
 
+  // 문구는 절대 줄바꿈하지 않는다 — 좁은 화면에서 폭을 넘치면 전체 폰트를 비율로 줄인다.
+  const textRef = useRef<HTMLParagraphElement>(null)
+  useLayoutEffect(() => {
+    const element = textRef.current
+    const overlay = element?.closest('[role="status"]')
+    if (!element || !(overlay instanceof HTMLElement)) return
+    element.style.fontSize = ''
+    const style = getComputedStyle(element)
+    // 패딩은 폰트와 함께 줄지 않으므로, 비율은 순수 텍스트 폭 기준으로 잡아야 꼭 맞는다.
+    const padding = Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight)
+    const textWidth = element.scrollWidth - padding
+    const available = overlay.clientWidth - padding
+    if (available <= 0 || textWidth <= available) return
+    element.style.fontSize = `${(Number.parseFloat(style.fontSize) * available) / textWidth}px`
+  }, [text, tier])
+
   return (
     <div
       // 텍스트는 트레이 상단에 둔다 — 가운데에 얹으면 방금 굴린 주사위를 가린다.
@@ -79,12 +95,13 @@ export function EffectCallout({ onDone, text, tier }: EffectCalloutProps) {
           ))}
         <p
           className={cn(
-            'relative m-0 animate-callout-pop px-6 text-center leading-none font-bold break-keep text-brand-strong motion-reduce:animate-none',
+            'relative m-0 animate-callout-pop px-3 text-center leading-none font-bold whitespace-nowrap text-brand-strong motion-reduce:animate-none',
             // 트레이 위에 바로 얹히므로 화이트 글로우로 배경과 분리한다.
             // 팝 keyframes가 글로우를 0에서 이 값까지 키운다 — 여기 정적 값은 motion-reduce용.
             '[text-shadow:var(--ds-callout-glow)]',
             tier === 3 ? 'text-[clamp(4rem,16vw,7.5rem)]' : 'text-[clamp(3rem,12vw,5.5rem)]',
           )}
+          ref={textRef}
         >
           {text}
         </p>
