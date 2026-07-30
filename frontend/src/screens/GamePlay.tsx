@@ -143,6 +143,10 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   // 내 턴이 아니면 트레이는 관전 화면이다. 여기서 홀드를 토글하면 서버가 모르는 킵이 생겨
   // 다음 굴림·마감 자동 굴림이 화면과 다르게 동작한다.
   const canHold = !locked && !submitted && local.phase === 'choosing' && local.rollCount < MAX_ROLLS
+  // rollCount는 굴림이 끝날 때 올라간다 — 마지막 굴림이 날아가는 동안에도 "마지막"임을 알아야
+  // 그 굴림의 정렬부터 킵 주사위까지 한 줄로 눕는다(S15P11A406-94).
+  const lastRollInPlay =
+    local.rollCount >= MAX_ROLLS || (local.phase === 'rolling' && local.rollCount === MAX_ROLLS - 1)
 
   // 디자인의 한 장 점수시트 — 모든 플레이어를 열로 눕힌다. 내 열이 항상 첫 번째다.
   const sheetPlayers = toMatrixPlayers(snapshot.players, game?.scores, session.you)
@@ -506,16 +510,17 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
 
   const rolled = local.dice !== null
 
-  // 지금 뭘 하면 되는지 문장으로 알려준다. 트레이 우측 상단(배지 아래)에 떠 있다.
+  /* 지금 뭘 하면 되는지 한 문장으로 알려준다. 트레이 하단 가운데에 한 줄로 눕히므로
+     개행 없이 들어갈 길이를 유지한다 — 길어지면 킵 레일 라벨과 부딪힌다(S15P11A406-94). */
   const statusText = submitted
-    ? '점수가 반영됐습니다. 다음 턴을 기다립니다.'
+    ? '점수가 반영됐습니다 · 다음 턴 대기'
     : !isMyTurn
-      ? `${activePlayer?.nickname ?? '—'}님이 굴리는 중입니다.`
+      ? `${activePlayer?.nickname ?? '—'}님이 굴리는 중입니다`
       : allKept
-        ? '주사위를 모두 킵했습니다. 하나 이상 해제하거나 족보를 기록하세요.'
+        ? '모두 킵했습니다 · 해제하거나 족보를 기록하세요'
         : rolled
-          ? '주사위를 홀드하고 다시 굴리거나, 점수표의 열린 족보를 탭해 기록하세요.'
-          : `라운드 ${roundNumber} — 굴려서 시작하세요.`
+          ? '홀드하고 다시 굴리거나, 족보를 탭해 기록하세요'
+          : `라운드 ${roundNumber} — 굴려서 시작하세요`
 
   const diceScene = (
     <div
@@ -530,25 +535,34 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
       <div className="pointer-events-none absolute top-3 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
         {trayLabel}
       </div>
-      {/* 남은 굴리기·상태 안내는 트레이 우측 상단에 떠 있다 — 시선이 머무는 곳이 트레이고,
-          푸터에 두면 영역을 차지한다. 안내문은 와이드에서만(모바일은 기록 패널이 안내를 겸한다). */}
-      <div className="pointer-events-none absolute top-2.5 right-3 z-10 grid justify-items-end gap-2">
+      {/* 남은 굴리기는 트레이 우측 상단 — 시선이 머무는 곳이 트레이고, 푸터에 두면 영역을 차지한다. */}
+      <div className="pointer-events-none absolute top-2.5 right-3 z-10">
         <RollCounter rollsUsed={local.rollCount} />
-        {wide && (
-          <p className="m-0 max-w-72 text-right text-sm leading-relaxed text-content-muted">
+      </div>
+      {/* 하단 밴드 — 킵 레일 라벨(좌)과 안내문(가운데)을 같은 grid에 둔다. 안내문을 따로
+          absolute로 가운데 두면 좁은 폭에서 좌측 라벨과 겹친다. 1fr auto 1fr이므로
+          가운데 칼럼은 트레이 정중앙에 놓이고, 라벨은 자기 칼럼 안에서만 접힌다. */}
+      <div className="pointer-events-none absolute inset-x-4 bottom-2.5 z-10 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
+        <span className="text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
+          킵 레일 ·{' '}
+          {keptCount > 0
+            ? `${keptCount}/5 · 합 ${keptSum}${allKept ? ' · 해제해야 굴릴 수 있어요' : ''}`
+            : '비어 있음'}
+        </span>
+        {/* 안내문은 와이드에서만 — 모바일은 기록 패널이 안내를 겸한다. */}
+        {wide ? (
+          <p className="m-0 text-center text-sm/none whitespace-nowrap text-content-muted">
             {statusText}
           </p>
+        ) : (
+          <span />
         )}
-      </div>
-      <div className="pointer-events-none absolute bottom-2.5 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
-        킵 레일 ·{' '}
-        {keptCount > 0
-          ? `${keptCount}/5 · 합 ${keptSum}${allKept ? ' · 해제해야 굴릴 수 있어요' : ''}`
-          : '비어 있음'}
+        <span />
       </div>
       <PhysicsDiceScene
         dice={local.dice}
         held={local.held}
+        lineUpAll={lastRollInPlay}
         motionFollow={rollInputMode === 'motion'}
         motionPulse={motionPulse}
         releaseRequestId={releaseRequestId}
@@ -874,7 +888,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
               className={cn(
                 'flex flex-none items-center px-gutter',
                 wide
-                  ? // 안내문은 트레이 우측 상단으로 올라갔다 — 푸터에는 버튼만 가운데에 남는다.
+                  ? // 안내문은 트레이 하단 가운데에 있다 — 푸터에는 버튼만 가운데에 남는다.
                     'justify-center gap-4 border-t border-border py-4'
                   : 'gap-2.5 pt-2 pb-[calc(8.75rem+env(safe-area-inset-bottom))]',
               )}

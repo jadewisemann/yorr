@@ -14,6 +14,11 @@ import { PhysicsDiceFallback } from './PhysicsDiceFallback'
 type PhysicsDiceSceneProps = {
   dice: PhysicsDiceSet | null
   held: PhysicsHeldDice
+  /**
+   * true면 킵된 주사위도 킵 레일이 아니라 결과 줄에 함께 눕는다. 마지막 굴림부터 켜서
+   * 다섯 개를 한 줄로 보여준다 — 그 뒤에는 킵을 바꿀 수 없다(S15P11A406-94).
+   */
+  lineUpAll?: boolean
   /** true면 사발 흔들림이 canned 애니메이션 대신 motionPulse 에너지를 따라간다. */
   motionFollow?: boolean
   motionPulse?: PhysicsDiceMotionPulse | null
@@ -33,6 +38,7 @@ type PhysicsDiceWorldInstance = InstanceType<
 export function PhysicsDiceScene({
   dice,
   held,
+  lineUpAll = false,
   motionFollow,
   motionPulse,
   releaseRequestId,
@@ -46,7 +52,15 @@ export function PhysicsDiceScene({
   const containerRef = useRef<HTMLDivElement>(null)
   const worldRef = useRef<PhysicsDiceWorldInstance | null>(null)
   const callbacksRef = useRef({ onError, onHeldToggle, onPhaseChange, onRollComplete })
-  const latestRef = useRef({ dice, held, motionFollow, quality, releaseRequestId, request })
+  const latestRef = useRef({
+    dice,
+    held,
+    lineUpAll,
+    motionFollow,
+    quality,
+    releaseRequestId,
+    request,
+  })
   const startedRequestsRef = useRef(new Set<string>())
   const releasedRequestsRef = useRef(new Set<string>())
   const completedRequestsRef = useRef(new Set<string>())
@@ -55,7 +69,7 @@ export function PhysicsDiceScene({
   const [resizing, setResizing] = useState(false)
 
   callbacksRef.current = { onError, onHeldToggle, onPhaseChange, onRollComplete }
-  latestRef.current = { dice, held, motionFollow, quality, releaseRequestId, request }
+  latestRef.current = { dice, held, lineUpAll, motionFollow, quality, releaseRequestId, request }
 
   useEffect(() => {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -96,6 +110,8 @@ export function PhysicsDiceScene({
         const latest = latestRef.current
         createdWorld.applyQuality(latest.quality)
         if (latest.motionFollow !== undefined) createdWorld.setMotionFollow(latest.motionFollow)
+        // 배치 규칙을 먼저 세운 뒤에 주사위를 놓는다 — 순서가 뒤집히면 한 번 잘못 눕는다.
+        createdWorld.setLineUpAll(latest.lineUpAll)
         createdWorld.syncCommittedDice(latest.dice, latest.held)
         if (latest.request && !startedRequestsRef.current.has(latest.request.requestId)) {
           startedRequestsRef.current.add(latest.request.requestId)
@@ -137,6 +153,12 @@ export function PhysicsDiceScene({
     startedRequestsRef.current.add(request.requestId)
     world.startRoll(request)
   }, [request])
+
+  // startRoll 뒤에 둔다 — 마지막 굴림이 시작되는 커밋에서는 씬이 이미 굴리는 중이어야
+  // 값만 갈리고, 킵 주사위가 레일 → 줄 → 레일로 한 번 튀지 않는다.
+  useEffect(() => {
+    worldRef.current?.setLineUpAll(lineUpAll)
+  }, [lineUpAll])
 
   useEffect(() => {
     const world = worldRef.current
