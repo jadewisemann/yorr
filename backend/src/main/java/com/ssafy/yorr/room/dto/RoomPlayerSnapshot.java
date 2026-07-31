@@ -7,10 +7,9 @@ public record RoomPlayerSnapshot(
         String playerId,
         String nickname,
         int score,
-        ParticipantKind kind,
-        BotDifficulty difficulty
+        ParticipantKind kind
 ) {
     public RoomPlayerSnapshot(String playerId, String nickname, int score) {
-        this(playerId, nickname, score, ParticipantKind.HUMAN, null);
+        this(playerId, nickname, score, ParticipantKind.HUMAN);
     }
 }

@@ -9,7 +9,6 @@ import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
 import com.ssafy.yorr.game.round.infrastructure.InMemoryRoundStateStore;
 import com.ssafy.yorr.game.repository.ScoreBoardStore;
 import com.ssafy.yorr.game.service.ScoreConfirmationService;
-import com.ssafy.yorr.room.dto.BotDifficulty;
 import com.ssafy.yorr.room.dto.ParticipantKind;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
@@ -84,15 +83,13 @@ class YachtBotGameCompletionTest {
                                 "bot-easy",
                                 "Easy Bot",
                                 0,
-                                ParticipantKind.BOT,
-                                BotDifficulty.EASY
+                                ParticipantKind.BOT
                         ),
                         new RoomPlayerSnapshot(
                                 "bot-hard",
                                 "Hard Bot",
                                 0,
-                                ParticipantKind.BOT,
-                                BotDifficulty.HARD
+                                ParticipantKind.BOT
                         )
                 )
         );

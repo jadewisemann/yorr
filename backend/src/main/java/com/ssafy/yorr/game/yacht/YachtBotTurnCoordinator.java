@@ -5,7 +5,6 @@ import com.ssafy.yorr.game.round.application.RoundStartedEvent;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.service.ScoreConfirmationService;
-import com.ssafy.yorr.room.dto.BotDifficulty;
 import com.ssafy.yorr.room.dto.ParticipantKind;
 import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
@@ -59,9 +58,6 @@ public class YachtBotTurnCoordinator {
             return BotTurnStep.ignored();
         }
 
-        BotDifficulty difficulty = bot.difficulty() == null
-                ? BotDifficulty.NORMAL
-                : bot.difficulty();
         if (state.activeRollCount() == 0) {
             RoundState rolled = actions.roll(
                     event.roomId(),
@@ -75,7 +71,7 @@ public class YachtBotTurnCoordinator {
         List<ScoreCategory> openCategories =
                 scores.openCategories(room.gameId(), bot.playerId());
         if (state.activeRollCount() < RoundState.MAX_ROLL_COUNT) {
-            List<Boolean> held = strategy.chooseHeld(difficulty, state.activeDice());
+            List<Boolean> held = strategy.chooseHeld(state.activeDice());
             if (!held.equals(state.activeHeld())) {
                 RoundState heldState = actions.hold(
                         event.roomId(),
@@ -103,7 +99,7 @@ public class YachtBotTurnCoordinator {
         }
 
         ScoreCategory category =
-                strategy.chooseCategory(difficulty, state.activeDice(), openCategories);
+                strategy.chooseCategory(state.activeDice(), openCategories);
         actions.submitScore(
                 event.roomId(),
                 bot.playerId(),

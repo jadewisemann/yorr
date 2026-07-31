@@ -2,7 +2,6 @@ package com.ssafy.yorr.game.yacht;
 
 import com.ssafy.yorr.game.domain.ScoreCategory;
 import com.ssafy.yorr.game.domain.YachtScoreCalculator;
-import com.ssafy.yorr.room.dto.BotDifficulty;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -14,17 +13,12 @@ import java.util.Map;
 @Component
 public class LocalYachtBotStrategy {
 
-    public List<Boolean> chooseHeld(BotDifficulty difficulty, List<Integer> dice) {
+    public List<Boolean> chooseHeld(List<Integer> dice) {
         requireDice(dice);
-        return switch (difficulty) {
-            case EASY -> keepHighestFace(dice);
-            case NORMAL -> keepMostFrequentOrHigh(dice);
-            case HARD -> keepStraightOrMostFrequent(dice);
-        };
+        return keepStraightOrMostFrequent(dice);
     }
 
     public ScoreCategory chooseCategory(
-            BotDifficulty difficulty,
             List<Integer> dice,
             List<ScoreCategory> openCategories
     ) {
@@ -45,15 +39,7 @@ public class LocalYachtBotStrategy {
                         .reversed())
                 .toList();
 
-        int rank = difficulty == BotDifficulty.EASY
-                ? Math.min(2, ranked.size() - 1)
-                : 0;
-        return ranked.get(rank).category();
-    }
-
-    private static List<Boolean> keepHighestFace(List<Integer> dice) {
-        int highest = dice.stream().mapToInt(Integer::intValue).max().orElseThrow();
-        return dice.stream().map(die -> die == highest).toList();
+        return ranked.getFirst().category();
     }
 
     private static List<Boolean> keepMostFrequentOrHigh(List<Integer> dice) {

@@ -5,7 +5,6 @@ import com.ssafy.yorr.game.round.application.RoundStartedEvent;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.service.ScoreConfirmationService;
-import com.ssafy.yorr.room.dto.BotDifficulty;
 import com.ssafy.yorr.room.dto.ParticipantKind;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
@@ -156,15 +155,13 @@ class YachtBotTurnCoordinatorTest {
                                 "player-a",
                                 "Player A",
                                 0,
-                                ParticipantKind.HUMAN,
-                                null
+                                ParticipantKind.HUMAN
                         ),
                         new RoomPlayerSnapshot(
                                 "bot-a",
                                 "Bot A",
                                 0,
-                                ParticipantKind.BOT,
-                                BotDifficulty.HARD
+                                ParticipantKind.BOT
                         )
                 )
         );
