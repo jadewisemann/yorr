@@ -25,6 +25,10 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    # baseline-on-migrate는 스키마가 비어 있지 않은데 이력 테이블이 없을 때 baseline을 찍는데,
+    # 기본 baseline-version이 1이라 V1이 "이미 적용됨"으로 간주돼 조용히 건너뛰어진다.
+    # 첫 마이그레이션이 유실되는 경로라 0으로 낮춘다.
+    baseline-version: 0
 
   # === Redis ===
   data:
