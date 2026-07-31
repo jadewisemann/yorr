@@ -69,6 +69,7 @@ export class PhysicsDiceWorld {
   private container: HTMLElement
   private diceReleased = false
   private entries: DieEntry[] = []
+  private fallingDice = [false, false, false, false, false]
   private frameId: number | null = null
   private geometries!: PhysicsDiceGeometries
   private held: PhysicsHeldDice = NO_HELD
@@ -76,6 +77,7 @@ export class PhysicsDiceWorld {
   private keyLight!: THREE.DirectionalLight
   private keepSlotMaterials: THREE.Material[] = []
   private keepSlots: THREE.Group[] = []
+  private lastImpactAt = [0, 0, 0, 0, 0]
   private lastPulseAt = 0
   private lastShakeKick = 0
   private lastTime = 0
@@ -174,6 +176,8 @@ export class PhysicsDiceWorld {
     this.accumulator = 0
     this.stableFrames = 0
     this.diceReleased = false
+    this.fallingDice.fill(false)
+    this.lastImpactAt.fill(0)
     this.bowlGroup.visible = true
     this.bowlGroup.position.set(SCENE.bowl.startX, SCENE.bowl.hoverY, SCENE.bowl.startZ)
     this.bowlGroup.rotation.set(0, 0, 0)
@@ -393,7 +397,10 @@ export class PhysicsDiceWorld {
     while (simulating && this.accumulator >= this.world.timestep) {
       this.world.step()
       if (this.phase === 'shaking') containDiceInBowl(this.entries, this.held, this.bowlBody)
-      if (this.phase === 'pouring' && this.diceReleased) containDiceInTray(rollingEntries)
+      if (this.phase === 'pouring' && this.diceReleased) {
+        containDiceInTray(rollingEntries)
+        this.detectDiceImpacts(rollingEntries, time)
+      }
       this.accumulator -= this.world.timestep
     }
     if (this.phase === 'aligning') this.updateResultAlignment(time)
@@ -508,6 +515,23 @@ export class PhysicsDiceWorld {
     const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle)
     this.bowlBody.setNextKinematicTranslation(position)
     this.bowlBody.setNextKinematicRotation(rotation)
+  }
+
+  private detectDiceImpacts(entries: DieEntry[], time: number) {
+    for (const entry of entries) {
+      const velocity = entry.body.linvel()
+      if (velocity.y < -0.8) this.fallingDice[entry.index] = true
+      if (
+        entry.enteredTray &&
+        this.fallingDice[entry.index] &&
+        velocity.y > 0.45 &&
+        time - (this.lastImpactAt[entry.index] ?? 0) >= 80
+      ) {
+        this.lastImpactAt[entry.index] = time
+        this.fallingDice[entry.index] = false
+        this.callbacks.onDiceImpact?.(entry.index, Math.min(1, velocity.y / 4))
+      }
+    }
   }
 
   /** follow 모드에서 마지막 펄스 이후 지수 감쇠한 흔들림 세기(0~1). tap 모드는 항상 1. */
