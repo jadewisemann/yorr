@@ -61,11 +61,16 @@ public class AuthController {
     private final UserService userService;
     private final AuthProperties properties;
 
+    /**
+     * @param prompt {@code login}이면 카카오 로그인 화면을 다시 거치게 한다. 우리 쪽에서
+     *               로그아웃해도 카카오 세션은 브라우저에 남아 다음 로그인이 즉시 통과하므로,
+     *               계정을 바꾸려는 사용자에게 필요한 경로다.
+     */
     @GetMapping("/kakao/authorize")
-    @Operation(summary = "카카오 로그인 시작", description = "카카오 동의 화면으로 리다이렉트합니다.")
-    public ResponseEntity<Void> authorize() {
+    @Operation(summary = "카카오 로그인 시작", description = "카카오 동의 화면으로 리다이렉트합니다. prompt=login이면 계정을 다시 선택하게 합니다.")
+    public ResponseEntity<Void> authorize(@RequestParam(required = false) String prompt) {
         try {
-            String url = kakaoClient.authorizeUrl(stateStore.issue());
+            String url = kakaoClient.authorizeUrl(stateStore.issue(), "login".equals(prompt));
             return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
         } catch (SocialLoginException e) {
             // 설정이 없으면 리다이렉트할 곳도 없다. 브라우저가 직접 여는 주소라 상태 코드로 알린다.

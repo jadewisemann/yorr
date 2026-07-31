@@ -15,8 +15,11 @@ interface SessionResponse {
  * 사용자는 카카오 화면에서 직접 동의해야 한다. XHR로 부르면 리다이렉트가 fetch 안에서
  * 소비돼 화면이 그대로 멈춘다.
  */
-export function kakaoLoginUrl() {
-  return `${API_BASE_URL}/auth/kakao/authorize`
+export function kakaoLoginUrl(options?: { forceLogin?: boolean }) {
+  const base = `${API_BASE_URL}/auth/kakao/authorize`
+  // 카카오는 브라우저에 자기 로그인 세션을 갖고 있어, 우리 쪽에서 로그아웃해도 다음 로그인이
+  // 동의 화면 없이 즉시 통과한다. 계정을 바꾸려는 사용자만 재인증을 요청한다.
+  return options?.forceLogin ? `${base}?prompt=login` : base
 }
 
 /**

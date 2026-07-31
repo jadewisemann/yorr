@@ -76,6 +76,18 @@ function ProviderChoice() {
         구글로 계속하기
         <ComingSoonPill />
       </button>
+      {/*
+        카카오 세션은 브라우저에 남아 있어, 우리 쪽에서 로그아웃해도 위 버튼은 동의 화면 없이
+        바로 통과한다. 그게 보통은 편하지만 계정을 바꾸려는 사람에게는 길이 막힌 셈이라
+        여기서만 재인증을 요청한다.
+      */}
+      <button
+        className="cursor-pointer justify-self-center rounded-full border-0 bg-transparent px-2 py-1 text-[12.5px] font-semibold text-content-muted underline-offset-2 hover:text-content hover:underline focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
+        onClick={() => globalThis.location.assign(kakaoLoginUrl({ forceLogin: true }))}
+        type="button"
+      >
+        다른 계정으로 로그인
+      </button>
     </div>
   )
 }

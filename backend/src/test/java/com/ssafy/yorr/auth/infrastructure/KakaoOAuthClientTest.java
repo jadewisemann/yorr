@@ -24,7 +24,7 @@ class KakaoOAuthClientTest {
      */
     @Test
     void 동의_화면_주소에_필수_파라미터를_담고_redirect_uri를_인코딩한다() {
-        String url = client("rest-api-key", REDIRECT_URI).authorizeUrl("state-1");
+        String url = client("rest-api-key", REDIRECT_URI).authorizeUrl("state-1", false);
 
         assertThat(url).startsWith("https://kauth.kakao.com/oauth/authorize?");
         assertThat(url).contains("response_type=code");
@@ -35,10 +35,23 @@ class KakaoOAuthClientTest {
         assertThat(url).doesNotContain("redirect_uri=" + REDIRECT_URI);
     }
 
+    /**
+     * 우리 쪽에서 로그아웃해도 카카오 세션은 브라우저에 남아, 다음 로그인이 동의 화면 없이
+     * 즉시 통과한다. 계정을 바꾸려면 재인증을 강제할 길이 있어야 한다.
+     */
+    @Test
+    void 계정을_다시_고르게_하려면_prompt_login을_붙인다() {
+        KakaoOAuthClient client = client("rest-api-key", REDIRECT_URI);
+
+        assertThat(client.authorizeUrl("state-1", true)).contains("prompt=login");
+        // 기본은 빠른 재로그인이다 — 매번 비밀번호를 다시 받으면 로그인해 둔 의미가 없다.
+        assertThat(client.authorizeUrl("state-1", false)).doesNotContain("prompt");
+    }
+
     /** 환경변수가 없는 팀원의 로컬에서도 서버는 떠야 한다 — 대신 호출 시점에 사유가 분명해야 한다. */
     @Test
     void 설정이_비어_있으면_NOT_CONFIGURED로_거절한다() {
-        assertThatThrownBy(() -> client("", REDIRECT_URI).authorizeUrl("state-1"))
+        assertThatThrownBy(() -> client("", REDIRECT_URI).authorizeUrl("state-1", false))
                 .isInstanceOf(SocialLoginException.class)
                 .extracting(e -> ((SocialLoginException) e).reason())
                 .isEqualTo(SocialLoginException.Reason.NOT_CONFIGURED);
