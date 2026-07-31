@@ -8,8 +8,8 @@ import { createDiceInstances } from './diceInstances'
 import { keepSlotPosition, keepSlotSpacing, resultCameraWidth } from './layout'
 import { topFaceFromQuaternion } from './model'
 import { createPhysicsDiceRandom } from './random'
-import { isBodySettled } from './remap'
-import { containDiceInBowl, containDiceInTray } from './safety'
+import { diceTrajectoryIssueScore, isBodySettled, planDiceTrajectory } from './remap'
+import { containDiceInBowl, containDiceInTray, verticalHalfExtent } from './safety'
 import type {
   PhysicsDiceIndex,
   PhysicsDiceRollRequest,
@@ -43,117 +43,26 @@ function rollRequest(overrides: Partial<PhysicsDiceRollRequest> = {}): PhysicsDi
  * 이 티켓은 같은 증상("천천히 떨어짐 · 겹침 · 바닥에 붙어 있음")으로 여러 번 돌아왔다.
  * 최종 구조는 3단계다 — config.ts 상단 주석 참고:
  *
- * 1. 흔들기: 사발 입구를 보이지 않는 뚜껑으로 막고, 바닥 근처 주사위를 목표 높이
- *    √(2gh) 킥으로 세게 튀긴다. 임펄스 상수 방식은 중력을 올리면 홉 높이가 죽어서
- *    주사위가 바닥에 붙어 떠는 것처럼 보였다.
- * 2. 뒤집는 순간: 사발 물리 바디를 치우고(이후 사발은 비주얼) 측면으로 던진다.
- * 3. 비행·착지: 풀 중력(원본 × 12) 낙하. Max 반발 결합 + restitution 0.55로 튕기고,
- *    fan · randomZ로 퍼진다.
+ * 1. 흔들기: 사발 입구를 보이지 않는 뚜껑으로 막고 수평·회전 자유도를 유지한다.
+ *    수직 킥은 매 펄스 한 주사위에만 적용해 함께 뜨지 않고 차례로 달그락거리게 한다.
+ * 2. 기울이는 초반: 사발 물리 바디를 치우고 주사위에 측면·상향 속도와 토크를 준다.
+ * 3. 비행·착지: 고정 스텝 + CCD로 관통을 막고, fan · randomZ로 퍼진 뒤
+ *    빠르게 안착한다. 모서리로 선 주사위만 예측 중 비스듬히 눌러 바닥에 붙인다.
  *
- * 그래서 이 테스트는 값이 아니라 **움직임의 성질**을 잠근다. 수정 전(중력 30) 튜닝을
- * 같은 시드로 함께 돌려 기준선으로 삼는다:
+ * 그래서 이 테스트는 값이 아니라 **움직임의 성질**을 잠근다:
  *
  * - `bowlAlt` · `bowlSpin` — 사발 안에서 실제로 떠서 구르는지("바닥에 붙음"의 회귀 감시).
  * - `bounces` · `spread`   — 던져진 뒤 튕기고 퍼지는지("미끄러져 처박힘"의 회귀 감시).
  * - `turns`                — 비행 중 총 회전수. 줄면 주사위가 구르지 않고 미끄러진다.
  * - `maxPen`               — 주사위끼리 실제 침투 깊이(narrow-phase). "겹침"의 실체.
  *
- * 값을 여기 복제하면 config를 바꿔도 통과해버리므로 현재 값은 전부 config에서 읽는다.
+ * 현재 값은 전부 config에서 읽어 실제 런타임과 같은 조건으로 검증한다.
  */
 const CONFIG = PHYSICS_DICE_CONFIG
 const SCENE = CONFIG.scene
 const NO_HELD: PhysicsHeldDice = [false, false, false, false, false]
 const SEEDS = Array.from({ length: 24 }, (_, i) => 7 + i * 9173)
 const RENDER_HZ = 60
-
-/** 수정 전(중력 30) 튜닝 — 느렸지만 움직임 자체는 자연스러웠던 기준선 */
-const ORIGINAL = {
-  gravity: 30,
-  hz: 60,
-  throwForce: 4.2,
-  linearDamping: 0.16,
-  angularDamping: 0.2,
-  spillTorque: 0.9,
-  shakeRandom: 0.06,
-  shakeCenter: 0.025,
-  shakeOrbit: 0.075,
-  shakeTorque: 0.55,
-  shakeInterval: 105,
-  settleLinear: 0.13,
-  settleAngular: 0.18,
-  stableFrames: 14,
-  spawnLinear: 3,
-  spawnLift: 2,
-  spawnAngular: 19,
-  softCcd: 0,
-  restitution: 0.34,
-  spillLift: 0.4,
-  spillFan: 0.22,
-  spillRandomZ: 0.25,
-  kickHeight: 1.25,
-  kickAltitude: 0.55,
-}
-
-/** 주사위 콜라이더의 반발 결합 규칙 — false면 원본(Average) 재현. */
-let RESTITUTION_MAX_RULE = true
-/** true면 원본의 상수 임펄스 킥을 재현(기준선), false면 현재의 √(2gh) 높이 킥. */
-let LEGACY_KICK = false
-const LEGACY_LIFT_IMPULSE = 0.24
-
-type Overrides = Partial<typeof ORIGINAL> | null
-type NumberMap = Record<string, number>
-
-/** config는 `as const`지만 런타임에는 평범한 객체다 — 기준선 비교를 위해 잠시 바꿔 쓴다. */
-interface MutableConfig {
-  defaults: NumberMap
-  scene: { bowl: NumberMap; settlement: NumberMap }
-}
-
-const MUTABLE = PHYSICS_DICE_CONFIG as unknown as MutableConfig
-
-function override(o: Overrides) {
-  if (!o) return null
-  const d = MUTABLE.defaults
-  const bowl = MUTABLE.scene.bowl
-  const settle = MUTABLE.scene.settlement
-  const before = {
-    d: { ...d },
-    bowl: { ...bowl },
-    settle: { ...settle },
-  }
-  if (o.gravity !== undefined) d.gravity = o.gravity
-  if (o.hz !== undefined) d.simulationHz = o.hz
-  if (o.throwForce !== undefined) d.throwForce = o.throwForce
-  if (o.linearDamping !== undefined) d.linearDamping = o.linearDamping
-  if (o.angularDamping !== undefined) d.angularDamping = o.angularDamping
-  if (o.softCcd !== undefined) d.softCcdPrediction = o.softCcd
-  if (o.spawnLinear !== undefined) d.spawnLinearSpeed = o.spawnLinear
-  if (o.spawnLift !== undefined) d.spawnLiftSpeed = o.spawnLift
-  if (o.spawnAngular !== undefined) d.spawnAngularSpeed = o.spawnAngular
-  if (o.spillTorque !== undefined) bowl.spillTorque = o.spillTorque
-  if (o.shakeRandom !== undefined) bowl.shakeRandomImpulse = o.shakeRandom
-  if (o.shakeCenter !== undefined) bowl.shakeCenterStrength = o.shakeCenter
-  if (o.shakeOrbit !== undefined) bowl.shakeOrbitStrength = o.shakeOrbit
-  if (o.shakeTorque !== undefined) bowl.shakeTorqueImpulse = o.shakeTorque
-  if (o.shakeInterval !== undefined) bowl.shakeIntervalMs = o.shakeInterval
-  if (o.settleLinear !== undefined) settle.linearSpeed = o.settleLinear
-  if (o.settleAngular !== undefined) settle.angularSpeed = o.settleAngular
-  if (o.stableFrames !== undefined) settle.stableFrames = o.stableFrames
-  if (o.restitution !== undefined) d.restitution = o.restitution
-  if (o.spillLift !== undefined) bowl.spillLiftSpeed = o.spillLift
-  if (o.spillFan !== undefined) bowl.spillFanSpeed = o.spillFan
-  if (o.spillRandomZ !== undefined) bowl.spillRandomZ = o.spillRandomZ
-  if (o.kickHeight !== undefined) bowl.shakeKickHeight = o.kickHeight
-  if (o.kickAltitude !== undefined) bowl.shakeKickAltitude = o.kickAltitude
-  return before
-}
-
-function restore(before: ReturnType<typeof override>) {
-  if (!before) return
-  Object.assign(MUTABLE.defaults, before.d)
-  Object.assign(MUTABLE.scene.bowl, before.bowl)
-  Object.assign(MUTABLE.scene.settlement, before.settle)
-}
 
 /** World의 shaking → pour → releaseFromBowl → checkSettled를 렌더러 없이 그대로 재현한다. */
 function simulate(seed: number) {
@@ -174,10 +83,6 @@ function simulate(seed: number) {
   )
   entries.forEach((entry) => {
     entry.collider.setShape(new RAPIER.Cuboid(half, half, half))
-    if (!RESTITUTION_MAX_RULE) {
-      // 원본 기준선 재현용 — 지금 diceInstances는 항상 Max 규칙이다.
-      entry.collider.setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Average)
-    }
     const angle = (entry.index / entries.length) * Math.PI * 2 - Math.PI / 2
     const radius = SCENE.bowl.spawnRadius + (random.next() - 0.5) * SCENE.bowl.spawnJitter
     entry.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true)
@@ -215,54 +120,53 @@ function simulate(seed: number) {
   let bowlAngvelSum = 0
   let bowlSamples = 0
   let bowlAltSum = 0
+  let bowlAltMin = Number.POSITIVE_INFINITY
+  let bowlBottomClearanceMin = Number.POSITIVE_INFINITY
   let bowlAltMax = 0
   let lastKick = -1e9
+  const shakeStrength = SCENE.bowl.shakeStrength
   const shakeSteps = Math.round(1.2 * CONFIG.defaults.simulationHz)
   for (let step = 0; step < shakeSteps; step += 1) {
     const timeMs = (step / CONFIG.defaults.simulationHz) * 1000
     const elapsed = timeMs / 1000
-    const x = SCENE.bowl.startX + Math.sin(elapsed * 15) * SCENE.bowl.shakeOffsetX
-    const z = SCENE.bowl.startZ + Math.sin(elapsed * 19 + 0.8) * SCENE.bowl.shakeOffsetZ
-    const bvx = Math.cos(elapsed * 15) * 15 * SCENE.bowl.shakeOffsetX
-    const bvz = Math.cos(elapsed * 19 + 0.8) * 19 * SCENE.bowl.shakeOffsetZ
+    const x = SCENE.bowl.startX + Math.sin(elapsed * 15) * SCENE.bowl.shakeOffsetX * shakeStrength
+    const z =
+      SCENE.bowl.startZ + Math.sin(elapsed * 19 + 0.8) * SCENE.bowl.shakeOffsetZ * shakeStrength
+    const bvx = Math.cos(elapsed * 15) * 15 * SCENE.bowl.shakeOffsetX * shakeStrength
+    const bvz = Math.cos(elapsed * 19 + 0.8) * 19 * SCENE.bowl.shakeOffsetZ * shakeStrength
     bowlBody.setNextKinematicTranslation({ x, y: SCENE.bowl.hoverY, z })
     if (timeMs - lastKick >= SCENE.bowl.shakeIntervalMs) {
       lastKick = timeMs
       const mass = CONFIG.defaults.mass
-      entries.forEach((entry) => {
+      const kickSlot = Math.floor(random.next() * entries.length)
+      entries.forEach((entry, slot) => {
         const p = entry.body.translation()
         const v = entry.body.linvel()
         const kickRandom = random.next()
-        let kickY: number
-        if (LEGACY_KICK) {
-          kickY = LEGACY_LIFT_IMPULSE + kickRandom * SCENE.bowl.shakeRandomImpulse
-        } else {
-          const altitude = p.y - SCENE.bowl.hoverY
-          kickY =
-            altitude < SCENE.bowl.shakeKickAltitude
-              ? Math.sqrt(
-                  2 *
-                    CONFIG.defaults.gravity *
-                    SCENE.bowl.shakeKickHeight *
-                    (0.3 + 0.7 * kickRandom),
-                ) * mass
-              : 0
-        }
+        const altitude = p.y - SCENE.bowl.hoverY
+        const kickY =
+          slot === kickSlot && altitude < SCENE.bowl.shakeKickAltitude
+            ? Math.sqrt(
+                2 * CONFIG.defaults.gravity * SCENE.bowl.shakeKickHeight * (0.3 + 0.7 * kickRandom),
+              ) * mass
+            : 0
         entry.body.applyImpulse(
           {
             x:
               (bvx - v.x) * SCENE.bowl.shakeFollowStrength * mass +
-              (x - p.x) * SCENE.bowl.shakeCenterStrength -
-              (z - p.z) * SCENE.bowl.shakeOrbitStrength,
-            y: kickY,
+              ((x - p.x) * SCENE.bowl.shakeCenterStrength -
+                (z - p.z) * SCENE.bowl.shakeOrbitStrength) *
+                shakeStrength,
+            y: kickY * shakeStrength,
             z:
               (bvz - v.z) * SCENE.bowl.shakeFollowStrength * mass +
-              (z - p.z) * SCENE.bowl.shakeCenterStrength +
-              (x - p.x) * SCENE.bowl.shakeOrbitStrength,
+              ((z - p.z) * SCENE.bowl.shakeCenterStrength +
+                (x - p.x) * SCENE.bowl.shakeOrbitStrength) *
+                shakeStrength,
           },
           true,
         )
-        const torque = SCENE.bowl.shakeTorqueImpulse
+        const torque = SCENE.bowl.shakeTorqueImpulse * shakeStrength
         entry.body.applyTorqueImpulse(
           {
             x: (random.next() - 0.5) * torque,
@@ -281,16 +185,27 @@ function simulate(seed: number) {
       bowlSamples += 1
       const alt = entry.body.translation().y - SCENE.bowl.hoverY
       bowlAltSum += alt
+      bowlAltMin = Math.min(bowlAltMin, alt)
+      bowlBottomClearanceMin = Math.min(
+        bowlBottomClearanceMin,
+        alt -
+          SCENE.bowl.colliderBottomY -
+          SCENE.bowl.colliderBottomHalfHeight -
+          verticalHalfExtent(
+            entry.body,
+            CONFIG.defaults.diceSize * SCENE.colliderHalfRatio * SCENE.bowlDiceScale,
+          ),
+      )
       bowlAltMax = Math.max(bowlAltMax, alt)
     }
   }
 
   bowlBody.setTranslation({ x: 10, y: -5, z: 0 }, true)
-  const force = CONFIG.defaults.throwForce
   entries.forEach((entry, index) => {
     entry.enteredTray = false
     const fan = index - (entries.length - 1) / 2
-    const v = entry.body.linvel()
+    const force = CONFIG.defaults.throwForce
+    const velocity = entry.body.linvel()
     const targetX =
       (SCENE.bowl.spillMinimumSpeed + random.next() * SCENE.bowl.spillRandomSpeed) *
       force *
@@ -298,43 +213,39 @@ function simulate(seed: number) {
       SCENE.bowl.spillDirectionX
     entry.body.setLinvel(
       {
-        x: Math.min(v.x * 0.7, targetX),
-        y: Math.max(v.y * 0.7, SCENE.bowl.spillLiftSpeed * force),
-        z:
-          v.z * 0.65 +
-          fan * SCENE.bowl.spillFanSpeed * force +
-          (random.next() - 0.5) * SCENE.bowl.spillRandomZ,
+        x: targetX,
+        y: Math.max(velocity.y * 0.2, SCENE.bowl.spillLiftSpeed * force),
+        z: fan * SCENE.bowl.spillFanSpeed * force + (random.next() - 0.5) * SCENE.bowl.spillRandomZ,
       },
       true,
     )
-    entry.body.applyImpulse(
+    const angular = entry.body.angvel()
+    entry.body.setAngvel(
       {
-        x:
-          (SCENE.bowl.spillSideImpulse +
-            (random.next() - 0.5) * SCENE.bowl.spillSideImpulseVariance) *
-          CONFIG.defaults.mass *
-          force *
-          SCENE.bowl.spillDirectionX,
-        y: 0,
-        z: 0,
-      },
-      true,
-    )
-    entry.body.applyTorqueImpulse(
-      {
-        x: (random.next() - 0.5) * SCENE.bowl.spillTorque,
-        y: (random.next() - 0.5) * SCENE.bowl.spillTorque,
-        z: (random.next() - 0.5) * SCENE.bowl.spillTorque,
+        x: angular.x * 0.4,
+        y: angular.y * 0.4,
+        z: angular.z * 0.4,
       },
       true,
     )
   })
+  const plannedTrajectory = planDiceTrajectory(world, entries, NO_HELD, seed)
+  const trajectoryIssue = plannedTrajectory
+    ? diceTrajectoryIssueScore(plannedTrajectory, entries, NO_HELD)
+    : Number.POSITIVE_INFINITY
+  const trajectoryMaxY = Math.max(
+    ...(plannedTrajectory?.frames.at(-1)?.poses.map((pose) => pose.position.y) ?? [
+      Number.POSITIVE_INFINITY,
+    ]),
+  )
 
   let rotation = 0
   let apex = 0
   let travel = 0
   let maxPen = 0
   let maxSpeed = 0
+  let minY = Number.POSITIVE_INFINITY
+  let minBottomClearance = Number.POSITIVE_INFINITY
   let stableFrames = 0
   let settledMs: number | null = null
   const restY = CONFIG.defaults.diceSize * SCENE.bowlDiceScale * 0.5
@@ -353,6 +264,8 @@ function simulate(seed: number) {
       const a = entry.body.angvel()
       rotation += Math.hypot(a.x, a.y, a.z) * world.timestep
       const p = entry.body.translation()
+      minY = Math.min(minY, p.y)
+      minBottomClearance = Math.min(minBottomClearance, p.y - verticalHalfExtent(entry.body, restY))
       apex = Math.max(apex, p.y - restY)
       const v = entry.body.linvel()
       maxSpeed = Math.max(maxSpeed, Math.hypot(v.x, v.y, v.z))
@@ -415,23 +328,27 @@ function simulate(seed: number) {
     travel: travel / entries.length,
     maxPen,
     maxSpeed,
+    minY,
+    minBottomClearance,
     escaped,
     bowlSpin: bowlAngvelSum / Math.max(1, bowlSamples),
     bowlAlt: bowlAltSum / Math.max(1, bowlSamples),
+    bowlAltMin,
+    bowlBottomClearanceMin,
     bowlAltMax,
     maxRestY,
+    trajectoryIssue,
+    trajectoryMaxY,
     bounces: bounceCount.reduce((s, n) => s + n, 0) / entries.length,
     bounceApex,
     spread: spreadSum / Math.max(1, spreadPairs),
   }
 }
 
-function measure(o: Overrides) {
-  const before = override(o)
+function measure() {
   const runs = SEEDS.map((seed) => simulate(seed))
   const hz = CONFIG.defaults.simulationHz
   const width = CONFIG.defaults.diceSize * SCENE.colliderHalfRatio * SCENE.bowlDiceScale * 2
-  restore(before)
   const avg = (pick: (r: (typeof runs)[0]) => number) =>
     runs.reduce((s, r) => s + pick(r), 0) / runs.length
   const settled = runs.filter((r) => r.settledMs !== null).map((r) => r.settledMs as number)
@@ -443,32 +360,34 @@ function measure(o: Overrides) {
     apex: avg((r) => r.apex),
     travel: avg((r) => r.travel),
     maxPen: Math.max(...runs.map((r) => r.maxPen)),
+    minY: Math.min(...runs.map((r) => r.minY)),
+    minBottomClearance: Math.min(...runs.map((r) => r.minBottomClearance)),
     stepW: Math.max(...runs.map((r) => r.maxSpeed)) / hz / width,
     bowlSpin: avg((r) => r.bowlSpin),
     bowlAlt: avg((r) => r.bowlAlt),
+    bowlAltMin: Math.min(...runs.map((r) => r.bowlAltMin)),
+    bowlBottomClearanceMin: Math.min(...runs.map((r) => r.bowlBottomClearanceMin)),
     bowlAltMax: Math.max(...runs.map((r) => r.bowlAltMax)),
     escaped: runs.filter((r) => r.escaped).length,
     stacked: runs.filter((r) => r.maxRestY > width).length,
+    invalidTrajectories: runs.filter((r) => r.trajectoryIssue > 0).length,
+    invalidTrajectoryDetails: runs.flatMap((run, index) =>
+      run.trajectoryIssue > 0
+        ? [`${SEEDS[index]}:${run.trajectoryIssue.toFixed(2)}@y${run.trajectoryMaxY.toFixed(2)}`]
+        : [],
+    ),
     bounces: avg((r) => r.bounces),
     bounceApex: Math.max(...runs.map((r) => r.bounceApex)),
     spread: avg((r) => r.spread),
   }
 }
 
-/** 두 측정을 한 번만 돌려 모든 테스트가 함께 쓴다(각 24시드 × 5주사위). */
+/** 측정을 한 번만 돌려 모든 테스트가 함께 쓴다(24시드 × 5주사위). */
 let current: ReturnType<typeof measure>
-let original: ReturnType<typeof measure>
 
 beforeAll(async () => {
   await RAPIER.init()
-  RESTITUTION_MAX_RULE = true
-  LEGACY_KICK = false
-  current = measure(null)
-  RESTITUTION_MAX_RULE = false
-  LEGACY_KICK = true
-  original = measure(ORIGINAL)
-  RESTITUTION_MAX_RULE = true
-  LEGACY_KICK = false
+  current = measure()
 })
 
 it('쏟은 주사위가 트레이 안에서 안착한다', () => {
@@ -488,24 +407,43 @@ it('주사위가 서로를 눈에 보이게 파고들지 않는다', () => {
   expect(current.stepW).toBeLessThan(0.34)
   // 수정 전에는 몸통 폭의 57%(0.284)까지 파고들었다.
   expect(current.maxPen / width).toBeLessThan(0.25)
+  // 트레이 안전 보정 뒤에는 주사위 중심이 콜라이더 반높이 아래로 내려가지 않는다.
+  expect(current.minY).toBeGreaterThanOrEqual(width / 2 - SCENE.safety.penetrationTolerance - 1e-6)
+  expect(current.minBottomClearance).toBeGreaterThanOrEqual(
+    -SCENE.safety.penetrationTolerance - 1e-6,
+  )
 })
 
 it('사발 안에서 주사위가 바닥에 붙지 않고 떠서 구른다', () => {
-  // "바닥에 쳐 붙어 있다"의 회귀 감시 — 평균 고도가 낮으면 주사위가 바닥에서 떨기만 한다.
-  expect(current.bowlAlt).toBeGreaterThan(original.bowlAlt * 1.1)
+  const bowlFloor =
+    SCENE.bowl.colliderBottomY +
+    SCENE.bowl.colliderBottomHalfHeight +
+    CONFIG.defaults.diceSize * SCENE.colliderHalfRatio * SCENE.bowlDiceScale
+  // 모든 주사위를 함께 띄우지 않아도 평균적으로 바닥 위에서 충돌할 여유는 남긴다.
+  expect(current.bowlAlt).toBeGreaterThan(bowlFloor + 0.06)
+  expect(current.bowlAltMin).toBeGreaterThanOrEqual(
+    bowlFloor - SCENE.safety.penetrationTolerance - 1e-6,
+  )
+  expect(current.bowlBottomClearanceMin).toBeGreaterThanOrEqual(
+    -SCENE.safety.penetrationTolerance - 1e-6,
+  )
   // 뚜껑 아래에 머문다 — 사발 위로 튀어나오면 안 된다.
   expect(current.bowlAltMax).toBeLessThan(SCENE.bowl.colliderLidY + 0.3)
-  // 구르기도 원본 이상으로 활발해야 한다.
-  expect(current.bowlSpin).toBeGreaterThan(original.bowlSpin * 0.8)
+  // 개별 충돌이 느껴질 회전 자유도는 남기되 전부 빠르게 도는 상태로 돌아가지는 않는다.
+  expect(current.bowlSpin).toBeGreaterThan(1.8)
+  expect(current.bowlSpin).toBeLessThan(3.5)
 })
 
-it('던져진 주사위가 튕기고 퍼진다', () => {
-  // "던져져도 바닥에 붙어 있다"의 회귀 감시 — 원본(rest 0.34 · Average)보다 확실히 튀어야 한다.
-  expect(current.bounces).toBeGreaterThan(1.5)
+it('던져진 주사위가 과하게 튀지 않고 퍼진다', () => {
+  // 한 번가량 반발해 굴러가되 여러 번 통통 튀는 기존 동작으로 돌아가지 않는다.
+  expect(current.bounces).toBeGreaterThan(0.5)
+  expect(current.bounces).toBeLessThan(1.5)
   // 다섯 개가 뭉치지 않고 퍼진다.
   expect(current.spread).toBeGreaterThan(1.3)
-  // 비행 중 회전 — 줄면 주사위가 구르지 않고 미끄러진다.
-  expect(current.turns).toBeGreaterThan(original.turns * 0.7)
+  expect(current.invalidTrajectories, current.invalidTrajectoryDetails.join(', ')).toBe(0)
+  // 충돌로 한두 번은 구르되, 기존처럼 공중에서 빠르게 회전하지 않는다.
+  expect(current.turns).toBeGreaterThan(0.1)
+  expect(current.turns).toBeLessThan(0.3)
 })
 
 it('정착하지 못한 굴림도 상한 안에서 끝난다', () => {

@@ -14,35 +14,48 @@ export function containDiceInBowl(
   const center = bowlBody.translation()
   const dieRadius = CONFIG.defaults.diceSize * SCENE.colliderHalfRatio * SCENE.bowlDiceScale
   const maxRadius = SCENE.bowl.containmentRadius - dieRadius
+  const bottomY = center.y + SCENE.bowl.colliderBottomY + SCENE.bowl.colliderBottomHalfHeight
+  const lidY = center.y + SCENE.bowl.colliderLidY - SCENE.bowl.colliderLidHalfHeight
   entries.forEach((entry) => {
     if (held[entry.index]) return
     const position = entry.body.translation()
+    const velocity = entry.body.linvel()
+    const extentY = verticalHalfExtent(entry.body, dieRadius)
+    const minY = bottomY + extentY
+    const maxY = lidY - extentY
+    const next = {
+      x: position.x,
+      y: position.y,
+      z: position.z,
+    }
+    let contained = false
+    if (position.y < minY - SCENE.safety.penetrationTolerance) {
+      next.y = minY
+      velocity.y = Math.max(0, velocity.y)
+      contained = true
+    } else if (position.y > maxY + SCENE.safety.penetrationTolerance) {
+      next.y = maxY
+      velocity.y = Math.min(0, velocity.y)
+      contained = true
+    }
     const dx = position.x - center.x
     const dz = position.z - center.z
     const radius = Math.hypot(dx, dz)
-    if (radius <= maxRadius || radius === 0) return
-    const normalX = dx / radius
-    const normalZ = dz / radius
-    const velocity = entry.body.linvel()
-    const outwardSpeed = velocity.x * normalX + velocity.z * normalZ
-    entry.body.setTranslation(
-      {
-        x: center.x + normalX * maxRadius,
-        y: position.y,
-        z: center.z + normalZ * maxRadius,
-      },
-      true,
-    )
-    if (outwardSpeed > 0) {
-      entry.body.setLinvel(
-        {
-          x: velocity.x - normalX * outwardSpeed * 1.35,
-          y: velocity.y,
-          z: velocity.z - normalZ * outwardSpeed * 1.35,
-        },
-        true,
-      )
+    if (radius > maxRadius) {
+      const normalX = dx / radius
+      const normalZ = dz / radius
+      const outwardSpeed = velocity.x * normalX + velocity.z * normalZ
+      next.x = center.x + normalX * maxRadius
+      next.z = center.z + normalZ * maxRadius
+      contained = true
+      if (outwardSpeed > 0) {
+        velocity.x -= normalX * outwardSpeed * 1.35
+        velocity.z -= normalZ * outwardSpeed * 1.35
+      }
     }
+    if (!contained) return
+    entry.body.setTranslation(next, true)
+    entry.body.setLinvel(velocity, true)
   })
 }
 
@@ -52,7 +65,18 @@ export interface TrayOccupant {
   enteredTray: boolean
 }
 
+export function verticalHalfExtent(body: RAPIER.RigidBody, halfSize: number) {
+  const rotation = body.rotation()
+  return (
+    halfSize *
+    (Math.abs(2 * (rotation.x * rotation.y + rotation.z * rotation.w)) +
+      Math.abs(1 - 2 * (rotation.x * rotation.x + rotation.z * rotation.z)) +
+      Math.abs(2 * (rotation.y * rotation.z - rotation.x * rotation.w)))
+  )
+}
+
 export function containDiceInTray(entries: TrayOccupant[]) {
+  const halfSize = CONFIG.defaults.diceSize * SCENE.colliderHalfRatio * SCENE.bowlDiceScale
   const margin = (CONFIG.defaults.diceSize * SCENE.bowlDiceScale) / 2 + SCENE.safety.margin
   const maxX = SCENE.tray.rollingHalfWidth - margin
   const minZ = SCENE.tray.rollingMinZ + margin
@@ -63,6 +87,12 @@ export function containDiceInTray(entries: TrayOccupant[]) {
     const next = { x: position.x, y: position.y, z: position.z }
     let bounced = false
     if (position.x <= maxX) entry.enteredTray = true
+    const floorClearance = verticalHalfExtent(entry.body, halfSize)
+    if (position.y < floorClearance - SCENE.safety.penetrationTolerance) {
+      next.y = floorClearance
+      velocity.y = Math.max(0, velocity.y)
+      bounced = true
+    }
 
     if (position.x > maxX && entry.enteredTray) {
       next.x = maxX

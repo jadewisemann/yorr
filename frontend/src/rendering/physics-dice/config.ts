@@ -22,11 +22,9 @@
  * 1. **흔들기**: 사발 콜라이더 위를 보이지 않는 뚜껑(lid)으로 막는다. 뚜껑이 있으니 흔들림
  *    임펄스를 닮음 기준(×SPEEDUP)의 몇 배로 줘도 주사위가 튀어나오지 않고, 사발 안에서
  *    격렬하게 튄다. 뚜껑 없이는 임펄스를 약하게 줄 수밖에 없어 주사위가 바닥에 붙어 보였다.
- * 2. **뒤집는 순간(releaseTiltProgress)**: 사발 물리 바디를 치운다 — 이후 사발은 순수 비주얼
- *    애니메이션이고 주사위와 물리적으로 상호작용하지 않는다. 동시에 주사위에 측면으로
- *    던지는 속도·토크를 준다(사발을 뚫고 터져 나오는 그림).
- * 3. **비행·착지**: 풀 중력 낙하. 반발 결합을 Max로 두고 restitution을 올려 바닥·서로에게
- *    튕기고, fan·randomZ로 퍼진다.
+ * 2. **던지기(releaseTiltProgress)**: 사발이 기울기 시작하면 주사위에 측면 속도와
+ *    위쪽 속도, 회전 토크를 주고 사발 물리 바디를 치운다.
+ * 3. **비행·착지**: 고정 스텝과 CCD로 관통을 막고, fan·randomZ로 퍼져 구른 뒤 안착한다.
  */
 /* 재생 속도는 √GRAVITY_SCALE 배 — QA에서 12(3.5배)·6(2.4배)은 "배속 같다", 1도 급해 보여
    0.8배(0.8² = 0.64)로 확정. 빨라진 체감은 뚜껑 사발의 격렬한 흔들림·높은 반발 튕김이
@@ -38,21 +36,21 @@ export const PHYSICS_DICE_CONFIG = {
   defaults: {
     diceSize: 0.76,
     /* 질량 — 낙하 속도는 안 바꾸지만(중력 가속은 질량 무관) 고정 크기 토크 임펄스
-       (spillTorque·shakeTorque)의 효과가 1/관성으로 줄어 회전이 차분해진다.
+       shakeTorque의 효과가 1/관성으로 줄어 회전이 차분해진다.
        1.15에서는 "너무 튀어다닌다"는 QA — 1.7로 올려 무게감을 준다. 질량을 곱하는
        임펄스(흔들기 킥·측면 던지기)는 자동으로 따라오므로 세기가 유지된다. */
     mass: 1.7,
     gravity: 30 * GRAVITY_SCALE,
     friction: 0.74,
     /* 반발 — 주사위 콜라이더는 결합 규칙이 Max라 이 값이 그대로 트레이 바닥(0.24)과의
-       반발이 된다(평균으로 깎이지 않는다). 0.34에서는 착지가 미끄러짐으로만 끝났고
-       0.55는 "너무 튀어다닌다" — 0.45로 무게감 있는 튕김을 잡는다. */
-    restitution: 0.45,
+       반발이 된다(평균으로 깎이지 않는다). 반복해서 튀던 0.45에서 0.3으로 내려 한 번가량
+       반발한 뒤 굴러 멈추게 한다. */
+    restitution: 0.3,
     /* 감쇠는 "초당" 비율이라 시간이 빨라진 만큼 함께 올려야 같은 거리에서 잦아든다. */
     linearDamping: 0.16 * SPEEDUP,
-    angularDamping: 0.2 * SPEEDUP,
+    angularDamping: 0.35 * SPEEDUP,
     /* 쏟는 속도 · 측면 임펄스에 곱해지는 던지는 힘 — 속도 차원이라 × SPEEDUP. */
-    throwForce: 4.2 * SPEEDUP,
+    throwForce: 3.3 * SPEEDUP,
     /* 물리 스텝 주기. 한 스텝에 주사위가 자기 몸통의 몇 할을 지나가는지가 관통 깊이를 정한다.
        60Hz · 중력 30에서는 몸통의 53%를 한 스텝에 지나가 주사위끼리 몸통 폭의 57%(0.284)까지
        파고들었다("겹침"). 속도가 SPEEDUP배 빨라졌으므로 주기도 그만큼 이상 올려야 한다 —
@@ -64,7 +62,7 @@ export const PHYSICS_DICE_CONFIG = {
     /* 사발에 주사위를 넣을 때의 초기 속도·각속도(원래 3 · 2 · 19에 닮음 스케일). */
     spawnLinearSpeed: 3 * SPEEDUP,
     spawnLiftSpeed: 2 * SPEEDUP,
-    spawnAngularSpeed: 19 * SPEEDUP,
+    spawnAngularSpeed: 9 * SPEEDUP,
   },
   quality: {
     eco: { pixelRatio: 1, shadows: false, shadowSize: 0 },
@@ -73,8 +71,8 @@ export const PHYSICS_DICE_CONFIG = {
   },
   scene: {
     baseDiceSize: 0.76,
-    colliderHalfRatio: 0.487,
-    bowlDiceScale: 0.72,
+    colliderHalfRatio: 0.499,
+    bowlDiceScale: 0.78,
     resultDiceScale: 1.35,
     resultGap: 0.12,
     selectionBorder: { offsetRatio: 0.045, widthRatio: 0.018, cornerRadiusRatio: 0.151 },
@@ -135,6 +133,7 @@ export const PHYSICS_DICE_CONFIG = {
       /* 임펄스 주입 주기 — 물리 타이밍이라 ÷ SPEEDUP (연출 주기가 아니다). */
       shakeIntervalMs: 105 / SPEEDUP,
       /* 진폭·주파수·yaw는 눈에 보이는 사발 연출이라 그대로 둔다. */
+      shakeStrength: 1.3,
       shakeOffsetX: 0.13,
       shakeOffsetZ: 0.11,
       shakeYaw: 0.075,
@@ -146,13 +145,13 @@ export const PHYSICS_DICE_CONFIG = {
          World가 √(2·g·h)로 역산한다. 임펄스 배수 방식은 중력을 올리면 홉 높이가 1/12로
          죽어서 주사위가 바닥에 붙어 떠는 것처럼 보였다. 뚜껑(colliderLidY 1.82)이 있으니
          세게 튀겨도 사발 밖으로 나가지 않는다. */
-      shakeKickHeight: 1.25,
+      shakeKickHeight: 0.45,
       /* 이 높이(사발 바닥 기준)보다 낮게 있는 주사위만 킥한다 — 공중의 주사위까지 계속
          밀어 올리면 뚜껑에 눌러붙는다. */
       shakeKickAltitude: 0.55,
       shakeRandomImpulse: 0.06 * SPEEDUP,
       /* 흔드는 동안 주사위를 굴리는 토크 임펄스(World.updateBowl이 쓴다). */
-      shakeTorqueImpulse: 0.55 * SPEEDUP,
+      shakeTorqueImpulse: 0.18 * SPEEDUP,
       followDecayMs: 340,
       followMinIntensity: 0.04,
       followPulseFloor: 0.4,
@@ -168,12 +167,12 @@ export const PHYSICS_DICE_CONFIG = {
       colliderBottomRadius: 1.5,
       colliderWallHalfWidth: 0.41,
       colliderWallHalfDepth: 0.12,
-      colliderWallHalfHeight: 0.9,
-      colliderWallY: 1,
+      colliderWallHalfHeight: 0.96,
+      colliderWallY: 1.06,
       colliderWallRadius: 1.63,
-      /* 보이지 않는 뚜껑 — 벽 상단(1.9)과 시각적 rim(1.9) 바로 아래를 막는다. 이 덕분에
+      /* 보이지 않는 뚜껑 — 벽 상단·시각적 rim(2.02) 바로 아래를 막는다. 이 덕분에
          흔들림 임펄스를 rattle 배수로 키워도 주사위가 사발 위로 튀어나오지 않는다. */
-      colliderLidY: 1.82,
+      colliderLidY: 1.94,
       colliderLidHalfHeight: 0.08,
       colliderLidRadius: 1.7,
       /* 사발이 이 비율만큼 기울었을 때 주사위를 던진다(뒤집어지는 순간). 이 시점에 사발
@@ -182,19 +181,13 @@ export const PHYSICS_DICE_CONFIG = {
       containmentRadius: 1.5,
       spillDirectionX: -1,
       spillForceMultiplier: 1,
-      spillMinimumSpeed: 2,
-      spillRandomSpeed: 0.8,
-      /* 아래 spill 값들은 throwForce(= 4.2 × SPEEDUP)가 곱해지므로 이미 속도 차원이 맞다.
-         lift 0.4는 궤적이 낮아 던져진 뒤 미끄러지기만 했다 — 0.9로 올려 포물선을 그리고,
-         fan·randomZ를 키워 다섯 개가 뭉치지 않고 퍼지게 한다(24시드: 퍼짐 1.38 → 1.60). */
-      spillLiftSpeed: 0.9,
-      spillFanSpeed: 0.3,
-      spillRandomZ: 0.6,
-      /* throwForce가 곱해지지 않는 토크라 여기서 직접 × SPEEDUP 해야 한다.
-         이걸 빼먹으면 주사위가 비행 중 덜 회전해 미끄러지듯 처박힌다. */
-      spillTorque: 0.9 * SPEEDUP,
-      spillSideImpulse: 1.15,
-      spillSideImpulseVariance: 0.12,
+      /* 던지지 않고 기울어진 사발에서 흘려보낸다. 전진 속도는 낮게, fan만 유지해
+         주사위끼리 쌓이지 않을 정도로 옆으로 퍼지게 한다. */
+      spillMinimumSpeed: 1.4,
+      spillRandomSpeed: 0.4,
+      spillLiftSpeed: 0.55,
+      spillFanSpeed: 0.7,
+      spillRandomZ: 0.35,
       visual: {
         outerBottomY: 0.03,
         outerBottomRadius: 1.56,
@@ -204,7 +197,7 @@ export const PHYSICS_DICE_CONFIG = {
         outerRimRadius: 1.87,
         rimRadius: 1.75,
         rimTube: 0.12,
-        rimY: 1.9,
+        rimY: 2.02,
         segments: 48,
       },
     },
@@ -232,7 +225,7 @@ export const PHYSICS_DICE_CONFIG = {
          있어 조기 마감이 점수를 바꾸지 않는다. */
       maxRollDurationMs: 900 + 2900 / SPEEDUP,
     },
-    safety: { margin: 0.16, bounce: 0.52 },
+    safety: { margin: 0.16, bounce: 0.35, penetrationTolerance: 0.025 },
   },
 } as const
 
