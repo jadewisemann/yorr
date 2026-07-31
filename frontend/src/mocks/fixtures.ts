@@ -15,12 +15,16 @@ export const creatorPlayer: Player = {
   playerId: 'player-creator',
   nickname: '느긋한 주사위',
   status: 'online',
+  kind: 'HUMAN',
+  isHost: true,
 }
 
 export const participantPlayer: Player = {
   playerId: 'player-participant',
   nickname: '참가자',
   status: 'online',
+  kind: 'HUMAN',
+  isHost: false,
 }
 
 export function createEmptyScoreBoard(): ScoreBoard {
@@ -38,6 +42,8 @@ export function createEmptyScoreBoard(): ScoreBoard {
 export const waitingRoomSnapshot: RoomSnapshot = {
   roomId: MOCK_ROOM_ID,
   phase: 'waiting',
+  hostId: creatorPlayer.playerId,
+  capacity: 6,
   players: [creatorPlayer, participantPlayer],
 }
 

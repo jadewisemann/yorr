@@ -1,5 +1,12 @@
 import { delay, HttpResponse, http } from 'msw'
-import type { EnterRoomRequest, EnterRoomResponse, RoomSession } from '@/api/gameApi'
+import type {
+  EnterRoomRequest,
+  EnterRoomResponse,
+  RoomSession,
+  ScoreCandidatesRequest,
+} from '@/api/gameApi'
+import { calculateScoreCandidates } from '@/domain/scoring'
+import type { BotDifficulty, Player } from '@/realtime/wsEvents'
 import {
   createPlayingRoomSnapshot,
   creatorSession,
@@ -7,7 +14,7 @@ import {
   MOCK_ROUND_DURATION_MS,
   participantSession,
   playingRoomSnapshot,
-  type waitingRoomSnapshot,
+  waitingRoomSnapshot,
 } from './fixtures'
 import { clearMockRoomSnapshot, loadMockRoomSnapshot, saveMockRoomSnapshot } from './mockRoomState'
 
@@ -20,6 +27,7 @@ export interface RestHandlerOptions {
 
 export function createRestHandlers(options: RestHandlerOptions = {}) {
   const scenario = options.scenario ?? 'success'
+  let nextBotNumber = 1
 
   async function beforeResponse() {
     if (scenario === 'delay') await delay(options.delayMs ?? 300)
@@ -105,6 +113,70 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
         snapshot: toRestRoomSnapshot(snapshot),
       })
     }),
+    http.post('/api/v1/rooms/:roomCode/bots', async ({ params, request }) => {
+      await beforeResponse()
+      if (params.roomCode !== MOCK_ROOM_ID) {
+        return HttpResponse.text('room_not_found', { status: 404 })
+      }
+      const failure = unavailable()
+      if (failure) return failure
+      const body = (await request.json()) as { difficulty: BotDifficulty }
+      const snapshot = loadMockRoomSnapshot() ?? waitingRoomSnapshot
+      if (snapshot.players.length >= (snapshot.capacity ?? 6)) {
+        return HttpResponse.text('room_full', { status: 409 })
+      }
+      const bot: Player = {
+        playerId: `bot-${nextBotNumber}`,
+        nickname: `요르봇 ${nextBotNumber}`,
+        status: 'online',
+        kind: 'BOT',
+        difficulty: body.difficulty,
+        isHost: false,
+      }
+      nextBotNumber += 1
+      const updated = { ...snapshot, players: [...snapshot.players, bot] }
+      saveMockRoomSnapshot(updated)
+      return HttpResponse.json(toRestRoomSnapshot(updated))
+    }),
+    http.patch('/api/v1/rooms/:roomCode/bots/:botId', async ({ params, request }) => {
+      await beforeResponse()
+      const snapshot = loadMockRoomSnapshot() ?? waitingRoomSnapshot
+      const body = (await request.json()) as { difficulty: BotDifficulty }
+      const botExists = snapshot.players.some(
+        (player) => player.playerId === params.botId && player.kind === 'BOT',
+      )
+      if (params.roomCode !== MOCK_ROOM_ID || !botExists) {
+        return HttpResponse.text('bot_not_found', { status: 404 })
+      }
+      const failure = unavailable()
+      if (failure) return failure
+      const updated = {
+        ...snapshot,
+        players: snapshot.players.map((player) =>
+          player.playerId === params.botId ? { ...player, difficulty: body.difficulty } : player,
+        ),
+      }
+      saveMockRoomSnapshot(updated)
+      return HttpResponse.json(toRestRoomSnapshot(updated))
+    }),
+    http.delete('/api/v1/rooms/:roomCode/bots/:botId', async ({ params }) => {
+      await beforeResponse()
+      const snapshot = loadMockRoomSnapshot() ?? waitingRoomSnapshot
+      const botExists = snapshot.players.some(
+        (player) => player.playerId === params.botId && player.kind === 'BOT',
+      )
+      if (params.roomCode !== MOCK_ROOM_ID || !botExists) {
+        return HttpResponse.text('bot_not_found', { status: 404 })
+      }
+      const failure = unavailable()
+      if (failure) return failure
+      const updated = {
+        ...snapshot,
+        players: snapshot.players.filter((player) => player.playerId !== params.botId),
+      }
+      saveMockRoomSnapshot(updated)
+      return HttpResponse.json(toRestRoomSnapshot(updated))
+    }),
     http.post('/api/v1/rooms/:roomCode/lobby', async ({ params }) => {
       await beforeResponse()
       if (params.roomCode !== MOCK_ROOM_ID) {
@@ -115,6 +187,14 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       // 대기실 복귀 = 방이 다시 대기 상태다. 기억을 지우면 room.join 기본값(대기 중)과 같다.
       clearMockRoomSnapshot()
       return new HttpResponse(null, { status: 204 })
+    }),
+    http.post('/api/v1/games/:gameId/score-candidates', async ({ params, request }) => {
+      await beforeResponse()
+      if (params.gameId !== 'mock-game-id') {
+        return HttpResponse.json({ code: 'GAME_NOT_FOUND' }, { status: 404 })
+      }
+      const body = (await request.json()) as ScoreCandidatesRequest
+      return unavailable() ?? HttpResponse.json({ candidates: calculateScoreCandidates(body.dice) })
     }),
     http.delete('/api/v1/rooms/:roomCode/players/me', async ({ params }) => {
       await beforeResponse()
@@ -134,12 +214,14 @@ function toRestRoomSnapshot(snapshot: typeof waitingRoomSnapshot) {
     roomCode: snapshot.roomId,
     gameId: snapshot.phase === 'playing' ? 'mock-game-id' : null,
     hostId: creatorSession.you,
-    phase: snapshot.phase.toUpperCase(),
+    phase: snapshot.phase === 'waiting' ? 'LOBBY' : snapshot.phase.toUpperCase(),
     capacity: 6,
     players: snapshot.players.map((player) => ({
       playerId: player.playerId,
       nickname: player.nickname,
       score: 0,
+      kind: player.kind ?? 'HUMAN',
+      ...(player.difficulty ? { difficulty: player.difficulty } : {}),
     })),
     // 실서버는 round.start(WS)로 턴을 알리지만 mock WS는 서버 주도 push가 없다.
     // REST 스냅샷에 game을 실어 mock 환경에서도 "내 턴"이 성립하게 한다.

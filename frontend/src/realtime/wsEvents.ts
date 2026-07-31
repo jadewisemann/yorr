@@ -71,11 +71,16 @@ export type RoomId = string
 export type SessionToken = string
 
 export type PlayerStatus = 'online' | 'away' | 'offline'
+export type ParticipantKind = 'HUMAN' | 'BOT'
+export type BotDifficulty = 'EASY' | 'NORMAL' | 'HARD'
 
 export interface Player {
   playerId: PlayerId
   nickname: string
   status: PlayerStatus
+  kind?: ParticipantKind
+  difficulty?: BotDifficulty
+  isHost?: boolean
 }
 
 export type RoomPhase = 'waiting' | 'playing' | 'finished'
@@ -88,6 +93,8 @@ export interface RoomSnapshot {
   roomId: RoomId
   phase: RoomPhase
   players: Player[]
+  hostId?: PlayerId
+  capacity?: number
   /** ⚠️ STUB: 게임 진행 중일 때만 존재. owner: 고용훈/유상은 */
   game?: GameState
 }

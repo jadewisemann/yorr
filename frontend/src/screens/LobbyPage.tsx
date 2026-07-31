@@ -1,12 +1,13 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { useStartGame } from '@/api/useGameApi'
+import { useAddBot, useRemoveBot, useStartGame, useUpdateBot } from '@/api/useGameApi'
 import { cn } from '@/cn'
 import { Button } from '@/components/Button'
 import { InvitationPanel } from '@/components/InvitationPanel'
 import { PlayerCard } from '@/components/PlayerCard'
 import { playLandingSoundtrack } from '@/landingSoundtrack'
 import { prefetchPhysicsDiceWorld } from '@/rendering/physics-dice/loadWorld'
+import type { BotDifficulty } from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
 import { RoomExitGuard } from './RoomExitGuard'
 
@@ -42,11 +43,18 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const roomResumeReason = useAppStore((state) => state.roomResumeReason)
   const connectionStatus = useAppStore((state) => state.connectionStatus)
   const startGame = useStartGame()
+  const addBot = useAddBot()
+  const updateBot = useUpdateBot()
+  const removeBot = useRemoveBot()
   const [exitRequested, setExitRequested] = useState(false)
+  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('NORMAL')
   const matchingRoom = roomSession?.roomId === roomId
+  const isHost = matchingRoom && roomSession.membershipRole === 'host'
+  const capacity = roomSnapshot?.capacity ?? 6
+  const botMutationLoading = addBot.isLoading || updateBot.isLoading || removeBot.isLoading
+  const botMutationError = addBot.error ?? updateBot.error ?? removeBot.error
   const canStart =
-    matchingRoom &&
-    roomSession.membershipRole === 'host' &&
+    isHost &&
     connectionStatus === 'connected' &&
     roomSnapshot?.phase === 'waiting' &&
     roomSnapshot.players.length >= MIN_PLAYERS_TO_START
@@ -74,6 +82,11 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const handleStart = async () => {
     if (!roomSession || !canStart) return
     await startGame.execute()
+  }
+
+  const handleAddBot = async () => {
+    if (!isHost || !roomSnapshot || roomSnapshot.players.length >= capacity) return
+    await addBot.execute(botDifficulty)
   }
 
   if (!roomSession || !matchingRoom || roomResumeReason) return null
@@ -119,6 +132,45 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
 
         <InvitationPanel roomCode={roomSession.roomCode} />
 
+        {roomSnapshot && isHost && (
+          <section
+            aria-label="AI 봇 관리"
+            className="grid flex-none grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-panel border border-border bg-surface-raised p-3"
+          >
+            <label className="grid min-w-0 gap-1 text-xs font-bold text-content-muted">
+              봇 난이도
+              <select
+                aria-label="추가할 봇 난이도"
+                className="min-h-10 rounded-card border border-border bg-canvas px-3 text-sm text-content"
+                disabled={botMutationLoading}
+                onChange={(event) => setBotDifficulty(event.target.value as BotDifficulty)}
+                value={botDifficulty}
+              >
+                {BOT_DIFFICULTIES.map((difficulty) => (
+                  <option key={difficulty} value={difficulty}>
+                    {difficultyLabel(difficulty)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              className="self-end"
+              disabled={botMutationLoading || roomSnapshot.players.length >= capacity}
+              loading={addBot.isLoading}
+              onClick={handleAddBot}
+              type="button"
+              variant="secondary"
+            >
+              봇 추가
+            </Button>
+            {botMutationError && (
+              <p className="col-span-2 m-0 text-xs text-danger" role="alert">
+                봇을 변경하지 못했어요: {botMutationError.message}
+              </p>
+            )}
+          </section>
+        )}
+
         {!roomSnapshot && (
           <p className="m-0 text-center text-sm text-content-muted" role="status">
             실시간 대기실에 연결하고 있어요.
@@ -131,7 +183,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
               <span className="text-[15px] font-semibold">참가 인원</span>
               <span className="font-mono text-base font-bold tabular-nums">
                 {roomSnapshot.players.length}
-                <span className="text-content-faint"> / 6</span>
+                <span className="text-content-faint"> / {capacity}</span>
               </span>
             </div>
 
@@ -149,15 +201,53 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
                   status={player.status}
                   current={player.playerId === roomSession.you}
                   active={player.playerId === roomSession.you}
+                  subtitle={
+                    player.kind === 'BOT'
+                      ? `AI 봇 · ${difficultyLabel(player.difficulty ?? 'NORMAL')}`
+                      : undefined
+                  }
+                  trailing={
+                    player.kind === 'BOT' && isHost ? (
+                      <span className="flex items-center gap-2">
+                        <select
+                          aria-label={`${player.nickname} 난이도`}
+                          className="min-h-9 rounded-card border border-border bg-canvas px-2 text-xs text-content"
+                          disabled={botMutationLoading}
+                          onChange={(event) =>
+                            void updateBot.execute(
+                              player.playerId,
+                              event.target.value as BotDifficulty,
+                            )
+                          }
+                          value={player.difficulty ?? 'NORMAL'}
+                        >
+                          {BOT_DIFFICULTIES.map((difficulty) => (
+                            <option key={difficulty} value={difficulty}>
+                              {difficultyLabel(difficulty)}
+                            </option>
+                          ))}
+                        </select>
+                        <Button
+                          className="min-h-9 px-2.5 text-xs"
+                          disabled={botMutationLoading}
+                          onClick={() => void removeBot.execute(player.playerId)}
+                          type="button"
+                          variant="danger"
+                        >
+                          삭제
+                        </Button>
+                      </span>
+                    ) : undefined
+                  }
                 />
               ))}
-              {roomSnapshot.players.length < 6 && (
+              {roomSnapshot.players.length < capacity && (
                 <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-white/14 px-3 text-sm text-content-muted">
                   <span
                     aria-hidden="true"
                     className="size-11 flex-none rounded-card border border-dashed border-white/18"
                   />
-                  빈 자리 {6 - roomSnapshot.players.length} · 링크를 공유해 초대하세요
+                  빈 자리 {capacity - roomSnapshot.players.length} · 링크를 공유해 초대하세요
                 </p>
               )}
             </section>
@@ -194,6 +284,14 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
       </main>
     </>
   )
+}
+
+const BOT_DIFFICULTIES = ['EASY', 'NORMAL', 'HARD'] as const satisfies readonly BotDifficulty[]
+
+function difficultyLabel(difficulty: BotDifficulty) {
+  if (difficulty === 'EASY') return '쉬움'
+  if (difficulty === 'HARD') return '어려움'
+  return '보통'
 }
 
 function connectionLabel(status: ReturnType<typeof useAppStore.getState>['connectionStatus']) {

@@ -1,4 +1,4 @@
-import type { RoomSnapshot } from '@/realtime/wsEvents'
+import type { BotDifficulty, PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
 import type { GameStartResult } from './gameApi'
 import { gameApiClient } from './gameApi'
@@ -44,6 +44,57 @@ export function useStartGame() {
         replaceRoomSnapshot(snapshot)
       },
     },
+  )
+}
+
+export function useAddBot() {
+  const roomSession = useAppStore((state) => state.roomSession)
+  const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)
+
+  return useAsyncTask<[BotDifficulty], RoomSnapshot>(
+    (signal, difficulty) =>
+      roomSession
+        ? gameApiClient.addBot(roomSession.roomCode, difficulty, {
+            signal,
+            sessionToken: roomSession.sessionToken,
+            userId: roomSession.you,
+          })
+        : Promise.reject(new Error('Room session is required')),
+    { onSuccess: replaceRoomSnapshot },
+  )
+}
+
+export function useUpdateBot() {
+  const roomSession = useAppStore((state) => state.roomSession)
+  const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)
+
+  return useAsyncTask<[PlayerId, BotDifficulty], RoomSnapshot>(
+    (signal, botId, difficulty) =>
+      roomSession
+        ? gameApiClient.updateBot(roomSession.roomCode, botId, difficulty, {
+            signal,
+            sessionToken: roomSession.sessionToken,
+            userId: roomSession.you,
+          })
+        : Promise.reject(new Error('Room session is required')),
+    { onSuccess: replaceRoomSnapshot },
+  )
+}
+
+export function useRemoveBot() {
+  const roomSession = useAppStore((state) => state.roomSession)
+  const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)
+
+  return useAsyncTask<[PlayerId], RoomSnapshot>(
+    (signal, botId) =>
+      roomSession
+        ? gameApiClient.removeBot(roomSession.roomCode, botId, {
+            signal,
+            sessionToken: roomSession.sessionToken,
+            userId: roomSession.you,
+          })
+        : Promise.reject(new Error('Room session is required')),
+    { onSuccess: replaceRoomSnapshot },
   )
 }
 
