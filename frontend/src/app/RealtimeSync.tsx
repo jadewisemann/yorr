@@ -108,9 +108,15 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
  * 있지 않다. 그대로 갈아끼우면 score.update로 모아온 **모든 플레이어의 점수판**이 통째로 사라지고,
  * game이 없는 동안 도착한 score.update는 아래 핸들러에서 그냥 버려진다.
  * 대기방으로 되돌아가는 경우가 아니면 지금 들고 있는 진행 상태를 유지한다.
+ * 종료 뒤의 players는 현재 접속 명단이 아니라 결과 화면의 참가자 이름 원본이기도 하므로,
+ * finished 상태끼리 동기화할 때는 종료 시점 명단도 함께 보존한다.
  */
 function keepGameState(snapshot: RoomSnapshot, current: RoomSnapshot | null): RoomSnapshot {
-  if (snapshot.game || snapshot.phase === 'waiting' || !current?.game) return snapshot
+  if (snapshot.phase === 'waiting' || !current?.game) return snapshot
+  if (snapshot.phase === 'finished' && current.phase === 'finished') {
+    return { ...snapshot, players: current.players, game: current.game }
+  }
+  if (snapshot.game) return snapshot
   return { ...snapshot, game: current.game }
 }
 
@@ -151,6 +157,9 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
       return
     case 'room.player_left':
       if (!store.roomSnapshot) return
+      // 결과 순위에는 playerId만 오므로 종료 시점 players가 닉네임의 유일한 원본이다.
+      // 실제 재실행 명단은 대기실 state.sync에서 새로 받으므로 결과 화면에서는 보존한다.
+      if (store.roomSnapshot.phase === 'finished') return
       store.replaceRoomSnapshot({
         ...store.roomSnapshot,
         players: store.roomSnapshot.players.filter(
