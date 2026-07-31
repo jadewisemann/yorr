@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLeaveSession } from '@/api/useRoomApi'
 import { cn } from '@/cn'
 import { LandingCodeDialog } from '@/components/LandingCodeDialog'
@@ -7,6 +7,7 @@ import { LandingMetaPills } from '@/components/LandingHeroCard'
 import { LandingHeroCarousel } from '@/components/LandingHeroCarousel'
 import { LandingProgress } from '@/components/LandingProgress'
 import { landingGameAt, landingGames } from '@/landingGames'
+import { playLandingSoundtrack } from '@/landingSoundtrack'
 import { normalizeRoomCode } from '@/roomCode'
 import { sessionScreenOf } from '@/sessionFsm'
 import { selectSessionPhase, useAppStore } from '@/store'
@@ -35,6 +36,15 @@ export function EntryPage() {
 
   const game = landingGameAt(activeIndex)
 
+  useEffect(() => {
+    playLandingSoundtrack(game.key)
+  }, [game.key])
+
+  const handleGameSelect = (index: number) => {
+    playLandingSoundtrack(landingGameAt(index).key)
+    setActiveIndex(index)
+  }
+
   const handlePlay = () => {
     void navigate({ to: '/join', search: { code: undefined } })
   }
@@ -55,7 +65,6 @@ export function EntryPage() {
       open={codeOpen}
     />
   )
-
   if (wide) {
     return (
       <>
@@ -94,7 +103,7 @@ export function EntryPage() {
               activeIndex={activeIndex}
               games={landingGames}
               layout="wide"
-              onSelect={setActiveIndex}
+              onSelect={handleGameSelect}
             />
           </div>
 
@@ -103,7 +112,7 @@ export function EntryPage() {
               activeIndex={activeIndex}
               games={landingGames}
               layout="wide"
-              onSelect={setActiveIndex}
+              onSelect={handleGameSelect}
             />
           </div>
 
@@ -181,7 +190,7 @@ export function EntryPage() {
             activeIndex={activeIndex}
             games={landingGames}
             layout="narrow"
-            onSelect={setActiveIndex}
+            onSelect={handleGameSelect}
           />
         </div>
 
@@ -194,7 +203,7 @@ export function EntryPage() {
             activeIndex={activeIndex}
             games={landingGames}
             layout="narrow"
-            onSelect={setActiveIndex}
+            onSelect={handleGameSelect}
           />
         </div>
 
