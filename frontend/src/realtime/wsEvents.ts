@@ -42,6 +42,8 @@
  *    v0.4 (2026-07) 점수 규칙 확정 — smallStraight=15 · largeStraight=30 · fullHouse=총합.
  *                   (fourOfAKind=총합 / 상단보너스 63→35 은 기본값, 확정 대기)
  *    v0.5 (2026-07) 요트 점수 전체 확정 — fourOfAKind=5개 총합, 상단보너스 63↑→35 잠금.
+ *    v0.6 (2026-07) dice.throw / dice.thrown 추가 — 던진 시점을 방에 알린다. 그전까지 관전자는
+ *                   dice.broadcast 직후 타이머로 사발을 쏟아, 굴린 사람이 흔드는 중에 결과가 먼저 보였다.
  * ============================================================================
  */
 
@@ -334,6 +336,26 @@ export interface DiceHoldChangedPayload {
   roundNumber: number
   held: readonly [boolean, boolean, boolean, boolean, boolean]
 }
+/**
+ * C→S: 사발을 던졌다 — "지금 쏟아라"라는 연출 신호다.
+ *
+ * dice.roll은 던지는 순간이 아니라 **흔들기 시작**에 나간다(던질 때 굴림 결과를 기다리면
+ * 손을 놓고 한 박자 뒤에야 주사위가 날아간다). 그래서 이 메시지가 없으면 관전자는 던진 시점을
+ * 알 수 없어, 굴린 사람이 아직 흔드는 중인데 먼저 주사위를 쏟고 눈까지 보게 된다.
+ *
+ * 서버 상태는 건드리지 않는다 — 눈은 dice.roll에서 이미 확정됐다. 유실돼도 게임 진행은
+ * 어긋나지 않고, 관전 화면만 안전망 타이머로 늦게 따라온다.
+ */
+export interface DiceThrowPayload {
+  roundNumber: number
+  rollCount: 1 | 2 | 3
+}
+/** S→C: 턴 주인이 사발을 던졌다. 이 굴림의 애니메이션을 지금 쏟으라는 신호. */
+export interface DiceThrownPayload {
+  playerId: PlayerId
+  roundNumber: number
+  rollCount: 1 | 2 | 3
+}
 // S→C: 서버가 확정한 결과를 방 전체에 브로드캐스트한다.
 export interface DiceBroadcastPayload {
   playerId: PlayerId
@@ -402,6 +424,7 @@ export type ClientMessage =
   // ⚠️ STUB (게임 도메인)
   | WsEnvelope<'dice.roll', DiceRollPayload>
   | WsEnvelope<'dice.hold', DiceHoldPayload>
+  | WsEnvelope<'dice.throw', DiceThrowPayload>
   | WsEnvelope<'round.submit', RoundSubmitPayload>
 
 export type ServerMessage =
@@ -427,6 +450,7 @@ export type ServerMessage =
   | WsEnvelope<'round.end', RoundEndPayload>
   | WsEnvelope<'dice.broadcast', DiceBroadcastPayload>
   | WsEnvelope<'dice.hold_changed', DiceHoldChangedPayload>
+  | WsEnvelope<'dice.thrown', DiceThrownPayload>
   | WsEnvelope<'score.update', ScoreUpdatePayload>
   | WsEnvelope<'game.over', GameOverPayload>
   | WsEnvelope<'state.patch', StatePatchPayload>
