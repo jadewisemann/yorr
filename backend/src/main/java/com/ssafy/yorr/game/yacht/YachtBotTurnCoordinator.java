@@ -44,28 +44,32 @@ public class YachtBotTurnCoordinator {
     }
 
     public boolean playIfCurrent(RoundStartedEvent event) {
+        return executeIfCurrent(event).acted();
+    }
+
+    BotTurnStep executeIfCurrent(RoundStartedEvent event) {
         RoundState state = rounds.findByRoomId(event.roomId()).orElse(null);
         if (state == null || state.isFinished() || !TurnVersion.from(event.state()).matches(state)) {
-            return false;
+            return BotTurnStep.ignored();
         }
 
         RoomSnapshot room = rooms.getSnapshot(event.roomId());
         RoomPlayerSnapshot bot = findActiveBot(room, state.activePlayerId());
         if (bot == null) {
-            return false;
+            return BotTurnStep.ignored();
         }
 
         BotDifficulty difficulty = bot.difficulty() == null
                 ? BotDifficulty.NORMAL
                 : bot.difficulty();
         if (state.activeRollCount() == 0) {
-            actions.roll(
+            RoundState rolled = actions.roll(
                     event.roomId(),
                     bot.playerId(),
                     new DiceRollPayload(state.roundNumber(), 1, NO_HELD),
                     null
             );
-            return true;
+            return BotTurnStep.completed(rolled);
         }
 
         List<ScoreCategory> openCategories =
@@ -73,18 +77,19 @@ public class YachtBotTurnCoordinator {
         if (state.activeRollCount() < RoundState.MAX_ROLL_COUNT) {
             List<Boolean> held = strategy.chooseHeld(difficulty, state.activeDice());
             if (!held.equals(state.activeHeld())) {
-                actions.hold(
+                RoundState heldState = actions.hold(
                         event.roomId(),
                         bot.playerId(),
                         new DiceHoldPayload(state.roundNumber(), held),
                         null
                 );
+                return BotTurnStep.continueAfterObservation(heldState);
             }
             RoundState current = rounds.findByRoomId(event.roomId()).orElse(null);
             if (!sameTurn(state, current)) {
-                return false;
+                return BotTurnStep.ignored();
             }
-            actions.roll(
+            RoundState rolled = actions.roll(
                     event.roomId(),
                     bot.playerId(),
                     new DiceRollPayload(
@@ -94,7 +99,7 @@ public class YachtBotTurnCoordinator {
                     ),
                     null
             );
-            return true;
+            return BotTurnStep.completed(rolled);
         }
 
         ScoreCategory category =
@@ -109,7 +114,7 @@ public class YachtBotTurnCoordinator {
                 ),
                 null
         );
-        return true;
+        return BotTurnStep.completed(state);
     }
 
     private static RoomPlayerSnapshot findActiveBot(RoomSnapshot room, String activePlayerId) {
@@ -154,6 +159,21 @@ public class YachtBotTurnCoordinator {
                     && activeRollCount == state.activeRollCount()
                     && java.util.Objects.equals(dice, state.activeDice())
                     && java.util.Objects.equals(held, state.activeHeld());
+        }
+    }
+
+    record BotTurnStep(boolean acted, boolean continueAfterObservation, RoundState state) {
+
+        static BotTurnStep ignored() {
+            return new BotTurnStep(false, false, null);
+        }
+
+        static BotTurnStep completed(RoundState state) {
+            return new BotTurnStep(true, false, state);
+        }
+
+        static BotTurnStep continueAfterObservation(RoundState state) {
+            return new BotTurnStep(true, true, state);
         }
     }
 }
