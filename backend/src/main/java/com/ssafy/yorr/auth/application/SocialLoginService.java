@@ -30,8 +30,15 @@ public class SocialLoginService {
 
     public User loginOrRegister(SocialProvider provider, String providerUserId,
                                 String nickname, String profileImageUrl) {
-        return find(provider, providerUserId)
-                .orElseGet(() -> registerOrRecover(provider, providerUserId, nickname, profileImageUrl));
+        User existing = find(provider, providerUserId).orElse(null);
+        if (existing == null) {
+            return registerOrRecover(provider, providerUserId, nickname, profileImageUrl);
+        }
+        // 임시 이름으로 가입된 회원이라면 이번에 받은 진짜 이름을 받아 적는다(그때만).
+        if (existing.hasPlaceholderNickname() && !User.PLACEHOLDER_NICKNAME.equals(nickname)) {
+            return registrar.adoptProviderProfile(existing.getId(), nickname, profileImageUrl);
+        }
+        return existing;
     }
 
     private User registerOrRecover(SocialProvider provider, String providerUserId,

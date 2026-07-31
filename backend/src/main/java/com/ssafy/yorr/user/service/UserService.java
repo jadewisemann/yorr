@@ -148,7 +148,8 @@ public class UserService {
         return type == UserType.MEMBER ? MEMBER_TTL : GUEST_TTL;
     }
 
-    static String normalizeNickname(String nickname) {
+    /** 방 입장처럼 게스트를 만들지 않는 경로도 같은 규칙으로 이름을 다듬어야 한다. */
+    public static String normalizeNickname(String nickname) {
         String value = nickname == null ? "" : nickname.trim();
         if (value.isEmpty() || value.length() > 20) throw new IllegalArgumentException("invalid_nickname");
         return value;

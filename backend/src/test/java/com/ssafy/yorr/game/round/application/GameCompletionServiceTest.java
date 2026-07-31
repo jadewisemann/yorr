@@ -1,5 +1,6 @@
 package com.ssafy.yorr.game.round.application;
 
+import com.ssafy.yorr.game.match.application.MatchArchiveService;
 import com.ssafy.yorr.game.repository.GameCompletionStore;
 import com.ssafy.yorr.game.round.application.port.RoundDeadlineScheduler;
 import com.ssafy.yorr.room.dto.RoomPhase;
@@ -32,6 +33,7 @@ class GameCompletionServiceTest {
     private static final String ROOM = "ROOM1";
 
     private GameCompletionStore completionStore;
+    private MatchArchiveService matchArchiveService;
     private RoundDeadlineScheduler deadlineScheduler;
     private RoomSessionRegistry registry;
     private RoomBroadcaster broadcaster;
@@ -47,8 +49,9 @@ class GameCompletionServiceTest {
         when(roomService.getSnapshot(ROOM)).thenReturn(new RoomSnapshot(
                 ROOM, "game-1", "player-a", RoomPhase.PLAYING, 6, List.of()
         ));
+        matchArchiveService = mock(MatchArchiveService.class);
         service = new GameCompletionService(
-                completionStore, deadlineScheduler, roomService, registry, broadcaster
+                completionStore, matchArchiveService, deadlineScheduler, roomService, registry, broadcaster
         );
     }
 
