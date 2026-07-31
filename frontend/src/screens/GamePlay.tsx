@@ -74,6 +74,22 @@ const REMOTE_THROW_FALLBACK_MS = 8_000
  */
 type RollAnimationMode = RollInputMode | 'remote' | 'auto'
 
+/** 같은 서버 굴림을 받은 모든 클라이언트가 같은 물리 난수열을 쓰게 하는 32비트 FNV-1a. */
+export function animationSeedForRoll(
+  roomId: string,
+  playerId: string,
+  roundNumber: number,
+  rollCount: number,
+  dice: DiceSet,
+) {
+  const key = `${roomId}:${playerId}:${roundNumber}:${rollCount}:${dice.join('')}`
+  let hash = 2_166_136_261
+  for (let index = 0; index < key.length; index += 1) {
+    hash = Math.imul(hash ^ key.charCodeAt(index), 16_777_619)
+  }
+  return hash >>> 0
+}
+
 interface GamePlayProps {
   roomId: string
   session: ActiveRoomSession
@@ -390,17 +406,18 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           // 서버 상태는 이미 이 값이고, 버리면 다음 굴림·기록이 전부 어긋난다.
           const forced = message.payload.auto === true
           const pending = pendingRollRequestRef.current
-          if (ownRoll && !forced && (!pending || message.msgId !== pending.msgId)) return
-
-          const requestId =
-            ownRoll && !forced
-              ? (pending?.requestId ?? `own-${message.msgId ?? message.ts}`)
-              : `${forced ? 'auto' : 'remote'}-${message.payload.playerId}-${message.payload.roundNumber}-${message.payload.rollCount}-${message.msgId ?? message.ts}`
+          const matchingPending =
+            ownRoll && !forced && pending && message.msgId === pending.msgId ? pending : null
+          // 서버가 확정한 한 굴림은 모든 참가자에게 같은 키를 쓴다. 요청자의 로컬 msgId가
+          // 유실됐더라도 권위 브로드캐스트를 버리면 요청자와 관전자의 최종 눈이 갈린다.
+          const requestId = `roll-${message.payload.playerId}-${message.payload.roundNumber}-${message.payload.rollCount}`
           const animationMode: RollAnimationMode = forced
             ? 'auto'
-            : ownRoll
-              ? (pending?.inputMode ?? 'tap')
-              : 'remote'
+            : matchingPending
+              ? matchingPending.inputMode
+              : ownRoll
+                ? 'tap'
+                : 'remote'
 
           // 남의 굴림은 그 사람이 던질 때까지 사발에 담아둔다 — 쏟는 시점은 dice.thrown이 정한다.
           remoteRollRef.current =
@@ -423,6 +440,13 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
             requestId,
             // 굴림 횟수는 서버가 센 값을 그대로 받는다 — 클라가 따로 세면 어긋난다.
             rollCount: message.payload.rollCount,
+            seed: animationSeedForRoll(
+              roomId,
+              message.payload.playerId,
+              message.payload.roundNumber,
+              message.payload.rollCount,
+              message.payload.dice,
+            ),
             targetDice: message.payload.dice,
           })
           if (ownRoll && forced) {

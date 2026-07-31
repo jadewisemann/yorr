@@ -124,11 +124,17 @@ describe('GamePage motion roll flow', () => {
     render(<GamePage roomId={creatorSession.roomId} />)
     fireEvent.click(screen.getByRole('button', { name: '굴리기' }))
 
-    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', 'r1-1')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-request',
+      'roll-player-creator-1-1',
+    )
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
 
     act(() => vi.advanceTimersByTime(600))
-    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', 'r1-1')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-release',
+      'roll-player-creator-1-1',
+    )
   })
 
   it('흔들기 뒤 던지기 이벤트가 와야 센서 굴림을 release한다', () => {
@@ -138,13 +144,19 @@ describe('GamePage motion roll flow', () => {
     act(() => {
       mocks.gestureCallback?.({ type: 'shakeStarted', at: 1_000 })
     })
-    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', 'r1-1')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-request',
+      'roll-player-creator-1-1',
+    )
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
 
     act(() => {
       mocks.gestureCallback?.({ type: 'throwDetected', at: 1_300, confidence: 0.9 })
     })
-    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', 'r1-1')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-release',
+      'roll-player-creator-1-1',
+    )
   })
 
   it('센서 굴림이 시작되면 인식 상태와 무관하게 확정 버튼으로 완주할 수 있다', () => {
@@ -156,7 +168,10 @@ describe('GamePage motion roll flow', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: '지금 던지기' }))
 
-    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', 'r1-1')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-release',
+      'roll-player-creator-1-1',
+    )
   })
 
   it('브라우저와 관계없이 센서 시작 버튼에서 권한 요청을 시작한다', () => {

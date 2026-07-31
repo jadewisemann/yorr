@@ -17,7 +17,7 @@ import type { ClientMessageType, RoomSnapshot } from '@/realtime/wsEvents'
 import { buildClientMessage } from '@/realtime/wsEvents'
 import type { PhysicsDiceRollRequest, PhysicsDiceSet } from '@/rendering/physics-dice/types'
 import { useAppStore } from '@/store'
-import { GamePlay } from './GamePlay'
+import { animationSeedForRoll, GamePlay } from './GamePlay'
 
 /**
  * 물리 렌더러는 rAF와 WebGL에 의존해 jsdom에서 굴림을 끝낼 수 없다.
@@ -54,6 +54,16 @@ vi.mock('@/components/PhysicsDiceScene', () => ({
 }))
 
 const { snapshot: _snapshot, ...session } = creatorSession
+
+it('derives the same animation seed from the same server roll', () => {
+  const dice = [6, 5, 4, 3, 2] as const
+  expect(animationSeedForRoll('ROOM', 'player-a', 2, 3, dice)).toBe(
+    animationSeedForRoll('ROOM', 'player-a', 2, 3, dice),
+  )
+  expect(animationSeedForRoll('ROOM', 'player-a', 2, 2, dice)).not.toBe(
+    animationSeedForRoll('ROOM', 'player-a', 2, 3, dice),
+  )
+})
 
 function renderGame(options: { client?: FakeRealtimeClient; snapshot?: RoomSnapshot } = {}) {
   const snapshot = options.snapshot ?? createPlayingRoomSnapshot(Date.now() + 30_000)
@@ -165,7 +175,7 @@ describe('GamePlay', () => {
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-target', '6,5,4,3,2')
     expect(screen.getByTestId('dice-scene')).toHaveAttribute(
       'data-request',
-      'remote-player-creator-1-1-remote-roll-1',
+      'roll-player-creator-1-1',
     )
     expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
   })
@@ -178,7 +188,7 @@ describe('GamePlay', () => {
     vi.useFakeTimers()
     try {
       const { client } = renderObserver()
-      const requestId = 'remote-player-creator-1-1-remote-roll-1'
+      const requestId = 'roll-player-creator-1-1'
 
       act(() => {
         client.send(
@@ -300,6 +310,32 @@ describe('GamePlay', () => {
     // 서버가 쓴 굴림 1회가 로컬 카운터에도 반영돼 남은 굴림이 2회로 줄어든다.
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
     expect(screen.getByText('2회 남음')).toBeVisible()
+  })
+
+  it('accepts an authoritative own roll even when the local request id was lost', () => {
+    const { client } = renderGame()
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'dice.broadcast',
+          {
+            dice: [2, 3, 4, 5, 6],
+            held: [false, false, false, false, false],
+            playerId: creatorSession.you,
+            rollCount: 1,
+            roundNumber: 1,
+          },
+          { msgId: 'server-authoritative-roll', roomId: creatorSession.roomId },
+        ),
+      )
+    })
+
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-target', '2,3,4,5,6')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-request',
+      'roll-player-creator-1-1',
+    )
   })
 
   it('tells the player which category the server recorded on their behalf', async () => {
