@@ -23,6 +23,7 @@ type PhysicsDiceSceneProps = {
   motionFollow?: boolean
   motionPulse?: PhysicsDiceMotionPulse | null
   releaseRequestId: string | null
+  onDiceImpact?: (index: PhysicsDiceIndex, strength: number) => void
   onError?: (error: Error) => void
   onHeldToggle?: (index: PhysicsDiceIndex) => void
   onPhaseChange?: (phase: PhysicsDicePhase) => void
@@ -42,6 +43,7 @@ export function PhysicsDiceScene({
   motionFollow,
   motionPulse,
   releaseRequestId,
+  onDiceImpact,
   onError,
   onHeldToggle,
   onPhaseChange,
@@ -51,7 +53,13 @@ export function PhysicsDiceScene({
 }: PhysicsDiceSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const worldRef = useRef<PhysicsDiceWorldInstance | null>(null)
-  const callbacksRef = useRef({ onError, onHeldToggle, onPhaseChange, onRollComplete })
+  const callbacksRef = useRef({
+    onDiceImpact,
+    onError,
+    onHeldToggle,
+    onPhaseChange,
+    onRollComplete,
+  })
   const latestRef = useRef({
     dice,
     held,
@@ -68,7 +76,7 @@ export function PhysicsDiceScene({
   const [fallbackMessage, setFallbackMessage] = useState<string | null>(null)
   const [resizing, setResizing] = useState(false)
 
-  callbacksRef.current = { onError, onHeldToggle, onPhaseChange, onRollComplete }
+  callbacksRef.current = { onDiceImpact, onError, onHeldToggle, onPhaseChange, onRollComplete }
   latestRef.current = { dice, held, lineUpAll, motionFollow, quality, releaseRequestId, request }
 
   useEffect(() => {
@@ -89,6 +97,7 @@ export function PhysicsDiceScene({
       callbacksRef.current.onRollComplete(requestId, completedDice)
     }
     const callbacks: PhysicsDiceWorldCallbacks = {
+      onDiceImpact: (index, strength) => callbacksRef.current.onDiceImpact?.(index, strength),
       onError: (error) => callbacksRef.current.onError?.(error),
       onHeldToggle: (index) => callbacksRef.current.onHeldToggle?.(index),
       onPhaseChange: (phase) => callbacksRef.current.onPhaseChange?.(phase),

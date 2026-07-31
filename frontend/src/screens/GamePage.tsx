@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useGame } from '@/api/useGameApi'
-import { stopLandingSoundtrack } from '@/landingSoundtrack'
+import { playGameSoundtrack, playResultSoundtrack } from '@/landingSoundtrack'
 import { useAppStore } from '@/store'
 import { GamePlay } from './GamePlay'
 import { GameResult } from './GameResult'
@@ -18,7 +18,10 @@ export function GamePage({ roomId }: { roomId: string }) {
   // 진행 상태(game)는 WebSocket state.sync로도 오지만, 새로고침·직접 진입에 대비해 한 번 받아둔다.
   useGame(matchingRoom ? roomSession.gameId : null)
 
-  useEffect(stopLandingSoundtrack, [])
+  useEffect(() => {
+    if (roomSnapshot?.phase === 'finished') playResultSoundtrack()
+    else if (roomSnapshot?.phase === 'playing') playGameSoundtrack()
+  }, [roomSnapshot?.phase])
 
   useEffect(() => {
     if (!roomSession || !roomSnapshot || !matchingRoom || roomResumeReason) {

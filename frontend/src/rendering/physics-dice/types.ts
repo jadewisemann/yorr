@@ -28,6 +28,7 @@ export interface PhysicsDiceRollRequest {
 }
 
 export interface PhysicsDiceWorldCallbacks {
+  onDiceImpact?(index: PhysicsDiceIndex, strength: number): void
   onError(error: Error): void
   onHeldToggle(index: PhysicsDiceIndex): void
   onPhaseChange(phase: PhysicsDicePhase): void

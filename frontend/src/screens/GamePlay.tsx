@@ -41,6 +41,7 @@ import { createHandVoice, type HandVoice } from '@/feedback/handVoice'
 import type { MotionAvailability, MotionGestureEvent } from '@/input/motionTypes'
 import type { RollInputMode } from '@/input/RollIntent'
 import { useMotionRollInput } from '@/input/useMotionRollInput'
+import { setSoundtrackMuted } from '@/landingSoundtrack'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import type { ErrorPayload, Player, PlayerId, RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
 import { buildClientMessage } from '@/realtime/wsEvents'
@@ -271,7 +272,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const feedbackRef = useRef<ReturnType<typeof createRollFeedback> | null>(null)
   const handVoiceRef = useRef<HandVoice | null>(null)
   inputModeRef.current = rollInputMode
-  if (!feedbackRef.current) feedbackRef.current = createRollFeedback()
+  if (!feedbackRef.current) feedbackRef.current = createRollFeedback({ muted: readSoundMuted() })
 
   /**
    * 바뀐 KEEP을 서버에 알린다. dice.roll이 실어 나르는 held는 "그 굴림에 쓴 값"이라,
@@ -481,7 +482,9 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     const muted = !soundMuted
     setSoundMuted(muted)
     saveSoundMuted(muted)
+    feedbackRef.current?.setMuted(muted)
     handVoiceRef.current?.setMuted(muted)
+    setSoundtrackMuted(muted)
   }
 
   const handleRoll = () => {
@@ -640,12 +643,14 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         motionFollow={rollInputMode === 'motion'}
         motionPulse={motionPulse}
         releaseRequestId={releaseRequestId}
+        onDiceImpact={(index, strength) => feedbackRef.current?.diceImpact(index, strength)}
         onError={() => feedbackRef.current?.error()}
         onHeldToggle={(index) => {
           if (!canHold) return
           dispatch({ type: 'holdToggled', index })
           publishHeld(toggleHeldDie(local.held, index))
         }}
+        onPhaseChange={(phase) => feedbackRef.current?.phaseChanged(phase)}
         onRollComplete={completeRoll}
         request={pendingRoll}
       />
