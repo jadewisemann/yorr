@@ -211,6 +211,9 @@ describe('GamePlay 센서 굴림', () => {
   it('족보 연출은 스스로 사라져 다음 조작을 막지 않는다', () => {
     vi.useFakeTimers()
     const { client } = renderGame(withheldRoll(createRealtimeFixture()))
+    // 마운트 시 뜨는 "내 차례!" 콜아웃과 Date.now() 기반 리마운트 key가 같은 밀리초로
+    // 찍히지 않도록 살짝 시간을 흘려보낸다 — 안 그러면 두 콜아웃이 key 충돌을 일으킨다.
+    act(() => vi.advanceTimersByTime(10))
 
     fireEvent.click(screen.getByRole('button', { name: '굴리기' }))
     broadcastRoll(client, [6, 6, 6, 6, 6])

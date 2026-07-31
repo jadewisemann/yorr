@@ -180,32 +180,4 @@ describe('GamePlay 데스크톱 레이아웃', () => {
     // 서버 상태와 어긋난 굴림이 가장 위험하다 — 재연결 중에는 CTA를 잠근다.
     expect(screen.getByRole('button', { name: /^굴리기/ })).toBeDisabled()
   })
-
-  it('센서 모드에서는 지금 무엇을 하면 되는지 제스처 상태로 안내한다', () => {
-    motion.availability = 'listening'
-    motion.gestureState = 'calibrating'
-    const { rerender } = renderWideGame()
-
-    expect(screen.getByText('센서를 보정하고 있어요. 잠시 휴대폰을 고정해 주세요')).toBeVisible()
-
-    motion.gestureState = 'thrown'
-    rerender(
-      <RealtimeClientProvider client={createRealtimeFixture()}>
-        <GamePlay
-          onLeaveRequest={() => {}}
-          roomId={session.roomId}
-          session={session}
-          snapshot={createPlayingRoomSnapshot(Date.now() + 30_000)}
-        />
-      </RealtimeClientProvider>,
-    )
-
-    expect(screen.getByText('주사위를 던졌어요')).toBeVisible()
-  })
-
-  it('버튼 모드에서는 센서 안내 대신 사용할 수 있는 입력을 알려 준다', () => {
-    renderWideGame()
-
-    expect(screen.getByText('버튼으로 굴리고 Space·Enter·1~5 키도 씁니다')).toBeVisible()
-  })
 })

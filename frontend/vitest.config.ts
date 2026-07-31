@@ -31,13 +31,14 @@ export default defineConfig({
         'src/app/MotionLab*.tsx',
         'src/app/useMotionLab.ts',
       ],
-      // ratchet 방식: 병합 후 재측정한 값에서 소폭 여유를 둔 하한. 커버리지가 오르면
-      // 임계값도 따라 올린다. 내려가는 변경은 CI 에서 막는다. 수치는 병합 직후 재측정해 갱신.
+      // ratchet 방식: 실측값(statements 97.61 · branches 92.84 · functions 99.46 · lines 99.46,
+      // frontend/test/add-e2e-and-coverage 병합 직후 재측정)에서 소폭 여유를 둔 하한.
+      // 커버리지가 오르면 임계값도 따라 올린다. 내려가는 변경은 CI 에서 막는다.
       thresholds: {
-        statements: 50,
-        branches: 59,
-        functions: 62,
-        lines: 52,
+        statements: 95,
+        branches: 90,
+        functions: 97,
+        lines: 97,
       },
     },
   },

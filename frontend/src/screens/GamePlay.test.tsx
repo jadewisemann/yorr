@@ -671,7 +671,7 @@ describe('GamePlay', () => {
 
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', '')
     expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
-    expect(screen.getByText('남은 굴리기 3회')).toBeVisible()
+    expect(screen.getByText('3회 남음')).toBeVisible()
   })
 
   it('턴이 넘어가면 이전 턴에서 잡아 둔 킵과 주사위를 버린다', async () => {
@@ -706,7 +706,7 @@ describe('GamePlay', () => {
       )
     })
 
-    expect(await screen.findByText('내 차례예요! 주사위를 굴려 주세요')).toBeVisible()
+    expect(await screen.findByText('내 차례!')).toBeVisible()
     expect(screen.queryByText(/자동 기록/)).not.toBeInTheDocument()
   })
 
