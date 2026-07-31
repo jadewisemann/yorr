@@ -1,8 +1,10 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { gameApiClient } from '@/api/gameApi'
 import { createEmptyScoreBoard, creatorSession } from '@/mocks/fixtures'
 import type { RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
+import { useAppStore } from '@/store'
 import { GameResult } from './GameResult'
 
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
@@ -39,7 +41,17 @@ const finishedSnapshot = {
   },
 } satisfies RoomSnapshot
 
+const finishedGame = finishedSnapshot.game
+if (!finishedGame) throw new Error('finished snapshot is missing game')
+
 describe('GameResult', () => {
+  beforeEach(() => {
+    navigate.mockReset()
+    vi.restoreAllMocks()
+    useAppStore.getState().reset()
+    useAppStore.getState().setRoomSession(creatorSession)
+  })
+
   it('ranks players by total and highlights my place', () => {
     render(<GameResult session={hostSession} snapshot={finishedSnapshot} />)
 
@@ -109,5 +121,70 @@ describe('GameResult', () => {
     const sheet = await screen.findByRole('dialog', { name: '전체 점수표' })
     expect(within(sheet).getByRole('columnheader', { name: '나' })).toBeVisible()
     expect(within(sheet).getAllByRole('rowheader')[0]).toHaveTextContent('에이스')
+
+    await user.click(screen.getByRole('button', { name: '시트 닫기' }))
+    expect(screen.queryByRole('dialog', { name: '전체 점수표' })).not.toBeInTheDocument()
+  })
+
+  /** 순위는 서버 확정값이 기준이다 — score.update를 하나만 놓쳐도 로컬 재계산은 다른 등수를 만든다. */
+  it('서버가 확정한 순위를 로컬 점수 합계보다 우선한다', () => {
+    render(
+      <GameResult
+        session={hostSession}
+        snapshot={{
+          ...finishedSnapshot,
+          game: {
+            ...finishedGame,
+            rankings: [
+              { rank: 1, playerId: hostSession.you, total: 231 },
+              { rank: 2, playerId: 'player-participant', total: 214 },
+              { rank: 3, playerId: 'p3', total: 176 },
+            ],
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: '1위' })).toBeVisible()
+    expect(screen.getByRole('status')).toHaveTextContent('게임 종료, 3명 중 1위, 231점')
+    expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('민지(나)')
+  })
+
+  it('동점이면 내 자리를 위로 올려 스스로 찾기 쉽게 한다', () => {
+    render(
+      <GameResult
+        session={hostSession}
+        snapshot={{
+          ...finishedSnapshot,
+          game: {
+            ...finishedGame,
+            scores: {
+              [hostSession.you]: boardWithTotal(198),
+              'player-participant': boardWithTotal(198),
+              p3: boardWithTotal(176),
+            },
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: '1위' })).toBeVisible()
+    expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('민지(나)')
+  })
+
+  // 대기실 복귀는 방 전체가 함께 움직인다 — 혼자 먼저 이동하면 다른 참가자와 화면이 갈린다.
+  it('호스트가 대기실로 돌릴 때 혼자 먼저 이동하지 않고 서버 신호를 기다린다', async () => {
+    const user = userEvent.setup()
+    const returnToLobby = vi.spyOn(gameApiClient, 'returnToLobby')
+    render(<GameResult session={hostSession} snapshot={finishedSnapshot} />)
+
+    await user.click(screen.getByRole('button', { name: '대기실로' }))
+
+    await waitFor(() => expect(returnToLobby).toHaveBeenCalledOnce())
+    expect(returnToLobby).toHaveBeenCalledWith(
+      hostSession.roomCode,
+      expect.objectContaining({ sessionToken: hostSession.sessionToken, userId: hostSession.you }),
+    )
+    expect(navigate).not.toHaveBeenCalled()
   })
 })

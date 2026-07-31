@@ -192,4 +192,70 @@ describe('REST mock handlers', () => {
       }),
     )
   })
+
+  it('오류 시나리오는 모든 endpoint에 동일하게 적용된다', async () => {
+    mockApiServer.use(...createRestHandlers({ scenario: 'error' }))
+    const auth = { sessionToken: creatorSession.sessionToken, userId: creatorSession.you }
+
+    const failures = await Promise.all(
+      [
+        client.createRoom({ nickname: '호스트' }),
+        client.startGame(creatorSession.roomCode, auth),
+        client.returnToLobby(creatorSession.roomCode, auth),
+        client.getScoreCandidates('mock-game-id', { dice: [1, 2, 3, 4, 5] }),
+        client.leaveRoom(creatorSession.roomCode, auth),
+      ].map((request) => request.then(() => null).catch((error: unknown) => error)),
+    )
+
+    expect(failures.map((error) => (error as { code?: string }).code)).toEqual(
+      Array.from({ length: 5 }, () => 'MOCK_API_ERROR'),
+    )
+  })
+
+  it('delay 시나리오는 응답을 미뤄 로딩 구간을 재현한다', async () => {
+    mockApiServer.use(...createRestHandlers({ scenario: 'delay', delayMs: 20 }))
+    let settled = false
+
+    const pending = client.getGame('mock-game-id').then((snapshot) => {
+      settled = true
+      return snapshot
+    })
+
+    expect(settled).toBe(false)
+    await expect(pending).resolves.toMatchObject({ phase: 'playing' })
+  })
+
+  it('mock이 아는 방·게임이 아니면 404로 응답한다', async () => {
+    const auth = { sessionToken: creatorSession.sessionToken, userId: creatorSession.you }
+
+    await expect(client.joinRoom('NOPE99', { nickname: '참가자' })).rejects.toMatchObject({
+      status: 404,
+      code: 'ROOM_NOT_FOUND',
+    })
+    await expect(client.getGame('other-game')).rejects.toMatchObject({
+      status: 404,
+      code: 'GAME_NOT_FOUND',
+    })
+    await expect(client.startGame('NOPE99', auth)).rejects.toMatchObject({
+      code: 'ROOM_NOT_FOUND',
+    })
+    await expect(client.returnToLobby('NOPE99', auth)).rejects.toMatchObject({
+      code: 'ROOM_NOT_FOUND',
+    })
+    await expect(
+      client.getScoreCandidates('other-game', { dice: [1, 2, 3, 4, 5] }),
+    ).rejects.toMatchObject({ code: 'GAME_NOT_FOUND' })
+    await expect(client.leaveRoom('NOPE99', auth)).rejects.toMatchObject({
+      code: 'ROOM_NOT_FOUND',
+    })
+  })
+
+  it('대기실 복귀는 본문 없는 204로 응답한다', async () => {
+    await expect(
+      client.returnToLobby(creatorSession.roomCode, {
+        sessionToken: creatorSession.sessionToken,
+        userId: creatorSession.you,
+      }),
+    ).resolves.toBeUndefined()
+  })
 })

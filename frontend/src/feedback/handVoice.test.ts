@@ -10,6 +10,7 @@ function fakeWebAudio() {
   const stopped: string[] = []
   const decoded: string[] = []
   let resumeCount = 0
+  let lastSource: FakeBufferSource | null = null
 
   class FakeBufferSource {
     buffer: { tag: string } | null = null
@@ -35,7 +36,8 @@ function fakeWebAudio() {
       return { gain: { value: 0 }, connect: () => undefined }
     }
     createBufferSource() {
-      return new FakeBufferSource()
+      lastSource = new FakeBufferSource()
+      return lastSource
     }
     // 파일 경로를 그대로 태그로 실어 보내 어떤 음성이 재생됐는지 추적한다.
     decodeAudioData(data: ArrayBuffer) {
@@ -67,6 +69,9 @@ function fakeWebAudio() {
     stopped,
     get resumeCount() {
       return resumeCount
+    },
+    get lastSource() {
+      return lastSource
     },
   }
 }
@@ -184,5 +189,33 @@ describe('createHandVoice', () => {
     document.dispatchEvent(new Event('pointerdown'))
 
     expect(audio.resumeCount).toBe(0)
+  })
+
+  it('재생이 스스로 끝나면 다음 play가 stop을 부르지 않는다', async () => {
+    const voice = createHandVoice()
+    await settlePreload()
+
+    voice.play('yacht')
+    audio.lastSource?.onended?.()
+    voice.play('fourOfAKind')
+
+    // 이미 끝난 소스라 stop 목록에 남지 않는다 — 재생 중인 것만 끊는다.
+    expect(audio.stopped).toEqual([])
+    expect(audio.started).toEqual(['yacht.wav', 'four-of-a-kind.wav'])
+    voice.dispose()
+  })
+
+  it('Web Audio 생성이 실패하는 환경에서도 조용히 넘어간다', async () => {
+    vi.unstubAllGlobals()
+    vi.stubGlobal(
+      'AudioContext',
+      class {
+        constructor() {
+          throw new Error('Web Audio unavailable')
+        }
+      },
+    )
+
+    expect(() => createHandVoice().play('yacht')).not.toThrow()
   })
 })
