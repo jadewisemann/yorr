@@ -6,10 +6,16 @@ import { useAppStore } from '@/store'
 import { EntryPage } from './EntryPage'
 
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
+const { closeSession } = vi.hoisted(() => ({ closeSession: vi.fn().mockResolvedValue(undefined) }))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
   useNavigate: () => navigate,
+}))
+
+vi.mock('@/api/authApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/authApi')>()),
+  closeSession: (token: string) => closeSession(token),
 }))
 
 /** jsdom은 미디어 쿼리를 평가하지 않는다. 어느 레이아웃을 검증할지 테스트가 직접 정한다. */
@@ -39,6 +45,7 @@ function codeDialog() {
 describe('EntryPage', () => {
   beforeEach(() => {
     navigate.mockReset()
+    closeSession.mockClear()
     useAppStore.getState().reset()
     useLayout(false)
   })
@@ -111,7 +118,7 @@ describe('EntryPage', () => {
     const user = userEvent.setup()
     render(<EntryPage />)
 
-    await user.click(screen.getByRole('button', { name: '코드로 참가' }))
+    await user.click(screen.getByRole('button', { name: '초대 코드로 참가' }))
     const dialog = codeDialog()
     const input = dialog.getByRole('textbox', { name: '방 코드' })
     expect(dialog.getByRole('button', { name: '코드로 참가' })).toBeDisabled()
@@ -131,7 +138,7 @@ describe('EntryPage', () => {
     const user = userEvent.setup()
     render(<EntryPage />)
 
-    await user.click(screen.getByRole('button', { name: '코드로 참가' }))
+    await user.click(screen.getByRole('button', { name: '초대 코드로 참가' }))
     await user.click(codeDialog().getByRole('button', { name: '코드 입력 닫기' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -168,5 +175,125 @@ describe('EntryPage', () => {
 
     await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
     expect(localStorage.getItem('yorr.room-session')).toBeNull()
+  })
+
+  /**
+   * 헤더의 '방 코드로 참가'는 하단 CTA와 같은 일을 하고 있었다. 그 자리를 계정으로 넘기면서
+   * 코드 참가의 입구가 사라지지 않았는지도 함께 확인한다 — 좁은 화면에서는 헤더가 유일한
+   * 입구였다.
+   */
+  it.each([
+    ['narrow', false],
+    ['wide', true],
+  ])('offers login in the header and keeps code entry in the CTA (%s)', (_layout, wide) => {
+    useLayout(wide)
+    render(<EntryPage />)
+
+    expect(screen.getByRole('button', { name: '로그인' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '초대 코드로 참가' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: '방 코드로 참가' })).not.toBeInTheDocument()
+    // 제공자는 곧 늘어난다. 헤더가 카카오 하나에 자리를 내주면 구글을 붙일 데가 없다.
+    expect(screen.queryByRole('button', { name: /카카오/ })).not.toBeInTheDocument()
+  })
+
+  /**
+   * useDialogBackground가 배경 `<main>`에 inert를 건다. 다이얼로그가 그 안에 있으면 열리는
+   * 순간 자기 자신을 잠가 아무것도 눌리지 않는다 — 계정 다이얼로그를 헤더 안에 뒀다가 실제로
+   * 그렇게 됐다. jsdom은 inert를 구현하지 않아 클릭 테스트로는 잡히지 않으므로 위치를 본다.
+   */
+  it.each([
+    ['narrow', false],
+    ['wide', true],
+  ])('renders dialogs outside the inert background (%s)', async (_layout, wide) => {
+    const user = userEvent.setup()
+    useLayout(wide)
+    render(<EntryPage />)
+
+    await user.click(screen.getByRole('button', { name: '로그인' }))
+    expect(screen.getByRole('dialog', { name: '로그인' }).closest('main')).toBeNull()
+
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: '초대 코드로 참가' }))
+    expect(screen.getByRole('dialog', { name: '초대받은 방에 참가' }).closest('main')).toBeNull()
+  })
+
+  it.each([
+    ['narrow', false],
+    ['wide', true],
+  ])('lets the user pick a provider inside the dialog (%s)', async (_layout, wide) => {
+    const user = userEvent.setup()
+    useLayout(wide)
+    render(<EntryPage />)
+
+    await user.click(screen.getByRole('button', { name: '로그인' }))
+    const dialog = within(screen.getByRole('dialog', { name: '로그인' }))
+
+    expect(dialog.getByRole('button', { name: '카카오로 계속하기' })).toBeEnabled()
+    // 아직 서버에 구글 경로가 없다 — 눌리는 것처럼 보이면 안 된다.
+    expect(dialog.getByRole('button', { name: /구글로 계속하기/ })).toBeDisabled()
+  })
+
+  it('shows the signed-in nickname and signs out from the account menu', async () => {
+    const user = userEvent.setup()
+    useAppStore
+      .getState()
+      .signIn({ userId: 'member-1', nickname: '카카오회원', sessionToken: 'token-1' })
+
+    render(<EntryPage />)
+    expect(screen.getByRole('button', { name: /카카오회원/ })).toBeVisible()
+    expect(screen.queryByRole('button', { name: '로그인' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /카카오회원/ }))
+    const menu = within(screen.getByRole('dialog', { name: '내 계정' }))
+    // 프로필·전적이 붙을 자리가 보여야 한다(아직 잠겨 있다).
+    expect(menu.getByRole('button', { name: /프로필 관리/ })).toBeDisabled()
+    expect(menu.getByRole('button', { name: /내 전적/ })).toBeDisabled()
+
+    await user.click(menu.getByRole('button', { name: '로그아웃' }))
+
+    expect(useAppStore.getState().authSession).toBeNull()
+    expect(localStorage.getItem('yorr.auth-session')).toBeNull()
+    expect(screen.getByRole('button', { name: '로그인' })).toBeVisible()
+    // 로컬만 지우면 그 토큰은 남은 30일 동안 서버에서 유효한 채로 남는다.
+    expect(closeSession).toHaveBeenCalledWith('token-1')
+  })
+
+  /** 서버가 응답하지 않아도 로그아웃은 되어야 한다 — 로컬 정리가 서버 사정에 묶이면 안 된다. */
+  it('signs out locally even when the server call fails', async () => {
+    const user = userEvent.setup()
+    closeSession.mockRejectedValueOnce(new Error('network down'))
+    useAppStore
+      .getState()
+      .signIn({ userId: 'member-1', nickname: '카카오회원', sessionToken: 'token-1' })
+
+    render(<EntryPage />)
+    await user.click(screen.getByRole('button', { name: /카카오회원/ }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: '내 계정' })).getByRole('button', {
+        name: '로그아웃',
+      }),
+    )
+
+    expect(useAppStore.getState().authSession).toBeNull()
+  })
+
+  /** 로그아웃이 진행 중인 방까지 끊으면 안 된다 — 두 세션은 수명이 다르다. */
+  it('keeps the room session when signing out', async () => {
+    const user = userEvent.setup()
+    useAppStore.getState().setRoomSession(creatorSession)
+    useAppStore
+      .getState()
+      .signIn({ userId: 'member-1', nickname: '카카오회원', sessionToken: 'token-1' })
+
+    render(<EntryPage />)
+    await user.click(screen.getByRole('button', { name: /카카오회원/ }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: '내 계정' })).getByRole('button', {
+        name: '로그아웃',
+      }),
+    )
+
+    expect(useAppStore.getState().authSession).toBeNull()
+    expect(useAppStore.getState().roomSession).not.toBeNull()
   })
 })

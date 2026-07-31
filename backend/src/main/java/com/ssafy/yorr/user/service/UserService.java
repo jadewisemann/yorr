@@ -89,6 +89,27 @@ public class UserService {
         return authenticateCredentials(userId, sessionToken);
     }
 
+    /**
+     * 세션을 서버에서 닫는다. 클라이언트가 토큰을 지우는 것만으로는 서버 쪽 세션이 남아,
+     * 그 값을 아는 누군가가 남은 수명 동안 계속 쓸 수 있다.
+     * <p>
+     * 역인덱스와 함께 {@code tokenHash}까지 지운다 — 인덱스만 지우면 WebSocket 경로는
+     * 막히지만 {@code userId + Bearer}를 직접 쓰는 REST 경로는 그대로 통과한다.
+     * 같은 계정의 다른 기기도 함께 로그아웃되는데, "로그아웃했는데 다른 데선 살아 있다"보다
+     * 놀라움이 적은 쪽을 고른다.
+     * <p>
+     * 이미 없는 세션을 닫아도 조용히 성공한다 — 클라이언트는 어차피 로컬을 지울 것이고,
+     * 여기서 실패를 알리면 "로그아웃이 안 됐다"는 잘못된 인상만 준다.
+     */
+    public void closeSession(String sessionToken) {
+        if (sessionToken == null || sessionToken.isBlank()) return;
+        String userId = redisTemplate.opsForValue().get(tokenKey(sessionToken));
+        redisTemplate.delete(tokenKey(sessionToken));
+        if (userId != null) {
+            redisTemplate.opsForHash().delete(key(userId), "tokenHash");
+        }
+    }
+
     private UserIdentity authenticateCredentials(String userId, String token) {
         var user = redisTemplate.<Object, Object>opsForHash().entries(key(userId));
         Object storedHash = user.get("tokenHash");
