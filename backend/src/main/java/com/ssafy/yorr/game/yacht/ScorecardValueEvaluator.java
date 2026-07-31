@@ -15,6 +15,8 @@ public class ScorecardValueEvaluator {
     static final int UPPER_BONUS_SCORE = 35;
     private static final double SECURED_BONUS_PREMIUM = 4.0;
     private static final double BONUS_CURVE_SCALE = 5.0;
+    // 다음 턴의 기준 점수를 확정값처럼 취급하면 현재의 좋은 패를 버리는 과도한 낙관이 생긴다.
+    private static final double FUTURE_VALUE_DISCOUNT = 0.70;
     private static final Map<ScoreCategory, Double> BASELINE_VALUES = baselineValues();
 
     public double categoryUtility(ScoreBoard board, ScoreCategory category, int score) {
@@ -30,7 +32,8 @@ public class ScorecardValueEvaluator {
         if (bonusSecured) {
             immediateValue += SECURED_BONUS_PREMIUM;
         }
-        return immediateValue + remainingPotential(remaining, nextUpperSubtotal);
+        return immediateValue
+                + FUTURE_VALUE_DISCOUNT * remainingPotential(remaining, nextUpperSubtotal);
     }
 
     double remainingPotential(ScoreBoard board) {

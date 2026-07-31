@@ -27,6 +27,61 @@ class ExpectimaxYachtBotPolicyTest {
     }
 
     @Test
+    void prefersTheHigherPairWhenThreesAndSixesAreBothOpen() {
+        for (int kicker : List.of(1, 2, 4, 5)) {
+            var decision = policy.decide(emptyBoard(), List.of(3, 3, 6, 6, kicker), 1);
+
+            assertThat(decision.action()).isEqualTo(ExpectimaxYachtBotPolicy.Action.HOLD);
+            assertThat(decision.held().subList(0, 4))
+                    .as("kicker=%s", kicker)
+                    .containsExactly(false, false, true, true);
+        }
+    }
+
+    @Test
+    void canPreferTheOpenUpperPairWhenItSecuresTheUpperBonus() {
+        ScoreBoard board = board(
+                Map.of(
+                        ScoreCategory.ACES, 3,
+                        ScoreCategory.DEUCES, 6,
+                        ScoreCategory.FOURS, 16,
+                        ScoreCategory.FIVES, 35,
+                        ScoreCategory.SIXES, 0
+                ),
+                60
+        );
+
+        var decision = policy.decide(board, List.of(3, 3, 6, 6, 1), 1);
+
+        assertThat(decision.action()).isEqualTo(ExpectimaxYachtBotPolicy.Action.HOLD);
+        assertThat(decision.held()).containsExactly(true, true, false, false, false);
+    }
+
+    @Test
+    void prefersTheCertainHighPairOverAnOptimisticFutureSixesTurn() {
+        ScoreBoard board = board(
+                Map.ofEntries(
+                        Map.entry(ScoreCategory.ACES, 1),
+                        Map.entry(ScoreCategory.DEUCES, 4),
+                        Map.entry(ScoreCategory.FOURS, 16),
+                        Map.entry(ScoreCategory.FIVES, 5),
+                        Map.entry(ScoreCategory.CHOICE, 18),
+                        Map.entry(ScoreCategory.FOUR_OF_A_KIND, 0),
+                        Map.entry(ScoreCategory.FULL_HOUSE, 22),
+                        Map.entry(ScoreCategory.SMALL_STRAIGHT, 15),
+                        Map.entry(ScoreCategory.LARGE_STRAIGHT, 30),
+                        Map.entry(ScoreCategory.YACHT, 0)
+                ),
+                26
+        );
+
+        var decision = policy.decide(board, List.of(3, 3, 6, 6, 1), 1);
+
+        assertThat(decision.action()).isEqualTo(ExpectimaxYachtBotPolicy.Action.HOLD);
+        assertThat(decision.held()).containsExactly(false, false, true, true, false);
+    }
+
+    @Test
     void keepsAUniqueFourDieRunForTheLargeStraightChance() {
         var decision = policy.decide(emptyBoard(), List.of(2, 3, 4, 5, 5), 1);
 
