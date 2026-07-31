@@ -70,7 +70,9 @@ describe('ScoreSheet', () => {
   it('굴리기 전에는 어떤 행도 기록 버튼이 되지 않는다', () => {
     renderSheet({ canPick: true })
 
-    expect(screen.queryAllByRole('button')).toHaveLength(0)
+    expect(
+      screen.queryAllByRole('button', { name: (name) => name !== '점수 기록 방법' }),
+    ).toHaveLength(0)
   })
 
   it('내 턴에 굴린 뒤에는 미기입 행이 미리보기 점수를 띄운 기록 버튼이 된다', async () => {
@@ -95,20 +97,26 @@ describe('ScoreSheet', () => {
   it('남의 턴이면 미리보기만 뜨고 기록은 막힌다', () => {
     renderSheet({ activePlayerId: 'p2', canPick: true, candidates: { twos: 6 } })
 
-    expect(screen.queryAllByRole('button')).toHaveLength(0)
+    expect(
+      screen.queryAllByRole('button', { name: (name) => name !== '점수 기록 방법' }),
+    ).toHaveLength(0)
     expect(screen.getByText('6')).toBeVisible()
   })
 
   it('내 턴이라도 기록할 수 없는 상태면 행이 버튼이 되지 않는다', () => {
     renderSheet({ canPick: false, candidates: { twos: 6 } })
 
-    expect(screen.queryAllByRole('button')).toHaveLength(0)
+    expect(
+      screen.queryAllByRole('button', { name: (name) => name !== '점수 기록 방법' }),
+    ).toHaveLength(0)
   })
 
   it('턴 주인이 없으면 미리보기 없이 기록된 값만 남는다', () => {
     renderSheet({ activePlayerId: undefined, canPick: true, candidates: { twos: 6 } })
 
-    expect(screen.queryAllByRole('button')).toHaveLength(0)
+    expect(
+      screen.queryAllByRole('button', { name: (name) => name !== '점수 기록 방법' }),
+    ).toHaveLength(0)
     expect(screen.queryByText('6')).not.toBeInTheDocument()
   })
 

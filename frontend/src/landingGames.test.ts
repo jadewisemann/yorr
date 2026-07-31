@@ -44,6 +44,6 @@ describe('탭 접근성 id', () => {
 
 describe('gameMeta', () => {
   it('인원과 소요 시간을 가운뎃점으로 잇는다', () => {
-    expect(gameMeta(landingGames[0])).toBe('1–6인 · 한 판 4–5분')
+    expect(gameMeta(landingGames[0])).toBe('1–6 PLAYERS · 약 15분')
   })
 })

@@ -28,3 +28,55 @@ it('stops the game track before playing the one-shot result track', async () => 
 
   vi.unstubAllGlobals()
 })
+
+it('plays the matching hero track for the selected landing game', async () => {
+  vi.resetModules()
+  const audios: HTMLAudioElement[] = []
+  vi.stubGlobal(
+    'Audio',
+    vi.fn(function AudioMock(src?: string) {
+      const audio = document.createElement('audio')
+      if (src) audio.setAttribute('src', src)
+      audio.play = vi.fn(() => Promise.resolve())
+      audio.pause = vi.fn()
+      audios.push(audio)
+      return audio
+    }),
+  )
+
+  const { playLandingSoundtrack } = await import('./landingSoundtrack')
+  playLandingSoundtrack('yacht')
+
+  const yachtTrack = audios.find((audio) => audio.getAttribute('src')?.endsWith('/yacht.mp3'))
+  expect(yachtTrack?.play).toHaveBeenCalledOnce()
+
+  vi.unstubAllGlobals()
+})
+
+it('setSoundtrackMuted pauses or resumes whatever track is currently playing', async () => {
+  vi.resetModules()
+  const audios: HTMLAudioElement[] = []
+  vi.stubGlobal(
+    'Audio',
+    vi.fn(function AudioMock(src?: string) {
+      const audio = document.createElement('audio')
+      if (src) audio.setAttribute('src', src)
+      audio.play = vi.fn(() => Promise.resolve())
+      audio.pause = vi.fn()
+      audios.push(audio)
+      return audio
+    }),
+  )
+
+  const { playGameSoundtrack, setSoundtrackMuted } = await import('./landingSoundtrack')
+  playGameSoundtrack()
+  const game = audios.find((audio) => audio.getAttribute('src')?.endsWith('yacht_ingame.mp3'))
+
+  setSoundtrackMuted(true)
+  expect(game?.pause).toHaveBeenCalled()
+
+  setSoundtrackMuted(false)
+  expect(game?.play).toHaveBeenCalledTimes(2)
+
+  vi.unstubAllGlobals()
+})

@@ -134,4 +134,60 @@ describe('createRollFeedback', () => {
 
     vi.unstubAllGlobals()
   })
+
+  it('setMuted(true)면 재생 중인 소리를 전부 멈추고, 다시 켜면 흔드는 중이던 사발을 되살린다', () => {
+    const audios: HTMLAudioElement[] = []
+    vi.stubGlobal(
+      'Audio',
+      vi.fn(function AudioMock(src?: string) {
+        const audio = document.createElement('audio')
+        if (src) audio.setAttribute('src', src)
+        audio.play = vi.fn(() => Promise.resolve())
+        audio.pause = vi.fn()
+        audios.push(audio)
+        return audio
+      }),
+    )
+
+    const feedback = createRollFeedback()
+    const bowl = audios[0]
+    const secondDie = audios[2]
+    feedback.phaseChanged('shaking')
+
+    feedback.setMuted(true)
+    expect(bowl?.pause).toHaveBeenCalledOnce()
+    expect(secondDie?.pause).toHaveBeenCalledOnce()
+
+    feedback.setMuted(false)
+    expect(bowl?.play).toHaveBeenCalledTimes(2)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('음소거 상태에서는 흔들려도 사발 소리가 나지 않고, 굴리는 소리도 무시된다', () => {
+    const audios: HTMLAudioElement[] = []
+    vi.stubGlobal(
+      'Audio',
+      vi.fn(function AudioMock(src?: string) {
+        const audio = document.createElement('audio')
+        if (src) audio.setAttribute('src', src)
+        audio.play = vi.fn(() => Promise.resolve())
+        audio.pause = vi.fn()
+        audios.push(audio)
+        return audio
+      }),
+    )
+
+    const feedback = createRollFeedback({ muted: true })
+    const bowl = audios[0]
+    const secondDie = audios[2]
+
+    feedback.phaseChanged('shaking')
+    expect(bowl?.play).not.toHaveBeenCalled()
+
+    feedback.diceImpact(1, 0.5)
+    expect(secondDie?.play).not.toHaveBeenCalled()
+
+    vi.unstubAllGlobals()
+  })
 })

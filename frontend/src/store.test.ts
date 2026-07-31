@@ -4,12 +4,12 @@ import { readRoomSession } from '@/roomSessionStorage'
 import { selectSessionPhase, useAppStore } from '@/store'
 
 beforeEach(() => {
-  window.sessionStorage.clear()
+  window.localStorage.clear()
   useAppStore.getState().reset()
 })
 
 afterEach(() => {
-  window.sessionStorage.clear()
+  window.localStorage.clear()
   useAppStore.getState().reset()
   vi.resetModules()
 })
@@ -127,7 +127,10 @@ describe('selectSessionPhase', () => {
 
 describe('저장소 복원', () => {
   it('저장된 세션이 있으면 자동 입장하지 않고 복귀 확인 상태로 시작한다', async () => {
-    window.sessionStorage.setItem('yorr.room-session', JSON.stringify(creatorSession))
+    window.localStorage.setItem(
+      'yorr.room-session',
+      JSON.stringify({ expiresAt: Date.now() + 60_000, session: creatorSession }),
+    )
     vi.resetModules()
 
     const { useAppStore: restoredStore } = await import('./store')
