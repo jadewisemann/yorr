@@ -52,13 +52,17 @@ public class KakaoOAuthClient {
      * OAuth 규격상 form-urlencoded여야 하고, 인코딩하지 않으면 값에 특수문자가 섞이는 순간
      * 제공자가 파라미터를 잘라 읽는다.
      */
-    public String authorizeUrl(String state) {
+    public String authorizeUrl(String state, boolean forceLogin) {
         AuthProperties.Kakao kakao = requireConfigured();
         return AUTHORIZE_URI
                 + "?response_type=code"
                 + "&client_id=" + encode(kakao.clientId())
                 + "&redirect_uri=" + encode(kakao.redirectUri())
-                + "&state=" + encode(state);
+                + "&state=" + encode(state)
+                // 카카오는 브라우저에 자기 로그인 세션을 따로 갖고 있어, 우리 쪽에서 로그아웃해도
+                // 다음 로그인이 동의 화면 없이 즉시 통과한다. 계정을 바꾸려는 사용자는 그 길이
+                // 막히므로, 요청이 있을 때만 재인증을 강제한다(기본은 빠른 재로그인 유지).
+                + (forceLogin ? "&prompt=login" : "");
     }
 
     private static String encode(String value) {

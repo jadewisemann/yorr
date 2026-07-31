@@ -41,6 +41,38 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
   }
 
   return [
+    // 로그인 코드 교환. mock에서는 카카오까지 갈 수 없으므로, 콜백이 넘긴 코드를 그대로
+    // 받아 고정 회원을 돌려준다 — 프론트의 교환·저장·표시 경로만 검증하기 위한 최소 구현이다.
+    http.post('/api/v1/auth/session', async ({ request }) => {
+      await beforeResponse()
+      const body = (await request.json()) as { code?: string }
+      if (!body.code) return HttpResponse.text('invalid_login_code', { status: 401 })
+      return (
+        unavailable() ??
+        HttpResponse.json({
+          userId: 'mock-member-id',
+          nickname: '카카오회원',
+          type: 'MEMBER',
+          sessionToken: 'mock-member-token',
+        })
+      )
+    }),
+    http.get('/api/v1/auth/me', async ({ request }) => {
+      await beforeResponse()
+      if (!request.headers.get('Authorization')?.startsWith('Bearer ')) {
+        return HttpResponse.text('session_expired', { status: 401 })
+      }
+      return HttpResponse.json({
+        userId: 'mock-member-id',
+        nickname: '카카오회원',
+        type: 'MEMBER',
+        sessionToken: null,
+      })
+    }),
+    http.delete('/api/v1/auth/session', async () => {
+      await beforeResponse()
+      return new HttpResponse(null, { status: 204 })
+    }),
     http.post('/api/v1/rooms', async ({ request }) => {
       await beforeResponse()
       const body = (await request.json()) as EnterRoomRequest
