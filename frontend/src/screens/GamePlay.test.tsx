@@ -170,6 +170,46 @@ describe('GamePlay', () => {
     expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
   })
 
+  /**
+   * dice.roll은 흔들기 시작에 나가 주사위 눈을 미리 확정한다. 그래서 관전 화면이 브로드캐스트만
+   * 보고 사발을 쏟으면, 굴린 사람이 아직 흔드는 중인데 결과가 먼저 보인다(미래를 보는 화면).
+   */
+  it('holds the spectator bowl until the roller throws', () => {
+    vi.useFakeTimers()
+    try {
+      const { client } = renderObserver()
+      const requestId = 'remote-player-creator-1-1-remote-roll-1'
+
+      act(() => {
+        client.send(
+          buildClientMessage(
+            'dice.roll',
+            { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
+            { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
+          ),
+        )
+      })
+      expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', requestId)
+
+      // 흔드는 동안에는 사발에 담겨 있어야 한다.
+      act(() => vi.advanceTimersByTime(2_000))
+      expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
+
+      act(() => {
+        client.emitMessage(
+          serverMessage(
+            'dice.thrown',
+            { playerId: creatorSession.you, rollCount: 1, roundNumber: 1 },
+            { roomId: participantSession.roomId },
+          ),
+        )
+      })
+      expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', requestId)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('shows the active player special-hand effect to every other participant', async () => {
     const { client, user } = renderObserver()
 
