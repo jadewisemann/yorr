@@ -1,0 +1,137 @@
+package com.ssafy.yorr.auth.controller;
+
+import com.ssafy.yorr.auth.SocialLoginException;
+import com.ssafy.yorr.auth.application.LoginCodeStore;
+import com.ssafy.yorr.auth.application.OAuthStateStore;
+import com.ssafy.yorr.auth.application.SocialLoginService;
+import com.ssafy.yorr.auth.config.AuthProperties;
+import com.ssafy.yorr.auth.controller.dto.LoginCodeExchangeRequest;
+import com.ssafy.yorr.auth.controller.dto.SessionResponse;
+import com.ssafy.yorr.auth.infrastructure.KakaoOAuthClient;
+import com.ssafy.yorr.user.SessionAuthenticationException;
+import com.ssafy.yorr.user.UserIdentity;
+import com.ssafy.yorr.user.domain.SocialProvider;
+import com.ssafy.yorr.user.domain.User;
+import com.ssafy.yorr.user.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
+
+/**
+ * 소셜 로그인 진입점.
+ *
+ * <pre>
+ * 프론트 로그인 버튼
+ *   → GET  /api/v1/auth/kakao/authorize        state 발급 후 카카오로 302
+ *   → (카카오 동의 화면)
+ *   → GET  /api/v1/auth/kakao/callback         state 검증 · 토큰 교환 · 가입/로그인 · 세션 발급
+ *                                              → 프론트로 302 (일회용 code 동반)
+ *   → POST /api/v1/auth/session                code를 세션 토큰으로 교환
+ * </pre>
+ *
+ * 콜백이 세션 토큰을 URL에 직접 싣지 않는 이유는 {@link LoginCodeStore} 참고.
+ */
+@RestController
+@RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
+@Tag(name = "Auth", description = "소셜 로그인 API")
+public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
+
+    private final KakaoOAuthClient kakaoClient;
+    private final OAuthStateStore stateStore;
+    private final LoginCodeStore loginCodeStore;
+    private final SocialLoginService socialLoginService;
+    private final UserService userService;
+    private final AuthProperties properties;
+
+    @GetMapping("/kakao/authorize")
+    @Operation(summary = "카카오 로그인 시작", description = "카카오 동의 화면으로 리다이렉트합니다.")
+    public ResponseEntity<Void> authorize() {
+        try {
+            String url = kakaoClient.authorizeUrl(stateStore.issue());
+            return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
+        } catch (SocialLoginException e) {
+            // 설정이 없으면 리다이렉트할 곳도 없다. 브라우저가 직접 여는 주소라 상태 코드로 알린다.
+            log.error("카카오 로그인을 시작할 수 없습니다: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+    }
+
+    /**
+     * 카카오가 사용자를 되돌려 보내는 지점. <b>사람이 브라우저로 도착하는 곳이므로 JSON을
+     * 돌려주지 않는다</b> — 성공이든 실패든 프론트 화면으로 보내고, 실패는 error 파라미터로 알린다.
+     *
+     * @param error 사용자가 동의 화면에서 취소하면 code 대신 이 값이 온다
+     */
+    @GetMapping("/kakao/callback")
+    @Operation(summary = "카카오 로그인 콜백", description = "카카오 콘솔에 등록한 Redirect URI입니다. 프론트로 리다이렉트합니다.")
+    public ResponseEntity<Void> callback(
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String error
+    ) {
+        try {
+            if (error != null && !error.isBlank()) {
+                throw new SocialLoginException(SocialLoginException.Reason.CANCELED);
+            }
+            if (!stateStore.consume(state)) {
+                throw new SocialLoginException(SocialLoginException.Reason.INVALID_STATE);
+            }
+            if (code == null || code.isBlank()) {
+                throw new SocialLoginException(SocialLoginException.Reason.PROVIDER_ERROR,
+                        "authorization_code_missing", null);
+            }
+            var profile = kakaoClient.fetchProfile(code);
+            User user = socialLoginService.loginOrRegister(SocialProvider.KAKAO,
+                    profile.providerUserId(), profile.nickname(), profile.profileImageUrl());
+            String sessionToken = userService.openMemberSession(user.getId(), user.getNickname());
+            return redirect(frontendUrl("code", loginCodeStore.issue(sessionToken)));
+        } catch (SocialLoginException e) {
+            log.warn("카카오 로그인 실패: reason={} message={}", e.reason(), e.getMessage());
+            return redirect(frontendUrl("error", e.reason().name().toLowerCase()));
+        }
+    }
+
+    @PostMapping("/session")
+    @Operation(summary = "로그인 코드 교환", description = "콜백이 넘긴 일회용 코드를 세션 토큰으로 바꿉니다. 코드는 한 번만 쓸 수 있습니다.")
+    public ResponseEntity<?> exchange(@RequestBody LoginCodeExchangeRequest request) {
+        String sessionToken = loginCodeStore.consume(request == null ? null : request.code());
+        if (sessionToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("invalid_login_code");
+        }
+        try {
+            // 세션이 실제로 살아 있는지까지 여기서 확인된다 — 토큰만 돌려주고 끝내지 않는다.
+            UserIdentity identity = userService.authenticateSession(sessionToken);
+            return ResponseEntity.ok(new SessionResponse(
+                    identity.userId(), identity.nickname(), identity.type().name(), sessionToken));
+        } catch (SessionAuthenticationException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("session_expired");
+        }
+    }
+
+    private ResponseEntity<Void> redirect(String url) {
+        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
+    }
+
+    private String frontendUrl(String name, String value) {
+        return UriComponentsBuilder.fromUriString(properties.frontendRedirectUri())
+                .queryParam(name, value)
+                .encode()
+                .toUriString();
+    }
+}
