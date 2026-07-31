@@ -1,3 +1,4 @@
+import { readAuthSession } from '@/authSession'
 import type { DiceSet, GameState, PlayerId, RoomSnapshot, YachtCategory } from '@/realtime/wsEvents'
 import { apiRequest } from './client'
 
@@ -12,6 +13,8 @@ export interface JoinRoomRequest {
 export interface EnterRoomRequest {
   nickname: string
   room_id?: string
+  /** 로그인했으면 함께 보낸다. 없으면 서버가 새 게스트를 만든다. */
+  session_token?: string
 }
 
 export interface EnterRoomResponse {
@@ -135,9 +138,12 @@ function enterRoom(
   membershipRole: RoomMembershipRole,
   options?: ApiCallOptions,
 ) {
+  // 로그인했다면 그 세션으로 들어가야 이 판의 결과가 계정에 남는다. 보내지 않으면 서버가
+  // 새 게스트를 만들고, 전적은 주인 없는 기록이 된다.
+  const sessionToken = readAuthSession()?.sessionToken
   return apiRequest<unknown>('/rooms', {
     method: 'POST',
-    body: JSON.stringify(request),
+    body: JSON.stringify(sessionToken ? { ...request, session_token: sessionToken } : request),
     ...requestSignal(options),
   }).then((response) => toRoomSession(response, membershipRole))
 }

@@ -23,6 +23,14 @@ import java.util.UUID;
 @Getter
 public class User {
 
+    /**
+     * 제공자가 닉네임을 주지 않았을 때 쓰는 임시 이름(동의항목이 꺼져 있거나 사용자가 거절한 경우).
+     * <p>
+     * "이 이름은 사용자가 고른 것이 아니다"라는 표시이기도 하다 — 나중에 진짜 이름을 받으면
+     * 덮어써도 되는 값인지 판단하는 근거가 된다.
+     */
+    public static final String PLACEHOLDER_NICKNAME = "플레이어";
+
     @Id
     @Column(length = 36, nullable = false, updatable = false)
     private String id;
@@ -58,5 +66,19 @@ public class User {
             throw new IllegalArgumentException("nickname must not be blank");
         }
         return new User(UUID.randomUUID().toString(), nickname, profileImageUrl);
+    }
+
+    /** 사용자가 고르지 않은 임시 이름을 쓰고 있는지. 그렇다면 제공자가 준 진짜 이름으로 바꿔도 된다. */
+    public boolean hasPlaceholderNickname() {
+        return PLACEHOLDER_NICKNAME.equals(nickname);
+    }
+
+    /**
+     * 제공자에게서 받은 프로필로 갱신한다. <b>임시 이름을 쓰고 있을 때만 부른다</b> —
+     * 사용자가 직접 정한 이름(151)을 로그인할 때마다 덮어쓰면 바꿀 방법이 없어진다.
+     */
+    public void adoptProviderProfile(String nickname, String profileImageUrl) {
+        if (nickname != null && !nickname.isBlank()) this.nickname = nickname;
+        if (profileImageUrl != null && !profileImageUrl.isBlank()) this.profileImageUrl = profileImageUrl;
     }
 }

@@ -1,5 +1,6 @@
 package com.ssafy.yorr.game.round.application;
 
+import com.ssafy.yorr.game.match.application.MatchArchiveService;
 import com.ssafy.yorr.game.repository.GameCompletionStore;
 import com.ssafy.yorr.game.round.application.port.RoundDeadlineScheduler;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
@@ -34,6 +35,7 @@ public class GameCompletionService {
     private static final Logger log = LoggerFactory.getLogger(GameCompletionService.class);
 
     private final GameCompletionStore completionStore;
+    private final MatchArchiveService matchArchiveService;
     private final RoundDeadlineScheduler deadlineScheduler;
     private final RoomService roomService;
     private final RoomSessionRegistry registry;
@@ -41,12 +43,14 @@ public class GameCompletionService {
 
     public GameCompletionService(
             GameCompletionStore completionStore,
+            MatchArchiveService matchArchiveService,
             RoundDeadlineScheduler deadlineScheduler,
             RoomService roomService,
             RoomSessionRegistry registry,
             RoomBroadcaster broadcaster
     ) {
         this.completionStore = completionStore;
+        this.matchArchiveService = matchArchiveService;
         this.deadlineScheduler = deadlineScheduler;
         this.roomService = roomService;
         this.registry = registry;
@@ -72,13 +76,28 @@ public class GameCompletionService {
 
         deadlineScheduler.cancelRoom(roomId);
         registry.markPhase(roomId, RoomPhase.FINISHED);
-        broadcaster.broadcast(roomId, WsEnvelope.of("game.over", new GameOverPayload(rankings(roomId)))
+        List<GameOverPayload.Ranking> rankings = rankings(roomId);
+        archive(room, rankings);
+        broadcaster.broadcast(roomId, WsEnvelope.of("game.over", new GameOverPayload(rankings))
                 .withRoomId(roomId));
         // phase(finished)는 스냅샷으로만 전달된다 — 이걸 빼면 클라가 결과 화면으로 넘어가지 못한다.
         broadcaster.broadcast(roomId, WsEnvelope.of("state.sync", new StateSyncPayload(registry.snapshot(roomId)))
                 .withRoomId(roomId));
         log.info("game.over: room={} game={} force={}", roomId, room.gameId(), force);
         return true;
+    }
+
+    /**
+     * 결과를 DB에 남긴다. <b>실패해도 게임 종료를 막지 않는다</b> — 저장은 나중에 되짚기 위한
+     * 것이고, 여기서 예외가 올라가면 눈앞의 사용자가 결과 화면으로 넘어가지 못한다. 그쪽 손해가
+     * 훨씬 크다.
+     */
+    private void archive(RoomSnapshot room, List<GameOverPayload.Ranking> rankings) {
+        try {
+            matchArchiveService.archive(room, rankings);
+        } catch (RuntimeException e) {
+            log.error("게임 결과 저장에 실패했습니다(게임 종료는 그대로 진행): game={}", room.gameId(), e);
+        }
     }
 
     /** 동점은 같은 순위를 공유한다(1,2,2,4). 총점은 서버가 확정해 저장한 값만 쓴다. */
