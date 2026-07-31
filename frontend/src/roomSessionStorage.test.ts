@@ -115,4 +115,54 @@ describe('room session storage', () => {
     expect(() => clearRoomSession(storage)).not.toThrow()
     expect(readRoomSession(storage)).toBeNull()
   })
+
+  it('JSON이 아닌 값이나 객체가 아닌 값은 세션으로 인정하지 않는다', () => {
+    const storage = createStorage()
+
+    for (const raw of ['{broken', 'null', '"문자열"', '[]', '42']) {
+      storage.setItem('yorr.room-session', raw)
+      expect(readRoomSession(storage)).toBeNull()
+    }
+  })
+
+  it('스냅샷이나 참가자 형태가 깨진 세션은 버린다', () => {
+    const storage = createStorage()
+
+    for (const snapshot of [
+      'not-an-object',
+      { roomId: creatorSession.roomId, phase: 'paused', players: [] },
+      { roomId: creatorSession.roomId, phase: 'waiting', players: 'nope' },
+      { roomId: creatorSession.roomId, phase: 'waiting', players: ['nope'] },
+      {
+        roomId: creatorSession.roomId,
+        phase: 'waiting',
+        players: [{ playerId: 'p1', nickname: '요르', status: 'ghost' }],
+      },
+    ]) {
+      storage.setItem('yorr.room-session', JSON.stringify({ ...creatorSession, snapshot }))
+      expect(readRoomSession(storage)).toBeNull()
+    }
+  })
+
+  it('sessionStorage 접근 자체가 막힌 브라우저에서도 동작한다', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage')
+    Object.defineProperty(globalThis, 'sessionStorage', {
+      configurable: true,
+      get() {
+        throw new Error('storage blocked')
+      },
+    })
+
+    try {
+      expect(readRoomSession()).toBeNull()
+      expect(() => saveRoomSession(creatorSession)).not.toThrow()
+      expect(() => clearRoomSession()).not.toThrow()
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'sessionStorage', descriptor)
+      } else {
+        Reflect.deleteProperty(globalThis, 'sessionStorage')
+      }
+    }
+  })
 })

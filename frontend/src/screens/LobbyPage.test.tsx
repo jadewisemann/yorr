@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -101,6 +101,50 @@ describe('LobbyPage', () => {
       `${window.location.origin}/join?code=${creatorSession.roomCode}`,
     )
     expect(screen.getByText('초대 링크를 복사했어요.')).toBeVisible()
+  })
+
+  it('연결이 아직 붙지 않았으면 상태를 라벨로 알리고 시작을 막는다', () => {
+    useAppStore.getState().setConnectionStatus('reconnecting')
+    const { unmount } = render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    expect(screen.getByText('재연결 중')).toBeVisible()
+    expect(screen.getByRole('button', { name: '게임 시작' })).toBeDisabled()
+    expect(screen.getByText('연결된 뒤 게임을 시작할 수 있어요.')).toBeVisible()
+    unmount()
+
+    useAppStore.getState().setConnectionStatus('closed')
+    const closed = render(<LobbyPage roomId={creatorSession.roomId} />)
+    expect(closed.getByText('연결 종료')).toBeVisible()
+    closed.unmount()
+
+    useAppStore.getState().setConnectionStatus('connecting')
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+    expect(screen.getByText('연결 중')).toBeVisible()
+  })
+
+  it('나가기는 확인을 받고, 머무르기를 고르면 방에 남는다', async () => {
+    const user = userEvent.setup()
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    await user.click(screen.getByRole('button', { name: '나가기' }))
+    const dialog = await screen.findByRole('dialog', { name: '방에서 나갈까요?' })
+    await user.click(within(dialog).getByRole('button', { name: '머무르기' }))
+
+    expect(screen.queryByRole('dialog', { name: '방에서 나갈까요?' })).not.toBeInTheDocument()
+    expect(useAppStore.getState().roomSession).not.toBeNull()
+  })
+
+  it('나가기를 확정하면 세션을 정리하고 홈으로 보낸다', async () => {
+    const user = userEvent.setup()
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    await user.click(screen.getByRole('button', { name: '나가기' }))
+    const dialog = await screen.findByRole('dialog', { name: '방에서 나갈까요?' })
+    await user.click(within(dialog).getByRole('button', { name: '나가기' }))
+
+    await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
+    expect(navigate).toHaveBeenCalledWith({ to: '/', replace: true })
+    expect(sessionStorage.getItem('yorr.room-session')).toBeNull()
   })
 
   it('moves once when realtime changes the room phase', async () => {

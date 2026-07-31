@@ -1,7 +1,12 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MotionGestureEvent } from '@/input/motionTypes'
-import { creatorSession, participantSession, playingRoomSnapshot } from '@/mocks/fixtures'
+import {
+  creatorSession,
+  participantSession,
+  playingRoomSnapshot,
+  waitingRoomSnapshot,
+} from '@/mocks/fixtures'
 import type { PhysicsDiceSet } from '@/rendering/physics-dice/types'
 import { useAppStore } from '@/store'
 import { GamePage } from './GamePage'
@@ -179,5 +184,35 @@ describe('GamePage motion roll flow', () => {
     // 내 이름도 상단에서 찾을 수 있어야 한다 — 내 칩에는 "나" 태그가 붙는다.
     expect(turnOrder).toHaveTextContent(participantSession.nickname)
     expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
+  })
+
+  it('헤더의 ✕는 바로 나가지 않고 확인을 받는다', () => {
+    render(<GamePage roomId={creatorSession.roomId} />)
+
+    fireEvent.click(screen.getByRole('button', { name: '나가기' }))
+    const dialog = screen.getByRole('dialog', { name: '방에서 나갈까요?' })
+    expect(dialog).toBeVisible()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '머무르기' }))
+
+    expect(screen.queryByRole('dialog', { name: '방에서 나갈까요?' })).not.toBeInTheDocument()
+    expect(useAppStore.getState().roomSession).not.toBeNull()
+    expect(screen.getByRole('button', { name: '굴리기' })).toBeVisible()
+  })
+
+  // 방이 대기실로 되돌아가는 경로(재대결)는 스냅샷 phase로만 전달된다.
+  it('방이 대기 상태로 돌아가면 게임 화면에 머무르지 않고 대기실로 옮긴다', async () => {
+    render(<GamePage roomId={creatorSession.roomId} />)
+    mocks.navigate.mockReset()
+
+    await act(async () => {
+      useAppStore.getState().replaceRoomSnapshot({ ...waitingRoomSnapshot })
+    })
+
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: '/rooms/$roomId/lobby',
+      params: { roomId: creatorSession.roomId },
+      replace: true,
+    })
   })
 })

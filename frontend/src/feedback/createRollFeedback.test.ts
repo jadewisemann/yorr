@@ -1,34 +1,193 @@
-import { expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRollFeedback } from './createRollFeedback'
 
-it('loops the bowl while shaking and plays each die impact independently', () => {
-  const audios: HTMLAudioElement[] = []
-  vi.stubGlobal(
-    'Audio',
-    vi.fn(function AudioMock(src?: string) {
-      const audio = document.createElement('audio')
-      if (src) audio.setAttribute('src', src)
-      audio.play = vi.fn(() => Promise.resolve())
-      audio.pause = vi.fn()
-      audios.push(audio)
-      return audio
-    }),
-  )
+const vibrate = vi.fn<(pattern: VibratePattern) => boolean>(() => true)
 
-  const feedback = createRollFeedback()
-  const bowl = audios[0]
-  const secondDie = audios[2]
+function installVibrate(supported = true) {
+  vibrate.mockClear()
+  if (supported) {
+    Object.defineProperty(navigator, 'vibrate', { configurable: true, value: vibrate })
+    return
+  }
+  Reflect.deleteProperty(navigator, 'vibrate')
+}
 
-  feedback.phaseChanged('shaking')
-  expect(bowl?.loop).toBe(true)
-  expect(bowl?.play).toHaveBeenCalledOnce()
+function setHidden(hidden: boolean) {
+  Object.defineProperty(document, 'hidden', { configurable: true, value: hidden })
+}
 
-  feedback.diceImpact(1, 0.5)
-  expect(secondDie?.play).toHaveBeenCalledOnce()
-  expect(secondDie?.volume).toBeCloseTo(0.475)
+afterEach(() => {
+  Reflect.deleteProperty(navigator, 'vibrate')
+  Reflect.deleteProperty(document, 'hidden')
+  vi.restoreAllMocks()
+})
 
-  feedback.phaseChanged('pouring')
-  expect(bowl?.pause).toHaveBeenCalledOnce()
+describe('createRollFeedback', () => {
+  it('제스처 단계마다 구분되는 진동 패턴을 낸다', () => {
+    installVibrate()
+    setHidden(false)
+    const feedback = createRollFeedback()
 
-  vi.unstubAllGlobals()
+    feedback.armed()
+    feedback.thrown()
+    feedback.error()
+
+    expect(vibrate.mock.calls.map(([pattern]) => pattern)).toEqual([24, [20, 20, 45], [35, 30, 35]])
+  })
+
+  it('shakePulse는 세기에 비례한 짧은 진동을 낸다', () => {
+    installVibrate()
+    setHidden(false)
+    vi.spyOn(performance, 'now').mockReturnValue(1_000)
+    const feedback = createRollFeedback()
+
+    feedback.shakePulse('left', 0)
+    expect(vibrate).toHaveBeenLastCalledWith(10)
+
+    vi.spyOn(performance, 'now').mockReturnValue(1_200)
+    feedback.shakePulse('right', 1)
+    expect(vibrate).toHaveBeenLastCalledWith(18)
+
+    // 세기는 1로 잘린다 — 센서 튐이 과한 진동으로 새지 않게.
+    vi.spyOn(performance, 'now').mockReturnValue(1_400)
+    feedback.shakePulse('right', 12)
+    expect(vibrate).toHaveBeenLastCalledWith(18)
+  })
+
+  it('연속 흔들림은 80ms 안에서 한 번만 진동한다', () => {
+    installVibrate()
+    setHidden(false)
+    const now = vi.spyOn(performance, 'now')
+    const feedback = createRollFeedback()
+
+    now.mockReturnValue(1_000)
+    feedback.shakePulse('left', 0.5)
+    now.mockReturnValue(1_050)
+    feedback.shakePulse('right', 0.5)
+    now.mockReturnValue(1_090)
+    feedback.shakePulse('left', 0.5)
+
+    expect(vibrate).toHaveBeenCalledTimes(2)
+  })
+
+  it('dispose는 남은 진동을 멈춘다', () => {
+    installVibrate()
+    setHidden(false)
+    createRollFeedback().dispose()
+
+    expect(vibrate).toHaveBeenCalledExactlyOnceWith(0)
+  })
+
+  it('탭이 백그라운드면 진동하지 않는다 — 다른 화면에서 주머니가 울리지 않게', () => {
+    installVibrate()
+    setHidden(true)
+    const feedback = createRollFeedback()
+
+    feedback.armed()
+    feedback.thrown()
+
+    expect(vibrate).not.toHaveBeenCalled()
+  })
+
+  it('vibrate를 지원하지 않는 브라우저에서도 조용히 넘어간다', () => {
+    installVibrate(false)
+    setHidden(false)
+    const feedback = createRollFeedback()
+
+    expect(() => {
+      feedback.armed()
+      feedback.shakePulse('left', 1)
+      feedback.thrown()
+      feedback.error()
+      feedback.dispose()
+    }).not.toThrow()
+  })
+
+  it('loops the bowl while shaking and plays each die impact independently', () => {
+    const audios: HTMLAudioElement[] = []
+    vi.stubGlobal(
+      'Audio',
+      vi.fn(function AudioMock(src?: string) {
+        const audio = document.createElement('audio')
+        if (src) audio.setAttribute('src', src)
+        audio.play = vi.fn(() => Promise.resolve())
+        audio.pause = vi.fn()
+        audios.push(audio)
+        return audio
+      }),
+    )
+
+    const feedback = createRollFeedback()
+    const bowl = audios[0]
+    const secondDie = audios[2]
+
+    feedback.phaseChanged('shaking')
+    expect(bowl?.loop).toBe(true)
+    expect(bowl?.play).toHaveBeenCalledOnce()
+
+    feedback.diceImpact(1, 0.5)
+    expect(secondDie?.play).toHaveBeenCalledOnce()
+    expect(secondDie?.volume).toBeCloseTo(0.475)
+
+    feedback.phaseChanged('pouring')
+    expect(bowl?.pause).toHaveBeenCalledOnce()
+
+    vi.unstubAllGlobals()
+  })
+
+  it('setMuted(true)면 재생 중인 소리를 전부 멈추고, 다시 켜면 흔드는 중이던 사발을 되살린다', () => {
+    const audios: HTMLAudioElement[] = []
+    vi.stubGlobal(
+      'Audio',
+      vi.fn(function AudioMock(src?: string) {
+        const audio = document.createElement('audio')
+        if (src) audio.setAttribute('src', src)
+        audio.play = vi.fn(() => Promise.resolve())
+        audio.pause = vi.fn()
+        audios.push(audio)
+        return audio
+      }),
+    )
+
+    const feedback = createRollFeedback()
+    const bowl = audios[0]
+    const secondDie = audios[2]
+    feedback.phaseChanged('shaking')
+
+    feedback.setMuted(true)
+    expect(bowl?.pause).toHaveBeenCalledOnce()
+    expect(secondDie?.pause).toHaveBeenCalledOnce()
+
+    feedback.setMuted(false)
+    expect(bowl?.play).toHaveBeenCalledTimes(2)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('음소거 상태에서는 흔들려도 사발 소리가 나지 않고, 굴리는 소리도 무시된다', () => {
+    const audios: HTMLAudioElement[] = []
+    vi.stubGlobal(
+      'Audio',
+      vi.fn(function AudioMock(src?: string) {
+        const audio = document.createElement('audio')
+        if (src) audio.setAttribute('src', src)
+        audio.play = vi.fn(() => Promise.resolve())
+        audio.pause = vi.fn()
+        audios.push(audio)
+        return audio
+      }),
+    )
+
+    const feedback = createRollFeedback({ muted: true })
+    const bowl = audios[0]
+    const secondDie = audios[2]
+
+    feedback.phaseChanged('shaking')
+    expect(bowl?.play).not.toHaveBeenCalled()
+
+    feedback.diceImpact(1, 0.5)
+    expect(secondDie?.play).not.toHaveBeenCalled()
+
+    vi.unstubAllGlobals()
+  })
 })
