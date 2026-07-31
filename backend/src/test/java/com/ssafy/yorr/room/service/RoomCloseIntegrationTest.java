@@ -70,6 +70,7 @@ class RoomCloseIntegrationTest {
         assertThat(exists(RoomRedisKeys.roomKey(ROOM_CODE))).isFalse();
         assertThat(exists(RoomRedisKeys.playersKey(ROOM_CODE))).isFalse();
         assertThat(exists(RoomRedisKeys.scoresKey(ROOM_CODE))).isFalse();
+        assertThat(exists(RoomRedisKeys.botsKey(ROOM_CODE))).isFalse();
         assertThat(exists(RoomRedisKeys.gameKey(GAME_ID))).isFalse();
         for (String player : new String[] { HOST, GUEST }) {
             assertThat(exists(RoomRedisKeys.gameScoreboardKey(GAME_ID, player))).isFalse();
@@ -114,6 +115,7 @@ class RoomCloseIntegrationTest {
                 HOST, "호스트", GUEST, "참가자"));
         redisTemplate.opsForHash().putAll(RoomRedisKeys.scoresKey(ROOM_CODE), Map.of(
                 HOST, "12", GUEST, "8"));
+        redisTemplate.opsForHash().put(RoomRedisKeys.botsKey(ROOM_CODE), GUEST, "NORMAL");
         redisTemplate.opsForHash().put(RoomRedisKeys.gameKey(GAME_ID), "roomCode", ROOM_CODE);
         for (String player : new String[] { HOST, GUEST }) {
             redisTemplate.opsForHash().put(RoomRedisKeys.gameScoreboardKey(GAME_ID, player), "choice", "12");
