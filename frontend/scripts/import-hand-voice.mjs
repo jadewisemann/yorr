@@ -8,8 +8,8 @@
  *
  *   yacht.m4a  large-straight.m4a  small-straight.m4a  full-house.m4a  four-of-a-kind.m4a
  *
- * 하는 일: 디코드 → 22.05kHz 모노 → DC offset 제거 → 앞뒤 무음 트림 →
- *         5ms 페이드 → 피크 정규화 → public/audio/hand-voice/<슬러그>.wav
+ * 하는 일: 디코드 → 22.05kHz 모노 → DC offset 제거 → 말소리 구간 트림 → (족보별) 에코 →
+ *         페이드 → 체감 크기 정규화 → public/audio/hand-voice/<슬러그>.wav
  *
  * 디코딩은 Playwright의 Chromium(Web Audio `decodeAudioData`)에 맡긴다. 이 PC에 ffmpeg가
  * 없고 Playwright는 이미 e2e용 devDependency로 깔려 있어서, 새 의존성 없이 크롬이 읽는
@@ -80,6 +80,19 @@ const TAIL_KEEP_MS = 60
 const FADE_IN_MS = 5
 const FADE_OUT_MS = 40
 
+/**
+ * 족보별 에코. 원음 뒤로 `delayMs`마다 `decay`배씩 작아지는 복사본을 `repeats`개 겹치는
+ * 멀티탭 딜레이다. 꼬리가 `delayMs × repeats`만큼 붙으므로 콜아웃 표시 시간을 넘기지 않게
+ * 잡아야 한다 — 넘기면 아래 길이 검사가 경고한다.
+ *
+ * 요트에만 붙인다: 콜아웃이 2.4초로 제일 길게 떠 있어 꼬리를 붙일 여유가 있고, 화면에도
+ * 느낌표가 셋이라 울림이 있어야 다른 족보와 급이 달라 보인다. 1.4초짜리 하위 족보에
+ * 같은 꼬리를 붙이면 텍스트가 사라진 뒤에도 소리가 남는다.
+ */
+const ECHO = {
+  yacht: { delayMs: 180, repeats: 3, decay: 0.5 },
+}
+
 const scriptDir = fileURLToPath(new URL('.', import.meta.url))
 const frontendDir = resolve(scriptDir, '..')
 const inputDir = resolve(process.argv[2] ?? join(scriptDir, 'voice-source'))
@@ -122,7 +135,8 @@ try {
       `${slug}.wav  ← ${basename(source)}  ` +
         `${durationMs}ms  ${sizeKb.toFixed(1)}KB  ` +
         `(원본 ${sourceMs}ms ${decoded.channels}ch 중 말소리 ` +
-        `${clip.speech.beginMs}~${clip.speech.endMs}ms → gain x${clip.gain.toFixed(2)})`,
+        `${clip.speech.beginMs}~${clip.speech.endMs}ms → gain x${clip.gain.toFixed(2)}` +
+        `${clip.echo ? `, 에코 ${clip.echo.delayMs}ms x${clip.echo.repeats} decay ${clip.echo.decay}` : ''})`,
     )
   }
 } finally {
@@ -211,22 +225,27 @@ function shape({ samples }, slug) {
   const end = Math.min(centered.length, speech.end + msToSamples(TAIL_KEEP_MS))
   const trimmed = centered.subarray(begin, end)
 
+  // 에코는 트림 다음에 붙인다 — 먼저 붙이면 울림 꼬리가 "말소리 밖"으로 잡혀 잘려나가고,
+  // 앞뒤 잡음까지 같이 울린다. 페이드아웃도 꼬리 끝에 걸려야 매끄럽게 사라진다.
+  const echo = ECHO[slug]
+  const voiced = echo ? applyEcho(trimmed, echo) : trimmed
+
   // 정규화는 잘라낸 구간의 체감 크기로 한다. 원본 전체를 보면 녹음 버튼 탭 소리 하나가
   // 기준이 돼서, 5개 파일의 체감 크기가 서로 달라진다.
-  const loudness = maxWindowRms(trimmed, msToSamples(LOUDNESS_WINDOW_MS))
+  const loudness = maxWindowRms(voiced, msToSamples(LOUDNESS_WINDOW_MS))
   const gain = Math.min(TARGET_LOUDNESS / loudness, MAX_GAIN)
 
-  const fadeIn = Math.min(msToSamples(FADE_IN_MS), Math.floor(trimmed.length / 2))
-  const fadeOut = Math.min(msToSamples(FADE_OUT_MS), Math.floor(trimmed.length / 2))
-  const output = new Int16Array(trimmed.length)
+  const fadeIn = Math.min(msToSamples(FADE_IN_MS), Math.floor(voiced.length / 2))
+  const fadeOut = Math.min(msToSamples(FADE_OUT_MS), Math.floor(voiced.length / 2))
+  const output = new Int16Array(voiced.length)
   let limited = 0
-  for (let index = 0; index < trimmed.length; index += 1) {
+  for (let index = 0; index < voiced.length; index += 1) {
     // 잘라낸 자리에서 딱 끊기면 톡 하는 클릭이 남는다.
     let envelope = 1
     if (index < fadeIn) envelope = index / fadeIn
-    const fromEnd = trimmed.length - 1 - index
+    const fromEnd = voiced.length - 1 - index
     if (fromEnd < fadeOut) envelope = Math.min(envelope, fromEnd / fadeOut)
-    const raw = trimmed[index] * gain * envelope
+    const raw = voiced[index] * gain * envelope
     if (Math.abs(raw) > LIMIT_KNEE) limited += 1
     output[index] = Math.round(softLimit(raw) * 32767)
   }
@@ -270,6 +289,7 @@ function shape({ samples }, slug) {
     )
 
   return {
+    echo,
     gain,
     limitedRatio,
     loudness: maxWindowRms(output, msToSamples(LOUDNESS_WINDOW_MS), 32767),
@@ -277,6 +297,27 @@ function shape({ samples }, slug) {
     sourcePeak,
     speech,
   }
+}
+
+/**
+ * 멀티탭 딜레이로 에코를 붙인다. 꼬리(`delayMs × repeats`)만큼 길어진 새 버퍼를 돌려준다.
+ *
+ * 피드백 딜레이(출력을 다시 입력으로 넣는 방식)가 아니라 원음의 복사본을 그대로 겹친다 —
+ * 탭 수와 꼬리 길이가 계산으로 딱 정해져서, 콜아웃 표시 시간 안에 들어오는지 미리 알 수 있다.
+ * 겹치는 만큼 진폭이 커지지만 뒤이어 정규화·리미터가 받아주므로 여기서는 조정하지 않는다.
+ */
+function applyEcho(samples, { delayMs, repeats, decay }) {
+  const delay = msToSamples(delayMs)
+  const output = new Float32Array(samples.length + delay * repeats)
+  output.set(samples)
+  for (let tap = 1; tap <= repeats; tap += 1) {
+    const gain = decay ** tap
+    const offset = delay * tap
+    for (let index = 0; index < samples.length; index += 1) {
+      output[offset + index] += samples[index] * gain
+    }
+  }
+  return output
 }
 
 /** 가장 큰 창의 RMS = 체감 크기. `scale`은 Int16 배열을 넘길 때 쓴다. */
