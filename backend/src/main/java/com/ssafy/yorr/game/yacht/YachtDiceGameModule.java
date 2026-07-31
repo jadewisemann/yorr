@@ -11,6 +11,7 @@ import com.ssafy.yorr.game.round.domain.RoundSynchronizationException;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.room.dto.GameStartResponse;
 import com.ssafy.yorr.ws.RoomBroadcaster;
+import com.ssafy.yorr.ws.RealtimeRoomSnapshotService;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
 import com.ssafy.yorr.ws.dto.DiceBroadcastPayload;
 import com.ssafy.yorr.ws.dto.DiceHoldChangedPayload;
@@ -45,6 +46,7 @@ public class YachtDiceGameModule implements GameModule {
     private final RoundSynchronizationService rounds;
     private final RoundTimerService timers;
     private final RoomSessionRegistry sessions;
+    private final RealtimeRoomSnapshotService realtimeSnapshots;
     private final RoomBroadcaster broadcaster;
     private final ScoreRoundSubmissionService submissions;
     private final GameReconnectSnapshotService reconnectSnapshots;
@@ -54,6 +56,7 @@ public class YachtDiceGameModule implements GameModule {
             RoundSynchronizationService rounds,
             RoundTimerService timers,
             RoomSessionRegistry sessions,
+            RealtimeRoomSnapshotService realtimeSnapshots,
             RoomBroadcaster broadcaster,
             ScoreRoundSubmissionService submissions,
             GameReconnectSnapshotService reconnectSnapshots,
@@ -62,6 +65,7 @@ public class YachtDiceGameModule implements GameModule {
         this.rounds = rounds;
         this.timers = timers;
         this.sessions = sessions;
+        this.realtimeSnapshots = realtimeSnapshots;
         this.broadcaster = broadcaster;
         this.submissions = submissions;
         this.reconnectSnapshots = reconnectSnapshots;
@@ -334,7 +338,7 @@ public class YachtDiceGameModule implements GameModule {
     private void broadcastState(String roomCode) {
         broadcaster.broadcast(roomCode, WsEnvelope.of(
                 "state.sync",
-                new StateSyncPayload(sessions.snapshot(roomCode))
+                new StateSyncPayload(realtimeSnapshots.snapshot(roomCode))
         ).withRoomId(roomCode));
     }
 }

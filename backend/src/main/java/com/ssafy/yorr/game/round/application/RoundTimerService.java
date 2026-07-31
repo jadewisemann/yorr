@@ -6,6 +6,7 @@ import com.ssafy.yorr.game.round.domain.RoundCompletion;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
 import com.ssafy.yorr.room.service.RoomService;
+import com.ssafy.yorr.room.dto.ParticipantKind;
 import com.ssafy.yorr.ws.RoomBroadcaster;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
 import com.ssafy.yorr.ws.dto.PlayerStatus;
@@ -260,6 +261,13 @@ public class RoundTimerService {
 
     /** 명단에 없는 플레이어(비정상 상태)도 오프라인으로 본다 — 연결이 없다는 사실은 같다. */
     private boolean isOffline(String roomId, String playerId) {
+        com.ssafy.yorr.room.dto.RoomSnapshot room = roomService.getSnapshot(roomId);
+        boolean serverControlled = room != null && room.players().stream()
+                .anyMatch(player -> player.playerId().equals(playerId)
+                        && player.kind() == ParticipantKind.BOT);
+        if (serverControlled) {
+            return false;
+        }
         RoomSessionRegistry.Member member = registry.find(roomId, playerId);
         return member == null || member.status() == PlayerStatus.OFFLINE;
     }

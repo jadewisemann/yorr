@@ -2,7 +2,7 @@ package com.ssafy.yorr.game.round.application;
 
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.service.GameScoreQueryService;
-import com.ssafy.yorr.ws.RoomSessionRegistry;
+import com.ssafy.yorr.ws.RealtimeRoomSnapshotService;
 import com.ssafy.yorr.game.yacht.YachtDiceState;
 import com.ssafy.yorr.ws.dto.RoomPhase;
 import com.ssafy.yorr.ws.dto.RoomSnapshot;
@@ -14,25 +14,25 @@ import org.springframework.stereotype.Service;
 @Service
 public class GameReconnectSnapshotService {
 
-    private final RoomSessionRegistry registry;
+    private final RealtimeRoomSnapshotService realtimeSnapshots;
     private final RoundSynchronizationService roundSynchronizationService;
     private final RoundTimerService roundTimerService;
     private final GameScoreQueryService gameScoreQueryService;
 
     public GameReconnectSnapshotService(
-            RoomSessionRegistry registry,
+            RealtimeRoomSnapshotService realtimeSnapshots,
             RoundSynchronizationService roundSynchronizationService,
             RoundTimerService roundTimerService,
             GameScoreQueryService gameScoreQueryService
     ) {
-        this.registry = registry;
+        this.realtimeSnapshots = realtimeSnapshots;
         this.roundSynchronizationService = roundSynchronizationService;
         this.roundTimerService = roundTimerService;
         this.gameScoreQueryService = gameScoreQueryService;
     }
 
     public RoomSnapshot snapshot(String roomId, String playerId) {
-        RoomSnapshot room = registry.snapshot(roomId);
+        RoomSnapshot room = realtimeSnapshots.snapshot(roomId);
         if (room.phase() != RoomPhase.PLAYING) {
             return room;
         }
@@ -64,7 +64,8 @@ public class GameReconnectSnapshotService {
                 room.phase(),
                 room.hostId(),
                 room.players(),
-                game
+                game,
+                room.capacity()
         );
     }
 }
