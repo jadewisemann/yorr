@@ -230,6 +230,45 @@ describe('RealtimeSync', () => {
     ])
   })
 
+  it('keeps result nicknames when a player leaves after game over', () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(
+      serverMessage('round.start', {
+        activePlayerId: creatorPlayer.playerId,
+        deadline: 2_000,
+        roundNumber: 12,
+        turnOrder: [creatorPlayer.playerId, participantPlayer.playerId],
+      }),
+    )
+    client.emitMessage(
+      serverMessage('game.over', {
+        rankings: [
+          { rank: 1, playerId: participantPlayer.playerId, total: 205 },
+          { rank: 2, playerId: creatorPlayer.playerId, total: 180 },
+        ],
+      }),
+    )
+
+    client.emitMessage(serverMessage('room.player_left', { playerId: participantPlayer.playerId }))
+    client.emitMessage(
+      serverMessage('state.sync', {
+        snapshot: {
+          roomId: creatorSession.roomId,
+          phase: 'finished',
+          players: [creatorPlayer],
+        },
+      }),
+    )
+
+    expect(useAppStore.getState().roomSnapshot?.players).toContainEqual(participantPlayer)
+  })
+
   /** 대기실 복귀는 phase=waiting 스냅샷으로 전달된다 — 지난 게임 진행 상태는 함께 버려야 한다. */
   it('drops game state when the room goes back to the lobby', () => {
     const client = createRealtimeFixture({ role: 'creator' })
