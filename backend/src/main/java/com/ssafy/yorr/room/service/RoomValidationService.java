@@ -61,14 +61,47 @@ public class RoomValidationService implements RoomService {
             redis.call('DEL', KEYS[3])
             return 1
             """, Long.class);
+    /**
+     * 활동 시각을 갱신한다(sliding TTL). 방 키의 TTL을 처음부터 다시 세고, 함께 만료돼야 하는
+     * 키들을 그 시각에 맞춘다. 게임 키는 참가자 수가 가변이라 스크립트 안에서 조립한다
+     * ({@link #CLOSE}와 같은 규약 — 단일 Redis 전제).
+     */
+    static final DefaultRedisScript<Long> TOUCH = new DefaultRedisScript<>("""
+            if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
+            redis.call('EXPIRE', KEYS[1], ARGV[1])
+            local ttl = redis.call('PTTL', KEYS[1])
+            if ttl <= 0 then return 1 end
+            redis.call('PEXPIRE', KEYS[2], ttl)
+            redis.call('PEXPIRE', KEYS[3], ttl)
+            local gameId = redis.call('HGET', KEYS[1], 'gameId')
+            if gameId then
+                redis.call('PEXPIRE', 'game:' .. gameId, ttl)
+                local players = redis.call('HKEYS', KEYS[2])
+                for i = 1, #players do
+                    redis.call('PEXPIRE', 'game:' .. gameId .. ':scoreboard:' .. players[i], ttl)
+                    redis.call('PEXPIRE', 'game:' .. gameId .. ':score-submissions:' .. players[i], ttl)
+                end
+            end
+            return 1
+            """, Long.class);
     static final DefaultRedisScript<Long> START = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
             if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 0 end
             if redis.call('HLEN', KEYS[2]) < 1 then return 0 end
+            local gameCode = redis.call('HGET', KEYS[1], 'gameCode')
+            if not gameCode then return 0 end
             redis.call('HSET', KEYS[1], 'phase', 'PLAYING', 'gameId', ARGV[1])
-            redis.call('HSET', KEYS[3], 'roomCode', ARGV[2])
+            redis.call('HSET', KEYS[3], 'roomCode', ARGV[2], 'gameCode', gameCode)
             local ttl = redis.call('PTTL', KEYS[1])
             if ttl > 0 then redis.call('PEXPIRE', KEYS[3], ttl) end
+            return 1
+            """, Long.class);
+    static final DefaultRedisScript<Long> ROLLBACK_START = new DefaultRedisScript<>("""
+            if redis.call('HGET', KEYS[1], 'phase') ~= 'PLAYING' then return 0 end
+            if redis.call('HGET', KEYS[1], 'gameId') ~= ARGV[1] then return 0 end
+            redis.call('HSET', KEYS[1], 'phase', 'LOBBY')
+            redis.call('HDEL', KEYS[1], 'gameId')
+            redis.call('DEL', KEYS[2])
             return 1
             """, Long.class);
 
@@ -119,6 +152,13 @@ public class RoomValidationService implements RoomService {
     }
 
     @Override
+    public void touch(String roomCode) {
+        redisTemplate.execute(TOUCH, List.of(RoomRedisKeys.roomKey(roomCode),
+                        RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode)),
+                String.valueOf(RoomCreateService.ROOM_TTL.toSeconds()));
+    }
+
+    @Override
     public RoomSnapshot getSnapshot(String roomCode) {
         Map<Object, Object> room = redisTemplate.<Object, Object>opsForHash().entries(RoomRedisKeys.roomKey(roomCode));
         if (room.isEmpty()) return RoomSnapshot.notFound(roomCode);
@@ -129,7 +169,8 @@ public class RoomValidationService implements RoomService {
                         Integer.parseInt((String) scores.getOrDefault(player.getKey(), "0"))))
                 .sorted(Comparator.comparing(RoomPlayerSnapshot::playerId))
                 .toList();
-        return new RoomSnapshot(roomCode, (String) room.get("gameId"), (String) room.get("hostId"),
+        return new RoomSnapshot(roomCode, (String) room.get("gameCode"), (String) room.get("gameId"),
+                (String) room.get("hostId"),
                 RoomPhase.valueOf((String) room.get("phase")), Integer.parseInt((String) room.get("capacity")), snapshots);
     }
 
@@ -139,6 +180,14 @@ public class RoomValidationService implements RoomService {
                 RoomRedisKeys.gameKey(gameId)), gameId, roomCode);
         if (!Long.valueOf(1).equals(result)) throw new IllegalStateException("game_not_ready");
         return new GameStartResponse(gameId, getSnapshot(roomCode));
+    }
+
+    public boolean rollbackStart(String roomCode, String gameId) {
+        Long result = redisTemplate.execute(ROLLBACK_START, List.of(
+                RoomRedisKeys.roomKey(roomCode),
+                RoomRedisKeys.gameKey(gameId)
+        ), gameId);
+        return Long.valueOf(1).equals(result);
     }
 
     /** @return 이 호출이 실제로 대기실로 되돌렸는지. 이미 대기실이면 false(멱등). */

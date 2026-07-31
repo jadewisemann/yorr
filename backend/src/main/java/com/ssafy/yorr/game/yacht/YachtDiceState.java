@@ -1,4 +1,4 @@
-package com.ssafy.yorr.ws.dto;
+package com.ssafy.yorr.game.yacht;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.ssafy.yorr.game.domain.ScoreBoard;
@@ -11,14 +11,17 @@ import java.util.Map;
  * 프론트 SSOT의 GameState 중 진행 중 게임에 필요한 필드를 미러링한다.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record GameState(
+public record YachtDiceState(
         int roundNumber,
         String activePlayerId,
         long roundDeadline,
         Map<String, ScoreBoard> scores,
-        List<String> turnOrder
+        List<String> turnOrder,
+        int rollCount,
+        List<Integer> dice,
+        List<Boolean> held
 ) {
-    public GameState {
+    public YachtDiceState {
         scores = scores == null ? Map.of() : Map.copyOf(scores);
         turnOrder = turnOrder == null ? List.of() : List.copyOf(turnOrder);
     }

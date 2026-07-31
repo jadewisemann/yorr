@@ -45,10 +45,10 @@
  * ============================================================================
  */
 
-import type { DiceSet } from '@/domain/dice'
+import type { DiceSet, HeldDice } from '@/domain/dice'
 import type { YachtCategory } from '@/domain/scoring'
 
-export type { DiceSet, DiceValue } from '@/domain/dice'
+export type { DiceSet, DiceValue, HeldDice } from '@/domain/dice'
 export type { YachtCategory, YachtLowerCategory, YachtUpperCategory } from '@/domain/scoring'
 export {
   UPPER_BONUS_POINTS,
@@ -104,6 +104,16 @@ export interface GameState {
   turnOrder?: PlayerId[]
   /** game.over로 받은 최종 순위. 결과 화면은 로컬 재계산 대신 이 값을 쓴다. */
   rankings?: GameOverPayload['rankings']
+  /**
+   * 현재 턴에서 **서버가 확정한** 굴림 횟수. 클라가 따로 세지 않고 이 값을 권위로 쓴다.
+   * 첫 굴림 전에는 0. 이 필드가 없으면 재접속한 클라가 0부터 다시 세어
+   * 다음 dice.roll이 INVALID_ROLL로 거부된다.
+   */
+  rollCount: number
+  /** 현재 턴에 놓여 있는 주사위. 첫 굴림 전에는 없다. */
+  dice?: DiceSet
+  /** 턴 주인이 유지 중인 KEEP. 첫 굴림 전에는 없다. */
+  held?: HeldDice
 }
 
 /* ----- 요트 정규룰 족보 (score.* / game.* · owner: 유상은 40·41·43) -----

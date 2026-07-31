@@ -69,6 +69,7 @@ export class PhysicsDiceWorld {
   private container: HTMLElement
   private diceReleased = false
   private entries: DieEntry[] = []
+  private fallingDice = [false, false, false, false, false]
   private frameId: number | null = null
   private geometries!: PhysicsDiceGeometries
   private held: PhysicsHeldDice = NO_HELD
@@ -76,12 +77,14 @@ export class PhysicsDiceWorld {
   private keyLight!: THREE.DirectionalLight
   private keepSlotMaterials: THREE.Material[] = []
   private keepSlots: THREE.Group[] = []
+  private lastImpactAt = [0, 0, 0, 0, 0]
   private lastPulseAt = 0
   private lastShakeKick = 0
   private lastTime = 0
   private layoutAnimating = false
   private layoutEntries: LayoutEntry[] = []
   private layoutStartedAt = 0
+  private lineUpAll = false
   private materials!: PhysicsDiceMaterials
   private motionFollow = false
   private phase: 'idle' | 'shaking' | 'pouring' | 'aligning' = 'idle'
@@ -173,6 +176,8 @@ export class PhysicsDiceWorld {
     this.accumulator = 0
     this.stableFrames = 0
     this.diceReleased = false
+    this.fallingDice.fill(false)
+    this.lastImpactAt.fill(0)
     this.bowlGroup.visible = true
     this.bowlGroup.position.set(SCENE.bowl.startX, SCENE.bowl.hoverY, SCENE.bowl.startZ)
     this.bowlGroup.rotation.set(0, 0, 0)
@@ -222,23 +227,36 @@ export class PhysicsDiceWorld {
       entry.body.setRotation(this.randomQuaternion(), true)
       entry.body.setLinvel(
         {
-          x: (this.random.next() - 0.5) * 3,
-          y: this.random.next() * 2,
-          z: (this.random.next() - 0.5) * 3,
+          x: (this.random.next() - 0.5) * CONFIG.defaults.spawnLinearSpeed,
+          y: this.random.next() * CONFIG.defaults.spawnLiftSpeed,
+          z: (this.random.next() - 0.5) * CONFIG.defaults.spawnLinearSpeed,
         },
         true,
       )
       entry.body.setAngvel(
         {
-          x: (this.random.next() - 0.5) * 19,
-          y: (this.random.next() - 0.5) * 19,
-          z: (this.random.next() - 0.5) * 19,
+          x: (this.random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
+          y: (this.random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
+          z: (this.random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
         },
         true,
       )
       entry.body.wakeUp()
     })
     this.resize()
+    this.invalidate()
+  }
+
+  /**
+   * 킵된 주사위까지 결과 줄에 함께 눕힐지. 마지막 굴림이 시작되는 순간 켜고, 그 굴림의 정렬과
+   * 이후 idle 배치가 같은 규칙을 쓰게 한다 — 정렬 직후 킵 주사위가 레일로 되돌아가면 안 된다.
+   * 굴리는 중(idle이 아닐 때)에는 값만 갈아두고, 진행 중인 애니메이션은 건드리지 않는다.
+   */
+  setLineUpAll(enabled: boolean) {
+    if (this.lineUpAll === enabled) return
+    this.lineUpAll = enabled
+    if (!this.world || this.phase !== 'idle' || this.layoutAnimating) return
+    this.lineUpDice()
     this.invalidate()
   }
 
@@ -266,10 +284,14 @@ export class PhysicsDiceWorld {
     const mass = CONFIG.defaults.mass
     this.entries.forEach((entry) => {
       if (this.held[entry.index]) return
+      // 세게 흔들수록 높이 튀긴다 — 목표 높이에서 역산해 중력과 무관하게 같은 그림을 만든다.
+      const liftSpeed = Math.sqrt(
+        2 * CONFIG.defaults.gravity * SCENE.bowl.shakeKickHeight * (0.25 + 0.75 * clamped),
+      )
       entry.body.applyImpulse(
         {
           x: sign * SCENE.bowl.followPulseImpulse * (0.5 + clamped) * mass,
-          y: SCENE.bowl.followPulseLift * (0.5 + clamped) * mass,
+          y: liftSpeed * mass,
           z: (this.random.next() - 0.5) * SCENE.bowl.shakeRandomImpulse,
         },
         true,
@@ -284,6 +306,9 @@ export class PhysicsDiceWorld {
     this.phase = 'pouring'
     this.pourStartedAt = performance.now()
     this.rollStartedAt = this.pourStartedAt
+    // 기울이기가 끝나면 곧바로 퇴장한다 — 던져진 주사위 위에 사발이 머물러
+    // 시각적으로 겹치지 않게, 정렬 단계를 기다리지 않는다.
+    this.bowlExitStartedAt = this.pourStartedAt + SCENE.bowl.tiltDurationMs
     this.stableFrames = 0
     this.callbacks.onPhaseChange('pouring')
     this.invalidate()
@@ -326,7 +351,7 @@ export class PhysicsDiceWorld {
     this.renderer.setSize(width, height, false)
     this.appliedWidth = width
     this.appliedHeight = height
-    positionKeepSlots(this.keepSlots, this.heldOrder.length, this.keepSlotMaterials)
+    positionKeepSlots(this.keepSlots, this.occupiedKeepSlots(), this.keepSlotMaterials)
     this.invalidate()
   }
 
@@ -350,9 +375,14 @@ export class PhysicsDiceWorld {
     this.cameraHorizontal = resultCameraWidth()
     this.bowlGroup.visible = false
     this.bowlBody.setTranslation({ x: 10, y: -5, z: 0 }, false)
-    placeDice(this.entries, this.held, this.heldOrder, this.committedDice)
-    positionKeepSlots(this.keepSlots, this.heldOrder.length, this.keepSlotMaterials)
+    placeDice(this.entries, this.held, this.heldOrder, this.committedDice, this.lineUpAll)
+    positionKeepSlots(this.keepSlots, this.occupiedKeepSlots(), this.keepSlotMaterials)
     this.resize()
+  }
+
+  /** 레일 바를 악센트로 칠할 슬롯 수. 다섯 개를 한 줄로 눕히면 레일은 비어 있다. */
+  private occupiedKeepSlots() {
+    return this.lineUpAll ? 0 : this.heldOrder.length
   }
 
   private frame = (time: number) => {
@@ -367,7 +397,10 @@ export class PhysicsDiceWorld {
     while (simulating && this.accumulator >= this.world.timestep) {
       this.world.step()
       if (this.phase === 'shaking') containDiceInBowl(this.entries, this.held, this.bowlBody)
-      if (this.phase === 'pouring' && this.diceReleased) containDiceInTray(rollingEntries)
+      if (this.phase === 'pouring' && this.diceReleased) {
+        containDiceInTray(rollingEntries)
+        this.detectDiceImpacts(rollingEntries, time)
+      }
       this.accumulator -= this.world.timestep
     }
     if (this.phase === 'aligning') this.updateResultAlignment(time)
@@ -413,6 +446,19 @@ export class PhysicsDiceWorld {
           const centerX = x - position.x
           const centerZ = z - position.z
           const mass = CONFIG.defaults.mass
+          // 바닥 근처 주사위만 목표 높이 √(2gh)로 튀긴다 — 임펄스 상수는 중력을 올리면
+          // 홉이 죽지만, 높이로 지정하면 중력과 무관하게 같은 그림이 나온다.
+          const kickRandom = this.random.next()
+          const altitude = position.y - SCENE.bowl.hoverY
+          const kickSpeed =
+            altitude < SCENE.bowl.shakeKickAltitude
+              ? Math.sqrt(
+                  2 *
+                    CONFIG.defaults.gravity *
+                    SCENE.bowl.shakeKickHeight *
+                    (0.3 + 0.7 * kickRandom),
+                )
+              : 0
           entry.body.applyImpulse(
             {
               x:
@@ -421,9 +467,7 @@ export class PhysicsDiceWorld {
                   centerZ * SCENE.bowl.shakeOrbitStrength +
                   (this.random.next() - 0.5) * SCENE.bowl.shakeRandomImpulse) *
                   intensity,
-              y:
-                (SCENE.bowl.shakeLiftImpulse + this.random.next() * SCENE.bowl.shakeRandomImpulse) *
-                intensity,
+              y: kickSpeed * mass * intensity,
               z:
                 (bowlVelocityZ - velocity.z) * SCENE.bowl.shakeFollowStrength * mass +
                 (centerZ * SCENE.bowl.shakeCenterStrength +
@@ -433,11 +477,12 @@ export class PhysicsDiceWorld {
             },
             true,
           )
+          const torque = SCENE.bowl.shakeTorqueImpulse * intensity
           entry.body.applyTorqueImpulse(
             {
-              x: (this.random.next() - 0.5) * 0.55 * intensity,
-              y: (this.random.next() - 0.5) * 0.55 * intensity,
-              z: (this.random.next() - 0.5) * 0.55 * intensity,
+              x: (this.random.next() - 0.5) * torque,
+              y: (this.random.next() - 0.5) * torque,
+              z: (this.random.next() - 0.5) * torque,
             },
             true,
           )
@@ -446,9 +491,6 @@ export class PhysicsDiceWorld {
       return
     }
     if (this.phase !== 'pouring') return
-    // 쏟은 뒤에는 그릇 바디를 더 움직이지 않는다 — 예측 복제 시뮬과 실제 진행이 같은
-    // 월드 상태를 보게 하기 위한 결정론 조건 (그릇은 이미 기울인 마지막 포즈로 고정).
-    if (this.diceReleased) return
     // 기울이는 동안 사발이 start→pour로 미끄러진다(tiltedBowlPosition이 보간) —
     // 쏟으면서 오른쪽으로 빠져나가는 한 동작이고, 퇴장 애니메이션이 그대로 이어받는다.
     const elapsed = time - this.pourStartedAt
@@ -457,13 +499,38 @@ export class PhysicsDiceWorld {
     const angle =
       THREE.MathUtils.degToRad(SCENE.bowl.tiltDegrees) * SCENE.bowl.tiltDirection * eased
     const position = tiltedBowlPosition(eased, angle)
+    // 비주얼은 던진 뒤에도 기울이기를 끝까지 이어간다 — 사발이 뒤집히는 그림 위로
+    // 주사위가 터져 나온다. 기울이기가 끝나면 곧바로 퇴장 애니메이션이 이어받는다.
+    this.bowlGroup.position.set(position.x, position.y, position.z)
+    this.bowlGroup.rotation.set(0, 0, angle)
+    if (progress >= 1) this.updateBowlExit(time)
+    if (this.diceReleased) return
+    // 뒤집어지는 순간(releaseTiltProgress)에 주사위를 던지고 사발 바디를 치운다 —
+    // 이후 사발은 순수 비주얼이고 주사위와 물리적으로 상호작용하지 않는다.
+    // (릴리스 뒤 바디를 움직이지 않는 것은 예측 복제 시뮬과의 결정론 조건이기도 하다.)
+    if (progress >= SCENE.bowl.releaseTiltProgress) {
+      this.releaseFromBowl()
+      return
+    }
     const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle)
     this.bowlBody.setNextKinematicTranslation(position)
     this.bowlBody.setNextKinematicRotation(rotation)
-    this.bowlGroup.position.set(position.x, position.y, position.z)
-    this.bowlGroup.rotation.set(0, 0, angle)
-    if (progress >= 1 && elapsed >= SCENE.bowl.tiltDurationMs + SCENE.bowl.spillPushDurationMs) {
-      this.releaseFromBowl()
+  }
+
+  private detectDiceImpacts(entries: DieEntry[], time: number) {
+    for (const entry of entries) {
+      const velocity = entry.body.linvel()
+      if (velocity.y < -0.8) this.fallingDice[entry.index] = true
+      if (
+        entry.enteredTray &&
+        this.fallingDice[entry.index] &&
+        velocity.y > 0.45 &&
+        time - (this.lastImpactAt[entry.index] ?? 0) >= 80
+      ) {
+        this.lastImpactAt[entry.index] = time
+        this.fallingDice[entry.index] = false
+        this.callbacks.onDiceImpact?.(entry.index, Math.min(1, velocity.y / 4))
+      }
     }
   }
 
@@ -487,6 +554,7 @@ export class PhysicsDiceWorld {
       this.held,
       this.heldOrder,
       this.committedDice,
+      this.lineUpAll,
     )
     this.resize()
     this.invalidate()
@@ -597,11 +665,14 @@ export class PhysicsDiceWorld {
     // 멈춘 주사위는 최소 굴림 시간과 무관하게 곧바로 표시 면을 맞춘다 —
     // 멈춘 채 잘못된 눈을 보여주는 구간이 곧 이 버그였다.
     this.correctSettledVisuals()
-    if (time - this.rollStartedAt < SCENE.settlement.minRollDurationMs) return
+    const elapsed = time - this.rollStartedAt
+    if (elapsed < SCENE.settlement.minRollDurationMs) return
     const active = this.entries.filter((entry) => !this.held[entry.index])
     const physicallySettled = active.every((entry) => isBodySettled(entry.body))
     this.stableFrames = physicallySettled ? this.stableFrames + 1 : 0
-    if (this.stableFrames < SCENE.settlement.stableFrames) return
+    // 상한을 넘으면 아직 튀고 있어도 정렬로 넘어간다 — 안 그러면 굴림이 영원히 끝나지 않는다.
+    const timedOut = elapsed >= SCENE.settlement.maxRollDurationMs
+    if (this.stableFrames < SCENE.settlement.stableFrames && !timedOut) return
     this.startResultAlignment(time)
   }
 
@@ -610,14 +681,18 @@ export class PhysicsDiceWorld {
     this.phase = 'aligning'
     this.callbacks.onPhaseChange('aligning')
     this.alignmentStartedAt = time
-    this.bowlExitStartedAt = time
+    // bowlExitStartedAt은 pour()가 이미 잡았다 — 퇴장은 기울이기 직후 시작해서
+    // 대개 정렬 전에 끝나 있고, updateResultAlignment의 updateBowlExit은 no-op이 된다.
     this.settledDice = [...this.request.targetDice]
     this.alignmentEntries = prepareAlignmentEntries(
       this.entries,
       this.held,
       this.heldOrder,
       this.settledDice,
+      this.lineUpAll,
     )
+    // 레일이 비는 순간을 정렬 시작과 맞춘다 — 주사위가 줄로 떠난 뒤 악센트 바만 남으면 안 된다.
+    positionKeepSlots(this.keepSlots, this.occupiedKeepSlots(), this.keepSlotMaterials)
   }
 
   private updateResultAlignment(time: number) {

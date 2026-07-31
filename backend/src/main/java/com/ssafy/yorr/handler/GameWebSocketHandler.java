@@ -12,24 +12,14 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import com.ssafy.yorr.user.SessionAuthenticationException;
 import com.ssafy.yorr.user.dto.GuestCreateResponse;
 import com.ssafy.yorr.user.service.UserService;
-import com.ssafy.yorr.game.exception.ScoreConfirmationException;
-import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionResult;
-import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
-import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
-import com.ssafy.yorr.game.round.application.RoundTimerService;
-import com.ssafy.yorr.game.round.application.GameReconnectSnapshotService;
-import com.ssafy.yorr.game.round.domain.RoundSynchronizationException;
+import com.ssafy.yorr.game.module.GameModule;
+import com.ssafy.yorr.game.module.GameModuleRegistry;
 import com.ssafy.yorr.ws.WsProtocol;
 import com.ssafy.yorr.ws.dto.InboundEnvelope;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
 import com.ssafy.yorr.ws.dto.SysConnectedPayload;
 import com.ssafy.yorr.ws.dto.SysPongPayload;
 import com.ssafy.yorr.ws.dto.ErrorPayload;
-import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
-import com.ssafy.yorr.ws.dto.DiceRollPayload;
-import com.ssafy.yorr.ws.dto.DiceBroadcastPayload;
-import com.ssafy.yorr.ws.dto.DiceHoldPayload;
-import com.ssafy.yorr.ws.dto.DiceHoldChangedPayload;
 import com.ssafy.yorr.ws.dto.WsErrorCode;
 import com.ssafy.yorr.ws.dto.RoomJoinPayload;
 import com.ssafy.yorr.ws.dto.RoomJoinedPayload;
@@ -68,43 +58,45 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final RoomSessionRegistry registry; // 방 명단(누가 어느 방에)
     private final HeartbeatMonitor heartbeatMonitor;
     private final UserService userService;      // 게스트 정체성 발급(티켓 70 재사용)
-    private final ScoreRoundSubmissionService scoreRoundSubmissionService;
-    private final RoundSynchronizationService roundSynchronizationService;
-    private final RoundTimerService roundTimerService;
     private final RoomService roomService;                     // 빈 방 닫기(Redis 키 정리)
     private final RoomCloseScheduler roomCloseScheduler;       // 유예 뒤 닫기 예약
 
     /**
-     * 마지막 참가자의 소켓이 끊긴 뒤 방을 닫기까지 기다리는 시간.
+     * 마지막 참가자의 소켓이 끊긴 뒤 <b>대기실</b>을 닫기까지 기다리는 시간.
      * <p>
      * 새로고침·터널 통과 같은 짧은 단절은 소켓을 끊고 다시 연결한다. 즉시 닫으면 본인이 자기
-     * 방을 파괴하므로, 그 왕복이 끝날 만큼만 준다. 이 시간 동안 마감 타이머는 멈춰 있다.
+     * 방을 파괴하므로, 그 왕복이 끝날 만큼만 준다. 대기실은 잃을 진행 상태가 없어 짧게 준다.
      */
-    static final Duration EMPTY_ROOM_GRACE = Duration.ofSeconds(30);
-    private final GameReconnectSnapshotService reconnectSnapshotService;
+    static final Duration EMPTY_LOBBY_GRACE = Duration.ofSeconds(30);
+    /**
+     * <b>진행 중인 게임</b>이 비었을 때의 유예. 대기실보다 훨씬 길게 준다.
+     * <p>
+     * 여기서 방을 닫으면 점수판·라운드 진행처럼 되돌릴 수 없는 값이 사라진다. 모바일에서
+     * 앱 전환·화면 잠금·전화 수신은 30초를 쉽게 넘기므로 대기실 기준의 시간을 그대로 쓰면
+     * 잠깐 화면을 벗어난 사람의 게임을 서버가 스스로 파괴한다(S15P11A406-136). 재접속 상태
+     * 복원(S15P11A406-113)이 복원하려는 대상을 서버가 먼저 지워버리는 모순이기도 하다.
+     * <p>
+     * 방 자체의 TTL(40분)이 상한이므로 그보다 길게 잡을 이유는 없다.
+     */
+    static final Duration ACTIVE_GAME_GRACE = Duration.ofMinutes(10);
+    private final GameModuleRegistry gameModules;
 
     public GameWebSocketHandler(ObjectMapper objectMapper,
                                 InMemoryRoomBroadcaster broadcaster,
                                 RoomSessionRegistry registry,
                                 HeartbeatMonitor heartbeatMonitor,
                                 UserService userService,
-                                ScoreRoundSubmissionService scoreRoundSubmissionService,
-                                RoundSynchronizationService roundSynchronizationService,
-                                RoundTimerService roundTimerService,
                                 RoomService roomService,
                                 RoomCloseScheduler roomCloseScheduler,
-                                GameReconnectSnapshotService reconnectSnapshotService) {
+                                GameModuleRegistry gameModules) {
         this.objectMapper = objectMapper;
         this.broadcaster = broadcaster;
         this.registry = registry;
         this.heartbeatMonitor = heartbeatMonitor;
         this.userService = userService;
-        this.scoreRoundSubmissionService = scoreRoundSubmissionService;
-        this.roundSynchronizationService = roundSynchronizationService;
-        this.roundTimerService = roundTimerService;
         this.roomService = roomService;
         this.roomCloseScheduler = roomCloseScheduler;
-        this.reconnectSnapshotService = reconnectSnapshotService;
+        this.gameModules = gameModules;
     }
 
     // 연결이 열렸을 때 (콜센터: 전화 받음)
@@ -143,12 +135,19 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             case "room.leave" -> handleRoomLeave(session, in);
             case "room.ready" -> handleRoomReady(session, in);
             case "reaction.send" -> handleReactionSend(session, in);
-            case "dice.roll" -> handleDiceRoll(session, in);
-            case "dice.hold" -> handleDiceHold(session, in);
-            case "round.submit" -> handleRoundSubmit(session, in);
-            // 다음 슬라이스에서 하나씩 (레지스트리·브로드캐스터는 이미 준비됨):
-            //   case "sys.reconnect" -> handleSysReconnect(session, in);   // 상태 복원(25번 티켓, 박재영)과 공동
-            default -> log.debug("아직 라우팅 안 붙은 type: {}", in.type());
+            default -> handleGameMessage(session, in);
+        }
+    }
+
+    private void handleGameMessage(WebSocketSession session, InboundEnvelope message) throws IOException {
+        RoomSessionRegistry.Member member = registry.of(session);
+        if (member == null) {
+            sendError(session, WsErrorCode.AUTH_REQUIRED, "방에 입장한 뒤 게임 메시지를 보낼 수 있습니다.", message.msgId());
+            return;
+        }
+        if (!gameModules.dispatch(registry.gameCodeOf(member.roomId()), session, message)) {
+            log.debug("지원하지 않는 게임 메시지: game={} type={}",
+                    registry.gameCodeOf(member.roomId()), message.type());
         }
     }
 
@@ -170,6 +169,19 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             sendError(session, WsErrorCode.INVALID_MESSAGE, "roomId가 필요합니다.", in.msgId());
             return;
         }
+
+        com.ssafy.yorr.room.dto.RoomSnapshot persistentRoom = roomService.getSnapshot(payload.roomId());
+        if (persistentRoom == null || persistentRoom.phase() == null) {
+            sendError(session, WsErrorCode.ROOM_NOT_FOUND,
+                    "방이 종료됐습니다. 홈에서 새로 시작해 주세요.", in.msgId());
+            return;
+        }
+        registry.registerGame(payload.roomId(), persistentRoom.gameCode());
+        registry.markPhase(payload.roomId(), switch (persistentRoom.phase()) {
+            case LOBBY -> RoomPhase.WAITING;
+            case PLAYING -> RoomPhase.PLAYING;
+            case FINISHED -> RoomPhase.FINISHED;
+        });
 
         // --- 정체성 확정 (seam: resolveIdentity 하나로 격리 — 재접속 구현 시 여기만 교체) ---
         final Identity id;
@@ -202,7 +214,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             broadcaster.register(payload.roomId(), session);
             final RoomSnapshot snapshot;
             try {
-                snapshot = reconnectSnapshotService.snapshot(payload.roomId(), id.playerId());
+                snapshot = game(payload.roomId()).reconnect(payload.roomId(), id.playerId());
             } catch (RuntimeException exception) {
                 log.error("재접속 상태 스냅샷 생성 실패: player={} room={}",
                         id.playerId(), payload.roomId(), exception);
@@ -214,6 +226,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             send(session, WsEnvelope.of("sys.reconnected", new SysReconnectedPayload(snapshot))
                     .withRoomId(payload.roomId())
                     .withMsgId(in.msgId()));
+            // 복귀했으니 오프라인 결석은 처음부터 다시 센다 — 안 지우면 한참 뒤의 짧은 끊김 한 번에 퇴장당한다.
             broadcastPresence(payload.roomId(), id.playerId(), PlayerStatus.ONLINE);
             log.info("room.reconnected: player={} room={}", id.playerId(), payload.roomId());
             return;
@@ -245,9 +258,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     /** 빈 방에서 끊어둔 마감 타이머를 복귀 시 다시 건다. 진행 중인 라운드가 없으면 아무것도 하지 않는다. */
     private void resumeRoundTimer(String roomId) {
-        roundSynchronizationService.findByRoomId(roomId)
-                .filter(state -> !state.isFinished())
-                .ifPresent(state -> roundTimerService.start(roomId, state));
+        game(roomId).resume(roomId);
     }
 
     private void disconnectPreviousSession(
@@ -318,9 +329,17 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     /**
      * room.leave = 방 퇴장(payload 없음, 대상 방은 서버가 이미 앎). 소켓 자체는 유지한다.
-     * 명단 제거 + player_left 브로드캐스트는 대기방 소켓 종료와 {@link #leaveRoom}을 공유한다.
+     * 대기방에서는 명단 제거 + player_left 브로드캐스트를 소켓 종료와 {@link #leaveRoom}으로 공유한다.
+     * 게임 중에는 턴 순서·Redis 명단까지 함께 정리해야 하므로 이탈 단일 경로
+     * 선택된 게임 모듈의 플레이어 제거 경로로 보낸다.
      */
     private void handleRoomLeave(WebSocketSession session, InboundEnvelope in) {
+        RoomSessionRegistry.Member member = registry.of(session);
+        if (member != null && registry.phaseOf(member.roomId()) == RoomPhase.PLAYING) {
+            broadcaster.unregister(session); // 본인을 팬아웃에서 뺀 뒤 player_left가 나간다
+            game(member.roomId()).removePlayer(member.roomId(), member.playerId());
+            return;
+        }
         leaveRoom(session);
     }
 
@@ -375,6 +394,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     /** 명시 퇴장 처리: 명단 제거 → 팬아웃 제거 → 남은 멤버에게 player_left. */
     private void leaveRoom(WebSocketSession session) {
+        RoomSessionRegistry.Member member = registry.of(session);
+        GameModule module = member == null ? null : game(member.roomId());
         RoomSessionRegistry.Member gone = registry.remove(session);
         broadcaster.unregister(session); // 본인을 팬아웃에서 뺀 뒤 브로드캐스트 → 본인은 안 받음
         if (gone == null) {
@@ -389,14 +410,27 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
         // 마감 타이머는 즉시 끊는다. 남겨두면 빈 방에서 만료 → 자동 굴림 → 만료가 25초마다
         // 반복되고, 없는 사람 몫으로 점수가 기록된다.
-        roundTimerService.cancelRoom(gone.roomId());
+        module.pause(gone.roomId());
         // 진행 상태는 아직 버리지 않는다 — 새로고침은 "끊고 다시 연결"이라 여기서 버리면
         // 돌아온 사람이 자기 게임을 잃는다. 유예 뒤에도 비어 있으면 그때 닫는다.
         roomCloseScheduler.schedule(
                 gone.roomId(),
-                EMPTY_ROOM_GRACE,
-                () -> closeRoomIfStillEmpty(gone.roomId())
+                emptyRoomGrace(gone.roomId(), module),
+                () -> closeRoomIfStillEmpty(gone.roomId(), module)
         );
+    }
+
+    /**
+     * 이 방을 닫기까지 줄 유예. 기준은 phase가 아니라 <b>"잃을 것이 있는지"</b>다.
+     * <p>
+     * registry의 phase는 마지막 참가자가 빠지는 순간 함께 버려지므로({@code RoomSessionRegistry.remove})
+     * 이 시점엔 신뢰할 수 없다. 라운드 상태가 남아 있다 = 진행 중인 게임이 있다는 뜻이고,
+     * 그게 곧 서둘러 닫으면 안 되는 이유다.
+     */
+    private Duration emptyRoomGrace(String roomId, GameModule module) {
+        return module.hasState(roomId)
+                ? ACTIVE_GAME_GRACE
+                : EMPTY_LOBBY_GRACE;
     }
 
     /**
@@ -405,12 +439,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
      * 예약 시점과 실행 시점 사이에 누군가 돌아올 수 있어 여기서 한 번 더 확인한다
      * (예약 취소와 이 검사는 서로를 보완한다 — 취소가 늦게 도착해도 방이 죽지 않는다).
      */
-    private void closeRoomIfStillEmpty(String roomId) {
+    private void closeRoomIfStillEmpty(String roomId, GameModule module) {
         if (!registry.snapshot(roomId).players().isEmpty()) {
             return;
         }
-        roundTimerService.cancelRoom(roomId);
-        roundSynchronizationService.remove(roomId);
+        module.close(roomId);
         roomService.close(roomId);
         log.info("빈 방을 닫았습니다: room={}", roomId);
     }
@@ -440,6 +473,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 .withRoomId(roomId));
     }
 
+    private GameModule game(String roomId) {
+        return gameModules.require(registry.gameCodeOf(roomId));
+    }
+
     /** sys.ping → sys.pong. pong은 서버 시각만 돌려주면 됨. */
     private void handleSysPing(WebSocketSession session, InboundEnvelope in) throws IOException {
         heartbeatMonitor.recordPing(session);
@@ -464,167 +501,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 log.debug("heartbeat timeout 세션 종료 실패: {}", session.getId(), e);
             }
         }
-    }
-
-    /** round.submit → 점수 브로드캐스트 후 다음 플레이어 턴 시작. 마지막 플레이어면 round.end도 전송한다. */
-    private void handleRoundSubmit(WebSocketSession session, InboundEnvelope in) throws IOException {
-        String roomId = in.roomId();
-        if (roomId == null || roomId.isBlank()) {
-            sendError(session, WsErrorCode.INVALID_MESSAGE, "roomId가 필요합니다.", in.msgId());
-            return;
-        }
-
-        RoomSessionRegistry.Member member = registry.of(session);
-        if (member == null) {
-            sendError(session, WsErrorCode.AUTH_REQUIRED, "인증된 플레이어 정보가 없습니다.", in.msgId());
-            return;
-        }
-        if (!roomId.equals(member.roomId())) {
-            sendError(session, WsErrorCode.NOT_IN_ROOM, "현재 세션이 참가한 방의 요청이 아닙니다.", in.msgId());
-            return;
-        }
-        String playerId = member.playerId();
-
-        RoundSubmitPayload payload;
-        try {
-            payload = objectMapper.treeToValue(in.payload(), RoundSubmitPayload.class);
-        } catch (Exception e) {
-            log.warn("round.submit payload 파싱 실패: {}", in.payload(), e);
-            sendError(session, WsErrorCode.INVALID_MESSAGE, "round.submit payload 형식이 올바르지 않습니다.", in.msgId());
-            return;
-        }
-
-        try {
-            ScoreRoundSubmissionResult result = scoreRoundSubmissionService.submit(roomId, playerId, payload);
-            // 점수 방송·라운드 종료·다음 턴 시작·게임 종료 판단은 전부 advanceTurn 한 곳에 있다.
-            // 마감 만료 경로(RoundTimerService)와 같은 코드를 지나야 두 경로가 어긋나지 않는다.
-            roundTimerService.advanceTurn(roomId, result, in.msgId());
-        } catch (ScoreConfirmationException e) {
-            sendError(session, toWsErrorCode(e.reason()), e.getMessage(), in.msgId());
-        } catch (RoundSynchronizationException e) {
-            sendError(session, toWsErrorCode(e.reason()), e.getMessage(), in.msgId());
-        } catch (IllegalArgumentException e) {
-            sendError(session, WsErrorCode.INVALID_MESSAGE, e.getMessage(), in.msgId());
-        }
-    }
-
-    private void handleDiceRoll(WebSocketSession session, InboundEnvelope in) throws IOException {
-        String roomId = in.roomId();
-        RoomSessionRegistry.Member member = registry.of(session);
-        if (roomId == null || roomId.isBlank() || member == null || !roomId.equals(member.roomId())) {
-            sendError(session, WsErrorCode.NOT_IN_ROOM, "current room membership is required", in.msgId());
-            return;
-        }
-
-        DiceRollPayload payload;
-        try {
-            payload = objectMapper.treeToValue(in.payload(), DiceRollPayload.class);
-        } catch (Exception exception) {
-            sendError(session, WsErrorCode.INVALID_MESSAGE, "invalid dice.roll payload", in.msgId());
-            return;
-        }
-
-        try {
-            var state = roundSynchronizationService.recordRoll(roomId, member.playerId(), payload);
-            broadcaster.broadcast(
-                    roomId,
-                    WsEnvelope.of(
-                                    "dice.broadcast",
-                                    new DiceBroadcastPayload(
-                                            member.playerId(),
-                                            state.roundNumber(),
-                                            state.activeRollCount(),
-                                            state.activeDice(),
-                                            payload.held(),
-                                            false
-                                    )
-                            )
-                            .withRoomId(roomId)
-                            .withMsgId(in.msgId())
-            );
-            roundTimerService.start(roomId, state);
-        } catch (RoundSynchronizationException exception) {
-            sendError(session, toWsErrorCode(exception.reason()), exception.getMessage(), in.msgId());
-        } catch (IllegalArgumentException exception) {
-            sendError(session, WsErrorCode.INVALID_MESSAGE, exception.getMessage(), in.msgId());
-        }
-    }
-
-    /**
-     * dice.hold → dice.hold_changed. 굴림 사이에 바뀐 KEEP을 방 전원에게 알린다.
-     * <p>
-     * 타이머는 다시 걸지 않는다. KEEP 토글로 마감이 계속 미뤄지면 턴이 끝나지 않는다 —
-     * 시간을 늘려주는 행동은 굴림과 제출뿐이다.
-     */
-    private void handleDiceHold(WebSocketSession session, InboundEnvelope in) throws IOException {
-        String roomId = in.roomId();
-        RoomSessionRegistry.Member member = registry.of(session);
-        if (roomId == null || roomId.isBlank() || member == null || !roomId.equals(member.roomId())) {
-            sendError(session, WsErrorCode.NOT_IN_ROOM, "방에 입장한 뒤에만 KEEP을 바꿀 수 있습니다.", in.msgId());
-            return;
-        }
-
-        DiceHoldPayload payload;
-        try {
-            payload = objectMapper.treeToValue(in.payload(), DiceHoldPayload.class);
-        } catch (Exception exception) {
-            sendError(session, WsErrorCode.INVALID_MESSAGE, "dice.hold payload가 올바르지 않습니다.", in.msgId());
-            return;
-        }
-
-        try {
-            var state = roundSynchronizationService.recordHold(roomId, member.playerId(), payload);
-            broadcaster.broadcast(
-                    roomId,
-                    WsEnvelope.of(
-                                    "dice.hold_changed",
-                                    new DiceHoldChangedPayload(
-                                            member.playerId(),
-                                            state.roundNumber(),
-                                            state.activeHeld()
-                                    )
-                            )
-                            .withRoomId(roomId)
-                            .withMsgId(in.msgId())
-            );
-        } catch (RoundSynchronizationException exception) {
-            sendError(session, toWsErrorCode(exception.reason()), exception.getMessage(), in.msgId());
-        } catch (IllegalArgumentException exception) {
-            sendError(session, WsErrorCode.INVALID_MESSAGE, exception.getMessage(), in.msgId());
-        }
-    }
-
-    private static WsErrorCode toWsErrorCode(RoundSynchronizationException.Reason reason) {
-        return switch (reason) {
-            case PLAYER_NOT_IN_ROUND -> WsErrorCode.NOT_IN_ROOM;
-            // 남의 턴에 굴리거나 기록하려 한 경우 · 이미 제출을 끝낸 턴을 또 건드린 경우.
-            // 클라이언트가 "지금은 내 차례가 아니다"로 구분해 안내할 수 있게 전용 코드를 준다.
-            case NOT_ACTIVE_PLAYER,
-                 ALREADY_SUBMITTED -> WsErrorCode.NOT_YOUR_TURN;
-            case INVALID_ROUND,
-                 INVALID_PLAYER,
-                 INVALID_DICE,
-                 INVALID_ROLL,
-                 INVALID_CATEGORY,
-                 ROUND_ALREADY_INITIALIZED,
-                 ROUND_MISMATCH,
-                 // 종료 후 지연 요청. 클라 화면이 아직 결과로 넘어가지 않은 정상 상황이라 INTERNAL이 아니다.
-                 GAME_ALREADY_FINISHED -> WsErrorCode.INVALID_MESSAGE;
-            case ROUND_NOT_INITIALIZED -> WsErrorCode.INTERNAL;
-        };
-    }
-
-    private static WsErrorCode toWsErrorCode(ScoreConfirmationException.Reason reason) {
-        return switch (reason) {
-            case INVALID_CATEGORY,
-                 INVALID_DICE,
-                 GAME_NOT_ACTIVE,
-                 ROUND_ALREADY_SCORED,
-                 CATEGORY_ALREADY_USED -> WsErrorCode.INVALID_MESSAGE;
-            case GAME_NOT_FOUND -> WsErrorCode.ROOM_NOT_FOUND;
-            case PLAYER_NOT_IN_GAME -> WsErrorCode.NOT_IN_ROOM;
-            case STORE_FAILURE -> WsErrorCode.INTERNAL;
-        };
     }
 
     /** 공통 송신 헬퍼: 봉투 → JSON 문자열 → 소켓 전송. */

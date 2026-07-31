@@ -76,7 +76,7 @@ describe('RealtimeSync', () => {
 
     expect(useAppStore.getState().roomSession?.sessionToken).toBe(creatorSession.sessionToken)
     expect(useAppStore.getState().roomResumeReason).toBe('disconnected')
-    expect(sessionStorage.getItem('yorr.room-session')).toContain(creatorSession.sessionToken)
+    expect(localStorage.getItem('yorr.room-session')).toContain(creatorSession.sessionToken)
     expect(useAppStore.getState().appNotice).toContain('다시 연결')
   })
 
@@ -230,6 +230,45 @@ describe('RealtimeSync', () => {
     ])
   })
 
+  it('keeps result nicknames when a player leaves after game over', () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(
+      serverMessage('round.start', {
+        activePlayerId: creatorPlayer.playerId,
+        deadline: 2_000,
+        roundNumber: 12,
+        turnOrder: [creatorPlayer.playerId, participantPlayer.playerId],
+      }),
+    )
+    client.emitMessage(
+      serverMessage('game.over', {
+        rankings: [
+          { rank: 1, playerId: participantPlayer.playerId, total: 205 },
+          { rank: 2, playerId: creatorPlayer.playerId, total: 180 },
+        ],
+      }),
+    )
+
+    client.emitMessage(serverMessage('room.player_left', { playerId: participantPlayer.playerId }))
+    client.emitMessage(
+      serverMessage('state.sync', {
+        snapshot: {
+          roomId: creatorSession.roomId,
+          phase: 'finished',
+          players: [creatorPlayer],
+        },
+      }),
+    )
+
+    expect(useAppStore.getState().roomSnapshot?.players).toContainEqual(participantPlayer)
+  })
+
   /** 대기실 복귀는 phase=waiting 스냅샷으로 전달된다 — 지난 게임 진행 상태는 함께 버려야 한다. */
   it('drops game state when the room goes back to the lobby', () => {
     const client = createRealtimeFixture({ role: 'creator' })
@@ -288,7 +327,26 @@ describe('RealtimeSync', () => {
     )
 
     await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
-    expect(sessionStorage.getItem('yorr.room-session')).toBeNull()
+    expect(localStorage.getItem('yorr.room-session')).toBeNull()
+  })
+
+  /**
+   * 유예가 끝나 서버가 방을 닫은 뒤의 "이어서 하기". 세션을 정리하지 않으면 복귀 배너가
+   * 계속 뜨고, 누를 때마다 같은 실패를 반복한다(S15P11A406-136).
+   */
+  it('clears the session when the server says the room is gone', async () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(serverMessage('error', { code: 'ROOM_NOT_FOUND', message: 'room closed' }))
+
+    await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
+    expect(useAppStore.getState().appNotice).toContain('방이 종료')
+    expect(localStorage.getItem('yorr.room-session')).toBeNull()
   })
 
   it('인증이 깨진 세션도 붙잡지 않고 즉시 정리한다', async () => {

@@ -85,6 +85,11 @@ public class RoundSynchronizationService {
         return roundStateStore.findByRoomId(roomId);
     }
 
+    /** 라운드 상태를 들고 있는 모든 방. 고아 상태를 걷어내는 스윕이 쓴다. */
+    public java.util.Set<String> roomIds() {
+        return roundStateStore.roomIds();
+    }
+
     public RoundState recordRoll(String roomId, String playerId, DiceRollPayload payload) {
         if (payload == null) {
             throw new IllegalArgumentException("payload must not be null");
@@ -111,6 +116,14 @@ public class RoundSynchronizationService {
                 payload.roundNumber(),
                 payload.held()
         );
+    }
+
+    /**
+     * 게임 중 이탈한 참가자를 턴 순서에서 뺀다. 활성 플레이어는 먼저
+     * {@link #expire}로 턴을 넘긴 뒤에만 뺄 수 있다({@link RoundState#withoutParticipant}).
+     */
+    public Optional<RoundState> removeParticipant(String roomId, String playerId) {
+        return roundStateStore.removeParticipantAtomically(roomId, playerId);
     }
 
     public boolean remove(String roomId) {

@@ -18,5 +18,15 @@ public interface RoomService {
      */
     void close(String roomCode);
 
+    /**
+     * 활동이 있었음을 알려 방 키의 수명을 처음부터 다시 센다(sliding TTL). 방·참가자·점수 키와
+     * 게임이 시작됐다면 게임·점수판 키까지 같은 시각에 만료되도록 함께 늘린다.
+     * <p>
+     * 이게 없으면 TTL이 "생성 후 N분"이라, 활발히 플레이 중인 방도 정해진 시각에 사라진다.
+     * 그러면 남은 사람은 계속 노는데 신규 참가만 404가 나고, 메모리에만 존재하는 방이 된다.
+     * 이미 없는 방을 touch해도 안전하다(아무것도 하지 않는다).
+     */
+    void touch(String roomCode);
+
     RoomSnapshot getSnapshot(String roomCode);
 }

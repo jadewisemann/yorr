@@ -25,11 +25,9 @@
   --color-scrim: var(--ds-color-scrim);
 
   --color-landing-panel: var(--ds-landing-panel);
-  --color-landing-sheet: var(--ds-landing-sheet);
   --color-landing-well: var(--ds-landing-well);
   --color-landing-soft: var(--ds-landing-soft);
-  --color-landing-soft-strong: var(--ds-landing-soft-strong);
-  --color-landing-veil: var(--ds-landing-veil);
+  --color-landing-field: var(--ds-landing-field);
   --color-landing-bar: var(--ds-landing-bar);
   --color-landing-hairline: var(--ds-landing-hairline);
   --color-landing-hairline-strong: var(--ds-landing-hairline-strong);
@@ -39,19 +37,16 @@
   --color-landing-accent-text: var(--ds-landing-accent-text);
   --color-landing-text: var(--ds-landing-text);
   --color-landing-text-strong: var(--ds-landing-text-strong);
-  --color-landing-text-secondary: var(--ds-landing-text-secondary);
-  --color-landing-text-tertiary: var(--ds-landing-text-tertiary);
   --color-landing-text-muted: var(--ds-landing-text-muted);
   --color-landing-text-faint: var(--ds-landing-text-faint);
   --color-landing-placeholder: var(--ds-landing-placeholder);
-  --color-landing-badge: var(--ds-landing-badge);
-  --color-landing-badge-text: var(--ds-landing-badge-text);
   --color-landing-disabled: var(--ds-landing-disabled);
 
   --shadow-landing-panel: var(--ds-landing-shadow-panel);
-  --shadow-landing-sheet: var(--ds-landing-shadow-sheet);
-  --shadow-landing-chip: var(--ds-landing-shadow-chip);
-  --shadow-landing-badge: var(--ds-landing-shadow-badge);
+  --shadow-landing-card: var(--ds-landing-shadow-card);
+  --shadow-landing-card-quiet: var(--ds-landing-shadow-card-quiet);
+  --shadow-landing-card-inset: var(--ds-landing-shadow-card-inset);
+  --shadow-landing-popover: var(--ds-landing-shadow-popover);
   --shadow-landing-cta: var(--ds-landing-shadow-cta);
   --shadow-landing-cta-sheet: var(--ds-landing-shadow-cta-sheet);
 
@@ -107,6 +102,9 @@
   --animate-callout-pop: callout-pop 480ms var(--ds-ease-snappy) both;
   --animate-callout-flash: callout-flash 700ms ease-out both;
   --animate-callout-burst: callout-burst 800ms ease-out both;
+
+  /* 튜토리얼 가이드 마스코트 — 공중에 떠서 천천히 오르내리는 부유감. */
+  --animate-guide-bob: guide-bob 2600ms ease-in-out infinite;
 }
 
 :root {
@@ -143,51 +141,60 @@
   /* 랜딩 히어로 전용 팔레트 — 본편과 같은 블랙 계열로 통일하되
      반투명 패널·헤어라인은 랜딩에서만 쓰므로 네임스페이스를 유지한다. */
   --ds-landing-panel: rgb(17 18 20 / 86%);
-  --ds-landing-sheet: rgb(8 9 10 / 94%);
-  --ds-landing-well: rgb(17 18 20 / 78%);
-  --ds-landing-soft: rgb(255 255 255 / 6%);
-  --ds-landing-soft-strong: rgb(255 255 255 / 9%);
-  --ds-landing-veil: rgb(255 255 255 / 7%);
-  --ds-landing-bar: rgb(255 255 255 / 28%);
-  --ds-landing-hairline: rgb(255 255 255 / 12%);
+  --ds-landing-well: rgb(8 9 10 / 55%);
+  --ds-landing-soft: rgb(255 255 255 / 7%);
+  /* 코드 입력 필드 바닥. 팝오버·시트(#18191c)보다 한 단 낮게 가라앉힌다. */
+  --ds-landing-field: #111214;
+  --ds-landing-bar: rgb(255 255 255 / 22%);
+  --ds-landing-hairline: rgb(255 255 255 / 10%);
   --ds-landing-hairline-strong: rgb(255 255 255 / 18%);
   --ds-landing-accent: #e53935;
   --ds-landing-accent-ink: #ffffff;
-  --ds-landing-accent-tint: rgb(229 57 53 / 14%);
+  --ds-landing-accent-tint: rgb(229 57 53 / 16%);
   --ds-landing-accent-text: #ff8a86;
   --ds-landing-text: #ffffff;
   --ds-landing-text-strong: #f7f7f5;
-  --ds-landing-text-secondary: #c9cacf;
-  --ds-landing-text-tertiary: #b7b8be;
   --ds-landing-text-muted: #a4a5aa;
   --ds-landing-text-faint: #8a8b92;
-  --ds-landing-badge: rgb(255 255 255 / 10%);
-  --ds-landing-badge-text: #f7f7f5;
-  --ds-landing-disabled: rgb(255 255 255 / 12%);
+  --ds-landing-disabled: #202125;
   /* 코드 입력 예시("YORR64")를 그린다. 형식을 알려주는 실제 정보이므로 4.5:1을 맞춘다. */
   --ds-landing-placeholder: #8a8b92;
 
-  --ds-landing-bg-wide: radial-gradient(115% 80% at 62% 38%, #1b1c20 0%, #0e0f11 56%, #08090a 100%);
-  --ds-landing-bg-narrow: radial-gradient(
-    110% 60% at 50% 26%,
-    #1b1c20 0%,
-    #0e0f11 58%,
-    #08090a 100%
+  /* 화면 바닥 — 가운데 위에서 떨어지는 화이트 스포트라이트와 CTA 아래 레드 글로우.
+     3D는 히어로 카드 안에서만 돌아가므로 배경은 순수 장식이다. */
+  --ds-landing-bg:
+    radial-gradient(40% 30% at 50% 78%, rgb(229 57 53 / 10%) 0%, rgb(229 57 53 / 0) 70%),
+    radial-gradient(58% 52% at 50% 34%, rgb(255 255 255 / 9%) 0%, rgb(255 255 255 / 0) 66%), #08090a;
+  /* 선택된 히어로 카드 바닥과 그 위에 겹치는 세 레이어(광택 · 스포트라이트 · 하단 스크림). */
+  --ds-landing-card: radial-gradient(88% 78% at 50% 16%, #2a2b30 0%, #16171a 46%, #090a0b 100%);
+  --ds-landing-card-glow: radial-gradient(
+    52% 62% at 50% 0%,
+    rgb(255 255 255 / 20%) 0%,
+    rgb(255 255 255 / 0) 72%
   );
-  --ds-landing-scrim: linear-gradient(
-    105deg,
-    rgb(8 9 10 / 94%) 0%,
-    rgb(8 9 10 / 72%) 26%,
-    rgb(8 9 10 / 12%) 52%,
-    rgb(8 9 10 / 55%) 100%
+  --ds-landing-card-scrim: linear-gradient(
+    180deg,
+    rgb(8 9 10 / 0) 0%,
+    rgb(8 9 10 / 72%) 42%,
+    rgb(8 9 10 / 96%) 100%
   );
+  --ds-landing-accent-line: linear-gradient(
+    90deg,
+    rgb(229 57 53 / 0) 0%,
+    #e53935 50%,
+    rgb(229 57 53 / 0) 100%
+  );
+  /* 양옆에 반쯤 걸친 이웃 카드 — 내용 없이 덩어리만 남긴다. */
+  --ds-landing-ghost: radial-gradient(90% 70% at 50% 34%, #1c1d21 0%, #0d0e10 70%);
 
   --ds-landing-shadow-panel: inset 0 0 0 1px rgb(255 255 255 / 10%);
-  --ds-landing-shadow-sheet: inset 0 1px 0 rgb(255 255 255 / 10%), 0 -24px 48px rgb(0 0 0 / 70%);
-  --ds-landing-shadow-chip: inset 0 0 0 1px rgb(255 255 255 / 12%);
-  --ds-landing-shadow-badge: inset 0 0 0 1px rgb(255 255 255 / 22%);
-  --ds-landing-shadow-cta: 0 12px 26px rgb(229 57 53 / 30%);
-  --ds-landing-shadow-cta-sheet: 0 12px 26px rgb(229 57 53 / 24%);
+  --ds-landing-shadow-card: 0 40px 80px rgb(0 0 0 / 72%), 0 0 90px rgb(229 57 53 / 14%);
+  --ds-landing-shadow-card-quiet: 0 40px 80px rgb(0 0 0 / 70%);
+  --ds-landing-shadow-card-inset:
+    inset 0 2px 0 rgb(255 255 255 / 7%), inset 0 -80px 120px rgb(0 0 0 / 72%);
+  --ds-landing-shadow-popover: 0 34px 70px rgb(0 0 0 / 76%);
+  --ds-landing-shadow-cta: 0 16px 36px rgb(229 57 53 / 32%);
+  --ds-landing-shadow-cta-sheet: 0 14px 30px rgb(229 57 53 / 32%);
 
   /* 1d 신규 3색 — muted가 "보조 텍스트"와 "미기입·비활성"을 겸해 위계가 2단뿐이라
      content-faint를 분리하고, 킵 트레이·시트 배경 구분용 sunken과 scrim을 추가한다. */
@@ -329,5 +336,15 @@
   to {
     transform: rotate(var(--burst-angle, 0deg)) translateY(-8.5rem) scaleY(1);
     opacity: 0;
+  }
+}
+
+@keyframes guide-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-0.4rem) rotate(3deg);
   }
 }

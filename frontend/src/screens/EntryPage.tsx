@@ -1,217 +1,282 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLeaveSession } from '@/api/useRoomApi'
 import { cn } from '@/cn'
-import { HeroCanvas } from '@/components/HeroCanvas'
-import { LandingGameList } from '@/components/LandingGameList'
-import { LandingGameRail } from '@/components/LandingGameRail'
-import { LandingHeroCopy } from '@/components/LandingHeroCopy'
-import { LandingRoomCodeForm } from '@/components/LandingRoomCodeForm'
-import { LANDING_PANEL_ID, landingGameAt, landingGames, landingTabId } from '@/landingGames'
+import { LandingCodeDialog } from '@/components/LandingCodeDialog'
+import { LandingMetaPills } from '@/components/LandingHeroCard'
+import { LandingHeroCarousel } from '@/components/LandingHeroCarousel'
+import { LandingProgress } from '@/components/LandingProgress'
+import { landingGameAt, landingGames } from '@/landingGames'
+import { playLandingSoundtrack } from '@/landingSoundtrack'
 import { normalizeRoomCode } from '@/roomCode'
 import { sessionScreenOf } from '@/sessionFsm'
 import { selectSessionPhase, useAppStore } from '@/store'
 import { useMediaQuery } from '@/useMediaQuery'
 
-/** 이 폭 아래로는 세로 목록 대신 칩 레일 + 바텀시트 구조로 완전히 바꾼다. */
+/** 이 폭 아래로는 화살표·팝오버 대신 스와이프 + 바텀시트 구조로 완전히 바꾼다. */
 const WIDE_LAYOUT = '(min-width: 760px)'
 
-const primaryBase =
-  'flex cursor-pointer items-center justify-center rounded-full border-0 font-bold transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-3'
-const skipLinkBase =
-  'absolute top-0 left-[-9999px] z-toast rounded-full bg-landing-accent px-[18px] py-3 text-[14px] font-landing-bold text-landing-accent-ink'
-const hintBase = 'm-0 font-landing-medium text-pretty text-landing-text-muted'
-const noticeBase = 'm-0 text-[12.5px]/[1.5] font-semibold text-landing-accent-text'
+const wordmark = 'font-mono font-bold tracking-[-0.03em] text-landing-text'
+const wordmarkTag = 'font-mono font-bold tracking-[0.24em] text-landing-text-muted uppercase'
+const ghostButton =
+  'flex cursor-pointer items-center justify-center rounded-[16px] border border-landing-hairline-strong bg-transparent font-semibold text-landing-text-muted transition-colors duration-150 ease-out hover:border-landing-hairline-strong hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2'
+const primaryButton =
+  'flex cursor-pointer items-center justify-center gap-3.5 rounded-[20px] border-0 bg-landing-accent font-bold text-landing-accent-ink shadow-landing-cta transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-3'
+const lockedButton =
+  'flex cursor-not-allowed items-center justify-center gap-3.5 rounded-[20px] border border-landing-hairline bg-landing-disabled font-bold text-landing-text-faint'
+const noticeBase = 'm-0 text-center text-[12.5px]/[1.5] font-semibold text-landing-accent-text'
 
 export function EntryPage() {
   const navigate = useNavigate()
   const wide = useMediaQuery(WIDE_LAYOUT)
   const [activeIndex, setActiveIndex] = useState(0)
   const [code, setCode] = useState('')
-  const [notifyNotice, setNotifyNotice] = useState<string | null>(null)
+  const [codeOpen, setCodeOpen] = useState(false)
   const appNotice = useAppStore((state) => state.appNotice)
 
   const game = landingGameAt(activeIndex)
-  const notice = notifyNotice ?? appNotice
 
-  const handleSelect = (index: number) => {
+  useEffect(() => {
+    playLandingSoundtrack(game.key)
+  }, [game.key])
+
+  const handleGameSelect = (index: number) => {
+    playLandingSoundtrack(landingGameAt(index).key)
     setActiveIndex(index)
-    setNotifyNotice(null)
   }
 
-  const handlePrimary = () => {
-    if (game.live) {
-      void navigate({ to: '/join', search: { code: undefined } })
-      return
-    }
-    // TODO(S15P11A406-77): 출시 알림 신청 엔드포인트가 생기면 실제 등록으로 교체한다.
-    setNotifyNotice(`${game.name} 출시 알림 신청은 아직 열리지 않았습니다. 공개되면 안내드릴게요.`)
+  const handlePlay = () => {
+    void navigate({ to: '/join', search: { code: undefined } })
   }
 
   const handleJoin = () => {
+    // 이동이 막히거나 되돌아오는 경우에도 열린 채로 남지 않게 먼저 닫는다.
+    setCodeOpen(false)
     void navigate({ to: '/join', search: { code: normalizeRoomCode(code) } })
   }
 
-  const hint = game.live
-    ? wide
-      ? '방을 만들면 방 코드와 초대 링크가 함께 생깁니다. 받은 사람은 닉네임만 정하고 들어옵니다.'
-      : '방을 만들면 방 코드와 초대 링크가 함께 생깁니다.'
-    : `${game.name}은(는) 준비 중입니다. 공개되면 알려드립니다.`
-  const primaryLabel = game.live ? '방 만들기' : '출시 알림 받기'
-
+  const codeDialog = (
+    <LandingCodeDialog
+      code={code}
+      layout={wide ? 'wide' : 'narrow'}
+      onClose={() => setCodeOpen(false)}
+      onCodeChange={setCode}
+      onSubmit={handleJoin}
+      open={codeOpen}
+    />
+  )
   if (wide) {
     return (
-      <main className="relative h-svh w-full overflow-hidden [background:var(--ds-landing-bg-wide)]">
-        <a className={cn(skipLinkBase, 'focus:top-5 focus:left-5')} href="#room-code">
-          방 코드 입력으로 바로가기
-        </a>
-
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-1">
-          <HeroCanvas game={game.key} />
-        </div>
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-2 [background:var(--ds-landing-scrim)]"
-        />
-
-        <div className="absolute inset-0 z-3 flex flex-col px-[clamp(20px,4vw,54px)] py-[clamp(20px,3vh,30px)]">
-          <div className="flex flex-none items-center justify-between gap-4">
-            <span className="flex items-baseline gap-2.5">
-              <span className="font-mono text-[21px]/none font-bold tracking-[-0.03em] text-landing-text">
-                YO<span className="text-landing-accent">R</span>R
+      <>
+        <main className="relative flex h-svh w-full flex-col overflow-hidden [background:var(--ds-landing-bg)]">
+          <header className="flex h-22 flex-none items-center justify-between gap-8 px-11">
+            <div className="flex items-center gap-5">
+              <span className="flex items-baseline gap-2.5">
+                <span className={cn(wordmark, 'text-[27px]/none')}>
+                  YO<span className="text-landing-accent">R</span>R
+                </span>
+                <span className={cn(wordmarkTag, 'text-[11px]/none')}>Yorr Arcade</span>
               </span>
-              <span className="font-mono text-[10px]/none font-bold tracking-[0.24em] text-landing-text-muted uppercase">
-                Arcade
+              <span aria-hidden="true" className="h-6.5 w-px bg-landing-hairline-strong" />
+              <span className="text-[17px]/none font-bold text-landing-text-strong">
+                게임을 선택하세요
               </span>
-            </span>
-            <span className="text-[13px]/none font-landing-bold tracking-[0.02em] text-landing-text-secondary">
-              설치도 회원가입도 없어요
-            </span>
-          </div>
-
-          <div className="flex min-h-0 flex-1 items-end justify-between gap-[clamp(24px,5vw,72px)] pt-[clamp(16px,3vh,32px)]">
-            <div
-              aria-labelledby={landingTabId(game.key)}
-              className="flex max-w-[min(620px,58%)] flex-col items-start gap-3.5"
-              id={LANDING_PANEL_ID}
-              role="tabpanel"
-            >
-              <LandingHeroCopy game={game} layout="wide" />
-              <ActiveRoomBanner />
-              {notice && (
-                <p className={noticeBase} role="status">
-                  {notice}
-                </p>
-              )}
-              <div className="flex flex-wrap items-center gap-3 pt-3">
-                <button
-                  className={cn(
-                    primaryBase,
-                    'h-[58px] px-[34px] text-[17px]',
-                    game.live
-                      ? 'bg-landing-accent text-landing-accent-ink'
-                      : 'bg-landing-well text-landing-text-strong shadow-landing-cta',
-                  )}
-                  onClick={handlePrimary}
-                  type="button"
-                >
-                  {primaryLabel}
-                </button>
-                <LandingRoomCodeForm
-                  code={code}
-                  layout="wide"
-                  onCodeChange={setCode}
-                  onSubmit={handleJoin}
-                />
-              </div>
-              <p className={cn(hintBase, 'max-w-[44ch] text-[12.5px]/[1.5]')} id="code-help">
-                {hint}
-              </p>
             </div>
+            <button
+              className={cn(
+                'flex h-11 cursor-pointer items-center gap-2.5 rounded-full border px-5 text-[15px] font-semibold transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+                codeOpen
+                  ? 'border-landing-accent/60 bg-landing-accent-tint text-landing-accent-text'
+                  : 'border-landing-hairline-strong bg-landing-well text-landing-text hover:border-landing-accent/70',
+              )}
+              onClick={() => setCodeOpen(true)}
+              type="button"
+            >
+              <CodeGlyph />방 코드로 참가
+            </button>
+          </header>
 
-            <LandingGameList
+          {/* 카드 폭은 화면 폭 기준(69.4% ≒ 1440에서 1000px)이라 캐러셀 띠는 전면 폭을 쓴다 —
+              여기에 좌우 여백을 주면 카드와 화살표가 함께 안쪽으로 밀린다. */}
+          <div className="relative mt-[clamp(8px,3.5vh,32px)] h-[min(29.5rem,52vh)] w-full flex-none">
+            <LandingHeroCarousel
               activeIndex={activeIndex}
               games={landingGames}
-              onSelect={handleSelect}
+              layout="wide"
+              onSelect={handleGameSelect}
             />
           </div>
-        </div>
-      </main>
+
+          <div className="flex-none px-11 pt-[clamp(10px,2.4vh,22px)]">
+            <LandingProgress
+              activeIndex={activeIndex}
+              games={landingGames}
+              layout="wide"
+              onSelect={handleGameSelect}
+            />
+          </div>
+
+          {/* 진행 표시줄과 CTA 사이 남는 공간. 복귀 배너가 있으면 여기 들어앉는다. */}
+          <div className="flex min-h-0 flex-1 flex-col items-center gap-3 px-11 pt-[clamp(10px,2.2vh,22px)]">
+            <div className="flex w-full max-w-180 flex-col items-center gap-3">
+              <ActiveRoomBanner />
+              {appNotice && (
+                <p className={noticeBase} role="status">
+                  {appNotice}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-none justify-center px-11 pb-[clamp(20px,6vh,56px)]">
+            {game.live ? (
+              <div className="flex items-center justify-center gap-4.5">
+                <button
+                  className={cn(primaryButton, 'h-18 px-13 text-[23px]')}
+                  onClick={handlePlay}
+                  type="button"
+                >
+                  <PlayGlyph />
+                  {game.name} 플레이
+                </button>
+                <button
+                  className={cn(ghostButton, 'h-14 px-6.5 text-[16px]')}
+                  onClick={() => setCodeOpen(true)}
+                  type="button"
+                >
+                  초대 코드로 참가
+                </button>
+              </div>
+            ) : (
+              <ComingSoonCta layout="wide" />
+            )}
+          </div>
+        </main>
+        {codeDialog}
+      </>
     )
   }
 
   return (
-    <main className="relative h-svh w-full overflow-hidden [background:var(--ds-landing-bg-narrow)]">
-      <a className={cn(skipLinkBase, 'focus:top-4 focus:left-4')} href="#room-code">
-        방 코드 입력으로 바로가기
-      </a>
-
-      {/* 3D는 상단 영역만 차지한다. 바텀시트 아래로 내려가면 텍스트 대비를 보장할 수 없다. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 bottom-[42%] z-1"
-      >
-        <HeroCanvas game={game.key} />
-      </div>
-
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-3 flex items-center justify-between gap-3 px-5 pt-[max(18px,env(safe-area-inset-top))]">
-        <span className="flex items-baseline gap-2">
-          <span className="font-mono text-[19px]/none font-bold tracking-[-0.03em] text-landing-text">
-            YO<span className="text-landing-accent">R</span>R
+    <>
+      <main className="relative flex h-svh w-full flex-col overflow-hidden [background:var(--ds-landing-bg)]">
+        <div className="flex flex-none items-center justify-between gap-3 px-5 pt-[max(14px,env(safe-area-inset-top))]">
+          <span className="flex items-baseline gap-2.5">
+            <span className={cn(wordmark, 'text-[24px]/none')}>
+              YO<span className="text-landing-accent">R</span>R
+            </span>
+            <span className={cn(wordmarkTag, 'text-[10px]/none')}>Arcade</span>
           </span>
-          <span className="font-mono text-[9px]/none font-bold tracking-[0.22em] text-landing-text-muted uppercase">
-            Arcade
-          </span>
-        </span>
-        <span className="text-[11px]/none font-landing-bold tracking-[0.02em] text-landing-text-secondary">
-          2~6인 · 5분
-        </span>
-      </div>
-
-      <div className="absolute inset-x-0 bottom-0 z-4 flex flex-col gap-3.5 rounded-t-3xl bg-landing-sheet pt-4 pb-[max(18px,env(safe-area-inset-bottom))] shadow-landing-sheet">
-        <LandingGameRail activeIndex={activeIndex} games={landingGames} onSelect={handleSelect} />
-
-        <div
-          aria-labelledby={landingTabId(game.key)}
-          className="flex flex-col items-start gap-[9px] px-5"
-          id={LANDING_PANEL_ID}
-          role="tabpanel"
-        >
-          <LandingHeroCopy game={game} layout="narrow" />
-        </div>
-
-        <div className="flex flex-col gap-2.5 px-5 pt-0.5">
-          <ActiveRoomBanner />
-          {notice && (
-            <p className={cn(noticeBase, 'text-center')} role="status">
-              {notice}
-            </p>
-          )}
           <button
             className={cn(
-              primaryBase,
-              'h-14 w-full text-[17px]',
-              game.live
-                ? 'bg-landing-accent text-landing-accent-ink'
-                : 'bg-landing-soft-strong text-landing-text-strong shadow-landing-cta-sheet',
+              'flex h-9 cursor-pointer items-center rounded-full border px-3.5 text-[13px] font-semibold transition-colors focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+              codeOpen
+                ? 'border-landing-accent/55 bg-landing-accent-tint text-landing-accent-text'
+                : 'border-landing-hairline-strong bg-landing-well text-landing-text',
             )}
-            onClick={handlePrimary}
+            onClick={() => setCodeOpen(true)}
             type="button"
           >
-            {primaryLabel}
+            코드로 참가
           </button>
-          <LandingRoomCodeForm
-            code={code}
-            layout="narrow"
-            onCodeChange={setCode}
-            onSubmit={handleJoin}
-          />
-          <p className={cn(hintBase, 'text-center text-[12px]/[1.5]')} id="code-help">
-            {hint}
-          </p>
         </div>
-      </div>
-    </main>
+
+        <span className="flex-none px-5 pt-4.5 text-[24px]/none font-bold tracking-[-0.02em] text-landing-text-strong">
+          게임을 선택하세요
+        </span>
+
+        <div className="relative mt-4 h-[51%] flex-none">
+          <LandingHeroCarousel
+            activeIndex={activeIndex}
+            games={landingGames}
+            layout="narrow"
+            onSelect={handleGameSelect}
+          />
+        </div>
+
+        <div className="flex flex-none flex-wrap gap-1.5 px-5 pt-4">
+          <LandingMetaPills game={game} layout="narrow" />
+        </div>
+
+        <div className="flex-none px-5 pt-4">
+          <LandingProgress
+            activeIndex={activeIndex}
+            games={landingGames}
+            layout="narrow"
+            onSelect={handleGameSelect}
+          />
+        </div>
+
+        <div className="min-h-3 flex-1" />
+
+        <div className="flex flex-none flex-col gap-2.5 px-5 pb-[max(14px,env(safe-area-inset-bottom))]">
+          <ActiveRoomBanner />
+          {appNotice && (
+            <p className={noticeBase} role="status">
+              {appNotice}
+            </p>
+          )}
+          {game.live ? (
+            <button
+              className={cn(primaryButton, 'h-15 w-full text-[19px] shadow-landing-cta-sheet')}
+              onClick={handlePlay}
+              type="button"
+            >
+              <PlayGlyph />
+              {game.name} 플레이
+            </button>
+          ) : (
+            <ComingSoonCta layout="narrow" />
+          )}
+        </div>
+      </main>
+      {codeDialog}
+    </>
+  )
+}
+
+/**
+ * 준비 중인 게임의 CTA. 눌리지 않는 버튼과 한 줄 안내가 한 묶음이다 —
+ * 여기 있던 '출시 알림 받기'는 등록할 엔드포인트가 없어 안내만 띄우고 있었고,
+ * 레퍼런스는 같은 자리를 "아직 못 누른다"는 사실 하나로 대체한다.
+ */
+function ComingSoonCta({ layout }: { layout: 'narrow' | 'wide' }) {
+  const wide = layout === 'wide'
+
+  return (
+    <div className={cn('flex flex-none flex-col items-center', wide ? 'gap-3.5' : 'gap-2 w-full')}>
+      <button
+        className={cn(lockedButton, wide ? 'h-18 px-14 text-[22px]' : 'h-15 w-full text-[18px]')}
+        disabled
+        type="button"
+      >
+        <span aria-hidden="true" className="size-2.5 rounded-[2px] bg-current" />
+        준비 중인 게임
+      </button>
+      <span className={cn('text-landing-text-muted', wide ? 'text-[15px]' : 'text-[14px]')}>
+        곧 YORR ARCADE에 추가될 예정이에요.
+      </span>
+    </div>
+  )
+}
+
+/** 방 코드 세 칸을 줄여 그린 아이콘. 무엇을 입력하는 버튼인지 글자 없이 한 번 더 말한다. */
+function CodeGlyph() {
+  return (
+    <span aria-hidden="true" className="flex gap-[3px]">
+      <span className="h-3.5 w-1.5 rounded-[2px] border border-current opacity-55" />
+      <span className="h-3.5 w-1.5 rounded-[2px] border border-current opacity-55" />
+      <span className="h-3.5 w-1.5 rounded-[2px] border border-current opacity-55" />
+    </span>
+  )
+}
+
+function PlayGlyph() {
+  return (
+    <span
+      aria-hidden="true"
+      className="size-0 border-y-[10px] border-l-[16px] border-y-transparent border-l-current"
+    />
   )
 }
 
@@ -245,32 +310,40 @@ function ActiveRoomBanner() {
     <section
       aria-label="진행 중인 방"
       className={cn(
-        'flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border px-4 py-3',
+        'flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[18px] border px-4 py-3 shadow-landing-panel',
         needsResume
-          ? 'border-landing-accent/45 bg-landing-accent-tint shadow-landing-panel'
+          ? 'border-landing-accent/45 bg-landing-accent-tint'
           : 'border-transparent bg-landing-well',
       )}
     >
-      <p className="m-0 min-w-0 text-[13px]/[1.4] font-landing-medium text-landing-text-strong">
-        <strong className="block font-landing-bold">
-          {needsResume ? '진행 중인 방이 있어요' : `${roomSession.roomCode} 방에 참여 중이에요`}
-        </strong>
+      <p className="m-0 flex min-w-0 items-center gap-3 text-[13px]/[1.4] font-landing-medium text-landing-text-strong">
         {needsResume && (
-          <span className="text-landing-text-secondary">
-            {roomSession.roomCode} · {roomSession.nickname}
-          </span>
+          <span
+            aria-hidden="true"
+            className="size-2.5 flex-none rounded-full bg-landing-accent-text shadow-[0_0_12px_currentColor] motion-safe:animate-ring-pulse"
+          />
         )}
+        <span className="min-w-0">
+          <strong className="block font-landing-bold">
+            {needsResume ? '진행 중인 게임이 있어요' : `${roomSession.roomCode} 방에 참여 중이에요`}
+          </strong>
+          {needsResume && (
+            <span className="text-landing-text-muted">
+              {roomSession.roomCode} · {roomSession.nickname}
+            </span>
+          )}
+        </span>
       </p>
       <div className="flex flex-none items-center gap-2">
         <button
-          className="cursor-pointer rounded-full border-0 bg-landing-accent px-4 py-2 text-[13px] font-landing-bold text-landing-accent-ink focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2"
+          className="cursor-pointer rounded-[14px] border-0 bg-landing-accent px-4 py-2.5 text-[14px] font-landing-bold text-landing-accent-ink focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2"
           onClick={handleReturn}
           type="button"
         >
           {needsResume ? returnLabel : '돌아가기'}
         </button>
         <button
-          className="cursor-pointer rounded-full border-0 bg-transparent px-2 py-2 text-[13px] font-landing-bold text-landing-text-secondary underline-offset-2 hover:underline focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2 disabled:opacity-60"
+          className="cursor-pointer rounded-full border-0 bg-transparent px-2 py-2 text-[13px] font-landing-bold text-landing-text-muted underline-offset-2 hover:underline focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2 disabled:opacity-60"
           disabled={isLeaving}
           onClick={() => void leave()}
           type="button"

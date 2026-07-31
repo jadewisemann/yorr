@@ -20,7 +20,7 @@ function boardWithTotal(total: number): ScoreBoard {
   return { ...createEmptyScoreBoard(), total }
 }
 
-const finishedSnapshot: RoomSnapshot = {
+const finishedSnapshot = {
   roomId: hostSession.roomId,
   phase: 'finished',
   players: [
@@ -32,13 +32,14 @@ const finishedSnapshot: RoomSnapshot = {
     activePlayerId: hostSession.you,
     roundNumber: 12,
     roundDeadline: 0,
+    rollCount: 0,
     scores: {
       [hostSession.you]: boardWithTotal(198),
       'player-participant': boardWithTotal(214),
       p3: boardWithTotal(176),
     },
   },
-}
+} satisfies RoomSnapshot
 
 const finishedGame = finishedSnapshot.game
 if (!finishedGame) throw new Error('finished snapshot is missing game')
@@ -61,6 +62,31 @@ describe('GameResult', () => {
     expect(rows[0]).toHaveTextContent('지훈')
     expect(rows[0]).toHaveTextContent('214')
     expect(rows[1]).toHaveTextContent('민지(나)')
+  })
+
+  it('never exposes a player id when a ranking nickname is unavailable', () => {
+    const missingPlayerId = '16ba1fd1-d8b2-4da0-a7f3-88d23b5361ff'
+    render(
+      <GameResult
+        session={hostSession}
+        snapshot={{
+          ...finishedSnapshot,
+          players: finishedSnapshot.players.filter(
+            (player) => player.playerId !== 'player-participant',
+          ),
+          game: {
+            ...finishedSnapshot.game,
+            rankings: [
+              { rank: 1, playerId: missingPlayerId, total: 214 },
+              { rank: 2, playerId: hostSession.you, total: 198 },
+            ],
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByText('알 수 없는 참가자')).toBeVisible()
+    expect(screen.queryByText(missingPlayerId)).not.toBeInTheDocument()
   })
 
   it('lets the host move everyone back to the lobby and anyone leave', async () => {

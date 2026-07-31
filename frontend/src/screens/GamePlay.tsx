@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '@/cn'
 import { Button } from '@/components/Button'
 import { ConnectionBanner } from '@/components/ConnectionBanner'
+import { GameHelpModal } from '@/components/GameHelpModal'
 import { Modal } from '@/components/Modal'
 import { MotionPermissionPanel } from '@/components/MotionPermissionPanel'
 import { PhysicsDiceScene } from '@/components/PhysicsDiceScene'
@@ -11,7 +12,9 @@ import { EffectCallout, RollResultCallout } from '@/components/RollResultCallout
 import { RoundTimer } from '@/components/RoundTimer'
 import { ScoreSheet } from '@/components/ScoreSheet'
 import { ToastHost, useToast } from '@/components/ToastHost'
+import { Tooltip } from '@/components/Tooltip'
 import { TurnStrip, type TurnStripPlayer } from '@/components/TurnStrip'
+import { TutorialGuide } from '@/components/TutorialGuide'
 import {
   type DiceIndex,
   type DiceSet,
@@ -29,18 +32,23 @@ import { detectSpecialHand, type SpecialHand } from '@/domain/specialHands'
 import {
   createYachtGame,
   getPendingRoll,
+  restoreYachtGame,
   type YachtGameAction,
   yachtGameReducer,
 } from '@/domain/yachtGame'
 import { createRollFeedback } from '@/feedback/createRollFeedback'
+import { createHandVoice, type HandVoice } from '@/feedback/handVoice'
 import type { MotionAvailability, MotionGestureEvent } from '@/input/motionTypes'
 import type { RollInputMode } from '@/input/RollIntent'
 import { useMotionRollInput } from '@/input/useMotionRollInput'
+import { setSoundtrackMuted } from '@/landingSoundtrack'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import type { ErrorPayload, Player, PlayerId, RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
 import { buildClientMessage } from '@/realtime/wsEvents'
 import type { PhysicsDiceMotionPulse } from '@/rendering/physics-dice/types'
+import { readSoundMuted, saveSoundMuted } from '@/soundPreference'
 import { type ActiveRoomSession, useAppStore } from '@/store'
+import { hideTutorial, isTutorialHidden } from '@/tutorialPreference'
 import { useCountdown } from '@/useCountdown'
 import { useMediaQuery } from '@/useMediaQuery'
 import { categoryLabel, categoryShortLabel, isRecorded } from '@/yachtCategoryView'
@@ -78,6 +86,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const [rollHighlight, setRollHighlight] = useState<{ hand: SpecialHand; id: number } | null>(null)
   // 내 차례 시작 콜아웃 — 토스트보다 눈에 띄는 족보 이펙트와 같은 연출로 알린다. id = 리마운트 키.
   const [turnCallout, setTurnCallout] = useState<number | null>(null)
+  const [soundMuted, setSoundMuted] = useState(readSoundMuted)
   const pendingSubmissionRef = useRef<{
     category: YachtCategory
     msgId: string
@@ -85,6 +94,9 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   // 닫은 안내가 "어느 상태의 안내였는지"를 담는다. boolean으로 두면 상태가 바뀌어도 계속 닫혀
   // 새 안내를 놓친다 — 값이 달라지는 순간 자동으로 다시 뜨게 하려는 의도다.
   const [dismissedNotice, setDismissedNotice] = useState<MotionAvailability | null>(null)
+  const [helpOpen, setHelpOpen] = useState(false)
+  // 첫 진입 코치마크. "다시 보지 않기"는 쿠키로 영구 숨김, 그냥 닫으면 이번 판만 닫힌다.
+  const [tutorialOpen, setTutorialOpen] = useState(() => !isTutorialHidden())
 
   const game = snapshot.game
   const roundNumber = game?.roundNumber ?? 1
@@ -95,7 +107,15 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const myBoard = game?.scores[session.you]
   const activeBoard = activePlayerId ? game?.scores[activePlayerId] : undefined
 
-  const [local, setLocal] = useState(() => createYachtGame(Date.now() >>> 0, roundNumber))
+  // 마운트 시점의 굴림 진행은 서버 스냅샷에서 되살린다. 턴 중간에 새로고침·재접속하면
+  // 0부터 세기 시작해 다음 dice.roll이 서버의 activeRollCount와 어긋난다(INVALID_ROLL).
+  const [local, setLocal] = useState(() =>
+    restoreYachtGame(Date.now() >>> 0, roundNumber, {
+      rollCount: game?.rollCount ?? 0,
+      dice: game?.dice ?? null,
+      held: game?.held ?? null,
+    }),
+  )
   // 서버가 다음 라운드로 넘기면 로컬 굴림 상태를 새로 시작한다.
   if (local.roundNumber !== roundNumber) setLocal(createYachtGame(local.seed, roundNumber))
 
@@ -143,6 +163,14 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   // 내 턴이 아니면 트레이는 관전 화면이다. 여기서 홀드를 토글하면 서버가 모르는 킵이 생겨
   // 다음 굴림·마감 자동 굴림이 화면과 다르게 동작한다.
   const canHold = !locked && !submitted && local.phase === 'choosing' && local.rollCount < MAX_ROLLS
+  // rollCount는 서버 브로드캐스트 시점에 올라간다 — 마지막 굴림이 날아가는 중에도 이미
+  // MAX_ROLLS라, 그 굴림의 정렬부터 킵 주사위까지 한 줄로 눕는다(S15P11A406-94).
+  const lastRollInPlay = local.rollCount >= MAX_ROLLS
+  // 굴리는 중이면 rollCount가 곧 그 굴림의 번호고, 멈춘 상태면 다음에 굴릴 번호를 보여준다.
+  const currentRollNumber =
+    local.phase === 'rolling' ? local.rollCount : Math.min(MAX_ROLLS, local.rollCount + 1)
+  // 굴림 카운터는 "끝난 굴림"만 센다. 날아가는 중인 굴림을 미리 채우면 착지 전에 소진돼 보인다.
+  const settledRollCount = local.phase === 'rolling' ? local.rollCount - 1 : local.rollCount
 
   // 디자인의 한 장 점수시트 — 모든 플레이어를 열로 눕힌다. 내 열이 항상 첫 번째다.
   const sheetPlayers = toMatrixPlayers(snapshot.players, game?.scores, session.you)
@@ -242,8 +270,9 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   } | null>(null)
   const queuedMotionReleaseRef = useRef(false)
   const feedbackRef = useRef<ReturnType<typeof createRollFeedback> | null>(null)
+  const handVoiceRef = useRef<HandVoice | null>(null)
   inputModeRef.current = rollInputMode
-  if (!feedbackRef.current) feedbackRef.current = createRollFeedback()
+  if (!feedbackRef.current) feedbackRef.current = createRollFeedback({ muted: readSoundMuted() })
 
   /**
    * 바뀐 KEEP을 서버에 알린다. dice.roll이 실어 나르는 held는 "그 굴림에 쓴 값"이라,
@@ -330,6 +359,8 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
             forced,
             held: message.payload.held as HeldDice,
             requestId,
+            // 굴림 횟수는 서버가 센 값을 그대로 받는다 — 클라가 따로 세면 어긋난다.
+            rollCount: message.payload.rollCount,
             targetDice: message.payload.dice,
           })
           if (ownRoll && forced) {
@@ -424,6 +455,38 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     [],
   )
 
+  /*
+   * 음성 재생기는 제스처 리스너를 걸고 오디오 요소를 들고 있으므로 수명을 effect가 소유한다.
+   * 렌더 중에 만들고 cleanup에서 버리면 StrictMode의 mount → cleanup → mount에서
+   * 버려진 객체만 남아 자동재생 잠금이 풀리지 않는다.
+   */
+  useEffect(() => {
+    const voice = createHandVoice({ muted: readSoundMuted() })
+    handVoiceRef.current = voice
+    return () => {
+      voice.dispose()
+      handVoiceRef.current = null
+    }
+  }, [])
+
+  /*
+   * 족보 콜아웃이 화면에 뜨는 커밋에서 같이 외친다(S15P11A406-138). 텍스트와 목소리가
+   * 같은 상태(rollHighlight) 하나에서 나오므로 어긋나지 않는다 — 이미 기록한 족보처럼
+   * 연출을 건너뛴 굴림에는 목소리도 나오지 않는다.
+   */
+  useEffect(() => {
+    if (rollHighlight) handVoiceRef.current?.play(rollHighlight.hand)
+  }, [rollHighlight])
+
+  const toggleSound = () => {
+    const muted = !soundMuted
+    setSoundMuted(muted)
+    saveSoundMuted(muted)
+    feedbackRef.current?.setMuted(muted)
+    handVoiceRef.current?.setMuted(muted)
+    setSoundtrackMuted(muted)
+  }
+
   const handleRoll = () => {
     if (!canRoll) return
     beginRoll('tap')
@@ -496,7 +559,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
 
   const trayLabel = activePlayer
     ? isMyTurn
-      ? `롤링 존 · 나 · 굴림 ${Math.min(MAX_ROLLS, local.rollCount + 1)}/${MAX_ROLLS}`
+      ? `롤링 존 · 나 · 굴림 ${currentRollNumber}/${MAX_ROLLS}`
       : `롤링 존 · ${activePlayer.nickname}의 턴`
     : '턴 동기화 중'
 
@@ -506,16 +569,21 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
 
   const rolled = local.dice !== null
 
-  // 지금 뭘 하면 되는지 문장으로 알려준다. 트레이 우측 상단(배지 아래)에 떠 있다.
+  // 코치마크와 자리를 나눠 쓴다 — 권한 안내가 떠 있는 동안에는 코치마크를 미룬다.
+  const permissionNoticeVisible =
+    isPermissionNoticeState(motion.availability) && dismissedNotice !== motion.availability
+
+  /* 지금 뭘 하면 되는지 한 문장으로 알려준다. 트레이 하단 가운데에 한 줄로 눕히므로
+     개행 없이 들어갈 길이를 유지한다 — 길어지면 킵 레일 라벨과 부딪힌다(S15P11A406-94). */
   const statusText = submitted
-    ? '점수가 반영됐습니다. 다음 턴을 기다립니다.'
+    ? '점수가 반영됐습니다 · 다음 턴 대기'
     : !isMyTurn
-      ? `${activePlayer?.nickname ?? '—'}님이 굴리는 중입니다.`
+      ? `${activePlayer?.nickname ?? '—'}님이 굴리는 중입니다`
       : allKept
-        ? '주사위를 모두 킵했습니다. 하나 이상 해제하거나 족보를 기록하세요.'
+        ? '모두 킵했습니다 · 해제하거나 족보를 기록하세요'
         : rolled
-          ? '주사위를 홀드하고 다시 굴리거나, 점수표의 열린 족보를 탭해 기록하세요.'
-          : `라운드 ${roundNumber} — 굴려서 시작하세요.`
+          ? '홀드하고 다시 굴리거나, 족보를 탭해 기록하세요'
+          : `라운드 ${roundNumber} — 굴려서 시작하세요`
 
   const diceScene = (
     <div
@@ -530,34 +598,59 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
       <div className="pointer-events-none absolute top-3 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
         {trayLabel}
       </div>
-      {/* 남은 굴리기·상태 안내는 트레이 우측 상단에 떠 있다 — 시선이 머무는 곳이 트레이고,
-          푸터에 두면 영역을 차지한다. 안내문은 와이드에서만(모바일은 기록 패널이 안내를 겸한다). */}
-      <div className="pointer-events-none absolute top-2.5 right-3 z-10 grid justify-items-end gap-2">
-        <RollCounter rollsUsed={local.rollCount} />
-        {wide && (
-          <p className="m-0 max-w-72 text-right text-sm leading-relaxed text-content-muted">
+      {/* 남은 굴리기는 트레이 우측 상단 — 시선이 머무는 곳이 트레이고, 푸터에 두면 영역을 차지한다. */}
+      <div className="pointer-events-none absolute top-2.5 right-3 z-10 flex items-center gap-1.5">
+        <RollCounter rollsUsed={settledRollCount} />
+        {/* 트레이 탭은 굴리기·홀드 조작이라, 툴팁 트리거에만 pointer-events를 되살린다. */}
+        <Tooltip
+          align="end"
+          className="pointer-events-auto text-content-faint"
+          content="턴마다 최대 3번 굴릴 수 있어요. 주사위 눈이 남은 횟수예요."
+          label="남은 굴리기 설명"
+        />
+      </div>
+      {/* 하단 밴드 — 킵 레일 라벨(좌)과 안내문(가운데)을 같은 grid에 둔다. 안내문을 따로
+          absolute로 가운데 두면 좁은 폭에서 좌측 라벨과 겹친다. 1fr auto 1fr이므로
+          가운데 칼럼은 트레이 정중앙에 놓이고, 라벨은 자기 칼럼 안에서만 접힌다. */}
+      <div className="pointer-events-none absolute inset-x-4 bottom-2.5 z-10 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
+        <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
+          킵 레일 ·{' '}
+          {keptCount > 0
+            ? `${keptCount}/5 · 합 ${keptSum}${allKept ? ' · 해제해야 굴릴 수 있어요' : ''}`
+            : '비어 있음'}
+          <Tooltip
+            align="start"
+            className="pointer-events-auto"
+            content="주사위를 탭하면 킵돼서 여기 줄지어요. 킵한 주사위는 다시 굴리지 않고, 한 번 더 탭하면 풀려요."
+            label="킵 레일 설명"
+            side="top"
+          />
+        </span>
+        {/* 안내문은 와이드에서만 — 모바일은 기록 패널이 안내를 겸한다. */}
+        {wide ? (
+          <p className="m-0 text-center text-sm/none whitespace-nowrap text-content-muted">
             {statusText}
           </p>
+        ) : (
+          <span />
         )}
-      </div>
-      <div className="pointer-events-none absolute bottom-2.5 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
-        킵 레일 ·{' '}
-        {keptCount > 0
-          ? `${keptCount}/5 · 합 ${keptSum}${allKept ? ' · 해제해야 굴릴 수 있어요' : ''}`
-          : '비어 있음'}
+        <span />
       </div>
       <PhysicsDiceScene
         dice={local.dice}
         held={local.held}
+        lineUpAll={lastRollInPlay}
         motionFollow={rollInputMode === 'motion'}
         motionPulse={motionPulse}
         releaseRequestId={releaseRequestId}
+        onDiceImpact={(index, strength) => feedbackRef.current?.diceImpact(index, strength)}
         onError={() => feedbackRef.current?.error()}
         onHeldToggle={(index) => {
           if (!canHold) return
           dispatch({ type: 'holdToggled', index })
           publishHeld(toggleHeldDie(local.held, index))
         }}
+        onPhaseChange={(phase) => feedbackRef.current?.phaseChanged(phase)}
         onRollComplete={completeRoll}
         request={pendingRoll}
       />
@@ -608,6 +701,26 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           />
         </div>
       )}
+      {/* 첫 판 마스코트 가이드 — 실제 굴림·킵·기록에 반응해 다음 안내로 넘어간다.
+          권한 안내 패널이 떠 있는 동안에는 겹치지 않게 미룬다. */}
+      {tutorialOpen && !permissionNoticeVisible && (
+        <TutorialGuide
+          isMyTurn={isMyTurn && !submitted}
+          kept={keptCount > 0}
+          onFinish={() => {
+            // 끝까지 봤으면 다음 게임에서 또 처음부터 반복하지 않는다.
+            hideTutorial()
+            setTutorialOpen(false)
+          }}
+          onNeverShowAgain={() => {
+            hideTutorial()
+            setTutorialOpen(false)
+          }}
+          onSkip={() => setTutorialOpen(false)}
+          rolled={rolled}
+          submitted={submitted}
+        />
+      )}
     </div>
   )
 
@@ -620,6 +733,32 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
       type="button"
     >
       ✕
+    </button>
+  )
+
+  // 규칙·족보는 언제든 다시 볼 수 있어야 한다 — 나가기와 같은 급의 아이콘 버튼 하나.
+  const helpButton = (
+    <button
+      aria-label="게임 도움말"
+      className="grid size-10 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-[15px] font-bold text-content-muted transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
+      onClick={() => setHelpOpen(true)}
+      type="button"
+    >
+      ?
+    </button>
+  )
+
+  /* 족보 목소리는 갑자기 크게 튀어나오는 연출이다 — 조용한 곳에서 끌 방법이 화면 안에 있어야 한다.
+     ✕과 같은 아이콘 버튼 규격으로 맞춰 헤더 폭을 더 쓰지 않는다. */
+  const soundButton = (
+    <button
+      aria-label={soundMuted ? '소리 켜기' : '소리 끄기'}
+      aria-pressed={!soundMuted}
+      className="grid size-10 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-[15px] text-content-muted transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
+      onClick={toggleSound}
+      type="button"
+    >
+      <span aria-hidden="true">{soundMuted ? '🔇' : '🔊'}</span>
     </button>
   )
 
@@ -705,12 +844,16 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
                   ? '연결 끊김'
                   : '연결 중'}
           </span>
+          {helpButton}
+          {soundButton}
           {timerRing}
         </>
       ) : (
         <>
           {leaveButton}
           <div className="min-w-0 flex-1">{turnStatus}</div>
+          {helpButton}
+          {soundButton}
           {timerRing}
         </>
       )}
@@ -874,7 +1017,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
               className={cn(
                 'flex flex-none items-center px-gutter',
                 wide
-                  ? // 안내문은 트레이 우측 상단으로 올라갔다 — 푸터에는 버튼만 가운데에 남는다.
+                  ? // 안내문은 트레이 하단 가운데에 있다 — 푸터에는 버튼만 가운데에 남는다.
                     'justify-center gap-4 border-t border-border py-4'
                   : 'gap-2.5 pt-2 pb-[calc(8.75rem+env(safe-area-inset-bottom))]',
               )}
@@ -910,6 +1053,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
 
       <ToastHost message={toastMessage} />
       {zeroModal}
+      <GameHelpModal onClose={() => setHelpOpen(false)} open={helpOpen} />
     </>
   )
 }

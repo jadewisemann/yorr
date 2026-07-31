@@ -36,7 +36,7 @@ public class UserService {
                 "tokenHash", hash(sessionToken)));
         redisTemplate.expire(key, GUEST_TTL);
         redisTemplate.opsForValue().set(tokenKey(sessionToken), userId, GUEST_TTL);
-        return new GuestCreateResponse(userId, displayName, sessionToken, null);
+        return new GuestCreateResponse(userId, displayName, sessionToken, null, null);
     }
 
     public void assignRoom(String userId, String roomId, String roomCode, String hostId) {

@@ -6,13 +6,16 @@ import com.ssafy.yorr.game.round.application.port.RoundDeadlineScheduler;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.round.domain.RoundSubmission;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
+import com.ssafy.yorr.room.service.RoomService;
 import com.ssafy.yorr.ws.RoomBroadcaster;
+import com.ssafy.yorr.ws.RoomSessionRegistry;
 import com.ssafy.yorr.ws.dto.RoundEndPayload;
 import com.ssafy.yorr.ws.dto.RoundStartPayload;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.web.socket.WebSocketSession;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -26,6 +29,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,6 +43,8 @@ class RoundTimerServiceTest {
     private RoomBroadcaster broadcaster;
     private RoundTimeoutResolver timeoutResolver;
     private GameCompletionService gameCompletionService;
+    private RoomSessionRegistry registry;
+    private RoomService roomService;
     private RoundTimerService timerService;
 
     @BeforeEach
@@ -47,13 +53,39 @@ class RoundTimerServiceTest {
         broadcaster = mock(RoomBroadcaster.class);
         timeoutResolver = mock(RoundTimeoutResolver.class);
         gameCompletionService = mock(GameCompletionService.class);
+        roomService = mock(RoomService.class);
+        // 참가자를 명단에 올려 online으로 만든다. 비어 있으면 start()가 전원을 오프라인으로
+        // 보고 타이머를 걸지 않아, 이 클래스의 검증 대상 자체가 실행되지 않는다.
+        registry = new RoomSessionRegistry();
+        DUO.forEach(playerId -> registry.join("room-a", onlineSession(playerId), playerId, playerId));
         timerService = new RoundTimerService(
                 timeoutResolver,
                 scheduler,
                 broadcaster,
                 gameCompletionService,
+                mock(RoundSynchronizationService.class),
+                registry,
+                roomService,
                 Clock.fixed(NOW, ZoneOffset.UTC)
         );
+    }
+
+    private static WebSocketSession onlineSession(String playerId) {
+        WebSocketSession session = mock(WebSocketSession.class);
+        when(session.getId()).thenReturn("session-" + playerId);
+        return session;
+    }
+
+    /**
+     * 방 TTL은 sliding이어야 한다. 턴마다 갱신하지 않으면 "생성 후 40분"에 방이 사라져,
+     * 한 판이 그보다 길어지는 순간 플레이 중인 방이 없어진다.
+     */
+    @Test
+    void extendsTheRoomLifetimeOnEveryTurnStart() {
+        timerService.start("room-a", RoundState.start(1, DUO));
+        timerService.start("room-a", RoundState.start(2, DUO));
+
+        verify(roomService, times(2)).touch("room-a");
     }
 
     @Test

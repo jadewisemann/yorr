@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { creatorSession } from '@/mocks/fixtures'
 import { clearRoomSession, readRoomSession, saveRoomSession } from './roomSessionStorage'
+
+const sessionTtlMs = 40 * 60 * 1000
 
 function createStorage() {
   const values = new Map<string, string>()
@@ -11,7 +13,19 @@ function createStorage() {
   }
 }
 
+function storedPayload(session: unknown, expiresAt = Date.now() + sessionTtlMs) {
+  return JSON.stringify({ expiresAt, session })
+}
+
 describe('room session storage', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('stores and restores a valid room session', () => {
     const storage = createStorage()
 
@@ -29,11 +43,39 @@ describe('room session storage', () => {
     expect(readRoomSession(storage)).toEqual(pendingSession)
   })
 
+  it('discards an expired session and removes it from storage', () => {
+    const storage = createStorage()
+    saveRoomSession(creatorSession, storage)
+
+    vi.advanceTimersByTime(sessionTtlMs)
+
+    expect(readRoomSession(storage)).toBeNull()
+    expect(storage.getItem('yorr.room-session')).toBeNull()
+  })
+
+  it('extends expiry on every save so an active session stays alive', () => {
+    const storage = createStorage()
+    saveRoomSession(creatorSession, storage)
+
+    vi.advanceTimersByTime(sessionTtlMs - 60_000)
+    saveRoomSession(creatorSession, storage)
+    vi.advanceTimersByTime(sessionTtlMs - 60_000)
+
+    expect(readRoomSession(storage)).toEqual(creatorSession)
+  })
+
+  it('rejects a legacy payload without an expiry envelope', () => {
+    const storage = createStorage()
+    storage.setItem('yorr.room-session', JSON.stringify(creatorSession))
+
+    expect(readRoomSession(storage)).toBeNull()
+  })
+
   it('rejects malformed or mismatched sessions', () => {
     const storage = createStorage()
     storage.setItem(
       'yorr.room-session',
-      JSON.stringify({ ...creatorSession, roomId: 'different-room' }),
+      storedPayload({ ...creatorSession, roomId: 'different-room' }),
     )
 
     expect(readRoomSession(storage)).toBeNull()
@@ -42,7 +84,7 @@ describe('room session storage', () => {
   it('rejects a session without an explicit room membership role', () => {
     const storage = createStorage()
     const { membershipRole: _membershipRole, ...sessionWithoutRole } = creatorSession
-    storage.setItem('yorr.room-session', JSON.stringify(sessionWithoutRole))
+    storage.setItem('yorr.room-session', storedPayload(sessionWithoutRole))
 
     expect(readRoomSession(storage)).toBeNull()
   })
