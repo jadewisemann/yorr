@@ -85,12 +85,20 @@ const FADE_OUT_MS = 40
  * 멀티탭 딜레이다. 꼬리가 `delayMs × repeats`만큼 붙으므로 콜아웃 표시 시간을 넘기지 않게
  * 잡아야 한다 — 넘기면 아래 길이 검사가 경고한다.
  *
- * 요트에만 붙인다: 콜아웃이 2.4초로 제일 길게 떠 있어 꼬리를 붙일 여유가 있고, 화면에도
- * 느낌표가 셋이라 울림이 있어야 다른 족보와 급이 달라 보인다. 1.4초짜리 하위 족보에
- * 같은 꼬리를 붙이면 텍스트가 사라진 뒤에도 소리가 남는다.
+ * 값은 **등급을 따라간다** — 화면 느낌표가 등급만큼 붙는 것과 같은 이유로, 등급이 높을수록
+ * 꼬리를 길고 진하게 준다. 상한은 콜아웃 표시 시간이 정한다: 창이 1.4초뿐인 1등급에
+ * 요트와 같은 540ms 꼬리를 붙이면 텍스트가 사라진 뒤에도 소리가 남는다.
+ *
+ *   등급 3 요트(2.4초)         180ms x3 decay 0.50 → 꼬리 540ms
+ *   등급 2 라지 스트레이트(1.8초) 150ms x3 decay 0.45 → 꼬리 450ms
+ *   등급 1 나머지(1.4초)        120ms x2 decay 0.40 → 꼬리 240ms
  */
 const ECHO = {
   yacht: { delayMs: 180, repeats: 3, decay: 0.5 },
+  'large-straight': { delayMs: 150, repeats: 3, decay: 0.45 },
+  'small-straight': { delayMs: 120, repeats: 2, decay: 0.4 },
+  'full-house': { delayMs: 120, repeats: 2, decay: 0.4 },
+  'four-of-a-kind': { delayMs: 120, repeats: 2, decay: 0.4 },
 }
 
 const scriptDir = fileURLToPath(new URL('.', import.meta.url))
