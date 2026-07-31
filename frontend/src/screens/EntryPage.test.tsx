@@ -13,9 +13,12 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   useNavigate: () => navigate,
 }))
 
+const { renameProfile } = vi.hoisted(() => ({ renameProfile: vi.fn() }))
+
 vi.mock('@/api/authApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/authApi')>()),
   closeSession: (token: string) => closeSession(token),
+  renameProfile: (token: string, nickname: string) => renameProfile(token, nickname),
 }))
 
 /** jsdom은 미디어 쿼리를 평가하지 않는다. 어느 레이아웃을 검증할지 테스트가 직접 정한다. */
@@ -46,6 +49,7 @@ describe('EntryPage', () => {
   beforeEach(() => {
     navigate.mockReset()
     closeSession.mockClear()
+    renameProfile.mockReset()
     useAppStore.getState().reset()
     useLayout(false)
   })
@@ -245,8 +249,8 @@ describe('EntryPage', () => {
 
     await user.click(screen.getByRole('button', { name: /카카오회원/ }))
     const menu = within(screen.getByRole('dialog', { name: '내 계정' }))
-    // 프로필·전적이 붙을 자리가 보여야 한다(아직 잠겨 있다).
-    expect(menu.getByRole('button', { name: /프로필 관리/ })).toBeDisabled()
+    expect(menu.getByRole('button', { name: '프로필 관리' })).toBeEnabled()
+    // 전적 화면은 아직 없다 — 자리만 보이고 눌리지 않아야 한다.
     expect(menu.getByRole('button', { name: /내 전적/ })).toBeDisabled()
 
     await user.click(menu.getByRole('button', { name: '로그아웃' }))
@@ -275,6 +279,58 @@ describe('EntryPage', () => {
     )
 
     expect(useAppStore.getState().authSession).toBeNull()
+  })
+
+  /**
+   * 로그인 직후 이름이 "플레이어"로 들어오는 경우가 있어(동의항목 문제), 사용자가 스스로
+   * 고칠 수 있어야 한다. 별도 화면 없이 계정 메뉴 안에서 끝난다.
+   */
+  it('renames the profile from the account menu', async () => {
+    const user = userEvent.setup()
+    renameProfile.mockResolvedValue({
+      userId: 'member-1',
+      nickname: '바꾼이름',
+      profileImageUrl: null,
+    })
+    useAppStore
+      .getState()
+      .signIn({ userId: 'member-1', nickname: '플레이어', sessionToken: 'token-1' })
+
+    render(<EntryPage />)
+    await user.click(screen.getByRole('button', { name: /플레이어/ }))
+    const menu = within(screen.getByRole('dialog', { name: '내 계정' }))
+    await user.click(menu.getByRole('button', { name: '프로필 관리' }))
+
+    const input = menu.getByRole('textbox', { name: '닉네임' })
+    await user.clear(input)
+    await user.type(input, '바꾼이름')
+    await user.click(menu.getByRole('button', { name: '저장' }))
+
+    await waitFor(() => expect(renameProfile).toHaveBeenCalledWith('token-1', '바꾼이름'))
+    // 서버가 돌려준 이름을 그대로 쓴다. 헤더까지 즉시 바뀌어야 바뀐 것이 보인다.
+    await waitFor(() => {
+      expect(useAppStore.getState().authSession?.nickname).toBe('바꾼이름')
+    })
+    expect(screen.getByRole('button', { name: /바꾼이름/ })).toBeVisible()
+  })
+
+  it('keeps the old name when the rename fails', async () => {
+    const user = userEvent.setup()
+    renameProfile.mockRejectedValue(new Error('500'))
+    useAppStore
+      .getState()
+      .signIn({ userId: 'member-1', nickname: '원래이름', sessionToken: 'token-1' })
+
+    render(<EntryPage />)
+    await user.click(screen.getByRole('button', { name: /원래이름/ }))
+    const menu = within(screen.getByRole('dialog', { name: '내 계정' }))
+    await user.click(menu.getByRole('button', { name: '프로필 관리' }))
+    await user.clear(menu.getByRole('textbox', { name: '닉네임' }))
+    await user.type(menu.getByRole('textbox', { name: '닉네임' }), '실패할이름')
+    await user.click(menu.getByRole('button', { name: '저장' }))
+
+    await waitFor(() => expect(menu.getByRole('alert')).toBeVisible())
+    expect(useAppStore.getState().authSession?.nickname).toBe('원래이름')
   })
 
   /** 로그아웃이 진행 중인 방까지 끊으면 안 된다 — 두 세션은 수명이 다르다. */

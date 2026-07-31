@@ -68,6 +68,17 @@ public class User {
         return new User(UUID.randomUUID().toString(), nickname, profileImageUrl);
     }
 
+    /**
+     * 사용자가 직접 이름을 정한다. 이 뒤로는 로그인해도 제공자 이름으로 덮이지 않는다
+     * ({@link #adoptProviderProfile}은 임시 이름일 때만 동작한다).
+     */
+    public void rename(String nickname) {
+        if (nickname == null || nickname.isBlank()) {
+            throw new IllegalArgumentException("invalid_nickname");
+        }
+        this.nickname = nickname;
+    }
+
     /** 사용자가 고르지 않은 임시 이름을 쓰고 있는지. 그렇다면 제공자가 준 진짜 이름으로 바꿔도 된다. */
     public boolean hasPlaceholderNickname() {
         return PLACEHOLDER_NICKNAME.equals(nickname);
