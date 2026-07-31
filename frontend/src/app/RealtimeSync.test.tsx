@@ -1,5 +1,5 @@
-import { render, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { act, render, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createEmptyScoreBoard,
   creatorPlayer,
@@ -289,5 +289,121 @@ describe('RealtimeSync', () => {
 
     await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
     expect(sessionStorage.getItem('yorr.room-session')).toBeNull()
+  })
+
+  it('인증이 깨진 세션도 붙잡지 않고 즉시 정리한다', async () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(serverMessage('error', { code: 'AUTH_FAILED', message: 'auth failed' }))
+
+    await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
+  })
+
+  // 되돌릴 수 있는 실패로 세션을 버리면 사용자는 이유 없이 방에서 쫓겨난다.
+  it('되돌릴 수 있는 오류로는 세션을 버리지 않는다', () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(serverMessage('error', { code: 'RATE_LIMITED', message: 'slow down' }))
+
+    expect(useAppStore.getState().roomSession?.sessionToken).toBe(creatorSession.sessionToken)
+  })
+
+  it('알 수 없는 메시지 타입은 방 상태를 건드리지 않고 지나간다', () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+    const before = useAppStore.getState().roomSnapshot
+
+    client.emitMessage(serverMessage('round.end', { roundNumber: 1, submitted: [] }))
+    client.emitMessage(serverMessage('sys.pong', { serverTs: 1 }))
+
+    expect(useAppStore.getState().roomSnapshot).toBe(before)
+  })
+
+  it('새 참가자를 명단에 더하고 같은 참가자가 다시 와도 중복으로 쌓지 않는다', () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(serverMessage('room.player_joined', { player: participantPlayer }))
+    client.emitMessage(serverMessage('room.player_joined', { player: participantPlayer }))
+
+    const players = useAppStore.getState().roomSnapshot?.players ?? []
+    expect(players.filter((player) => player.playerId === participantPlayer.playerId)).toHaveLength(
+      1,
+    )
+    // 재접속으로 다시 들어온 참가자는 뒤로 붙어도 명단에 반드시 남아야 한다.
+    expect(players.at(-1)).toMatchObject({ playerId: participantPlayer.playerId })
+  })
+
+  describe('연결 유지', () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    // 서버는 heartbeat이 끊기면 나간 것으로 처리한다 — ping이 멈추면 게임 중 강제 퇴장이다.
+    it('서버가 알려준 주기로 heartbeat을 계속 보낸다', () => {
+      const client = createRealtimeFixture({ role: 'creator' })
+      render(
+        <RealtimeSync client={client}>
+          <div>app</div>
+        </RealtimeSync>,
+      )
+
+      act(() => vi.advanceTimersByTime(30_000))
+
+      expect(client.sentMessages.filter((message) => message.type === 'sys.ping')).toHaveLength(2)
+    })
+
+    it('heartbeat 전송이 실패해도 앱을 멈추지 않는다', () => {
+      const client = createRealtimeFixture({ role: 'creator' })
+      render(
+        <RealtimeSync client={client}>
+          <div>app</div>
+        </RealtimeSync>,
+      )
+      vi.spyOn(client, 'send').mockImplementation(() => {
+        throw new Error('socket is closed')
+      })
+
+      expect(() => act(() => vi.advanceTimersByTime(15_000))).not.toThrow()
+      expect(useAppStore.getState().roomSession).not.toBeNull()
+    })
+
+    it('연결이 끊기면 잠시 뒤 스스로 다시 붙고 방에 다시 참가한다', () => {
+      const client = createRealtimeFixture({ role: 'creator' })
+      render(
+        <RealtimeSync client={client}>
+          <div>app</div>
+        </RealtimeSync>,
+      )
+      client.sentMessages.length = 0
+
+      act(() => client.emitConnection('close'))
+      expect(useAppStore.getState().connectionStatus).toBe('reconnecting')
+
+      act(() => vi.advanceTimersByTime(1_000))
+
+      expect(useAppStore.getState().connectionStatus).toBe('connected')
+      expect(client.sentMessages[0]).toMatchObject({
+        type: 'room.join',
+        payload: { sessionToken: creatorSession.sessionToken },
+      })
+    })
   })
 })
