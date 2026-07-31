@@ -1,4 +1,32 @@
 import { expect, it, vi } from 'vitest'
+import { saveSoundMuted } from './soundPreference'
+
+it('음소거 상태에서는 어떤 트랙도 재생하지 않는다', async () => {
+  vi.resetModules()
+  window.localStorage.clear()
+  saveSoundMuted(true)
+  const audios: HTMLAudioElement[] = []
+  vi.stubGlobal(
+    'Audio',
+    vi.fn(function AudioMock(src?: string) {
+      const audio = document.createElement('audio')
+      if (src) audio.setAttribute('src', src)
+      audio.play = vi.fn(() => Promise.resolve())
+      audio.pause = vi.fn()
+      audios.push(audio)
+      return audio
+    }),
+  )
+
+  const { playLandingSoundtrack } = await import('./landingSoundtrack')
+  playLandingSoundtrack('yacht')
+
+  const yachtTrack = audios.find((audio) => audio.getAttribute('src')?.endsWith('/yacht.mp3'))
+  expect(yachtTrack?.play).not.toHaveBeenCalled()
+
+  window.localStorage.clear()
+  vi.unstubAllGlobals()
+})
 
 it('stops the game track before playing the one-shot result track', async () => {
   vi.resetModules()
