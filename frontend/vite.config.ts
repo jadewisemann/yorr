@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
   // 실제 서버에 붙는다. 어느 서버인지는 VITE_API_TARGET 이 정한다:
   //   remote(기본) → 배포된 dev 서버. API 를 /dev-api/v1/... 로 노출하므로 /api → /dev-api rewrite.
   //   local        → 내 PC 의 백엔드(localhost:8080). 서버 코드까지 같이 확인할 때 쓴다.
-  // VITE_WS_URL 은 프록시를 타지 않으니 여기와 같은 서버를 가리키게 따로 맞춰야 한다.
+  // VITE_WS_URL 도 상대경로(/ws/v1/game)면 아래 /ws 프록시를 타고 같은 서버로 간다.
   const usesRealServer = env.VITE_ENABLE_MSW === 'false' || env.VITE_ENABLE_MSW === 'fallback'
   const useRemoteApi = usesRealServer && env.VITE_API_TARGET !== 'local'
 
@@ -38,6 +38,14 @@ export default defineConfig(({ mode }) => {
               target: 'http://localhost:8080',
               changeOrigin: true,
             },
+        // WebSocket도 같은 서버로 넘긴다. 이게 없으면 상대경로 VITE_WS_URL이 dev 서버(5173)로
+        // 붙어 연결이 되지 않고, 화면은 "연결 중"에서 멈춘다 — REST는 멀쩡해서 원인을 찾기 어렵다.
+        // 상대경로를 유지해야 휴대폰이 LAN 주소로 접속할 때도 자기 자신을 찾아가지 않는다.
+        '/ws': {
+          target: useRemoteApi ? 'wss://i15a406.p.ssafy.io' : 'ws://localhost:8080',
+          changeOrigin: true,
+          ws: true,
+        },
       },
     },
   }
