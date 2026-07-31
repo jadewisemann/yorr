@@ -12,7 +12,9 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
-import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 /**
  * 카카오 OAuth 호출. 인가 코드를 토큰으로 바꾸고 프로필을 읽어오는 두 가지 일만 한다.
@@ -42,16 +44,25 @@ public class KakaoOAuthClient {
         this.properties = properties;
     }
 
-    /** 사용자를 보낼 카카오 동의 화면 주소. */
+    /**
+     * 사용자를 보낼 카카오 동의 화면 주소.
+     * <p>
+     * 값을 직접 퍼센트 인코딩한다 — {@code UriComponentsBuilder.encode()}는 쿼리값 안의
+     * {@code :}와 {@code /}를 그대로 둔다(RFC상 쿼리에서 허용되는 문자라서). redirect_uri는
+     * OAuth 규격상 form-urlencoded여야 하고, 인코딩하지 않으면 값에 특수문자가 섞이는 순간
+     * 제공자가 파라미터를 잘라 읽는다.
+     */
     public String authorizeUrl(String state) {
         AuthProperties.Kakao kakao = requireConfigured();
-        return UriComponentsBuilder.fromUriString(AUTHORIZE_URI)
-                .queryParam("response_type", "code")
-                .queryParam("client_id", kakao.clientId())
-                .queryParam("redirect_uri", kakao.redirectUri())
-                .queryParam("state", state)
-                .encode()
-                .toUriString();
+        return AUTHORIZE_URI
+                + "?response_type=code"
+                + "&client_id=" + encode(kakao.clientId())
+                + "&redirect_uri=" + encode(kakao.redirectUri())
+                + "&state=" + encode(state);
+    }
+
+    private static String encode(String value) {
+        return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
     }
 
     /**
