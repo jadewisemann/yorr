@@ -64,6 +64,24 @@ export async function closeSession(sessionToken: string) {
   })
 }
 
+export interface Profile {
+  userId: string
+  nickname: string
+  profileImageUrl: string | null
+}
+
+/**
+ * 닉네임을 바꾼다. 지난 판의 기록에 남은 이름은 바뀌지 않는다 — 그때 화면에 보였던 이름이
+ * 그대로 남아야 하기 때문이다.
+ */
+export async function renameProfile(sessionToken: string, nickname: string): Promise<Profile> {
+  return apiRequest<Profile>('/users/me', {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${sessionToken}` },
+    body: JSON.stringify({ nickname }),
+  })
+}
+
 /** 콜백이 실패를 알릴 때 붙여 보내는 사유. 서버의 SocialLoginException.Reason과 짝이다. */
 export const loginErrorMessages: Record<string, string> = {
   canceled: '로그인을 취소했어요.',

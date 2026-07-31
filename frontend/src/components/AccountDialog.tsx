@@ -1,6 +1,9 @@
-import { kakaoLoginUrl } from '@/api/authApi'
+import { useState } from 'react'
+import { kakaoLoginUrl, renameProfile } from '@/api/authApi'
 import type { AuthSession } from '@/authSession'
 import { cn } from '@/cn'
+import { NICKNAME_MAX_LENGTH } from '@/nickname'
+import { useAppStore } from '@/store'
 import { BottomSheet } from './BottomSheet'
 import { LandingPopover } from './LandingPopover'
 
@@ -93,22 +96,29 @@ function ProviderChoice() {
 }
 
 function AccountMenu({ onSignOut, session }: { onSignOut: () => void; session: AuthSession }) {
+  const [editing, setEditing] = useState(false)
+
   return (
     <div className="grid gap-2.5">
-      <div className="flex items-center gap-3 rounded-[16px] bg-surface px-4 py-3.5">
-        <Avatar nickname={session.nickname} size="lg" />
-        <span className="grid min-w-0 gap-0.5">
-          <strong className="truncate text-[15px] font-bold text-content">
-            {session.nickname}
-          </strong>
-          <span className="text-[12.5px] text-content-muted">로그인됨</span>
-        </span>
-      </div>
-      {/* 프로필·전적 화면이 붙을 자리를 미리 비워 둔다 — 지금은 무엇이 올지 보이는 것만으로 충분하다. */}
-      <button className={cn(row, lockedRow)} disabled type="button">
-        프로필 관리
-        <ComingSoonPill />
-      </button>
+      {editing ? (
+        <NicknameEditor onDone={() => setEditing(false)} session={session} />
+      ) : (
+        <>
+          <div className="flex items-center gap-3 rounded-[16px] bg-surface px-4 py-3.5">
+            <Avatar nickname={session.nickname} size="lg" />
+            <span className="grid min-w-0 gap-0.5">
+              <strong className="truncate text-[15px] font-bold text-content">
+                {session.nickname}
+              </strong>
+              <span className="text-[12.5px] text-content-muted">로그인됨</span>
+            </span>
+          </div>
+          <button className={cn(row, activeRow)} onClick={() => setEditing(true)} type="button">
+            프로필 관리
+          </button>
+        </>
+      )}
+      {/* 전적 화면이 붙을 자리. 지금은 무엇이 올지 보이는 것만으로 충분하다. */}
       <button className={cn(row, lockedRow)} disabled type="button">
         내 전적
         <ComingSoonPill />
@@ -117,6 +127,90 @@ function AccountMenu({ onSignOut, session }: { onSignOut: () => void; session: A
         로그아웃
       </button>
     </div>
+  )
+}
+
+/**
+ * 닉네임 인라인 편집. 별도 화면을 만들지 않은 이유는 지금 고칠 것이 이름 하나뿐이기
+ * 때문이다 — 화면을 새로 파면 랜딩 디자인을 다시 맞춰야 하고, 그 값어치가 없다.
+ */
+function NicknameEditor({ onDone, session }: { onDone: () => void; session: AuthSession }) {
+  const signIn = useAppStore((state) => state.signIn)
+  const [value, setValue] = useState(session.nickname)
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const save = async () => {
+    const nickname = value.trim()
+    if (!nickname) {
+      setError('닉네임을 입력해 주세요.')
+      return
+    }
+    if (nickname === session.nickname) {
+      onDone()
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      const profile = await renameProfile(session.sessionToken, nickname)
+      // 서버가 다듬은 값을 그대로 받는다 — 클라이언트가 따로 계산하지 않는다.
+      signIn({ ...session, nickname: profile.nickname })
+      onDone()
+    } catch {
+      setError('이름을 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form
+      className="grid gap-2.5 rounded-[16px] bg-surface px-4 py-3.5"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void save()
+      }}
+    >
+      <label className="grid gap-1.5 text-[12.5px] font-semibold text-content-muted">
+        닉네임
+        <input
+          autoFocus
+          className="rounded-[12px] border border-border bg-surface-raised px-3 py-2.5 text-[15px] font-semibold text-content focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-1"
+          disabled={saving}
+          maxLength={NICKNAME_MAX_LENGTH}
+          onChange={(event) => {
+            setValue(event.target.value)
+            setError(null)
+          }}
+          value={value}
+        />
+      </label>
+      {/* 지난 판의 이름까지 바뀌는 것으로 오해하지 않게 미리 알린다. */}
+      <p className="m-0 text-[12px] text-content-faint">지난 게임 기록에 남은 이름은 그대로예요.</p>
+      {error && (
+        <p className="m-0 text-[12.5px] font-semibold text-[#FF8A86]" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <button
+          className={cn(row, activeRow, 'justify-center py-2.5')}
+          disabled={saving}
+          type="submit"
+        >
+          {saving ? '저장하는 중' : '저장'}
+        </button>
+        <button
+          className={cn(row, activeRow, 'justify-center py-2.5')}
+          disabled={saving}
+          onClick={onDone}
+          type="button"
+        >
+          취소
+        </button>
+      </div>
+    </form>
   )
 }
 
