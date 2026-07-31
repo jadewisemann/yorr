@@ -113,6 +113,27 @@ class YachtBotTurnCoordinatorTest {
     }
 
     @Test
+    void exposesTheKeepSelectionBeforeRequestingTheNextRoll() {
+        RoundState state = RoundState.start(1, List.of("bot-a", "player-a"));
+        state = state.recordRoll(
+                "bot-a",
+                1,
+                1,
+                NO_HELD,
+                List.of(6, 6, 2, 3, 4)
+        );
+        when(rounds.findByRoomId("room-a")).thenReturn(Optional.of(state));
+
+        YachtBotTurnCoordinator.BotTurnStep result =
+                coordinator.executeIfCurrent(new RoundStartedEvent("room-a", state));
+
+        assertThat(result.acted()).isTrue();
+        assertThat(result.continueAfterObservation()).isTrue();
+        verify(actions).hold(eq("room-a"), eq("bot-a"), any(), eq(null));
+        verify(actions, never()).roll(any(), any(), any(), any());
+    }
+
+    @Test
     void ignoresAHumanTurn() {
         RoundState state = RoundState.start(1, List.of("player-a", "bot-a"));
         when(rounds.findByRoomId("room-a")).thenReturn(Optional.of(state));
