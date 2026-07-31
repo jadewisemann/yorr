@@ -4,6 +4,7 @@ import { useCreateRoom, useJoinRoom } from '@/api/useRoomApi'
 import { toUserError } from '@/api/userError'
 import { Button } from '@/components/Button'
 import { TextField } from '@/components/TextField'
+import { playLandingSoundtrack } from '@/landingSoundtrack'
 import {
   generateNickname,
   NICKNAME_MAX_LENGTH,
@@ -27,6 +28,8 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
   const submittingRef = useRef(false)
   const task = roomCode ? joinRoom : createRoom
   const userError = task.error ? toUserError(task.error) : null
+
+  useEffect(() => playLandingSoundtrack('yacht'), [])
 
   useEffect(() => {
     if (userError?.clearsSession) useAppStore.getState().reset()
