@@ -58,7 +58,37 @@ const WIDE_LAYOUT = '(min-width: 1024px)'
 const TOTAL_ROUNDS = 12
 const MAX_ROLLS = 3
 const TAP_RELEASE_DELAY_MS = 600
-type RollAnimationMode = RollInputMode | 'remote'
+/**
+ * 관전 화면이 dice.thrown 없이도 사발을 쏟아 버리는 최후의 안전망. 신호가 유실되면 여기서
+ * 걷어내지 않는 한 사발이 영원히 흔들리고 주사위·점수가 그 턴 내내 멈춘다.
+ * 한 턴이 25초(RoundTimerService.ROUND_DURATION)라 그 안에서만 의미가 있다 —
+ * 정상 흔들기가 이만큼 길어지는 일은 없으므로 평소에는 이 타이머까지 가지 않는다.
+ */
+const REMOTE_THROW_FALLBACK_MS = 8_000
+/**
+ * 굴림 애니메이션을 "언제 쏟을지" 정하는 주체.
+ *   tap    = 내가 버튼으로 굴렸다 → 짧은 지연 뒤 자동
+ *   motion = 내가 흔들고 있다 → 던지는 제스처가 쏟는다
+ *   remote = 남이 굴리는 중이다 → 그 사람의 dice.thrown이 쏟는다
+ *   auto   = 마감으로 서버가 대신 굴렸다 → 던진 사람이 없으니 자동
+ */
+type RollAnimationMode = RollInputMode | 'remote' | 'auto'
+
+/** 같은 서버 굴림을 받은 모든 클라이언트가 같은 물리 난수열을 쓰게 하는 32비트 FNV-1a. */
+export function animationSeedForRoll(
+  roomId: string,
+  playerId: string,
+  roundNumber: number,
+  rollCount: number,
+  dice: DiceSet,
+) {
+  const key = `${roomId}:${playerId}:${roundNumber}:${rollCount}:${dice.join('')}`
+  let hash = 2_166_136_261
+  for (let index = 0; index < key.length; index += 1) {
+    hash = Math.imul(hash ^ key.charCodeAt(index), 16_777_619)
+  }
+  return hash >>> 0
+}
 
 interface GamePlayProps {
   roomId: string
@@ -127,6 +157,9 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     setReleaseRequestId(null)
     setRollInputMode(null)
     setRequestingRoll(false)
+    // 지난 턴의 사발은 이미 치워졌다 — 늦게 도착한 dice.thrown이 새 굴림을 쏟으면 안 된다.
+    remoteRollRef.current = null
+    queuedRemoteReleaseRef.current = null
     // 남의 턴을 구경하며 열어둔 점수시트가 턴이 넘어간 뒤에도 남아있으면 안 된다(QA FND-5).
     setSheetOpen(false)
   }, [activePlayerId, roundNumber])
@@ -269,6 +302,16 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     requestId: string
   } | null>(null)
   const queuedMotionReleaseRef = useRef(false)
+  // 관전 중인 굴림. dice.thrown이 어느 requestId를 쏟아야 하는지 여기서 찾는다 —
+  // 브로드캐스트 핸들러 안에서 바로 채우므로 리렌더를 기다리지 않는다.
+  const remoteRollRef = useRef<{
+    requestId: string
+    rollCount: number
+    roundNumber: number
+  } | null>(null)
+  // dice.thrown이 dice.broadcast보다 먼저 처리된 경우를 위한 예약(순서는 보장되지만
+  // 굴림이 화면에 걸리기 전에 도착할 수 있다). 굴림이 생기는 즉시 쏟는다.
+  const queuedRemoteReleaseRef = useRef<{ rollCount: number; roundNumber: number } | null>(null)
   const feedbackRef = useRef<ReturnType<typeof createRollFeedback> | null>(null)
   const handVoiceRef = useRef<HandVoice | null>(null)
   inputModeRef.current = rollInputMode
@@ -283,6 +326,28 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     (held: HeldDice) => {
       try {
         realtimeClient.send(buildClientMessage('dice.hold', { held, roundNumber }, { roomId }))
+      } catch {
+        // 연결이 끊긴 상태다. ConnectionBanner가 이미 알리고 있다.
+      }
+    },
+    [realtimeClient, roomId, roundNumber],
+  )
+
+  /**
+   * 내가 사발을 던졌다고 방에 알린다. dice.roll은 "흔들기 시작"에 나가 눈을 미리 받아두므로,
+   * 이 신호가 없으면 관전자는 던진 시점을 몰라 내가 흔드는 동안 먼저 주사위를 쏟는다.
+   * 실패해도 조용히 넘어간다 — 내 화면은 이미 쏟았고, 관전 화면은 안전망 타이머가 받아준다.
+   */
+  const publishThrow = useCallback(
+    (rollCount: number) => {
+      try {
+        realtimeClient.send(
+          buildClientMessage(
+            'dice.throw',
+            { rollCount: rollCount as 1 | 2 | 3, roundNumber },
+            { roomId },
+          ),
+        )
       } catch {
         // 연결이 끊긴 상태다. ConnectionBanner가 이미 알리고 있다.
       }
@@ -341,14 +406,28 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           // 서버 상태는 이미 이 값이고, 버리면 다음 굴림·기록이 전부 어긋난다.
           const forced = message.payload.auto === true
           const pending = pendingRollRequestRef.current
-          if (ownRoll && !forced && (!pending || message.msgId !== pending.msgId)) return
+          const matchingPending =
+            ownRoll && !forced && pending && message.msgId === pending.msgId ? pending : null
+          // 서버가 확정한 한 굴림은 모든 참가자에게 같은 키를 쓴다. 요청자의 로컬 msgId가
+          // 유실됐더라도 권위 브로드캐스트를 버리면 요청자와 관전자의 최종 눈이 갈린다.
+          const requestId = `roll-${message.payload.playerId}-${message.payload.roundNumber}-${message.payload.rollCount}`
+          const animationMode: RollAnimationMode = forced
+            ? 'auto'
+            : matchingPending
+              ? matchingPending.inputMode
+              : ownRoll
+                ? 'tap'
+                : 'remote'
 
-          const requestId =
-            ownRoll && !forced
-              ? (pending?.requestId ?? `own-${message.msgId ?? message.ts}`)
-              : `${forced ? 'auto' : 'remote'}-${message.payload.playerId}-${message.payload.roundNumber}-${message.payload.rollCount}-${message.msgId ?? message.ts}`
-          const animationMode: RollAnimationMode =
-            ownRoll && !forced ? (pending?.inputMode ?? 'tap') : 'remote'
+          // 남의 굴림은 그 사람이 던질 때까지 사발에 담아둔다 — 쏟는 시점은 dice.thrown이 정한다.
+          remoteRollRef.current =
+            animationMode === 'remote'
+              ? {
+                  requestId,
+                  rollCount: message.payload.rollCount,
+                  roundNumber: message.payload.roundNumber,
+                }
+              : null
 
           pendingRollRequestRef.current = null
           setRequestingRoll(false)
@@ -361,6 +440,13 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
             requestId,
             // 굴림 횟수는 서버가 센 값을 그대로 받는다 — 클라가 따로 세면 어긋난다.
             rollCount: message.payload.rollCount,
+            seed: animationSeedForRoll(
+              roomId,
+              message.payload.playerId,
+              message.payload.roundNumber,
+              message.payload.rollCount,
+              message.payload.dice,
+            ),
             targetDice: message.payload.dice,
           })
           if (ownRoll && forced) {
@@ -369,6 +455,45 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           if (ownRoll && queuedMotionReleaseRef.current) {
             queuedMotionReleaseRef.current = false
             setReleaseRequestId(requestId)
+            publishThrow(message.payload.rollCount)
+          }
+          // 굴림이 걸리기 전에 도착해 둔 dice.thrown이 있으면 지금 쏟는다.
+          const queuedRemote = queuedRemoteReleaseRef.current
+          if (
+            animationMode === 'remote' &&
+            queuedRemote &&
+            queuedRemote.roundNumber === message.payload.roundNumber &&
+            queuedRemote.rollCount === message.payload.rollCount
+          ) {
+            queuedRemoteReleaseRef.current = null
+            setReleaseRequestId(requestId)
+          }
+          return
+        }
+
+        if (message.type === 'dice.thrown') {
+          if (
+            message.roomId !== roomId ||
+            message.payload.roundNumber !== roundNumber ||
+            message.payload.playerId !== activePlayerId ||
+            // 내 던짐의 메아리다. 내 화면은 제스처가 이미 쏟았다.
+            message.payload.playerId === session.you
+          ) {
+            return
+          }
+          const remote = remoteRollRef.current
+          if (
+            remote &&
+            remote.roundNumber === message.payload.roundNumber &&
+            remote.rollCount === message.payload.rollCount
+          ) {
+            remoteRollRef.current = null
+            setReleaseRequestId(remote.requestId)
+            return
+          }
+          queuedRemoteReleaseRef.current = {
+            rollCount: message.payload.rollCount,
+            roundNumber: message.payload.roundNumber,
           }
           return
         }
@@ -396,7 +521,16 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           showToast(turnAwareErrorMessage(message.payload))
         }
       }),
-    [activePlayerId, dispatch, realtimeClient, roomId, roundNumber, session.you, showToast],
+    [
+      activePlayerId,
+      dispatch,
+      publishThrow,
+      realtimeClient,
+      roomId,
+      roundNumber,
+      session.you,
+      showToast,
+    ],
   )
 
   const handleGestureEvent = useCallback(
@@ -426,6 +560,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           }
           feedbackRef.current?.thrown()
           setReleaseRequestId(request.requestId)
+          publishThrow(local.rollCount)
           return
         }
         case 'shakeArmed':
@@ -433,20 +568,29 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           return
       }
     },
-    [beginRoll, local],
+    [beginRoll, local, publishThrow],
   )
 
   const motion = useMotionRollInput(handleGestureEvent)
   const pendingRoll = getPendingRoll(local)
 
   useEffect(() => {
-    if (!pendingRoll || (rollInputMode !== 'tap' && rollInputMode !== 'remote')) return
+    if (!pendingRoll) return
+    // 남의 굴림은 dice.thrown이 쏟는다. 여기 타이머는 그 신호가 유실됐을 때만 도는 안전망이다 —
+    // 굴린 사람이 아직 사발을 흔드는 중에 관전 화면이 먼저 결과를 보여주면 안 된다.
+    const isRemote = rollInputMode === 'remote'
+    if (!isRemote && rollInputMode !== 'tap' && rollInputMode !== 'auto') return
     const timeout = setTimeout(
-      () => setReleaseRequestId(pendingRoll.requestId),
-      TAP_RELEASE_DELAY_MS,
+      () => {
+        setReleaseRequestId(pendingRoll.requestId)
+        // 버튼으로 굴린 것도 "던진 것"이다 — 관전 화면이 같은 순간에 쏟게 알린다.
+        // 마감 자동 굴림(auto)은 던진 사람이 없고, 모두가 auto 표시를 받아 각자 쏟는다.
+        if (rollInputMode === 'tap') publishThrow(local.rollCount)
+      },
+      isRemote ? REMOTE_THROW_FALLBACK_MS : TAP_RELEASE_DELAY_MS,
     )
     return () => clearTimeout(timeout)
-  }, [pendingRoll, rollInputMode])
+  }, [local.rollCount, pendingRoll, publishThrow, rollInputMode])
 
   useEffect(
     () => () => {
@@ -496,6 +640,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     if (!pendingRoll || releaseRequestId === pendingRoll.requestId) return
     feedbackRef.current?.thrown()
     setReleaseRequestId(pendingRoll.requestId)
+    publishThrow(local.rollCount)
   }
 
   const completeRoll = (requestId: string, _dice: DiceSet) => {

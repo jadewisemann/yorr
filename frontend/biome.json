@@ -4,6 +4,7 @@
     "includes": [
       "**",
       "!dist",
+      "!coverage",
       "!playwright-report",
       "!test-results",
       "!ref",
@@ -36,7 +37,8 @@
     "rules": {
       "preset": "recommended",
       "complexity": {
-        "noImportantStyles": "off"
+        "noImportantStyles": "off",
+        "noExcessiveCognitiveComplexity": "warn"
       }
     }
   },

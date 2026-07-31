@@ -44,6 +44,7 @@ export type YachtGameAction =
       type: 'rollRequested'
       requestId: string
       rollCount: RollCount
+      seed?: number
       targetDice: DiceSet
       held?: HeldDice
       forced?: boolean
@@ -160,7 +161,7 @@ function requestRoll(
   state: YachtGameState,
   action: Extract<YachtGameAction, { type: 'rollRequested' }>,
 ): YachtGameState {
-  const { forced = false, held: heldOverride, requestId, rollCount, targetDice } = action
+  const { forced = false, held: heldOverride, requestId, rollCount, seed, targetDice } = action
   // 서버가 대신 굴린 결과는 이미 확정된 사실이라 phase 게이트를 통과시킨다.
   // 굴림 예산은 서버가 지키므로 rollCount 상한만 남긴다.
   const canRoll = forced
@@ -178,7 +179,7 @@ function requestRoll(
     selectedCategory: null,
     pendingRoll: createRollRequest({
       requestId,
-      seed: state.seed,
+      seed: seed ?? state.seed,
       held: nextHeld,
       targetDice,
     }),

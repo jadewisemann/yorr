@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MotionInputController } from './MotionInputController'
-import type { MotionAvailability } from './motionTypes'
+import type { MotionAvailability, MotionGestureEvent, MotionGestureSnapshot } from './motionTypes'
 
 const originalDeviceMotion = Object.getOwnPropertyDescriptor(window, 'DeviceMotionEvent')
 const originalSecureContext = Object.getOwnPropertyDescriptor(window, 'isSecureContext')
@@ -19,6 +19,7 @@ describe('MotionInputController', () => {
     } else {
       Reflect.deleteProperty(window, 'isSecureContext')
     }
+    Reflect.deleteProperty(document, 'hidden')
   })
 
   it('지원하지 않는 환경을 즉시 fallback 상태로 알린다', () => {
@@ -172,7 +173,149 @@ describe('MotionInputController', () => {
     expect(requestPermission).not.toHaveBeenCalled()
     controller.destroy()
   })
+
+  it('destroy된 컨트롤러는 다시 start해도 아무 상태도 알리지 않는다', () => {
+    installDeviceMotionEvent()
+    const availability: MotionAvailability[] = []
+    const controller = createController(availability)
+
+    controller.destroy()
+    controller.start()
+
+    expect(availability).toEqual([])
+  })
+
+  it('권한 요청 자체가 실패하면 error 상태로 알린다', async () => {
+    installDeviceMotionApi(vi.fn().mockRejectedValue(new Error('prompt failed')))
+    const availability: MotionAvailability[] = []
+    const controller = createController(availability)
+
+    controller.start()
+    await controller.requestPermission()
+
+    expect(availability).toEqual(['permissionRequired', 'requesting', 'error'])
+    controller.destroy()
+  })
+
+  it('권한 요청을 되풀이해도 devicemotion listener는 한 번만 등록한다', async () => {
+    installDeviceMotionEvent()
+    const addEventListener = vi.spyOn(window, 'addEventListener')
+    const controller = createController([])
+
+    controller.start()
+    await controller.requestPermission()
+    await controller.requestPermission()
+
+    expect(addEventListener.mock.calls.filter(([type]) => type === 'devicemotion')).toHaveLength(1)
+    controller.destroy()
+  })
+
+  it('값이 있는 샘플이 들어오면 listening을 유지하고 스냅샷을 올린다', async () => {
+    installDeviceMotionEvent()
+    const availability: MotionAvailability[] = []
+    const snapshots: MotionGestureSnapshot[] = []
+    const controller = new MotionInputController({
+      onAvailabilityChange: (value) => availability.push(value),
+      onGestureEvent: vi.fn(),
+      onGestureSnapshot: (snapshot) => snapshots.push(snapshot),
+    })
+
+    controller.start()
+    await controller.requestPermission()
+    dispatchMotion(100, 7, -4)
+    dispatchMotion(120, -7, 4)
+
+    expect(availability.at(-1)).toBe('listening')
+    expect(snapshots.at(-1)?.gestureState).toBe('calibrating')
+    controller.destroy()
+  })
+
+  it('탭이 백그라운드면 제스처를 취소하고 paused로 멈춘다', async () => {
+    installDeviceMotionEvent()
+    const availability: MotionAvailability[] = []
+    const events: MotionGestureEvent[] = []
+    const controller = new MotionInputController({
+      onAvailabilityChange: (value) => availability.push(value),
+      onGestureEvent: (event) => events.push(event),
+      onGestureSnapshot: vi.fn(),
+    })
+
+    controller.start()
+    await controller.requestPermission()
+    dispatchMotion(100, 7, -4)
+
+    setHidden(true)
+    document.dispatchEvent(new Event('visibilitychange'))
+
+    expect(availability.at(-1)).toBe('paused')
+    expect(events.at(-1)).toMatchObject({ type: 'gestureCancelled', reason: 'background' })
+
+    // 백그라운드 동안 들어온 샘플은 무시한다.
+    dispatchMotion(140, 9, -9)
+    expect(availability.at(-1)).toBe('paused')
+
+    setHidden(false)
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(availability.at(-1)).toBe('listening')
+    controller.destroy()
+  })
+
+  it('백그라운드 상태에서 권한을 허용하면 곧바로 paused로 시작한다', async () => {
+    installDeviceMotionEvent()
+    setHidden(true)
+    const availability: MotionAvailability[] = []
+    const controller = createController(availability)
+
+    controller.start()
+    await controller.requestPermission()
+
+    expect(availability).toEqual(['permissionRequired', 'paused'])
+    controller.destroy()
+  })
+
+  it('reset은 진행 중이던 제스처만 취소 이벤트로 알린다', async () => {
+    installDeviceMotionEvent()
+    const events: MotionGestureEvent[] = []
+    const controller = new MotionInputController({
+      onAvailabilityChange: vi.fn(),
+      onGestureEvent: (event) => events.push(event),
+      onGestureSnapshot: vi.fn(),
+    })
+
+    controller.start()
+    await controller.requestPermission()
+    controller.reset()
+    expect(events).toEqual([])
+
+    dispatchMotion(100, 7, -4)
+    controller.reset('manual')
+
+    expect(events).toEqual([
+      expect.objectContaining({ type: 'gestureCancelled', reason: 'manual' }),
+    ])
+    controller.destroy()
+  })
 })
+
+function setHidden(hidden: boolean) {
+  Object.defineProperty(document, 'hidden', { configurable: true, value: hidden })
+}
+
+function installDeviceMotionEvent() {
+  Object.defineProperty(window, 'DeviceMotionEvent', {
+    configurable: true,
+    value: function MockDeviceMotionEvent() {},
+  })
+}
+
+function dispatchMotion(timeStamp: number, x: number, y: number) {
+  const event = Object.assign(new Event('devicemotion'), {
+    acceleration: { x, y, z: 0 },
+    accelerationIncludingGravity: null,
+  })
+  Object.defineProperty(event, 'timeStamp', { configurable: true, value: timeStamp })
+  window.dispatchEvent(event)
+}
 
 function createController(availability: MotionAvailability[]) {
   return new MotionInputController({

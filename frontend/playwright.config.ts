@@ -1,11 +1,30 @@
 import { defineConfig, devices } from '@playwright/test'
 
+/**
+ * E2E 는 두 모드로 돈다.
+ * - mock(기본): 서버 없이 프로덕션 빌드의 UI 계약만 검증한다. (e2e/mock)
+ * - real(E2E_TARGET=real): 실제 백엔드가 필요한 사용자 흐름을 검증한다. (e2e/real)
+ *   시작 전 globalSetup 이 백엔드 도달 여부를 확인하고, 미기동이면 즉시 실패한다.
+ */
+const isReal = process.env.E2E_TARGET === 'real'
+
 export default defineConfig({
-  testDir: './e2e',
+  testDir: isReal ? './e2e/real' : './e2e/mock',
+  // e2e/support/*.ts는 공용 하네스다. 기본 testMatch도 걸러내지만,
+  // 스펙이 아닌 파일이 생긴 뒤로는 규칙을 눈에 보이게 적어 둔다.
+  testMatch: '**/*.spec.ts',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  reporter: 'html',
+  // html 리포터의 기본값(open: 'on-failure')은 실패한 로컬 실행 뒤에 리포트 서버를 띄우고
+  // 프로세스를 붙잡는다 — `npm run test:e2e`가 그대로 멈춘다. 진행 상황은 list로 보고,
+  // 리포트는 파일로만 남긴다(npx playwright show-report).
+  reporter: [['list'], ['html', { open: 'never' }]],
+  ...(isReal && {
+    globalSetup: './e2e/support/checkBackend.ts',
+    // 실서버 WS 브로드캐스트 지연을 감안해 mock(기본 5s)보다 길게 기다린다.
+    expect: { timeout: 10_000 },
+  }),
   use: {
     baseURL: 'http://127.0.0.1:4306',
     trace: 'on-first-retry',
