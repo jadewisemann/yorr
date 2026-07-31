@@ -16,6 +16,8 @@ import com.ssafy.yorr.ws.dto.DiceBroadcastPayload;
 import com.ssafy.yorr.ws.dto.DiceHoldChangedPayload;
 import com.ssafy.yorr.ws.dto.DiceHoldPayload;
 import com.ssafy.yorr.ws.dto.DiceRollPayload;
+import com.ssafy.yorr.ws.dto.DiceThrowPayload;
+import com.ssafy.yorr.ws.dto.DiceThrownPayload;
 import com.ssafy.yorr.ws.dto.ErrorPayload;
 import com.ssafy.yorr.ws.dto.InboundEnvelope;
 import com.ssafy.yorr.ws.dto.RoomPhase;
@@ -142,7 +144,7 @@ public class YachtDiceGameModule implements GameModule {
 
     @Override
     public boolean handles(String messageType) {
-        return Set.of("dice.roll", "dice.hold", "round.submit").contains(messageType);
+        return Set.of("dice.roll", "dice.hold", "dice.throw", "round.submit").contains(messageType);
     }
 
     @Override
@@ -150,6 +152,7 @@ public class YachtDiceGameModule implements GameModule {
         switch (message.type()) {
             case "dice.roll" -> roll(session, message);
             case "dice.hold" -> hold(session, message);
+            case "dice.throw" -> throwDice(session, message);
             case "round.submit" -> submit(session, message);
             default -> throw new IllegalArgumentException("unsupported_game_message");
         }
@@ -204,6 +207,35 @@ public class YachtDiceGameModule implements GameModule {
         } catch (IllegalArgumentException exception) {
             sendError(session, WsErrorCode.INVALID_MESSAGE, exception.getMessage(), message.msgId());
         }
+    }
+
+    /**
+     * dice.throw → dice.thrown 단순 릴레이. 라운드 상태를 건드리지 않는다 — 주사위 눈은 dice.roll 에서
+     * 이미 확정됐고, 이 메시지는 "지금 쏟아라"라는 연출 신호일 뿐이다. 그래서 유실돼도 게임 진행은
+     * 어긋나지 않고, 관전 화면만 자체 안전망 타이머로 늦게 따라온다.
+     */
+    private void throwDice(WebSocketSession session, InboundEnvelope message) throws IOException {
+        RoomSessionRegistry.Member member = member(session, message);
+        if (member == null) return;
+        DiceThrowPayload payload;
+        try {
+            payload = objectMapper.treeToValue(message.payload(), DiceThrowPayload.class);
+        } catch (Exception exception) {
+            sendError(session, WsErrorCode.INVALID_MESSAGE, "invalid dice.throw payload", message.msgId());
+            return;
+        }
+        // 턴 주인이 아닌 세션의 신호는 버린다 — 남의 사발을 대신 쏟게 할 수 있다.
+        boolean activePlayer = rounds.findByRoomId(message.roomId())
+                .map(state -> member.playerId().equals(state.activePlayerId()))
+                .orElse(false);
+        if (!activePlayer) {
+            sendError(session, WsErrorCode.NOT_YOUR_TURN, "only the active player can throw", message.msgId());
+            return;
+        }
+        broadcaster.broadcast(message.roomId(), WsEnvelope.of(
+                "dice.thrown",
+                new DiceThrownPayload(member.playerId(), payload.roundNumber(), payload.rollCount())
+        ).withRoomId(message.roomId()).withMsgId(message.msgId()));
     }
 
     private void submit(WebSocketSession session, InboundEnvelope message) throws IOException {
