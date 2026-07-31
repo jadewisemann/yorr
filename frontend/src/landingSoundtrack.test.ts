@@ -53,6 +53,34 @@ it('plays the matching hero track for the selected landing game', async () => {
   vi.unstubAllGlobals()
 })
 
+it('retries the requested game track after direct invite autoplay is blocked', async () => {
+  vi.resetModules()
+  const audios: HTMLAudioElement[] = []
+  vi.stubGlobal(
+    'Audio',
+    vi.fn(function AudioMock(src?: string) {
+      const audio = document.createElement('audio')
+      if (src) audio.setAttribute('src', src)
+      audio.play = vi.fn(() => Promise.resolve())
+      audio.pause = vi.fn()
+      audios.push(audio)
+      return audio
+    }),
+  )
+
+  const { playGameSoundtrack } = await import('./landingSoundtrack')
+  playGameSoundtrack()
+  document.dispatchEvent(new Event('click'))
+
+  const landing = audios.find((audio) => audio.getAttribute('src')?.endsWith('/yacht.mp3'))
+  const game = audios.find((audio) => audio.getAttribute('src')?.endsWith('yacht_ingame.mp3'))
+
+  expect(landing?.play).not.toHaveBeenCalled()
+  expect(game?.play).toHaveBeenCalledTimes(2)
+
+  vi.unstubAllGlobals()
+})
+
 it('setSoundtrackMuted pauses or resumes whatever track is currently playing', async () => {
   vi.resetModules()
   const audios: HTMLAudioElement[] = []

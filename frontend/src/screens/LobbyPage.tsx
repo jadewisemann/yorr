@@ -5,6 +5,7 @@ import { cn } from '@/cn'
 import { Button } from '@/components/Button'
 import { InvitationPanel } from '@/components/InvitationPanel'
 import { PlayerCard } from '@/components/PlayerCard'
+import { playLandingSoundtrack } from '@/landingSoundtrack'
 import { useAppStore } from '@/store'
 import { RoomExitGuard } from './RoomExitGuard'
 
@@ -35,6 +36,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
     roomSnapshot.players.length >= MIN_PLAYERS_TO_START
 
   useEffect(() => {
+    if (roomSnapshot?.phase === 'waiting') playLandingSoundtrack('yacht')
     if (!roomSession || !matchingRoom || roomResumeReason) {
       void navigate({ to: '/', replace: true })
       return

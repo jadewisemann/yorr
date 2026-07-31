@@ -4,7 +4,6 @@ import { readSoundMuted } from './soundPreference'
 let soundtrack: HTMLAudioElement | null = null
 let gameTrack: HTMLAudioElement | null = null
 let resultTrack: HTMLAudioElement | null = null
-let currentGame: HeroGameKey = landingGames[0].key
 const tracks = new Map<HeroGameKey, HTMLAudioElement>()
 
 function prepare(): void {
@@ -28,14 +27,13 @@ function prepare(): void {
   const unlock = () => {
     document.removeEventListener('click', unlock)
     document.removeEventListener('keydown', unlock)
-    playLandingSoundtrack(currentGame)
+    if (!readSoundMuted()) void soundtrack?.play().catch(() => undefined)
   }
   document.addEventListener('click', unlock)
   document.addEventListener('keydown', unlock)
 }
 
 export function playLandingSoundtrack(game: HeroGameKey): void {
-  currentGame = game
   prepare()
   play(tracks.get(game) ?? null)
 }
