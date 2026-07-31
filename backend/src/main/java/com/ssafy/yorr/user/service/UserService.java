@@ -148,6 +148,17 @@ public class UserService {
         return type == UserType.MEMBER ? MEMBER_TTL : GUEST_TTL;
     }
 
+    /**
+     * 열려 있는 세션의 표시 이름을 바꾼다.
+     * <p>
+     * 회원 닉네임은 <b>두 곳</b>에 있다 — 영구 저장은 users 테이블, 인증·표시는 Redis 세션.
+     * DB만 고치면 다시 로그인하기 전까지 화면과 방 명단에는 옛 이름이 남는다.
+     */
+    public void renameSession(String userId, String nickname) {
+        if (Boolean.FALSE.equals(redisTemplate.hasKey(key(userId)))) return;
+        redisTemplate.opsForHash().put(key(userId), "nickname", nickname);
+    }
+
     /** 방 입장처럼 게스트를 만들지 않는 경로도 같은 규칙으로 이름을 다듬어야 한다. */
     public static String normalizeNickname(String nickname) {
         String value = nickname == null ? "" : nickname.trim();
