@@ -165,7 +165,10 @@ describe('GamePlay 센서 굴림', () => {
     broadcastRoll(client, [6, 5, 4, 3, 2])
 
     // 예약을 잃으면 던지는 동작을 한 번 더 해야 굴림이 끝난다.
-    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', 'r1-1')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-release',
+      'roll-player-creator-1-1',
+    )
   })
 
   it('버튼으로 굴린 굴림은 던지기 동작으로 앞당겨지지 않는다', () => {

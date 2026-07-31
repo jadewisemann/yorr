@@ -2,18 +2,44 @@ import RAPIER from '@dimforge/rapier3d-compat'
 import * as THREE from 'three'
 import { PHYSICS_DICE_CONFIG } from './config'
 import { faceNormalForValue, topFaceFromQuaternion } from './model'
+import { createPhysicsDiceRandom } from './random'
 import { containDiceInTray, type TrayOccupant } from './safety'
 import type { PhysicsDiceIndex, PhysicsDiceSet, PhysicsDiceValue, PhysicsHeldDice } from './types'
 
 const SETTLEMENT = PHYSICS_DICE_CONFIG.scene.settlement
 /**
  * 예측 시뮬은 한 프레임 안에서 동기로 끝까지 돌리므로 상한이 곧 최악의 프레임 지연이다.
- * simulationHz를 300으로 올린 뒤 20초 상한은 6000스텝(≈수십~수백 ms 정지)이 되어버린다.
- * 실측 정착은 1초 안쪽이라 4초면 충분히 넉넉하고, 실패해도 정렬 단계가 목표값으로 수렴한다.
+ * simulationHz가 480이므로 긴 상한은 메인 스레드를 오래 막는다. 제품의 강제 종료 시간까지만
+ * 계산하고, 그 시점의 마지막 자세까지 궤적에 포함해 예측과 화면 재생이 갈리지 않게 한다.
  */
-const MAX_PREDICTION_SECONDS = 4
+const MAX_PREDICTION_SECONDS = Math.max(4, SETTLEMENT.maxRollDurationMs / 1000)
 /** 스텝이 아니라 시간으로 잡는다 — simulationHz를 바꿔도 "얼마나 가만히 있었나"가 같아야 한다. */
 const STABLE_SECONDS = 0.12
+const TRAJECTORY_FPS = 60
+const MAX_TRAJECTORY_ATTEMPTS = 3
+const RETRY_FAN_SPEED_STEP = 0.3
+const RETRY_RANDOM_SPEED = 0.1
+const RETRY_ANGULAR_SPEED = 0.8
+const MAX_FLOOR_ASSISTS = 2
+
+export interface DiceTrajectoryPose {
+  position: { x: number; y: number; z: number }
+  rotation: { w: number; x: number; y: number; z: number }
+}
+
+export interface DiceTrajectoryFrame {
+  atSeconds: number
+  poses: DiceTrajectoryPose[]
+}
+
+export interface DiceTrajectoryPlan {
+  attempt: number
+  durationSeconds: number
+  floorAssists: number
+  frames: DiceTrajectoryFrame[]
+  naturalDice: PhysicsDiceSet
+  settled: boolean
+}
 
 /**
  * 목표면 법선을 자연 결과면 법선으로 보내는 큐브 대칭 회전.
@@ -38,8 +64,7 @@ export function cubeAlignmentOffset(
 
 /**
  * 현재 월드를 스냅샷 복제해 렌더링 없이 완주시키고 각 주사위의 자연 결과면을 읽는다.
- * 쏟아짐 직후(이후 난수 소비·외부 개입이 없는 시점)에 호출해야 실제 진행과 일치한다.
- * 정착 실패·복제 실패 시 null — 호출부는 오프셋 없이 정렬 안전망에 맡긴다.
+ * 쏟아짐 직후 호출해야 하며, 실제 화면은 별도 재시뮬레이션 대신 함께 만든 궤적을 재생한다.
  */
 /** DieEntry의 부분 shape — 예측에 필요한 최소 단위. */
 export interface PredictableDie {
@@ -53,12 +78,50 @@ export function predictNaturalDice(
   entries: PredictableDie[],
   held: PhysicsHeldDice,
 ): PhysicsDiceSet | null {
+  return (
+    simulateDiceTrajectory(world.takeSnapshot(), world.timestep, entries, held, 0, 0)
+      ?.naturalDice ?? null
+  )
+}
+
+/**
+ * 던지는 순간의 월드를 한 번만 끝까지 계산해 자연 착지 눈과 화면 재생용 궤적을 함께 만든다.
+ * 호출부는 이 궤적을 그대로 재생해야 한다 — 다시 실시간 물리를 돌리면 카오스적인 충돌 오차로
+ * 예측 눈과 실제 착지 눈이 갈릴 수 있다.
+ */
+export function planDiceTrajectory(
+  world: RAPIER.World,
+  entries: PredictableDie[],
+  held: PhysicsHeldDice,
+  seed = 0,
+): DiceTrajectoryPlan | null {
+  const snapshot = world.takeSnapshot()
+  let best: { plan: DiceTrajectoryPlan; issueScore: number } | null = null
+  for (let attempt = 0; attempt < MAX_TRAJECTORY_ATTEMPTS; attempt += 1) {
+    const plan = simulateDiceTrajectory(snapshot, world.timestep, entries, held, seed, attempt)
+    if (!plan) continue
+    const issueScore = diceTrajectoryIssueScore(plan, entries, held)
+    if (issueScore === 0) return plan
+    if (!best || issueScore < best.issueScore) best = { plan, issueScore }
+  }
+  return best?.plan ?? null
+}
+
+function simulateDiceTrajectory(
+  snapshot: Uint8Array,
+  timestep: number,
+  entries: PredictableDie[],
+  held: PhysicsHeldDice,
+  seed: number,
+  attempt: number,
+): DiceTrajectoryPlan | null {
   let clone: RAPIER.World | null = null
   try {
-    clone = RAPIER.World.restoreSnapshot(world.takeSnapshot())
-    clone.timestep = world.timestep
+    clone = RAPIER.World.restoreSnapshot(snapshot)
+    clone.timestep = timestep
     const bodies = entries.map((entry) => clone?.getRigidBody(entry.body.handle))
     if (bodies.some((body) => !body)) return null
+    applyRetrySpread(bodies, entries, held, seed, attempt)
     const rolling: TrayOccupant[] = []
     entries.forEach((entry, slot) => {
       const body = bodies[slot]
@@ -66,23 +129,238 @@ export function predictNaturalDice(
     })
     const maxSteps = Math.ceil(MAX_PREDICTION_SECONDS / clone.timestep)
     const stableTarget = Math.max(1, Math.round(STABLE_SECONDS / clone.timestep))
+    const sampleEvery = Math.max(1, Math.round(1 / (TRAJECTORY_FPS * clone.timestep)))
+    const frames: DiceTrajectoryFrame[] = []
+    const capture = (atSeconds: number) => {
+      frames.push({
+        atSeconds,
+        poses: bodies.map((body) => {
+          if (!body) throw new Error('Missing trajectory body')
+          const position = body.translation()
+          const rotation = body.rotation()
+          return {
+            position: { x: position.x, y: position.y, z: position.z },
+            rotation: { w: rotation.w, x: rotation.x, y: rotation.y, z: rotation.z },
+          }
+        }),
+      })
+    }
+    capture(0)
     let stableSteps = 0
+    let floorAssists = 0
     for (let step = 0; step < maxSteps; step += 1) {
       clone.step()
       containDiceInTray(rolling)
+      const elapsed = (step + 1) * clone.timestep
+      if ((step + 1) % sampleEvery === 0) capture(elapsed)
       stableSteps = rolling.every((occupant) => isBodySettled(occupant.body)) ? stableSteps + 1 : 0
       if (stableSteps >= stableTarget) {
-        return bodies.map((body) =>
+        if (
+          floorAssists < MAX_FLOOR_ASSISTS &&
+          pressStandingDice(bodies, entries, held, seed, attempt, floorAssists)
+        ) {
+          floorAssists += 1
+          stableSteps = 0
+          continue
+        }
+        if (frames.at(-1)?.atSeconds !== elapsed) capture(elapsed)
+        const naturalDice = bodies.map((body) =>
           body ? topFaceFromQuaternion(body.rotation()) : 1,
         ) as unknown as PhysicsDiceSet
+        return {
+          attempt,
+          durationSeconds: elapsed,
+          floorAssists,
+          frames,
+          naturalDice,
+          settled: true,
+        }
       }
     }
-    return null
+    const elapsed = maxSteps * clone.timestep
+    if (frames.at(-1)?.atSeconds !== elapsed) capture(elapsed)
+    const naturalDice = bodies.map((body) =>
+      body ? topFaceFromQuaternion(body.rotation()) : 1,
+    ) as unknown as PhysicsDiceSet
+    return {
+      attempt,
+      durationSeconds: elapsed,
+      floorAssists,
+      frames,
+      naturalDice,
+      settled: false,
+    }
   } catch {
     return null
   } finally {
     clone?.free()
   }
+}
+
+function pressStandingDice(
+  bodies: Array<RAPIER.RigidBody | undefined>,
+  entries: PredictableDie[],
+  held: PhysicsHeldDice,
+  seed: number,
+  attempt: number,
+  assist: number,
+) {
+  const width = PHYSICS_DICE_CONFIG.defaults.diceSize * PHYSICS_DICE_CONFIG.scene.bowlDiceScale
+  const active = entries
+    .map((entry, slot) => ({ body: bodies[slot], entry }))
+    .filter(
+      (item): item is { body: RAPIER.RigidBody; entry: PredictableDie } =>
+        Boolean(item.body) && !held[item.entry.index],
+    )
+  let pressed = false
+  active.forEach(({ body, entry }) => {
+    const position = body.translation()
+    if (position.y <= width / 2 + width * 0.18) return
+    const supportedByDie = active.some(({ body: other }) => {
+      if (other.handle === body.handle) return false
+      const otherPosition = other.translation()
+      return (
+        otherPosition.y < position.y - width * 0.35 &&
+        Math.hypot(otherPosition.x - position.x, otherPosition.z - position.z) < width * 0.82
+      )
+    })
+    if (supportedByDie) return
+    const random = createPhysicsDiceRandom(retrySeed(seed, attempt + assist + 11, entry.index))
+    const angle = random.next() * Math.PI * 2
+    body.applyImpulseAtPoint(
+      { x: 0, y: -PHYSICS_DICE_CONFIG.defaults.mass, z: 0 },
+      {
+        x: position.x + Math.cos(angle) * width * 0.35,
+        y: position.y,
+        z: position.z + Math.sin(angle) * width * 0.35,
+      },
+      true,
+    )
+    pressed = true
+  })
+  return pressed
+}
+
+function applyRetrySpread(
+  bodies: Array<RAPIER.RigidBody | undefined>,
+  entries: PredictableDie[],
+  held: PhysicsHeldDice,
+  seed: number,
+  attempt: number,
+) {
+  if (attempt === 0) return
+  const rollingSlots = entries
+    .map((entry, slot) => ({ entry, slot }))
+    .filter(({ entry }) => !held[entry.index])
+  rollingSlots.forEach(({ entry, slot }, rank) => {
+    const body = bodies[slot]
+    if (!body) return
+    const random = createPhysicsDiceRandom(retrySeed(seed, attempt, entry.index))
+    const velocity = body.linvel()
+    const fan =
+      (rank - (rollingSlots.length - 1) / 2) / Math.max(0.5, (rollingSlots.length - 1) / 2)
+    body.setLinvel(
+      {
+        x:
+          velocity.x +
+          (random.next() - 0.5) *
+            RETRY_RANDOM_SPEED *
+            PHYSICS_DICE_CONFIG.defaults.throwForce *
+            attempt,
+        y: velocity.y,
+        z:
+          velocity.z +
+          (fan * RETRY_FAN_SPEED_STEP + (random.next() - 0.5) * RETRY_RANDOM_SPEED) *
+            PHYSICS_DICE_CONFIG.defaults.throwForce *
+            attempt,
+      },
+      true,
+    )
+    const angular = body.angvel()
+    body.setAngvel(
+      {
+        x: angular.x + (random.next() - 0.5) * 2 * RETRY_ANGULAR_SPEED * attempt,
+        y: angular.y,
+        z: angular.z + (random.next() - 0.5) * 2 * RETRY_ANGULAR_SPEED * attempt,
+      },
+      true,
+    )
+    body.wakeUp()
+  })
+}
+
+function retrySeed(seed: number, attempt: number, index: PhysicsDiceIndex) {
+  let mixed =
+    (Math.trunc(seed) ^ Math.imul(attempt, 0x9e3779b9) ^ Math.imul(index + 1, 0x85ebca6b)) >>> 0
+  mixed = Math.imul(mixed ^ (mixed >>> 16), 0x7feb352d)
+  mixed = Math.imul(mixed ^ (mixed >>> 15), 0x846ca68b)
+  return (mixed ^ (mixed >>> 16)) >>> 0
+}
+
+export function diceTrajectoryIssueScore(
+  plan: DiceTrajectoryPlan,
+  entries: PredictableDie[],
+  held: PhysicsHeldDice,
+) {
+  const finalPoses = plan.frames.at(-1)?.poses
+  if (!finalPoses) return Number.POSITIVE_INFINITY
+  const colliderWidth =
+    PHYSICS_DICE_CONFIG.defaults.diceSize *
+    PHYSICS_DICE_CONFIG.scene.colliderHalfRatio *
+    PHYSICS_DICE_CONFIG.scene.bowlDiceScale *
+    2
+  const visualWidth =
+    PHYSICS_DICE_CONFIG.defaults.diceSize * PHYSICS_DICE_CONFIG.scene.bowlDiceScale
+  const overlapThresholdSq = (colliderWidth * 0.65) ** 2
+  const horizontalThresholdSq = (visualWidth * 0.82) ** 2
+  const verticalThreshold = visualWidth * 0.45
+  let score = plan.settled ? 0 : 1_000
+
+  plan.frames.forEach((frame) => {
+    // 재시도는 속도만 바꾸므로 시작 자세는 모든 후보가 같다. 사발을 막 벗어나는 구간의
+    // 근접 상태까지 벌점으로 잡으면 어떤 후보도 개선할 수 없으므로 분산이 시작된 뒤부터 본다.
+    if (frame.atSeconds < 0.15) return
+    for (let a = 0; a < entries.length; a += 1) {
+      const entryA = entries[a]
+      const poseA = frame.poses[a]
+      if (!entryA || !poseA || held[entryA.index]) continue
+      for (let b = a + 1; b < entries.length; b += 1) {
+        const entryB = entries[b]
+        const poseB = frame.poses[b]
+        if (!entryB || !poseB || held[entryB.index]) continue
+        const dx = poseA.position.x - poseB.position.x
+        const dy = poseA.position.y - poseB.position.y
+        const dz = poseA.position.z - poseB.position.z
+        const distanceSq = dx * dx + dy * dy + dz * dz
+        if (distanceSq < overlapThresholdSq) {
+          score = Math.max(score, (overlapThresholdSq - distanceSq) / overlapThresholdSq)
+        }
+      }
+    }
+  })
+
+  for (let a = 0; a < entries.length; a += 1) {
+    const entryA = entries[a]
+    const poseA = finalPoses[a]
+    if (!entryA || !poseA || held[entryA.index]) continue
+    const heightExcess = poseA.position.y - (colliderWidth / 2 + visualWidth * 0.2)
+    if (heightExcess > 0) score += 1 + heightExcess / visualWidth
+    for (let b = a + 1; b < entries.length; b += 1) {
+      const entryB = entries[b]
+      const poseB = finalPoses[b]
+      if (!entryB || !poseB || held[entryB.index]) continue
+      const dx = poseA.position.x - poseB.position.x
+      const dz = poseA.position.z - poseB.position.z
+      const horizontalSq = dx * dx + dz * dz
+      const vertical = Math.abs(poseA.position.y - poseB.position.y)
+      if (horizontalSq < horizontalThresholdSq) {
+        score +=
+          (horizontalThresholdSq - horizontalSq) / horizontalThresholdSq +
+          (vertical > verticalThreshold ? vertical - verticalThreshold : 0) / visualWidth
+      }
+    }
+  }
+  return score
 }
 
 /** 물리적으로 멈췄는지. 예측 복제 시뮬과 실제 진행이 같은 기준을 쓰도록 여기서만 정의한다. */

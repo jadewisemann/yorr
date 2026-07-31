@@ -114,7 +114,10 @@ describe('GamePlay 데스크톱 레이아웃', () => {
     const { user } = renderWideGame()
 
     await user.keyboard(' ')
-    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', 'r1-1')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-request',
+      'roll-player-creator-1-1',
+    )
 
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
     await user.keyboard('1')
