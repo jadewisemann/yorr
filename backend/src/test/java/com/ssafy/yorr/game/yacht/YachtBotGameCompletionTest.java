@@ -44,6 +44,7 @@ class YachtBotGameCompletionTest {
         YachtBotTurnCoordinator coordinator = new YachtBotTurnCoordinator(
                 rounds,
                 actions,
+                new ExpectimaxYachtBotPolicy(new ScorecardValueEvaluator()),
                 new LocalYachtBotStrategy(),
                 rooms,
                 scores
@@ -63,7 +64,7 @@ class YachtBotGameCompletionTest {
         var finished = rounds.findByRoomId("room-a").orElseThrow();
         assertThat(finished.isFinished()).isTrue();
         assertThat(finished.roundNumber()).isEqualTo(12);
-        assertThat(actionsExecuted).isBetween(96, 144);
+        assertThat(actionsExecuted).isBetween(48, 144);
         assertThat(scoreStore.findScoreBoard("game-a", "bot-easy").categories())
                 .doesNotContainValue(null);
         assertThat(scoreStore.findScoreBoard("game-a", "bot-hard").categories())

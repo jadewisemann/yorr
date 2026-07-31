@@ -1,5 +1,6 @@
 package com.ssafy.yorr.game.yacht;
 
+import com.ssafy.yorr.game.domain.ScoreBoard;
 import com.ssafy.yorr.game.domain.ScoreCategory;
 import com.ssafy.yorr.game.round.application.RoundStartedEvent;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
@@ -12,6 +13,8 @@ import com.ssafy.yorr.room.service.RoomService;
 import com.ssafy.yorr.ws.dto.DiceHoldPayload;
 import com.ssafy.yorr.ws.dto.DiceRollPayload;
 import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,11 +22,13 @@ import java.util.List;
 @Service
 public class YachtBotTurnCoordinator {
 
+    private static final Logger log = LoggerFactory.getLogger(YachtBotTurnCoordinator.class);
     private static final List<Boolean> NO_HELD =
             List.of(false, false, false, false, false);
 
     private final RoundSynchronizationService rounds;
     private final YachtTurnActionService actions;
+    private final ExpectimaxYachtBotPolicy policy;
     private final LocalYachtBotStrategy strategy;
     private final RoomService rooms;
     private final ScoreConfirmationService scores;
@@ -31,12 +36,14 @@ public class YachtBotTurnCoordinator {
     public YachtBotTurnCoordinator(
             RoundSynchronizationService rounds,
             YachtTurnActionService actions,
+            ExpectimaxYachtBotPolicy policy,
             LocalYachtBotStrategy strategy,
             RoomService rooms,
             ScoreConfirmationService scores
     ) {
         this.rounds = rounds;
         this.actions = actions;
+        this.policy = policy;
         this.strategy = strategy;
         this.rooms = rooms;
         this.scores = scores;
@@ -68,10 +75,31 @@ public class YachtBotTurnCoordinator {
             return BotTurnStep.completed(rolled);
         }
 
-        List<ScoreCategory> openCategories =
-                scores.openCategories(room.gameId(), bot.playerId());
+        ScoreBoard board = scores.scoreBoard(room.gameId(), bot.playerId());
+        ExpectimaxYachtBotPolicy.BotDecision decision = decide(board, state);
+        if (decision.action() == ExpectimaxYachtBotPolicy.Action.SCORE
+                || state.activeRollCount() == RoundState.MAX_ROLL_COUNT) {
+            ScoreCategory category = decision.category() == null
+                    ? strategy.chooseCategory(state.activeDice(), scores.openCategories(
+                            room.gameId(),
+                            bot.playerId()
+                    ))
+                    : decision.category();
+            actions.submitScore(
+                    event.roomId(),
+                    bot.playerId(),
+                    new RoundSubmitPayload(
+                            state.roundNumber(),
+                            state.activeDice(),
+                            category.apiKey()
+                    ),
+                    null
+            );
+            return BotTurnStep.completed(state);
+        }
+
         if (state.activeRollCount() < RoundState.MAX_ROLL_COUNT) {
-            List<Boolean> held = strategy.chooseHeld(state.activeDice());
+            List<Boolean> held = decision.held();
             if (!held.equals(state.activeHeld())) {
                 RoundState heldState = actions.hold(
                         event.roomId(),
@@ -98,19 +126,37 @@ public class YachtBotTurnCoordinator {
             return BotTurnStep.completed(rolled);
         }
 
-        ScoreCategory category =
-                strategy.chooseCategory(state.activeDice(), openCategories);
-        actions.submitScore(
-                event.roomId(),
-                bot.playerId(),
-                new RoundSubmitPayload(
-                        state.roundNumber(),
-                        state.activeDice(),
-                        category.apiKey()
-                ),
-                null
-        );
-        return BotTurnStep.completed(state);
+        return BotTurnStep.ignored();
+    }
+
+    private ExpectimaxYachtBotPolicy.BotDecision decide(ScoreBoard board, RoundState state) {
+        try {
+            return policy.decide(board, state.activeDice(), state.activeRollCount());
+        } catch (RuntimeException exception) {
+            log.warn(
+                    "Expectimax 탐색에 실패해 안전 정책으로 전환합니다. round={} player={}",
+                    state.roundNumber(),
+                    state.activePlayerId(),
+                    exception
+            );
+            List<ScoreCategory> open = java.util.Arrays.stream(ScoreCategory.values())
+                    .filter(category -> board.categories().get(category.apiKey()) == null)
+                    .toList();
+            if (state.activeRollCount() == RoundState.MAX_ROLL_COUNT) {
+                return ExpectimaxYachtBotPolicy.BotDecision.score(
+                        strategy.chooseCategory(state.activeDice(), open),
+                        0
+                );
+            }
+            List<Boolean> held = strategy.chooseHeld(state.activeDice());
+            if (held.stream().allMatch(Boolean.TRUE::equals)) {
+                return ExpectimaxYachtBotPolicy.BotDecision.score(
+                        strategy.chooseCategory(state.activeDice(), open),
+                        0
+                );
+            }
+            return ExpectimaxYachtBotPolicy.BotDecision.hold(held, 0);
+        }
     }
 
     private static RoomPlayerSnapshot findActiveBot(RoomSnapshot room, String activePlayerId) {

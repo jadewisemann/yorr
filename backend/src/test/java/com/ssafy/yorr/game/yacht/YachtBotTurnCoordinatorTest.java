@@ -1,5 +1,6 @@
 package com.ssafy.yorr.game.yacht;
 
+import com.ssafy.yorr.game.domain.ScoreBoard;
 import com.ssafy.yorr.game.domain.ScoreCategory;
 import com.ssafy.yorr.game.round.application.RoundStartedEvent;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
@@ -47,11 +48,14 @@ class YachtBotTurnCoordinatorTest {
         coordinator = new YachtBotTurnCoordinator(
                 rounds,
                 actions,
+                new ExpectimaxYachtBotPolicy(new ScorecardValueEvaluator()),
                 new LocalYachtBotStrategy(),
                 rooms,
                 scores
         );
         when(rooms.getSnapshot("room-a")).thenReturn(roomWithBot());
+        when(scores.scoreBoard("game-a", "bot-a"))
+                .thenReturn(new ScoreBoard(java.util.Map.of(), 0, 0, 0));
     }
 
     @Test
@@ -112,6 +116,21 @@ class YachtBotTurnCoordinatorTest {
     }
 
     @Test
+    void submitsAnAlreadyCompletedYachtWithoutMeaninglessRerolls() {
+        RoundState state = RoundState.start(1, List.of("bot-a", "player-a"));
+        state = state.recordRoll("bot-a", 1, 1, NO_HELD, List.of(6, 6, 6, 6, 6));
+        when(rounds.findByRoomId("room-a")).thenReturn(Optional.of(state));
+
+        assertThat(coordinator.playIfCurrent(new RoundStartedEvent("room-a", state))).isTrue();
+
+        ArgumentCaptor<RoundSubmitPayload> payload =
+                ArgumentCaptor.forClass(RoundSubmitPayload.class);
+        verify(actions).submitScore(eq("room-a"), eq("bot-a"), payload.capture(), eq(null));
+        assertThat(payload.getValue().category()).isEqualTo("yacht");
+        verify(actions, never()).roll(any(), any(), any(), any());
+    }
+
+    @Test
     void exposesTheKeepSelectionBeforeRequestingTheNextRoll() {
         RoundState state = RoundState.start(1, List.of("bot-a", "player-a"));
         state = state.recordRoll(
@@ -140,6 +159,34 @@ class YachtBotTurnCoordinatorTest {
         assertThat(coordinator.playIfCurrent(new RoundStartedEvent("room-a", state))).isFalse();
 
         verify(actions, never()).roll(any(), any(), any(), any());
+    }
+
+    @Test
+    void fallsBackToTheLocalPolicyWhenExpectimaxFails() {
+        ExpectimaxYachtBotPolicy failedPolicy = mock(ExpectimaxYachtBotPolicy.class);
+        coordinator = new YachtBotTurnCoordinator(
+                rounds,
+                actions,
+                failedPolicy,
+                new LocalYachtBotStrategy(),
+                rooms,
+                scores
+        );
+        RoundState state = RoundState.start(1, List.of("bot-a", "player-a"));
+        state = state.recordRoll(
+                "bot-a",
+                1,
+                1,
+                NO_HELD,
+                List.of(6, 6, 2, 3, 4)
+        );
+        when(rounds.findByRoomId("room-a")).thenReturn(Optional.of(state));
+        when(failedPolicy.decide(any(), any(), eq(1)))
+                .thenThrow(new IllegalStateException("search_failed"));
+
+        assertThat(coordinator.playIfCurrent(new RoundStartedEvent("room-a", state))).isTrue();
+
+        verify(actions).hold(eq("room-a"), eq("bot-a"), any(), eq(null));
     }
 
     private static RoomSnapshot roomWithBot() {
