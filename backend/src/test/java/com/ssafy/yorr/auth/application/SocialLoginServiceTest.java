@@ -38,6 +38,39 @@ class SocialLoginServiceTest {
         verify(registrar, never()).register(any(), anyString(), anyString(), any());
     }
 
+    /**
+     * 동의항목이 꺼진 채로 처음 로그인하면 "플레이어"로 가입된다. 나중에 설정을 켜도 우리가
+     * 받아 적지 않으면 그 이름이 영원히 남는다 — 고칠 화면(151)도 아직 없다.
+     */
+    @Test
+    void 임시_이름으로_가입된_회원은_진짜_이름을_받으면_갱신한다() {
+        User placeholder = User.create(User.PLACEHOLDER_NICKNAME, null);
+        User renamed = User.create("진짜닉네임", null);
+        when(socialAccounts.findByProviderAndProviderUserId(SocialProvider.KAKAO, PROVIDER_USER_ID))
+                .thenReturn(Optional.of(SocialAccount.link(placeholder, SocialProvider.KAKAO, PROVIDER_USER_ID)));
+        when(registrar.adoptProviderProfile(placeholder.getId(), "진짜닉네임", "https://img"))
+                .thenReturn(renamed);
+
+        User result = service.loginOrRegister(
+                SocialProvider.KAKAO, PROVIDER_USER_ID, "진짜닉네임", "https://img");
+
+        assertThat(result).isSameAs(renamed);
+    }
+
+    /** 사용자가 직접 정한 이름을 로그인할 때마다 덮어쓰면 바꿀 방법이 없어진다. */
+    @Test
+    void 이미_이름이_있는_회원은_로그인해도_덮어쓰지_않는다() {
+        User existing = User.create("내가정한이름", null);
+        when(socialAccounts.findByProviderAndProviderUserId(SocialProvider.KAKAO, PROVIDER_USER_ID))
+                .thenReturn(Optional.of(SocialAccount.link(existing, SocialProvider.KAKAO, PROVIDER_USER_ID)));
+
+        User result = service.loginOrRegister(
+                SocialProvider.KAKAO, PROVIDER_USER_ID, "카카오에서온이름", null);
+
+        assertThat(result).isSameAs(existing);
+        verify(registrar, never()).adoptProviderProfile(anyString(), anyString(), any());
+    }
+
     @Test
     void 처음_보는_소셜_계정이면_가입시킨다() {
         User created = User.create("카카오닉", "https://img");

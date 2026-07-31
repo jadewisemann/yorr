@@ -30,7 +30,7 @@ public class KakaoOAuthClient {
     private static final String TOKEN_URI = "https://kauth.kakao.com/oauth/token";
     private static final String USER_INFO_URI = "https://kapi.kakao.com/v2/user/me";
     /** 닉네임을 못 받았을 때 쓰는 값. 동의항목을 거절해도 로그인 자체는 되어야 한다. */
-    private static final String FALLBACK_NICKNAME = "플레이어";
+    private static final String FALLBACK_NICKNAME = com.ssafy.yorr.user.domain.User.PLACEHOLDER_NICKNAME;
     /** users.nickname 컬럼 길이. 카카오 닉네임이 더 길면 잘라서 저장한다. */
     private static final int NICKNAME_MAX_LENGTH = 20;
 
@@ -135,15 +135,33 @@ public class KakaoOAuthClient {
         return kakao;
     }
 
+    /**
+     * 카카오는 닉네임을 두 자리에 담아 보낸다 — {@code kakao_account.profile}(현행)과
+     * {@code properties}(구형). 앱 설정에 따라 한쪽만 오는 경우가 있어 둘 다 본다.
+     * 어느 쪽도 없으면 동의항목이 꺼져 있다는 뜻이고, 그래도 로그인 자체는 되어야 한다.
+     */
     private static String nickname(KakaoUserResponse user) {
-        String nickname = user.profile() == null ? null : user.profile().nickname();
-        if (nickname == null || nickname.isBlank()) return FALLBACK_NICKNAME;
+        String nickname = firstNotBlank(
+                user.profile() == null ? null : user.profile().nickname(),
+                user.properties() == null ? null : user.properties().nickname());
+        if (nickname == null) {
+            log.info("카카오가 닉네임을 주지 않았습니다 — 동의항목(프로필 정보)을 확인하세요");
+            return FALLBACK_NICKNAME;
+        }
         String trimmed = nickname.trim();
         return trimmed.length() > NICKNAME_MAX_LENGTH ? trimmed.substring(0, NICKNAME_MAX_LENGTH) : trimmed;
     }
 
     private static String profileImageUrl(KakaoUserResponse user) {
-        return user.profile() == null ? null : user.profile().profileImageUrl();
+        return firstNotBlank(
+                user.profile() == null ? null : user.profile().profileImageUrl(),
+                user.properties() == null ? null : user.properties().profileImage());
+    }
+
+    private static String firstNotBlank(String first, String second) {
+        if (first != null && !first.isBlank()) return first;
+        if (second != null && !second.isBlank()) return second;
+        return null;
     }
 
     /** 제공자에 상관없이 로그인에 필요한 최소 정보. 구글을 붙일 때 이 형태를 그대로 쓴다. */
@@ -157,11 +175,20 @@ public class KakaoOAuthClient {
     @JsonIgnoreProperties(ignoreUnknown = true)
     record KakaoUserResponse(
             @JsonProperty("id") Long id,
-            @JsonProperty("kakao_account") KakaoAccount kakaoAccount
+            @JsonProperty("kakao_account") KakaoAccount kakaoAccount,
+            /** 구형 필드. 앱 설정에 따라 프로필이 이쪽으로만 오는 경우가 있다. */
+            @JsonProperty("properties") Properties properties
     ) {
         /** 동의항목을 거절하면 kakao_account · profile이 통째로 없을 수 있다. */
         Profile profile() {
             return kakaoAccount == null ? null : kakaoAccount.profile();
+        }
+
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        record Properties(
+                @JsonProperty("nickname") String nickname,
+                @JsonProperty("profile_image") String profileImage
+        ) {
         }
 
         @JsonIgnoreProperties(ignoreUnknown = true)

@@ -33,4 +33,20 @@ public class SocialAccountRegistrar {
         socialAccounts.save(SocialAccount.link(user, provider, providerUserId));
         return user;
     }
+
+    /**
+     * 임시 이름으로 가입된 회원이 다시 로그인했을 때, 이제 제공자가 주는 진짜 이름을 받아 적는다.
+     * <p>
+     * 동의항목이 꺼진 채로 처음 로그인하면 "플레이어"로 가입된다. 나중에 설정을 켜도 우리가
+     * 갱신하지 않으면 그 이름이 영원히 남는다 — 고칠 화면(151)도 아직 없다.
+     * <b>임시 이름일 때만</b> 바꾼다: 사용자가 직접 정한 이름을 로그인마다 덮어쓰면 안 된다.
+     */
+    @Transactional
+    public User adoptProviderProfile(String userId, String nickname, String profileImageUrl) {
+        User user = users.findById(userId).orElseThrow();
+        if (user.hasPlaceholderNickname()) {
+            user.adoptProviderProfile(nickname, profileImageUrl);
+        }
+        return user;
+    }
 }

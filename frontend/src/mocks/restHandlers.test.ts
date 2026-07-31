@@ -1,6 +1,7 @@
 import { HttpResponse, http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { HttpGameApiClient } from '@/api/gameApi'
+import { saveAuthSession } from '@/authSession'
 import { creatorSession, participantSession } from './fixtures'
 import { clearMockRoomSnapshot } from './mockRoomState'
 import { createRestHandlers } from './restHandlers'
@@ -10,7 +11,39 @@ const client = new HttpGameApiClient()
 
 describe('REST mock handlers', () => {
   // startGame이 방 상태를 기억하므로, 테스트 순서에 따라 응답이 달라지지 않게 지운다.
-  beforeEach(() => clearMockRoomSnapshot())
+  beforeEach(() => {
+    clearMockRoomSnapshot()
+    localStorage.clear()
+  })
+
+  /**
+   * 로그인 세션을 함께 보내야 서버가 새 게스트를 만들지 않고 그 회원으로 입장시킨다.
+   * 이게 빠지면 로그인해도 방에 들어가는 순간 게스트가 되어 전적이 계정에 남지 않는다.
+   */
+  it('로그인했으면 방 입장 요청에 세션 토큰을 싣는다', async () => {
+    const bodies: unknown[] = []
+    mockApiServer.use(
+      http.post('/api/v1/rooms', async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json({
+          id: 'member-1',
+          nickname: '카카오회원',
+          token: 'member-token',
+          room_id: 'YORR64',
+        })
+      }),
+    )
+
+    await client.createRoom({ nickname: '비로그인' })
+
+    saveAuthSession({ userId: 'member-1', nickname: '카카오회원', sessionToken: 'member-token' })
+    await client.createRoom({ nickname: '로그인함' })
+    await client.joinRoom('YORR64', { nickname: '로그인함' })
+
+    expect(bodies[0]).not.toHaveProperty('session_token')
+    expect(bodies[1]).toMatchObject({ nickname: '로그인함', session_token: 'member-token' })
+    expect(bodies[2]).toMatchObject({ room_id: 'YORR64', session_token: 'member-token' })
+  })
 
   it('OpenAPI에 정의된 방·게임 REST 흐름을 제공한다', async () => {
     const creator = await client.createRoom({
