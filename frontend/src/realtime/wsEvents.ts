@@ -44,6 +44,8 @@
  *    v0.5 (2026-07) 요트 점수 전체 확정 — fourOfAKind=5개 총합, 상단보너스 63↑→35 잠금.
  *    v0.6 (2026-07) dice.throw / dice.thrown 추가 — 던진 시점을 방에 알린다. 그전까지 관전자는
  *                   dice.broadcast 직후 타이머로 사발을 쏟아, 굴린 사람이 흔드는 중에 결과가 먼저 보였다.
+ *    v0.7 (2026-08) dice.shake / dice.shaken 추가 — 흔들림 펄스를 그대로 중계한다. 그전까지
+ *                   관전 화면은 정해진 애니메이션으로 계속 흔들려서, 굴린 사람이 손을 멈춰도 멈추지 않았다.
  * ============================================================================
  */
 
@@ -337,6 +339,33 @@ export interface DiceHoldChangedPayload {
   held: readonly [boolean, boolean, boolean, boolean, boolean]
 }
 /**
+ * C→S: 사발을 흔든 펄스 하나 — 관전 화면이 같은 손놀림을 따라 하도록 중계된다.
+ *
+ * 폰으로 굴리면 사발의 흔들림은 기기 흔들림 펄스가 유일한 에너지원이라, 손을 멈추면 사발 속
+ * 주사위도 잦아든다. 이 신호가 없으면 관전 화면은 정해진 애니메이션으로 계속 흔들려서
+ * "굴린 사람은 멈췄는데 남의 화면에서만 계속 흔들리는" 상태가 된다.
+ *
+ * dice.throw와 같은 성격의 연출 신호다 — 서버 상태를 건드리지 않고, 유실되면 그 순간의
+ * 흔들림만 관전 화면에 빠진다. 방향이 바뀔 때마다 나가므로 다른 메시지보다 잦다(전송 측에서 제한).
+ *
+ * dice.throw와 달리 rollCount는 싣지 않는다. 흔들기는 dice.roll보다 먼저 시작하므로 이 펄스가
+ * 나갈 때 클라이언트는 서버가 매길 굴림 번호를 아직 모른다 — 한 턴에 화면에서 흔들리는 사발은
+ * 하나뿐이라 roundNumber만으로 충분하다.
+ */
+export interface DiceShakePayload {
+  roundNumber: number
+  direction: 'left' | 'right'
+  /** 0~1로 정규화된 세기. 사발이 얼마나 크게 흔들리고 주사위가 얼마나 튀는지를 정한다. */
+  strength: number
+}
+/** S→C: 턴 주인이 사발을 흔들었다. 관전 화면이 이 펄스를 그대로 자기 사발에 먹인다. */
+export interface DiceShakenPayload {
+  playerId: PlayerId
+  roundNumber: number
+  direction: 'left' | 'right'
+  strength: number
+}
+/**
  * C→S: 사발을 던졌다 — "지금 쏟아라"라는 연출 신호다.
  *
  * dice.roll은 던지는 순간이 아니라 **흔들기 시작**에 나간다(던질 때 굴림 결과를 기다리면
@@ -344,7 +373,7 @@ export interface DiceHoldChangedPayload {
  * 알 수 없어, 굴린 사람이 아직 흔드는 중인데 먼저 주사위를 쏟고 눈까지 보게 된다.
  *
  * 서버 상태는 건드리지 않는다 — 눈은 dice.roll에서 이미 확정됐다. 유실돼도 게임 진행은
- * 어긋나지 않고, 관전 화면만 안전망 타이머로 늦게 따라온다.
+ * 어긋나지 않고, 관전 화면만 그 턴 동안 사발을 계속 흔들다가 서버가 턴을 넘길 때 정리된다.
  */
 export interface DiceThrowPayload {
   roundNumber: number
@@ -424,6 +453,7 @@ export type ClientMessage =
   // ⚠️ STUB (게임 도메인)
   | WsEnvelope<'dice.roll', DiceRollPayload>
   | WsEnvelope<'dice.hold', DiceHoldPayload>
+  | WsEnvelope<'dice.shake', DiceShakePayload>
   | WsEnvelope<'dice.throw', DiceThrowPayload>
   | WsEnvelope<'round.submit', RoundSubmitPayload>
 
@@ -450,6 +480,7 @@ export type ServerMessage =
   | WsEnvelope<'round.end', RoundEndPayload>
   | WsEnvelope<'dice.broadcast', DiceBroadcastPayload>
   | WsEnvelope<'dice.hold_changed', DiceHoldChangedPayload>
+  | WsEnvelope<'dice.shaken', DiceShakenPayload>
   | WsEnvelope<'dice.thrown', DiceThrownPayload>
   | WsEnvelope<'score.update', ScoreUpdatePayload>
   | WsEnvelope<'game.over', GameOverPayload>
