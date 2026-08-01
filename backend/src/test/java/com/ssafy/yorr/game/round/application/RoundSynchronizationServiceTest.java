@@ -25,7 +25,7 @@ class RoundSynchronizationServiceTest {
     @BeforeEach
     void setUp() {
         store = new InMemoryRoundStateStore();
-        service = new RoundSynchronizationService(store);
+        service = new RoundSynchronizationService(store, () -> 1);
     }
 
     @Test
@@ -59,6 +59,8 @@ class RoundSynchronizationServiceTest {
 
         List<RoundSubmissionResult> results = new ArrayList<>();
         for (String playerId : participants) {
+            service.recordRoll("room-a", playerId,
+                    new com.ssafy.yorr.ws.dto.DiceRollPayload(1, 1, noHeld()));
             results.add(service.submit("room-a", playerId, payload(1)));
         }
 
@@ -73,6 +75,8 @@ class RoundSynchronizationServiceTest {
     @Test
     void removalAllowsRoomToBeInitializedAgain() {
         service.initialize("room-a", 1, List.of("player-a"));
+        service.recordRoll("room-a", "player-a",
+                new com.ssafy.yorr.ws.dto.DiceRollPayload(1, 1, noHeld()));
 
         service.remove("room-a");
         service.initialize("room-a", 4, List.of("player-b"));
@@ -85,6 +89,8 @@ class RoundSynchronizationServiceTest {
     @Test
     void failedPreCommitActionDoesNotRecordSubmission() {
         service.initialize("room-a", 1, List.of("player-a"));
+        service.recordRoll("room-a", "player-a",
+                new com.ssafy.yorr.ws.dto.DiceRollPayload(1, 1, noHeld()));
 
         assertThatThrownBy(() -> service.submit(
                 "room-a",
@@ -103,6 +109,10 @@ class RoundSynchronizationServiceTest {
     }
 
     private static RoundSubmitPayload payload(int roundNumber) {
-        return new RoundSubmitPayload(roundNumber, List.of(1, 2, 3, 4, 5), "smallStraight");
+        return new RoundSubmitPayload(roundNumber, List.of(1, 1, 1, 1, 1), "ones");
+    }
+
+    private static List<Boolean> noHeld() {
+        return List.of(false, false, false, false, false);
     }
 }

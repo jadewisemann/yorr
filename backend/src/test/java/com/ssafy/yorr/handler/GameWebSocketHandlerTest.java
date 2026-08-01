@@ -140,6 +140,7 @@ class GameWebSocketHandlerTest {
         registry.join("room-a", playerB, "player-b", "Player B");
         broadcaster.register("room-a", playerA);
         broadcaster.register("room-a", playerB);
+        recordCurrentRoll("room-a", "player-a");
 
         handler.handle(playerA, submitMessage("room-a", "player-a-message"));
 
@@ -148,6 +149,7 @@ class GameWebSocketHandlerTest {
         assertThat(firstTurn.round().roundCompleted()).isFalse();
         assertThat(firstTurn.round().state().activePlayerId()).isEqualTo("player-b");
 
+        recordCurrentRoll("room-a", "player-b");
         handler.handle(playerB, submitMessage("room-a", "player-b-message"));
 
         ScoreRoundSubmissionResult lastTurn = capturedAdvance("player-b-message");
@@ -161,6 +163,7 @@ class GameWebSocketHandlerTest {
         WebSocketSession playerA = sessionWithPlayer("player-a");
         registry.join("room-a", playerA, "player-a", "Player A");
         broadcaster.register("room-a", playerA);
+        recordCurrentRoll("room-a", "player-a");
         doThrow(new ScoreConfirmationException(STORE_FAILURE, "redis unavailable"))
                 .when(scoreConfirmationService)
                 .confirm(any());
@@ -740,14 +743,27 @@ class GameWebSocketHandlerTest {
     }
 
     private TextMessage submitMessage(String roomId, String msgId) throws Exception {
+        List<Integer> dice = roundStateStore.findByRoomId(roomId)
+                .map(state -> state.activeDice() == null
+                        ? List.of(1, 2, 3, 4, 5)
+                        : state.activeDice())
+                .orElse(List.of(1, 2, 3, 4, 5));
         String message = objectMapper.writeValueAsString(new WsEnvelope<>(
                 "round.submit",
                 System.currentTimeMillis(),
-                new RoundSubmitPayload(1, List.of(1, 2, 3, 4, 5), "smallStraight"),
+                new RoundSubmitPayload(1, dice, "smallStraight"),
                 roomId,
                 msgId
         ));
         return new TextMessage(message);
+    }
+
+    private void recordCurrentRoll(String roomId, String playerId) {
+        roundSynchronizationService.recordRoll(
+                roomId,
+                playerId,
+                new DiceRollPayload(1, 1, List.of(false, false, false, false, false))
+        );
     }
 
     private TextMessage leaveMessage() throws Exception {

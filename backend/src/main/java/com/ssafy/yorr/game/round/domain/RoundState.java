@@ -186,6 +186,18 @@ public final class RoundState {
 
     public RoundSubmissionResult submit(RoundSubmission submission) {
         validateCurrentPlayer(submission.playerId(), submission.roundNumber());
+        if (activeDice == null) {
+            throw new RoundSynchronizationException(
+                    RoundSynchronizationException.Reason.INVALID_DICE,
+                    "dice must be rolled before submission"
+            );
+        }
+        if (!activeDice.equals(submission.dice())) {
+            throw new RoundSynchronizationException(
+                    RoundSynchronizationException.Reason.INVALID_DICE,
+                    "submitted dice do not match the server dice"
+            );
+        }
         if (submissions.containsKey(submission.playerId())) {
             throw new RoundSynchronizationException(
                     RoundSynchronizationException.Reason.ALREADY_SUBMITTED,
