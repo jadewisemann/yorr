@@ -175,7 +175,6 @@ function NicknameEditor({ onDone, session }: { onDone: () => void; session: Auth
       <label className="grid gap-1.5 text-[12.5px] font-semibold text-content-muted">
         닉네임
         <input
-          autoFocus
           className="rounded-[12px] border border-border bg-surface-raised px-3 py-2.5 text-[15px] font-semibold text-content focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-1"
           disabled={saving}
           maxLength={NICKNAME_MAX_LENGTH}
