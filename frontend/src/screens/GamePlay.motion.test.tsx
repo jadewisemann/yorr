@@ -154,6 +154,18 @@ describe('GamePlay 센서 굴림', () => {
     expect(vibrate).toHaveBeenCalled()
   })
 
+  it('흔들림 펄스를 방에 중계한다 — 관전 화면이 같은 손놀림을 따라 하도록', () => {
+    const { client } = renderGame()
+
+    act(() => {
+      motion.emit?.({ type: 'shakePulse', at: 1_000, direction: 'left', strength: 0.5 })
+    })
+
+    const shakes = client.sentMessages.filter((message) => message.type === 'dice.shake')
+    expect(shakes).toHaveLength(1)
+    expect(shakes[0]?.payload).toMatchObject({ direction: 'left', roundNumber: 1, strength: 0.5 })
+  })
+
   it('던지기 동작이 굴림 응답보다 먼저 와도 주사위가 도착하는 순간 놓아 준다', () => {
     const { client } = renderGame(withheldRoll(createRealtimeFixture()))
 
