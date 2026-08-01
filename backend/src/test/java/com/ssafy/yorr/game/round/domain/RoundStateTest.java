@@ -11,7 +11,7 @@ class RoundStateTest {
 
     @Test
     void waitsUntilEveryParticipantSubmits() {
-        RoundState state = RoundState.start(1, List.of("player-a", "player-b"));
+        RoundState state = rolled(RoundState.start(1, List.of("player-a", "player-b")));
 
         RoundSubmissionResult result = state.submit(submission("player-a", 1));
 
@@ -23,8 +23,9 @@ class RoundStateTest {
 
     @Test
     void advancesAndClearsSubmissionsWhenEveryParticipantSubmits() {
-        RoundState state = RoundState.start(3, List.of("player-a", "player-b"));
+        RoundState state = rolled(RoundState.start(3, List.of("player-a", "player-b")));
         RoundState waiting = state.submit(submission("player-a", 3)).state();
+        waiting = rolled(waiting);
 
         RoundSubmissionResult result = waiting.submit(submission("player-b", 3));
 
@@ -61,7 +62,9 @@ class RoundStateTest {
                 List.of(true, false, true, false, true),
                 List.of(6, 6, 6, 6, 6)
         );
-        RoundState nextPlayer = afterSecondRoll.submit(submission("player-a", 1)).state();
+        RoundState nextPlayer = afterSecondRoll.submit(
+                new RoundSubmission("player-a", 1, afterSecondRoll.activeDice(), "smallStraight")
+        ).state();
 
         assertThat(afterFirstRoll.activeRollCount()).isEqualTo(1);
         assertThat(afterSecondRoll.activeRollCount()).isEqualTo(2);
@@ -152,6 +155,30 @@ class RoundStateTest {
     }
 
     @Test
+    void rejectsSubmissionBeforeThePlayerRolls() {
+        RoundState state = RoundState.start(1, List.of("player-a"));
+
+        assertThatThrownBy(() -> state.submit(submission("player-a", 1)))
+                .isInstanceOfSatisfying(RoundSynchronizationException.class, exception ->
+                        assertThat(exception.reason())
+                                .isEqualTo(RoundSynchronizationException.Reason.INVALID_DICE)
+                );
+    }
+
+    @Test
+    void rejectsDiceThatDoNotMatchTheServerRoll() {
+        RoundState state = RoundState.start(1, List.of("player-a"))
+                .recordRoll("player-a", 1, 1, noHeld(), List.of(1, 2, 3, 4, 6));
+
+        assertThatThrownBy(() -> state.submit(
+                new RoundSubmission("player-a", 1, List.of(6, 6, 6, 6, 6), "yacht")
+        )).isInstanceOfSatisfying(RoundSynchronizationException.class, exception ->
+                assertThat(exception.reason())
+                        .isEqualTo(RoundSynchronizationException.Reason.INVALID_DICE)
+        );
+    }
+
+    @Test
     void rejectsDuplicateParticipants() {
         assertThatThrownBy(() -> RoundState.start(1, List.of("player-a", "player-a")))
                 .isInstanceOfSatisfying(RoundSynchronizationException.class, exception ->
@@ -166,7 +193,7 @@ class RoundStateTest {
      */
     @Test
     void marksTheGameCompletedInsteadOfOpeningAnotherRound() {
-        RoundState state = RoundState.start(2, List.of("player-a"), 2);
+        RoundState state = rolled(RoundState.start(2, List.of("player-a"), 2));
 
         RoundSubmissionResult result = state.submit(submission("player-a", 2));
 
@@ -181,7 +208,7 @@ class RoundStateTest {
 
     @Test
     void keepsOpeningRoundsUntilTheLastOne() {
-        RoundState state = RoundState.start(1, List.of("player-a"), 2);
+        RoundState state = rolled(RoundState.start(1, List.of("player-a"), 2));
 
         RoundSubmissionResult result = state.submit(submission("player-a", 1));
 
@@ -196,6 +223,7 @@ class RoundStateTest {
     @Test
     void rejectsEverythingOnceTheGameIsFinished() {
         RoundState finished = RoundState.start(1, List.of("player-a"), 1)
+                .recordRoll("player-a", 1, 1, noHeld(), List.of(1, 2, 3, 4, 5))
                 .submit(submission("player-a", 1))
                 .state();
 
@@ -222,5 +250,10 @@ class RoundStateTest {
 
     private static List<Boolean> noHeld() {
         return List.of(false, false, false, false, false);
+    }
+
+    private static RoundState rolled(RoundState state) {
+        return state.recordRoll(
+                state.activePlayerId(), state.roundNumber(), 1, noHeld(), List.of(1, 2, 3, 4, 5));
     }
 }

@@ -39,7 +39,7 @@ class ScoreRoundSubmissionServiceTest {
     @BeforeEach
     void setUp() {
         roundStateStore = new InMemoryRoundStateStore();
-        roundSynchronizationService = new RoundSynchronizationService(roundStateStore);
+        roundSynchronizationService = new RoundSynchronizationService(roundStateStore, () -> 1);
         scoreConfirmationService = mock(ScoreConfirmationService.class);
         roomService = mock(RoomService.class);
         service = new ScoreRoundSubmissionService(
@@ -52,6 +52,7 @@ class ScoreRoundSubmissionServiceTest {
     @Test
     void confirmsScoreBeforeRecordingRoundSubmission() {
         roundSynchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
+        roll("player-a");
         givenPlayingGame("room-a", "game-a");
         ScoreConfirmationResult confirmed = confirmedScore("game-a", "player-a", 15);
         when(scoreConfirmationService.confirm(any())).thenReturn(confirmed);
@@ -67,7 +68,7 @@ class ScoreRoundSubmissionServiceTest {
                 "player-a",
                 1,
                 "choice",
-                List.of(1, 2, 3, 4, 5)
+                List.of(1, 1, 1, 1, 1)
         ));
         assertThat(result.score()).isEqualTo(confirmed);
         assertThat(result.round().roundCompleted()).isFalse();
@@ -79,6 +80,7 @@ class ScoreRoundSubmissionServiceTest {
     @Test
     void scoreFailureLeavesPlayerUnsubmittedAndAllowsRetry() {
         roundSynchronizationService.initialize("room-a", 1, List.of("player-a"));
+        roll("player-a");
         givenPlayingGame("room-a", "game-a");
         when(scoreConfirmationService.confirm(any()))
                 .thenThrow(new ScoreConfirmationException(STORE_FAILURE, "redis unavailable"));
@@ -109,6 +111,7 @@ class ScoreRoundSubmissionServiceTest {
     @Test
     void missingCurrentGameLeavesRoundStateUnchanged() {
         roundSynchronizationService.initialize("room-a", 1, List.of("player-a"));
+        roll("player-a");
         when(roomService.getSnapshot("room-a")).thenReturn(RoomSnapshot.notFound("room-a"));
 
         assertThatThrownBy(() -> service.submit("room-a", "player-a", payload()))
@@ -134,7 +137,13 @@ class ScoreRoundSubmissionServiceTest {
     }
 
     private static RoundSubmitPayload payload() {
-        return new RoundSubmitPayload(1, List.of(1, 2, 3, 4, 5), "choice");
+        return new RoundSubmitPayload(1, List.of(1, 1, 1, 1, 1), "choice");
+    }
+
+    private void roll(String playerId) {
+        roundSynchronizationService.recordRoll("room-a", playerId,
+                new com.ssafy.yorr.ws.dto.DiceRollPayload(
+                        1, 1, List.of(false, false, false, false, false)));
     }
 
     private static ScoreConfirmationResult confirmedScore(

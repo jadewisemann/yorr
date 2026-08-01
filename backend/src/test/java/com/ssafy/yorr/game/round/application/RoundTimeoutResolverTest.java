@@ -139,7 +139,7 @@ class RoundTimeoutResolverTest {
         synchronizationService.initialize("room-a", 1, List.of("player-a", "player-b"));
         rollThreeTimes();
         synchronizationService.submit("room-a", "player-a",
-                new RoundSubmitPayload(1, List.of(1, 2, 3, 4, 5), "smallStraight"));
+                new RoundSubmitPayload(1, List.of(6, 6, 6, 6, 6), "yacht"));
 
         RoundTimeoutResolution resolution = resolver.resolve("room-a", 1, "player-a");
 
