@@ -85,6 +85,16 @@ async function settlePreload() {
   for (let index = 0; index < 5; index += 1) await Promise.resolve()
 }
 
+/** resume() 뒤로 미뤄둔 start()가 실행되기를 기다린다. */
+async function settleResume() {
+  for (let index = 0; index < 3; index += 1) await Promise.resolve()
+}
+
+/** 화면을 한 번 만져 context 잠금이 풀린 상태. 버튼으로 굴리면 늘 여기서 시작한다. */
+function unlockContext() {
+  document.dispatchEvent(new Event('pointerdown'))
+}
+
 describe('createHandVoice', () => {
   let audio: ReturnType<typeof fakeWebAudio>
 
@@ -100,6 +110,7 @@ describe('createHandVoice', () => {
   it('족보에 맞는 음성을 재생한다', async () => {
     const voice = createHandVoice()
     await settlePreload()
+    unlockContext()
 
     voice.play('yacht')
     voice.play('fourOfAKind')
@@ -127,6 +138,7 @@ describe('createHandVoice', () => {
   it('앞선 콜아웃이 아직 말하는 중이면 끊고 새 족보를 외친다', async () => {
     const voice = createHandVoice()
     await settlePreload()
+    unlockContext()
 
     voice.play('smallStraight')
     voice.play('largeStraight')
@@ -149,6 +161,7 @@ describe('createHandVoice', () => {
   it('재생 중에 음소거하면 즉시 멈춘다', async () => {
     const voice = createHandVoice()
     await settlePreload()
+    unlockContext()
     voice.play('fullHouse')
 
     voice.setMuted(true)
@@ -181,6 +194,21 @@ describe('createHandVoice', () => {
     voice.dispose()
   })
 
+  it('흔들어 굴려 제스처가 없어도 resume이 끝나면 목소리가 나간다', async () => {
+    // 폰에서 흔들어 굴리면 게임 화면에서 탭이 한 번도 없어 context가 잠긴 채로 착지한다.
+    // 잠긴 상태에서 start()하면 타임라인이 멈춰 있어 목소리가 통째로 날아갔다.
+    const voice = createHandVoice()
+    await settlePreload()
+
+    voice.play('yacht')
+    expect(audio.started).toEqual([])
+
+    await settleResume()
+
+    expect(audio.started).toEqual(['yacht.wav'])
+    voice.dispose()
+  })
+
   it('dispose 뒤에는 제스처가 잠금을 풀지 않는다', async () => {
     const voice = createHandVoice()
     await settlePreload()
@@ -194,6 +222,7 @@ describe('createHandVoice', () => {
   it('재생이 스스로 끝나면 다음 play가 stop을 부르지 않는다', async () => {
     const voice = createHandVoice()
     await settlePreload()
+    unlockContext()
 
     voice.play('yacht')
     audio.lastSource?.onended?.()

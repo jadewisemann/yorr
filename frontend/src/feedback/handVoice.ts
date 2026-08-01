@@ -99,9 +99,11 @@ export function createHandVoice({ muted = false }: { muted?: boolean } = {}): Ha
     playing = null
   }
 
-  const gestureEvents = ['pointerdown', 'keydown'] as const
+  // once를 쓰지 않는다 — iOS는 전화·백그라운드 전환 뒤 context를 다시 재운다. 한 번만 듣고
+  // 떼면 그 뒤로는 영영 잠긴 채로 남는다. resume()을 다시 부르는 건 값이 싸다.
+  const gestureEvents = ['pointerdown', 'touchend', 'keydown'] as const
   for (const type of gestureEvents) {
-    document.addEventListener(type, unlock, { once: true, passive: true })
+    document.addEventListener(type, unlock, { passive: true })
   }
 
   return {
@@ -120,8 +122,6 @@ export function createHandVoice({ muted = false }: { muted?: boolean } = {}): Ha
       // 아직 디코딩이 안 끝났으면 이번 콜아웃은 텍스트만 나간다. 억지로 기다리면
       // 콜아웃이 사라진 뒤에 소리가 나서 더 어색하다.
       if (!buffer) return
-      // 흔들어 굴리면 착지 시점에 제스처가 없다 — suspended면 여기서 한 번 더 시도한다.
-      if (context.state === 'suspended') void context.resume().catch(() => undefined)
       // 앞 콜아웃이 아직 말하는 중이면 끊는다 — 두 목소리가 겹치면 둘 다 안 들린다.
       stop()
       const source = context.createBufferSource()
@@ -130,8 +130,24 @@ export function createHandVoice({ muted = false }: { muted?: boolean } = {}): Ha
       source.onended = () => {
         if (playing === source) playing = null
       }
-      source.start()
       playing = source
+
+      // 흔들어 굴리면 착지 시점에 게임 화면에서의 탭이 한 번도 없어서 context가 잠겨 있다.
+      // 잠긴 채로 start()하면 타임라인이 멈춰 있어 목소리가 통째로 날아간다(폰에서 족보 음성만
+      // 안 들리던 원인) — resume이 끝난 뒤에 시작한다. 페이지를 한 번이라도 만졌으면
+      // (sticky activation) 제스처 밖에서도 resume은 허용된다.
+      // iOS는 잠긴 상태를 'suspended'가 아니라 'interrupted'로도 두므로 running만 통과시킨다.
+      if (context.state === 'running') {
+        source.start()
+        return
+      }
+      void context
+        .resume()
+        .then(() => {
+          // 기다리는 사이 다음 콜아웃이 왔으면 그쪽이 주인이다.
+          if (playing === source) source.start()
+        })
+        .catch(() => undefined)
     },
     setMuted(next) {
       isMuted = next
