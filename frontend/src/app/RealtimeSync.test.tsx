@@ -376,6 +376,91 @@ describe('RealtimeSync', () => {
     expect(useAppStore.getState().roomSession?.sessionToken).toBe(creatorSession.sessionToken)
   })
 
+  // 로컬 세션이 사라진 직후 도착한 늦은 room.joined도 죽지 않고 방 스냅샷을 그대로 반영해야 한다.
+  it('로컬 세션이 없는 상태로 도착한 room.joined는 스냅샷만 갈아끼운다', () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+    useAppStore.setState({ roomSession: null })
+
+    client.emitMessage(
+      serverMessage('room.joined', {
+        you: participantPlayer.playerId,
+        sessionToken: 'late-token',
+        snapshot: { roomId: creatorSession.roomId, phase: 'waiting', players: [creatorPlayer] },
+      }),
+    )
+
+    expect(useAppStore.getState().roomSession).toBeNull()
+    expect(useAppStore.getState().roomSnapshot).toMatchObject({ phase: 'waiting' })
+  })
+
+  it('진행 중인 턴과 같은 라운드의 주사위 결과만 공유 스냅샷에 반영한다', () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(
+      serverMessage('round.start', {
+        activePlayerId: creatorPlayer.playerId,
+        deadline: 2_000,
+        roundNumber: 1,
+        turnOrder: [creatorPlayer.playerId],
+      }),
+    )
+    client.emitMessage(
+      serverMessage('dice.broadcast', {
+        playerId: creatorPlayer.playerId,
+        roundNumber: 1,
+        rollCount: 2,
+        dice: [1, 2, 3, 4, 5],
+        held: [true, false, false, false, false],
+      }),
+    )
+
+    expect(useAppStore.getState().roomSnapshot?.game).toMatchObject({
+      rollCount: 2,
+      dice: [1, 2, 3, 4, 5],
+      held: [true, false, false, false, false],
+    })
+
+    // 지난 라운드의 뒤늦은 broadcast는 이미 넘어간 턴을 덮어써서는 안 된다.
+    client.emitMessage(
+      serverMessage('dice.broadcast', {
+        playerId: creatorPlayer.playerId,
+        roundNumber: 0,
+        rollCount: 3,
+        dice: [6, 6, 6, 6, 6],
+        held: [false, false, false, false, false],
+      }),
+    )
+
+    expect(useAppStore.getState().roomSnapshot?.game).toMatchObject({ rollCount: 2 })
+  })
+
+  // 40분 유예가 끝나 이미 정리된 자리로 재접속을 시도하면 서버가 이 코드로 거절한다.
+  it('유예가 끝난 자리로의 재접속은 세션을 정리한다', async () => {
+    const client = createRealtimeFixture({ role: 'creator' })
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    client.emitMessage(
+      serverMessage('error', { code: 'GAME_ALREADY_STARTED', message: 'seat reclaimed' }),
+    )
+
+    await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
+    expect(useAppStore.getState().appNotice).toContain('게임에서 나가게')
+  })
+
   it('알 수 없는 메시지 타입은 방 상태를 건드리지 않고 지나간다', () => {
     const client = createRealtimeFixture({ role: 'creator' })
     render(
