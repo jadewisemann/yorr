@@ -16,22 +16,32 @@
 
 ## 디렉터리 구조 (src)
 
-레이어는 전부 `src/` 바로 아래 **한 단계**에만 둔다. 레이어 안에 하위 폴더를 만들지 않는다.
+레이어는 기본적으로 `src/` 바로 아래 **한 단계**에만 둔다. 레이어 안에 하위 폴더를 만들지
+않는다 — 유일한 예외는 `src/rendering/physics-dice/`와 `src/rendering/hero/`처럼 하나의 public
+API를 구성하는 강하게 결합된 subsystem이다.
 
-- `src/app`: 라우터, 전역 provider, 앱 부팅, 개발 전용 화면(`DevCatalog`)
-- `src/screens`: URL에 대응하는 화면 (`EntryPage`, 이후 `LobbyPage` · `GamePage` · `ResultPage`)
+- `src/app`: 라우터, 전역 provider, 앱 부팅, 개발 전용 화면(`DevCatalog`, `MotionLab`)
+- `src/screens`: URL에 대응하는 화면(`EntryPage`, `NicknamePage`, `LobbyPage`, `GamePage`, `GamePlay`, `GameResult`, `AuthCallbackPage` 등)
 - `src/components`: 재사용 UI 컴포넌트
-- `src/api`: REST client(`client.ts` · `gameApi.ts`)와 호출 훅(`use*Api.ts`)
-- `src/realtime`: WebSocket wire contract(`wsEvents.ts`)와 연결 client
+- `src/api`: REST client(`client.ts`)와 호출 훅(`gameApi.ts` · `authApi.ts` · `use*Api.ts`)
+- `src/realtime`: WebSocket wire contract(`wsEvents.ts`, SSOT)와 연결 client
+- `src/domain`: 순수 Yacht 게임 규칙(`dice.ts` · `scoring.ts` · `yachtGame.ts`). React/DOM/네트워크를 모른다
+- `src/feedback`: 진동·효과음·족보 콜아웃 등 플랫폼별 굴림 피드백
+- `src/input`: `DeviceMotion` 기반 흔들기·던지기 제스처 인식
+- `src/rendering`: 3D 물리 주사위(`rendering/physics-dice/`)와 랜딩 히어로 장면(`rendering/hero/`)
 - `src/mocks`: MSW handler와 fixture
 - `src/store.ts` · `src/cn.ts` · `src/styles/`: 전역 상태, class 병합, 디자인 토큰
+
+**주의:** `src/core/{api,realtime}`와 `src/contracts/ws-events.ts`는 2026-07-23 무렵의 초안
+스캐폴드가 정리되지 않고 남은 **죽은 코드**다. 어디서도 import되지 않는다 — 새 코드에서
+참고하거나 의존하지 않는다. 삭제는 별도 코드 변경 티켓에서 처리한다.
 
 규칙:
 
 - **레이어를 넘는 import만 `@/`를 쓴다.** 같은 폴더 안은 상대경로를 쓴다 — `@/`가 보이면 레이어 경계라는 뜻이다.
 - 파일 하나 = 개념 하나. 파일명만 훑어도 앱이 읽히도록 이름 짓는다.
-- 의존 방향은 `app → screens → components · api · realtime → store · cn`으로 유지한다. 되돌아가는 import를 만들지 않는다.
-- 실제 파일 없이 미래를 위한 폴더를 만들지 않는다. `features`, `entities`, `widgets`, `core`, `shared`는 추가하지 않는다. 순수 게임 규칙 파일이 실제로 생기면 그때 `src/domain/`을 만든다.
+- 의존 방향은 `app → screens → components · api · realtime · domain → store · cn`으로 유지한다. `domain`과 `rendering`은 서로, 그리고 `screens`·`realtime`·`store`를 import하지 않는다. 되돌아가는 import를 만들지 않는다.
+- 실제 파일 없이 미래를 위한 폴더를 만들지 않는다. `features`, `entities`, `widgets`, `shared`는 추가하지 않는다.
 
 자세한 설계 근거는 [`docs/engineering/architecture-and-stack.md`](docs/engineering/architecture-and-stack.md) 참고.
 

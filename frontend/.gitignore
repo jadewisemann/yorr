@@ -1,5 +1,4 @@
 # Local planning and reference materials
-/docs/
 /.dev.md
 
 # Build output — 루트 .gitignore에도 있지만, Tailwind v4 소스 탐지는
