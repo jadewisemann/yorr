@@ -25,17 +25,23 @@ import { animationSeedForRoll, GamePlay } from './GamePlay'
  */
 vi.mock('@/components/PhysicsDiceScene', () => ({
   PhysicsDiceScene: ({
+    motionFollow,
+    motionPulse,
     onHeldToggle,
     onRollComplete,
     releaseRequestId,
     request,
   }: {
+    motionFollow?: boolean
+    motionPulse?: { direction: 'left' | 'right'; id: number; strength: number } | null
     onHeldToggle?: (index: 0) => void
     onRollComplete: (requestId: string, dice: PhysicsDiceSet) => void
     releaseRequestId: string | null
     request: PhysicsDiceRollRequest | null
   }) => (
     <div
+      data-follow={motionFollow ? 'on' : 'off'}
+      data-pulse={motionPulse ? `${motionPulse.direction}:${motionPulse.strength}` : ''}
       data-release={releaseRequestId ?? ''}
       data-request={request?.requestId ?? ''}
       data-target={request?.targetDice.join(',') ?? ''}
@@ -205,6 +211,11 @@ describe('GamePlay', () => {
       act(() => vi.advanceTimersByTime(2_000))
       expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
 
+      // 아무리 오래 흔들어도 시간이 대신 쏟아주지 않는다 — 관전 화면은 굴리는 사람 화면을
+      // 그대로 따라가고, 쏟는 시점은 오직 dice.thrown이 정한다.
+      act(() => vi.advanceTimersByTime(20_000))
+      expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
+
       act(() => {
         client.emitMessage(
           serverMessage(
@@ -218,6 +229,40 @@ describe('GamePlay', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  /**
+   * 폰으로 굴리면 사발은 기기 흔들림 펄스로만 흔들린다 — 손을 멈추면 주사위도 잦아든다.
+   * 관전 화면이 그 펄스를 받지 못하면 정해진 애니메이션으로 혼자 계속 흔들어, 굴린 사람이
+   * 멈춘 뒤에도 남의 화면에서만 사발이 움직인다.
+   */
+  it('mirrors the roller shake pulses instead of running its own animation', () => {
+    const { client } = renderObserver()
+
+    act(() => {
+      client.send(
+        buildClientMessage(
+          'dice.roll',
+          { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
+          { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
+        ),
+      )
+    })
+    // 아직 펄스가 없다 = 버튼으로 굴렸을 수도 있다. 그때는 기존 애니메이션이 돌아야 한다.
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-follow', 'off')
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'dice.shaken',
+          { direction: 'left', playerId: creatorSession.you, roundNumber: 1, strength: 0.5 },
+          { roomId: participantSession.roomId },
+        ),
+      )
+    })
+
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-follow', 'on')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-pulse', 'left:0.5')
   })
 
   it('shows the active player special-hand effect to every other participant', async () => {

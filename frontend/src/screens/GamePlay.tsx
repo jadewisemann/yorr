@@ -59,12 +59,11 @@ const TOTAL_ROUNDS = 12
 const MAX_ROLLS = 3
 const TAP_RELEASE_DELAY_MS = 600
 /**
- * 관전 화면이 dice.thrown 없이도 사발을 쏟아 버리는 최후의 안전망. 신호가 유실되면 여기서
- * 걷어내지 않는 한 사발이 영원히 흔들리고 주사위·점수가 그 턴 내내 멈춘다.
- * 한 턴이 25초(RoundTimerService.ROUND_DURATION)라 그 안에서만 의미가 있다 —
- * 정상 흔들기가 이만큼 길어지는 일은 없으므로 평소에는 이 타이머까지 가지 않는다.
+ * 흔들림 펄스를 방에 중계하는 최소 간격. 펄스는 방향이 바뀔 때마다 나와 초당 열 번을 넘길 수
+ * 있는데, 관전 화면에는 "지금 흔들고 있다/멈췄다"가 보이면 충분하다. 이 간격은 사발 세기가
+ * 감쇠로 잦아드는 시간보다 짧아야 흔드는 동안 사발이 끊겨 보이지 않는다.
  */
-const REMOTE_THROW_FALLBACK_MS = 8_000
+const SHAKE_RELAY_INTERVAL_MS = 60
 /**
  * 굴림 애니메이션을 "언제 쏟을지" 정하는 주체.
  *   tap    = 내가 버튼으로 굴렸다 → 짧은 지연 뒤 자동
@@ -111,6 +110,13 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const [requestingRoll, setRequestingRoll] = useState(false)
   const [motionPulse, setMotionPulse] = useState<PhysicsDiceMotionPulse | null>(null)
   const motionPulseSequenceRef = useRef(0)
+  /**
+   * 관전 중인 굴림이 "기기를 흔들어서" 굴려지고 있다 — dice.shaken을 한 번이라도 받으면 켜진다.
+   * 켜지면 내 사발도 정해진 애니메이션 대신 중계된 펄스만 따라간다(굴린 사람이 손을 멈추면 같이 멈춘다).
+   * 버튼으로 굴리는 사람에게선 펄스가 오지 않으므로 그때는 꺼진 채로 남아 기존 애니메이션이 돈다.
+   */
+  const [remoteShaking, setRemoteShaking] = useState(false)
+  const lastShakeSentAtRef = useRef(0)
   const [submitting, setSubmitting] = useState(false)
   // 굴림마다 id를 새로 발급해 같은 족보가 연속으로 떠도 리마운트되게 한다.
   const [rollHighlight, setRollHighlight] = useState<{ hand: SpecialHand; id: number } | null>(null)
@@ -157,6 +163,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     setReleaseRequestId(null)
     setRollInputMode(null)
     setRequestingRoll(false)
+    setRemoteShaking(false)
     // 지난 턴의 사발은 이미 치워졌다 — 늦게 도착한 dice.thrown이 새 굴림을 쏟으면 안 된다.
     remoteRollRef.current = null
     queuedRemoteReleaseRef.current = null
@@ -334,9 +341,31 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   )
 
   /**
+   * 내 흔들림 펄스를 방에 알린다. 관전 화면은 이걸 그대로 자기 사발에 먹여 같은 손놀림을 따라 한다 —
+   * 없으면 남의 화면에서는 내가 손을 멈춰도 사발이 계속 흔들린다.
+   * 펄스는 잦아서 SHAKE_RELAY_INTERVAL_MS 간격으로만 내보낸다.
+   */
+  const publishShake = useCallback(
+    (direction: 'left' | 'right', strength: number) => {
+      const now = performance.now()
+      if (now - lastShakeSentAtRef.current < SHAKE_RELAY_INTERVAL_MS) return
+      lastShakeSentAtRef.current = now
+      try {
+        realtimeClient.send(
+          buildClientMessage('dice.shake', { direction, roundNumber, strength }, { roomId }),
+        )
+      } catch {
+        // 연결이 끊긴 상태다. ConnectionBanner가 이미 알리고 있다.
+      }
+    },
+    [realtimeClient, roomId, roundNumber],
+  )
+
+  /**
    * 내가 사발을 던졌다고 방에 알린다. dice.roll은 "흔들기 시작"에 나가 눈을 미리 받아두므로,
    * 이 신호가 없으면 관전자는 던진 시점을 몰라 내가 흔드는 동안 먼저 주사위를 쏟는다.
-   * 실패해도 조용히 넘어간다 — 내 화면은 이미 쏟았고, 관전 화면은 안전망 타이머가 받아준다.
+   * 실패해도 게임 진행은 어긋나지 않는다 — 눈은 dice.roll에서 이미 확정됐다. 다만 이 신호가
+   * 유실된 관전 화면은 서버가 턴을 넘길 때까지 사발을 흔든다.
    */
   const publishThrow = useCallback(
     (rollCount: number) => {
@@ -433,6 +462,9 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           setRequestingRoll(false)
           setReleaseRequestId(null)
           setRollInputMode(animationMode)
+          // 굴림마다 새로 판단한다 — 지난 굴림을 흔들어 굴렸다고 이번 버튼 굴림까지
+          // 펄스를 기다리면, 아무도 흔들지 않는 사발이 멈춰 선다.
+          setRemoteShaking(false)
           dispatch({
             type: 'rollRequested',
             forced,
@@ -468,6 +500,31 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
             queuedRemoteReleaseRef.current = null
             setReleaseRequestId(requestId)
           }
+          return
+        }
+
+        if (message.type === 'dice.shaken') {
+          if (
+            message.roomId !== roomId ||
+            message.payload.roundNumber !== roundNumber ||
+            message.payload.playerId !== activePlayerId ||
+            // 내 펄스의 메아리다. 내 사발은 기기 센서가 이미 흔들고 있다.
+            message.payload.playerId === session.you ||
+            // 굴림이 아직 화면에 안 걸렸다. 먹일 사발이 없으니 이 펄스는 버린다.
+            !remoteRollRef.current
+          ) {
+            return
+          }
+          // 펄스가 오는 동안만 사발이 흔들린다 — 굴린 사람이 손을 멈추면 여기도 조용해지고,
+          // 사발 세기가 감쇠하며 주사위가 같이 잦아든다. 소리도 그 움직임을 따라간다.
+          feedbackRef.current?.remoteShakePulse()
+          setRemoteShaking(true)
+          motionPulseSequenceRef.current += 1
+          setMotionPulse({
+            id: motionPulseSequenceRef.current,
+            direction: message.payload.direction,
+            strength: message.payload.strength,
+          })
           return
         }
 
@@ -544,6 +601,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
             direction: event.direction,
             strength: event.strength,
           })
+          publishShake(event.direction, event.strength)
           return
         case 'shakeStarted':
           feedbackRef.current?.armed()
@@ -568,7 +626,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           return
       }
     },
-    [beginRoll, local, publishThrow],
+    [beginRoll, local, publishShake, publishThrow],
   )
 
   const motion = useMotionRollInput(handleGestureEvent)
@@ -576,19 +634,18 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
 
   useEffect(() => {
     if (!pendingRoll) return
-    // 남의 굴림은 dice.thrown이 쏟는다. 여기 타이머는 그 신호가 유실됐을 때만 도는 안전망이다 —
-    // 굴린 사람이 아직 사발을 흔드는 중에 관전 화면이 먼저 결과를 보여주면 안 된다.
-    const isRemote = rollInputMode === 'remote'
-    if (!isRemote && rollInputMode !== 'tap' && rollInputMode !== 'auto') return
-    const timeout = setTimeout(
-      () => {
-        setReleaseRequestId(pendingRoll.requestId)
-        // 버튼으로 굴린 것도 "던진 것"이다 — 관전 화면이 같은 순간에 쏟게 알린다.
-        // 마감 자동 굴림(auto)은 던진 사람이 없고, 모두가 auto 표시를 받아 각자 쏟는다.
-        if (rollInputMode === 'tap') publishThrow(local.rollCount)
-      },
-      isRemote ? REMOTE_THROW_FALLBACK_MS : TAP_RELEASE_DELAY_MS,
-    )
+    // 남의 굴림(remote)에는 타이머를 두지 않는다 — 관전 화면은 굴리는 사람 화면을 그대로
+    // 따라가야 하고, 쏟는 시점은 오직 그 사람의 dice.thrown이 정한다.
+    // dice.thrown이 유실되면 그 턴 동안 사발이 계속 흔들리지만, 서버가 마감(25초,
+    // RoundTimerService.ROUND_DURATION)에 대신 굴리거나 다음 턴으로 넘기는 순간
+    // activePlayerId 효과가 굴림을 새로 시작하며 걷어낸다.
+    if (rollInputMode !== 'tap' && rollInputMode !== 'auto') return
+    const timeout = setTimeout(() => {
+      setReleaseRequestId(pendingRoll.requestId)
+      // 버튼으로 굴린 것도 "던진 것"이다 — 관전 화면이 같은 순간에 쏟게 알린다.
+      // 마감 자동 굴림(auto)은 던진 사람이 없고, 모두가 auto 표시를 받아 각자 쏟는다.
+      if (rollInputMode === 'tap') publishThrow(local.rollCount)
+    }, TAP_RELEASE_DELAY_MS)
     return () => clearTimeout(timeout)
   }, [local.rollCount, pendingRoll, publishThrow, rollInputMode])
 
@@ -785,7 +842,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         dice={local.dice}
         held={local.held}
         lineUpAll={lastRollInPlay}
-        motionFollow={rollInputMode === 'motion'}
+        motionFollow={rollInputMode === 'motion' || remoteShaking}
         motionPulse={motionPulse}
         releaseRequestId={releaseRequestId}
         onDiceImpact={(index, strength) => feedbackRef.current?.diceImpact(index, strength)}

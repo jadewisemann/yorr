@@ -116,6 +116,19 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         ),
       ]
     },
+    // 실서버와 같은 단순 릴레이 — 흔든 펄스를 그대로 되돌려준다.
+    'dice.shake': (message) => [
+      serverMessage(
+        'dice.shaken',
+        {
+          playerId: session.you,
+          roundNumber: message.payload.roundNumber,
+          direction: message.payload.direction,
+          strength: message.payload.strength,
+        },
+        { roomId: MOCK_ROOM_ID, msgId: message.msgId },
+      ),
+    ],
     // 실서버와 같은 단순 릴레이 — 상태를 건드리지 않고 "던졌다"만 되돌려준다.
     'dice.throw': (message) => [
       serverMessage(
