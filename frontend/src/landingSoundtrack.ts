@@ -1,10 +1,17 @@
+import { onFirstGesture, primeAudio } from './audioUnlock'
 import { type HeroGameKey, landingGames } from './landingGames'
 import { readSoundMuted } from './soundPreference'
 
 let soundtrack: HTMLAudioElement | null = null
 let gameTrack: HTMLAudioElement | null = null
 let resultTrack: HTMLAudioElement | null = null
+let stopWaitingForGesture: (() => void) | null = null
 const tracks = new Map<HeroGameKey, HTMLAudioElement>()
+
+/** 화면이 바뀔 때마다 갈아탈 수 있는 트랙 전부. 잠금은 요소마다 따로라 한꺼번에 풀어둔다. */
+function allTracks(): HTMLAudioElement[] {
+  return [...tracks.values(), gameTrack, resultTrack].filter((track) => track !== null)
+}
 
 function prepare(): void {
   if (tracks.size) return
@@ -24,13 +31,25 @@ function prepare(): void {
   resultTrack.preload = 'auto'
   resultTrack.volume = 0.35
 
-  const unlock = () => {
-    document.removeEventListener('click', unlock)
-    document.removeEventListener('keydown', unlock)
-    if (!readSoundMuted()) void soundtrack?.play().catch(() => undefined)
-  }
-  document.addEventListener('click', unlock)
-  document.addEventListener('keydown', unlock)
+  waitForGesture()
+}
+
+/**
+ * 첫 조작에서 모든 트랙의 잠금을 풀고, 지금 틀어야 할 트랙을 재생한다.
+ *
+ * 트랙 하나가 아니라 전부를 푸는 게 핵심이다 — iOS는 요소마다 잠금을 따로 기억해서,
+ * 랜딩 BGM만 풀어두면 게임 화면으로 넘어가며 갈아탄 yacht_ingame이 조용하다(그 전환에는
+ * 제스처가 없다). 재생이 거절되면 리스너를 다시 걸어 다음 조작에서 만회한다.
+ */
+function waitForGesture(): void {
+  if (stopWaitingForGesture) return
+  stopWaitingForGesture = onFirstGesture(() => {
+    stopWaitingForGesture = null
+    // 지금 틀 트랙은 바로 아래에서 제대로 재생하므로 잠금 해제 대상에서 뺀다.
+    primeAudio(allTracks().filter((track) => track !== soundtrack))
+    if (readSoundMuted()) return
+    void soundtrack?.play().catch(() => waitForGesture())
+  })
 }
 
 export function playLandingSoundtrack(game: HeroGameKey): void {
@@ -60,10 +79,11 @@ function play(next: HTMLAudioElement | null): void {
     soundtrack = next
   }
   if (readSoundMuted()) return
-  void soundtrack.play().catch(() => undefined)
+  // 거절 = 아직 이 요소가 잠겨 있다(화면 전환처럼 제스처 없이 갈아탄 경우). 다음 조작을 노린다.
+  void soundtrack.play().catch(() => waitForGesture())
 }
 
 export function setSoundtrackMuted(muted: boolean): void {
   if (muted) soundtrack?.pause()
-  else void soundtrack?.play().catch(() => undefined)
+  else void soundtrack?.play().catch(() => waitForGesture())
 }
