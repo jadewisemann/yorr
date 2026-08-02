@@ -11,7 +11,12 @@ import {
 import { useAppStore } from '@/store'
 import { LobbyPage } from './LobbyPage'
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
+const { navigate, prefetchPhysicsDiceWorld } = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  prefetchPhysicsDiceWorld: vi.fn(),
+}))
+
+vi.mock('@/rendering/physics-dice/loadWorld', () => ({ prefetchPhysicsDiceWorld }))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
@@ -23,9 +28,35 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 describe('LobbyPage', () => {
   beforeEach(() => {
     navigate.mockReset()
+    prefetchPhysicsDiceWorld.mockReset()
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
+    vi.stubGlobal(
+      'requestIdleCallback',
+      vi.fn((callback: IdleRequestCallback) => {
+        callback({ didTimeout: false, timeRemaining: () => 50 })
+        return 1
+      }),
+    )
+    vi.stubGlobal('cancelIdleCallback', vi.fn())
     useAppStore.getState().reset()
     useAppStore.getState().setRoomSession(creatorSession)
     useAppStore.getState().setConnectionStatus('connected')
+  })
+
+  it('첫 화면을 그린 뒤 물리 주사위 모듈을 유휴 시간에 미리 불러온다', () => {
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    expect(requestIdleCallback).toHaveBeenCalledOnce()
+    expect(prefetchPhysicsDiceWorld).toHaveBeenCalledOnce()
+  })
+
+  it('모션 감소 설정에서는 물리 주사위 모듈을 미리 받지 않는다', () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    expect(requestIdleCallback).not.toHaveBeenCalled()
+    expect(prefetchPhysicsDiceWorld).not.toHaveBeenCalled()
   })
 
   it('shows every participant and marks the current player', () => {

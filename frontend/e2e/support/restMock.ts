@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import type { Identity, Player, YachtCategory } from './contract'
+import type { Identity, Player } from './contract'
 import { GAME_ID, GUEST, HOST, KAKAO_LOGIN_CODE, MEMBER, ROOM_CODE, restSnapshot } from './contract'
 
 /**
@@ -32,7 +32,6 @@ export interface RestMockOptions {
   gameSnapshot?: Record<string, unknown>
   startGameFailure?: RestFailure
   returnToLobbyFailure?: RestFailure
-  scoreCandidates?: Partial<Record<YachtCategory, number>>
   /** 방 참가자 명단. 기본은 호스트 + 게스트 2명. */
   players?: Player[]
   /** 로그인 회원 신원. 기본은 MEMBER. */
@@ -121,10 +120,6 @@ export async function mockRestApi(page: Page, options: RestMockOptions = {}): Pr
     await route.fulfill({ json: gameSnapshot })
   }
 
-  async function handleScoreCandidates(route: Route, _request: Request) {
-    await route.fulfill({ json: { candidates: options.scoreCandidates ?? {} } })
-  }
-
   // 실제 카카오 동의 화면은 거치지 않는다 — 서버가 그 뒤에 돌려주는 결과(코드 또는 취소 사유)만 흉내낸다.
   // WebKit은 route.fulfill의 3xx 상태를 허용하지 않아, HTTP redirect 대신 JS location.replace로 옮긴다.
   async function handleKakaoAuthorize(route: Route, _request: Request) {
@@ -162,7 +157,6 @@ export async function mockRestApi(page: Page, options: RestMockOptions = {}): Pr
     ['POST', `/rooms/${roomCode}/lobby`, handleReturnToLobby],
     ['DELETE', `/rooms/${roomCode}/players/me`, handleLeaveRoom],
     ['GET', `/games/${gameId}`, handleGetGame],
-    ['POST', `/games/${gameId}/score-candidates`, handleScoreCandidates],
     ['GET', '/auth/kakao/authorize', handleKakaoAuthorize],
     ['POST', '/auth/session', handleAuthSession],
     ['DELETE', '/auth/session', handleCloseSession],

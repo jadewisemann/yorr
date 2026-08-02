@@ -120,6 +120,7 @@ describe('PhysicsDiceScene', () => {
       />,
     )
     await waitFor(() => expect(worlds).toHaveLength(1))
+    expect(screen.getByRole('status')).toHaveTextContent('3D 주사위 준비 중')
 
     view.rerender(
       <PhysicsDiceScene
@@ -137,8 +138,30 @@ describe('PhysicsDiceScene', () => {
     resolveInit?.()
 
     await waitFor(() => expect(worlds[0]?.startRoll).toHaveBeenCalledOnce())
+    expect(screen.queryByText('3D 주사위 준비 중')).not.toBeInTheDocument()
     expect(worlds[0]?.applyQuality).toHaveBeenCalledWith('high')
     expect(worlds[0]?.pour).toHaveBeenCalledOnce()
+  })
+
+  it('엔진을 준비하는 동안 트레이 안에 로딩 상태를 표시한다', async () => {
+    let resolveInit: (() => void) | undefined
+    initState.promise = new Promise<void>((resolve) => {
+      resolveInit = resolve
+    })
+
+    render(
+      <PhysicsDiceScene
+        dice={null}
+        held={request.held}
+        releaseRequestId={null}
+        request={null}
+        onRollComplete={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent('3D 주사위 준비 중')
+    resolveInit?.()
+    await waitFor(() => expect(screen.queryByText('3D 주사위 준비 중')).not.toBeInTheDocument())
   })
 
   it('엔진이 준비된 뒤 도착한 굴림도 한 번만 시작한다', async () => {

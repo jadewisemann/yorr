@@ -131,28 +131,14 @@ function simulateDiceTrajectory(
     const stableTarget = Math.max(1, Math.round(STABLE_SECONDS / clone.timestep))
     const sampleEvery = Math.max(1, Math.round(1 / (TRAJECTORY_FPS * clone.timestep)))
     const frames: DiceTrajectoryFrame[] = []
-    const capture = (atSeconds: number) => {
-      frames.push({
-        atSeconds,
-        poses: bodies.map((body) => {
-          if (!body) throw new Error('Missing trajectory body')
-          const position = body.translation()
-          const rotation = body.rotation()
-          return {
-            position: { x: position.x, y: position.y, z: position.z },
-            rotation: { w: rotation.w, x: rotation.x, y: rotation.y, z: rotation.z },
-          }
-        }),
-      })
-    }
-    capture(0)
+    captureTrajectoryFrame(frames, bodies, 0)
     let stableSteps = 0
     let floorAssists = 0
     for (let step = 0; step < maxSteps; step += 1) {
       clone.step()
       containDiceInTray(rolling)
       const elapsed = (step + 1) * clone.timestep
-      if ((step + 1) % sampleEvery === 0) capture(elapsed)
+      if ((step + 1) % sampleEvery === 0) captureTrajectoryFrame(frames, bodies, elapsed)
       stableSteps = rolling.every((occupant) => isBodySettled(occupant.body)) ? stableSteps + 1 : 0
       if (stableSteps >= stableTarget) {
         if (
@@ -163,38 +149,57 @@ function simulateDiceTrajectory(
           stableSteps = 0
           continue
         }
-        if (frames.at(-1)?.atSeconds !== elapsed) capture(elapsed)
-        const naturalDice = bodies.map((body) =>
-          body ? topFaceFromQuaternion(body.rotation()) : 1,
-        ) as unknown as PhysicsDiceSet
-        return {
-          attempt,
-          durationSeconds: elapsed,
-          floorAssists,
-          frames,
-          naturalDice,
-          settled: true,
-        }
+        captureFinalFrame(frames, bodies, elapsed)
+        return createTrajectoryPlan(attempt, elapsed, floorAssists, frames, bodies, true)
       }
     }
     const elapsed = maxSteps * clone.timestep
-    if (frames.at(-1)?.atSeconds !== elapsed) capture(elapsed)
-    const naturalDice = bodies.map((body) =>
-      body ? topFaceFromQuaternion(body.rotation()) : 1,
-    ) as unknown as PhysicsDiceSet
-    return {
-      attempt,
-      durationSeconds: elapsed,
-      floorAssists,
-      frames,
-      naturalDice,
-      settled: false,
-    }
+    captureFinalFrame(frames, bodies, elapsed)
+    return createTrajectoryPlan(attempt, elapsed, floorAssists, frames, bodies, false)
   } catch {
     return null
   } finally {
     clone?.free()
   }
+}
+
+function captureTrajectoryFrame(
+  frames: DiceTrajectoryFrame[],
+  bodies: Array<RAPIER.RigidBody | undefined>,
+  atSeconds: number,
+) {
+  const poses = bodies.map((body) => {
+    if (!body) throw new Error('Missing trajectory body')
+    const position = body.translation()
+    const rotation = body.rotation()
+    return {
+      position: { x: position.x, y: position.y, z: position.z },
+      rotation: { w: rotation.w, x: rotation.x, y: rotation.y, z: rotation.z },
+    }
+  })
+  frames.push({ atSeconds, poses })
+}
+
+function captureFinalFrame(
+  frames: DiceTrajectoryFrame[],
+  bodies: Array<RAPIER.RigidBody | undefined>,
+  atSeconds: number,
+) {
+  if (frames.at(-1)?.atSeconds !== atSeconds) captureTrajectoryFrame(frames, bodies, atSeconds)
+}
+
+function createTrajectoryPlan(
+  attempt: number,
+  durationSeconds: number,
+  floorAssists: number,
+  frames: DiceTrajectoryFrame[],
+  bodies: Array<RAPIER.RigidBody | undefined>,
+  settled: boolean,
+): DiceTrajectoryPlan {
+  const naturalDice = bodies.map((body) =>
+    body ? topFaceFromQuaternion(body.rotation()) : 1,
+  ) as unknown as PhysicsDiceSet
+  return { attempt, durationSeconds, floorAssists, frames, naturalDice, settled }
 }
 
 function pressStandingDice(
@@ -314,50 +319,81 @@ export function diceTrajectoryIssueScore(
   const overlapThresholdSq = (colliderWidth * 0.65) ** 2
   const horizontalThresholdSq = (visualWidth * 0.82) ** 2
   const verticalThreshold = visualWidth * 0.45
-  let score = plan.settled ? 0 : 1_000
+  const overlapScore = plan.frames.reduce(
+    (score, frame) => Math.max(score, frameOverlapScore(frame, entries, held, overlapThresholdSq)),
+    plan.settled ? 0 : 1_000,
+  )
+  return (
+    overlapScore +
+    finalPoseIssueScore(
+      finalPoses,
+      entries,
+      held,
+      colliderWidth,
+      visualWidth,
+      horizontalThresholdSq,
+      verticalThreshold,
+    )
+  )
+}
 
-  plan.frames.forEach((frame) => {
-    // 재시도는 속도만 바꾸므로 시작 자세는 모든 후보가 같다. 사발을 막 벗어나는 구간의
-    // 근접 상태까지 벌점으로 잡으면 어떤 후보도 개선할 수 없으므로 분산이 시작된 뒤부터 본다.
-    if (frame.atSeconds < 0.15) return
-    for (let a = 0; a < entries.length; a += 1) {
-      const entryA = entries[a]
-      const poseA = frame.poses[a]
-      if (!entryA || !poseA || held[entryA.index]) continue
-      for (let b = a + 1; b < entries.length; b += 1) {
-        const entryB = entries[b]
-        const poseB = frame.poses[b]
-        if (!entryB || !poseB || held[entryB.index]) continue
-        const dx = poseA.position.x - poseB.position.x
-        const dy = poseA.position.y - poseB.position.y
-        const dz = poseA.position.z - poseB.position.z
-        const distanceSq = dx * dx + dy * dy + dz * dz
-        if (distanceSq < overlapThresholdSq) {
-          score = Math.max(score, (overlapThresholdSq - distanceSq) / overlapThresholdSq)
-        }
-      }
-    }
-  })
-
+function frameOverlapScore(
+  frame: DiceTrajectoryFrame,
+  entries: PredictableDie[],
+  held: PhysicsHeldDice,
+  overlapThresholdSq: number,
+) {
+  // 재시도는 시작 자세가 같으므로 사발을 막 벗어나는 공통 구간은 평가하지 않는다.
+  if (frame.atSeconds < 0.15) return 0
+  let score = 0
   for (let a = 0; a < entries.length; a += 1) {
     const entryA = entries[a]
-    const poseA = finalPoses[a]
+    const poseA = frame.poses[a]
+    if (!entryA || !poseA || held[entryA.index]) continue
+    for (let b = a + 1; b < entries.length; b += 1) {
+      const entryB = entries[b]
+      const poseB = frame.poses[b]
+      if (!entryB || !poseB || held[entryB.index]) continue
+      const dx = poseA.position.x - poseB.position.x
+      const dy = poseA.position.y - poseB.position.y
+      const dz = poseA.position.z - poseB.position.z
+      const distanceSq = dx * dx + dy * dy + dz * dz
+      if (distanceSq < overlapThresholdSq) {
+        score = Math.max(score, (overlapThresholdSq - distanceSq) / overlapThresholdSq)
+      }
+    }
+  }
+  return score
+}
+
+function finalPoseIssueScore(
+  poses: DiceTrajectoryPose[],
+  entries: PredictableDie[],
+  held: PhysicsHeldDice,
+  colliderWidth: number,
+  visualWidth: number,
+  horizontalThresholdSq: number,
+  verticalThreshold: number,
+) {
+  let score = 0
+  for (let a = 0; a < entries.length; a += 1) {
+    const entryA = entries[a]
+    const poseA = poses[a]
     if (!entryA || !poseA || held[entryA.index]) continue
     const heightExcess = poseA.position.y - (colliderWidth / 2 + visualWidth * 0.2)
     if (heightExcess > 0) score += 1 + heightExcess / visualWidth
     for (let b = a + 1; b < entries.length; b += 1) {
       const entryB = entries[b]
-      const poseB = finalPoses[b]
+      const poseB = poses[b]
       if (!entryB || !poseB || held[entryB.index]) continue
       const dx = poseA.position.x - poseB.position.x
       const dz = poseA.position.z - poseB.position.z
       const horizontalSq = dx * dx + dz * dz
+      if (horizontalSq >= horizontalThresholdSq) continue
       const vertical = Math.abs(poseA.position.y - poseB.position.y)
-      if (horizontalSq < horizontalThresholdSq) {
-        score +=
-          (horizontalThresholdSq - horizontalSq) / horizontalThresholdSq +
-          (vertical > verticalThreshold ? vertical - verticalThreshold : 0) / visualWidth
-      }
+      score +=
+        (horizontalThresholdSq - horizontalSq) / horizontalThresholdSq +
+        Math.max(0, vertical - verticalThreshold) / visualWidth
     }
   }
   return score

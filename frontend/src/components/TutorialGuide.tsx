@@ -42,6 +42,26 @@ const PLACEMENT: Record<GuideStep, string> = {
   done: 'inset-x-4 top-1/2 -translate-y-1/2',
 }
 
+function nextGuideStep(
+  step: GuideStep,
+  {
+    isMyTurn,
+    kept,
+    rolled,
+    submitted,
+  }: Pick<TutorialGuideProps, 'isMyTurn' | 'kept' | 'rolled' | 'submitted'>,
+) {
+  if (step === 'done') return step
+  if (submitted && step !== 'greet') return 'done'
+
+  const playing = step === 'roll' || step === 'keep' || step === 'record'
+  if (playing && !isMyTurn) return 'waitTurn'
+  if (step === 'waitTurn' && isMyTurn) return 'roll'
+  if (step === 'roll' && rolled) return 'keep'
+  if (step === 'keep' && kept) return 'record'
+  return step
+}
+
 /**
  * 첫 판을 함께 도는 마스코트 가이드. 버튼으로 넘기는 슬라이드가 아니라
  * 실제 플레이(굴림 → 킵 → 기록)에 반응해 다음 안내로 넘어간다 —
@@ -61,20 +81,8 @@ export function TutorialGuide({
   // 진행 신호를 보고 다음 단계로 넘어간다. 사용자가 안내보다 빨리 플레이해도
   // (인사 중에 기록까지 끝내도) 억지로 되돌리지 않고 앞 단계를 건너뛴다.
   useEffect(() => {
-    if (step === 'done') return
-    if (submitted && step !== 'greet') {
-      setStep('done')
-      return
-    }
-    // 시간 초과 등으로 기록 없이 턴이 넘어가면 처음부터가 아니라 대기로 돌아간다 —
-    // 다음 내 차례에 굴리기 안내부터 다시 이어 준다.
-    if ((step === 'roll' || step === 'keep' || step === 'record') && !isMyTurn) {
-      setStep('waitTurn')
-      return
-    }
-    if (step === 'waitTurn' && isMyTurn) setStep('roll')
-    if (step === 'roll' && rolled) setStep('keep')
-    if (step === 'keep' && kept) setStep('record')
+    const next = nextGuideStep(step, { isMyTurn, kept, rolled, submitted })
+    if (next !== step) setStep(next)
   }, [isMyTurn, kept, rolled, step, submitted])
 
   // 마지막 인사는 잠깐 머물고 스스로 퇴장한다 — 완료를 쿠키에 남기는 건 부모 몫.

@@ -30,6 +30,12 @@ interface ScoreSheetProps {
   you: PlayerId
 }
 
+function scoreCell(value: number | null | undefined, preview: number | null, isPreview: boolean) {
+  if (isPreview) return { className: 'bg-brand/15 text-brand-strong', content: preview }
+  if (!isRecorded(value)) return { className: 'text-content-faint', content: '·' }
+  return { className: value === 0 ? 'text-danger' : 'text-content', content: value }
+}
+
 /** 플레이어 머리글자 칩. 헤더·트레이에서도 같은 표기를 쓰도록 내보낸다. */
 export function PlayerBadge({
   active = false,
@@ -88,22 +94,17 @@ export function ScoreSheet({
     const cells = players.map((player) => {
       const value = player.scoreboard?.categories[category]
       const isPreviewCell = player.playerId === activePlayerId && preview !== null
+      const cell = scoreCell(value, preview, isPreviewCell)
       return (
         <span
           className={cn(
             'justify-self-stretch py-1 text-center font-mono text-[15px] font-bold tabular-nums',
             cellHighlight(player.playerId),
-            isPreviewCell
-              ? 'bg-brand/15 text-brand-strong'
-              : isRecorded(value)
-                ? value === 0
-                  ? 'text-danger'
-                  : 'text-content'
-                : 'text-content-faint',
+            cell.className,
           )}
           key={player.playerId}
         >
-          {isPreviewCell ? preview : isRecorded(value) ? value : '·'}
+          {cell.content}
         </span>
       )
     })

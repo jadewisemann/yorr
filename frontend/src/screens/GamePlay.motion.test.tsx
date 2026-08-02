@@ -109,18 +109,21 @@ function broadcastRoll(client: FakeRealtimeClient, dice: DiceSet) {
 function renderGame(client: FakeRealtimeClient = createRealtimeFixture()) {
   const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
   useAppStore.setState({ connectionStatus: 'connected', roomSnapshot: snapshot })
+  const tree = () => (
+    <RealtimeClientProvider client={client}>
+      <GamePlay
+        onLeaveRequest={() => {}}
+        roomId={session.roomId}
+        session={session}
+        snapshot={snapshot}
+      />
+    </RealtimeClientProvider>
+  )
+  const view = render(tree())
   return {
-    ...render(
-      <RealtimeClientProvider client={client}>
-        <GamePlay
-          onLeaveRequest={() => {}}
-          roomId={session.roomId}
-          session={session}
-          snapshot={snapshot}
-        />
-      </RealtimeClientProvider>,
-    ),
+    ...view,
     client,
+    rerenderGame: () => view.rerender(tree()),
     user: userEvent.setup(),
   }
 }
@@ -205,10 +208,11 @@ describe('GamePlay 센서 굴림', () => {
 
   it('센서를 쓸 수 없다는 안내는 닫으면 다시 시야를 가리지 않는다', async () => {
     motion.availability = 'denied'
-    const { user } = renderGame()
+    const { rerenderGame, user } = renderGame()
 
     expect(screen.getByRole('region', { name: '센서 권한 안내' })).toBeVisible()
     await user.click(screen.getByRole('button', { name: '센서 안내 닫기' }))
+    rerenderGame()
 
     expect(screen.queryByRole('region', { name: '센서 권한 안내' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
