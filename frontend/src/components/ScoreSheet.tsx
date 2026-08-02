@@ -206,13 +206,19 @@ export function ScoreSheet({
     <section
       aria-label="플레이어별 점수표"
       // overscroll-contain: 시트 스크롤이 끝에 닿아도 뒤 페이지로 번지지 않는다.
-      className={cn('flex flex-col overflow-auto overscroll-contain', className)}
+      className={cn(
+        'flex flex-col overflow-auto overscroll-contain shrink-0 grow basis-auto justify-center-safe',
+        className,
+      )}
       // 표 안에 포커스 요소가 없을 수 있어 스크롤 컨테이너가 tab을 받아야 한다(WCAG 2.1.1).
       // biome-ignore lint/a11y/noNoninteractiveTabindex: 스크롤 영역은 포커스를 받아야 한다
       tabIndex={0}
     >
       {/* 섹션 헤더와 열 머리가 한 덩어리로 붙어 함께 고정된다. 둘을 따로 두면 스크롤할 때
           제목만 떠내려가거나, 바깥에서 감싼 헤더와 표 사이에 여백이 남는다. */}
+      {/* bg-canvas: 투명하면 스크롤한 행이 고정된 머리 뒤로 비쳐 지나간다.
+          z-sticky: 뒤따르는 행이 sticky보다 나중에 그려져 위로 올라오는 것을 막는다. */}
+      <div className="sticky top-0 z-sticky bg-canvas">
         {header}
         <div
           className="grid min-h-9 items-center gap-1 border-b border-border px-3"
@@ -236,35 +242,33 @@ export function ScoreSheet({
             </span>
           ))}
         </div>
-      
-
+      </div>
       {/* 행 묶음만 남는 높이를 나눠 갖는다 — 헤더까지 함께 가운데로 밀리면 안 된다.
           grow shrink-0 basis-auto: 남을 때만 늘고, 모자라면 줄지 않고 스크롤한다. */}
-      <div className="flex shrink-0 grow basis-auto flex-col justify-center-safe">
-        {YACHT_UPPER_CATEGORIES.map(renderCategoryRow)}
-        {metaRow(
-          `소계 / ${UPPER_BONUS_THRESHOLD}`,
-          players.map((player) => String(player.scoreboard?.upperSubtotal ?? 0)),
-          {
-            achieved: players.map(
-              (player) => (player.scoreboard?.upperSubtotal ?? 0) >= UPPER_BONUS_THRESHOLD,
-            ),
-          },
-        )}
-        {metaRow(
-          `보너스 +${UPPER_BONUS_POINTS}`,
-          players.map((player) =>
-            (player.scoreboard?.upperBonus ?? 0) > 0 ? `+${UPPER_BONUS_POINTS}` : '—',
+
+      {YACHT_UPPER_CATEGORIES.map(renderCategoryRow)}
+      {metaRow(
+        `소계 / ${UPPER_BONUS_THRESHOLD}`,
+        players.map((player) => String(player.scoreboard?.upperSubtotal ?? 0)),
+        {
+          achieved: players.map(
+            (player) => (player.scoreboard?.upperSubtotal ?? 0) >= UPPER_BONUS_THRESHOLD,
           ),
-          { achieved: players.map((player) => (player.scoreboard?.upperBonus ?? 0) > 0) },
-        )}
-        {YACHT_LOWER_CATEGORIES.map(renderCategoryRow)}
-        {metaRow(
-          '합계',
-          players.map((player) => String(player.scoreboard?.total ?? 0)),
-          { emphasis: true },
-        )}
-      </div>
+        },
+      )}
+      {metaRow(
+        `보너스 +${UPPER_BONUS_POINTS}`,
+        players.map((player) =>
+          (player.scoreboard?.upperBonus ?? 0) > 0 ? `+${UPPER_BONUS_POINTS}` : '—',
+        ),
+        { achieved: players.map((player) => (player.scoreboard?.upperBonus ?? 0) > 0) },
+      )}
+      {YACHT_LOWER_CATEGORIES.map(renderCategoryRow)}
+      {metaRow(
+        '합계',
+        players.map((player) => String(player.scoreboard?.total ?? 0)),
+        { emphasis: true },
+      )}
     </section>
   )
 }
