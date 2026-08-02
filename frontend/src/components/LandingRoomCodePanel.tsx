@@ -69,11 +69,16 @@ export function LandingRoomCodePanel({
         type="text"
         value={code}
       />
+      {/* 입력 규칙을 여기서 말한다. 아래 제출 버튼이 규칙을 만족할 때까지 비활성이라,
+          이 문장이 없으면 "왜 눌리지 않는가"에 답하는 것이 화면에 하나도 없다. */}
       <span className="text-[13px] text-landing-text-muted" id="code-help">
-        소문자로 입력해도 대문자로 바뀌어요
+        영문·숫자 4~12자 · 소문자로 입력해도 대문자로 바뀌어요
       </span>
 
       <button
+        // 비활성 이유를 버튼에도 물린다 — 포커스가 여기 왔을 때 라벨만 읽히면
+        // 무엇을 고쳐야 눌리는지 알 수 없다.
+        aria-describedby="code-help"
         className={cn(
           'flex items-center justify-center rounded-[16px] border-0 font-bold transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-3',
           wide ? 'h-14 text-[17px]' : 'h-14.5 text-[18px]',
