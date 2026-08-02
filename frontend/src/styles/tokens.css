@@ -4,6 +4,7 @@
   --color-canvas: var(--ds-color-canvas);
   --color-surface: var(--ds-color-surface);
   --color-surface-raised: var(--ds-color-surface-raised);
+  --color-surface-overlay: var(--ds-color-surface-overlay);
   --color-border: var(--ds-color-border);
   --color-content: var(--ds-color-content);
   --color-content-muted: var(--ds-color-content-muted);
@@ -122,6 +123,9 @@
   --ds-color-canvas: #08090a;
   --ds-color-surface: #111214;
   --ds-color-surface-raised: #18191c;
+  /* raised보다 한 단 더 뜬 표면 — 캔버스 위에 겹쳐 떠 있는 토스트가 여기에 선다.
+     장식용 고스트 텍스트(404)도 같은 밝기 단계를 쓴다. */
+  --ds-color-surface-overlay: #202125;
   --ds-color-border: rgb(255 255 255 / 10%);
   --ds-color-content: #f7f7f5;
   --ds-color-content-muted: #a4a5aa;
