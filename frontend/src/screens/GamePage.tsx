@@ -43,7 +43,11 @@ export function GamePage({ roomId }: { roomId: string }) {
     <>
       <RoomExitGuard onClose={() => setExitRequested(false)} open={exitRequested} roomId={roomId} />
       {roomSnapshot.phase === 'finished' ? (
-        <GameResult session={roomSession} snapshot={roomSnapshot} />
+        <GameResult
+          onLeaveRequest={() => setExitRequested(true)}
+          session={roomSession}
+          snapshot={roomSnapshot}
+        />
       ) : (
         <GamePlay
           onLeaveRequest={() => setExitRequested(true)}
