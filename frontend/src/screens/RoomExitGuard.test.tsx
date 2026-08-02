@@ -1,6 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/react'
+import { HttpResponse, http } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
 import { creatorSession } from '@/mocks/fixtures'
+import { mockApiServer } from '@/mocks/server'
 import { useAppStore } from '@/store'
 import { renderAppHarness, resetAppTestState } from '@/test/harness'
 
@@ -39,6 +41,26 @@ describe('RoomExitGuard', () => {
 
     void router.navigate({ to: '/' })
 
+    const dialog = await screen.findByRole('dialog', { name: '방에서 나갈까요?' })
+    await user.click(await within(dialog).findByRole('button', { name: '나가기' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    expect(useAppStore.getState().roomSession).toBeNull()
+  })
+
+  it('퇴장 REST가 실패해도 로컬 세션을 정리한다', async () => {
+    mockApiServer.use(
+      http.delete('/api/v1/rooms/:roomCode/players/me', () =>
+        HttpResponse.json({ code: 'UNAVAILABLE' }, { status: 503 }),
+      ),
+    )
+    const { router, user } = renderAppHarness({
+      initialPath: lobbyPath,
+      session: creatorSession,
+    })
+    await screen.findByRole('heading', { name: '대기실' })
+
+    void router.navigate({ to: '/' })
     const dialog = await screen.findByRole('dialog', { name: '방에서 나갈까요?' })
     await user.click(await within(dialog).findByRole('button', { name: '나가기' }))
 
