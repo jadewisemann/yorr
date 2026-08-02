@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { GUEST, HOST, player, THIRD, waitingSnapshot } from './support/contract'
-import { startFakeGameServer } from './support/fakeGameServer'
-import { createRoomAsHost } from './support/flows'
-import { mockRestApi } from './support/restMock'
+import { GUEST, HOST, player, THIRD, waitingSnapshot } from '../support/contract'
+import { startFakeGameServer } from '../support/fakeGameServer'
+import { createRoomAsHost } from '../support/flows'
+import { mockRestApi } from '../support/restMock'
 
 /**
  * 대기실은 WS push만으로 살아 움직인다. 명단은 room.player_joined/left와

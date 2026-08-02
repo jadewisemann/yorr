@@ -34,6 +34,29 @@ describe('authSession', () => {
     expect(readAuthSession()).toBeNull()
   })
 
+  it('깨진 JSON 텍스트도 던지지 않고 지운 뒤 null을 돌려준다', () => {
+    localStorage.setItem('yorr.auth-session', 'not-json{')
+    expect(readAuthSession()).toBeNull()
+    expect(localStorage.getItem('yorr.auth-session')).toBeNull()
+  })
+
+  // 사파리 프라이빗 모드처럼 localStorage 접근 자체가 던지는 환경 — 로그인만 안 될 뿐 앱은 돌아야 한다.
+  it('localStorage 접근 자체가 던지는 환경에서도 조용히 null을 돌려준다', () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('access denied')
+      },
+    })
+
+    try {
+      expect(readAuthSession()).toBeNull()
+    } finally {
+      if (original) Object.defineProperty(globalThis, 'localStorage', original)
+    }
+  })
+
   /** 방 세션과 저장 자리를 나눠 둔 이유 — 방을 나가도 로그인은 남아야 한다. */
   it('does not share storage with the room session', () => {
     saveAuthSession(session)
