@@ -80,14 +80,16 @@ export function LandingHeroCard({ game, layout }: LandingHeroCardProps) {
           />
           {game.live ? 'PLAYABLE NOW' : 'COMING SOON'}
         </span>
-        <h1
+        {/* 페이지 제목은 랜딩 카피가 갖는다 — 여기가 h1이면 스와이프할 때마다 문서의
+            최상위 제목이 바뀐다. 이 카드는 tabpanel의 제목이라 h2가 맞다. */}
+        <h2
           className={cn(
             'm-0 font-bold tracking-[-0.035em] text-landing-text',
             wide ? 'text-[clamp(40px,4.6vw,66px)]/none' : 'text-[clamp(30px,9.4vw,38px)]/[1.05]',
           )}
         >
           {game.name}
-        </h1>
+        </h2>
         <p
           className={cn(
             'm-0 font-semibold text-landing-text-strong',

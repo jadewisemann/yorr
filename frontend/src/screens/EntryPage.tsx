@@ -119,9 +119,9 @@ export function EntryPage() {
                 <span className={cn(wordmarkTag, 'text-[11px]/none')}>Yorr Arcade</span>
               </span>
               <span aria-hidden="true" className="h-6.5 w-px bg-landing-hairline-strong" />
-              <span className="text-[17px]/none font-bold text-landing-text-strong">
-                게임을 선택하세요
-              </span>
+              <h1 className="m-0 text-[17px]/none font-bold whitespace-nowrap text-landing-text-strong">
+                링크 하나로 모이면 바로 시작하는 파티 게임
+              </h1>
             </div>
             <span className="flex min-w-0 items-center gap-2.5">
               <SoundToggle muted={soundMuted} onToggle={toggleSound} />
@@ -135,8 +135,13 @@ export function EntryPage() {
           </header>
 
           {/* 카드 폭은 화면 폭 기준(69.4% ≒ 1440에서 1000px)이라 캐러셀 띠는 전면 폭을 쓴다 —
-              여기에 좌우 여백을 주면 카드와 화살표가 함께 안쪽으로 밀린다. */}
-          <div className="relative mt-[clamp(8px,3.5vh,32px)] h-[min(29.5rem,52vh)] w-full flex-none">
+              여기에 좌우 여백을 주면 카드와 화살표가 함께 안쪽으로 밀린다.
+              높이는 narrow와 같은 원칙 — 남는 만큼 먹되(flex-1) 위로는 29.5rem에서 멈춘다.
+              고정 높이로 두면 가로로 돌린 폰(760x420 등)에서 크롬 합계가 뷰포트를 넘어
+              하단 CTA가 잘린다. */}
+          {/* grow 가중치를 크게 줘서 아래 여백 블록보다 먼저 자란다 — 둘 다 flex-1이면
+              남는 높이를 반씩 나눠 데스크톱에서 카드가 절반으로 작아진다. */}
+          <div className="relative mt-[clamp(8px,3.5vh,32px)] max-h-[29.5rem] min-h-40 w-full flex-[999_1_0%]">
             <LandingHeroCarousel
               activeIndex={activeIndex}
               games={landingGames}
@@ -218,9 +223,12 @@ export function EntryPage() {
           </span>
         </div>
 
-        <span className="flex-none px-5 pt-[clamp(10px,2vh,18px)] text-[24px]/none font-bold tracking-[-0.02em] text-landing-text-strong">
-          게임을 선택하세요
-        </span>
+        {/* 랜딩의 최상위 카피는 "무엇인지"여야 한다 — 고르라는 지시는 캐러셀·진행 표시줄·
+            스와이프 안내가 이미 하고 있다. 게임 5개(주사위·반응·드래그·타이밍)를 아우르는
+            공통분모는 링크 진입 · 계정 없이 바로 · 실시간 멀티다. */}
+        <h1 className="m-0 flex-none px-5 pt-[clamp(10px,2vh,18px)] text-[24px]/[1.25] font-bold tracking-[-0.02em] text-landing-text-strong">
+          링크 하나로 모이면 바로 시작하는 파티 게임
+        </h1>
 
         {/* 히어로가 남는 높이를 전부 먹는다. 나머지를 고정 높이로 두고 히어로만 늘고 줄면
             크롬 합계가 뷰포트를 넘을 수 없다 — h-svh + overflow-hidden에서 하단 CTA가
