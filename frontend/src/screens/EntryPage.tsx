@@ -301,8 +301,12 @@ const codeEntryBase =
 const codeEntryLayout = {
   compact:
     'min-h-tap gap-2 rounded-[14px] border-landing-hairline-strong bg-landing-well px-4 text-[15px] font-semibold hover:border-landing-accent/70 hover:bg-landing-soft',
+  // 전체 폭을 쓰지 않는다. 카드는 뷰포트 %(inset-x-[6.7%]), 이 줄은 거터 20px 고정이라
+  // 두 오른쪽 가장자리는 어느 폭에서도 만나지 않는다(390에서 6.1px, 430에서 8.8px 삐짐).
+  // 오른쪽 가장자리를 아예 없애면 맞출 축도 없어진다 — 왼쪽만 h1과 같은 20px에 세운다.
+  // 덤으로 위계가 돌아온다: 전체 폭까지 가는 유일한 덩어리가 히어로 카드가 된다.
   narrow:
-    'w-full min-h-14 gap-3 rounded-[18px] border-landing-accent/60 bg-landing-soft px-4.5 text-[16px] font-landing-bold hover:border-landing-accent',
+    'w-fit min-h-14 gap-3 rounded-[18px] border-landing-accent/60 bg-landing-soft px-4.5 text-[16px] font-landing-bold hover:border-landing-accent',
 } as const
 
 function CodeEntryRow({ compact = false, onOpen }: { compact?: boolean; onOpen: () => void }) {
@@ -315,7 +319,7 @@ function CodeEntryRow({ compact = false, onOpen }: { compact?: boolean; onOpen: 
       <CodeGlyph tone={compact ? 'quiet' : 'accent'} />
       초대 코드로 참가
       {!compact && (
-        <span aria-hidden="true" className="ml-auto text-[20px]/none text-landing-text-muted">
+        <span aria-hidden="true" className="text-[20px]/none text-landing-text-muted">
           ›
         </span>
       )}
