@@ -228,7 +228,7 @@ export function EntryPage() {
             초대 코드는 이 카피의 오른쪽에 붙는다 — 게임 선택과 무관한 독립 경로라
             게임 CTA(이제 히어로 카드 안에 있다)와 여전히 다른 층이고, 세로로 한 층을
             따로 쓰지 않으므로 히어로가 그만큼 커진다. */}
-        <div className="flex flex-none items-start justify-between gap-3 px-5 pt-[clamp(10px,2vh,18px)]">
+        <div className="flex flex-none items-center justify-between gap-3 px-5 pt-[clamp(10px,2vh,18px)]">
           <h1 className="m-0 min-w-0 text-[24px]/[1.25] font-bold tracking-[-0.02em] text-landing-text-strong">
             링크 하나로 모이면 바로 시작하는 파티 게임
           </h1>
