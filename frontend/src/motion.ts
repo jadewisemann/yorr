@@ -39,15 +39,20 @@ export const popVariants: Variants = {
 }
 
 /**
- * 화면 전환 — 새 화면이 오른쪽에서 살짝 밀려 들어오고 떠나는 화면은 왼쪽으로 빠진다.
- * 거리를 16px로 짧게 두는 이유는 두 가지다. 화면 전체를 크게 밀면 `h-svh overflow-hidden`
+ * 화면 전환 — 새 화면이 오른쪽에서 밀려 들어온다(앱의 push와 같은 방향).
+ * <p>
+ * 퇴장 변형이 없는 것은 의도다. 나가는 화면을 붙잡아 두면 그 안의 `<Outlet/>`이 이미 바뀐
+ * 라우터 상태를 다시 읽어 새 화면을 그린다 — 새 화면이 사라졌다 나타나는 깜빡임이 된다.
+ * 자세한 이유는 `app/router.tsx`의 `ScreenTransition`에 있다.
+ * <p>
+ * 시작 불투명도가 0이 아닌 것도 같은 이유다 — 0에서 시작하면 첫 프레임이 빈 화면이다.
+ * 거리를 24px로 짧게 두는 이유는 두 가지다. 화면 전체를 크게 밀면 `h-svh overflow-hidden`
  * 안의 3D 트레이가 전환 내내 화면 밖으로 나갔다 들어오고, transform이 걸린 조상은
  * `position: fixed` 자식의 기준이 되므로 다이얼로그가 함께 흔들린다.
  */
 export const pageVariants: Variants = {
-  hidden: { opacity: 0, x: 16 },
+  hidden: { opacity: 0.4, x: 24 },
   visible: { opacity: 1, x: 0, transition: { duration: DURATION.page, ease: EASE_SNAPPY } },
-  exit: { opacity: 0, x: -12, transition: EXIT },
 }
 
 /** 스크림은 크기가 크므로 opacity만 움직인다. */
