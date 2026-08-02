@@ -213,7 +213,6 @@ export function ScoreSheet({
     >
       {/* 섹션 헤더와 열 머리가 한 덩어리로 붙어 함께 고정된다. 둘을 따로 두면 스크롤할 때
           제목만 떠내려가거나, 바깥에서 감싼 헤더와 표 사이에 여백이 남는다. */}
-      <div className="sticky top-0 z-sticky shrink-0 bg-canvas">
         {header}
         <div
           className="grid min-h-9 items-center gap-1 border-b border-border px-3"
@@ -237,7 +236,7 @@ export function ScoreSheet({
             </span>
           ))}
         </div>
-      </div>
+      
 
       {/* 행 묶음만 남는 높이를 나눠 갖는다 — 헤더까지 함께 가운데로 밀리면 안 된다.
           grow shrink-0 basis-auto: 남을 때만 늘고, 모자라면 줄지 않고 스크롤한다. */}

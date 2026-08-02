@@ -219,15 +219,14 @@ export function EntryPage() {
 
         {/* 랜딩의 최상위 카피는 "무엇인지"여야 한다 — 고르라는 지시는 캐러셀·진행 표시줄·
             스와이프 안내가 이미 하고 있다. 게임 5개(주사위·반응·드래그·타이밍)를 아우르는
-            공통분모는 링크 진입 · 계정 없이 바로 · 실시간 멀티다. */}
-        <h1 className="m-0 flex-none px-5 pt-[clamp(10px,2vh,18px)] text-[24px]/[1.25] font-bold tracking-[-0.02em] text-landing-text-strong">
-          링크 하나로 모이면 바로 시작하는 파티 게임
-        </h1>
-
-        {/* 게임 선택과 무관한 독립 진입 경로라 게임 CTA 묶음 밖, 별도 층에 세운다.
-            아래에 두면 선택한 게임의 보조 동작으로 읽히고, 준비 중인 게임에서는
-            잠긴 버튼 아래 붙어 "이 게임을 코드로 연다"가 된다. */}
-        <div className="flex-none px-5 pt-[clamp(10px,1.6vh,16px)]">
+            공통분모는 링크 진입 · 계정 없이 바로 · 실시간 멀티다.
+            초대 코드는 이 카피의 오른쪽에 붙는다 — 게임 선택과 무관한 독립 경로라
+            게임 CTA(이제 히어로 카드 안에 있다)와 여전히 다른 층이고, 세로로 한 층을
+            따로 쓰지 않으므로 히어로가 그만큼 커진다. */}
+        <div className="flex flex-none items-start justify-between gap-3 px-5 pt-[clamp(10px,2vh,18px)]">
+          <h1 className="m-0 min-w-0 text-[24px]/[1.25] font-bold tracking-[-0.02em] text-landing-text-strong">
+            링크 하나로 모이면 바로 시작하는 파티 게임
+          </h1>
           <CodeEntryRow onOpen={() => setCodeOpen(true)} />
         </div>
 
@@ -286,43 +285,36 @@ export function EntryPage() {
  * 거기 두면 primary 아래 secondary로 읽혀 "이 게임을 코드로 연다"가 되고, 준비 중인
  * 게임에서는 잠긴 버튼 아래 붙어 더 어긋난다.
  *
- * 채워진 CTA와 층을 가르는 축은 **채움 여부**다(면 vs 윤곽). 밝기가 아니다 —
- * 밝기로 가르려고 눌린 면(well = 검정 55% 덧칠)을 쓰면 캔버스가 이미 블랙이라
- * 더 내려갈 곳이 없어 배경에 잠긴다. 실제로 narrow에서 그렇게 됐고, 보이는 상태
- * (landing-soft)를 hover에만 넣어둬서 hover가 없는 모바일은 그 상태를 볼 길이 없었다.
- * 그래서 narrow는 뜬 면(soft) + 레드 윤곽으로 세운다: 레드를 쓰되 **채우지 않고
- * 빛내지 않는다.** 채운 레드와 글로우(shadow-landing-cta)는 하단 CTA 하나만 갖는다.
+ * narrow는 가치 제안 카피(h1) **오른쪽**에 붙는 작은 채운 버튼이다. 층으로는 여전히
+ * 게임 CTA(히어로 카드 안)와 분리돼 있고, 세로로 한 층을 따로 쓰지 않으므로 히어로가
+ * 그만큼 커진다. 레드로 채우되 <b>글로우는 주지 않는다</b> — 화면에서 빛나는 레드는
+ * 히어로 카드 안 플레이 CTA 하나여야 하고, 이 버튼은 면적이 그 1/6이다.
+ *
+ * 보이는 글자는 "초대 코드"지만 접근 가능한 이름은 "초대 코드로 참가"다. 보이는 글자가
+ * 그 이름에 포함되므로 WCAG 2.5.3 Label in Name을 만족한다.
  *
  * compact(wide 헤더)는 옆에 구분선·계정 칩이 함께 서서 크롬 줄을 이루므로 그대로 둔다.
  */
 const codeEntryBase =
-  'flex cursor-pointer items-center border text-landing-text transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2'
+  'flex shrink-0 cursor-pointer items-center transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-offset-2'
 
 const codeEntryLayout = {
   compact:
-    'min-h-tap gap-2 rounded-[14px] border-landing-hairline-strong bg-landing-well px-4 text-[15px] font-semibold hover:border-landing-accent/70 hover:bg-landing-soft',
-  // 전체 폭을 쓰지 않는다. 카드는 뷰포트 %(inset-x-[6.7%]), 이 줄은 거터 20px 고정이라
-  // 두 오른쪽 가장자리는 어느 폭에서도 만나지 않는다(390에서 6.1px, 430에서 8.8px 삐짐).
-  // 오른쪽 가장자리를 아예 없애면 맞출 축도 없어진다 — 왼쪽만 h1과 같은 20px에 세운다.
-  // 덤으로 위계가 돌아온다: 전체 폭까지 가는 유일한 덩어리가 히어로 카드가 된다.
+    'min-h-tap gap-2 rounded-[14px] border border-landing-hairline-strong bg-landing-well px-4 text-[15px] font-semibold text-landing-text outline-landing-accent hover:border-landing-accent/70 hover:bg-landing-soft',
   narrow:
-    'w-fit min-h-14 gap-3 rounded-[18px] border-landing-accent/60 bg-landing-soft px-4.5 text-[16px] font-landing-bold hover:border-landing-accent',
+    'min-h-tap gap-2 rounded-[14px] border-0 bg-landing-accent px-3.5 text-[14px] font-landing-bold text-landing-accent-ink outline-white hover:bg-landing-accent/90',
 } as const
 
 function CodeEntryRow({ compact = false, onOpen }: { compact?: boolean; onOpen: () => void }) {
   return (
     <button
+      aria-label="초대 코드로 참가"
       className={cn(codeEntryBase, codeEntryLayout[compact ? 'compact' : 'narrow'])}
       onClick={onOpen}
       type="button"
     >
-      <CodeGlyph tone={compact ? 'quiet' : 'accent'} />
-      초대 코드로 참가
-      {!compact && (
-        <span aria-hidden="true" className="text-[20px]/none text-landing-text-muted">
-          ›
-        </span>
-      )}
+      <CodeGlyph tone={compact ? 'quiet' : 'onAccent'} />
+      {compact ? '초대 코드로 참가' : '초대 코드'}
     </button>
   )
 }
@@ -385,13 +377,11 @@ function AccountControl({
 }
 
 /**
- * accent = narrow 단독 진입 버튼. 세 칸이 이 화면에서 유일하게 "코드"를 그리는 형태라
- * 여기에 레드를 쓴다 — 채운 CTA 레드가 아니라 텍스트 강조용 accent-text다(면적 비 약 1:80).
- * quiet = wide 헤더. 옆 컨트롤과 같은 흰색 55%를 유지한다 — 칸의 opacity를 래퍼로 옮겼을
- * 뿐 렌더 결과는 종전과 같다.
+ * onAccent = 채운 레드 버튼 위. 잉크색을 그대로 쓰되 살짝 눌러 글자보다 뒤에 세운다.
+ * quiet = wide 헤더. 옆 컨트롤과 같은 흰색 55%를 유지한다.
  */
 const codeGlyphTone = {
-  accent: 'text-landing-accent-text',
+  onAccent: 'opacity-80',
   quiet: 'opacity-55',
 } as const
 
