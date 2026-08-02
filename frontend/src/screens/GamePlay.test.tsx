@@ -18,7 +18,8 @@ import type { ClientMessageType, RoomSnapshot } from '@/realtime/wsEvents'
 import { buildClientMessage } from '@/realtime/wsEvents'
 import type { PhysicsDiceRollRequest, PhysicsDiceSet } from '@/rendering/physics-dice/types'
 import { useAppStore } from '@/store'
-import { animationSeedForRoll, GamePlay } from './GamePlay'
+import { GamePlay } from './GamePlay'
+import { animationSeedForRoll } from './gamePlayModel'
 
 /**
  * 물리 렌더러는 rAF와 WebGL에 의존해 jsdom에서 굴림을 끝낼 수 없다.

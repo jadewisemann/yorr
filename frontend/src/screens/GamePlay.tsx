@@ -13,7 +13,7 @@ import { RoundTimer } from '@/components/RoundTimer'
 import { ScoreSheet } from '@/components/ScoreSheet'
 import { ToastHost, useToast } from '@/components/ToastHost'
 import { Tooltip } from '@/components/Tooltip'
-import { TurnStrip, type TurnStripPlayer } from '@/components/TurnStrip'
+import { TurnStrip } from '@/components/TurnStrip'
 import { TutorialGuide } from '@/components/TutorialGuide'
 import {
   type DiceIndex,
@@ -43,7 +43,7 @@ import type { RollInputMode } from '@/input/RollIntent'
 import { useMotionRollInput } from '@/input/useMotionRollInput'
 import { setSoundtrackMuted } from '@/landingSoundtrack'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
-import type { ErrorPayload, Player, PlayerId, RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
+import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { buildClientMessage } from '@/realtime/wsEvents'
 import type { PhysicsDiceMotionPulse } from '@/rendering/physics-dice/types'
 import { readSoundMuted, saveSoundMuted } from '@/soundPreference'
@@ -52,6 +52,17 @@ import { hideTutorial, isTutorialHidden } from '@/tutorialPreference'
 import { useCountdown } from '@/useCountdown'
 import { useMediaQuery } from '@/useMediaQuery'
 import { categoryLabel, categoryShortLabel, isRecorded } from '@/yachtCategoryView'
+import {
+  animationSeedForRoll,
+  isCurrentDiceBroadcast,
+  latestGameState,
+  newlyRecordedCategory,
+  type RollAnimationMode,
+  rollAnimationMode,
+  toMatrixPlayers,
+  toTurnStripPlayers,
+  turnAwareErrorMessage,
+} from './gamePlayModel'
 
 /** 이 폭부터 점수표를 시트 대신 좌측 상시 패널로 승격한다(와이어프레임 1c). */
 const WIDE_LAYOUT = '(min-width: 1024px)'
@@ -64,31 +75,6 @@ const TAP_RELEASE_DELAY_MS = 600
  * 감쇠로 잦아드는 시간보다 짧아야 흔드는 동안 사발이 끊겨 보이지 않는다.
  */
 const SHAKE_RELAY_INTERVAL_MS = 60
-/**
- * 굴림 애니메이션을 "언제 쏟을지" 정하는 주체.
- *   tap    = 내가 버튼으로 굴렸다 → 짧은 지연 뒤 자동
- *   motion = 내가 흔들고 있다 → 던지는 제스처가 쏟는다
- *   remote = 남이 굴리는 중이다 → 그 사람의 dice.thrown이 쏟는다
- *   auto   = 마감으로 서버가 대신 굴렸다 → 던진 사람이 없으니 자동
- */
-type RollAnimationMode = RollInputMode | 'remote' | 'auto'
-
-/** 같은 서버 굴림을 받은 모든 클라이언트가 같은 물리 난수열을 쓰게 하는 32비트 FNV-1a. */
-export function animationSeedForRoll(
-  roomId: string,
-  playerId: string,
-  roundNumber: number,
-  rollCount: number,
-  dice: DiceSet,
-) {
-  const key = `${roomId}:${playerId}:${roundNumber}:${rollCount}:${dice.join('')}`
-  let hash = 2_166_136_261
-  for (let index = 0; index < key.length; index += 1) {
-    hash = Math.imul(hash ^ key.charCodeAt(index), 16_777_619)
-  }
-  return hash >>> 0
-}
-
 interface GamePlayProps {
   roomId: string
   session: ActiveRoomSession
@@ -436,18 +422,11 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     () =>
       realtimeClient.onMessage((message) => {
         if (message.type === 'dice.broadcast') {
-          const storedGame = useAppStore.getState().roomSnapshot?.game
-          const currentGame =
-            storedGame && storedGame.roundNumber >= roundNumber
-              ? storedGame
-              : renderedGameRef.current
-          if (
-            message.roomId !== roomId ||
-            message.payload.roundNumber !== currentGame?.roundNumber ||
-            message.payload.playerId !== currentGame.activePlayerId
-          ) {
-            return
-          }
+          const currentGame = latestGameState(
+            renderedGameRef.current,
+            useAppStore.getState().roomSnapshot?.game,
+          )
+          if (!isCurrentDiceBroadcast(message, roomId, currentGame)) return
 
           const ownRoll = message.payload.playerId === session.you
           // 마감 시각이 지나 서버가 대신 굴린 결과. 내가 요청한 게 아니어도 반영해야 한다 —
@@ -459,13 +438,11 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           // 서버가 확정한 한 굴림은 모든 참가자에게 같은 키를 쓴다. 요청자의 로컬 msgId가
           // 유실됐더라도 권위 브로드캐스트를 버리면 요청자와 관전자의 최종 눈이 갈린다.
           const requestId = `roll-${message.payload.playerId}-${message.payload.roundNumber}-${message.payload.rollCount}`
-          const animationMode: RollAnimationMode = forced
-            ? 'auto'
-            : matchingPending
-              ? matchingPending.inputMode
-              : ownRoll
-                ? 'tap'
-                : 'remote'
+          const animationMode = rollAnimationMode({
+            forced,
+            ownRoll,
+            pendingInputMode: matchingPending?.inputMode ?? null,
+          })
 
           // 남의 굴림은 그 사람이 던질 때까지 사발에 담아둔다 — 쏟는 시점은 dice.thrown이 정한다.
           remoteRollRef.current =
@@ -1385,25 +1362,6 @@ function useShortcuts(
  * 턴을 넘긴다(RoundTimeoutResolver). 클라이언트가 같은 일을 하면 두 경로가 경합하면서 어느 쪽도
  * 기록되지 않는 창이 생기므로 여기서는 아무것도 하지 않는다.
  */
-function turnAwareErrorMessage(payload: ErrorPayload): string {
-  if (payload.code === 'NOT_YOUR_TURN') return '지금은 내 차례가 아니에요.'
-  return payload.message
-}
-
-/** 두 점수판을 비교해 이번에 새로 채워진 족보 하나를 찾는다. 없으면 null. */
-function newlyRecordedCategory(
-  previous: ScoreBoard | undefined,
-  next: ScoreBoard,
-): [YachtCategory, number] | null {
-  for (const category of YACHT_CATEGORIES) {
-    const after = next.categories[category]
-    if (after !== null && after !== undefined && !isRecorded(previous?.categories[category])) {
-      return [category, after]
-    }
-  }
-  return null
-}
-
 /**
  * 내 차례가 시작되는 순간 한 번 알린다(QA 7번). 턴이 넘어가면 다시 무장된다.
  * 렌더마다 발화하지 않도록 직전 값과 비교한다 — 상태가 아니라 "전이"가 트리거다.
@@ -1463,44 +1421,4 @@ function isPermissionNoticeState(
     availability === 'error' ||
     availability === 'insecure'
   )
-}
-
-/**
- * 서버가 준 턴 순서대로 늘어놓는다. 순서를 못 받았거나 명단에 없는 id는 뒤로 밀어
- * 표시가 비지 않게 한다(재접속 직후 turnOrder가 아직 없을 수 있다).
- */
-function toTurnStripPlayers(
-  players: Player[],
-  turnOrder: PlayerId[] | undefined,
-  scores: Record<PlayerId, ScoreBoard> | undefined,
-): TurnStripPlayer[] {
-  const byId = new Map(players.map((player) => [player.playerId, player]))
-  const ordered = (turnOrder ?? [])
-    .map((playerId) => byId.get(playerId))
-    .filter((player): player is Player => player !== undefined)
-  const orderedIds = new Set(ordered.map((player) => player.playerId))
-  const rest = players.filter((player) => !orderedIds.has(player.playerId))
-  return [...ordered, ...rest].map((player) => ({
-    nickname: player.nickname,
-    playerId: player.playerId,
-    status: player.status,
-    total: scores?.[player.playerId]?.total ?? 0,
-  }))
-}
-
-function toMatrixPlayers(
-  players: Player[],
-  scores: Record<PlayerId, ScoreBoard> | undefined,
-  you: PlayerId,
-) {
-  const ordered = [...players].sort((left, right) => {
-    if (left.playerId === you) return -1
-    if (right.playerId === you) return 1
-    return 0
-  })
-  return ordered.map((player) => ({
-    nickname: player.playerId === you ? '나' : player.nickname,
-    playerId: player.playerId,
-    scoreboard: scores?.[player.playerId],
-  }))
 }
