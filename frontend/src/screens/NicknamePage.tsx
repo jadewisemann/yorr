@@ -148,7 +148,7 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
           )}
           {userError && (
             <div className="grid gap-2 rounded-card border border-brand/36 bg-brand/8 px-3.5 py-3 text-left">
-              <p className="m-0 text-sm text-[#FF8A86]" role="alert">
+              <p className="m-0 text-sm text-danger" role="alert">
                 {userError.message}
               </p>
               {userError.canChangeRoom && (

@@ -188,7 +188,7 @@ function NicknameEditor({ onDone, session }: { onDone: () => void; session: Auth
       {/* 지난 판의 이름까지 바뀌는 것으로 오해하지 않게 미리 알린다. */}
       <p className="m-0 text-[12px] text-content-faint">지난 게임 기록에 남은 이름은 그대로예요.</p>
       {error && (
-        <p className="m-0 text-[12.5px] font-semibold text-[#FF8A86]" role="alert">
+        <p className="m-0 text-[12.5px] font-semibold text-landing-accent-text" role="alert">
           {error}
         </p>
       )}
