@@ -29,7 +29,7 @@ const twMerge = extendTailwindMerge({
         'landing-cta',
         'landing-cta-sheet',
       ],
-      text: ['display', 'title'],
+      text: ['display'],
       'font-weight': ['landing-medium', 'landing-bold'],
       ease: ['snappy'],
       animate: [
@@ -44,9 +44,10 @@ const twMerge = extendTailwindMerge({
         'guide-bob',
       ],
     },
-    // duration·z-index는 tailwind-merge의 theme 키가 아니라 class 그룹으로 등록한다.
+    // z-index는 tailwind-merge의 theme 키가 아니라 class 그룹으로 등록한다.
+    // duration은 등록하지 않는다 — Tailwind v4에 `--duration-*` 네임스페이스가 없어
+    // 이름 있는 duration class 자체가 존재할 수 없다(tokens.css의 같은 주석 참고).
     classGroups: {
-      duration: [{ duration: ['fast', 'base', 'roll'] }],
       z: [{ z: ['sticky', 'banner', 'sheet', 'modal', 'toast'] }],
     },
   },

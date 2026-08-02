@@ -106,7 +106,8 @@ export function LandingHeroCarousel({
         className={cn(
           'absolute inset-0',
           // 끌고 있는 동안은 손가락을 그대로 따라가야 하므로 전환을 끈다.
-          dragStartRef.current === null && 'transition-transform duration-base ease-snappy',
+          dragStartRef.current === null &&
+            'transition-transform duration-(--ds-motion-base) ease-snappy',
         )}
         style={dragOffset === 0 ? undefined : { transform: `translateX(${dragOffset}px)` }}
       >

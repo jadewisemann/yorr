@@ -39,7 +39,9 @@ describe('cn() 토큰 병합', () => {
   })
 
   it('모션 토큰(duration·ease)을 병합한다', () => {
-    expect(cn('duration-base', 'duration-150')).toBe('duration-150')
+    // duration은 이름 있는 토큰이 없다(Tailwind v4에 --duration-* 네임스페이스 없음).
+    // 원시값을 직접 참조하는 형태끼리 병합되는지만 본다.
+    expect(cn('duration-(--ds-motion-base)', 'duration-150')).toBe('duration-150')
     expect(cn('ease-snappy', 'ease-linear')).toBe('ease-linear')
   })
 

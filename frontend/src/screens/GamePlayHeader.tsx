@@ -135,7 +135,7 @@ function TurnStatus({
       </span>
       <span
         className={cn(
-          'flex items-center gap-1.5 truncate text-[16px] font-bold transition-colors duration-base motion-safe:animate-turn-flash',
+          'flex items-center gap-1.5 truncate text-[16px] font-bold transition-colors duration-(--ds-motion-base) motion-safe:animate-turn-flash',
           !isMyTurn && activePlayer && 'text-brand-soft',
         )}
         key={activePlayerId ?? 'sync'}
@@ -143,7 +143,7 @@ function TurnStatus({
         <span
           aria-hidden="true"
           className={cn(
-            'size-2 flex-none rounded-full transition-colors duration-base',
+            'size-2 flex-none rounded-full transition-colors duration-(--ds-motion-base)',
             turnDotClass(isMyTurn, submitted, activePlayer !== undefined),
           )}
         />

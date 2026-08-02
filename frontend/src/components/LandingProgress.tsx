@@ -76,7 +76,7 @@ export function LandingProgress({ activeIndex, games, layout, onSelect }: Landin
               <span
                 aria-hidden="true"
                 className={cn(
-                  'block h-1 rounded-full transition-[width,background-color] duration-base ease-snappy',
+                  'block h-1 rounded-full transition-[width,background-color] duration-(--ds-motion-base) ease-snappy',
                   // 선택 상태는 폭(7→34px)과 색이 이미 말한다 — 글로우는 중복이고,
                   // 화면에서 유일하게 빛나는 레드는 CTA여야 한다.
                   selected
