@@ -1,5 +1,5 @@
 import { readAuthSession } from '@/authSession'
-import type { DiceSet, GameState, PlayerId, RoomSnapshot, YachtCategory } from '@/realtime/wsEvents'
+import type { GameState, PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
 import { apiRequest } from './client'
 
 export interface CreateRoomRequest {
@@ -37,14 +37,6 @@ export interface RoomSession {
   snapshot: RoomSnapshot | null
 }
 
-export interface ScoreCandidatesRequest {
-  dice: DiceSet
-}
-
-export interface ScoreCandidates {
-  candidates: Record<YachtCategory, number>
-}
-
 export interface GameStartResult {
   gameId: string
   snapshot: RoomSnapshot
@@ -70,11 +62,6 @@ export interface GameApiClient {
   startGame(roomCode: string, options: AuthenticatedApiCallOptions): Promise<GameStartResult>
   /** 종료된 게임을 대기실로 되돌린다(host 전용). 방 전원이 함께 이동한다. */
   returnToLobby(roomCode: string, options: AuthenticatedApiCallOptions): Promise<void>
-  getScoreCandidates(
-    gameId: string,
-    request: ScoreCandidatesRequest,
-    options?: ApiCallOptions,
-  ): Promise<ScoreCandidates>
   leaveRoom(roomCode: string, options: AuthenticatedApiCallOptions): Promise<void>
 }
 
@@ -112,14 +99,6 @@ export class HttpGameApiClient implements GameApiClient {
       ...requestSignal(options),
       headers: authenticatedHeaders(options),
     })
-  }
-
-  getScoreCandidates(gameId: string, request: ScoreCandidatesRequest, options?: ApiCallOptions) {
-    return apiRequest<unknown>(`/games/${gameId}/score-candidates`, {
-      method: 'POST',
-      body: JSON.stringify(request),
-      ...requestSignal(options),
-    }).then(toScoreCandidates)
   }
 
   leaveRoom(roomCode: string, options: AuthenticatedApiCallOptions) {
@@ -236,19 +215,6 @@ function toGameState(value: unknown): GameState | undefined {
     // preserveRealtimeGame이 WS 진행을 덮지 않도록 막아준다.
     rollCount: typeof value.rollCount === 'number' ? value.rollCount : 0,
   }
-}
-
-function toScoreCandidates(response: unknown): ScoreCandidates {
-  if (!isRecord(response) || !isRecord(response.candidates)) {
-    throw new Error('Invalid score candidates response')
-  }
-
-  const entries = Object.entries(response.candidates)
-  if (!entries.every(([, score]) => typeof score === 'number' && Number.isInteger(score))) {
-    throw new Error('Invalid score candidates response')
-  }
-
-  return { candidates: Object.fromEntries(entries) as Record<YachtCategory, number> }
 }
 
 function isRestRoomPlayer(value: unknown): value is { nickname: string; playerId: string } {
