@@ -1,6 +1,7 @@
 import { HttpResponse, http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { HttpGameApiClient } from '@/api/gameApi'
+import { saveAuthSession } from '@/authSession'
 import { creatorSession, participantSession } from './fixtures'
 import { clearMockRoomSnapshot } from './mockRoomState'
 import { createRestHandlers } from './restHandlers'
@@ -10,7 +11,39 @@ const client = new HttpGameApiClient()
 
 describe('REST mock handlers', () => {
   // startGame이 방 상태를 기억하므로, 테스트 순서에 따라 응답이 달라지지 않게 지운다.
-  beforeEach(() => clearMockRoomSnapshot())
+  beforeEach(() => {
+    clearMockRoomSnapshot()
+    localStorage.clear()
+  })
+
+  /**
+   * 로그인 세션을 함께 보내야 서버가 새 게스트를 만들지 않고 그 회원으로 입장시킨다.
+   * 이게 빠지면 로그인해도 방에 들어가는 순간 게스트가 되어 전적이 계정에 남지 않는다.
+   */
+  it('로그인했으면 방 입장 요청에 세션 토큰을 싣는다', async () => {
+    const bodies: unknown[] = []
+    mockApiServer.use(
+      http.post('/api/v1/rooms', async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json({
+          id: 'member-1',
+          nickname: '카카오회원',
+          token: 'member-token',
+          room_id: 'YORR64',
+        })
+      }),
+    )
+
+    await client.createRoom({ nickname: '비로그인' })
+
+    saveAuthSession({ userId: 'member-1', nickname: '카카오회원', sessionToken: 'member-token' })
+    await client.createRoom({ nickname: '로그인함' })
+    await client.joinRoom('YORR64', { nickname: '로그인함' })
+
+    expect(bodies[0]).not.toHaveProperty('session_token')
+    expect(bodies[1]).toMatchObject({ nickname: '로그인함', session_token: 'member-token' })
+    expect(bodies[2]).toMatchObject({ room_id: 'YORR64', session_token: 'member-token' })
+  })
 
   it('OpenAPI에 정의된 방·게임 REST 흐름을 제공한다', async () => {
     const creator = await client.createRoom({
@@ -22,9 +55,6 @@ describe('REST mock handlers', () => {
       userId: creator.you,
     })
     const game = await client.getGame(startedGame.gameId)
-    const candidates = await client.getScoreCandidates(startedGame.gameId, {
-      dice: [1, 2, 3, 4, 6],
-    })
     await client.leaveRoom(creator.roomCode, {
       sessionToken: creator.sessionToken,
       userId: creator.you,
@@ -36,7 +66,6 @@ describe('REST mock handlers', () => {
     expect(startedGame.gameId).toBe('mock-game-id')
     expect(startedGame.snapshot.phase).toBe('playing')
     expect(game.phase).toBe('playing')
-    expect(candidates.candidates.choice).toBe(16)
   })
 
   it('REST 응답 계약에는 프론트 전용 역할을 추가하지 않는다', async () => {
@@ -146,15 +175,10 @@ describe('REST mock handlers', () => {
     })
   })
 
-  it('점수 후보와 방 나가기 요청도 OpenAPI 계약을 따른다', async () => {
-    let scoreRequestBody: unknown
+  it('방 나가기 요청도 OpenAPI 계약을 따른다', async () => {
     let leaveAuthorization = ''
     let leaveUserId = ''
     mockApiServer.use(
-      http.post('/api/v1/games/:gameId/score-candidates', async ({ request }) => {
-        scoreRequestBody = await request.json()
-        return HttpResponse.json({ candidates: { choice: 16 } })
-      }),
       http.delete('/api/v1/rooms/:roomCode/players/me', ({ request }) => {
         leaveAuthorization = request.headers.get('Authorization') ?? ''
         leaveUserId = request.headers.get('X-User-Id') ?? ''
@@ -162,13 +186,11 @@ describe('REST mock handlers', () => {
       }),
     )
 
-    await client.getScoreCandidates('game-1', { dice: [1, 2, 3, 4, 6] })
     await client.leaveRoom(creatorSession.roomCode, {
       sessionToken: creatorSession.sessionToken,
       userId: creatorSession.you,
     })
 
-    expect(scoreRequestBody).toEqual({ dice: [1, 2, 3, 4, 6] })
     expect(leaveAuthorization).toBe(`Bearer ${creatorSession.sessionToken}`)
     expect(leaveUserId).toBe(creatorSession.you)
   })
@@ -191,5 +213,67 @@ describe('REST mock handlers', () => {
         message: '선택된 mock 오류입니다.',
       }),
     )
+  })
+
+  it('오류 시나리오는 모든 endpoint에 동일하게 적용된다', async () => {
+    mockApiServer.use(...createRestHandlers({ scenario: 'error' }))
+    const auth = { sessionToken: creatorSession.sessionToken, userId: creatorSession.you }
+
+    const failures = await Promise.all(
+      [
+        client.createRoom({ nickname: '호스트' }),
+        client.startGame(creatorSession.roomCode, auth),
+        client.returnToLobby(creatorSession.roomCode, auth),
+        client.leaveRoom(creatorSession.roomCode, auth),
+      ].map((request) => request.then(() => null).catch((error: unknown) => error)),
+    )
+
+    expect(failures.map((error) => (error as { code?: string }).code)).toEqual(
+      Array.from({ length: 4 }, () => 'MOCK_API_ERROR'),
+    )
+  })
+
+  it('delay 시나리오는 응답을 미뤄 로딩 구간을 재현한다', async () => {
+    mockApiServer.use(...createRestHandlers({ scenario: 'delay', delayMs: 20 }))
+    let settled = false
+
+    const pending = client.getGame('mock-game-id').then((snapshot) => {
+      settled = true
+      return snapshot
+    })
+
+    expect(settled).toBe(false)
+    await expect(pending).resolves.toMatchObject({ phase: 'playing' })
+  })
+
+  it('mock이 아는 방·게임이 아니면 404로 응답한다', async () => {
+    const auth = { sessionToken: creatorSession.sessionToken, userId: creatorSession.you }
+
+    await expect(client.joinRoom('NOPE99', { nickname: '참가자' })).rejects.toMatchObject({
+      status: 404,
+      code: 'ROOM_NOT_FOUND',
+    })
+    await expect(client.getGame('other-game')).rejects.toMatchObject({
+      status: 404,
+      code: 'GAME_NOT_FOUND',
+    })
+    await expect(client.startGame('NOPE99', auth)).rejects.toMatchObject({
+      code: 'ROOM_NOT_FOUND',
+    })
+    await expect(client.returnToLobby('NOPE99', auth)).rejects.toMatchObject({
+      code: 'ROOM_NOT_FOUND',
+    })
+    await expect(client.leaveRoom('NOPE99', auth)).rejects.toMatchObject({
+      code: 'ROOM_NOT_FOUND',
+    })
+  })
+
+  it('대기실 복귀는 본문 없는 204로 응답한다', async () => {
+    await expect(
+      client.returnToLobby(creatorSession.roomCode, {
+        sessionToken: creatorSession.sessionToken,
+        userId: creatorSession.you,
+      }),
+    ).resolves.toBeUndefined()
   })
 })

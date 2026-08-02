@@ -19,11 +19,16 @@ import {
   updateLayoutEntries,
 } from './layout'
 import type { PhysicsDiceGeometries, PhysicsDiceMaterials } from './model'
-import { quaternionForTopValue, topFaceFromQuaternion } from './model'
+import { quaternionForTopValue } from './model'
 import { createPhysicsDiceRandom, type PhysicsDiceRandom } from './random'
-import { cubeAlignmentOffset, isBodySettled, predictNaturalDice } from './remap'
+import {
+  cubeAlignmentOffset,
+  type DiceTrajectoryFrame,
+  type DiceTrajectoryPlan,
+  planDiceTrajectory,
+} from './remap'
 import type { AlignmentEntry, DieEntry, LayoutEntry } from './runtimeTypes'
-import { containDiceInBowl, containDiceInTray } from './safety'
+import { containDiceInBowl } from './safety'
 import { createStage } from './stage'
 import type {
   PhysicsDiceIndex,
@@ -38,8 +43,6 @@ import type {
 const CONFIG = PHYSICS_DICE_CONFIG
 const SCENE = CONFIG.scene
 const UP = new THREE.Vector3(0, 1, 0)
-/** 보정 없음. 예측 실패 시 지난 굴림의 오프셋을 지우는 데 쓴다. */
-const IDENTITY_OFFSET = new THREE.Quaternion()
 const NO_HELD: PhysicsHeldDice = [false, false, false, false, false]
 const INITIAL_DICE: PhysicsDiceSet = [1, 2, 3, 4, 5]
 let rapierReady: Promise<typeof RAPIER> | undefined
@@ -69,6 +72,7 @@ export class PhysicsDiceWorld {
   private container: HTMLElement
   private diceReleased = false
   private entries: DieEntry[] = []
+  private fallingDice = [false, false, false, false, false]
   private frameId: number | null = null
   private geometries!: PhysicsDiceGeometries
   private held: PhysicsHeldDice = NO_HELD
@@ -76,6 +80,7 @@ export class PhysicsDiceWorld {
   private keyLight!: THREE.DirectionalLight
   private keepSlotMaterials: THREE.Material[] = []
   private keepSlots: THREE.Group[] = []
+  private lastImpactAt = [0, 0, 0, 0, 0]
   private lastPulseAt = 0
   private lastShakeKick = 0
   private lastTime = 0
@@ -96,13 +101,14 @@ export class PhysicsDiceWorld {
   private request: PhysicsDiceRollRequest | null = null
   private resizeObserver?: ResizeObserver
   private resizeTimer: ReturnType<typeof setTimeout> | null = null
-  private rollStartedAt = 0
   private scene!: THREE.Scene
   private settledDice: PhysicsDiceSet | null = null
   private shakeEnergy = 0
   private shakeStartedAt = 0
-  private stableFrames = 0
   private themeObserver?: MutationObserver
+  private trajectory: DiceTrajectoryPlan | null = null
+  private trajectoryFrameIndex = 0
+  private trajectoryStartedAt = 0
   private trayMaterials: THREE.Material[] = []
   private world!: RAPIER.World
 
@@ -156,6 +162,8 @@ export class PhysicsDiceWorld {
       return
     this.request = request
     this.settledDice = null
+    this.trajectory = null
+    this.trajectoryFrameIndex = 0
     this.layoutAnimating = false
     this.entries.forEach((entry) => {
       entry.visualOffset.identity()
@@ -172,8 +180,9 @@ export class PhysicsDiceWorld {
     this.shakeEnergy = this.motionFollow ? SCENE.bowl.followStartEnergy : 0
     this.lastPulseAt = this.shakeStartedAt
     this.accumulator = 0
-    this.stableFrames = 0
     this.diceReleased = false
+    this.fallingDice.fill(false)
+    this.lastImpactAt.fill(0)
     this.bowlGroup.visible = true
     this.bowlGroup.position.set(SCENE.bowl.startX, SCENE.bowl.hoverY, SCENE.bowl.startZ)
     this.bowlGroup.rotation.set(0, 0, 0)
@@ -223,17 +232,17 @@ export class PhysicsDiceWorld {
       entry.body.setRotation(this.randomQuaternion(), true)
       entry.body.setLinvel(
         {
-          x: (this.random.next() - 0.5) * 3,
-          y: this.random.next() * 2,
-          z: (this.random.next() - 0.5) * 3,
+          x: (this.random.next() - 0.5) * CONFIG.defaults.spawnLinearSpeed,
+          y: this.random.next() * CONFIG.defaults.spawnLiftSpeed,
+          z: (this.random.next() - 0.5) * CONFIG.defaults.spawnLinearSpeed,
         },
         true,
       )
       entry.body.setAngvel(
         {
-          x: (this.random.next() - 0.5) * 19,
-          y: (this.random.next() - 0.5) * 19,
-          z: (this.random.next() - 0.5) * 19,
+          x: (this.random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
+          y: (this.random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
+          z: (this.random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
         },
         true,
       )
@@ -278,13 +287,19 @@ export class PhysicsDiceWorld {
     this.lastPulseAt = now
     const sign = direction === 'left' ? -1 : 1
     const mass = CONFIG.defaults.mass
-    this.entries.forEach((entry) => {
-      if (this.held[entry.index]) return
+    const strengthMultiplier = SCENE.bowl.shakeStrength
+    const active = this.entries.filter((entry) => !this.held[entry.index])
+    const kickSlot = Math.floor(this.random.next() * active.length)
+    active.forEach((entry, slot) => {
+      // 세게 흔들수록 높이 튀긴다 — 목표 높이에서 역산해 중력과 무관하게 같은 그림을 만든다.
+      const liftSpeed = Math.sqrt(
+        2 * CONFIG.defaults.gravity * SCENE.bowl.shakeKickHeight * (0.25 + 0.75 * clamped),
+      )
       entry.body.applyImpulse(
         {
-          x: sign * SCENE.bowl.followPulseImpulse * (0.5 + clamped) * mass,
-          y: SCENE.bowl.followPulseLift * (0.5 + clamped) * mass,
-          z: (this.random.next() - 0.5) * SCENE.bowl.shakeRandomImpulse,
+          x: sign * SCENE.bowl.followPulseImpulse * (0.5 + clamped) * mass * strengthMultiplier,
+          y: slot === kickSlot ? liftSpeed * mass * strengthMultiplier : 0,
+          z: (this.random.next() - 0.5) * SCENE.bowl.shakeRandomImpulse * strengthMultiplier,
         },
         true,
       )
@@ -297,8 +312,9 @@ export class PhysicsDiceWorld {
     if (this.phase !== 'shaking') return
     this.phase = 'pouring'
     this.pourStartedAt = performance.now()
-    this.rollStartedAt = this.pourStartedAt
-    this.stableFrames = 0
+    // 기울이기가 끝나면 곧바로 퇴장한다 — 던져진 주사위 위에 사발이 머물러
+    // 시각적으로 겹치지 않게, 정렬 단계를 기다리지 않는다.
+    this.bowlExitStartedAt = this.pourStartedAt + SCENE.bowl.tiltDurationMs
     this.callbacks.onPhaseChange('pouring')
     this.invalidate()
   }
@@ -379,17 +395,16 @@ export class PhysicsDiceWorld {
     if (!this.active) return
     const elapsed = Math.min(0.08, Math.max(0, (time - this.lastTime) / 1000))
     this.lastTime = time
-    const simulating = this.phase === 'shaking' || this.phase === 'pouring'
+    const simulating = this.phase === 'shaking' || (this.phase === 'pouring' && !this.diceReleased)
     if (simulating) this.accumulator += elapsed
     this.updateBowl(time)
-    const rollingEntries = this.entries.filter((entry) => !this.held[entry.index])
-    while (simulating && this.accumulator >= this.world.timestep) {
+    while (simulating && !this.diceReleased && this.accumulator >= this.world.timestep) {
       this.world.step()
       if (this.phase === 'shaking') containDiceInBowl(this.entries, this.held, this.bowlBody)
-      if (this.phase === 'pouring' && this.diceReleased) containDiceInTray(rollingEntries)
       this.accumulator -= this.world.timestep
     }
     if (this.phase === 'aligning') this.updateResultAlignment(time)
+    else if (this.phase === 'pouring' && this.trajectory) this.updateTrajectory(time)
     else if (this.layoutAnimating) this.updateLayoutTransition(time)
     else {
       this.entries.forEach((entry) => {
@@ -401,7 +416,6 @@ export class PhysicsDiceWorld {
           .multiply(entry.visualOffset)
       })
     }
-    this.checkSettled(time)
     this.renderer.render(this.scene, this.camera)
     if (this.phase !== 'idle' || this.layoutAnimating) this.invalidate()
   }
@@ -409,7 +423,7 @@ export class PhysicsDiceWorld {
   private updateBowl(time: number) {
     if (this.phase === 'shaking') {
       // follow 모드는 기기 흔들림 펄스에서 감쇠 중인 세기(0~1)를 쓰고, tap 모드는 항상 1.
-      const intensity = this.currentShakeIntensity(time)
+      const intensity = this.currentShakeIntensity(time) * SCENE.bowl.shakeStrength
       const elapsed = (time - this.shakeStartedAt) / 1000
       const x = SCENE.bowl.startX + Math.sin(elapsed * 15) * SCENE.bowl.shakeOffsetX * intensity
       const z =
@@ -425,13 +439,27 @@ export class PhysicsDiceWorld {
       this.bowlGroup.rotation.y = yaw
       if (intensity > 0 && time - this.lastShakeKick >= SCENE.bowl.shakeIntervalMs) {
         this.lastShakeKick = time
-        this.entries.forEach((entry) => {
-          if (this.held[entry.index]) return
+        const active = this.entries.filter((entry) => !this.held[entry.index])
+        const kickSlot = Math.floor(this.random.next() * active.length)
+        active.forEach((entry, slot) => {
           const position = entry.body.translation()
           const velocity = entry.body.linvel()
           const centerX = x - position.x
           const centerZ = z - position.z
           const mass = CONFIG.defaults.mass
+          // 바닥 근처 주사위만 목표 높이 √(2gh)로 튀긴다 — 임펄스 상수는 중력을 올리면
+          // 홉이 죽지만, 높이로 지정하면 중력과 무관하게 같은 그림이 나온다.
+          const kickRandom = this.random.next()
+          const altitude = position.y - SCENE.bowl.hoverY
+          const kickSpeed =
+            slot === kickSlot && altitude < SCENE.bowl.shakeKickAltitude
+              ? Math.sqrt(
+                  2 *
+                    CONFIG.defaults.gravity *
+                    SCENE.bowl.shakeKickHeight *
+                    (0.3 + 0.7 * kickRandom),
+                )
+              : 0
           entry.body.applyImpulse(
             {
               x:
@@ -440,9 +468,7 @@ export class PhysicsDiceWorld {
                   centerZ * SCENE.bowl.shakeOrbitStrength +
                   (this.random.next() - 0.5) * SCENE.bowl.shakeRandomImpulse) *
                   intensity,
-              y:
-                (SCENE.bowl.shakeLiftImpulse + this.random.next() * SCENE.bowl.shakeRandomImpulse) *
-                intensity,
+              y: kickSpeed * mass * intensity,
               z:
                 (bowlVelocityZ - velocity.z) * SCENE.bowl.shakeFollowStrength * mass +
                 (centerZ * SCENE.bowl.shakeCenterStrength +
@@ -452,11 +478,12 @@ export class PhysicsDiceWorld {
             },
             true,
           )
+          const torque = SCENE.bowl.shakeTorqueImpulse * intensity
           entry.body.applyTorqueImpulse(
             {
-              x: (this.random.next() - 0.5) * 0.55 * intensity,
-              y: (this.random.next() - 0.5) * 0.55 * intensity,
-              z: (this.random.next() - 0.5) * 0.55 * intensity,
+              x: (this.random.next() - 0.5) * torque,
+              y: (this.random.next() - 0.5) * torque,
+              z: (this.random.next() - 0.5) * torque,
             },
             true,
           )
@@ -465,9 +492,6 @@ export class PhysicsDiceWorld {
       return
     }
     if (this.phase !== 'pouring') return
-    // 쏟은 뒤에는 그릇 바디를 더 움직이지 않는다 — 예측 복제 시뮬과 실제 진행이 같은
-    // 월드 상태를 보게 하기 위한 결정론 조건 (그릇은 이미 기울인 마지막 포즈로 고정).
-    if (this.diceReleased) return
     // 기울이는 동안 사발이 start→pour로 미끄러진다(tiltedBowlPosition이 보간) —
     // 쏟으면서 오른쪽으로 빠져나가는 한 동작이고, 퇴장 애니메이션이 그대로 이어받는다.
     const elapsed = time - this.pourStartedAt
@@ -476,14 +500,48 @@ export class PhysicsDiceWorld {
     const angle =
       THREE.MathUtils.degToRad(SCENE.bowl.tiltDegrees) * SCENE.bowl.tiltDirection * eased
     const position = tiltedBowlPosition(eased, angle)
+    // 비주얼은 던진 뒤에도 기울이기를 끝까지 이어간다 — 사발이 뒤집히는 그림 위로
+    // 주사위가 터져 나온다. 기울이기가 끝나면 곧바로 퇴장 애니메이션이 이어받는다.
+    this.bowlGroup.position.set(position.x, position.y, position.z)
+    this.bowlGroup.rotation.set(0, 0, angle)
+    if (progress >= 1) this.updateBowlExit(time)
+    if (this.diceReleased) return
+    // 뒤집어지는 순간(releaseTiltProgress)에 주사위를 던지고 사발 바디를 치운다 —
+    // 이후 사발은 순수 비주얼이고 주사위와 물리적으로 상호작용하지 않는다.
+    // (릴리스 뒤 바디를 움직이지 않는 것은 예측 복제 시뮬과의 결정론 조건이기도 하다.)
+    if (progress >= SCENE.bowl.releaseTiltProgress) {
+      this.releaseFromBowl()
+      return
+    }
     const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle)
     this.bowlBody.setNextKinematicTranslation(position)
     this.bowlBody.setNextKinematicRotation(rotation)
-    this.bowlGroup.position.set(position.x, position.y, position.z)
-    this.bowlGroup.rotation.set(0, 0, angle)
-    if (progress >= 1 && elapsed >= SCENE.bowl.tiltDurationMs + SCENE.bowl.spillPushDurationMs) {
-      this.releaseFromBowl()
-    }
+  }
+
+  private detectTrajectoryImpacts(
+    from: DiceTrajectoryFrame,
+    to: DiceTrajectoryFrame,
+    time: number,
+  ) {
+    const span = to.atSeconds - from.atSeconds
+    if (span <= 0) return
+    this.entries.forEach((entry, index) => {
+      if (this.held[entry.index]) return
+      const fromPose = from.poses[index]
+      const toPose = to.poses[index]
+      if (!fromPose || !toPose) return
+      const verticalSpeed = (toPose.position.y - fromPose.position.y) / span
+      if (verticalSpeed < -0.8) this.fallingDice[entry.index] = true
+      if (
+        this.fallingDice[entry.index] &&
+        verticalSpeed > 0.45 &&
+        time - (this.lastImpactAt[entry.index] ?? 0) >= 80
+      ) {
+        this.lastImpactAt[entry.index] = time
+        this.fallingDice[entry.index] = false
+        this.callbacks.onDiceImpact?.(entry.index, Math.min(1, verticalSpeed / 4))
+      }
+    })
   }
 
   /** follow 모드에서 마지막 펄스 이후 지수 감쇠한 흔들림 세기(0~1). tap 모드는 항상 1. */
@@ -533,95 +591,104 @@ export class PhysicsDiceWorld {
         force *
         SCENE.bowl.spillForceMultiplier *
         SCENE.bowl.spillDirectionX
-      const inheritedX = velocity.x * 0.7
       entry.body.setLinvel(
         {
-          x:
-            SCENE.bowl.spillDirectionX < 0
-              ? Math.min(inheritedX, targetX)
-              : Math.max(inheritedX, targetX),
-          y: Math.max(velocity.y * 0.7, SCENE.bowl.spillLiftSpeed * force),
+          x: targetX,
+          y: Math.max(velocity.y * 0.2, SCENE.bowl.spillLiftSpeed * force),
           z:
-            velocity.z * 0.65 +
             fan * SCENE.bowl.spillFanSpeed * force +
             (this.random.next() - 0.5) * SCENE.bowl.spillRandomZ,
         },
         true,
       )
-      const impulse =
-        (SCENE.bowl.spillSideImpulse +
-          (this.random.next() - 0.5) * SCENE.bowl.spillSideImpulseVariance) *
-        CONFIG.defaults.mass *
-        force
-      entry.body.applyImpulse({ x: impulse * SCENE.bowl.spillDirectionX, y: 0, z: 0 }, true)
-      entry.body.applyTorqueImpulse(
+      const angular = entry.body.angvel()
+      entry.body.setAngvel(
         {
-          x: (this.random.next() - 0.5) * SCENE.bowl.spillTorque,
-          y: (this.random.next() - 0.5) * SCENE.bowl.spillTorque,
-          z: (this.random.next() - 0.5) * SCENE.bowl.spillTorque,
+          x: angular.x * 0.4,
+          y: angular.y * 0.4,
+          z: angular.z * 0.4,
         },
         true,
       )
     })
-    this.planVisualRemap()
+    this.startTrajectoryReplay()
   }
 
   /**
-   * 쏟아짐 직후 복제 시뮬로 자연 결과를 예측하고, 주사위가 공중에서 빠르게 회전하는
-   * 지금 시점에 표시 면을 목표값으로 바꿔 끼운다. 예측이 실패해도 정렬 단계가
-   * targetDice로 수렴하므로 연출 품질만 떨어질 뿐 결과는 항상 정확하다.
+   * 쏟아짐 직후 물리를 한 번 끝까지 계산하고 그 궤적을 그대로 재생한다. 예측용 월드와
+   * 화면용 월드를 따로 굴리면 작은 충돌 오차가 다른 착지 면으로 증폭되므로 두 번째
+   * 시뮬레이션을 만들지 않는다.
    */
-  private planVisualRemap() {
+  private startTrajectoryReplay() {
     const request = this.request
     if (!request) return
-    const natural = predictNaturalDice(this.world, this.entries, this.held)
+    const trajectory = planDiceTrajectory(this.world, this.entries, this.held, request.seed)
+    if (!trajectory) {
+      this.callbacks.onError(new Error('주사위 궤적을 계산하지 못했습니다.'))
+      return
+    }
+    this.trajectory = trajectory
+    this.trajectoryFrameIndex = 0
+    this.trajectoryStartedAt = performance.now()
     this.entries.forEach((entry) => {
       if (this.held[entry.index]) return
-      // 예측이 실패하면 오프셋을 비운다. 그대로 두면 지난 굴림의 보정이 남아 엉뚱한 면이 보인다.
       entry.visualOffset.copy(
-        natural
-          ? cubeAlignmentOffset(request.targetDice[entry.index], natural[entry.index])
-          : IDENTITY_OFFSET,
+        cubeAlignmentOffset(request.targetDice[entry.index], trajectory.naturalDice[entry.index]),
       )
+      entry.body.setBodyType(RAPIER.RigidBodyType.Fixed, true)
     })
   }
 
-  /**
-   * 멈춘 주사위의 표시 면을 목표값으로 다시 맞춘다.
-   * <p>
-   * {@link planVisualRemap}의 예측은 월드를 스냅샷 복제해 미리 굴려 본 결과이고, 그 재시뮬레이션은
-   * 실제 진행과 완전히 같지 않다. 주사위 튐은 카오스적이어서 아주 작은 차이도 다른 면으로 갈리므로,
-   * 예측이 어긋난 주사위는 바닥에 멈춘 뒤에도 잘못된 눈을 보여줬다(결과 정렬 단계에서야 목표값으로
-   * 바뀌어 "눈금이 갑자기 바뀌는" 것으로 보였다).
-   * <p>
-   * 그래서 멈춘 주사위는 예측을 믿지 않고 <b>실제 자세에서</b> 오프셋을 다시 구한다. body 자세만 보고
-   * 유도하므로 매 프레임 호출해도 결과가 같다(멱등). 아직 구르는 주사위는 건드리지 않는다 —
-   * 매 프레임 다시 맞추면 회전이 어색해진다.
-   */
-  private correctSettledVisuals() {
-    const request = this.request
-    if (!request) return
+  private updateTrajectory(time: number) {
+    const trajectory = this.trajectory
+    if (!trajectory) return
+    const elapsed = Math.min(
+      trajectory.durationSeconds,
+      Math.max(0, (time - this.trajectoryStartedAt) / 1000),
+    )
+    while (this.trajectoryFrameIndex + 1 < trajectory.frames.length) {
+      const next = trajectory.frames[this.trajectoryFrameIndex + 1]
+      if (!next || next.atSeconds > elapsed) break
+      this.trajectoryFrameIndex += 1
+    }
+    const from = trajectory.frames[this.trajectoryFrameIndex]
+    const to =
+      trajectory.frames[Math.min(this.trajectoryFrameIndex + 1, trajectory.frames.length - 1)]
+    if (!from || !to) return
+    const span = to.atSeconds - from.atSeconds
+    const progress = span > 0 ? (elapsed - from.atSeconds) / span : 0
+    this.detectTrajectoryImpacts(from, to, time)
+    this.entries.forEach((entry, index) => {
+      if (this.held[entry.index]) return
+      const fromPose = from.poses[index]
+      const toPose = to.poses[index]
+      if (!fromPose || !toPose) return
+      entry.mesh.position.set(
+        THREE.MathUtils.lerp(fromPose.position.x, toPose.position.x, progress),
+        THREE.MathUtils.lerp(fromPose.position.y, toPose.position.y, progress),
+        THREE.MathUtils.lerp(fromPose.position.z, toPose.position.z, progress),
+      )
+      entry.mesh.quaternion
+        .set(fromPose.rotation.x, fromPose.rotation.y, fromPose.rotation.z, fromPose.rotation.w)
+        .slerp(
+          new THREE.Quaternion(
+            toPose.rotation.x,
+            toPose.rotation.y,
+            toPose.rotation.z,
+            toPose.rotation.w,
+          ),
+          progress,
+        )
+        .multiply(entry.visualOffset)
+    })
+    if (elapsed < trajectory.durationSeconds) return
     this.entries.forEach((entry) => {
-      if (this.held[entry.index] || !isBodySettled(entry.body)) return
-      entry.visualOffset.copy(
-        cubeAlignmentOffset(
-          request.targetDice[entry.index],
-          topFaceFromQuaternion(entry.body.rotation()),
-        ),
-      )
+      if (this.held[entry.index]) return
+      entry.body.setTranslation(entry.mesh.position, true)
+      entry.body.setRotation(entry.mesh.quaternion, true)
+      entry.visualOffset.identity()
     })
-  }
-
-  private checkSettled(time: number) {
-    if (this.phase !== 'pouring' || !this.diceReleased) return
-    // 멈춘 주사위는 최소 굴림 시간과 무관하게 곧바로 표시 면을 맞춘다 —
-    // 멈춘 채 잘못된 눈을 보여주는 구간이 곧 이 버그였다.
-    this.correctSettledVisuals()
-    if (time - this.rollStartedAt < SCENE.settlement.minRollDurationMs) return
-    const active = this.entries.filter((entry) => !this.held[entry.index])
-    const physicallySettled = active.every((entry) => isBodySettled(entry.body))
-    this.stableFrames = physicallySettled ? this.stableFrames + 1 : 0
-    if (this.stableFrames < SCENE.settlement.stableFrames) return
+    this.trajectory = null
     this.startResultAlignment(time)
   }
 
@@ -630,7 +697,8 @@ export class PhysicsDiceWorld {
     this.phase = 'aligning'
     this.callbacks.onPhaseChange('aligning')
     this.alignmentStartedAt = time
-    this.bowlExitStartedAt = time
+    // bowlExitStartedAt은 pour()가 이미 잡았다 — 퇴장은 기울이기 직후 시작해서
+    // 대개 정렬 전에 끝나 있고, updateResultAlignment의 updateBowlExit은 no-op이 된다.
     this.settledDice = [...this.request.targetDice]
     this.alignmentEntries = prepareAlignmentEntries(
       this.entries,
@@ -658,8 +726,7 @@ export class PhysicsDiceWorld {
     const completed = this.request
     const completedDice = this.settledDice
     this.committedDice = [...completedDice]
-    // 오프셋 베이크: 정렬이 body를 목표값의 canonical 회전으로 고정했으므로
-    // 이후 idle 동기화(body × offset)가 어긋나지 않게 오프셋을 소거한다.
+    // 궤적 종료 시 시각 위상을 body에 이미 베이크했다.
     this.entries.forEach((entry) => {
       entry.visualOffset.identity()
     })

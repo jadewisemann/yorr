@@ -1,9 +1,6 @@
 package com.ssafy.yorr.room.controller;
 
-import com.ssafy.yorr.handler.GameWebSocketHandler;
-import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
-import com.ssafy.yorr.game.round.application.RoundTimerService;
-import com.ssafy.yorr.game.round.domain.RoundState;
+import com.ssafy.yorr.game.module.GameLifecycleService;
 import com.ssafy.yorr.room.dto.GameStartResponse;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
@@ -12,7 +9,6 @@ import com.ssafy.yorr.room.service.RoomValidationService;
 import com.ssafy.yorr.user.UserIdentity;
 import com.ssafy.yorr.user.UserType;
 import com.ssafy.yorr.user.service.UserService;
-import com.ssafy.yorr.ws.RoomSessionRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
@@ -21,10 +17,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -38,38 +31,27 @@ class RoomValidationControllerTest {
 
     private RoomValidationService roomService;
     private UserService userService;
-    private RoomSessionRegistry registry;
-    private GameWebSocketHandler handler;
-    private RoundSynchronizationService roundSynchronizationService;
-    private RoundTimerService roundTimerService;
+    private GameLifecycleService games;
     private RoomValidationController controller;
 
     @BeforeEach
     void setUp() {
         roomService = mock(RoomValidationService.class);
         userService = mock(UserService.class);
-        registry = mock(RoomSessionRegistry.class);
-        handler = mock(GameWebSocketHandler.class);
-        roundSynchronizationService = mock(RoundSynchronizationService.class);
-        roundTimerService = mock(RoundTimerService.class);
+        games = mock(GameLifecycleService.class);
         controller = new RoomValidationController(
                 roomService,
                 userService,
-                registry,
-                handler,
-                roundSynchronizationService,
-                roundTimerService
+                games
         );
 
         when(userService.authenticate(HOST_ID, AUTH))
                 .thenReturn(new UserIdentity(HOST_ID, "호스트", UserType.GUEST));
         when(roomService.getSnapshot(ROOM)).thenReturn(lobbyWithHost());
-        when(roundSynchronizationService.initialize(anyString(), anyInt(), any()))
-                .thenReturn(RoundState.start(1, List.of(HOST_ID, "guest-1")));
     }
 
     private RoomSnapshot lobbyWithHost() {
-        return new RoomSnapshot(ROOM, null, HOST_ID, RoomPhase.LOBBY, 6,
+        return new RoomSnapshot(ROOM, "YACHT_DICE", null, HOST_ID, RoomPhase.LOBBY, 6,
                 List.of(new RoomPlayerSnapshot(HOST_ID, "호스트", 0),
                         new RoomPlayerSnapshot("guest-1", "참가자", 0)));
     }
@@ -80,34 +62,23 @@ class RoomValidationControllerTest {
      */
     @Test
     void broadcastsToTheRoomSoNonHostPlayersLeaveTheLobby() {
-        when(roomService.startGame(ROOM))
+        when(games.start(ROOM))
                 .thenReturn(new GameStartResponse("game-1", lobbyWithHost()));
 
         ResponseEntity<?> response = controller.startGame(ROOM, HOST_ID, AUTH);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
-        verify(roundSynchronizationService).initialize(
-                ROOM,
-                1,
-                List.of(HOST_ID, "guest-1")
-        );
-        verify(registry).markPhase(ROOM, com.ssafy.yorr.ws.dto.RoomPhase.PLAYING);
-        verify(handler).broadcastStateSync(ROOM);
-        verify(roundTimerService).start(
-                eq(ROOM),
-                argThat(state -> state.roundNumber() == 1 && state.activePlayerId().equals(HOST_ID))
-        );
+        verify(games).start(ROOM);
     }
 
     @Test
     void doesNotBroadcastWhenTheStartIsRejected() {
-        when(roomService.startGame(ROOM)).thenThrow(new IllegalStateException("game_not_ready"));
+        when(games.start(ROOM)).thenThrow(new IllegalStateException("game_not_ready"));
 
         ResponseEntity<?> response = controller.startGame(ROOM, HOST_ID, AUTH);
 
         assertThat(response.getStatusCode().value()).isEqualTo(409);
-        verify(handler, never()).broadcastStateSync(anyString());
-        verify(registry, never()).markPhase(anyString(), any());
+        verify(games).start(ROOM);
     }
 
     @Test
@@ -118,6 +89,6 @@ class RoomValidationControllerTest {
         ResponseEntity<?> response = controller.startGame(ROOM, "guest-1", AUTH);
 
         assertThat(response.getStatusCode().value()).isEqualTo(403);
-        verify(handler, never()).broadcastStateSync(anyString());
+        verify(games, never()).start(anyString());
     }
 }

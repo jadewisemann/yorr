@@ -4,6 +4,7 @@
     "includes": [
       "**",
       "!dist",
+      "!coverage",
       "!playwright-report",
       "!test-results",
       "!ref",
@@ -36,7 +37,8 @@
     "rules": {
       "preset": "recommended",
       "complexity": {
-        "noImportantStyles": "off"
+        "noImportantStyles": "off",
+        "noExcessiveCognitiveComplexity": "warn"
       }
     }
   },
@@ -46,5 +48,17 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.test.{ts,tsx}"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off"
+          }
+        }
+      }
+    }
+  ]
 }

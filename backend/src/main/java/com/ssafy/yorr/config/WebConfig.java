@@ -1,22 +1,26 @@
 package com.ssafy.yorr.global.config;
 
+import com.ssafy.yorr.config.CorsProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
+@EnableConfigurationProperties(CorsProperties.class)
 public class WebConfig implements WebMvcConfigurer {
 
+    private final CorsProperties cors;
+
+    public WebConfig(CorsProperties cors) {
+        this.cors = cors;
+    }
+
+    /** 허용 출처는 WebSocket(WebSocketConfig)과 같은 설정값을 쓴다 — 두 경로가 갈라지면 안 된다. */
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins(
-                        "http://localhost:5173",
-                        "http://127.0.0.1:5173",
-                        "https://yorr-testground.vercel.app",
-                        "https://yorr-playground.vercel.app",
-                        "https://yorr.site"
-                )
+                .allowedOrigins(cors.originsArray())
                 .allowedMethods(
                         "GET",
                         "POST",

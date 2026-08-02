@@ -42,13 +42,17 @@
  *    v0.4 (2026-07) 점수 규칙 확정 — smallStraight=15 · largeStraight=30 · fullHouse=총합.
  *                   (fourOfAKind=총합 / 상단보너스 63→35 은 기본값, 확정 대기)
  *    v0.5 (2026-07) 요트 점수 전체 확정 — fourOfAKind=5개 총합, 상단보너스 63↑→35 잠금.
+ *    v0.6 (2026-07) dice.throw / dice.thrown 추가 — 던진 시점을 방에 알린다. 그전까지 관전자는
+ *                   dice.broadcast 직후 타이머로 사발을 쏟아, 굴린 사람이 흔드는 중에 결과가 먼저 보였다.
+ *    v0.7 (2026-08) dice.shake / dice.shaken 추가 — 흔들림 펄스를 그대로 중계한다. 그전까지
+ *                   관전 화면은 정해진 애니메이션으로 계속 흔들려서, 굴린 사람이 손을 멈춰도 멈추지 않았다.
  * ============================================================================
  */
 
-import type { DiceSet } from '@/domain/dice'
+import type { DiceSet, HeldDice } from '@/domain/dice'
 import type { YachtCategory } from '@/domain/scoring'
 
-export type { DiceSet, DiceValue } from '@/domain/dice'
+export type { DiceSet, DiceValue, HeldDice } from '@/domain/dice'
 export type { YachtCategory, YachtLowerCategory, YachtUpperCategory } from '@/domain/scoring'
 export {
   UPPER_BONUS_POINTS,
@@ -104,6 +108,16 @@ export interface GameState {
   turnOrder?: PlayerId[]
   /** game.over로 받은 최종 순위. 결과 화면은 로컬 재계산 대신 이 값을 쓴다. */
   rankings?: GameOverPayload['rankings']
+  /**
+   * 현재 턴에서 **서버가 확정한** 굴림 횟수. 클라가 따로 세지 않고 이 값을 권위로 쓴다.
+   * 첫 굴림 전에는 0. 이 필드가 없으면 재접속한 클라가 0부터 다시 세어
+   * 다음 dice.roll이 INVALID_ROLL로 거부된다.
+   */
+  rollCount: number
+  /** 현재 턴에 놓여 있는 주사위. 첫 굴림 전에는 없다. */
+  dice?: DiceSet
+  /** 턴 주인이 유지 중인 KEEP. 첫 굴림 전에는 없다. */
+  held?: HeldDice
 }
 
 /* ----- 요트 정규룰 족보 (score.* / game.* · owner: 유상은 40·41·43) -----
@@ -324,6 +338,53 @@ export interface DiceHoldChangedPayload {
   roundNumber: number
   held: readonly [boolean, boolean, boolean, boolean, boolean]
 }
+/**
+ * C→S: 사발을 흔든 펄스 하나 — 관전 화면이 같은 손놀림을 따라 하도록 중계된다.
+ *
+ * 폰으로 굴리면 사발의 흔들림은 기기 흔들림 펄스가 유일한 에너지원이라, 손을 멈추면 사발 속
+ * 주사위도 잦아든다. 이 신호가 없으면 관전 화면은 정해진 애니메이션으로 계속 흔들려서
+ * "굴린 사람은 멈췄는데 남의 화면에서만 계속 흔들리는" 상태가 된다.
+ *
+ * dice.throw와 같은 성격의 연출 신호다 — 서버 상태를 건드리지 않고, 유실되면 그 순간의
+ * 흔들림만 관전 화면에 빠진다. 방향이 바뀔 때마다 나가므로 다른 메시지보다 잦다(전송 측에서 제한).
+ *
+ * dice.throw와 달리 rollCount는 싣지 않는다. 흔들기는 dice.roll보다 먼저 시작하므로 이 펄스가
+ * 나갈 때 클라이언트는 서버가 매길 굴림 번호를 아직 모른다 — 한 턴에 화면에서 흔들리는 사발은
+ * 하나뿐이라 roundNumber만으로 충분하다.
+ */
+export interface DiceShakePayload {
+  roundNumber: number
+  direction: 'left' | 'right'
+  /** 0~1로 정규화된 세기. 사발이 얼마나 크게 흔들리고 주사위가 얼마나 튀는지를 정한다. */
+  strength: number
+}
+/** S→C: 턴 주인이 사발을 흔들었다. 관전 화면이 이 펄스를 그대로 자기 사발에 먹인다. */
+export interface DiceShakenPayload {
+  playerId: PlayerId
+  roundNumber: number
+  direction: 'left' | 'right'
+  strength: number
+}
+/**
+ * C→S: 사발을 던졌다 — "지금 쏟아라"라는 연출 신호다.
+ *
+ * dice.roll은 던지는 순간이 아니라 **흔들기 시작**에 나간다(던질 때 굴림 결과를 기다리면
+ * 손을 놓고 한 박자 뒤에야 주사위가 날아간다). 그래서 이 메시지가 없으면 관전자는 던진 시점을
+ * 알 수 없어, 굴린 사람이 아직 흔드는 중인데 먼저 주사위를 쏟고 눈까지 보게 된다.
+ *
+ * 서버 상태는 건드리지 않는다 — 눈은 dice.roll에서 이미 확정됐다. 유실돼도 게임 진행은
+ * 어긋나지 않고, 관전 화면만 그 턴 동안 사발을 계속 흔들다가 서버가 턴을 넘길 때 정리된다.
+ */
+export interface DiceThrowPayload {
+  roundNumber: number
+  rollCount: 1 | 2 | 3
+}
+/** S→C: 턴 주인이 사발을 던졌다. 이 굴림의 애니메이션을 지금 쏟으라는 신호. */
+export interface DiceThrownPayload {
+  playerId: PlayerId
+  roundNumber: number
+  rollCount: 1 | 2 | 3
+}
 // S→C: 서버가 확정한 결과를 방 전체에 브로드캐스트한다.
 export interface DiceBroadcastPayload {
   playerId: PlayerId
@@ -392,6 +453,8 @@ export type ClientMessage =
   // ⚠️ STUB (게임 도메인)
   | WsEnvelope<'dice.roll', DiceRollPayload>
   | WsEnvelope<'dice.hold', DiceHoldPayload>
+  | WsEnvelope<'dice.shake', DiceShakePayload>
+  | WsEnvelope<'dice.throw', DiceThrowPayload>
   | WsEnvelope<'round.submit', RoundSubmitPayload>
 
 export type ServerMessage =
@@ -417,6 +480,8 @@ export type ServerMessage =
   | WsEnvelope<'round.end', RoundEndPayload>
   | WsEnvelope<'dice.broadcast', DiceBroadcastPayload>
   | WsEnvelope<'dice.hold_changed', DiceHoldChangedPayload>
+  | WsEnvelope<'dice.shaken', DiceShakenPayload>
+  | WsEnvelope<'dice.thrown', DiceThrownPayload>
   | WsEnvelope<'score.update', ScoreUpdatePayload>
   | WsEnvelope<'game.over', GameOverPayload>
   | WsEnvelope<'state.patch', StatePatchPayload>

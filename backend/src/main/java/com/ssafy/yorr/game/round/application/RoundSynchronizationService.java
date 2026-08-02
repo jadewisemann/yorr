@@ -85,6 +85,11 @@ public class RoundSynchronizationService {
         return roundStateStore.findByRoomId(roomId);
     }
 
+    /** 라운드 상태를 들고 있는 모든 방. 고아 상태를 걷어내는 스윕이 쓴다. */
+    public java.util.Set<String> roomIds() {
+        return roundStateStore.roomIds();
+    }
+
     public RoundState recordRoll(String roomId, String playerId, DiceRollPayload payload) {
         if (payload == null) {
             throw new IllegalArgumentException("payload must not be null");

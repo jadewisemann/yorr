@@ -7,6 +7,7 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router'
 import { getRoomCodeError, normalizeRoomCode } from '@/roomCode'
+import { AuthCallbackPage } from '@/screens/AuthCallbackPage'
 import { EntryPage } from '@/screens/EntryPage'
 import { GamePage } from '@/screens/GamePage'
 import { InvalidInvitePage } from '@/screens/InvalidInvitePage'
@@ -37,6 +38,20 @@ const motionLabRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/__dev/motion',
   component: lazyRouteComponent(() => import('./MotionLab'), 'MotionLab'),
+})
+
+/** 카카오 로그인 콜백. 서버가 일회용 code(또는 실패 사유 error)를 붙여 여기로 돌려보낸다. */
+const authCallbackRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/callback',
+  validateSearch: (search: Record<string, unknown>) => ({
+    code: typeof search.code === 'string' ? search.code : undefined,
+    error: typeof search.error === 'string' ? search.error : undefined,
+  }),
+  component: () => {
+    const { code, error } = authCallbackRoute.useSearch()
+    return <AuthCallbackPage code={code} error={error} />
+  },
 })
 
 const joinRoute = createRoute({
@@ -74,6 +89,7 @@ const gameRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  authCallbackRoute,
   joinRoute,
   lobbyRoute,
   gameRoute,

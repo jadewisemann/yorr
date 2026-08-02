@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { RoomSession } from '@/api/gameApi'
+import { type AuthSession, clearAuthSession, readAuthSession, saveAuthSession } from '@/authSession'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { clearRoomSession, readRoomSession, saveRoomSession } from '@/roomSessionStorage'
 import {
@@ -16,10 +17,14 @@ export type ActiveRoomSession = Omit<RoomSession, 'snapshot'>
 
 interface AppState {
   appNotice: string | null
+  /** 로그인 세션. 방 세션과 수명이 달라 따로 둔다 — 방을 나가도 로그인은 남는다. */
+  authSession: AuthSession | null
   connectionStatus: ConnectionStatus
   roomResumeReason: RoomResumeReason | null
   roomSession: ActiveRoomSession | null
   roomSnapshot: RoomSnapshot | null
+  signIn: (session: AuthSession) => void
+  signOut: () => void
   setAppNotice: (notice: string | null) => void
   setConnectionStatus: (status: ConnectionStatus) => void
   setRoomSession: (session: RoomSession) => void
@@ -39,6 +44,7 @@ const restoredSession = readRoomSession()
 
 const initialState = {
   appNotice: null,
+  authSession: readAuthSession(),
   connectionStatus: 'idle' as const,
   roomResumeReason: restoredSession ? ('restored' as const) : null,
   roomSession: restoredSession ? withoutSnapshot(restoredSession) : null,
@@ -47,6 +53,15 @@ const initialState = {
 
 export const useAppStore = create<AppState>((set) => ({
   ...initialState,
+  signIn: (session) => {
+    saveAuthSession(session)
+    set({ appNotice: null, authSession: session })
+  },
+  signOut: () => {
+    clearAuthSession()
+    // 방 세션은 건드리지 않는다 — 로그아웃했다고 진행 중인 게임에서 쫓아낼 이유가 없다.
+    set({ authSession: null })
+  },
   setAppNotice: (appNotice) => set({ appNotice }),
   setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
   setRoomSession: (session) => {

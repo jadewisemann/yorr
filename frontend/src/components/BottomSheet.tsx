@@ -22,6 +22,26 @@ const DISMISS_DISTANCE_PX = 80
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
 
+function keepFocusInSheet(event: KeyboardEvent, root: HTMLElement | null, close: () => void) {
+  if (event.key === 'Escape') {
+    close()
+    return
+  }
+  if (event.key !== 'Tab') return
+
+  const focusables = focusablesIn(root)
+  const first = focusables[0]
+  const last = focusables.at(-1)
+  if (!first || !last) return
+
+  const leavingStart = event.shiftKey && document.activeElement === first
+  const leavingEnd = !event.shiftKey && document.activeElement === last
+  if (!leavingStart && !leavingEnd) return
+
+  event.preventDefault()
+  ;(leavingStart ? last : first).focus()
+}
+
 /** 화면 76% 높이 시트. 뒤 화면의 타이머·라운드는 스크림 위로 남는다(와이어프레임 ⑤). */
 export function BottomSheet({ children, className, onClose, open, title }: BottomSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -41,25 +61,8 @@ export function BottomSheet({ children, className, onClose, open, title }: Botto
     const previousFocus = document.activeElement as HTMLElement | null
     focusablesIn(sheetRef.current)[0]?.focus()
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onCloseRef.current()
-        return
-      }
-      if (event.key !== 'Tab') return
-      const focusables = focusablesIn(sheetRef.current)
-      const first = focusables[0]
-      const last = focusables[focusables.length - 1]
-      if (!first || !last) return
-      // 포커스가 시트 밖으로 새지 않게 양 끝에서 되돌린다.
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
+    const onKeyDown = (event: KeyboardEvent) =>
+      keepFocusInSheet(event, sheetRef.current, onCloseRef.current)
 
     document.addEventListener('keydown', onKeyDown)
     return () => {

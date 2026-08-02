@@ -5,6 +5,8 @@ import { cn } from '@/cn'
 import { Button } from '@/components/Button'
 import { InvitationPanel } from '@/components/InvitationPanel'
 import { PlayerCard } from '@/components/PlayerCard'
+import { playLandingSoundtrack } from '@/landingSoundtrack'
+import { prefetchPhysicsDiceWorld } from '@/rendering/physics-dice/loadWorld'
 import { useAppStore } from '@/store'
 import { RoomExitGuard } from './RoomExitGuard'
 
@@ -13,6 +15,21 @@ import { RoomExitGuard } from './RoomExitGuard'
  * 조건식과 안내 문구 두 곳에 숫자를 적으면 한쪽만 고쳐져 어긋나므로 여기서만 정의한다.
  */
 const MIN_PLAYERS_TO_START = 1
+const PREFETCH_FALLBACK_DELAY_MS = 500
+
+function schedulePhysicsDicePrefetch() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const idleApi = window as unknown as {
+    requestIdleCallback?: Window['requestIdleCallback']
+    cancelIdleCallback?: Window['cancelIdleCallback']
+  }
+  if (idleApi.requestIdleCallback && idleApi.cancelIdleCallback) {
+    const idleId = idleApi.requestIdleCallback(prefetchPhysicsDiceWorld, { timeout: 2_000 })
+    return () => idleApi.cancelIdleCallback?.(idleId)
+  }
+  const timeoutId = window.setTimeout(prefetchPhysicsDiceWorld, PREFETCH_FALLBACK_DELAY_MS)
+  return () => window.clearTimeout(timeoutId)
+}
 
 interface LobbyPageProps {
   roomId: string
@@ -35,6 +52,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
     roomSnapshot.players.length >= MIN_PLAYERS_TO_START
 
   useEffect(() => {
+    if (roomSnapshot?.phase === 'waiting') playLandingSoundtrack('yacht')
     if (!roomSession || !matchingRoom || roomResumeReason) {
       void navigate({ to: '/', replace: true })
       return
@@ -47,6 +65,11 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
       })
     }
   }, [matchingRoom, navigate, roomResumeReason, roomSession, roomSnapshot])
+
+  useEffect(() => {
+    if (!matchingRoom || roomSnapshot?.phase !== 'waiting') return
+    return schedulePhysicsDicePrefetch()
+  }, [matchingRoom, roomSnapshot?.phase])
 
   const handleStart = async () => {
     if (!roomSession || !canStart) return

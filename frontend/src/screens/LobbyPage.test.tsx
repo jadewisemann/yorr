@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -11,7 +11,12 @@ import {
 import { useAppStore } from '@/store'
 import { LobbyPage } from './LobbyPage'
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
+const { navigate, prefetchPhysicsDiceWorld } = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  prefetchPhysicsDiceWorld: vi.fn(),
+}))
+
+vi.mock('@/rendering/physics-dice/loadWorld', () => ({ prefetchPhysicsDiceWorld }))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
@@ -23,9 +28,35 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 describe('LobbyPage', () => {
   beforeEach(() => {
     navigate.mockReset()
+    prefetchPhysicsDiceWorld.mockReset()
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
+    vi.stubGlobal(
+      'requestIdleCallback',
+      vi.fn((callback: IdleRequestCallback) => {
+        callback({ didTimeout: false, timeRemaining: () => 50 })
+        return 1
+      }),
+    )
+    vi.stubGlobal('cancelIdleCallback', vi.fn())
     useAppStore.getState().reset()
     useAppStore.getState().setRoomSession(creatorSession)
     useAppStore.getState().setConnectionStatus('connected')
+  })
+
+  it('첫 화면을 그린 뒤 물리 주사위 모듈을 유휴 시간에 미리 불러온다', () => {
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    expect(requestIdleCallback).toHaveBeenCalledOnce()
+    expect(prefetchPhysicsDiceWorld).toHaveBeenCalledOnce()
+  })
+
+  it('모션 감소 설정에서는 물리 주사위 모듈을 미리 받지 않는다', () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    expect(requestIdleCallback).not.toHaveBeenCalled()
+    expect(prefetchPhysicsDiceWorld).not.toHaveBeenCalled()
   })
 
   it('shows every participant and marks the current player', () => {
@@ -101,6 +132,50 @@ describe('LobbyPage', () => {
       `${window.location.origin}/join?code=${creatorSession.roomCode}`,
     )
     expect(screen.getByText('초대 링크를 복사했어요.')).toBeVisible()
+  })
+
+  it('연결이 아직 붙지 않았으면 상태를 라벨로 알리고 시작을 막는다', () => {
+    useAppStore.getState().setConnectionStatus('reconnecting')
+    const { unmount } = render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    expect(screen.getByText('재연결 중')).toBeVisible()
+    expect(screen.getByRole('button', { name: '게임 시작' })).toBeDisabled()
+    expect(screen.getByText('연결된 뒤 게임을 시작할 수 있어요.')).toBeVisible()
+    unmount()
+
+    useAppStore.getState().setConnectionStatus('closed')
+    const closed = render(<LobbyPage roomId={creatorSession.roomId} />)
+    expect(closed.getByText('연결 종료')).toBeVisible()
+    closed.unmount()
+
+    useAppStore.getState().setConnectionStatus('connecting')
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+    expect(screen.getByText('연결 중')).toBeVisible()
+  })
+
+  it('나가기는 확인을 받고, 머무르기를 고르면 방에 남는다', async () => {
+    const user = userEvent.setup()
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    await user.click(screen.getByRole('button', { name: '나가기' }))
+    const dialog = await screen.findByRole('dialog', { name: '방에서 나갈까요?' })
+    await user.click(within(dialog).getByRole('button', { name: '머무르기' }))
+
+    expect(screen.queryByRole('dialog', { name: '방에서 나갈까요?' })).not.toBeInTheDocument()
+    expect(useAppStore.getState().roomSession).not.toBeNull()
+  })
+
+  it('나가기를 확정하면 세션을 정리하고 홈으로 보낸다', async () => {
+    const user = userEvent.setup()
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    await user.click(screen.getByRole('button', { name: '나가기' }))
+    const dialog = await screen.findByRole('dialog', { name: '방에서 나갈까요?' })
+    await user.click(within(dialog).getByRole('button', { name: '나가기' }))
+
+    await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
+    expect(navigate).toHaveBeenCalledWith({ to: '/', replace: true })
+    expect(sessionStorage.getItem('yorr.room-session')).toBeNull()
   })
 
   it('moves once when realtime changes the room phase', async () => {

@@ -1,0 +1,17 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="YORR">
+<defs><linearGradient id="n" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1F2C46"/><stop offset="1" stop-color="#141C2E"/></linearGradient></defs>
+<rect x="0" y="0" width="512" height="512" rx="116" fill="url(#n)"/>
+<rect x="6" y="6" width="500" height="500" rx="110" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="4"/>
+<circle cx="163" cy="150" r="60" fill="#F4CE5E"/>
+<circle cx="349" cy="150" r="60" fill="#F4CE5E"/>
+<circle cx="163" cy="158" r="29" fill="#F0A98C"/>
+<circle cx="349" cy="158" r="29" fill="#F0A98C"/>
+<ellipse cx="256" cy="298" rx="168" ry="160" fill="#F4CE5E"/>
+<ellipse cx="256" cy="356" rx="112" ry="74" fill="#FBE7A8"/>
+<circle cx="150" cy="346" r="30" fill="#F0A98C" opacity="0.9"/>
+<circle cx="362" cy="346" r="30" fill="#F0A98C" opacity="0.9"/>
+<circle cx="204" cy="286" r="31" fill="#141414"/>
+<circle cx="308" cy="286" r="31" fill="#141414"/>
+<ellipse cx="256" cy="330" rx="26" ry="19" fill="#5A3A1E"/>
+<path d="M256 349 Q234 372 214 356 M256 349 Q278 372 298 356" fill="none" stroke="#5A3A1E" stroke-width="9" stroke-linecap="round"/>
+</svg>

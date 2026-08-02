@@ -1,8 +1,11 @@
 import { type CategoryScores, calculateScoreSummary, scoreCategory } from '@/domain/scoring'
-import type { FakeMessageHandlers } from '@/realtime/fakeRealtimeClient'
-import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
-import type { DiceSet, ScoreBoard, ServerMessage } from '@/realtime/wsEvents'
-import { WS_PROTOCOL_VERSION } from '@/realtime/wsEvents'
+import { type FakeMessageHandlers, FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
+import {
+  type DiceSet,
+  type ScoreBoard,
+  type ServerMessage,
+  WS_PROTOCOL_VERSION,
+} from '@/realtime/wsEvents'
 import {
   creatorSession,
   MOCK_ROOM_ID,
@@ -116,6 +119,31 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         ),
       ]
     },
+    // 실서버와 같은 단순 릴레이 — 흔든 펄스를 그대로 되돌려준다.
+    'dice.shake': (message) => [
+      serverMessage(
+        'dice.shaken',
+        {
+          playerId: session.you,
+          roundNumber: message.payload.roundNumber,
+          direction: message.payload.direction,
+          strength: message.payload.strength,
+        },
+        { roomId: MOCK_ROOM_ID, msgId: message.msgId },
+      ),
+    ],
+    // 실서버와 같은 단순 릴레이 — 상태를 건드리지 않고 "던졌다"만 되돌려준다.
+    'dice.throw': (message) => [
+      serverMessage(
+        'dice.thrown',
+        {
+          playerId: session.you,
+          rollCount: message.payload.rollCount,
+          roundNumber: message.payload.roundNumber,
+        },
+        { roomId: MOCK_ROOM_ID, msgId: message.msgId },
+      ),
+    ],
     'dice.hold': (message) => [
       serverMessage(
         'dice.hold_changed',

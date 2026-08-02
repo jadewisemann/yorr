@@ -168,7 +168,7 @@ function toRanking(snapshot: RoomSnapshot, you: string): RankedPlayer[] {
       snapshot.players.map((player) => [player.playerId, player.nickname]),
     )
     return serverRankings.map((ranking) => ({
-      nickname: nicknameById.get(ranking.playerId) ?? ranking.playerId,
+      nickname: nicknameById.get(ranking.playerId) ?? '알 수 없는 참가자',
       playerId: ranking.playerId,
       total: ranking.total,
     }))

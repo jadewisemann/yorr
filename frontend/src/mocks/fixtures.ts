@@ -51,6 +51,7 @@ export function createPlayingRoomSnapshot(roundDeadline: number): RoomSnapshot {
       activePlayerId: creatorPlayer.playerId,
       roundNumber: 1,
       roundDeadline,
+      rollCount: 0,
       turnOrder: [creatorPlayer.playerId, participantPlayer.playerId],
       scores: {
         [creatorPlayer.playerId]: createEmptyScoreBoard(),

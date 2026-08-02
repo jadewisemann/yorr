@@ -11,6 +11,6 @@ class RoomCreateServiceTest {
     @Test
     void capacityMustBePositive() {
         assertThrows(IllegalArgumentException.class,
-                () -> new RoomCreateService(mock(RedisTemplate.class)).createRoom(0, "host"));
+                () -> new RoomCreateService(mock(RedisTemplate.class)).createRoom(0, "host", "YACHT_DICE"));
     }
 }

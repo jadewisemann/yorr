@@ -1,7 +1,12 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MotionGestureEvent } from '@/input/motionTypes'
-import { creatorSession, participantSession, playingRoomSnapshot } from '@/mocks/fixtures'
+import {
+  creatorSession,
+  participantSession,
+  playingRoomSnapshot,
+  waitingRoomSnapshot,
+} from '@/mocks/fixtures'
 import type { PhysicsDiceSet } from '@/rendering/physics-dice/types'
 import { useAppStore } from '@/store'
 import { GamePage } from './GamePage'
@@ -17,7 +22,7 @@ const mocks = vi.hoisted(() => ({
   gestureCallback: null as ((event: MotionGestureEvent) => void) | null,
   motionAvailability: 'unsupported',
   navigate: vi.fn(),
-  realtimeListener: null as ((message: never) => void) | null,
+  realtimeListeners: new Set<(message: never) => void>(),
   requestPermission: vi.fn(),
   resetGesture: vi.fn(),
   sceneProps: null as DiceSceneProps | null,
@@ -63,10 +68,8 @@ vi.mock('@/components/PhysicsDiceScene', () => ({
 vi.mock('@/realtime/RealtimeClientContext', () => ({
   useRealtimeClient: () => ({
     onMessage: vi.fn((listener: (message: never) => void) => {
-      mocks.realtimeListener = listener
-      return () => {
-        if (mocks.realtimeListener === listener) mocks.realtimeListener = null
-      }
+      mocks.realtimeListeners.add(listener)
+      return () => mocks.realtimeListeners.delete(listener)
     }),
     send: vi.fn(
       (message: {
@@ -80,7 +83,7 @@ vi.mock('@/realtime/RealtimeClientContext', () => ({
         type: string
       }) => {
         if (message.type !== 'dice.roll') return
-        mocks.realtimeListener?.({
+        const broadcast = {
           type: 'dice.broadcast',
           ts: Date.now(),
           roomId: message.roomId,
@@ -92,7 +95,10 @@ vi.mock('@/realtime/RealtimeClientContext', () => ({
             dice: [6, 5, 4, 3, 2],
             held: message.payload.held,
           },
-        } as never)
+        } as never
+        mocks.realtimeListeners.forEach((listener) => {
+          listener(broadcast)
+        })
       },
     ),
   }),
@@ -104,7 +110,7 @@ describe('GamePage motion roll flow', () => {
     mocks.gestureCallback = null
     mocks.motionAvailability = 'unsupported'
     mocks.navigate.mockReset()
-    mocks.realtimeListener = null
+    mocks.realtimeListeners.clear()
     mocks.requestPermission.mockReset()
     mocks.resetGesture.mockReset()
     mocks.sceneProps = null
@@ -119,11 +125,17 @@ describe('GamePage motion roll flow', () => {
     render(<GamePage roomId={creatorSession.roomId} />)
     fireEvent.click(screen.getByRole('button', { name: '굴리기' }))
 
-    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', 'r1-1')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-request',
+      'roll-player-creator-1-1',
+    )
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
 
     act(() => vi.advanceTimersByTime(600))
-    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', 'r1-1')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-release',
+      'roll-player-creator-1-1',
+    )
   })
 
   it('흔들기 뒤 던지기 이벤트가 와야 센서 굴림을 release한다', () => {
@@ -133,13 +145,19 @@ describe('GamePage motion roll flow', () => {
     act(() => {
       mocks.gestureCallback?.({ type: 'shakeStarted', at: 1_000 })
     })
-    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', 'r1-1')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-request',
+      'roll-player-creator-1-1',
+    )
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
 
     act(() => {
       mocks.gestureCallback?.({ type: 'throwDetected', at: 1_300, confidence: 0.9 })
     })
-    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', 'r1-1')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-release',
+      'roll-player-creator-1-1',
+    )
   })
 
   it('센서 굴림이 시작되면 인식 상태와 무관하게 확정 버튼으로 완주할 수 있다', () => {
@@ -151,7 +169,10 @@ describe('GamePage motion roll flow', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: '지금 던지기' }))
 
-    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', 'r1-1')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-release',
+      'roll-player-creator-1-1',
+    )
   })
 
   it('브라우저와 관계없이 센서 시작 버튼에서 권한 요청을 시작한다', () => {
@@ -179,5 +200,35 @@ describe('GamePage motion roll flow', () => {
     // 내 이름도 상단에서 찾을 수 있어야 한다 — 내 칩에는 "나" 태그가 붙는다.
     expect(turnOrder).toHaveTextContent(participantSession.nickname)
     expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
+  })
+
+  it('헤더의 ✕는 바로 나가지 않고 확인을 받는다', () => {
+    render(<GamePage roomId={creatorSession.roomId} />)
+
+    fireEvent.click(screen.getByRole('button', { name: '나가기' }))
+    const dialog = screen.getByRole('dialog', { name: '방에서 나갈까요?' })
+    expect(dialog).toBeVisible()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '머무르기' }))
+
+    expect(screen.queryByRole('dialog', { name: '방에서 나갈까요?' })).not.toBeInTheDocument()
+    expect(useAppStore.getState().roomSession).not.toBeNull()
+    expect(screen.getByRole('button', { name: '굴리기' })).toBeVisible()
+  })
+
+  // 방이 대기실로 되돌아가는 경로(재대결)는 스냅샷 phase로만 전달된다.
+  it('방이 대기 상태로 돌아가면 게임 화면에 머무르지 않고 대기실로 옮긴다', async () => {
+    render(<GamePage roomId={creatorSession.roomId} />)
+    mocks.navigate.mockReset()
+
+    await act(async () => {
+      useAppStore.getState().replaceRoomSnapshot({ ...waitingRoomSnapshot })
+    })
+
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: '/rooms/$roomId/lobby',
+      params: { roomId: creatorSession.roomId },
+      replace: true,
+    })
   })
 })

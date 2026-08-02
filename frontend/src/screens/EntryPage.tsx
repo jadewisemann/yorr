@@ -1,12 +1,16 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { closeSession } from '@/api/authApi'
 import { useLeaveSession } from '@/api/useRoomApi'
+import type { AuthSession } from '@/authSession'
 import { cn } from '@/cn'
+import { AccountDialog, Avatar } from '@/components/AccountDialog'
 import { LandingCodeDialog } from '@/components/LandingCodeDialog'
 import { LandingMetaPills } from '@/components/LandingHeroCard'
 import { LandingHeroCarousel } from '@/components/LandingHeroCarousel'
 import { LandingProgress } from '@/components/LandingProgress'
 import { landingGameAt, landingGames } from '@/landingGames'
+import { playLandingSoundtrack } from '@/landingSoundtrack'
 import { normalizeRoomCode } from '@/roomCode'
 import { sessionScreenOf } from '@/sessionFsm'
 import { selectSessionPhase, useAppStore } from '@/store'
@@ -31,9 +35,22 @@ export function EntryPage() {
   const [activeIndex, setActiveIndex] = useState(0)
   const [code, setCode] = useState('')
   const [codeOpen, setCodeOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
   const appNotice = useAppStore((state) => state.appNotice)
+  const authSession = useAppStore((state) => state.authSession)
+  const signOut = useAppStore((state) => state.signOut)
+  const setAppNotice = useAppStore((state) => state.setAppNotice)
 
   const game = landingGameAt(activeIndex)
+
+  useEffect(() => {
+    playLandingSoundtrack(game.key)
+  }, [game.key])
+
+  const handleGameSelect = (index: number) => {
+    playLandingSoundtrack(landingGameAt(index).key)
+    setActiveIndex(index)
+  }
 
   const handlePlay = () => {
     void navigate({ to: '/join', search: { code: undefined } })
@@ -45,6 +62,20 @@ export function EntryPage() {
     void navigate({ to: '/join', search: { code: normalizeRoomCode(code) } })
   }
 
+  const handleSignOut = () => {
+    setAccountOpen(false)
+    // 서버 세션도 닫는다. 로컬만 지우면 그 토큰은 남은 30일 동안 서버에서 유효한 채로 남는다.
+    // 실패해도 기다리지 않는다 — 로그아웃이 서버 사정에 묶이면 안 된다.
+    if (authSession) void closeSession(authSession.sessionToken).catch(() => {})
+    signOut()
+    setAppNotice('로그아웃했어요.')
+  }
+
+  /**
+   * 두 다이얼로그 모두 `<main>` <b>밖</b>에 그린다. `useDialogBackground`가 배경 `<main>`에
+   * `inert`를 걸기 때문에, 안에 두면 열리는 순간 다이얼로그가 자기 자신을 잠가 아무것도
+   * 눌리지 않는다(헤더 안에 뒀다가 실제로 그렇게 됐다).
+   */
   const codeDialog = (
     <LandingCodeDialog
       code={code}
@@ -55,7 +86,15 @@ export function EntryPage() {
       open={codeOpen}
     />
   )
-
+  const accountDialog = (
+    <AccountDialog
+      layout={wide ? 'wide' : 'narrow'}
+      onClose={() => setAccountOpen(false)}
+      onSignOut={handleSignOut}
+      open={accountOpen}
+      session={authSession}
+    />
+  )
   if (wide) {
     return (
       <>
@@ -73,18 +112,12 @@ export function EntryPage() {
                 게임을 선택하세요
               </span>
             </div>
-            <button
-              className={cn(
-                'flex h-11 cursor-pointer items-center gap-2.5 rounded-full border px-5 text-[15px] font-semibold transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
-                codeOpen
-                  ? 'border-landing-accent/60 bg-landing-accent-tint text-landing-accent-text'
-                  : 'border-landing-hairline-strong bg-landing-well text-landing-text hover:border-landing-accent/70',
-              )}
-              onClick={() => setCodeOpen(true)}
-              type="button"
-            >
-              <CodeGlyph />방 코드로 참가
-            </button>
+            <AccountControl
+              layout="wide"
+              onOpen={() => setAccountOpen(true)}
+              open={accountOpen}
+              session={authSession}
+            />
           </header>
 
           {/* 카드 폭은 화면 폭 기준(69.4% ≒ 1440에서 1000px)이라 캐러셀 띠는 전면 폭을 쓴다 —
@@ -94,7 +127,7 @@ export function EntryPage() {
               activeIndex={activeIndex}
               games={landingGames}
               layout="wide"
-              onSelect={setActiveIndex}
+              onSelect={handleGameSelect}
             />
           </div>
 
@@ -103,7 +136,7 @@ export function EntryPage() {
               activeIndex={activeIndex}
               games={landingGames}
               layout="wide"
-              onSelect={setActiveIndex}
+              onSelect={handleGameSelect}
             />
           </div>
 
@@ -144,6 +177,7 @@ export function EntryPage() {
           </div>
         </main>
         {codeDialog}
+        {accountDialog}
       </>
     )
   }
@@ -158,18 +192,12 @@ export function EntryPage() {
             </span>
             <span className={cn(wordmarkTag, 'text-[10px]/none')}>Arcade</span>
           </span>
-          <button
-            className={cn(
-              'flex h-9 cursor-pointer items-center rounded-full border px-3.5 text-[13px] font-semibold transition-colors focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
-              codeOpen
-                ? 'border-landing-accent/55 bg-landing-accent-tint text-landing-accent-text'
-                : 'border-landing-hairline-strong bg-landing-well text-landing-text',
-            )}
-            onClick={() => setCodeOpen(true)}
-            type="button"
-          >
-            코드로 참가
-          </button>
+          <AccountControl
+            layout="narrow"
+            onOpen={() => setAccountOpen(true)}
+            open={accountOpen}
+            session={authSession}
+          />
         </div>
 
         <span className="flex-none px-5 pt-4.5 text-[24px]/none font-bold tracking-[-0.02em] text-landing-text-strong">
@@ -181,7 +209,7 @@ export function EntryPage() {
             activeIndex={activeIndex}
             games={landingGames}
             layout="narrow"
-            onSelect={setActiveIndex}
+            onSelect={handleGameSelect}
           />
         </div>
 
@@ -194,7 +222,7 @@ export function EntryPage() {
             activeIndex={activeIndex}
             games={landingGames}
             layout="narrow"
-            onSelect={setActiveIndex}
+            onSelect={handleGameSelect}
           />
         </div>
 
@@ -208,21 +236,85 @@ export function EntryPage() {
             </p>
           )}
           {game.live ? (
-            <button
-              className={cn(primaryButton, 'h-15 w-full text-[19px] shadow-landing-cta-sheet')}
-              onClick={handlePlay}
-              type="button"
-            >
-              <PlayGlyph />
-              {game.name} 플레이
-            </button>
+            <>
+              <button
+                className={cn(primaryButton, 'h-15 w-full text-[19px] shadow-landing-cta-sheet')}
+                onClick={handlePlay}
+                type="button"
+              >
+                <PlayGlyph />
+                {game.name} 플레이
+              </button>
+              {/* 헤더가 로그인 자리로 바뀌면서, 코드 참가의 유일한 입구를 여기로 옮겼다.
+                  와이드와 같은 자리·같은 위계라 두 레이아웃이 어긋나지 않는다. */}
+              <button
+                className={cn(ghostButton, 'h-12 w-full gap-2.5 text-[15px]')}
+                onClick={() => setCodeOpen(true)}
+                type="button"
+              >
+                <CodeGlyph />
+                초대 코드로 참가
+              </button>
+            </>
           ) : (
             <ComingSoonCta layout="narrow" />
           )}
         </div>
       </main>
       {codeDialog}
+      {accountDialog}
     </>
+  )
+}
+
+/**
+ * 헤더 오른쪽 자리. 로그인 전에는 '로그인', 로그인 후에는 내 계정 버튼이다. 실제 내용은
+ * 팝오버·바텀시트가 맡는다.
+ * <p>
+ * 원래 여기 있던 '방 코드로 참가'는 하단 CTA의 '초대 코드로 참가'와 같은 일을 하고 있었다.
+ * 중복을 지우고 그 자리를 계정으로 넘긴다 — 헤더는 "지금 나는 누구인가", 하단은 "무엇을
+ * 할 것인가"로 역할이 갈린다.
+ * <p>
+ * 여기에 제공자 버튼(카카오)을 직접 두지 않는다. 곧 구글이 붙어 자리를 나눠야 하고,
+ * 어두운 랜딩 위에 브랜드 노란색을 얹으면 화면에서 그것만 튄다. 제공자 선택과 브랜드 색은
+ * {@link AccountDialog} 안으로 들어간다.
+ */
+function AccountControl({
+  layout,
+  onOpen,
+  open,
+  session,
+}: {
+  layout: 'narrow' | 'wide'
+  onOpen: () => void
+  open: boolean
+  session: AuthSession | null
+}) {
+  const wide = layout === 'wide'
+
+  return (
+    <button
+      aria-expanded={open}
+      aria-haspopup="dialog"
+      className={cn(
+        'flex max-w-44 cursor-pointer items-center rounded-full border font-semibold transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+        open
+          ? 'border-landing-accent/60 bg-landing-accent-tint text-landing-accent-text'
+          : 'border-landing-hairline-strong bg-landing-well text-landing-text hover:border-landing-accent/70',
+        wide ? 'h-11 gap-2.5 px-5 text-[15px]' : 'h-9 gap-2 px-3.5 text-[13px]',
+      )}
+      onClick={onOpen}
+      type="button"
+    >
+      {session ? (
+        <>
+          <Avatar nickname={session.nickname} size="sm" />
+          <span className="truncate">{session.nickname}</span>
+        </>
+      ) : (
+        '로그인'
+      )}
+    </button>
   )
 }
 

@@ -1,6 +1,6 @@
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
-import type { GameStartResult, ScoreCandidates, ScoreCandidatesRequest } from './gameApi'
+import type { GameStartResult } from './gameApi'
 import { gameApiClient } from './gameApi'
 import { useAsyncQuery, useAsyncTask } from './useAsyncTask'
 
@@ -62,12 +62,6 @@ export function useReturnToLobby() {
           userId: roomSession.you,
         })
       : Promise.reject(new Error('Room session is required')),
-  )
-}
-
-export function useScoreCandidates() {
-  return useAsyncTask<[string, ScoreCandidatesRequest], ScoreCandidates>(
-    (signal, gameId, request) => gameApiClient.getScoreCandidates(gameId, request, { signal }),
   )
 }
 
