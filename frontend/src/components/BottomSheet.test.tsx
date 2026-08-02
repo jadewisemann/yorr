@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { domAnimation, LazyMotion } from 'motion/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { BottomSheet } from './BottomSheet'
 
@@ -21,12 +20,10 @@ function handleOf() {
 
 function renderSheet(onClose = vi.fn()) {
   render(
-    <LazyMotion features={domAnimation}>
-      <BottomSheet onClose={onClose} open title="족보 선택">
-        <button type="button">첫 버튼</button>
-        <button type="button">마지막 버튼</button>
-      </BottomSheet>
-    </LazyMotion>,
+    <BottomSheet onClose={onClose} open title="족보 선택">
+      <button type="button">첫 버튼</button>
+      <button type="button">마지막 버튼</button>
+    </BottomSheet>,
   )
   return { onClose, user: userEvent.setup() }
 }

@@ -121,9 +121,8 @@ export function EntryPage() {
                 링크 하나로 모이면 바로 시작하는 파티 게임
               </h1>
             </div>
-            {/* 코드 참가는 게임 CTA와 다른 층에 세운다 — 선택한 게임과 무관한 독립
-                진입 경로라, 아래 CTA 묶음에 섞으면 "이 게임을 코드로 연다"로 읽힌다. */}
             <span className="flex min-w-0 items-center gap-2.5">
+              {/* 게임 CTA와 다른 층 — 선택한 게임과 무관한 독립 진입 경로다. */}
               <CodeEntryRow compact onOpen={() => setCodeOpen(true)} />
               <span aria-hidden="true" className="h-6.5 w-px flex-none bg-landing-hairline" />
               <SoundToggle muted={soundMuted} onToggle={toggleSound} />
@@ -173,8 +172,7 @@ export function EntryPage() {
             </div>
           </div>
 
-          <div className="flex flex-none justify-center px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-[clamp(20px,6vh,56px)]">
-            {/* 선택한 게임의 CTA만 둔다 — 코드 참가는 헤더의 별도 층에 있다. */}
+          <div className="flex flex-none items-center justify-center gap-5 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-[clamp(20px,6vh,56px)]">
             {game.live ? (
               <button
                 className={cn(primaryButton, 'h-18 px-13 text-[23px]')}
@@ -223,6 +221,9 @@ export function EntryPage() {
           링크 하나로 모이면 바로 시작하는 파티 게임
         </h1>
 
+        {/* 게임 선택과 무관한 독립 진입 경로라 게임 CTA 묶음 밖, 별도 층에 세운다.
+            아래에 두면 선택한 게임의 보조 동작으로 읽히고, 준비 중인 게임에서는
+            잠긴 버튼 아래 붙어 "이 게임을 코드로 연다"가 된다. */}
         <div className="flex-none px-5 pt-[clamp(10px,1.6vh,16px)]">
           <CodeEntryRow onOpen={() => setCodeOpen(true)} />
         </div>
@@ -255,7 +256,6 @@ export function EntryPage() {
               {appNotice}
             </p>
           )}
-          {/* 이 블록은 "선택한 게임"의 CTA다 — 게임과 무관한 코드 참가는 위 별도 층에 있다. */}
           {game.live ? (
             <button
               className={cn(primaryButton, 'h-15 w-full text-[19px] shadow-landing-cta-sheet')}

@@ -1,5 +1,7 @@
+import { AnimatePresence, motion } from 'motion/react'
 import { type ReactNode, useEffect, useId, useRef } from 'react'
 import { cn } from '@/cn'
+import { popVariants, scrimVariants } from '@/motion'
 import { useDialogBackground } from '@/useDialogBackground'
 
 type ModalProps = {
@@ -41,52 +43,69 @@ export function Modal({ children, className, onClose, open, role = 'dialog', tit
     }
   }, [open])
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-modal grid place-items-center p-4">
-      {alert ? (
-        // alertdialog는 배경을 눌러 닫히면 안 된다 — 확인은 명시적 버튼으로만 받는다.
-        <div className="absolute inset-0 bg-scrim" />
-      ) : (
-        <button
-          className="absolute inset-0 cursor-default bg-scrim"
-          type="button"
-          aria-label="모달 닫기"
-          onClick={onClose}
-          // 포커스 표시가 없는 전체 화면 버튼이라 탭 순서에서 뺀다.
-          // 키보드로 닫는 길은 Escape와 닫기 버튼으로 이미 있다.
-          tabIndex={-1}
-        />
-      )}
-      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: role이 변수라 정적 분석이 section의 암묵 역할로 판정한다. 실제 값인 dialog·alertdialog는 둘 다 aria-modal을 지원한다 */}
-      <section
-        className={cn(
-          'relative',
-          'w-full max-w-lg rounded-[1.25rem] border border-white/18 bg-surface-raised p-6 text-content shadow-raised',
-          className,
-        )}
-        role={role}
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={alert ? descriptionId : undefined}
-      >
-        <header className="mb-4 flex items-center justify-between gap-4">
-          <h2 className="m-0 text-xl font-bold" id={titleId}>
-            {title}
-          </h2>
-          <button
-            ref={closeRef}
-            className="grid size-tap cursor-pointer place-items-center rounded-full bg-transparent text-2xl text-content focus-visible:outline-3 focus-visible:outline-focus"
-            type="button"
-            aria-label="닫기"
-            onClick={onClose}
+    // 퇴장 애니메이션을 그리려면 닫힌 뒤에도 한 프레임 더 살아 있어야 한다.
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-modal grid place-items-center p-4">
+          {alert ? (
+            // alertdialog는 배경을 눌러 닫히면 안 된다 — 확인은 명시적 버튼으로만 받는다.
+            <motion.div
+              animate="visible"
+              className="absolute inset-0 bg-scrim"
+              exit="exit"
+              initial="hidden"
+              variants={scrimVariants}
+            />
+          ) : (
+            <motion.button
+              animate="visible"
+              aria-label="모달 닫기"
+              className="absolute inset-0 cursor-default bg-scrim"
+              exit="exit"
+              initial="hidden"
+              onClick={onClose}
+              // 포커스 표시가 없는 전체 화면 버튼이라 탭 순서에서 뺀다.
+              // 키보드로 닫는 길은 Escape와 닫기 버튼으로 이미 있다.
+              tabIndex={-1}
+              type="button"
+              variants={scrimVariants}
+            />
+          )}
+          {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: role이 변수라 정적 분석이 section의 암묵 역할로 판정한다. 실제 값인 dialog·alertdialog는 둘 다 aria-modal을 지원한다 */}
+          <motion.section
+            animate="visible"
+            aria-describedby={alert ? descriptionId : undefined}
+            aria-labelledby={titleId}
+            aria-modal="true"
+            className={cn(
+              'relative',
+              'w-full max-w-lg rounded-[1.25rem] border border-white/18 bg-surface-raised p-6 text-content shadow-raised',
+              className,
+            )}
+            exit="exit"
+            initial="hidden"
+            role={role}
+            variants={popVariants}
           >
-            ×
-          </button>
-        </header>
-        <div id={descriptionId}>{children}</div>
-      </section>
-    </div>
+            <header className="mb-4 flex items-center justify-between gap-4">
+              <h2 className="m-0 text-xl font-bold" id={titleId}>
+                {title}
+              </h2>
+              <button
+                ref={closeRef}
+                className="grid size-tap cursor-pointer place-items-center rounded-full bg-transparent text-2xl text-content focus-visible:outline-3 focus-visible:outline-focus"
+                type="button"
+                aria-label="닫기"
+                onClick={onClose}
+              >
+                ×
+              </button>
+            </header>
+            <div id={descriptionId}>{children}</div>
+          </motion.section>
+        </div>
+      )}
+    </AnimatePresence>
   )
 }

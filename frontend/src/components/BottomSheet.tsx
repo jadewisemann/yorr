@@ -1,4 +1,4 @@
-import { AnimatePresence, m } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
@@ -101,7 +101,7 @@ export function BottomSheet({ children, className, onClose, open, title }: Botto
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-sheet">
-          <m.button
+          <motion.button
             animate="visible"
             aria-label="시트 닫기"
             className="absolute inset-0 cursor-default border-0 bg-scrim"
@@ -114,7 +114,7 @@ export function BottomSheet({ children, className, onClose, open, title }: Botto
             type="button"
             variants={scrimVariants}
           />
-          <m.div
+          <motion.div
             animate="visible"
             // 시트 내용이 자체 제목을 그리므로 여기서 또 heading을 만들지 않는다.
             aria-label={title}
@@ -148,7 +148,7 @@ export function BottomSheet({ children, className, onClose, open, title }: Botto
               />
             </div>
             {children}
-          </m.div>
+          </motion.div>
         </div>
       )}
     </AnimatePresence>
