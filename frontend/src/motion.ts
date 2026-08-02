@@ -12,8 +12,6 @@ export const DURATION = {
   fast: 0.12,
   /** 시트·모달·전환. --ds-motion-base와 같은 값. */
   base: 0.22,
-  /** 화면 전환처럼 거리가 있는 이동. */
-  page: 0.28,
 } as const
 
 /** --ds-ease-snappy와 같은 곡선. 들어올 때는 ease-out으로 부드럽게 정착시킨다. */
@@ -36,23 +34,6 @@ export const popVariants: Variants = {
   hidden: { opacity: 0, scale: 0.97 },
   visible: { opacity: 1, scale: 1, transition: ENTER },
   exit: { opacity: 0, scale: 0.97, transition: EXIT },
-}
-
-/**
- * 화면 전환 — 새 화면이 오른쪽에서 밀려 들어온다(앱의 push와 같은 방향).
- * <p>
- * 퇴장 변형이 없는 것은 의도다. 나가는 화면을 붙잡아 두면 그 안의 `<Outlet/>`이 이미 바뀐
- * 라우터 상태를 다시 읽어 새 화면을 그린다 — 새 화면이 사라졌다 나타나는 깜빡임이 된다.
- * 자세한 이유는 `app/router.tsx`의 `ScreenTransition`에 있다.
- * <p>
- * 시작 불투명도가 0이 아닌 것도 같은 이유다 — 0에서 시작하면 첫 프레임이 빈 화면이다.
- * 거리를 24px로 짧게 두는 이유는 두 가지다. 화면 전체를 크게 밀면 `h-svh overflow-hidden`
- * 안의 3D 트레이가 전환 내내 화면 밖으로 나갔다 들어오고, transform이 걸린 조상은
- * `position: fixed` 자식의 기준이 되므로 다이얼로그가 함께 흔들린다.
- */
-export const pageVariants: Variants = {
-  hidden: { opacity: 0.4, x: 24 },
-  visible: { opacity: 1, x: 0, transition: { duration: DURATION.page, ease: EASE_SNAPPY } },
 }
 
 /** 스크림은 크기가 크므로 opacity만 움직인다. */

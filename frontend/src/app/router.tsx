@@ -5,11 +5,8 @@ import {
   lazyRouteComponent,
   Outlet,
   type RouterHistory,
-  useRouterState,
 } from '@tanstack/react-router'
-import { motion, useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useEffect } from 'react'
-import { pageVariants } from '@/motion'
 import { getRoomCodeError, normalizeRoomCode } from '@/roomCode'
 import { EntryPage } from '@/screens/EntryPage'
 import { NotFoundPage } from '@/screens/NotFoundPage'
@@ -64,36 +61,25 @@ function useScreenPrefetch() {
 }
 
 /**
- * 화면 전환 껍데기. 경로가 바뀔 때만 새 껍데기를 만든다 — 검색 파라미터만 바뀌는 이동
- * (`/join?code=`)은 같은 화면이므로 전환을 걸지 않는다.
- *
- * <b>`AnimatePresence`를 쓰지 않는다 — 이게 깜빡임의 원인이었다.</b> 퇴장 애니메이션을
- * 그리려면 나가는 화면을 한동안 붙잡아 둬야 하는데, 그 사이 라우터 상태는 이미 바뀌어 있다.
- * 붙잡힌 트리 안의 `<Outlet/>`은 컨텍스트를 다시 읽어 <b>새 화면</b>을 그린다 — 결국 새
- * 화면이 한 번 사라졌다가 다시 나타난다. 지연 로드 화면이면 그 순간 suspend까지 겹쳐
- * 전면 스피너가 한 프레임 스친다.
- *
- * 그래서 퇴장은 그리지 않는다. 옛 화면은 한 커밋에 사라지고 새 화면이 오른쪽에서 밀려
- * 들어온다 — 앱의 push와 같은 방향이고 중간에 빈 프레임이 없다. 두 화면이 겹치지 않으니
- * 대기실과 게임의 WebGL 컨텍스트가 동시에 사는 일도 없다.
+ * 화면 전환은 <b>브라우저의 View Transitions</b>가 그린다(아래 createAppRouter의
+ * `defaultViewTransition`, 연출은 styles/global.css).
+ * <p>
+ * JS로 두 화면을 겹치는 방법은 이 라우터에서 성립하지 않는다. 나가는 화면을 붙잡아 두면
+ * 그 안의 `<Outlet/>`이 이미 바뀐 라우터 상태를 다시 읽어 <b>새 화면</b>을 그리고, 지연
+ * 로드 화면이면 그 순간 suspend까지 겹쳐 전면 스피너가 스친다 — 이게 깜빡임의 정체였다.
+ * <p>
+ * View Transitions는 브라우저가 옛 화면을 <b>비트맵으로 스냅샷</b>해 두고 그 위에 새
+ * 화면을 올린다. 스냅샷이라 다시 렌더되지 않으니 stale Outlet 문제가 없고, WebGL
+ * 컨텍스트나 rapier 월드가 두 벌 살아나지도 않는다. 미지원 브라우저는 전환 없이 즉시
+ * 교체된다 — 깜빡이던 종전 동작보다 낫다.
  */
 function ScreenTransition() {
-  const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const reduceMotion = useReducedMotion()
   useScreenPrefetch()
 
-  const screen = (
+  return (
     <Suspense fallback={<ScreenFallback />}>
       <Outlet />
     </Suspense>
-  )
-
-  if (reduceMotion) return screen
-
-  return (
-    <motion.div animate="visible" initial="hidden" key={pathname} variants={pageVariants}>
-      {screen}
-    </motion.div>
   )
 }
 
@@ -181,6 +167,9 @@ const routeTree = rootRoute.addChildren([
 export function createAppRouter(history?: RouterHistory) {
   return createRouter({
     routeTree,
+    // 화면 전환 연출의 스위치. 실제 애니메이션은 styles/global.css의
+    // ::view-transition-* 규칙이 그린다(이유는 ScreenTransition 주석 참고).
+    defaultViewTransition: true,
     ...(history ? { history } : {}),
   })
 }

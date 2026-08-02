@@ -64,3 +64,54 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* 화면 전환 — 앱의 push. 브라우저가 나가는 화면을 비트맵으로 스냅샷해 두고 그 위로 새
+   화면이 오른쪽에서 밀려 들어온다. 스냅샷이라 나가는 쪽이 다시 렌더되지 않는다 —
+   JS로 붙잡으면 그 안의 Outlet이 이미 바뀐 라우터를 다시 읽어 새 화면을 그린다
+   (app/router.tsx의 ScreenTransition 참고).
+
+   기본 crossfade를 끄고 두 층을 겹친다. 기본값은 old/new가 서로 페이드하며 겹치는 구간에
+   배경이 비쳐 그 자체가 깜빡임이 된다. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  /* 나가는 화면은 살짝만 물러난다. 완전히 밀어내면 그 자리가 빈 배경이 된다. */
+  animation: screen-pop-out 260ms cubic-bezier(0.2, 0, 0, 1) both;
+  z-index: 0;
+}
+
+::view-transition-new(root) {
+  animation: screen-push-in 260ms cubic-bezier(0.2, 0, 0, 1) both;
+  z-index: 1;
+}
+
+@keyframes screen-push-in {
+  from {
+    transform: translateX(18%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes screen-pop-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-6%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
