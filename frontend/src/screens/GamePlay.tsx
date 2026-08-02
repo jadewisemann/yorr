@@ -15,47 +15,25 @@ import { ToastHost, useToast } from '@/components/ToastHost'
 import { Tooltip } from '@/components/Tooltip'
 import { TurnStrip } from '@/components/TurnStrip'
 import { TutorialGuide } from '@/components/TutorialGuide'
-import {
-  type DiceIndex,
-  type DiceSet,
-  type HeldDice,
-  NO_HELD_DICE,
-  toggleHeldDie,
-} from '@/domain/dice'
+import type { DiceIndex } from '@/domain/dice'
 import {
   type CategoryScores,
   calculateScoreCandidates,
   YACHT_CATEGORIES,
   type YachtCategory,
 } from '@/domain/scoring'
-import { detectSpecialHand, type SpecialHand } from '@/domain/specialHands'
-import { getPendingRoll, type YachtGameAction } from '@/domain/yachtGame'
-import { createRollFeedback } from '@/feedback/createRollFeedback'
-import { createHandVoice, type HandVoice } from '@/feedback/handVoice'
-import type { MotionAvailability, MotionGestureEvent } from '@/input/motionTypes'
-import type { RollInputMode } from '@/input/RollIntent'
-import { useMotionRollInput } from '@/input/useMotionRollInput'
+import type { YachtGameAction } from '@/domain/yachtGame'
+import type { MotionAvailability } from '@/input/motionTypes'
+import type { useMotionRollInput } from '@/input/useMotionRollInput'
 import { setSoundtrackMuted } from '@/landingSoundtrack'
-import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
-import { buildClientMessage } from '@/realtime/wsEvents'
-import type { PhysicsDiceMotionPulse } from '@/rendering/physics-dice/types'
 import { readSoundMuted, saveSoundMuted } from '@/soundPreference'
 import { type ActiveRoomSession, useAppStore } from '@/store'
 import { hideTutorial, isTutorialHidden } from '@/tutorialPreference'
 import { useCountdown } from '@/useCountdown'
 import { useMediaQuery } from '@/useMediaQuery'
 import { categoryLabel, categoryShortLabel, isRecorded } from '@/yachtCategoryView'
-import {
-  animationSeedForRoll,
-  isCurrentDiceBroadcast,
-  latestGameState,
-  type RollAnimationMode,
-  rollAnimationMode,
-  toMatrixPlayers,
-  toTurnStripPlayers,
-  turnAwareErrorMessage,
-} from './gamePlayModel'
+import { toMatrixPlayers, toTurnStripPlayers } from './gamePlayModel'
 import { useGamePlayRoll } from './useGamePlayRoll'
 import { useGamePlaySubmission } from './useGamePlaySubmission'
 
@@ -63,13 +41,6 @@ import { useGamePlaySubmission } from './useGamePlaySubmission'
 const WIDE_LAYOUT = '(min-width: 1024px)'
 const TOTAL_ROUNDS = 12
 const MAX_ROLLS = 3
-const TAP_RELEASE_DELAY_MS = 600
-/**
- * 흔들림 펄스를 방에 중계하는 최소 간격. 펄스는 방향이 바뀔 때마다 나와 초당 열 번을 넘길 수
- * 있는데, 관전 화면에는 "지금 흔들고 있다/멈췄다"가 보이면 충분하다. 이 간격은 사발 세기가
- * 감쇠로 잦아드는 시간보다 짧아야 흔드는 동안 사발이 끊겨 보이지 않는다.
- */
-const SHAKE_RELAY_INTERVAL_MS = 60
 interface GamePlayProps {
   roomId: string
   session: ActiveRoomSession
@@ -81,25 +52,10 @@ interface GamePlayProps {
 export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlayProps) {
   const wide = useMediaQuery(WIDE_LAYOUT)
   const connectionStatus = useAppStore((state) => state.connectionStatus)
-  const realtimeClient = useRealtimeClient()
   const { message: toastMessage, showToast } = useToast()
 
   const [sheetOpen, setSheetOpen] = useState(false)
   const [zeroConfirm, setZeroConfirm] = useState<YachtCategory | null>(null)
-  const [releaseRequestId, setReleaseRequestId] = useState<string | null>(null)
-  const [rollInputMode, setRollInputMode] = useState<RollAnimationMode | null>(null)
-  const [requestingRoll, setRequestingRoll] = useState(false)
-  const [motionPulse, setMotionPulse] = useState<PhysicsDiceMotionPulse | null>(null)
-  const motionPulseSequenceRef = useRef(0)
-  /**
-   * 관전 중인 굴림이 "기기를 흔들어서" 굴려지고 있다 — dice.shaken을 한 번이라도 받으면 켜진다.
-   * 켜지면 내 사발도 정해진 애니메이션 대신 중계된 펄스만 따라간다(굴린 사람이 손을 멈추면 같이 멈춘다).
-   * 버튼으로 굴리는 사람에게선 펄스가 오지 않으므로 그때는 꺼진 채로 남아 기존 애니메이션이 돈다.
-   */
-  const [remoteShaking, setRemoteShaking] = useState(false)
-  const lastShakeSentAtRef = useRef(0)
-  // 굴림마다 id를 새로 발급해 같은 족보가 연속으로 떠도 리마운트되게 한다.
-  const [rollHighlight, setRollHighlight] = useState<{ hand: SpecialHand; id: number } | null>(null)
   // 내 차례 시작 콜아웃 — 토스트보다 눈에 띄는 족보 이펙트와 같은 연출로 알린다. id = 리마운트 키.
   const [turnCallout, setTurnCallout] = useState<number | null>(null)
   const [soundMuted, setSoundMuted] = useState(readSoundMuted)
@@ -111,8 +67,6 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const [tutorialOpen, setTutorialOpen] = useState(() => !isTutorialHidden())
 
   const game = snapshot.game
-  const renderedGameRef = useRef(game)
-  renderedGameRef.current = game
   const roundNumber = game?.roundNumber ?? 1
   const activePlayerId = game?.activePlayerId
   const isMyTurn = activePlayerId === session.you
@@ -121,25 +75,48 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const myBoard = game?.scores[session.you]
   const activeBoard = activePlayerId ? game?.scores[activePlayerId] : undefined
 
-  const { applyServerRoll, dispatch, local } = useGamePlayRoll({
-    activePlayerId,
+  const {
+    allKept,
+    canHold,
+    canPick,
+    canRoll,
+    completeRoll,
+    confirmThrow,
+    currentRollNumber,
+    dispatch,
+    dismissRollHighlight,
+    keptCount,
+    lastRollInPlay,
+    local,
+    motion,
+    motionPulse,
+    onDiceImpact,
+    onPhysicsError,
+    onPhysicsPhaseChange,
+    pendingRoll,
+    releaseAll,
+    releaseRequestId,
+    remoteShaking,
+    roll: handleRoll,
+    rollHighlight,
+    rollInputMode,
+    rolling,
+    settledRollCount,
+    setMuted: setRollMuted,
+    submitted,
+    submitting,
+    toggleHeld,
+  } = useGamePlayRoll({
     game,
-    roundNumber,
+    roomId,
+    showToast,
+    you: session.you,
   })
   const activePlayerRef = useRef(activePlayerId)
   useEffect(() => {
     if (activePlayerRef.current === activePlayerId) return
     activePlayerRef.current = activePlayerId
-    setReleaseRequestId(null)
-    setRollInputMode(null)
-    setRequestingRoll(false)
-    setRemoteShaking(false)
     setZeroConfirm(null)
-    pendingRollRequestRef.current = null
-    queuedMotionReleaseRef.current = false
-    // 지난 턴의 사발은 이미 치워졌다 — 늦게 도착한 dice.thrown이 새 굴림을 쏟으면 안 된다.
-    remoteRollRef.current = null
-    queuedRemoteReleaseRef.current = null
     // 남의 턴을 구경하며 열어둔 점수시트가 턴이 넘어간 뒤에도 남아있으면 안 된다(QA FND-5).
     setSheetOpen(false)
   }, [activePlayerId])
@@ -164,37 +141,6 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     ? calculateScoreCandidates(local.dice, usedCategories)
     : {}
 
-  // 재연결 중에는 조작을 잠근다. 서버 상태와 어긋난 굴림·확정이 가장 위험하다.
-  const locked = connectionStatus === 'reconnecting' || connectionStatus === 'closed' || !isMyTurn
-  const submitted = local.phase === 'roundComplete'
-  const submitting = local.phase === 'submitting'
-  const rollsLeft = MAX_ROLLS - local.rollCount
-  // 킵 레일(트레이 하단 밴드) 라벨 — 위치가 곧 킵 표시이므로 개수·합만 조용히 병기한다.
-  const keptCount = local.held.filter(Boolean).length
-  // 다섯 개를 전부 킵하면 굴릴 주사위가 0개다(QA S15P11A406-102).
-  const allKept = local.dice !== null && keptCount === 5
-  const canRoll =
-    !locked &&
-    !submitted &&
-    !requestingRoll &&
-    !allKept &&
-    rollsLeft > 0 &&
-    (local.phase === 'ready' || local.phase === 'choosing')
-  const rolling = local.phase === 'rolling' || requestingRoll
-  // 기록은 점수표·퀵 칩을 탭하는 원큐 흐름이다(디자인 Yacht Play Screens). CTA는 굴리기 하나만 남는다.
-  const canPick = !locked && !submitting && local.phase === 'choosing'
-  // 내 턴이 아니면 트레이는 관전 화면이다. 여기서 홀드를 토글하면 서버가 모르는 킵이 생겨
-  // 다음 굴림·마감 자동 굴림이 화면과 다르게 동작한다.
-  const canHold = !locked && !submitted && local.phase === 'choosing' && local.rollCount < MAX_ROLLS
-  // rollCount는 서버 브로드캐스트 시점에 올라간다 — 마지막 굴림이 날아가는 중에도 이미
-  // MAX_ROLLS라, 그 굴림의 정렬부터 킵 주사위까지 한 줄로 눕는다(S15P11A406-94).
-  const lastRollInPlay = local.rollCount >= MAX_ROLLS
-  // 굴리는 중이면 rollCount가 곧 그 굴림의 번호고, 멈춘 상태면 다음에 굴릴 번호를 보여준다.
-  const currentRollNumber =
-    local.phase === 'rolling' ? local.rollCount : Math.min(MAX_ROLLS, local.rollCount + 1)
-  // 굴림 카운터는 "끝난 굴림"만 센다. 날아가는 중인 굴림을 미리 채우면 착지 전에 소진돼 보인다.
-  const settledRollCount = local.phase === 'rolling' ? local.rollCount - 1 : local.rollCount
-
   // 디자인의 한 장 점수시트 — 모든 플레이어를 열로 눕힌다. 내 열이 항상 첫 번째다.
   const sheetPlayers = toMatrixPlayers(snapshot.players, game?.scores, session.you)
   const leader = sheetPlayers.reduce(
@@ -204,417 +150,12 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   )
   const leaderLabel = leader ? `${leader.nickname} · ${leader.scoreboard?.total ?? 0}` : '—'
 
-  const rollSequenceRef = useRef(0)
-  const inputModeRef = useRef(rollInputMode)
-  const pendingRollRequestRef = useRef<{
-    inputMode: RollInputMode
-    msgId: string
-    requestId: string
-  } | null>(null)
-  const queuedMotionReleaseRef = useRef(false)
-  // 관전 중인 굴림. dice.thrown이 어느 requestId를 쏟아야 하는지 여기서 찾는다 —
-  // 브로드캐스트 핸들러 안에서 바로 채우므로 리렌더를 기다리지 않는다.
-  const remoteRollRef = useRef<{
-    requestId: string
-    rollCount: number
-    roundNumber: number
-  } | null>(null)
-  // dice.thrown이 dice.broadcast보다 먼저 처리된 경우를 위한 예약(순서는 보장되지만
-  // 굴림이 화면에 걸리기 전에 도착할 수 있다). 굴림이 생기는 즉시 쏟는다.
-  const queuedRemoteReleaseRef = useRef<{ rollCount: number; roundNumber: number } | null>(null)
-  const feedbackRef = useRef<ReturnType<typeof createRollFeedback> | null>(null)
-  const handVoiceRef = useRef<HandVoice | null>(null)
-  inputModeRef.current = rollInputMode
-  if (!feedbackRef.current) feedbackRef.current = createRollFeedback({ muted: readSoundMuted() })
-
-  /**
-   * 바뀐 KEEP을 서버에 알린다. dice.roll이 실어 나르는 held는 "그 굴림에 쓴 값"이라,
-   * 굴린 뒤에 바꾼 KEEP은 이 경로가 없으면 다음 굴림 전까지 상대 화면에 반영되지 않는다.
-   * 실패해도 조용히 넘어간다 — 내 화면은 이미 맞고, 다음 토글이나 굴림이 상태를 복구한다.
-   */
-  const publishHeld = useCallback(
-    (held: HeldDice) => {
-      try {
-        realtimeClient.send(buildClientMessage('dice.hold', { held, roundNumber }, { roomId }))
-      } catch {
-        // 연결이 끊긴 상태다. ConnectionBanner가 이미 알리고 있다.
-      }
-    },
-    [realtimeClient, roomId, roundNumber],
-  )
-
-  /**
-   * 내 흔들림 펄스를 방에 알린다. 관전 화면은 이걸 그대로 자기 사발에 먹여 같은 손놀림을 따라 한다 —
-   * 없으면 남의 화면에서는 내가 손을 멈춰도 사발이 계속 흔들린다.
-   * 펄스는 잦아서 SHAKE_RELAY_INTERVAL_MS 간격으로만 내보낸다.
-   */
-  const publishShake = useCallback(
-    (direction: 'left' | 'right', strength: number) => {
-      const now = performance.now()
-      if (now - lastShakeSentAtRef.current < SHAKE_RELAY_INTERVAL_MS) return
-      lastShakeSentAtRef.current = now
-      try {
-        realtimeClient.send(
-          buildClientMessage('dice.shake', { direction, roundNumber, strength }, { roomId }),
-        )
-      } catch {
-        // 연결이 끊긴 상태다. ConnectionBanner가 이미 알리고 있다.
-      }
-    },
-    [realtimeClient, roomId, roundNumber],
-  )
-
-  /**
-   * 내가 사발을 던졌다고 방에 알린다. dice.roll은 "흔들기 시작"에 나가 눈을 미리 받아두므로,
-   * 이 신호가 없으면 관전자는 던진 시점을 몰라 내가 흔드는 동안 먼저 주사위를 쏟는다.
-   * 실패해도 게임 진행은 어긋나지 않는다 — 눈은 dice.roll에서 이미 확정됐다. 다만 이 신호가
-   * 유실된 관전 화면은 서버가 턴을 넘길 때까지 사발을 흔든다.
-   */
-  const publishThrow = useCallback(
-    (rollCount: number) => {
-      try {
-        realtimeClient.send(
-          buildClientMessage(
-            'dice.throw',
-            { rollCount: rollCount as 1 | 2 | 3, roundNumber },
-            { roomId },
-          ),
-        )
-      } catch {
-        // 연결이 끊긴 상태다. ConnectionBanner가 이미 알리고 있다.
-      }
-    },
-    [realtimeClient, roomId, roundNumber],
-  )
-
-  const beginRoll = useCallback(
-    (inputMode: RollInputMode) => {
-      if (!canRoll) return
-      rollSequenceRef.current += 1
-      const requestId = `r${roundNumber}-${rollSequenceRef.current}`
-      const msgId = `roll-${roundNumber}-${local.rollCount + 1}-${Date.now()}`
-      setReleaseRequestId(null)
-      setRollInputMode(inputMode)
-      inputModeRef.current = inputMode
-      setRequestingRoll(true)
-      queuedMotionReleaseRef.current = false
-      pendingRollRequestRef.current = { inputMode, msgId, requestId }
-      try {
-        realtimeClient.send(
-          buildClientMessage(
-            'dice.roll',
-            {
-              held: local.held,
-              rollCount: (local.rollCount + 1) as 1 | 2 | 3,
-              roundNumber,
-            },
-            { roomId, msgId },
-          ),
-        )
-      } catch {
-        pendingRollRequestRef.current = null
-        setRequestingRoll(false)
-        setRollInputMode(null)
-        showToast('주사위를 요청하지 못했어요. 연결 상태를 확인해 주세요.')
-      }
-    },
-    [canRoll, local.held, local.rollCount, realtimeClient, roomId, roundNumber, showToast],
-  )
-
-  useEffect(
-    () =>
-      realtimeClient.onMessage((message) => {
-        if (message.type === 'dice.broadcast') {
-          const currentGame = latestGameState(
-            renderedGameRef.current,
-            useAppStore.getState().roomSnapshot?.game,
-          )
-          if (!isCurrentDiceBroadcast(message, roomId, currentGame)) return
-
-          const ownRoll = message.payload.playerId === session.you
-          // 마감 시각이 지나 서버가 대신 굴린 결과. 내가 요청한 게 아니어도 반영해야 한다 —
-          // 서버 상태는 이미 이 값이고, 버리면 다음 굴림·기록이 전부 어긋난다.
-          const forced = message.payload.auto === true
-          const pending = pendingRollRequestRef.current
-          const matchingPending =
-            ownRoll && !forced && pending && message.msgId === pending.msgId ? pending : null
-          // 서버가 확정한 한 굴림은 모든 참가자에게 같은 키를 쓴다. 요청자의 로컬 msgId가
-          // 유실됐더라도 권위 브로드캐스트를 버리면 요청자와 관전자의 최종 눈이 갈린다.
-          const requestId = `roll-${message.payload.playerId}-${message.payload.roundNumber}-${message.payload.rollCount}`
-          const animationMode = rollAnimationMode({
-            forced,
-            ownRoll,
-            pendingInputMode: matchingPending?.inputMode ?? null,
-          })
-
-          // 남의 굴림은 그 사람이 던질 때까지 사발에 담아둔다 — 쏟는 시점은 dice.thrown이 정한다.
-          remoteRollRef.current =
-            animationMode === 'remote'
-              ? {
-                  requestId,
-                  rollCount: message.payload.rollCount,
-                  roundNumber: message.payload.roundNumber,
-                }
-              : null
-
-          pendingRollRequestRef.current = null
-          setRequestingRoll(false)
-          setReleaseRequestId(null)
-          setRollInputMode(animationMode)
-          // 굴림마다 새로 판단한다 — 지난 굴림을 흔들어 굴렸다고 이번 버튼 굴림까지
-          // 펄스를 기다리면, 아무도 흔들지 않는 사발이 멈춰 선다.
-          setRemoteShaking(false)
-          applyServerRoll(message.payload.playerId, message.payload.roundNumber, {
-            type: 'rollRequested',
-            forced,
-            held: message.payload.held as HeldDice,
-            requestId,
-            // 굴림 횟수는 서버가 센 값을 그대로 받는다 — 클라가 따로 세면 어긋난다.
-            rollCount: message.payload.rollCount,
-            seed: animationSeedForRoll(
-              roomId,
-              message.payload.playerId,
-              message.payload.roundNumber,
-              message.payload.rollCount,
-              message.payload.dice,
-            ),
-            targetDice: message.payload.dice,
-          })
-          if (ownRoll && forced) {
-            showToast(`시간이 지나 서버가 ${message.payload.rollCount}번째 주사위를 굴렸어요.`)
-          }
-          if (ownRoll && queuedMotionReleaseRef.current) {
-            queuedMotionReleaseRef.current = false
-            setReleaseRequestId(requestId)
-            publishThrow(message.payload.rollCount)
-          }
-          // 굴림이 걸리기 전에 도착해 둔 dice.thrown이 있으면 지금 쏟는다.
-          const queuedRemote = queuedRemoteReleaseRef.current
-          if (
-            animationMode === 'remote' &&
-            queuedRemote &&
-            queuedRemote.roundNumber === message.payload.roundNumber &&
-            queuedRemote.rollCount === message.payload.rollCount
-          ) {
-            queuedRemoteReleaseRef.current = null
-            setReleaseRequestId(requestId)
-          }
-          return
-        }
-
-        if (message.type === 'dice.shaken') {
-          if (
-            message.roomId !== roomId ||
-            message.payload.roundNumber !== roundNumber ||
-            message.payload.playerId !== activePlayerId ||
-            // 내 펄스의 메아리다. 내 사발은 기기 센서가 이미 흔들고 있다.
-            message.payload.playerId === session.you ||
-            // 굴림이 아직 화면에 안 걸렸다. 먹일 사발이 없으니 이 펄스는 버린다.
-            !remoteRollRef.current
-          ) {
-            return
-          }
-          // 펄스가 오는 동안만 사발이 흔들린다 — 굴린 사람이 손을 멈추면 여기도 조용해지고,
-          // 사발 세기가 감쇠하며 주사위가 같이 잦아든다. 소리도 그 움직임을 따라간다.
-          feedbackRef.current?.remoteShakePulse()
-          setRemoteShaking(true)
-          motionPulseSequenceRef.current += 1
-          setMotionPulse({
-            id: motionPulseSequenceRef.current,
-            direction: message.payload.direction,
-            strength: message.payload.strength,
-          })
-          return
-        }
-
-        if (message.type === 'dice.thrown') {
-          if (
-            message.roomId !== roomId ||
-            message.payload.roundNumber !== roundNumber ||
-            message.payload.playerId !== activePlayerId ||
-            // 내 던짐의 메아리다. 내 화면은 제스처가 이미 쏟았다.
-            message.payload.playerId === session.you
-          ) {
-            return
-          }
-          const remote = remoteRollRef.current
-          if (
-            remote &&
-            remote.roundNumber === message.payload.roundNumber &&
-            remote.rollCount === message.payload.rollCount
-          ) {
-            remoteRollRef.current = null
-            setReleaseRequestId(remote.requestId)
-            return
-          }
-          queuedRemoteReleaseRef.current = {
-            rollCount: message.payload.rollCount,
-            roundNumber: message.payload.roundNumber,
-          }
-          return
-        }
-
-        if (message.type === 'dice.hold_changed') {
-          // 내가 보낸 것의 메아리는 무시한다 — 내 화면이 이미 맞고, 연달아 탭하는 중이면
-          // 뒤늦게 온 이전 상태가 방금 누른 KEEP을 되돌려 버린다.
-          if (
-            message.roomId !== roomId ||
-            message.payload.roundNumber !== roundNumber ||
-            message.payload.playerId !== activePlayerId ||
-            message.payload.playerId === session.you
-          ) {
-            return
-          }
-          dispatch({ type: 'heldSynced', held: message.payload.held as HeldDice })
-          return
-        }
-
-        const pending = pendingRollRequestRef.current
-        if (message.type === 'error' && pending && message.payload.refMsgId === pending.msgId) {
-          pendingRollRequestRef.current = null
-          setRequestingRoll(false)
-          setRollInputMode(null)
-          showToast(turnAwareErrorMessage(message.payload))
-        }
-      }),
-    [
-      activePlayerId,
-      applyServerRoll,
-      dispatch,
-      publishThrow,
-      realtimeClient,
-      roomId,
-      roundNumber,
-      session.you,
-      showToast,
-    ],
-  )
-
-  const handleGestureEvent = useCallback(
-    (event: MotionGestureEvent) => {
-      switch (event.type) {
-        case 'shakePulse':
-          feedbackRef.current?.shakePulse(event.direction, event.strength)
-          motionPulseSequenceRef.current += 1
-          setMotionPulse({
-            id: motionPulseSequenceRef.current,
-            direction: event.direction,
-            strength: event.strength,
-          })
-          publishShake(event.direction, event.strength)
-          return
-        case 'shakeStarted':
-          feedbackRef.current?.armed()
-          beginRoll('motion')
-          return
-        case 'throwDetected': {
-          const request = getPendingRoll(local)
-          if (inputModeRef.current !== 'motion') return
-          if (!request) {
-            if (pendingRollRequestRef.current?.inputMode === 'motion') {
-              queuedMotionReleaseRef.current = true
-            }
-            return
-          }
-          feedbackRef.current?.thrown()
-          setReleaseRequestId(request.requestId)
-          publishThrow(local.rollCount)
-          return
-        }
-        case 'shakeArmed':
-        case 'gestureCancelled':
-          return
-      }
-    },
-    [beginRoll, local, publishShake, publishThrow],
-  )
-
-  const motion = useMotionRollInput(handleGestureEvent)
-  const pendingRoll = getPendingRoll(local)
-
-  useEffect(() => {
-    if (!pendingRoll) return
-    // 남의 굴림(remote)에는 타이머를 두지 않는다 — 관전 화면은 굴리는 사람 화면을 그대로
-    // 따라가야 하고, 쏟는 시점은 오직 그 사람의 dice.thrown이 정한다.
-    // dice.thrown이 유실되면 그 턴 동안 사발이 계속 흔들리지만, 서버가 마감(25초,
-    // RoundTimerService.ROUND_DURATION)에 대신 굴리거나 다음 턴으로 넘기는 순간
-    // activePlayerId 효과가 굴림을 새로 시작하며 걷어낸다.
-    if (rollInputMode !== 'tap' && rollInputMode !== 'auto') return
-    const timeout = setTimeout(() => {
-      setReleaseRequestId(pendingRoll.requestId)
-      // 버튼으로 굴린 것도 "던진 것"이다 — 관전 화면이 같은 순간에 쏟게 알린다.
-      // 마감 자동 굴림(auto)은 던진 사람이 없고, 모두가 auto 표시를 받아 각자 쏟는다.
-      if (rollInputMode === 'tap') publishThrow(local.rollCount)
-    }, TAP_RELEASE_DELAY_MS)
-    return () => clearTimeout(timeout)
-  }, [local.rollCount, pendingRoll, publishThrow, rollInputMode])
-
-  useEffect(
-    () => () => {
-      feedbackRef.current?.dispose()
-    },
-    [],
-  )
-
-  /*
-   * 음성 재생기는 제스처 리스너를 걸고 오디오 요소를 들고 있으므로 수명을 effect가 소유한다.
-   * 렌더 중에 만들고 cleanup에서 버리면 StrictMode의 mount → cleanup → mount에서
-   * 버려진 객체만 남아 자동재생 잠금이 풀리지 않는다.
-   */
-  useEffect(() => {
-    const voice = createHandVoice({ muted: readSoundMuted() })
-    handVoiceRef.current = voice
-    return () => {
-      voice.dispose()
-      handVoiceRef.current = null
-    }
-  }, [])
-
-  /*
-   * 족보 콜아웃이 화면에 뜨는 커밋에서 같이 외친다(S15P11A406-138). 텍스트와 목소리가
-   * 같은 상태(rollHighlight) 하나에서 나오므로 어긋나지 않는다 — 이미 기록한 족보처럼
-   * 연출을 건너뛴 굴림에는 목소리도 나오지 않는다.
-   */
-  useEffect(() => {
-    if (rollHighlight) handVoiceRef.current?.play(rollHighlight.hand)
-  }, [rollHighlight])
-
   const toggleSound = () => {
     const muted = !soundMuted
     setSoundMuted(muted)
     saveSoundMuted(muted)
-    feedbackRef.current?.setMuted(muted)
-    handVoiceRef.current?.setMuted(muted)
+    setRollMuted(muted)
     setSoundtrackMuted(muted)
-  }
-
-  const handleRoll = () => {
-    if (!canRoll) return
-    beginRoll('tap')
-  }
-
-  const confirmThrow = () => {
-    if (!pendingRoll || releaseRequestId === pendingRoll.requestId) return
-    feedbackRef.current?.thrown()
-    setReleaseRequestId(pendingRoll.requestId)
-    publishThrow(local.rollCount)
-  }
-
-  const completeRoll = (requestId: string, _dice: DiceSet) => {
-    const completedDice = pendingRoll?.requestId === requestId ? pendingRoll.targetDice : null
-    if (!completedDice) return
-    dispatch({ type: 'rollCompleted', requestId, dice: completedDice })
-    setReleaseRequestId(null)
-    setRollInputMode(null)
-    if (isMyTurn) {
-      motion.resetGesture('roll-complete')
-    }
-    // 서버 브로드캐스트를 재생한 모든 참가자에게 같은 족보 연출을 보여준다.
-    // 이미 기록한 족보면 다시 쓸 수 없으므로 현재 턴 플레이어의 점수판을 기준으로 건너뛴다.
-    const hand = detectSpecialHand(completedDice)
-    if (hand && !isRecorded(activeBoard?.categories[hand])) {
-      setRollHighlight({ hand, id: Date.now() })
-    }
   }
 
   // 점수표 행·퀵 칩 공용 원큐 기록. 0점만 잃는 선택이라 확인 모달을 거친다.
@@ -745,14 +286,10 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         motionFollow={rollInputMode === 'motion' || remoteShaking}
         motionPulse={motionPulse}
         releaseRequestId={releaseRequestId}
-        onDiceImpact={(index, strength) => feedbackRef.current?.diceImpact(index, strength)}
-        onError={() => feedbackRef.current?.error()}
-        onHeldToggle={(index) => {
-          if (!canHold) return
-          dispatch({ type: 'holdToggled', index })
-          publishHeld(toggleHeldDie(local.held, index))
-        }}
-        onPhaseChange={(phase) => feedbackRef.current?.phaseChanged(phase)}
+        onDiceImpact={onDiceImpact}
+        onError={onPhysicsError}
+        onHeldToggle={toggleHeld}
+        onPhaseChange={onPhysicsPhaseChange}
         onRollComplete={completeRoll}
         request={pendingRoll}
       />
@@ -774,7 +311,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         <RollResultCallout
           hand={rollHighlight.hand}
           key={rollHighlight.id}
-          onDone={() => setRollHighlight(null)}
+          onDone={dismissRollHighlight}
         />
       )}
       {turnCallout !== null && (
@@ -1033,13 +570,6 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
 
   // 킵 레일을 통째로 비우는 보조 동작(디자인 Yacht Play 3D의 Release all).
   const canReleaseAll = keptCount > 0 && canHold
-  const releaseAll = () => {
-    local.held.forEach((isHeld, index) => {
-      if (isHeld) dispatch({ type: 'holdToggled', index: index as DiceIndex })
-    })
-    // 토글마다 보내면 최대 5번이 나간다 — 결과 한 번만 알린다.
-    publishHeld(NO_HELD_DICE)
-  }
 
   // 기록은 점수표·칩 탭으로 끝나므로 CTA는 굴리기 하나다(디자인 하단 바).
   const actions =
