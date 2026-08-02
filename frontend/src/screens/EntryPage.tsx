@@ -9,9 +9,10 @@ import { LandingCodeDialog } from '@/components/LandingCodeDialog'
 import { LandingHeroCarousel } from '@/components/LandingHeroCarousel'
 import { LandingProgress } from '@/components/LandingProgress'
 import { landingGameAt, landingGames } from '@/landingGames'
-import { playLandingSoundtrack } from '@/landingSoundtrack'
+import { playLandingSoundtrack, setSoundtrackMuted } from '@/landingSoundtrack'
 import { normalizeRoomCode } from '@/roomCode'
 import { sessionScreenOf } from '@/sessionFsm'
+import { readSoundMuted, saveSoundMuted } from '@/soundPreference'
 import { selectSessionPhase, useAppStore } from '@/store'
 import { useMediaQuery } from '@/useMediaQuery'
 
@@ -40,11 +41,22 @@ export function EntryPage() {
   const signOut = useAppStore((state) => state.signOut)
   const setAppNotice = useAppStore((state) => state.setAppNotice)
 
+  const [soundMuted, setSoundMuted] = useState(readSoundMuted)
+
   const game = landingGameAt(activeIndex)
 
   useEffect(() => {
     playLandingSoundtrack(game.key)
   }, [game.key])
+
+  // 랜딩은 진입하자마자 BGM이 흐른다. 게임 화면과 같은 저장 설정을 쓰므로 여기서 끄면
+  // 대기실·게임까지 그대로 따라간다(soundPreference는 방을 옮겨도 유지된다).
+  const toggleSound = () => {
+    const muted = !soundMuted
+    setSoundMuted(muted)
+    saveSoundMuted(muted)
+    setSoundtrackMuted(muted)
+  }
 
   const handleGameSelect = (index: number) => {
     playLandingSoundtrack(landingGameAt(index).key)
@@ -111,12 +123,15 @@ export function EntryPage() {
                 게임을 선택하세요
               </span>
             </div>
-            <AccountControl
-              layout="wide"
-              onOpen={() => setAccountOpen(true)}
-              open={accountOpen}
-              session={authSession}
-            />
+            <span className="flex min-w-0 items-center gap-2.5">
+              <SoundToggle muted={soundMuted} onToggle={toggleSound} />
+              <AccountControl
+                layout="wide"
+                onOpen={() => setAccountOpen(true)}
+                open={accountOpen}
+                session={authSession}
+              />
+            </span>
           </header>
 
           {/* 카드 폭은 화면 폭 기준(69.4% ≒ 1440에서 1000px)이라 캐러셀 띠는 전면 폭을 쓴다 —
@@ -191,12 +206,15 @@ export function EntryPage() {
             </span>
             <span className={cn(wordmarkTag, 'text-[10px]/none')}>Arcade</span>
           </span>
-          <AccountControl
-            layout="narrow"
-            onOpen={() => setAccountOpen(true)}
-            open={accountOpen}
-            session={authSession}
-          />
+          <span className="flex min-w-0 items-center gap-2">
+            <SoundToggle muted={soundMuted} onToggle={toggleSound} />
+            <AccountControl
+              layout="narrow"
+              onOpen={() => setAccountOpen(true)}
+              open={accountOpen}
+              session={authSession}
+            />
+          </span>
         </div>
 
         <span className="flex-none px-5 pt-[clamp(10px,2vh,18px)] text-[24px]/none font-bold tracking-[-0.02em] text-landing-text-strong">
@@ -275,6 +293,24 @@ export function EntryPage() {
  * 어두운 랜딩 위에 브랜드 노란색을 얹으면 화면에서 그것만 튄다. 제공자 선택과 브랜드 색은
  * {@link AccountDialog} 안으로 들어간다.
  */
+/**
+ * 랜딩 BGM 음소거. 게임 화면 헤더의 소리 버튼과 같은 저장 설정(soundPreference)을 쓴다 —
+ * 조용한 곳에서 한 번 끈 사람은 방을 옮겨도 계속 조용해야 한다.
+ */
+function SoundToggle({ muted, onToggle }: { muted: boolean; onToggle: () => void }) {
+  return (
+    <button
+      aria-label={muted ? '소리 켜기' : '소리 끄기'}
+      aria-pressed={!muted}
+      className="grid size-tap flex-none cursor-pointer place-items-center rounded-full border border-landing-hairline-strong bg-landing-well text-[15px]/none text-landing-text-muted transition-colors duration-150 ease-out hover:border-landing-accent/70 hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
+      onClick={onToggle}
+      type="button"
+    >
+      <span aria-hidden="true">{muted ? '🔇' : '🔊'}</span>
+    </button>
+  )
+}
+
 function AccountControl({
   layout,
   onOpen,

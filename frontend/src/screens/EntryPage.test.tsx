@@ -63,6 +63,25 @@ describe('EntryPage', () => {
     expect(screen.getByRole('button', { name: '요트 다이스 플레이' })).toBeVisible()
   })
 
+  // 랜딩은 진입하자마자 BGM이 흐른다. 게임 화면과 같은 저장 설정을 써야, 조용한 곳에서
+  // 한 번 끈 사람이 대기실·게임으로 넘어가서 다시 소리를 듣지 않는다.
+  it('랜딩에서 소리를 끄면 설정이 저장돼 다음 화면까지 이어진다', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    const on = screen.getByRole('button', { name: '소리 끄기' })
+    expect(on).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(on)
+    expect(localStorage.getItem('yorr.sound-muted')).toBe('true')
+
+    const off = screen.getByRole('button', { name: '소리 켜기' })
+    expect(off).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(off)
+    expect(localStorage.getItem('yorr.sound-muted')).toBe('false')
+  })
+
   it('opens nickname entry for a new room', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)
