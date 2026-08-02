@@ -36,6 +36,40 @@ type PhysicsDiceWorldInstance = InstanceType<
   typeof import('@/rendering/physics-dice/World').PhysicsDiceWorld
 >
 
+type LatestSceneState = {
+  dice: PhysicsDiceSet | null
+  held: PhysicsHeldDice
+  lineUpAll: boolean
+  motionFollow: boolean | undefined
+  quality: PhysicsDiceQuality
+  releaseRequestId: string | null
+  request: PhysicsDiceRollRequest | null
+}
+
+function applyInitialSceneState(
+  world: PhysicsDiceWorldInstance,
+  latest: LatestSceneState,
+  startedRequests: Set<string>,
+  releasedRequests: Set<string>,
+) {
+  world.applyQuality(latest.quality)
+  if (latest.motionFollow !== undefined) world.setMotionFollow(latest.motionFollow)
+  // 배치 규칙을 먼저 세운 뒤에 주사위를 놓는다 — 순서가 뒤집히면 한 번 잘못 눕는다.
+  world.setLineUpAll(latest.lineUpAll)
+  world.syncCommittedDice(latest.dice, latest.held)
+
+  const request = latest.request
+  if (!request) return
+  if (!startedRequests.has(request.requestId)) {
+    startedRequests.add(request.requestId)
+    world.startRoll(request)
+  }
+  if (latest.releaseRequestId !== request.requestId || releasedRequests.has(request.requestId))
+    return
+  releasedRequests.add(request.requestId)
+  world.pour()
+}
+
 export function PhysicsDiceScene({
   dice,
   held,
@@ -116,24 +150,12 @@ export function PhysicsDiceScene({
         await createdWorld.init()
         if (disposed) return
         worldRef.current = createdWorld
-        const latest = latestRef.current
-        createdWorld.applyQuality(latest.quality)
-        if (latest.motionFollow !== undefined) createdWorld.setMotionFollow(latest.motionFollow)
-        // 배치 규칙을 먼저 세운 뒤에 주사위를 놓는다 — 순서가 뒤집히면 한 번 잘못 눕는다.
-        createdWorld.setLineUpAll(latest.lineUpAll)
-        createdWorld.syncCommittedDice(latest.dice, latest.held)
-        if (latest.request && !startedRequestsRef.current.has(latest.request.requestId)) {
-          startedRequestsRef.current.add(latest.request.requestId)
-          createdWorld.startRoll(latest.request)
-        }
-        if (
-          latest.request &&
-          latest.releaseRequestId === latest.request.requestId &&
-          !releasedRequestsRef.current.has(latest.request.requestId)
-        ) {
-          releasedRequestsRef.current.add(latest.request.requestId)
-          createdWorld.pour()
-        }
+        applyInitialSceneState(
+          createdWorld,
+          latestRef.current,
+          startedRequestsRef.current,
+          releasedRequestsRef.current,
+        )
       })
       .catch((cause: unknown) => {
         if (disposed) return
