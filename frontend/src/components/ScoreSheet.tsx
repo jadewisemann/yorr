@@ -109,8 +109,12 @@ export function ScoreSheet({
       )
     })
 
+    // grow shrink-0 basis-auto(= flex: 1 0 auto): 남을 때만 늘고, 모자라면 줄지 않고 스크롤한다.
+    // flex-1(1 1 0%)로 두면 짧은 창에서 행이 44px 아래로 찌그러져 탭 타깃이 무너진다.
+    // 이 세 class는 부모가 flex일 때만(wide 상시 패널) 의미가 있다 — 모바일 시트는 블록이라
+    // 무시되고 행은 종전대로 44px 고정이다.
     const rowClassName = cn(
-      'grid min-h-11 w-full items-center gap-1 border-0 border-b border-border/40 bg-transparent px-3 text-left',
+      'grid max-h-15 min-h-11 w-full shrink-0 grow basis-auto items-center gap-1 border-0 border-b border-border/40 bg-transparent px-3 text-left',
       clickable &&
         'cursor-pointer transition-colors hover:bg-brand/10 focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-[-3px]',
     )
@@ -153,10 +157,10 @@ export function ScoreSheet({
     return (
       <div
         className={cn(
-          'grid items-center gap-1 px-3',
+          'grid shrink-0 grow basis-auto items-center gap-1 px-3',
           emphasis
-            ? 'min-h-12 border-t-2 border-border'
-            : 'min-h-8 border-y border-border bg-surface-sunken',
+            ? 'max-h-18 min-h-12 border-t-2 border-border'
+            : 'max-h-12 min-h-8 border-y border-border bg-surface-sunken',
         )}
         style={columns}
       >
@@ -200,7 +204,7 @@ export function ScoreSheet({
       tabIndex={0}
     >
       <div
-        className="sticky top-0 z-sticky grid min-h-9 items-center gap-1 border-b border-border bg-canvas px-3"
+        className="sticky top-0 z-sticky grid min-h-9 shrink-0 items-center gap-1 border-b border-border bg-canvas px-3"
         style={columns}
       >
         <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.08em] text-content-muted uppercase">

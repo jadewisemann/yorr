@@ -327,7 +327,12 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
               <span className="text-[11px] font-bold tracking-[0.1em] uppercase">점수 시트</span>
               <span className="truncate text-[11px] text-content-faint">{sheetHint}</span>
             </div>
-            {scoreSheet('min-h-0 flex-1')}
+            {/* 시트 행들이 남는 높이를 나눠 갖게 한다. 지금까지 행이 min-h만 갖는 블록이라
+                내용이 720px에서 끝나고 나머지가 전부 바닥에 고였다(1920×945에서 184px,
+                2560×1300에서 540px). justify-center가 아니라 **safe** center여야 한다 —
+                짧은 창에서 그냥 center면 위쪽이 스크롤 원점 밖으로 나가 '족보' 헤더에
+                접근할 수 없다. */}
+            {scoreSheet('flex min-h-0 flex-1 flex-col justify-center-safe')}
           </section>
         ) : null}
       </main>
