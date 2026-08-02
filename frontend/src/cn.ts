@@ -42,6 +42,7 @@ const twMerge = extendTailwindMerge({
         'callout-flash',
         'callout-burst',
         'guide-bob',
+        'caret-blink',
       ],
     },
     // z-index는 tailwind-merge의 theme 키가 아니라 class 그룹으로 등록한다.

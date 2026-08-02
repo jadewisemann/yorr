@@ -117,32 +117,37 @@ export function EntryPage() {
     return (
       <>
         <main className="relative flex h-svh w-full flex-col overflow-hidden [background:var(--ds-landing-bg)]">
-          {/* 폭을 안 잡으면 2560에서 로고와 계정 버튼이 2472px 떨어져 한 줄로 안 읽힌다. */}
-          <header className="mx-auto flex h-22 w-full max-w-landing flex-none items-center justify-between gap-8 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))]">
-            <div className="flex items-center gap-5">
-              <span className="flex items-baseline gap-2.5">
-                <span className={cn(wordmark, 'text-[27px]/none')}>
-                  YO<span className="text-landing-accent">R</span>R
+          {/* 헤더 폭은 히어로 카드의 콘텐츠 영역(띠 폭의 69.4%)과 정확히 같다 — 화살표와
+              이웃 카드가 쓰는 바깥 띠까지 헤더가 차지하면 로고와 계정 버튼이 화면 양끝으로
+              벌어져 한 줄로 안 읽힌다. 안쪽 69.4%에 맞추면 워드마크 왼쪽 끝과 카드 왼쪽
+              모서리가 같은 세로선에 선다. */}
+          <header className="mx-auto flex h-22 w-full max-w-landing flex-none justify-center">
+            <div className="flex w-[69.4%] items-center justify-between gap-8">
+              <div className="flex items-center gap-5">
+                <span className="flex items-baseline gap-2.5">
+                  <span className={cn(wordmark, 'text-[27px]/none')}>
+                    YO<span className="text-landing-accent">R</span>R
+                  </span>
+                  <span className={cn(wordmarkTag, 'text-[11px]/none')}>Yorr Arcade</span>
                 </span>
-                <span className={cn(wordmarkTag, 'text-[11px]/none')}>Yorr Arcade</span>
+                <span aria-hidden="true" className="h-6.5 w-px bg-landing-hairline-strong" />
+                <h1 className="m-0 text-[17px]/none font-bold whitespace-nowrap text-landing-text-strong">
+                  링크 하나로 모이면 바로 시작하는 파티 게임
+                </h1>
+              </div>
+              <span className="flex min-w-0 items-center gap-2.5">
+                {/* 게임 CTA와 다른 층 — 선택한 게임과 무관한 독립 진입 경로다. */}
+                <CodeEntryRow compact onOpen={() => setCodeOpen(true)} />
+                <span aria-hidden="true" className="h-6.5 w-px flex-none bg-landing-hairline" />
+                <SoundToggle muted={soundMuted} onToggle={toggleSound} />
+                <AccountControl
+                  layout="wide"
+                  onOpen={() => setAccountOpen(true)}
+                  open={accountOpen}
+                  session={authSession}
+                />
               </span>
-              <span aria-hidden="true" className="h-6.5 w-px bg-landing-hairline-strong" />
-              <h1 className="m-0 text-[17px]/none font-bold whitespace-nowrap text-landing-text-strong">
-                링크 하나로 모이면 바로 시작하는 파티 게임
-              </h1>
             </div>
-            <span className="flex min-w-0 items-center gap-2.5">
-              {/* 게임 CTA와 다른 층 — 선택한 게임과 무관한 독립 진입 경로다. */}
-              <CodeEntryRow compact onOpen={() => setCodeOpen(true)} />
-              <span aria-hidden="true" className="h-6.5 w-px flex-none bg-landing-hairline" />
-              <SoundToggle muted={soundMuted} onToggle={toggleSound} />
-              <AccountControl
-                layout="wide"
-                onOpen={() => setAccountOpen(true)}
-                open={accountOpen}
-                session={authSession}
-              />
-            </span>
           </header>
 
           {/* 카드 폭은 띠 폭의 69.4%다. 그래서 폭 제한은 카드가 아니라 **띠**에 걸어야 한다 —
@@ -301,8 +306,10 @@ const codeEntryBase =
 const codeEntryLayout = {
   compact:
     'min-h-tap gap-2 rounded-[14px] border border-landing-hairline-strong bg-landing-well px-4 text-[15px] font-semibold text-landing-text outline-landing-accent hover:border-landing-accent/70 hover:bg-landing-soft',
+  // 알약 모양 — 옆에 선 h1은 24px 텍스트 덩어리라 각진 사각형과는 어느 높이로 맞춰도
+  // 어긋나 보인다. 완전히 둥글리면 높이 차가 형태 차이로 읽혀 나란히 서도 어색하지 않다.
   narrow:
-    'min-h-tap gap-2 rounded-[14px] border-0 bg-landing-accent px-3.5 text-[14px] font-landing-bold text-landing-accent-ink outline-white hover:bg-landing-accent/90',
+    'min-h-tap gap-2 rounded-full border-0 bg-landing-accent pr-3 pl-4 text-[14px] font-landing-bold text-landing-accent-ink outline-white hover:bg-landing-accent/90',
 } as const
 
 function CodeEntryRow({ compact = false, onOpen }: { compact?: boolean; onOpen: () => void }) {
@@ -313,9 +320,24 @@ function CodeEntryRow({ compact = false, onOpen }: { compact?: boolean; onOpen: 
       onClick={onOpen}
       type="button"
     >
-      <CodeGlyph tone={compact ? 'quiet' : 'onAccent'} />
+      {compact && <CodeGlyph />}
       {compact ? '초대 코드로 참가' : '초대 코드'}
+      {/* 글자 뒤에 입력 필드를 줄여 그린다 — 앞의 코드 칸 세 개는 "무엇을 누르는가"를
+          말하지 못했다. 커서가 깜빡이는 빈 칸은 "여기에 쳐 넣는다"로 읽힌다. */}
+      {!compact && <InputGlyph />}
     </button>
+  )
+}
+
+/** 커서가 선 입력 칸. 누르면 코드를 타이핑하는 화면이 뜬다는 예고다. */
+function InputGlyph() {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-6 w-7 flex-none items-center justify-center rounded-[7px] border border-current/45 bg-current/12"
+    >
+      <span className="h-3 w-px bg-current motion-safe:animate-caret-blink" />
+    </span>
   )
 }
 

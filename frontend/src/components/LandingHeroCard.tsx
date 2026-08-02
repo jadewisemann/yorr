@@ -122,8 +122,10 @@ export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) 
             (안쪽 297px 중 필 세 칸이 273px), 사용자가 요구한 축도 위·아래다.
             shrink-0 + max-w: 제 폭을 지키되 상한에서 접힌다 — 접히는 편이 줄어드는 편보다
             낫다. 필 안 글자는 줄바꿈이 안 된다(whitespace-nowrap). */}
+        {/* flex-nowrap: 두 줄로 접히면 상단 띠가 그만큼 두꺼워지고 카드마다 높이가 달라
+            보인다. 좁아지면 접는 대신 칸이 작아진다. */}
         {wide && (
-          <div className="flex max-w-[48%] shrink-0 flex-wrap justify-end gap-2.5">
+          <div className="flex min-w-0 shrink-0 flex-nowrap justify-end gap-2.5">
             <LandingMetaPills game={game} layout="wide" />
           </div>
         )}
@@ -148,7 +150,7 @@ export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) 
         ) : (
           // narrow의 필은 여기, CTA 바로 위다. 사실 진술(인원·시간·조작)이 행동 바로 앞에
           // 서고, 위쪽은 이름과 한 줄 카피만 남아 가벼워진다.
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex min-w-0 flex-nowrap gap-1">
             <LandingMetaPills game={game} layout="narrow" />
           </div>
         )}
@@ -254,8 +256,8 @@ interface LandingMetaPillsProps {
     세 칸 합이 273px이라 여기서 한 단만 키워도 두 줄로 접힌다. 접히면 하단 덩어리가
     36px 두꺼워진다. */
 const metaPillSize = {
-  narrow: 'h-7.5 px-2.5 text-[12px]',
-  wide: 'h-8.5 px-3.5 text-[14px]',
+  narrow: 'h-7.5 px-1.5 text-[11px]',
+  wide: 'h-8.5 px-3 text-[13px]',
 } as const
 
 const metaBadgeSize = {

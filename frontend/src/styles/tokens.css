@@ -113,6 +113,13 @@
 
   /* 튜토리얼 가이드 마스코트 — 공중에 떠서 천천히 오르내리는 부유감. */
   --animate-guide-bob: guide-bob 2600ms ease-in-out infinite;
+
+  /* 초대 코드 버튼 안 입력 칸의 커서. "여기에 쳐 넣는다"를 형태로 말한다. */
+  --animate-caret-blink: caret-blink 1200ms steps(1, end) infinite;
+
+  /* 센서 안내 닫기 버튼을 두르는 링. 한 바퀴 도는 동안(3초) 안내가 스스로 닫힌다.
+     MotionPermissionPanel의 AUTO_CLOSE_MS와 같은 값이다. */
+  --animate-close-sweep: close-sweep 3000ms linear both;
 }
 
 :root {
@@ -397,6 +404,34 @@
   }
   to {
     transform: rotate(var(--burst-angle, 0deg)) translateY(-8.5rem) scaleY(1);
+    opacity: 0;
+  }
+}
+
+/* conic-gradient의 각도만 보간한다 — @property로 등록해야 브라우저가 각도를 애니메이션
+   가능한 값으로 안다. 등록하지 않으면 0deg에서 360deg로 한 번에 점프한다. */
+@property --sweep {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 360deg;
+}
+
+@keyframes close-sweep {
+  from {
+    --sweep: 360deg;
+  }
+  to {
+    --sweep: 0deg;
+  }
+}
+
+@keyframes caret-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
     opacity: 0;
   }
 }

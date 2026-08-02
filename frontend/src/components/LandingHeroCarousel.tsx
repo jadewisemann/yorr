@@ -42,7 +42,7 @@ const WHEEL_THRESHOLD = 18
  * 보인다. 아래 카드 좌표(narrow inset-x-6.7% / peek -14.9%+24.6%, wide 50%±34.7% /
  * peek -12.2%+36.1%)에서 계산한 값이라 그 좌표를 바꾸면 여기도 같이 고친다.
  */
-const SLIDE_DISTANCE_PCT = { narrow: 52.6, wide: 44.15 }
+const SLIDE_DISTANCE_PCT = { narrow: 51.3, wide: 44.15 }
 
 export function LandingHeroCarousel({
   activeIndex,
@@ -205,19 +205,24 @@ export function LandingHeroCarousel({
           aria-labelledby={landingTabId(game.key)}
           className={cn(
             'absolute inset-y-0',
-            wide ? 'left-1/2 w-[69.4%] -translate-x-1/2' : 'inset-x-[6.7%]',
+            // narrow 11%: 예전 6.7%는 이웃 카드가 손톱만큼만 걸려 "옆에 더 있다"가 읽히지
+            // 않았다. 카드를 86.6% → 78%로 줄여 그만큼 이웃을 내보인다.
+            wide ? 'left-1/2 w-[69.4%] -translate-x-1/2' : 'inset-x-[11%]',
           )}
           id={LANDING_PANEL_ID}
           role="tabpanel"
         >
           <LandingHeroCard game={game} layout={layout} onPlay={onPlay} />
+
+          {/* 화살표는 카드 안쪽 가장자리에 붙여 <b>띠와 함께 움직인다</b>. 바깥 고정 좌표에
+              두면 카드가 미끄러지는 동안 버튼만 제자리에 멈춰 있어 화면에서 홀로 떠 보였고,
+              넓은 화면에서는 카드에서 수백 px 떨어져 무엇을 넘기는 버튼인지도 흐려졌다.
+              순환하므로 끝에서도 비활성이 없다. 모바일에도 둔다 — 스와이프는 발견 가능한
+              조작이 아니고, 진행 표시줄 탭은 44px 세로만 확보돼 정밀 조준이 필요하다. */}
+          <ArrowButton direction="previous" layout={layout} onClick={() => step(-1)} />
+          <ArrowButton direction="next" layout={layout} onClick={() => step(1)} />
         </div>
       </motion.div>
-
-      {/* 순환하므로 끝에서도 비활성이 없다. 모바일에도 둔다 — 스와이프는 발견 가능한
-          조작이 아니고, 진행 표시줄 탭은 44px 세로만 확보돼 정밀 조준이 필요하다. */}
-      <ArrowButton direction="previous" layout={layout} onClick={() => step(-1)} />
-      <ArrowButton direction="next" layout={layout} onClick={() => step(1)} />
     </section>
   )
 }
@@ -262,8 +267,8 @@ function PeekCard({
             ? 'left-[-12.2%]'
             : 'right-[-12.2%]'
           : side === 'left'
-            ? 'left-[-14.9%]'
-            : 'right-[-14.9%]',
+            ? 'left-[-13.6%]'
+            : 'right-[-13.6%]',
       )}
     >
       {wide && (
@@ -296,11 +301,11 @@ function ArrowButton({
     <button
       aria-label={isNext ? '다음 게임' : '이전 게임'}
       className={cn(
-        'absolute top-1/2 z-1 grid size-tap -translate-y-1/2 cursor-pointer place-items-center rounded-full border border-landing-hairline-strong bg-landing-panel text-landing-text transition-colors duration-150 ease-out hover:border-landing-accent focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
-        // 모바일 카드는 화면 폭의 86.6%를 쓴다 — 화살표를 카드 안으로 넣으면 3D를 가리므로
-        // 카드와 화면 가장자리 사이 좁은 띠에 겹쳐 세운다.
-        wide ? 'size-14 text-[20px]/none' : 'text-[17px]/none',
-        isNext ? (wide ? 'right-11' : 'right-1') : wide ? 'left-11' : 'left-1',
+        'absolute top-1/2 z-1 grid size-tap -translate-y-1/2 cursor-pointer place-items-center rounded-full border border-landing-hairline-strong bg-landing-panel/80 text-landing-text backdrop-blur-sm transition-colors duration-150 ease-out hover:border-landing-accent hover:bg-landing-panel focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+        // 카드 안쪽 가장자리에 붙는다 — 카드의 일부로 읽히고 띠와 함께 움직인다.
+        // 세로 가운데는 3D 피사체가 서는 자리라 반투명 + 블러로 뒤가 비치게 둔다.
+        wide ? 'size-12 text-[19px]/none' : 'text-[16px]/none',
+        isNext ? (wide ? 'right-4' : 'right-2') : wide ? 'left-4' : 'left-2',
       )}
       onClick={onClick}
       type="button"
