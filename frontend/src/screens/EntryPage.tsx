@@ -167,8 +167,8 @@ export function EntryPage() {
           </div>
 
           <div className="flex flex-none justify-center px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-[clamp(20px,6vh,56px)]">
-            {game.live ? (
-              <div className="flex items-center justify-center gap-4.5">
+            <div className="flex items-center justify-center gap-4.5">
+              {game.live ? (
                 <button
                   className={cn(primaryButton, 'h-18 px-13 text-[23px]')}
                   onClick={handlePlay}
@@ -177,17 +177,18 @@ export function EntryPage() {
                   <PlayGlyph />
                   {game.name} 플레이
                 </button>
-                <button
-                  className={cn(ghostButton, 'h-14 px-6.5 text-[16px]')}
-                  onClick={() => setCodeOpen(true)}
-                  type="button"
-                >
-                  초대 코드로 참가
-                </button>
-              </div>
-            ) : (
-              <ComingSoonCta layout="wide" />
-            )}
+              ) : (
+                <ComingSoonCta layout="wide" />
+              )}
+              {/* live 분기 밖 — 준비 중인 게임을 고른 상태에서도 초대받은 사람은 들어갈 수 있어야 한다. */}
+              <button
+                className={cn(ghostButton, 'h-14 px-6.5 text-[16px]')}
+                onClick={() => setCodeOpen(true)}
+                type="button"
+              >
+                초대 코드로 참가
+              </button>
+            </div>
           </div>
         </main>
         {codeDialog}
@@ -250,29 +251,29 @@ export function EntryPage() {
             </p>
           )}
           {game.live ? (
-            <>
-              <button
-                className={cn(primaryButton, 'h-15 w-full text-[19px] shadow-landing-cta-sheet')}
-                onClick={handlePlay}
-                type="button"
-              >
-                <PlayGlyph />
-                {game.name} 플레이
-              </button>
-              {/* 헤더가 로그인 자리로 바뀌면서, 코드 참가의 유일한 입구를 여기로 옮겼다.
-                  와이드와 같은 자리·같은 위계라 두 레이아웃이 어긋나지 않는다. */}
-              <button
-                className={cn(ghostButton, 'h-12 w-full gap-2.5 text-[15px]')}
-                onClick={() => setCodeOpen(true)}
-                type="button"
-              >
-                <CodeGlyph />
-                초대 코드로 참가
-              </button>
-            </>
+            <button
+              className={cn(primaryButton, 'h-15 w-full text-[19px] shadow-landing-cta-sheet')}
+              onClick={handlePlay}
+              type="button"
+            >
+              <PlayGlyph />
+              {game.name} 플레이
+            </button>
           ) : (
             <ComingSoonCta layout="narrow" />
           )}
+          {/* 헤더가 로그인 자리로 바뀌면서, 코드 참가의 유일한 입구를 여기로 옮겼다.
+              와이드와 같은 자리·같은 위계라 두 레이아웃이 어긋나지 않는다.
+              live 분기 밖에 둔다 — 준비 중인 게임을 고른 상태에서도 초대받은 사람은
+              들어갈 수 있어야 한다(안에 두면 5칸 중 4칸에서 화면에 누를 게 하나도 없다). */}
+          <button
+            className={cn(ghostButton, 'h-12 w-full gap-2.5 text-[15px]')}
+            onClick={() => setCodeOpen(true)}
+            type="button"
+          >
+            <CodeGlyph />
+            초대 코드로 참가
+          </button>
         </div>
       </main>
       {codeDialog}

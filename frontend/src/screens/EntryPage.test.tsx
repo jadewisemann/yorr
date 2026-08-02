@@ -101,6 +101,8 @@ describe('EntryPage', () => {
     expect(screen.getByText('COMING SOON')).toBeVisible()
     expect(screen.queryByRole('button', { name: /플레이$/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '준비 중인 게임' })).toBeDisabled()
+    // 5칸 중 4칸이 준비 중이다 — 여기서 코드 참가까지 사라지면 화면에 누를 게 하나도 없다.
+    expect(screen.getByRole('button', { name: '초대 코드로 참가' })).toBeEnabled()
   })
 
   it('wraps around the carousel tablist with the arrow keys and keeps focus on the selection', async () => {
