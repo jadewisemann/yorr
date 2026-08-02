@@ -3,13 +3,63 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#172033" />
+    <!-- --ds-color-canvas와 같은 값. 다르면 모바일 주소창만 다른 색으로 떠 화면이 잘려 보인다. -->
+    <meta name="theme-color" content="#08090a" />
     <meta name="description" content="흔들어서 즐기는 실시간 요트다이스, YORR" />
     <link rel="icon" type="image/svg+xml" href="/mascot-favicon.svg" />
     <title>YORR</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      JS를 받아 React가 뜨기 전까지 #root는 비어 있다 — 느린 회선에서 그 구간이 통째로
+      검은 화면이다. 여기 스플래시를 인라인으로 두면 HTML 한 장만으로 즉시 칠해지고
+      (추가 요청 0), main.tsx가 첫 렌더를 끝낸 뒤 지운다.
+      스타일도 인라인이다. 외부 CSS를 기다리면 스플래시 자체가 늦게 뜬다.
+    -->
+    <div id="root">
+      <div
+        id="boot-splash"
+        role="status"
+        aria-label="불러오는 중"
+        style="
+          display: grid;
+          place-items: center;
+          gap: 18px;
+          width: 100%;
+          height: 100svh;
+          background: #08090a;
+          color: #f7f7f5;
+          font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        "
+      >
+        <span style="font-size: 24px; font-weight: 700; letter-spacing: -0.03em">
+          YO<span style="color: #e53935">R</span>R
+        </span>
+        <span
+          style="
+            width: 28px;
+            height: 28px;
+            border: 2px solid rgb(255 255 255 / 25%);
+            border-top-color: #f7f7f5;
+            border-radius: 50%;
+            animation: boot-spin 700ms linear infinite;
+          "
+        ></span>
+      </div>
+    </div>
+    <style>
+      @keyframes boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      /* 모션 감소 설정에서는 돌리지 않는다 — 워드마크만 남긴다. */
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash span:last-child {
+          animation: none;
+        }
+      }
+    </style>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

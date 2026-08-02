@@ -24,7 +24,7 @@ describe('RoomExitGuard', () => {
 
     void router.navigate({ to: '/' })
 
-    const dialog = await screen.findByRole('dialog', { name: '방에서 나갈까요?' })
+    const dialog = await screen.findByRole('alertdialog', { name: '방에서 나갈까요?' })
     await user.click(await within(dialog).findByRole('button', { name: '머무르기' }))
 
     expect(router.state.location.pathname).toBe(lobbyPath)
@@ -41,7 +41,7 @@ describe('RoomExitGuard', () => {
 
     void router.navigate({ to: '/' })
 
-    const dialog = await screen.findByRole('dialog', { name: '방에서 나갈까요?' })
+    const dialog = await screen.findByRole('alertdialog', { name: '방에서 나갈까요?' })
     await user.click(await within(dialog).findByRole('button', { name: '나가기' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
@@ -61,7 +61,7 @@ describe('RoomExitGuard', () => {
     await screen.findByRole('heading', { name: '대기실' })
 
     void router.navigate({ to: '/' })
-    const dialog = await screen.findByRole('dialog', { name: '방에서 나갈까요?' })
+    const dialog = await screen.findByRole('alertdialog', { name: '방에서 나갈까요?' })
     await user.click(await within(dialog).findByRole('button', { name: '나가기' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
@@ -83,6 +83,6 @@ describe('RoomExitGuard', () => {
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(`/rooms/${creatorSession.roomId}/game`),
     )
-    expect(screen.queryByRole('dialog', { name: '방에서 나갈까요?' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog', { name: '방에서 나갈까요?' })).not.toBeInTheDocument()
   })
 })

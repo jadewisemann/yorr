@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '@/cn'
 import { Button } from '@/components/Button'
 import { ConnectionBanner } from '@/components/ConnectionBanner'
@@ -242,12 +242,13 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     />
   )
 
-  const scoreSheet = (className: string) => (
+  const scoreSheet = (className: string, header?: ReactNode) => (
     <ScoreSheet
       activePlayerId={activePlayerId}
       candidates={candidates}
       canPick={canPick}
       className={className}
+      header={header}
       onPick={pickCategory}
       players={sheetPlayers}
       you={session.you}
@@ -265,18 +266,27 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         React가 위치가 같고 타입이 다른 노드를 갈아끼우면서 주사위 영역을 언마운트하고,
         그때마다 rapier 물리 월드와 WebGL 컨텍스트가 통째로 재생성된다.
       */}
-      {/* 뷰포트 높이로 고정하고 페이지 스크롤을 막는다 — 스크롤은 점수시트 내부에서만 일어난다. */}
+      {/* 뷰포트 높이로 고정하고 페이지 스크롤을 막는다 — 스크롤은 점수시트 내부에서만 일어난다.
+          폭은 max-w-play에서 멈추고 가운데 선다. 이 값은 상수가 아니라 뷰포트 높이별 3단이다 —
+          3D 트레이의 직교 카메라가 높이로 스케일되므로(World.ts resize) 쓸 수 있는 가로도
+          높이를 따라간다. 72rem 상수였을 때 트레이가 592px에 고정된 채 높이만 자라
+          1728×1000에서 arena 좌우가 14% 잘리고 있었다.
+          시트 28rem — 6인(정원) 최소 27.5rem(라벨 8rem + 6×2.75rem + 거터·갭)에 맞춘 값이다.
+          32.5rem은 80px 과잉이었고 그만큼을 트레이에 넘긴다.
+          minmax(0,1fr): 그냥 1fr은 minmax(auto,1fr)이라 TurnStrip 6인이 왼쪽 열 최소 폭을
+          밀어올릴 수 있다. */}
       <main
         className={cn(
-          'h-svh overflow-hidden bg-canvas text-content',
-          wide ? 'grid grid-cols-[1fr_32.5rem]' : 'flex flex-col',
+          'mx-auto h-svh w-full max-w-play overflow-hidden bg-canvas text-content',
+          wide ? 'grid grid-cols-[minmax(0,1fr)_28rem]' : 'flex flex-col',
         )}
       >
         <div className="relative flex min-h-0 flex-1 flex-col">
           {/* 배너는 오버레이로 띄운다 — 플로우에 끼우면 나타날 때마다 3D 트레이 크기를 밀어
               씬이 리사이즈된다. 연결 상태는 일시적이라 헤더를 잠깐 덮는 쪽이 낫다. */}
           <ConnectionBanner
-            className="absolute inset-x-0 top-0 z-banner"
+            // closed면 조작이 전부 잠겼다는 유일한 시각 신호다 — 노치 아래로 들어가면 안 된다.
+            className="absolute inset-x-0 top-0 z-banner pt-[calc(0.5rem+env(safe-area-inset-top))]"
             status={connectionStatus}
           />
           {header}
@@ -311,16 +321,21 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           </div>
         </div>
 
-        {/* 디자인 Yacht Play 3D — 점수시트는 우측 상시 패널(520px)이다. */}
-        {wide ? (
-          <section aria-label="점수 시트" className="flex min-h-0 flex-col border-l border-border">
-            <div className="flex flex-none items-center justify-between gap-2 px-4 py-3">
-              <span className="text-[11px] font-bold tracking-[0.1em] uppercase">점수 시트</span>
-              <span className="truncate text-[11px] text-content-faint">{sheetHint}</span>
-            </div>
-            {scoreSheet('min-h-0 flex-1')}
-          </section>
-        ) : null}
+        {/* 디자인 Yacht Play 3D — 점수표는 우측 상시 패널이다.
+            ScoreSheet 자체가 섹션이자 스크롤 컨테이너라 밖에서 한 번 더 감싸지 않는다 —
+            그러면 헤더가 스크롤 영역 밖에 서서 표와 사이가 벌어진다. 헤더를 안으로 넣어
+            열 머리와 한 덩어리로 고정시킨다. */}
+        {wide
+          ? scoreSheet(
+              'min-h-0 border-l border-border',
+              <div className="flex items-baseline justify-between gap-3 px-3 pt-2.5 pb-1.5">
+                <h2 className="m-0 text-[15px] font-bold tracking-[0.02em] whitespace-nowrap">
+                  점수표
+                </h2>
+                <p className="m-0 truncate text-[12px] text-content-faint">{sheetHint}</p>
+              </div>,
+            )
+          : null}
       </main>
 
       <ToastHost message={toastMessage} />
@@ -486,18 +501,17 @@ function ZeroScoreModal({
     <Modal
       onClose={onCancel}
       open={category !== null}
+      role="alertdialog"
       title={category ? `${categoryLabel[category]}를 0점으로 확정할까요?` : ''}
     >
       <p className="m-0 text-sm text-content-muted">이 족보는 다시 사용할 수 없습니다.</p>
-      {/* 디자인 19 — 안전한 선택(취소)이 위, 확정은 다크 레드(잃는 선택임을 색으로도 말한다). */}
+      {/* 디자인 19 — 안전한 선택(취소)이 위, 파괴적 동작은 레드 틴트 아웃라인.
+          RoomExitGuard의 확인 다이얼로그와 같은 배치·같은 variant를 쓴다. */}
       <div className="mt-5 grid gap-2.5">
         <Button onClick={onCancel} variant="secondary">
           취소
         </Button>
-        <Button
-          className="bg-[#8F1D1D] text-[#FFE9E8] shadow-none hover:bg-[#A32421]"
-          onClick={onConfirm}
-        >
+        <Button onClick={onConfirm} variant="danger">
           0점 확정
         </Button>
       </div>

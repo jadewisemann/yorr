@@ -59,8 +59,27 @@ describe('EntryPage', () => {
     render(<EntryPage />)
 
     expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
-    expect(screen.getByText('PLAYABLE NOW')).toBeVisible()
+    // "지금 플레이 가능"은 눌리는 CTA가 말한다 — PLAYABLE NOW 배지는 같은 말의 중복이었다.
     expect(screen.getByRole('button', { name: '요트 다이스 플레이' })).toBeVisible()
+  })
+
+  // 랜딩은 진입하자마자 BGM이 흐른다. 게임 화면과 같은 저장 설정을 써야, 조용한 곳에서
+  // 한 번 끈 사람이 대기실·게임으로 넘어가서 다시 소리를 듣지 않는다.
+  it('랜딩에서 소리를 끄면 설정이 저장돼 다음 화면까지 이어진다', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    const on = screen.getByRole('button', { name: '소리 끄기' })
+    expect(on).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(on)
+    expect(localStorage.getItem('yorr.sound-muted')).toBe('true')
+
+    const off = screen.getByRole('button', { name: '소리 켜기' })
+    expect(off).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(off)
+    expect(localStorage.getItem('yorr.sound-muted')).toBe('false')
   })
 
   it('opens nickname entry for a new room', async () => {
@@ -79,9 +98,16 @@ describe('EntryPage', () => {
     await user.click(screen.getByRole('tab', { name: /라이어스 다이스/ }))
 
     expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
-    expect(screen.getByText('COMING SOON')).toBeVisible()
+    // COMING SOON 배지도 마찬가지 — 못 누르는 회색 버튼이 같은 사실을 더 강하게 말한다.
     expect(screen.queryByRole('button', { name: /플레이$/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '준비 중인 게임' })).toBeDisabled()
+    const locked = screen.getByRole('button', { name: '준비 중인 게임' })
+    expect(locked).toBeDisabled()
+
+    // 코드 참가는 게임 선택과 무관한 독립 경로다 — 어떤 게임이 선택돼 있든 살아 있어야 하고,
+    // 게임 CTA와 같은 부모에 나란히 서면 "이 게임을 코드로 연다"로 읽힌다.
+    const codeEntry = screen.getByRole('button', { name: '초대 코드로 참가' })
+    expect(codeEntry).toBeEnabled()
+    expect(codeEntry.parentElement).not.toBe(locked.parentElement)
   })
 
   it('wraps around the carousel tablist with the arrow keys and keeps focus on the selection', async () => {
@@ -105,9 +131,6 @@ describe('EntryPage', () => {
     const user = userEvent.setup()
     render(<EntryPage />)
 
-    // 첫 게임에서는 되돌아갈 곳이 없다 — 감싸지 않고 막는다(점 목록의 방향키만 감싼다).
-    expect(screen.getByRole('button', { name: '이전 게임' })).toBeDisabled()
-
     await user.click(screen.getByRole('button', { name: '다음 게임' }))
 
     expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
@@ -115,7 +138,28 @@ describe('EntryPage', () => {
       'aria-selected',
       'true',
     )
+  })
+
+  // 목록이 순환하므로 화살표는 끝에서도 비활성이 되지 않는다 — 점 목록 방향키와 같은 규칙이다.
+  it('wraps the carousel at both ends with the arrow buttons', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    // 첫 게임에서 이전 → 마지막으로 감싼다.
+    await user.click(screen.getByRole('button', { name: '이전 게임' }))
+    expect(screen.getByRole('heading', { name: '낚시' })).toBeVisible()
+
+    // 마지막에서 다음 → 다시 처음으로.
+    await user.click(screen.getByRole('button', { name: '다음 게임' }))
+    expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
+  })
+
+  // 스와이프는 발견 가능한 조작이 아니다 — 모바일에도 명시적인 이동 버튼이 있어야 한다.
+  it('keeps the carousel arrows on the narrow layout', () => {
+    render(<EntryPage />)
+
     expect(screen.getByRole('button', { name: '이전 게임' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '다음 게임' })).toBeEnabled()
   })
 
   it('sanitizes the room code in the code dialog and only enables join once it is valid', async () => {

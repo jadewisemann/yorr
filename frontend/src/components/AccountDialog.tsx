@@ -85,7 +85,7 @@ function ProviderChoice() {
         여기서만 재인증을 요청한다.
       */}
       <button
-        className="cursor-pointer justify-self-center rounded-full border-0 bg-transparent px-2 py-1 text-[12.5px] font-semibold text-content-muted underline-offset-2 hover:text-content hover:underline focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
+        className="min-h-tap cursor-pointer justify-self-center rounded-full border-0 bg-transparent px-3 py-1 text-[12.5px] font-semibold text-content-muted underline-offset-2 hover:text-content hover:underline focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
         onClick={() => globalThis.location.assign(kakaoLoginUrl({ forceLogin: true }))}
         type="button"
       >
@@ -188,7 +188,7 @@ function NicknameEditor({ onDone, session }: { onDone: () => void; session: Auth
       {/* 지난 판의 이름까지 바뀌는 것으로 오해하지 않게 미리 알린다. */}
       <p className="m-0 text-[12px] text-content-faint">지난 게임 기록에 남은 이름은 그대로예요.</p>
       {error && (
-        <p className="m-0 text-[12.5px] font-semibold text-[#FF8A86]" role="alert">
+        <p className="m-0 text-[12.5px] font-semibold text-landing-accent-text" role="alert">
           {error}
         </p>
       )}
