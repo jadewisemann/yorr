@@ -47,6 +47,7 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
     }
 
     const scheduleReconnect = () => {
+      if (reconnectTimer) return
       reconnectAttempts += 1
       if (reconnectAttempts > maxReconnectAttempts) {
         useAppStore.getState().endSession('disconnected')
@@ -55,6 +56,7 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
 
       useAppStore.getState().setConnectionStatus('reconnecting')
       reconnectTimer = setTimeout(() => {
+        reconnectTimer = undefined
         if (active) client.connect()
       }, reconnectDelayMs)
     }
@@ -62,13 +64,19 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
     const unsubscribeMessage = client.onMessage((message) => {
       if (!active) return
       applyServerMessage(message, startHeartbeat)
+      if (isRoomReadyMessage(message)) {
+        reconnectAttempts = 0
+        useAppStore.getState().setConnectionStatus('connected')
+      }
     })
 
     const unsubscribeConnection = client.onConnectionChange((event) => {
       if (!active) return
 
       if (event === 'open') {
-        if (rejoinRoom(client)) reconnectAttempts = 0
+        if (reconnectTimer) clearTimeout(reconnectTimer)
+        reconnectTimer = undefined
+        rejoinRoom(client)
         return
       }
 
@@ -101,7 +109,6 @@ function rejoinRoom(client: RealtimeClient): boolean {
   const roomSession = useAppStore.getState().roomSession
   if (!roomSession) return false
 
-  useAppStore.getState().setConnectionStatus('connected')
   client.send(
     buildClientMessage('room.join', {
       roomId: roomSession.roomId,
@@ -110,6 +117,14 @@ function rejoinRoom(client: RealtimeClient): boolean {
     }),
   )
   return true
+}
+
+function isRoomReadyMessage(message: ServerMessage) {
+  return (
+    message.type === 'room.joined' ||
+    message.type === 'state.sync' ||
+    message.type === 'sys.reconnected'
+  )
 }
 
 /**
@@ -159,7 +174,7 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
       applyRoundStart(message.payload, store)
       return
     case 'dice.broadcast':
-      applyDiceBroadcast(message.payload, store)
+      applyDiceBroadcast(message, store)
       return
     case 'game.over':
       applyGameOver(message.payload, store)
@@ -283,11 +298,20 @@ function applyRoundStart(
  * (재접속 직후처럼) 서버와 같은 굴림 횟수에서 이어갈 수 있다.
  */
 function applyDiceBroadcast(
-  payload: Extract<ServerMessage, { type: 'dice.broadcast' }>['payload'],
+  message: Extract<ServerMessage, { type: 'dice.broadcast' }>,
   store: Store,
 ) {
+  const { payload } = message
   const snapshot = store.roomSnapshot
-  if (!snapshot?.game || snapshot.game.roundNumber !== payload.roundNumber) return
+  if (
+    !snapshot?.game ||
+    (message.roomId !== undefined && message.roomId !== snapshot.roomId) ||
+    snapshot.game.roundNumber !== payload.roundNumber ||
+    snapshot.game.activePlayerId !== payload.playerId ||
+    payload.rollCount < snapshot.game.rollCount
+  ) {
+    return
+  }
   store.replaceRoomSnapshot({
     ...snapshot,
     game: {
