@@ -69,6 +69,7 @@
 
   --spacing-tap: var(--ds-size-tap);
   --spacing-content: var(--ds-size-content);
+  --spacing-landing: var(--ds-size-landing);
   --spacing-gutter: var(--ds-size-gutter);
 
   --radius-control: var(--ds-radius-control);
@@ -242,6 +243,11 @@
   --ds-text-display: clamp(1.75rem, 7vw, 2.5rem);
   --ds-size-tap: 2.75rem;
   --ds-size-content: 72rem;
+  /* 랜딩 히어로 측정치 — 헤더와 캐러셀 띠가 함께 매달린다. 카드 폭이 띠 폭의 69.4%라
+     띠를 전면 폭으로 두면 2560에서 카드가 3.76:1 레터박스가 된다.
+     100rem = 1600px: 이웃 카드(띠 폭의 -12.2%)가 vw 1990px까지 화면 밖으로 걸친다
+     — 걸침 연출과 폭 제한은 그 위에서 양립하지 않는다. */
+  --ds-size-landing: 100rem;
   /* 화면 좌우 거터 — 390px에서 20px, 320px에서 16px. */
   --ds-size-gutter: 1.25rem;
   /* S15P11A406-117 다크 시스템 — 컨트롤 12·카드 14·패널 18·시트 26px 라운드. */

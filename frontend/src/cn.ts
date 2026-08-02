@@ -15,7 +15,7 @@ import { extendTailwindMerge } from 'tailwind-merge'
 const twMerge = extendTailwindMerge({
   extend: {
     theme: {
-      spacing: ['tap', 'content', 'gutter'],
+      spacing: ['tap', 'content', 'landing', 'gutter'],
       radius: ['control', 'card', 'panel', 'sheet'],
       shadow: [
         'raised',

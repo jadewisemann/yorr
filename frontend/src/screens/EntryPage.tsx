@@ -108,7 +108,8 @@ export function EntryPage() {
     return (
       <>
         <main className="relative flex h-svh w-full flex-col overflow-hidden [background:var(--ds-landing-bg)]">
-          <header className="flex h-22 flex-none items-center justify-between gap-8 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))]">
+          {/* 폭을 안 잡으면 2560에서 로고와 계정 버튼이 2472px 떨어져 한 줄로 안 읽힌다. */}
+          <header className="mx-auto flex h-22 w-full max-w-landing flex-none items-center justify-between gap-8 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))]">
             <div className="flex items-center gap-5">
               <span className="flex items-baseline gap-2.5">
                 <span className={cn(wordmark, 'text-[27px]/none')}>
@@ -135,14 +136,16 @@ export function EntryPage() {
             </span>
           </header>
 
-          {/* 카드 폭은 화면 폭 기준(69.4% ≒ 1440에서 1000px)이라 캐러셀 띠는 전면 폭을 쓴다 —
-              여기에 좌우 여백을 주면 카드와 화살표가 함께 안쪽으로 밀린다.
+          {/* 카드 폭은 띠 폭의 69.4%다. 그래서 폭 제한은 카드가 아니라 **띠**에 걸어야 한다 —
+              카드에만 걸면 이웃 카드(띠 폭의 -12.2%)만 뷰포트를 따라가 중앙 카드에서 떨어져
+              나가고, 아예 안 걸면 2560에서 카드가 1777×472(3.76:1) 레터박스가 된다.
+              화살표(left-11)도 띠 기준이라 같이 안쪽으로 들어와 헤더 좌측단과 축이 맞는다.
               높이는 narrow와 같은 원칙 — 남는 만큼 먹되(flex-1) 위로는 29.5rem에서 멈춘다.
               고정 높이로 두면 가로로 돌린 폰(760x420 등)에서 크롬 합계가 뷰포트를 넘어
               하단 CTA가 잘린다. */}
           {/* grow 가중치를 크게 줘서 아래 여백 블록보다 먼저 자란다 — 둘 다 flex-1이면
               남는 높이를 반씩 나눠 데스크톱에서 카드가 절반으로 작아진다. */}
-          <div className="relative mt-[clamp(8px,3.5vh,32px)] max-h-[29.5rem] min-h-40 w-full flex-[999_1_0%]">
+          <div className="relative mx-auto mt-[clamp(8px,3.5vh,32px)] max-h-[29.5rem] min-h-40 w-full max-w-landing flex-[999_1_0%]">
             <LandingHeroCarousel
               activeIndex={activeIndex}
               games={landingGames}

@@ -69,7 +69,10 @@ export function LandingPopover({
             // 패널이 자체 제목을 그리므로 여기서 또 heading을 만들지 않는다.
             aria-label={label}
             aria-modal="true"
-            className="absolute top-26 right-[max(2.75rem,env(safe-area-inset-right))] w-98 rounded-[20px] border border-landing-hairline-strong bg-surface-raised p-6 shadow-landing-popover"
+            // 트리거는 폭이 제한된 헤더(max-w-landing) 안에 있는데 이 껍데기는 fixed inset-0이라
+            // 뷰포트 기준이다. 헤더가 가운데로 모이는 폭부터는 헤더 우측단을 따라가야 한다 —
+            // 안 그러면 2560에서 트리거와 팝오버가 480px 어긋난다.
+            className="absolute top-26 right-[max(2.75rem,calc((100%-var(--ds-size-landing))/2+2.75rem),env(safe-area-inset-right))] w-98 rounded-[20px] border border-landing-hairline-strong bg-surface-raised p-6 shadow-landing-popover"
             exit="exit"
             initial="hidden"
             ref={panelRef}
