@@ -18,7 +18,6 @@ import {
 import { createRollFeedback } from '@/feedback/createRollFeedback'
 import { createHandVoice, type HandVoice } from '@/feedback/handVoice'
 import type { MotionGestureEvent } from '@/input/motionTypes'
-import type { RollInputMode } from '@/input/RollIntent'
 import { useMotionRollInput } from '@/input/useMotionRollInput'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import {
@@ -36,6 +35,7 @@ import {
   isCurrentDiceBroadcast,
   latestGameState,
   type RollAnimationMode,
+  type RollInputMode,
   rollAnimationMode,
   turnAwareErrorMessage,
 } from './gamePlayModel'

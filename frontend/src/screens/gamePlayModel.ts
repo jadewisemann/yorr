@@ -1,6 +1,5 @@
 import type { DiceSet } from '@/domain/dice'
 import { YACHT_CATEGORIES, type YachtCategory } from '@/domain/scoring'
-import type { RollInputMode } from '@/input/RollIntent'
 import type {
   ErrorPayload,
   GameState,
@@ -11,6 +10,7 @@ import type {
 } from '@/realtime/wsEvents'
 import { isRecorded } from '@/yachtCategoryView'
 
+export type RollInputMode = 'motion' | 'tap'
 export type RollAnimationMode = RollInputMode | 'remote' | 'auto'
 
 type DiceBroadcastMessage = Extract<ServerMessage, { type: 'dice.broadcast' }>
