@@ -158,10 +158,10 @@ describe('LobbyPage', () => {
     render(<LobbyPage roomId={creatorSession.roomId} />)
 
     await user.click(screen.getByRole('button', { name: '나가기' }))
-    const dialog = await screen.findByRole('dialog', { name: '방에서 나갈까요?' })
+    const dialog = await screen.findByRole('alertdialog', { name: '방에서 나갈까요?' })
     await user.click(within(dialog).getByRole('button', { name: '머무르기' }))
 
-    expect(screen.queryByRole('dialog', { name: '방에서 나갈까요?' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog', { name: '방에서 나갈까요?' })).not.toBeInTheDocument()
     expect(useAppStore.getState().roomSession).not.toBeNull()
   })
 
@@ -170,7 +170,7 @@ describe('LobbyPage', () => {
     render(<LobbyPage roomId={creatorSession.roomId} />)
 
     await user.click(screen.getByRole('button', { name: '나가기' }))
-    const dialog = await screen.findByRole('dialog', { name: '방에서 나갈까요?' })
+    const dialog = await screen.findByRole('alertdialog', { name: '방에서 나갈까요?' })
     await user.click(within(dialog).getByRole('button', { name: '나가기' }))
 
     await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())

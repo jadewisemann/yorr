@@ -98,7 +98,8 @@ export function EffectCallout({ onDone, text, tier }: EffectCalloutProps) {
           className={cn(
             'relative m-0 animate-callout-pop px-3 text-center leading-none font-bold whitespace-nowrap text-brand-strong motion-reduce:animate-none',
             // 트레이 위에 바로 얹히므로 화이트 글로우로 배경과 분리한다.
-            // 팝 keyframes가 글로우를 0에서 이 값까지 키운다 — 여기 정적 값은 motion-reduce용.
+            // 정적으로 얹는다 — 팝 keyframes의 opacity를 따라 같이 떠오르고,
+            // motion-reduce로 애니메이션이 꺼져도 글로우는 그대로 남는다.
             '[text-shadow:var(--ds-callout-glow)]',
             tier === 3 ? 'text-[clamp(4rem,16vw,7.5rem)]' : 'text-[clamp(3rem,12vw,5.5rem)]',
           )}

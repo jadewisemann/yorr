@@ -83,7 +83,9 @@ export function Tooltip({
         aria-describedby={open ? bubbleId : undefined}
         aria-expanded={open}
         aria-label={label}
-        className="inline-flex cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-inherit focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2"
+        // 보이는 ⓘ는 18px로 두고 히트 영역만 의사요소로 min-h-tap까지 넓힌다.
+        // 버튼 자신의 상자는 그대로라 인접 텍스트를 밀지 않고 포커스 링도 글리프에 붙는다.
+        className="relative inline-flex cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-inherit before:absolute before:top-1/2 before:left-1/2 before:size-tap before:-translate-x-1/2 before:-translate-y-1/2 focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2"
         onBlur={() => {
           passiveOpenRef.current = false
           setOpen(false)

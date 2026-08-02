@@ -8,6 +8,7 @@ interface FakeScene {
   destroy: ReturnType<typeof vi.fn>
   options: HeroSceneOptions
   setGame: ReturnType<typeof vi.fn>
+  setPaused: ReturnType<typeof vi.fn>
 }
 
 const { scenes } = vi.hoisted(() => ({ scenes: [] as FakeScene[] }))
@@ -17,6 +18,7 @@ vi.mock('@/rendering/hero/heroScene', () => ({
     destroy = vi.fn()
     options: HeroSceneOptions
     setGame = vi.fn()
+    setPaused = vi.fn()
 
     constructor(options: HeroSceneOptions) {
       this.options = options
@@ -148,6 +150,26 @@ describe('HeroCanvas', () => {
         'duel',
         'fishing',
       ] satisfies HeroGameKey[])
+    })
+
+    // inert는 입력만 막고 렌더링은 멈추지 않는다 — 시트가 덮은 동안 3D가 계속 돌면
+    // 코드를 입력하는 순간(키보드가 올라온 때) 보이지도 않는 씬이 열 예산을 먹는다.
+    it('다이얼로그가 뒤 화면에 inert를 걸면 루프를 멈추고, 풀리면 다시 돈다', async () => {
+      allowWebGL()
+      const background = document.createElement('main')
+      document.body.appendChild(background)
+
+      render(<HeroCanvas game="yacht" />, { container: background })
+      await waitFor(() => expect(scenes).toHaveLength(1))
+      expect(scenes[0]?.setPaused).toHaveBeenLastCalledWith(false)
+
+      background.setAttribute('inert', '')
+      await waitFor(() => expect(scenes[0]?.setPaused).toHaveBeenLastCalledWith(true))
+
+      background.removeAttribute('inert')
+      await waitFor(() => expect(scenes[0]?.setPaused).toHaveBeenLastCalledWith(false))
+
+      background.remove()
     })
 
     it('지연 로드가 끝나기 전에 game이 바뀌면 최신 game으로 만든다', async () => {

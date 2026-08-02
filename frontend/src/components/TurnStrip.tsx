@@ -58,7 +58,7 @@ export function TurnStrip({ players, activePlayerId, className, you }: TurnStrip
                   <span
                     className={cn(
                       'truncate text-[12px] font-semibold',
-                      active ? 'text-[#FF8A86]' : 'text-content-muted',
+                      active ? 'text-brand-soft' : 'text-content-muted',
                     )}
                   >
                     {player.nickname}
