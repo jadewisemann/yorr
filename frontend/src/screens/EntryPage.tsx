@@ -157,7 +157,7 @@ export function EntryPage() {
               — 상한도 같은 38px만 올려 3D 영역을 종전 이상으로 지킨다(472 + 38 = 510). */}
           {/* grow 가중치를 크게 줘서 아래 여백 블록보다 먼저 자란다 — 둘 다 flex-1이면
               남는 높이를 반씩 나눠 데스크톱에서 카드가 절반으로 작아진다. */}
-          <div className="relative mx-auto mt-[clamp(8px,3.5vh,32px)] max-h-[32rem] min-h-40 w-full max-w-landing flex-[999_1_0%]">
+          <div className="relative mx-auto mt-[clamp(8px,3.5vh,32px)] max-h-[min(42rem,66vh,56vw)] min-h-40 w-full max-w-landing flex-[999_1_0%]">
             <LandingHeroCarousel
               activeIndex={activeIndex}
               games={landingGames}
@@ -179,7 +179,7 @@ export function EntryPage() {
           {/* 진행 표시줄 아래 남는 공간. 복귀 배너·안내가 여기 들어앉고, 비어 있으면 그대로
               화면 바닥 여백이 된다. 삭제한 CTA 층의 하단 여백(pb)을 이 층으로 옮겨,
               짧은 화면(932×430)에서 배너가 뷰포트 바닥에 붙는 것을 막는다. */}
-          <div className="flex min-h-0 flex-1 flex-col items-center gap-3 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pt-[clamp(10px,2.2vh,22px)] pb-[clamp(20px,6vh,56px)]">
+          <div className="flex min-h-fit flex-1 flex-col items-center gap-3 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pt-[clamp(10px,2.2vh,22px)] pb-[clamp(20px,6vh,56px)]">
             <div className="flex w-full max-w-180 flex-col items-center gap-3">
               <ActiveRoomBanner />
               {appNotice && (
@@ -235,7 +235,7 @@ export function EntryPage() {
             크롬 합계가 뷰포트를 넘을 수 없다 — h-svh + overflow-hidden에서 아래 내용이
             잘려 접근 불가가 되는 것을 구조적으로 막는다(짧은 화면 하한은 min-h로 잡는다).
             CTA가 카드 안으로 들어가면서 바닥 층이 비면 그 높이가 통째로 여기로 돌아온다. */}
-        <div className="relative mt-[clamp(8px,1.6vh,16px)] min-h-52 flex-1">
+        <div className="relative mt-[clamp(8px,1.6vh,16px)] max-h-[36rem] min-h-52 flex-1">
           <LandingHeroCarousel
             activeIndex={activeIndex}
             games={landingGames}
