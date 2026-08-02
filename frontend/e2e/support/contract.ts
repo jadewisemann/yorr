@@ -105,6 +105,16 @@ export const THIRD: Identity = {
   token: 'session-third-64',
 }
 
+/** 카카오 로그인 mock의 기본 회원 신원. `token`은 로그인 세션 토큰 자리에 그대로 쓴다. */
+export const MEMBER: Identity = {
+  id: 'member-e2e',
+  nickname: '카카오회원',
+  token: 'session-member-e2e',
+}
+
+/** authorize → callback 왕복에서 쓰는 일회용 코드. 실제 카카오 화면은 거치지 않고 그 결과만 흉내낸다. */
+export const KAKAO_LOGIN_CODE = 'e2e-kakao-code'
+
 /**
  * 라운드 마감은 테스트가 끝날 때까지 절대 지나지 않을 만큼 넉넉하게 준다.
  * 마감이 지나면 서버가 자동 굴림·자동 기록을 하는 경로가 열려 화면이 흔들린다.
