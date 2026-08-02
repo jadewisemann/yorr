@@ -6,7 +6,6 @@ import type { AuthSession } from '@/authSession'
 import { cn } from '@/cn'
 import { AccountDialog, Avatar } from '@/components/AccountDialog'
 import { LandingCodeDialog } from '@/components/LandingCodeDialog'
-import { LandingMetaPills } from '@/components/LandingHeroCard'
 import { LandingHeroCarousel } from '@/components/LandingHeroCarousel'
 import { LandingProgress } from '@/components/LandingProgress'
 import { landingGameAt, landingGames } from '@/landingGames'
@@ -200,11 +199,14 @@ export function EntryPage() {
           />
         </div>
 
-        <span className="flex-none px-5 pt-4.5 text-[24px]/none font-bold tracking-[-0.02em] text-landing-text-strong">
+        <span className="flex-none px-5 pt-[clamp(10px,2vh,18px)] text-[24px]/none font-bold tracking-[-0.02em] text-landing-text-strong">
           게임을 선택하세요
         </span>
 
-        <div className="relative mt-4 h-[51%] flex-none">
+        {/* 히어로가 남는 높이를 전부 먹는다. 나머지를 고정 높이로 두고 히어로만 늘고 줄면
+            크롬 합계가 뷰포트를 넘을 수 없다 — h-svh + overflow-hidden에서 하단 CTA가
+            잘려 접근 불가가 되는 것을 구조적으로 막는다(짧은 화면 하한은 min-h로 잡는다). */}
+        <div className="relative mt-[clamp(8px,1.6vh,16px)] min-h-52 flex-1">
           <LandingHeroCarousel
             activeIndex={activeIndex}
             games={landingGames}
@@ -213,11 +215,7 @@ export function EntryPage() {
           />
         </div>
 
-        <div className="flex flex-none flex-wrap gap-1.5 px-5 pt-4">
-          <LandingMetaPills game={game} layout="narrow" />
-        </div>
-
-        <div className="flex-none px-5 pt-4">
+        <div className="flex-none px-5 pt-[clamp(10px,1.8vh,16px)]">
           <LandingProgress
             activeIndex={activeIndex}
             games={landingGames}
@@ -225,8 +223,6 @@ export function EntryPage() {
             onSelect={handleGameSelect}
           />
         </div>
-
-        <div className="min-h-3 flex-1" />
 
         <div className="flex flex-none flex-col gap-2.5 px-5 pb-[max(14px,env(safe-area-inset-bottom))]">
           <ActiveRoomBanner />

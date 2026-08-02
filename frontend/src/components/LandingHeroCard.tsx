@@ -105,10 +105,16 @@ export function LandingHeroCard({ game, layout }: LandingHeroCardProps) {
         )}
       </div>
 
-      {/* 데스크톱은 메타 필이 카드 안 우측 하단에 세로로 선다. 모바일은 카드 밖 한 줄이다. */}
-      {wide && (
+      {/* 메타 필은 양쪽 다 카드 안에 선다 — 데스크톱은 우측 하단 세로, 모바일은 상단 가로.
+          모바일 카드는 텍스트가 전부 아래에 붙어 있어 위가 비고, 카드 밖에 두면 세로로
+          100px 가까이 먹어 h-svh 안에서 하단 CTA를 밀어낸다. */}
+      {wide ? (
         <div className="absolute right-10 bottom-9 flex flex-col items-end gap-2.5">
           <LandingMetaPills game={game} layout="wide" />
+        </div>
+      ) : (
+        <div className="absolute inset-x-5 top-5 flex flex-wrap gap-1.5">
+          <LandingMetaPills game={game} layout="narrow" />
         </div>
       )}
     </div>
