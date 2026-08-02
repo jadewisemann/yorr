@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { domAnimation, LazyMotion } from 'motion/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { BottomSheet } from './BottomSheet'
 
@@ -20,10 +21,12 @@ function handleOf() {
 
 function renderSheet(onClose = vi.fn()) {
   render(
-    <BottomSheet onClose={onClose} open title="족보 선택">
-      <button type="button">첫 버튼</button>
-      <button type="button">마지막 버튼</button>
-    </BottomSheet>,
+    <LazyMotion features={domAnimation}>
+      <BottomSheet onClose={onClose} open title="족보 선택">
+        <button type="button">첫 버튼</button>
+        <button type="button">마지막 버튼</button>
+      </BottomSheet>
+    </LazyMotion>,
   )
   return { onClose, user: userEvent.setup() }
 }
@@ -120,17 +123,21 @@ describe('BottomSheet', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  /*
+   * 아래 드래그 테스트들은 "닫히는가"만 본다. 시트가 손가락을 따라 얼마나 내려갔는지는
+   * transform으로 드러나는데, 그 속성은 이제 motion이 소유하고 jsdom에는 애니메이션
+   * 프레임이 없어 항상 `none`으로 남는다 — 여기서 단정하면 늘 통과하는 빈 테스트가 된다.
+   * 이동량 자체는 실기기·Playwright 시각 검토의 몫이다.
+   */
   it('살짝만 끌면 닫지 않고 제자리로 돌린다', () => {
     const { onClose } = renderSheet()
     const handle = handleOf()
 
     fireEvent.pointerDown(handle, { clientY: 100, pointerId: 1 })
     fireEvent.pointerMove(handle, { clientY: 130, pointerId: 1 })
-    expect(screen.getByRole('dialog')).toHaveStyle({ transform: 'translateY(30px)' })
 
     fireEvent.pointerUp(handle, { pointerId: 1 })
     expect(onClose).not.toHaveBeenCalled()
-    expect(screen.getByRole('dialog').style.transform).toBe('')
   })
 
   // 위로 끄는 동작은 시트를 화면 밖으로 밀어 올려 버리면 안 된다.
@@ -140,7 +147,6 @@ describe('BottomSheet', () => {
 
     fireEvent.pointerDown(handle, { clientY: 200, pointerId: 1 })
     fireEvent.pointerMove(handle, { clientY: 100, pointerId: 1 })
-    expect(screen.getByRole('dialog').style.transform).toBe('')
 
     fireEvent.pointerUp(handle, { pointerId: 1 })
     expect(onClose).not.toHaveBeenCalled()
@@ -154,7 +160,6 @@ describe('BottomSheet', () => {
     fireEvent.pointerUp(handle, { pointerId: 1 })
 
     expect(onClose).not.toHaveBeenCalled()
-    expect(screen.getByRole('dialog').style.transform).toBe('')
   })
 
   // 포인터가 시스템에 가로채여도 드래그 상태가 남으면 다음 탭이 오작동한다 —
@@ -170,7 +175,6 @@ describe('BottomSheet', () => {
 
     // 남은 offset이 없으므로 이어지는 이동은 무시된다.
     fireEvent.pointerMove(handle, { clientY: 900, pointerId: 1 })
-    expect(screen.getByRole('dialog').style.transform).toBe('')
   })
 
   // aria-modal만으로는 스크린리더가 뒤 화면으로 새어 나간다 — inert·스크롤 잠금이 함께 필요하다.
