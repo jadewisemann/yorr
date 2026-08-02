@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppStore } from '@/store'
+import { mockApiError } from '@/test/harness'
 import { NicknamePage } from './NicknamePage'
 
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
@@ -75,5 +76,29 @@ describe('NicknamePage', () => {
       '닉네임에는 문자, 숫자, 공백만 사용할 수 있어요.',
     )
     expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('뒤로 가기로 홈으로 돌아갈 수 있다', async () => {
+    const user = userEvent.setup()
+    render(<NicknamePage roomCode="YORR64" />)
+
+    await user.click(screen.getByRole('button', { name: '뒤로 가기' }))
+
+    expect(navigate).toHaveBeenCalledWith({ to: '/' })
+  })
+
+  // 다른 코드로 옮길 수 있는 실패(방 가득 참 등)는 막다른 길이 되면 안 된다.
+  it('들어갈 수 없는 방이면 다른 코드로 옮길 길을 함께 준다', async () => {
+    const user = userEvent.setup()
+    mockApiError({ code: 'ROOM_FULL', path: '/api/v1/rooms', status: 409 })
+    render(<NicknamePage roomCode="YORR64" />)
+
+    await user.click(screen.getByRole('button', { name: '대기실 입장' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '방이 가득 찼어요. 다른 초대 코드로 참가해 주세요.',
+    )
+    await user.click(screen.getByRole('button', { name: '다른 코드 입력' }))
+    expect(navigate).toHaveBeenCalledWith({ to: '/' })
   })
 })

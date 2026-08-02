@@ -19,6 +19,7 @@ import {
 export type YachtGamePhase = 'ready' | 'rolling' | 'choosing' | 'submitting' | 'roundComplete'
 export type RollCount = 0 | 1 | 2 | 3
 export type { DiceIndex } from './dice'
+export const MAX_ROLLS = 3
 
 export interface YachtGameState {
   phase: YachtGamePhase
@@ -36,10 +37,15 @@ export type YachtGameAction =
   /**
    * `forced`는 서버가 마감 시각에 대신 굴린 결과를 뜻한다. 서버 상태가 이미 그 값으로 확정됐으니
    * 로컬 phase가 무엇이든(애니메이션 중이라도) 받아들여야 한다 — 거부하면 화면만 뒤처진다.
+   *
+   * `rollCount`는 서버가 dice.broadcast로 알려준 굴림 횟수다. 클라가 세지 않고 이 값을 그대로
+   * 쓴다 — 직접 세면 애니메이션이 중간에 교체될 때 증가분이 유실돼 서버와 어긋난다.
    */
   | {
       type: 'rollRequested'
       requestId: string
+      rollCount: RollCount
+      seed?: number
       targetDice: DiceSet
       held?: HeldDice
       forced?: boolean
@@ -78,10 +84,41 @@ export function createYachtGame(seed: number, roundNumber = 1): YachtGameState {
   }
 }
 
+/** 서버가 스냅샷으로 내려준 현재 턴의 굴림 진행. 세 값은 항상 같은 시점의 것이다. */
+export interface YachtTurnProgress {
+  rollCount: number
+  dice?: DiceSet | null
+  held?: HeldDice | null
+}
+
+/**
+ * 재접속·새 마운트 시 서버 스냅샷의 턴 진행으로 로컬 상태를 되살린다.
+ * <p>
+ * 이 경로가 없으면 턴 중간에 새로고침한 클라이언트가 굴림 0회·주사위 없음으로 시작해,
+ * 다음 dice.roll이 서버의 activeRollCount와 어긋나고(INVALID_ROLL) 모아둔 KEEP도 잃는다.
+ * 굴림 애니메이션은 이미 지난 사실이므로 재생하지 않고 결과 상태(choosing)로 바로 앉힌다.
+ */
+export function restoreYachtGame(
+  seed: number,
+  roundNumber: number,
+  progress: YachtTurnProgress,
+): YachtGameState {
+  const base = createYachtGame(seed, roundNumber)
+  const dice = progress.dice ?? null
+  if (!dice) return base
+  return {
+    ...base,
+    phase: 'choosing',
+    dice,
+    held: progress.held ?? NO_HELD_DICE,
+    rollCount: clampRollCount(progress.rollCount),
+  }
+}
+
 export function yachtGameReducer(state: YachtGameState, action: YachtGameAction): YachtGameState {
   switch (action.type) {
     case 'rollRequested':
-      return requestRoll(state, action.requestId, action.targetDice, action.held, action.forced)
+      return requestRoll(state, action)
     case 'rollCompleted':
       return completeRoll(state, action.requestId, action.dice)
     case 'holdToggled':
@@ -123,16 +160,14 @@ export function getScoreSummary(state: YachtGameState): ScoreSummary {
 
 function requestRoll(
   state: YachtGameState,
-  requestId: string,
-  targetDice: DiceSet,
-  heldOverride?: HeldDice,
-  forced = false,
+  action: Extract<YachtGameAction, { type: 'rollRequested' }>,
 ): YachtGameState {
+  const { forced = false, held: heldOverride, requestId, rollCount, seed, targetDice } = action
   // 서버가 대신 굴린 결과는 이미 확정된 사실이라 phase 게이트를 통과시킨다.
   // 굴림 예산은 서버가 지키므로 rollCount 상한만 남긴다.
   const canRoll = forced
-    ? state.phase !== 'roundComplete' && state.rollCount < 3
-    : (state.phase === 'ready' || state.phase === 'choosing') && state.rollCount < 3
+    ? state.phase !== 'roundComplete' && state.rollCount < MAX_ROLLS
+    : (state.phase === 'ready' || state.phase === 'choosing') && state.rollCount < MAX_ROLLS
   if (!canRoll) return state
 
   // 다섯 개를 전부 킵하면 굴릴 주사위가 0개다 — 요청 자체를 무시한다.
@@ -145,11 +180,14 @@ function requestRoll(
     selectedCategory: null,
     pendingRoll: createRollRequest({
       requestId,
-      seed: state.seed,
+      seed: seed ?? state.seed,
       held: nextHeld,
       targetDice,
     }),
     held: nextHeld,
+    // 서버가 확정한 값이라 애니메이션 완료를 기다리지 않는다. 여기서 안 올리면 굴림이
+    // 교체되며 완료 콜백이 버려질 때(마감 자동 굴림 등) 증가분이 영구히 사라진다.
+    rollCount,
   }
 }
 
@@ -162,18 +200,18 @@ function completeRoll(state: YachtGameState, requestId: string, dice: DiceSet): 
     return state
   }
 
+  // rollCount는 rollRequested에서 서버 값으로 이미 올라갔다 — 여기서 또 올리면 두 번 센다.
   return {
     ...state,
     phase: 'choosing',
     seed: nextRollSeed(state.pendingRoll.seed),
     dice,
-    rollCount: incrementRollCount(state.rollCount),
     pendingRoll: null,
   }
 }
 
 function toggleHold(state: YachtGameState, index: DiceIndex): YachtGameState {
-  if (state.phase !== 'choosing' || !state.dice || state.rollCount >= 3) return state
+  if (state.phase !== 'choosing' || !state.dice || state.rollCount >= MAX_ROLLS) return state
   return { ...state, held: toggleHeldDie(state.held, index) }
 }
 
@@ -225,7 +263,8 @@ function canSubmit(state: YachtGameState) {
   )
 }
 
-function incrementRollCount(count: RollCount): RollCount {
-  if (count >= 3) return 3
-  return (count + 1) as RollCount
+/** 서버가 준 값을 신뢰하되 계약 범위를 벗어난 값은 상한으로 눌러 UI가 깨지지 않게 한다. */
+function clampRollCount(count: number): RollCount {
+  if (!Number.isInteger(count) || count < 0) return 0
+  return (count > 3 ? 3 : count) as RollCount
 }

@@ -34,6 +34,9 @@
   --color-landing-accent: var(--ds-landing-accent);
   --color-landing-accent-ink: var(--ds-landing-accent-ink);
   --color-landing-accent-tint: var(--ds-landing-accent-tint);
+  /* 카카오 브랜드 색. 소셜 로그인 버튼은 제공자 색을 그대로 써야 알아본다. */
+  --color-kakao: var(--ds-kakao);
+  --color-kakao-ink: var(--ds-kakao-ink);
   --color-landing-accent-text: var(--ds-landing-accent-text);
   --color-landing-text: var(--ds-landing-text);
   --color-landing-text-strong: var(--ds-landing-text-strong);
@@ -102,6 +105,9 @@
   --animate-callout-pop: callout-pop 480ms var(--ds-ease-snappy) both;
   --animate-callout-flash: callout-flash 700ms ease-out both;
   --animate-callout-burst: callout-burst 800ms ease-out both;
+
+  /* 튜토리얼 가이드 마스코트 — 공중에 떠서 천천히 오르내리는 부유감. */
+  --animate-guide-bob: guide-bob 2600ms ease-in-out infinite;
 }
 
 :root {
@@ -148,6 +154,8 @@
   --ds-landing-accent: #e53935;
   --ds-landing-accent-ink: #ffffff;
   --ds-landing-accent-tint: rgb(229 57 53 / 16%);
+  --ds-kakao: #fee500;
+  --ds-kakao-ink: rgb(0 0 0 / 85%);
   --ds-landing-accent-text: #ff8a86;
   --ds-landing-text: #ffffff;
   --ds-landing-text-strong: #f7f7f5;
@@ -333,5 +341,15 @@
   to {
     transform: rotate(var(--burst-angle, 0deg)) translateY(-8.5rem) scaleY(1);
     opacity: 0;
+  }
+}
+
+@keyframes guide-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-0.4rem) rotate(3deg);
   }
 }

@@ -243,6 +243,7 @@ export function prepareAlignmentEntries(
       scale: targetScale,
       slotIndex,
     } = placementOf(placements, entry.index)
+    // 같은 눈의 수평 자세로만 정규화해 줄의 높이를 맞춘다.
     const targetQuaternion = quaternionForTopValue(settledDice[entry.index])
     entry.body.setBodyType(RAPIER.RigidBodyType.Fixed, true)
     entry.body.setTranslation(targetPosition, true)

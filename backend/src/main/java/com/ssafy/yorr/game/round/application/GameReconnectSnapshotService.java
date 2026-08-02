@@ -3,7 +3,7 @@ package com.ssafy.yorr.game.round.application;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.service.GameScoreQueryService;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
-import com.ssafy.yorr.ws.dto.GameState;
+import com.ssafy.yorr.game.yacht.YachtDiceState;
 import com.ssafy.yorr.ws.dto.RoomPhase;
 import com.ssafy.yorr.ws.dto.RoomSnapshot;
 import org.springframework.stereotype.Service;
@@ -47,15 +47,20 @@ public class GameReconnectSnapshotService {
                 ))
                 .toEpochMilli();
 
-        GameState game = new GameState(
+        YachtDiceState game = new YachtDiceState(
                 round.roundNumber(),
                 round.activePlayerId(),
                 deadline,
                 gameScoreQueryService.getScoreboards(roomId, playerId),
-                round.participantOrder()
+                round.participantOrder(),
+                // 굴림 진행까지 실어야 재접속한 클라이언트가 이어서 굴릴 수 있다.
+                round.activeRollCount(),
+                round.activeDice(),
+                round.activeHeld()
         );
         return new RoomSnapshot(
                 room.roomId(),
+                room.gameCode(),
                 room.phase(),
                 room.hostId(),
                 room.players(),

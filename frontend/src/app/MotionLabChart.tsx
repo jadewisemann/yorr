@@ -21,6 +21,54 @@ function cssColor(name: string, fallback: string) {
   return value === '' ? fallback : value
 }
 
+function resizeCanvas(canvas: HTMLCanvasElement, width: number, ratio: number) {
+  const expectedWidth = width * ratio
+  const expectedHeight = HEIGHT * ratio
+  if (canvas.width === expectedWidth && canvas.height === expectedHeight) return
+  canvas.width = expectedWidth
+  canvas.height = expectedHeight
+}
+
+function drawGuide(
+  context: CanvasRenderingContext2D,
+  toY: (value: number) => number,
+  value: number,
+  color: string,
+  symmetric: boolean,
+) {
+  context.strokeStyle = color
+  context.setLineDash([5, 4])
+  context.beginPath()
+  context.moveTo(0, toY(value))
+  context.lineTo(context.canvas.clientWidth, toY(value))
+  if (symmetric) {
+    context.moveTo(0, toY(-value))
+    context.lineTo(context.canvas.clientWidth, toY(-value))
+  }
+  context.stroke()
+  context.setLineDash([])
+}
+
+function drawWave(
+  context: CanvasRenderingContext2D,
+  buffer: LabChartSample[],
+  field: MotionLabChartProps['field'],
+  toX: (at: number) => number,
+  toY: (value: number) => number,
+  color: string,
+) {
+  if (buffer.length <= 1) return
+  context.strokeStyle = color
+  context.lineWidth = 2
+  context.beginPath()
+  buffer.forEach((entry, index) => {
+    const point = [toX(entry.at), toY(entry[field])] as const
+    if (index === 0) context.moveTo(...point)
+    else context.lineTo(...point)
+  })
+  context.stroke()
+}
+
 /** 최근 4초 파형을 rAF로 직접 그리는 스트립 차트. React 상태를 거치지 않아 50Hz에도 조용하다. */
 export function MotionLabChart({
   bufferRef,
@@ -50,10 +98,7 @@ export function MotionLabChart({
       const ratio = window.devicePixelRatio || 1
       const width = canvas.clientWidth
       if (width === 0) return
-      if (canvas.width !== width * ratio || canvas.height !== HEIGHT * ratio) {
-        canvas.width = width * ratio
-        canvas.height = HEIGHT * ratio
-      }
+      resizeCanvas(canvas, width, ratio)
       context.setTransform(ratio, 0, 0, ratio, 0, 0)
       context.clearRect(0, 0, width, HEIGHT)
 
@@ -72,34 +117,11 @@ export function MotionLabChart({
       context.lineTo(width, midY)
       context.stroke()
 
-      const drawGuide = (value: number, color: string) => {
-        context.strokeStyle = color
-        context.setLineDash([5, 4])
-        context.beginPath()
-        context.moveTo(0, toY(value))
-        context.lineTo(width, toY(value))
-        if (symmetric) {
-          context.moveTo(0, toY(-value))
-          context.lineTo(width, toY(-value))
-        }
-        context.stroke()
-        context.setLineDash([])
+      drawGuide(context, toY, threshold, thresholdColor, symmetric)
+      if (releaseThreshold !== undefined) {
+        drawGuide(context, toY, releaseThreshold, releaseColor, symmetric)
       }
-      drawGuide(threshold, thresholdColor)
-      if (releaseThreshold !== undefined) drawGuide(releaseThreshold, releaseColor)
-
-      if (buffer.length > 1) {
-        context.strokeStyle = waveColor
-        context.lineWidth = 2
-        context.beginPath()
-        buffer.forEach((entry, index) => {
-          const x = toX(entry.at)
-          const y = toY(entry[field])
-          if (index === 0) context.moveTo(x, y)
-          else context.lineTo(x, y)
-        })
-        context.stroke()
-      }
+      drawWave(context, buffer, field, toX, toY, waveColor)
 
       context.fillStyle = textColor
       context.font = '11px sans-serif'
