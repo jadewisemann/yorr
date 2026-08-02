@@ -231,6 +231,35 @@ describe('GamePlay', () => {
     }
   })
 
+  it('releases a spectator roll when thrown arrives before broadcast', () => {
+    const { client } = renderObserver()
+    const requestId = 'roll-player-creator-1-1'
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'dice.thrown',
+          { playerId: creatorSession.you, rollCount: 1, roundNumber: 1 },
+          { roomId: participantSession.roomId },
+        ),
+      )
+    })
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
+
+    act(() => {
+      client.send(
+        buildClientMessage(
+          'dice.roll',
+          { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
+          { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
+        ),
+      )
+    })
+
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', requestId)
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', requestId)
+  })
+
   /**
    * 폰으로 굴리면 사발은 기기 흔들림 펄스로만 흔들린다 — 손을 멈추면 주사위도 잦아든다.
    * 관전 화면이 그 펄스를 받지 못하면 정해진 애니메이션으로 혼자 계속 흔들어, 굴린 사람이
