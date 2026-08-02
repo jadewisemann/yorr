@@ -19,6 +19,19 @@
     overflow-wrap: break-word;
   }
 
+  /* 제목은 줄 길이를 고르게(balance), 본문은 마지막 줄에 한 단어만 남는 것을 막는다(pretty).
+     화면마다 <br>로 줄바꿈을 손으로 고정하지 않으려고 전역에 둔다. keep-all이 어절을
+     지켜주는 것과 같은 층의 정책이다. 미지원 브라우저는 그냥 무시한다. */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
   html {
     min-width: 320px;
     background: var(--ds-color-canvas);

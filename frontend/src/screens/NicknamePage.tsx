@@ -97,9 +97,7 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
 
       <div className="relative mt-11 grid gap-2.5">
         <h1 className="m-0 text-[28px] leading-[1.3] font-bold tracking-[-0.02em]">
-          어떤 이름으로
-          <br />
-          참가할까요?
+          어떤 이름으로 참가할까요?
         </h1>
         <p className="m-0 text-[15px] text-content-muted">
           {roomCode
