@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '@/cn'
 import { Button } from '@/components/Button'
 import { ConnectionBanner } from '@/components/ConnectionBanner'
@@ -242,12 +242,13 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     />
   )
 
-  const scoreSheet = (className: string) => (
+  const scoreSheet = (className: string, header?: ReactNode) => (
     <ScoreSheet
       activePlayerId={activePlayerId}
       candidates={candidates}
       canPick={canPick}
       className={className}
+      header={header}
       onPick={pickCategory}
       players={sheetPlayers}
       you={session.you}
@@ -321,31 +322,20 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         </div>
 
         {/* 디자인 Yacht Play 3D — 점수표는 우측 상시 패널이다.
-            구조는 section > header > content. 헤더는 이름만 갖고, 밑줄과 열 머리(플레이어
-            뱃지)는 바로 아래 표의 sticky 행이 이미 갖고 있다 — 여기에 또 밑줄과 높이를 주면
-            헤더가 두 줄로 겹쳐 보이고 표가 그만큼 아래로 밀린다. */}
-        {wide ? (
-          <section
-            aria-labelledby="score-sheet-title"
-            className="flex min-h-0 flex-col border-l border-border"
-          >
-            <header className="flex flex-none items-baseline justify-between gap-3 px-4 pt-3 pb-2">
-              <h2
-                className="m-0 text-[15px] font-bold tracking-[0.02em] whitespace-nowrap"
-                id="score-sheet-title"
-              >
-                점수표
-              </h2>
-              <p className="m-0 truncate text-[12px] text-content-faint">{sheetHint}</p>
-            </header>
-            {/* 시트 행들이 남는 높이를 나눠 갖게 한다. 지금까지 행이 min-h만 갖는 블록이라
-                내용이 720px에서 끝나고 나머지가 전부 바닥에 고였다(1920×945에서 184px,
-                2560×1300에서 540px). justify-center가 아니라 **safe** center여야 한다 —
-                짧은 창에서 그냥 center면 위쪽이 스크롤 원점 밖으로 나가 '족보' 헤더에
-                접근할 수 없다. */}
-            {scoreSheet('flex min-h-0 flex-1 flex-col justify-center-safe')}
-          </section>
-        ) : null}
+            ScoreSheet 자체가 섹션이자 스크롤 컨테이너라 밖에서 한 번 더 감싸지 않는다 —
+            그러면 헤더가 스크롤 영역 밖에 서서 표와 사이가 벌어진다. 헤더를 안으로 넣어
+            열 머리와 한 덩어리로 고정시킨다. */}
+        {wide
+          ? scoreSheet(
+              'min-h-0 border-l border-border',
+              <div className="flex items-baseline justify-between gap-3 px-3 pt-2.5 pb-1.5">
+                <h2 className="m-0 text-[15px] font-bold tracking-[0.02em] whitespace-nowrap">
+                  점수표
+                </h2>
+                <p className="m-0 truncate text-[12px] text-content-faint">{sheetHint}</p>
+              </div>,
+            )
+          : null}
       </main>
 
       <ToastHost message={toastMessage} />

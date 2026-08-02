@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { cn } from '@/cn'
 import type { CategoryScores, YachtCategory } from '@/domain/scoring'
 import {
@@ -25,6 +26,12 @@ interface ScoreSheetProps {
   /** 내 열의 미기입 행을 탭하면 바로 기록할 수 있는 상태인지. */
   canPick: boolean
   className?: string
+  /**
+   * 표 위에 붙는 섹션 헤더. **이 컴포넌트 안으로 넣어야** 열 머리와 한 덩어리로 붙는다 —
+   * 이 표는 자기 자신이 스크롤 컨테이너이자 섹션이라, 밖에서 한 번 더 감싸면 헤더가
+   * 스크롤 영역 밖에 서고 그 사이에 여백이 생긴다.
+   */
+  header?: ReactNode
   onPick: (category: YachtCategory) => void
   players: ScoreSheetPlayer[]
   you: PlayerId
@@ -71,6 +78,7 @@ export function ScoreSheet({
   candidates,
   canPick,
   className,
+  header,
   onPick,
   players,
   you,
@@ -198,57 +206,66 @@ export function ScoreSheet({
     <section
       aria-label="플레이어별 점수표"
       // overscroll-contain: 시트 스크롤이 끝에 닿아도 뒤 페이지로 번지지 않는다.
-      className={cn('overflow-auto overscroll-contain', className)}
+      className={cn('flex flex-col overflow-auto overscroll-contain', className)}
       // 표 안에 포커스 요소가 없을 수 있어 스크롤 컨테이너가 tab을 받아야 한다(WCAG 2.1.1).
       // biome-ignore lint/a11y/noNoninteractiveTabindex: 스크롤 영역은 포커스를 받아야 한다
       tabIndex={0}
     >
-      <div
-        className="sticky top-0 z-sticky grid min-h-9 shrink-0 items-center gap-1 border-b border-border bg-canvas px-3"
-        style={columns}
-      >
-        <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.08em] text-content-muted uppercase">
-          족보
-          <Tooltip
-            align="start"
-            content="내 차례에 굴리면 내 열에 미리보기 점수가 떠요. 그 숫자를 탭하면 바로 기록됩니다."
-            label="점수 기록 방법"
-          />
-        </span>
-        {players.map((player) => (
-          <span className="justify-self-center" key={player.playerId}>
-            <PlayerBadge
-              active={player.playerId === activePlayerId}
-              nickname={player.nickname}
-              size="sm"
+      {/* 섹션 헤더와 열 머리가 한 덩어리로 붙어 함께 고정된다. 둘을 따로 두면 스크롤할 때
+          제목만 떠내려가거나, 바깥에서 감싼 헤더와 표 사이에 여백이 남는다. */}
+      <div className="sticky top-0 z-sticky shrink-0 bg-canvas">
+        {header}
+        <div
+          className="grid min-h-9 items-center gap-1 border-b border-border px-3"
+          style={columns}
+        >
+          <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.08em] text-content-muted uppercase">
+            족보
+            <Tooltip
+              align="start"
+              content="내 차례에 굴리면 내 열에 미리보기 점수가 떠요. 그 숫자를 탭하면 바로 기록됩니다."
+              label="점수 기록 방법"
             />
           </span>
-        ))}
+          {players.map((player) => (
+            <span className="justify-self-center" key={player.playerId}>
+              <PlayerBadge
+                active={player.playerId === activePlayerId}
+                nickname={player.nickname}
+                size="sm"
+              />
+            </span>
+          ))}
+        </div>
       </div>
 
-      {YACHT_UPPER_CATEGORIES.map(renderCategoryRow)}
-      {metaRow(
-        `소계 / ${UPPER_BONUS_THRESHOLD}`,
-        players.map((player) => String(player.scoreboard?.upperSubtotal ?? 0)),
-        {
-          achieved: players.map(
-            (player) => (player.scoreboard?.upperSubtotal ?? 0) >= UPPER_BONUS_THRESHOLD,
+      {/* 행 묶음만 남는 높이를 나눠 갖는다 — 헤더까지 함께 가운데로 밀리면 안 된다.
+          grow shrink-0 basis-auto: 남을 때만 늘고, 모자라면 줄지 않고 스크롤한다. */}
+      <div className="flex shrink-0 grow basis-auto flex-col justify-center-safe">
+        {YACHT_UPPER_CATEGORIES.map(renderCategoryRow)}
+        {metaRow(
+          `소계 / ${UPPER_BONUS_THRESHOLD}`,
+          players.map((player) => String(player.scoreboard?.upperSubtotal ?? 0)),
+          {
+            achieved: players.map(
+              (player) => (player.scoreboard?.upperSubtotal ?? 0) >= UPPER_BONUS_THRESHOLD,
+            ),
+          },
+        )}
+        {metaRow(
+          `보너스 +${UPPER_BONUS_POINTS}`,
+          players.map((player) =>
+            (player.scoreboard?.upperBonus ?? 0) > 0 ? `+${UPPER_BONUS_POINTS}` : '—',
           ),
-        },
-      )}
-      {metaRow(
-        `보너스 +${UPPER_BONUS_POINTS}`,
-        players.map((player) =>
-          (player.scoreboard?.upperBonus ?? 0) > 0 ? `+${UPPER_BONUS_POINTS}` : '—',
-        ),
-        { achieved: players.map((player) => (player.scoreboard?.upperBonus ?? 0) > 0) },
-      )}
-      {YACHT_LOWER_CATEGORIES.map(renderCategoryRow)}
-      {metaRow(
-        '합계',
-        players.map((player) => String(player.scoreboard?.total ?? 0)),
-        { emphasis: true },
-      )}
+          { achieved: players.map((player) => (player.scoreboard?.upperBonus ?? 0) > 0) },
+        )}
+        {YACHT_LOWER_CATEGORIES.map(renderCategoryRow)}
+        {metaRow(
+          '합계',
+          players.map((player) => String(player.scoreboard?.total ?? 0)),
+          { emphasis: true },
+        )}
+      </div>
     </section>
   )
 }

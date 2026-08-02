@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MotionAvailability, MotionGestureState } from '@/input/motionTypes'
@@ -104,8 +104,10 @@ describe('GamePlay 데스크톱 레이아웃', () => {
   it('점수표를 시트 대신 상시 패널로 두고 굴리기 CTA에 단축키를 병기한다', () => {
     renderWideGame()
 
-    // 패널 이름은 보이는 제목(h2 '점수표')이 준다 — aria-label로 따로 적지 않는다.
-    expect(screen.getByRole('region', { name: '점수표' })).toBeVisible()
+    // 표 자체가 섹션이다 — 헤더를 안으로 주입하므로 바깥에 감싸는 region이 따로 없다.
+    const panel = screen.getByRole('region', { name: '플레이어별 점수표' })
+    expect(panel).toBeVisible()
+    expect(within(panel).getByRole('heading', { name: '점수표' })).toBeVisible()
     expect(screen.getByRole('button', { name: /^굴리기/ })).toHaveTextContent('Space')
     // 시트를 여닫는 토글은 모바일 전용이다 — 넓은 화면엔 접을 것이 없다.
     expect(screen.queryByRole('button', { name: /접기|펼치기/ })).not.toBeInTheDocument()
