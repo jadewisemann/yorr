@@ -112,6 +112,8 @@ export class HeroScene {
   private targetX = 0
   private targetY = 0
   private destroyed = false
+  /** 다이얼로그가 씬을 덮고 있는 동안 true. visibilitychange와 별개의 신호다. */
+  private paused = false
   private sinceRender = 0
   /** 크기별 주사위 지오메트리. 게임 교체 사이에 살아남는다 — destroy에서만 버린다. */
   private readonly dieGeometries = new Map<number, THREE.BoxGeometry>()
@@ -176,6 +178,17 @@ export class HeroScene {
     this.startLoop()
   }
 
+  /**
+   * 씬이 보이지 않는 동안 루프를 멈춘다. 다이얼로그가 화면을 덮어도 `inert`는 렌더링을
+   * 멈추지 않으므로, 스크림 뒤에서 그림자 depth pass까지 계속 도는 것을 막는다.
+   * 탭 전환(visibilitychange)과 신호가 둘이라 둘 다 반영해 다시 계산한다.
+   */
+  setPaused(paused: boolean) {
+    if (this.destroyed || this.reducedMotion || this.paused === paused) return
+    this.paused = paused
+    this.syncLoop()
+  }
+
   setGame(game: HeroGameKey) {
     if (this.destroyed) return
     this.disposeStageObject()
@@ -226,10 +239,16 @@ export class HeroScene {
 
   private readonly handleVisibilityChange = () => {
     if (this.reducedMotion) return
-    if (document.hidden) {
+    this.syncLoop()
+  }
+
+  /** 멈출 이유(탭 숨김 · 다이얼로그)가 하나라도 있으면 멈추고, 없으면 다시 돈다. */
+  private syncLoop() {
+    if (this.paused || document.hidden) {
       this.renderer.setAnimationLoop(null)
       return
     }
+    // 멈춰 있던 동안 쌓인 delta를 버려야 재개 첫 프레임이 튀지 않는다.
     this.clock.getDelta()
     this.sinceRender = 0
     this.renderer.setAnimationLoop(this.tick)
