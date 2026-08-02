@@ -29,13 +29,7 @@ import {
   type YachtCategory,
 } from '@/domain/scoring'
 import { detectSpecialHand, type SpecialHand } from '@/domain/specialHands'
-import {
-  createYachtGame,
-  getPendingRoll,
-  restoreYachtGame,
-  type YachtGameAction,
-  yachtGameReducer,
-} from '@/domain/yachtGame'
+import { getPendingRoll, type YachtGameAction } from '@/domain/yachtGame'
 import { createRollFeedback } from '@/feedback/createRollFeedback'
 import { createHandVoice, type HandVoice } from '@/feedback/handVoice'
 import type { MotionAvailability, MotionGestureEvent } from '@/input/motionTypes'
@@ -62,6 +56,7 @@ import {
   toTurnStripPlayers,
   turnAwareErrorMessage,
 } from './gamePlayModel'
+import { useGamePlayRoll } from './useGamePlayRoll'
 import { useGamePlaySubmission } from './useGamePlaySubmission'
 
 /** 이 폭부터 점수표를 시트 대신 좌측 상시 패널로 승격한다(와이어프레임 1c). */
@@ -108,7 +103,6 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   // 내 차례 시작 콜아웃 — 토스트보다 눈에 띄는 족보 이펙트와 같은 연출로 알린다. id = 리마운트 키.
   const [turnCallout, setTurnCallout] = useState<number | null>(null)
   const [soundMuted, setSoundMuted] = useState(readSoundMuted)
-  const acceptedRollTurnRef = useRef<{ playerId: string; roundNumber: number } | null>(null)
   // 닫은 안내가 "어느 상태의 안내였는지"를 담는다. boolean으로 두면 상태가 바뀌어도 계속 닫혀
   // 새 안내를 놓친다 — 값이 달라지는 순간 자동으로 다시 뜨게 하려는 의도다.
   const [dismissedNotice, setDismissedNotice] = useState<MotionAvailability | null>(null)
@@ -127,29 +121,15 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const myBoard = game?.scores[session.you]
   const activeBoard = activePlayerId ? game?.scores[activePlayerId] : undefined
 
-  // 마운트 시점의 굴림 진행은 서버 스냅샷에서 되살린다. 턴 중간에 새로고침·재접속하면
-  // 0부터 세기 시작해 다음 dice.roll이 서버의 activeRollCount와 어긋난다(INVALID_ROLL).
-  const [local, setLocal] = useState(() =>
-    restoreYachtGame(Date.now() >>> 0, roundNumber, {
-      rollCount: game?.rollCount ?? 0,
-      dice: game?.dice ?? null,
-      held: game?.held ?? null,
-    }),
-  )
-  // 서버가 다음 라운드로 넘기면 로컬 굴림 상태를 새로 시작한다.
-  if (local.roundNumber !== roundNumber) setLocal(createYachtGame(local.seed, roundNumber))
-
+  const { applyServerRoll, dispatch, local } = useGamePlayRoll({
+    activePlayerId,
+    game,
+    roundNumber,
+  })
   const activePlayerRef = useRef(activePlayerId)
   useEffect(() => {
     if (activePlayerRef.current === activePlayerId) return
     activePlayerRef.current = activePlayerId
-    const acceptedRollTurn = acceptedRollTurnRef.current
-    acceptedRollTurnRef.current = null
-    const alreadyAppliedNextTurnRoll =
-      acceptedRollTurn?.playerId === activePlayerId && acceptedRollTurn?.roundNumber === roundNumber
-    if (!alreadyAppliedNextTurnRoll) {
-      setLocal((state) => createYachtGame(state.seed, roundNumber))
-    }
     setReleaseRequestId(null)
     setRollInputMode(null)
     setRequestingRoll(false)
@@ -162,11 +142,8 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     queuedRemoteReleaseRef.current = null
     // 남의 턴을 구경하며 열어둔 점수시트가 턴이 넘어간 뒤에도 남아있으면 안 된다(QA FND-5).
     setSheetOpen(false)
-  }, [activePlayerId, roundNumber])
+  }, [activePlayerId])
 
-  const dispatch = useCallback((action: YachtGameAction) => {
-    setLocal((state) => yachtGameReducer(state, action))
-  }, [])
   const closeSheet = useCallback(() => setSheetOpen(false), [])
   const { submitCategory } = useGamePlaySubmission({
     activePlayerId,
@@ -387,16 +364,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           // 굴림마다 새로 판단한다 — 지난 굴림을 흔들어 굴렸다고 이번 버튼 굴림까지
           // 펄스를 기다리면, 아무도 흔들지 않는 사발이 멈춰 선다.
           setRemoteShaking(false)
-          acceptedRollTurnRef.current = {
-            playerId: message.payload.playerId,
-            roundNumber: message.payload.roundNumber,
-          }
-          setLocal((state) =>
-            state.roundNumber === message.payload.roundNumber
-              ? state
-              : createYachtGame(state.seed, message.payload.roundNumber),
-          )
-          dispatch({
+          applyServerRoll(message.payload.playerId, message.payload.roundNumber, {
             type: 'rollRequested',
             forced,
             held: message.payload.held as HeldDice,
@@ -511,6 +479,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
       }),
     [
       activePlayerId,
+      applyServerRoll,
       dispatch,
       publishThrow,
       realtimeClient,
