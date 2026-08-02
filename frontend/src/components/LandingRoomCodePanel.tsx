@@ -90,8 +90,8 @@ export function LandingRoomCodePanel({
       <button
         aria-label="코드 입력 닫기"
         className={cn(
-          'absolute top-0 right-0 grid cursor-pointer place-items-center rounded-[11px] border border-landing-hairline-strong bg-transparent text-landing-text-muted transition-colors hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
-          wide ? 'size-9 text-[14px]' : 'size-10 text-[15px]',
+          'absolute top-0 right-0 grid size-tap cursor-pointer place-items-center rounded-[11px] border border-landing-hairline-strong bg-transparent text-landing-text-muted transition-colors hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+          wide ? 'text-[14px]' : 'text-[15px]',
         )}
         onClick={onClose}
         type="button"

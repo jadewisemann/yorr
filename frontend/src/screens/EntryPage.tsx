@@ -297,11 +297,11 @@ function AccountControl({
       aria-expanded={open}
       aria-haspopup="dialog"
       className={cn(
-        'flex max-w-44 cursor-pointer items-center rounded-full border font-semibold transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+        'flex max-w-44 min-h-tap cursor-pointer items-center rounded-full border font-semibold transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
         open
           ? 'border-landing-accent/60 bg-landing-accent-tint text-landing-accent-text'
           : 'border-landing-hairline-strong bg-landing-well text-landing-text hover:border-landing-accent/70',
-        wide ? 'h-11 gap-2.5 px-5 text-[15px]' : 'h-9 gap-2 px-3.5 text-[13px]',
+        wide ? 'gap-2.5 px-5 text-[15px]' : 'gap-2 px-3.5 text-[13px]',
       )}
       onClick={onOpen}
       type="button"
@@ -419,14 +419,14 @@ function ActiveRoomBanner() {
       </p>
       <div className="flex flex-none items-center gap-2">
         <button
-          className="cursor-pointer rounded-[14px] border-0 bg-landing-accent px-4 py-2.5 text-[14px] font-landing-bold text-landing-accent-ink focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2"
+          className="min-h-tap cursor-pointer rounded-[14px] border-0 bg-landing-accent px-4 py-2.5 text-[14px] font-landing-bold text-landing-accent-ink focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2"
           onClick={handleReturn}
           type="button"
         >
           {needsResume ? returnLabel : '돌아가기'}
         </button>
         <button
-          className="cursor-pointer rounded-full border-0 bg-transparent px-2 py-2 text-[13px] font-landing-bold text-landing-text-muted underline-offset-2 hover:underline focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2 disabled:opacity-60"
+          className="min-h-tap cursor-pointer rounded-full border-0 bg-transparent px-2.5 py-2 text-[13px] font-landing-bold text-landing-text-muted underline-offset-2 hover:underline focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2 disabled:opacity-60"
           disabled={isLeaving}
           onClick={() => void leave()}
           type="button"
