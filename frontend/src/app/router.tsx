@@ -5,8 +5,11 @@ import {
   lazyRouteComponent,
   Outlet,
   type RouterHistory,
+  useRouterState,
 } from '@tanstack/react-router'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { lazy, Suspense } from 'react'
+import { pageVariants } from '@/motion'
 import { getRoomCodeError, normalizeRoomCode } from '@/roomCode'
 import { EntryPage } from '@/screens/EntryPage'
 import { NotFoundPage } from '@/screens/NotFoundPage'
@@ -33,12 +36,48 @@ const NicknamePage = lazy(() =>
   import('@/screens/NicknamePage').then((mod) => ({ default: mod.NicknamePage })),
 )
 
+/**
+ * 화면 전환 껍데기. 경로가 바뀔 때만 새 껍데기를 만든다 — 검색 파라미터만 바뀌는 이동
+ * (`/join?code=`)은 같은 화면이므로 전환을 걸지 않는다.
+ *
+ * <b>`Suspense`는 반드시 이 안쪽이다.</b> 바깥에 두면 지연 로드 화면으로 이동하는 순간
+ * suspend가 트리 전체를 fallback으로 갈아치워 나가는 화면이 통째로 사라진다 —
+ * `AnimatePresence`가 퇴장을 그릴 대상이 없어진다.
+ *
+ * `mode="wait"`인 이유는 연출 취향이 아니다. 두 화면이 겹치면 대기실과 게임의 WebGL
+ * 컨텍스트·rapier 월드가 잠깐 동시에 살아난다. 먼저 완전히 내보내고 다음을 올린다.
+ */
+function ScreenTransition() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const reduceMotion = useReducedMotion()
+
+  if (reduceMotion) {
+    return (
+      <Suspense fallback={<ScreenFallback />}>
+        <Outlet />
+      </Suspense>
+    )
+  }
+
+  return (
+    <AnimatePresence initial={false} mode="wait">
+      <motion.div
+        animate="visible"
+        exit="exit"
+        initial="hidden"
+        key={pathname}
+        variants={pageVariants}
+      >
+        <Suspense fallback={<ScreenFallback />}>
+          <Outlet />
+        </Suspense>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
 const rootRoute = createRootRoute({
-  component: () => (
-    <Suspense fallback={<ScreenFallback />}>
-      <Outlet />
-    </Suspense>
-  ),
+  component: ScreenTransition,
   notFoundComponent: NotFoundPage,
 })
 

@@ -38,6 +38,18 @@ export const popVariants: Variants = {
   exit: { opacity: 0, scale: 0.97, transition: EXIT },
 }
 
+/**
+ * 화면 전환 — 새 화면이 오른쪽에서 살짝 밀려 들어오고 떠나는 화면은 왼쪽으로 빠진다.
+ * 거리를 16px로 짧게 두는 이유는 두 가지다. 화면 전체를 크게 밀면 `h-svh overflow-hidden`
+ * 안의 3D 트레이가 전환 내내 화면 밖으로 나갔다 들어오고, transform이 걸린 조상은
+ * `position: fixed` 자식의 기준이 되므로 다이얼로그가 함께 흔들린다.
+ */
+export const pageVariants: Variants = {
+  hidden: { opacity: 0, x: 16 },
+  visible: { opacity: 1, x: 0, transition: { duration: DURATION.page, ease: EASE_SNAPPY } },
+  exit: { opacity: 0, x: -12, transition: EXIT },
+}
+
 /** 스크림은 크기가 크므로 opacity만 움직인다. */
 export const scrimVariants: Variants = {
   hidden: { opacity: 0 },
