@@ -224,13 +224,11 @@
   --ds-color-content-faint: #82838a;
   --ds-color-scrim: rgb(0 0 0 / 66%);
   /* 굴림 콜아웃 텍스트의 화이트 글로우 — 외곽선 대신 글자에서 빛이 퍼지는 느낌으로
-     3D 트레이 위에서 글자를 띄운다. 팝 애니메이션이 0에서 이 값까지 키운다. */
+     3D 트레이 위에서 글자를 띄운다. 정적으로 얹고 팝 애니메이션의 opacity를 따라
+     같이 떠오른다(글로우 자체를 보간하면 매 프레임 블러를 다시 래스터화한다). */
   --ds-callout-glow:
     0 0 0.04em rgb(255 255 255 / 95%), 0 0 0.16em rgb(255 244 242 / 60%),
     0 0 0.45em rgb(255 77 72 / 45%), 0 0.08em 0.6em rgb(0 0 0 / 35%);
-  --ds-callout-glow-none:
-    0 0 0 rgb(255 255 255 / 0%), 0 0 0 rgb(255 244 242 / 0%), 0 0 0 rgb(255 77 72 / 0%),
-    0 0 0 rgb(0 0 0 / 0%);
 
   /* "사용 완료" 족보의 빗금. 색 말고 패턴으로도 구분되게 하는 두 번째 채널이다. */
   --ds-hatch-used: repeating-linear-gradient(
@@ -322,11 +320,13 @@
   }
 }
 
+/* transform·opacity만 움직인다. 글로우는 컴포넌트가 정적으로 얹고 opacity를 따라
+   같이 떠오르므로, 여기서 text-shadow를 보간하면 주사위가 막 멈춘 프레임에
+   화면 폭짜리 블러를 매 프레임 다시 래스터화하게 된다. */
 @keyframes callout-pop {
   0% {
     transform: scale(0.55);
     opacity: 0;
-    text-shadow: var(--ds-callout-glow-none);
   }
   60% {
     transform: scale(1.08);
@@ -335,7 +335,6 @@
   100% {
     transform: scale(1);
     opacity: 1;
-    text-shadow: var(--ds-callout-glow);
   }
 }
 
