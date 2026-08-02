@@ -4,6 +4,7 @@ import { mockApiServer } from '@/mocks/server'
 import {
   closeSession,
   exchangeLoginCode,
+  googleLoginUrl,
   kakaoLoginUrl,
   loginErrorMessage,
   renameProfile,
@@ -20,6 +21,18 @@ describe('kakaoLoginUrl', () => {
   it('forceLogin이면 계정 재선택을 위한 prompt=login을 붙인다', () => {
     expect(kakaoLoginUrl({ forceLogin: true })).toBe(
       `${API_BASE_URL}/auth/kakao/authorize?prompt=login`,
+    )
+  })
+})
+
+describe('googleLoginUrl', () => {
+  it('기본은 구글 인가 주소를 그대로 돌려준다', () => {
+    expect(googleLoginUrl()).toBe(`${API_BASE_URL}/auth/google/authorize`)
+  })
+
+  it('계정 선택 요청이면 prompt=select_account를 붙인다', () => {
+    expect(googleLoginUrl({ selectAccount: true })).toBe(
+      `${API_BASE_URL}/auth/google/authorize?prompt=select_account`,
     )
   })
 })
@@ -111,7 +124,7 @@ describe('loginErrorMessage', () => {
       '지금은 로그인을 사용할 수 없어요. 잠시 후 다시 시도해 주세요.',
     )
     expect(loginErrorMessage('provider_error')).toBe(
-      '카카오와 연결하지 못했어요. 다시 시도해 주세요.',
+      '로그인 제공자와 연결하지 못했어요. 다시 시도해 주세요.',
     )
   })
 

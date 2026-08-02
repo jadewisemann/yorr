@@ -13,7 +13,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *                            돌려보내고, 거기서 프론트로 보내는 것은 우리 서버다.
  */
 @ConfigurationProperties(prefix = "yorr.auth")
-public record AuthProperties(String frontendRedirectUri, Kakao kakao) {
+public record AuthProperties(String frontendRedirectUri, Kakao kakao, Google google) {
 
     /**
      * @param clientId     카카오 앱의 <b>REST API 키</b>(JavaScript 키가 아니다 — 토큰 교환은 서버가 한다)
@@ -25,6 +25,22 @@ public record AuthProperties(String frontendRedirectUri, Kakao kakao) {
 
         public boolean configured() {
             return notBlank(clientId) && notBlank(redirectUri);
+        }
+
+        private static boolean notBlank(String value) {
+            return value != null && !value.isBlank();
+        }
+    }
+
+    /**
+     * @param clientId     Google Cloud Console의 OAuth 2.0 웹 클라이언트 ID
+     * @param clientSecret 같은 OAuth 클라이언트의 보안 비밀
+     * @param redirectUri  승인된 리디렉션 URI에 등록한 백엔드 콜백 주소
+     */
+    public record Google(String clientId, String clientSecret, String redirectUri) {
+
+        public boolean configured() {
+            return notBlank(clientId) && notBlank(clientSecret) && notBlank(redirectUri);
         }
 
         private static boolean notBlank(String value) {

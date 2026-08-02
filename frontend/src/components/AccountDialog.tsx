@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { kakaoLoginUrl, renameProfile } from '@/api/authApi'
+import { googleLoginUrl, kakaoLoginUrl, renameProfile } from '@/api/authApi'
 import type { AuthSession } from '@/authSession'
 import { cn } from '@/cn'
 import { NICKNAME_MAX_LENGTH } from '@/nickname'
@@ -74,10 +74,13 @@ function ProviderChoice() {
         <ProviderMark provider="kakao" />
         카카오로 계속하기
       </button>
-      <button className={cn(row, lockedRow)} disabled type="button">
+      <button
+        className={cn(row, activeRow)}
+        onClick={() => globalThis.location.assign(googleLoginUrl())}
+        type="button"
+      >
         <ProviderMark provider="google" />
         구글로 계속하기
-        <ComingSoonPill />
       </button>
       {/*
         카카오 세션은 브라우저에 남아 있어, 우리 쪽에서 로그아웃해도 위 버튼은 동의 화면 없이

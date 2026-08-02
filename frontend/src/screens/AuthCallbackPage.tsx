@@ -4,7 +4,7 @@ import { exchangeLoginCode, loginErrorMessage } from '@/api/authApi'
 import { useAppStore } from '@/store'
 
 /**
- * 카카오 로그인이 끝난 사용자가 서버에서 되돌아오는 자리.
+ * 소셜 로그인이 끝난 사용자가 서버에서 되돌아오는 자리.
  *
  * 여기서 하는 일은 <b>일회용 코드를 세션으로 바꾸고 홈으로 보내는 것</b>뿐이다. 화면을
  * 오래 보여줄 이유가 없어 안내 한 줄만 두고, 성공·실패 결과는 홈의 알림 자리로 넘긴다.

@@ -94,7 +94,8 @@
 | `POST` | `/games/{gameId}/score-candidates` | 현재 주사위의 카테고리별 점수 후보 조회 |
 | `DELETE` | `/rooms/{roomCode}/players/me` | 방 나가기 |
 | `GET` | `/auth/kakao/authorize` | 카카오 로그인 시작(전체 페이지 리다이렉트) |
-| `POST` | `/auth/session` | 카카오 콜백 code를 세션으로 교환 |
+| `GET` | `/auth/google/authorize` | 구글 로그인 시작(전체 페이지 리다이렉트) |
+| `POST` | `/auth/session` | 소셜 로그인 콜백 code를 세션으로 교환 |
 | `GET` | `/auth/me` | 로그인 세션 검증·갱신 |
 | `DELETE` | `/auth/session` | 로그아웃 |
 | `PATCH` | `/users/me` | 닉네임(프로필) 변경 |

@@ -7,6 +7,7 @@ import com.ssafy.yorr.auth.application.SocialLoginService;
 import com.ssafy.yorr.auth.config.AuthProperties;
 import com.ssafy.yorr.auth.controller.dto.LoginCodeExchangeRequest;
 import com.ssafy.yorr.auth.controller.dto.SessionResponse;
+import com.ssafy.yorr.auth.infrastructure.GoogleOAuthClient;
 import com.ssafy.yorr.auth.infrastructure.KakaoOAuthClient;
 import com.ssafy.yorr.user.SessionAuthenticationException;
 import com.ssafy.yorr.user.UserIdentity;
@@ -37,9 +38,9 @@ import java.net.URI;
  *
  * <pre>
  * 프론트 로그인 버튼
- *   → GET  /api/v1/auth/kakao/authorize        state 발급 후 카카오로 302
- *   → (카카오 동의 화면)
- *   → GET  /api/v1/auth/kakao/callback         state 검증 · 토큰 교환 · 가입/로그인 · 세션 발급
+ *   → GET  /api/v1/auth/{provider}/authorize   state 발급 후 소셜 로그인 제공자로 302
+ *   → (카카오 또는 구글 동의 화면)
+ *   → GET  /api/v1/auth/{provider}/callback    state 검증 · 토큰 교환 · 가입/로그인 · 세션 발급
  *                                              → 프론트로 302 (일회용 code 동반)
  *   → POST /api/v1/auth/session                code를 세션 토큰으로 교환
  * </pre>
@@ -55,6 +56,7 @@ public class AuthController {
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private final KakaoOAuthClient kakaoClient;
+    private final GoogleOAuthClient googleClient;
     private final OAuthStateStore stateStore;
     private final LoginCodeStore loginCodeStore;
     private final SocialLoginService socialLoginService;
@@ -93,16 +95,7 @@ public class AuthController {
             @RequestParam(required = false) String error
     ) {
         try {
-            if (error != null && !error.isBlank()) {
-                throw new SocialLoginException(SocialLoginException.Reason.CANCELED);
-            }
-            if (!stateStore.consume(state)) {
-                throw new SocialLoginException(SocialLoginException.Reason.INVALID_STATE);
-            }
-            if (code == null || code.isBlank()) {
-                throw new SocialLoginException(SocialLoginException.Reason.PROVIDER_ERROR,
-                        "authorization_code_missing", null);
-            }
+            validateCallback(code, state, error);
             var profile = kakaoClient.fetchProfile(code);
             User user = socialLoginService.loginOrRegister(SocialProvider.KAKAO,
                     profile.providerUserId(), profile.nickname(), profile.profileImageUrl());
@@ -110,6 +103,39 @@ public class AuthController {
             return redirect(frontendUrl("code", loginCodeStore.issue(sessionToken)));
         } catch (SocialLoginException e) {
             log.warn("카카오 로그인 실패: reason={} message={}", e.reason(), e.getMessage());
+            return redirect(frontendUrl("error", e.reason().name().toLowerCase()));
+        }
+    }
+
+    @GetMapping("/google/authorize")
+    @Operation(summary = "구글 로그인 시작", description = "구글 로그인 화면으로 리다이렉트합니다. prompt=select_account이면 계정을 다시 선택하게 합니다.")
+    public ResponseEntity<Void> googleAuthorize(@RequestParam(required = false) String prompt) {
+        try {
+            String url = googleClient.authorizeUrl(
+                    stateStore.issue(), "select_account".equals(prompt));
+            return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
+        } catch (SocialLoginException e) {
+            log.error("구글 로그인을 시작할 수 없습니다: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+    }
+
+    @GetMapping("/google/callback")
+    @Operation(summary = "구글 로그인 콜백", description = "Google Cloud Console에 등록한 Redirect URI입니다. 프론트로 리다이렉트합니다.")
+    public ResponseEntity<Void> googleCallback(
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String error
+    ) {
+        try {
+            validateCallback(code, state, error);
+            var profile = googleClient.fetchProfile(code);
+            User user = socialLoginService.loginOrRegister(SocialProvider.GOOGLE,
+                    profile.providerUserId(), profile.nickname(), profile.profileImageUrl());
+            String sessionToken = userService.openMemberSession(user.getId(), user.getNickname());
+            return redirect(frontendUrl("code", loginCodeStore.issue(sessionToken)));
+        } catch (SocialLoginException e) {
+            log.warn("구글 로그인 실패: reason={} message={}", e.reason(), e.getMessage());
             return redirect(frontendUrl("error", e.reason().name().toLowerCase()));
         }
     }
@@ -170,6 +196,19 @@ public class AuthController {
 
     private ResponseEntity<Void> redirect(String url) {
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
+    }
+
+    private void validateCallback(String code, String state, String error) {
+        if (error != null && !error.isBlank()) {
+            throw new SocialLoginException(SocialLoginException.Reason.CANCELED);
+        }
+        if (!stateStore.consume(state)) {
+            throw new SocialLoginException(SocialLoginException.Reason.INVALID_STATE);
+        }
+        if (code == null || code.isBlank()) {
+            throw new SocialLoginException(SocialLoginException.Reason.PROVIDER_ERROR,
+                    "authorization_code_missing", null);
+        }
     }
 
     private String frontendUrl(String name, String value) {
