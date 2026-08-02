@@ -1,11 +1,5 @@
 import { delay, HttpResponse, http } from 'msw'
-import type {
-  EnterRoomRequest,
-  EnterRoomResponse,
-  RoomSession,
-  ScoreCandidatesRequest,
-} from '@/api/gameApi'
-import { calculateScoreCandidates } from '@/domain/scoring'
+import type { EnterRoomRequest, EnterRoomResponse, RoomSession } from '@/api/gameApi'
 import {
   createPlayingRoomSnapshot,
   creatorSession,
@@ -41,6 +35,38 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
   }
 
   return [
+    // 로그인 코드 교환. mock에서는 카카오까지 갈 수 없으므로, 콜백이 넘긴 코드를 그대로
+    // 받아 고정 회원을 돌려준다 — 프론트의 교환·저장·표시 경로만 검증하기 위한 최소 구현이다.
+    http.post('/api/v1/auth/session', async ({ request }) => {
+      await beforeResponse()
+      const body = (await request.json()) as { code?: string }
+      if (!body.code) return HttpResponse.text('invalid_login_code', { status: 401 })
+      return (
+        unavailable() ??
+        HttpResponse.json({
+          userId: 'mock-member-id',
+          nickname: '카카오회원',
+          type: 'MEMBER',
+          sessionToken: 'mock-member-token',
+        })
+      )
+    }),
+    http.get('/api/v1/auth/me', async ({ request }) => {
+      await beforeResponse()
+      if (!request.headers.get('Authorization')?.startsWith('Bearer ')) {
+        return HttpResponse.text('session_expired', { status: 401 })
+      }
+      return HttpResponse.json({
+        userId: 'mock-member-id',
+        nickname: '카카오회원',
+        type: 'MEMBER',
+        sessionToken: null,
+      })
+    }),
+    http.delete('/api/v1/auth/session', async () => {
+      await beforeResponse()
+      return new HttpResponse(null, { status: 204 })
+    }),
     http.post('/api/v1/rooms', async ({ request }) => {
       await beforeResponse()
       const body = (await request.json()) as EnterRoomRequest
@@ -89,15 +115,6 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       // 대기실 복귀 = 방이 다시 대기 상태다. 기억을 지우면 room.join 기본값(대기 중)과 같다.
       clearMockRoomSnapshot()
       return new HttpResponse(null, { status: 204 })
-    }),
-    http.post('/api/v1/games/:gameId/score-candidates', async ({ params, request }) => {
-      await beforeResponse()
-      if (params.gameId !== 'mock-game-id') {
-        return HttpResponse.json({ code: 'GAME_NOT_FOUND' }, { status: 404 })
-      }
-      // 실서버처럼 요청에 실린 주사위로 후보값을 계산한다(정적 픽스처 한계 해소).
-      const body = (await request.json()) as ScoreCandidatesRequest
-      return unavailable() ?? HttpResponse.json({ candidates: calculateScoreCandidates(body.dice) })
     }),
     http.delete('/api/v1/rooms/:roomCode/players/me', async ({ params }) => {
       await beforeResponse()

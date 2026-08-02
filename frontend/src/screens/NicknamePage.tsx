@@ -4,6 +4,7 @@ import { useCreateRoom, useJoinRoom } from '@/api/useRoomApi'
 import { toUserError } from '@/api/userError'
 import { Button } from '@/components/Button'
 import { TextField } from '@/components/TextField'
+import { playLandingSoundtrack } from '@/landingSoundtrack'
 import {
   generateNickname,
   NICKNAME_MAX_LENGTH,
@@ -21,12 +22,18 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
   const navigate = useNavigate()
   const createRoom = useCreateRoom()
   const joinRoom = useJoinRoom()
+  const authSession = useAppStore((state) => state.authSession)
   const [suggestion] = useState(generateNickname)
-  const [nickname, setNickname] = useState(() => readSavedNickname() ?? '')
+  // 로그인했다면 그 계정의 닉네임에서 시작한다 — 로그인해 놓고 이름을 다시 짓게 하면
+  // 로그인한 값이 어디로 갔는지 알 수 없다. 그래도 이 판에서만 다르게 쓰고 싶을 수 있어
+  // 고칠 수 있게 둔다(프로필 닉네임은 바뀌지 않는다).
+  const [nickname, setNickname] = useState(() => authSession?.nickname ?? readSavedNickname() ?? '')
   const [validationError, setValidationError] = useState<string | null>(null)
   const submittingRef = useRef(false)
   const task = roomCode ? joinRoom : createRoom
   const userError = task.error ? toUserError(task.error) : null
+
+  useEffect(() => playLandingSoundtrack('yacht'), [])
 
   useEffect(() => {
     if (userError?.clearsSession) useAppStore.getState().reset()

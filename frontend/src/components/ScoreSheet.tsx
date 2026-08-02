@@ -9,6 +9,7 @@ import {
 import type { PlayerId, ScoreBoard } from '@/realtime/wsEvents'
 import { categoryLabel, isRecorded } from '@/yachtCategoryView'
 import { CategoryIcon } from './CategoryIcon'
+import { Tooltip } from './Tooltip'
 
 export interface ScoreSheetPlayer {
   nickname: string
@@ -27,6 +28,12 @@ interface ScoreSheetProps {
   onPick: (category: YachtCategory) => void
   players: ScoreSheetPlayer[]
   you: PlayerId
+}
+
+function scoreCell(value: number | null | undefined, preview: number | null, isPreview: boolean) {
+  if (isPreview) return { className: 'bg-brand/15 text-brand-strong', content: preview }
+  if (!isRecorded(value)) return { className: 'text-content-faint', content: '·' }
+  return { className: value === 0 ? 'text-danger' : 'text-content', content: value }
 }
 
 /** 플레이어 머리글자 칩. 헤더·트레이에서도 같은 표기를 쓰도록 내보낸다. */
@@ -87,22 +94,17 @@ export function ScoreSheet({
     const cells = players.map((player) => {
       const value = player.scoreboard?.categories[category]
       const isPreviewCell = player.playerId === activePlayerId && preview !== null
+      const cell = scoreCell(value, preview, isPreviewCell)
       return (
         <span
           className={cn(
             'justify-self-stretch py-1 text-center font-mono text-[15px] font-bold tabular-nums',
             cellHighlight(player.playerId),
-            isPreviewCell
-              ? 'bg-brand/15 text-brand-strong'
-              : isRecorded(value)
-                ? value === 0
-                  ? 'text-danger'
-                  : 'text-content'
-                : 'text-content-faint',
+            cell.className,
           )}
           key={player.playerId}
         >
-          {isPreviewCell ? preview : isRecorded(value) ? value : '·'}
+          {cell.content}
         </span>
       )
     })
@@ -201,8 +203,13 @@ export function ScoreSheet({
         className="sticky top-0 z-sticky grid min-h-9 items-center gap-1 border-b border-border bg-canvas px-3"
         style={columns}
       >
-        <span className="text-[10px] font-bold tracking-[0.08em] text-content-muted uppercase">
+        <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.08em] text-content-muted uppercase">
           족보
+          <Tooltip
+            align="start"
+            content="내 차례에 굴리면 내 열에 미리보기 점수가 떠요. 그 숫자를 탭하면 바로 기록됩니다."
+            label="점수 기록 방법"
+          />
         </span>
         {players.map((player) => (
           <span className="justify-self-center" key={player.playerId}>

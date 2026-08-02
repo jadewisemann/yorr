@@ -1,19 +1,24 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { RealtimeSync } from '@/app/RealtimeSync'
 import {
   createEmptyScoreBoard,
   createPlayingRoomSnapshot,
+  creatorPlayer,
   creatorSession,
+  participantPlayer,
   participantSession,
   serverMessage,
 } from '@/mocks/fixtures'
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
+import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
-import { buildClientMessage } from '@/realtime/wsEvents'
+import { buildClientMessage, type ClientMessageType, type RoomSnapshot } from '@/realtime/wsEvents'
 import type { PhysicsDiceRollRequest, PhysicsDiceSet } from '@/rendering/physics-dice/types'
 import { useAppStore } from '@/store'
 import { GamePlay } from './GamePlay'
+import { animationSeedForRoll } from './gamePlayModel'
 
 /**
  * 물리 렌더러는 rAF와 WebGL에 의존해 jsdom에서 굴림을 끝낼 수 없다.
@@ -21,17 +26,23 @@ import { GamePlay } from './GamePlay'
  */
 vi.mock('@/components/PhysicsDiceScene', () => ({
   PhysicsDiceScene: ({
+    motionFollow,
+    motionPulse,
     onHeldToggle,
     onRollComplete,
     releaseRequestId,
     request,
   }: {
+    motionFollow?: boolean
+    motionPulse?: { direction: 'left' | 'right'; id: number; strength: number } | null
     onHeldToggle?: (index: 0) => void
     onRollComplete: (requestId: string, dice: PhysicsDiceSet) => void
     releaseRequestId: string | null
     request: PhysicsDiceRollRequest | null
   }) => (
     <div
+      data-follow={motionFollow ? 'on' : 'off'}
+      data-pulse={motionPulse ? `${motionPulse.direction}:${motionPulse.strength}` : ''}
       data-release={releaseRequestId ?? ''}
       data-request={request?.requestId ?? ''}
       data-target={request?.targetDice.join(',') ?? ''}
@@ -51,24 +62,67 @@ vi.mock('@/components/PhysicsDiceScene', () => ({
 
 const { snapshot: _snapshot, ...session } = creatorSession
 
-function renderGame() {
-  const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
-  const client = createRealtimeFixture()
+it('derives the same animation seed from the same server roll', () => {
+  const dice = [6, 5, 4, 3, 2] as const
+  expect(animationSeedForRoll('ROOM', 'player-a', 2, 3, dice)).toBe(
+    animationSeedForRoll('ROOM', 'player-a', 2, 3, dice),
+  )
+  expect(animationSeedForRoll('ROOM', 'player-a', 2, 2, dice)).not.toBe(
+    animationSeedForRoll('ROOM', 'player-a', 2, 3, dice),
+  )
+})
+
+function renderGame(options: { client?: FakeRealtimeClient; snapshot?: RoomSnapshot } = {}) {
+  const snapshot = options.snapshot ?? createPlayingRoomSnapshot(Date.now() + 30_000)
+  const client = options.client ?? createRealtimeFixture()
   useAppStore.setState({ connectionStatus: 'connected', roomSnapshot: snapshot })
+  const tree = (current: RoomSnapshot) => (
+    <RealtimeClientProvider client={client}>
+      <GamePlay
+        onLeaveRequest={() => {}}
+        roomId={session.roomId}
+        session={session}
+        snapshot={current}
+      />
+    </RealtimeClientProvider>
+  )
+  const view = render(tree(snapshot))
   return {
-    ...render(
-      <RealtimeClientProvider client={client}>
-        <GamePlay
-          onLeaveRequest={() => {}}
-          roomId={session.roomId}
-          session={session}
-          snapshot={snapshot}
-        />
-      </RealtimeClientProvider>,
-    ),
+    ...view,
     client,
+    /** 서버가 새 스냅샷을 내려준 상황 — GamePage가 prop을 갈아 끼우는 것과 같다. */
+    rerenderWith: (next: RoomSnapshot) => view.rerender(tree(next)),
     user: userEvent.setup(),
   }
+}
+
+/** 요청은 나갔지만 서버 응답이 아직 없는 구간을 테스트가 직접 열어 둔다. */
+function withheldResponse(client: FakeRealtimeClient, type: ClientMessageType) {
+  const send = client.send.bind(client)
+  vi.spyOn(client, 'send').mockImplementation((message) => {
+    if (message.type === type) {
+      client.sentMessages.push(message)
+      return
+    }
+    send(message)
+  })
+  return client
+}
+
+/** 소켓이 죽은 상태 — 해당 타입 전송만 실패한다. */
+function brokenSend(client: FakeRealtimeClient, type: ClientMessageType) {
+  const send = client.send.bind(client)
+  vi.spyOn(client, 'send').mockImplementation((message) => {
+    if (message.type === type) throw new Error('socket is closed')
+    send(message)
+  })
+  return client
+}
+
+function lastMsgId(client: FakeRealtimeClient, type: ClientMessageType) {
+  const msgId = [...client.sentMessages].reverse().find((message) => message.type === type)?.msgId
+  if (!msgId) throw new Error(`no sent message of type ${type}`)
+  return msgId
 }
 
 function renderObserver(snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)) {
@@ -91,8 +145,34 @@ function renderObserver(snapshot = createPlayingRoomSnapshot(Date.now() + 30_000
   }
 }
 
+function SyncedGamePlay() {
+  const roomSession = useAppStore((state) => state.roomSession)
+  const roomSnapshot = useAppStore((state) => state.roomSnapshot)
+  if (!roomSession || !roomSnapshot) return null
+  return (
+    <GamePlay
+      onLeaveRequest={() => {}}
+      roomId={roomSession.roomId}
+      session={roomSession}
+      snapshot={roomSnapshot}
+    />
+  )
+}
+
 describe('GamePlay', () => {
   beforeEach(() => useAppStore.getState().reset())
+
+  it('헤더에서 도움말을 열고 소리 상태를 바꿄다', async () => {
+    const { user } = renderGame()
+    const soundButton = screen.getByRole('button', { name: /소리 [켜끄]기/ })
+    const initialPressed = soundButton.getAttribute('aria-pressed')
+
+    await user.click(screen.getByRole('button', { name: '게임 도움말' }))
+    expect(screen.getByRole('dialog', { name: '게임 도움말' })).toBeVisible()
+
+    await user.click(soundButton)
+    expect(soundButton.getAttribute('aria-pressed')).not.toBe(initialPressed)
+  })
 
   it('keeps a single roll CTA', async () => {
     const { user } = renderGame()
@@ -128,9 +208,117 @@ describe('GamePlay', () => {
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-target', '6,5,4,3,2')
     expect(screen.getByTestId('dice-scene')).toHaveAttribute(
       'data-request',
-      'remote-player-creator-1-1-remote-roll-1',
+      'roll-player-creator-1-1',
     )
     expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
+  })
+
+  /**
+   * dice.roll은 흔들기 시작에 나가 주사위 눈을 미리 확정한다. 그래서 관전 화면이 브로드캐스트만
+   * 보고 사발을 쏟으면, 굴린 사람이 아직 흔드는 중인데 결과가 먼저 보인다(미래를 보는 화면).
+   */
+  it('holds the spectator bowl until the roller throws', () => {
+    vi.useFakeTimers()
+    try {
+      const { client } = renderObserver()
+      const requestId = 'roll-player-creator-1-1'
+
+      act(() => {
+        client.send(
+          buildClientMessage(
+            'dice.roll',
+            { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
+            { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
+          ),
+        )
+      })
+      expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', requestId)
+
+      // 흔드는 동안에는 사발에 담겨 있어야 한다.
+      act(() => vi.advanceTimersByTime(2_000))
+      expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
+
+      // 아무리 오래 흔들어도 시간이 대신 쏟아주지 않는다 — 관전 화면은 굴리는 사람 화면을
+      // 그대로 따라가고, 쏟는 시점은 오직 dice.thrown이 정한다.
+      act(() => vi.advanceTimersByTime(20_000))
+      expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
+
+      act(() => {
+        client.emitMessage(
+          serverMessage(
+            'dice.thrown',
+            { playerId: creatorSession.you, rollCount: 1, roundNumber: 1 },
+            { roomId: participantSession.roomId },
+          ),
+        )
+      })
+      expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', requestId)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('releases a spectator roll when thrown arrives before broadcast', () => {
+    const { client } = renderObserver()
+    const requestId = 'roll-player-creator-1-1'
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'dice.thrown',
+          { playerId: creatorSession.you, rollCount: 1, roundNumber: 1 },
+          { roomId: participantSession.roomId },
+        ),
+      )
+    })
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
+
+    act(() => {
+      client.send(
+        buildClientMessage(
+          'dice.roll',
+          { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
+          { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
+        ),
+      )
+    })
+
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', requestId)
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', requestId)
+  })
+
+  /**
+   * 폰으로 굴리면 사발은 기기 흔들림 펄스로만 흔들린다 — 손을 멈추면 주사위도 잦아든다.
+   * 관전 화면이 그 펄스를 받지 못하면 정해진 애니메이션으로 혼자 계속 흔들어, 굴린 사람이
+   * 멈춘 뒤에도 남의 화면에서만 사발이 움직인다.
+   */
+  it('mirrors the roller shake pulses instead of running its own animation', () => {
+    const { client } = renderObserver()
+
+    act(() => {
+      client.send(
+        buildClientMessage(
+          'dice.roll',
+          { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
+          { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
+        ),
+      )
+    })
+    // 아직 펄스가 없다 = 버튼으로 굴렸을 수도 있다. 그때는 기존 애니메이션이 돌아야 한다.
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-follow', 'off')
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'dice.shaken',
+          { direction: 'left', playerId: creatorSession.you, roundNumber: 1, strength: 0.5 },
+          { roomId: participantSession.roomId },
+        ),
+      )
+    })
+
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-follow', 'on')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-pulse', 'left:0.5')
   })
 
   it('shows the active player special-hand effect to every other participant', async () => {
@@ -223,6 +411,32 @@ describe('GamePlay', () => {
     // 서버가 쓴 굴림 1회가 로컬 카운터에도 반영돼 남은 굴림이 2회로 줄어든다.
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
     expect(screen.getByText('2회 남음')).toBeVisible()
+  })
+
+  it('accepts an authoritative own roll even when the local request id was lost', () => {
+    const { client } = renderGame()
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'dice.broadcast',
+          {
+            dice: [2, 3, 4, 5, 6],
+            held: [false, false, false, false, false],
+            playerId: creatorSession.you,
+            rollCount: 1,
+            roundNumber: 1,
+          },
+          { msgId: 'server-authoritative-roll', roomId: creatorSession.roomId },
+        ),
+      )
+    })
+
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-target', '2,3,4,5,6')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-request',
+      'roll-player-creator-1-1',
+    )
   })
 
   it('tells the player which category the server recorded on their behalf', async () => {
@@ -402,6 +616,55 @@ describe('GamePlay', () => {
     expect(await screen.findByRole('dialog', { name: /0점으로 확정할까요\?/ })).toBeVisible()
   })
 
+  it('0점 확인을 취소하면 아무것도 기록하지 않고, 확정하면 그 족보로 기록한다', async () => {
+    const { client, user } = renderGame()
+
+    await user.click(screen.getByRole('button', { name: '굴리기' }))
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await user.click(screen.getByRole('button', { name: '에이스 0점 기록' }))
+    await user.click(screen.getByRole('button', { name: '취소' }))
+
+    // 취소는 되돌릴 수 없는 선택을 실제로 막아야 한다 — 서버로 아무것도 나가지 않는다.
+    expect(client.sentMessages.some((message) => message.type === 'round.submit')).toBe(false)
+    expect(screen.getByRole('button', { name: '에이스 0점 기록' })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: '에이스 0점 기록' }))
+    await user.click(screen.getByRole('button', { name: '0점 확정' }))
+
+    expect(await screen.findByText('점수가 반영됐습니다. 다음 턴을 기다립니다.')).toBeVisible()
+    expect(
+      client.sentMessages.find((message) => message.type === 'round.submit')?.payload,
+    ).toMatchObject({ category: 'ones', roundNumber: 1 })
+  })
+
+  it('서버가 기록을 거절하면 이유를 알리고 다시 고를 수 있게 되돌린다', async () => {
+    const client = withheldResponse(createRealtimeFixture(), 'round.submit')
+    const { user } = renderGame({ client })
+
+    await user.click(screen.getByRole('button', { name: '굴리기' }))
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
+    expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeDisabled()
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'error',
+          {
+            code: 'NOT_YOUR_TURN',
+            message: 'turn mismatch',
+            refMsgId: lastMsgId(client, 'round.submit'),
+          },
+          { roomId: creatorSession.roomId },
+        ),
+      )
+    })
+
+    // 서버 코드는 그대로 노출하지 않고 지금 상황을 설명하는 문장으로 바꿔 준다.
+    expect(await screen.findByText('지금은 내 차례가 아니에요.')).toBeVisible()
+    expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeEnabled()
+  })
+
   /** QA FND-3: 제출 직후엔 activePlayerId가 아직 나라서, 내 이름을 "OO의 턴"으로 반복하는 대신
    *  대기 중임을 분명히 말해야 한다. */
   it('shows a waiting label instead of repeating my own turn after I submit', async () => {
@@ -413,6 +676,18 @@ describe('GamePlay', () => {
 
     expect(await screen.findByText('제출 완료 · 대기 중')).toBeVisible()
     expect(screen.queryByText('내 턴이에요')).not.toBeInTheDocument()
+  })
+
+  it('연결이 끊긴 채로 기록하면 알리고 선택 상태로 되돌린다', async () => {
+    const client = brokenSend(createRealtimeFixture(), 'round.submit')
+    const { user } = renderGame({ client })
+
+    await user.click(screen.getByRole('button', { name: '굴리기' }))
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
+
+    expect(await screen.findByText('점수를 기록하지 못했어요. 다시 시도해 주세요.')).toBeVisible()
+    expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeEnabled()
   })
 
   /** QA FND-9: 닉네임은 임의 입력이라 받침 유무를 알 수 없다 — "(으)로"와 같은 방식으로 이/가를 적는다. */
@@ -483,6 +758,48 @@ describe('GamePlay', () => {
     )
   })
 
+  it('plays a roll delivered immediately after the server starts the next turn', () => {
+    const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
+    useAppStore.getState().setRoomSession({ ...creatorSession, snapshot })
+    const client = new FakeRealtimeClient()
+
+    render(
+      <RealtimeSync client={client}>
+        <SyncedGamePlay />
+      </RealtimeSync>,
+    )
+
+    act(() => {
+      client.emitMessage(
+        serverMessage('round.start', {
+          activePlayerId: participantPlayer.playerId,
+          deadline: Date.now() + 30_000,
+          roundNumber: 2,
+          turnOrder: [creatorPlayer.playerId, participantPlayer.playerId],
+        }),
+      )
+      client.emitMessage(
+        serverMessage(
+          'dice.broadcast',
+          {
+            dice: [1, 2, 3, 4, 5],
+            held: [false, false, false, false, false],
+            playerId: participantPlayer.playerId,
+            rollCount: 1,
+            roundNumber: 2,
+          },
+          { roomId: creatorSession.roomId },
+        ),
+      )
+    })
+
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-target', '1,2,3,4,5')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-request',
+      'roll-player-participant-2-1',
+    )
+  })
+
   /** QA FND-7: 라운드가 바뀌는 순간은 관전자에게도 알린다. 첫 렌더(중간 입장)는 전환이 아니다. */
   it('announces a new round to spectators, but not on first render', async () => {
     const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
@@ -513,5 +830,150 @@ describe('GamePlay', () => {
     )
 
     expect(await screen.findByText('라운드 2 시작 — 느긋한 주사위의 턴이에요')).toBeVisible()
+  })
+
+  it('굴림 요청을 보내지 못하면 알리고 굴리기를 다시 열어 둔다', async () => {
+    const client = brokenSend(createRealtimeFixture(), 'dice.roll')
+    const { user } = renderGame({ client })
+
+    await user.click(screen.getByRole('button', { name: '굴리기' }))
+
+    expect(
+      await screen.findByText('주사위를 요청하지 못했어요. 연결 상태를 확인해 주세요.'),
+    ).toBeVisible()
+    expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
+  })
+
+  it('서버가 굴림을 거절하면 서버 문구로 알리고 다시 굴릴 수 있게 한다', async () => {
+    const client = withheldResponse(createRealtimeFixture(), 'dice.roll')
+    const { user } = renderGame({ client })
+
+    await user.click(screen.getByRole('button', { name: '굴리기' }))
+    expect(screen.getByRole('button', { name: '굴리는 중' })).toBeDisabled()
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'error',
+          {
+            code: 'INVALID_MESSAGE',
+            message: '이미 세 번 굴렸어요.',
+            refMsgId: lastMsgId(client, 'dice.roll'),
+          },
+          { roomId: creatorSession.roomId },
+        ),
+      )
+    })
+
+    expect(await screen.findByText('이미 세 번 굴렸어요.')).toBeVisible()
+    expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
+  })
+
+  it('다른 라운드의 굴림 브로드캐스트는 화면에 반영하지 않는다', async () => {
+    const { client } = renderGame()
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'dice.broadcast',
+          {
+            dice: [1, 1, 1, 1, 1],
+            held: [false, false, false, false, false],
+            playerId: creatorSession.you,
+            rollCount: 1,
+            roundNumber: 9,
+          },
+          { roomId: creatorSession.roomId },
+        ),
+      )
+    })
+
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', '')
+    expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
+    expect(screen.getByText('3회 남음')).toBeVisible()
+  })
+
+  it('턴이 넘어가면 이전 턴에서 잡아 둔 킵과 주사위를 버린다', async () => {
+    const { rerenderWith, user } = renderGame()
+
+    await user.click(screen.getByRole('button', { name: '굴리기' }))
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await user.click(screen.getByRole('button', { name: '첫 주사위 킵' }))
+    expect(screen.getByText(/킵 레일 · 1\/5 · 합 6/)).toBeVisible()
+
+    const handoff = createPlayingRoomSnapshot(Date.now() + 30_000)
+    if (!handoff.game) throw new Error('playing snapshot is missing game state')
+    handoff.game.activePlayerId = participantPlayer.playerId
+    rerenderWith(handoff)
+
+    // 남은 킵을 물려주면 다음 턴 주인의 첫 굴림이 서버와 어긋난다.
+    expect(screen.getByText('킵 레일 · 비어 있음')).toBeVisible()
+    expect(screen.getByText(`${participantPlayer.nickname}의 턴`)).toBeVisible()
+  })
+
+  it('턴이 바뀌면 응답을 받지 못한 점수 제출 상태를 폐기한다', async () => {
+    const client = withheldResponse(createRealtimeFixture(), 'round.submit')
+    const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
+    if (!snapshot.game) throw new Error('playing snapshot is missing game state')
+    const { rerenderWith, user } = renderGame({ client, snapshot })
+
+    await user.click(screen.getByRole('button', { name: '굴리기' }))
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
+    expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeDisabled()
+
+    rerenderWith({
+      ...snapshot,
+      game: {
+        ...snapshot.game,
+        activePlayerId: participantPlayer.playerId,
+        roundNumber: 2,
+      },
+    })
+    rerenderWith({
+      ...snapshot,
+      game: {
+        ...snapshot.game,
+        activePlayerId: creatorPlayer.playerId,
+        roundNumber: 3,
+      },
+    })
+
+    await user.click(screen.getByRole('button', { name: '굴리기' }))
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeEnabled()
+  })
+
+  it('내 점수판이 갱신돼도 새로 채워진 칸이 없으면 자동 기록을 알리지 않는다', async () => {
+    const { client } = renderGame()
+    const board = createEmptyScoreBoard()
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'score.update',
+          { playerId: creatorSession.you, scoreboard: { ...board, upperSubtotal: 0, total: 0 } },
+          { roomId: creatorSession.roomId },
+        ),
+      )
+    })
+
+    expect(await screen.findByText('내 차례!')).toBeVisible()
+    expect(screen.queryByText(/자동 기록/)).not.toBeInTheDocument()
+  })
+
+  it('참가자가 셋이어도 내 열만 맨 앞으로 오고 나머지 명단 순서는 그대로다', () => {
+    const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
+    const thirdPlayer = { playerId: 'player-third', nickname: '세 번째', status: 'online' } as const
+    // 내가 명단 가운데 있어도 첫 열이어야 한다 — 내 점수를 찾느라 좌우로 훑지 않게.
+    snapshot.players = [thirdPlayer, creatorPlayer, participantPlayer]
+
+    renderGame({ snapshot })
+
+    const scoreSheet = screen.getByRole('region', { name: '플레이어별 점수표' })
+    const columns = Array.from(scoreSheet.querySelectorAll('[title]'), (badge) =>
+      badge.getAttribute('title'),
+    )
+    expect(columns).toEqual(['나', thirdPlayer.nickname, participantPlayer.nickname])
   })
 })

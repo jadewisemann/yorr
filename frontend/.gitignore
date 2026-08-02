@@ -1,5 +1,4 @@
 # Local planning and reference materials
-/docs/
 /.dev.md
 
 # Build output — 루트 .gitignore에도 있지만, Tailwind v4 소스 탐지는
@@ -8,3 +7,8 @@
 
 # CodeGraph index
 /.codegraph/
+
+# 족보 콜아웃 녹음 원본. 저장소에는 변환 결과(public/audio/hand-voice/*.wav)만 올린다 —
+# 원본 테이크는 용량이 크고 재변환은 scripts/import-hand-voice.mjs로 언제든 다시 된다.
+/scripts/voice-source/*
+!/scripts/voice-source/README.md

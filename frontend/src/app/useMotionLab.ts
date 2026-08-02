@@ -64,6 +64,29 @@ function toVec(value: { x: number | null; y: number | null; z: number | null } |
   return [value.x, value.y, value.z] as [number, number, number]
 }
 
+function appendRecordingSample(
+  recording: { samples: MotionRecordingSample[]; startedAt: number },
+  event: DeviceMotionEvent,
+  angle: number,
+) {
+  const first = recording.samples[0]
+  const elapsed = first === undefined ? 0 : event.timeStamp - recording.startedAt
+  recording.samples.push({
+    t: elapsed,
+    acc: toVec(event.acceleration),
+    accG: toVec(event.accelerationIncludingGravity),
+    angle,
+  })
+  if (first === undefined) recording.startedAt = event.timeStamp
+  return elapsed
+}
+
+function appendChartSample(buffer: LabChartSample[], sample: LabChartSample) {
+  buffer.push(sample)
+  const cutoff = sample.at - CHART_WINDOW_MS
+  while (buffer[0]?.at !== undefined && buffer[0].at < cutoff) buffer.shift()
+}
+
 /**
  * MotionInputController와 같은 수명주기 규칙(권한·visibilitychange·silent 타이머)을 따르되,
  * config를 실시간 교체할 수 있고 차트 링버퍼·이벤트 로그·원시 녹화를 함께 관리하는 Lab 전용 훅.
@@ -127,18 +150,8 @@ export function useMotionLab() {
       const angle = readOrientationAngle()
 
       const recording = recordingRef.current
-      if (recording) {
-        const first = recording.samples[0]
-        const t = first === undefined ? 0 : event.timeStamp - recording.startedAt
-        recording.samples.push({
-          t,
-          acc: toVec(event.acceleration),
-          accG: toVec(event.accelerationIncludingGravity),
-          angle,
-        })
-        if (first === undefined) recording.startedAt = event.timeStamp
-        if (t >= RECORDING_LIMIT_MS) finishRecording()
-      }
+      const recordingElapsed = recording ? appendRecordingSample(recording, event, angle) : 0
+      if (recordingElapsed >= RECORDING_LIMIT_MS) finishRecording()
 
       const sample = normalizerRef.current.push(event, angle)
       if (!sample) return
@@ -146,9 +159,11 @@ export function useMotionLab() {
       armSilentTimer()
 
       const buffer = chartBufferRef.current
-      buffer.push({ at: sample.at, horizontal: sample.horizontal, forward: sample.forward })
-      const cutoff = sample.at - CHART_WINDOW_MS
-      while (buffer[0] && buffer[0].at < cutoff) buffer.shift()
+      appendChartSample(buffer, {
+        at: sample.at,
+        horizontal: sample.horizontal,
+        forward: sample.forward,
+      })
 
       const recognizer = recognizerRef.current
       if (recognizer) appendEvents(recognizer.push(sample))

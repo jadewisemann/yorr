@@ -28,7 +28,7 @@ export const landingGames: [LandingGame, ...LandingGame[]] = [
     tagline: '흔들어 굴리고, 전략적으로 킵하세요.',
     description: '12라운드 동안 가장 높은 점수를 완성하는 실시간 주사위 게임',
     players: '1–6 PLAYERS',
-    duration: '약 5분',
+    duration: '약 15분',
     control: '휴대폰 흔들기',
     live: true,
   },
