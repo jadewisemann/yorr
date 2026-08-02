@@ -56,13 +56,13 @@ import {
   animationSeedForRoll,
   isCurrentDiceBroadcast,
   latestGameState,
-  newlyRecordedCategory,
   type RollAnimationMode,
   rollAnimationMode,
   toMatrixPlayers,
   toTurnStripPlayers,
   turnAwareErrorMessage,
 } from './gamePlayModel'
+import { useGamePlaySubmission } from './useGamePlaySubmission'
 
 /** 이 폭부터 점수표를 시트 대신 좌측 상시 패널로 승격한다(와이어프레임 1c). */
 const WIDE_LAYOUT = '(min-width: 1024px)'
@@ -103,16 +103,11 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
    */
   const [remoteShaking, setRemoteShaking] = useState(false)
   const lastShakeSentAtRef = useRef(0)
-  const [submitting, setSubmitting] = useState(false)
   // 굴림마다 id를 새로 발급해 같은 족보가 연속으로 떠도 리마운트되게 한다.
   const [rollHighlight, setRollHighlight] = useState<{ hand: SpecialHand; id: number } | null>(null)
   // 내 차례 시작 콜아웃 — 토스트보다 눈에 띄는 족보 이펙트와 같은 연출로 알린다. id = 리마운트 키.
   const [turnCallout, setTurnCallout] = useState<number | null>(null)
   const [soundMuted, setSoundMuted] = useState(readSoundMuted)
-  const pendingSubmissionRef = useRef<{
-    category: YachtCategory
-    msgId: string
-  } | null>(null)
   const acceptedRollTurnRef = useRef<{ playerId: string; roundNumber: number } | null>(null)
   // 닫은 안내가 "어느 상태의 안내였는지"를 담는다. boolean으로 두면 상태가 바뀌어도 계속 닫혀
   // 새 안내를 놓친다 — 값이 달라지는 순간 자동으로 다시 뜨게 하려는 의도다.
@@ -159,9 +154,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     setRollInputMode(null)
     setRequestingRoll(false)
     setRemoteShaking(false)
-    setSubmitting(false)
     setZeroConfirm(null)
-    pendingSubmissionRef.current = null
     pendingRollRequestRef.current = null
     queuedMotionReleaseRef.current = false
     // 지난 턴의 사발은 이미 치워졌다 — 늦게 도착한 dice.thrown이 새 굴림을 쏟으면 안 된다.
@@ -174,6 +167,18 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const dispatch = useCallback((action: YachtGameAction) => {
     setLocal((state) => yachtGameReducer(state, action))
   }, [])
+  const closeSheet = useCallback(() => setSheetOpen(false), [])
+  const { submitCategory } = useGamePlaySubmission({
+    activePlayerId,
+    dice: local.dice,
+    dispatch,
+    myBoard,
+    onSucceeded: closeSheet,
+    roomId,
+    roundNumber,
+    showToast,
+    you: session.you,
+  })
 
   const usedCategories = YACHT_CATEGORIES.filter((category) =>
     isRecorded(activeBoard?.categories[category]),
@@ -185,6 +190,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   // 재연결 중에는 조작을 잠근다. 서버 상태와 어긋난 굴림·확정이 가장 위험하다.
   const locked = connectionStatus === 'reconnecting' || connectionStatus === 'closed' || !isMyTurn
   const submitted = local.phase === 'roundComplete'
+  const submitting = local.phase === 'submitting'
   const rollsLeft = MAX_ROLLS - local.rollCount
   // 킵 레일(트레이 하단 밴드) 라벨 — 위치가 곧 킵 표시이므로 개수·합만 조용히 병기한다.
   const keptCount = local.held.filter(Boolean).length
@@ -220,86 +226,6 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     sheetPlayers[0],
   )
   const leaderLabel = leader ? `${leader.nickname} · ${leader.scoreboard?.total ?? 0}` : '—'
-
-  const diceRef = useRef(local.dice)
-  diceRef.current = local.dice
-
-  const submitCategory = useCallback(
-    (category: YachtCategory) => {
-      const dice = diceRef.current
-      if (!dice) return
-      const msgId = `round-${roundNumber}-${Date.now()}`
-      dispatch({ type: 'categorySelected', category })
-      dispatch({ type: 'submissionStarted' })
-      pendingSubmissionRef.current = { category, msgId }
-      setSubmitting(true)
-      try {
-        realtimeClient.send(
-          buildClientMessage('round.submit', { category, dice, roundNumber }, { roomId, msgId }),
-        )
-      } catch {
-        pendingSubmissionRef.current = null
-        dispatch({ type: 'submissionFailed' })
-        setSubmitting(false)
-        showToast('점수를 기록하지 못했어요. 다시 시도해 주세요.')
-      }
-    },
-    [dispatch, realtimeClient, roomId, roundNumber, showToast],
-  )
-
-  // 서버 마감 처리로 점수가 들어왔을 때 "무엇이 기록됐는지"를 알리기 위해 직전 점수판을 들고 있는다.
-  // 렌더 시점의 값이라 리스너 안에서는 항상 갱신 전 상태다 — 그게 diff의 기준이다.
-  const previousBoardRef = useRef(myBoard)
-  previousBoardRef.current = myBoard
-  const autoRecordedRoundRef = useRef<number | null>(null)
-
-  useEffect(
-    () =>
-      realtimeClient.onMessage((message) => {
-        const pending = pendingSubmissionRef.current
-        if (!pending) {
-          // 내가 보낸 제출이 없는데 내 점수가 갱신됐다 = 서버가 마감 처리로 대신 기록했다.
-          // 점수판만 조용히 바뀌면 왜 그 칸이 채워졌는지 알 수 없어 라운드 파악이 어려워진다.
-          if (
-            message.type === 'score.update' &&
-            message.payload.playerId === session.you &&
-            autoRecordedRoundRef.current !== roundNumber
-          ) {
-            const recorded = newlyRecordedCategory(
-              previousBoardRef.current,
-              message.payload.scoreboard,
-            )
-            if (recorded) {
-              autoRecordedRoundRef.current = roundNumber
-              showToast(
-                `시간이 지나 ${categoryLabel[recorded[0]]} ${recorded[1]}점으로 자동 기록됐어요.`,
-              )
-            }
-          }
-          return
-        }
-
-        if (
-          message.type === 'score.update' &&
-          message.msgId === pending.msgId &&
-          message.payload.playerId === session.you
-        ) {
-          pendingSubmissionRef.current = null
-          dispatch({ type: 'submissionSucceeded' })
-          setSubmitting(false)
-          setSheetOpen(false)
-          return
-        }
-
-        if (message.type === 'error' && message.payload.refMsgId === pending.msgId) {
-          pendingSubmissionRef.current = null
-          dispatch({ type: 'submissionFailed' })
-          setSubmitting(false)
-          showToast(turnAwareErrorMessage(message.payload))
-        }
-      }),
-    [dispatch, realtimeClient, roundNumber, session.you, showToast],
-  )
 
   const rollSequenceRef = useRef(0)
   const inputModeRef = useRef(rollInputMode)
