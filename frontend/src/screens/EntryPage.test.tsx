@@ -131,9 +131,6 @@ describe('EntryPage', () => {
     const user = userEvent.setup()
     render(<EntryPage />)
 
-    // 첫 게임에서는 되돌아갈 곳이 없다 — 감싸지 않고 막는다(점 목록의 방향키만 감싼다).
-    expect(screen.getByRole('button', { name: '이전 게임' })).toBeDisabled()
-
     await user.click(screen.getByRole('button', { name: '다음 게임' }))
 
     expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
@@ -141,7 +138,28 @@ describe('EntryPage', () => {
       'aria-selected',
       'true',
     )
+  })
+
+  // 목록이 순환하므로 화살표는 끝에서도 비활성이 되지 않는다 — 점 목록 방향키와 같은 규칙이다.
+  it('wraps the carousel at both ends with the arrow buttons', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    // 첫 게임에서 이전 → 마지막으로 감싼다.
+    await user.click(screen.getByRole('button', { name: '이전 게임' }))
+    expect(screen.getByRole('heading', { name: '낚시' })).toBeVisible()
+
+    // 마지막에서 다음 → 다시 처음으로.
+    await user.click(screen.getByRole('button', { name: '다음 게임' }))
+    expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
+  })
+
+  // 스와이프는 발견 가능한 조작이 아니다 — 모바일에도 명시적인 이동 버튼이 있어야 한다.
+  it('keeps the carousel arrows on the narrow layout', () => {
+    render(<EntryPage />)
+
     expect(screen.getByRole('button', { name: '이전 게임' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '다음 게임' })).toBeEnabled()
   })
 
   it('sanitizes the room code in the code dialog and only enables join once it is valid', async () => {

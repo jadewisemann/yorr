@@ -20,23 +20,52 @@ describe('LandingHeroCarousel', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: '이전 게임' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: '다음 게임' }))
 
     expect(onSelect).toHaveBeenCalledWith(1)
   })
 
-  it('마지막 게임에서는 다음 버튼이 막힌다', () => {
-    render(
+  // 목록이 순환하므로 화살표는 끝에서도 살아 있다 — 점 목록 방향키와 같은 규칙이다.
+  it('양 끝에서 반대편으로 감싼다', () => {
+    const onSelect = vi.fn()
+    const { rerender } = render(
+      <LandingHeroCarousel
+        activeIndex={0}
+        games={landingGames}
+        layout="wide"
+        onSelect={onSelect}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '이전 게임' }))
+    expect(onSelect).toHaveBeenCalledWith(landingGames.length - 1)
+
+    rerender(
       <LandingHeroCarousel
         activeIndex={landingGames.length - 1}
         games={landingGames}
         layout="wide"
-        onSelect={vi.fn()}
+        onSelect={onSelect}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '다음 게임' }))
+    expect(onSelect).toHaveBeenCalledWith(0)
+  })
+
+  // 스와이프는 발견 가능한 조작이 아니다 — 모바일에도 이동 버튼이 있어야 한다.
+  it('좁은 레이아웃에도 화살표를 남긴다', () => {
+    const onSelect = vi.fn()
+    render(
+      <LandingHeroCarousel
+        activeIndex={0}
+        games={landingGames}
+        layout="narrow"
+        onSelect={onSelect}
       />,
     )
 
-    expect(screen.getByRole('button', { name: '다음 게임' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: '다음 게임' }))
+    expect(onSelect).toHaveBeenCalledWith(1)
   })
 
   it('화살표 키로 좌우 게임을 넘긴다', () => {

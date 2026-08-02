@@ -37,12 +37,13 @@ export function LandingHeroCarousel({
   const lastWheelRef = useRef(0)
 
   const game = games[activeIndex]
-  const previous = games[activeIndex - 1]
-  const next = games[activeIndex + 1]
+  /** 끝에서도 이웃이 있다 — 목록이 순환하므로 양옆 미리보기가 비지 않는다. */
+  const previous = games[(activeIndex - 1 + games.length) % games.length]
+  const next = games[(activeIndex + 1) % games.length]
 
-  /** 목록 양 끝을 넘지 않는다. 끝에서 감싸면 끌던 방향과 반대로 튀어 방향 감각이 깨진다. */
+  /** 목록 끝에서 반대편으로 감싼다(점 목록 방향키와 같은 규칙). */
   const step = (delta: number) => {
-    const target = Math.min(games.length - 1, Math.max(0, activeIndex + delta))
+    const target = (activeIndex + delta + games.length) % games.length
     if (target !== activeIndex) onSelect(target)
   }
 
@@ -73,10 +74,8 @@ export function LandingHeroCarousel({
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (dragStartRef.current === null) return
     const raw = event.clientX - dragStartRef.current
-    // 양 끝에서는 저항을 준다. 더 갈 곳이 없다는 걸 스냅 전에 손으로 알려준다.
-    const blocked = (raw > 0 && activeIndex === 0) || (raw < 0 && activeIndex === games.length - 1)
-    const limited = Math.max(-DRAG_LIMIT_PX, Math.min(DRAG_LIMIT_PX, raw))
-    setDragOffset(blocked ? limited * 0.3 : limited)
+    // 목록이 순환하므로 양 끝에서도 저항을 주지 않는다 — 어느 방향으로든 갈 곳이 있다.
+    setDragOffset(Math.max(-DRAG_LIMIT_PX, Math.min(DRAG_LIMIT_PX, raw)))
   }
 
   const handlePointerUp = () => {
@@ -126,16 +125,10 @@ export function LandingHeroCarousel({
         </div>
       </div>
 
-      {wide && (
-        <>
-          <ArrowButton direction="previous" disabled={activeIndex === 0} onClick={() => step(-1)} />
-          <ArrowButton
-            direction="next"
-            disabled={activeIndex === games.length - 1}
-            onClick={() => step(1)}
-          />
-        </>
-      )}
+      {/* 순환하므로 끝에서도 비활성이 없다. 모바일에도 둔다 — 스와이프는 발견 가능한
+          조작이 아니고, 진행 표시줄 탭은 44px 세로만 확보돼 정밀 조준이 필요하다. */}
+      <ArrowButton direction="previous" layout={layout} onClick={() => step(-1)} />
+      <ArrowButton direction="next" layout={layout} onClick={() => step(1)} />
     </section>
   )
 }
@@ -189,26 +182,26 @@ function PeekCard({
 
 function ArrowButton({
   direction,
-  disabled,
+  layout,
   onClick,
 }: {
   direction: 'next' | 'previous'
-  disabled: boolean
+  layout: 'narrow' | 'wide'
   onClick: () => void
 }) {
   const isNext = direction === 'next'
+  const wide = layout === 'wide'
 
   return (
     <button
       aria-label={isNext ? '다음 게임' : '이전 게임'}
       className={cn(
-        'absolute top-1/2 z-1 grid size-14 -translate-y-1/2 place-items-center rounded-full border text-[20px]/none transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
-        isNext ? 'right-11' : 'left-11',
-        disabled
-          ? 'cursor-not-allowed border-landing-hairline bg-landing-well text-landing-text-faint'
-          : 'cursor-pointer border-landing-hairline-strong bg-landing-panel text-landing-text hover:border-landing-accent',
+        'absolute top-1/2 z-1 grid size-tap -translate-y-1/2 cursor-pointer place-items-center rounded-full border border-landing-hairline-strong bg-landing-panel text-landing-text transition-colors duration-150 ease-out hover:border-landing-accent focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+        // 모바일 카드는 화면 폭의 86.6%를 쓴다 — 화살표를 카드 안으로 넣으면 3D를 가리므로
+        // 카드와 화면 가장자리 사이 좁은 띠에 겹쳐 세운다.
+        wide ? 'size-14 text-[20px]/none' : 'text-[17px]/none',
+        isNext ? (wide ? 'right-11' : 'right-1') : wide ? 'left-11' : 'left-1',
       )}
-      disabled={disabled}
       onClick={onClick}
       type="button"
     >

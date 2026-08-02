@@ -265,10 +265,13 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         React가 위치가 같고 타입이 다른 노드를 갈아끼우면서 주사위 영역을 언마운트하고,
         그때마다 rapier 물리 월드와 WebGL 컨텍스트가 통째로 재생성된다.
       */}
-      {/* 뷰포트 높이로 고정하고 페이지 스크롤을 막는다 — 스크롤은 점수시트 내부에서만 일어난다. */}
+      {/* 뷰포트 높이로 고정하고 페이지 스크롤을 막는다 — 스크롤은 점수시트 내부에서만 일어난다.
+          폭은 max-w-content(72rem)에서 멈추고 가운데 선다. 제한이 없으면 넓은 모니터에서
+          점수시트가 32.5rem으로 고정된 채 주사위 트레이만 계속 늘어나 화면 양끝까지 붙는다.
+          다른 화면들이 max-w-2xl로 같은 규칙을 쓰지만, 여기는 2단이라 더 넓은 단계가 필요하다. */}
       <main
         className={cn(
-          'h-svh overflow-hidden bg-canvas text-content',
+          'mx-auto h-svh w-full max-w-content overflow-hidden bg-canvas text-content',
           wide ? 'grid grid-cols-[1fr_32.5rem]' : 'flex flex-col',
         )}
       >
