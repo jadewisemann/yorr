@@ -72,7 +72,8 @@ export function Modal({ children, className, onClose, open, role = 'dialog', tit
               variants={scrimVariants}
             />
           )}
-          {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: role이 변수라 정적 분석이 section의 암묵 역할로 판정한다. 실제 값인 dialog·alertdialog는 둘 다 aria-modal을 지원한다 */}
+          {/* role은 변수지만 실제 값은 dialog·alertdialog 둘뿐이고 둘 다 aria-modal을 지원한다.
+              (motion.section으로 바뀌면서 biome이 더는 section의 암묵 역할로 보지 않는다) */}
           <motion.section
             animate="visible"
             aria-describedby={alert ? descriptionId : undefined}
