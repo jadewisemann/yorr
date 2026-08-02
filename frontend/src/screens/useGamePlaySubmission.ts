@@ -3,8 +3,12 @@ import type { DiceSet } from '@/domain/dice'
 import type { YachtCategory } from '@/domain/scoring'
 import type { YachtGameAction } from '@/domain/yachtGame'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
-import type { PlayerId, ScoreBoard, ServerMessage } from '@/realtime/wsEvents'
-import { buildClientMessage } from '@/realtime/wsEvents'
+import {
+  buildClientMessage,
+  type PlayerId,
+  type ScoreBoard,
+  type ServerMessage,
+} from '@/realtime/wsEvents'
 import { categoryLabel } from '@/yachtCategoryView'
 import { newlyRecordedCategory, turnAwareErrorMessage } from './gamePlayModel'
 

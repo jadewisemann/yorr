@@ -4,17 +4,10 @@ import { Button } from '@/components/Button'
 import { ConnectionBanner } from '@/components/ConnectionBanner'
 import { GameHelpModal } from '@/components/GameHelpModal'
 import { Modal } from '@/components/Modal'
-import { MotionPermissionPanel } from '@/components/MotionPermissionPanel'
-import { PhysicsDiceScene } from '@/components/PhysicsDiceScene'
 import { RecordPanel } from '@/components/RecordPanel'
-import { RollCounter } from '@/components/RollCounter'
-import { EffectCallout, RollResultCallout } from '@/components/RollResultCallout'
-import { RoundTimer } from '@/components/RoundTimer'
 import { ScoreSheet } from '@/components/ScoreSheet'
 import { ToastHost, useToast } from '@/components/ToastHost'
-import { Tooltip } from '@/components/Tooltip'
 import { TurnStrip } from '@/components/TurnStrip'
-import { TutorialGuide } from '@/components/TutorialGuide'
 import type { DiceIndex } from '@/domain/dice'
 import {
   type CategoryScores,
@@ -23,23 +16,21 @@ import {
   type YachtCategory,
 } from '@/domain/scoring'
 import type { YachtGameAction } from '@/domain/yachtGame'
-import type { MotionAvailability } from '@/input/motionTypes'
-import type { useMotionRollInput } from '@/input/useMotionRollInput'
 import { setSoundtrackMuted } from '@/landingSoundtrack'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { readSoundMuted, saveSoundMuted } from '@/soundPreference'
 import { type ActiveRoomSession, useAppStore } from '@/store'
-import { hideTutorial, isTutorialHidden } from '@/tutorialPreference'
 import { useCountdown } from '@/useCountdown'
 import { useMediaQuery } from '@/useMediaQuery'
 import { categoryLabel, categoryShortLabel, isRecorded } from '@/yachtCategoryView'
+import { GameDiceTray } from './GameDiceTray'
+import { GamePlayHeader } from './GamePlayHeader'
 import { toMatrixPlayers, toTurnStripPlayers } from './gamePlayModel'
 import { useGamePlayRoll } from './useGamePlayRoll'
 import { useGamePlaySubmission } from './useGamePlaySubmission'
 
 /** 이 폭부터 점수표를 시트 대신 좌측 상시 패널로 승격한다(와이어프레임 1c). */
 const WIDE_LAYOUT = '(min-width: 1024px)'
-const TOTAL_ROUNDS = 12
 const MAX_ROLLS = 3
 interface GamePlayProps {
   roomId: string
@@ -61,10 +52,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const [soundMuted, setSoundMuted] = useState(readSoundMuted)
   // 닫은 안내가 "어느 상태의 안내였는지"를 담는다. boolean으로 두면 상태가 바뀌어도 계속 닫혀
   // 새 안내를 놓친다 — 값이 달라지는 순간 자동으로 다시 뜨게 하려는 의도다.
-  const [dismissedNotice, setDismissedNotice] = useState<MotionAvailability | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
-  // 첫 진입 코치마크. "다시 보지 않기"는 쿠키로 영구 숨김, 그냥 닫으면 이번 판만 닫힌다.
-  const [tutorialOpen, setTutorialOpen] = useState(() => !isTutorialHidden())
 
   const game = snapshot.game
   const roundNumber = game?.roundNumber ?? 1
@@ -75,43 +63,26 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const myBoard = game?.scores[session.you]
   const activeBoard = activePlayerId ? game?.scores[activePlayerId] : undefined
 
-  const {
-    allKept,
-    canHold,
-    canPick,
-    canRoll,
-    completeRoll,
-    confirmThrow,
-    currentRollNumber,
-    dispatch,
-    dismissRollHighlight,
-    keptCount,
-    lastRollInPlay,
-    local,
-    motion,
-    motionPulse,
-    onDiceImpact,
-    onPhysicsError,
-    onPhysicsPhaseChange,
-    pendingRoll,
-    releaseAll,
-    releaseRequestId,
-    remoteShaking,
-    roll: handleRoll,
-    rollHighlight,
-    rollInputMode,
-    rolling,
-    settledRollCount,
-    setMuted: setRollMuted,
-    submitted,
-    submitting,
-    toggleHeld,
-  } = useGamePlayRoll({
+  const roll = useGamePlayRoll({
     game,
     roomId,
     showToast,
     you: session.you,
   })
+  const {
+    canHold,
+    canPick,
+    canRoll,
+    dispatch,
+    keptCount,
+    local,
+    releaseAll,
+    roll: handleRoll,
+    rolling,
+    setMuted: setRollMuted,
+    submitted,
+    submitting,
+  } = roll
   const activePlayerRef = useRef(activePlayerId)
   useEffect(() => {
     if (activePlayerRef.current === activePlayerId) return
@@ -140,15 +111,11 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const candidates: CategoryScores = local.dice
     ? calculateScoreCandidates(local.dice, usedCategories)
     : {}
+  const rolled = local.dice !== null
 
   // 디자인의 한 장 점수시트 — 모든 플레이어를 열로 눕힌다. 내 열이 항상 첫 번째다.
   const sheetPlayers = toMatrixPlayers(snapshot.players, game?.scores, session.you)
-  const leader = sheetPlayers.reduce(
-    (best, player) =>
-      (player.scoreboard?.total ?? 0) > (best?.scoreboard?.total ?? 0) ? player : best,
-    sheetPlayers[0],
-  )
-  const leaderLabel = leader ? `${leader.nickname} · ${leader.scoreboard?.total ?? 0}` : '—'
+  const leaderLabel = scoreLeaderLabel(sheetPlayers)
 
   const toggleSound = () => {
     const muted = !soundMuted
@@ -200,328 +167,34 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     <TurnStrip activePlayerId={activePlayerId} players={turnPlayers} you={session.you} />
   )
 
-  const trayLabel = activePlayer
-    ? isMyTurn
-      ? `롤링 존 · 나 · 굴림 ${currentRollNumber}/${MAX_ROLLS}`
-      : `롤링 존 · ${activePlayer.nickname}의 턴`
-    : '턴 동기화 중'
-
-  const keptSum = local.dice
-    ? local.dice.reduce((sum, value, index) => sum + (local.held[index] ? value : 0), 0)
-    : 0
-
-  const rolled = local.dice !== null
-
-  // 코치마크와 자리를 나눠 쓴다 — 권한 안내가 떠 있는 동안에는 코치마크를 미룬다.
-  const permissionNoticeVisible =
-    isPermissionNoticeState(motion.availability) && dismissedNotice !== motion.availability
-
-  /* 지금 뭘 하면 되는지 한 문장으로 알려준다. 트레이 하단 가운데에 한 줄로 눕히므로
-     개행 없이 들어갈 길이를 유지한다 — 길어지면 킵 레일 라벨과 부딪힌다(S15P11A406-94). */
-  const statusText = submitted
-    ? '점수가 반영됐습니다 · 다음 턴 대기'
-    : !isMyTurn
-      ? `${activePlayer?.nickname ?? '—'}님이 굴리는 중입니다`
-      : allKept
-        ? '모두 킵했습니다 · 해제하거나 족보를 기록하세요'
-        : rolled
-          ? '홀드하고 다시 굴리거나, 족보를 탭해 기록하세요'
-          : `라운드 ${roundNumber} — 굴려서 시작하세요`
-
   const diceScene = (
-    <div
-      className={cn(
-        // 디자인 04 트레이 — 라운드 코너·헤어라인 보더·상단 하이라이트의 매트 블랙 그릇.
-        'relative min-h-0 flex-1 overflow-hidden rounded-[1.375rem] border border-white/8 shadow-[inset_0_2px_0_rgb(255_255_255_/_6%),inset_0_-26px_46px_rgb(0_0_0_/_62%)] transition-transform [background:var(--ds-physics-tray)] motion-reduce:transform-none',
-        wide ? 'mx-gutter my-3' : 'mx-gutter mt-3 mb-1',
-        motion.lastPulseDirection === 'left' && '-translate-x-1',
-        motion.lastPulseDirection === 'right' && 'translate-x-1',
-      )}
-    >
-      <div className="pointer-events-none absolute top-3 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
-        {trayLabel}
-      </div>
-      {/* 남은 굴리기는 트레이 우측 상단 — 시선이 머무는 곳이 트레이고, 푸터에 두면 영역을 차지한다. */}
-      <div className="pointer-events-none absolute top-2.5 right-3 z-10 flex items-center gap-1.5">
-        <RollCounter rollsUsed={settledRollCount} />
-        {/* 트레이 탭은 굴리기·홀드 조작이라, 툴팁 트리거에만 pointer-events를 되살린다. */}
-        <Tooltip
-          align="end"
-          className="pointer-events-auto text-content-faint"
-          content="턴마다 최대 3번 굴릴 수 있어요. 주사위 눈이 남은 횟수예요."
-          label="남은 굴리기 설명"
-        />
-      </div>
-      {/* 하단 밴드 — 킵 레일 라벨(좌)과 안내문(가운데)을 같은 grid에 둔다. 안내문을 따로
-          absolute로 가운데 두면 좁은 폭에서 좌측 라벨과 겹친다. 1fr auto 1fr이므로
-          가운데 칼럼은 트레이 정중앙에 놓이고, 라벨은 자기 칼럼 안에서만 접힌다. */}
-      <div className="pointer-events-none absolute inset-x-4 bottom-2.5 z-10 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
-        <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
-          킵 레일 ·{' '}
-          {keptCount > 0
-            ? `${keptCount}/5 · 합 ${keptSum}${allKept ? ' · 해제해야 굴릴 수 있어요' : ''}`
-            : '비어 있음'}
-          <Tooltip
-            align="start"
-            className="pointer-events-auto"
-            content="주사위를 탭하면 킵돼서 여기 줄지어요. 킵한 주사위는 다시 굴리지 않고, 한 번 더 탭하면 풀려요."
-            label="킵 레일 설명"
-            side="top"
-          />
-        </span>
-        {/* 안내문은 와이드에서만 — 모바일은 기록 패널이 안내를 겸한다. */}
-        {wide ? (
-          <p className="m-0 text-center text-sm/none whitespace-nowrap text-content-muted">
-            {statusText}
-          </p>
-        ) : (
-          <span />
-        )}
-        <span />
-      </div>
-      <PhysicsDiceScene
-        dice={local.dice}
-        held={local.held}
-        lineUpAll={lastRollInPlay}
-        motionFollow={rollInputMode === 'motion' || remoteShaking}
-        motionPulse={motionPulse}
-        releaseRequestId={releaseRequestId}
-        onDiceImpact={onDiceImpact}
-        onError={onPhysicsError}
-        onHeldToggle={toggleHeld}
-        onPhaseChange={onPhysicsPhaseChange}
-        onRollComplete={completeRoll}
-        request={pendingRoll}
-      />
-      {/* 첫 굴림 전에는 트레이 전체가 탭 타깃이다. 주사위가 깔린 뒤에는
-          탭이 "홀드 토글"을 뜻하므로 이 오버레이를 걷어 충돌을 없앤다. */}
-      {canRoll && local.dice === null && !pendingRoll && (
-        <button
-          aria-label="주사위 굴리기"
-          className="absolute inset-0 z-10 grid cursor-pointer place-items-center border-0 bg-transparent focus-visible:outline-3 focus-visible:outline-focus focus-visible:-outline-offset-4"
-          onClick={handleRoll}
-          type="button"
-        >
-          <span className="text-[11px] font-bold tracking-[0.1em] text-content-faint uppercase">
-            탭해서 굴리기
-          </span>
-        </button>
-      )}
-      {rollHighlight && (
-        <RollResultCallout
-          hand={rollHighlight.hand}
-          key={rollHighlight.id}
-          onDone={dismissRollHighlight}
-        />
-      )}
-      {turnCallout !== null && (
-        <EffectCallout
-          key={turnCallout}
-          onDone={() => setTurnCallout(null)}
-          text="내 차례!"
-          tier={2}
-        />
-      )}
-      {pendingRoll && rollInputMode === 'motion' && (
-        <Button
-          className="absolute top-14 right-3 z-20 shadow-raised"
-          disabled={releaseRequestId !== null}
-          onClick={confirmThrow}
-        >
-          지금 던지기
-        </Button>
-      )}
-      {isPermissionNoticeState(motion.availability) && dismissedNotice !== motion.availability && (
-        <div className="absolute inset-x-3 top-3 z-30">
-          <MotionPermissionPanel
-            availability={motion.availability}
-            onClose={() => setDismissedNotice(motion.availability)}
-            onRequestPermission={motion.requestPermission}
-          />
-        </div>
-      )}
-      {/* 첫 판 마스코트 가이드 — 실제 굴림·킵·기록에 반응해 다음 안내로 넘어간다.
-          권한 안내 패널이 떠 있는 동안에는 겹치지 않게 미룬다. */}
-      {tutorialOpen && !permissionNoticeVisible && (
-        <TutorialGuide
-          isMyTurn={isMyTurn && !submitted}
-          kept={keptCount > 0}
-          onFinish={() => {
-            // 끝까지 봤으면 다음 게임에서 또 처음부터 반복하지 않는다.
-            hideTutorial()
-            setTutorialOpen(false)
-          }}
-          onNeverShowAgain={() => {
-            hideTutorial()
-            setTutorialOpen(false)
-          }}
-          onSkip={() => setTutorialOpen(false)}
-          rolled={rolled}
-          submitted={submitted}
-        />
-      )}
-    </div>
-  )
-
-  // 디자인 04 헤더의 ✕ — 나가기는 아이콘 버튼 하나로 줄인다(확인 모달이 뒤에 있다).
-  const leaveButton = (
-    <button
-      aria-label="나가기"
-      className="grid size-10 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-[15px] text-content-muted transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
-      onClick={onLeaveRequest}
-      type="button"
-    >
-      ✕
-    </button>
-  )
-
-  // 규칙·족보는 언제든 다시 볼 수 있어야 한다 — 나가기와 같은 급의 아이콘 버튼 하나.
-  const helpButton = (
-    <button
-      aria-label="게임 도움말"
-      className="grid size-10 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-[15px] font-bold text-content-muted transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
-      onClick={() => setHelpOpen(true)}
-      type="button"
-    >
-      ?
-    </button>
-  )
-
-  /* 족보 목소리는 갑자기 크게 튀어나오는 연출이다 — 조용한 곳에서 끌 방법이 화면 안에 있어야 한다.
-     ✕과 같은 아이콘 버튼 규격으로 맞춰 헤더 폭을 더 쓰지 않는다. */
-  const soundButton = (
-    <button
-      aria-label={soundMuted ? '소리 켜기' : '소리 끄기'}
-      aria-pressed={!soundMuted}
-      className="grid size-10 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-[15px] text-content-muted transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
-      onClick={toggleSound}
-      type="button"
-    >
-      <span aria-hidden="true">{soundMuted ? '🔇' : '🔊'}</span>
-    </button>
-  )
-
-  // ROUND 라벨 아래 "누구 턴인지"를 점·색으로 병기한다(디자인 04·05).
-  const turnStatus = (
-    <span className="flex min-w-0 flex-col gap-0.5">
-      <span className="font-mono text-[11px] leading-none font-bold tracking-[0.16em] text-content-muted uppercase">
-        Round {String(roundNumber).padStart(2, '0')} / {TOTAL_ROUNDS}
-      </span>
-      <span
-        className={cn(
-          'flex items-center gap-1.5 truncate text-[16px] font-bold transition-colors duration-base',
-          // 턴 주인이 바뀌면 라벨을 리마운트해 짧은 flash로 전환을 알린다(QA FND-7).
-          'motion-safe:animate-turn-flash',
-          !isMyTurn && activePlayer && 'text-[#FF8A86]',
-        )}
-        key={activePlayerId ?? 'sync'}
-      >
-        <span
-          aria-hidden="true"
-          className={cn(
-            'size-2 flex-none rounded-full transition-colors duration-base',
-            isMyTurn && !submitted
-              ? 'bg-positive'
-              : activePlayer
-                ? 'bg-brand-strong shadow-[0_0_8px_rgb(229_57_53_/_90%)] motion-safe:animate-ring-pulse'
-                : 'bg-content-faint',
-          )}
-        />
-        {/* 내 제출이 끝났는데 activePlayerId가 아직 나인 구간엔 내 이름을 그대로 반복하는 대신
-            "대기 중"임을 분명히 한다 — 서버의 다음 round.start를 기다리는 상태다(QA FND-3). */}
-        {isMyTurn && !submitted
-          ? '내 턴이에요'
-          : isMyTurn && submitted
-            ? '제출 완료 · 대기 중'
-            : activePlayer
-              ? `${activePlayer.nickname}의 턴`
-              : '턴 동기화 중'}
-      </span>
-    </span>
-  )
-
-  const timerRing = (
-    <RoundTimer
-      compact
-      remainingMs={remainingMs}
+    <GameDiceTray
+      activePlayer={activePlayer}
+      isMyTurn={isMyTurn}
+      onTurnCalloutDone={() => setTurnCallout(null)}
+      roll={roll}
       roundNumber={roundNumber}
-      totalRounds={TOTAL_ROUNDS}
+      turnCallout={turnCallout}
+      wide={wide}
     />
   )
 
   const header = (
-    <header
-      className={cn(
-        'flex flex-none items-center px-gutter',
-        wide ? 'h-[4.5rem] gap-5 border-b border-border' : 'h-[4.25rem] gap-3',
-      )}
-    >
-      <h1 className="sr-only">
-        요르 게임 진행 중 · {roundNumber} / {TOTAL_ROUNDS} 라운드
-      </h1>
-      {wide ? (
-        // 디자인 23 데스크톱 헤더 — ✕ · 라운드/턴 · 선두 · 연결 상태 · 링 타이머.
-        <>
-          {leaveButton}
-          {turnStatus}
-          <span aria-hidden="true" className="h-8 w-px flex-none bg-border" />
-          <HeaderStat label="선두" value={leaderLabel} />
-          <span className="flex-1" />
-          <span className="inline-flex h-[2.125rem] flex-none items-center gap-2 rounded-full border border-border bg-white/6 px-3.5 text-[13px] font-semibold">
-            <span
-              aria-hidden="true"
-              className={cn(
-                'size-[7px] rounded-full',
-                connectionStatus === 'connected' ? 'bg-positive' : 'bg-warning',
-              )}
-            />
-            {connectionStatus === 'connected'
-              ? '연결됨'
-              : connectionStatus === 'reconnecting'
-                ? '재연결 중'
-                : connectionStatus === 'closed'
-                  ? '연결 끊김'
-                  : '연결 중'}
-          </span>
-          {helpButton}
-          {soundButton}
-          {timerRing}
-        </>
-      ) : (
-        <>
-          {leaveButton}
-          <div className="min-w-0 flex-1">{turnStatus}</div>
-          {helpButton}
-          {soundButton}
-          {timerRing}
-        </>
-      )}
-    </header>
-  )
-
-  // 내 차례가 아니면 CTA 자리를 비워둔다. "누가 진행 중인지"는 상단 스트립이 항상 보여주므로
-  // 여기서 같은 정보를 반복하지 않는다(중복 표시가 오히려 시선을 아래로 끌었다).
-  const waitingNotice = submitted ? (
-    // 디자인 21 — 기록 완료는 그린 틴트로 "끝났다"를 말한다.
-    <p className="m-0 flex min-h-15 flex-1 items-center justify-center gap-2.5 rounded-panel border border-positive/40 bg-positive/10 px-4 text-center text-sm font-semibold text-positive">
-      <span
-        aria-hidden="true"
-        className="grid size-5 flex-none place-items-center rounded-[7px] bg-positive/20 text-[11px] leading-none font-bold"
-      >
-        ✓
-      </span>
-      점수가 반영됐습니다. 다음 턴을 기다립니다.
-    </p>
-  ) : (
-    // 디자인 21 하단 바 — 남의 턴에는 누가 굴리는지 펄스 도트와 함께 보여준다.
-    <p className="m-0 flex min-h-15 flex-1 items-center justify-center gap-2.5 rounded-panel border border-border bg-surface px-4 text-center text-sm font-semibold text-content-muted">
-      <span
-        aria-hidden="true"
-        className="size-2 flex-none rounded-[2px] bg-brand-strong motion-safe:animate-ring-pulse"
-      />
-      {/* 닉네임은 임의 입력이라 받침 유무를 알 수 없다 — "(으)로"와 같은 방식으로 이/가를 표기한다(QA FND-9). */}
-      {activePlayer ? `${activePlayer.nickname}(이)가 굴리는 중` : '턴 동기화 중'}
-    </p>
+    <GamePlayHeader
+      activePlayer={activePlayer}
+      activePlayerId={activePlayerId}
+      connectionStatus={connectionStatus}
+      isMyTurn={isMyTurn}
+      leaderLabel={leaderLabel}
+      onHelp={() => setHelpOpen(true)}
+      onLeave={onLeaveRequest}
+      onToggleSound={toggleSound}
+      remainingMs={remainingMs}
+      roundNumber={roundNumber}
+      soundMuted={soundMuted}
+      submitted={submitted}
+      wide={wide}
+    />
   )
 
   const zeroModal = (
@@ -541,82 +214,50 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     (category) => !isRecorded(activeBoard?.categories[category]),
   )
 
-  // 디자인 기록 패널의 퀵 칩 — peek 상태에서도 보이는 원큐 기록 스트립.
   const quickStrip = (
-    <ul className="m-0 flex list-none gap-2 overflow-x-auto px-4 py-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {openCategories.map((category) => {
-        const score = rolled ? (candidates[category] ?? 0) : null
-        return (
-          <li className="flex-none" key={category}>
-            <button
-              aria-label={`${categoryLabel[category]}${score === null ? '' : ` ${score}점 기록`}`}
-              className="flex h-[4.125rem] min-w-[5.5rem] cursor-pointer flex-col items-start justify-between rounded-control border border-border bg-surface px-2.5 py-2 text-left text-content transition-colors focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55"
-              disabled={!canPick || !rolled}
-              onClick={() => pickCategory(category)}
-              type="button"
-            >
-              <span className="text-[10px] font-semibold tracking-[0.07em] uppercase">
-                {categoryShortLabel[category]}
-              </span>
-              <span className="font-mono text-[22px] leading-none font-bold tabular-nums">
-                {score ?? '—'}
-              </span>
-            </button>
-          </li>
-        )
-      })}
-    </ul>
+    <QuickCategoryStrip
+      canPick={canPick}
+      candidates={candidates}
+      categories={openCategories}
+      onPick={pickCategory}
+      rolled={rolled}
+    />
   )
 
   // 킵 레일을 통째로 비우는 보조 동작(디자인 Yacht Play 3D의 Release all).
   const canReleaseAll = keptCount > 0 && canHold
 
   // 기록은 점수표·칩 탭으로 끝나므로 CTA는 굴리기 하나다(디자인 하단 바).
-  const actions =
-    submitted || !isMyTurn ? (
-      waitingNotice
-    ) : (
-      <>
-        <Button
-          className={cn('min-h-15 rounded-panel text-[17px]', wide ? 'w-[300px]' : 'flex-1')}
-          disabled={!canRoll}
-          loading={rolling || submitting}
-          onClick={handleRoll}
-          size="lg"
-        >
-          {rolling ? '굴리는 중' : '굴리기'}
-          {wide && !rolling && <span className="ml-2 text-xs font-medium opacity-70">Space</span>}
-        </Button>
-        {wide && (
-          <Button
-            className="min-h-15"
-            disabled={!canReleaseAll}
-            onClick={releaseAll}
-            variant="ghost"
-          >
-            모두 해제
-          </Button>
-        )}
-      </>
-    )
+  const actions = (
+    <GamePlayActions
+      activePlayerName={activePlayer?.nickname}
+      canReleaseAll={canReleaseAll}
+      canRoll={canRoll}
+      isMyTurn={isMyTurn}
+      onReleaseAll={releaseAll}
+      onRoll={handleRoll}
+      rolling={rolling}
+      submitted={submitted}
+      submitting={submitting}
+      wide={wide}
+    />
+  )
 
-  const scoreSheet = (className?: string) => (
+  const scoreSheet = (className: string) => (
     <ScoreSheet
       activePlayerId={activePlayerId}
       candidates={candidates}
       canPick={canPick}
-      {...(className ? { className } : {})}
+      className={className}
       onPick={pickCategory}
       players={sheetPlayers}
       you={session.you}
     />
   )
 
-  const sheetHint = !isMyTurn
-    ? `${activePlayer?.nickname ?? '—'} 차례`
-    : rolled
-      ? '행을 탭하면 바로 기록됩니다'
-      : '먼저 주사위를 굴리세요'
+  const activePlayerName = activePlayer?.nickname
+  const sheetHint = scoreSheetHint(isMyTurn, rolled, activePlayerName)
+  const recordTitle = scoreRecordTitle(isMyTurn, activePlayerName)
 
   return (
     <>
@@ -663,7 +304,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
                 open={sheetOpen}
                 quick={quickStrip}
                 subtitle={`${openCategories.length}개 남음`}
-                title={`기록 — ${isMyTurn ? '나' : (activePlayer?.nickname ?? '—')}`}
+                title={recordTitle}
               >
                 {scoreSheet('h-full')}
               </RecordPanel>
@@ -690,24 +331,146 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   )
 }
 
-function HeaderStat({
-  accent = false,
-  label,
-  value,
+function scoreLeaderLabel(players: ReturnType<typeof toMatrixPlayers>) {
+  const leader = players.reduce(
+    (best, player) =>
+      (player.scoreboard?.total ?? 0) > (best?.scoreboard?.total ?? 0) ? player : best,
+    players[0],
+  )
+  return leader ? `${leader.nickname} · ${leader.scoreboard?.total ?? 0}` : '—'
+}
+
+function scoreSheetHint(isMyTurn: boolean, rolled: boolean, activePlayerName?: string) {
+  if (!isMyTurn) return `${activePlayerName ?? '—'} 차례`
+  return rolled ? '행을 탭하면 바로 기록됩니다' : '먼저 주사위를 굴리세요'
+}
+
+function scoreRecordTitle(isMyTurn: boolean, activePlayerName?: string) {
+  return `기록 — ${isMyTurn ? '나' : (activePlayerName ?? '—')}`
+}
+
+function QuickCategoryStrip({
+  canPick,
+  candidates,
+  categories,
+  onPick,
+  rolled,
 }: {
-  accent?: boolean
-  label: string
-  value: string
+  canPick: boolean
+  candidates: CategoryScores
+  categories: YachtCategory[]
+  onPick: (category: YachtCategory) => void
+  rolled: boolean
 }) {
   return (
-    <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-      <span className="text-[10px] font-medium tracking-[0.08em] text-content-faint uppercase">
-        {label}
-      </span>
-      <span className={cn('text-[17px] font-bold', accent ? 'text-brand-strong' : 'text-content')}>
-        {value}
-      </span>
-    </div>
+    <ul className="m-0 flex list-none gap-2 overflow-x-auto px-4 py-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {categories.map((category) => {
+        const score = rolled ? (candidates[category] ?? 0) : null
+        const scoreLabel = score === null ? '' : ` ${score}점 기록`
+        return (
+          <li className="flex-none" key={category}>
+            <button
+              aria-label={`${categoryLabel[category]}${scoreLabel}`}
+              className="flex h-[4.125rem] min-w-[5.5rem] cursor-pointer flex-col items-start justify-between rounded-control border border-border bg-surface px-2.5 py-2 text-left text-content transition-colors focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55"
+              disabled={!canPick || !rolled}
+              onClick={() => onPick(category)}
+              type="button"
+            >
+              <span className="text-[10px] font-semibold tracking-[0.07em] uppercase">
+                {categoryShortLabel[category]}
+              </span>
+              <span className="font-mono text-[22px] leading-none font-bold tabular-nums">
+                {score ?? '—'}
+              </span>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function GamePlayActions({
+  activePlayerName,
+  canReleaseAll,
+  canRoll,
+  isMyTurn,
+  onReleaseAll,
+  onRoll,
+  rolling,
+  submitted,
+  submitting,
+  wide,
+}: {
+  activePlayerName: string | undefined
+  canReleaseAll: boolean
+  canRoll: boolean
+  isMyTurn: boolean
+  onReleaseAll: () => void
+  onRoll: () => void
+  rolling: boolean
+  submitted: boolean
+  submitting: boolean
+  wide: boolean
+}) {
+  if (submitted) return <WaitingNotice activePlayerName={undefined} submitted />
+  if (!isMyTurn) return <WaitingNotice activePlayerName={activePlayerName} submitted={false} />
+
+  return (
+    <>
+      <Button
+        className={cn('min-h-15 rounded-panel text-[17px]', wide ? 'w-[300px]' : 'flex-1')}
+        disabled={!canRoll}
+        loading={rolling || submitting}
+        onClick={onRoll}
+        size="lg"
+      >
+        {rolling ? '굴리는 중' : '굴리기'}
+        {wide && !rolling && <span className="ml-2 text-xs font-medium opacity-70">Space</span>}
+      </Button>
+      {wide && (
+        <Button
+          className="min-h-15"
+          disabled={!canReleaseAll}
+          onClick={onReleaseAll}
+          variant="ghost"
+        >
+          모두 해제
+        </Button>
+      )}
+    </>
+  )
+}
+
+function WaitingNotice({
+  activePlayerName,
+  submitted,
+}: {
+  activePlayerName: string | undefined
+  submitted: boolean
+}) {
+  if (submitted) {
+    return (
+      <p className="m-0 flex min-h-15 flex-1 items-center justify-center gap-2.5 rounded-panel border border-positive/40 bg-positive/10 px-4 text-center text-sm font-semibold text-positive">
+        <span
+          aria-hidden="true"
+          className="grid size-5 flex-none place-items-center rounded-[7px] bg-positive/20 text-[11px] leading-none font-bold"
+        >
+          ✓
+        </span>
+        점수가 반영됐습니다. 다음 턴을 기다립니다.
+      </p>
+    )
+  }
+
+  return (
+    <p className="m-0 flex min-h-15 flex-1 items-center justify-center gap-2.5 rounded-panel border border-border bg-surface px-4 text-center text-sm font-semibold text-content-muted">
+      <span
+        aria-hidden="true"
+        className="size-2 flex-none rounded-[2px] bg-brand-strong motion-safe:animate-ring-pulse"
+      />
+      {activePlayerName ? `${activePlayerName}(이)가 굴리는 중` : '턴 동기화 중'}
+    </p>
   )
 }
 
@@ -834,16 +597,4 @@ function vibrateForMyTurn() {
   } catch {
     // 사용자 제스처 없이 호출하면 던지는 브라우저가 있다. 알림 실패가 게임을 막아선 안 된다.
   }
-}
-
-function isPermissionNoticeState(
-  availability: ReturnType<typeof useMotionRollInput>['availability'],
-): availability is 'permissionRequired' | 'requesting' | 'denied' | 'error' | 'insecure' {
-  return (
-    availability === 'permissionRequired' ||
-    availability === 'requesting' ||
-    availability === 'denied' ||
-    availability === 'error' ||
-    availability === 'insecure'
-  )
 }

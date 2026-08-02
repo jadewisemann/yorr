@@ -1,5 +1,6 @@
 import type { DiceSet } from '@/domain/dice'
 import { YACHT_CATEGORIES, type YachtCategory } from '@/domain/scoring'
+import type { MotionAvailability } from '@/input/motionTypes'
 import type { RollInputMode } from '@/input/RollIntent'
 import type {
   ErrorPayload,
@@ -66,6 +67,59 @@ export function rollAnimationMode({
 
 export function turnAwareErrorMessage(payload: ErrorPayload): string {
   return payload.code === 'NOT_YOUR_TURN' ? '지금은 내 차례가 아니에요.' : payload.message
+}
+
+export function diceTrayLabel({
+  activePlayerName,
+  currentRollNumber,
+  isMyTurn,
+}: {
+  activePlayerName: string | undefined
+  currentRollNumber: number
+  isMyTurn: boolean
+}) {
+  if (!activePlayerName) return '턴 동기화 중'
+  return isMyTurn
+    ? `롤링 존 · 나 · 굴림 ${currentRollNumber}/3`
+    : `롤링 존 · ${activePlayerName}의 턴`
+}
+
+export function diceTrayStatus({
+  activePlayerName,
+  allKept,
+  isMyTurn,
+  rolled,
+  roundNumber,
+  submitted,
+}: {
+  activePlayerName: string | undefined
+  allKept: boolean
+  isMyTurn: boolean
+  rolled: boolean
+  roundNumber: number
+  submitted: boolean
+}) {
+  if (submitted) return '점수가 반영됐습니다 · 다음 턴 대기'
+  if (!isMyTurn) return `${activePlayerName ?? '—'}님이 굴리는 중입니다`
+  if (allKept) return '모두 킵했습니다 · 해제하거나 족보를 기록하세요'
+  if (rolled) return '홀드하고 다시 굴리거나, 족보를 탭해 기록하세요'
+  return `라운드 ${roundNumber} — 굴려서 시작하세요`
+}
+
+export function keptRailLabel(keptCount: number, keptSum: number, allKept: boolean) {
+  if (keptCount === 0) return '비어 있음'
+  const releaseHint = allKept ? ' · 해제해야 굴릴 수 있어요' : ''
+  return `${keptCount}/5 · 합 ${keptSum}${releaseHint}`
+}
+
+export function isMotionPermissionNotice(availability: MotionAvailability) {
+  return (
+    availability === 'permissionRequired' ||
+    availability === 'requesting' ||
+    availability === 'denied' ||
+    availability === 'error' ||
+    availability === 'insecure'
+  )
 }
 
 /** 두 점수판을 비교해 이번에 새로 채워진 족보 하나를 찾는다. 없으면 null. */

@@ -20,8 +20,12 @@ import type { MotionGestureEvent } from '@/input/motionTypes'
 import type { RollInputMode } from '@/input/RollIntent'
 import { useMotionRollInput } from '@/input/useMotionRollInput'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
-import type { GameState, PlayerId, ServerMessage } from '@/realtime/wsEvents'
-import { buildClientMessage } from '@/realtime/wsEvents'
+import {
+  buildClientMessage,
+  type GameState,
+  type PlayerId,
+  type ServerMessage,
+} from '@/realtime/wsEvents'
 import type { PhysicsDiceMotionPulse, PhysicsDicePhase } from '@/rendering/physics-dice/types'
 import { readSoundMuted } from '@/soundPreference'
 import { useAppStore } from '@/store'
@@ -553,3 +557,5 @@ export function useGamePlayRoll({ game, roomId, showToast, you }: UseGamePlayRol
     toggleHeld,
   }
 }
+
+export type GamePlayRoll = ReturnType<typeof useGamePlayRoll>
