@@ -293,23 +293,36 @@ export function EntryPage() {
  * 거기 두면 primary 아래 secondary로 읽혀 "이 게임을 코드로 연다"가 되고, 준비 중인
  * 게임에서는 잠긴 버튼 아래 붙어 더 어긋난다.
  *
- * 눌린 면(landing-well + 헤어라인)으로 그려 채워진 게임 CTA와 층 자체를 다르게 둔다.
- * 위계를 낮춘 게 아니라 다른 축에 세운 것이다 — 링크·QR 진입이 이 제품의 주 경로다.
+ * 채워진 CTA와 층을 가르는 축은 **채움 여부**다(면 vs 윤곽). 밝기가 아니다 —
+ * 밝기로 가르려고 눌린 면(well = 검정 55% 덧칠)을 쓰면 캔버스가 이미 블랙이라
+ * 더 내려갈 곳이 없어 배경에 잠긴다. 실제로 narrow에서 그렇게 됐고, 보이는 상태
+ * (landing-soft)를 hover에만 넣어둬서 hover가 없는 모바일은 그 상태를 볼 길이 없었다.
+ * 그래서 narrow는 뜬 면(soft) + 레드 윤곽으로 세운다: 레드를 쓰되 **채우지 않고
+ * 빛내지 않는다.** 채운 레드와 글로우(shadow-landing-cta)는 하단 CTA 하나만 갖는다.
+ *
+ * compact(wide 헤더)는 옆에 구분선·계정 칩이 함께 서서 크롬 줄을 이루므로 그대로 둔다.
  */
+const codeEntryBase =
+  'flex cursor-pointer items-center border text-landing-text transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2'
+
+const codeEntryLayout = {
+  compact:
+    'min-h-tap gap-2 rounded-[14px] border-landing-hairline-strong bg-landing-well px-4 text-[15px] font-semibold hover:border-landing-accent/70 hover:bg-landing-soft',
+  narrow:
+    'w-full min-h-14 gap-3 rounded-[18px] border-landing-accent/60 bg-landing-soft px-4.5 text-[16px] font-landing-bold hover:border-landing-accent',
+} as const
+
 function CodeEntryRow({ compact = false, onOpen }: { compact?: boolean; onOpen: () => void }) {
   return (
     <button
-      className={cn(
-        'flex min-h-tap cursor-pointer items-center rounded-[14px] border border-landing-hairline-strong bg-landing-well font-semibold text-landing-text transition-colors duration-150 ease-out hover:border-landing-accent/70 hover:bg-landing-soft focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
-        compact ? 'gap-2 px-4 text-[15px]' : 'w-full gap-2.5 px-4 text-[15px]',
-      )}
+      className={cn(codeEntryBase, codeEntryLayout[compact ? 'compact' : 'narrow'])}
       onClick={onOpen}
       type="button"
     >
-      <CodeGlyph />
+      <CodeGlyph tone={compact ? 'quiet' : 'accent'} />
       초대 코드로 참가
       {!compact && (
-        <span aria-hidden="true" className="ml-auto text-[18px]/none text-landing-text-faint">
+        <span aria-hidden="true" className="ml-auto text-[20px]/none text-landing-text-muted">
           ›
         </span>
       )}
@@ -399,13 +412,24 @@ function ComingSoonCta({ layout }: { layout: 'narrow' | 'wide' }) {
   )
 }
 
+/**
+ * accent = narrow 단독 진입 버튼. 세 칸이 이 화면에서 유일하게 "코드"를 그리는 형태라
+ * 여기에 레드를 쓴다 — 채운 CTA 레드가 아니라 텍스트 강조용 accent-text다(면적 비 약 1:80).
+ * quiet = wide 헤더. 옆 컨트롤과 같은 흰색 55%를 유지한다 — 칸의 opacity를 래퍼로 옮겼을
+ * 뿐 렌더 결과는 종전과 같다.
+ */
+const codeGlyphTone = {
+  accent: 'text-landing-accent-text',
+  quiet: 'opacity-55',
+} as const
+
 /** 방 코드 세 칸을 줄여 그린 아이콘. 무엇을 입력하는 버튼인지 글자 없이 한 번 더 말한다. */
-function CodeGlyph() {
+function CodeGlyph({ tone = 'quiet' }: { tone?: keyof typeof codeGlyphTone }) {
   return (
-    <span aria-hidden="true" className="flex gap-[3px]">
-      <span className="h-3.5 w-1.5 rounded-[2px] border border-current opacity-55" />
-      <span className="h-3.5 w-1.5 rounded-[2px] border border-current opacity-55" />
-      <span className="h-3.5 w-1.5 rounded-[2px] border border-current opacity-55" />
+    <span aria-hidden="true" className={cn('flex gap-[3px]', codeGlyphTone[tone])}>
+      <span className="h-3.5 w-1.5 rounded-[2px] border border-current" />
+      <span className="h-3.5 w-1.5 rounded-[2px] border border-current" />
+      <span className="h-3.5 w-1.5 rounded-[2px] border border-current" />
     </span>
   )
 }
