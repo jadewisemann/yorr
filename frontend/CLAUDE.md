@@ -2,17 +2,11 @@
 
 > Git 협업 규칙은 루트 [`../CLAUDE.md`](../CLAUDE.md), [`../CONTRIBUTING.md`](../CONTRIBUTING.md)를 그대로 따른다. 이 파일은 `frontend/` 안에서 작업할 때만 적용되는 내용을 다룬다.
 
-## 문서 읽기 원칙 — 인덱스 하나로 바로 필요한 것만
+## 문서 읽기 원칙
 
-`frontend/docs/`에는 기획·요구사항·아키텍처·API 계약 문서가 있다. 인덱스는
-[`docs/README.md`](docs/README.md) **하나뿐**이다 — 폴더별 하위 인덱스는 없다.
-
-1. [`docs/README.md`](docs/README.md)의 표를 보고 필요한 파일만 연다. 관련 없는 문서는 열지 않는다.
-2. "지금 뭘 기준으로 만드나"류 질문이면 대부분 [`docs/current-baseline.md`](docs/current-baseline.md)
-   한 파일로 충분하다 — 다른 문서를 열기 전에 먼저 확인한다.
-3. `product/` · `engineering/` · `api/` · `process/` 폴더는 파일을 주제별로 묶어둔 것일 뿐,
-   그 자체로 열어야 할 인덱스가 아니다 — 어떤 파일이 있는지는 `docs/README.md` 표로 판단한다.
-4. 문서와 코드가 충돌하면 코드가 이긴다: WebSocket 타입은 [`src/realtime/wsEvents.ts`](src/realtime/wsEvents.ts)가 SSOT, Git 규칙은 루트 `CONTRIBUTING.md`가 SSOT다.
+`frontend/docs/`는 위키처럼 인덱스 구조로 되어 있다. [`docs/index.md`](docs/index.md) 하나만
+보고 표에서 필요한 파일만 골라 연다 — 읽는 방법과 문서 목록은 그 파일에만 적어두고 여기서
+반복하지 않는다. 문서와 코드가 충돌하면 코드가 이긴다.
 
 ## 디렉터리 구조 (src)
 
