@@ -16,6 +16,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={0}
         games={landingGames}
         layout="wide"
+        onPlay={vi.fn()}
         onSelect={onSelect}
       />,
     )
@@ -33,6 +34,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={0}
         games={landingGames}
         layout="wide"
+        onPlay={vi.fn()}
         onSelect={onSelect}
       />,
     )
@@ -45,6 +47,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={landingGames.length - 1}
         games={landingGames}
         layout="wide"
+        onPlay={vi.fn()}
         onSelect={onSelect}
       />,
     )
@@ -60,6 +63,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={0}
         games={landingGames}
         layout="narrow"
+        onPlay={vi.fn()}
         onSelect={onSelect}
       />,
     )
@@ -75,6 +79,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={1}
         games={landingGames}
         layout="wide"
+        onPlay={vi.fn()}
         onSelect={onSelect}
       />,
     )
@@ -93,6 +98,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={1}
         games={landingGames}
         layout="wide"
+        onPlay={vi.fn()}
         onSelect={onSelect}
       />,
     )
@@ -113,6 +119,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={1}
         games={landingGames}
         layout="wide"
+        onPlay={vi.fn()}
         onSelect={onSelect}
       />,
     )
@@ -132,19 +139,55 @@ describe('LandingHeroCarousel', () => {
         activeIndex={1}
         games={landingGames}
         layout="narrow"
+        onPlay={vi.fn()}
         onSelect={onSelect}
       />,
     )
     const region = screen.getByRole('region', { name: '게임 캐러셀' })
 
-    fireEvent.pointerDown(region, { clientX: 200, pointerId: 1 })
-    fireEvent.pointerMove(region, { clientX: 100, pointerId: 1 })
+    // buttons: 1 = 아직 누른 채로 움직이는 중. 카드 안 플레이 CTA가 생기면서 드래그는
+    // pointerdown이 아니라 8px을 넘긴 순간 시작되고, 그때까지 캡처를 걸지 않는다 —
+    // 캡처 없이 영역 밖에서 손을 떼면 pointerup이 안 오므로 buttons로 그 흔적을 정리한다.
+    fireEvent.pointerDown(region, { buttons: 1, clientX: 200, pointerId: 1 })
+    fireEvent.pointerMove(region, { buttons: 1, clientX: 100, pointerId: 1 })
     fireEvent.pointerUp(region, { pointerId: 1 })
     expect(onSelect).toHaveBeenCalledWith(2)
 
-    fireEvent.pointerDown(region, { clientX: 200, pointerId: 1 })
-    fireEvent.pointerMove(region, { clientX: 190, pointerId: 1 })
+    fireEvent.pointerDown(region, { buttons: 1, clientX: 200, pointerId: 1 })
+    fireEvent.pointerMove(region, { buttons: 1, clientX: 190, pointerId: 1 })
     fireEvent.pointerUp(region, { pointerId: 1 })
     expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+
+  it('CTA 위에서 살짝 흔들린 탭은 드래그로 뒤집히지 않는다', () => {
+    const onPlay = vi.fn()
+    const onSelect = vi.fn()
+    render(
+      <LandingHeroCarousel
+        activeIndex={0}
+        games={landingGames}
+        layout="narrow"
+        onPlay={onPlay}
+        onSelect={onSelect}
+      />,
+    )
+    const region = screen.getByRole('region', { name: '게임 캐러셀' })
+    const play = screen.getByRole('button', { name: /플레이$/ })
+
+    // 임계값(8px) 아래로 움직인 탭 — 캡처를 걸지 않으므로 click이 버튼에 그대로 닿는다.
+    fireEvent.pointerDown(play, { buttons: 1, clientX: 200, pointerId: 1 })
+    fireEvent.pointerMove(region, { buttons: 1, clientX: 204, pointerId: 1 })
+    fireEvent.pointerUp(region, { pointerId: 1 })
+    fireEvent.click(play, { detail: 1 })
+    expect(onPlay).toHaveBeenCalledTimes(1)
+    expect(onSelect).not.toHaveBeenCalled()
+
+    // CTA 위에서 시작한 스와이프는 칸을 넘기고, 뒤따르는 click은 삼킨다.
+    fireEvent.pointerDown(play, { buttons: 1, clientX: 200, pointerId: 1 })
+    fireEvent.pointerMove(region, { buttons: 1, clientX: 100, pointerId: 1 })
+    fireEvent.pointerUp(region, { pointerId: 1 })
+    fireEvent.click(play, { detail: 1 })
+    expect(onSelect).toHaveBeenCalledWith(1)
+    expect(onPlay).toHaveBeenCalledTimes(1)
   })
 })

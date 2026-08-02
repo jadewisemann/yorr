@@ -21,11 +21,17 @@ const WIDE_LAYOUT = '(min-width: 760px)'
 
 const wordmark = 'font-mono font-bold tracking-[-0.03em] text-landing-text'
 const wordmarkTag = 'font-mono font-bold tracking-[0.24em] text-landing-text-muted uppercase'
-const primaryButton =
-  'flex cursor-pointer items-center justify-center gap-3.5 rounded-[20px] border-0 bg-landing-accent font-bold text-landing-accent-ink shadow-landing-cta transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-3'
-const lockedButton =
-  'flex cursor-not-allowed items-center justify-center gap-3.5 rounded-[20px] border border-landing-hairline bg-landing-disabled font-bold text-landing-text-faint'
 const noticeBase = 'm-0 text-center text-[12.5px]/[1.5] font-semibold text-landing-accent-text'
+
+/**
+ * narrow 화면 바닥 층. 복귀 배너·안내가 없으면 <b>상단 여백까지 지운다</b> — 비어 있는 층이
+ * 12px를 물고 있으면 그만큼 히어로 카드가 못 자란다. 비었을 때 남는 건 바닥 여백뿐이다.
+ */
+const narrowFooter = {
+  filled:
+    'flex flex-none flex-col gap-2.5 px-5 pt-[clamp(10px,1.6vh,16px)] pb-[max(14px,env(safe-area-inset-bottom))]',
+  empty: 'flex-none pb-[max(14px,env(safe-area-inset-bottom))]',
+} as const
 
 export function EntryPage() {
   const navigate = useNavigate()
@@ -36,12 +42,15 @@ export function EntryPage() {
   const [accountOpen, setAccountOpen] = useState(false)
   const appNotice = useAppStore((state) => state.appNotice)
   const authSession = useAppStore((state) => state.authSession)
+  const roomSession = useAppStore((state) => state.roomSession)
   const signOut = useAppStore((state) => state.signOut)
   const setAppNotice = useAppStore((state) => state.setAppNotice)
 
   const [soundMuted, setSoundMuted] = useState(readSoundMuted)
 
   const game = landingGameAt(activeIndex)
+  /** 바닥 층에 실제로 그릴 게 있는가. ActiveRoomBanner는 roomSession이 없으면 null이다. */
+  const hasFooter = roomSession !== null || Boolean(appNotice)
 
   useEffect(() => {
     playLandingSoundtrack(game.key)
@@ -140,16 +149,20 @@ export function EntryPage() {
               카드에만 걸면 이웃 카드(띠 폭의 -12.2%)만 뷰포트를 따라가 중앙 카드에서 떨어져
               나가고, 아예 안 걸면 2560에서 카드가 1777×472(3.76:1) 레터박스가 된다.
               화살표(left-11)도 띠 기준이라 같이 안쪽으로 들어와 헤더 좌측단과 축이 맞는다.
-              높이는 narrow와 같은 원칙 — 남는 만큼 먹되(flex-1) 위로는 29.5rem에서 멈춘다.
+              높이는 narrow와 같은 원칙 — 남는 만큼 먹되(flex-1) 위로는 상한에서 멈춘다.
               고정 높이로 두면 가로로 돌린 폰(760x420 등)에서 크롬 합계가 뷰포트를 넘어
-              하단 CTA가 잘린다. */}
+              아래 내용이 잘린다.
+              상한 32rem: 예전 29.5rem은 CTA가 카드 밖에 있던 시절 값이다. CTA가 카피 묶음의
+              마지막 줄로 들어오면서 배지가 빠지고 버튼이 들어와 카드 하단 띠가 38px 두꺼워졌다
+              — 상한도 같은 38px만 올려 3D 영역을 종전 이상으로 지킨다(472 + 38 = 510). */}
           {/* grow 가중치를 크게 줘서 아래 여백 블록보다 먼저 자란다 — 둘 다 flex-1이면
               남는 높이를 반씩 나눠 데스크톱에서 카드가 절반으로 작아진다. */}
-          <div className="relative mx-auto mt-[clamp(8px,3.5vh,32px)] max-h-[29.5rem] min-h-40 w-full max-w-landing flex-[999_1_0%]">
+          <div className="relative mx-auto mt-[clamp(8px,3.5vh,32px)] max-h-[32rem] min-h-40 w-full max-w-landing flex-[999_1_0%]">
             <LandingHeroCarousel
               activeIndex={activeIndex}
               games={landingGames}
               layout="wide"
+              onPlay={handlePlay}
               onSelect={handleGameSelect}
             />
           </div>
@@ -163,8 +176,10 @@ export function EntryPage() {
             />
           </div>
 
-          {/* 진행 표시줄과 CTA 사이 남는 공간. 복귀 배너가 있으면 여기 들어앉는다. */}
-          <div className="flex min-h-0 flex-1 flex-col items-center gap-3 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pt-[clamp(10px,2.2vh,22px)]">
+          {/* 진행 표시줄 아래 남는 공간. 복귀 배너·안내가 여기 들어앉고, 비어 있으면 그대로
+              화면 바닥 여백이 된다. 삭제한 CTA 층의 하단 여백(pb)을 이 층으로 옮겨,
+              짧은 화면(932×430)에서 배너가 뷰포트 바닥에 붙는 것을 막는다. */}
+          <div className="flex min-h-0 flex-1 flex-col items-center gap-3 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pt-[clamp(10px,2.2vh,22px)] pb-[clamp(20px,6vh,56px)]">
             <div className="flex w-full max-w-180 flex-col items-center gap-3">
               <ActiveRoomBanner />
               {appNotice && (
@@ -173,21 +188,6 @@ export function EntryPage() {
                 </p>
               )}
             </div>
-          </div>
-
-          <div className="flex flex-none items-center justify-center gap-5 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-[clamp(20px,6vh,56px)]">
-            {game.live ? (
-              <button
-                className={cn(primaryButton, 'h-18 px-13 text-[23px]')}
-                onClick={handlePlay}
-                type="button"
-              >
-                <PlayGlyph />
-                {game.name} 플레이
-              </button>
-            ) : (
-              <ComingSoonCta layout="wide" />
-            )}
           </div>
         </main>
         {codeDialog}
@@ -232,13 +232,15 @@ export function EntryPage() {
         </div>
 
         {/* 히어로가 남는 높이를 전부 먹는다. 나머지를 고정 높이로 두고 히어로만 늘고 줄면
-            크롬 합계가 뷰포트를 넘을 수 없다 — h-svh + overflow-hidden에서 하단 CTA가
-            잘려 접근 불가가 되는 것을 구조적으로 막는다(짧은 화면 하한은 min-h로 잡는다). */}
+            크롬 합계가 뷰포트를 넘을 수 없다 — h-svh + overflow-hidden에서 아래 내용이
+            잘려 접근 불가가 되는 것을 구조적으로 막는다(짧은 화면 하한은 min-h로 잡는다).
+            CTA가 카드 안으로 들어가면서 바닥 층이 비면 그 높이가 통째로 여기로 돌아온다. */}
         <div className="relative mt-[clamp(8px,1.6vh,16px)] min-h-52 flex-1">
           <LandingHeroCarousel
             activeIndex={activeIndex}
             games={landingGames}
             layout="narrow"
+            onPlay={handlePlay}
             onSelect={handleGameSelect}
           />
         </div>
@@ -252,24 +254,12 @@ export function EntryPage() {
           />
         </div>
 
-        <div className="flex flex-none flex-col gap-2.5 px-5 pb-[max(14px,env(safe-area-inset-bottom))]">
+        <div className={narrowFooter[hasFooter ? 'filled' : 'empty']}>
           <ActiveRoomBanner />
           {appNotice && (
             <p className={noticeBase} role="status">
               {appNotice}
             </p>
-          )}
-          {game.live ? (
-            <button
-              className={cn(primaryButton, 'h-15 w-full text-[19px] shadow-landing-cta-sheet')}
-              onClick={handlePlay}
-              type="button"
-            >
-              <PlayGlyph />
-              {game.name} 플레이
-            </button>
-          ) : (
-            <ComingSoonCta layout="narrow" />
           )}
         </div>
       </main>
@@ -391,31 +381,6 @@ function AccountControl({
 }
 
 /**
- * 준비 중인 게임의 CTA. 눌리지 않는 버튼과 한 줄 안내가 한 묶음이다 —
- * 여기 있던 '출시 알림 받기'는 등록할 엔드포인트가 없어 안내만 띄우고 있었고,
- * 레퍼런스는 같은 자리를 "아직 못 누른다"는 사실 하나로 대체한다.
- */
-function ComingSoonCta({ layout }: { layout: 'narrow' | 'wide' }) {
-  const wide = layout === 'wide'
-
-  return (
-    <div className={cn('flex flex-none flex-col items-center', wide ? 'gap-3.5' : 'gap-2 w-full')}>
-      <button
-        className={cn(lockedButton, wide ? 'h-18 px-14 text-[22px]' : 'h-15 w-full text-[18px]')}
-        disabled
-        type="button"
-      >
-        <span aria-hidden="true" className="size-2.5 rounded-[2px] bg-current" />
-        준비 중인 게임
-      </button>
-      <span className={cn('text-landing-text-muted', wide ? 'text-[15px]' : 'text-[14px]')}>
-        곧 YORR ARCADE에 추가될 예정이에요.
-      </span>
-    </div>
-  )
-}
-
-/**
  * accent = narrow 단독 진입 버튼. 세 칸이 이 화면에서 유일하게 "코드"를 그리는 형태라
  * 여기에 레드를 쓴다 — 채운 CTA 레드가 아니라 텍스트 강조용 accent-text다(면적 비 약 1:80).
  * quiet = wide 헤더. 옆 컨트롤과 같은 흰색 55%를 유지한다 — 칸의 opacity를 래퍼로 옮겼을
@@ -434,15 +399,6 @@ function CodeGlyph({ tone = 'quiet' }: { tone?: keyof typeof codeGlyphTone }) {
       <span className="h-3.5 w-1.5 rounded-[2px] border border-current" />
       <span className="h-3.5 w-1.5 rounded-[2px] border border-current" />
     </span>
-  )
-}
-
-function PlayGlyph() {
-  return (
-    <span
-      aria-hidden="true"
-      className="size-0 border-y-[10px] border-l-[16px] border-y-transparent border-l-current"
-    />
   )
 }
 

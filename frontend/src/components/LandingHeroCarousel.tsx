@@ -1,6 +1,7 @@
 import { motion, useAnimationControls, useReducedMotion } from 'motion/react'
 import {
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useLayoutEffect,
   useRef,
@@ -17,11 +18,19 @@ interface LandingHeroCarouselProps {
   games: LandingGame[]
   /** wide = 좌우 화살표까지 있는 데스크톱, narrow = 스와이프만 있는 모바일. */
   layout: 'narrow' | 'wide'
+  /** 활성 카드 안 플레이 CTA. 카드가 소유하지만 어디로 갈지는 화면이 정한다. */
+  onPlay: () => void
   onSelect: (index: number) => void
 }
 
 /** 이 거리 이상 끌고 놓으면 옆 게임으로 넘어간다. 그 아래는 가운데로 스냅된다. */
 const STEP_DISTANCE_PX = { narrow: 42, wide: 64 }
+/**
+ * 이 거리를 넘긴 뒤에야 "끄는 중"으로 승격한다. 그 전에는 띠를 1px도 움직이지 않고
+ * 포인터도 캡처하지 않는다 — 카드 안 플레이 CTA 위에서 시작한 탭이 손가락 흔들림 몇 px에
+ * 드래그로 뒤집히면 버튼을 영영 못 누른다. 브라우저 터치 슬롭과 같은 8px.
+ */
+const DRAG_ACTIVATION_PX = 8
 /** 끌리는 거리 자체는 여기서 멈춘다 — 카드가 화면 밖까지 따라 나가지 않게 한다. */
 const DRAG_LIMIT_PX = 140
 /** 휠 한 번에 한 칸만 움직이도록 두는 최소 간격. 트랙패드는 한 제스처가 수십 번 발화한다. */
@@ -39,11 +48,14 @@ export function LandingHeroCarousel({
   activeIndex,
   games,
   layout,
+  onPlay,
   onSelect,
 }: LandingHeroCarouselProps) {
   const wide = layout === 'wide'
   const [dragOffset, setDragOffset] = useState(0)
   const dragStartRef = useRef<number | null>(null)
+  /** 이번 제스처가 임계값을 넘겨 드래그로 승격했는지. 뒤따르는 click을 삼킬지의 근거다. */
+  const draggedRef = useRef(false)
   const lastWheelRef = useRef(0)
   const track = useAnimationControls()
   const reduceMotion = useReducedMotion()
@@ -100,16 +112,38 @@ export function LandingHeroCarousel({
     step(delta > 0 ? 1 : -1)
   }
 
+  /**
+   * 카드 안에 플레이 CTA가 들어오면서 규칙이 바뀌었다. 예전에는 `closest('button')`이면
+   * 드래그를 아예 시작하지 않았는데, 그 규칙을 두면 카드 폭을 꽉 채운 CTA 위에서 스와이프가
+   * 죽는다 — 모바일에서 엄지가 가장 먼저 닿는 자리다.
+   * <p>
+   * 대신 <b>임계값으로 가른다</b>: 8px을 넘기기 전에는 아무 일도 없고, 넘긴 뒤에야 포인터를
+   * 캡처한다. pointerdown에서 캡처하면 안 된다 — 캡처가 걸린 순간부터 호환 마우스 이벤트가
+   * 이 섹션으로 재타깃돼 카드 안 버튼의 click이 <b>아예 발화하지 않는다.</b>
+   */
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    // 화살표 버튼을 누른 것은 드래그가 아니다 — 여기서 잡으면 클릭이 눌리다 말 수 있다.
-    if (event.target instanceof Element && event.target.closest('button')) return
+    // 보조 버튼(우클릭·가운데)은 드래그가 아니다.
+    if (event.button !== 0) return
     dragStartRef.current = event.clientX
-    event.currentTarget.setPointerCapture(event.pointerId)
+    draggedRef.current = false
   }
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (dragStartRef.current === null) return
+    // 승격 전에는 캡처가 없다 — 영역 밖에서 손을 떼면 pointerup이 여기로 오지 않아
+    // dragStartRef가 남고, 그 뒤 단순 hover가 카드를 끌어버린다. 여기서 정리한다.
+    if (event.buttons === 0) {
+      handlePointerUp()
+      return
+    }
+
     const raw = event.clientX - dragStartRef.current
+    if (!draggedRef.current) {
+      if (Math.abs(raw) < DRAG_ACTIVATION_PX) return
+      draggedRef.current = true
+      event.currentTarget.setPointerCapture(event.pointerId)
+    }
+
     // 목록이 순환하므로 양 끝에서도 저항을 주지 않는다 — 어느 방향으로든 갈 곳이 있다.
     const offset = Math.max(-DRAG_LIMIT_PX, Math.min(DRAG_LIMIT_PX, raw))
     setDragOffset(offset)
@@ -120,6 +154,10 @@ export function LandingHeroCarousel({
   const handlePointerUp = () => {
     if (dragStartRef.current === null) return
     dragStartRef.current = null
+    // 임계값을 못 넘긴 탭. 띠는 움직인 적이 없으므로 되돌릴 것도 없다 —
+    // 그대로 두면 카드 안 CTA의 click이 정상으로 이어진다.
+    if (!draggedRef.current) return
+
     const travelled = dragOffset
     setDragOffset(0)
     if (Math.abs(travelled) < STEP_DISTANCE_PX[layout]) {
@@ -130,6 +168,18 @@ export function LandingHeroCarousel({
     step(travelled > 0 ? -1 : 1)
   }
 
+  /**
+   * 드래그로 끝난 제스처 뒤에 따라오는 click을 캡처 단계에서 삼킨다. CTA 위에서 스와이프를
+   * 시작했다가 손을 떼는 순간 게임이 시작되면 안 된다. 캡처 단계라 버튼 자신의 onClick보다
+   * 먼저 돌아 여기서 끊긴다. detail === 0은 키보드가 만든 click이라 통과시킨다.
+   */
+  const handleClickCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!draggedRef.current || event.detail === 0) return
+    draggedRef.current = false
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
   if (!game) return null
 
   return (
@@ -138,6 +188,7 @@ export function LandingHeroCarousel({
     <section
       aria-label="게임 캐러셀"
       className="relative h-full w-full touch-none select-none"
+      onClickCapture={handleClickCapture}
       onKeyDown={handleKeyDown}
       onPointerCancel={handlePointerUp}
       onPointerDown={handlePointerDown}
@@ -159,7 +210,7 @@ export function LandingHeroCarousel({
           id={LANDING_PANEL_ID}
           role="tabpanel"
         >
-          <LandingHeroCard game={game} layout={layout} />
+          <LandingHeroCard game={game} layout={layout} onPlay={onPlay} />
         </div>
       </motion.div>
 

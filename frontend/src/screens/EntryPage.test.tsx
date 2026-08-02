@@ -59,7 +59,7 @@ describe('EntryPage', () => {
     render(<EntryPage />)
 
     expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
-    expect(screen.getByText('PLAYABLE NOW')).toBeVisible()
+    // "지금 플레이 가능"은 눌리는 CTA가 말한다 — PLAYABLE NOW 배지는 같은 말의 중복이었다.
     expect(screen.getByRole('button', { name: '요트 다이스 플레이' })).toBeVisible()
   })
 
@@ -98,7 +98,7 @@ describe('EntryPage', () => {
     await user.click(screen.getByRole('tab', { name: /라이어스 다이스/ }))
 
     expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
-    expect(screen.getByText('COMING SOON')).toBeVisible()
+    // COMING SOON 배지도 마찬가지 — 못 누르는 회색 버튼이 같은 사실을 더 강하게 말한다.
     expect(screen.queryByRole('button', { name: /플레이$/ })).not.toBeInTheDocument()
     const locked = screen.getByRole('button', { name: '준비 중인 게임' })
     expect(locked).toBeDisabled()

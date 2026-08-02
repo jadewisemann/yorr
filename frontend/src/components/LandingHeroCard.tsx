@@ -6,13 +6,20 @@ interface LandingHeroCardProps {
   game: LandingGame
   /** wide = 데스크톱 대형 카드, narrow = 모바일 카드. 메타 필 위치가 갈린다. */
   layout: 'narrow' | 'wide'
+  /** 카드 안 플레이 CTA. 준비 중인 게임은 잠긴 버튼이 같은 자리에 서므로 호출되지 않는다. */
+  onPlay: () => void
 }
 
 /**
  * 캐러셀 가운데에 서는 선택된 게임 카드. 3D 히어로가 카드 안을 채우고, 아래 절반을
  * 그라디언트로 덮은 뒤 그 위에 카피를 얹는다 — 3D 위에 글자를 직접 놓으면 대비를 보장할 수 없다.
+ * <p>
+ * 플레이 CTA도 그 카피 묶음의 마지막 줄로 여기 선다. 화면 바닥에 따로 두면 "이 카드의
+ * 게임을 연다"를 글자로만 주장하게 되고(사이에 진행 표시줄과 빈 층이 낀다), 카드가
+ * 미끄러지는 동안 버튼 글자만 제자리에서 바뀐다. 카드 안에 있으면 결합이 배치로 성립하고
+ * 슬라이드에 같이 실린다.
  */
-export function LandingHeroCard({ game, layout }: LandingHeroCardProps) {
+export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) {
   const wide = layout === 'wide'
 
   return (
@@ -60,26 +67,10 @@ export function LandingHeroCard({ game, layout }: LandingHeroCardProps) {
           wide ? 'bottom-9 left-11 max-w-155 gap-3.5' : 'inset-x-5 bottom-5.5 gap-2.5',
         )}
       >
-        <span
-          className={cn(
-            'inline-flex items-center gap-2.5 rounded-full border font-mono font-bold tracking-[0.16em]',
-            wide ? 'h-8.5 px-3.5 text-[12px]/none' : 'h-7.5 px-3 text-[11px]/none',
-            game.live
-              ? 'border-landing-accent/50 bg-landing-accent-tint text-landing-accent-text'
-              : 'border-landing-hairline-strong bg-landing-soft text-landing-text-muted',
-          )}
-        >
-          <span
-            aria-hidden="true"
-            className={cn(
-              'size-2 bg-current',
-              game.live
-                ? 'rounded-full shadow-[0_0_10px_currentColor] motion-safe:animate-ring-pulse'
-                : 'rounded-[2px]',
-            )}
-          />
-          {game.live ? 'PLAYABLE NOW' : 'COMING SOON'}
-        </span>
+        {/* 여기 있던 PLAYABLE NOW / COMING SOON 배지는 걷었다. 아래 CTA가 같은 말을 더
+            강하게 한다 — 활성화된 레드 버튼이 곧 PLAYABLE NOW이고, 잠긴 회색 버튼이
+            COMING SOON이다. 배지를 남기면 카피 묶음이 그만큼 높아져 3D 영역이 죽는다.
+            상태 채널은 여전히 셋이다: 버튼 채움·라벨, 카드 테두리 색, 하단 accent line. */}
         {/* 페이지 제목은 랜딩 카피가 갖는다 — 여기가 h1이면 스와이프할 때마다 문서의
             최상위 제목이 바뀐다. 이 카드는 tabpanel의 제목이라 h2가 맞다. */}
         <h2
@@ -98,18 +89,21 @@ export function LandingHeroCard({ game, layout }: LandingHeroCardProps) {
         >
           {game.tagline}
         </p>
-        {/* 규칙 한 줄 설명은 데스크톱 카드에만 — 모바일 카드는 배지·제목·한 줄 카피까지가
-            들어갈 수 있는 분량이고, 메타 필이 카드 밖에서 나머지를 말한다. */}
+        {/* 규칙 한 줄 설명은 데스크톱 카드에만 — 모바일 카드는 제목·한 줄 카피·CTA까지가
+            들어갈 수 있는 분량이고, 메타 필이 카드 위에서 나머지를 말한다. */}
         {wide && (
           <p className="m-0 font-landing-medium text-pretty text-[clamp(13px,1.15vw,16px)]/[1.45] text-landing-text-muted">
             {game.description}
           </p>
         )}
+        <HeroCta game={game} layout={layout} onPlay={onPlay} />
       </div>
 
       {/* 메타 필은 양쪽 다 카드 안에 선다 — 데스크톱은 우측 하단 세로, 모바일은 상단 가로.
           모바일 카드는 텍스트가 전부 아래에 붙어 있어 위가 비고, 카드 밖에 두면 세로로
-          100px 가까이 먹어 h-svh 안에서 하단 CTA를 밀어낸다. */}
+          100px 가까이 먹어 h-svh 안에서 히어로를 밀어낸다.
+          데스크톱 세로 열은 바닥선(bottom-9)을 CTA와 공유한다 — 왼쪽은 "읽는 것",
+          오른쪽은 "재원", 둘이 같은 기선 위에 선다. */}
       {wide ? (
         <div className="absolute right-10 bottom-9 flex flex-col items-end gap-2.5">
           <LandingMetaPills game={game} layout="wide" />
@@ -120,6 +114,71 @@ export function LandingHeroCard({ game, layout }: LandingHeroCardProps) {
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * 카드 안 플레이 CTA. 화면에서 **유일하게** 채운 레드 + 글로우를 갖는 요소다.
+ * <p>
+ * 보이는 글자는 `플레이`뿐이다 — 게임 이름은 바로 위 h2가 이미 말했고, 10px 위에서 읽은
+ * 이름을 버튼이 되풀이할 이유가 없다. 접근 가능한 이름에는 게임 이름을 붙여 버튼 목록만
+ * 훑는 사용자도 무엇을 여는지 알게 한다(보이는 글자가 그 이름에 포함되므로 WCAG 2.5.3
+ * Label in Name을 만족한다).
+ * <p>
+ * 두 상태의 버튼 **높이가 같다.** 캐러셀이 카드를 미끄러뜨릴 때 이 자리가 위아래로 뛰면
+ * 슬라이드가 흔들려 보인다 — 그래서 준비 중 안내 한 줄은 걷어냈다. 못 누르는 회색 버튼이
+ * 이미 같은 말을 한다.
+ */
+const playCta =
+  'flex cursor-pointer items-center justify-center gap-3.5 rounded-[20px] border-0 bg-landing-accent font-bold text-landing-accent-ink transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-3'
+const lockedCta =
+  'flex cursor-not-allowed items-center justify-center gap-3.5 rounded-[20px] border border-landing-hairline-strong bg-landing-disabled font-bold text-landing-text-faint'
+
+/** narrow는 카드 폭을 꽉 채우고, wide는 카피 열 아래 왼쪽에 선다(오른쪽은 메타 필 열). */
+const playCtaSize = {
+  narrow: 'h-15 w-full text-[19px] shadow-landing-cta-sheet',
+  wide: 'h-18 px-13 text-[23px] shadow-landing-cta',
+} as const
+
+const lockedCtaSize = {
+  narrow: 'h-15 w-full text-[18px]',
+  wide: 'h-18 px-14 text-[22px]',
+} as const
+
+function HeroCta({ game, layout, onPlay }: LandingHeroCardProps) {
+  if (!game.live) {
+    return (
+      <button
+        aria-label="준비 중인 게임"
+        className={cn(lockedCta, lockedCtaSize[layout])}
+        disabled
+        type="button"
+      >
+        <span aria-hidden="true" className="size-2.5 rounded-[2px] bg-current" />
+        준비 중
+      </button>
+    )
+  }
+
+  return (
+    <button
+      aria-label={`${game.name} 플레이`}
+      className={cn(playCta, playCtaSize[layout])}
+      onClick={onPlay}
+      type="button"
+    >
+      <PlayGlyph />
+      플레이
+    </button>
+  )
+}
+
+function PlayGlyph() {
+  return (
+    <span
+      aria-hidden="true"
+      className="size-0 border-y-[10px] border-l-[16px] border-y-transparent border-l-current"
+    />
   )
 }
 
