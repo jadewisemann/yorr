@@ -88,7 +88,7 @@ export function GameDiceTray({
         motion.lastPulseDirection === 'right' && 'translate-x-1',
       )}
     >
-      <div className="pointer-events-none absolute top-3 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
+      <div className="pointer-events-none absolute top-3 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint tabular-nums uppercase">
         {trayLabel}
       </div>
       <div className="pointer-events-none absolute top-2.5 right-3 z-10 flex items-center gap-1.5">
@@ -101,7 +101,9 @@ export function GameDiceTray({
         />
       </div>
       <div className="pointer-events-none absolute inset-x-4 bottom-2.5 z-10 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
-        <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.13em] text-content-faint uppercase">
+        {/* 주사위를 탭할 때마다 숫자가 바뀐다 — tabular-nums가 없으면 라벨 폭이 흔들려
+            옆에 붙은 툴팁 트리거까지 함께 밀린다. */}
+        <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.13em] text-content-faint tabular-nums uppercase">
           킵 레일 · {keptText}
           <Tooltip
             align="start"

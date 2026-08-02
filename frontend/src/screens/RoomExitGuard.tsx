@@ -48,7 +48,7 @@ export function RoomExitGuard({ onClose, open = false, roomId }: RoomExitGuardPr
   }
 
   return (
-    <Modal onClose={stay} open={blocked || open} title="방에서 나갈까요?">
+    <Modal onClose={stay} open={blocked || open} role="alertdialog" title="방에서 나갈까요?">
       <div className="grid gap-5">
         <p className="m-0 text-sm text-content-muted">
           나가면 이 방의 진행 상황에서 빠지고, 다시 들어오려면 초대 코드가 필요해요.

@@ -13,13 +13,14 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
  */
 const variants = {
   primary: 'bg-brand text-on-brand shadow-cta hover:bg-brand-strong disabled:shadow-none',
-  secondary: 'bg-[#F2F2F0] text-[#111214] hover:bg-white',
+  secondary: 'bg-inverse text-on-inverse hover:bg-white',
   ghost: 'border-white/18 bg-transparent text-content hover:bg-white/6',
   danger: 'border-brand/55 bg-brand/10 text-danger hover:bg-brand/18',
 } as const
 
+// sm은 여백과 글자만 줄인다 — 높이는 세 사이즈 모두 min-h-tap 이상을 지킨다.
 const sizes = {
-  sm: 'min-h-9 px-3 py-1.5 text-sm',
+  sm: 'min-h-tap px-3 py-1.5 text-sm',
   md: 'min-h-tap px-6 py-3',
   lg: 'min-h-12 px-8 py-3.5 text-lg',
 } as const

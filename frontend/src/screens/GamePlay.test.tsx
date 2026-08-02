@@ -613,7 +613,7 @@ describe('GamePlay', () => {
 
     await user.click(zeroChip)
 
-    expect(await screen.findByRole('dialog', { name: /0점으로 확정할까요\?/ })).toBeVisible()
+    expect(await screen.findByRole('alertdialog', { name: /0점으로 확정할까요\?/ })).toBeVisible()
   })
 
   it('0점 확인을 취소하면 아무것도 기록하지 않고, 확정하면 그 족보로 기록한다', async () => {

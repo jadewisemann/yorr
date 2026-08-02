@@ -59,9 +59,10 @@ export function LandingProgress({ activeIndex, games, layout, onSelect }: Landin
               aria-selected={selected}
               id={landingTabId(game.key)}
               // 4px 막대는 그대로면 누를 수 없다 — 막대는 안에 그리고 버튼이 여백을 갖는다.
+              // 가로는 5칸이 카운터·힌트와 한 줄을 나눠 써서 44px까지 못 넓힌다(세로만 충족).
               className={cn(
-                'grid cursor-pointer place-items-center border-0 bg-transparent focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-1',
-                wide ? 'h-9 px-1' : 'h-8 px-[3px]',
+                'grid min-h-tap cursor-pointer place-items-center border-0 bg-transparent focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-1',
+                wide ? 'px-1.5' : 'px-1',
               )}
               key={game.key}
               onClick={() => onSelect(index)}
@@ -75,12 +76,11 @@ export function LandingProgress({ activeIndex, games, layout, onSelect }: Landin
               <span
                 aria-hidden="true"
                 className={cn(
-                  'block h-1 rounded-full transition-[width,background-color] duration-base ease-snappy',
+                  'block h-1 rounded-full transition-[width,background-color] duration-(--ds-motion-base) ease-snappy',
+                  // 선택 상태는 폭(7→34px)과 색이 이미 말한다 — 글로우는 중복이고,
+                  // 화면에서 유일하게 빛나는 레드는 CTA여야 한다.
                   selected
-                    ? cn(
-                        'bg-landing-accent shadow-[0_0_12px_rgb(229_57_53_/_60%)]',
-                        wide ? 'w-12' : 'w-8.5',
-                      )
+                    ? cn('bg-landing-accent', wide ? 'w-12' : 'w-8.5')
                     : cn('bg-landing-bar', wide ? 'w-2' : 'w-[7px]'),
                 )}
               />

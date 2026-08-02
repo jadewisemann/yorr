@@ -35,7 +35,7 @@ export function ToastHost({ className, message }: ToastHostProps) {
       role="status"
     >
       {message && (
-        <p className="m-0 max-w-md rounded-card border border-border bg-[#202125] px-4 py-3 text-center text-sm font-semibold text-content shadow-raised">
+        <p className="m-0 max-w-md rounded-card border border-border bg-surface-overlay px-4 py-3 text-center text-sm font-semibold text-content shadow-raised">
           {message}
         </p>
       )}

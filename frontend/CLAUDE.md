@@ -45,7 +45,10 @@ API를 구성하는 강하게 결합된 subsystem이다.
 - 색상·간격은 원시 값 대신 semantic token을 사용한다.
 - 공통 class 병합은 `src/cn.ts`의 `cn()`을 사용한다.
 - 공통 UI가 있으면 화면에서 같은 컴포넌트를 새로 만들지 않는다.
-- 복잡한 animation만 CSS keyframes로 분리한다.
+- 애니메이션 구현체가 둘이다. **장식·상태 강조(반복·한 번 튐)는 CSS keyframes,
+  진입·퇴장·제스처는 `motion`**(`src/motion.ts`)이다. 경계와 이유는
+  [`docs/engineering/design-system.md`](docs/engineering/design-system.md)의 「모션」에 있다 —
+  돌아가는 CSS 애니메이션을 motion으로 옮기지 않는다.
 - 디자인이 확정되지 않은 상태에서 pixel-perfect 작업을 임의로 확대하지 않는다.
 
 ## 검증 명령

@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from 'motion/react'
 import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
@@ -6,6 +7,7 @@ import {
   useState,
 } from 'react'
 import { cn } from '@/cn'
+import { scrimVariants, sheetVariants } from '@/motion'
 import { useDialogBackground } from '@/useDialogBackground'
 
 interface BottomSheetProps {
@@ -75,8 +77,6 @@ export function BottomSheet({ children, className, onClose, open, title }: Botto
     if (!open) setDragOffset(0)
   }, [open])
 
-  if (!open) return null
-
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     dragStartRef.current = event.clientY
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -96,37 +96,62 @@ export function BottomSheet({ children, className, onClose, open, title }: Botto
   }
 
   return (
-    <div className="fixed inset-0 z-sheet">
-      <button
-        aria-label="시트 닫기"
-        className="absolute inset-0 cursor-default border-0 bg-scrim"
-        onClick={onClose}
-        type="button"
-      />
-      <div
-        // 시트 내용이 자체 제목을 그리므로 여기서 또 heading을 만들지 않는다.
-        aria-label={title}
-        aria-modal="true"
-        className={cn(
-          'absolute inset-x-0 bottom-0 flex h-[76%] flex-col rounded-t-sheet border-t border-white/14 bg-surface px-4 pt-2.5 pb-6 shadow-overlay',
-          className,
-        )}
-        ref={sheetRef}
-        role="dialog"
-        style={dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
-      >
-        <div
-          className="-mx-4 -mt-2.5 cursor-grab px-4 pt-2.5 pb-2 touch-none"
-          onPointerCancel={handlePointerUp}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-        >
-          <span aria-hidden="true" className="mx-auto block h-1 w-11 rounded-full bg-white/24" />
+    // 퇴장 애니메이션을 그리려면 닫힌 뒤에도 한 프레임 더 살아 있어야 한다 —
+    // 조건부 렌더를 AnimatePresence 안으로 넣는 이유다.
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-sheet">
+          <motion.button
+            animate="visible"
+            aria-label="시트 닫기"
+            className="absolute inset-0 cursor-default border-0 bg-scrim"
+            exit="exit"
+            initial="hidden"
+            onClick={onClose}
+            // 포커스 표시가 없는 전체 화면 버튼이라 탭 순서에서 뺀다.
+            // 키보드로 닫는 길은 Escape로 이미 있다.
+            tabIndex={-1}
+            type="button"
+            variants={scrimVariants}
+          />
+          <motion.div
+            animate="visible"
+            // 시트 내용이 자체 제목을 그리므로 여기서 또 heading을 만들지 않는다.
+            aria-label={title}
+            aria-modal="true"
+            className={cn(
+              // pb-6(24px)만으로는 iOS 홈 인디케이터(34px) 아래로 마지막 줄이 들어간다.
+              'absolute inset-x-0 bottom-0 flex h-[76%] flex-col rounded-t-sheet border-t border-white/14 bg-surface px-4 pt-2.5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-overlay',
+              className,
+            )}
+            exit="exit"
+            initial="hidden"
+            ref={sheetRef}
+            role="dialog"
+            // 진입·퇴장(variants)과 드래그가 같은 transform을 두고 다툰다 — variants가 인라인
+            // y를 덮으므로, 여기서 둘을 이어 붙인다. 손가락은 즉시 따라가고 놓으면 0으로 돌아온다.
+            transformTemplate={(_, generated) =>
+              dragOffset > 0 ? `${generated} translateY(${dragOffset}px)` : generated
+            }
+            variants={sheetVariants}
+          >
+            <div
+              className="-mx-4 -mt-2.5 cursor-grab px-4 pt-2.5 pb-2 touch-none"
+              onPointerCancel={handlePointerUp}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+            >
+              <span
+                aria-hidden="true"
+                className="mx-auto block h-1 w-11 rounded-full bg-white/24"
+              />
+            </div>
+            {children}
+          </motion.div>
         </div>
-        {children}
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   )
 }
 

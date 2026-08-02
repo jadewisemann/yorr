@@ -109,7 +109,7 @@ function HeaderButton({
     <button
       aria-label={label}
       {...(pressed === undefined ? {} : { 'aria-pressed': pressed })}
-      className="grid size-10 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-[15px] font-bold text-content-muted transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
+      className="grid size-tap flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-[15px] font-bold text-content-muted transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
       onClick={onClick}
       type="button"
     >
@@ -130,20 +130,20 @@ function TurnStatus({
 >) {
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
-      <span className="font-mono text-[11px] leading-none font-bold tracking-[0.16em] text-content-muted uppercase">
+      <span className="font-mono text-[11px] leading-none font-bold tracking-[0.16em] text-content-muted tabular-nums uppercase">
         Round {String(roundNumber).padStart(2, '0')} / {TOTAL_ROUNDS}
       </span>
       <span
         className={cn(
-          'flex items-center gap-1.5 truncate text-[16px] font-bold transition-colors duration-base motion-safe:animate-turn-flash',
-          !isMyTurn && activePlayer && 'text-[#FF8A86]',
+          'flex items-center gap-1.5 truncate text-[16px] font-bold transition-colors duration-(--ds-motion-base) motion-safe:animate-turn-flash',
+          !isMyTurn && activePlayer && 'text-brand-soft',
         )}
         key={activePlayerId ?? 'sync'}
       >
         <span
           aria-hidden="true"
           className={cn(
-            'size-2 flex-none rounded-full transition-colors duration-base',
+            'size-2 flex-none rounded-full transition-colors duration-(--ds-motion-base)',
             turnDotClass(isMyTurn, submitted, activePlayer !== undefined),
           )}
         />
