@@ -21,8 +21,6 @@ const WIDE_LAYOUT = '(min-width: 760px)'
 
 const wordmark = 'font-mono font-bold tracking-[-0.03em] text-landing-text'
 const wordmarkTag = 'font-mono font-bold tracking-[0.24em] text-landing-text-muted uppercase'
-const ghostButton =
-  'flex cursor-pointer items-center justify-center rounded-[16px] border border-landing-hairline-strong bg-transparent font-semibold text-landing-text-muted transition-colors duration-150 ease-out hover:border-landing-hairline-strong hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2'
 const primaryButton =
   'flex cursor-pointer items-center justify-center gap-3.5 rounded-[20px] border-0 bg-landing-accent font-bold text-landing-accent-ink shadow-landing-cta transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-3'
 const lockedButton =
@@ -123,7 +121,11 @@ export function EntryPage() {
                 링크 하나로 모이면 바로 시작하는 파티 게임
               </h1>
             </div>
+            {/* 코드 참가는 게임 CTA와 다른 층에 세운다 — 선택한 게임과 무관한 독립
+                진입 경로라, 아래 CTA 묶음에 섞으면 "이 게임을 코드로 연다"로 읽힌다. */}
             <span className="flex min-w-0 items-center gap-2.5">
+              <CodeEntryRow compact onOpen={() => setCodeOpen(true)} />
+              <span aria-hidden="true" className="h-6.5 w-px flex-none bg-landing-hairline" />
               <SoundToggle muted={soundMuted} onToggle={toggleSound} />
               <AccountControl
                 layout="wide"
@@ -172,28 +174,19 @@ export function EntryPage() {
           </div>
 
           <div className="flex flex-none justify-center px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-[clamp(20px,6vh,56px)]">
-            <div className="flex items-center justify-center gap-4.5">
-              {game.live ? (
-                <button
-                  className={cn(primaryButton, 'h-18 px-13 text-[23px]')}
-                  onClick={handlePlay}
-                  type="button"
-                >
-                  <PlayGlyph />
-                  {game.name} 플레이
-                </button>
-              ) : (
-                <ComingSoonCta layout="wide" />
-              )}
-              {/* live 분기 밖 — 준비 중인 게임을 고른 상태에서도 초대받은 사람은 들어갈 수 있어야 한다. */}
+            {/* 선택한 게임의 CTA만 둔다 — 코드 참가는 헤더의 별도 층에 있다. */}
+            {game.live ? (
               <button
-                className={cn(ghostButton, 'h-14 px-6.5 text-[16px]')}
-                onClick={() => setCodeOpen(true)}
+                className={cn(primaryButton, 'h-18 px-13 text-[23px]')}
+                onClick={handlePlay}
                 type="button"
               >
-                초대 코드로 참가
+                <PlayGlyph />
+                {game.name} 플레이
               </button>
-            </div>
+            ) : (
+              <ComingSoonCta layout="wide" />
+            )}
           </div>
         </main>
         {codeDialog}
@@ -230,6 +223,10 @@ export function EntryPage() {
           링크 하나로 모이면 바로 시작하는 파티 게임
         </h1>
 
+        <div className="flex-none px-5 pt-[clamp(10px,1.6vh,16px)]">
+          <CodeEntryRow onOpen={() => setCodeOpen(true)} />
+        </div>
+
         {/* 히어로가 남는 높이를 전부 먹는다. 나머지를 고정 높이로 두고 히어로만 늘고 줄면
             크롬 합계가 뷰포트를 넘을 수 없다 — h-svh + overflow-hidden에서 하단 CTA가
             잘려 접근 불가가 되는 것을 구조적으로 막는다(짧은 화면 하한은 min-h로 잡는다). */}
@@ -258,6 +255,7 @@ export function EntryPage() {
               {appNotice}
             </p>
           )}
+          {/* 이 블록은 "선택한 게임"의 CTA다 — 게임과 무관한 코드 참가는 위 별도 층에 있다. */}
           {game.live ? (
             <button
               className={cn(primaryButton, 'h-15 w-full text-[19px] shadow-landing-cta-sheet')}
@@ -270,18 +268,6 @@ export function EntryPage() {
           ) : (
             <ComingSoonCta layout="narrow" />
           )}
-          {/* 헤더가 로그인 자리로 바뀌면서, 코드 참가의 유일한 입구를 여기로 옮겼다.
-              와이드와 같은 자리·같은 위계라 두 레이아웃이 어긋나지 않는다.
-              live 분기 밖에 둔다 — 준비 중인 게임을 고른 상태에서도 초대받은 사람은
-              들어갈 수 있어야 한다(안에 두면 5칸 중 4칸에서 화면에 누를 게 하나도 없다). */}
-          <button
-            className={cn(ghostButton, 'h-12 w-full gap-2.5 text-[15px]')}
-            onClick={() => setCodeOpen(true)}
-            type="button"
-          >
-            <CodeGlyph />
-            초대 코드로 참가
-          </button>
         </div>
       </main>
       {codeDialog}
@@ -302,6 +288,35 @@ export function EntryPage() {
  * 어두운 랜딩 위에 브랜드 노란색을 얹으면 화면에서 그것만 튄다. 제공자 선택과 브랜드 색은
  * {@link AccountDialog} 안으로 들어간다.
  */
+/**
+ * 초대 코드 진입. 게임 선택과 무관한 **독립 경로**라 게임 CTA 묶음에 넣지 않는다 —
+ * 거기 두면 primary 아래 secondary로 읽혀 "이 게임을 코드로 연다"가 되고, 준비 중인
+ * 게임에서는 잠긴 버튼 아래 붙어 더 어긋난다.
+ *
+ * 눌린 면(landing-well + 헤어라인)으로 그려 채워진 게임 CTA와 층 자체를 다르게 둔다.
+ * 위계를 낮춘 게 아니라 다른 축에 세운 것이다 — 링크·QR 진입이 이 제품의 주 경로다.
+ */
+function CodeEntryRow({ compact = false, onOpen }: { compact?: boolean; onOpen: () => void }) {
+  return (
+    <button
+      className={cn(
+        'flex min-h-tap cursor-pointer items-center rounded-[14px] border border-landing-hairline-strong bg-landing-well font-semibold text-landing-text transition-colors duration-150 ease-out hover:border-landing-accent/70 hover:bg-landing-soft focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+        compact ? 'gap-2 px-4 text-[15px]' : 'w-full gap-2.5 px-4 text-[15px]',
+      )}
+      onClick={onOpen}
+      type="button"
+    >
+      <CodeGlyph />
+      초대 코드로 참가
+      {!compact && (
+        <span aria-hidden="true" className="ml-auto text-[18px]/none text-landing-text-faint">
+          ›
+        </span>
+      )}
+    </button>
+  )
+}
+
 /**
  * 랜딩 BGM 음소거. 게임 화면 헤더의 소리 버튼과 같은 저장 설정(soundPreference)을 쓴다 —
  * 조용한 곳에서 한 번 끈 사람은 방을 옮겨도 계속 조용해야 한다.

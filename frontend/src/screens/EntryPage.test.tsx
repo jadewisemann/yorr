@@ -100,9 +100,14 @@ describe('EntryPage', () => {
     expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
     expect(screen.getByText('COMING SOON')).toBeVisible()
     expect(screen.queryByRole('button', { name: /플레이$/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '준비 중인 게임' })).toBeDisabled()
-    // 5칸 중 4칸이 준비 중이다 — 여기서 코드 참가까지 사라지면 화면에 누를 게 하나도 없다.
-    expect(screen.getByRole('button', { name: '초대 코드로 참가' })).toBeEnabled()
+    const locked = screen.getByRole('button', { name: '준비 중인 게임' })
+    expect(locked).toBeDisabled()
+
+    // 코드 참가는 게임 선택과 무관한 독립 경로다 — 어떤 게임이 선택돼 있든 살아 있어야 하고,
+    // 게임 CTA와 같은 부모에 나란히 서면 "이 게임을 코드로 연다"로 읽힌다.
+    const codeEntry = screen.getByRole('button', { name: '초대 코드로 참가' })
+    expect(codeEntry).toBeEnabled()
+    expect(codeEntry.parentElement).not.toBe(locked.parentElement)
   })
 
   it('wraps around the carousel tablist with the arrow keys and keeps focus on the selection', async () => {
