@@ -6,18 +6,39 @@ import {
   Outlet,
   type RouterHistory,
 } from '@tanstack/react-router'
+import { lazy, Suspense } from 'react'
 import { getRoomCodeError, normalizeRoomCode } from '@/roomCode'
-import { AuthCallbackPage } from '@/screens/AuthCallbackPage'
 import { EntryPage } from '@/screens/EntryPage'
-import { GamePage } from '@/screens/GamePage'
-import { InvalidInvitePage } from '@/screens/InvalidInvitePage'
-import { LobbyPage } from '@/screens/LobbyPage'
-import { NicknamePage } from '@/screens/NicknamePage'
 import { NotFoundPage } from '@/screens/NotFoundPage'
-import { DevCatalog } from './DevCatalog'
+import { ScreenFallback } from './ScreenFallback'
+
+/**
+ * 랜딩과 404만 초기 청크에 남긴다.
+ *
+ * 링크·QR로 처음 들어온 사람이 랜딩 한 장을 보려고 GamePlay·주사위 트레이·점수시트까지
+ * 전부 내려받고 있었다 — 첫 화면이 늦게 뜨는 가장 큰 원인이다. 방 안 화면들은 실제로
+ * 그리로 갈 때 받는다. 로딩 표시는 아래 rootRoute의 Suspense 하나가 담당한다.
+ */
+const AuthCallbackPage = lazy(() =>
+  import('@/screens/AuthCallbackPage').then((mod) => ({ default: mod.AuthCallbackPage })),
+)
+const GamePage = lazy(() => import('@/screens/GamePage').then((mod) => ({ default: mod.GamePage })))
+const InvalidInvitePage = lazy(() =>
+  import('@/screens/InvalidInvitePage').then((mod) => ({ default: mod.InvalidInvitePage })),
+)
+const LobbyPage = lazy(() =>
+  import('@/screens/LobbyPage').then((mod) => ({ default: mod.LobbyPage })),
+)
+const NicknamePage = lazy(() =>
+  import('@/screens/NicknamePage').then((mod) => ({ default: mod.NicknamePage })),
+)
 
 const rootRoute = createRootRoute({
-  component: () => <Outlet />,
+  component: () => (
+    <Suspense fallback={<ScreenFallback />}>
+      <Outlet />
+    </Suspense>
+  ),
   notFoundComponent: NotFoundPage,
 })
 
@@ -30,7 +51,7 @@ const indexRoute = createRoute({
 const devCatalogRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/__dev/components',
-  component: DevCatalog,
+  component: lazyRouteComponent(() => import('./DevCatalog'), 'DevCatalog'),
 })
 
 // 배포에서 실기기로 센서를 튜닝하는 페이지라 DevCatalog와 달리 DEV 게이트를 두지 않는다.
