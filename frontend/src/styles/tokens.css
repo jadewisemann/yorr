@@ -70,6 +70,7 @@
   --spacing-tap: var(--ds-size-tap);
   --spacing-content: var(--ds-size-content);
   --spacing-landing: var(--ds-size-landing);
+  --spacing-play: var(--ds-size-play);
   --spacing-gutter: var(--ds-size-gutter);
 
   --radius-control: var(--ds-radius-control);
@@ -248,6 +249,13 @@
      100rem = 1600px: 이웃 카드(띠 폭의 -12.2%)가 vw 1990px까지 화면 밖으로 걸친다
      — 걸침 연출과 폭 제한은 그 위에서 양립하지 않는다. */
   --ds-size-landing: 100rem;
+  /* 게임 화면(2단) 전용 폭. 상수가 아니라 뷰포트 **높이**별 3단이다 — 3D 트레이의 직교
+     카메라가 높이로 스케일되기 때문이다(World.ts resize:
+     vertical = clamp(4.25/aspect, 3.35, 4.6), horizontal = vertical × aspect).
+     트레이가 세로로 길어지면(aspect < 0.924) horizontal이 arena 반폭 4.25 아래로 떨어져
+     좌우가 잘리고, 반대로 너무 납작하면 빈 바닥만 늘어난다. 아래 단계는 aspect를
+     1.19~1.52에 붙잡아 어느 화면에서도 arena가 잘리지 않게 한다. */
+  --ds-size-play: 80rem;
   /* 화면 좌우 거터 — 390px에서 20px, 320px에서 16px. */
   --ds-size-gutter: 1.25rem;
   /* S15P11A406-117 다크 시스템 — 컨트롤 12·카드 14·패널 18·시트 26px 라운드. */
@@ -275,6 +283,20 @@
 @media (max-width: 22.5rem) {
   :root {
     --ds-size-gutter: 1rem;
+  }
+}
+
+/* 뷰포트가 높아질수록 주사위 트레이가 세로로 길어진다 — 폭 상한도 같이 올려
+   aspect를 arena 전폭이 담기는 구간에 붙잡아 둔다(--ds-size-play 주석 참고). */
+@media (min-height: 56.25rem) {
+  :root {
+    --ds-size-play: 96rem;
+  }
+}
+
+@media (min-height: 75rem) {
+  :root {
+    --ds-size-play: 108rem;
   }
 }
 

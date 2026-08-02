@@ -266,13 +266,18 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         그때마다 rapier 물리 월드와 WebGL 컨텍스트가 통째로 재생성된다.
       */}
       {/* 뷰포트 높이로 고정하고 페이지 스크롤을 막는다 — 스크롤은 점수시트 내부에서만 일어난다.
-          폭은 max-w-content(72rem)에서 멈추고 가운데 선다. 제한이 없으면 넓은 모니터에서
-          점수시트가 32.5rem으로 고정된 채 주사위 트레이만 계속 늘어나 화면 양끝까지 붙는다.
-          다른 화면들이 max-w-2xl로 같은 규칙을 쓰지만, 여기는 2단이라 더 넓은 단계가 필요하다. */}
+          폭은 max-w-play에서 멈추고 가운데 선다. 이 값은 상수가 아니라 뷰포트 높이별 3단이다 —
+          3D 트레이의 직교 카메라가 높이로 스케일되므로(World.ts resize) 쓸 수 있는 가로도
+          높이를 따라간다. 72rem 상수였을 때 트레이가 592px에 고정된 채 높이만 자라
+          1728×1000에서 arena 좌우가 14% 잘리고 있었다.
+          시트 28rem — 6인(정원) 최소 27.5rem(라벨 8rem + 6×2.75rem + 거터·갭)에 맞춘 값이다.
+          32.5rem은 80px 과잉이었고 그만큼을 트레이에 넘긴다.
+          minmax(0,1fr): 그냥 1fr은 minmax(auto,1fr)이라 TurnStrip 6인이 왼쪽 열 최소 폭을
+          밀어올릴 수 있다. */}
       <main
         className={cn(
-          'mx-auto h-svh w-full max-w-content overflow-hidden bg-canvas text-content',
-          wide ? 'grid grid-cols-[1fr_32.5rem]' : 'flex flex-col',
+          'mx-auto h-svh w-full max-w-play overflow-hidden bg-canvas text-content',
+          wide ? 'grid grid-cols-[minmax(0,1fr)_28rem]' : 'flex flex-col',
         )}
       >
         <div className="relative flex min-h-0 flex-1 flex-col">
