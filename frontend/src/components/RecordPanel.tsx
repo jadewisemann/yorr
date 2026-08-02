@@ -122,7 +122,7 @@ export function RecordPanel({
             <span className="text-[11px] font-semibold tracking-[0.05em] text-content">
               {title}
             </span>
-            <span className="text-[11px] text-content-muted">{subtitle}</span>
+            <span className="text-[11px] text-content-muted tabular-nums">{subtitle}</span>
             <span className="flex-1" />
             <span className="text-[11px] font-semibold text-brand-strong">
               {open ? '접기' : '전체 시트'}

@@ -152,7 +152,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
                 />
               ))}
               {roomSnapshot.players.length < 6 && (
-                <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-white/14 px-3 text-sm text-content-muted">
+                <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-white/14 px-3 text-sm text-content-muted tabular-nums">
                   <span
                     aria-hidden="true"
                     className="size-11 flex-none rounded-card border border-dashed border-white/18"

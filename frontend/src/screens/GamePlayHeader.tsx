@@ -130,7 +130,7 @@ function TurnStatus({
 >) {
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
-      <span className="font-mono text-[11px] leading-none font-bold tracking-[0.16em] text-content-muted uppercase">
+      <span className="font-mono text-[11px] leading-none font-bold tracking-[0.16em] text-content-muted tabular-nums uppercase">
         Round {String(roundNumber).padStart(2, '0')} / {TOTAL_ROUNDS}
       </span>
       <span
