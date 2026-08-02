@@ -132,7 +132,11 @@ export function RecordPanel({
 
         <div className="flex-none border-b border-border pb-3">{quick}</div>
 
-        <div className="min-h-0 flex-1 overflow-hidden" id={sheetId}>
+        {/* 펼친 상태에서 점수시트 마지막 줄(합계)이 홈 인디케이터 아래로 들어가지 않게 띄운다. */}
+        <div
+          className="min-h-0 flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)]"
+          id={sheetId}
+        >
           {children}
         </div>
       </div>

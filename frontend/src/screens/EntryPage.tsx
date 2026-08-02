@@ -110,7 +110,7 @@ export function EntryPage() {
     return (
       <>
         <main className="relative flex h-svh w-full flex-col overflow-hidden [background:var(--ds-landing-bg)]">
-          <header className="flex h-22 flex-none items-center justify-between gap-8 px-11">
+          <header className="flex h-22 flex-none items-center justify-between gap-8 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))]">
             <div className="flex items-center gap-5">
               <span className="flex items-baseline gap-2.5">
                 <span className={cn(wordmark, 'text-[27px]/none')}>
@@ -145,7 +145,7 @@ export function EntryPage() {
             />
           </div>
 
-          <div className="flex-none px-11 pt-[clamp(10px,2.4vh,22px)]">
+          <div className="flex-none px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pt-[clamp(10px,2.4vh,22px)]">
             <LandingProgress
               activeIndex={activeIndex}
               games={landingGames}
@@ -155,7 +155,7 @@ export function EntryPage() {
           </div>
 
           {/* 진행 표시줄과 CTA 사이 남는 공간. 복귀 배너가 있으면 여기 들어앉는다. */}
-          <div className="flex min-h-0 flex-1 flex-col items-center gap-3 px-11 pt-[clamp(10px,2.2vh,22px)]">
+          <div className="flex min-h-0 flex-1 flex-col items-center gap-3 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pt-[clamp(10px,2.2vh,22px)]">
             <div className="flex w-full max-w-180 flex-col items-center gap-3">
               <ActiveRoomBanner />
               {appNotice && (
@@ -166,7 +166,7 @@ export function EntryPage() {
             </div>
           </div>
 
-          <div className="flex flex-none justify-center px-11 pb-[clamp(20px,6vh,56px)]">
+          <div className="flex flex-none justify-center px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-[clamp(20px,6vh,56px)]">
             {game.live ? (
               <div className="flex items-center justify-center gap-4.5">
                 <button

@@ -111,7 +111,8 @@ export function BottomSheet({ children, className, onClose, open, title }: Botto
         aria-label={title}
         aria-modal="true"
         className={cn(
-          'absolute inset-x-0 bottom-0 flex h-[76%] flex-col rounded-t-sheet border-t border-white/14 bg-surface px-4 pt-2.5 pb-6 shadow-overlay',
+          // pb-6(24px)만으로는 iOS 홈 인디케이터(34px) 아래로 마지막 줄이 들어간다.
+          'absolute inset-x-0 bottom-0 flex h-[76%] flex-col rounded-t-sheet border-t border-white/14 bg-surface px-4 pt-2.5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-overlay',
           className,
         )}
         ref={sheetRef}

@@ -61,7 +61,7 @@ export function LandingPopover({
         // 패널이 자체 제목을 그리므로 여기서 또 heading을 만들지 않는다.
         aria-label={label}
         aria-modal="true"
-        className="absolute top-26 right-11 w-98 rounded-[20px] border border-landing-hairline-strong bg-surface-raised p-6 shadow-landing-popover"
+        className="absolute top-26 right-[max(2.75rem,env(safe-area-inset-right))] w-98 rounded-[20px] border border-landing-hairline-strong bg-surface-raised p-6 shadow-landing-popover"
         ref={panelRef}
         role="dialog"
       >

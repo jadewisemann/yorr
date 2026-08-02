@@ -276,7 +276,8 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           {/* 배너는 오버레이로 띄운다 — 플로우에 끼우면 나타날 때마다 3D 트레이 크기를 밀어
               씬이 리사이즈된다. 연결 상태는 일시적이라 헤더를 잠깐 덮는 쪽이 낫다. */}
           <ConnectionBanner
-            className="absolute inset-x-0 top-0 z-banner"
+            // closed면 조작이 전부 잠겼다는 유일한 시각 신호다 — 노치 아래로 들어가면 안 된다.
+            className="absolute inset-x-0 top-0 z-banner pt-[calc(0.5rem+env(safe-area-inset-top))]"
             status={connectionStatus}
           />
           {header}
