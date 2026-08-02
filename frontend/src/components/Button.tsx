@@ -13,7 +13,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
  */
 const variants = {
   primary: 'bg-brand text-on-brand shadow-cta hover:bg-brand-strong disabled:shadow-none',
-  secondary: 'bg-[#F2F2F0] text-[#111214] hover:bg-white',
+  secondary: 'bg-inverse text-on-inverse hover:bg-white',
   ghost: 'border-white/18 bg-transparent text-content hover:bg-white/6',
   danger: 'border-brand/55 bg-brand/10 text-danger hover:bg-brand/18',
 } as const
