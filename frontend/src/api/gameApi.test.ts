@@ -124,26 +124,6 @@ describe('게임 시작 응답 검증', () => {
   })
 })
 
-describe('점수 후보 응답 검증', () => {
-  it('candidates가 없거나 정수가 아니면 거부한다', async () => {
-    mockApiServer.use(
-      http.post('/api/v1/games/:gameId/score-candidates', () => HttpResponse.json({})),
-    )
-    await expect(client.getScoreCandidates('game-1', { dice: [1, 2, 3, 4, 5] })).rejects.toThrow(
-      'Invalid score candidates response',
-    )
-
-    mockApiServer.use(
-      http.post('/api/v1/games/:gameId/score-candidates', () =>
-        HttpResponse.json({ candidates: { choice: 15.5 } }),
-      ),
-    )
-    await expect(client.getScoreCandidates('game-1', { dice: [1, 2, 3, 4, 5] })).rejects.toThrow(
-      'Invalid score candidates response',
-    )
-  })
-})
-
 describe('요청 취소', () => {
   it('signal을 넘기면 취소된 요청은 중단 오류로 끝난다', async () => {
     const controller = new AbortController()

@@ -1,8 +1,11 @@
 import { type CategoryScores, calculateScoreSummary, scoreCategory } from '@/domain/scoring'
-import type { FakeMessageHandlers } from '@/realtime/fakeRealtimeClient'
-import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
-import type { DiceSet, ScoreBoard, ServerMessage } from '@/realtime/wsEvents'
-import { WS_PROTOCOL_VERSION } from '@/realtime/wsEvents'
+import { type FakeMessageHandlers, FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
+import {
+  type DiceSet,
+  type ScoreBoard,
+  type ServerMessage,
+  WS_PROTOCOL_VERSION,
+} from '@/realtime/wsEvents'
 import {
   creatorSession,
   MOCK_ROOM_ID,

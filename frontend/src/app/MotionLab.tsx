@@ -93,25 +93,14 @@ export function MotionLab() {
   useWakeLock(keepAwake && canWakeLock)
 
   const copyConfig = async (kind: 'ts' | 'json' | 'diff') => {
-    const text =
-      kind === 'ts'
-        ? formatConfigAsTs(lab.config)
-        : kind === 'json'
-          ? formatConfigAsJson(lab.config)
-          : formatConfigDiff(lab.config)
+    const text = formatConfig(kind, lab.config)
     if (kind === 'diff' && text === '') {
       setCopyMessage('기본값과 다른 항목이 없어요.')
       setFallbackText(null)
       return
     }
     const ok = await copyTextToClipboard(text)
-    setCopyMessage(
-      ok
-        ? kind === 'ts'
-          ? 'TS 리터럴을 복사했어요. motionConfig.ts의 MOTION_GESTURE_CONFIG 선언과 바꿔치기하세요.'
-          : '복사했어요.'
-        : '자동 복사에 실패했어요. 아래 내용을 길게 눌러 복사해 주세요.',
-    )
+    setCopyMessage(copyResultMessage(ok, kind))
     setFallbackText(ok ? null : text)
   }
 
@@ -144,47 +133,17 @@ export function MotionLab() {
         </p>
       </header>
 
-      <section className={sectionClassName} aria-label="센서 상태">
-        <p className="m-0 text-sm text-content-muted">{meta.help}</p>
-        {(lab.availability === 'permissionRequired' || lab.availability === 'requesting') && (
-          <Button
-            loading={lab.availability === 'requesting'}
-            onClick={() => void lab.requestPermission()}
-          >
-            {lab.availability === 'requesting' ? '권한 확인 중' : '센서 시작하기'}
-          </Button>
-        )}
-        {(lab.availability === 'denied' ||
-          lab.availability === 'error' ||
-          lab.availability === 'silent') && (
-          <Button variant="secondary" onClick={() => void lab.requestPermission()}>
-            다시 시도
-          </Button>
-        )}
-        <div className="flex flex-wrap gap-4 text-sm">
-          {canVibrate && (
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                checked={vibrateOn}
-                onChange={(event) => setVibrateOn(event.target.checked)}
-              />
-              이벤트 진동 피드백
-            </label>
-          )}
-          {canWakeLock && (
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                checked={keepAwake}
-                onChange={(event) => setKeepAwake(event.target.checked)}
-              />
-              화면 꺼짐 방지
-            </label>
-          )}
-        </div>
-        <DeviceInfo />
-      </section>
+      <SensorStatusSection
+        availability={lab.availability}
+        help={meta.help}
+        requestPermission={lab.requestPermission}
+        canVibrate={canVibrate}
+        vibrateOn={vibrateOn}
+        setVibrateOn={setVibrateOn}
+        canWakeLock={canWakeLock}
+        keepAwake={keepAwake}
+        setKeepAwake={setKeepAwake}
+      />
 
       <section className={sectionClassName} aria-label="실시간 모니터">
         <div className="flex flex-wrap items-center gap-2">
@@ -263,6 +222,84 @@ export function MotionLab() {
         )}
       </section>
     </main>
+  )
+}
+
+function formatConfig(kind: 'ts' | 'json' | 'diff', config: MotionGestureConfig) {
+  if (kind === 'ts') return formatConfigAsTs(config)
+  if (kind === 'json') return formatConfigAsJson(config)
+  return formatConfigDiff(config)
+}
+
+function copyResultMessage(ok: boolean, kind: 'ts' | 'json' | 'diff') {
+  if (!ok) return '자동 복사에 실패했어요. 아래 내용을 길게 눌러 복사해 주세요.'
+  if (kind === 'ts') {
+    return 'TS 리터럴을 복사했어요. motionConfig.ts의 MOTION_GESTURE_CONFIG 선언과 바꿔치기하세요.'
+  }
+  return '복사했어요.'
+}
+
+function SensorStatusSection({
+  availability,
+  help,
+  requestPermission,
+  canVibrate,
+  vibrateOn,
+  setVibrateOn,
+  canWakeLock,
+  keepAwake,
+  setKeepAwake,
+}: {
+  availability: MotionAvailability
+  help: string
+  requestPermission: () => Promise<void>
+  canVibrate: boolean
+  vibrateOn: boolean
+  setVibrateOn: (enabled: boolean) => void
+  canWakeLock: boolean
+  keepAwake: boolean
+  setKeepAwake: (enabled: boolean) => void
+}) {
+  const canStart = availability === 'permissionRequired' || availability === 'requesting'
+  const canRetry = ['denied', 'error', 'silent'].includes(availability)
+
+  return (
+    <section className={sectionClassName} aria-label="센서 상태">
+      <p className="m-0 text-sm text-content-muted">{help}</p>
+      {canStart && (
+        <Button loading={availability === 'requesting'} onClick={() => void requestPermission()}>
+          {availability === 'requesting' ? '권한 확인 중' : '센서 시작하기'}
+        </Button>
+      )}
+      {canRetry && (
+        <Button variant="secondary" onClick={() => void requestPermission()}>
+          다시 시도
+        </Button>
+      )}
+      <div className="flex flex-wrap gap-4 text-sm">
+        {canVibrate && (
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={vibrateOn}
+              onChange={(event) => setVibrateOn(event.target.checked)}
+            />
+            이벤트 진동 피드백
+          </label>
+        )}
+        {canWakeLock && (
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={keepAwake}
+              onChange={(event) => setKeepAwake(event.target.checked)}
+            />
+            화면 꺼짐 방지
+          </label>
+        )}
+      </div>
+      <DeviceInfo />
+    </section>
   )
 }
 

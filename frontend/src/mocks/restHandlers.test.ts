@@ -55,9 +55,6 @@ describe('REST mock handlers', () => {
       userId: creator.you,
     })
     const game = await client.getGame(startedGame.gameId)
-    const candidates = await client.getScoreCandidates(startedGame.gameId, {
-      dice: [1, 2, 3, 4, 6],
-    })
     await client.leaveRoom(creator.roomCode, {
       sessionToken: creator.sessionToken,
       userId: creator.you,
@@ -69,7 +66,6 @@ describe('REST mock handlers', () => {
     expect(startedGame.gameId).toBe('mock-game-id')
     expect(startedGame.snapshot.phase).toBe('playing')
     expect(game.phase).toBe('playing')
-    expect(candidates.candidates.choice).toBe(16)
   })
 
   it('REST 응답 계약에는 프론트 전용 역할을 추가하지 않는다', async () => {
@@ -179,15 +175,10 @@ describe('REST mock handlers', () => {
     })
   })
 
-  it('점수 후보와 방 나가기 요청도 OpenAPI 계약을 따른다', async () => {
-    let scoreRequestBody: unknown
+  it('방 나가기 요청도 OpenAPI 계약을 따른다', async () => {
     let leaveAuthorization = ''
     let leaveUserId = ''
     mockApiServer.use(
-      http.post('/api/v1/games/:gameId/score-candidates', async ({ request }) => {
-        scoreRequestBody = await request.json()
-        return HttpResponse.json({ candidates: { choice: 16 } })
-      }),
       http.delete('/api/v1/rooms/:roomCode/players/me', ({ request }) => {
         leaveAuthorization = request.headers.get('Authorization') ?? ''
         leaveUserId = request.headers.get('X-User-Id') ?? ''
@@ -195,13 +186,11 @@ describe('REST mock handlers', () => {
       }),
     )
 
-    await client.getScoreCandidates('game-1', { dice: [1, 2, 3, 4, 6] })
     await client.leaveRoom(creatorSession.roomCode, {
       sessionToken: creatorSession.sessionToken,
       userId: creatorSession.you,
     })
 
-    expect(scoreRequestBody).toEqual({ dice: [1, 2, 3, 4, 6] })
     expect(leaveAuthorization).toBe(`Bearer ${creatorSession.sessionToken}`)
     expect(leaveUserId).toBe(creatorSession.you)
   })
@@ -235,13 +224,12 @@ describe('REST mock handlers', () => {
         client.createRoom({ nickname: '호스트' }),
         client.startGame(creatorSession.roomCode, auth),
         client.returnToLobby(creatorSession.roomCode, auth),
-        client.getScoreCandidates('mock-game-id', { dice: [1, 2, 3, 4, 5] }),
         client.leaveRoom(creatorSession.roomCode, auth),
       ].map((request) => request.then(() => null).catch((error: unknown) => error)),
     )
 
     expect(failures.map((error) => (error as { code?: string }).code)).toEqual(
-      Array.from({ length: 5 }, () => 'MOCK_API_ERROR'),
+      Array.from({ length: 4 }, () => 'MOCK_API_ERROR'),
     )
   })
 
@@ -275,9 +263,6 @@ describe('REST mock handlers', () => {
     await expect(client.returnToLobby('NOPE99', auth)).rejects.toMatchObject({
       code: 'ROOM_NOT_FOUND',
     })
-    await expect(
-      client.getScoreCandidates('other-game', { dice: [1, 2, 3, 4, 5] }),
-    ).rejects.toMatchObject({ code: 'GAME_NOT_FOUND' })
     await expect(client.leaveRoom('NOPE99', auth)).rejects.toMatchObject({
       code: 'ROOM_NOT_FOUND',
     })

@@ -1,6 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { RealtimeSync } from '@/app/RealtimeSync'
 import {
   createEmptyScoreBoard,
   createPlayingRoomSnapshot,
@@ -11,13 +12,13 @@ import {
   serverMessage,
 } from '@/mocks/fixtures'
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
-import type { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
+import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
-import type { ClientMessageType, RoomSnapshot } from '@/realtime/wsEvents'
-import { buildClientMessage } from '@/realtime/wsEvents'
+import { buildClientMessage, type ClientMessageType, type RoomSnapshot } from '@/realtime/wsEvents'
 import type { PhysicsDiceRollRequest, PhysicsDiceSet } from '@/rendering/physics-dice/types'
 import { useAppStore } from '@/store'
-import { animationSeedForRoll, GamePlay } from './GamePlay'
+import { GamePlay } from './GamePlay'
+import { animationSeedForRoll } from './gamePlayModel'
 
 /**
  * 물리 렌더러는 rAF와 WebGL에 의존해 jsdom에서 굴림을 끝낼 수 없다.
@@ -144,8 +145,34 @@ function renderObserver(snapshot = createPlayingRoomSnapshot(Date.now() + 30_000
   }
 }
 
+function SyncedGamePlay() {
+  const roomSession = useAppStore((state) => state.roomSession)
+  const roomSnapshot = useAppStore((state) => state.roomSnapshot)
+  if (!roomSession || !roomSnapshot) return null
+  return (
+    <GamePlay
+      onLeaveRequest={() => {}}
+      roomId={roomSession.roomId}
+      session={roomSession}
+      snapshot={roomSnapshot}
+    />
+  )
+}
+
 describe('GamePlay', () => {
   beforeEach(() => useAppStore.getState().reset())
+
+  it('헤더에서 도움말을 열고 소리 상태를 바꿄다', async () => {
+    const { user } = renderGame()
+    const soundButton = screen.getByRole('button', { name: /소리 [켜끄]기/ })
+    const initialPressed = soundButton.getAttribute('aria-pressed')
+
+    await user.click(screen.getByRole('button', { name: '게임 도움말' }))
+    expect(screen.getByRole('dialog', { name: '게임 도움말' })).toBeVisible()
+
+    await user.click(soundButton)
+    expect(soundButton.getAttribute('aria-pressed')).not.toBe(initialPressed)
+  })
 
   it('keeps a single roll CTA', async () => {
     const { user } = renderGame()
@@ -229,6 +256,35 @@ describe('GamePlay', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('releases a spectator roll when thrown arrives before broadcast', () => {
+    const { client } = renderObserver()
+    const requestId = 'roll-player-creator-1-1'
+
+    act(() => {
+      client.emitMessage(
+        serverMessage(
+          'dice.thrown',
+          { playerId: creatorSession.you, rollCount: 1, roundNumber: 1 },
+          { roomId: participantSession.roomId },
+        ),
+      )
+    })
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
+
+    act(() => {
+      client.send(
+        buildClientMessage(
+          'dice.roll',
+          { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
+          { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
+        ),
+      )
+    })
+
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', requestId)
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', requestId)
   })
 
   /**
@@ -702,6 +758,48 @@ describe('GamePlay', () => {
     )
   })
 
+  it('plays a roll delivered immediately after the server starts the next turn', () => {
+    const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
+    useAppStore.getState().setRoomSession({ ...creatorSession, snapshot })
+    const client = new FakeRealtimeClient()
+
+    render(
+      <RealtimeSync client={client}>
+        <SyncedGamePlay />
+      </RealtimeSync>,
+    )
+
+    act(() => {
+      client.emitMessage(
+        serverMessage('round.start', {
+          activePlayerId: participantPlayer.playerId,
+          deadline: Date.now() + 30_000,
+          roundNumber: 2,
+          turnOrder: [creatorPlayer.playerId, participantPlayer.playerId],
+        }),
+      )
+      client.emitMessage(
+        serverMessage(
+          'dice.broadcast',
+          {
+            dice: [1, 2, 3, 4, 5],
+            held: [false, false, false, false, false],
+            playerId: participantPlayer.playerId,
+            rollCount: 1,
+            roundNumber: 2,
+          },
+          { roomId: creatorSession.roomId },
+        ),
+      )
+    })
+
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-target', '1,2,3,4,5')
+    expect(screen.getByTestId('dice-scene')).toHaveAttribute(
+      'data-request',
+      'roll-player-participant-2-1',
+    )
+  })
+
   /** QA FND-7: 라운드가 바뀌는 순간은 관전자에게도 알린다. 첫 렌더(중간 입장)는 전환이 아니다. */
   it('announces a new round to spectators, but not on first render', async () => {
     const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
@@ -811,6 +909,39 @@ describe('GamePlay', () => {
     // 남은 킵을 물려주면 다음 턴 주인의 첫 굴림이 서버와 어긋난다.
     expect(screen.getByText('킵 레일 · 비어 있음')).toBeVisible()
     expect(screen.getByText(`${participantPlayer.nickname}의 턴`)).toBeVisible()
+  })
+
+  it('턴이 바뀌면 응답을 받지 못한 점수 제출 상태를 폐기한다', async () => {
+    const client = withheldResponse(createRealtimeFixture(), 'round.submit')
+    const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
+    if (!snapshot.game) throw new Error('playing snapshot is missing game state')
+    const { rerenderWith, user } = renderGame({ client, snapshot })
+
+    await user.click(screen.getByRole('button', { name: '굴리기' }))
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
+    expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeDisabled()
+
+    rerenderWith({
+      ...snapshot,
+      game: {
+        ...snapshot.game,
+        activePlayerId: participantPlayer.playerId,
+        roundNumber: 2,
+      },
+    })
+    rerenderWith({
+      ...snapshot,
+      game: {
+        ...snapshot.game,
+        activePlayerId: creatorPlayer.playerId,
+        roundNumber: 3,
+      },
+    })
+
+    await user.click(screen.getByRole('button', { name: '굴리기' }))
+    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeEnabled()
   })
 
   it('내 점수판이 갱신돼도 새로 채워진 칸이 없으면 자동 기록을 알리지 않는다', async () => {

@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createPlayingRoomSnapshot, creatorSession } from '@/mocks/fixtures'
 import { useAppStore } from '@/store'
-import { useGame, useReturnToLobby, useScoreCandidates, useStartGame } from './useGameApi'
+import { useGame, useReturnToLobby, useStartGame } from './useGameApi'
 
 const MOCK_GAME_ID = 'mock-game-id'
 
@@ -95,17 +95,5 @@ describe('useReturnToLobby', () => {
     expect(result.current.isSuccess).toBe(true)
     // 스스로 대기실로 옮기면 다른 참가자와 상태가 갈린다.
     expect(useAppStore.getState().roomSnapshot?.phase).toBe('playing')
-  })
-})
-
-describe('useScoreCandidates', () => {
-  it('주사위를 보내 족보별 점수 후보를 받는다', async () => {
-    const { result } = renderHook(() => useScoreCandidates())
-
-    await act(async () => {
-      await result.current.execute(MOCK_GAME_ID, { dice: [1, 2, 3, 4, 6] })
-    })
-
-    expect(result.current.data?.candidates.choice).toBe(16)
   })
 })
