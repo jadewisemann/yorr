@@ -42,6 +42,9 @@ export function Modal({ children, className, onClose, open, title }: ModalProps)
         type="button"
         aria-label="모달 닫기"
         onClick={onClose}
+        // 포커스 표시가 없는 전체 화면 버튼이라 탭 순서에서 뺀다.
+        // 키보드로 닫는 길은 Escape와 닫기 버튼으로 이미 있다.
+        tabIndex={-1}
       />
       <section
         className={cn(

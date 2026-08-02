@@ -52,6 +52,9 @@ export function LandingPopover({
         aria-label="배경을 눌러 닫기"
         className="absolute inset-0 cursor-default border-0 bg-scrim"
         onClick={onClose}
+        // 포커스 표시가 없는 전체 화면 버튼이라 탭 순서에서 뺀다.
+        // 키보드로 닫는 길은 Escape로 이미 있다.
+        tabIndex={-1}
         type="button"
       />
       <div

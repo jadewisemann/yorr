@@ -79,6 +79,9 @@ export function RecordPanel({
           aria-label="점수시트 닫기"
           className="fixed inset-0 z-sheet cursor-default border-0 bg-scrim p-0"
           onClick={() => onToggle(false)}
+          // 포커스 표시가 없는 전체 화면 버튼이라 탭 순서에서 뺀다.
+          // 키보드는 아래 토글 버튼으로 같은 동작을 한다.
+          tabIndex={-1}
           type="button"
         />
       )}
