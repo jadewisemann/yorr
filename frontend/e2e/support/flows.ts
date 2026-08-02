@@ -33,7 +33,7 @@ export async function useSimpleDiceRenderer(page: Page) {
 /** 랜딩 → 방 만들기 → 닉네임 → 대기실. 닉네임을 비우면 제안 닉네임으로 입장한다. */
 export async function createRoomAsHost(page: Page, nickname?: string) {
   await page.goto('/')
-  await page.getByRole('button', { name: '방 만들기' }).click()
+  await page.getByRole('button', { name: '요트 다이스 플레이' }).click()
 
   const field = page.getByRole('textbox', { name: '닉네임' })
   await expect(field).toBeVisible()

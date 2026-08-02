@@ -7,10 +7,10 @@ import {
   ROOM_CODE,
   scoreBoard,
   waitingSnapshot,
-} from './support/contract'
-import { startFakeGameServer } from './support/fakeGameServer'
-import { gameUrl, joinRoomAsGuest, useSimpleDiceRenderer } from './support/flows'
-import { mockRestApi } from './support/restMock'
+} from '../support/contract'
+import { startFakeGameServer } from '../support/fakeGameServer'
+import { gameUrl, joinRoomAsGuest, useSimpleDiceRenderer } from '../support/flows'
+import { mockRestApi } from '../support/restMock'
 
 /**
  * 참가자 시점. 참가자는 게임을 시작하지도, 굴리지도 못한다 —
@@ -55,7 +55,7 @@ test('watches the active player roll without any roll control', async ({ page })
 
   // 내 턴이 아니면 굴리기 CTA 자리는 관전 안내로 바뀐다.
   await expect(page.getByRole('button', { name: /^굴리기/ })).toBeHidden()
-  await expect(page.getByText(`${HOST.nickname}이 굴리는 중`)).toBeVisible()
+  await expect(page.getByText(`${HOST.nickname}(이)가 굴리는 중`)).toBeVisible()
 
   server.send('dice.broadcast', {
     playerId: HOST.id,
@@ -64,9 +64,15 @@ test('watches the active player roll without any roll control', async ({ page })
     dice: [6, 6, 6, 6, 6],
     held: [false, false, false, false, false],
   })
+  // 관전자 화면은 dice.broadcast만으로는 사발을 쏟지 않는다 — 굴린 사람이 던지는 시점(dice.thrown)에
+  // 맞춰야 그 사람의 손 동작과 화면이 어긋나지 않는다(wsEvents.ts v0.6 이력).
+  server.send('dice.thrown', { playerId: HOST.id, roundNumber: 1, rollCount: 1 })
 
   // 서버 브로드캐스트가 관전자 화면에도 그대로 재생된다.
   await expect(page.getByRole('button', { name: '6 주사위 KEEP' })).toHaveCount(5)
+  // 굴림은 다음 프레임에 완료 처리된다(PhysicsDiceFallback의 requestAnimationFrame) —
+  // 그 전에 dice.hold_changed가 오면 아직 'rolling' phase라 조용히 버려진다.
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)))
 
   server.send('dice.hold_changed', {
     playerId: HOST.id,

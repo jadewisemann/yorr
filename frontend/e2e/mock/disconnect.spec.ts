@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
-import { GUEST, HOST, player, waitingSnapshot } from './support/contract'
-import { startFakeGameServer } from './support/fakeGameServer'
-import { createRoomAsHost, startHostedGame, useSimpleDiceRenderer } from './support/flows'
-import { mockRestApi } from './support/restMock'
-import { readRoomSession } from './support/roomSession'
+import { GUEST, HOST, player, waitingSnapshot } from '../support/contract'
+import { startFakeGameServer } from '../support/fakeGameServer'
+import { createRoomAsHost, startHostedGame, useSimpleDiceRenderer } from '../support/flows'
+import { mockRestApi } from '../support/restMock'
+import { readRoomSession } from '../support/roomSession'
 
 /**
  * 연결이 끊겼을 때. 재연결은 자동(1초 뒤 room.join 재전송)이고,

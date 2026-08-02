@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
-import { GUEST, HOST, player, ROOM_CODE, scoreBoard, waitingSnapshot } from './support/contract'
-import { startFakeGameServer } from './support/fakeGameServer'
+import { GUEST, HOST, player, ROOM_CODE, scoreBoard, waitingSnapshot } from '../support/contract'
+import { startFakeGameServer } from '../support/fakeGameServer'
 import {
   createRoomAsHost,
   gameUrl,
@@ -9,8 +9,8 @@ import {
   rollDice,
   startHostedGame,
   useSimpleDiceRenderer,
-} from './support/flows'
-import { mockRestApi } from './support/restMock'
+} from '../support/flows'
+import { mockRestApi } from '../support/restMock'
 
 /** 호스트 시점의 한 턴 전체: 시작 → 굴리기 → 기록 → 종료 → 대기실 복귀. */
 

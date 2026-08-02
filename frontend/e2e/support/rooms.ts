@@ -17,7 +17,7 @@ export function uniqueNickname(prefix: string) {
 /** 랜딩 → 방 만들기 → 닉네임 입력 → 로비 진입. 로비 URL 의 방 코드를 돌려준다. */
 export async function createRoom(page: Page, nickname: string) {
   await page.goto('/')
-  await page.getByRole('button', { name: '방 만들기' }).click()
+  await page.getByRole('button', { name: '요트 다이스 플레이' }).click()
   await page.getByRole('textbox', { name: '닉네임' }).fill(nickname)
   await page.getByRole('button', { name: '대기실 입장' }).click()
 

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
-import { GUEST, HOST, player, ROOM_CODE, waitingSnapshot } from './support/contract'
-import { startFakeGameServer } from './support/fakeGameServer'
-import { mockRestApi } from './support/restMock'
+import { GUEST, HOST, player, ROOM_CODE, waitingSnapshot } from '../support/contract'
+import { startFakeGameServer } from '../support/fakeGameServer'
+import { mockRestApi } from '../support/restMock'
 
 /**
  * 형식이 틀린 초대 코드는 REST 요청을 보내기 전에 화면에서 막는다(InvalidInvitePage).
