@@ -489,15 +489,13 @@ function ZeroScoreModal({
       title={category ? `${categoryLabel[category]}를 0점으로 확정할까요?` : ''}
     >
       <p className="m-0 text-sm text-content-muted">이 족보는 다시 사용할 수 없습니다.</p>
-      {/* 디자인 19 — 안전한 선택(취소)이 위, 확정은 다크 레드(잃는 선택임을 색으로도 말한다). */}
+      {/* 디자인 19 — 안전한 선택(취소)이 위, 파괴적 동작은 레드 틴트 아웃라인.
+          RoomExitGuard의 확인 다이얼로그와 같은 배치·같은 variant를 쓴다. */}
       <div className="mt-5 grid gap-2.5">
         <Button onClick={onCancel} variant="secondary">
           취소
         </Button>
-        <Button
-          className="bg-[#8F1D1D] text-[#FFE9E8] shadow-none hover:bg-[#A32421]"
-          onClick={onConfirm}
-        >
+        <Button onClick={onConfirm} variant="danger">
           0점 확정
         </Button>
       </div>
