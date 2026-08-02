@@ -39,10 +39,10 @@ const WHEEL_THRESHOLD = 18
 /**
  * 칸을 넘길 때 띠가 미끄러지는 거리(컨테이너 폭 대비 %). 인접한 두 카드의 **중심 사이
  * 거리**다 — 이만큼 움직여야 새 카드가 직전에 이웃 카드가 서 있던 자리에서 들어온 것처럼
- * 보인다. 아래 카드 좌표(narrow inset-x-6.7% / peek -14.9%+24.6%, wide 50%±34.7% /
+ * 보인다. 아래 카드 좌표(narrow inset-x-9% / peek -15.6%+24.6%, wide 50%±34.7% /
  * peek -12.2%+36.1%)에서 계산한 값이라 그 좌표를 바꾸면 여기도 같이 고친다.
  */
-const SLIDE_DISTANCE_PCT = { narrow: 51.3, wide: 44.15 }
+const SLIDE_DISTANCE_PCT = { narrow: 53.3, wide: 44.15 }
 
 export function LandingHeroCarousel({
   activeIndex,
@@ -205,9 +205,10 @@ export function LandingHeroCarousel({
           aria-labelledby={landingTabId(game.key)}
           className={cn(
             'absolute inset-y-0',
-            // narrow 11%: 예전 6.7%는 이웃 카드가 손톱만큼만 걸려 "옆에 더 있다"가 읽히지
-            // 않았다. 카드를 86.6% → 78%로 줄여 그만큼 이웃을 내보인다.
-            wide ? 'left-1/2 w-[69.4%] -translate-x-1/2' : 'inset-x-[11%]',
+            // narrow 9%: 예전 6.7%는 이웃 카드가 손톱만큼만 걸려 "옆에 더 있다"가 읽히지
+            // 않았다. 화살표의 원형 판이 빠져 자리가 남은 만큼 카드는 82%까지 되찾고,
+            // 이웃은 9%(390에서 35px)를 내보인다.
+            wide ? 'left-1/2 w-[69.4%] -translate-x-1/2' : 'inset-x-[9%]',
           )}
           id={LANDING_PANEL_ID}
           role="tabpanel"
@@ -267,8 +268,8 @@ function PeekCard({
             ? 'left-[-12.2%]'
             : 'right-[-12.2%]'
           : side === 'left'
-            ? 'left-[-13.6%]'
-            : 'right-[-13.6%]',
+            ? 'left-[-15.6%]'
+            : 'right-[-15.6%]',
       )}
     >
       {wide && (
@@ -301,16 +302,27 @@ function ArrowButton({
     <button
       aria-label={isNext ? '다음 게임' : '이전 게임'}
       className={cn(
-        'absolute top-1/2 z-1 grid size-tap -translate-y-1/2 cursor-pointer place-items-center rounded-full border border-landing-hairline-strong bg-landing-panel/80 text-landing-text backdrop-blur-sm transition-colors duration-150 ease-out hover:border-landing-accent hover:bg-landing-panel focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+        // 원형 판을 걷었다 — 카드 안에 들어온 뒤로는 그 테두리가 카드 위에 뜬 별개
+        // 위젯처럼 보였다. 꺾쇠만 남기면 카드에 얹힌 표식으로 읽힌다. 탭 타깃(44px)은
+        // 투명한 히트 영역으로 그대로 지킨다.
+        'absolute top-1/2 z-1 grid size-tap -translate-y-1/2 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-landing-text-muted transition-colors duration-150 ease-out hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
         // 카드 안쪽 가장자리에 붙는다 — 카드의 일부로 읽히고 띠와 함께 움직인다.
-        // 세로 가운데는 3D 피사체가 서는 자리라 반투명 + 블러로 뒤가 비치게 둔다.
-        wide ? 'size-12 text-[19px]/none' : 'text-[16px]/none',
-        isNext ? (wide ? 'right-4' : 'right-2') : wide ? 'left-4' : 'left-2',
+        wide ? 'right-2 left-2' : 'right-0.5 left-0.5',
+        isNext ? 'left-auto' : 'right-auto',
       )}
       onClick={onClick}
       type="button"
     >
-      <span aria-hidden="true">{isNext ? '›' : '‹'}</span>
+      {/* 직각 모서리를 45° 돌린 꺾쇠. 세로로 늘여 '›' 글리프보다 각을 세운다 —
+          3D 위에 얹히므로 형태가 뚜렷할수록 읽힌다. */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          'rotate-45 scale-y-135 border-current',
+          wide ? 'size-3.5 border-t-2 border-r-2' : 'size-3 border-t-2 border-r-2',
+          isNext ? undefined : 'rotate-[225deg]',
+        )}
+      />
     </button>
   )
 }
