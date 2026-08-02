@@ -486,6 +486,7 @@ function ZeroScoreModal({
     <Modal
       onClose={onCancel}
       open={category !== null}
+      role="alertdialog"
       title={category ? `${categoryLabel[category]}를 0점으로 확정할까요?` : ''}
     >
       <p className="m-0 text-sm text-content-muted">이 족보는 다시 사용할 수 없습니다.</p>

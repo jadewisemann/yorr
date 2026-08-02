@@ -206,12 +206,12 @@ describe('GamePage motion roll flow', () => {
     render(<GamePage roomId={creatorSession.roomId} />)
 
     fireEvent.click(screen.getByRole('button', { name: '나가기' }))
-    const dialog = screen.getByRole('dialog', { name: '방에서 나갈까요?' })
+    const dialog = screen.getByRole('alertdialog', { name: '방에서 나갈까요?' })
     expect(dialog).toBeVisible()
 
     fireEvent.click(within(dialog).getByRole('button', { name: '머무르기' }))
 
-    expect(screen.queryByRole('dialog', { name: '방에서 나갈까요?' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog', { name: '방에서 나갈까요?' })).not.toBeInTheDocument()
     expect(useAppStore.getState().roomSession).not.toBeNull()
     expect(screen.getByRole('button', { name: '굴리기' })).toBeVisible()
   })
