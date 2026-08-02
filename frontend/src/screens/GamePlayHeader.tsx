@@ -136,7 +136,7 @@ function TurnStatus({
       <span
         className={cn(
           'flex items-center gap-1.5 truncate text-[16px] font-bold transition-colors duration-base motion-safe:animate-turn-flash',
-          !isMyTurn && activePlayer && 'text-[#FF8A86]',
+          !isMyTurn && activePlayer && 'text-brand-soft',
         )}
         key={activePlayerId ?? 'sync'}
       >

@@ -9,6 +9,7 @@
   --color-content-muted: var(--ds-color-content-muted);
   --color-brand: var(--ds-color-brand);
   --color-brand-strong: var(--ds-color-brand-strong);
+  --color-brand-soft: var(--ds-color-brand-soft);
   --color-on-brand: var(--ds-color-on-brand);
   --color-positive: var(--ds-color-positive);
   --color-warning: var(--ds-color-warning);
@@ -126,6 +127,10 @@
   --ds-color-content-muted: #a4a5aa;
   --ds-color-brand: #e53935;
   --ds-color-brand-strong: #ff4d48;
+  /* 레드 계열 텍스트 강조 — 현재 턴 이름, 승자 배지처럼 brand/brand-strong으로는
+     너무 세거나 레드 틴트 배경 위에서 대비가 떨어지는 자리에 쓴다. 랜딩의
+     --ds-landing-accent-text와 값이 같지만 네임스페이스가 다르므로 따로 둔다. */
+  --ds-color-brand-soft: #ff8a86;
   --ds-color-on-brand: #ffffff;
   --ds-color-positive: #8fcb9b;
   --ds-color-warning: #e9b44c;
