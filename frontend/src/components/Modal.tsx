@@ -38,7 +38,7 @@ export function Modal({ children, className, onClose, open, title }: ModalProps)
   return (
     <div className="fixed inset-0 z-modal grid place-items-center p-4">
       <button
-        className="absolute inset-0 cursor-default bg-black/70"
+        className="absolute inset-0 cursor-default bg-scrim"
         type="button"
         aria-label="모달 닫기"
         onClick={onClose}
