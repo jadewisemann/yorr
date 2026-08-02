@@ -6,16 +6,16 @@ import {
   playingSnapshot,
   ROOM_CODE,
   waitingSnapshot,
-} from './support/contract'
-import { startFakeGameServer } from './support/fakeGameServer'
-import { gameUrl, lobbyUrl, useSimpleDiceRenderer } from './support/flows'
-import { mockRestApi } from './support/restMock'
+} from '../support/contract'
+import { startFakeGameServer } from '../support/fakeGameServer'
+import { gameUrl, lobbyUrl, useSimpleDiceRenderer } from '../support/flows'
+import { mockRestApi } from '../support/restMock'
 import {
   playingSession,
   readRoomSession,
   seedRoomSession,
   storedSession,
-} from './support/roomSession'
+} from '../support/roomSession'
 
 /**
  * 게임 중 새로고침 복원. sessionStorage에 세션이 남아 있어도 자동으로 재입장하지 않는다 —
@@ -38,7 +38,7 @@ test('resumes a game in progress from the stored session', async ({ page }) => {
 
   const banner = page.getByRole('region', { name: '진행 중인 방' })
   await expect(banner).toBeVisible()
-  await expect(banner).toContainText('진행 중인 방이 있어요')
+  await expect(banner).toContainText('진행 중인 게임이 있어요')
   await expect(banner).toContainText(`${ROOM_CODE} · ${HOST.nickname}`)
   // 복원만으로는 소켓을 열지 않는다.
   expect(server.connections).toBe(0)
@@ -120,7 +120,7 @@ test('ignores a stored session that does not match its own room', async ({ page 
   await page.goto('/')
 
   await expect(page.getByRole('region', { name: '진행 중인 방' })).toBeHidden()
-  await expect(page.getByRole('button', { name: '방 만들기' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '요트 다이스 플레이' })).toBeVisible()
 })
 
 test('never sends the guest token before resuming', async ({ page }) => {
