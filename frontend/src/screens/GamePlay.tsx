@@ -323,9 +323,14 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
         {/* 디자인 Yacht Play 3D — 점수시트는 우측 상시 패널(520px)이다. */}
         {wide ? (
           <section aria-label="점수 시트" className="flex min-h-0 flex-col border-l border-border">
-            <div className="flex flex-none items-center justify-between gap-2 px-4 py-3">
-              <span className="text-[11px] font-bold tracking-[0.1em] uppercase">점수 시트</span>
-              <span className="truncate text-[11px] text-content-faint">{sheetHint}</span>
+            {/* 왼쪽 헤더와 같은 높이(4.5rem)·같은 밑줄을 쓴다. 11px 라벨이 py-3만 두르고
+                있어서 40px짜리 글자 조각이 화면 맨 위에 떠 있는 것처럼 보였다 —
+                두 열이 하나의 가로선을 공유해야 헤더로 읽히고, 표는 그 선에 바로 붙는다. */}
+            <div className="flex h-[4.5rem] flex-none items-center justify-between gap-3 border-b border-border px-4">
+              <span className="text-[15px] font-bold tracking-[0.06em] whitespace-nowrap">
+                점수표
+              </span>
+              <span className="truncate text-[12px] text-content-faint">{sheetHint}</span>
             </div>
             {/* 시트 행들이 남는 높이를 나눠 갖게 한다. 지금까지 행이 min-h만 갖는 블록이라
                 내용이 720px에서 끝나고 나머지가 전부 바닥에 고였다(1920×945에서 184px,
