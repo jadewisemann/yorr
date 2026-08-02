@@ -7,15 +7,10 @@ import { RollCounter } from '@/components/RollCounter'
 import { EffectCallout, RollResultCallout } from '@/components/RollResultCallout'
 import { Tooltip } from '@/components/Tooltip'
 import { TutorialGuide } from '@/components/TutorialGuide'
+import { MAX_ROLLS } from '@/domain/yachtGame'
 import type { MotionAvailability } from '@/input/motionTypes'
 import type { Player } from '@/realtime/wsEvents'
 import { hideTutorial, isTutorialHidden } from '@/tutorialPreference'
-import {
-  diceTrayLabel,
-  diceTrayStatus,
-  isMotionPermissionNotice,
-  keptRailLabel,
-} from './gamePlayModel'
 import type { GamePlayRoll } from './useGamePlayRoll'
 
 interface GameDiceTrayProps {
@@ -197,5 +192,58 @@ export function GameDiceTray({
         />
       )}
     </div>
+  )
+}
+
+function diceTrayLabel({
+  activePlayerName,
+  currentRollNumber,
+  isMyTurn,
+}: {
+  activePlayerName: string | undefined
+  currentRollNumber: number
+  isMyTurn: boolean
+}) {
+  if (!activePlayerName) return '턴 동기화 중'
+  return isMyTurn
+    ? `롤링 존 · 나 · 굴림 ${currentRollNumber}/${MAX_ROLLS}`
+    : `롤링 존 · ${activePlayerName}의 턴`
+}
+
+function diceTrayStatus({
+  activePlayerName,
+  allKept,
+  isMyTurn,
+  rolled,
+  roundNumber,
+  submitted,
+}: {
+  activePlayerName: string | undefined
+  allKept: boolean
+  isMyTurn: boolean
+  rolled: boolean
+  roundNumber: number
+  submitted: boolean
+}) {
+  if (submitted) return '점수가 반영됐습니다 · 다음 턴 대기'
+  if (!isMyTurn) return `${activePlayerName ?? '—'}님이 굴리는 중입니다`
+  if (allKept) return '모두 킵했습니다 · 해제하거나 족보를 기록하세요'
+  if (rolled) return '홀드하고 다시 굴리거나, 족보를 탭해 기록하세요'
+  return `라운드 ${roundNumber} — 굴려서 시작하세요`
+}
+
+function keptRailLabel(keptCount: number, keptSum: number, allKept: boolean) {
+  if (keptCount === 0) return '비어 있음'
+  const releaseHint = allKept ? ' · 해제해야 굴릴 수 있어요' : ''
+  return `${keptCount}/5 · 합 ${keptSum}${releaseHint}`
+}
+
+function isMotionPermissionNotice(availability: MotionAvailability) {
+  return (
+    availability === 'permissionRequired' ||
+    availability === 'requesting' ||
+    availability === 'denied' ||
+    availability === 'error' ||
+    availability === 'insecure'
   )
 }

@@ -15,7 +15,7 @@ import {
   YACHT_CATEGORIES,
   type YachtCategory,
 } from '@/domain/scoring'
-import type { YachtGameAction } from '@/domain/yachtGame'
+import { MAX_ROLLS, type YachtGameAction } from '@/domain/yachtGame'
 import { setSoundtrackMuted } from '@/landingSoundtrack'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { readSoundMuted, saveSoundMuted } from '@/soundPreference'
@@ -31,7 +31,6 @@ import { useGamePlaySubmission } from './useGamePlaySubmission'
 
 /** 이 폭부터 점수표를 시트 대신 좌측 상시 패널로 승격한다(와이어프레임 1c). */
 const WIDE_LAYOUT = '(min-width: 1024px)'
-const MAX_ROLLS = 3
 interface GamePlayProps {
   roomId: string
   session: ActiveRoomSession

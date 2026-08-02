@@ -162,6 +162,18 @@ function SyncedGamePlay() {
 describe('GamePlay', () => {
   beforeEach(() => useAppStore.getState().reset())
 
+  it('헤더에서 도움말을 열고 소리 상태를 바꿄다', async () => {
+    const { user } = renderGame()
+    const soundButton = screen.getByRole('button', { name: /소리 [켜끄]기/ })
+    const initialPressed = soundButton.getAttribute('aria-pressed')
+
+    await user.click(screen.getByRole('button', { name: '게임 도움말' }))
+    expect(screen.getByRole('dialog', { name: '게임 도움말' })).toBeVisible()
+
+    await user.click(soundButton)
+    expect(soundButton.getAttribute('aria-pressed')).not.toBe(initialPressed)
+  })
+
   it('keeps a single roll CTA', async () => {
     const { user } = renderGame()
 

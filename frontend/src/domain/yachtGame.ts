@@ -19,6 +19,7 @@ import {
 export type YachtGamePhase = 'ready' | 'rolling' | 'choosing' | 'submitting' | 'roundComplete'
 export type RollCount = 0 | 1 | 2 | 3
 export type { DiceIndex } from './dice'
+export const MAX_ROLLS = 3
 
 export interface YachtGameState {
   phase: YachtGamePhase
@@ -165,8 +166,8 @@ function requestRoll(
   // 서버가 대신 굴린 결과는 이미 확정된 사실이라 phase 게이트를 통과시킨다.
   // 굴림 예산은 서버가 지키므로 rollCount 상한만 남긴다.
   const canRoll = forced
-    ? state.phase !== 'roundComplete' && state.rollCount < 3
-    : (state.phase === 'ready' || state.phase === 'choosing') && state.rollCount < 3
+    ? state.phase !== 'roundComplete' && state.rollCount < MAX_ROLLS
+    : (state.phase === 'ready' || state.phase === 'choosing') && state.rollCount < MAX_ROLLS
   if (!canRoll) return state
 
   // 다섯 개를 전부 킵하면 굴릴 주사위가 0개다 — 요청 자체를 무시한다.
@@ -210,7 +211,7 @@ function completeRoll(state: YachtGameState, requestId: string, dice: DiceSet): 
 }
 
 function toggleHold(state: YachtGameState, index: DiceIndex): YachtGameState {
-  if (state.phase !== 'choosing' || !state.dice || state.rollCount >= 3) return state
+  if (state.phase !== 'choosing' || !state.dice || state.rollCount >= MAX_ROLLS) return state
   return { ...state, held: toggleHeldDie(state.held, index) }
 }
 

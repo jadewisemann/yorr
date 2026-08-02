@@ -10,6 +10,7 @@ import { detectSpecialHand, type SpecialHand } from '@/domain/specialHands'
 import {
   createYachtGame,
   getPendingRoll,
+  MAX_ROLLS,
   restoreYachtGame,
   type YachtGameAction,
   yachtGameReducer,
@@ -39,7 +40,6 @@ import {
   turnAwareErrorMessage,
 } from './gamePlayModel'
 
-const MAX_ROLLS = 3
 const TAP_RELEASE_DELAY_MS = 600
 const SHAKE_RELAY_INTERVAL_MS = 60
 
