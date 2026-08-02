@@ -1,8 +1,8 @@
 # S15P11A406-169 · UI 리팩터링 인수인계 문서
 
 > **새 세션은 이 문서 하나만 읽고 이어서 작업한다.**
-> 기준일 2026-08-03 · 브랜치 `refactor/S15P11A406-169-ui-design-system` · 커밋 30개
-> push 안 함 · MR 없음 · `develop` 무변경
+> 기준일 2026-08-03 · 브랜치 `refactor/S15P11A406-169-ui-design-system` · 커밋 54개
+> **origin에 push 완료** · MR 미생성 · `develop` 무변경
 
 ---
 
@@ -18,9 +18,9 @@ npm run dev -- --port 5190 --strictPort
 | 워크트리 | `C:\Users\appel\Downloads\_ssafy\S15P11A406-169-ui-design-system` |
 | 메인 저장소 | `C:\Users\appel\Downloads\_ssafy\S15P11A406` (develop) |
 | Jira | [S15P11A406-169](https://ssafy.atlassian.net/browse/S15P11A406-169) |
-| 현재 상태 | `biome check src/` 클린 · **821/821** · `tsc` 0 · build OK |
+| 현재 상태 | `biome check src/` 클린 · 단위 **823/823** · e2e **144/144** · `tsc` 0 · build OK |
 
-**먼저 확인할 것:** `git log --oneline develop..HEAD` (30개), 이 문서의 §5 체크리스트.
+**먼저 확인할 것:** `git log --oneline develop..HEAD`, 이 문서의 §2 함정과 §6 확정 결정.
 
 ---
 
@@ -53,9 +53,9 @@ npm run dev -- --port 5190 --strictPort
 승자를 `cn()`이 아니라 빌드된 CSS 선언 순서가 정하고 있었고, 그 결과 주 CTA 5곳이 같은 className을 넘기는데 `size="lg"` 유무로 58px/44px로 갈렸다.
 → `src/cn.ts`에서 `extendTailwindMerge`로 등록 완료. **토큰을 추가하면 여기도 같이 고쳐야 한다.**
 
-### 2-C. `duration-*` 유틸리티는 생성되지 않는다
-Tailwind v4에 `--duration-*` 테마 네임스페이스가 없다. `tokens.css`의 선언이 아무 CSS도 만들지 않아 `duration-base`를 쓴 5곳이 조용히 기본 150ms로 떨어진다.
-→ 아직 안 고쳤다. §5의 4-D.
+### 2-C. `duration-*` 유틸리티는 생성되지 않는다 (수정 완료)
+Tailwind v4에 `--duration-*` 테마 네임스페이스가 없다. `tokens.css`에 적어도 아무 CSS도 만들어지지 않아 `duration-base`를 쓴 5곳이 조용히 기본값으로 떨어져 있었다.
+→ class에서는 `duration-(--ds-motion-base)`처럼 **원시값을 직접 참조**한다. 이름 있는 duration 토큰은 만들 수 없다.
 
 ### 2-D. jsdom + motion
 - **WAAPI(`Element.animate`)가 없어** motion이 애니메이션을 시작조차 못 한다.
@@ -70,6 +70,30 @@ Tailwind v4에 `--duration-*` 테마 네임스페이스가 없다. `tokens.css`�
 
 ### 2-F. Atlassian MCP 인증이 세션마다 끊긴다
 티켓은 이미 있다. 상태 변경·코멘트가 필요하면 재인증하거나 직접 Jira에서 한다.
+
+### 2-G. 화면 전환을 `AnimatePresence`로 하면 안 된다
+퇴장을 그리려면 나가는 화면을 붙잡아 둬야 하는데, 그 사이 라우터 상태는 이미 바뀌어 있다.
+붙잡힌 트리 안의 `<Outlet/>`이 컨텍스트를 다시 읽어 **새 화면**을 그리므로, 결과적으로 새
+화면이 사라졌다 다시 나타난다. 지연 로드 화면이면 그 순간 suspend까지 겹쳐 전면 스피너가 스친다.
+→ **브라우저 View Transitions**를 쓴다(`createRouter({ defaultViewTransition: true })` +
+`styles/global.css`의 `::view-transition-*`). 브라우저가 옛 화면을 비트맵으로 스냅샷하므로
+다시 렌더되지 않고, WebGL 컨텍스트가 두 벌 살아나지도 않는다.
+→ 화면 청크는 idle에 미리 받는다(`useScreenPrefetch`). 안 받아두면 이동할 때마다
+`ScreenFallback`이 한두 프레임 스친다.
+
+### 2-H. Playwright 관련 두 가지
+- **headless Chromium은 `prefers-reduced-motion: reduce`가 기본이다.** 애니메이션 경로를
+  검증하려면 `chromium.launch()` + `newPage()`로 직접 띄우거나 `reducedMotion`을 지정한다.
+  프로젝트 e2e(`--project=desktop-chrome`)는 reduce로 돌기 때문에 motion 경로를 타지 않는다.
+- **e2e는 `dist`를 서빙한다**(`e2e/preview-server.mjs`는 빌드하지 않는다). 코드를 고쳤으면
+  `npm run build`를 먼저 해야 한다. 안 하면 이전 산출물로 검증해 결과가 거짓이 된다.
+
+### 2-I. REST 응답이 실시간 상태를 되돌릴 수 있다 (수정 완료)
+`useGame`의 `preserveRealtimeGame`이 `game`만 보존하고 `phase`는 보존하지 않았다. 응답이
+날아오는 사이 `game.over`가 도착하면 REST의 `playing`이 `finished`를 덮어 결과 화면이 영영
+뜨지 않았다 — 라우트 분리로 `GamePage`가 한 청크 늦게 마운트되면서 창이 넓어져 재현됐다.
+→ 단계를 뒤로 되돌리지 않게 고쳤다. **REST에서 스냅샷을 받아 스토어에 넣는 코드를 새로
+추가할 때 같은 함정을 조심할 것.**
 
 ---
 
@@ -89,7 +113,7 @@ Tailwind v4에 `--duration-*` 테마 네임스페이스가 없다. `tokens.css`�
 
 ---
 
-## 4. 완료된 작업 (커밋 30개)
+## 4. 완료된 작업 (앞선 세션 30개 + 이번 세션)
 
 `git log --oneline develop..HEAD`로 확인. 성격별 요약:
 
@@ -117,61 +141,33 @@ Tailwind v4에 `--duration-*` 테마 네임스페이스가 없다. `tokens.css`�
 
 ---
 
-## 5. 남은 작업 체크리스트
+## 5. 체크리스트 — **A~I 전부 완료**
 
-### 5-1. 디자인 판단 필요 — **R2에 따라 스킬/에이전트에 위임**
+기준일 2026-08-03. 아래는 이후 세션이 같은 것을 다시 파지 않도록 남기는 결과 기록이다.
+각 항목의 근거·실측값은 해당 커밋 메시지에 있다(`git log --oneline develop..HEAD`).
 
-내가 임의로 값을 정하지 않는다. 각 항목마다 디자인 스킬(`high-end-visual-design` · `gpt-taste` · `frontend-design` · `web-design-guidelines` 등)을 받아 에이전트에게 시안을 받고 적용한다.
+| | 항목 | 결과 |
+|---|---|---|
+| A | 모바일 초대 코드 가시성 | 눌린 면이 배경에 잠기던 것을 고친 뒤, 최종적으로 **h1 오른쪽의 작은 채운 알약 버튼**이 됐다(글자 뒤 입력 칸 아이콘). 층은 여전히 게임 CTA와 분리 |
+| B | 랜딩 좌우 폭 제한 | 카드가 아니라 **띠**에 `max-w-landing`(100rem). 이웃 카드 걸침은 vw 1990px까지 유지 |
+| C | 게임 화면 폭 | 상수 72rem → **뷰포트 높이별 3단**(80/96/108rem). 3D 카메라가 높이로 스케일되기 때문. 시트 32.5 → 28rem |
+| D | 점수 시트 쏠림 | 행을 flex 아이템으로 만들어 남는 높이를 나눠 갖게 했다. 헤더는 ScoreSheet 안으로 주입 |
+| E | 캐러셀 슬라이드 | 띠 전체를 한 덩어리로 민다. 화살표·스와이프·휠·점 목록 모두 같은 연출 |
+| F | 페이지 전환 | **브라우저 View Transitions**로 간다(§2-G 참고). motion으로는 성립하지 않았다 |
+| G | 문서 개정 | design-system.md에 「모션」 절 신설, current-baseline.md·frontend/CLAUDE.md 갱신 |
+| H | 죽은 토큰 정리 | `--text-title`·`--duration-*`·physics alias 제거. `duration-base` 5곳은 실제로 생성되지 않고 있었다 |
+| I | 접근성 재점검 | 비활성 제출 버튼이 이유를 말하지 않던 2곳 수정. 나머지 카테고리는 이미 충족 |
 
-> ⚠️ `mengto/design-taste-frontend`, `mengto/redesign-existing-projects`는 **404다.** 레지스트리 목록에는 있지만 실제로 못 받는다. `npx ui-skills list`로 먼저 확인할 것.
+### 5-1. 이후 사용자 요청으로 추가로 한 것
 
-- [ ] **A. 모바일 초대 코드 진입이 잘 안 보임**
-  - 현재: `CodeEntryRow` — 눌린 면(`bg-landing-well` + `border-landing-hairline-strong`) 전체 폭 44px, 코드 글리프 + `›`
-  - 위치: narrow = 가치 제안 h1 바로 아래 / wide = 헤더 좌측
-  - 사용자: *"모바일에서는 좀 잘보이면 좋겠는데"*
-  - **제약(반드시 지킬 것):** ① 게임 CTA와 **다른 층**을 유지 ② 준비 중인 게임에서도 살아 있어야 함 ③ 게임 CTA 묶음 안에 넣지 말 것
-  - 이 제약을 4번 어겼다. §7 참조
-
-- [ ] **B. 메인(랜딩) 좌우 폭 제한**
-  - 현재: `EntryPage`의 `<main>`이 `w-full`, 폭 제한 없음
-  - 사용자: *"매인 페이지도 좌우폭 제한하고"*
-  - 주의: 히어로 캐러셀이 이웃 카드를 화면 밖으로 걸치는 구조(`left-[-14.9%]`)라 폭을 제한하면 그 연출이 잘린다. 카드 띠는 전면 폭을 쓰고 **콘텐츠만** 제한하는 형태가 필요할 수 있다
-
-- [ ] **C. 게임 화면 폭이 너무 작음**
-  - 현재: `GamePlay`의 `<main>`에 `mx-auto max-w-content`(72rem = 1152px). wide는 `grid-cols-[1fr_32.5rem]`
-  - 사용자: *"게임 화면은 폭이 너무 작아"* — 내가 정한 72rem이 과했다
-  - 값 재검토 필요. 참고로 다른 4개 화면은 `max-w-2xl`(42rem)
-
-- [ ] **D. 점수 시트가 위로 쏠려 있음**
-  - 사용자: *"오른쪽 점수 시트는 너무 위에 쏠려 있고"*
-  - wide 우측 `32.5rem` 열의 세로 정렬 문제. `GamePlay.tsx`의 `<section aria-label="점수 시트">` 참조
-
-### 5-2. 기능 — 디자인 판단 불필요
-
-- [ ] **E. 캐러셀 슬라이드 애니메이션**
-  - 지금은 게임을 바꿔도 카드 **내용만 즉시 교체**된다. 슬라이드 전환이 원래 없다
-  - `transition-transform`은 드래그 스냅백에만 걸린다
-  - motion으로 구현. `LandingHeroCarousel.tsx`
-
-- [ ] **F. 페이지 전환 애니메이션**
-  - 사용자: *"페이지 이동시에도 앱처럼 이동 시킬 수도 있잖아?"*
-  - TanStack Router + `AnimatePresence`. 라우트가 지연 로드라 `Suspense`와의 순서에 주의
-
-- [ ] **G. 문서 개정** (motion 도입에 따른 필수 후속)
-  - `frontend/docs/engineering/design-system.md:14` — "복잡한 animation은 CSS keyframes로" → motion과의 경계 명시
-  - `frontend/docs/current-baseline.md` — 기술 기준에 의존성 추가
-  - `frontend/CLAUDE.md` — "복잡한 animation만 CSS keyframes로 분리한다"
-  - **경계를 안 그으면 다음 사람이 모든 애니메이션을 motion으로 옮긴다.** 이게 motion 도입의 진짜 리스크
-
-- [ ] **H. 죽은 토큰 정리**
-  - `--text-title` (사용처 0)
-  - `--duration-fast/base/roll` (§2-C — 유틸리티 자체가 생성 안 됨)
-  - `--color-physics-accent`/`-danger`의 `@theme inline` alias (원시값은 `appearance.ts`에서 사용 중이라 alias만)
-  - `--spacing-content`는 **삭제 금지** — 게임 화면에서 쓰게 됐다
-
-- [ ] **I. `fixing-accessibility` 스킬로 빠진 것 확인**
-
----
+- 플레이 CTA를 **히어로 카드 안**으로. PLAYABLE NOW/COMING SOON 배지는 같은 말이라 제거
+- 히어로 카드 재배치: wide **네 모서리**(제목 좌상·필 우상·태그라인 좌하·CTA 우하) / narrow **상하 2단**
+- 카드 상한 확대(wide `min(42rem,66vh,56vw)` · narrow 36rem), 상단 크라운 레이어 신설
+- wide 헤더 폭을 히어로 카드 콘텐츠 영역(띠의 69.4%)에 정렬
+- 이웃 카드 노출 6.7% → 9%, 화살표를 카드 안으로(원형 판 제거, 띠와 함께 이동)
+- 메타 필 `flex-nowrap` — 2줄로 접히면 카드마다 상단 띠 높이가 달라진다
+- 센서 권한 안내 3초 자동 닫힘 + 링 진행 표시
+- **브랜치에 있던 회귀 1건 수정**: 늦게 온 REST 응답이 끝난 게임을 진행 중으로 되돌리고 있었다(§2-H)
 
 ## 6. 확정된 설계 결정 (뒤집지 말 것)
 
