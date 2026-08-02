@@ -108,7 +108,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
             </p>
           </div>
           <Button
-            className="min-h-10 flex-none px-3.5 text-sm"
+            className="flex-none px-3.5 text-sm"
             onClick={() => setExitRequested(true)}
             type="button"
             variant="danger"
