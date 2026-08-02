@@ -22,7 +22,7 @@ const mocks = vi.hoisted(() => ({
   gestureCallback: null as ((event: MotionGestureEvent) => void) | null,
   motionAvailability: 'unsupported',
   navigate: vi.fn(),
-  realtimeListener: null as ((message: never) => void) | null,
+  realtimeListeners: new Set<(message: never) => void>(),
   requestPermission: vi.fn(),
   resetGesture: vi.fn(),
   sceneProps: null as DiceSceneProps | null,
@@ -68,10 +68,8 @@ vi.mock('@/components/PhysicsDiceScene', () => ({
 vi.mock('@/realtime/RealtimeClientContext', () => ({
   useRealtimeClient: () => ({
     onMessage: vi.fn((listener: (message: never) => void) => {
-      mocks.realtimeListener = listener
-      return () => {
-        if (mocks.realtimeListener === listener) mocks.realtimeListener = null
-      }
+      mocks.realtimeListeners.add(listener)
+      return () => mocks.realtimeListeners.delete(listener)
     }),
     send: vi.fn(
       (message: {
@@ -85,7 +83,7 @@ vi.mock('@/realtime/RealtimeClientContext', () => ({
         type: string
       }) => {
         if (message.type !== 'dice.roll') return
-        mocks.realtimeListener?.({
+        const broadcast = {
           type: 'dice.broadcast',
           ts: Date.now(),
           roomId: message.roomId,
@@ -97,7 +95,10 @@ vi.mock('@/realtime/RealtimeClientContext', () => ({
             dice: [6, 5, 4, 3, 2],
             held: message.payload.held,
           },
-        } as never)
+        } as never
+        mocks.realtimeListeners.forEach((listener) => {
+          listener(broadcast)
+        })
       },
     ),
   }),
@@ -109,7 +110,7 @@ describe('GamePage motion roll flow', () => {
     mocks.gestureCallback = null
     mocks.motionAvailability = 'unsupported'
     mocks.navigate.mockReset()
-    mocks.realtimeListener = null
+    mocks.realtimeListeners.clear()
     mocks.requestPermission.mockReset()
     mocks.resetGesture.mockReset()
     mocks.sceneProps = null

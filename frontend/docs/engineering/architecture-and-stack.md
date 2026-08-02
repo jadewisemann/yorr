@@ -17,8 +17,8 @@
 | `api/` | REST client(`client.ts`)와 도메인별 호출 훅(`gameApi.ts`, `authApi.ts`, `useRoomApi.ts`, `useGameApi.ts`) |
 | `realtime/` | WebSocket wire contract(`wsEvents.ts`, SSOT)와 연결 client(`realtimeClient.ts`, `fakeRealtimeClient.ts`) |
 | `domain/` | 순수 Yacht 게임 규칙 — `dice.ts`(굴림 계획), `scoring.ts`(점수 계산), `specialHands.ts`, `yachtGame.ts`(상태 전이). React/DOM/네트워크를 모른다 |
-| `feedback/` | 플랫폼별 굴림 피드백(진동·효과음·족보 콜아웃 보이스) — `RollFeedback.ts`, `createRollFeedback.ts`, `handVoice.ts` |
-| `input/` | `DeviceMotion` 기반 흔들기·던지기 제스처 인식 — `MotionInputController.ts`, `MotionGestureRecognizer.ts`, `RollIntent.ts` |
+| `feedback/` | 플랫폼별 굴림 피드백(진동·효과음·족보 콜아웃 보이스) — `createRollFeedback.ts`, `handVoice.ts` |
+| `input/` | `DeviceMotion` 기반 흔들기·던지기 제스처 인식 — `MotionInputController.ts`, `MotionGestureRecognizer.ts` |
 | `rendering/` | 브라우저 렌더링 인프라. 일반 렌더링 파일은 이 폴더 한 단계에 두되, 하나의 public API를 구성하는 강하게 결합된 subsystem은 예외적으로 하위 폴더를 허용한다: `rendering/physics-dice/`(Three.js + Rapier 3D 주사위 시뮬레이션, 14개 파일)와 `rendering/hero/`(랜딩 히어로 WebGL 장면) |
 | `mocks/` | MSW handler와 fixture |
 | `store.ts` · `cn.ts` · `styles/` | 전역 상태, class 병합, 디자인 토큰(`styles/global.css`, `styles/tokens.css`) |

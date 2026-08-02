@@ -1,6 +1,5 @@
 import { onFirstGesture, primeAudio } from '@/audioUnlock'
-import type { PhysicsDicePhase } from '@/rendering/physics-dice/types'
-import type { RollFeedback } from './RollFeedback'
+import type { PhysicsDiceIndex, PhysicsDicePhase } from '@/rendering/physics-dice/types'
 
 const SHAKE_RATE_LIMIT_MS = 80
 /**
@@ -37,7 +36,7 @@ pour.volume = 0.7
 
 onFirstGesture(() => primeAudio([shake, pour, ...hits]))
 
-export function createRollFeedback({ muted = false }: { muted?: boolean } = {}): RollFeedback {
+export function createRollFeedback({ muted = false }: { muted?: boolean } = {}) {
   let lastShakeAt = 0
   let phase: PhysicsDicePhase = 'idle'
   let isMuted = muted
@@ -76,7 +75,7 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}):
     armed() {
       vibrate(24)
     },
-    diceImpact(index, strength) {
+    diceImpact(index: PhysicsDiceIndex, strength: number) {
       if (isMuted) return
       const audio = hits[index]
       if (!audio) return
@@ -94,7 +93,7 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}):
     error() {
       vibrate([35, 30, 35])
     },
-    phaseChanged(next) {
+    phaseChanged(next: PhysicsDicePhase) {
       phase = next
       clearShakeIdle()
       if (next === 'shaking') {
@@ -110,7 +109,7 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}):
         play(pour)
       }
     },
-    setMuted(next) {
+    setMuted(next: boolean) {
       isMuted = next
       if (next) {
         shake.pause()
@@ -123,7 +122,7 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}):
     remoteShakePulse() {
       keepShakeSounding()
     },
-    shakePulse(_direction, strength) {
+    shakePulse(_direction: 'left' | 'right', strength: number) {
       keepShakeSounding()
 
       const now = performance.now()

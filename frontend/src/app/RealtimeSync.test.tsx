@@ -8,6 +8,7 @@ import {
   serverMessage,
 } from '@/mocks/fixtures'
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
+import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { useAppStore } from '@/store'
 import { RealtimeSync } from './RealtimeSync'
 
@@ -37,6 +38,33 @@ describe('RealtimeSync', () => {
     })
   })
 
+  it('keeps the connection pending until the room join is acknowledged', () => {
+    const client = new FakeRealtimeClient()
+
+    render(
+      <RealtimeSync client={client}>
+        <div>app</div>
+      </RealtimeSync>,
+    )
+
+    expect(client.sentMessages[0]).toMatchObject({ type: 'room.join' })
+    expect(useAppStore.getState().connectionStatus).toBe('connecting')
+
+    client.emitMessage(
+      serverMessage(
+        'room.joined',
+        {
+          you: creatorSession.you,
+          sessionToken: creatorSession.sessionToken,
+          snapshot: creatorSession.snapshot,
+        },
+        { roomId: creatorSession.roomId },
+      ),
+    )
+
+    expect(useAppStore.getState().connectionStatus).toBe('connected')
+  })
+
   // 서버에 sys.reconnect 라우팅이 없어(티켓 25) 재접속도 room.join으로 복귀해야 한다.
   // sys.reconnect를 보내면 조용히 버려져 "연결됨인데 방에 없는" limbo가 된다.
   it('re-sends room.join with the saved session on reconnect', async () => {
@@ -63,21 +91,28 @@ describe('RealtimeSync', () => {
     })
   })
 
-  it('keeps the session token and waits for an explicit retry after repeated failures', async () => {
-    const client = createRealtimeFixture({ role: 'creator' })
-    render(
-      <RealtimeSync client={client}>
-        <div>app</div>
-      </RealtimeSync>,
-    )
-    await waitFor(() => expect(useAppStore.getState().connectionStatus).toBe('connected'))
+  it('keeps the session token and waits for an explicit retry after repeated failures', () => {
+    vi.useFakeTimers()
+    try {
+      const client = new FakeRealtimeClient()
+      render(
+        <RealtimeSync client={client}>
+          <div>app</div>
+        </RealtimeSync>,
+      )
 
-    for (let attempt = 0; attempt < 11; attempt += 1) client.emitConnection('close')
+      for (let attempt = 0; attempt < 11; attempt += 1) {
+        act(() => client.emitConnection('close'))
+        if (attempt < 10) act(() => vi.advanceTimersByTime(1_000))
+      }
 
-    expect(useAppStore.getState().roomSession?.sessionToken).toBe(creatorSession.sessionToken)
-    expect(useAppStore.getState().roomResumeReason).toBe('disconnected')
-    expect(localStorage.getItem('yorr.room-session')).toContain(creatorSession.sessionToken)
-    expect(useAppStore.getState().appNotice).toContain('다시 연결')
+      expect(useAppStore.getState().roomSession?.sessionToken).toBe(creatorSession.sessionToken)
+      expect(useAppStore.getState().roomResumeReason).toBe('disconnected')
+      expect(localStorage.getItem('yorr.room-session')).toContain(creatorSession.sessionToken)
+      expect(useAppStore.getState().appNotice).toContain('다시 연결')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('does not auto-join a paused session until the user resumes it', async () => {
@@ -442,6 +477,43 @@ describe('RealtimeSync', () => {
     )
 
     expect(useAppStore.getState().roomSnapshot?.game).toMatchObject({ rollCount: 2 })
+
+    client.emitMessage(
+      serverMessage('dice.broadcast', {
+        playerId: participantPlayer.playerId,
+        roundNumber: 1,
+        rollCount: 3,
+        dice: [6, 6, 6, 6, 6],
+        held: [false, false, false, false, false],
+      }),
+    )
+    expect(useAppStore.getState().roomSnapshot?.game).toMatchObject({ rollCount: 2 })
+
+    client.emitMessage(
+      serverMessage('dice.broadcast', {
+        playerId: creatorPlayer.playerId,
+        roundNumber: 1,
+        rollCount: 1,
+        dice: [6, 6, 6, 6, 6],
+        held: [false, false, false, false, false],
+      }),
+    )
+    expect(useAppStore.getState().roomSnapshot?.game).toMatchObject({ rollCount: 2 })
+
+    client.emitMessage(
+      serverMessage(
+        'dice.broadcast',
+        {
+          playerId: creatorPlayer.playerId,
+          roundNumber: 1,
+          rollCount: 3,
+          dice: [6, 6, 6, 6, 6],
+          held: [false, false, false, false, false],
+        },
+        { roomId: 'another-room' },
+      ),
+    )
+    expect(useAppStore.getState().roomSnapshot?.game).toMatchObject({ rollCount: 2 })
   })
 
   // 40분 유예가 끝나 이미 정리된 자리로 재접속을 시도하면 서버가 이 코드로 거절한다.
@@ -547,6 +619,24 @@ describe('RealtimeSync', () => {
         type: 'room.join',
         payload: { sessionToken: creatorSession.sessionToken },
       })
+    })
+
+    it('재연결 대기 중 중복 close가 와도 연결 예약을 하나만 유지한다', () => {
+      const client = createRealtimeFixture({ role: 'creator' })
+      render(
+        <RealtimeSync client={client}>
+          <div>app</div>
+        </RealtimeSync>,
+      )
+      client.sentMessages.length = 0
+
+      act(() => {
+        client.emitConnection('close')
+        client.emitConnection('close')
+        vi.advanceTimersByTime(1_000)
+      })
+
+      expect(client.sentMessages.filter((message) => message.type === 'room.join')).toHaveLength(1)
     })
   })
 })

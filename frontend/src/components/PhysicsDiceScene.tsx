@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { loadPhysicsDiceWorld } from '@/rendering/physics-dice/loadWorld'
 import type {
   PhysicsDiceIndex,
   PhysicsDiceMotionPulse,
@@ -35,6 +36,40 @@ type PhysicsDiceSceneProps = {
 type PhysicsDiceWorldInstance = InstanceType<
   typeof import('@/rendering/physics-dice/World').PhysicsDiceWorld
 >
+
+type LatestSceneState = {
+  dice: PhysicsDiceSet | null
+  held: PhysicsHeldDice
+  lineUpAll: boolean
+  motionFollow: boolean | undefined
+  quality: PhysicsDiceQuality
+  releaseRequestId: string | null
+  request: PhysicsDiceRollRequest | null
+}
+
+function applyInitialSceneState(
+  world: PhysicsDiceWorldInstance,
+  latest: LatestSceneState,
+  startedRequests: Set<string>,
+  releasedRequests: Set<string>,
+) {
+  world.applyQuality(latest.quality)
+  if (latest.motionFollow !== undefined) world.setMotionFollow(latest.motionFollow)
+  // 배치 규칙을 먼저 세운 뒤에 주사위를 놓는다 — 순서가 뒤집히면 한 번 잘못 눕는다.
+  world.setLineUpAll(latest.lineUpAll)
+  world.syncCommittedDice(latest.dice, latest.held)
+
+  const request = latest.request
+  if (!request) return
+  if (!startedRequests.has(request.requestId)) {
+    startedRequests.add(request.requestId)
+    world.startRoll(request)
+  }
+  if (latest.releaseRequestId !== request.requestId || releasedRequests.has(request.requestId))
+    return
+  releasedRequests.add(request.requestId)
+  world.pour()
+}
 
 export function PhysicsDiceScene({
   dice,
@@ -74,6 +109,7 @@ export function PhysicsDiceScene({
   const completedRequestsRef = useRef(new Set<string>())
   const lastPulseIdRef = useRef(0)
   const [fallbackMessage, setFallbackMessage] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
   const [resizing, setResizing] = useState(false)
 
   callbacksRef.current = { onDiceImpact, onError, onHeldToggle, onPhaseChange, onRollComplete }
@@ -105,7 +141,7 @@ export function PhysicsDiceScene({
       onRollComplete: completeOnce,
     }
 
-    void import('@/rendering/physics-dice/World')
+    void loadPhysicsDiceWorld()
       .then(async ({ PhysicsDiceWorld }) => {
         if (disposed) return
         createdWorld = new PhysicsDiceWorld({
@@ -116,24 +152,13 @@ export function PhysicsDiceScene({
         await createdWorld.init()
         if (disposed) return
         worldRef.current = createdWorld
-        const latest = latestRef.current
-        createdWorld.applyQuality(latest.quality)
-        if (latest.motionFollow !== undefined) createdWorld.setMotionFollow(latest.motionFollow)
-        // 배치 규칙을 먼저 세운 뒤에 주사위를 놓는다 — 순서가 뒤집히면 한 번 잘못 눕는다.
-        createdWorld.setLineUpAll(latest.lineUpAll)
-        createdWorld.syncCommittedDice(latest.dice, latest.held)
-        if (latest.request && !startedRequestsRef.current.has(latest.request.requestId)) {
-          startedRequestsRef.current.add(latest.request.requestId)
-          createdWorld.startRoll(latest.request)
-        }
-        if (
-          latest.request &&
-          latest.releaseRequestId === latest.request.requestId &&
-          !releasedRequestsRef.current.has(latest.request.requestId)
-        ) {
-          releasedRequestsRef.current.add(latest.request.requestId)
-          createdWorld.pour()
-        }
+        applyInitialSceneState(
+          createdWorld,
+          latestRef.current,
+          startedRequestsRef.current,
+          releasedRequestsRef.current,
+        )
+        setLoading(false)
       })
       .catch((cause: unknown) => {
         if (disposed) return
@@ -218,6 +243,21 @@ export function PhysicsDiceScene({
       aria-label="사발과 KEEP 슬롯이 있는 3D 주사위 트레이"
     >
       <div ref={containerRef} className="absolute inset-0" />
+      {loading && (
+        <div
+          aria-live="polite"
+          className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-surface/75 text-content-muted backdrop-blur-sm"
+          role="status"
+        >
+          <span className="grid justify-items-center gap-2 text-sm font-semibold">
+            <span
+              aria-hidden="true"
+              className="size-8 animate-spin-slow rounded-full border-3 border-border border-t-brand motion-reduce:animate-none"
+            />
+            3D 주사위 준비 중
+          </span>
+        </div>
+      )}
       {resizing && (
         <div
           className="absolute inset-0 grid place-items-center bg-surface/75 font-mono text-xs text-content-muted backdrop-blur-sm"
