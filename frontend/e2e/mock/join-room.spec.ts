@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { GUEST, HOST, player, ROOM_CODE, waitingSnapshot } from './support/contract'
-import { startFakeGameServer } from './support/fakeGameServer'
-import { joinRoomAsGuest } from './support/flows'
-import { mockRestApi } from './support/restMock'
+import { GUEST, HOST, player, ROOM_CODE, waitingSnapshot } from '../support/contract'
+import { startFakeGameServer } from '../support/fakeGameServer'
+import { joinRoomAsGuest } from '../support/flows'
+import { mockRestApi } from '../support/restMock'
 
 /**
  * 초대 링크로 들어오는 참가자 흐름. 참가자는 방을 시작할 수 없고,
@@ -69,6 +69,11 @@ test('explains a missing room and offers another code without opening a socket',
 
   await page.getByRole('button', { name: '다른 코드 입력' }).click()
   await expect(page).toHaveURL(/\/$/)
+
+  await page
+    .getByRole('button', { name: /코드로 참가$/ })
+    .first()
+    .click()
   await expect(page.getByRole('textbox', { name: '방 코드' })).toBeVisible()
 })
 

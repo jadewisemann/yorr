@@ -3,12 +3,13 @@ import type { Identity, RoomSnapshot } from './contract'
 import { GAME_ID, HOST, ROOM_CODE } from './contract'
 
 /**
- * 재접속 테스트용 시딩. 저장 위치·키는 src/roomSessionStorage.ts와 같아야 한다
- * (sessionStorage의 `yorr.room-session`). 값이 스키마 검증을 통과하지 못하면
- * store는 세션 없음으로 시작하고 "이어서 하기" UI 자체가 나오지 않는다.
+ * 재접속 테스트용 시딩. 저장 위치·키·봉투 모양은 src/roomSessionStorage.ts와 같아야 한다
+ * (localStorage의 `yorr.room-session`, `{ session, expiresAt }` 봉투). 값이 스키마 검증을
+ * 통과하지 못하면 store는 세션 없음으로 시작하고 "이어서 하기" UI 자체가 나오지 않는다.
  */
 
 const ROOM_SESSION_KEY = 'yorr.room-session'
+const ROOM_SESSION_TTL_MS = 40 * 60 * 1000
 
 export interface StoredRoomSession {
   gameId: string | null
@@ -53,18 +54,19 @@ export function playingSession(snapshot: RoomSnapshot, identity: Identity = HOST
 }
 
 export async function seedRoomSession(page: Page, session: StoredRoomSession) {
+  const stored = { session, expiresAt: Date.now() + ROOM_SESSION_TTL_MS }
   await page.addInitScript(
     ([key, value]) => {
       try {
-        window.sessionStorage.setItem(key as string, value as string)
+        window.localStorage.setItem(key as string, value as string)
       } catch {
         // 사파리 프라이빗 모드처럼 저장소가 막힌 환경. 시딩 실패는 테스트가 어서션으로 잡는다.
       }
     },
-    [ROOM_SESSION_KEY, JSON.stringify(session)] as const,
+    [ROOM_SESSION_KEY, JSON.stringify(stored)] as const,
   )
 }
 
 export function readRoomSession(page: Page) {
-  return page.evaluate((key) => window.sessionStorage.getItem(key), ROOM_SESSION_KEY)
+  return page.evaluate((key) => window.localStorage.getItem(key), ROOM_SESSION_KEY)
 }
