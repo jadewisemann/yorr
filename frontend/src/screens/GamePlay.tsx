@@ -127,6 +127,7 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     category: YachtCategory
     msgId: string
   } | null>(null)
+  const acceptedRollTurnRef = useRef<{ playerId: string; roundNumber: number } | null>(null)
   // 닫은 안내가 "어느 상태의 안내였는지"를 담는다. boolean으로 두면 상태가 바뀌어도 계속 닫혀
   // 새 안내를 놓친다 — 값이 달라지는 순간 자동으로 다시 뜨게 하려는 의도다.
   const [dismissedNotice, setDismissedNotice] = useState<MotionAvailability | null>(null)
@@ -135,6 +136,8 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   const [tutorialOpen, setTutorialOpen] = useState(() => !isTutorialHidden())
 
   const game = snapshot.game
+  const renderedGameRef = useRef(game)
+  renderedGameRef.current = game
   const roundNumber = game?.roundNumber ?? 1
   const activePlayerId = game?.activePlayerId
   const isMyTurn = activePlayerId === session.you
@@ -159,11 +162,22 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
   useEffect(() => {
     if (activePlayerRef.current === activePlayerId) return
     activePlayerRef.current = activePlayerId
-    setLocal((state) => createYachtGame(state.seed, roundNumber))
+    const acceptedRollTurn = acceptedRollTurnRef.current
+    acceptedRollTurnRef.current = null
+    const alreadyAppliedNextTurnRoll =
+      acceptedRollTurn?.playerId === activePlayerId && acceptedRollTurn?.roundNumber === roundNumber
+    if (!alreadyAppliedNextTurnRoll) {
+      setLocal((state) => createYachtGame(state.seed, roundNumber))
+    }
     setReleaseRequestId(null)
     setRollInputMode(null)
     setRequestingRoll(false)
     setRemoteShaking(false)
+    setSubmitting(false)
+    setZeroConfirm(null)
+    pendingSubmissionRef.current = null
+    pendingRollRequestRef.current = null
+    queuedMotionReleaseRef.current = false
     // 지난 턴의 사발은 이미 치워졌다 — 늦게 도착한 dice.thrown이 새 굴림을 쏟으면 안 된다.
     remoteRollRef.current = null
     queuedRemoteReleaseRef.current = null
@@ -422,10 +436,15 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
     () =>
       realtimeClient.onMessage((message) => {
         if (message.type === 'dice.broadcast') {
+          const storedGame = useAppStore.getState().roomSnapshot?.game
+          const currentGame =
+            storedGame && storedGame.roundNumber >= roundNumber
+              ? storedGame
+              : renderedGameRef.current
           if (
             message.roomId !== roomId ||
-            message.payload.roundNumber !== roundNumber ||
-            message.payload.playerId !== activePlayerId
+            message.payload.roundNumber !== currentGame?.roundNumber ||
+            message.payload.playerId !== currentGame.activePlayerId
           ) {
             return
           }
@@ -465,6 +484,15 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
           // 굴림마다 새로 판단한다 — 지난 굴림을 흔들어 굴렸다고 이번 버튼 굴림까지
           // 펄스를 기다리면, 아무도 흔들지 않는 사발이 멈춰 선다.
           setRemoteShaking(false)
+          acceptedRollTurnRef.current = {
+            playerId: message.payload.playerId,
+            roundNumber: message.payload.roundNumber,
+          }
+          setLocal((state) =>
+            state.roundNumber === message.payload.roundNumber
+              ? state
+              : createYachtGame(state.seed, message.payload.roundNumber),
+          )
           dispatch({
             type: 'rollRequested',
             forced,
