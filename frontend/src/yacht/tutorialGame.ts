@@ -98,11 +98,11 @@ export function createTutorialClient() {
       }),
     ],
     handlers: {
-      'dice.roll': (message) => {
+      'game.yacht_dice.dice.roll': (message) => {
         dice = rollDice(message.payload.held, dice, message.payload.rollCount)
         return [
           serverMessage(
-            'dice.broadcast',
+            'game.yacht_dice.dice.broadcast',
             {
               playerId: TUTORIAL_PLAYER_ID,
               roundNumber: message.payload.roundNumber,
@@ -114,9 +114,9 @@ export function createTutorialClient() {
           ),
         ]
       },
-      'dice.hold': (message) => [
+      'game.yacht_dice.dice.hold': (message) => [
         serverMessage(
-          'dice.hold_changed',
+          'game.yacht_dice.dice.hold_changed',
           {
             held: message.payload.held,
             playerId: TUTORIAL_PLAYER_ID,
@@ -125,7 +125,7 @@ export function createTutorialClient() {
           { roomId: TUTORIAL_ROOM_ID, msgId: message.msgId },
         ),
       ],
-      'round.submit': (message) => {
+      'game.yacht_dice.round.submit': (message) => {
         const categories = {
           ...board.categories,
           [message.payload.category]: scoreCategory(message.payload.dice, message.payload.category),
@@ -139,7 +139,7 @@ export function createTutorialClient() {
         }
         return [
           serverMessage(
-            'score.update',
+            'game.yacht_dice.score.update',
             { playerId: TUTORIAL_PLAYER_ID, scoreboard: board },
             { roomId: TUTORIAL_ROOM_ID, msgId: message.msgId },
           ),
