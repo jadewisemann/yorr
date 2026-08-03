@@ -4,6 +4,8 @@ import com.ssafy.yorr.game.domain.ScoreBoard;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.service.GameScoreQueryService;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
+import com.ssafy.yorr.ws.RealtimeRoomSnapshotService;
+import com.ssafy.yorr.room.service.RoomService;
 import com.ssafy.yorr.ws.dto.RoomPhase;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.socket.WebSocketSession;
@@ -43,7 +45,7 @@ class GameReconnectSnapshotServiceTest {
                 .thenReturn(Map.of("player-a", score));
 
         GameReconnectSnapshotService service = new GameReconnectSnapshotService(
-                registry,
+                new RealtimeRoomSnapshotService(mock(RoomService.class), registry),
                 roundService,
                 timerService,
                 scoreService
@@ -89,7 +91,7 @@ class GameReconnectSnapshotServiceTest {
         when(scoreService.getScoreboards("room-a", "player-a")).thenReturn(Map.of());
 
         GameReconnectSnapshotService service = new GameReconnectSnapshotService(
-                registry,
+                new RealtimeRoomSnapshotService(mock(RoomService.class), registry),
                 roundService,
                 timerService,
                 scoreService

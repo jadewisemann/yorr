@@ -7,6 +7,7 @@ import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.room.service.RoomService;
 import com.ssafy.yorr.ws.RoomBroadcaster;
+import com.ssafy.yorr.ws.RealtimeRoomSnapshotService;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
 import com.ssafy.yorr.ws.dto.GameOverPayload;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
@@ -51,7 +52,13 @@ class GameCompletionServiceTest {
         ));
         matchArchiveService = mock(MatchArchiveService.class);
         service = new GameCompletionService(
-                completionStore, matchArchiveService, deadlineScheduler, roomService, registry, broadcaster
+                completionStore,
+                matchArchiveService,
+                deadlineScheduler,
+                roomService,
+                registry,
+                new RealtimeRoomSnapshotService(roomService, registry),
+                broadcaster
         );
     }
 

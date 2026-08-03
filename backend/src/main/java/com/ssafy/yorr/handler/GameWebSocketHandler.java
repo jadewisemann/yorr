@@ -2,6 +2,7 @@ package com.ssafy.yorr.handler;
 
 import com.ssafy.yorr.ws.InMemoryRoomBroadcaster;
 import com.ssafy.yorr.ws.HeartbeatMonitor;
+import com.ssafy.yorr.ws.RealtimeRoomSnapshotService;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -56,6 +57,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper; // Boot4가 만드는 JsonMapper 빈이 여기 주입됨
     private final InMemoryRoomBroadcaster broadcaster;
     private final RoomSessionRegistry registry; // 방 명단(누가 어느 방에)
+    private final RealtimeRoomSnapshotService realtimeSnapshots;
     private final HeartbeatMonitor heartbeatMonitor;
     private final UserService userService;      // 게스트 정체성 발급(티켓 70 재사용)
     private final RoomService roomService;                     // 빈 방 닫기(Redis 키 정리)
@@ -84,6 +86,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     public GameWebSocketHandler(ObjectMapper objectMapper,
                                 InMemoryRoomBroadcaster broadcaster,
                                 RoomSessionRegistry registry,
+                                RealtimeRoomSnapshotService realtimeSnapshots,
                                 HeartbeatMonitor heartbeatMonitor,
                                 UserService userService,
                                 RoomService roomService,
@@ -92,6 +95,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         this.objectMapper = objectMapper;
         this.broadcaster = broadcaster;
         this.registry = registry;
+        this.realtimeSnapshots = realtimeSnapshots;
         this.heartbeatMonitor = heartbeatMonitor;
         this.userService = userService;
         this.roomService = roomService;
@@ -232,7 +236,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        RoomSnapshot snapshot = registry.snapshot(payload.roomId()); // 본인 포함 전체 명단
+        RoomSnapshot snapshot = realtimeSnapshots.snapshot(payload.roomId()); // Redis 참가자 + 사람 접속 상태
 
         // (2) 본인에게: room.joined (발급 playerId·세션토큰·전체 스냅샷). 본인에게만.
         send(session, WsEnvelope.of("room.joined",
@@ -469,7 +473,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
      */
     public void broadcastStateSync(String roomId) {
         broadcaster.broadcast(roomId, WsEnvelope.of("state.sync",
-                        new StateSyncPayload(registry.snapshot(roomId)))
+                        new StateSyncPayload(realtimeSnapshots.snapshot(roomId)))
                 .withRoomId(roomId));
     }
 
