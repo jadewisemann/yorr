@@ -88,9 +88,9 @@ class GameCompletionServiceTest {
         ArgumentCaptor<WsEnvelope<?>> captor = ArgumentCaptor.forClass(WsEnvelope.class);
         verify(broadcaster, times(2)).broadcast(eq(ROOM), captor.capture());
         List<WsEnvelope<?>> messages = captor.getAllValues();
-        assertThat(messages.get(0).type()).isEqualTo("game.over");
+        assertThat(messages.get(0).type()).isEqualTo("game.yacht_dice.game.over");
         // phase(finished)는 스냅샷으로만 전달된다 — 이게 없으면 클라가 결과 화면으로 넘어가지 못한다.
-        assertThat(messages.get(1).type()).isEqualTo("state.sync");
+        assertThat(messages.get(1).type()).isEqualTo("game.yacht_dice.state.sync");
 
         GameOverPayload payload = (GameOverPayload) messages.get(0).payload();
         assertThat(payload.rankings()).containsExactly(

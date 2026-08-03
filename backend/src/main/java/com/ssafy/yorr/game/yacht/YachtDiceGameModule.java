@@ -34,6 +34,8 @@ import java.io.IOException;
 import java.util.Comparator;
 import java.util.Set;
 
+import static com.ssafy.yorr.game.yacht.YachtDiceWsTypes.type;
+
 @Component
 public class YachtDiceGameModule implements GameModule {
 
@@ -222,7 +224,7 @@ public class YachtDiceGameModule implements GameModule {
                 .orElse(false);
         if (!activePlayer) return;
         broadcaster.broadcast(message.roomId(), WsEnvelope.of(
-                "dice.shaken",
+                type("dice.shaken"),
                 new DiceShakenPayload(member.playerId(), payload.roundNumber(),
                         payload.direction(), payload.strength())
         ).withRoomId(message.roomId()).withMsgId(message.msgId()));
@@ -252,7 +254,7 @@ public class YachtDiceGameModule implements GameModule {
             return;
         }
         broadcaster.broadcast(message.roomId(), WsEnvelope.of(
-                "dice.thrown",
+                type("dice.thrown"),
                 new DiceThrownPayload(member.playerId(), payload.roundNumber(), payload.rollCount())
         ).withRoomId(message.roomId()).withMsgId(message.msgId()));
     }
@@ -319,7 +321,7 @@ public class YachtDiceGameModule implements GameModule {
 
     private void broadcastState(String roomCode) {
         broadcaster.broadcast(roomCode, WsEnvelope.of(
-                "state.sync",
+                type("state.sync"),
                 new StateSyncPayload(realtimeSnapshots.snapshot(roomCode))
         ).withRoomId(roomCode));
     }
