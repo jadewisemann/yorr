@@ -1,4 +1,4 @@
-import type { AuthSession } from '@/authSession'
+import type { AuthSession } from '@/auth/authSession'
 import { API_BASE_URL, ApiError, apiRequest } from '@/shared/api/client'
 
 interface SessionResponse {

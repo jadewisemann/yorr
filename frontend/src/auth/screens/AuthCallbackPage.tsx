@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef } from 'react'
-import { exchangeLoginCode, loginErrorMessage } from '@/api/authApi'
+import { exchangeLoginCode, loginErrorMessage } from '@/auth/api/authApi'
 import { useAppStore } from '@/store'
 
 /**

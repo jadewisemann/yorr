@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { googleLoginUrl, kakaoLoginUrl, renameProfile } from '@/api/authApi'
-import type { AuthSession } from '@/authSession'
+import { googleLoginUrl, kakaoLoginUrl, renameProfile } from '@/auth/api/authApi'
+import type { AuthSession } from '@/auth/authSession'
 import { LandingPopover } from '@/landing/components/LandingPopover'
 import { cn } from '@/shared/cn'
 import { BottomSheet } from '@/shared/components/BottomSheet'

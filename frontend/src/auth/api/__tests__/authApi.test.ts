@@ -1,7 +1,5 @@
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it } from 'vitest'
-import { mockApiServer } from '@/mocks/server'
-import { API_BASE_URL, ApiError } from '@/shared/api/client'
 import {
   closeSession,
   exchangeLoginCode,
@@ -10,7 +8,9 @@ import {
   loginErrorMessage,
   renameProfile,
   verifySession,
-} from './authApi'
+} from '@/auth/api/authApi'
+import { mockApiServer } from '@/mocks/server'
+import { API_BASE_URL, ApiError } from '@/shared/api/client'
 
 describe('kakaoLoginUrl', () => {
   it('기본은 카카오 인가 주소를 그대로 돌려준다', () => {

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { verifySession } from '@/api/authApi'
+import { verifySession } from '@/auth/api/authApi'
 import { useAppStore } from '@/store'
 
 /**

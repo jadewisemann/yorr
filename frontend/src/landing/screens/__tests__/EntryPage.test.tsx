@@ -15,8 +15,8 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 
 const { renameProfile } = vi.hoisted(() => ({ renameProfile: vi.fn() }))
 
-vi.mock('@/api/authApi', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/api/authApi')>()),
+vi.mock('@/auth/api/authApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/auth/api/authApi')>()),
   closeSession: (token: string) => closeSession(token),
   renameProfile: (token: string, nickname: string) => renameProfile(token, nickname),
 }))

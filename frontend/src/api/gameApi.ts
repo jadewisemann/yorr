@@ -1,4 +1,4 @@
-import { readAuthSession } from '@/authSession'
+import { readAuthSession } from '@/auth/authSession'
 import type { GameState, PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
 import { apiRequest } from '@/shared/api/client'
 

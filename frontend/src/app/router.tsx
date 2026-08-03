@@ -19,7 +19,7 @@ import { ScreenFallback } from './ScreenFallback'
  * 전부 내려받고 있었다 — 첫 화면이 늦게 뜨는 가장 큰 원인이다. 방 안 화면들은 실제로
  * 그리로 갈 때 받는다. 로딩 표시는 아래 rootRoute의 Suspense 하나가 담당한다.
  */
-const importAuthCallbackPage = () => import('@/screens/AuthCallbackPage')
+const importAuthCallbackPage = () => import('@/auth/screens/AuthCallbackPage')
 const importGamePage = () => import('@/screens/GamePage')
 const importInvalidInvitePage = () => import('@/screens/InvalidInvitePage')
 const importLobbyPage = () => import('@/screens/LobbyPage')

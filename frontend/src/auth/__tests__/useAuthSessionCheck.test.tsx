@@ -1,12 +1,12 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useAuthSessionCheck } from '@/auth/useAuthSessionCheck'
 import { useAppStore } from '@/store'
-import { useAuthSessionCheck } from './useAuthSessionCheck'
 
 const { verifySession } = vi.hoisted(() => ({ verifySession: vi.fn() }))
 
-vi.mock('@/api/authApi', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/api/authApi')>()),
+vi.mock('@/auth/api/authApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/auth/api/authApi')>()),
   verifySession: (token: string) => verifySession(token),
 }))
 

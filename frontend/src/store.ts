@@ -1,7 +1,12 @@
 import { create } from 'zustand'
 import type { RoomSession } from '@/api/gameApi'
+import {
+  type AuthSession,
+  clearAuthSession,
+  readAuthSession,
+  saveAuthSession,
+} from '@/auth/authSession'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
-import { type AuthSession, clearAuthSession, readAuthSession, saveAuthSession } from './authSession'
 import { clearRoomSession, readRoomSession, saveRoomSession } from './roomSessionStorage'
 import {
   type SessionEndReason,

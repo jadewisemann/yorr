@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AuthCallbackPage } from '@/auth/screens/AuthCallbackPage'
 import { useAppStore } from '@/store'
-import { AuthCallbackPage } from './AuthCallbackPage'
 
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
 const { exchangeLoginCode } = vi.hoisted(() => ({ exchangeLoginCode: vi.fn() }))
@@ -11,8 +11,8 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   useNavigate: () => navigate,
 }))
 
-vi.mock('@/api/authApi', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/api/authApi')>()),
+vi.mock('@/auth/api/authApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/auth/api/authApi')>()),
   exchangeLoginCode: (code: string) => exchangeLoginCode(code),
 }))
 

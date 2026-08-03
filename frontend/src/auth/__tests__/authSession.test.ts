@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { type AuthSession, clearAuthSession, readAuthSession, saveAuthSession } from './authSession'
+import {
+  type AuthSession,
+  clearAuthSession,
+  readAuthSession,
+  saveAuthSession,
+} from '@/auth/authSession'
 
 const session: AuthSession = {
   userId: 'member-1',
