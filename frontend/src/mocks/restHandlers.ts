@@ -1,5 +1,5 @@
 import { delay, HttpResponse, http } from 'msw'
-import type { BotDifficulty, Player } from '@/realtime/wsEvents'
+import type { Player } from '@/realtime/wsEvents'
 import type {
   EnterRoomRequest,
   EnterRoomResponse,
@@ -113,14 +113,13 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
         snapshot: toRestRoomSnapshot(snapshot),
       })
     }),
-    http.post('/api/v1/rooms/:roomCode/bots', async ({ params, request }) => {
+    http.post('/api/v1/rooms/:roomCode/bots', async ({ params }) => {
       await beforeResponse()
       if (params.roomCode !== MOCK_ROOM_ID) {
         return HttpResponse.text('room_not_found', { status: 404 })
       }
       const failure = unavailable()
       if (failure) return failure
-      const body = (await request.json()) as { difficulty: BotDifficulty }
       const snapshot = loadMockRoomSnapshot() ?? waitingRoomSnapshot
       if (snapshot.players.length >= (snapshot.capacity ?? 6)) {
         return HttpResponse.text('room_full', { status: 409 })
@@ -130,32 +129,10 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
         nickname: `요르봇 ${nextBotNumber}`,
         status: 'online',
         kind: 'BOT',
-        difficulty: body.difficulty,
         isHost: false,
       }
       nextBotNumber += 1
       const updated = { ...snapshot, players: [...snapshot.players, bot] }
-      saveMockRoomSnapshot(updated)
-      return HttpResponse.json(toRestRoomSnapshot(updated))
-    }),
-    http.patch('/api/v1/rooms/:roomCode/bots/:botId', async ({ params, request }) => {
-      await beforeResponse()
-      const snapshot = loadMockRoomSnapshot() ?? waitingRoomSnapshot
-      const body = (await request.json()) as { difficulty: BotDifficulty }
-      const botExists = snapshot.players.some(
-        (player) => player.playerId === params.botId && player.kind === 'BOT',
-      )
-      if (params.roomCode !== MOCK_ROOM_ID || !botExists) {
-        return HttpResponse.text('bot_not_found', { status: 404 })
-      }
-      const failure = unavailable()
-      if (failure) return failure
-      const updated = {
-        ...snapshot,
-        players: snapshot.players.map((player) =>
-          player.playerId === params.botId ? { ...player, difficulty: body.difficulty } : player,
-        ),
-      }
       saveMockRoomSnapshot(updated)
       return HttpResponse.json(toRestRoomSnapshot(updated))
     }),
@@ -221,7 +198,6 @@ function toRestRoomSnapshot(snapshot: typeof waitingRoomSnapshot) {
       nickname: player.nickname,
       score: 0,
       kind: player.kind ?? 'HUMAN',
-      ...(player.difficulty ? { difficulty: player.difficulty } : {}),
     })),
     // 실서버는 round.start(WS)로 턴을 알리지만 mock WS는 서버 주도 push가 없다.
     // REST 스냅샷에 game을 실어 mock 환경에서도 "내 턴"이 성립하게 한다.

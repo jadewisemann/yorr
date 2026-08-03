@@ -1,6 +1,5 @@
 import { readAuthSession } from '@/auth/authSession'
 import type {
-  BotDifficulty,
   DiceSet,
   GameState,
   ParticipantKind,
@@ -95,24 +94,9 @@ export class HttpRoomApiClient {
     }).then(toGameStartResult)
   }
 
-  addBot(roomCode: string, difficulty: BotDifficulty, options: AuthenticatedApiCallOptions) {
+  addBot(roomCode: string, options: AuthenticatedApiCallOptions) {
     return apiRequest<unknown>(`/rooms/${roomCode}/bots`, {
       method: 'POST',
-      body: JSON.stringify({ difficulty }),
-      ...requestSignal(options),
-      headers: authenticatedHeaders(options),
-    }).then(toRoomSnapshot)
-  }
-
-  updateBot(
-    roomCode: string,
-    botId: PlayerId,
-    difficulty: BotDifficulty,
-    options: AuthenticatedApiCallOptions,
-  ) {
-    return apiRequest<unknown>(`/rooms/${roomCode}/bots/${botId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ difficulty }),
       ...requestSignal(options),
       headers: authenticatedHeaders(options),
     }).then(toRoomSnapshot)
@@ -225,8 +209,7 @@ function toRoomSnapshot(response: unknown): RoomSnapshot {
       playerId: player.playerId,
       nickname: player.nickname,
       status: 'online',
-      ...(player.kind ? { kind: player.kind } : {}),
-      ...(player.difficulty ? { difficulty: player.difficulty } : {}),
+      kind: player.kind ?? 'HUMAN',
       ...(isNonEmptyString(response.hostId) ? { isHost: player.playerId === response.hostId } : {}),
     })),
     ...(isNonEmptyString(response.hostId) ? { hostId: response.hostId } : {}),
@@ -278,23 +261,17 @@ function isRestRoomPlayer(value: unknown): value is {
   nickname: string
   playerId: string
   kind?: ParticipantKind
-  difficulty?: BotDifficulty
 } {
   return (
     isRecord(value) &&
     isNonEmptyString(value.playerId) &&
     isNonEmptyString(value.nickname) &&
-    (value.kind === undefined || isParticipantKind(value.kind)) &&
-    (value.difficulty === undefined || isBotDifficulty(value.difficulty))
+    (value.kind === undefined || isParticipantKind(value.kind))
   )
 }
 
 function isParticipantKind(value: unknown): value is ParticipantKind {
   return value === 'HUMAN' || value === 'BOT'
-}
-
-function isBotDifficulty(value: unknown): value is BotDifficulty {
-  return value === 'EASY' || value === 'NORMAL' || value === 'HARD'
 }
 
 function toRoomPhase(value: unknown): RoomSnapshot['phase'] | undefined {

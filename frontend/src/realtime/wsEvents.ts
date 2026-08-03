@@ -82,14 +82,12 @@ export type SessionToken = string
 
 export type PlayerStatus = 'online' | 'away' | 'offline'
 export type ParticipantKind = 'HUMAN' | 'BOT'
-export type BotDifficulty = 'EASY' | 'NORMAL' | 'HARD'
 
 export interface Player {
   playerId: PlayerId
   nickname: string
   status: PlayerStatus
   kind?: ParticipantKind
-  difficulty?: BotDifficulty
   isHost?: boolean
 }
 
