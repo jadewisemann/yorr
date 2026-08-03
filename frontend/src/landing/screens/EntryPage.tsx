@@ -7,6 +7,7 @@ import { gameAt, games } from '@/games'
 import { LandingCodeDialog } from '@/landing/components/LandingCodeDialog'
 import { LandingHeroCarousel } from '@/landing/components/LandingHeroCarousel'
 import { LandingProgress } from '@/landing/components/LandingProgress'
+import { RankingTicker } from '@/landing/components/RankingTicker'
 import { useLeaveSession } from '@/room/api/useRoomApi'
 import { normalizeRoomCode } from '@/room/roomCode'
 import { sessionScreenOf } from '@/room/sessionFsm'
@@ -127,6 +128,10 @@ export function EntryPage() {
     return (
       <>
         <main className="relative flex h-svh w-full flex-col overflow-hidden [background:var(--ds-landing-bg)]">
+          {/* 화면 맨 위 한 줄. 시세표처럼 이번 주 순위가 옆으로 흐른다 — 랜딩에 처음 온 사람이
+              "여기서 뭘 겨루는지"를 읽기 전에 이미 보고 있게 된다. */}
+          <RankingTicker layout="wide" />
+
           {/* 헤더 폭은 히어로 카드의 콘텐츠 영역(띠 폭의 69.4%)과 정확히 같다 — 화살표와
               이웃 카드가 쓰는 바깥 띠까지 헤더가 차지하면 로고와 계정 버튼이 화면 양끝으로
               벌어져 한 줄로 안 읽힌다. 안쪽 69.4%에 맞추면 워드마크 왼쪽 끝과 카드 왼쪽
@@ -223,7 +228,13 @@ export function EntryPage() {
   return (
     <>
       <main className="relative flex h-svh w-full flex-col overflow-hidden [background:var(--ds-landing-bg)]">
-        <div className="flex flex-none items-center justify-between gap-3 px-5 pt-[max(14px,env(safe-area-inset-top))]">
+        {/* 노치 여백은 이 띠가 물고 간다 — 띠가 화면 맨 위 층이 됐으므로 아래 로고 줄은
+            고정 14px만 쓴다. 양쪽이 safe-area를 각각 물면 그만큼 히어로가 못 자란다. */}
+        <div className="flex-none pt-[env(safe-area-inset-top)]">
+          <RankingTicker layout="narrow" />
+        </div>
+
+        <div className="flex flex-none items-center justify-between gap-3 px-5 pt-3.5">
           <span className="flex items-baseline gap-2.5">
             <span className={cn(wordmark, 'text-[24px]/none')}>
               YO<span className="text-landing-accent">R</span>R
