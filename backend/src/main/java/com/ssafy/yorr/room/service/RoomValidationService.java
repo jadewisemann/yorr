@@ -23,6 +23,17 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RoomValidationService implements RoomService {
 
+    /**
+     * 방에 들어간다. 들어오면서 <b>주인 없는 방의 방장을 이어받는다</b>.
+     * <p>
+     * 방장 조건을 "hostId가 명단에도 있을 것"으로 두고 있어(호스트 검사와 같은 규약), hostId가
+     * 명단에 없는 방은 아무도 게임을 시작할 수 없는 방이다. 그런 방은 두 갈래로 생긴다 —
+     * 파티 방을 연 대시보드는 애초에 명단에 들어가지 않고({@link com.ssafy.yorr.room.dto.RoomMode}),
+     * 방장이 나간 뒤 {@link #LEAVE}가 이어받을 사람을 찾지 못하면 hostId가 비워진다.
+     * 둘 다 "다음에 들어온 사람이 방장"으로 풀린다.
+     * <p>
+     * 일반 방을 만든 사람은 곧바로 이 경로로 들어와 hostId와 같은 값을 다시 쓰므로 종전과 같다.
+     */
     private static final DefaultRedisScript<Long> JOIN = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
             if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 2 end
@@ -31,6 +42,10 @@ public class RoomValidationService implements RoomService {
             redis.call('HSET', KEYS[2], ARGV[1], ARGV[2])
             redis.call('HSET', KEYS[3], ARGV[1], '0')
             redis.call('HINCRBY', KEYS[1], 'members', 1)
+            local host = redis.call('HGET', KEYS[1], 'hostId')
+            if not host or host == '' or redis.call('HEXISTS', KEYS[2], host) == 0 then
+                redis.call('HSET', KEYS[1], 'hostId', ARGV[1])
+            end
             local ttl = redis.call('PTTL', KEYS[1])
             if ttl > 0 then
                 redis.call('PEXPIRE', KEYS[2], ttl)
@@ -40,14 +55,22 @@ public class RoomValidationService implements RoomService {
             return 1
             """, Long.class);
     /**
-     * 마지막 참가자가 빠지면 방을 지운다 — 단 <b>파티 방은 예외</b>다.
+     * 방을 떠난다. 마지막 참가자가 빠지면 방을 지우고, <b>방장이 빠지면 남은 사람에게 넘긴다</b>.
      * <p>
-     * 파티 방을 연 대시보드는 플레이어 명단에 없어서 members에 세어지지 않는다. 일반 방과 같이
-     * 처리하면 컨트롤러 하나가 잘못 들어왔다 나가는 것만으로 members가 0이 되어, 아직 QR을 띄우고
-     * 사람을 기다리는 대시보드의 방이 발밑에서 사라진다.
-     * <p>
+     * 방 삭제는 <b>파티 방만 예외</b>다. 파티 방을 연 대시보드는 플레이어 명단에 없어서 members에
+     * 세어지지 않는다. 일반 방과 같이 처리하면 컨트롤러 하나가 잘못 들어왔다 나가는 것만으로
+     * members가 0이 되어, 아직 QR을 띄우고 사람을 기다리는 대시보드의 방이 발밑에서 사라진다.
      * 파티 방은 대시보드가 소켓을 닫을 때 닫힌다(빈 방 검사는 WS 명단 기준이라 대시보드를 센다).
      * 그마저 놓치면 방 TTL이 상한이다.
+     * <p>
+     * 방장 승계는 두 모드에 <b>공통</b>이다. hostId는 한 번 적히면 그대로여서, 승계가 없으면 방장이
+     * 나간 방은 아무도 게임을 시작·재시작할 수 없는 방으로 남는다(일반 방에서도 마찬가지였다).
+     * 후보는 <b>사람만</b>이다 — 봇에게 넘기면 아무도 조작할 수 없는 것과 같다. 사람이 없으면
+     * hostId를 비우고, 다음에 들어온 사람이 {@link #JOIN}에서 이어받는다.
+     * <p>
+     * 이어받을 사람은 playerId 오름차순 첫 번째다. 참가자가 hash라 입장 순서가 남지 않으므로
+     * "먼저 온 사람"을 고를 수 없고, 대신 <b>누가 실행해도 같은 결과</b>가 나오는 규칙을 쓴다
+     * (스냅샷 정렬도 playerId 기준이라 화면 맨 위 사람이 방장이 된다).
      */
     private static final DefaultRedisScript<Long> LEAVE = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
@@ -61,6 +84,18 @@ public class RoomValidationService implements RoomService {
                 redis.call('DEL', KEYS[3])
                 redis.call('DEL', KEYS[4])
                 return 0
+            end
+            if redis.call('HGET', KEYS[1], 'hostId') == ARGV[1] then
+                local heir = ''
+                local remaining = redis.call('HKEYS', KEYS[2])
+                table.sort(remaining)
+                for i = 1, #remaining do
+                    if redis.call('HEXISTS', KEYS[4], remaining[i]) == 0 then
+                        heir = remaining[i]
+                        break
+                    end
+                end
+                redis.call('HSET', KEYS[1], 'hostId', heir)
             end
             return 1
             """, Long.class);
@@ -252,9 +287,11 @@ public class RoomValidationService implements RoomService {
     }
 
     /**
-     * 이 방이 파티 방인지. 대시보드는 플레이어 명단에 없으므로 호스트 검사에서
-     * "명단에도 있어야 한다"를 건너뛰어야 한다({@link com.ssafy.yorr.room.dto.RoomMode}).
-     * 없는 방·mode가 없는 옛 방은 일반 방으로 본다.
+     * 이 방이 파티 방인지. 없는 방·mode가 없는 옛 방은 일반 방으로 본다.
+     * <p>
+     * {@link #LEAVE}가 "마지막 참가자가 빠져도 방을 지우지 않는다"를 판단하는 근거가 이 값이다.
+     * 스크립트 안에서는 {@code mode}를 직접 읽으므로, 이 메서드는 그 값이 실제로 적혔는지
+     * 밖에서 확인하는 창구다({@link com.ssafy.yorr.room.dto.RoomMode}).
      */
     public boolean isPartyRoom(String roomCode) {
         Object mode = redisTemplate.<Object, Object>opsForHash().get(RoomRedisKeys.roomKey(roomCode), "mode");

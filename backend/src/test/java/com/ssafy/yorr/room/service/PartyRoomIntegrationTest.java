@@ -22,8 +22,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * 파티 방(대시보드)의 전제를 실제 Redis에서 확인한다.
  * <p>
- * 파티 모드의 핵심은 "방을 연 사람이 플레이어 명단에 없다"는 것이고, 그 위에서 호스트 조작이
- * 계속 통해야 한다. 호스트 검사는 Lua 안에 있어(BotParticipantService) 조건이 어긋나도
+ * 파티 모드의 핵심은 두 가지다 — 방을 연 대시보드는 플레이어도 방장도 아니고, 방장은 처음
+ * 들어온 컨트롤러가 이어받는다. 그 이양·승계가 모두 Lua 안에 있어(JOIN·LEAVE) 조건이 어긋나도
  * 컴파일로는 잡히지 않는다 — 그걸 잡는 테스트다.
  */
 @Testcontainers
@@ -31,6 +31,7 @@ class PartyRoomIntegrationTest {
 
     private static final String DASHBOARD = "dashboard-1";
     private static final String CONTROLLER = "phone-1";
+    private static final String CONTROLLER_2 = "phone-2";
 
     @Container
     private static final GenericContainer<?> REDIS =
@@ -75,7 +76,6 @@ class PartyRoomIntegrationTest {
 
         assertThat(rooms.isPartyRoom(roomCode)).isTrue();
         assertThat(rooms.getSnapshot(roomCode).players()).isEmpty();
-        assertThat(rooms.getSnapshot(roomCode).hostId()).isEqualTo(DASHBOARD);
     }
 
     @Test
@@ -97,15 +97,41 @@ class PartyRoomIntegrationTest {
                 .satisfies(player -> assertThat(player.playerId()).isEqualTo(CONTROLLER));
     }
 
-    /** 파티 방의 대시보드는 명단에 없어도 봇을 붙일 수 있다(호스트 검사에서 명단 조건을 뺀 경로). */
+    /**
+     * 처음 들어온 컨트롤러가 방장을 이어받는다 — 파티 모드에서 조작이 폰으로 넘어오는 지점이다.
+     * 이게 깨지면 방장이 명단 밖(대시보드)을 가리켜 아무도 게임을 시작할 수 없다.
+     */
     @Test
-    void dashboardCanAddBotWithoutBeingAPlayer() {
+    void firstControllerBecomesHost() {
         String roomCode = creates.createRoom(6, DASHBOARD, "YACHT_DICE", RoomMode.PARTY);
 
-        bots.add(roomCode, DASHBOARD);
+        rooms.join(roomCode, new UserIdentity(CONTROLLER, "폰1", UserType.GUEST), "token");
 
-        assertThat(rooms.getSnapshot(roomCode).players()).hasSize(1);
+        assertThat(rooms.getSnapshot(roomCode).hostId()).isEqualTo(CONTROLLER);
+        bots.add(roomCode, CONTROLLER);
         assertThat(redisTemplate.opsForHash().size(RoomRedisKeys.botsKey(roomCode))).isEqualTo(1);
+    }
+
+    /** 뒤에 들어온 컨트롤러는 방장을 빼앗지 않는다 — 이양은 주인 없는 자리에만 일어난다. */
+    @Test
+    void laterControllerDoesNotTakeOverHost() {
+        String roomCode = creates.createRoom(6, DASHBOARD, "YACHT_DICE", RoomMode.PARTY);
+        rooms.join(roomCode, new UserIdentity(CONTROLLER, "폰1", UserType.GUEST), "token");
+
+        rooms.join(roomCode, new UserIdentity(CONTROLLER_2, "폰2", UserType.GUEST), "token");
+
+        assertThat(rooms.getSnapshot(roomCode).hostId()).isEqualTo(CONTROLLER);
+    }
+
+    /** 대시보드는 방장이 아니다 — TV가 조작 권한을 갖지 않아야 조작이 폰 한 곳에만 있다. */
+    @Test
+    void dashboardCannotOperateThePartyRoom() {
+        String roomCode = creates.createRoom(6, DASHBOARD, "YACHT_DICE", RoomMode.PARTY);
+        rooms.join(roomCode, new UserIdentity(CONTROLLER, "폰1", UserType.GUEST), "token");
+
+        assertThatThrownBy(() -> bots.add(roomCode, DASHBOARD))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("host_only");
     }
 
     /** 일반 방에서는 명단 조건이 그대로 살아 있어야 한다 — 떠난 옛 호스트가 조작하지 못하게. */
@@ -145,14 +171,73 @@ class PartyRoomIntegrationTest {
         assertThat(rooms.getSnapshot(roomCode).phase()).isNull();
     }
 
-    /** 파티 방에서도 남이 조작하는 건 막는다 — 완화한 건 명단 조건뿐, hostId 일치는 그대로다. */
+    /** 방장이 아닌 컨트롤러는 조작할 수 없다 — 방장이 하나여야 시작 버튼이 한 곳에만 있다. */
     @Test
-    void partyRoomStillRejectsNonHost() {
+    void partyRoomRejectsControllerWhoIsNotTheHost() {
         String roomCode = creates.createRoom(6, DASHBOARD, "YACHT_DICE", RoomMode.PARTY);
         rooms.join(roomCode, new UserIdentity(CONTROLLER, "폰1", UserType.GUEST), "token");
+        rooms.join(roomCode, new UserIdentity(CONTROLLER_2, "폰2", UserType.GUEST), "token");
 
-        assertThatThrownBy(() -> bots.add(roomCode, CONTROLLER))
+        assertThatThrownBy(() -> bots.add(roomCode, CONTROLLER_2))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("host_only");
+    }
+
+    /**
+     * 방장이 나가면 남은 사람이 이어받는다. 이게 없으면 hostId가 명단 밖을 가리킨 채 굳어
+     * 아무도 게임을 시작·재시작할 수 없는 방이 된다(파티 방·일반 방 공통 규약).
+     */
+    @Test
+    void hostPassesToRemainingControllerWhenHostLeaves() {
+        String roomCode = creates.createRoom(6, DASHBOARD, "YACHT_DICE", RoomMode.PARTY);
+        rooms.join(roomCode, new UserIdentity(CONTROLLER, "폰1", UserType.GUEST), "token");
+        rooms.join(roomCode, new UserIdentity(CONTROLLER_2, "폰2", UserType.GUEST), "token");
+
+        rooms.leave(roomCode, CONTROLLER);
+
+        assertThat(rooms.getSnapshot(roomCode).hostId()).isEqualTo(CONTROLLER_2);
+        bots.add(roomCode, CONTROLLER_2);
+        assertThat(redisTemplate.opsForHash().size(RoomRedisKeys.botsKey(roomCode))).isEqualTo(1);
+    }
+
+    /** 일반 방에서도 같다 — 방장이 나가도 남은 사람이 게임을 다시 시작할 수 있어야 한다. */
+    @Test
+    void normalRoomPassesHostToRemainingPlayer() {
+        String roomCode = creates.createRoom(6, CONTROLLER, "YACHT_DICE");
+        rooms.join(roomCode, new UserIdentity(CONTROLLER, "폰1", UserType.GUEST), "token");
+        rooms.join(roomCode, new UserIdentity(CONTROLLER_2, "폰2", UserType.GUEST), "token");
+
+        rooms.leave(roomCode, CONTROLLER);
+
+        assertThat(rooms.getSnapshot(roomCode).hostId()).isEqualTo(CONTROLLER_2);
+    }
+
+    /** 봇은 방장이 될 수 없다 — 봇에게 넘기면 아무도 조작할 수 없는 것과 같다. */
+    @Test
+    void botsAreNotEligibleToInheritHost() {
+        String roomCode = creates.createRoom(6, DASHBOARD, "YACHT_DICE", RoomMode.PARTY);
+        rooms.join(roomCode, new UserIdentity(CONTROLLER, "폰1", UserType.GUEST), "token");
+        bots.add(roomCode, CONTROLLER);
+
+        rooms.leave(roomCode, CONTROLLER);
+
+        assertThat(rooms.getSnapshot(roomCode).players()).hasSize(1);
+        assertThat(rooms.getSnapshot(roomCode).hostId()).isEmpty();
+    }
+
+    /**
+     * 사람이 다 빠지면 방장 자리는 비고, 다음에 들어온 컨트롤러가 이어받는다 — 파티 방은
+     * 사람이 0명이어도 살아 있으므로(QR 대기) 여기서 막히면 방이 영구히 잠긴다.
+     */
+    @Test
+    void emptiedHostSeatIsClaimedByTheNextController() {
+        String roomCode = creates.createRoom(6, DASHBOARD, "YACHT_DICE", RoomMode.PARTY);
+        rooms.join(roomCode, new UserIdentity(CONTROLLER, "폰1", UserType.GUEST), "token");
+        rooms.leave(roomCode, CONTROLLER);
+        assertThat(rooms.getSnapshot(roomCode).hostId()).isEmpty();
+
+        rooms.join(roomCode, new UserIdentity(CONTROLLER_2, "폰2", UserType.GUEST), "token");
+
+        assertThat(rooms.getSnapshot(roomCode).hostId()).isEqualTo(CONTROLLER_2);
     }
 }
