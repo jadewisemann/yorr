@@ -183,8 +183,46 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       clearMockRoomSnapshot()
       return new HttpResponse(null, { status: 204 })
     }),
+    // 주간 랭킹. 띠는 5명(BAND_COUNT)까지 세우고 나머지는 드롭다운이 받으므로, 그 둘이 갈리는
+    // 것을 보려면 5명보다 길어야 한다. 동점(2위 둘)을 섞어 순위 번호가 건너뛰는 것까지 mock에서
+    // 눈으로 확인한다.
+    http.get('/api/v1/rankings/weekly', async ({ request }) => {
+      await beforeResponse()
+      const failure = unavailable()
+      if (failure) return failure
+      const limit = Number(
+        new URL(request.url).searchParams.get('limit') ?? mockWeeklyRanking.length,
+      )
+      return HttpResponse.json({
+        weekStart: MOCK_WEEK_START,
+        entries: mockWeeklyRanking.slice(0, Math.max(0, limit)),
+      })
+    }),
+    // 내 순위. mock의 고정 회원은 상위 목록에 <b>일부러 넣지 않았다</b> — "10위 밖이면 내 줄을
+    // 따로 잇는다"가 이 화면의 미묘한 부분이라, mock에서 그 경로가 기본으로 보여야 한다.
+    http.get('/api/v1/rankings/weekly/me', async ({ request }) => {
+      await beforeResponse()
+      if (!request.headers.get('Authorization')?.startsWith('Bearer ')) {
+        return HttpResponse.text('session_expired', { status: 401 })
+      }
+      const failure = unavailable()
+      if (failure) return failure
+      return HttpResponse.json({ weekStart: MOCK_WEEK_START, rank: 27, bestScore: 143 })
+    }),
   ]
 }
+
+/** mock의 "이번 주" 월요일. 값 자체는 화면 표기에 쓰이지 않지만 계약을 채운다. */
+const MOCK_WEEK_START = '2026-08-03'
+
+const mockWeeklyRanking = [
+  { rank: 1, userId: 'mock-member-id', nickname: '카카오회원', bestScore: 312 },
+  { rank: 2, userId: 'mock-rival-1', nickname: '주사위요정', bestScore: 288 },
+  { rank: 2, userId: 'mock-rival-2', nickname: '한손잡이', bestScore: 288 },
+  { rank: 4, userId: 'mock-rival-3', nickname: '엉뚱한선장', bestScore: 254 },
+  { rank: 5, userId: 'mock-rival-4', nickname: '요트초보', bestScore: 231 },
+  { rank: 6, userId: 'mock-rival-5', nickname: '굴림장인', bestScore: 205 },
+]
 
 function toRestRoomSnapshot(snapshot: typeof waitingRoomSnapshot) {
   return {
