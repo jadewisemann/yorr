@@ -2,7 +2,11 @@ import { type ReactNode, useEffect, useLayoutEffect, useState } from 'react'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
 import type { CategoryScores, YachtCategory } from '@/yacht/domain/scoring'
-import { UPPER_BONUS_POINTS, UPPER_BONUS_THRESHOLD } from '@/yacht/domain/scoring'
+import {
+  UPPER_BONUS_POINTS,
+  UPPER_BONUS_THRESHOLD,
+  YACHT_UPPER_CATEGORIES,
+} from '@/yacht/domain/scoring'
 import { MAX_ROLLS } from '@/yacht/domain/yachtGame'
 import { categoryLabel } from '@/yacht/yachtCategoryView'
 
@@ -58,8 +62,10 @@ type GuideStep =
  * 칸인지는 여전히 모르므로, 이름과 자리를 같은 순간에 붙여 준다.
  */
 function spotlightFor(step: GuideStep, hand: Lesson['hand']): string | null {
-  // 보너스 장은 짚을 칸이 없다 — 구멍 없이 화면을 덮고 읽게 둔다.
-  if (hand) return hand.category ? `[data-tutorial-category="${hand.category}"]` : null
+  // 보너스는 기록하는 칸이 아니라 **위 여섯 칸이 모여 만드는 것**이다 — 그 여섯을 함께 짚는다.
+  if (hand) {
+    return hand.category ? `[data-tutorial-category="${hand.category}"]` : UPPER_CATEGORIES_SELECTOR
+  }
   switch (step) {
     case 'roll':
     case 'reroll':
@@ -83,6 +89,11 @@ function spotlightFor(step: GuideStep, hand: Lesson['hand']): string | null {
  * 포커(26점)이고 식스(24점)보다 높다 — 이름 있는 족보를 만들어 본 경험이 남는다.
  */
 const TUTORIAL_RECORD_CATEGORY: YachtCategory = 'fourOfAKind'
+
+/** 위 여섯 칸을 한 덩어리로 짚는 selector. 보너스가 가리키는 대상이다. */
+const UPPER_CATEGORIES_SELECTOR = YACHT_UPPER_CATEGORIES.map(
+  (category) => `[data-tutorial-category="${category}"]`,
+).join(',')
 
 /**
  * 구멍 주변을 어둡게 덮을지.
@@ -416,7 +427,8 @@ export function TutorialGuide({
       {/* 주사위가 날아가는 동안에는 백드롭을 통째로 걷는다 — 굴러가는 주사위가 이 연습의
           볼거리인데 딤이 덮으면 안 보인다. 조작은 게임 자체가 잠그고 있어 막을 것도 없다. */}
       {!rolling && <Backdrop dim={dimsAroundHole(step)} spotlight={spotlight} />}
-      <Card anchor={lesson.hand?.category ? spotlight : null} spotlight={spotlight}>
+      {/* 족보를 설명하는 장은 짚은 자리 옆에 말풍선으로 붙는다 — 보너스도 여섯 칸 덩어리 옆이다. */}
+      <Card anchor={lesson.hand ? spotlight : null} spotlight={spotlight}>
         {lesson.hand && (
           <p className="m-0 text-[11px] font-bold tracking-[0.1em] text-content-faint uppercase">
             남은 족보 둘러보기 · {lesson.hand.index + 1} / {lesson.hand.total}
@@ -550,6 +562,17 @@ interface SpotlightRect {
   height: number
 }
 
+/** 여러 칸을 감싸는 하나의 사각형. 한 칸만 있으면 그 칸 그대로다. */
+function unionRect(targets: Element[]): SpotlightRect | null {
+  if (targets.length === 0) return null
+  const boxes = targets.map((target) => target.getBoundingClientRect())
+  const top = Math.min(...boxes.map((box) => box.top))
+  const left = Math.min(...boxes.map((box) => box.left))
+  const right = Math.max(...boxes.map((box) => box.right))
+  const bottom = Math.max(...boxes.map((box) => box.bottom))
+  return { top, left, width: right - left, height: bottom - top }
+}
+
 /**
  * 강조할 요소의 화면 좌표. 트레이가 리사이즈되거나 화면이 돌아가도 링이 따라가야 하므로
  * 한 번 재고 마는 대신 관찰한다. 단계가 바뀌면 selector가 바뀌어 저절로 다시 잰다.
@@ -563,14 +586,15 @@ function useSpotlight(selector: string | null): SpotlightRect | null {
       return
     }
     const target = document.querySelector(selector)
-    const measure = () => {
-      if (!target) {
-        setRect(null)
-        return
-      }
-      const box = target.getBoundingClientRect()
-      setRect({ top: box.top, left: box.left, width: box.width, height: box.height })
-    }
+    /*
+     * selector가 여러 칸을 가리키면(보너스 = 위 여섯 칸) 그것들을 감싸는 한 덩어리를 짚는다.
+     *
+     * 단, 좁은 화면에서는 같은 족보가 퀵 칩 줄과 점수표에 둘 다 있다. 첫 매치가 선 표면
+     * 안에서만 모은다 — 두 표면을 함께 감싸면 구멍이 화면 절반을 먹는다.
+     */
+    const scope = target?.closest('[data-tutorial="sheet"]') ?? document
+    const targets = target ? [...scope.querySelectorAll(selector)] : []
+    const measure = () => setRect(unionRect(targets))
     /*
      * 강조할 것이 화면 밖이면 먼저 끌어온다. 족보를 한 칸씩 짚는 동안 타깃은 가로로 스크롤되는
      * 퀵 칩 줄(좁은 화면)이나 세로로 스크롤되는 점수표(넓은 화면) 안에 있어서, 뒤쪽 칸은

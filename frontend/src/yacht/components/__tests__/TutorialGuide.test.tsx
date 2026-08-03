@@ -397,19 +397,33 @@ describe('TutorialGuide', () => {
     expect(heading()).toBe('초이스')
   })
 
-  it('보너스는 짚을 칸이 없어 강조하지 않고 가운데에서 읽는다', async () => {
-    mountCategoryRows({ ones: { top: 200, left: 700, width: 280, height: 40 } })
+  /*
+   * 보너스는 기록하는 칸이 아니라 위 여섯 칸이 모여 만드는 것이다 — 한 칸만 짚거나 아무것도
+   * 짚지 않으면 무엇으로 만드는 보너스인지가 화면에서 사라진다.
+   */
+  it('보너스 장은 위 여섯 칸을 한 덩어리로 감싸 짚는다', async () => {
+    mountCategoryRows({
+      ones: { top: 100, left: 700, width: 280, height: 40 },
+      twos: { top: 140, left: 700, width: 280, height: 40 },
+      threes: { top: 180, left: 700, width: 280, height: 40 },
+      fours: { top: 220, left: 700, width: 280, height: 40 },
+      fives: { top: 260, left: 700, width: 280, height: 40 },
+      sixes: { top: 300, left: 700, width: 280, height: 40 },
+      // 아래 족보는 덩어리에 들어가면 안 된다.
+      yacht: { top: 500, left: 700, width: 280, height: 40 },
+    })
     const { user } = setup(atHandTour)
 
-    // 에이스 장은 칸을 짚어 구멍 네 장이 생긴다.
-    expect(blockers()).toHaveLength(4)
+    // 에이스 장은 그 한 칸만 짚는다(사방 6px 바깥).
+    expect(halo()).toEqual({ top: 94, left: 694, width: 292, height: 52 })
 
     for (let page = 0; page < 6; page += 1) {
       await user.click(screen.getByRole('button', { name: '다음' }))
     }
     expect(heading()).toBe('위 칸 보너스')
-    // 보너스 장은 구멍 없이 한 장으로 덮는다.
-    expect(blockers()).toHaveLength(1)
+
+    // 에이스 위 ~ 식스 아래(100..340)를 감싼다. 요트(500)는 빠진다.
+    expect(halo()).toEqual({ top: 94, left: 694, width: 292, height: 252 })
   })
 
   /*
