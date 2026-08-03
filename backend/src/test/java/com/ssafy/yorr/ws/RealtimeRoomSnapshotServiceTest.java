@@ -1,6 +1,5 @@
 package com.ssafy.yorr.ws;
 
-import com.ssafy.yorr.room.dto.BotDifficulty;
 import com.ssafy.yorr.room.dto.ParticipantKind;
 import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
@@ -38,8 +37,7 @@ class RealtimeRoomSnapshotServiceTest {
                                 "bot-1",
                                 "요르봇",
                                 0,
-                                ParticipantKind.BOT,
-                                BotDifficulty.HARD
+                                ParticipantKind.BOT
                         )
                 )
         ));
@@ -58,7 +56,6 @@ class RealtimeRoomSnapshotServiceTest {
             assertThat(player.status()).isEqualTo(PlayerStatus.ONLINE);
             assertThat(player.isHost()).isFalse();
             assertThat(player.kind()).isEqualTo(ParticipantKind.BOT);
-            assertThat(player.difficulty()).isEqualTo(BotDifficulty.HARD);
         });
     }
 
@@ -79,8 +76,7 @@ class RealtimeRoomSnapshotServiceTest {
                                 "bot-1",
                                 "요르봇",
                                 0,
-                                ParticipantKind.BOT,
-                                BotDifficulty.NORMAL
+                                ParticipantKind.BOT
                         )
                 )
         ));

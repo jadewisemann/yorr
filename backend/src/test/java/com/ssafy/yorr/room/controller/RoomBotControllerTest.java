@@ -1,7 +1,5 @@
 package com.ssafy.yorr.room.controller;
 
-import com.ssafy.yorr.room.dto.BotDifficulty;
-import com.ssafy.yorr.room.dto.BotRequest;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.room.service.BotParticipantService;
@@ -58,14 +56,13 @@ class RoomBotControllerTest {
                 List.of(),
                 null
         );
-        when(bots.add(ROOM, HOST, BotDifficulty.NORMAL)).thenReturn(persistent);
+        when(bots.add(ROOM, HOST)).thenReturn(persistent);
         when(realtimeSnapshots.snapshot(ROOM)).thenReturn(realtime);
 
         var response = controller.add(
                 ROOM,
                 HOST,
-                "Bearer token",
-                new BotRequest(BotDifficulty.NORMAL)
+                "Bearer token"
         );
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);

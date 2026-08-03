@@ -43,8 +43,7 @@ public class RealtimeRoomSnapshotService {
                             player.nickname(),
                             status,
                             player.playerId().equals(persistent.hostId()),
-                            player.kind(),
-                            player.difficulty()
+                            player.kind()
                     );
                 })
                 .sorted(Comparator.comparing(Player::playerId))

@@ -3,7 +3,6 @@ package com.ssafy.yorr.room.service;
 import com.ssafy.yorr.room.RoomRedisKeys;
 import com.ssafy.yorr.room.dto.GameStartResponse;
 import com.ssafy.yorr.room.dto.JoinResult;
-import com.ssafy.yorr.room.dto.BotDifficulty;
 import com.ssafy.yorr.room.dto.ParticipantKind;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
@@ -193,13 +192,12 @@ public class RoomValidationService implements RoomService {
         List<RoomPlayerSnapshot> snapshots = players.entrySet().stream()
                 .map(player -> {
                     String playerId = (String) player.getKey();
-                    Object difficulty = bots.get(playerId);
+                    boolean bot = bots.containsKey(playerId);
                     return new RoomPlayerSnapshot(
                             playerId,
                             (String) player.getValue(),
                             Integer.parseInt((String) scores.getOrDefault(player.getKey(), "0")),
-                            difficulty == null ? ParticipantKind.HUMAN : ParticipantKind.BOT,
-                            difficulty == null ? null : BotDifficulty.valueOf((String) difficulty)
+                            bot ? ParticipantKind.BOT : ParticipantKind.HUMAN
                     );
                 })
                 .sorted(Comparator.comparing(RoomPlayerSnapshot::playerId))
