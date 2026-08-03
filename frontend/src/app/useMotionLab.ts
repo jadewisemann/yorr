@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MotionGestureRecognizer } from '@/input/MotionGestureRecognizer'
-import { MOTION_SAMPLE_SILENT_MS, type MotionGestureConfig } from '@/input/motionConfig'
+import { MotionGestureRecognizer } from '@/yacht/input/MotionGestureRecognizer'
+import { MOTION_SAMPLE_SILENT_MS, type MotionGestureConfig } from '@/yacht/input/motionConfig'
 import type {
   MotionAvailability,
   MotionGestureEvent,
   MotionGestureSnapshot,
-} from '@/input/motionTypes'
-import { MotionSampleNormalizer } from '@/input/normalizeMotionSample'
+} from '@/yacht/input/motionTypes'
+import { MotionSampleNormalizer } from '@/yacht/input/normalizeMotionSample'
 import { loadStoredConfig, storeConfig } from './motionLabParams'
 import {
   createRecording,

@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import type { MotionGestureEvent } from '@/input/motionTypes'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
+import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
 import { copyTextToClipboard } from './motionLabClipboard'
 import type { LabEvent } from './useMotionLab'
 

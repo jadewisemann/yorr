@@ -1,4 +1,4 @@
-import { MOTION_GESTURE_CONFIG, type MotionGestureConfig } from '@/input/motionConfig'
+import { MOTION_GESTURE_CONFIG, type MotionGestureConfig } from '@/yacht/input/motionConfig'
 
 export type MotionParamKey = keyof MotionGestureConfig
 export type MotionParamGroup = 'shake' | 'throw' | 'timing'

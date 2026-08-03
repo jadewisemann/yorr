@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MOTION_GESTURE_CONFIG } from '@/input/motionConfig'
+import { MOTION_GESTURE_CONFIG } from '@/yacht/input/motionConfig'
 import {
   createRecording,
   type MotionRecordingSample,

@@ -1,6 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { prefetchPhysicsDiceWorld } from '@/rendering/physics-dice/loadWorld'
 import { useStartGame } from '@/room/api/useGameApi'
 import { InvitationPanel } from '@/room/components/InvitationPanel'
 import { PlayerCard } from '@/room/components/PlayerCard'
@@ -8,6 +7,7 @@ import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
 import { playLandingSoundtrack } from '@/shared/landingSoundtrack'
 import { useAppStore } from '@/store'
+import { prefetchPhysicsDiceWorld } from '@/yacht/rendering/physics-dice/loadWorld'
 import { RoomExitGuard } from './RoomExitGuard'
 
 /**

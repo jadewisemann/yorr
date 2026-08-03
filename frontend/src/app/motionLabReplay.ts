@@ -1,7 +1,7 @@
-import { MotionGestureRecognizer } from '@/input/MotionGestureRecognizer'
-import type { MotionGestureConfig } from '@/input/motionConfig'
-import type { MotionGestureEvent } from '@/input/motionTypes'
-import { MotionSampleNormalizer } from '@/input/normalizeMotionSample'
+import { MotionGestureRecognizer } from '@/yacht/input/MotionGestureRecognizer'
+import type { MotionGestureConfig } from '@/yacht/input/motionConfig'
+import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
+import { MotionSampleNormalizer } from '@/yacht/input/normalizeMotionSample'
 
 type Vec3 = [number, number, number]
 

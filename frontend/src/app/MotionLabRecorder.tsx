@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { MOTION_GESTURE_CONFIG, type MotionGestureConfig } from '@/input/motionConfig'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
+import { MOTION_GESTURE_CONFIG, type MotionGestureConfig } from '@/yacht/input/motionConfig'
 import { copyTextToClipboard } from './motionLabClipboard'
 import {
   type MotionRecording,

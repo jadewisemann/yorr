@@ -1,15 +1,15 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { MotionGestureEvent } from '@/input/motionTypes'
 import {
   creatorSession,
   participantSession,
   playingRoomSnapshot,
   waitingRoomSnapshot,
 } from '@/mocks/fixtures'
-import type { PhysicsDiceSet } from '@/rendering/physics-dice/types'
 import { GamePage } from '@/room/screens/GamePage'
 import { useAppStore } from '@/store'
+import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
+import type { PhysicsDiceSet } from '@/yacht/rendering/physics-dice/types'
 
 interface DiceSceneProps {
   dice: PhysicsDiceSet | null
@@ -35,7 +35,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   useBlocker: () => ({ status: 'idle' }),
 }))
 
-vi.mock('@/input/useMotionRollInput', () => ({
+vi.mock('@/yacht/input/useMotionRollInput', () => ({
   useMotionRollInput: (callback: (event: MotionGestureEvent) => void) => {
     mocks.gestureCallback = callback
     return {
@@ -51,7 +51,7 @@ vi.mock('@/input/useMotionRollInput', () => ({
   },
 }))
 
-vi.mock('@/components/PhysicsDiceScene', () => ({
+vi.mock('@/yacht/components/PhysicsDiceScene', () => ({
   PhysicsDiceScene: (props: DiceSceneProps) => {
     mocks.sceneProps = props
     return (

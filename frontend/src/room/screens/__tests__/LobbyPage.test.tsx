@@ -16,7 +16,7 @@ const { navigate, prefetchPhysicsDiceWorld } = vi.hoisted(() => ({
   prefetchPhysicsDiceWorld: vi.fn(),
 }))
 
-vi.mock('@/rendering/physics-dice/loadWorld', () => ({ prefetchPhysicsDiceWorld }))
+vi.mock('@/yacht/rendering/physics-dice/loadWorld', () => ({ prefetchPhysicsDiceWorld }))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),

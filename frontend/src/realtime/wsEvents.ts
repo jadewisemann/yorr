@@ -49,16 +49,16 @@
  * ============================================================================
  */
 
-import type { DiceSet, HeldDice } from '@/domain/dice'
-import type { YachtCategory } from '@/domain/scoring'
+import type { DiceSet, HeldDice } from '@/yacht/domain/dice'
+import type { YachtCategory } from '@/yacht/domain/scoring'
 
-export type { DiceSet, DiceValue, HeldDice } from '@/domain/dice'
-export type { YachtCategory, YachtLowerCategory, YachtUpperCategory } from '@/domain/scoring'
+export type { DiceSet, DiceValue, HeldDice } from '@/yacht/domain/dice'
+export type { YachtCategory, YachtLowerCategory, YachtUpperCategory } from '@/yacht/domain/scoring'
 export {
   UPPER_BONUS_POINTS,
   UPPER_BONUS_THRESHOLD,
   YACHT_CATEGORIES,
-} from '@/domain/scoring'
+} from '@/yacht/domain/scoring'
 
 export const WS_PROTOCOL_VERSION = 1 as const
 

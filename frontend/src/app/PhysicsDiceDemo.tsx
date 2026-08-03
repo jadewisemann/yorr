@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { PhysicsDiceScene } from '@/components/PhysicsDiceScene'
+import { Button } from '@/shared/components/Button'
+import { PhysicsDiceScene } from '@/yacht/components/PhysicsDiceScene'
 import {
   createDiceSet,
   createRollRequest,
@@ -10,14 +11,13 @@ import {
   NO_HELD_DICE,
   nextRollSeed,
   toggleHeldDie,
-} from '@/domain/dice'
+} from '@/yacht/domain/dice'
 import type {
   PhysicsDiceMotionPulse,
   PhysicsDicePhase,
   PhysicsDiceQuality,
   PhysicsDiceRollRequest,
-} from '@/rendering/physics-dice/types'
-import { Button } from '@/shared/components/Button'
+} from '@/yacht/rendering/physics-dice/types'
 
 export function PhysicsDiceDemo() {
   const [dice, setDice] = useState<DiceSet | null>(null)

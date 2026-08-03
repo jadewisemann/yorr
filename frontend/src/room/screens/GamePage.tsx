@@ -1,10 +1,10 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useGame } from '@/room/api/useGameApi'
-import { GamePlay } from '@/screens/GamePlay'
-import { GameResult } from '@/screens/GameResult'
 import { playGameSoundtrack, playResultSoundtrack } from '@/shared/landingSoundtrack'
 import { useAppStore } from '@/store'
+import { GamePlay } from '@/yacht/screens/GamePlay'
+import { GameResult } from '@/yacht/screens/GameResult'
 import { RoomExitGuard } from './RoomExitGuard'
 
 export function GamePage({ roomId }: { roomId: string }) {
