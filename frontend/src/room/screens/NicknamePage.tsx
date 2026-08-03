@@ -1,17 +1,17 @@
 import { useNavigate } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { useCreateRoom, useJoinRoom } from '@/room/api/useRoomApi'
-import { toUserError } from '@/shared/api/userError'
-import { Button } from '@/shared/components/Button'
-import { TextField } from '@/shared/components/TextField'
 import {
   generateNickname,
   NICKNAME_MAX_LENGTH,
   readSavedNickname,
   resolveNickname,
   saveNickname,
-} from '@/shared/nickname'
-import { playLandingSoundtrack } from '@/shared/soundtrack'
+} from '@/auth/nickname'
+import { useCreateRoom, useJoinRoom } from '@/room/api/useRoomApi'
+import { toUserError } from '@/shared/api/userError'
+import { playLandingSoundtrack } from '@/shared/audio/soundtrack'
+import { Button } from '@/shared/components/Button'
+import { TextField } from '@/shared/components/TextField'
 import { useAppStore } from '@/store'
 
 interface NicknamePageProps {

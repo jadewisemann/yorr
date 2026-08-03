@@ -6,7 +6,7 @@ import {
   type PlayerId,
   type ServerMessage,
 } from '@/realtime/wsEvents'
-import { readSoundMuted } from '@/shared/soundPreference'
+import { readSoundMuted } from '@/shared/audio/soundPreference'
 import { useAppStore } from '@/store'
 import {
   type DiceIndex,

@@ -7,7 +7,7 @@ import {
   readSavedNickname,
   resolveNickname,
   saveNickname,
-} from '@/shared/nickname'
+} from '@/auth/nickname'
 
 describe('nickname rules', () => {
   it('generates a stable adjective and noun combination from injected randomness', () => {

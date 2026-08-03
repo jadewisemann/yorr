@@ -1,4 +1,4 @@
-import { onFirstGesture, primeAudio } from '@/shared/audioUnlock'
+import { onFirstGesture, primeAudio } from '@/shared/audio/audioUnlock'
 import type { PhysicsDiceIndex, PhysicsDicePhase } from '@/yacht/rendering/physics-dice/types'
 
 const SHAKE_RATE_LIMIT_MS = 80

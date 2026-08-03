@@ -8,7 +8,7 @@ import {
 } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect } from 'react'
 import { EntryPage } from '@/landing/screens/EntryPage'
-import { getRoomCodeError, normalizeRoomCode } from '@/shared/roomCode'
+import { getRoomCodeError, normalizeRoomCode } from '@/room/roomCode'
 import { NotFoundPage } from './NotFoundPage'
 import { ScreenFallback } from './ScreenFallback'
 
