@@ -58,4 +58,44 @@ public interface MatchParticipantRepository extends JpaRepository<MatchParticipa
     List<WeeklyBest> findWeeklyBest(@Param("from") LocalDateTime from,
                                     @Param("to") LocalDateTime to,
                                     Pageable pageable);
+
+    /**
+     * 한 회원의 주간 최고점. 이번 주에 끝낸 판이 없으면 {@code null}이다 — 0점과 구분해야 한다.
+     * 0점은 순위에 오르지만 기록 없음은 오를 자리 자체가 없다.
+     * <p>
+     * 사용자별 값이라 캐시하지 않는다. 상위 목록 캐시에 이걸 섞으면 키에 사용자가 들어가
+     * 회원 수만큼 캐시가 늘어난다.
+     */
+    @Query("""
+            select max(p.totalScore)
+            from MatchParticipant p
+            where p.user.id = :userId
+              and p.match.finishedAt >= :from
+              and p.match.finishedAt < :to
+            """)
+    Integer findWeeklyBestScoreOf(@Param("userId") String userId,
+                                  @Param("from") LocalDateTime from,
+                                  @Param("to") LocalDateTime to);
+
+    /**
+     * 주간 최고점이 {@code score}보다 <b>높은</b> 회원 수. 내 순위는 이 값 + 1이다.
+     * <p>
+     * 최고점을 다시 집계하지 않고 판 행을 바로 세는 이유: 어떤 판이든 {@code score}를 넘긴
+     * 회원은 그 주 최고점도 {@code score}를 넘고, 반대도 성립한다. 그래서 회원을 중복 없이
+     * 세는 것만으로 "나보다 잘한 회원 수"가 나온다.
+     * <p>
+     * 초과(>)만 세는 것이 {@code WeeklyRankingResponse}의 동점 처리(1, 2, 2, 4)와 같은 번호를
+     * 만든다 — 목록에서도 내 앞에 있는 사람은 나보다 점수가 <b>높은</b> 사람뿐이다.
+     */
+    @Query("""
+            select count(distinct p.user.id)
+            from MatchParticipant p
+            where p.user is not null
+              and p.match.finishedAt >= :from
+              and p.match.finishedAt < :to
+              and p.totalScore > :score
+            """)
+    long countMembersScoringMoreThan(@Param("score") int score,
+                                     @Param("from") LocalDateTime from,
+                                     @Param("to") LocalDateTime to);
 }

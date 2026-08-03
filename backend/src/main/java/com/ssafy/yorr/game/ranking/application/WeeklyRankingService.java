@@ -61,6 +61,26 @@ public class WeeklyRankingService {
         return new WeeklyRanking(weekStart.toLocalDate(), rows);
     }
 
+    /**
+     * 한 회원의 이번 주 순위. 상위 목록에 없어도 자기 자리를 알 수 있어야 한다 — 100위 밖이면
+     * 목록만으로는 "내가 어디 있는지"에 영원히 답할 수 없다.
+     *
+     * @return 이번 주에 끝낸 판이 없으면 {@code null}. 0점과 구분한다 — 0점은 순위에 오르지만
+     * 기록 없음은 오를 자리 자체가 없다
+     */
+    @Transactional(readOnly = true)
+    public MyWeeklyRank myCurrentWeek(String userId) {
+        ZonedDateTime weekStart = weekStart();
+        LocalDateTime from = utcWallClock(weekStart);
+        LocalDateTime to = utcWallClock(weekStart.plusWeeks(1));
+
+        Integer best = participants.findWeeklyBestScoreOf(userId, from, to);
+        if (best == null) return null;
+
+        long better = participants.countMembersScoringMoreThan(best, from, to);
+        return new MyWeeklyRank(weekStart.toLocalDate(), (int) better + 1, best);
+    }
+
     /** 지금이 속한 주의 시작(KST 월요일 00:00). 월요일 당일이면 그 날 자신이 시작이다. */
     private ZonedDateTime weekStart() {
         return ZonedDateTime.now(clock.withZone(KST))
@@ -88,5 +108,12 @@ public class WeeklyRankingService {
      *                  응답을 만드는 쪽에서 정한다
      */
     public record WeeklyRanking(LocalDate weekStart, List<WeeklyBest> rows) {
+    }
+
+    /**
+     * @param rank 상위 목록과 <b>같은 번호 체계</b>다 — 동점은 같은 번호를 받고 다음을 건너뛴다.
+     *             그래서 목록에 내가 있으면 거기 적힌 번호와 이 값이 일치한다
+     */
+    public record MyWeeklyRank(LocalDate weekStart, int rank, int bestScore) {
     }
 }

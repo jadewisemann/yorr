@@ -7,6 +7,8 @@ import com.ssafy.yorr.game.match.domain.MatchParticipant;
 import com.ssafy.yorr.game.match.repository.MatchParticipantRepository;
 import com.ssafy.yorr.game.match.repository.MatchParticipantRepository.WeeklyBest;
 import com.ssafy.yorr.game.match.repository.MatchRepository;
+import com.ssafy.yorr.game.ranking.application.WeeklyRankingService.WeeklyRanking;
+import com.ssafy.yorr.game.ranking.controller.dto.WeeklyRankingResponse;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
@@ -169,6 +171,59 @@ class WeeklyRankingQueryIntegrationTest {
         assertThat(weeklyBest())
                 .extracting(WeeklyBest::getNickname)
                 .containsExactly("상위", "하위");
+    }
+
+    /**
+     * 내 순위는 "나보다 점수가 높은 회원 수 + 1"이다. 동점자는 같은 번호를 받으므로 목록에
+     * 적히는 번호와 반드시 일치해야 한다 — 두 값이 갈리면 같은 사람이 화면 두 곳에서 다른
+     * 순위로 보인다.
+     */
+    @Test
+    void 내_순위는_목록에_적히는_번호와_같다() {
+        User top = users.save(User.create("일등", null));
+        User tieA = users.save(User.create("공동이등가", null));
+        User tieB = users.save(User.create("공동이등나", null));
+        User me = users.save(User.create("나", null));
+        saveMatch("g-top", FROM, top, "일등", 300);
+        saveMatch("g-tie-a", FROM, tieA, "공동이등가", 250);
+        saveMatch("g-tie-b", FROM, tieB, "공동이등나", 250);
+        saveMatch("g-me", FROM, me, "나", 100);
+
+        var entries = WeeklyRankingResponse
+                .of(new WeeklyRanking(FROM.toLocalDate(), weeklyBest()))
+                .entries();
+
+        // 번호는 1, 2, 2, 4다. 동점자 둘의 앞뒤는 user_id(UUID) 순이라 삽입 순서와 무관하므로
+        // 이름까지 순서로 못 박지 않는다 — 여기서 보려는 것은 번호 체계다.
+        assertThat(entries).extracting(WeeklyRankingResponse.Entry::rank)
+                .containsExactly(1, 2, 2, 4);
+        assertThat(entries)
+                .extracting(WeeklyRankingResponse.Entry::nickname, WeeklyRankingResponse.Entry::rank)
+                .containsExactlyInAnyOrder(tuple("일등", 1), tuple("공동이등가", 2),
+                        tuple("공동이등나", 2), tuple("나", 4));
+
+        assertThat(participants.findWeeklyBestScoreOf(me.getId(), FROM, TO)).isEqualTo(100);
+        assertThat(participants.countMembersScoringMoreThan(100, FROM, TO) + 1).isEqualTo(4);
+    }
+
+    /** 여러 판을 했으면 그중 최고점이 내 점수다 — 마지막 판이 아니다. */
+    @Test
+    void 내_최고점은_여러_판_중_최댓값이다() {
+        User me = users.save(User.create("나", null));
+        saveMatch("g-1", FROM, me, "나", 120);
+        saveMatch("g-2", FROM.plusDays(1), me, "나", 260);
+        saveMatch("g-3", FROM.plusDays(2), me, "나", 80);
+
+        assertThat(participants.findWeeklyBestScoreOf(me.getId(), FROM, TO)).isEqualTo(260);
+    }
+
+    /** 기록 없음은 0점과 다르다 — null이어야 "오를 자리가 없다"를 표현할 수 있다. */
+    @Test
+    void 이번_주_기록이_없으면_최고점이_null이다() {
+        User me = users.save(User.create("나", null));
+        saveMatch("g-last-week", FROM.minusDays(3), me, "나", 500);
+
+        assertThat(participants.findWeeklyBestScoreOf(me.getId(), FROM, TO)).isNull();
     }
 
     /**
