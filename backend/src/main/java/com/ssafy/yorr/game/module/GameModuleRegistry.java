@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 public class GameModuleRegistry {
@@ -33,6 +34,10 @@ public class GameModuleRegistry {
 
     public String canonicalCode(String code) {
         return require(code).code();
+    }
+
+    public Set<String> supportedCodes() {
+        return modules.keySet();
     }
 
     public boolean dispatch(String gameCode, WebSocketSession session, InboundEnvelope message) throws IOException {
