@@ -67,7 +67,10 @@ describe('닉네임 편집', () => {
     await user.clear(screen.getByLabelText('닉네임'))
     await user.click(screen.getByRole('button', { name: '저장' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('닉네임을 입력해 주세요.')
+    // 문구가 방 입장 화면과 같다 — 검증이 getNicknameError 한 곳으로 모였다.
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '닉네임을 한 글자 이상 입력해 주세요.',
+    )
     // 편집 화면에 머문다 — 고칠 기회를 빼앗지 않는다.
     expect(screen.getByLabelText('닉네임')).toBeInTheDocument()
   })

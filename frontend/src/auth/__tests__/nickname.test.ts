@@ -31,6 +31,17 @@ describe('nickname rules', () => {
     )
   })
 
+  it('rejects profanity, including spaced-out and substituted spellings', () => {
+    const reason = '사용할 수 없는 표현이 포함되어 있어요.'
+
+    expect(getNicknameError('시발놈')).toBe(reason)
+    expect(getNicknameError('ㅅ ㅂ 선장')).toBe(reason)
+    expect(getNicknameError('f u c k')).toBe(reason)
+    expect(getNicknameError('sh1t')).toBe(reason)
+    // 정상 닉네임은 통과해야 한다 — 필터가 세면 이름을 못 짓는다.
+    expect(getNicknameError('시나몬 선장')).toBeNull()
+  })
+
   it('uses the displayed suggestion when the input is blank', () => {
     expect(resolveNickname('   ', '느긋한 주사위')).toEqual({
       nickname: '느긋한 주사위',
