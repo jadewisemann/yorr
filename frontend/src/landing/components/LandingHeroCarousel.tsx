@@ -1,8 +1,8 @@
 import { motion, useAnimationControls, useReducedMotion } from 'motion/react'
 import {
-  type KeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -40,8 +40,9 @@ const WHEEL_THRESHOLD = 18
 /**
  * 칸을 넘길 때 띠가 미끄러지는 거리(컨테이너 폭 대비 %). 인접한 두 카드의 **중심 사이
  * 거리**다 — 이만큼 움직여야 새 카드가 직전에 이웃 카드가 서 있던 자리에서 들어온 것처럼
- * 보인다. 아래 카드 좌표(narrow inset-x-9% / peek -15.6%+24.6%, wide 50%±34.7% /
- * peek -12.2%+36.1%)에서 계산한 값이라 그 좌표를 바꾸면 여기도 같이 고친다.
+ * 보인다. 카드가 가운데 서므로(중심 50%) 값을 정하는 것은 <b>peek 좌표뿐</b>이다
+ * (narrow -15.6%+24.6%, wide -12.2%+36.1%). 카드 자체의 좌우 여백을 바꿔도 이 값은
+ * 그대로지만, peek 좌표를 바꾸면 여기도 같이 고친다.
  */
 const SLIDE_DISTANCE_PCT = { narrow: 53.3, wide: 44.15 }
 
@@ -95,13 +96,28 @@ export function LandingHeroCarousel({
     const target = (activeIndex + delta + games.length) % games.length
     if (target !== activeIndex) onSelect(target)
   }
+  // 문서 리스너가 매 렌더 붙었다 떨어지지 않도록 ref로 읽는다.
+  const stepRef = useRef(step)
+  stepRef.current = step
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'ArrowLeft') step(-1)
-    else if (event.key === 'ArrowRight') step(1)
-    else return
-    event.preventDefault()
-  }
+  /**
+   * 방향키는 <b>문서에서</b> 듣는다. 예전에는 아래 `<section>`의 onKeyDown이었는데,
+   * section은 tabIndex가 없어 포커스를 받을 일이 없었다 — 진입 직후 포커스는 body에 있고
+   * Tab을 누르면 헤더가 먼저 잡히므로, 방향키를 눌러도 아무 일도 일어나지 않았다.
+   * (내비에 시멘틱 태그를 다는 것과는 무관한 문제다. 랜드마크가 아니라 포커스가 원인이다.)
+   *
+   * 무엇을 거르는지는 {@link keyboardStep}에 있다.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      const delta = keyboardStep(event)
+      if (delta === 0) return
+      event.preventDefault()
+      stepRef.current(delta)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     // 가로 스크롤(트랙패드 두 손가락)이 있으면 그 축을 쓰고, 없으면 세로 휠을 칸 이동으로 읽는다.
@@ -190,7 +206,6 @@ export function LandingHeroCarousel({
       aria-label="게임 캐러셀"
       className="relative h-full w-full touch-none select-none"
       onClickCapture={handleClickCapture}
-      onKeyDown={handleKeyDown}
       onPointerCancel={handlePointerUp}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -206,10 +221,12 @@ export function LandingHeroCarousel({
           aria-labelledby={landingTabId(game.key)}
           className={cn(
             'absolute inset-y-0',
-            // narrow 9%: 예전 6.7%는 이웃 카드가 손톱만큼만 걸려 "옆에 더 있다"가 읽히지
-            // 않았다. 화살표의 원형 판이 빠져 자리가 남은 만큼 카드는 82%까지 되찾고,
-            // 이웃은 9%(390에서 35px)를 내보인다.
-            wide ? 'left-1/2 w-[69.4%] -translate-x-1/2' : 'inset-x-[9%]',
+            // narrow는 헤더·카피와 같은 20px 거터에 선다(px-5). 예전 9%는 뷰포트마다
+            // 값이 달라(390에서 35px) 카드 왼쪽 모서리가 상단 워드마크와 다른 세로선에
+            // 섰다. 고정 20px로 두면 화면 폭과 무관하게 한 줄로 읽힌다.
+            // 이웃 카드가 내보이는 폭은 그만큼(35 → 20px) 줄지만, 띠가 미끄러지는 거리
+            // (SLIDE_DISTANCE_PCT)는 peek 좌표로 정해지므로 그대로다.
+            wide ? 'left-1/2 w-[69.4%] -translate-x-1/2' : 'inset-x-5',
           )}
           id={LANDING_PANEL_ID}
           role="tabpanel"
@@ -227,6 +244,23 @@ export function LandingHeroCarousel({
       </motion.div>
     </section>
   )
+}
+
+/**
+ * 이 키 입력이 캐러셀을 몇 칸 움직여야 하는가(아니면 0). 거르는 것은 둘이다.
+ *
+ * - `defaultPrevented` — 진행 표시줄 tablist가 이미 처리한 키다. 안 거르면 한 번 눌러
+ *   두 칸 넘어간다.
+ * - 입력 요소·열린 다이얼로그 안에서 난 키 — 코드를 타이핑하는 동안 뒤에서 캐러셀이
+ *   같이 미끄러지면 안 된다.
+ */
+function keyboardStep(event: globalThis.KeyboardEvent) {
+  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return 0
+  const delta = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0
+  if (delta === 0) return 0
+  const target = event.target as HTMLElement | null
+  const guarded = target?.closest('input, textarea, select, [contenteditable], [aria-modal="true"]')
+  return guarded ? 0 : delta
 }
 
 /**

@@ -36,10 +36,9 @@ export function AuthCallbackPage({
     }
 
     void exchangeLoginCode(code)
-      .then((session) => {
-        signIn(session)
-        setAppNotice(`${session.nickname}님, 반가워요!`)
-      })
+      // 성공했다는 인사는 따로 띄우지 않는다 — 헤더 아바타가 로그인 상태를 이미 말한다.
+      // signIn이 이전 안내(로그아웃 등)를 비우므로 여기서 지울 것도 없다.
+      .then(signIn)
       .catch(() => {
         // 코드가 만료됐거나 이미 쓰였다. 사유를 더 좁힐 수 없으므로 다시 시도하도록 안내한다.
         setAppNotice('로그인을 마무리하지 못했어요. 다시 시도해 주세요.')
