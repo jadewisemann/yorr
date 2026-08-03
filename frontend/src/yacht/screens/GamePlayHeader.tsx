@@ -1,6 +1,7 @@
 import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
 import type { Player, PlayerId } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
+import { IconClose, IconHelp, IconSound } from '@/shared/components/Icon'
 import type { ConnectionStatus } from '@/store'
 import { RoundTimer } from '@/yacht/components/RoundTimer'
 
@@ -44,7 +45,7 @@ export function GamePlayHeader({
   const controls = (
     <>
       <HeaderButton label="게임 도움말" onClick={onHelp}>
-        ?
+        <IconHelp className="size-4.5" />
       </HeaderButton>
       {/*
         소리 버튼 하나가 오디오 전체(마이크·배경음·효과음)의 입구다. 버튼을 늘리지 않는 게
@@ -57,8 +58,10 @@ export function GamePlayHeader({
         onClick={onOpenAudio}
         pressed={voice.status === 'on'}
       >
+        {/* 아이콘 자체가 aria-hidden이다 — 버튼의 접근 가능한 이름은 HeaderButton의
+            aria-label이 책임진다. */}
         <span className="relative">
-          {soundMuted ? '🔇' : '🔊'}
+          <IconSound className="size-4.5" muted={soundMuted} />
           {voice.status === 'on' && (
             <span
               aria-hidden="true"
@@ -89,7 +92,7 @@ export function GamePlayHeader({
         요르 게임 진행 중 · {roundNumber} / {TOTAL_ROUNDS} 라운드
       </h1>
       <HeaderButton label="나가기" onClick={onLeave}>
-        ✕
+        <IconClose className="size-4.5" />
       </HeaderButton>
       <TurnStatus
         activePlayer={activePlayer}
@@ -139,7 +142,7 @@ function HeaderButton({
     <button
       aria-label={label}
       {...(pressed === undefined ? {} : { 'aria-pressed': pressed })}
-      className="grid size-tap flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-[15px] font-bold text-content-muted transition-colors hover:text-content focus-ring"
+      className="grid size-tap flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-content-muted transition-colors hover:text-content focus-ring"
       onClick={onClick}
       type="button"
     >

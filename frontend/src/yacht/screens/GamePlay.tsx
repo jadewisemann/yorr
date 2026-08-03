@@ -8,6 +8,7 @@ import { cn } from '@/shared/cn'
 import { AudioSheet } from '@/shared/components/AudioSheet'
 import { Button } from '@/shared/components/Button'
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner'
+import { IconCheck } from '@/shared/components/Icon'
 import { Modal } from '@/shared/components/Modal'
 import { ToastHost, useToast } from '@/shared/components/ToastHost'
 import { useMediaQuery } from '@/shared/useMediaQuery'
@@ -611,9 +612,9 @@ function WaitingNotice({
       <p className="m-0 flex min-h-15 flex-1 items-center justify-center gap-2.5 rounded-panel border border-positive/40 bg-positive/10 px-4 text-center text-sm font-semibold text-positive">
         <span
           aria-hidden="true"
-          className="grid size-5 flex-none place-items-center rounded-[7px] bg-positive/20 text-[11px] leading-none font-bold"
+          className="grid size-5 flex-none place-items-center rounded-[7px] bg-positive/20"
         >
-          ✓
+          <IconCheck className="size-3" />
         </span>
         점수가 반영됐습니다. 다음 턴을 기다립니다.
       </p>

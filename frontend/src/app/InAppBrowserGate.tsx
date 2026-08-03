@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from 'react'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
+import { IconCheck, IconWarning } from '@/shared/components/Icon'
 
 const dismissalKey = 'yorr.in-app-browser-dismissed'
 
@@ -81,10 +82,10 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
   )
 }
 
-/** 체크리스트 한 줄. 세 줄이 같은 배지를 쓰고 색과 글리프만 갈린다. */
+/** 체크리스트 한 줄. 세 줄이 같은 배지를 쓰고 색과 아이콘만 갈린다. */
 const checklistTone = {
-  ok: { glyph: '✓', badge: 'bg-positive/20 text-positive', row: undefined },
-  warn: { glyph: '!', badge: 'bg-warning/20 text-warning', row: 'text-content-muted' },
+  ok: { Icon: IconCheck, badge: 'bg-positive/20 text-positive', row: undefined },
+  warn: { Icon: IconWarning, badge: 'bg-warning/20 text-warning', row: 'text-content-muted' },
 } as const
 
 function ChecklistItem({
@@ -94,18 +95,15 @@ function ChecklistItem({
   children: ReactNode
   tone: keyof typeof checklistTone
 }) {
-  const { badge, glyph, row } = checklistTone[tone]
+  const { badge, Icon, row } = checklistTone[tone]
 
   return (
     <li className={cn('flex items-center gap-2.5', row)}>
       <span
         aria-hidden="true"
-        className={cn(
-          'grid size-[18px] flex-none place-items-center rounded-[6px] text-[10px] leading-none font-bold',
-          badge,
-        )}
+        className={cn('grid size-[18px] flex-none place-items-center rounded-[6px]', badge)}
       >
-        {glyph}
+        <Icon className="size-3" />
       </span>
       {children}
     </li>

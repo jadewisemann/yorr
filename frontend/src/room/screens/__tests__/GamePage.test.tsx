@@ -209,7 +209,7 @@ describe('GamePage motion roll flow', () => {
     expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
   })
 
-  it('헤더의 ✕는 바로 나가지 않고 확인을 받는다', () => {
+  it('헤더의 나가기 버튼은 바로 나가지 않고 확인을 받는다', () => {
     render(<GamePage roomId={creatorSession.roomId} />)
 
     fireEvent.click(screen.getByRole('button', { name: '나가기' }))

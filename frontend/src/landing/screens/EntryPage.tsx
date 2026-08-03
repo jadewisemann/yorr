@@ -14,6 +14,7 @@ import { sessionScreenOf } from '@/room/sessionFsm'
 import { readSoundMuted, saveSoundMuted } from '@/shared/audio/soundPreference'
 import { playLandingSoundtrack, setSoundtrackMuted } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
+import { IconSound } from '@/shared/components/Icon'
 import { useMediaQuery } from '@/shared/useMediaQuery'
 import { selectSessionPhase, useAppStore } from '@/store'
 
@@ -407,11 +408,11 @@ function SoundToggle({ muted, onToggle }: { muted: boolean; onToggle: () => void
     <button
       aria-label={muted ? '소리 켜기' : '소리 끄기'}
       aria-pressed={!muted}
-      className="grid size-tap flex-none cursor-pointer place-items-center rounded-full border border-landing-hairline-strong bg-landing-well text-[15px]/none text-landing-text-muted transition-colors duration-150 ease-out hover:border-landing-accent/70 hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
+      className="grid size-tap flex-none cursor-pointer place-items-center rounded-full border border-landing-hairline-strong bg-landing-well text-landing-text-muted transition-colors duration-150 ease-out hover:border-landing-accent/70 hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
       onClick={onToggle}
       type="button"
     >
-      <span aria-hidden="true">{muted ? '🔇' : '🔊'}</span>
+      <IconSound className="size-4.5" muted={muted} />
     </button>
   )
 }

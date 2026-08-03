@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react'
 import { isCompleteRoomCode, sanitizeRoomCodeInput } from '@/room/roomCode'
 import { cn } from '@/shared/cn'
+import { IconClose } from '@/shared/components/Icon'
 
 interface LandingRoomCodePanelProps {
   code: string
@@ -94,14 +95,12 @@ export function LandingRoomCodePanel({
 
       <button
         aria-label="코드 입력 닫기"
-        className={cn(
-          'absolute top-0 right-0 grid size-tap cursor-pointer place-items-center rounded-[11px] border border-landing-hairline-strong bg-transparent text-landing-text-muted transition-colors hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
-          wide ? 'text-[14px]' : 'text-[15px]',
-        )}
+        className="absolute top-0 right-0 grid size-tap cursor-pointer place-items-center rounded-[11px] border border-landing-hairline-strong bg-transparent text-landing-text-muted transition-colors hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
         onClick={onClose}
         type="button"
       >
-        <span aria-hidden="true">✕</span>
+        {/* 원래 글리프가 wide에서 한 단계 작았다(14 / 15px) — 그 차이를 크기로 옮긴다. */}
+        <IconClose className={wide ? 'size-3.5' : 'size-4'} />
       </button>
     </form>
   )
