@@ -111,6 +111,10 @@
   --animate-callout-flash: callout-flash 700ms ease-out both;
   --animate-callout-burst: callout-burst 800ms ease-out both;
 
+  /* 리액션 이모지 — 이모지 버튼에서 솟아올라 흩어지며 사라진다. 지속시간은
+     ReactionDock의 FLIGHT_MS와 같은 값이다(그 타이머가 목록에서 지운다). */
+  --animate-reaction-float: reaction-float 2200ms ease-out both;
+
   /* 튜토리얼 가이드 마스코트 — 공중에 떠서 천천히 오르내리는 부유감. */
   --animate-guide-bob: guide-bob 2600ms ease-in-out infinite;
 
@@ -432,6 +436,26 @@
   }
   51%,
   100% {
+    opacity: 0;
+  }
+}
+
+/* transform·opacity만 움직인다(callout-burst와 같은 규칙). --drift는 항목마다 다른 값이
+   들어와 동시에 뜬 이모지가 한 덩어리로 겹쳐 보이지 않게 좌우로 흩는다. */
+@keyframes reaction-float {
+  0% {
+    transform: translate(0, 0.5rem) scale(0.4);
+    opacity: 0;
+  }
+  18% {
+    transform: translate(calc(var(--drift, 0rem) * 0.25), -1rem) scale(1.15);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--drift, 0rem), -8.5rem) scale(0.85);
     opacity: 0;
   }
 }

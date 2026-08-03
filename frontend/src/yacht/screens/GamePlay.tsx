@@ -10,6 +10,7 @@ import { ToastHost, useToast } from '@/shared/components/ToastHost'
 import { useMediaQuery } from '@/shared/useMediaQuery'
 import { type ActiveRoomSession, useAppStore } from '@/store'
 import { GameHelpModal } from '@/yacht/components/GameHelpModal'
+import { ReactionDock } from '@/yacht/components/ReactionDock'
 import { RecordPanel } from '@/yacht/components/RecordPanel'
 import { ScoreSheet } from '@/yacht/components/ScoreSheet'
 import { TurnStrip } from '@/yacht/components/TurnStrip'
@@ -319,6 +320,20 @@ export function GamePlay({ onLeaveRequest, roomId, session, snapshot }: GamePlay
               </RecordPanel>
             )}
           </div>
+
+          {/* 리액션은 트레이 우하단에 띄운다 — 푸터에 끼우면 안 된다. 리액션을 가장 많이 쓰는
+              순간은 "남의 턴"인데 그때 푸터는 WaitingNotice가 차지한다.
+              모바일 bottom: 푸터 pb 8.75rem + CTA 높이 3.75rem = 12.5rem 위가 CTA 상단이다.
+              그 위로 0.75rem 띄운다 — 9.25rem이었을 때 굴리기 버튼 오른쪽 끝을 덮고 있었다.
+              접힌 기록 패널(8.5rem)도 이 값이면 함께 넘긴다.
+              z-sticky라 기록 패널(z-sheet)을 펼치면 그 아래로 가려진다 — 의도한 순서다. */}
+          <ReactionDock
+            className={cn(
+              'absolute right-gutter z-sticky',
+              wide ? 'bottom-[6.75rem]' : 'bottom-[calc(13.25rem+env(safe-area-inset-bottom))]',
+            )}
+            players={snapshot.players}
+          />
         </div>
 
         {/* 디자인 Yacht Play 3D — 점수표는 우측 상시 패널이다.
