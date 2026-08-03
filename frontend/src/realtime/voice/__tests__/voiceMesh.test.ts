@@ -17,6 +17,7 @@ interface FakeConnection {
   setLocalDescription: ReturnType<typeof vi.fn>
   close: ReturnType<typeof vi.fn>
   remoteDescription: object | null
+  connectionState: string
 }
 
 const connections: FakeConnection[] = []
@@ -27,6 +28,8 @@ function stubWebRtc() {
     'RTCPeerConnection',
     class {
       remoteDescription: object | null = null
+      // 실제 RTCPeerConnection의 초기값. 협상이 끝나면 브라우저가 'connected'로 바꾼다.
+      connectionState = 'new'
       addIceCandidate = vi.fn(async () => undefined)
       createOffer = vi.fn(async () => ({ sdp: 'offer-sdp', type: 'offer' as const }))
       createAnswer = vi.fn(async () => ({ sdp: 'answer-sdp', type: 'answer' as const }))
@@ -44,14 +47,13 @@ function stubWebRtc() {
       }
     },
   )
-  vi.stubGlobal(
-    'Audio',
-    class {
-      autoplay = false
-      srcObject: unknown = null
-      play = vi.fn(async () => undefined)
-    },
-  )
+  // 진짜 <audio> 엘리먼트를 쓴다. VoiceMesh가 document.body에 붙이므로(iOS Safari 대응)
+  // 손으로 만든 객체를 주면 append에서 던진다. jsdom의 play()는 미구현이라 그것만 바꿔 끼운다.
+  vi.stubGlobal('Audio', function FakeAudio() {
+    const element = document.createElement('audio')
+    element.play = vi.fn(async () => undefined)
+    return element
+  })
 }
 
 function createMesh(you: PlayerId) {
@@ -86,7 +88,7 @@ describe('VoiceMesh', () => {
 
     mesh.syncPeers(['zzz', 'aaa'])
     // 연결은 만들되 시그널은 보내지 않는다 — 양쪽이 offer하면 협상이 깨진다.
-    await vi.waitFor(() => expect(mesh.peerIds()).toEqual(['aaa']))
+    await vi.waitFor(() => expect(mesh.knownPeerIds()).toEqual(['aaa']))
     expect(sent).toEqual([])
   })
 
@@ -94,10 +96,10 @@ describe('VoiceMesh', () => {
     const { mesh } = createMesh('aaa')
 
     mesh.syncPeers(['aaa', 'bbb'])
-    await vi.waitFor(() => expect(mesh.peerIds()).toEqual(['bbb']))
+    await vi.waitFor(() => expect(mesh.knownPeerIds()).toEqual(['bbb']))
 
     mesh.syncPeers(['aaa'])
-    expect(mesh.peerIds()).toEqual([])
+    expect(mesh.knownPeerIds()).toEqual([])
     expect(connections[0]?.close).toHaveBeenCalled()
   })
 
@@ -135,14 +137,31 @@ describe('VoiceMesh', () => {
     expect(connection?.addIceCandidate).toHaveBeenCalledWith(candidate)
   })
 
+  // peerIds가 맵 크기를 그대로 돌려주던 시절, 화면 배지가 협상도 안 끝난 피어를
+  // "연결됨"으로 세어 실제로는 소리가 안 오가는데 "1명 연결됨"이라고 표시했다.
+  it('peerIds는 connected인 상대만 센다 — 협상 중은 빼야 한다', async () => {
+    const { mesh } = createMesh('aaa')
+
+    mesh.syncPeers(['aaa', 'bbb'])
+    await vi.waitFor(() => expect(mesh.knownPeerIds()).toEqual(['bbb']))
+
+    // 아직 붙지 않았다 → 화면에는 0명이어야 한다.
+    expect(mesh.peerIds()).toEqual([])
+
+    const connection = connections[0]
+    if (!connection) throw new Error('연결이 만들어지지 않았다')
+    connection.connectionState = 'connected'
+    expect(mesh.peerIds()).toEqual(['bbb'])
+  })
+
   it('close는 모든 연결을 닫는다', async () => {
     const { mesh } = createMesh('aaa')
     mesh.syncPeers(['aaa', 'bbb', 'ccc'])
-    await vi.waitFor(() => expect(mesh.peerIds()).toHaveLength(2))
+    await vi.waitFor(() => expect(mesh.knownPeerIds()).toHaveLength(2))
 
     mesh.close()
 
-    expect(mesh.peerIds()).toEqual([])
+    expect(mesh.knownPeerIds()).toEqual([])
     for (const connection of connections) expect(connection.close).toHaveBeenCalled()
   })
 })

@@ -46,7 +46,10 @@ export function GamePlayHeader({
       <HeaderButton label="게임 도움말" onClick={onHelp}>
         ?
       </HeaderButton>
-      <VoiceButton voice={voice} />
+      {/* 좁은 화면에서는 여기에 두지 않는다. 320px 기준 헤더는 ✕·턴표시·?·🔊·타이머로 이미
+          꽉 차 있어서 버튼을 하나 더 넣으면 턴 표시가 한 글자씩 세로로 접힌다(실측).
+          모바일은 GamePlay가 리액션 버튼 위에 세워 통신 컨트롤끼리 모아 둔다. */}
+      {wide && <VoiceButton voice={voice} />}
       <HeaderButton
         label={soundMuted ? '소리 켜기' : '소리 끄기'}
         onClick={onToggleSound}

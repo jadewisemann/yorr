@@ -1,4 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import { VoiceButton } from '@/realtime/voice/VoiceButton'
 import { useVoice } from '@/realtime/voice/VoiceContext'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { readSoundMuted, saveSoundMuted } from '@/shared/audio/soundPreference'
@@ -400,13 +401,17 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
               그 위로 0.75rem 띄운다 — 9.25rem이었을 때 굴리기 버튼 오른쪽 끝을 덮고 있었다.
               접힌 기록 패널(8.5rem)도 이 값이면 함께 넘긴다.
               z-sticky라 기록 패널(z-sheet)을 펼치면 그 아래로 가려진다 — 의도한 순서다. */}
-          <ReactionDock
+          <div
             className={cn(
-              'absolute right-gutter z-sticky',
+              'absolute right-gutter z-sticky flex flex-col items-end gap-2',
               wide ? 'bottom-[6.75rem]' : 'bottom-[calc(13.25rem+env(safe-area-inset-bottom))]',
             )}
-            players={snapshot.players}
-          />
+          >
+            {/* 마이크는 좁은 화면에서만 여기 선다 — 헤더가 320px에서 꽉 차기 때문이다.
+                넓은 화면에서는 소리 토글 옆(헤더)에 있다. */}
+            {wide ? null : <VoiceButton voice={voice} />}
+            <ReactionDock players={snapshot.players} />
+          </div>
         </div>
 
         {/* 디자인 Yacht Play 3D — 점수표는 우측 상시 패널이다.

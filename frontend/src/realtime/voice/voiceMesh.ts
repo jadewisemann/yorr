@@ -42,8 +42,22 @@ export class VoiceMesh {
 
   constructor(private readonly options: VoiceMeshOptions) {}
 
-  /** 지금 연결이 살아 있는 상대들. */
+  /**
+   * 지금 **실제로 소리가 오가는** 상대들.
+   *
+   * 맵에 있는 전부가 아니라 connectionState가 connected인 것만 센다. addPeer는 협상을
+   * 시작하기 전에 맵에 넣으므로, 맵 크기를 그대로 쓰면 아직 붙지 않은(또는 붙는 중인) 피어까지
+   * "연결됨"으로 세어 화면이 거짓말을 한다. 협상 중에는 0명으로 보이는 게 정직하다 —
+   * 버튼에 "연결 대기 중" 라벨이 이미 있다.
+   */
   peerIds(): PlayerId[] {
+    return [...this.peers.entries()]
+      .filter(([, peer]) => peer.connection.connectionState === 'connected')
+      .map(([id]) => id)
+  }
+
+  /** 협상 중인 것까지 포함한 전체. 명단 diff(syncPeers)와 테스트가 쓴다. */
+  knownPeerIds(): PlayerId[] {
     return [...this.peers.keys()]
   }
 
@@ -131,6 +145,12 @@ export class VoiceMesh {
     const connection = new RTCPeerConnection({ iceServers: this.options.iceServers })
     const audio = new Audio()
     audio.autoplay = true
+    // DOM에 붙인다. 떼어놓은 엘리먼트로도 크롬에서는 소리가 나지만 iOS Safari는 미디어
+    // 엘리먼트가 문서에 없으면 재생을 거부하는 경우가 있다 — 주 타깃이 모바일이라 붙여 둔다.
+    // 화면에 보일 것은 없으므로 접근성 트리와 레이아웃에서 모두 빼낸다.
+    audio.hidden = true
+    audio.setAttribute('aria-hidden', 'true')
+    document.body.append(audio)
     const peer: Peer = { audio, connection, pendingCandidates: [] }
     this.peers.set(id, peer)
 
@@ -172,6 +192,8 @@ export class VoiceMesh {
     if (!peer) return
     this.peers.delete(id)
     peer.audio.srcObject = null
+    // DOM에 붙였으니 반드시 뗀다 — 안 떼면 통화를 켜고 끌 때마다 빈 audio가 쌓인다.
+    peer.audio.remove()
     peer.connection.close()
   }
 
