@@ -1,5 +1,13 @@
 import { readAuthSession } from '@/auth/authSession'
-import type { GameState, PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
+import type {
+  BotDifficulty,
+  DiceSet,
+  GameState,
+  ParticipantKind,
+  PlayerId,
+  RoomSnapshot,
+  YachtCategory,
+} from '@/realtime/wsEvents'
 import { apiRequest } from '@/shared/api/client'
 
 export interface CreateRoomRequest {
@@ -37,16 +45,24 @@ export interface RoomSession {
   snapshot: RoomSnapshot | null
 }
 
+export interface ScoreCandidatesRequest {
+  dice: DiceSet
+}
+
+export interface ScoreCandidates {
+  candidates: Record<YachtCategory, number>
+}
+
 export interface GameStartResult {
   gameId: string
   snapshot: RoomSnapshot
 }
 
-interface ApiCallOptions {
+export interface ApiCallOptions {
   signal?: AbortSignal
 }
 
-interface AuthenticatedApiCallOptions extends ApiCallOptions {
+export interface AuthenticatedApiCallOptions extends ApiCallOptions {
   sessionToken: string
   userId: PlayerId
 }
@@ -79,12 +95,51 @@ export class HttpRoomApiClient {
     }).then(toGameStartResult)
   }
 
+  addBot(roomCode: string, difficulty: BotDifficulty, options: AuthenticatedApiCallOptions) {
+    return apiRequest<unknown>(`/rooms/${roomCode}/bots`, {
+      method: 'POST',
+      body: JSON.stringify({ difficulty }),
+      ...requestSignal(options),
+      headers: authenticatedHeaders(options),
+    }).then(toRoomSnapshot)
+  }
+
+  updateBot(
+    roomCode: string,
+    botId: PlayerId,
+    difficulty: BotDifficulty,
+    options: AuthenticatedApiCallOptions,
+  ) {
+    return apiRequest<unknown>(`/rooms/${roomCode}/bots/${botId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ difficulty }),
+      ...requestSignal(options),
+      headers: authenticatedHeaders(options),
+    }).then(toRoomSnapshot)
+  }
+
+  removeBot(roomCode: string, botId: PlayerId, options: AuthenticatedApiCallOptions) {
+    return apiRequest<unknown>(`/rooms/${roomCode}/bots/${botId}`, {
+      method: 'DELETE',
+      ...requestSignal(options),
+      headers: authenticatedHeaders(options),
+    }).then(toRoomSnapshot)
+  }
+
   returnToLobby(roomCode: string, options: AuthenticatedApiCallOptions) {
     return apiRequest<void>(`/rooms/${roomCode}/lobby`, {
       method: 'POST',
       ...requestSignal(options),
       headers: authenticatedHeaders(options),
     })
+  }
+
+  getScoreCandidates(gameId: string, request: ScoreCandidatesRequest, options?: ApiCallOptions) {
+    return apiRequest<unknown>(`/games/${gameId}/score-candidates`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+      ...requestSignal(options),
+    }).then(toScoreCandidates)
   }
 
   leaveRoom(roomCode: string, options: AuthenticatedApiCallOptions) {
@@ -103,8 +158,6 @@ function enterRoom(
   membershipRole: RoomMembershipRole,
   options?: ApiCallOptions,
 ) {
-  // 로그인했다면 그 세션으로 들어가야 이 판의 결과가 계정에 남는다. 보내지 않으면 서버가
-  // 새 게스트를 만들고, 전적은 주인 없는 기록이 된다.
   const sessionToken = readAuthSession()?.sessionToken
   return apiRequest<unknown>('/rooms', {
     method: 'POST',
@@ -172,7 +225,12 @@ function toRoomSnapshot(response: unknown): RoomSnapshot {
       playerId: player.playerId,
       nickname: player.nickname,
       status: 'online',
+      ...(player.kind ? { kind: player.kind } : {}),
+      ...(player.difficulty ? { difficulty: player.difficulty } : {}),
+      ...(isNonEmptyString(response.hostId) ? { isHost: player.playerId === response.hostId } : {}),
     })),
+    ...(isNonEmptyString(response.hostId) ? { hostId: response.hostId } : {}),
+    ...(typeof response.capacity === 'number' ? { capacity: response.capacity } : {}),
     ...(game ? { game } : {}),
   }
 }
@@ -203,8 +261,40 @@ function toGameState(value: unknown): GameState | undefined {
   }
 }
 
-function isRestRoomPlayer(value: unknown): value is { nickname: string; playerId: string } {
-  return isRecord(value) && isNonEmptyString(value.playerId) && isNonEmptyString(value.nickname)
+function toScoreCandidates(response: unknown): ScoreCandidates {
+  if (!isRecord(response) || !isRecord(response.candidates)) {
+    throw new Error('Invalid score candidates response')
+  }
+
+  const entries = Object.entries(response.candidates)
+  if (!entries.every(([, score]) => typeof score === 'number' && Number.isInteger(score))) {
+    throw new Error('Invalid score candidates response')
+  }
+
+  return { candidates: Object.fromEntries(entries) as Record<YachtCategory, number> }
+}
+
+function isRestRoomPlayer(value: unknown): value is {
+  nickname: string
+  playerId: string
+  kind?: ParticipantKind
+  difficulty?: BotDifficulty
+} {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.playerId) &&
+    isNonEmptyString(value.nickname) &&
+    (value.kind === undefined || isParticipantKind(value.kind)) &&
+    (value.difficulty === undefined || isBotDifficulty(value.difficulty))
+  )
+}
+
+function isParticipantKind(value: unknown): value is ParticipantKind {
+  return value === 'HUMAN' || value === 'BOT'
+}
+
+function isBotDifficulty(value: unknown): value is BotDifficulty {
+  return value === 'EASY' || value === 'NORMAL' || value === 'HARD'
 }
 
 function toRoomPhase(value: unknown): RoomSnapshot['phase'] | undefined {

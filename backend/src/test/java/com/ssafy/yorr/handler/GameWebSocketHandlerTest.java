@@ -24,6 +24,7 @@ import com.ssafy.yorr.user.UserType;
 import com.ssafy.yorr.ws.InMemoryRoomBroadcaster;
 import com.ssafy.yorr.ws.HeartbeatMonitor;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
+import com.ssafy.yorr.ws.RealtimeRoomSnapshotService;
 import com.ssafy.yorr.ws.dto.RoomJoinPayload;
 import com.ssafy.yorr.ws.dto.DiceHoldPayload;
 import com.ssafy.yorr.ws.dto.DiceRollPayload;
@@ -887,6 +888,7 @@ class GameWebSocketHandlerTest {
                     objectMapper,
                     broadcaster,
                     registry,
+                    new RealtimeRoomSnapshotService(roomService, registry),
                     heartbeatMonitor,
                     userService,
                     roomService,
@@ -895,6 +897,7 @@ class GameWebSocketHandlerTest {
                             roundSynchronizationService,
                             roundTimerService,
                             registry,
+                            new RealtimeRoomSnapshotService(roomService, registry),
                             broadcaster,
                             scoreRoundSubmissionService,
                             reconnectSnapshotService,

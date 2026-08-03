@@ -3,6 +3,8 @@ package com.ssafy.yorr.room.service;
 import com.ssafy.yorr.room.RoomRedisKeys;
 import com.ssafy.yorr.room.dto.GameStartResponse;
 import com.ssafy.yorr.room.dto.JoinResult;
+import com.ssafy.yorr.room.dto.BotDifficulty;
+import com.ssafy.yorr.room.dto.ParticipantKind;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
@@ -30,15 +32,26 @@ public class RoomValidationService implements RoomService {
             redis.call('HSET', KEYS[3], ARGV[1], '0')
             redis.call('HINCRBY', KEYS[1], 'members', 1)
             local ttl = redis.call('PTTL', KEYS[1])
-            if ttl > 0 then redis.call('PEXPIRE', KEYS[2], ttl); redis.call('PEXPIRE', KEYS[3], ttl) end
+            if ttl > 0 then
+                redis.call('PEXPIRE', KEYS[2], ttl)
+                redis.call('PEXPIRE', KEYS[3], ttl)
+                if redis.call('EXISTS', KEYS[4]) == 1 then redis.call('PEXPIRE', KEYS[4], ttl) end
+            end
             return 1
             """, Long.class);
     private static final DefaultRedisScript<Long> LEAVE = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
             if redis.call('HDEL', KEYS[2], ARGV[1]) == 0 then return -1 end
             redis.call('HDEL', KEYS[3], ARGV[1])
+            redis.call('HDEL', KEYS[4], ARGV[1])
             local members = redis.call('HINCRBY', KEYS[1], 'members', -1)
-            if members <= 0 then redis.call('DEL', KEYS[1]); redis.call('DEL', KEYS[2]); redis.call('DEL', KEYS[3]); return 0 end
+            if members <= 0 then
+                redis.call('DEL', KEYS[1])
+                redis.call('DEL', KEYS[2])
+                redis.call('DEL', KEYS[3])
+                redis.call('DEL', KEYS[4])
+                return 0
+            end
             return 1
             """, Long.class);
     /**
@@ -59,6 +72,7 @@ public class RoomValidationService implements RoomService {
             redis.call('DEL', KEYS[1])
             redis.call('DEL', KEYS[2])
             redis.call('DEL', KEYS[3])
+            redis.call('DEL', KEYS[4])
             return 1
             """, Long.class);
     /**
@@ -73,6 +87,7 @@ public class RoomValidationService implements RoomService {
             if ttl <= 0 then return 1 end
             redis.call('PEXPIRE', KEYS[2], ttl)
             redis.call('PEXPIRE', KEYS[3], ttl)
+            if redis.call('EXISTS', KEYS[4]) == 1 then redis.call('PEXPIRE', KEYS[4], ttl) end
             local gameId = redis.call('HGET', KEYS[1], 'gameId')
             if gameId then
                 redis.call('PEXPIRE', 'game:' .. gameId, ttl)
@@ -93,7 +108,10 @@ public class RoomValidationService implements RoomService {
             redis.call('HSET', KEYS[1], 'phase', 'PLAYING', 'gameId', ARGV[1])
             redis.call('HSET', KEYS[3], 'roomCode', ARGV[2], 'gameCode', gameCode)
             local ttl = redis.call('PTTL', KEYS[1])
-            if ttl > 0 then redis.call('PEXPIRE', KEYS[3], ttl) end
+            if ttl > 0 then
+                redis.call('PEXPIRE', KEYS[3], ttl)
+                if redis.call('EXISTS', KEYS[4]) == 1 then redis.call('PEXPIRE', KEYS[4], ttl) end
+            end
             return 1
             """, Long.class);
     static final DefaultRedisScript<Long> ROLLBACK_START = new DefaultRedisScript<>("""
@@ -122,7 +140,10 @@ public class RoomValidationService implements RoomService {
                 redis.call('HSET', KEYS[3], players[i], '0')
             end
             local ttl = redis.call('PTTL', KEYS[1])
-            if ttl > 0 then redis.call('PEXPIRE', KEYS[3], ttl) end
+            if ttl > 0 then
+                redis.call('PEXPIRE', KEYS[3], ttl)
+                if redis.call('EXISTS', KEYS[4]) == 1 then redis.call('PEXPIRE', KEYS[4], ttl) end
+            end
             return 1
             """, Long.class);
 
@@ -131,7 +152,8 @@ public class RoomValidationService implements RoomService {
     @Override
     public JoinResult join(String roomCode, UserIdentity user, String sessionToken) {
         Long result = redisTemplate.execute(JOIN, List.of(RoomRedisKeys.roomKey(roomCode),
-                RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode)), user.userId(), user.nickname());
+                RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode),
+                RoomRedisKeys.botsKey(roomCode)), user.userId(), user.nickname());
         if (Long.valueOf(0).equals(result)) throw new IllegalArgumentException("room_not_found");
         if (Long.valueOf(2).equals(result)) throw new IllegalStateException("game_started");
         if (Long.valueOf(3).equals(result)) throw new IllegalStateException("room_full");
@@ -141,20 +163,23 @@ public class RoomValidationService implements RoomService {
     @Override
     public boolean leave(String roomCode, String playerId) {
         Long result = redisTemplate.execute(LEAVE, List.of(RoomRedisKeys.roomKey(roomCode),
-                RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode)), playerId);
+                RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode),
+                RoomRedisKeys.botsKey(roomCode)), playerId);
         return result != null && result >= 0;
     }
 
     @Override
     public void close(String roomCode) {
         redisTemplate.execute(CLOSE, List.of(RoomRedisKeys.roomKey(roomCode),
-                RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode)));
+                RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode),
+                RoomRedisKeys.botsKey(roomCode)));
     }
 
     @Override
     public void touch(String roomCode) {
         redisTemplate.execute(TOUCH, List.of(RoomRedisKeys.roomKey(roomCode),
-                        RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode)),
+                        RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode),
+                        RoomRedisKeys.botsKey(roomCode)),
                 String.valueOf(RoomCreateService.ROOM_TTL.toSeconds()));
     }
 
@@ -164,9 +189,19 @@ public class RoomValidationService implements RoomService {
         if (room.isEmpty()) return RoomSnapshot.notFound(roomCode);
         Map<Object, Object> players = redisTemplate.<Object, Object>opsForHash().entries(RoomRedisKeys.playersKey(roomCode));
         Map<Object, Object> scores = redisTemplate.<Object, Object>opsForHash().entries(RoomRedisKeys.scoresKey(roomCode));
+        Map<Object, Object> bots = redisTemplate.<Object, Object>opsForHash().entries(RoomRedisKeys.botsKey(roomCode));
         List<RoomPlayerSnapshot> snapshots = players.entrySet().stream()
-                .map(player -> new RoomPlayerSnapshot((String) player.getKey(), (String) player.getValue(),
-                        Integer.parseInt((String) scores.getOrDefault(player.getKey(), "0"))))
+                .map(player -> {
+                    String playerId = (String) player.getKey();
+                    Object difficulty = bots.get(playerId);
+                    return new RoomPlayerSnapshot(
+                            playerId,
+                            (String) player.getValue(),
+                            Integer.parseInt((String) scores.getOrDefault(player.getKey(), "0")),
+                            difficulty == null ? ParticipantKind.HUMAN : ParticipantKind.BOT,
+                            difficulty == null ? null : BotDifficulty.valueOf((String) difficulty)
+                    );
+                })
                 .sorted(Comparator.comparing(RoomPlayerSnapshot::playerId))
                 .toList();
         return new RoomSnapshot(roomCode, (String) room.get("gameCode"), (String) room.get("gameId"),
@@ -176,8 +211,12 @@ public class RoomValidationService implements RoomService {
 
     public GameStartResponse startGame(String roomCode) {
         String gameId = UUID.randomUUID().toString();
-        Long result = redisTemplate.execute(START, List.of(RoomRedisKeys.roomKey(roomCode), RoomRedisKeys.playersKey(roomCode),
-                RoomRedisKeys.gameKey(gameId)), gameId, roomCode);
+        Long result = redisTemplate.execute(START, List.of(
+                RoomRedisKeys.roomKey(roomCode),
+                RoomRedisKeys.playersKey(roomCode),
+                RoomRedisKeys.gameKey(gameId),
+                RoomRedisKeys.botsKey(roomCode)
+        ), gameId, roomCode);
         if (!Long.valueOf(1).equals(result)) throw new IllegalStateException("game_not_ready");
         return new GameStartResponse(gameId, getSnapshot(roomCode));
     }
@@ -193,7 +232,8 @@ public class RoomValidationService implements RoomService {
     /** @return 이 호출이 실제로 대기실로 되돌렸는지. 이미 대기실이면 false(멱등). */
     public boolean returnToLobby(String roomCode) {
         Long result = redisTemplate.execute(RETURN_TO_LOBBY, List.of(RoomRedisKeys.roomKey(roomCode),
-                RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode)));
+                RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode),
+                RoomRedisKeys.botsKey(roomCode)));
         return Long.valueOf(1).equals(result);
     }
 

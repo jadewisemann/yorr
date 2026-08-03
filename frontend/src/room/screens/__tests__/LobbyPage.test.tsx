@@ -8,6 +8,7 @@ import {
   participantSession,
   waitingRoomSnapshot,
 } from '@/mocks/fixtures'
+import { clearMockRoomSnapshot } from '@/mocks/mockRoomState'
 import { LobbyPage } from '@/room/screens/LobbyPage'
 import { useAppStore } from '@/store'
 
@@ -29,6 +30,7 @@ describe('LobbyPage', () => {
   beforeEach(() => {
     navigate.mockReset()
     prefetchPhysicsDiceWorld.mockReset()
+    clearMockRoomSnapshot()
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
     vi.stubGlobal(
       'requestIdleCallback',
@@ -115,6 +117,30 @@ describe('LobbyPage', () => {
 
     expect(screen.getByRole('button', { name: '게임 시작 · 호스트 전용' })).toBeDisabled()
     expect(screen.getByText('호스트가 게임을 시작하면 자동으로 이동해요.')).toBeVisible()
+  })
+
+  it('lets the host add, change, and remove a bot', async () => {
+    const user = userEvent.setup()
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    await user.click(screen.getByRole('button', { name: '봇 추가' }))
+    expect(await screen.findByText('AI 봇 · 보통')).toBeVisible()
+    expect(screen.getByRole('region', { name: '참가자 3명' })).toBeVisible()
+
+    await user.selectOptions(screen.getByRole('combobox', { name: /요르봇 .* 난이도/ }), 'HARD')
+    expect(await screen.findByText('AI 봇 · 어려움')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: '삭제' }))
+    await waitFor(() => expect(screen.getByRole('region', { name: '참가자 2명' })).toBeVisible())
+  })
+
+  it('does not show bot controls to a participant', () => {
+    useAppStore.getState().setRoomSession(participantSession)
+
+    render(<LobbyPage roomId={participantSession.roomId} />)
+
+    expect(screen.queryByRole('region', { name: 'AI 봇 관리' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '봇 추가' })).not.toBeInTheDocument()
   })
 
   it('keeps link-copy fallback available next to the QR code', async () => {

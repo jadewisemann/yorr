@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { cn } from '@/shared/cn'
 
 type PlayerCardProps = {
@@ -7,6 +8,8 @@ type PlayerCardProps = {
   status?: 'online' | 'away' | 'offline'
   active?: boolean
   current?: boolean
+  subtitle?: string | undefined
+  trailing?: ReactNode | undefined
   className?: string
 }
 const statusLabel = {
@@ -30,8 +33,10 @@ export function PlayerCard({
   avatarSeed = name,
   score,
   status = 'online',
+  subtitle,
+  trailing,
 }: PlayerCardProps) {
-  const stateLabel = statusLabel[status]
+  const stateLabel = subtitle ?? statusLabel[status]
   const avatarTone = avatarTones[hashString(avatarSeed) % avatarTones.length]
 
   return (
@@ -59,7 +64,7 @@ export function PlayerCard({
             </span>
           )}
         </span>
-        {status === 'offline' ? (
+        {status === 'offline' && !subtitle ? (
           <span className="mt-1 inline-flex rounded-full border border-warning/40 bg-warning/12 px-2 py-0.5 text-xs font-bold text-warning">
             {stateLabel}
           </span>
@@ -67,7 +72,8 @@ export function PlayerCard({
           <span className="text-sm text-content-muted">{stateLabel}</span>
         )}
       </span>
-      {score !== undefined && <strong className="font-bold tabular-nums">{score}</strong>}
+      {trailing ??
+        (score !== undefined && <strong className="font-bold tabular-nums">{score}</strong>)}
     </article>
   )
 }

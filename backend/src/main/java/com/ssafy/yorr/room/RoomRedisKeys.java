@@ -15,6 +15,10 @@ public final class RoomRedisKeys {
         return roomKey(roomCode) + ":scores";
     }
 
+    public static String botsKey(String roomCode) {
+        return roomKey(roomCode) + ":bots";
+    }
+
     public static String gameKey(String gameId) {
         return "game:" + gameId;
     }
