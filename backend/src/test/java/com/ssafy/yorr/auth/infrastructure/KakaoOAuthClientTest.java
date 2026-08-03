@@ -15,7 +15,8 @@ class KakaoOAuthClientTest {
     private static KakaoOAuthClient client(String clientId, String redirectUri) {
         return new KakaoOAuthClient(RestClient.builder().build(), new AuthProperties(
                 "http://localhost:5173/auth/callback",
-                new AuthProperties.Kakao(clientId, "secret", redirectUri)));
+                new AuthProperties.Kakao(clientId, "secret", redirectUri),
+                null));
     }
 
     /**
