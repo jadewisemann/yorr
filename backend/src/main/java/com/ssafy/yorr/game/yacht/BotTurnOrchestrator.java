@@ -1,6 +1,10 @@
 package com.ssafy.yorr.game.yacht;
 
 import com.ssafy.yorr.game.round.application.RoundStartedEvent;
+import com.ssafy.yorr.game.round.domain.RoundState;
+import com.ssafy.yorr.ws.RoomBroadcaster;
+import com.ssafy.yorr.ws.dto.DiceThrownPayload;
+import com.ssafy.yorr.ws.dto.WsEnvelope;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,12 +24,14 @@ import java.util.concurrent.atomic.AtomicLong;
 public class BotTurnOrchestrator {
 
     static final Duration TURN_START_DELAY = Duration.ofMillis(1_200);
+    static final Duration THROW_DELAY = Duration.ofMillis(600);
     static final Duration ROLL_RESULT_DELAY = Duration.ofMillis(6_500);
     static final Duration HOLD_SELECTION_DELAY = Duration.ofMillis(1_500);
 
     private static final Logger log = LoggerFactory.getLogger(BotTurnOrchestrator.class);
 
     private final YachtBotTurnCoordinator coordinator;
+    private final RoomBroadcaster broadcaster;
     private final ScheduledExecutorService executor;
     private final Duration turnStartDelay;
     private final Duration rollResultDelay;
@@ -34,9 +40,13 @@ public class BotTurnOrchestrator {
     private final Map<String, Long> roomGenerations = new ConcurrentHashMap<>();
 
     @Autowired
-    public BotTurnOrchestrator(YachtBotTurnCoordinator coordinator) {
+    public BotTurnOrchestrator(
+            YachtBotTurnCoordinator coordinator,
+            RoomBroadcaster broadcaster
+    ) {
         this(
                 coordinator,
+                broadcaster,
                 Executors.newScheduledThreadPool(2, runnable -> {
                     Thread thread = new Thread(runnable, "yacht-bot-turn");
                     thread.setDaemon(true);
@@ -50,20 +60,23 @@ public class BotTurnOrchestrator {
 
     BotTurnOrchestrator(
             YachtBotTurnCoordinator coordinator,
+            RoomBroadcaster broadcaster,
             ScheduledExecutorService executor,
             Duration actionDelay
     ) {
-        this(coordinator, executor, actionDelay, actionDelay, actionDelay);
+        this(coordinator, broadcaster, executor, actionDelay, actionDelay, actionDelay);
     }
 
     BotTurnOrchestrator(
             YachtBotTurnCoordinator coordinator,
+            RoomBroadcaster broadcaster,
             ScheduledExecutorService executor,
             Duration turnStartDelay,
             Duration rollResultDelay,
             Duration holdSelectionDelay
     ) {
         this.coordinator = coordinator;
+        this.broadcaster = broadcaster;
         this.executor = executor;
         this.turnStartDelay = turnStartDelay;
         this.rollResultDelay = rollResultDelay;
@@ -83,6 +96,12 @@ public class BotTurnOrchestrator {
         }
         try {
             YachtBotTurnCoordinator.BotTurnStep step = coordinator.executeIfCurrent(event);
+            if (isRollStep(event.state(), step)) {
+                Long throwGeneration = roomGenerations.get(event.roomId());
+                if (throwGeneration != null) {
+                    scheduleThrow(event.roomId(), step.state(), throwGeneration);
+                }
+            }
             if (step.continueAfterObservation()
                     && Long.valueOf(generation).equals(roomGenerations.get(event.roomId()))) {
                 schedule(
@@ -102,7 +121,51 @@ public class BotTurnOrchestrator {
         }
     }
 
-    private Duration delayFor(com.ssafy.yorr.game.round.domain.RoundState state) {
+    private void scheduleThrow(String roomId, RoundState rolled, long generation) {
+        executor.schedule(
+                () -> announceThrowIfLatest(roomId, rolled, generation),
+                THROW_DELAY.toMillis(),
+                TimeUnit.MILLISECONDS
+        );
+    }
+
+    private void announceThrowIfLatest(String roomId, RoundState rolled, long generation) {
+        if (!Long.valueOf(generation).equals(roomGenerations.get(roomId))) {
+            return;
+        }
+        try {
+            broadcaster.broadcast(roomId, WsEnvelope.of(
+                    "dice.thrown",
+                    new DiceThrownPayload(
+                            rolled.activePlayerId(),
+                            rolled.roundNumber(),
+                            rolled.activeRollCount()
+                    )
+            ).withRoomId(roomId));
+        } catch (RuntimeException exception) {
+            log.warn(
+                    "AI bot dice throw animation broadcast failed: room={} round={} player={}",
+                    roomId,
+                    rolled.roundNumber(),
+                    rolled.activePlayerId(),
+                    exception
+            );
+        }
+    }
+
+    private static boolean isRollStep(
+            RoundState before,
+            YachtBotTurnCoordinator.BotTurnStep step
+    ) {
+        RoundState after = step.state();
+        return step.acted()
+                && after != null
+                && after.roundNumber() == before.roundNumber()
+                && after.activePlayerId().equals(before.activePlayerId())
+                && after.activeRollCount() == before.activeRollCount() + 1;
+    }
+
+    private Duration delayFor(RoundState state) {
         return state.activeRollCount() == 0 ? turnStartDelay : rollResultDelay;
     }
 
