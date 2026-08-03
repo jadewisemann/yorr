@@ -1,9 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect } from 'react'
-import type { Player } from '@/realtime/wsEvents'
-import { hasHostPowers } from '@/room/api/roomApi'
-import { useAddBot, useStartGame } from '@/room/api/useGameApi'
+import type { Player, PlayerId } from '@/realtime/wsEvents'
 import { useCreatePartyRoom } from '@/room/api/useRoomApi'
 import { createInviteUrl, QrFallback } from '@/room/components/InvitationPanel'
 import { PlayerCard } from '@/room/components/PlayerCard'
@@ -25,17 +23,18 @@ import { useAppStore } from '@/store'
  *   헤더(게임·방 코드)     → GamePlayHeader
  *   인원 한 줄             → TurnStrip
  *   QR 블록                → GameDiceTray
- *   [게임 시작] · 봇 추가   → [굴리기] · 모두 해제
+ *   방장 안내 띠            → [굴리기] · 모두 해제
  *   참가자 열(28rem·border-l) → ScoreSheet
  * </pre>
+ * <p>
+ * <b>조작 버튼은 두지 않는다.</b> 대시보드는 방장이 아니다 — 방장은 처음 들어온 컨트롤러이고
+ * (백엔드 {@code RoomValidationService}의 JOIN 규약), 게임 시작·봇 추가는 그 폰의 대기실에서
+ * 한다. TV·모니터에 마우스를 기대하지 않는 것과 같은 이유다.
  *
  * 폭 분기도 랜딩 기준(760px)이 아니라 <b>게임 화면 기준(1024px)</b>을 쓴다 — 시작 전후가
  * 같은 지점에서 같은 모양으로 꺾여야 한다.
  */
 const WIDE_LAYOUT = '(min-width: 1024px)'
-
-/** 시작 가능한 최소 인원. 서버 START 스크립트와 같은 값이다({@link LobbyPage}와 공유하는 규약). */
-const MIN_PLAYERS_TO_START = 1
 
 export function PartyDashboardPage() {
   const navigate = useNavigate()
@@ -44,12 +43,11 @@ export function PartyDashboardPage() {
   const roomSnapshot = useAppStore((state) => state.roomSnapshot)
   const connectionStatus = useAppStore((state) => state.connectionStatus)
   const createParty = useCreatePartyRoom()
-  const startGame = useStartGame()
-  const addBot = useAddBot()
 
   const isDashboard = roomSession?.membershipRole === 'dashboard'
   const capacity = roomSnapshot?.capacity ?? 6
   const players = roomSnapshot?.players ?? []
+  const hostId = roomSnapshot?.hostId
 
   // 진입 즉시 방을 연다. 대시보드는 이름을 짓지 않으므로 사이에 화면이 없다.
   // 이미 대시보드 세션이 있으면(새로고침) 그것을 이어 쓴다 — 새 방을 열면 QR이 바뀌어
@@ -77,11 +75,7 @@ export function PartyDashboardPage() {
     )
   }
 
-  const canStart =
-    hasHostPowers(roomSession.membershipRole) &&
-    connectionStatus === 'connected' &&
-    roomSnapshot?.phase === 'waiting' &&
-    players.length >= MIN_PLAYERS_TO_START
+  const host = players.find((player) => player.playerId === hostId)
 
   return (
     <main
@@ -159,76 +153,35 @@ export function PartyDashboardPage() {
           <p className="m-0 text-[15px] text-content-muted">폰으로 QR을 찍으면 바로 참여해요.</p>
         </div>
 
-        {/* GamePlay wide 푸터와 같은 클래스·같은 버튼 지오메트리 — 시작 버튼이 있던 자리에
-            굴리기 버튼이 정확히 들어온다. */}
-        <footer className="flex flex-none items-center justify-center gap-4 border-t border-border px-gutter py-4">
-          <Button
-            aria-describedby={canStart ? undefined : 'party-start-blocked'}
-            className="min-h-15 w-[300px] rounded-panel text-[17px]"
-            disabled={!canStart}
-            loading={startGame.isLoading}
-            onClick={() => void startGame.execute()}
-            size="lg"
-          >
-            게임 시작
-          </Button>
-          <Button
-            disabled={addBot.isLoading || players.length >= capacity}
-            loading={addBot.isLoading}
-            onClick={() => void addBot.execute()}
-            variant="ghost"
-          >
-            봇 추가
-          </Button>
+        {/* [굴리기]가 들어설 띠. 대시보드에는 누를 것이 없다 — 방장(처음 들어온 폰)이 시작한다.
+            누를 수 없는 버튼을 회색으로 세워 두면 TV 앞 사람이 마우스를 찾아 헤매므로,
+            버튼을 아예 두지 않고 누가 눌러야 하는지만 알린다. */}
+        <footer className="flex flex-none items-center justify-center border-t border-border px-gutter py-4">
+          <p className="m-0 text-center text-[15px] text-content-muted" role="status">
+            {connectionStatus !== 'connected'
+              ? '실시간 연결을 기다리고 있어요.'
+              : host
+                ? `${host.nickname} 님이 폰에서 게임을 시작할 수 있어요.`
+                : '먼저 들어온 사람이 폰에서 게임을 시작할 수 있어요.'}
+          </p>
         </footer>
-        <DashboardNotices
-          blocked={!canStart}
-          connected={connectionStatus === 'connected'}
-          error={startGame.error ?? addBot.error}
-          errorPrefix={startGame.error ? '게임을 시작하지 못했어요' : '봇을 추가하지 못했어요'}
-        />
       </div>
 
       {/* ScoreSheet가 들어설 열. 헤더 행 모양도 점수표와 같게 맞춘다. */}
-      {wide && <ParticipantColumn capacity={capacity} players={players} />}
+      {wide && <ParticipantColumn capacity={capacity} hostId={hostId} players={players} />}
     </main>
   )
 }
 
-/** 시작이 막힌 이유와 요청 실패를 푸터 아래 한 자리에 모은다. */
-function DashboardNotices({
-  blocked,
-  connected,
-  error,
-  errorPrefix,
+function ParticipantColumn({
+  capacity,
+  hostId,
+  players,
 }: {
-  blocked: boolean
-  connected: boolean
-  error: Error | null
-  errorPrefix: string
+  capacity: number
+  hostId: PlayerId | undefined
+  players: Player[]
 }) {
-  return (
-    <>
-      {blocked && (
-        <p
-          className="m-0 flex-none pb-3 text-center text-sm text-content-muted"
-          id="party-start-blocked"
-        >
-          {connected
-            ? `${MIN_PLAYERS_TO_START}명부터 시작할 수 있어요.`
-            : '연결된 뒤 게임을 시작할 수 있어요.'}
-        </p>
-      )}
-      {error && (
-        <p className="m-0 flex-none pb-3 text-center text-sm text-danger" role="alert">
-          {errorPrefix}: {error.message}
-        </p>
-      )}
-    </>
-  )
-}
-
-function ParticipantColumn({ capacity, players }: { capacity: number; players: Player[] }) {
   const emptySeats = Math.max(0, capacity - players.length)
 
   return (
@@ -250,6 +203,15 @@ function ParticipantColumn({ capacity, players }: { capacity: number; players: P
             name={player.nickname}
             status={player.status}
             subtitle={player.kind === 'BOT' ? '상태 기반 AI 봇' : undefined}
+            // 방장 표시가 이 화면에서 정보인 이유: 시작 버튼이 이 화면에 없으므로, 누구 폰을
+            // 봐야 하는지 알려주지 않으면 TV 앞 사람들이 서로를 쳐다보게 된다.
+            trailing={
+              player.playerId === hostId ? (
+                <span className="rounded-[6px] bg-white/10 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.1em] text-content-muted">
+                  방장
+                </span>
+              ) : undefined
+            }
           />
         ))}
         {players.length === 0 && (
