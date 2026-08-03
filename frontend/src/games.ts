@@ -1,16 +1,22 @@
 /**
- * 히어로 씬이 그릴 게임 키. 게임 목록이 SSOT이므로 타입도 여기서 소유한다 —
- * 반대로 두면 데이터 모듈이 three.js 렌더러에 의존하게 된다.
+ * 서비스가 아는 게임 카탈로그 — 어떤 게임이 있고 무엇이 플레이 가능한지의 SSOT다.
+ * 랜딩 히어로·씬별 BGM·방의 게임 선택이 모두 이 목록을 본다. 특정 화면에 딸린
+ * 데이터가 아니므로 도메인 폴더가 아니라 경계에 둔다.
+ *
+ * 게임을 추가할 때 손댈 곳: 이 목록에 항목 추가 → src/<게임>/ 구현 →
+ * room/screens/GamePage에서 키로 화면 분기.
  */
-export type HeroGameKey = 'duel' | 'fishing' | 'liars' | 'pingpong' | 'yacht'
 
-export interface LandingGame {
+/** 게임 식별자. 목록이 SSOT이므로 타입도 여기서 소유한다. */
+export type GameKey = 'duel' | 'fishing' | 'liars' | 'pingpong' | 'yacht'
+
+export interface Game {
   /** 조작 방식 한 마디. 히어로 카드 메타 필의 세 번째 칸이다. */
   control: string
   /** 규칙을 한 문장으로 요약한 설명. 카드에서 가장 작게 읽히는 줄. */
   description: string
   duration: string
-  key: HeroGameKey
+  key: GameKey
   /** 지금 플레이할 수 있는 게임인지. false면 랜딩에서 '준비 중'으로 노출된다. */
   live: boolean
   name: string
@@ -21,7 +27,7 @@ export interface LandingGame {
 }
 
 /** 랜딩 히어로의 게임 목록. 순서가 곧 화면의 01–05 인덱스다. */
-export const landingGames: [LandingGame, ...LandingGame[]] = [
+export const games: [Game, ...Game[]] = [
   {
     key: 'yacht',
     name: '요트 다이스',
@@ -74,21 +80,6 @@ export const landingGames: [LandingGame, ...LandingGame[]] = [
   },
 ]
 
-/** 게임 탭이 제어하는 히어로 카피 영역. tab ↔ tabpanel을 잇는 고정 id다. */
-export const LANDING_PANEL_ID = 'landing-game-panel'
-
-/** 모든 게임에 똑같이 붙는 메타 — 게임별 값이 아니라서 목록 데이터에 넣지 않는다. */
-export const LANDING_SHARED_META = '실시간 멀티플레이'
-
-export function landingTabId(key: HeroGameKey) {
-  return `landing-tab-${key}`
-}
-
-export function landingGameAt(index: number): LandingGame {
-  return landingGames[index] ?? landingGames[0]
-}
-
-/** 탭 이름에 덧붙이는 한 줄 요약. 이름만으로는 어떤 게임인지 구분되지 않는다. */
-export function gameMeta(game: LandingGame) {
-  return `${game.players} · ${game.duration}`
+export function gameAt(index: number): Game {
+  return games[index] ?? games[0]
 }

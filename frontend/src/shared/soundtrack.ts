@@ -1,4 +1,4 @@
-import { type HeroGameKey, landingGames } from '@/landing/landingGames'
+import { type GameKey, games } from '@/games'
 import { onFirstGesture, primeAudio } from './audioUnlock'
 import { readSoundMuted } from './soundPreference'
 
@@ -6,7 +6,7 @@ let soundtrack: HTMLAudioElement | null = null
 let gameTrack: HTMLAudioElement | null = null
 let resultTrack: HTMLAudioElement | null = null
 let stopWaitingForGesture: (() => void) | null = null
-const tracks = new Map<HeroGameKey, HTMLAudioElement>()
+const tracks = new Map<GameKey, HTMLAudioElement>()
 
 /** 화면이 바뀔 때마다 갈아탈 수 있는 트랙 전부. 잠금은 요소마다 따로라 한꺼번에 풀어둔다. */
 function allTracks(): HTMLAudioElement[] {
@@ -16,7 +16,7 @@ function allTracks(): HTMLAudioElement[] {
 function prepare(): void {
   if (tracks.size) return
 
-  for (const { key } of landingGames) {
+  for (const { key } of games) {
     const audio = new Audio(`/audio/landing/${key}.mp3`)
     audio.loop = true
     audio.preload = 'auto'
@@ -52,7 +52,7 @@ function waitForGesture(): void {
   })
 }
 
-export function playLandingSoundtrack(game: HeroGameKey): void {
+export function playLandingSoundtrack(game: GameKey): void {
   prepare()
   play(tracks.get(game) ?? null)
 }

@@ -1,11 +1,12 @@
 import { type KeyboardEvent, useRef } from 'react'
-import { gameMeta, LANDING_PANEL_ID, type LandingGame, landingTabId } from '@/landing/landingGames'
+import type { Game } from '@/games'
+import { gameMeta, LANDING_PANEL_ID, landingTabId } from '@/landing/landingTabs'
 import { resolveTablistKey } from '@/landing/tablistNavigation'
 import { cn } from '@/shared/cn'
 
 interface LandingProgressProps {
   activeIndex: number
-  games: LandingGame[]
+  games: Game[]
   /** wide = 데스크톱 캐러셀 아래 한 줄, narrow = 모바일 카드 아래 한 줄. */
   layout: 'narrow' | 'wide'
   onSelect: (index: number) => void

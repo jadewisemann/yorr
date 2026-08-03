@@ -1,9 +1,9 @@
-import type { LandingGame } from '@/landing/landingGames'
+import type { Game } from '@/games'
 import { cn } from '@/shared/cn'
 import { HeroCanvas } from './HeroCanvas'
 
 interface LandingHeroCardProps {
-  game: LandingGame
+  game: Game
   /** wide = 데스크톱 네 모서리 카드, narrow = 모바일 상하 2단 카드. */
   layout: 'narrow' | 'wide'
   /** 카드 안 플레이 CTA. 준비 중인 게임은 잠긴 버튼이 같은 자리에 서므로 호출되지 않는다. */
@@ -248,7 +248,7 @@ function PlayGlyph() {
 }
 
 interface LandingMetaPillsProps {
-  game: LandingGame
+  game: Game
   layout: 'narrow' | 'wide'
 }
 
@@ -268,7 +268,7 @@ const metaBadgeSize = {
 /**
  * 인원 · 소요 시간 · 조작 세 칸. 첫 칸만 mono 대문자 배지다.
  * <p>
- * 예전 네 번째 칸(LANDING_SHARED_META, "실시간 멀티플레이")은 걷었다. 다섯 카드에 똑같이
+ * 예전 네 번째 칸("실시간 멀티플레이")은 걷었다. 다섯 카드에 똑같이
  * 붙는 값이라 변별 정보가 0인데 가장 넓고(narrow 132px, 행 전체의 44%), 페이지 h1이 이미
  * "…파티 게임"이라고 말한다. 이 칸을 빼야 narrow 필이 한 줄에 든다.
  */

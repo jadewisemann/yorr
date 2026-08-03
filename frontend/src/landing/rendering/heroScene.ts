@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { HeroGameKey } from '@/landing/landingGames'
+import type { GameKey } from '@/games'
 
 /**
  * 랜딩 히어로 3D 장면. 디자인 핸드오프의 `hero3d.js`(custom element)를 옮긴 것으로,
@@ -8,7 +8,7 @@ import type { HeroGameKey } from '@/landing/landingGames'
  * 의도적으로 평평하게(flat) 보이도록 만든 장면이다 — 20mm 망원 화각, Lambert 재질,
  * 스페큘러 없음. "3D 렌더" 티가 나면 디자인 의도에서 벗어난다.
  */
-export type { HeroGameKey }
+export type { GameKey }
 
 /** 히어로 장면 목표 프레임(30fps). 장식용 장면에 60/120Hz를 다 쓰지 않는다. */
 const MIN_FRAME_S = 1 / 30
@@ -89,7 +89,7 @@ function lambert(color: number, options: THREE.MeshLambertMaterialParameters = {
 
 export interface HeroSceneOptions {
   container: HTMLElement
-  game: HeroGameKey
+  game: GameKey
   reducedMotion?: boolean
 }
 
@@ -189,7 +189,7 @@ export class HeroScene {
     this.syncLoop()
   }
 
-  setGame(game: HeroGameKey) {
+  setGame(game: GameKey) {
     if (this.destroyed) return
     this.disposeStageObject()
     this.object = this.build(game)
@@ -344,7 +344,7 @@ export class HeroScene {
     return mesh
   }
 
-  private build(game: HeroGameKey): THREE.Group {
+  private build(game: GameKey): THREE.Group {
     switch (game) {
       case 'liars':
         return this.buildLiars()

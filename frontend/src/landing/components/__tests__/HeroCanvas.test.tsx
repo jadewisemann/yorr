@@ -1,7 +1,7 @@
 import { render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { GameKey } from '@/games'
 import { HeroCanvas } from '@/landing/components/HeroCanvas'
-import type { HeroGameKey } from '@/landing/landingGames'
 import type { HeroSceneOptions } from '@/landing/rendering/heroScene'
 
 interface FakeScene {
@@ -149,7 +149,7 @@ describe('HeroCanvas', () => {
       expect(scenes[0]?.setGame.mock.calls.map(([game]) => game)).toEqual([
         'duel',
         'fishing',
-      ] satisfies HeroGameKey[])
+      ] satisfies GameKey[])
     })
 
     // inert는 입력만 막고 렌더링은 멈추지 않는다 — 시트가 덮은 동안 3D가 계속 돌면

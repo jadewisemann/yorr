@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { HeroGameKey } from '@/landing/landingGames'
+import type { GameKey } from '@/games'
 import { HeroScene } from '@/landing/rendering/heroScene'
 import {
   createSizedContainer,
@@ -14,7 +14,7 @@ vi.mock('three', async (importOriginal) => {
   return threeWithFakeRenderer(importOriginal)
 })
 
-const ALL_GAMES: HeroGameKey[] = ['yacht', 'liars', 'duel', 'pingpong', 'fishing']
+const ALL_GAMES: GameKey[] = ['yacht', 'liars', 'duel', 'pingpong', 'fishing']
 
 describe('HeroScene', () => {
   const scenes: HeroScene[] = []
@@ -26,7 +26,7 @@ describe('HeroScene', () => {
     return fake
   }
 
-  function build(options: { game?: HeroGameKey; reducedMotion?: boolean } = {}) {
+  function build(options: { game?: GameKey; reducedMotion?: boolean } = {}) {
     const { container, resizeTo } = createSizedContainer(1200, 600)
     const scene = new HeroScene({
       container,

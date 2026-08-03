@@ -3,10 +3,10 @@ import { useEffect, useState } from 'react'
 import { closeSession } from '@/auth/api/authApi'
 import type { AuthSession } from '@/auth/authSession'
 import { AccountDialog, Avatar } from '@/auth/components/AccountDialog'
+import { gameAt, games } from '@/games'
 import { LandingCodeDialog } from '@/landing/components/LandingCodeDialog'
 import { LandingHeroCarousel } from '@/landing/components/LandingHeroCarousel'
 import { LandingProgress } from '@/landing/components/LandingProgress'
-import { landingGameAt, landingGames } from '@/landing/landingGames'
 import { useLeaveSession } from '@/room/api/useRoomApi'
 import { sessionScreenOf } from '@/room/sessionFsm'
 import { cn } from '@/shared/cn'
@@ -48,7 +48,7 @@ export function EntryPage() {
 
   const [soundMuted, setSoundMuted] = useState(readSoundMuted)
 
-  const game = landingGameAt(activeIndex)
+  const game = gameAt(activeIndex)
   /** 바닥 층에 실제로 그릴 게 있는가. ActiveRoomBanner는 roomSession이 없으면 null이다. */
   const hasFooter = roomSession !== null || Boolean(appNotice)
 
@@ -66,7 +66,7 @@ export function EntryPage() {
   }
 
   const handleGameSelect = (index: number) => {
-    playLandingSoundtrack(landingGameAt(index).key)
+    playLandingSoundtrack(gameAt(index).key)
     setActiveIndex(index)
   }
 
@@ -165,7 +165,7 @@ export function EntryPage() {
           <div className="relative mx-auto mt-[clamp(8px,3.5vh,32px)] max-h-[min(42rem,66vh,56vw)] min-h-40 w-full max-w-landing flex-[999_1_0%]">
             <LandingHeroCarousel
               activeIndex={activeIndex}
-              games={landingGames}
+              games={games}
               layout="wide"
               onPlay={handlePlay}
               onSelect={handleGameSelect}
@@ -175,7 +175,7 @@ export function EntryPage() {
           <div className="flex-none px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pt-[clamp(10px,2.4vh,22px)]">
             <LandingProgress
               activeIndex={activeIndex}
-              games={landingGames}
+              games={games}
               layout="wide"
               onSelect={handleGameSelect}
             />
@@ -242,7 +242,7 @@ export function EntryPage() {
         <div className="relative mt-[clamp(8px,1.6vh,16px)] max-h-[36rem] min-h-52 flex-1">
           <LandingHeroCarousel
             activeIndex={activeIndex}
-            games={landingGames}
+            games={games}
             layout="narrow"
             onPlay={handlePlay}
             onSelect={handleGameSelect}
@@ -252,7 +252,7 @@ export function EntryPage() {
         <div className="flex-none px-5 pt-[clamp(10px,1.8vh,16px)]">
           <LandingProgress
             activeIndex={activeIndex}
-            games={landingGames}
+            games={games}
             layout="narrow"
             onSelect={handleGameSelect}
           />

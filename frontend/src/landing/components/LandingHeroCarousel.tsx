@@ -8,14 +8,15 @@ import {
   useState,
   type WheelEvent,
 } from 'react'
-import { LANDING_PANEL_ID, type LandingGame, landingTabId } from '@/landing/landingGames'
+import type { Game } from '@/games'
+import { LANDING_PANEL_ID, landingTabId } from '@/landing/landingTabs'
 import { cn } from '@/shared/cn'
 import { ENTER } from '@/shared/motion'
 import { LandingHeroCard } from './LandingHeroCard'
 
 interface LandingHeroCarouselProps {
   activeIndex: number
-  games: LandingGame[]
+  games: Game[]
   /** wide = 좌우 화살표까지 있는 데스크톱, narrow = 스와이프만 있는 모바일. */
   layout: 'narrow' | 'wide'
   /** 활성 카드 안 플레이 CTA. 카드가 소유하지만 어디로 갈지는 화면이 정한다. */
@@ -248,7 +249,7 @@ function PeekCard({
   layout,
   side,
 }: {
-  game: LandingGame
+  game: Game
   layout: 'narrow' | 'wide'
   side: 'left' | 'right'
 }) {

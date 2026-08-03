@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
-import type { HeroGameKey, HeroScene } from '@/landing/rendering/heroScene'
+import type { GameKey, HeroScene } from '@/landing/rendering/heroScene'
 
 interface HeroCanvasProps {
-  game: HeroGameKey
+  game: GameKey
 }
 
 /**

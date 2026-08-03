@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { games } from '@/games'
 import { LandingHeroCarousel } from '@/landing/components/LandingHeroCarousel'
-import { landingGames } from '@/landing/landingGames'
 
 beforeEach(() => {
   // jsdom에는 Pointer Events의 capture API가 없다 — 드래그 핸들러가 이걸 부르므로 스텁해 둔다.
@@ -14,7 +14,7 @@ describe('LandingHeroCarousel', () => {
     render(
       <LandingHeroCarousel
         activeIndex={0}
-        games={landingGames}
+        games={games}
         layout="wide"
         onPlay={vi.fn()}
         onSelect={onSelect}
@@ -32,7 +32,7 @@ describe('LandingHeroCarousel', () => {
     const { rerender } = render(
       <LandingHeroCarousel
         activeIndex={0}
-        games={landingGames}
+        games={games}
         layout="wide"
         onPlay={vi.fn()}
         onSelect={onSelect}
@@ -40,12 +40,12 @@ describe('LandingHeroCarousel', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: '이전 게임' }))
-    expect(onSelect).toHaveBeenCalledWith(landingGames.length - 1)
+    expect(onSelect).toHaveBeenCalledWith(games.length - 1)
 
     rerender(
       <LandingHeroCarousel
-        activeIndex={landingGames.length - 1}
-        games={landingGames}
+        activeIndex={games.length - 1}
+        games={games}
         layout="wide"
         onPlay={vi.fn()}
         onSelect={onSelect}
@@ -61,7 +61,7 @@ describe('LandingHeroCarousel', () => {
     render(
       <LandingHeroCarousel
         activeIndex={0}
-        games={landingGames}
+        games={games}
         layout="narrow"
         onPlay={vi.fn()}
         onSelect={onSelect}
@@ -77,7 +77,7 @@ describe('LandingHeroCarousel', () => {
     render(
       <LandingHeroCarousel
         activeIndex={1}
-        games={landingGames}
+        games={games}
         layout="wide"
         onPlay={vi.fn()}
         onSelect={onSelect}
@@ -96,7 +96,7 @@ describe('LandingHeroCarousel', () => {
     render(
       <LandingHeroCarousel
         activeIndex={1}
-        games={landingGames}
+        games={games}
         layout="wide"
         onPlay={vi.fn()}
         onSelect={onSelect}
@@ -117,7 +117,7 @@ describe('LandingHeroCarousel', () => {
     render(
       <LandingHeroCarousel
         activeIndex={1}
-        games={landingGames}
+        games={games}
         layout="wide"
         onPlay={vi.fn()}
         onSelect={onSelect}
@@ -137,7 +137,7 @@ describe('LandingHeroCarousel', () => {
     render(
       <LandingHeroCarousel
         activeIndex={1}
-        games={landingGames}
+        games={games}
         layout="narrow"
         onPlay={vi.fn()}
         onSelect={onSelect}
@@ -165,7 +165,7 @@ describe('LandingHeroCarousel', () => {
     render(
       <LandingHeroCarousel
         activeIndex={0}
-        games={landingGames}
+        games={games}
         layout="narrow"
         onPlay={onPlay}
         onSelect={onSelect}
