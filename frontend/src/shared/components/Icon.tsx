@@ -99,6 +99,27 @@ export function IconWarning({ className }: IconProps) {
   )
 }
 
+/**
+ * 펼침·접힘 표시. 닫힌 상태가 아래를 보고, 호출부가 `rotate-180`으로 뒤집는다 —
+ * 두 방향을 각각 그리면 회전 트랜지션을 잃는다.
+ */
+export function IconChevron({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M5.25 8 10 12.75 14.75 8" />
+    </Svg>
+  )
+}
+
+/** 목록에서 건너뛴 구간. 가로 세 점. */
+export function IconEllipsis({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M5.5 10h.01M10 10h.01M14.5 10h.01" />
+    </Svg>
+  )
+}
+
 /** 도움말. */
 export function IconHelp({ className }: IconProps) {
   return (
