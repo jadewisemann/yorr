@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
+import { App } from '@/app/App'
 import { useAppStore } from '@/store'
 import { installUserAgentMock, resetAppTestState } from '@/test/harness'
-import { App } from './App'
 
 /**
  * 앱 부팅 배선 — 게이트 → 실시간 동기화 → 라우터 순서가 지켜져야 한다.

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { MOTION_GESTURE_CONFIG } from '@/yacht/input/motionConfig'
 import {
   formatConfigAsJson,
   formatConfigAsTs,
@@ -8,7 +7,8 @@ import {
   MOTION_PARAM_METAS,
   sanitizeConfig,
   storeConfig,
-} from './motionLabParams'
+} from '@/app/dev/motionLabParams'
+import { MOTION_GESTURE_CONFIG } from '@/yacht/input/motionConfig'
 
 describe('MOTION_PARAM_METAS', () => {
   it('config의 모든 키를 정확히 한 번씩 다룬다', () => {

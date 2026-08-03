@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { MOTION_GESTURE_CONFIG } from '@/yacht/input/motionConfig'
 import {
   createRecording,
   type MotionRecordingSample,
   parseRecording,
   replayRecording,
   serializeRecording,
-} from './motionLabReplay'
+} from '@/app/dev/motionLabReplay'
+import { MOTION_GESTURE_CONFIG } from '@/yacht/input/motionConfig'
 
 /**
  * 합성 녹화: 20ms 간격, 워밍업 침묵 → 좌우 흔들기 5회 → 전방 스냅.

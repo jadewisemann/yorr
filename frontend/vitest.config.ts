@@ -31,11 +31,7 @@ export default defineConfig({
         // mock 인프라(MSW 핸들러·픽스처)는 제품 코드가 아니라 분모에서 뺀다.
         'src/mocks/**',
         // 개발 전용 내부 도구 UI — 제품 코드가 아니라 분모에서 뺀다. 근거는 .dev.md 참고.
-        'src/app/DevCatalog.tsx',
-        'src/app/PhysicsDiceDemo.tsx',
-        'src/app/MotionLab*.tsx',
-        'src/app/useMotionLab.ts',
-        'src/app/HandVoiceLab.tsx',
+        'src/app/dev/**',
       ],
       // ratchet 방식: 실측값(statements 96.31 · branches 91.47 · functions 97 · lines 98.4,
       // develop 병합·커버리지 보강 직후 재측정)에서 소폭 여유를 둔 하한.

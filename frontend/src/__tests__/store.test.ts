@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPlayingRoomSnapshot, creatorSession, waitingRoomSnapshot } from '@/mocks/fixtures'
 import { readRoomSession } from '@/room/roomSessionStorage'
-import { selectSessionPhase, useAppStore } from './store'
+import { selectSessionPhase, useAppStore } from '@/store'
 
 beforeEach(() => {
   window.localStorage.clear()
@@ -133,7 +133,7 @@ describe('저장소 복원', () => {
     )
     vi.resetModules()
 
-    const { useAppStore: restoredStore } = await import('./store')
+    const { useAppStore: restoredStore } = await import('@/store')
 
     expect(restoredStore.getState()).toMatchObject({
       roomResumeReason: 'restored',

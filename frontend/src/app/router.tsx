@@ -97,14 +97,14 @@ const indexRoute = createRoute({
 const devCatalogRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/__dev/components',
-  component: lazyRouteComponent(() => import('./DevCatalog'), 'DevCatalog'),
+  component: lazyRouteComponent(() => import('@/app/dev/DevCatalog'), 'DevCatalog'),
 })
 
 // 배포에서 실기기로 센서를 튜닝하는 페이지라 DevCatalog와 달리 DEV 게이트를 두지 않는다.
 const motionLabRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/__dev/motion',
-  component: lazyRouteComponent(() => import('./MotionLab'), 'MotionLab'),
+  component: lazyRouteComponent(() => import('@/app/dev/MotionLab'), 'MotionLab'),
 })
 
 /** 카카오 로그인 콜백. 서버가 일회용 code(또는 실패 사유 error)를 붙여 여기로 돌려보낸다. */

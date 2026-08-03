@@ -1,5 +1,6 @@
 import { act, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { RealtimeSync } from '@/app/RealtimeSync'
 import {
   createEmptyScoreBoard,
   creatorPlayer,
@@ -10,7 +11,6 @@ import {
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { useAppStore } from '@/store'
-import { RealtimeSync } from './RealtimeSync'
 
 describe('RealtimeSync', () => {
   beforeEach(() => {

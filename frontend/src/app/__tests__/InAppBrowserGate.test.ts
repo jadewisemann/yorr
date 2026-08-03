@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectInAppBrowser } from './InAppBrowserGate'
+import { detectInAppBrowser } from '@/app/InAppBrowserGate'
 
 describe('detectInAppBrowser', () => {
   it('recognizes representative embedded browsers', () => {

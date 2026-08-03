@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { InAppBrowserGate } from '@/app/InAppBrowserGate'
 import { installUserAgentMock } from '@/test/harness'
-import { InAppBrowserGate } from './InAppBrowserGate'
 
 /**
  * 인앱 브라우저 안내는 "링크를 밖으로 옮길 수 있는가"가 유일한 목적이다.

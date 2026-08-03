@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { copyTextToClipboard } from './motionLabClipboard'
+import { copyTextToClipboard } from '@/app/dev/motionLabClipboard'
 
 const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
 
