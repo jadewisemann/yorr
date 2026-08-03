@@ -1,5 +1,7 @@
 package com.ssafy.yorr.room.controller;
 
+import com.ssafy.yorr.game.module.GameModule;
+import com.ssafy.yorr.game.module.GameModuleRegistry;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.room.service.BotParticipantService;
@@ -30,6 +32,8 @@ class RoomBotControllerTest {
     private UserService users;
     private RealtimeRoomSnapshotService realtimeSnapshots;
     private RoomBroadcaster broadcaster;
+    private GameModuleRegistry gameModules;
+    private GameModule yacht;
     private RoomBotController controller;
 
     @BeforeEach
@@ -38,9 +42,13 @@ class RoomBotControllerTest {
         users = mock(UserService.class);
         realtimeSnapshots = mock(RealtimeRoomSnapshotService.class);
         broadcaster = mock(RoomBroadcaster.class);
-        controller = new RoomBotController(bots, users, realtimeSnapshots, broadcaster);
+        gameModules = mock(GameModuleRegistry.class);
+        yacht = mock(GameModule.class);
+        controller = new RoomBotController(bots, users, realtimeSnapshots, broadcaster, gameModules);
         when(users.authenticate(HOST, "Bearer token"))
                 .thenReturn(new UserIdentity(HOST, "호스트", UserType.GUEST));
+        when(gameModules.require("YACHT_DICE")).thenReturn(yacht);
+        when(yacht.supportsBots()).thenReturn(true);
     }
 
     @Test
@@ -74,6 +82,8 @@ class RoomBotControllerTest {
 
     @Test
     void rejectsNonHostMutation() {
+        when(realtimeSnapshots.snapshot(ROOM)).thenReturn(new com.ssafy.yorr.ws.dto.RoomSnapshot(
+                ROOM, "YACHT_DICE", com.ssafy.yorr.ws.dto.RoomPhase.WAITING, HOST, List.of(), null));
         when(bots.remove(ROOM, HOST, "bot-1")).thenThrow(new SecurityException("host_only"));
 
         var response = controller.remove(ROOM, "bot-1", HOST, "Bearer token");

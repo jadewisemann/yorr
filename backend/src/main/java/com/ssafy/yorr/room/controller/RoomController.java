@@ -47,7 +47,8 @@ public class RoomController {
             }
             var entrant = resolveEntrant(request);
             if (roomId == null || roomId.isBlank()) {
-                roomId = roomCreateService.createRoom(6, entrant.userId(), gameCode);
+                roomId = roomCreateService.createRoom(
+                        gameModules.require(gameCode).maxPlayers(), entrant.userId(), gameCode);
             }
             JoinResult joined = roomService.join(roomId, entrant.identity(), entrant.sessionToken());
             userService.assignRoom(entrant.userId(), roomId, roomId, joined.snapshot().hostId());

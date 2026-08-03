@@ -13,6 +13,18 @@ public interface GameModule {
 
     String name();
 
+    default int minPlayers() {
+        return 1;
+    }
+
+    default int maxPlayers() {
+        return 6;
+    }
+
+    default boolean supportsBots() {
+        return true;
+    }
+
     void start(String roomCode, GameStartResponse game);
 
     void reset(String roomCode);
