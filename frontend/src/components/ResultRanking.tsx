@@ -48,7 +48,7 @@ export function ResultRanking({ className, players, you }: ResultRankingProps) {
               {player.nickname}
               {mine && <span className="ml-1 font-bold text-content-muted">(나)</span>}
               {winner && (
-                <span className="ml-2 rounded-[6px] bg-brand/20 px-1.5 py-0.5 align-middle font-mono text-[10px] font-bold tracking-[0.1em] text-[#FF8A86]">
+                <span className="ml-2 rounded-[6px] bg-brand/20 px-1.5 py-0.5 align-middle font-mono text-[10px] font-bold tracking-[0.1em] text-brand-soft">
                   WIN
                 </span>
               )}

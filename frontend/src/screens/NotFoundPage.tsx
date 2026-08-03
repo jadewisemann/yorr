@@ -17,7 +17,7 @@ export function NotFoundPage() {
       <div className="my-auto grid gap-4">
         <span
           aria-hidden="true"
-          className="font-mono text-[4rem] leading-none font-bold tracking-[-0.04em] text-[#202125]"
+          className="font-mono text-[4rem] leading-none font-bold tracking-[-0.04em] text-surface-overlay"
         >
           404
         </span>

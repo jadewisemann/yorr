@@ -6,8 +6,8 @@ import { Button } from '@/components/Button'
 import { InvitationPanel } from '@/components/InvitationPanel'
 import { PlayerCard } from '@/components/PlayerCard'
 import { playLandingSoundtrack } from '@/landingSoundtrack'
-import { prefetchPhysicsDiceWorld } from '@/rendering/physics-dice/loadWorld'
 import type { BotDifficulty } from '@/realtime/wsEvents'
+import { prefetchPhysicsDiceWorld } from '@/rendering/physics-dice/loadWorld'
 import { useAppStore } from '@/store'
 import { RoomExitGuard } from './RoomExitGuard'
 
@@ -121,7 +121,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
             </p>
           </div>
           <Button
-            className="min-h-10 flex-none px-3.5 text-sm"
+            className="flex-none px-3.5 text-sm"
             onClick={() => setExitRequested(true)}
             type="button"
             variant="danger"
@@ -242,7 +242,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
                 />
               ))}
               {roomSnapshot.players.length < capacity && (
-                <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-white/14 px-3 text-sm text-content-muted">
+                <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-white/14 px-3 text-sm text-content-muted tabular-nums">
                   <span
                     aria-hidden="true"
                     className="size-11 flex-none rounded-card border border-dashed border-white/18"
@@ -255,6 +255,9 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
             <div className="grid flex-none gap-2 border-t border-border pt-3.5 text-center">
               <Button
                 size="lg"
+                // 비활성 이유는 아래 문장이 이미 화면에 적고 있다 — 버튼에 물려야
+                // 포커스가 왔을 때도 같이 읽힌다.
+                aria-describedby={canStart ? undefined : 'start-blocked'}
                 className="min-h-[3.625rem] w-full rounded-panel text-lg"
                 disabled={!canStart}
                 loading={startGame.isLoading}
@@ -265,7 +268,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
                   : '게임 시작'}
               </Button>
               {!canStart && (
-                <p className="m-0 text-sm text-content-muted">
+                <p className="m-0 text-sm text-content-muted" id="start-blocked">
                   {roomSession.membershipRole === 'participant'
                     ? '호스트가 게임을 시작하면 자동으로 이동해요.'
                     : connectionStatus === 'connected'

@@ -66,6 +66,10 @@ yorr:
       client-secret: ${KAKAO_CLIENT_SECRET:}
       # 카카오 콘솔의 Redirect URI와 문자 하나까지 같아야 한다(다르면 KOE006).
       redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8080/api/v1/auth/kakao/callback}
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+      redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/v1/auth/google/callback}
 
   # === CORS ===
   # 브라우저에서 이 서버를 부를 수 있는 출처. REST와 WebSocket이 같은 값을 쓴다.
@@ -88,4 +92,3 @@ logging:
   level:
     org.hibernate.SQL: debug
     org.hibernate.orm.jdbc.bind: trace
-

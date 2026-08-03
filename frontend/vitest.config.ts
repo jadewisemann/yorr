@@ -11,6 +11,11 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: true,
+    // 기본 5000ms는 setup.ts의 asyncUtilTimeout(5000)과 같아, 쿼리가 대기를 다 쓰면
+    // 어떤 DOM을 봤는지 알려주는 RTL 오류 대신 밋밋한 "test timed out"이 뜬다.
+    testTimeout: 20_000,
+    // RAPIER wasm 초기화(World.test.ts)는 부하가 걸리면 기본 10000ms를 넘긴다.
+    hookTimeout: 30_000,
     coverage: {
       provider: 'v8',
       // lcov·json-summary 는 CI·후속 도구(리포트 코멘트, ratchet 스크립트) 연계용.

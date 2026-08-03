@@ -43,6 +43,9 @@
 - React 19 + Vite + TypeScript strict, 모바일 웹 SPA. HTTPS/WSS 필수.
 - 라우팅: TanStack Router. 상태: Zustand. 포맷: Biome. 스타일: Tailwind CSS v4(CSS-first
   `@theme`, 확정 사용 — 검토 단계 아님).
+- 모션: `motion`(구 Framer Motion)이 진입·퇴장·제스처를, CSS keyframes가 장식·상태 강조를
+  맡는다. 경계는 [`engineering/design-system.md`](./engineering/design-system.md)의 「모션」이
+  기준이다.
 - 3D 물리 주사위: Three.js + `@dimforge/rapier3d-compat`(`src/rendering/physics-dice/`).
 - QR: `qrcode.react`로 클라이언트에서 직접 생성(외부 이미지 API 미사용).
 - 센서: `DeviceMotion`/`DeviceOrientation`으로 흔들기·던지기 제스처를 판정

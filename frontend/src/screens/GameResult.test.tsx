@@ -53,7 +53,9 @@ describe('GameResult', () => {
   })
 
   it('ranks players by total and highlights my place', () => {
-    render(<GameResult session={hostSession} snapshot={finishedSnapshot} />)
+    render(
+      <GameResult onLeaveRequest={() => {}} session={hostSession} snapshot={finishedSnapshot} />,
+    )
 
     expect(screen.getByRole('heading', { name: '2위' })).toBeVisible()
     expect(screen.getByRole('status')).toHaveTextContent('게임 종료, 3명 중 2위, 198점')
@@ -68,6 +70,7 @@ describe('GameResult', () => {
     const missingPlayerId = '16ba1fd1-d8b2-4da0-a7f3-88d23b5361ff'
     render(
       <GameResult
+        onLeaveRequest={() => {}}
         session={hostSession}
         snapshot={{
           ...finishedSnapshot,
@@ -89,20 +92,30 @@ describe('GameResult', () => {
     expect(screen.queryByText(missingPlayerId)).not.toBeInTheDocument()
   })
 
-  it('lets the host move everyone back to the lobby and anyone leave', async () => {
+  // 나가기는 되돌릴 수 없다 — 여기서 바로 세션을 파기하지 않고 RoomExitGuard의 확인을 거친다.
+  it('lets the host move everyone back to the lobby and asks before anyone leaves', async () => {
     const user = userEvent.setup()
-    render(<GameResult session={hostSession} snapshot={finishedSnapshot} />)
+    const onLeaveRequest = vi.fn()
+    render(
+      <GameResult
+        onLeaveRequest={onLeaveRequest}
+        session={hostSession}
+        snapshot={finishedSnapshot}
+      />,
+    )
 
     expect(screen.getByRole('button', { name: '대기실로' })).toBeEnabled()
     expect(screen.getByText('대기실로 돌아가면 같은 멤버로 다시 시작할 수 있어요')).toBeVisible()
 
     await user.click(screen.getByRole('button', { name: '나가기' }))
-    expect(navigate).toHaveBeenCalledWith({ to: '/', replace: true })
+    expect(onLeaveRequest).toHaveBeenCalledOnce()
+    expect(navigate).not.toHaveBeenCalled()
   })
 
   it('blocks the lobby move for participants', () => {
     render(
       <GameResult
+        onLeaveRequest={() => {}}
         session={{ ...hostSession, membershipRole: 'participant' }}
         snapshot={finishedSnapshot}
       />,
@@ -114,7 +127,9 @@ describe('GameResult', () => {
 
   it('opens the full scoresheet in a sheet', async () => {
     const user = userEvent.setup()
-    render(<GameResult session={hostSession} snapshot={finishedSnapshot} />)
+    render(
+      <GameResult onLeaveRequest={() => {}} session={hostSession} snapshot={finishedSnapshot} />,
+    )
 
     await user.click(screen.getByRole('button', { name: '전체 점수표 보기' }))
 
@@ -130,6 +145,7 @@ describe('GameResult', () => {
   it('서버가 확정한 순위를 로컬 점수 합계보다 우선한다', () => {
     render(
       <GameResult
+        onLeaveRequest={() => {}}
         session={hostSession}
         snapshot={{
           ...finishedSnapshot,
@@ -153,6 +169,7 @@ describe('GameResult', () => {
   it('동점이면 내 자리를 위로 올려 스스로 찾기 쉽게 한다', () => {
     render(
       <GameResult
+        onLeaveRequest={() => {}}
         session={hostSession}
         snapshot={{
           ...finishedSnapshot,
@@ -176,7 +193,9 @@ describe('GameResult', () => {
   it('호스트가 대기실로 돌릴 때 혼자 먼저 이동하지 않고 서버 신호를 기다린다', async () => {
     const user = userEvent.setup()
     const returnToLobby = vi.spyOn(gameApiClient, 'returnToLobby')
-    render(<GameResult session={hostSession} snapshot={finishedSnapshot} />)
+    render(
+      <GameResult onLeaveRequest={() => {}} session={hostSession} snapshot={finishedSnapshot} />,
+    )
 
     await user.click(screen.getByRole('button', { name: '대기실로' }))
 

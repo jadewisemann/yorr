@@ -1,3 +1,4 @@
+import { readAuthSession } from '@/authSession'
 import type {
   BotDifficulty,
   DiceSet,
@@ -7,7 +8,6 @@ import type {
   RoomSnapshot,
   YachtCategory,
 } from '@/realtime/wsEvents'
-import { readAuthSession } from '@/authSession'
 import { apiRequest } from './client'
 
 export interface CreateRoomRequest {

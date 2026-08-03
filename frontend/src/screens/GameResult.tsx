@@ -1,7 +1,5 @@
-import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useReturnToLobby } from '@/api/useGameApi'
-import { useLeaveSession } from '@/api/useRoomApi'
 import { cn } from '@/cn'
 import { BottomSheet } from '@/components/BottomSheet'
 import { Button } from '@/components/Button'
@@ -12,15 +10,15 @@ import type { RoomSnapshot } from '@/realtime/wsEvents'
 import type { ActiveRoomSession } from '@/store'
 
 interface GameResultProps {
+  /** 나가기는 GamePage의 RoomExitGuard가 확인을 받고 처리한다(GamePlay와 같은 경로). */
+  onLeaveRequest: () => void
   session: ActiveRoomSession
   snapshot: RoomSnapshot
 }
 
 /** ⑦ 최종 결과. 결과 확인 3초 → 재대결 1탭이 목표다. */
-export function GameResult({ session, snapshot }: GameResultProps) {
-  const navigate = useNavigate()
+export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProps) {
   const returnToLobby = useReturnToLobby()
-  const { isLeaving, leave } = useLeaveSession()
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const ranked = toRanking(snapshot, session.you)
@@ -29,11 +27,6 @@ export function GameResult({ session, snapshot }: GameResultProps) {
   const me = ranked[myIndex]
   const myBoard = snapshot.game?.scores[session.you]
   const isHost = session.membershipRole === 'host'
-
-  const handleLeave = async () => {
-    await leave()
-    void navigate({ to: '/', replace: true })
-  }
 
   // 대기실 복귀는 방 전체가 함께 움직인다(화면 전환이 phase 기준이라 혼자 옮겨갈 수 없다).
   // 이동 자체는 서버의 state.sync를 받은 라우팅이 처리하므로 여기서 navigate하지 않는다.
@@ -124,8 +117,7 @@ export function GameResult({ session, snapshot }: GameResultProps) {
           </Button>
           <Button
             className="text-content-muted hover:text-content"
-            loading={isLeaving}
-            onClick={handleLeave}
+            onClick={onLeaveRequest}
             variant="ghost"
           >
             나가기

@@ -37,6 +37,8 @@ export function HeroCanvas({ game }: HeroCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<HeroScene | null>(null)
   const latestGameRef = useRef(game)
+  // 씬은 지연 로드라 다이얼로그가 먼저 열려 있을 수 있다 — 생성 시점에 현재 상태를 물려준다.
+  const pausedRef = useRef(false)
 
   latestGameRef.current = game
 
@@ -51,6 +53,7 @@ export function HeroCanvas({ game }: HeroCanvasProps) {
       .then(({ HeroScene: Scene }) => {
         if (disposed) return
         created = new Scene({ container, game: latestGameRef.current })
+        created.setPaused(pausedRef.current)
         sceneRef.current = created
       })
       .catch(() => {
@@ -62,6 +65,27 @@ export function HeroCanvas({ game }: HeroCanvasProps) {
       created?.destroy()
       sceneRef.current = null
     }
+  }, [])
+
+  /**
+   * 다이얼로그가 열리면 useDialogBackground가 뒤 화면 `<main>`에 `inert`를 건다. `inert`는
+   * 입력만 막고 렌더링은 멈추지 않으므로, 그 속성을 신호로 삼아 3D 루프를 직접 세운다.
+   * 모바일에서 코드를 입력하는 순간(키보드가 올라와 열 예산이 가장 빠듯할 때) 보이지도 않는
+   * 씬이 그림자 depth pass까지 도는 것을 막는다.
+   */
+  useEffect(() => {
+    const background = containerRef.current?.closest('main')
+    if (!background) return
+
+    const sync = () => {
+      pausedRef.current = background.hasAttribute('inert')
+      sceneRef.current?.setPaused(pausedRef.current)
+    }
+
+    sync()
+    const observer = new MutationObserver(sync)
+    observer.observe(background, { attributeFilter: ['inert'] })
+    return () => observer.disconnect()
   }, [])
 
   useEffect(() => {

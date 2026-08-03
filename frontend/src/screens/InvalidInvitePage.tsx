@@ -44,8 +44,7 @@ export function InvalidInvitePage({ initialCode }: InvalidInvitePageProps) {
           !
         </span>
         <h1 className="m-0 text-[27px] leading-[1.3] font-bold tracking-[-0.02em]">
-          초대 코드를 <br />
-          확인해 주세요
+          초대 코드를 확인해 주세요
         </h1>
         <p className="m-0 text-[15px] leading-[1.55] text-content-muted">
           링크의 코드가 올바르지 않아 아직 입장 요청을 보내지 않았어요.
