@@ -560,20 +560,29 @@
 
 /* transform·opacity만 움직인다(callout-burst와 같은 규칙). --drift는 항목마다 다른 값이
    들어와 동시에 뜬 이모지가 한 덩어리로 겹쳐 보이지 않게 좌우로 흩는다. */
+/*
+ * 리액션이 솟아오르는 길. --drift가 좌우, --lift가 도달 높이를 항목마다 흔든다.
+ *
+ * --lift가 필요한 이유: 좌우만 흔들면 같은 순간에 도착한 것들이 **같은 높이에서 나란히**
+ * 올라가 한 줄로 읽힌다(6명이 연타하면 자주 겹친다). 높이까지 다르면 같은 수의 이모지가
+ * 서로를 가리지 않는다. motion-reduce에서는 keyframe이 없어 호출부의 translate-y가
+ * 그대로 적용되므로, 제자리에 뜨는 것들도 같은 값으로 세로로 흩어진다.
+ */
 @keyframes reaction-float {
   0% {
     transform: translate(0, 0.5rem) scale(0.4);
     opacity: 0;
   }
   18% {
-    transform: translate(calc(var(--drift, 0rem) * 0.25), -1rem) scale(1.15);
+    transform: translate(calc(var(--drift, 0rem) * 0.25), calc(-1rem + var(--lift, 0rem) * 0.15))
+      scale(1.15);
     opacity: 1;
   }
   70% {
     opacity: 1;
   }
   100% {
-    transform: translate(var(--drift, 0rem), -8.5rem) scale(0.85);
+    transform: translate(var(--drift, 0rem), calc(-8.5rem + var(--lift, 0rem))) scale(0.85);
     opacity: 0;
   }
 }

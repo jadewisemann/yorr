@@ -102,6 +102,37 @@ describe('ReactionDock', () => {
     expect(tabbable).toEqual(['좋아요'])
   })
 
+  /**
+   * 같은 순간에 여러 개가 도착해도 서로를 가리지 않아야 한다. 좌우(--drift)만 흔들면 같은
+   * 높이에 한 줄로 서고, motion-reduce에서는 제자리에 뜨는 닉네임 필이 그대로 겹친다.
+   *
+   * 좌표 조합의 개수를 센다 — 렌더된 위치를 재는 것은 jsdom이 레이아웃을 계산하지 않아
+   * 의미가 없고, 겹치지 않음을 결정하는 것은 (drift, lift) 쌍이 서로 다른지다.
+   */
+  it('동시에 도착한 리액션은 서로 다른 좌표로 흩어진다', () => {
+    const { client } = renderDock()
+
+    act(() => {
+      // MAX_FLYING(12)만큼 한 번에 쏟아붓는다 — 화면에 함께 떠 있을 수 있는 최대치다.
+      for (let index = 0; index < 12; index += 1) {
+        client.emitMessage({
+          payload: { playerId: 'p1', reaction: 'like' },
+          ts: 0,
+          type: 'reaction.broadcast',
+        })
+      }
+    })
+
+    const positions = [...document.querySelectorAll<HTMLElement>('[style*="--drift"]')].map(
+      (element) =>
+        `${element.style.getPropertyValue('--drift')}|${element.style.getPropertyValue('--lift')}`,
+    )
+
+    expect(positions).toHaveLength(12)
+    // DRIFTS(5) × LIFTS(3)가 서로소라 15가지가 돌아간다 — 12개는 전부 달라야 한다.
+    expect(new Set(positions).size).toBe(12)
+  })
+
   it('브로드캐스트된 리액션을 보낸 사람 이름과 함께 띄운다', () => {
     const { client } = renderDock()
 

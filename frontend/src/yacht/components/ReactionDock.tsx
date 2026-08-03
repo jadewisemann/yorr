@@ -30,13 +30,19 @@ const FLIGHT_MS = 2_200
 const MAX_FLYING = 12
 /**
  * 항목마다 돌려 쓰는 좌우 흩뿌림. Math.random 대신 id로 고르면 테스트도 같은 그림을 본다.
- *
- * ponytail: motion-reduce에서 같은 순간에 3개 이상 도착하면 닉네임 필이 겹친다(2.2초).
- * 날아가는 동안 자연히 흩어지는 애니메이션이 없어서다. 세로 stagger를 주려면 항목마다
- * custom property가 하나 더 필요한데, 낭독은 live region이 이미 하고 있어 그만큼의
- * 값은 아니다. 실제로 겹쳐서 못 읽겠다는 얘기가 나오면 그때 세로 오프셋을 추가한다.
  */
 const DRIFTS = ['-1.5rem', '-0.6rem', '0.2rem', '0.9rem', '1.6rem']
+
+/**
+ * 세로 흩뿌림. 좌우만 흔들면 같은 순간에 도착한 것들이 <b>같은 높이에서 나란히</b> 올라가
+ * 한 줄로 읽히고, motion-reduce에서는 제자리에 뜨는 닉네임 필이 그대로 겹친다.
+ * <p>
+ * <b>길이를 {@link DRIFTS}와 서로소로 둔다</b>(5 × 3). 같은 길이면 두 값이 같은 주기로 돌아
+ * 조합이 5가지뿐인데, 서로소면 15가지가 돌아가서 연타해도 같은 자리가 겹치지 않는다.
+ * 정확히 15개를 넘겨야 반복되므로 {@link MAX_FLYING}(12)보다 크다 — 화면에 함께 떠 있는
+ * 것들끼리는 절대 같은 좌표를 쓰지 않는다.
+ */
+const LIFTS = ['0rem', '-1.15rem', '-2.3rem']
 
 interface Flying {
   emoji: string
@@ -189,12 +195,18 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
           // bottom-full: 버튼 바로 위에서 출발한다. w-tap + items-center로 버튼 중심에 정렬.
           // motion-reduce에서는 제자리에 뜬 채로 FLIGHT_MS 뒤 사라진다 — "누가 리액션을
           // 보냈다"는 정보는 남기고 움직임만 뺀다(RollResultCallout과 같은 처리).
-          // translate-x-(--drift): 애니메이션이 도는 동안은 keyframe의 transform이 이겨서
-          // 무시되고, motion-reduce로 애니메이션이 없을 때만 적용된다 — 그래야 동시에 온
-          // 리액션이 한 점에 겹쳐 하나처럼 보이지 않는다.
-          className="pointer-events-none absolute right-0 bottom-full flex w-tap translate-x-(--drift) flex-col items-center gap-1 animate-reaction-float motion-reduce:animate-none"
+          // translate-x/y-(--drift/--lift): 애니메이션이 도는 동안은 keyframe의 transform이
+          // 이겨서 무시되고, motion-reduce로 애니메이션이 없을 때만 적용된다 — 그래야 동시에
+          // 온 리액션이 한 점에 겹쳐 하나처럼 보이지 않는다. 좌우(--drift)만으로는 같은
+          // 높이에 한 줄로 서므로 세로(--lift)까지 흔든다.
+          className="pointer-events-none absolute right-0 bottom-full flex w-tap translate-x-(--drift) translate-y-(--lift) flex-col items-center gap-1 animate-reaction-float motion-reduce:animate-none"
           key={item.id}
-          style={{ '--drift': DRIFTS[item.id % DRIFTS.length] } as CSSProperties}
+          style={
+            {
+              '--drift': DRIFTS[item.id % DRIFTS.length],
+              '--lift': LIFTS[item.id % LIFTS.length],
+            } as CSSProperties
+          }
         >
           <span className="text-[30px] leading-none drop-shadow-[0_2px_10px_rgb(0_0_0_/_60%)]">
             {item.emoji}
