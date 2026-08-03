@@ -8,9 +8,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RoomValidationServiceTest {
 
     @Test
-    void startsWithAtLeastOnePlayer() {
+    void startsWithTheGameModulesMinimumPlayerCount() {
         assertThat(RoomValidationService.START.getScriptAsString())
-                .contains("redis.call('HLEN', KEYS[2]) < 1")
+                .contains("redis.call('HLEN', KEYS[2]) < tonumber(ARGV[3])")
                 .contains("'gameCode', gameCode");
     }
 

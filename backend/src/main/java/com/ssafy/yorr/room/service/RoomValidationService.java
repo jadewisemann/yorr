@@ -101,7 +101,7 @@ public class RoomValidationService implements RoomService {
     static final DefaultRedisScript<Long> START = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
             if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 0 end
-            if redis.call('HLEN', KEYS[2]) < 1 then return 0 end
+            if redis.call('HLEN', KEYS[2]) < tonumber(ARGV[3]) then return 0 end
             local gameCode = redis.call('HGET', KEYS[1], 'gameCode')
             if not gameCode then return 0 end
             redis.call('HSET', KEYS[1], 'phase', 'PLAYING', 'gameId', ARGV[1])
@@ -208,13 +208,18 @@ public class RoomValidationService implements RoomService {
     }
 
     public GameStartResponse startGame(String roomCode) {
+        return startGame(roomCode, 1);
+    }
+
+    public GameStartResponse startGame(String roomCode, int minPlayers) {
+        if (minPlayers < 1) throw new IllegalArgumentException("invalid_min_players");
         String gameId = UUID.randomUUID().toString();
         Long result = redisTemplate.execute(START, List.of(
                 RoomRedisKeys.roomKey(roomCode),
                 RoomRedisKeys.playersKey(roomCode),
                 RoomRedisKeys.gameKey(gameId),
                 RoomRedisKeys.botsKey(roomCode)
-        ), gameId, roomCode);
+        ), gameId, roomCode, String.valueOf(minPlayers));
         if (!Long.valueOf(1).equals(result)) throw new IllegalStateException("game_not_ready");
         return new GameStartResponse(gameId, getSnapshot(roomCode));
     }

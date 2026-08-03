@@ -8,27 +8,26 @@ import { playLandingSoundtrack } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
 import { useAppStore } from '@/store'
-import { prefetchPhysicsDiceWorld } from '@/yacht/rendering/physics-dice/loadWorld'
 import { RoomExitGuard } from './RoomExitGuard'
 
-/**
- * 시작 가능한 최소 인원. 서버도 1명부터 허용한다(RoomValidationService의 START 스크립트).
- * 조건식과 안내 문구 두 곳에 숫자를 적으면 한쪽만 고쳐져 어긋나므로 여기서만 정의한다.
- */
-const MIN_PLAYERS_TO_START = 1
 const PREFETCH_FALLBACK_DELAY_MS = 500
 
 function schedulePhysicsDicePrefetch() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const prefetch = () => {
+    void import('@/yacht/rendering/physics-dice/loadWorld').then(({ prefetchPhysicsDiceWorld }) =>
+      prefetchPhysicsDiceWorld(),
+    )
+  }
   const idleApi = window as unknown as {
     requestIdleCallback?: Window['requestIdleCallback']
     cancelIdleCallback?: Window['cancelIdleCallback']
   }
   if (idleApi.requestIdleCallback && idleApi.cancelIdleCallback) {
-    const idleId = idleApi.requestIdleCallback(prefetchPhysicsDiceWorld, { timeout: 2_000 })
+    const idleId = idleApi.requestIdleCallback(prefetch, { timeout: 2_000 })
     return () => idleApi.cancelIdleCallback?.(idleId)
   }
-  const timeoutId = window.setTimeout(prefetchPhysicsDiceWorld, PREFETCH_FALLBACK_DELAY_MS)
+  const timeoutId = window.setTimeout(prefetch, PREFETCH_FALLBACK_DELAY_MS)
   return () => window.clearTimeout(timeoutId)
 }
 
@@ -49,16 +48,22 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const matchingRoom = roomSession?.roomId === roomId
   const isHost = matchingRoom && roomSession.membershipRole === 'host'
   const capacity = roomSnapshot?.capacity ?? 6
+  const pingPong =
+    roomSnapshot?.gameCode === 'PING_PONG' ||
+    (matchingRoom && roomSession?.gameCode === 'PING_PONG')
+  const minPlayersToStart = pingPong ? 2 : 1
   const botMutationLoading = addBot.isLoading || removeBot.isLoading
   const botMutationError = addBot.error ?? removeBot.error
   const canStart =
     isHost &&
     connectionStatus === 'connected' &&
     roomSnapshot?.phase === 'waiting' &&
-    roomSnapshot.players.length >= MIN_PLAYERS_TO_START
+    roomSnapshot.players.length >= minPlayersToStart
 
   useEffect(() => {
-    if (roomSnapshot?.phase === 'waiting') playLandingSoundtrack('yacht')
+    if (roomSnapshot?.phase === 'waiting') {
+      playLandingSoundtrack(roomSnapshot.gameCode === 'PING_PONG' ? 'pingpong' : 'yacht')
+    }
     if (!roomSession || !matchingRoom || roomResumeReason) {
       void navigate({ to: '/', replace: true })
       return
@@ -73,9 +78,9 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   }, [matchingRoom, navigate, roomResumeReason, roomSession, roomSnapshot])
 
   useEffect(() => {
-    if (!matchingRoom || roomSnapshot?.phase !== 'waiting') return
+    if (!matchingRoom || roomSnapshot?.phase !== 'waiting' || pingPong) return
     return schedulePhysicsDicePrefetch()
-  }, [matchingRoom, roomSnapshot?.phase])
+  }, [matchingRoom, pingPong, roomSnapshot?.phase])
 
   const handleStart = async () => {
     if (!roomSession || !canStart) return
@@ -137,7 +142,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           loading={botMutationLoading}
           onAdd={() => void handleAddBot()}
           playerCount={roomSnapshot?.players.length ?? 0}
-          visible={Boolean(roomSnapshot && isHost)}
+          visible={Boolean(roomSnapshot && isHost && !pingPong)}
         />
 
         {!roomSnapshot && (
@@ -153,6 +158,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           connectionStatus={connectionStatus}
           isHost={isHost}
           membershipRole={roomSession.membershipRole}
+          minPlayers={minPlayersToStart}
           onRemoveBot={(playerId) => void removeBot.execute(playerId)}
           onStart={() => void handleStart()}
           snapshot={roomSnapshot}
@@ -171,6 +177,7 @@ interface LobbyRoomContentProps {
   you: PlayerId
   isHost: boolean
   membershipRole: 'host' | 'participant'
+  minPlayers: number
   connectionStatus: ReturnType<typeof useAppStore.getState>['connectionStatus']
   canStart: boolean
   startLoading: boolean
@@ -186,6 +193,7 @@ function LobbyRoomContent({
   you,
   isHost,
   membershipRole,
+  minPlayers,
   connectionStatus,
   canStart,
   startLoading,
@@ -246,7 +254,7 @@ function LobbyRoomContent({
             {membershipRole === 'participant'
               ? '호스트가 게임을 시작하면 자동으로 이동해요.'
               : connectionStatus === 'connected'
-                ? `${MIN_PLAYERS_TO_START}명부터 시작할 수 있어요.`
+                ? `${minPlayers}명부터 시작할 수 있어요.`
                 : '연결된 뒤 게임을 시작할 수 있어요.'}
           </p>
         )}

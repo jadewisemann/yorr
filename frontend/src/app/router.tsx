@@ -7,6 +7,7 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect } from 'react'
+import { isGameKey } from '@/games'
 import { EntryPage } from '@/landing/screens/EntryPage'
 import { getRoomCodeError, normalizeRoomCode } from '@/room/roomCode'
 import { NotFoundPage } from './NotFoundPage'
@@ -136,13 +137,14 @@ const joinRoute = createRoute({
   path: '/join',
   validateSearch: (search: Record<string, unknown>) => ({
     code: typeof search.code === 'string' ? normalizeRoomCode(search.code) : undefined,
+    game: isGameKey(search.game) ? search.game : undefined,
   }),
   component: () => {
-    const { code } = joinRoute.useSearch()
+    const { code, game } = joinRoute.useSearch()
     if (code !== undefined && getRoomCodeError(code)) {
       return <InvalidInvitePage initialCode={code} />
     }
-    return <NicknamePage roomCode={code} />
+    return <NicknamePage gameKey={game} roomCode={code} />
   },
 })
 

@@ -1,13 +1,13 @@
 package com.ssafy.yorr.game.yacht;
 
-public final class YachtDiceWsTypes {
+import com.ssafy.yorr.game.module.GameWsTypes;
 
-    private static final String PREFIX = "game.yacht_dice.";
+public final class YachtDiceWsTypes {
 
     private YachtDiceWsTypes() {
     }
 
     public static String type(String eventType) {
-        return PREFIX + eventType;
+        return GameWsTypes.type(YachtDiceGameModule.CODE, eventType);
     }
 }

@@ -7,7 +7,7 @@ describe('games', () => {
   })
 
   it('준비 중인 게임은 live=false로만 구분한다', () => {
-    expect(games.filter((game) => game.live)).toHaveLength(1)
+    expect(games.filter((game) => game.live).map((game) => game.key)).toEqual(['yacht', 'pingpong'])
   })
 
   it('게임 키는 중복되지 않는다 — 탭 id가 키로 만들어진다', () => {
