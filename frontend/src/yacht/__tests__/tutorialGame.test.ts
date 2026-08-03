@@ -28,11 +28,11 @@ function rollAndRead(
 ) {
   let dice: readonly number[] | null = null
   const stop = client.onMessage((message) => {
-    if (message.type === 'dice.broadcast') dice = message.payload.dice
+    if (message.type === 'game.yacht_dice.dice.broadcast') dice = message.payload.dice
   })
   client.send(
     buildClientMessage(
-      'dice.roll',
+      'game.yacht_dice.dice.roll',
       { held, rollCount, roundNumber: 1 },
       { roomId: TUTORIAL_ROOM_ID },
     ),
@@ -101,12 +101,17 @@ describe('연습 모드 킵·기록', () => {
 
     const received = sendAndCollect(
       client,
-      buildClientMessage('dice.hold', { held, roundNumber: 1 }, { roomId: TUTORIAL_ROOM_ID }),
+      buildClientMessage(
+        'game.yacht_dice.dice.hold',
+        { held, roundNumber: 1 },
+        { roomId: TUTORIAL_ROOM_ID },
+      ),
     )
 
     expect(received).toHaveLength(1)
-    expect(received[0]?.type).toBe('dice.hold_changed')
-    if (received[0]?.type !== 'dice.hold_changed') throw new Error('hold_changed가 아니다')
+    expect(received[0]?.type).toBe('game.yacht_dice.dice.hold_changed')
+    if (received[0]?.type !== 'game.yacht_dice.dice.hold_changed')
+      throw new Error('hold_changed가 아니다')
     expect(received[0].payload.held).toEqual(held)
     expect(received[0].payload.playerId).toBe(TUTORIAL_PLAYER_ID)
   })
@@ -117,14 +122,15 @@ describe('연습 모드 킵·기록', () => {
     const received = sendAndCollect(
       client,
       buildClientMessage(
-        'round.submit',
+        'game.yacht_dice.round.submit',
         { roundNumber: 1, dice: [6, 6, 6, 6, 2], category: 'sixes' },
         { roomId: TUTORIAL_ROOM_ID },
       ),
     )
 
     expect(received).toHaveLength(1)
-    if (received[0]?.type !== 'score.update') throw new Error('score.update가 아니다')
+    if (received[0]?.type !== 'game.yacht_dice.score.update')
+      throw new Error('score.update가 아니다')
     const board = received[0].payload.scoreboard
     // 6이 네 개 = 24점. 상단 소계·총점까지 같이 선다.
     expect(board.categories.sixes).toBe(24)
