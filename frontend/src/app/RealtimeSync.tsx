@@ -179,6 +179,9 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
     case 'game.over':
       applyGameOver(message.payload, store)
       return
+    case 'pingpong.state':
+      applyPingPongState(message.payload, store)
+      return
     case 'room.closed':
       store.endSession('room_closed')
       return
@@ -188,6 +191,19 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
     default:
       return
   }
+}
+
+function applyPingPongState(
+  payload: Extract<ServerMessage, { type: 'pingpong.state' }>['payload'],
+  store: Store,
+) {
+  const snapshot = store.roomSnapshot
+  if (snapshot?.gameCode !== 'PING_PONG') return
+  // RoomSnapshot.game은 아직 Yacht 타입이 SSOT라 게임별 계약 분리 전까지 이 경계에서만 변환한다.
+  store.replaceRoomSnapshot({
+    ...snapshot,
+    game: payload as unknown as NonNullable<RoomSnapshot['game']>,
+  })
 }
 
 type Store = ReturnType<typeof useAppStore.getState>
