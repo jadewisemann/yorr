@@ -82,9 +82,9 @@ vi.mock('@/realtime/RealtimeClientContext', () => ({
         roomId?: string
         type: string
       }) => {
-        if (message.type !== 'dice.roll') return
+        if (message.type !== 'game.yacht_dice.dice.roll') return
         const broadcast = {
-          type: 'dice.broadcast',
+          type: 'game.yacht_dice.dice.broadcast',
           ts: Date.now(),
           roomId: message.roomId,
           msgId: message.msgId,
