@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
+
+import static com.ssafy.yorr.game.yacht.YachtDiceWsTypes.type;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.IntUnaryOperator;
 
@@ -171,7 +173,7 @@ public class RoundTimeoutResolver {
 
     private void broadcastAutoRoll(String roomId, String activePlayerId, RoundState state) {
         broadcaster.broadcast(roomId, new WsEnvelope<>(
-                "dice.broadcast",
+                type("dice.broadcast"),
                 clock.millis(),
                 new DiceBroadcastPayload(
                         activePlayerId,
@@ -190,7 +192,7 @@ public class RoundTimeoutResolver {
 
     private void broadcastScoreUpdate(String roomId, ScoreRoundSubmissionResult result) {
         broadcaster.broadcast(roomId, new WsEnvelope<>(
-                "score.update",
+                type("score.update"),
                 clock.millis(),
                 new ScoreUpdatePayload(
                         result.score().playerId(),

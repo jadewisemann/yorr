@@ -63,14 +63,14 @@ describe('FakeRealtimeClient scenarios', () => {
       }),
     )
     duplicate.send(
-      buildClientMessage('dice.roll', {
+      buildClientMessage('game.yacht_dice.dice.roll', {
         held: [false, false, false, false, false],
         rollCount: 1,
         roundNumber: 1,
       }),
     )
     outOfOrder.send(
-      buildClientMessage('round.submit', {
+      buildClientMessage('game.yacht_dice.round.submit', {
         roundNumber: 1,
         dice: [1, 2, 3, 4, 6],
         category: 'choice',
@@ -80,12 +80,12 @@ describe('FakeRealtimeClient scenarios', () => {
     expect(errorListener.mock.calls[0]?.[0].type).toBe('error')
     expect(duplicateListener).toHaveBeenCalledTimes(2)
     expect(duplicateListener.mock.calls.map(([message]) => message.type)).toEqual([
-      'dice.broadcast',
-      'dice.broadcast',
+      'game.yacht_dice.dice.broadcast',
+      'game.yacht_dice.dice.broadcast',
     ])
     expect(outOfOrderListener.mock.calls.map(([message]) => message.type)).toEqual([
-      'round.end',
-      'score.update',
+      'game.yacht_dice.round.end',
+      'game.yacht_dice.score.update',
     ])
   })
 
@@ -96,14 +96,14 @@ describe('FakeRealtimeClient scenarios', () => {
 
     client.send(
       buildClientMessage(
-        'dice.roll',
+        'game.yacht_dice.dice.roll',
         { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
         { roomId: MOCK_ROOM_ID, msgId: 'roll-1' },
       ),
     )
     client.send(
       buildClientMessage(
-        'round.submit',
+        'game.yacht_dice.round.submit',
         {
           roundNumber: 1,
           dice: [1, 2, 3, 4, 5],
@@ -114,9 +114,9 @@ describe('FakeRealtimeClient scenarios', () => {
     )
 
     expect(listener.mock.calls.map(([message]) => message.type)).toEqual([
-      'dice.broadcast',
-      'score.update',
-      'round.end',
+      'game.yacht_dice.dice.broadcast',
+      'game.yacht_dice.score.update',
+      'game.yacht_dice.round.end',
     ])
     // 정적 후보값이 아니라 제출된 주사위 [1,2,3,4,5]로 계산한 점수(choice = 합 15)다.
     expect(listener.mock.calls[1]?.[0].payload.scoreboard.categories.choice).toBe(15)
@@ -149,7 +149,7 @@ describe('FakeRealtimeClient scenarios', () => {
 
     client.send(
       buildClientMessage(
-        'round.submit',
+        'game.yacht_dice.round.submit',
         { roundNumber: 1, dice: [6, 6, 6, 2, 2], category: 'fullHouse' },
         { roomId: MOCK_ROOM_ID, msgId: 'submit-1' },
       ),

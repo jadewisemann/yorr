@@ -144,7 +144,7 @@ describe('QR entrance integration', () => {
         }),
       )
       realtimeClient.emitMessage(
-        serverMessage('round.start', {
+        serverMessage('game.yacht_dice.round.start', {
           activePlayerId: creatorSession.you,
           deadline: Date.now() + 30_000,
           roundNumber: 1,

@@ -13,7 +13,7 @@ import { isRecorded } from '@/yacht/yachtCategoryView'
 export type RollInputMode = 'motion' | 'tap'
 export type RollAnimationMode = RollInputMode | 'remote' | 'auto'
 
-type DiceBroadcastMessage = Extract<ServerMessage, { type: 'dice.broadcast' }>
+type DiceBroadcastMessage = Extract<ServerMessage, { type: 'game.yacht_dice.dice.broadcast' }>
 
 /** 같은 서버 굴림을 받은 모든 클라이언트가 같은 물리 난수열을 쓰게 하는 32비트 FNV-1a. */
 export function animationSeedForRoll(

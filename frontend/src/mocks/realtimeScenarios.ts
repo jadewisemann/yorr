@@ -100,14 +100,14 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         { roomId: MOCK_ROOM_ID, msgId: message.msgId },
       ),
     ],
-    'dice.roll': (message) => {
+    'game.yacht_dice.dice.roll': (message) => {
       const rolled: DiceSet = [6, 5, 4, 3, 2]
       serverDice = rolled.map((value, index) =>
         message.payload.held[index] ? serverDice[index] : value,
       ) as unknown as DiceSet
       return [
         serverMessage(
-          'dice.broadcast',
+          'game.yacht_dice.dice.broadcast',
           {
             playerId: session.you,
             roundNumber: message.payload.roundNumber,
@@ -120,9 +120,9 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
       ]
     },
     // 실서버와 같은 단순 릴레이 — 흔든 펄스를 그대로 되돌려준다.
-    'dice.shake': (message) => [
+    'game.yacht_dice.dice.shake': (message) => [
       serverMessage(
-        'dice.shaken',
+        'game.yacht_dice.dice.shaken',
         {
           playerId: session.you,
           roundNumber: message.payload.roundNumber,
@@ -133,9 +133,9 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
       ),
     ],
     // 실서버와 같은 단순 릴레이 — 상태를 건드리지 않고 "던졌다"만 되돌려준다.
-    'dice.throw': (message) => [
+    'game.yacht_dice.dice.throw': (message) => [
       serverMessage(
-        'dice.thrown',
+        'game.yacht_dice.dice.thrown',
         {
           playerId: session.you,
           rollCount: message.payload.rollCount,
@@ -144,9 +144,9 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         { roomId: MOCK_ROOM_ID, msgId: message.msgId },
       ),
     ],
-    'dice.hold': (message) => [
+    'game.yacht_dice.dice.hold': (message) => [
       serverMessage(
-        'dice.hold_changed',
+        'game.yacht_dice.dice.hold_changed',
         {
           held: message.payload.held,
           playerId: session.you,
@@ -155,7 +155,7 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         { roomId: MOCK_ROOM_ID, msgId: message.msgId },
       ),
     ],
-    'round.submit': (message) => {
+    'game.yacht_dice.round.submit': (message) => {
       const stored = loadMockRoomSnapshot()
       const scoreboard =
         stored?.game?.scores[session.you] ?? playingRoomSnapshot.game?.scores[session.you]
@@ -186,12 +186,12 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         })
       }
       const scoreUpdate = serverMessage(
-        'score.update',
+        'game.yacht_dice.score.update',
         { playerId: session.you, scoreboard: updatedScoreboard },
         { roomId: MOCK_ROOM_ID, msgId: message.msgId },
       )
       const roundEnd = serverMessage(
-        'round.end',
+        'game.yacht_dice.round.end',
         { roundNumber: message.payload.roundNumber, submitted: [session.you] },
         { roomId: MOCK_ROOM_ID },
       )

@@ -152,6 +152,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (!gameModules.dispatch(registry.gameCodeOf(member.roomId()), session, message)) {
             log.debug("지원하지 않는 게임 메시지: game={} type={}",
                     registry.gameCodeOf(member.roomId()), message.type());
+            sendError(session, WsErrorCode.INVALID_MESSAGE,
+                    "현재 방에서 지원하지 않는 게임 메시지입니다.", message.msgId());
         }
     }
 

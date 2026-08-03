@@ -81,7 +81,7 @@ const { snapshot: _snapshot, ...session } = creatorSession
 function withheldRoll(client: FakeRealtimeClient) {
   const send = client.send.bind(client)
   vi.spyOn(client, 'send').mockImplementation((message) => {
-    if (message.type === 'dice.roll') {
+    if (message.type === 'game.yacht_dice.dice.roll') {
       client.sentMessages.push(message)
       return
     }
@@ -91,11 +91,11 @@ function withheldRoll(client: FakeRealtimeClient) {
 }
 
 function broadcastRoll(client: FakeRealtimeClient, dice: DiceSet) {
-  const roll = client.sentMessages.find((message) => message.type === 'dice.roll')
+  const roll = client.sentMessages.find((message) => message.type === 'game.yacht_dice.dice.roll')
   act(() => {
     client.emitMessage(
       serverMessage(
-        'dice.broadcast',
+        'game.yacht_dice.dice.broadcast',
         {
           dice,
           held: [false, false, false, false, false],
@@ -167,7 +167,9 @@ describe('GamePlay 센서 굴림', () => {
       motion.emit?.({ type: 'shakePulse', at: 1_000, direction: 'left', strength: 0.5 })
     })
 
-    const shakes = client.sentMessages.filter((message) => message.type === 'dice.shake')
+    const shakes = client.sentMessages.filter(
+      (message) => message.type === 'game.yacht_dice.dice.shake',
+    )
     expect(shakes).toHaveLength(1)
     expect(shakes[0]?.payload).toMatchObject({ direction: 'left', roundNumber: 1, strength: 0.5 })
   })
@@ -205,7 +207,9 @@ describe('GamePlay 센서 굴림', () => {
     act(() => motion.emit?.({ type: 'shakeArmed', at: 1_000 }))
     act(() => motion.emit?.({ type: 'gestureCancelled', at: 1_100, reason: 'idle' }))
 
-    expect(client.sentMessages.some((message) => message.type === 'dice.roll')).toBe(false)
+    expect(
+      client.sentMessages.some((message) => message.type === 'game.yacht_dice.dice.roll'),
+    ).toBe(false)
     expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
   })
 

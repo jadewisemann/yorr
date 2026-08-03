@@ -58,7 +58,7 @@ class YachtTurnActionServiceTest {
 
         ArgumentCaptor<WsEnvelope<?>> envelope = envelopeCaptor();
         verify(broadcaster).broadcast(org.mockito.ArgumentMatchers.eq("room-a"), envelope.capture());
-        assertThat(envelope.getValue().type()).isEqualTo("dice.broadcast");
+        assertThat(envelope.getValue().type()).isEqualTo("game.yacht_dice.dice.broadcast");
         assertThat(envelope.getValue().roomId()).isEqualTo("room-a");
         assertThat(envelope.getValue().msgId()).isEqualTo("roll-a");
         assertThat(envelope.getValue().payload()).isInstanceOfSatisfying(
@@ -89,7 +89,7 @@ class YachtTurnActionServiceTest {
         assertThat(state.activeHeld()).containsExactly(true, true, false, false, false);
         ArgumentCaptor<WsEnvelope<?>> envelope = envelopeCaptor();
         verify(broadcaster).broadcast(org.mockito.ArgumentMatchers.eq("room-a"), envelope.capture());
-        assertThat(envelope.getValue().type()).isEqualTo("dice.hold_changed");
+        assertThat(envelope.getValue().type()).isEqualTo("game.yacht_dice.dice.hold_changed");
         assertThat(envelope.getValue().msgId()).isEqualTo("hold-a");
         assertThat(envelope.getValue().payload()).isInstanceOfSatisfying(
                 DiceHoldChangedPayload.class,
