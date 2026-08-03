@@ -23,7 +23,7 @@
 ## 방 역할
 
 - 방을 만든 사람이 `host`, 참가한 사람이 `participant`다(`RoomMembershipRole`,
-  [`../src/api/gameApi.ts`](../src/api/gameApi.ts)).
+  [`../src/room/api/roomApi.ts`](../src/room/api/roomApi.ts)).
 - 게임 시작과 종료 후 "대기실로 복귀(재대결)"는 `host`만 요청할 수 있다
   (`LobbyPage.tsx`, `GameResult.tsx`가 `membershipRole === 'host'`로 버튼을 막는다).
 - 과거 기획 문서에 있던 "방장 역할을 두지 않는다"는 결정은 폐기되었다 — 현재 코드와 반대다.
@@ -78,7 +78,7 @@
 
 ## 닉네임 정책
 
-> 2026-07-23 결정, 코드와 일치 확인됨(`src/screens/NicknamePage.tsx`).
+> 2026-07-23 결정, 코드와 일치 확인됨(`src/room/screens/NicknamePage.tsx`).
 
 - 닉네임은 사용자 식별자가 아닌 화면 표시용 값이다. 같은 방에서도 중복을 허용하며, 실제 식별은
   서버가 발급한 `playerId`/`sessionToken`을 사용한다.
@@ -100,10 +100,14 @@
 
 ## 알려진 이슈
 
-- `src/core/{api,realtime}`와 `src/contracts/ws-events.ts`는 어디서도 import되지 않는 죽은
-  코드다(2026-07-23 무렵의 초안 스캐폴드가 정리되지 않고 남음). 실제 구현은 `src/api`,
-  `src/realtime`, `src/domain`이다. 신규 코드를 작성할 때 참고하거나 의존하지 않는다. 삭제는
-  별도 코드 변경 티켓에서 처리한다(문서 정리만으로는 해결하지 않음).
+- 경계 규칙 예외 2건 — `realtime/wsEvents.ts`가 `yacht/domain/*`을, `yacht/screens/GameResult.tsx`가
+  `room/api/useGameApi`를 import한다. 근거와 해소 방법은
+  [`engineering/architecture-and-stack.md`](engineering/architecture-and-stack.md)의
+  「알려진 경계 예외 2건」에 있다.
+- 단위 테스트가 부하 상태에서 간헐적으로 실패한다(`GamePlay`·`GamePage`·`RoomExitGuard`
+  ·`qrEntrance`, 그리고 `physics-dice/World.test.ts`가 47개를 통째로 skip하기도 한다).
+  단독 실행하면 전부 통과한다 — S15P11A406-172. skip이 나면 커버리지 수치도 같이 떨어져
+  임계값 미달로 보이므로, 커버리지를 판단할 때는 테스트 100 파일 823개가 다 돌았는지 먼저 본다.
 
 ## 미확정 사항
 

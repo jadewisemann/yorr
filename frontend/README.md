@@ -29,12 +29,18 @@ Playwright 브라우저가 없다면 최초 한 번 `npx playwright install`을 
 
 ## 디렉터리
 
-- `src/app`: 라우터, 전역 provider, 앱 부팅, 개발 전용 화면
-- `src/screens`: URL에 대응하는 화면
-- `src/components`: 재사용 UI 컴포넌트
-- `src/api`: REST client와 호출 훅
+`src/` 바로 아래는 도메인이고, 레이어(`screens` · `components` · `api` …)는 도메인 안에 둔다.
+
+- `src/app`: 라우터, 전역 provider, 앱 부팅. 개발 전용 화면은 `app/dev/`
+- `src/landing`: 랜딩 화면과 히어로 연출
+- `src/auth`: 소셜 로그인·세션
+- `src/room`: 방 생성·입장·로비, 게임을 띄우는 껍데기
+- `src/yacht`: 야추 구현 — 규칙·화면·게임판·주사위 물리·센서 입력
+- `src/shared`: 프리미티브 UI, 공용 훅, REST client, `cn`
 - `src/realtime`: WebSocket wire contract(`wsEvents.ts`)와 연결 client — FE/BE 공유 SSOT
 - `src/mocks`: MSW handler와 fixture
-- `src/store.ts` · `src/cn.ts` · `src/styles/`: 전역 상태, class 병합, 디자인 토큰
+- `src/games.ts` · `src/store.ts` · `src/styles/`: 게임 카탈로그, 전역 상태, 디자인 토큰
 
-레이어를 넘는 import는 `@/` alias를 쓴다 (`@/api/gameApi`). 같은 폴더 안은 상대경로를 쓴다.
+테스트는 소스와 같은 폴더의 `__tests__/`에 둔다.
+
+레이어를 넘는 import는 `@/` alias를 쓴다 (`@/room/api/roomApi`). 같은 폴더 안은 상대경로를 쓴다.
