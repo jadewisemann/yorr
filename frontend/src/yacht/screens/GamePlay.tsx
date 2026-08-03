@@ -105,7 +105,12 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
   const myBoard = game?.scores[session.you]
   const activeBoard = activePlayerId ? game?.scores[activePlayerId] : undefined
 
+  // 파티 모드 대시보드는 플레이어가 아니다 — 이 화면은 게임을 비추기만 하므로 센서도
+  // 조작 안내도 필요 없다(서버 턴 순서에 없어 isMyTurn도 영구히 false다).
+  const canPlay = session.membershipRole !== 'dashboard'
+
   const roll = useGamePlayRoll({
+    canPlay,
     game,
     roomId,
     showToast,

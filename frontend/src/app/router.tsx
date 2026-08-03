@@ -10,6 +10,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { isGameKey } from '@/games'
 import { EntryPage } from '@/landing/screens/EntryPage'
 import { getRoomCodeError, normalizeRoomCode } from '@/room/roomCode'
+import { useMediaQuery } from '@/shared/useMediaQuery'
 import { NotFoundPage } from './NotFoundPage'
 import { ScreenFallback } from './ScreenFallback'
 
@@ -25,6 +26,8 @@ const importGamePage = () => import('@/room/screens/GamePage')
 const importInvalidInvitePage = () => import('@/room/screens/InvalidInvitePage')
 const importLobbyPage = () => import('@/room/screens/LobbyPage')
 const importNicknamePage = () => import('@/room/screens/NicknamePage')
+const importPartyDashboardPage = () => import('@/room/screens/PartyDashboardPage')
+const importPartyOnBigScreenPage = () => import('@/room/screens/PartyOnBigScreenPage')
 
 const AuthCallbackPage = lazy(() =>
   importAuthCallbackPage().then((mod) => ({ default: mod.AuthCallbackPage })),
@@ -35,6 +38,12 @@ const InvalidInvitePage = lazy(() =>
 )
 const LobbyPage = lazy(() => importLobbyPage().then((mod) => ({ default: mod.LobbyPage })))
 const NicknamePage = lazy(() => importNicknamePage().then((mod) => ({ default: mod.NicknamePage })))
+const PartyDashboardPage = lazy(() =>
+  importPartyDashboardPage().then((mod) => ({ default: mod.PartyDashboardPage })),
+)
+const PartyOnBigScreenPage = lazy(() =>
+  importPartyOnBigScreenPage().then((mod) => ({ default: mod.PartyOnBigScreenPage })),
+)
 
 /**
  * 첫 화면이 그려진 뒤 남는 시간에 나머지 화면 청크를 미리 받아둔다.
@@ -148,6 +157,20 @@ const joinRoute = createRoute({
   },
 })
 
+/**
+ * 파티 모드 대시보드. 랜딩에는 wide(≥760px)에서만 진입점이 있으므로, 좁은 화면으로 여기
+ * 도달하는 경우는 링크·북마크·기기 회전뿐이다 — 그때는 대시보드를 억지로 그리지 않고
+ * 안내 화면으로 받는다(폰의 대시보드는 덜 좋은 경험이 아니라 틀린 경험이다).
+ */
+const partyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/party',
+  component: () => {
+    const wide = useMediaQuery('(min-width: 760px)')
+    return wide ? <PartyDashboardPage /> : <PartyOnBigScreenPage />
+  },
+})
+
 const lobbyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/rooms/$roomId/lobby',
@@ -171,6 +194,7 @@ const routeTree = rootRoute.addChildren([
   tutorialRoute,
   authCallbackRoute,
   joinRoute,
+  partyRoute,
   lobbyRoute,
   gameRoute,
   devCatalogRoute,

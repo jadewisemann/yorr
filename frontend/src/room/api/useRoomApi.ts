@@ -12,6 +12,18 @@ export function useCreateRoom() {
   )
 }
 
+/**
+ * 파티 모드 대시보드로 방을 연다. 닉네임 화면을 거치지 않는다 — 대시보드는 플레이어가 아니라
+ * 이름을 짓지 않기 때문이다.
+ */
+export function useCreatePartyRoom() {
+  const setRoomSession = useAppStore((state) => state.setRoomSession)
+
+  return useAsyncTask<[], RoomSession>((signal) => roomApiClient.createPartyRoom({ signal }), {
+    onSuccess: setRoomSession,
+  })
+}
+
 export function useJoinRoom() {
   const setRoomSession = useAppStore((state) => state.setRoomSession)
 

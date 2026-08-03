@@ -103,7 +103,8 @@ export function createInviteUrl(roomCode: string) {
   return `${origin}/join?code=${encodeURIComponent(roomCode)}`
 }
 
-class QrFallback extends Component<{ children: ReactNode }, { failed: boolean }> {
+/** QR 렌더 실패 대비. 대시보드도 같은 폴백을 써야 큰 화면에서 빈 사각형만 남지 않는다. */
+export class QrFallback extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
 
   static getDerivedStateFromError() {

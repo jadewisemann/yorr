@@ -48,6 +48,7 @@ export function GameDiceTray({
   const {
     allKept,
     canHold,
+    canPlay,
     canRoll,
     completeRoll,
     confirmThrow,
@@ -80,8 +81,11 @@ export function GameDiceTray({
    *
    * 대신 트레이 구석에 조용한 칩 하나를 두고, 궁금해서 누른 사람에게만 설명을 연다 —
    * 켜고 싶어진 순간에 켜는 것이 가장 자연스럽고, 그 전까지는 아무것도 막지 않는다.
+   *
+   * canPlay=false(파티 모드 대시보드)면 칩 자체를 내지 않는다. 그 기기로는 굴릴 수 없어
+   * 켤 이유가 없다 — 센서도 시작되지 않아 availability는 'unknown'에 머문다.
    */
-  const motionOfferable = canOfferMotion(motion.availability)
+  const motionOfferable = canPlay && canOfferMotion(motion.availability)
   const activePlayerName = activePlayer?.nickname
   const trayLabel = diceTrayLabel({ activePlayerName, currentRollNumber, isMyTurn })
   const statusText = diceTrayStatus({
@@ -177,8 +181,9 @@ export function GameDiceTray({
           />
         </div>
       )}
-      {/* 첫 진입 안내 — 툴팁 두 개만 밝히고 나머지를 덮는다. 이 위에서 ⓘ를 바로 눌러 볼 수 있다. */}
-      {coachOpen && (
+      {/* 첫 진입 안내 — 툴팁 두 개만 밝히고 나머지를 덮는다. 이 위에서 ⓘ를 바로 눌러 볼 수 있다.
+          canPlay=false(파티 모드 대시보드)에는 내지 않는다 — 조작할 수 없는 화면에 조작 안내다. */}
+      {canPlay && coachOpen && (
         <TooltipCoachmark
           onDone={() => {
             hideTutorial()

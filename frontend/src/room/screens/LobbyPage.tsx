@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { Player, PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
+import { isRoomHost } from '@/room/api/roomApi'
 import { useAddBot, useRemoveBot, useStartGame } from '@/room/api/useGameApi'
 import { InvitationPanel } from '@/room/components/InvitationPanel'
 import { PlayerCard } from '@/room/components/PlayerCard'
@@ -47,7 +48,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const removeBot = useRemoveBot()
   const [exitRequested, setExitRequested] = useState(false)
   const matchingRoom = roomSession?.roomId === roomId
-  const isHost = matchingRoom && roomSession.membershipRole === 'host'
+  const isHost = matchingRoom && isRoomHost(roomSnapshot, roomSession.you)
   const capacity = roomSnapshot?.capacity ?? 6
   const pingPong =
     roomSnapshot?.gameCode === 'PING_PONG' ||
@@ -165,7 +166,6 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           capacity={capacity}
           connectionStatus={connectionStatus}
           isHost={isHost}
-          membershipRole={roomSession.membershipRole}
           minPlayers={minPlayersToStart}
           onRemoveBot={(playerId) => void removeBot.execute(playerId)}
           onStart={() => void handleStart()}
@@ -184,7 +184,6 @@ interface LobbyRoomContentProps {
   capacity: number
   you: PlayerId
   isHost: boolean
-  membershipRole: 'host' | 'participant'
   minPlayers: number
   connectionStatus: ReturnType<typeof useAppStore.getState>['connectionStatus']
   canStart: boolean
@@ -200,7 +199,6 @@ function LobbyRoomContent({
   capacity,
   you,
   isHost,
-  membershipRole,
   minPlayers,
   connectionStatus,
   canStart,
@@ -255,11 +253,11 @@ function LobbyRoomContent({
           loading={startLoading}
           onClick={onStart}
         >
-          {membershipRole === 'participant' ? '게임 시작 · 호스트 전용' : '게임 시작'}
+          {isHost ? '게임 시작' : '게임 시작 · 호스트 전용'}
         </Button>
         {!canStart && (
           <p className="m-0 text-sm text-content-muted" id="start-blocked">
-            {membershipRole === 'participant'
+            {!isHost
               ? '호스트가 게임을 시작하면 자동으로 이동해요.'
               : connectionStatus === 'connected'
                 ? `${minPlayers}명부터 시작할 수 있어요.`

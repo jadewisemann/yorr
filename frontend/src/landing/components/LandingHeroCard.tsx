@@ -1,6 +1,7 @@
 import type { Game } from '@/games'
 import { cn } from '@/shared/cn'
 import { HeroCanvas } from './HeroCanvas'
+import { PartyModeEntry } from './PartyModeEntry'
 
 interface LandingHeroCardProps {
   game: Game
@@ -8,6 +9,8 @@ interface LandingHeroCardProps {
   layout: 'narrow' | 'wide'
   /** 카드 안 플레이 CTA. 준비 중인 게임은 잠긴 버튼이 같은 자리에 서므로 호출되지 않는다. */
   onPlay: () => void
+  /** 플레이 왼쪽에 서는 파티 모드 CTA. wide·live 게임에서만 그려진다. */
+  onPartyMode: () => void
 }
 
 /**
@@ -23,7 +26,7 @@ interface LandingHeroCardProps {
  * 메타 필 273px = 410 > 안쪽 폭 297). 그래서 위·아래로 가른다: 제목·태그라인 위,
  * 메타 필·CTA 아래. 아래에 무거운 덩어리는 CTA 하나뿐이고 필은 헤어라인 칩이다.
  */
-export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) {
+export function LandingHeroCard({ game, layout, onPartyMode, onPlay }: LandingHeroCardProps) {
   const wide = layout === 'wide'
 
   return (
@@ -142,7 +145,10 @@ export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) 
         )}
       >
         {wide ? (
-          <p className="m-0 min-w-0 text-pretty text-[clamp(16px,1.6vw,22px)]/[1.3] font-semibold text-landing-text-strong">
+          // line-clamp-2: 액션 클러스터가 버튼 두 개로 넓어져 760px에서 이 칸에 83px밖에
+          // 남지 않는다. 접히는 줄 수를 묶지 않으면 하단 띠가 두꺼워지고 그만큼 3D 영역이
+          // 깎인다 — 카드 높이 상한(32rem)이 CTA 한 개 시절 값이라 여유가 없다.
+          <p className="m-0 line-clamp-2 min-w-0 text-pretty text-[clamp(16px,1.6vw,22px)]/[1.3] font-semibold text-landing-text-strong">
             {game.tagline}
           </p>
         ) : (
@@ -152,7 +158,14 @@ export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) 
             <LandingMetaPills game={game} layout="narrow" />
           </div>
         )}
-        <HeroCta game={game} layout={layout} onPlay={onPlay} />
+        {/* 액션 클러스터. primary(플레이)가 읽기 방향의 끝인 <b>오른쪽</b>에 남고, 보조
+            진입은 왼쪽에 붙는다. 나중에 빠른 대전도 이 줄에 들어온다.
+            모든 자식의 높이가 같아야 한다(h-18/h-15) — 이 자리가 위아래로 뛰면 캐러셀이
+            카드를 미끄러뜨릴 때 슬라이드가 흔들려 보인다(아래 HeroCta 주석과 같은 이유). */}
+        <div className={cn('flex flex-none', wide ? 'items-stretch gap-2.5' : 'gap-2')}>
+          {wide && game.live && <PartyModeEntry layout={layout} onOpen={onPartyMode} />}
+          <HeroCta game={game} layout={layout} onPlay={onPlay} />
+        </div>
       </div>
     </div>
   )
@@ -208,7 +221,7 @@ const lockedCtaSize = {
   wide: 'h-18 shrink-0 px-14 text-[22px]',
 } as const
 
-function HeroCta({ game, layout, onPlay }: LandingHeroCardProps) {
+function HeroCta({ game, layout, onPlay }: Omit<LandingHeroCardProps, 'onPartyMode'>) {
   if (!game.live) {
     return (
       <button

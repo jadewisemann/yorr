@@ -6,6 +6,7 @@ import {
   type PingPongState,
   type RoomSnapshot,
 } from '@/realtime/wsEvents'
+import { isRoomHost } from '@/room/api/roomApi'
 import { useReturnToLobby } from '@/room/api/useGameApi'
 import { Button } from '@/shared/components/Button'
 import type { ActiveRoomSession } from '@/store'
@@ -205,7 +206,7 @@ export function PingPongResult({
   const myScore = state?.scores[session.you] ?? 0
   const opponentScore = opponent ? (state?.scores[opponent.playerId] ?? 0) : 0
   const won = myScore > opponentScore
-  const host = session.membershipRole === 'host'
+  const host = isRoomHost(snapshot, session.you)
 
   return (
     <main className="relative mx-auto flex h-svh w-full max-w-2xl flex-col items-center justify-center gap-7 overflow-hidden bg-[#070b12] px-gutter text-white">
