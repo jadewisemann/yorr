@@ -185,6 +185,26 @@ describe('lineUpDice', () => {
     expect(entries[2]?.mesh.position.x).toBeCloseTo(keepSlotPosition(0).x, 6)
     world.free()
   })
+
+  it('keepAll이면 다섯 개가 전부 레일에 오르고, 이미 킵한 주사위는 자기 슬롯을 지킨다', () => {
+    const { entries, world } = setup()
+    const held: PhysicsHeldDice = [false, true, false, true, false]
+    const heldOrder: PhysicsDiceIndex[] = [3, 1]
+
+    lineUpDice(entries, held, heldOrder, DICE, true)
+
+    // 3·1은 킵한 순서 그대로 슬롯 0·1, 나머지는 번호순으로 뒤를 채운다.
+    const expectedSlotOf = [2, 1, 3, 0, 4]
+    entries.forEach((entry) => {
+      const slot = expectedSlotOf[entry.index] ?? -1
+      expect(entry.mesh.position.x).toBeCloseTo(keepSlotPosition(slot).x, 6)
+      expect(entry.mesh.position.z).toBeCloseTo(SCENE.tray.slotZ, 6)
+      // 결과 줄로 새는 주사위가 하나라도 있으면 "전부 킵"이 아니다.
+      expect(entry.mesh.position.z).not.toBeCloseTo(SCENE.tray.resultRowZ, 6)
+      expect(entry.outline.material.opacity).toBeGreaterThan(0.5)
+    })
+    world.free()
+  })
 })
 
 describe('킵 전환 애니메이션', () => {

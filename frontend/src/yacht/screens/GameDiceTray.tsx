@@ -56,14 +56,21 @@ export function GameDiceTray({
     roll: handleRoll,
     rollHighlight,
     rollInputMode,
+    rollsLeft,
     settledRollCount,
     submitted,
     toggleHeld,
   } = roll
 
+  // 마지막 굴림 뒤에는 다섯 개가 전부 레일에 올라앉는다 — 합도 그 그림대로 다섯 개를 센다.
   const keptSum = local.dice
-    ? local.dice.reduce((sum, value, index) => sum + (local.held[index] ? value : 0), 0)
+    ? local.dice.reduce(
+        (sum, value, index) => sum + (lastRollInPlay || local.held[index] ? value : 0),
+        0,
+      )
     : 0
+  // 더 굴릴 것이 없다 = 다섯 개 모두 확정. 레일에 다섯 개가 보이는데 "2/5"라고 쓰면 어긋난다.
+  const railCount = lastRollInPlay && local.dice ? 5 : keptCount
   const rolled = local.dice !== null
   const permissionNoticeVisible =
     isMotionPermissionNotice(motion.availability) && dismissedNotice !== motion.availability
@@ -77,7 +84,7 @@ export function GameDiceTray({
     roundNumber,
     submitted,
   })
-  const keptText = keptRailLabel(keptCount, keptSum, allKept)
+  const keptText = keptRailLabel(railCount, keptSum, allKept && rollsLeft > 0)
 
   return (
     <div
@@ -125,7 +132,7 @@ export function GameDiceTray({
       <PhysicsDiceScene
         dice={local.dice}
         held={local.held}
-        lineUpAll={lastRollInPlay}
+        keepAll={lastRollInPlay}
         motionFollow={rollInputMode === 'motion' || remoteShaking}
         motionPulse={motionPulse}
         onDiceImpact={onDiceImpact}
@@ -234,10 +241,14 @@ function diceTrayStatus({
   return `라운드 ${roundNumber} — 굴려서 시작하세요`
 }
 
-function keptRailLabel(keptCount: number, keptSum: number, allKept: boolean) {
-  if (keptCount === 0) return '비어 있음'
-  const releaseHint = allKept ? ' · 해제해야 굴릴 수 있어요' : ''
-  return `${keptCount}/5 · 합 ${keptSum}${releaseHint}`
+/**
+ * "해제해야 굴릴 수 있어요"는 굴림이 남았을 때만 맞는 말이다 — 마지막 굴림 뒤엔 다섯 개가
+ * 다 올라가 있어도 해제할 이유가 없으므로 부르는 쪽이 그 조건을 판단해 넘긴다.
+ */
+function keptRailLabel(railCount: number, keptSum: number, showReleaseHint: boolean) {
+  if (railCount === 0) return '비어 있음'
+  const releaseHint = showReleaseHint ? ' · 해제해야 굴릴 수 있어요' : ''
+  return `${railCount}/5 · 합 ${keptSum}${releaseHint}`
 }
 
 function isMotionPermissionNotice(availability: MotionAvailability) {
