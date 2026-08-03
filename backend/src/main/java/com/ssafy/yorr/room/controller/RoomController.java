@@ -58,9 +58,10 @@ public class RoomController {
                         party ? RoomMode.PARTY : RoomMode.NORMAL);
             }
             // 파티 방을 연 화면은 대시보드다 — 플레이어 명단에 넣지 않는다. 그래야 턴 순서·점수판·
-            // 정원이 모두 컨트롤러(폰)들만의 것이 된다. 호스트 권한은 방 hash의 hostId가 준다.
+            // 정원이 모두 컨트롤러(폰)들만의 것이 된다. 방장도 대시보드가 아니라 처음 들어온
+            // 컨트롤러가 된다(RoomValidationService의 JOIN이 넘겨준다) — 조작은 폰에서 한다.
             if (creating && party) {
-                userService.assignRoom(entrant.userId(), roomId, roomId, entrant.userId());
+                userService.assignRoom(entrant.userId(), roomId, roomId, "");
                 return ResponseEntity.ok(new GuestCreateResponse(
                         entrant.userId(), entrant.nickname(), entrant.sessionToken(), roomId, gameCode));
             }
