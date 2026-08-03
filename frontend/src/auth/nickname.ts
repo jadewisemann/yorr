@@ -1,3 +1,5 @@
+import { containsProfanity } from '@/shared/profanity'
+
 export const NICKNAME_MAX_LENGTH = 12
 
 const adjectives = [
@@ -38,6 +40,11 @@ export function getNicknameError(value: string) {
   }
   if (!allowedNicknamePattern.test(value)) {
     return '닉네임에는 문자, 숫자, 공백만 사용할 수 있어요.'
+  }
+  // 닉네임 검증의 유일한 관문이라 욕설 검사도 여기 선다 — 화면마다 따로 붙이면
+  // 어느 경로는 막고 어느 경로는 안 막는다(실제로 프로필 변경이 그랬다).
+  if (containsProfanity(value)) {
+    return '사용할 수 없는 표현이 포함되어 있어요.'
   }
   return null
 }
