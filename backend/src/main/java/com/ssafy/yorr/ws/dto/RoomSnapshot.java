@@ -16,14 +16,26 @@ public record RoomSnapshot(
         RoomPhase phase,
         String hostId,
         List<Player> players,
-        Object game
+        Object game,
+        Integer capacity
 ) {
+    public RoomSnapshot(
+            String roomId,
+            String gameCode,
+            RoomPhase phase,
+            String hostId,
+            List<Player> players,
+            Object game
+    ) {
+        this(roomId, gameCode, phase, hostId, players, game, null);
+    }
+
     public RoomSnapshot(String roomId, RoomPhase phase, String hostId, List<Player> players) {
-        this(roomId, null, phase, hostId, players, null);
+        this(roomId, null, phase, hostId, players, null, null);
     }
 
     public RoomSnapshot(String roomId, RoomPhase phase, String hostId, List<Player> players, Object game) {
-        this(roomId, null, phase, hostId, players, game);
+        this(roomId, null, phase, hostId, players, game, null);
     }
 
     public RoomSnapshot {
