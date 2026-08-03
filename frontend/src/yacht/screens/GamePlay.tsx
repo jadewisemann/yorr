@@ -58,6 +58,12 @@ export interface TurnProgress {
    * "6 두 개를 킵하세요"처럼 무엇을 킵했는지까지 보고 다음으로 넘어가야 하기 때문이다.
    */
   keptValues: number[]
+  /**
+   * 주사위가 날아가는 중인지. rollCount는 굴림이 **시작될 때** 서버 값으로 올라가고 dice는
+   * 애니메이션이 끝나야 바뀐다 — 그 사이에 안내가 "새 굴림 수 + 옛 주사위"를 읽으면
+   * 아직 일어나지 않은 선택이 끝난 것처럼 보인다.
+   */
+  rolling: boolean
   /** 이번 턴 기록까지 끝났는지. */
   submitted: boolean
   /** 서버가 확정한 굴림 횟수. */
@@ -341,6 +347,7 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
             {guide?.({
               rolled,
               keptValues: local.dice ? local.dice.filter((_value, index) => local.held[index]) : [],
+              rolling,
               submitted,
               rollCount: local.rollCount,
               candidates,

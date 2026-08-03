@@ -6,6 +6,8 @@ import { MAX_ROLLS } from '@/yacht/domain/yachtGame'
 import { categoryLabel } from '@/yacht/yachtCategoryView'
 
 interface TutorialGuideProps {
+  /** 주사위가 날아가는 중인지. 이 동안에는 단계가 움직이지 않는다(stepFromPlay 주석 참고). */
+  rolling: boolean
   /** 이번 턴에 주사위가 깔려 있는지(첫 굴림 완료). */
   rolled: boolean
   /** 지금 킵되어 있는 주사위의 눈. 무엇을 킵했는지까지 보고 다음으로 넘긴다. */
@@ -338,6 +340,7 @@ export function TutorialGuide({
   onClose,
   rolled,
   rollCount,
+  rolling,
   submitted,
   wide,
 }: TutorialGuideProps) {
@@ -360,11 +363,12 @@ export function TutorialGuide({
       motionNoticeVisible,
       rolled,
       rollCount,
+      rolling,
       sixesOnTray,
       submitted,
     })
     if (next) setStep(next)
-  }, [keptSixes, motionNoticeVisible, rolled, rollCount, sixesOnTray, step, submitted])
+  }, [keptSixes, motionNoticeVisible, rolled, rollCount, rolling, sixesOnTray, step, submitted])
 
   const lesson = lessonFor(step, {
     candidates,
@@ -444,6 +448,7 @@ interface PlaySignals {
   motionNoticeVisible: boolean
   rolled: boolean
   rollCount: number
+  rolling: boolean
   sixesOnTray: number
   submitted: boolean
 }
@@ -457,6 +462,13 @@ interface PlaySignals {
  * 통째로 놓친다.
  */
 function stepFromPlay(step: GuideStep, play: PlaySignals): GuideStep | null {
+  /*
+   * 주사위가 날아가는 동안에는 어느 단계도 움직이지 않는다. rollCount는 굴림이 시작될 때
+   * 올라가고 dice는 애니메이션이 끝나야 바뀌므로, 이 사이에 판단하면 "새 굴림 수 + 옛
+   * 주사위"를 읽는다 — 두 번째 던지기가 날아가는 중에 옛 킵(2/2)이 새 선택을 끝낸 것으로
+   * 보여 선택 단계를 건너뛰고 던지기 물음이 먼저 뜨던 버그가 그것이다.
+   */
+  if (play.rolling) return null
   // 족보 설명과 마무리는 버튼으로만 넘어간다 — 읽는 중에 판이 바뀌어도 끌려가면 안 된다.
   if (step === 'done' || step === 'categories') return null
   /*

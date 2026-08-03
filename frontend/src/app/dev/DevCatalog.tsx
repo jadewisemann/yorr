@@ -254,6 +254,8 @@ export function DevCatalog() {
               onClose={() => setGuideVisible(false)}
               rollCount={guideSignals.rollCount}
               rolled={guideSignals.rolled}
+              // 이 하네스의 신호 버튼은 항상 "애니메이션이 끝난 뒤" 상태를 흉내 낸다.
+              rolling={false}
               submitted={guideSignals.submitted}
               wide={false}
             />

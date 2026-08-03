@@ -119,6 +119,7 @@ const baseProps = {
   motionNoticeVisible: true,
   rollCount: 0,
   rolled: false,
+  rolling: false,
   submitted: false,
   wide: false,
 }
@@ -224,6 +225,33 @@ describe('TutorialGuide', () => {
     // 기록을 마치면 그때 족보 둘러보기가 시작된다.
     rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atHandTour} />)
     expect(heading()).toBe('에이스')
+  })
+
+  /*
+   * rollCount는 굴림이 시작될 때 올라가고 dice는 애니메이션이 끝나야 바뀐다. 그 사이에
+   * 판단하면 "새 굴림 수 + 옛 주사위(2/2 킵)"라 두 번째 선택이 끝난 것으로 보여, 주사위가
+   * 날아가는 중에 던지기 물음이 먼저 뜨던 버그가 있었다(3차 QA).
+   */
+  it('두 번째 던지기가 날아가는 동안에는 단계를 옮기지 않는다', () => {
+    const { rerender } = setup({ keptValues: [6, 6], rollCount: 1, rolled: true })
+    expect(heading()).toBe('나머지만 다시 굴려요')
+
+    // 굴림 시작: rollCount는 2인데 주사위·킵은 아직 이전 그대로다.
+    rerender(
+      <TutorialGuide
+        {...baseProps}
+        keptValues={[6, 6]}
+        onClose={vi.fn()}
+        rollCount={2}
+        rolled
+        rolling
+      />,
+    )
+    expect(heading()).toBe('나머지만 다시 굴려요')
+
+    // 애니메이션이 끝나 새 주사위가 깔리면 그때 선택 단계가 온다.
+    rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atKeepAgain} />)
+    expect(heading()).toBe('6이 3개로 늘었어요')
   })
 
   /*
