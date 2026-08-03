@@ -131,6 +131,11 @@
      linear로 둔다: ease-out은 앞에서 거의 다 퍼져 버려 뒤쪽 절반이 사실상 안 보이고,
      그 구간이 쉬는 시간처럼 읽힌다. 균일하게 번져야 파동이 끊기지 않는다. */
   --animate-tutorial-halo: tutorial-halo 1600ms linear infinite;
+
+  /* 주간 랭킹 띠가 옆으로 흐르는 것. 지속시간은 항목 수에 따라 RankingTicker가 인라인으로
+     덮어쓴다 — 항목이 늘어도 흐르는 속도(초/항목)가 같아야 읽는 속도가 유지된다.
+     여기 값은 그 계산이 없을 때의 안전한 기본값이다. */
+  --animate-ticker-scroll: ticker-scroll 40s linear infinite;
 }
 
 :root {
@@ -464,6 +469,27 @@
   100% {
     transform: translate(var(--drift, 0rem), -8.5rem) scale(0.85);
     opacity: 0;
+  }
+}
+
+/*
+ * 트랙 안에 같은 목록을 여러 벌 넣고 <b>정확히 한 벌 폭만</b> 밀면, 두 번째 벌이 첫 번째 벌이
+ * 있던 자리에 도착하는 순간 프레임이 처음과 똑같아진다 — 이어붙인 곳이 보이지 않는다.
+ *
+ * 이동 거리를 --ticker-shift로 받는 이유: 한 벌 폭은 트랙 폭의 1/복제수이고, 복제수는 항목
+ * 개수에 따라 달라진다(RankingTicker가 계산해 넣는다). 여기에 -50%를 박아두면 두 벌일 때만
+ * 맞고 그 밖에는 되돌아가는 순간 눈에 보이게 튄다.
+ *
+ * transform만 움직인다(레이아웃·페인트를 유발하는 속성은 건드리지 않는다). 합성 레이어 승격은
+ * RankingTicker의 will-change-transform이 명시한다 — 여기서 translate3d로 힌트를 줘도
+ * 빌드의 CSS minifier가 translate로 줄여 없앤다.
+ */
+@keyframes ticker-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(var(--ticker-shift, -50%), 0, 0);
   }
 }
 
