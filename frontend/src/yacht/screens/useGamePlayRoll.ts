@@ -43,10 +43,10 @@ import {
 const TAP_RELEASE_DELAY_MS = 600
 const SHAKE_RELAY_INTERVAL_MS = 60
 
-type DiceBroadcastMessage = Extract<ServerMessage, { type: 'dice.broadcast' }>
-type DiceShakenMessage = Extract<ServerMessage, { type: 'dice.shaken' }>
-type DiceThrownMessage = Extract<ServerMessage, { type: 'dice.thrown' }>
-type DiceHoldChangedMessage = Extract<ServerMessage, { type: 'dice.hold_changed' }>
+type DiceBroadcastMessage = Extract<ServerMessage, { type: 'game.yacht_dice.dice.broadcast' }>
+type DiceShakenMessage = Extract<ServerMessage, { type: 'game.yacht_dice.dice.shaken' }>
+type DiceThrownMessage = Extract<ServerMessage, { type: 'game.yacht_dice.dice.thrown' }>
+type DiceHoldChangedMessage = Extract<ServerMessage, { type: 'game.yacht_dice.dice.hold_changed' }>
 type ErrorMessage = Extract<ServerMessage, { type: 'error' }>
 interface PendingRollRequest {
   inputMode: RollInputMode
@@ -167,7 +167,9 @@ export function useGamePlayRoll({ game, roomId, showToast, you }: UseGamePlayRol
   const publishHeld = useCallback(
     (held: HeldDice) => {
       try {
-        realtimeClient.send(buildClientMessage('dice.hold', { held, roundNumber }, { roomId }))
+        realtimeClient.send(
+          buildClientMessage('game.yacht_dice.dice.hold', { held, roundNumber }, { roomId }),
+        )
       } catch {
         // ConnectionBanner owns transport failure feedback.
       }
@@ -182,7 +184,11 @@ export function useGamePlayRoll({ game, roomId, showToast, you }: UseGamePlayRol
       lastShakeSentAtRef.current = now
       try {
         realtimeClient.send(
-          buildClientMessage('dice.shake', { direction, roundNumber, strength }, { roomId }),
+          buildClientMessage(
+            'game.yacht_dice.dice.shake',
+            { direction, roundNumber, strength },
+            { roomId },
+          ),
         )
       } catch {
         // ConnectionBanner owns transport failure feedback.
@@ -196,7 +202,7 @@ export function useGamePlayRoll({ game, roomId, showToast, you }: UseGamePlayRol
       try {
         realtimeClient.send(
           buildClientMessage(
-            'dice.throw',
+            'game.yacht_dice.dice.throw',
             { rollCount: rollCount as 1 | 2 | 3, roundNumber },
             { roomId },
           ),
@@ -223,7 +229,7 @@ export function useGamePlayRoll({ game, roomId, showToast, you }: UseGamePlayRol
       try {
         realtimeClient.send(
           buildClientMessage(
-            'dice.roll',
+            'game.yacht_dice.dice.roll',
             {
               held: local.held,
               rollCount: (local.rollCount + 1) as 1 | 2 | 3,
@@ -398,13 +404,13 @@ export function useGamePlayRoll({ game, roomId, showToast, you }: UseGamePlayRol
     () =>
       realtimeClient.onMessage((message) => {
         switch (message.type) {
-          case 'dice.broadcast':
+          case 'game.yacht_dice.dice.broadcast':
             return handleBroadcast(message)
-          case 'dice.shaken':
+          case 'game.yacht_dice.dice.shaken':
             return handleShaken(message)
-          case 'dice.thrown':
+          case 'game.yacht_dice.dice.thrown':
             return handleThrown(message)
-          case 'dice.hold_changed':
+          case 'game.yacht_dice.dice.hold_changed':
             return handleHeldChanged(message)
           case 'error':
             return handleError(message)
