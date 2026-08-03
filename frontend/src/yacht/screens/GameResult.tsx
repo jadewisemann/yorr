@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
+// 경계 규칙 예외 — yacht가 room을 본다. 결과 화면이 "대기실로 돌아가기"를 직접
+// 호출하기 때문이다. 부모인 room/screens/GamePage가 onLeaveRequest처럼 콜백으로
+// 내려주면 사라지지만 컴포넌트 계약이 바뀌는 로직 변경이라 별도 티켓이다.
 import { useReturnToLobby } from '@/room/api/useGameApi'
 import { cn } from '@/shared/cn'
 import { BottomSheet } from '@/shared/components/BottomSheet'

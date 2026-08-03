@@ -49,6 +49,11 @@
  * ============================================================================
  */
 
+// 경계 규칙 예외 — realtime은 도메인 위의 계층인데 아래 import는 yacht를 본다.
+// 와이어 계약 자체가 야추 모양이기 때문이다: dice.* 이벤트와 round.submit의
+// YachtCategory가 프로토콜에 박혀 있다. 게임을 추가하려면 게임 무관 envelope와
+// 게임별 payload로 갈라야 하고(백엔드는 GameModule로 이미 분리했다) 그건 로직
+// 변경이라 별도 티켓이다. 그때까지 realtime/은 shared/가 아니라 경계에 둔다.
 import type { DiceSet, HeldDice } from '@/yacht/domain/dice'
 import type { YachtCategory } from '@/yacht/domain/scoring'
 
