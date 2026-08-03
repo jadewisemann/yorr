@@ -766,7 +766,7 @@ function anchoredPlacement(anchor: SpotlightRect) {
 function GuideTextButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
-      className="cursor-pointer border-0 bg-transparent p-1 text-[12px] font-semibold text-content-faint underline underline-offset-2 transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2"
+      className="cursor-pointer border-0 bg-transparent p-1 text-[12px] font-semibold text-content-faint underline underline-offset-2 transition-colors hover:text-content focus-ring focus-visible:outline-offset-2"
       onClick={onClick}
       type="button"
     >

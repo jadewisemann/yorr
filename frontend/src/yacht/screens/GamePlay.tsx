@@ -462,7 +462,7 @@ function QuickCategoryStrip({
           <li className="flex-none" key={category}>
             <button
               aria-label={`${categoryLabel[category]}${scoreLabel}`}
-              className="flex h-[4.125rem] min-w-[5.5rem] cursor-pointer flex-col items-start justify-between rounded-control border border-border bg-surface px-2.5 py-2 text-left text-content transition-colors focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55"
+              className="quick-chip focus-ring"
               data-tutorial-category={category}
               disabled={!canPick || !rolled}
               onClick={() => onPick(category)}

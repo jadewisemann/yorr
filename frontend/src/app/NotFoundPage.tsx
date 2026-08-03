@@ -40,7 +40,8 @@ export function NotFoundPage() {
       </div>
 
       <Button
-        className="min-h-[3.625rem] w-full rounded-panel text-lg"
+        className="w-full"
+        size="cta"
         onClick={() => void navigate({ to: '/' })}
         type="button"
       >

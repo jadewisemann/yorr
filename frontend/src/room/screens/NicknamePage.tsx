@@ -83,7 +83,7 @@ export function NicknamePage({ gameKey, roomCode }: NicknamePageProps) {
       <header className="relative flex items-center gap-3">
         <button
           aria-label="뒤로 가기"
-          className="grid size-11 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-lg text-content transition-colors hover:bg-surface-raised focus-visible:outline-3 focus-visible:outline-focus"
+          className="grid size-11 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-lg text-content transition-colors hover:bg-surface-raised focus-ring"
           onClick={() => void navigate({ to: '/' })}
           type="button"
         >
@@ -166,12 +166,7 @@ export function NicknamePage({ gameKey, roomCode }: NicknamePageProps) {
               )}
             </div>
           )}
-          <Button
-            type="submit"
-            size="lg"
-            loading={task.isLoading}
-            className="min-h-[3.625rem] w-full rounded-panel text-lg"
-          >
+          <Button type="submit" size="cta" loading={task.isLoading} className="w-full">
             {task.isLoading
               ? roomCode
                 ? '입장하는 중이에요'

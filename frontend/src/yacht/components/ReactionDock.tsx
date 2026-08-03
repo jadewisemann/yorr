@@ -166,14 +166,14 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
         {REACTIONS.map((reaction) => (
           <button
             aria-label={reaction.label}
-            className="grid size-11 cursor-pointer place-items-center rounded-card border-0 bg-transparent p-0 text-[22px] leading-none transition-transform hover:scale-115 focus-visible:outline-3 focus-visible:outline-focus"
+            className="reaction-chip focus-ring"
             key={reaction.type}
             onClick={() => send(reaction.type)}
             // 닫힌 픽커가 탭 순서에 남으면 포커스가 보이지 않는 곳으로 들어간다.
             tabIndex={open ? undefined : -1}
             type="button"
           >
-            <span aria-hidden="true">{reaction.emoji}</span>
+            {reaction.emoji}
           </button>
         ))}
       </div>
@@ -183,14 +183,15 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
         aria-expanded={open}
         aria-label="리액션 보내기"
         className={cn(
-          'grid size-tap cursor-pointer place-items-center rounded-card border border-border bg-surface/90 text-[19px] shadow-raised transition-colors focus-visible:outline-3 focus-visible:outline-focus',
+          'grid size-tap cursor-pointer place-items-center rounded-card border border-border bg-surface/90 text-[19px] shadow-raised transition-colors focus-ring',
           open && 'border-brand bg-brand/15',
         )}
         onClick={() => setOpen(!open)}
         type="button"
       >
-        {/* 픽커 5종과 겹치지 않는 글리프여야 한다 — 🙂는 🫡와 나란히 놓으면 같은 얼굴로 읽힌다. */}
-        <span aria-hidden="true">💬</span>
+        {/* 픽커 5종과 겹치지 않는 글리프여야 한다 — 🙂는 🫡와 나란히 놓으면 같은 얼굴로 읽힌다.
+            aria-label이 있으니 글리프를 aria-hidden으로 감싸지 않는다 — 이름은 이미 덮인다. */}
+        💬
       </button>
     </div>
   )
