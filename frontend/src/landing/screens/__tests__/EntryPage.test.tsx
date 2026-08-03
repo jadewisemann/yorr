@@ -91,12 +91,24 @@ describe('EntryPage', () => {
     expect(navigate).toHaveBeenCalledWith({ to: '/join', search: { code: undefined } })
   })
 
+  it('처음 온 사람은 방을 만들지 않고 연습 모드로 바로 들어간다', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    await user.click(screen.getByRole('button', { name: /튜토리얼로 연습하기/ }))
+
+    // 연습은 실전과 다른 화면이다 — /join을 거치지 않는다.
+    expect(navigate).toHaveBeenCalledWith({ to: '/tutorial' })
+  })
+
   it('locks the call to action for a game that has not shipped', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)
 
     await user.click(screen.getByRole('tab', { name: /라이어스 다이스/ }))
 
+    // 준비 중인 게임에는 연습할 것이 아직 없다.
+    expect(screen.queryByRole('button', { name: /튜토리얼로 연습하기/ })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
     // COMING SOON 배지도 마찬가지 — 못 누르는 회색 버튼이 같은 사실을 더 강하게 말한다.
     expect(screen.queryByRole('button', { name: /플레이$/ })).not.toBeInTheDocument()
