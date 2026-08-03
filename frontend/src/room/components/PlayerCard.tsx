@@ -10,6 +10,8 @@ type PlayerCardProps = {
   current?: boolean
   subtitle?: string | undefined
   trailing?: ReactNode | undefined
+  /** 음성 채팅에서 지금 말하고 있는지. 통화를 끈 상태면 항상 false다. */
+  speaking?: boolean
   className?: string
 }
 const statusLabel = {
@@ -32,6 +34,7 @@ export function PlayerCard({
   name,
   avatarSeed = name,
   score,
+  speaking = false,
   status = 'online',
   subtitle,
   trailing,
@@ -45,6 +48,9 @@ export function PlayerCard({
         'grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-panel border border-border bg-surface-raised p-3',
         active && 'border-white/18',
         status === 'offline' && 'opacity-60',
+        // 말하는 중 — TurnStrip과 같은 신호(초록 outline + 🎙)를 쓴다. border는 active가
+        // 이미 쓰고 있으므로 outline으로 두른다.
+        speaking && 'outline-2 outline-positive outline-offset-1',
         className,
       )}
       aria-label={`${name}, ${stateLabel}${score === undefined ? '' : `, ${score}점`}`}
@@ -61,6 +67,12 @@ export function PlayerCard({
           {current && (
             <span className="shrink-0 rounded-[6px] bg-content px-2 py-0.5 text-xs font-bold text-canvas">
               나
+            </span>
+          )}
+          {/* 초록 테두리만으로 알리지 않는다 — 색은 저대비·색각 이상에서 먼저 사라진다. */}
+          {speaking && (
+            <span aria-hidden="true" className="shrink-0 text-xs leading-none">
+              🎙️
             </span>
           )}
         </span>

@@ -1,3 +1,5 @@
+import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
+import { VoiceButton } from '@/realtime/voice/VoiceButton'
 import type { Player, PlayerId } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
 import type { ConnectionStatus } from '@/store'
@@ -18,6 +20,8 @@ interface GamePlayHeaderProps {
   roundNumber: number
   soundMuted: boolean
   submitted: boolean
+  /** 음성 채팅 상태. 마이크 버튼은 소리 토글과 같은 자리에 선다. */
+  voice: VoiceChat
   wide: boolean
 }
 
@@ -34,6 +38,7 @@ export function GamePlayHeader({
   roundNumber,
   soundMuted,
   submitted,
+  voice,
   wide,
 }: GamePlayHeaderProps) {
   const controls = (
@@ -41,6 +46,7 @@ export function GamePlayHeader({
       <HeaderButton label="게임 도움말" onClick={onHelp}>
         ?
       </HeaderButton>
+      <VoiceButton voice={voice} />
       <HeaderButton
         label={soundMuted ? '소리 켜기' : '소리 끄기'}
         onClick={onToggleSound}

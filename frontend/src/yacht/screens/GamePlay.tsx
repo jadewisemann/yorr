@@ -1,4 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import { useVoice } from '@/realtime/voice/VoiceContext'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { readSoundMuted, saveSoundMuted } from '@/shared/audio/soundPreference'
 import { setSoundtrackMuted } from '@/shared/audio/soundtrack'
@@ -86,6 +87,8 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
   const wide = useMediaQuery(WIDE_LAYOUT)
   const connectionStatus = useAppStore((state) => state.connectionStatus)
   const { message: toastMessage, showToast } = useToast()
+  // 통화 자체는 라우터 위 VoiceProvider가 들고 있다 — 대기실에서 켠 통화가 여기로 이어진다.
+  const voice = useVoice()
 
   const [sheetOpen, setSheetOpen] = useState(false)
   const [zeroConfirm, setZeroConfirm] = useState<YachtCategory | null>(null)
@@ -211,7 +214,13 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
   // 상단 진행 표시 — 서버가 준 턴 순서 그대로다(명단 순서는 턴 순서가 아니다).
   const turnPlayers = toTurnStripPlayers(snapshot.players, game?.turnOrder, game?.scores)
   const turnStrip = (
-    <TurnStrip activePlayerId={activePlayerId} players={turnPlayers} you={session.you} />
+    <TurnStrip
+      activePlayerId={activePlayerId}
+      players={turnPlayers}
+      // 말하는 사람은 "누구 차례인가"를 보러 가는 자리에서 같이 읽힌다 — 별도 목록을 만들지 않는다.
+      speaking={voice.speaking}
+      you={session.you}
+    />
   )
 
   const diceScene = (
@@ -241,6 +250,7 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
       roundNumber={roundNumber}
       soundMuted={soundMuted}
       submitted={submitted}
+      voice={voice}
       wide={wide}
     />
   )

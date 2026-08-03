@@ -1,5 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import { VoiceButton } from '@/realtime/voice/VoiceButton'
+import { useVoice } from '@/realtime/voice/VoiceContext'
 import type { Player, PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
 import { isRoomHost } from '@/room/api/roomApi'
 import { useAddBot, useRemoveBot, useStartGame } from '@/room/api/useGameApi'
@@ -46,6 +48,8 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const startGame = useStartGame()
   const addBot = useAddBot()
   const removeBot = useRemoveBot()
+  // 통화 자체는 라우터 위 VoiceProvider가 들고 있다 — 여기서는 상태만 읽는다.
+  const voice = useVoice()
   const [exitRequested, setExitRequested] = useState(false)
   const matchingRoom = roomSession?.roomId === roomId
   const isHost = matchingRoom && isRoomHost(roomSnapshot, roomSession.you)
@@ -132,6 +136,9 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
               </span>
             </p>
           </div>
+          {/* 게임 시작 전에 마이크 권한을 끝내두게 여기에 둔다 — 시작 직후에 권한 창이 뜨면
+              첫 턴을 놓친다. 켠 통화는 게임 화면으로 그대로 이어진다(VoiceProvider가 라우터 위). */}
+          <VoiceButton className="flex-none" voice={voice} />
           <Button
             className="flex-none px-3.5 text-sm"
             onClick={() => setExitRequested(true)}
@@ -170,6 +177,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           onRemoveBot={(playerId) => void removeBot.execute(playerId)}
           onStart={() => void handleStart()}
           snapshot={roomSnapshot}
+          speaking={voice.speaking}
           startError={startGame.error}
           startLoading={startGame.isLoading}
           you={roomSession.you}
@@ -190,6 +198,8 @@ interface LobbyRoomContentProps {
   startLoading: boolean
   startError: Error | null
   botLoading: boolean
+  /** 음성 채팅에서 지금 말하고 있는 사람들. 통화를 끈 상태면 비어 있다. */
+  speaking: ReadonlySet<PlayerId>
   onStart: () => void
   onRemoveBot: (playerId: PlayerId) => void
 }
@@ -205,6 +215,7 @@ function LobbyRoomContent({
   startLoading,
   startError,
   botLoading,
+  speaking,
   onStart,
   onRemoveBot,
 }: LobbyRoomContentProps) {
@@ -230,6 +241,7 @@ function LobbyRoomContent({
             loading={botLoading}
             onRemove={onRemoveBot}
             player={player}
+            speaking={speaking.has(player.playerId)}
             you={you}
           />
         ))}
@@ -325,10 +337,19 @@ interface LobbyPlayerCardProps {
   you: PlayerId
   isHost: boolean
   loading: boolean
+  /** 음성 채팅으로 지금 말하고 있는지. 봇은 항상 false다. */
+  speaking: boolean
   onRemove: (playerId: PlayerId) => void
 }
 
-function LobbyPlayerCard({ player, you, isHost, loading, onRemove }: LobbyPlayerCardProps) {
+function LobbyPlayerCard({
+  player,
+  you,
+  isHost,
+  loading,
+  speaking,
+  onRemove,
+}: LobbyPlayerCardProps) {
   const isBot = player.kind === 'BOT'
   return (
     <PlayerCard
@@ -337,6 +358,7 @@ function LobbyPlayerCard({ player, you, isHost, loading, onRemove }: LobbyPlayer
       status={player.status}
       current={player.playerId === you}
       active={player.playerId === you}
+      speaking={speaking}
       subtitle={isBot ? '상태 기반 AI 봇' : undefined}
       trailing={
         isBot && isHost ? (

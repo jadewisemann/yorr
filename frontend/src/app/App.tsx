@@ -3,6 +3,7 @@ import { useAuthSessionCheck } from '@/auth/useAuthSessionCheck'
 import { resolveMswMode } from '@/mocks/mswMode'
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
 import { WebSocketRealtimeClient } from '@/realtime/realtimeClient'
+import { VoiceProvider } from '@/realtime/voice/VoiceContext'
 import { InAppBrowserGate } from './InAppBrowserGate'
 import { RealtimeSync } from './RealtimeSync'
 import { router } from './router'
@@ -17,7 +18,11 @@ export function App() {
   return (
     <InAppBrowserGate>
       <RealtimeSync client={realtimeClient}>
-        <RouterProvider router={router} />
+        {/* 라우터 **밖**이라는 게 요점이다 — 대기실에서 게임으로 넘어가도 통화가 끊기지 않는다.
+            RealtimeSync 안쪽이어야 소켓 client를 쓸 수 있다. */}
+        <VoiceProvider>
+          <RouterProvider router={router} />
+        </VoiceProvider>
       </RealtimeSync>
     </InAppBrowserGate>
   )
