@@ -12,6 +12,7 @@ import type { ActiveRoomSession } from '@/store'
 import { type RankedPlayer, ResultRanking } from '@/yacht/components/ResultRanking'
 import { ScoreMatrix } from '@/yacht/components/ScoreMatrix'
 import { UPPER_BONUS_POINTS } from '@/yacht/domain/scoring'
+import { PartyResultDashboard } from './PartyResultDashboard'
 
 interface GameResultProps {
   /** 나가기는 GamePage의 RoomExitGuard가 확인을 받고 처리한다(GamePlay와 같은 경로). */
@@ -37,6 +38,19 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
   const handleReturnToLobby = async () => {
     if (!isHost) return
     await returnToLobby.execute()
+  }
+
+  // 파티 모드 대시보드는 플레이어가 아니라 아래의 개인 결과(내 등수·내 점수)를 채울 값이 없다.
+  // 순위 계산은 여기서 한 것을 그대로 넘긴다 — 두 화면이 다른 등수를 보이면 안 된다.
+  if (session.membershipRole === 'dashboard') {
+    return (
+      <PartyResultDashboard
+        onLeaveRequest={onLeaveRequest}
+        ranked={ranked}
+        session={session}
+        snapshot={snapshot}
+      />
+    )
   }
 
   return (
