@@ -116,7 +116,7 @@ export function RecordPanel({
           <button
             aria-controls={sheetId}
             aria-expanded={open}
-            className="mt-1.5 flex min-h-8 w-full cursor-pointer items-center gap-2 border-0 bg-transparent p-0 text-left focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2"
+            className="mt-1.5 flex min-h-8 w-full cursor-pointer items-center gap-2 border-0 bg-transparent p-0 text-left focus-ring focus-visible:outline-offset-2"
             onClick={() => onToggle(!open)}
             type="button"
           >

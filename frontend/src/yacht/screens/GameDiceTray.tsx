@@ -140,7 +140,7 @@ export function GameDiceTray({
       {canRoll && local.dice === null && !pendingRoll && (
         <button
           aria-label="주사위 굴리기"
-          className="absolute inset-0 z-[4] grid cursor-pointer place-items-center border-0 bg-transparent focus-visible:outline-3 focus-visible:outline-focus focus-visible:-outline-offset-4"
+          className="absolute inset-0 z-[4] grid cursor-pointer place-items-center border-0 bg-transparent focus-ring focus-visible:-outline-offset-4"
           onClick={handleRoll}
           type="button"
         >
@@ -210,7 +210,7 @@ function TrayTopBand({
       {/* 흔들기 안내로 들어가는 조용한 입구. 알럿과 달리 아무것도 막지 않고 기다린다. */}
       {showMotionChip && (
         <button
-          className="pointer-events-auto flex cursor-pointer items-center gap-1 rounded-full border border-border bg-surface/80 px-2 py-1 text-[10px] font-bold tracking-[0.06em] text-content-muted uppercase transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2"
+          className="pointer-events-auto flex cursor-pointer items-center gap-1 rounded-full border border-border bg-surface/80 px-2 py-1 text-[10px] font-bold tracking-[0.06em] text-content-muted uppercase transition-colors hover:text-content focus-ring focus-visible:outline-offset-2"
           data-tutorial="motion"
           onClick={onOpenMotionPanel}
           type="button"

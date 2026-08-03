@@ -41,7 +41,7 @@ export function Button({
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-card border border-transparent font-bold transition-[color,background-color,border-color,opacity,translate] duration-150 ease-snappy hover:not-disabled:-translate-y-px focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55',
+        'inline-flex items-center justify-center gap-2 rounded-card border border-transparent font-bold transition-[color,background-color,border-color,opacity,translate] duration-150 ease-snappy hover:not-disabled:-translate-y-px focus-ring focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55',
         variants[variant],
         sizes[size],
         className,
