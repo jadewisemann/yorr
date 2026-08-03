@@ -213,6 +213,10 @@ describe('GamePlay 센서 굴림', () => {
     motion.availability = 'denied'
     const { rerenderGame, user } = renderGame()
 
+    // 안내는 저절로 뜨지 않는다 — 흔들기 칩을 눌러야 열린다.
+    expect(screen.queryByRole('region', { name: '센서 권한 안내' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /흔들기/ }))
+
     expect(screen.getByRole('region', { name: '센서 권한 안내' })).toBeVisible()
     await user.click(screen.getByRole('button', { name: '센서 안내 닫기' }))
     rerenderGame()

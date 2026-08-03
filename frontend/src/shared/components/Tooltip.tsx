@@ -12,6 +12,11 @@ interface TooltipProps {
   label: string
   /** 트리거로 보일 내용. 생략하면 ⓘ 아이콘 버튼이 된다. */
   children?: ReactNode
+  /**
+   * 첫 진입 안내가 이 툴팁을 가리키는 중인지. 어두워진 화면 위로 트리거만 도드라진다 —
+   * 좌표를 따로 재서 링을 그리면 툴팁이 움직일 때마다 어긋나므로 트리거 자신이 빛난다.
+   */
+  spotlight?: boolean
 }
 
 /**
@@ -25,6 +30,7 @@ export function Tooltip({
   content,
   label,
   side = 'bottom',
+  spotlight = false,
 }: TooltipProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLSpanElement>(null)
@@ -85,7 +91,13 @@ export function Tooltip({
         aria-label={label}
         // 보이는 ⓘ는 18px로 두고 히트 영역만 의사요소로 min-h-tap까지 넓힌다.
         // 버튼 자신의 상자는 그대로라 인접 텍스트를 밀지 않고 포커스 링도 글리프에 붙는다.
-        className="relative inline-flex cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-inherit before:absolute before:top-1/2 before:left-1/2 before:size-tap before:-translate-x-1/2 before:-translate-y-1/2 focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2"
+        className={cn(
+          'relative inline-flex cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-inherit before:absolute before:top-1/2 before:left-1/2 before:size-tap before:-translate-x-1/2 before:-translate-y-1/2 focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2',
+          // 딤 레이어는 이 트리거가 얹힌 밴드보다 아래에 깔리므로 z는 건드리지 않는다 —
+          // 여기서는 "여기다"라고 말하는 링만 그린다.
+          spotlight &&
+            'text-content ring-3 ring-brand-strong ring-offset-2 ring-offset-surface-raised motion-safe:animate-ring-pulse',
+        )}
         onBlur={() => {
           passiveOpenRef.current = false
           setOpen(false)

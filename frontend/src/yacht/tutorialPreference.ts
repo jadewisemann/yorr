@@ -5,7 +5,10 @@ const TUTORIAL_HIDDEN_COOKIE = 'yorr.tutorial-hidden'
  */
 const TUTORIAL_HIDDEN_MAX_AGE_SECONDS = 60 * 60 * 24 * 365
 
-/** 사용자가 튜토리얼을 "다시 보지 않기"로 숨겼는지. 쿠키를 못 읽는 환경이면 보여주는 쪽으로 둔다. */
+/**
+ * 첫 진입 안내(툴팁 코치마크)를 이미 보고 닫았는지. 쿠키를 못 읽는 환경이면 보여주는 쪽으로 둔다.
+ * 한 턴을 따라다니는 튜토리얼은 이제 도움말에서 직접 켜므로 이 쿠키와 무관하다(S15P11A406-143).
+ */
 export function isTutorialHidden(): boolean {
   return readCookie(TUTORIAL_HIDDEN_COOKIE) === '1'
 }

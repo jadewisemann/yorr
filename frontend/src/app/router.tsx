@@ -121,6 +121,16 @@ const authCallbackRoute = createRoute({
   },
 })
 
+/**
+ * 연습 모드. 실제 플레이 화면을 서버 없이 돌리므로 방 id도 세션도 필요 없다 —
+ * 게임 라우트와 달리 아무 조건 없이 바로 들어온다.
+ */
+const tutorialRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/tutorial',
+  component: lazyRouteComponent(() => import('@/yacht/screens/TutorialPage'), 'TutorialPage'),
+})
+
 const joinRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/join',
@@ -156,6 +166,7 @@ const gameRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  tutorialRoute,
   authCallbackRoute,
   joinRoute,
   lobbyRoute,

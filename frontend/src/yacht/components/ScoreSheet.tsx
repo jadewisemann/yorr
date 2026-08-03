@@ -27,6 +27,11 @@ interface ScoreSheetProps {
   canPick: boolean
   className?: string
   /**
+   * 연습 모드가 이 표를 가리킬 때 쓰는 표지. 이 표는 자기 자신이 스크롤 컨테이너라 밖에서
+   * 감쌀 수 없어(아래 header 주석 참고) 표지도 안으로 받는다.
+   */
+  'data-tutorial'?: string
+  /**
    * 표 위에 붙는 섹션 헤더. **이 컴포넌트 안으로 넣어야** 열 머리와 한 덩어리로 붙는다 —
    * 이 표는 자기 자신이 스크롤 컨테이너이자 섹션이라, 밖에서 한 번 더 감싸면 헤더가
    * 스크롤 영역 밖에 서고 그 사이에 여백이 생긴다.
@@ -78,6 +83,7 @@ export function ScoreSheet({
   candidates,
   canPick,
   className,
+  'data-tutorial': dataTutorial,
   header,
   onPick,
   players,
@@ -135,7 +141,12 @@ export function ScoreSheet({
 
     if (!clickable) {
       return (
-        <div className={rowClassName} key={category} style={columns}>
+        <div
+          className={rowClassName}
+          data-tutorial-category={category}
+          key={category}
+          style={columns}
+        >
           {label}
           {cells}
         </div>
@@ -145,6 +156,7 @@ export function ScoreSheet({
       <button
         aria-label={`${categoryLabel[category]} ${preview}`}
         className={rowClassName}
+        data-tutorial-category={category}
         key={category}
         onClick={() => onPick(category)}
         style={columns}
@@ -210,6 +222,7 @@ export function ScoreSheet({
         'flex flex-col overflow-auto overscroll-contain shrink-0 grow basis-auto justify-center-safe',
         className,
       )}
+      data-tutorial={dataTutorial}
       // 표 안에 포커스 요소가 없을 수 있어 스크롤 컨테이너가 tab을 받아야 한다(WCAG 2.1.1).
       // biome-ignore lint/a11y/noNoninteractiveTabindex: 스크롤 영역은 포커스를 받아야 한다
       tabIndex={0}
