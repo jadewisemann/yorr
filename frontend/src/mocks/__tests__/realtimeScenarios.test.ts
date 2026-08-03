@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createPlayingRoomSnapshot,
   creatorSession,
+  dashboardSession,
   MOCK_ROOM_ID,
   participantSession,
 } from '@/mocks/fixtures'
@@ -42,6 +43,31 @@ describe('FakeRealtimeClient scenarios', () => {
 
     expect(creatorMessages.mock.calls[0]?.[0].payload.you).toBe(creatorSession.you)
     expect(participantMessages.mock.calls[0]?.[0].payload.you).toBe(participantSession.you)
+  })
+
+  /**
+   * 파티 모드 대시보드는 <b>플레이어 정체성을 받아선 안 된다.</b>
+   *
+   * room.joined의 you가 곧 클라이언트의 정체성이 된다(RealtimeSync의 applyRoomJoined가
+   * roomSession.you를 이 값으로 덮는다). 모르는 토큰을 creator로 떨어뜨리던 시절엔 대시보드가
+   * player-creator를 받아 isMyTurn이 참이 되고, 플레이어가 아니어야 할 화면에서 주사위가 눌렸다.
+   */
+  it('대시보드 토큰에는 대시보드 정체성을 돌려준다', () => {
+    const dashboard = createRealtimeFixture()
+    const messages = vi.fn()
+    dashboard.onMessage(messages)
+
+    dashboard.send(
+      buildClientMessage('room.join', {
+        roomId: dashboardSession.roomId,
+        nickname: dashboardSession.nickname,
+        sessionToken: dashboardSession.sessionToken,
+      }),
+    )
+
+    const you = messages.mock.calls[0]?.[0].payload.you
+    expect(you).toBe(dashboardSession.you)
+    expect(you).not.toBe(creatorSession.you)
   })
 
   it('오류·중복·역순 시나리오를 선택할 수 있다', () => {

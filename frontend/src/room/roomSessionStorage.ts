@@ -9,7 +9,7 @@ const roomSessionStorageKey = 'yorr.room-session'
 const roomSessionTtlMs = 40 * 60 * 1000
 const roomPhases: readonly RoomPhase[] = ['waiting', 'playing', 'finished']
 const playerStatuses = ['online', 'away', 'offline'] as const
-const membershipRoles: readonly RoomMembershipRole[] = ['host', 'participant']
+const membershipRoles: readonly RoomMembershipRole[] = ['host', 'participant', 'dashboard']
 
 interface StorageLike {
   getItem(key: string): string | null

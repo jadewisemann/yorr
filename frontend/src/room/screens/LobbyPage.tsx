@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { Player, PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
+import { hasHostPowers, type RoomMembershipRole } from '@/room/api/roomApi'
 import { useAddBot, useRemoveBot, useStartGame } from '@/room/api/useGameApi'
 import { InvitationPanel } from '@/room/components/InvitationPanel'
 import { PlayerCard } from '@/room/components/PlayerCard'
@@ -47,7 +48,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const removeBot = useRemoveBot()
   const [exitRequested, setExitRequested] = useState(false)
   const matchingRoom = roomSession?.roomId === roomId
-  const isHost = matchingRoom && roomSession.membershipRole === 'host'
+  const isHost = matchingRoom && hasHostPowers(roomSession.membershipRole)
   const capacity = roomSnapshot?.capacity ?? 6
   const pingPong =
     roomSnapshot?.gameCode === 'PING_PONG' ||
@@ -184,7 +185,7 @@ interface LobbyRoomContentProps {
   capacity: number
   you: PlayerId
   isHost: boolean
-  membershipRole: 'host' | 'participant'
+  membershipRole: RoomMembershipRole
   minPlayers: number
   connectionStatus: ReturnType<typeof useAppStore.getState>['connectionStatus']
   canStart: boolean

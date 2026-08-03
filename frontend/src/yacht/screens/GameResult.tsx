@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
+import { hasHostPowers } from '@/room/api/roomApi'
 // 경계 규칙 예외 — yacht가 room을 본다. 결과 화면이 "대기실로 돌아가기"를 직접
 // 호출하기 때문이다. 부모인 room/screens/GamePage가 onLeaveRequest처럼 콜백으로
 // 내려주면 사라지지만 컴포넌트 계약이 바뀌는 로직 변경이라 별도 티켓이다.
@@ -29,7 +30,7 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
   const myRank = myIndex >= 0 ? myIndex + 1 : ranked.length
   const me = ranked[myIndex]
   const myBoard = snapshot.game?.scores[session.you]
-  const isHost = session.membershipRole === 'host'
+  const isHost = hasHostPowers(session.membershipRole)
 
   // 대기실 복귀는 방 전체가 함께 움직인다(화면 전환이 phase 기준이라 혼자 옮겨갈 수 없다).
   // 이동 자체는 서버의 state.sync를 받은 라우팅이 처리하므로 여기서 navigate하지 않는다.

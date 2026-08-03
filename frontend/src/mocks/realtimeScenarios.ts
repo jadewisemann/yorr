@@ -8,6 +8,7 @@ import {
 import { type CategoryScores, calculateScoreSummary, scoreCategory } from '@/yacht/domain/scoring'
 import {
   creatorSession,
+  dashboardSession,
   MOCK_ROOM_ID,
   MOCK_ROUND_DURATION_MS,
   participantSession,
@@ -65,10 +66,18 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         ]
       }
 
+      // 토큰으로 정체성을 가른다. 실서버가 sessionToken을 인증해 그 사람의 userId를 돌려주는
+      // 것과 같은 자리다 — room.joined의 you가 곧 클라이언트의 정체성이 된다(applyRoomJoined가
+      // roomSession.you를 이 값으로 덮는다).
+      //
+      // 파티 모드 대시보드를 따로 알아봐야 한다. 모르는 토큰을 creator로 떨어뜨리면 대시보드가
+      // 플레이어 정체성을 받아 자기 턴이 되고, 플레이어가 아니어야 할 화면에서 주사위가 눌린다.
       const joinedSession =
         message.payload.sessionToken === participantSession.sessionToken
           ? participantSession
-          : session
+          : message.payload.sessionToken === dashboardSession.sessionToken
+            ? dashboardSession
+            : session
 
       // 실서버처럼 mock이 기억하는 현재 방 상태(진행 phase·점수판)를 돌려준다 —
       // 새로고침 후 재접속해도 게임이 대기 중으로 되돌아가지 않는다(QA 참고 항목).

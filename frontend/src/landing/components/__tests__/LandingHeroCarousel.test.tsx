@@ -16,6 +16,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={0}
         games={games}
         layout="wide"
+        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
       />,
@@ -34,6 +35,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={0}
         games={games}
         layout="wide"
+        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
       />,
@@ -47,6 +49,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={games.length - 1}
         games={games}
         layout="wide"
+        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
       />,
@@ -63,6 +66,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={0}
         games={games}
         layout="narrow"
+        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
       />,
@@ -79,6 +83,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={1}
         games={games}
         layout="wide"
+        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
       />,
@@ -98,6 +103,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={1}
         games={games}
         layout="wide"
+        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
       />,
@@ -119,6 +125,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={1}
         games={games}
         layout="wide"
+        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
       />,
@@ -139,6 +146,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={1}
         games={games}
         layout="narrow"
+        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
       />,
@@ -167,6 +175,7 @@ describe('LandingHeroCarousel', () => {
         activeIndex={0}
         games={games}
         layout="narrow"
+        onPartyMode={vi.fn()}
         onPlay={onPlay}
         onSelect={onSelect}
       />,
