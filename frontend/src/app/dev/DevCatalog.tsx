@@ -24,6 +24,18 @@ const initialGuideSignals = {
   submitted: false,
 }
 
+/** 대본 마지막 굴림 [6 6 6 6 2]의 후보 점수. 같은 눈 4개라 포커도 26점으로 선다. */
+const LAST_ROLL_CANDIDATES: CategoryScores = {
+  ones: 0,
+  sixes: 24,
+  choice: 26,
+  fourOfAKind: 26,
+  fullHouse: 0,
+  smallStraight: 0,
+  largeStraight: 0,
+  yacht: 0,
+}
+
 export function DevCatalog() {
   const [modalOpen, setModalOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -181,6 +193,20 @@ export function DevCatalog() {
             }
           >
             2굴림 완료 (6이 3개)
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() =>
+              setGuideSignals((signals) => ({
+                ...signals,
+                candidates: LAST_ROLL_CANDIDATES,
+                keptValues: [6, 6, 6, 6],
+                rollCount: 3,
+              }))
+            }
+          >
+            3굴림 완료 (6이 4개 → 족보 설명)
           </Button>
           <Button
             size="sm"

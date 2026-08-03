@@ -336,23 +336,17 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
           {/* 모바일 기록 패널이 이 컨테이너 아래에 붙는다 — 주사위 씬은 항상 같은 자리다. */}
           <div className={cn('flex min-h-0 flex-1 flex-col', !wide && 'relative')}>
             {diceScene}
-            {/* 안내 띠는 트레이를 밀어내고 자기 자리를 갖는다 — 덮지 않으므로 배우는 동안
-                주사위·킵 레일·족보가 한 번도 가려지지 않는다. */}
-            {guide ? (
-              <div className="flex-none px-gutter pt-1 pb-0.5">
-                {guide({
-                  rolled,
-                  keptValues: local.dice
-                    ? local.dice.filter((_value, index) => local.held[index])
-                    : [],
-                  submitted,
-                  rollCount: local.rollCount,
-                  candidates,
-                  motionNoticeVisible: canOfferMotion(roll.motion.availability),
-                  wide,
-                })}
-              </div>
-            ) : null}
+            {/* 연습 모드 안내. 스스로 뷰포트를 덮는 오버레이라 흐름에서 자리를 차지하지 않는다 —
+                감싸는 층을 두면 그 패딩만큼 트레이가 이유 없이 줄어든다. */}
+            {guide?.({
+              rolled,
+              keptValues: local.dice ? local.dice.filter((_value, index) => local.held[index]) : [],
+              submitted,
+              rollCount: local.rollCount,
+              candidates,
+              motionNoticeVisible: canOfferMotion(roll.motion.availability),
+              wide,
+            })}
             <footer
               className={cn(
                 'flex flex-none items-center px-gutter',

@@ -1,7 +1,8 @@
 import { type ReactNode, useEffect, useLayoutEffect, useState } from 'react'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
-import type { CategoryScores } from '@/yacht/domain/scoring'
+import type { CategoryScores, YachtCategory } from '@/yacht/domain/scoring'
+import { MAX_ROLLS } from '@/yacht/domain/yachtGame'
 
 interface TutorialGuideProps {
   /** 이번 턴에 주사위가 깔려 있는지(첫 굴림 완료). */
@@ -14,7 +15,7 @@ interface TutorialGuideProps {
   rollCount: number
   /** 지금 주사위로 각 족보가 몇 점인지. 족보 설명을 실제 눈과 함께 보여준다. */
   candidates: CategoryScores
-  /** 모션 센서를 켤 수 있는 기기인지. 아니면 흔들기 단계를 건너뛴다. */
+  /** 모션 센서를 켤 수 있는 기기인지. 아니면 마지막 굴림을 흔들기 대신 버튼으로 하게 한다. */
   motionNoticeVisible: boolean
   /** 넓은 레이아웃인지. 점수표가 우측 패널이냐 아래 기록 패널이냐가 갈린다. */
   wide: boolean
@@ -22,27 +23,39 @@ interface TutorialGuideProps {
   onClose: () => void
 }
 
-type GuideStep = 'greet' | 'roll' | 'keep' | 'motion' | 'reroll' | 'categories' | 'record' | 'done'
+/**
+ * 굴림 세 번을 먼저 다 하고, 그다음에 족보를 설명한다. 예전에는 2굴림 뒤에 족보 읽기가
+ * 끼어들고 남은 한 번을 그 뒤에 굴리게 했는데, 던지다 말고 읽고 다시 던지는 흐름이 어색했다.
+ * 손이 하는 일(굴림·킵)을 끝내고 나서 머리가 하는 일(족보)로 넘어간다.
+ */
+type GuideStep =
+  | 'greet'
+  | 'roll'
+  | 'keep'
+  | 'reroll'
+  | 'motion'
+  | 'lastRoll'
+  | 'categories'
+  | 'record'
+  | 'done'
 
 /**
  * 각 단계에서 강조할 화면 조각. GamePlay가 붙여 둔 data-tutorial 표지를 찾는다 —
  * 좌표를 여기 적어 두면 레이아웃이 바뀔 때마다 조용히 어긋난다.
  *
- * 점수표를 보라고 할 때 무엇을 강조하느냐가 레이아웃마다 다르다. 좁은 화면에서 점수표는
- * 접혀 있는 바텀시트라 **손잡이**를 올려야 열리는데, 퀵 칩을 강조하면 그걸 누르게 되고
- * 그 순간 점수가 기록되며 턴이 끝나 버린다. 넓은 화면은 점수표가 이미 펼쳐져 있다.
+ * 족보 설명(categories)에는 구멍을 뚫지 않는다. 읽는 단계라 눌러야 할 곳이 없고, 설명을
+ * 카드 안에서 직접 하므로 화면을 통째로 덮어 읽는 데 집중시키는 편이 낫다.
  */
-function spotlightFor(step: GuideStep, wide: boolean): string | null {
+function spotlightFor(step: GuideStep): string | null {
   switch (step) {
     case 'roll':
     case 'reroll':
+    case 'lastRoll':
       return '[data-tutorial="roll"]'
     case 'keep':
       return '[data-tutorial="tray"]'
     case 'motion':
       return '[data-tutorial="motion"]'
-    case 'categories':
-      return wide ? '[data-tutorial="sheet"]' : '[data-tutorial="sheet-handle"]'
     // 기록은 "아무거나"가 아니라 이번 대본이 만들어 준 식스를 콕 집어 누르게 한다.
     case 'record':
       return '[data-tutorial-category="sixes"]'
@@ -56,6 +69,61 @@ interface Lesson {
   body: string
   /** 눌러야 다음으로 가는 단계에는 버튼을 두지 않는다 — 직접 해보는 것이 요점이다. */
   action?: string
+  /** 족보 요약표를 본문 아래에 편다. 족보 설명 단계에서만 쓴다. */
+  hands?: boolean
+}
+
+/**
+ * 족보 12칸을 일곱 줄로 줄인 요약(S15P11A406-143). 예전에는 "설명은 ? 도움말에 있어요"로
+ * 넘겼는데, 처음 온 사람에게 다른 곳을 찾아가라고 하면 대개 안 찾아간다 — 규칙을 알아야
+ * 어디에 적을지 고를 수 있으니 여기서 바로 말한다.
+ *
+ * 위 여섯 칸은 규칙이 하나라 한 줄로 묶는다. "에이스는 1을, 듀스는 2를…"을 여섯 번
+ * 반복하면 읽다가 지치고, 정작 다른 하단 족보가 묻힌다.
+ */
+const HAND_SUMMARY: ReadonlyArray<{
+  name: string
+  rule: string
+  /** 지금 주사위로 몇 점인지 옆에 붙일 칸. 위 6칸 묶음처럼 대표할 칸이 없으면 없다. */
+  category?: YachtCategory
+}> = [
+  { name: '에이스 ~ 식스', rule: '고른 숫자만 모아서 더해요' },
+  { name: '초이스', rule: '눈 다섯 개를 그냥 다 더해요', category: 'choice' },
+  { name: '포커', rule: '같은 눈 4개', category: 'fourOfAKind' },
+  { name: '풀하우스', rule: '같은 눈 3개 + 2개', category: 'fullHouse' },
+  { name: '스몰 스트레이트', rule: '연속 4개 · 15점', category: 'smallStraight' },
+  { name: '라지 스트레이트', rule: '연속 5개 · 30점', category: 'largeStraight' },
+  { name: '요트', rule: '다섯 개 모두 같은 눈 · 50점', category: 'yacht' },
+]
+
+/**
+ * 족보 요약표. 규칙만 적으면 외울 것이 늘 뿐이라, 지금 주사위로 실제 몇 점인지를 같은 줄에
+ * 붙인다 — 0점인 칸은 "이 모양이 아니다"를 스스로 말해 준다.
+ */
+function HandSummary({ candidates }: { candidates: CategoryScores }) {
+  return (
+    <ul className="m-0 grid list-none gap-1 rounded-control bg-surface-sunken px-2.5 py-2">
+      {HAND_SUMMARY.map((hand) => {
+        const score = hand.category === undefined ? null : candidates[hand.category]
+        return (
+          <li className="flex items-baseline gap-2 text-[12.5px]/[1.35]" key={hand.name}>
+            <span className="flex-none font-semibold text-content">{hand.name}</span>
+            <span className="min-w-0 flex-1 text-content-faint">{hand.rule}</span>
+            {score !== null && score !== undefined && (
+              <span
+                className={cn(
+                  'flex-none font-mono font-bold tabular-nums',
+                  score > 0 ? 'text-brand-strong' : 'text-content-faint',
+                )}
+              >
+                {score}
+              </span>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
 }
 
 interface LessonContext {
@@ -108,14 +176,6 @@ function lessonFor(step: GuideStep, ctx: LessonContext): Lesson {
             : '같은 눈을 모으면 점수가 커져요. 6이 그려진 주사위를 모두 탭해서 킵해 보세요 — 킵한 주사위는 다시 굴려도 그대로 남아요.',
       }
     }
-    case 'categories':
-      return {
-        title: '족보는 점수표에서 봐요',
-        body: ctx.wide
-          ? '오른쪽 점수표에 족보 12개가 있어요. 지금 주사위로 각각 몇 점인지 미리 계산해서 보여주니 천천히 훑어보세요. 족보별 설명은 위 ? 도움말에 있어요.'
-          : '표시된 손잡이를 위로 올리면 족보 12개가 담긴 점수표가 열려요. 지금 주사위로 각각 몇 점인지 미리 계산해서 보여주니 천천히 훑어보세요. 족보별 설명은 위 ? 도움말에 있어요.',
-        action: '다 봤어요',
-      }
     case 'reroll':
       return {
         title: '나머지만 다시 굴려요',
@@ -125,7 +185,21 @@ function lessonFor(step: GuideStep, ctx: LessonContext): Lesson {
       return {
         title: '마지막 한 번은 흔들어서 굴려 볼까요?',
         body: '버튼 대신 실제로 주사위를 굴리듯 폰을 흔들어도 돼요. 표시된 "흔들기"를 눌러 센서를 켜고, 폰을 흔들어 마지막 굴림을 해보세요.',
-        action: '괜찮아요, 넘어갈게요',
+        action: '버튼으로 굴릴게요',
+      }
+    case 'lastRoll':
+      return {
+        title: '마지막 한 번 남았어요',
+        body: '한 턴에 세 번까지니까 이번이 마지막이에요. 굴리고 나면 다섯 개가 그대로 확정돼요.',
+      }
+    case 'categories':
+      return {
+        title: '이제 어디에 적을지 골라요',
+        body: `주사위는 확정됐어요. 점수를 적을 칸이 12개 있고, 각 칸이 원하는 모양이 달라요.${
+          ctx.sixes > 0 ? ` 지금 6이 ${ctx.sixes}개라 식스 칸이 ${ctx.sixesScore}점이에요.` : ''
+        }`,
+        hands: true,
+        action: '알겠어요',
       }
     case 'record':
       return {
@@ -148,9 +222,10 @@ function lessonFor(step: GuideStep, ctx: LessonContext): Lesson {
  * 큰 카드로 한 번에 하나씩 말하고, **지금 눌러야 할 것 하나**에 강조 링을 씌운다.
  *
  * 눌러야 하는 단계에서는 화면을 덮지 않는다. 어둠을 깔면 "여기를 누르세요"라고 해놓고 그 손을
- * 막는다. 누를 곳이 없는 인사·마무리에서만 덮어 읽는 데 집중시킨다.
+ * 막는다. 누를 곳이 없는 읽기 단계(인사 · 족보 설명 · 마무리)에서만 덮어 읽는 데 집중시킨다.
  *
  * 단계는 버튼이 아니라 실제 플레이(굴림 → 킵 → 기록)에 반응해 넘어간다. 직접 해봐야 배운다.
+ * 순서는 손이 하는 일을 먼저 끝내고(굴림 세 번 · 킵) 머리가 하는 일(족보)로 넘어간다.
  */
 export function TutorialGuide({
   candidates,
@@ -165,13 +240,6 @@ export function TutorialGuide({
   const [step, setStep] = useState<GuideStep>('greet')
 
   /*
-   * 족보를 다 보고 나면 마지막 굴림 한 번이 남아 있다 — 그 한 번을 흔들기 체험에 쓴다.
-   * 센서 안내가 없는 기기(데스크톱 등)에서는 켤 것이 없으므로 바로 기록으로 간다.
-   */
-  const afterCategories = (): GuideStep =>
-    motionNoticeVisible && rollCount < 3 ? 'motion' : 'record'
-
-  /*
    * 6의 개수는 대본을 믿지 않고 화면(식스 후보 점수)에서 거꾸로 센다 — 사용자가 안내와 다르게
    * 킵해 대본과 어긋나는 순간 틀린 숫자를 우길 이유가 없다.
    */
@@ -181,11 +249,18 @@ export function TutorialGuide({
   const keptOther = keptValues.filter((value) => value !== 6).length
 
   useEffect(() => {
-    const next = stepFromPlay(step, { keptSixes, rolled, rollCount, sixesOnTray, submitted })
+    const next = stepFromPlay(step, {
+      keptSixes,
+      motionNoticeVisible,
+      rolled,
+      rollCount,
+      sixesOnTray,
+      submitted,
+    })
     if (next) setStep(next)
-  }, [keptSixes, rolled, rollCount, sixesOnTray, step, submitted])
+  }, [keptSixes, motionNoticeVisible, rolled, rollCount, sixesOnTray, step, submitted])
 
-  const spotlight = useSpotlight(spotlightFor(step, wide))
+  const spotlight = useSpotlight(spotlightFor(step))
   const lesson = lessonFor(step, { keptOther, keptSixes, sixes: sixesOnTray, sixesScore, wide })
 
   return (
@@ -201,11 +276,12 @@ export function TutorialGuide({
         >
           {lesson.body}
         </p>
+        {lesson.hands && <HandSummary candidates={candidates} />}
         <div className="mt-0.5 flex items-center justify-between gap-3">
           <GuideTextButton label="연습 그만두기" onClick={onClose} />
           {lesson.action ? (
             <Button
-              onClick={step === 'done' ? onClose : () => setStep(nextOf(step, afterCategories))}
+              onClick={step === 'done' ? onClose : () => setStep(nextOf(step))}
               size="sm"
               variant="secondary"
             >
@@ -226,6 +302,7 @@ export function TutorialGuide({
 /** 플레이 신호. 안내가 따로 세지 않고 GamePlay가 넘겨준 값에서만 읽는다. */
 interface PlaySignals {
   keptSixes: number
+  motionNoticeVisible: boolean
   rolled: boolean
   rollCount: number
   sixesOnTray: number
@@ -241,23 +318,36 @@ interface PlaySignals {
  * 통째로 놓친다.
  */
 function stepFromPlay(step: GuideStep, play: PlaySignals): GuideStep | null {
-  // 마무리와 족보 훑기는 버튼으로만 넘어간다 — 족보를 보는 중에 굴림 수가 바뀌어도 끌려가면 안 된다.
+  // 마무리와 족보 설명은 버튼으로만 넘어간다 — 읽는 중에 굴림 수가 바뀌어도 끌려가면 안 된다.
   if (step === 'done' || step === 'categories') return null
-  // 흔들기 단계는 세 번째 굴림이 끝나면 스스로 빠진다.
-  if (step === 'motion') return play.rollCount >= 3 ? 'record' : null
+  // 마지막 굴림을 쓰는 두 단계. 굴림이 끝나면 족보 설명으로 넘어간다.
+  if (step === 'motion' || step === 'lastRoll') {
+    return play.rollCount >= MAX_ROLLS ? 'categories' : null
+  }
   if (play.submitted) return 'done'
   if ((step === 'greet' || step === 'roll') && play.rolled) return 'keep'
   // 6이 두 개인데 하나만 킵하고 넘어가면 "같은 눈을 모은다"를 절반만 해본 셈이다.
   if (step === 'keep' && play.keptSixes >= play.sixesOnTray) return 'reroll'
-  if (step === 'reroll' && play.rollCount >= 2) return 'categories'
+  // 두 번째 굴림이 끝나면 남은 한 번을 쓴다 — 센서가 있으면 흔들어서, 없으면 그냥 한 번 더.
+  if (step === 'reroll' && play.rollCount >= 2) return afterReroll(play)
   return null
 }
 
+/**
+ * 두 번째 굴림 뒤에 갈 곳. 안내보다 빨리 세 번을 다 굴려 버렸으면 굴릴 것이 없으니 바로
+ * 족보로 간다 — 여기서 흔들기를 시키면 이미 끝난 굴림을 한 번 더 하라는 말이 된다.
+ */
+function afterReroll(play: PlaySignals): GuideStep {
+  if (play.rollCount >= MAX_ROLLS) return 'categories'
+  return play.motionNoticeVisible ? 'motion' : 'lastRoll'
+}
+
 /** 버튼으로 넘기는 단계의 다음 칸. 나머지는 플레이 신호가 옮긴다. */
-function nextOf(step: GuideStep, afterCategories: () => GuideStep): GuideStep {
+function nextOf(step: GuideStep): GuideStep {
   if (step === 'greet') return 'roll'
-  if (step === 'categories') return afterCategories()
-  if (step === 'motion') return 'record'
+  // 흔들기를 마다한 사람도 마지막 굴림은 해야 한다 — 버튼으로 굴리는 같은 자리로 보낸다.
+  if (step === 'motion') return 'lastRoll'
+  if (step === 'categories') return 'record'
   return step
 }
 
@@ -346,6 +436,12 @@ function Backdrop({ spotlight }: { spotlight: SpotlightRect | null }) {
 /**
  * 설명 카드. 강조한 곳을 가리면 안 되므로 구멍의 반대쪽 절반에 붙는다 —
  * 아래를 밝혔으면 위로, 위를 밝혔으면 아래로.
+ *
+ * 폭은 플레이 영역(`max-w-play`)에서 멈추고 가운데 선다. 딤과 차단막은 뷰포트를 덮어야 하므로
+ * 이 오버레이의 컨테이닝 블록은 뷰포트지만(구멍 좌표가 getBoundingClientRect 값이다),
+ * **카드는 게임과 같은 열에 서야 한다** — GamePlay의 main이 mx-auto max-w-play로 가운데
+ * 좁게 서 있어서, 카드만 inset-x-4로 두면 넓은 화면에서 게임보다 훨씬 옆으로 튀어나온다.
+ * mx-auto가 left/right 둘 다 잡힌 절대 요소를 상한 안에서 가운데로 되돌린다.
  */
 function Card({ children, spotlight }: { children: ReactNode; spotlight: SpotlightRect | null }) {
   const below = spotlight !== null && spotlight.top < window.innerHeight / 2
@@ -353,7 +449,7 @@ function Card({ children, spotlight }: { children: ReactNode; spotlight: Spotlig
   return (
     <div
       className={cn(
-        'pointer-events-auto absolute inset-x-4 grid gap-2.5 rounded-card border border-white/20 bg-surface-raised p-4 shadow-raised',
+        'pointer-events-auto absolute inset-x-4 mx-auto grid max-w-play gap-2.5 rounded-card border border-white/20 bg-surface-raised p-4 shadow-raised',
         spotlight === null
           ? 'top-1/2 -translate-y-1/2'
           : below
