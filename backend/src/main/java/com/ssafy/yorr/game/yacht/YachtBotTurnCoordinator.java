@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -99,7 +100,11 @@ public class YachtBotTurnCoordinator {
         }
 
         if (state.activeRollCount() < RoundState.MAX_ROLL_COUNT) {
-            List<Boolean> held = decision.held();
+            List<Boolean> held = preserveHeldDiceIdentity(
+                    state.activeDice(),
+                    state.activeHeld(),
+                    decision.held()
+            );
             if (!held.equals(state.activeHeld())) {
                 RoundState heldState = actions.hold(
                         event.roomId(),
@@ -127,6 +132,41 @@ public class YachtBotTurnCoordinator {
         }
 
         return BotTurnStep.ignored();
+    }
+
+    private static List<Boolean> preserveHeldDiceIdentity(
+            List<Integer> dice,
+            List<Boolean> currentHeld,
+            List<Boolean> desiredHeld
+    ) {
+        if (currentHeld == null || currentHeld.size() != dice.size()
+                || desiredHeld.size() != dice.size()) {
+            return desiredHeld;
+        }
+
+        int[] remainingByFace = new int[6];
+        for (int index = 0; index < dice.size(); index++) {
+            if (Boolean.TRUE.equals(desiredHeld.get(index))) {
+                remainingByFace[dice.get(index) - 1]++;
+            }
+        }
+
+        List<Boolean> resolved = new ArrayList<>(NO_HELD);
+        for (int index = 0; index < dice.size(); index++) {
+            int faceIndex = dice.get(index) - 1;
+            if (Boolean.TRUE.equals(currentHeld.get(index)) && remainingByFace[faceIndex] > 0) {
+                resolved.set(index, true);
+                remainingByFace[faceIndex]--;
+            }
+        }
+        for (int index = 0; index < dice.size(); index++) {
+            int faceIndex = dice.get(index) - 1;
+            if (!resolved.get(index) && remainingByFace[faceIndex] > 0) {
+                resolved.set(index, true);
+                remainingByFace[faceIndex]--;
+            }
+        }
+        return List.copyOf(resolved);
     }
 
     private ExpectimaxYachtBotPolicy.BotDecision decide(ScoreBoard board, RoundState state) {
