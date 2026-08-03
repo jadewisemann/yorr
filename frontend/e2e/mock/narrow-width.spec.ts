@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test'
 import { HOST } from '../support/contract'
 import { startFakeGameServer } from '../support/fakeGameServer'
-import { createRoomAsHost } from '../support/flows'
+import { createRoomAsHost, useSimpleDiceRenderer } from '../support/flows'
 import { mockRestApi } from '../support/restMock'
 
 /**
@@ -144,6 +144,32 @@ async function renderedLineCount(page: Page, text: string) {
   }, text)
 }
 
+/**
+ * 짧은 라벨이 <b>제 칸 안에 한 줄로</b> 들어가는지. 줄 수와 담김을 함께 봐야 한다 —
+ * `nowrap`만 걸면 줄 수는 1이 되지만 라벨이 칸을 삐져나와 옆 요소와 겹치고, 그 겹침은
+ * 뷰포트 안에서 일어나므로 가로 넘침 검사에 걸리지 않는다.
+ */
+async function labelFit(page: Page, text: string) {
+  return page.evaluate((needle) => {
+    const target = [...document.querySelectorAll<HTMLElement>('span, p')].find(
+      (element) =>
+        (element.textContent ?? '').trim().endsWith(needle) && element.children.length <= 1,
+    )
+    if (!target?.parentElement) return { fits: false, lines: -1 }
+
+    const own = target.getBoundingClientRect()
+    const column = target.parentElement.getBoundingClientRect()
+    const range = document.createRange()
+    range.selectNodeContents(target)
+
+    return {
+      // 스크롤 폭이 보이는 폭보다 크면 내용이 칸을 넘겼다는 뜻이다(nowrap이면 여기서 잡힌다).
+      fits: target.scrollWidth <= target.clientWidth + 1 && own.right <= column.right + 1,
+      lines: new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size,
+    }
+  }, text)
+}
+
 test('keeps the landing page within 320px and protects Korean word breaks', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
@@ -186,22 +212,34 @@ test('keeps the lobby within 320px', async ({ page }) => {
 })
 
 /**
- * 게임 화면은 좁은 폭에서 가장 붐빈다 — 헤더(나가기·턴·타이머·소리·도움말), 인원 띠,
- * 주사위 트레이, 기록 패널이 한 화면을 나눠 쓴다. <b>여기가 검증 공백으로 남아 있다.</b>
+ * 게임 화면은 좁은 폭에서 가장 붐빈다 — 헤더(나가기·턴·타이머·소리·도움말)가 320px에서
+ * 고정 폭으로만 276px을 먹고, 턴 표시 칸은 남은 56px을 받는다.
  *
- * 게임 화면까지 가려면 `startHostedGame`이 필요한데, 그 헬퍼가 찾는 `게임 시작` 버튼은
- * 대기실에서 `isHost`가 참일 때만 그 이름이다(아니면 `게임 시작 · 호스트 전용`).
- * `waitingSnapshot`이 `hostId`를 담지 않아 mock 흐름에서 호스트가 되지 않는다 —
- * 같은 이유로 `game-flow.spec.ts` 4건이 이미 실패하고 있고, S15P11A406-167
- * 「e2e 스펙 복구」가 그 건이다. 하네스가 고쳐지면 여기에 다음을 더한다:
+ * <b>`/tutorial`로 들어간다.</b> 연습 모드가 같은 `GamePlay`·`GamePlayHeader`를 쓰므로
+ * 실시간 방 없이 같은 레이아웃을 볼 수 있다 — `startHostedGame`은 mock 흐름에서 호스트가
+ * 되지 않아(`waitingSnapshot`에 `hostId`가 없다) 쓸 수 없고, 같은 이유로
+ * `game-flow.spec.ts` 4건이 이 티켓 전부터 실패하고 있다(S15P11A406-167).
  *
- * ```
- * await expectNoHorizontalOverflow(page, '게임')
- * await expectKoreanWordBreakProtected(page, '게임')
- * ```
- *
- * 통과하는 스펙으로 위장하지 않으려고 비워 두는 대신 이유를 적어 둔다.
+ * 실전 전용 요소(연결 배너 · 참가자 점수시트 · 리액션 독)는 이 경로로 덮이지 않는다.
+ * 그 부분은 167 이후에 실시간 흐름으로 따로 확인해야 한다.
  */
-test.fixme('keeps the game screen within 320px', async () => {
-  // S15P11A406-167(e2e 하네스 복구) 이후 구현한다.
+test('keeps the practice game screen within 320px', async ({ page }) => {
+  await useSimpleDiceRenderer(page)
+  await page.goto('/tutorial')
+
+  await expect(page.getByRole('timer', { name: '남은 시간' })).toBeVisible()
+
+  await expectNoHorizontalOverflow(page, '연습 게임')
+  await expectKoreanWordBreakProtected(page, '연습 게임')
+
+  // 헤더의 라운드 라벨은 짧은 라벨이라 접히면 안 된다. 320px에서 「Round 01 / 12」(약 110px)가
+  // 56px 칸에서 두 줄이 됐다.
+  //
+  // 줄 수만 세면 부족하다 — `whitespace-nowrap`만 걸어도 줄 수는 1이 되고, 대신 라벨이 제
+  // 칸을 삐져나와 옆 버튼과 겹친다. 뷰포트 안에는 있으니 넘침 검사에도 걸리지 않는다.
+  // 그래서 **제 칸 안에 들어가는지**까지 본다.
+  expect(await labelFit(page, '/ 12'), '헤더 라운드 라벨이 제 칸을 넘거나 접혔다').toEqual({
+    fits: true,
+    lines: 1,
+  })
 })

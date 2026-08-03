@@ -165,8 +165,19 @@ function TurnStatus({
   return (
     // narrow에서는 이 줄이 남는 폭을 먹어 오른쪽 컨트롤을 끝으로 민다(예전 감싸던 div의 역할).
     <span className={cn('flex min-w-0 flex-col gap-0.5', !wide && 'flex-1')}>
-      <span className="font-mono text-[11px] leading-none font-bold tracking-[0.16em] text-content-muted tabular-nums uppercase">
-        Round {String(roundNumber).padStart(2, '0')} / {TOTAL_ROUNDS}
+      {/*
+        320px에서는 이 칸에 56px만 남는다 — 고정 요소(나가기 44 · 도움말 44 · 소리 44 ·
+        타이머 52 + 좌우 여백 32 + gap 60 = 276px)가 폭을 다 먹고 flex-1이 나머지를 받는다.
+        「Round 01 / 12」는 넓은 자간까지 합쳐 약 110px이라 두 줄로 접혔다.
+
+        그 폭에서는 `Round`와 넓은 자간을 뺀다. 숫자 쌍(01 / 12)만 남아도 옆의 원형 타이머와
+        나란히 놓이면 라운드 진행으로 읽히고, 정확한 낭독은 위의 sr-only h1이 이미 한다
+        (「요르 게임 진행 중 · N / 12 라운드」). nowrap을 함께 걸어 남은 폭이 더 줄어도
+        접히는 대신 잘리게 한다 — 접히면 헤더 안에서 줄 수가 흔들린다.
+      */}
+      <span className="font-mono text-[11px] leading-none font-bold tracking-[0.16em] whitespace-nowrap text-content-muted tabular-nums uppercase max-tiny:tracking-normal">
+        <span className="max-tiny:hidden">Round </span>
+        {String(roundNumber).padStart(2, '0')} / {TOTAL_ROUNDS}
       </span>
       <span
         className={cn(
