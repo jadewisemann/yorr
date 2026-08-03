@@ -23,6 +23,8 @@ function boardWithTotal(total: number): ScoreBoard {
 const finishedSnapshot = {
   roomId: hostSession.roomId,
   phase: 'finished',
+  // 방장은 스냅샷이 정한다 — 입장 시점의 membershipRole은 승계를 표현할 수 없다(isRoomHost).
+  hostId: hostSession.you,
   players: [
     { playerId: hostSession.you, nickname: '민지', status: 'online' },
     { playerId: 'player-participant', nickname: '지훈', status: 'online' },
@@ -116,8 +118,8 @@ describe('GameResult', () => {
     render(
       <GameResult
         onLeaveRequest={() => {}}
-        session={{ ...hostSession, membershipRole: 'participant' }}
-        snapshot={finishedSnapshot}
+        session={hostSession}
+        snapshot={{ ...finishedSnapshot, hostId: 'player-participant' }}
       />,
     )
 

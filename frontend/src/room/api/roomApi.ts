@@ -45,11 +45,18 @@ export interface EnterRoomResponse {
 export type RoomMembershipRole = 'host' | 'participant' | 'dashboard'
 
 /**
- * 방을 조작할 수 있는 자리인가(게임 시작 · 봇 추가 · 대기실 복귀).
- * 대시보드도 호스트 권한을 갖기 때문에 `role === 'host'` 비교를 이 함수로 모은다.
+ * 이 세션이 <b>지금</b> 방장인가(게임 시작 · 봇 추가 · 대기실 복귀).
+ *
+ * 방장은 입장 순서가 아니라 **서버 상태**다 — 처음 들어온 사람이 방장이 되고, 방장이 나가면
+ * 남은 사람이 이어받는다(백엔드 `RoomValidationService`의 JOIN · LEAVE 규약). 그래서 입장
+ * 시점에 굳어 localStorage에 저장되는 `membershipRole`로는 판단할 수 없다 — 승계가 일어나면
+ * 그 값은 거짓말이 된다. `state.sync`로 갱신되는 스냅샷의 `hostId`가 유일한 근거다.
+ *
+ * 파티 모드 대시보드는 플레이어 명단에 없어 `hostId`가 될 수 없으므로 영구히 false다 —
+ * 조작은 폰(방장)에서만 한다.
  */
-export function hasHostPowers(role: RoomMembershipRole) {
-  return role !== 'participant'
+export function isRoomHost(snapshot: RoomSnapshot | null | undefined, you: PlayerId) {
+  return Boolean(snapshot?.hostId) && snapshot?.hostId === you
 }
 
 export interface RoomSession {
