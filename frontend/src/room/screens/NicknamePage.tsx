@@ -4,7 +4,6 @@ import { useCreateRoom, useJoinRoom } from '@/room/api/useRoomApi'
 import { toUserError } from '@/shared/api/userError'
 import { Button } from '@/shared/components/Button'
 import { TextField } from '@/shared/components/TextField'
-import { playLandingSoundtrack } from '@/shared/landingSoundtrack'
 import {
   generateNickname,
   NICKNAME_MAX_LENGTH,
@@ -12,6 +11,7 @@ import {
   resolveNickname,
   saveNickname,
 } from '@/shared/nickname'
+import { playLandingSoundtrack } from '@/shared/soundtrack'
 import { useAppStore } from '@/store'
 
 interface NicknamePageProps {

@@ -1,5 +1,5 @@
 import { BottomSheet } from '@/shared/components/BottomSheet'
-import { LandingPopover } from './LandingPopover'
+import { Popover } from '@/shared/components/Popover'
 import { LandingRoomCodePanel } from './LandingRoomCodePanel'
 
 interface LandingCodeDialogProps {
@@ -48,8 +48,8 @@ export function LandingCodeDialog({
 
   return (
     // 코드를 입력하러 열었으므로 입력란에서 시작한다.
-    <LandingPopover focusSelector="input" label={DIALOG_LABEL} onClose={onClose} open={open}>
+    <Popover focusSelector="input" label={DIALOG_LABEL} onClose={onClose} open={open}>
       {panel('wide')}
-    </LandingPopover>
+    </Popover>
   )
 }

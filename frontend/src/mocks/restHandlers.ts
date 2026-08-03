@@ -1,5 +1,5 @@
 import { delay, HttpResponse, http } from 'msw'
-import type { EnterRoomRequest, EnterRoomResponse, RoomSession } from '@/room/api/gameApi'
+import type { EnterRoomRequest, EnterRoomResponse, RoomSession } from '@/room/api/roomApi'
 import {
   createPlayingRoomSnapshot,
   creatorSession,

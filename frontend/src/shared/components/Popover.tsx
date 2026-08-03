@@ -3,7 +3,7 @@ import { type ReactNode, useEffect, useRef } from 'react'
 import { popVariants, scrimVariants } from '@/shared/motion'
 import { useDialogBackground } from '@/shared/useDialogBackground'
 
-interface LandingPopoverProps {
+interface PopoverProps {
   children: ReactNode
   /** 열자마자 초점을 둘 요소의 선택자. 무엇을 하러 열었는지에 따라 다르다. */
   focusSelector?: string
@@ -18,13 +18,13 @@ interface LandingPopoverProps {
  * 이 껍데기는 `<main>` 밖에 그려야 한다 — `useDialogBackground`가 배경 `<main>`에 `inert`를
  * 걸어 뒤 화면을 무력화하므로, 안에 있으면 자기 자신이 잠긴다.
  */
-export function LandingPopover({
+export function Popover({
   children,
   focusSelector = 'input, button',
   label,
   onClose,
   open,
-}: LandingPopoverProps) {
+}: PopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose

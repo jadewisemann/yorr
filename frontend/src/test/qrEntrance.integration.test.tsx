@@ -2,7 +2,7 @@ import { act, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { creatorSession, serverMessage } from '@/mocks/fixtures'
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
-import { gameApiClient } from '@/room/api/gameApi'
+import { roomApiClient } from '@/room/api/roomApi'
 import { useAppStore } from '@/store'
 import { installUserAgentMock, mockApiError, renderAppHarness, resetAppTestState } from './harness'
 
@@ -36,7 +36,7 @@ describe('QR entrance integration', () => {
   })
 
   it('blocks an invalid invite before REST and accepts a corrected code', async () => {
-    const joinRoom = vi.spyOn(gameApiClient, 'joinRoom')
+    const joinRoom = vi.spyOn(roomApiClient, 'joinRoom')
     const { user } = renderAppHarness({ initialPath: '/join?code=bad!' })
 
     expect(await screen.findByRole('heading', { name: '초대 코드를 확인해 주세요' })).toBeVisible()
@@ -64,7 +64,7 @@ describe('QR entrance integration', () => {
         respondWithRoomFull = resolve
       }),
     })
-    const joinRoom = vi.spyOn(gameApiClient, 'joinRoom')
+    const joinRoom = vi.spyOn(roomApiClient, 'joinRoom')
     const { user } = renderAppHarness({ initialPath: '/join?code=YORR64' })
     const nicknameInput = await screen.findByRole('textbox', { name: '닉네임' })
 

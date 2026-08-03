@@ -1,13 +1,13 @@
 import { HttpResponse, http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { saveAuthSession } from '@/auth/authSession'
-import { HttpGameApiClient } from '@/room/api/gameApi'
+import { HttpRoomApiClient } from '@/room/api/roomApi'
 import { creatorSession, participantSession } from './fixtures'
 import { clearMockRoomSnapshot } from './mockRoomState'
 import { createRestHandlers } from './restHandlers'
 import { mockApiServer } from './server'
 
-const client = new HttpGameApiClient()
+const client = new HttpRoomApiClient()
 
 describe('REST mock handlers', () => {
   // startGame이 방 상태를 기억하므로, 테스트 순서에 따라 응답이 달라지지 않게 지운다.

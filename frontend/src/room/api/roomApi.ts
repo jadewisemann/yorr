@@ -51,7 +51,7 @@ interface AuthenticatedApiCallOptions extends ApiCallOptions {
   userId: PlayerId
 }
 
-export class HttpGameApiClient {
+export class HttpRoomApiClient {
   createRoom(request: CreateRoomRequest, options?: ApiCallOptions) {
     return enterRoom({ nickname: request.nickname }, 'host', options)
   }
@@ -96,7 +96,7 @@ export class HttpGameApiClient {
   }
 }
 
-export const gameApiClient = new HttpGameApiClient()
+export const roomApiClient = new HttpRoomApiClient()
 
 function enterRoom(
   request: EnterRoomRequest,

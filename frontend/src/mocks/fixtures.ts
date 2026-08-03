@@ -6,7 +6,7 @@ import type {
   YachtCategory,
 } from '@/realtime/wsEvents'
 import { YACHT_CATEGORIES } from '@/realtime/wsEvents'
-import type { RoomSession } from '@/room/api/gameApi'
+import type { RoomSession } from '@/room/api/roomApi'
 
 export const MOCK_ROOM_ID = 'YORR64'
 export const MOCK_ROOM_CODE = 'YORR64'

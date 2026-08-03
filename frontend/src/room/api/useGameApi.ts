@@ -1,15 +1,15 @@
 import type { RoomPhase, RoomSnapshot } from '@/realtime/wsEvents'
 import { useAsyncQuery, useAsyncTask } from '@/shared/api/useAsyncTask'
 import { useAppStore } from '@/store'
-import type { GameStartResult } from './gameApi'
-import { gameApiClient } from './gameApi'
+import type { GameStartResult } from './roomApi'
+import { roomApiClient } from './roomApi'
 
 export function useGame(gameId: string | null) {
   const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)
 
   return useAsyncQuery<RoomSnapshot>(
     gameId ? `game:${gameId}` : null,
-    (signal) => requireId(gameId, 'Game ID', (id) => gameApiClient.getGame(id, { signal })),
+    (signal) => requireId(gameId, 'Game ID', (id) => roomApiClient.getGame(id, { signal })),
     {
       onSuccess: (snapshot) => {
         replaceRoomSnapshot(preserveRealtimeGame(snapshot))
@@ -26,7 +26,7 @@ export function useStartGame() {
   return useAsyncTask<[], GameStartResult>(
     (signal) =>
       roomSession
-        ? gameApiClient.startGame(roomSession.roomCode, {
+        ? roomApiClient.startGame(roomSession.roomCode, {
             signal,
             sessionToken: roomSession.sessionToken,
             userId: roomSession.you,
@@ -56,7 +56,7 @@ export function useReturnToLobby() {
 
   return useAsyncTask<[], void>((signal) =>
     roomSession
-      ? gameApiClient.returnToLobby(roomSession.roomCode, {
+      ? roomApiClient.returnToLobby(roomSession.roomCode, {
           signal,
           sessionToken: roomSession.sessionToken,
           userId: roomSession.you,

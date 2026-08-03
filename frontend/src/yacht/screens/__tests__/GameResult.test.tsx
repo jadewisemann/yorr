@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createEmptyScoreBoard, creatorSession } from '@/mocks/fixtures'
 import type { RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
-import { gameApiClient } from '@/room/api/gameApi'
+import { roomApiClient } from '@/room/api/roomApi'
 import { useAppStore } from '@/store'
 import { GameResult } from '@/yacht/screens/GameResult'
 
@@ -192,7 +192,7 @@ describe('GameResult', () => {
   // 대기실 복귀는 방 전체가 함께 움직인다 — 혼자 먼저 이동하면 다른 참가자와 화면이 갈린다.
   it('호스트가 대기실로 돌릴 때 혼자 먼저 이동하지 않고 서버 신호를 기다린다', async () => {
     const user = userEvent.setup()
-    const returnToLobby = vi.spyOn(gameApiClient, 'returnToLobby')
+    const returnToLobby = vi.spyOn(roomApiClient, 'returnToLobby')
     render(
       <GameResult onLeaveRequest={() => {}} session={hostSession} snapshot={finishedSnapshot} />,
     )

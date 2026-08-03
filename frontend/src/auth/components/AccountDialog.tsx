@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { googleLoginUrl, kakaoLoginUrl, renameProfile } from '@/auth/api/authApi'
 import type { AuthSession } from '@/auth/authSession'
-import { LandingPopover } from '@/landing/components/LandingPopover'
 import { cn } from '@/shared/cn'
 import { BottomSheet } from '@/shared/components/BottomSheet'
+import { Popover } from '@/shared/components/Popover'
 import { NICKNAME_MAX_LENGTH } from '@/shared/nickname'
 import { useAppStore } from '@/store'
 
@@ -44,12 +44,12 @@ export function AccountDialog({ layout, onClose, onSignOut, open, session }: Acc
   }
 
   return (
-    <LandingPopover focusSelector="button" label={label} onClose={onClose} open={open}>
+    <Popover focusSelector="button" label={label} onClose={onClose} open={open}>
       <div className="grid gap-4">
         <h2 className="m-0 text-[17px]/none font-bold text-content">{label}</h2>
         {panel}
       </div>
-    </LandingPopover>
+    </Popover>
   )
 }
 

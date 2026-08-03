@@ -8,7 +8,7 @@ import { RealtimeSync } from '@/app/RealtimeSync'
 import { createAppRouter } from '@/app/router'
 import { mockApiServer } from '@/mocks/server'
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
-import type { RoomSession } from '@/room/api/gameApi'
+import type { RoomSession } from '@/room/api/roomApi'
 import { useAppStore } from '@/store'
 
 export interface AppHarnessOptions {

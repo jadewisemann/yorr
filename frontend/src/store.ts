@@ -6,7 +6,7 @@ import {
   saveAuthSession,
 } from '@/auth/authSession'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
-import type { RoomSession } from '@/room/api/gameApi'
+import type { RoomSession } from '@/room/api/roomApi'
 import { clearRoomSession, readRoomSession, saveRoomSession } from '@/room/roomSessionStorage'
 import {
   type SessionEndReason,

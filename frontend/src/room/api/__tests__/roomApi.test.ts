@@ -2,9 +2,9 @@ import { HttpResponse, http } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { creatorSession } from '@/mocks/fixtures'
 import { mockApiServer } from '@/mocks/server'
-import { HttpGameApiClient } from '@/room/api/gameApi'
+import { HttpRoomApiClient } from '@/room/api/roomApi'
 
-const client = new HttpGameApiClient()
+const client = new HttpRoomApiClient()
 
 const auth = {
   sessionToken: creatorSession.sessionToken,

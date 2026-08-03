@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useGame } from '@/room/api/useGameApi'
-import { playGameSoundtrack, playResultSoundtrack } from '@/shared/landingSoundtrack'
+import { playGameSoundtrack, playResultSoundtrack } from '@/shared/soundtrack'
 import { useAppStore } from '@/store'
 import { GamePlay } from '@/yacht/screens/GamePlay'
 import { GameResult } from '@/yacht/screens/GameResult'

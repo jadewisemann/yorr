@@ -18,7 +18,7 @@ it('음소거 상태에서는 어떤 트랙도 재생하지 않는다', async ()
     }),
   )
 
-  const { playLandingSoundtrack } = await import('@/shared/landingSoundtrack')
+  const { playLandingSoundtrack } = await import('@/shared/soundtrack')
   playLandingSoundtrack('yacht')
 
   const yachtTrack = audios.find((audio) => audio.getAttribute('src')?.endsWith('/yacht.mp3'))
@@ -49,7 +49,7 @@ it('첫 조작에서 나중에 갈아탈 트랙까지 잠금을 풀어 둔다', 
     }),
   )
 
-  const { playLandingSoundtrack, playGameSoundtrack } = await import('@/shared/landingSoundtrack')
+  const { playLandingSoundtrack, playGameSoundtrack } = await import('@/shared/soundtrack')
   playLandingSoundtrack('yacht')
   document.dispatchEvent(new Event('pointerdown'))
 
@@ -80,7 +80,7 @@ it('stops the game track before playing the one-shot result track', async () => 
     }),
   )
 
-  const { playGameSoundtrack, playResultSoundtrack } = await import('@/shared/landingSoundtrack')
+  const { playGameSoundtrack, playResultSoundtrack } = await import('@/shared/soundtrack')
   playGameSoundtrack()
   playResultSoundtrack()
 
@@ -109,7 +109,7 @@ it('plays the matching hero track for the selected landing game', async () => {
     }),
   )
 
-  const { playLandingSoundtrack } = await import('@/shared/landingSoundtrack')
+  const { playLandingSoundtrack } = await import('@/shared/soundtrack')
   playLandingSoundtrack('yacht')
 
   const yachtTrack = audios.find((audio) => audio.getAttribute('src')?.endsWith('/yacht.mp3'))
@@ -133,7 +133,7 @@ it('retries the requested game track after direct invite autoplay is blocked', a
     }),
   )
 
-  const { playGameSoundtrack } = await import('@/shared/landingSoundtrack')
+  const { playGameSoundtrack } = await import('@/shared/soundtrack')
   playGameSoundtrack()
   // click이 아니라 pointerdown을 듣는다 — 폰에서 쓸어 넘기기만 하면 click은 오지 않는다.
   document.dispatchEvent(new Event('pointerdown'))
@@ -163,7 +163,7 @@ it('setSoundtrackMuted pauses or resumes whatever track is currently playing', a
     }),
   )
 
-  const { playGameSoundtrack, setSoundtrackMuted } = await import('@/shared/landingSoundtrack')
+  const { playGameSoundtrack, setSoundtrackMuted } = await import('@/shared/soundtrack')
   playGameSoundtrack()
   const game = audios.find((audio) => audio.getAttribute('src')?.endsWith('yacht_ingame.mp3'))
 
