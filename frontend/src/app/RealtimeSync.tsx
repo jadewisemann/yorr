@@ -1,7 +1,12 @@
 import { type ReactNode, useEffect } from 'react'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import type { RealtimeClient } from '@/realtime/realtimeClient'
-import { buildClientMessage, type RoomSnapshot, type ServerMessage } from '@/realtime/wsEvents'
+import {
+  buildClientMessage,
+  type GameOverPayload,
+  type RoomSnapshot,
+  type ServerMessage,
+} from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
 
 interface RealtimeSyncProps {
@@ -124,6 +129,7 @@ function isRoomReadyMessage(message: ServerMessage) {
     message.type === 'room.joined' ||
     message.type === 'state.sync' ||
     message.type === 'game.yacht_dice.state.sync' ||
+    message.type === 'game.ping_pong.state.sync' ||
     message.type === 'sys.reconnected'
   )
 }
@@ -158,6 +164,7 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
     case 'sys.reconnected':
     case 'state.sync':
     case 'game.yacht_dice.state.sync':
+    case 'game.ping_pong.state.sync':
       store.replaceRoomSnapshot(keepGameState(message.payload.snapshot, store.roomSnapshot))
       return
     case 'room.player_joined':
@@ -179,7 +186,11 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
       applyDiceBroadcast(message, store)
       return
     case 'game.yacht_dice.game.over':
+    case 'game.ping_pong.game.over':
       applyGameOver(message.payload, store)
+      return
+    case 'game.ping_pong.state':
+      applyPingPongState(message.payload, store)
       return
     case 'room.closed':
       store.endSession('room_closed')
@@ -190,6 +201,19 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
     default:
       return
   }
+}
+
+function applyPingPongState(
+  payload: Extract<ServerMessage, { type: 'game.ping_pong.state' }>['payload'],
+  store: Store,
+) {
+  const snapshot = store.roomSnapshot
+  if (snapshot?.gameCode !== 'PING_PONG') return
+  // RoomSnapshot.game은 아직 Yacht 타입이 SSOT라 게임별 계약 분리 전까지 이 경계에서만 변환한다.
+  store.replaceRoomSnapshot({
+    ...snapshot,
+    game: payload as unknown as NonNullable<RoomSnapshot['game']>,
+  })
 }
 
 type Store = ReturnType<typeof useAppStore.getState>
@@ -329,10 +353,7 @@ function applyDiceBroadcast(
  * 게임 종료. 이 핸들러가 없으면 서버가 종료를 알려도 화면이 계속 게임에 머문다.
  * 뒤따르는 state.sync도 phase를 finished로 바꾸지만, 순서에 의존하지 않도록 여기서도 바꾼다.
  */
-function applyGameOver(
-  payload: Extract<ServerMessage, { type: 'game.yacht_dice.game.over' }>['payload'],
-  store: Store,
-) {
+function applyGameOver(payload: GameOverPayload, store: Store) {
   const snapshot = store.roomSnapshot
   if (!snapshot) return
   const game = snapshot.game

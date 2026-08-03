@@ -7,6 +7,7 @@ import {
   resolveNickname,
   saveNickname,
 } from '@/auth/nickname'
+import { type GameKey, gameByKey } from '@/games'
 import { useCreateRoom, useJoinRoom } from '@/room/api/useRoomApi'
 import { toUserError } from '@/shared/api/userError'
 import { playLandingSoundtrack } from '@/shared/audio/soundtrack'
@@ -15,10 +16,11 @@ import { TextField } from '@/shared/components/TextField'
 import { useAppStore } from '@/store'
 
 interface NicknamePageProps {
+  gameKey?: GameKey | undefined
   roomCode?: string | undefined
 }
 
-export function NicknamePage({ roomCode }: NicknamePageProps) {
+export function NicknamePage({ gameKey, roomCode }: NicknamePageProps) {
   const navigate = useNavigate()
   const createRoom = useCreateRoom()
   const joinRoom = useJoinRoom()
@@ -31,9 +33,10 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
   const [validationError, setValidationError] = useState<string | null>(null)
   const submittingRef = useRef(false)
   const task = roomCode ? joinRoom : createRoom
+  const selectedGame = gameByKey(gameKey)
   const userError = task.error ? toUserError(task.error) : null
 
-  useEffect(() => playLandingSoundtrack('yacht'), [])
+  useEffect(() => playLandingSoundtrack(selectedGame.key), [selectedGame.key])
 
   useEffect(() => {
     if (userError?.clearsSession) useAppStore.getState().reset()
@@ -50,7 +53,10 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
     try {
       const session = roomCode
         ? await joinRoom.execute(roomCode, { nickname: resolved.nickname })
-        : await createRoom.execute({ nickname: resolved.nickname })
+        : await createRoom.execute({
+            nickname: resolved.nickname,
+            gameCode: selectedGame.gameCode ?? 'YACHT_DICE',
+          })
       if (!session) return
 
       saveNickname(resolved.nickname)

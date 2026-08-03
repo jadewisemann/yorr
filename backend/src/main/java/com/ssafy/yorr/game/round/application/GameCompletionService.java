@@ -16,7 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import static com.ssafy.yorr.game.yacht.YachtDiceWsTypes.type;
+import static com.ssafy.yorr.game.module.GameWsTypes.type;
 
 import java.util.Comparator;
 import java.util.List;
@@ -84,11 +84,11 @@ public class GameCompletionService {
         registry.markPhase(roomId, RoomPhase.FINISHED);
         List<GameOverPayload.Ranking> rankings = rankings(roomId);
         archive(room, rankings);
-        broadcaster.broadcast(roomId, WsEnvelope.of(type("game.over"), new GameOverPayload(rankings))
+        broadcaster.broadcast(roomId, WsEnvelope.of(type(room.gameCode(), "game.over"), new GameOverPayload(rankings))
                 .withRoomId(roomId));
         // phase(finished)는 스냅샷으로만 전달된다 — 이걸 빼면 클라가 결과 화면으로 넘어가지 못한다.
         broadcaster.broadcast(roomId, WsEnvelope.of(
-                        type("state.sync"),
+                        type(room.gameCode(), "state.sync"),
                         new StateSyncPayload(realtimeSnapshots.snapshot(roomId)))
                 .withRoomId(roomId));
         log.info("game.over: room={} game={} force={}", roomId, room.gameId(), force);

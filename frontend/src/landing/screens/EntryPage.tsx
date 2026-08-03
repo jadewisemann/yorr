@@ -75,7 +75,7 @@ export function EntryPage() {
   }
 
   const handlePlay = () => {
-    void navigate({ to: '/join', search: { code: undefined } })
+    void navigate({ to: '/join', search: { code: undefined, game: game.key } })
   }
 
   /** 연습 모드는 실전과 다른 화면이다 — 방을 만들지 않고 바로 들어간다. */
@@ -86,7 +86,7 @@ export function EntryPage() {
   const handleJoin = () => {
     // 이동이 막히거나 되돌아오는 경우에도 열린 채로 남지 않게 먼저 닫는다.
     setCodeOpen(false)
-    void navigate({ to: '/join', search: { code: normalizeRoomCode(code) } })
+    void navigate({ to: '/join', search: { code: normalizeRoomCode(code), game: undefined } })
   }
 
   const handleSignOut = () => {
@@ -195,7 +195,7 @@ export function EntryPage() {
               짧은 화면(932×430)에서 배너가 뷰포트 바닥에 붙는 것을 막는다. */}
           <div className="flex min-h-fit flex-1 flex-col items-center gap-3 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pt-[clamp(10px,2.2vh,22px)] pb-[clamp(20px,6vh,56px)]">
             <div className="flex w-full max-w-180 flex-col items-center gap-3">
-              {game.live && <TutorialLink onClick={handleTutorial} />}
+              {game.key === 'yacht' && <TutorialLink onClick={handleTutorial} />}
               <ActiveRoomBanner />
               {appNotice && (
                 <p className={noticeBase} role="status">
@@ -269,7 +269,7 @@ export function EntryPage() {
         </div>
 
         <div className={narrowFooter[hasFooter ? 'filled' : 'empty']}>
-          {game.live && <TutorialLink onClick={handleTutorial} />}
+          {game.key === 'yacht' && <TutorialLink onClick={handleTutorial} />}
           <ActiveRoomBanner />
           {appNotice && (
             <p className={noticeBase} role="status">

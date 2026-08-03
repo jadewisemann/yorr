@@ -88,7 +88,10 @@ describe('EntryPage', () => {
 
     await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
 
-    expect(navigate).toHaveBeenCalledWith({ to: '/join', search: { code: undefined } })
+    expect(navigate).toHaveBeenCalledWith({
+      to: '/join',
+      search: { code: undefined, game: 'yacht' },
+    })
   })
 
   it('처음 온 사람은 방을 만들지 않고 연습 모드로 바로 들어간다', async () => {

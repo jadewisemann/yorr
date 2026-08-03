@@ -38,6 +38,7 @@ class GameCompletionServiceTest {
     private RoundDeadlineScheduler deadlineScheduler;
     private RoomSessionRegistry registry;
     private RoomBroadcaster broadcaster;
+    private RoomService roomService;
     private GameCompletionService service;
 
     @BeforeEach
@@ -46,9 +47,9 @@ class GameCompletionServiceTest {
         deadlineScheduler = mock(RoundDeadlineScheduler.class);
         registry = mock(RoomSessionRegistry.class);
         broadcaster = mock(RoomBroadcaster.class);
-        RoomService roomService = mock(RoomService.class);
+        roomService = mock(RoomService.class);
         when(roomService.getSnapshot(ROOM)).thenReturn(new RoomSnapshot(
-                ROOM, "game-1", "player-a", RoomPhase.PLAYING, 6, List.of()
+                ROOM, "YACHT_DICE", "game-1", "player-a", RoomPhase.PLAYING, 6, List.of()
         ));
         matchArchiveService = mock(MatchArchiveService.class);
         service = new GameCompletionService(
@@ -99,6 +100,23 @@ class GameCompletionServiceTest {
                 new GameOverPayload.Ranking(2, "player-c", 180),
                 new GameOverPayload.Ranking(4, "player-d", 90)
         );
+    }
+
+    @Test
+    void usesTheRoomGameCodeForCompletionMessageNamespace() {
+        when(roomService.getSnapshot(ROOM)).thenReturn(new RoomSnapshot(
+                ROOM, "PING_PONG", "game-1", "player-a", RoomPhase.PLAYING, 2, List.of()
+        ));
+        when(completionStore.finishIfComplete(ROOM, "game-1", true)).thenReturn(true);
+        when(completionStore.readTotals(ROOM)).thenReturn(totals());
+
+        assertThat(service.finishIfComplete(ROOM, true)).isTrue();
+
+        ArgumentCaptor<WsEnvelope<?>> captor = ArgumentCaptor.forClass(WsEnvelope.class);
+        verify(broadcaster, times(2)).broadcast(eq(ROOM), captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(WsEnvelope::type)
+                .containsExactly("game.ping_pong.game.over", "game.ping_pong.state.sync");
     }
 
     /** 동점은 같은 순위를 공유하고 그다음 순위는 인원수만큼 건너뛴다(1,2,2,4). */

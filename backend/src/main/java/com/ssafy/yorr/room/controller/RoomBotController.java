@@ -1,5 +1,6 @@
 package com.ssafy.yorr.room.controller;
 
+import com.ssafy.yorr.game.module.GameModuleRegistry;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.room.service.BotParticipantService;
 import com.ssafy.yorr.user.UserIdentity;
@@ -33,6 +34,7 @@ public class RoomBotController {
     private final UserService users;
     private final RealtimeRoomSnapshotService realtimeSnapshots;
     private final RoomBroadcaster broadcaster;
+    private final GameModuleRegistry gameModules;
 
     @PostMapping
     @Operation(summary = "대기실에 봇 추가")
@@ -71,6 +73,10 @@ public class RoomBotController {
         }
 
         try {
+            String gameCode = realtimeSnapshots.snapshot(roomCode).gameCode();
+            if (!gameModules.require(gameCode).supportsBots()) {
+                return ResponseEntity.status(409).body("bots_not_supported");
+            }
             RoomSnapshot snapshot = operation.apply(requester);
             broadcaster.broadcast(roomCode, WsEnvelope.of(
                     "state.sync",

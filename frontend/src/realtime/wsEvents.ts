@@ -51,13 +51,14 @@
  *    v0.8 (2026-08) voice.* 4종 제안(130) — WebRTC 풀메시 음성. 오디오는 피어끼리 직접 흐르고
  *                   서버는 시그널링만 중계한다. 🟡 PROPOSED — 팀 합의 전이라 아직 구현 없음.
  *                   current-baseline.md의 "WebRTC는 채택되지 않았다"를 이 티켓에서 뒤집는다.
- *    v0.9 (2026-08) 게임 도메인 네임스페이스(177) — dice.* · round.* · score.* · game.over 와
- *                   게임 모듈이 보내는 state.sync 에 `game.yacht_dice.` 접두사가 붙는다.
+ *    v0.9 (2026-08) 게임 도메인 네임스페이스(177) — 게임 모듈 이벤트와 state.sync 에
+ *                   `game.<game_code>.` 접두사가 붙는다(예: yacht_dice, ping_pong).
  *                   방 레벨 이벤트(sys.* · room.* · reaction.* · presence.* · 방 state.sync)는
  *                   그대로다. 아래 주석의 짧은 이름은 접두사를 뺀 표기다.
  * ============================================================================
  */
 
+import type { GameCode } from '@/games'
 // 경계 규칙 예외 — realtime은 도메인 위의 계층인데 아래 import는 yacht를 본다.
 // 와이어 계약 자체가 야추 모양이기 때문이다: dice.* 이벤트와 round.submit의
 // YachtCategory가 프로토콜에 박혀 있다. 게임을 추가하려면 게임 무관 envelope와
@@ -102,6 +103,7 @@ export type RoomPhase = 'waiting' | 'playing' | 'finished'
  * game 필드(진행 상태)는 게임 도메인 소유 → GameState 참조.
  */
 export interface RoomSnapshot {
+  gameCode?: GameCode
   roomId: RoomId
   phase: RoomPhase
   players: Player[]
@@ -137,6 +139,59 @@ export interface GameState {
   dice?: DiceSet
   /** 턴 주인이 유지 중인 KEEP. 첫 굴림 전에는 없다. */
   held?: HeldDice
+}
+
+export type PingPongPhase = 'COUNTDOWN' | 'PLAYING' | 'FINISHED'
+export type PingPongFault = 'OUT' | 'NET'
+export type PingPongEventType =
+  | 'READY'
+  | 'SERVE'
+  | 'TOO_EARLY'
+  | 'TOO_LATE'
+  | 'OK'
+  | 'NICE'
+  | 'SMASH'
+  | 'OUT'
+  | 'NET'
+  | 'POINT'
+  | 'GAME_OVER'
+  | 'OPPONENT_LEFT'
+
+export interface PingPongBallState {
+  pos: number
+  direction: 1 | -1
+  speed: number
+  smash: boolean
+  fault?: PingPongFault | null
+  faultFrom: number
+  x0: number
+  x1: number
+  launchedAt: number
+}
+
+export interface PingPongEvent {
+  id: number
+  type: PingPongEventType
+  playerId?: PlayerId | null
+  at: number
+}
+
+export interface PingPongState {
+  version: number
+  phase: PingPongPhase
+  playerOrder: PlayerId[]
+  scores: Record<PlayerId, number>
+  lastInputSeq: Record<PlayerId, number>
+  ball: PingPongBallState
+  rally: number
+  serveReceiverId?: PlayerId | null
+  nextActionAt: number
+  lastEvent?: PingPongEvent | null
+}
+
+export interface PingPongSwingPayload {
+  inputSeq: number
+  clientTs: number
 }
 
 /* ----- 요트 정규룰 족보 (score.* / game.* · owner: 유상은 40·41·43) -----
@@ -550,6 +605,7 @@ export type ClientMessage =
   | WsEnvelope<'game.yacht_dice.dice.shake', DiceShakePayload>
   | WsEnvelope<'game.yacht_dice.dice.throw', DiceThrowPayload>
   | WsEnvelope<'game.yacht_dice.round.submit', RoundSubmitPayload>
+  | WsEnvelope<'game.ping_pong.swing', PingPongSwingPayload>
 
 export type ServerMessage =
   // ✅ SYS-DC
@@ -568,6 +624,7 @@ export type ServerMessage =
   | WsEnvelope<'state.sync', StateSyncPayload>
   // 같은 payload지만 게임 모듈이 보낸 스냅샷이다(방 레벨 state.sync 와 별개 타입).
   | WsEnvelope<'game.yacht_dice.state.sync', StateSyncPayload>
+  | WsEnvelope<'game.ping_pong.state.sync', StateSyncPayload>
   | WsEnvelope<'presence.update', PresenceUpdatePayload>
   // 🟡 PROPOSED (음성 · 130)
   | WsEnvelope<'voice.peers', VoicePeersPayload>
@@ -583,7 +640,9 @@ export type ServerMessage =
   | WsEnvelope<'game.yacht_dice.dice.thrown', DiceThrownPayload>
   | WsEnvelope<'game.yacht_dice.score.update', ScoreUpdatePayload>
   | WsEnvelope<'game.yacht_dice.game.over', GameOverPayload>
+  | WsEnvelope<'game.ping_pong.game.over', GameOverPayload>
   | WsEnvelope<'state.patch', StatePatchPayload>
+  | WsEnvelope<'game.ping_pong.state', PingPongState>
 
 export type WsMessage = ClientMessage | ServerMessage
 
