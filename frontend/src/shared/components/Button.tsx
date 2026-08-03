@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes } from 'react'
-import { cn } from '@/cn'
+import { cn } from '@/shared/cn'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger'

@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { type ReactNode, useEffect, useId, useRef } from 'react'
-import { cn } from '@/cn'
-import { popVariants, scrimVariants } from '@/motion'
-import { useDialogBackground } from '@/useDialogBackground'
+import { cn } from '@/shared/cn'
+import { popVariants, scrimVariants } from '@/shared/motion'
+import { useDialogBackground } from '@/shared/useDialogBackground'
 
 type ModalProps = {
   open: boolean

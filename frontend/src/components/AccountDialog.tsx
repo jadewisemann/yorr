@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { googleLoginUrl, kakaoLoginUrl, renameProfile } from '@/api/authApi'
 import type { AuthSession } from '@/authSession'
-import { cn } from '@/cn'
-import { NICKNAME_MAX_LENGTH } from '@/nickname'
+import { cn } from '@/shared/cn'
+import { BottomSheet } from '@/shared/components/BottomSheet'
+import { NICKNAME_MAX_LENGTH } from '@/shared/nickname'
 import { useAppStore } from '@/store'
-import { BottomSheet } from './BottomSheet'
 import { LandingPopover } from './LandingPopover'
 
 interface AccountDialogProps {

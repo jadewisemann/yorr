@@ -1,5 +1,5 @@
-import { onFirstGesture, primeAudio } from '@/audioUnlock'
 import type { PhysicsDiceIndex, PhysicsDicePhase } from '@/rendering/physics-dice/types'
+import { onFirstGesture, primeAudio } from '@/shared/audioUnlock'
 
 const SHAKE_RATE_LIMIT_MS = 80
 /**

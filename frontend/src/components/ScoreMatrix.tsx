@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { cn } from '@/cn'
 import {
   UPPER_BONUS_POINTS,
   UPPER_BONUS_THRESHOLD,
@@ -8,6 +7,7 @@ import {
   type YachtCategory,
 } from '@/domain/scoring'
 import type { PlayerId, ScoreBoard } from '@/realtime/wsEvents'
+import { cn } from '@/shared/cn'
 import { categoryLabel } from '@/yachtCategoryView'
 import { CategoryIcon } from './CategoryIcon'
 

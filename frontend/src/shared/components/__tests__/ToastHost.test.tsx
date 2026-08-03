@@ -1,7 +1,7 @@
 import { render, renderHook, screen } from '@testing-library/react'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ToastHost, useToast } from './ToastHost'
+import { ToastHost, useToast } from '@/shared/components/ToastHost'
 
 describe('ToastHost', () => {
   it('메시지가 있을 때만 보여준다', () => {

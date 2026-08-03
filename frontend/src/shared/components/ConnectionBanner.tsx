@@ -1,4 +1,4 @@
-import { cn } from '@/cn'
+import { cn } from '@/shared/cn'
 import type { ConnectionStatus } from '@/store'
 
 interface ConnectionBannerProps {

@@ -1,8 +1,8 @@
 import type { RoomPhase, RoomSnapshot } from '@/realtime/wsEvents'
+import { useAsyncQuery, useAsyncTask } from '@/shared/api/useAsyncTask'
 import { useAppStore } from '@/store'
 import type { GameStartResult } from './gameApi'
 import { gameApiClient } from './gameApi'
-import { useAsyncQuery, useAsyncTask } from './useAsyncTask'
 
 export function useGame(gameId: string | null) {
   const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)

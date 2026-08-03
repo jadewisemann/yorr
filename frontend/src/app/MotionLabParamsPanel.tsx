@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { cn } from '@/cn'
-import { Button } from '@/components/Button'
 import { MOTION_GESTURE_CONFIG, type MotionGestureConfig } from '@/input/motionConfig'
+import { cn } from '@/shared/cn'
+import { Button } from '@/shared/components/Button'
 import {
   clampParamValue,
   MOTION_PARAM_GROUPS,

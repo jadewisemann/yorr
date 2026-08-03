@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useReturnToLobby } from '@/api/useGameApi'
-import { cn } from '@/cn'
-import { BottomSheet } from '@/components/BottomSheet'
-import { Button } from '@/components/Button'
 import { type RankedPlayer, ResultRanking } from '@/components/ResultRanking'
 import { ScoreMatrix } from '@/components/ScoreMatrix'
 import { UPPER_BONUS_POINTS } from '@/domain/scoring'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
+import { cn } from '@/shared/cn'
+import { BottomSheet } from '@/shared/components/BottomSheet'
+import { Button } from '@/shared/components/Button'
 import type { ActiveRoomSession } from '@/store'
 
 interface GameResultProps {

@@ -4,9 +4,9 @@ import {
   YACHT_LOWER_CATEGORIES,
   YACHT_UPPER_CATEGORIES,
 } from '@/domain/scoring'
+import { Modal } from '@/shared/components/Modal'
 import { categoryDescription, categoryLabel } from '@/yachtCategoryView'
 import { CategoryIcon } from './CategoryIcon'
-import { Modal } from './Modal'
 
 interface GameHelpModalProps {
   onClose: () => void

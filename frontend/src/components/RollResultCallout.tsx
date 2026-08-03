@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
-import { cn } from '@/cn'
 import type { SpecialHand } from '@/domain/specialHands'
+import { cn } from '@/shared/cn'
 import { categoryLabel } from '@/yachtCategoryView'
 
 interface RollResultCalloutProps {

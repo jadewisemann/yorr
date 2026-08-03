@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { useDialogBackground } from './useDialogBackground'
+import { useDialogBackground } from '@/shared/useDialogBackground'
 
 function Dialog({ open }: { open: boolean }) {
   useDialogBackground(open)

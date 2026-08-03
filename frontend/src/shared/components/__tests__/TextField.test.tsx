@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { TextField } from './TextField'
+import { TextField } from '@/shared/components/TextField'
 
 describe('TextField', () => {
   it('connects its label and help text to the input', () => {

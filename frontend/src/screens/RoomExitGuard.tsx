@@ -1,7 +1,7 @@
 import { useBlocker, useNavigate } from '@tanstack/react-router'
 import { useLeaveSession } from '@/api/useRoomApi'
-import { Button } from '@/components/Button'
-import { Modal } from '@/components/Modal'
+import { Button } from '@/shared/components/Button'
+import { Modal } from '@/shared/components/Modal'
 import { useAppStore } from '@/store'
 
 interface RoomExitGuardProps {

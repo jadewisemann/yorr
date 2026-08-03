@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPlayingRoomSnapshot, creatorSession, waitingRoomSnapshot } from '@/mocks/fixtures'
-import { readRoomSession } from '@/roomSessionStorage'
-import { selectSessionPhase, useAppStore } from '@/store'
+import { readRoomSession } from './roomSessionStorage'
+import { selectSessionPhase, useAppStore } from './store'
 
 beforeEach(() => {
   window.localStorage.clear()

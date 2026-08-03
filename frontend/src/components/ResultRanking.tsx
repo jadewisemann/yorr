@@ -1,5 +1,5 @@
-import { cn } from '@/cn'
 import type { PlayerId } from '@/realtime/wsEvents'
+import { cn } from '@/shared/cn'
 
 export interface RankedPlayer {
   nickname: string

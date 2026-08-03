@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { TutorialGuide } from './TutorialGuide'
+import { TutorialGuide } from '@/shared/components/TutorialGuide'
 
 const baseProps = {
   isMyTurn: true,

@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { cn } from '@/cn'
 import type { CategoryScores, YachtCategory } from '@/domain/scoring'
 import {
   UPPER_BONUS_POINTS,
@@ -8,9 +7,10 @@ import {
   YACHT_UPPER_CATEGORIES,
 } from '@/domain/scoring'
 import type { PlayerId, ScoreBoard } from '@/realtime/wsEvents'
+import { cn } from '@/shared/cn'
+import { Tooltip } from '@/shared/components/Tooltip'
 import { categoryLabel, isRecorded } from '@/yachtCategoryView'
 import { CategoryIcon } from './CategoryIcon'
-import { Tooltip } from './Tooltip'
 
 export interface ScoreSheetPlayer {
   nickname: string

@@ -1,8 +1,8 @@
 import { useNavigate } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
-import { Button } from '@/components/Button'
-import { TextField } from '@/components/TextField'
-import { getRoomCodeError, normalizeRoomCode } from '@/roomCode'
+import { Button } from '@/shared/components/Button'
+import { TextField } from '@/shared/components/TextField'
+import { getRoomCodeError, normalizeRoomCode } from '@/shared/roomCode'
 
 interface InvalidInvitePageProps {
   initialCode: string

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { ConnectionBanner } from './ConnectionBanner'
+import { ConnectionBanner } from '@/shared/components/ConnectionBanner'
 
 describe('ConnectionBanner', () => {
   // 영역과 문구가 같은 프레임에 들어오면 스크린리더가 변화를 놓친다 —

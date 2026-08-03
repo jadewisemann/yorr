@@ -1,5 +1,5 @@
+import { type HeroGameKey, landingGames } from '@/landingGames'
 import { onFirstGesture, primeAudio } from './audioUnlock'
-import { type HeroGameKey, landingGames } from './landingGames'
 import { readSoundMuted } from './soundPreference'
 
 let soundtrack: HTMLAudioElement | null = null

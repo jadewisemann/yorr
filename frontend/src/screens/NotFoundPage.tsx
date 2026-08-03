@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import { Button } from '@/components/Button'
+import { Button } from '@/shared/components/Button'
 
 /** 디자인 26 — 알 수 없는 경로의 시스템 페이지. 큰 404는 장식이라 흐린 잉크로 깔아둔다. */
 export function NotFoundPage() {

@@ -1,7 +1,7 @@
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { mockApiServer } from '@/mocks/server'
-import { ApiError, apiRequest } from './client'
+import { ApiError, apiRequest } from '@/shared/api/client'
 
 const PATH = '/probe'
 const URL_PATTERN = `/api/v1${PATH}`

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { Modal } from './Modal'
+import { Modal } from '@/shared/components/Modal'
 
 function renderModal(onClose = vi.fn()) {
   const view = render(

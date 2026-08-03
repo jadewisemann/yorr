@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { Button } from './Button'
+import { Button } from '@/shared/components/Button'
 
 describe('Button', () => {
   it('전달된 클릭 핸들러를 그대로 호출한다', async () => {

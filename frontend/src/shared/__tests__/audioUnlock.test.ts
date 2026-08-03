@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { onFirstGesture, primeAudio } from './audioUnlock'
+import { onFirstGesture, primeAudio } from '@/shared/audioUnlock'
 
 function fakeAudio(paused = true) {
   const audio = document.createElement('audio')

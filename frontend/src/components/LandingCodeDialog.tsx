@@ -1,4 +1,4 @@
-import { BottomSheet } from './BottomSheet'
+import { BottomSheet } from '@/shared/components/BottomSheet'
 import { LandingPopover } from './LandingPopover'
 import { LandingRoomCodePanel } from './LandingRoomCodePanel'
 

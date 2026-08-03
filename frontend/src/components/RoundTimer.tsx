@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { cn } from '@/cn'
+import { cn } from '@/shared/cn'
 import { formatCountdown, TIMER_WARNING_MS } from '@/useCountdown'
 
 interface RoundTimerProps {

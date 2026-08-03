@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button } from '@/components/Button'
 import { Dice } from '@/components/Dice'
 import { RollResultCallout } from '@/components/RollResultCallout'
 import type { DiceSet } from '@/domain/dice'
 import type { SpecialHand } from '@/domain/specialHands'
 import { createHandVoice, HAND_VOICE_SOURCE, type HandVoice } from '@/feedback/handVoice'
+import { Button } from '@/shared/components/Button'
 import { categoryLabel } from '@/yachtCategoryView'
 
 /**

@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react'
-import { Button } from '@/components/Button'
 import { PhysicsDiceScene } from '@/components/PhysicsDiceScene'
 import {
   createDiceSet,
@@ -18,6 +17,7 @@ import type {
   PhysicsDiceQuality,
   PhysicsDiceRollRequest,
 } from '@/rendering/physics-dice/types'
+import { Button } from '@/shared/components/Button'
 
 export function PhysicsDiceDemo() {
   const [dice, setDice] = useState<DiceSet | null>(null)

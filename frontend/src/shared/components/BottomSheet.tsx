@@ -6,9 +6,9 @@ import {
   useRef,
   useState,
 } from 'react'
-import { cn } from '@/cn'
-import { scrimVariants, sheetVariants } from '@/motion'
-import { useDialogBackground } from '@/useDialogBackground'
+import { cn } from '@/shared/cn'
+import { scrimVariants, sheetVariants } from '@/shared/motion'
+import { useDialogBackground } from '@/shared/useDialogBackground'
 
 interface BottomSheetProps {
   children: ReactNode

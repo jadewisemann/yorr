@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { cn } from '@/cn'
+import { cn } from '@/shared/cn'
 
 const TOAST_DURATION_MS = 2_500
 

@@ -1,5 +1,5 @@
-import { cn } from '@/cn'
 import type { PlayerId, PlayerStatus } from '@/realtime/wsEvents'
+import { cn } from '@/shared/cn'
 
 export interface TurnStripPlayer {
   playerId: PlayerId

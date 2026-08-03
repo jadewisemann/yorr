@@ -1,7 +1,7 @@
+import { useAsyncTask } from '@/shared/api/useAsyncTask'
 import { useAppStore } from '@/store'
 import type { CreateRoomRequest, JoinRoomRequest, RoomSession } from './gameApi'
 import { gameApiClient } from './gameApi'
-import { useAsyncTask } from './useAsyncTask'
 
 export function useCreateRoom() {
   const setRoomSession = useAppStore((state) => state.setRoomSession)

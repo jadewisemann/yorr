@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
-import { cn } from '@/cn'
+import { cn } from '@/shared/cn'
 
 interface TooltipProps {
   /** 말풍선이 트리거 기준 어디에 뜨는지. 화면 가장자리에 붙은 트리거는 반대쪽을 지정한다. */

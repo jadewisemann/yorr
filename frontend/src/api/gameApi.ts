@@ -1,6 +1,6 @@
 import { readAuthSession } from '@/authSession'
 import type { GameState, PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
-import { apiRequest } from './client'
+import { apiRequest } from '@/shared/api/client'
 
 export interface CreateRoomRequest {
   nickname: string

@@ -1,6 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react'
 import { Component, type ErrorInfo, type ReactNode, useState } from 'react'
-import { Button } from './Button'
+import { Button } from '@/shared/components/Button'
 
 interface InvitationPanelProps {
   roomCode: string

@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react'
-import { cn } from '@/cn'
-import { isCompleteRoomCode, sanitizeRoomCodeInput } from '@/roomCode'
+import { cn } from '@/shared/cn'
+import { isCompleteRoomCode, sanitizeRoomCodeInput } from '@/shared/roomCode'
 
 interface LandingRoomCodePanelProps {
   code: string

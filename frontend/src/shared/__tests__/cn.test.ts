@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cn } from './cn'
+import { cn } from '@/shared/cn'
 
 /**
  * 디자인 시스템은 "외부 배치는 className으로 확장한다"(docs/engineering/design-system.md)를

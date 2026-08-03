@@ -7,9 +7,9 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect } from 'react'
-import { getRoomCodeError, normalizeRoomCode } from '@/roomCode'
 import { EntryPage } from '@/screens/EntryPage'
 import { NotFoundPage } from '@/screens/NotFoundPage'
+import { getRoomCodeError, normalizeRoomCode } from '@/shared/roomCode'
 import { ScreenFallback } from './ScreenFallback'
 
 /**

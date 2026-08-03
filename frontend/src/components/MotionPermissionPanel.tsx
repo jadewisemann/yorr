@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Button } from './Button'
+import { Button } from '@/shared/components/Button'
 
 /** 자동으로 닫히기까지의 시간. 링이 한 바퀴 도는 시간과 같은 값이다. */
 const AUTO_CLOSE_MS = 3000

@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { cn } from '@/cn'
+import { cn } from '@/shared/cn'
 
 interface RecordPanelProps {
   /** 전체 시트(점수표). open일 때만 보인다. */

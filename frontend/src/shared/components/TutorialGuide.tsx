@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { cn } from '@/cn'
+import { cn } from '@/shared/cn'
 import { Button } from './Button'
 
 interface TutorialGuideProps {

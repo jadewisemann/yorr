@@ -1,6 +1,6 @@
-import { cn } from '@/cn'
 import { RoundTimer } from '@/components/RoundTimer'
 import type { Player, PlayerId } from '@/realtime/wsEvents'
+import { cn } from '@/shared/cn'
 import type { ConnectionStatus } from '@/store'
 
 const TOTAL_ROUNDS = 12

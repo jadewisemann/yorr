@@ -1,5 +1,5 @@
-import { cn } from '@/cn'
 import type { LandingGame } from '@/landingGames'
+import { cn } from '@/shared/cn'
 import { HeroCanvas } from './HeroCanvas'
 
 interface LandingHeroCardProps {

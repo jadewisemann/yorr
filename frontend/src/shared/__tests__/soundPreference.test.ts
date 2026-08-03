@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { readSoundMuted, saveSoundMuted } from './soundPreference'
+import { readSoundMuted, saveSoundMuted } from '@/shared/soundPreference'
 
 afterEach(() => window.localStorage.clear())
 

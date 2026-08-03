@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { BottomSheet } from './BottomSheet'
+import { BottomSheet } from '@/shared/components/BottomSheet'
 
 beforeAll(() => {
   // jsdom에는 포인터 캡처가 없다. 드래그 계약을 검증하려면 자리만 채워 준다.

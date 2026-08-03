@@ -1,5 +1,5 @@
 import type { AuthSession } from '@/authSession'
-import { API_BASE_URL, ApiError, apiRequest } from './client'
+import { API_BASE_URL, ApiError, apiRequest } from '@/shared/api/client'
 
 interface SessionResponse {
   userId: string

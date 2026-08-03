@@ -1,6 +1,6 @@
 import { type KeyboardEvent, useRef } from 'react'
-import { cn } from '@/cn'
 import { gameMeta, LANDING_PANEL_ID, type LandingGame, landingTabId } from '@/landingGames'
+import { cn } from '@/shared/cn'
 import { resolveTablistKey } from '@/tablistNavigation'
 
 interface LandingProgressProps {

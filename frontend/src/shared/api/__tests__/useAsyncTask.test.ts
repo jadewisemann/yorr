@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { useAsyncQuery, useAsyncTask } from './useAsyncTask'
+import { useAsyncQuery, useAsyncTask } from '@/shared/api/useAsyncTask'
 
 interface Deferred<T> {
   promise: Promise<T>

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { Tooltip } from './Tooltip'
+import { Tooltip } from '@/shared/components/Tooltip'
 
 describe('Tooltip', () => {
   it('탭하면 열리고 다시 탭하면 닫힌다', async () => {

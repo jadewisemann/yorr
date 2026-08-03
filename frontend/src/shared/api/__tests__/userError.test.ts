@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { ApiError } from './client'
-import { toUserError } from './userError'
+import { ApiError } from '@/shared/api/client'
+import { toUserError } from '@/shared/api/userError'
 
 describe('toUserError', () => {
   it('maps room errors to a recoverable Korean message', () => {

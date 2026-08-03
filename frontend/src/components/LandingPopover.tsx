@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { type ReactNode, useEffect, useRef } from 'react'
-import { popVariants, scrimVariants } from '@/motion'
-import { useDialogBackground } from '@/useDialogBackground'
+import { popVariants, scrimVariants } from '@/shared/motion'
+import { useDialogBackground } from '@/shared/useDialogBackground'
 
 interface LandingPopoverProps {
   children: ReactNode

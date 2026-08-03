@@ -27,7 +27,7 @@ import {
   type ServerMessage,
 } from '@/realtime/wsEvents'
 import type { PhysicsDiceMotionPulse, PhysicsDicePhase } from '@/rendering/physics-dice/types'
-import { readSoundMuted } from '@/soundPreference'
+import { readSoundMuted } from '@/shared/soundPreference'
 import { useAppStore } from '@/store'
 import { isRecorded } from '@/yachtCategoryView'
 import {
