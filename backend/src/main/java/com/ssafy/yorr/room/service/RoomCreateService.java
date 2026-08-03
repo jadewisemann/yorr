@@ -1,6 +1,7 @@
 package com.ssafy.yorr.room.service;
 
 import com.ssafy.yorr.room.RoomRedisKeys;
+import com.ssafy.yorr.room.dto.RoomMode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -29,19 +30,23 @@ public class RoomCreateService {
     private static final DefaultRedisScript<Long> CREATE = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 1 then return 0 end
             redis.call('HSET', KEYS[1], 'capacity', ARGV[1], 'members', '0', 'phase', 'LOBBY',
-                'hostId', ARGV[2], 'gameCode', ARGV[3])
+                'hostId', ARGV[2], 'gameCode', ARGV[3], 'mode', ARGV[5])
             redis.call('EXPIRE', KEYS[1], ARGV[4])
             return 1
             """, Long.class);
     private final RedisTemplate<String, String> redisTemplate;
 
     public String createRoom(int capacity, String hostId, String gameCode) {
+        return createRoom(capacity, hostId, gameCode, RoomMode.NORMAL);
+    }
+
+    public String createRoom(int capacity, String hostId, String gameCode, RoomMode mode) {
         if (capacity < 1) throw new IllegalArgumentException("invalid_capacity");
         if (gameCode == null || gameCode.isBlank()) throw new IllegalArgumentException("invalid_game_code");
         String roomCode;
         do {
             roomCode = randomCode();
-        } while (!created(roomCode, capacity, hostId, gameCode));
+        } while (!created(roomCode, capacity, hostId, gameCode, mode));
         return roomCode;
     }
 
@@ -57,9 +62,9 @@ public class RoomCreateService {
         return result;
     }
 
-    private boolean created(String roomCode, int capacity, String hostId, String gameCode) {
+    private boolean created(String roomCode, int capacity, String hostId, String gameCode, RoomMode mode) {
         Long result = redisTemplate.execute(CREATE, List.of(RoomRedisKeys.roomKey(roomCode)),
-                String.valueOf(capacity), hostId, gameCode, String.valueOf(ROOM_TTL.toSeconds()));
+                String.valueOf(capacity), hostId, gameCode, String.valueOf(ROOM_TTL.toSeconds()), mode.name());
         return Long.valueOf(1).equals(result);
     }
 

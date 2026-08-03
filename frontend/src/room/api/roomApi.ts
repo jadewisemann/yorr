@@ -20,7 +20,8 @@ export interface JoinRoomRequest {
 }
 
 export interface EnterRoomRequest {
-  nickname: string
+  /** 파티 모드 대시보드는 플레이어가 아니라 이름을 짓지 않는다 — 비우면 서버가 채운다. */
+  nickname?: string
   room_id?: string
   /** 로그인했으면 함께 보낸다. 없으면 서버가 새 게스트를 만든다. */
   session_token?: string
@@ -34,7 +35,29 @@ export interface EnterRoomResponse {
   room_id: string
 }
 
-export type RoomMembershipRole = 'host' | 'participant'
+/**
+ * 이 세션이 방에서 갖는 자리.
+ *
+ * `host` · `participant` — 둘 다 플레이어다(기존 동작).
+ * `dashboard` — 파티 모드에서 방을 연 큰 화면. 게임을 비추고 호스트 권한만 갖되 플레이어가
+ * 아니다(서버 플레이어 명단에 없어 턴도 점수판도 없다). 자세한 규약은 백엔드 `RoomMode`.
+ */
+export type RoomMembershipRole = 'host' | 'participant' | 'dashboard'
+
+/**
+ * 이 세션이 <b>지금</b> 방장인가(게임 시작 · 봇 추가 · 대기실 복귀).
+ *
+ * 방장은 입장 순서가 아니라 **서버 상태**다 — 처음 들어온 사람이 방장이 되고, 방장이 나가면
+ * 남은 사람이 이어받는다(백엔드 `RoomValidationService`의 JOIN · LEAVE 규약). 그래서 입장
+ * 시점에 굳어 localStorage에 저장되는 `membershipRole`로는 판단할 수 없다 — 승계가 일어나면
+ * 그 값은 거짓말이 된다. `state.sync`로 갱신되는 스냅샷의 `hostId`가 유일한 근거다.
+ *
+ * 파티 모드 대시보드는 플레이어 명단에 없어 `hostId`가 될 수 없으므로 영구히 false다 —
+ * 조작은 폰(방장)에서만 한다.
+ */
+export function isRoomHost(snapshot: RoomSnapshot | null | undefined, you: PlayerId) {
+  return Boolean(snapshot?.hostId) && snapshot?.hostId === you
+}
 
 export interface RoomSession {
   gameCode?: GameCode
@@ -78,6 +101,17 @@ export class HttpRoomApiClient {
       options,
       request.gameCode ?? 'YACHT_DICE',
     )
+  }
+
+  /**
+   * 파티 모드 방을 연다. 서버는 방만 만들고 이 세션을 플레이어 명단에 넣지 않는다(`?party=true`)
+   * — 그래서 이 화면은 대시보드가 되고, 턴 순서·점수판·정원은 QR로 들어올 폰들의 것이 된다.
+   * 닉네임을 보내지 않는 이유도 같다: 대시보드는 참가자 목록에 오르지 않는다.
+   */
+  createPartyRoom(options?: ApiCallOptions) {
+    // 게임은 아직 고정이다 — 진입 버튼이 게임 카드 안에 있으므로 게임별 파티 방을 열려면
+    // /party 라우트가 게임을 받아야 한다(현재 live 게임이 요트뿐이라 값은 같다).
+    return enterRoom({}, 'dashboard', options, 'YACHT_DICE', true)
   }
 
   joinRoom(roomCode: string, request: JoinRoomRequest, options?: ApiCallOptions) {
@@ -151,10 +185,15 @@ function enterRoom(
   membershipRole: RoomMembershipRole,
   options?: ApiCallOptions,
   gameCode?: GameCode,
+  party = false,
 ) {
   const sessionToken = readAuthSession()?.sessionToken
-  const path = gameCode ? `/rooms?game_code=${encodeURIComponent(gameCode)}` : '/rooms'
-  return apiRequest<unknown>(path, {
+  const search = new URLSearchParams()
+  if (gameCode) search.set('game_code', gameCode)
+  // party=true면 서버가 방만 만들고 이 세션을 플레이어 명단에 넣지 않는다(백엔드 RoomMode).
+  if (party) search.set('party', 'true')
+  const query = search.toString()
+  return apiRequest<unknown>(query ? `/rooms?${query}` : '/rooms', {
     method: 'POST',
     body: JSON.stringify(sessionToken ? { ...request, session_token: sessionToken } : request),
     ...requestSignal(options),
