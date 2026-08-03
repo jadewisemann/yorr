@@ -90,6 +90,22 @@ class ExpectimaxYachtBotPolicyTest {
     }
 
     @Test
+    void keepsACompletedSmallStraightForTheLastLargeStraightAttempt() {
+        var decision = policy.decide(emptyBoard(), List.of(2, 3, 4, 5, 5), 2);
+
+        assertThat(decision.action()).isEqualTo(ExpectimaxYachtBotPolicy.Action.HOLD);
+        assertThat(decision.held()).containsExactly(true, true, true, true, false);
+    }
+
+    @Test
+    void recordsThePreservedSmallStraightInsteadOfChoiceAfterTheLastRoll() {
+        var decision = policy.decide(emptyBoard(), List.of(3, 3, 4, 5, 6), 3);
+
+        assertThat(decision.action()).isEqualTo(ExpectimaxYachtBotPolicy.Action.SCORE);
+        assertThat(decision.category()).isEqualTo(ScoreCategory.SMALL_STRAIGHT);
+    }
+
+    @Test
     void submitsTheBestCategoryAfterTheThirdRoll() {
         var decision = policy.decide(emptyBoard(), List.of(6, 6, 6, 6, 6), 3);
 
