@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { googleLoginUrl, kakaoLoginUrl, renameProfile } from '@/auth/api/authApi'
 import type { AuthSession } from '@/auth/authSession'
-import { NICKNAME_MAX_LENGTH } from '@/auth/nickname'
+import { getNicknameError, NICKNAME_MAX_LENGTH, normalizeNickname } from '@/auth/nickname'
 import { cn } from '@/shared/cn'
 import { BottomSheet } from '@/shared/components/BottomSheet'
 import { Popover } from '@/shared/components/Popover'
@@ -136,6 +136,10 @@ function AccountMenu({ onSignOut, session }: { onSignOut: () => void; session: A
 /**
  * 닉네임 인라인 편집. 별도 화면을 만들지 않은 이유는 지금 고칠 것이 이름 하나뿐이기
  * 때문이다 — 화면을 새로 파면 랜딩 디자인을 다시 맞춰야 하고, 그 값어치가 없다.
+ *
+ * 검증은 `getNicknameError`(길이·허용문자·욕설)를 그대로 쓴다. 예전에는 여기서만
+ * `trim()`이 비었는지 보고 통과시켜, 방 입장 경로에서 막히는 이름이 프로필로는 그대로
+ * 들어갔다(S15P11A406-182).
  */
 function NicknameEditor({ onDone, session }: { onDone: () => void; session: AuthSession }) {
   const signIn = useAppStore((state) => state.signIn)
@@ -144,9 +148,10 @@ function NicknameEditor({ onDone, session }: { onDone: () => void; session: Auth
   const [saving, setSaving] = useState(false)
 
   const save = async () => {
-    const nickname = value.trim()
-    if (!nickname) {
-      setError('닉네임을 입력해 주세요.')
+    const nickname = normalizeNickname(value)
+    const validationError = getNicknameError(nickname)
+    if (validationError) {
+      setError(validationError)
       return
     }
     if (nickname === session.nickname) {
