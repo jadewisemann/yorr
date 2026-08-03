@@ -13,7 +13,7 @@ type MockWorld = {
   callbacks: PhysicsDiceWorldCallbacks
   destroy: ReturnType<typeof vi.fn>
   pour: ReturnType<typeof vi.fn>
-  setLineUpAll: ReturnType<typeof vi.fn>
+  setKeepAll: ReturnType<typeof vi.fn>
   setMotionFollow: ReturnType<typeof vi.fn>
   startRoll: ReturnType<typeof vi.fn>
   syncCommittedDice: ReturnType<typeof vi.fn>
@@ -38,7 +38,7 @@ vi.mock('@/yacht/rendering/physics-dice/World', () => ({
 
     init = vi.fn(() => initState.promise ?? Promise.resolve())
     syncCommittedDice = vi.fn()
-    setLineUpAll = vi.fn()
+    setKeepAll = vi.fn()
     applyQuality = vi.fn()
     setMotionFollow = vi.fn()
     applyShakePulse = vi.fn()
@@ -202,12 +202,12 @@ describe('PhysicsDiceScene', () => {
     expect(worlds[0]?.startRoll).toHaveBeenCalledOnce()
   })
 
-  it('킵 주사위를 한 줄로 눕히는 규칙을 주사위 배치보다 먼저 전달한다', async () => {
+  it('다섯 개를 모두 킵 레일에 올리는 규칙을 주사위 배치보다 먼저 전달한다', async () => {
     const view = render(
       <PhysicsDiceScene
         dice={null}
         held={request.held}
-        lineUpAll={false}
+        keepAll={false}
         releaseRequestId={null}
         request={null}
         onRollComplete={vi.fn()}
@@ -219,8 +219,8 @@ describe('PhysicsDiceScene', () => {
 
     // 순서가 뒤집히면 초기 배치가 한 번 잘못 눕고 나서 고쳐진다.
     await waitFor(() => expect(world.syncCommittedDice).toHaveBeenCalled())
-    expect(world.setLineUpAll).toHaveBeenCalledWith(false)
-    expect(world.setLineUpAll.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(world.setKeepAll).toHaveBeenCalledWith(false)
+    expect(world.setKeepAll.mock.invocationCallOrder[0]).toBeLessThan(
       Number(world.syncCommittedDice.mock.invocationCallOrder[0]),
     )
 
@@ -228,13 +228,13 @@ describe('PhysicsDiceScene', () => {
       <PhysicsDiceScene
         dice={null}
         held={request.held}
-        lineUpAll
+        keepAll
         releaseRequestId={null}
         request={null}
         onRollComplete={vi.fn()}
       />,
     )
-    expect(world.setLineUpAll).toHaveBeenLastCalledWith(true)
+    expect(world.setKeepAll).toHaveBeenLastCalledWith(true)
   })
 
   it('엔진의 상태 변화를 부모 callback으로 그대로 넘긴다', async () => {

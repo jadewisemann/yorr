@@ -547,6 +547,7 @@ export function useGamePlayRoll({ game, roomId, showToast, you }: UseGamePlayRol
     rollHighlight,
     rollInputMode,
     rolling,
+    rollsLeft,
     settledRollCount,
     setMuted: (muted: boolean) => {
       feedbackRef.current?.setMuted(muted)

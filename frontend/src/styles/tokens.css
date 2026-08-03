@@ -124,6 +124,13 @@
   /* 센서 안내 닫기 버튼을 두르는 링. 한 바퀴 도는 동안(3초) 안내가 스스로 닫힌다.
      MotionPermissionPanel의 AUTO_CLOSE_MS와 같은 값이다. */
   --animate-close-sweep: close-sweep 3000ms linear both;
+
+  /* 연습 모드가 "여기를 누르세요"라고 가리키는 자리. 요소를 키우지 않고(ring-pulse와 다르다)
+     테두리만 바깥으로 번져 나가며 사라진다 — 강조 대상이 실제 버튼이라 크기가 흔들리면
+     누르려던 손이 빗나간다.
+     linear로 둔다: ease-out은 앞에서 거의 다 퍼져 버려 뒤쪽 절반이 사실상 안 보이고,
+     그 구간이 쉬는 시간처럼 읽힌다. 균일하게 번져야 파동이 끊기지 않는다. */
+  --animate-tutorial-halo: tutorial-halo 1600ms linear infinite;
 }
 
 :root {
@@ -467,5 +474,17 @@
   }
   50% {
     transform: translateY(-0.4rem) rotate(3deg);
+  }
+}
+
+/* 파동이 사이클 전체를 쓴다 — 70%에서 이미 투명해지고 100%까지 쉬면 그 30%(540ms)가
+   빈 시간이라 반짝임이 끊겼다 보였다. 마지막 프레임이 완전히 투명하므로 다음 파동이
+   중심에서 곧바로 이어져 쉬는 틈이 없다. */
+@keyframes tutorial-halo {
+  from {
+    box-shadow: 0 0 0 0 rgb(255 77 72 / 40%);
+  }
+  to {
+    box-shadow: 0 0 0 0.875rem rgb(255 77 72 / 0%);
   }
 }

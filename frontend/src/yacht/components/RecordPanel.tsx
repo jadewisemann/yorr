@@ -105,6 +105,7 @@ export function RecordPanel({
             'flex-none touch-none px-4 pt-2 pb-1.5',
             open ? 'cursor-pointer' : 'cursor-grab',
           )}
+          data-tutorial="sheet-handle"
           onClick={handleHandleTap}
           onPointerCancel={handlePointerUp}
           onPointerDown={handlePointerDown}
