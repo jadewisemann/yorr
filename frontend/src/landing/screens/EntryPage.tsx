@@ -20,7 +20,8 @@ import { selectSessionPhase, useAppStore } from '@/store'
 const WIDE_LAYOUT = '(min-width: 760px)'
 
 const wordmark = 'font-mono font-bold tracking-[-0.03em] text-landing-text'
-const wordmarkTag = 'font-mono font-bold tracking-[0.24em] text-landing-text-muted uppercase'
+const wordmarkTag =
+  'font-mono font-bold tracking-[0.24em] whitespace-nowrap text-landing-text-muted uppercase'
 const noticeBase = 'm-0 text-center text-[12.5px]/[1.5] font-semibold text-landing-accent-text'
 
 /**
@@ -139,14 +140,22 @@ export function EntryPage() {
                   </span>
                   <span className={cn(wordmarkTag, 'text-[11px]/none')}>Yorr Arcade</span>
                 </span>
-                <span aria-hidden="true" className="h-6.5 w-px bg-landing-hairline-strong" />
-                <h1 className="m-0 text-[17px]/none font-bold whitespace-nowrap text-landing-text-strong">
+                {/* 1200 아래에서는 이 한 줄을 접는다. 워드마크·초대 코드·계정은 줄어들 수
+                    없고 이 카피만 줄바꿈 금지라, 760~1199에서 헤더 합계가 띠 폭(69.4%)을
+                    넘어 justify-between이 옆으로 밀렸다. 가치 제안은 히어로 카드가 이미
+                    말한다. sr-only로 접어 문서에는 h1을 남긴다 — hidden으로 지우면 이
+                    구간에서 페이지에 제목이 하나도 없다. */}
+                <span
+                  aria-hidden="true"
+                  className="hidden h-6.5 w-px bg-landing-hairline-strong desktop:block"
+                />
+                <h1 className="sr-only m-0 text-[17px]/none font-bold whitespace-nowrap text-landing-text-strong desktop:not-sr-only">
                   링크 하나로 모이면 바로 시작하는 파티 게임
                 </h1>
               </div>
               <span className="flex min-w-0 items-center gap-2.5">
                 {/* 게임 CTA와 다른 층 — 선택한 게임과 무관한 독립 진입 경로다. */}
-                <CodeEntryRow compact onOpen={() => setCodeOpen(true)} />
+                <CodeEntryRow onOpen={() => setCodeOpen(true)} />
                 <span aria-hidden="true" className="h-6.5 w-px flex-none bg-landing-hairline" />
                 <SoundToggle muted={soundMuted} onToggle={toggleSound} />
                 <AccountControl
@@ -323,41 +332,27 @@ function TutorialLink({ onClick }: { onClick: () => void }) {
  * 거기 두면 primary 아래 secondary로 읽혀 "이 게임을 코드로 연다"가 되고, 준비 중인
  * 게임에서는 잠긴 버튼 아래 붙어 더 어긋난다.
  *
- * narrow는 가치 제안 카피(h1) **오른쪽**에 붙는 작은 채운 버튼이다. 층으로는 여전히
- * 게임 CTA(히어로 카드 안)와 분리돼 있고, 세로로 한 층을 따로 쓰지 않으므로 히어로가
- * 그만큼 커진다. 레드로 채우되 <b>글로우는 주지 않는다</b> — 화면에서 빛나는 레드는
- * 히어로 카드 안 플레이 CTA 하나여야 하고, 이 버튼은 면적이 그 1/6이다.
+ * 알약 모양의 작은 채운 버튼이다. 층으로는 여전히 게임 CTA(히어로 카드 안)와 분리돼
+ * 있고, 세로로 한 층을 따로 쓰지 않으므로 히어로가 그만큼 커진다. 레드로 채우되
+ * <b>글로우는 주지 않는다</b> — 화면에서 빛나는 레드는 히어로 카드 안 플레이 CTA
+ * 하나여야 하고, 이 버튼은 면적이 그 1/6이다.
  *
  * 보이는 글자는 "초대 코드"지만 접근 가능한 이름은 "초대 코드로 참가"다. 보이는 글자가
  * 그 이름에 포함되므로 WCAG 2.5.3 Label in Name을 만족한다.
  *
- * compact(wide 헤더)는 옆에 구분선·계정 칩이 함께 서서 크롬 줄을 이루므로 그대로 둔다.
+ * 데스크톱도 같은 모양을 쓴다. 예전에는 wide 헤더만 외곽선 사각형(compact) 변형이었는데,
+ * 같은 일을 하는 버튼이 화면 폭에 따라 다른 물건으로 보였다.
  */
-const codeEntryBase =
-  'flex shrink-0 cursor-pointer items-center transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-offset-2'
+const codeEntry =
+  'flex min-h-tap shrink-0 cursor-pointer items-center gap-2 rounded-full border-0 bg-landing-accent pr-3 pl-4 text-[14px] font-landing-bold text-landing-accent-ink outline-white transition-colors duration-150 ease-out hover:bg-landing-accent/90 focus-visible:outline-3 focus-visible:outline-offset-2'
 
-const codeEntryLayout = {
-  compact:
-    'min-h-tap gap-2 rounded-[14px] border border-landing-hairline-strong bg-landing-well px-4 text-[15px] font-semibold text-landing-text outline-landing-accent hover:border-landing-accent/70 hover:bg-landing-soft',
-  // 알약 모양 — 옆에 선 h1은 24px 텍스트 덩어리라 각진 사각형과는 어느 높이로 맞춰도
-  // 어긋나 보인다. 완전히 둥글리면 높이 차가 형태 차이로 읽혀 나란히 서도 어색하지 않다.
-  narrow:
-    'min-h-tap gap-2 rounded-full border-0 bg-landing-accent pr-3 pl-4 text-[14px] font-landing-bold text-landing-accent-ink outline-white hover:bg-landing-accent/90',
-} as const
-
-function CodeEntryRow({ compact = false, onOpen }: { compact?: boolean; onOpen: () => void }) {
+function CodeEntryRow({ onOpen }: { onOpen: () => void }) {
   return (
-    <button
-      aria-label="초대 코드로 참가"
-      className={cn(codeEntryBase, codeEntryLayout[compact ? 'compact' : 'narrow'])}
-      onClick={onOpen}
-      type="button"
-    >
-      {compact && <CodeGlyph />}
-      {compact ? '초대 코드로 참가' : '초대 코드'}
-      {/* 글자 뒤에 입력 필드를 줄여 그린다 — 앞의 코드 칸 세 개는 "무엇을 누르는가"를
-          말하지 못했다. 커서가 깜빡이는 빈 칸은 "여기에 쳐 넣는다"로 읽힌다. */}
-      {!compact && <InputGlyph />}
+    <button aria-label="초대 코드로 참가" className={codeEntry} onClick={onOpen} type="button">
+      초대 코드
+      {/* 글자 뒤에 입력 필드를 줄여 그린다 — 코드 칸 세 개를 그린 아이콘은 "무엇을
+          누르는가"를 말하지 못했다. 커서가 깜빡이는 빈 칸은 "여기에 쳐 넣는다"로 읽힌다. */}
+      <InputGlyph />
     </button>
   )
 }
@@ -407,6 +402,9 @@ function AccountControl({
 
   return (
     <button
+      // 로그인 상태에서는 닉네임을 그리지 않으므로 버튼에 보이는 글자가 없다 —
+      // 누구의 계정인지는 접근 가능한 이름이 대신 말한다.
+      aria-label={session ? `내 계정, ${session.nickname}` : undefined}
       aria-expanded={open}
       aria-haspopup="dialog"
       className={cn(
@@ -414,40 +412,18 @@ function AccountControl({
         open
           ? 'border-landing-accent/60 bg-landing-accent-tint text-landing-accent-text'
           : 'border-landing-hairline-strong bg-landing-well text-landing-text hover:border-landing-accent/70',
-        wide ? 'gap-2.5 px-5 text-[15px]' : 'gap-2 px-3.5 text-[13px]',
+        // 아바타 하나뿐이면 가로 여백이 필요 없다 — 탭 타깃 크기의 원형으로 세운다.
+        session
+          ? 'size-tap justify-center px-0'
+          : wide
+            ? 'gap-2.5 px-5 text-[15px]'
+            : 'gap-2 px-3.5 text-[13px]',
       )}
       onClick={onOpen}
       type="button"
     >
-      {session ? (
-        <>
-          <Avatar nickname={session.nickname} size="sm" />
-          <span className="truncate">{session.nickname}</span>
-        </>
-      ) : (
-        '로그인'
-      )}
+      {session ? <Avatar nickname={session.nickname} size="lg" /> : '로그인'}
     </button>
-  )
-}
-
-/**
- * onAccent = 채운 레드 버튼 위. 잉크색을 그대로 쓰되 살짝 눌러 글자보다 뒤에 세운다.
- * quiet = wide 헤더. 옆 컨트롤과 같은 흰색 55%를 유지한다.
- */
-const codeGlyphTone = {
-  onAccent: 'opacity-80',
-  quiet: 'opacity-55',
-} as const
-
-/** 방 코드 세 칸을 줄여 그린 아이콘. 무엇을 입력하는 버튼인지 글자 없이 한 번 더 말한다. */
-function CodeGlyph({ tone = 'quiet' }: { tone?: keyof typeof codeGlyphTone }) {
-  return (
-    <span aria-hidden="true" className={cn('flex gap-[3px]', codeGlyphTone[tone])}>
-      <span className="h-3.5 w-1.5 rounded-[2px] border border-current" />
-      <span className="h-3.5 w-1.5 rounded-[2px] border border-current" />
-      <span className="h-3.5 w-1.5 rounded-[2px] border border-current" />
-    </span>
   )
 }
 

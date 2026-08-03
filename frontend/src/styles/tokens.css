@@ -67,6 +67,12 @@
   --font-weight-landing-medium: 500;
   --font-weight-landing-bold: 700;
 
+  /* 태블릿 가로·작은 노트북(760~1199)에서 랜딩 헤더가 한 줄에 다 서지 못한다.
+     760은 DOM 구조가 갈리는 지점이라 JS(useMediaQuery)가 맡고, 1200은 스타일만
+     갈리므로 variant로 둔다 — 미디어쿼리를 JS로 하나 더 구독할 이유가 없다.
+     Tailwind 기본 sm~2xl은 그대로 남는다. */
+  --breakpoint-desktop: 75rem;
+
   --spacing-tap: var(--ds-size-tap);
   --spacing-content: var(--ds-size-content);
   --spacing-landing: var(--ds-size-landing);
