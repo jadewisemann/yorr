@@ -9,6 +9,7 @@
 
 /** 게임 식별자. 목록이 SSOT이므로 타입도 여기서 소유한다. */
 export type GameKey = 'duel' | 'fishing' | 'liars' | 'pingpong' | 'yacht'
+export type GameCode = 'PING_PONG' | 'YACHT_DICE'
 
 export interface Game {
   /** 조작 방식 한 마디. 히어로 카드 메타 필의 세 번째 칸이다. */
@@ -16,6 +17,8 @@ export interface Game {
   /** 규칙을 한 문장으로 요약한 설명. 카드에서 가장 작게 읽히는 줄. */
   description: string
   duration: string
+  /** 방 생성 시 백엔드 GameModuleRegistry에 전달할 코드. */
+  gameCode?: GameCode
   key: GameKey
   /** 지금 플레이할 수 있는 게임인지. false면 랜딩에서 '준비 중'으로 노출된다. */
   live: boolean
@@ -35,6 +38,7 @@ export const games: [Game, ...Game[]] = [
     description: '12라운드 동안 가장 높은 점수를 완성하는 실시간 주사위 게임',
     players: '1–6 PLAYERS',
     duration: '약 15분',
+    gameCode: 'YACHT_DICE',
     control: '휴대폰 흔들기',
     live: true,
   },
@@ -65,8 +69,9 @@ export const games: [Game, ...Game[]] = [
     description: '먼저 11점을 얻는 쪽이 이기는 1:1 스피드 대결',
     players: '2 PLAYERS',
     duration: '약 3분',
-    control: '화면 드래그',
-    live: false,
+    gameCode: 'PING_PONG',
+    control: '화면 탭 · 폰 스윙',
+    live: true,
   },
   {
     key: 'fishing',
@@ -82,4 +87,12 @@ export const games: [Game, ...Game[]] = [
 
 export function gameAt(index: number): Game {
   return games[index] ?? games[0]
+}
+
+export function isGameKey(value: unknown): value is GameKey {
+  return typeof value === 'string' && games.some((game) => game.key === value)
+}
+
+export function gameByKey(key: GameKey | undefined): Game {
+  return games.find((game) => game.key === key) ?? games[0]
 }

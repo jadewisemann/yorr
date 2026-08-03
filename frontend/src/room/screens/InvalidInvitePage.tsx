@@ -19,7 +19,7 @@ export function InvalidInvitePage({ initialCode }: InvalidInvitePageProps) {
     const nextError = getRoomCodeError(code)
     setError(nextError)
     if (nextError) return
-    void navigate({ to: '/join', search: { code } })
+    void navigate({ to: '/join', search: { code, game: undefined } })
   }
 
   return (

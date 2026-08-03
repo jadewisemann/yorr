@@ -46,11 +46,11 @@ describe('LobbyPage', () => {
     useAppStore.getState().setConnectionStatus('connected')
   })
 
-  it('첫 화면을 그린 뒤 물리 주사위 모듈을 유휴 시간에 미리 불러온다', () => {
+  it('첫 화면을 그린 뒤 물리 주사위 모듈을 유휴 시간에 미리 불러온다', async () => {
     render(<LobbyPage roomId={creatorSession.roomId} />)
 
     expect(requestIdleCallback).toHaveBeenCalledOnce()
-    expect(prefetchPhysicsDiceWorld).toHaveBeenCalledOnce()
+    await waitFor(() => expect(prefetchPhysicsDiceWorld).toHaveBeenCalledOnce())
   })
 
   it('모션 감소 설정에서는 물리 주사위 모듈을 미리 받지 않는다', () => {

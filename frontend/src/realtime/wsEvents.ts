@@ -54,6 +54,7 @@
  * ============================================================================
  */
 
+import type { GameCode } from '@/games'
 // 경계 규칙 예외 — realtime은 도메인 위의 계층인데 아래 import는 yacht를 본다.
 // 와이어 계약 자체가 야추 모양이기 때문이다: dice.* 이벤트와 round.submit의
 // YachtCategory가 프로토콜에 박혀 있다. 게임을 추가하려면 게임 무관 envelope와
@@ -98,6 +99,7 @@ export type RoomPhase = 'waiting' | 'playing' | 'finished'
  * game 필드(진행 상태)는 게임 도메인 소유 → GameState 참조.
  */
 export interface RoomSnapshot {
+  gameCode?: GameCode
   roomId: RoomId
   phase: RoomPhase
   players: Player[]
@@ -133,6 +135,59 @@ export interface GameState {
   dice?: DiceSet
   /** 턴 주인이 유지 중인 KEEP. 첫 굴림 전에는 없다. */
   held?: HeldDice
+}
+
+export type PingPongPhase = 'COUNTDOWN' | 'PLAYING' | 'FINISHED'
+export type PingPongFault = 'OUT' | 'NET'
+export type PingPongEventType =
+  | 'READY'
+  | 'SERVE'
+  | 'TOO_EARLY'
+  | 'TOO_LATE'
+  | 'OK'
+  | 'NICE'
+  | 'SMASH'
+  | 'OUT'
+  | 'NET'
+  | 'POINT'
+  | 'GAME_OVER'
+  | 'OPPONENT_LEFT'
+
+export interface PingPongBallState {
+  pos: number
+  direction: 1 | -1
+  speed: number
+  smash: boolean
+  fault?: PingPongFault | null
+  faultFrom: number
+  x0: number
+  x1: number
+  launchedAt: number
+}
+
+export interface PingPongEvent {
+  id: number
+  type: PingPongEventType
+  playerId?: PlayerId | null
+  at: number
+}
+
+export interface PingPongState {
+  version: number
+  phase: PingPongPhase
+  playerOrder: PlayerId[]
+  scores: Record<PlayerId, number>
+  lastInputSeq: Record<PlayerId, number>
+  ball: PingPongBallState
+  rally: number
+  serveReceiverId?: PlayerId | null
+  nextActionAt: number
+  lastEvent?: PingPongEvent | null
+}
+
+export interface PingPongSwingPayload {
+  inputSeq: number
+  clientTs: number
 }
 
 /* ----- 요트 정규룰 족보 (score.* / game.* · owner: 유상은 40·41·43) -----
@@ -546,6 +601,7 @@ export type ClientMessage =
   | WsEnvelope<'dice.shake', DiceShakePayload>
   | WsEnvelope<'dice.throw', DiceThrowPayload>
   | WsEnvelope<'round.submit', RoundSubmitPayload>
+  | WsEnvelope<'pingpong.swing', PingPongSwingPayload>
 
 export type ServerMessage =
   // ✅ SYS-DC
@@ -578,6 +634,7 @@ export type ServerMessage =
   | WsEnvelope<'score.update', ScoreUpdatePayload>
   | WsEnvelope<'game.over', GameOverPayload>
   | WsEnvelope<'state.patch', StatePatchPayload>
+  | WsEnvelope<'pingpong.state', PingPongState>
 
 export type WsMessage = ClientMessage | ServerMessage
 
