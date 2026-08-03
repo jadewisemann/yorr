@@ -398,23 +398,21 @@ export function TutorialGuide({
       {/* 주사위가 날아가는 동안에는 백드롭을 통째로 걷는다 — 굴러가는 주사위가 이 연습의
           볼거리인데 딤이 덮으면 안 보인다. 조작은 게임 자체가 잠그고 있어 막을 것도 없다. */}
       {!rolling && <Backdrop dim={dimsAroundHole(step)} spotlight={spotlight} />}
-      <Card spotlight={spotlight}>
+      <Card anchor={lesson.hand ? spotlight : null} spotlight={spotlight}>
         {lesson.hand && (
           <p className="m-0 text-[11px] font-bold tracking-[0.1em] text-content-faint uppercase">
             남은 족보 둘러보기 · {lesson.hand.index + 1} / {lesson.hand.total}
           </p>
         )}
-        <SpeechBubble bubble={lesson.hand !== undefined}>
-          <h2 className="m-0 text-[17px] leading-tight font-bold text-content">{lesson.title}</h2>
-          <p
-            aria-live="polite"
-            className="m-0 text-[14.5px] leading-relaxed text-content-muted"
-            role="status"
-          >
-            {lesson.body}
-          </p>
-          {lesson.hand?.score !== undefined && <HandScore score={lesson.hand.score} />}
-        </SpeechBubble>
+        <h2 className="m-0 text-[17px] leading-tight font-bold text-content">{lesson.title}</h2>
+        <p
+          aria-live="polite"
+          className="m-0 text-[14.5px] leading-relaxed text-content-muted"
+          role="status"
+        >
+          {lesson.body}
+        </p>
+        {lesson.hand?.score !== undefined && <HandScore score={lesson.hand.score} />}
         <div className="mt-0.5 flex items-center justify-between gap-3">
           <GuideTextButton label="연습 그만두기" onClick={onClose} />
           {lesson.action ? (
@@ -639,20 +637,49 @@ function Backdrop({ dim, spotlight }: { dim: boolean; spotlight: SpotlightRect |
  * mx-auto가 left/right 둘 다 잡힌 절대 요소를 상한 안에서 가운데로 되돌린다.
  * 모바일(375px)에서는 inset-x-4가 먼저 걸려 종전과 같은 343px이다.
  */
-function Card({ children, spotlight }: { children: ReactNode; spotlight: SpotlightRect | null }) {
+function Card({
+  anchor,
+  children,
+  spotlight,
+}: {
+  /** 설명 중인 족보 칸. 있으면 카드가 그 칸 옆에 말풍선으로 붙는다. */
+  anchor: SpotlightRect | null
+  children: ReactNode
+  spotlight: SpotlightRect | null
+}) {
+  const placement = anchor && anchoredPlacement(anchor)
   const below = spotlight !== null && spotlight.top < window.innerHeight / 2
 
   return (
     <div
       className={cn(
-        'pointer-events-auto absolute inset-x-4 mx-auto grid max-w-104 gap-2.5 rounded-card border border-white/20 bg-surface-raised p-4 shadow-raised',
-        spotlight === null
-          ? 'top-1/2 -translate-y-1/2'
-          : below
-            ? 'bottom-5'
-            : 'top-[max(1rem,env(safe-area-inset-top))]',
+        'pointer-events-auto absolute grid gap-2.5 rounded-card border border-white/20 bg-surface-raised p-4 shadow-raised',
+        placement
+          ? 'w-88 max-w-[calc(100vw-2rem)]'
+          : cn(
+              'inset-x-4 mx-auto max-w-104',
+              spotlight === null
+                ? 'top-1/2 -translate-y-1/2'
+                : below
+                  ? 'bottom-5'
+                  : 'top-[max(1rem,env(safe-area-inset-top))]',
+            ),
       )}
+      style={placement?.style}
     >
+      {/* 말풍선 꼬리 — 설명하는 칸을 가리킨다. 카드와 같은 배경을 45° 돌려 변에 반쯤 걸친다. */}
+      {placement && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            'absolute size-3 rotate-45 border-white/20 bg-surface-raised',
+            placement.tail === 'right'
+              ? 'top-1/2 -right-1.5 -translate-y-1/2 border-t border-r'
+              : '-bottom-1.5 border-r border-b',
+          )}
+          style={placement.tailStyle}
+        />
+      )}
       <div className="flex items-start gap-3">
         <DiceBuddy className="motion-safe:animate-guide-bob" />
         <div className="grid min-w-0 flex-1 gap-2">{children}</div>
@@ -662,25 +689,36 @@ function Card({ children, spotlight }: { children: ReactNode; spotlight: Spotlig
 }
 
 /**
- * 족보 설명을 마스코트의 말풍선으로 감싼다. 꼬리가 왼쪽 마스코트를 가리켜 "이 친구가 하나씩
- * 말해 준다"로 읽힌다 — 규칙 나열이 아니라 설명으로 받아들여지는 차이다.
- *
- * 다른 단계는 감싸지 않고 그대로 통과시킨다. 굴리라고 재촉하는 문구까지 풍선에 넣으면
- * 카드마다 배경이 한 겹 더 생겨 화면이 무거워진다.
+ * 족보 칸 옆에 붙는 자리. 왼쪽에 카드가 설 자리가 있으면(넓은 화면 — 점수표가 오른쪽
+ * 패널이라 왼쪽이 게임 영역이다) 칸의 왼쪽에 세우고, 없으면(좁은 화면 — 칩 줄) 칩 위에
+ * 세운다. 칸이 넘어가면 구멍과 함께 카드도 따라 움직인다.
  */
-function SpeechBubble({ bubble, children }: { bubble: boolean; children: ReactNode }) {
-  if (!bubble) return <>{children}</>
-
-  return (
-    <div className="relative grid gap-2 rounded-control bg-surface-sunken px-3 py-2.5">
-      {/* 꼬리. 풍선과 같은 배경을 45° 돌려 왼쪽 변에 반쯤 걸친다. */}
-      <span
-        aria-hidden="true"
-        className="absolute top-4 -left-1 size-2.5 rotate-45 bg-surface-sunken"
-      />
-      {children}
-    </div>
-  )
+function anchoredPlacement(anchor: SpotlightRect) {
+  const gap = 14
+  if (anchor.left >= 400) {
+    // ponytail: 카드 실제 높이를 모른 채 중심을 화면 안쪽으로 죈다(카드 ≤ 260px 가정).
+    // 넘치는 화면이 나오면 카드 높이를 재서 죄는 것으로 올린다.
+    const centerY = Math.min(
+      Math.max(anchor.top + anchor.height / 2, 140),
+      window.innerHeight - 140,
+    )
+    return {
+      style: {
+        top: centerY,
+        right: window.innerWidth - anchor.left + gap,
+        transform: 'translateY(-50%)',
+      },
+      tail: 'right' as const,
+      tailStyle: undefined,
+    }
+  }
+  // 칩 줄 위. 꼬리는 카드 폭 안에서 칩의 가운데를 따라간다.
+  const holeCenterX = anchor.left + anchor.width / 2
+  return {
+    style: { bottom: window.innerHeight - anchor.top + gap, left: 16, right: 16 },
+    tail: 'bottom' as const,
+    tailStyle: { left: Math.min(Math.max(holeCenterX - 16 - 6, 18), window.innerWidth - 68) },
+  }
 }
 
 function GuideTextButton({ label, onClick }: { label: string; onClick: () => void }) {

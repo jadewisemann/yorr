@@ -446,6 +446,28 @@ describe('TutorialGuide', () => {
     expect(halo().top).toBe(294)
   })
 
+  /*
+   * 설명 카드는 화면 위/아래 고정이 아니라 설명하는 칸 **옆에** 말풍선으로 붙는다.
+   * 칸 왼쪽에 설 자리가 있으면(넓은 화면 점수표) 옆에, 없으면(좁은 화면 칩 줄) 위에.
+   */
+  it('족보 설명 카드는 강조한 칸 옆에 말풍선으로 붙는다', () => {
+    // jsdom 뷰포트는 1024×768이다.
+    mountCategoryRows({ ones: { top: 200, left: 700, width: 280, height: 40 } })
+    const wideView = setup(atHandTour)
+
+    const card = () => document.querySelector('[class*="rounded-card"]') as HTMLElement
+    // 칸 왼쪽: right = 1024 - 700 + 14
+    expect(card().style.right).toBe('338px')
+    expect(card().style.top).toBe('220px')
+    wideView.unmount()
+    document.getElementById(ROWS_ID)?.remove()
+
+    // 칩 줄(왼쪽 여유 없음): 칩 위에 선다. bottom = 768 - 600 + 14
+    mountCategoryRows({ ones: { top: 600, left: 40, width: 88, height: 66 } })
+    setup(atHandTour)
+    expect(card().style.bottom).toBe('182px')
+  })
+
   it('각 칸은 지금 주사위로 실제 몇 점인지 함께 말해 준다', async () => {
     // [6 6 6 6 2] — 듀스는 2점, 에이스는 모양이 없어 0점이다.
     const { user } = setup(atHandTour)
