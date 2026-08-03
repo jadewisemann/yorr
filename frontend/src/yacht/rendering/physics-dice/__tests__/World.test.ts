@@ -543,6 +543,23 @@ describe('PhysicsDiceWorld', () => {
     return diceMeshes().map((mesh) => topFaceFromQuaternion(mesh.quaternion))
   }
 
+  /**
+   * 킵 슬롯의 바 메시를 슬롯 순서(왼→오)로 모은다. 슬롯 그룹은 dieIndex가 없고 자식이 바
+   * 하나뿐이라, 사발(자식 3개 이상)과 주사위(dieIndex 있음)에서 이렇게 갈린다.
+   */
+  function keepSlotBars() {
+    return scene()
+      .children.filter(
+        (child): child is THREE.Group =>
+          child instanceof THREE.Group &&
+          child.userData.dieIndex === undefined &&
+          child.children.length === 1 &&
+          child.children[0] instanceof THREE.Mesh,
+      )
+      .sort((a, b) => a.position.x - b.position.x)
+      .map((group) => group.children[0] as THREE.Mesh)
+  }
+
   function bowlGroup() {
     // 사발은 카메라 밖 유일한 THREE.Group 중 dieIndex가 없는 것이다.
     const group = scene().children.find(
@@ -827,6 +844,33 @@ describe('PhysicsDiceWorld', () => {
         expect(mesh.position.z).toBeCloseTo(SCENE.tray.resultRowZ, 4)
         expect(Math.abs(mesh.position.x)).toBeLessThan(resultCameraWidth())
       })
+    })
+
+    /*
+     * keepAll(마지막 굴림)에서 레일 바가 주사위보다 먼저 켜지면, 빈 레일에 테두리만 생기고
+     * 주사위가 나중에 도착한다 — 3차 QA에서 "보더가 먼저 생기고 킵된다"로 잡힌 증상이다.
+     * 바는 주사위가 앉은 뒤에 켜져야 한다.
+     */
+    it('keepAll에서 레일 바는 주사위가 도착한 뒤에 켜진다', async () => {
+      const { callbacks, world } = await boot()
+      // 두 개만 킵한 채 마지막 굴림 — 나머지 세 개가 레일로 날아온다.
+      const held: PhysicsHeldDice = [true, true, false, false, false]
+      world.syncCommittedDice([6, 6, 2, 3, 5], held)
+      world.setKeepAll(true)
+      world.startRoll(rollRequest({ held, targetDice: [6, 6, 6, 6, 2] }))
+      runFrames(30)
+      world.pour()
+      runUntil(() => (callbacks.onPhaseChange as ReturnType<typeof vi.fn>).mock.calls.length >= 3)
+
+      // 정렬 중: 이미 킵된 슬롯(0)과 아직 비어 있는 슬롯(4)의 바 재질이 달라야 한다.
+      const flying = keepSlotBars()
+      expect(flying[0]?.material).not.toBe(flying[4]?.material)
+
+      runUntil(() => (callbacks.onRollComplete as ReturnType<typeof vi.fn>).mock.calls.length > 0)
+
+      // 도착 뒤: 다섯 슬롯이 전부 같은 악센트 재질이다.
+      const landed = keepSlotBars()
+      expect(landed[4]?.material).toBe(landed[0]?.material)
     })
 
     it('굴림 결과가 확정값으로 남아 다시 동기화해도 눈이 바뀌지 않는다', async () => {

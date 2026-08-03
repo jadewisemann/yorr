@@ -5,14 +5,46 @@ import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 import { TextField } from '@/shared/components/TextField'
 import { Tooltip } from '@/shared/components/Tooltip'
-import { TutorialGuide } from '@/shared/components/TutorialGuide'
 import { Dice } from '@/yacht/components/Dice'
 import { GameHelpModal } from '@/yacht/components/GameHelpModal'
 import { ScoreRow } from '@/yacht/components/ScoreRow'
+import { TutorialGuide } from '@/yacht/components/TutorialGuide'
+import type { CategoryScores } from '@/yacht/domain/scoring'
 import { HandVoiceLab } from './HandVoiceLab'
 import { PhysicsDiceDemo } from './PhysicsDiceDemo'
 
 const sectionClassName = 'grid gap-4 rounded-panel border border-border bg-surface p-5'
+
+/** 굴리기 전 상태. 가이드는 이 신호들을 보고 인사 → 굴림 → 킵 → … 순으로 넘어간다. */
+const initialGuideSignals = {
+  candidates: {} as CategoryScores,
+  keptValues: [] as number[],
+  rollCount: 0,
+  rolled: false,
+  submitted: false,
+}
+
+/** 대본 마지막 굴림 [6 6 6 6 2]의 후보 점수. 같은 눈 4개라 포커가 26점으로 식스보다 높다. */
+const LAST_ROLL_CANDIDATES: CategoryScores = {
+  ones: 0,
+  twos: 2,
+  threes: 0,
+  fours: 0,
+  fives: 0,
+  sixes: 24,
+  choice: 26,
+  fourOfAKind: 26,
+  fullHouse: 0,
+  smallStraight: 0,
+  largeStraight: 0,
+  yacht: 0,
+}
+
+/**
+ * 포커를 기록한 뒤의 후보 점수 — 기록한 칸은 빠진다(서버가 미기입 칸만 돌려준다).
+ * 족보 둘러보기가 "남은 11칸"을 도는지 확인하려면 이 상태여야 한다.
+ */
+const { fourOfAKind: _recorded, ...AFTER_RECORD_CANDIDATES } = LAST_ROLL_CANDIDATES
 
 export function DevCatalog() {
   const [modalOpen, setModalOpen] = useState(false)
@@ -20,15 +52,10 @@ export function DevCatalog() {
   // 마스코트 가이드는 실제 게임 신호(굴림·킵·기록)로 넘어간다 — 여기선 버튼으로 흉내 낸다.
   const [guideVisible, setGuideVisible] = useState(true)
   const [guideRun, setGuideRun] = useState(0)
-  const [guideSignals, setGuideSignals] = useState({
-    isMyTurn: true,
-    kept: false,
-    rolled: false,
-    submitted: false,
-  })
+  const [guideSignals, setGuideSignals] = useState(initialGuideSignals)
 
   const resetGuide = () => {
-    setGuideSignals({ isMyTurn: true, kept: false, rolled: false, submitted: false })
+    setGuideSignals(initialGuideSignals)
     setGuideRun((run) => run + 1)
     setGuideVisible(true)
   }
@@ -138,30 +165,78 @@ export function DevCatalog() {
           </Button>
         </div>
         <p className="m-0 text-sm text-content-muted">
-          마스코트 가이드는 실제 플레이(굴림 → 킵 → 기록)에 반응해 넘어간다. 아래 버튼으로 게임
-          신호를 흉내 내며 시퀀스를 확인한다.
+          마스코트 가이드는 <code>/tutorial</code> 연습 모드의 안내다. 실제 플레이(굴림 → 킵 →
+          재굴림 → 기록)에 반응해 넘어가므로, 아래 버튼으로 연습 대본과 같은 신호를 흉내 낸다 — 6이
+          2개에서 3개로 늘어나는 흐름이 "같은 눈을 모으면 커진다"를 말하는 대본이다.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => setGuideSignals((signals) => ({ ...signals, rolled: true }))}
+            onClick={() =>
+              setGuideSignals((signals) => ({
+                ...signals,
+                candidates: { sixes: 12 },
+                rollCount: 1,
+                rolled: true,
+              }))
+            }
           >
-            굴림 완료 신호
+            1굴림 완료 (6이 2개)
           </Button>
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => setGuideSignals((signals) => ({ ...signals, kept: true }))}
+            onClick={() => setGuideSignals((signals) => ({ ...signals, keptValues: [6, 6] }))}
           >
-            킵 신호
+            6 두 개 킵
           </Button>
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => setGuideSignals((signals) => ({ ...signals, submitted: true }))}
+            onClick={() =>
+              setGuideSignals((signals) => ({
+                ...signals,
+                candidates: { sixes: 18 },
+                rollCount: 2,
+              }))
+            }
           >
-            기록 완료 신호
+            2굴림 완료 (6이 3개)
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setGuideSignals((signals) => ({ ...signals, keptValues: [6, 6, 6] }))}
+          >
+            6 세 개 킵 (→ 던지기 물음)
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() =>
+              setGuideSignals((signals) => ({
+                ...signals,
+                candidates: LAST_ROLL_CANDIDATES,
+                keptValues: [6, 6, 6, 6],
+                rollCount: 3,
+              }))
+            }
+          >
+            3굴림 완료 (6이 4개 → 기록)
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() =>
+              setGuideSignals((signals) => ({
+                ...signals,
+                candidates: AFTER_RECORD_CANDIDATES,
+                submitted: true,
+              }))
+            }
+          >
+            포커 기록 완료 (→ 족보 둘러보기)
           </Button>
           <Button size="sm" variant="ghost" onClick={resetGuide}>
             리셋
@@ -171,13 +246,18 @@ export function DevCatalog() {
           {guideVisible && (
             <TutorialGuide
               key={guideRun}
-              isMyTurn={guideSignals.isMyTurn && !guideSignals.submitted}
-              kept={guideSignals.kept}
-              onFinish={() => setGuideVisible(false)}
-              onNeverShowAgain={() => setGuideVisible(false)}
-              onSkip={() => setGuideVisible(false)}
+              candidates={guideSignals.candidates}
+              keptValues={guideSignals.keptValues}
+              // 센서가 있는 기기로 두고 본다 — 마지막 굴림 물음이 흔들기·버튼 두 갈래로
+              // 갈리는 쪽이 확인할 것이 많다. 센서 없는 기기는 물음이 한 갈래로 줄어든다.
+              motionNoticeVisible
+              onClose={() => setGuideVisible(false)}
+              rollCount={guideSignals.rollCount}
               rolled={guideSignals.rolled}
+              // 이 하네스의 신호 버튼은 항상 "애니메이션이 끝난 뒤" 상태를 흉내 낸다.
+              rolling={false}
               submitted={guideSignals.submitted}
+              wide={false}
             />
           )}
         </div>
