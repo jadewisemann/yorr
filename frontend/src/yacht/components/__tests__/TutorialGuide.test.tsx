@@ -1,7 +1,43 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TutorialGuide } from '@/yacht/components/TutorialGuide'
+
+const ROWS_ID = 'fake-score-rows'
+
+/**
+ * 점수표 행을 흉내 낸다 — 가이드는 data-tutorial-category 표지로 강조할 칸을 찾으므로,
+ * 이 표지가 없으면 강조할 것을 못 찾아 구멍 없이 화면만 덮는다.
+ * jsdom의 getBoundingClientRect는 전부 0을 주니 칸마다 좌표를 따로 물려 준다.
+ */
+function mountCategoryRows(rects: Record<string, DOMRectReadOnly | { [k: string]: number }>) {
+  const holder = document.createElement('div')
+  holder.id = ROWS_ID
+  for (const [category, rect] of Object.entries(rects)) {
+    const row = document.createElement('div')
+    row.dataset.tutorialCategory = category
+    row.getBoundingClientRect = () => rect as DOMRect
+    holder.append(row)
+  }
+  document.body.append(holder)
+}
+
+/** 강조 링의 위치·크기. Backdrop이 구멍 좌표(타깃에서 6px 바깥)로 그린 값이다. */
+function halo() {
+  const ring = document.querySelector('[class*="animate-tutorial-halo"]')
+  if (!(ring instanceof HTMLElement)) throw new Error('강조 링을 찾을 수 없습니다')
+  const px = (value: string) => Number.parseFloat(value)
+  return {
+    top: px(ring.style.top),
+    left: px(ring.style.left),
+    width: px(ring.style.width),
+    height: px(ring.style.height),
+  }
+}
+
+afterEach(() => {
+  document.getElementById(ROWS_ID)?.remove()
+})
 
 /** 첫 굴림 직후 — 대본상 [6 6 2 3 5]라 식스 후보는 12점(6이 두 개)이다. */
 const AFTER_FIRST_ROLL = { ones: 1, choice: 22, sixes: 12 }
@@ -58,22 +94,51 @@ const atLastRoll = {
 }
 
 /**
- * 족보 설명까지 와 있는 상태 — 세 번을 다 굴려 주사위가 확정된 뒤다.
- * 6 네 개를 다 킵해 둬야 킵 단계를 통과한다(대본상 마지막 굴림은 6이 네 개다).
+ * 기록 자리 — 세 번을 다 굴려 주사위가 확정된 뒤다.
+ * 6 네 개를 다 킵해 둬야 선택 단계를 통과한다(대본상 마지막 굴림은 6이 네 개다).
  */
-const atCategories = {
+const atRecord = {
   candidates: AFTER_LAST_ROLL,
   keptValues: [6, 6, 6, 6],
   rollCount: 3,
   rolled: true,
 }
 
+/**
+ * 포커를 기록한 뒤 — 그 칸은 candidates에서 빠지고 남은 11칸의 점수만 남는다.
+ * 주사위는 [6 6 6 6 2] 그대로라(기록해도 다음 라운드가 시작되기 전까지 유지된다)
+ * 듀스 2점 · 식스 24점 · 초이스 26점이고 나머지는 모양이 아니라 0점이다.
+ */
+const AFTER_RECORD = {
+  ones: 0,
+  twos: 2,
+  threes: 0,
+  fours: 0,
+  fives: 0,
+  sixes: 24,
+  choice: 26,
+  fullHouse: 0,
+  smallStraight: 0,
+  largeStraight: 0,
+  yacht: 0,
+}
+
+/** 족보 둘러보기 자리 — 기록까지 끝났다. */
+const atHandTour = {
+  candidates: AFTER_RECORD,
+  keptValues: [6, 6, 6, 6],
+  rollCount: 3,
+  rolled: true,
+  submitted: true,
+}
+
 describe('TutorialGuide', () => {
   /*
-   * 굴림 세 번이 먼저 다 끝나고, 족보 설명은 그 뒤다 — 던지다 말고 읽고 다시 던지면
-   * 흐름이 끊긴다(S15P11A406-143).
+   * 순서는 굴림·선택을 두 번 되풀이 → 흔들기로 마지막 굴림 → 한 칸 직접 기록 →
+   * 남은 족보 둘러보기다. 규칙 열두 개를 먼저 읽히면 무엇을 위한 규칙인지 모르는 채로
+   * 읽게 되므로, 한 칸을 적어 본 뒤로 미룬다(S15P11A406-143).
    */
-  it('굴림 → 선택을 두 번 되풀이하고 마지막 굴림까지 끝낸 뒤에 족보로 넘어간다', async () => {
+  it('굴림 → 선택을 두 번 되풀이하고 마지막 굴림까지 끝내면 기록으로 간다', async () => {
     const { rerender, user } = setup()
 
     expect(heading()).toBe('요트 다이스가 처음이신가요?')
@@ -92,12 +157,16 @@ describe('TutorialGuide', () => {
     rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atKeepAgain} />)
     expect(heading()).toBe('6이 3개로 늘었어요')
 
-    // 다 고르고 나서야 마지막 굴림이다. 아직 족보가 아니다.
+    // 다 고르고 나서야 마지막 굴림을 흔들기로 권한다.
     rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atLastRoll} />)
     expect(heading()).toBe('마지막 한 번은 흔들어서 굴려 볼까요?')
 
-    rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atCategories} />)
-    expect(heading()).toBe('에이스 ~ 식스')
+    rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atRecord} />)
+    expect(heading()).toBe('6이 4개 — 이건 포커예요!')
+
+    // 기록을 마치면 그때 족보 둘러보기가 시작된다.
+    rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atHandTour} />)
+    expect(heading()).toBe('에이스')
   })
 
   /*
@@ -142,11 +211,11 @@ describe('TutorialGuide', () => {
     expect(heading()).toBe('마지막 한 번은 흔들어서 굴려 볼까요?')
     await user.click(screen.getByRole('button', { name: '버튼으로 굴릴게요' }))
 
-    // 흔들기를 건너뛴 사람도 족보로 바로 가지 않는다 — 세 번째 굴림이 남아 있다.
+    // 흔들기를 건너뛴 사람도 기록으로 바로 가지 않는다 — 세 번째 굴림이 남아 있다.
     expect(heading()).toBe('마지막 한 번 남았어요')
 
-    rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atCategories} />)
-    expect(heading()).toBe('에이스 ~ 식스')
+    rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atRecord} />)
+    expect(heading()).toBe('6이 4개 — 이건 포커예요!')
   })
 
   it('센서가 없는 기기에서는 흔들기 대신 버튼으로 마지막 굴림을 안내한다', () => {
@@ -155,12 +224,25 @@ describe('TutorialGuide', () => {
     expect(heading()).toBe('마지막 한 번 남았어요')
   })
 
-  it('안내보다 빨리 세 번을 다 굴려 버렸으면 흔들기를 건너뛰고 족보로 간다', () => {
+  it('안내보다 빨리 세 번을 다 굴려 버렸으면 흔들기를 건너뛰고 기록으로 간다', () => {
     // 센서가 있어도(motionNoticeVisible 기본값 true) 이미 끝난 굴림을 한 번 더 하라고 하면
-    // 따를 방법이 없다 — 위 atLastRoll(2굴림)은 흔들기로 가고, 여기는 바로 족보로 간다.
-    setup(atCategories)
+    // 따를 방법이 없다 — 위 atLastRoll(2굴림)은 흔들기로 가고, 여기는 바로 기록으로 간다.
+    setup(atRecord)
 
-    expect(heading()).toBe('에이스 ~ 식스')
+    expect(heading()).toBe('6이 4개 — 이건 포커예요!')
+  })
+
+  /*
+   * 대본 마지막 굴림은 6이 네 개다 — 식스(24점)이면서 동시에 포커(26점)다. 더 높고 이름이
+   * 있는 쪽을 짚어야 "같은 눈 네 개는 이름이 붙는다"가 남는다.
+   */
+  it('식스보다 높은 포커를 짚어 주고 두 점수를 비교해 준다', () => {
+    setup(atRecord)
+
+    const body = screen.getByRole('status')
+    expect(body).toHaveTextContent('같은 눈이 4개 모이면 포커')
+    expect(body).toHaveTextContent('26점')
+    expect(body).toHaveTextContent('식스에 적는 24점보다 높아요')
   })
 
   it('눌러야 넘어가는 단계에는 버튼 대신 어디를 누를지 알려 준다', async () => {
@@ -175,77 +257,102 @@ describe('TutorialGuide', () => {
    * 예전에는 "족보 설명은 ? 도움말에 있어요"로 넘겼다. 처음 온 사람에게 다른 곳을 찾아가라고
    * 하면 대개 안 찾아가므로, 마스코트가 한 장씩 직접 말한다.
    */
-  it('족보를 다른 곳으로 넘기지 않고 한 장씩 말풍선으로 설명한다', async () => {
-    const { user } = setup(atCategories)
+  it('족보를 다른 곳으로 넘기지 않고 한 칸씩 말풍선으로 설명한다', async () => {
+    const { user } = setup(atHandTour)
 
-    expect(screen.getByText('족보 1 / 7')).toBeVisible()
-    expect(heading()).toBe('에이스 ~ 식스')
+    // 기록한 포커는 빠지고 남은 11칸을 돈다.
+    expect(screen.getByText('남은 족보 둘러보기 · 1 / 11')).toBeVisible()
+    expect(heading()).toBe('에이스')
     // 도움말·툴팁으로 미루는 문구가 남아 있으면 설명을 안 한 것이다.
     expect(screen.getByRole('status')).not.toHaveTextContent('도움말')
 
     await user.click(screen.getByRole('button', { name: '다음' }))
-    expect(screen.getByText('족보 2 / 7')).toBeVisible()
-    expect(heading()).toBe('초이스')
+    expect(screen.getByText('남은 족보 둘러보기 · 2 / 11')).toBeVisible()
+    expect(heading()).toBe('듀스')
   })
 
-  it('각 장은 지금 주사위로 실제 몇 점인지 함께 말해 준다', async () => {
-    // [6 6 6 6 2] = 같은 눈 4개라 포커는 26점, 요트는 모양이 아니라 0점이다.
-    const { user } = setup(atCategories)
+  /*
+   * 위 여섯 칸도 "고른 숫자만 더해요" 한 줄로 묶지 않는다. 규칙은 맞지만 점수표에서 어느 칸이
+   * 무엇인지는 여전히 모르고, 설명하는 칸을 화면에서 같이 짚으므로 하나씩이어야 뜻이 있다.
+   */
+  it('에이스·듀스 같은 위 칸도 묶지 않고 하나씩 설명한다', async () => {
+    const { user } = setup(atHandTour)
 
-    await user.click(screen.getByRole('button', { name: '다음' })) // 초이스
-    await user.click(screen.getByRole('button', { name: '다음' })) // 포커
-    expect(heading()).toBe('포커')
-    expect(screen.getByText('지금 주사위로 적으면 26점이에요.')).toBeVisible()
+    const upper = ['에이스', '듀스', '트레이', '포', '파이브', '식스']
+    for (const [index, label] of upper.entries()) {
+      expect(heading()).toBe(label)
+      if (index < upper.length - 1) await user.click(screen.getByRole('button', { name: '다음' }))
+    }
+  })
 
-    await user.click(screen.getByRole('button', { name: '다음' })) // 풀하우스
+  /*
+   * 규칙만 읽어 주면 점수표에서 어느 칸인지는 여전히 모른다. 설명하는 칸을 화면에서 같이
+   * 짚어야 이름과 자리가 붙는다 — 링은 타깃 사방 6px 바깥에 그려진다.
+   */
+  it('족보를 설명하는 동안 점수표의 그 칸을 짚고, 넘기면 다음 칸으로 옮겨간다', async () => {
+    mountCategoryRows({
+      ones: { top: 100, left: 20, width: 200, height: 40 },
+      twos: { top: 150, left: 20, width: 200, height: 40 },
+    })
+    const { user } = setup(atHandTour)
+
+    expect(heading()).toBe('에이스')
+    expect(halo()).toEqual({ top: 94, left: 14, width: 212, height: 52 })
+
+    await user.click(screen.getByRole('button', { name: '다음' }))
+
+    expect(heading()).toBe('듀스')
+    expect(halo()).toEqual({ top: 144, left: 14, width: 212, height: 52 })
+  })
+
+  it('기록할 칸으로는 식스가 아니라 포커를 짚는다', () => {
+    mountCategoryRows({
+      sixes: { top: 100, left: 20, width: 200, height: 40 },
+      fourOfAKind: { top: 300, left: 20, width: 200, height: 40 },
+    })
+    setup(atRecord)
+
+    expect(halo().top).toBe(294)
+  })
+
+  it('각 칸은 지금 주사위로 실제 몇 점인지 함께 말해 준다', async () => {
+    // [6 6 6 6 2] — 듀스는 2점, 에이스는 모양이 없어 0점이다.
+    const { user } = setup(atHandTour)
+
     expect(screen.getByText('지금 주사위는 이 모양이 아니라 0점이에요.')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: '다음' })) // 듀스
+    expect(heading()).toBe('듀스')
+    expect(screen.getByText('지금 주사위로 적으면 2점이에요.')).toBeVisible()
   })
 
-  it('위 여섯 칸은 규칙이 하나라 한 장으로 묶고 점수를 붙이지 않는다', () => {
-    setup(atCategories)
+  it('마지막 칸까지 보면 마무리로 간다', async () => {
+    const { onClose, user } = setup(atHandTour)
 
-    expect(heading()).toBe('에이스 ~ 식스')
-    expect(screen.queryByText(/지금 주사위/)).not.toBeInTheDocument()
-  })
-
-  it('마지막 장을 넘기면 기록 단계로 간다', async () => {
-    const { user } = setup(atCategories)
-
-    // 일곱 장 중 여섯 번은 '다음', 마지막 한 번만 '적어 볼게요'다.
-    for (let page = 0; page < 6; page += 1) {
+    // 11칸 중 열 번은 '다음', 마지막 한 번만 '다 봤어요'다.
+    for (let page = 0; page < 10; page += 1) {
       await user.click(screen.getByRole('button', { name: '다음' }))
     }
-    expect(screen.getByText('족보 7 / 7')).toBeVisible()
+    expect(screen.getByText('남은 족보 둘러보기 · 11 / 11')).toBeVisible()
     expect(heading()).toBe('요트')
 
-    await user.click(screen.getByRole('button', { name: '적어 볼게요' }))
-    expect(heading()).toBe('6이 4개! 식스에 기록해요')
-  })
-
-  it('넓은 화면에서는 기록할 곳을 점수표 행으로 안내한다', async () => {
-    const { user } = setup({ ...atCategories, wide: true })
-
-    for (let page = 0; page < 6; page += 1) {
-      await user.click(screen.getByRole('button', { name: '다음' }))
-    }
-    await user.click(screen.getByRole('button', { name: '적어 볼게요' }))
-
-    expect(screen.getByRole('status')).toHaveTextContent('표시된 식스 행')
-  })
-
-  it('기록이 끝나면 한 턴을 마쳤다고 알리고 연습을 끝낼 수 있다', async () => {
-    const { onClose, user } = setup({
-      candidates: AFTER_LAST_ROLL,
-      keptValues: [6, 6, 6, 6],
-      rollCount: 3,
-      rolled: true,
-      submitted: true,
-    })
-
+    await user.click(screen.getByRole('button', { name: '다 봤어요' }))
     expect(heading()).toBe('한 턴을 다 하셨어요!')
 
     await user.click(screen.getByRole('button', { name: '연습 끝내기' }))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('넓은 화면에서는 기록할 곳을 점수표 행으로 안내한다', () => {
+    setup({ ...atRecord, wide: true })
+
+    expect(screen.getByRole('status')).toHaveTextContent('표시된 포커 행')
+  })
+
+  it('좁은 화면에서는 기록 패널을 짚어 준다', () => {
+    setup(atRecord)
+
+    expect(screen.getByRole('status')).toHaveTextContent('아래 기록 패널에서 표시된 포커')
   })
 
   it('언제든 그만둘 수 있다', async () => {

@@ -3,6 +3,7 @@ import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
 import type { CategoryScores, YachtCategory } from '@/yacht/domain/scoring'
 import { MAX_ROLLS } from '@/yacht/domain/yachtGame'
+import { categoryLabel } from '@/yacht/yachtCategoryView'
 
 interface TutorialGuideProps {
   /** 이번 턴에 주사위가 깔려 있는지(첫 굴림 완료). */
@@ -49,10 +50,11 @@ type GuideStep =
  * 각 단계에서 강조할 화면 조각. GamePlay가 붙여 둔 data-tutorial 표지를 찾는다 —
  * 좌표를 여기 적어 두면 레이아웃이 바뀔 때마다 조용히 어긋난다.
  *
- * 족보 설명(categories)에는 구멍을 뚫지 않는다. 읽는 단계라 눌러야 할 곳이 없고, 설명을
- * 카드 안에서 직접 하므로 화면을 통째로 덮어 읽는 데 집중시키는 편이 낫다.
+ * 족보를 설명하는 동안에는 설명 중인 **그 칸**을 짚는다. 규칙만 읽어 주면 점수표에서 어느
+ * 칸인지는 여전히 모르므로, 이름과 자리를 같은 순간에 붙여 준다.
  */
-function spotlightFor(step: GuideStep): string | null {
+function spotlightFor(step: GuideStep, hand: Lesson['hand']): string | null {
+  if (hand) return `[data-tutorial-category="${hand.category}"]`
   switch (step) {
     case 'roll':
     case 'reroll':
@@ -63,71 +65,70 @@ function spotlightFor(step: GuideStep): string | null {
       return '[data-tutorial="tray"]'
     case 'motion':
       return '[data-tutorial="motion"]'
-    // 기록은 "아무거나"가 아니라 이번 대본이 만들어 준 식스를 콕 집어 누르게 한다.
+    // 기록은 "아무거나"가 아니라 이번 대본이 만들어 준 포커를 콕 집어 누르게 한다.
     case 'record':
-      return '[data-tutorial-category="sixes"]'
+      return `[data-tutorial-category="${TUTORIAL_RECORD_CATEGORY}"]`
     default:
       return null
   }
 }
+
+/**
+ * 연습에서 직접 기록해 보는 칸. 대본 마지막 굴림이 [6 6 6 6 2]이라 같은 눈 4개 =
+ * 포커(26점)이고 식스(24점)보다 높다 — 이름 있는 족보를 만들어 본 경험이 남는다.
+ */
+const TUTORIAL_RECORD_CATEGORY: YachtCategory = 'fourOfAKind'
 
 interface Lesson {
   title: string
   body: string
   /** 눌러야 다음으로 가는 단계에는 버튼을 두지 않는다 — 직접 해보는 것이 요점이다. */
   action?: string
-  /** 족보 하나를 말풍선으로 설명하는 중. 몇 번째인지는 진행 표시로 보여준다. */
-  hand?: { index: number; total: number; score: number | undefined }
+  /**
+   * 족보 하나를 말풍선으로 설명하는 중. 설명하는 칸을 점수표에서 같이 강조하므로
+   * 어느 칸인지(category)까지 들고 있어야 한다.
+   */
+  hand?: { category: YachtCategory; index: number; total: number; score: number | undefined }
 }
 
 /**
- * 족보 12칸을 일곱 장으로 줄여 **한 장씩** 설명한다(S15P11A406-143). 예전에는 "설명은 ?
- * 도움말에 있어요"로 넘겼는데, 처음 온 사람에게 다른 곳을 찾아가라고 하면 대개 안 찾아간다 —
- * 규칙을 알아야 어디에 적을지 고를 수 있으니 마스코트가 직접 말한다.
+ * 족보 12칸을 **한 칸씩** 설명한다(S15P11A406-143). 예전에는 "설명은 ? 도움말에 있어요"로
+ * 넘겼는데, 처음 온 사람에게 다른 곳을 찾아가라고 하면 대개 안 찾아간다 — 규칙을 알아야
+ * 어디에 적을지 고를 수 있으니 마스코트가 직접 말한다.
  *
- * 한 화면에 일곱 줄을 펼치면 표가 되고, 표는 훑고 지나가진다. 한 번에 하나만 말하면
- * 각 줄이 실제로 읽힌다.
+ * 위 여섯 칸도 묶지 않고 하나씩 짚는다. "고른 숫자만 더해요" 한 줄로 묶으면 규칙은 맞지만
+ * 점수표에서 어느 칸이 무엇인지는 여전히 모른다 — 설명하는 칸을 화면에서 같이 강조하므로
+ * 칸과 이름이 여기서 처음 연결된다.
  *
- * 위 여섯 칸은 규칙이 하나라 한 장으로 묶는다. "에이스는 1을, 듀스는 2를…"을 여섯 번
- * 반복하면 읽다가 지치고 정작 하단 족보가 묻힌다.
+ * 이름은 categoryLabel에서 가져온다. 여기 따로 적으면 점수표와 다르게 부르는 순간이 온다.
  */
-const HAND_LESSONS: ReadonlyArray<{
-  name: string
-  rule: string
-  /** 지금 주사위로 몇 점인지 붙일 칸. 위 6칸 묶음처럼 대표할 칸이 없으면 없다. */
-  category?: YachtCategory
-}> = [
+const HAND_LESSONS: ReadonlyArray<{ category: YachtCategory; rule: string }> = [
+  { category: 'ones', rule: '1이 나온 개수만큼 1점씩 더해요. 세 개면 3점이에요.' },
+  { category: 'twos', rule: '2가 나온 개수만큼 2점씩 더해요.' },
+  { category: 'threes', rule: '3이 나온 개수만큼 3점씩 더해요.' },
+  { category: 'fours', rule: '4가 나온 개수만큼 4점씩 더해요.' },
+  { category: 'fives', rule: '5가 나온 개수만큼 5점씩 더해요.' },
   {
-    name: '에이스 ~ 식스',
-    rule: '위 여섯 칸은 고른 숫자만 세서 더해요. 식스라면 6만 모으는 거예요.',
+    category: 'sixes',
+    rule: '6이 나온 개수만큼 6점씩 더해요. 위 여섯 칸 중 한 개당 점수가 가장 커요.',
   },
-  {
-    name: '초이스',
-    rule: '모양을 안 따져요. 눈 다섯 개를 그냥 다 더해서 적어요.',
-    category: 'choice',
-  },
-  { name: '포커', rule: '같은 눈이 4개 모이면 다섯 개를 다 더해요.', category: 'fourOfAKind' },
-  {
-    name: '풀하우스',
-    rule: '같은 눈 3개와 다른 눈 2개가 함께 있으면 다 더해요.',
-    category: 'fullHouse',
-  },
-  {
-    name: '스몰 스트레이트',
-    rule: '이어지는 눈 4개(예: 2·3·4·5)면 무조건 15점이에요.',
-    category: 'smallStraight',
-  },
-  {
-    name: '라지 스트레이트',
-    rule: '이어지는 눈 5개(예: 2·3·4·5·6)면 30점이에요.',
-    category: 'largeStraight',
-  },
-  {
-    name: '요트',
-    rule: '다섯 개가 모두 같은 눈이면 50점 — 이 게임에서 가장 큰 점수예요.',
-    category: 'yacht',
-  },
+  { category: 'choice', rule: '모양을 안 따져요. 눈 다섯 개를 그냥 다 더해서 적어요.' },
+  { category: 'fourOfAKind', rule: '같은 눈이 4개 모이면 다섯 개를 다 더해요.' },
+  { category: 'fullHouse', rule: '같은 눈 3개와 다른 눈 2개가 함께 있으면 다 더해요.' },
+  { category: 'smallStraight', rule: '이어지는 눈 4개(예: 2·3·4·5)면 무조건 15점이에요.' },
+  { category: 'largeStraight', rule: '이어지는 눈 5개(예: 2·3·4·5·6)면 30점이에요.' },
+  { category: 'yacht', rule: '다섯 개가 모두 같은 눈이면 50점 — 이 게임에서 가장 큰 점수예요.' },
 ]
+
+/**
+ * 아직 비어 있는 칸만 골라 설명한다. 방금 기록한 칸은 이미 무엇인지 배웠고, 점수표에서도
+ * 사용됨으로 잠겨 강조할 자리가 없다.
+ *
+ * `candidates`에는 미기입 칸만 들어온다(calculateScoreCandidates가 사용한 칸을 뺀다).
+ */
+function openHandLessons(candidates: CategoryScores) {
+  return HAND_LESSONS.filter((hand) => candidates[hand.category] !== undefined)
+}
 
 /**
  * 지금 주사위가 이 족보에 몇 점인지. 규칙만 적으면 외울 것이 늘 뿐이라 실제 점수를 붙인다 —
@@ -195,20 +196,45 @@ function keepLesson(ctx: LessonContext, again: boolean): Lesson {
   }
 }
 
-/** 족보 한 장. 마지막 장에서만 버튼 문구가 "적어 볼게요"로 바뀐다. */
+/**
+ * 기록 단계. 대본이 만들어 준 것은 "6이 네 개"인데, 그건 식스(24점)이면서 동시에
+ * 포커(26점)다 — 더 높은 쪽이자 이름이 있는 쪽을 짚어 준다. 초심자가 "같은 눈 네 개는
+ * 이름이 붙는다"를 처음 알게 되는 자리고, 점수 비교까지 한 문장에 들어간다.
+ */
+function recordLesson(ctx: LessonContext): Lesson {
+  const pokerScore = ctx.candidates[TUTORIAL_RECORD_CATEGORY] ?? 0
+  const where = ctx.wide ? '표시된 포커 행' : '아래 기록 패널에서 표시된 포커'
+  return {
+    title: `6이 ${ctx.sixes}개 — 이건 포커예요!`,
+    body: `같은 눈이 4개 모이면 포커라고 불러요. 다섯 개를 다 더해 ${pokerScore}점이라, 식스에 적는 ${ctx.sixesScore}점보다 높아요. ${where}을 눌러 기록해 보세요.`,
+  }
+}
+
+/** 족보 한 장. 마지막 장에서만 버튼 문구가 "다 봤어요"로 바뀐다. */
 function handLesson(ctx: LessonContext): Lesson {
-  const hand = HAND_LESSONS[ctx.handIndex]
-  if (!hand) throw new Error(`족보 설명 ${ctx.handIndex}번째 장이 없습니다`)
+  const lessons = openHandLessons(ctx.candidates)
+  const hand = lessons[ctx.handIndex]
+  // 남은 칸이 없으면(모두 기록된 판) 설명할 것이 없다 — 마무리 문구로 대신한다.
+  if (!hand) return doneLesson()
 
   return {
-    title: hand.name,
+    title: categoryLabel[hand.category],
     body: hand.rule,
     hand: {
+      category: hand.category,
       index: ctx.handIndex,
-      total: HAND_LESSONS.length,
-      score: hand.category === undefined ? undefined : ctx.candidates[hand.category],
+      total: lessons.length,
+      score: ctx.candidates[hand.category],
     },
-    action: ctx.handIndex >= HAND_LESSONS.length - 1 ? '적어 볼게요' : '다음',
+    action: ctx.handIndex >= lessons.length - 1 ? '다 봤어요' : '다음',
+  }
+}
+
+function doneLesson(): Lesson {
+  return {
+    title: '한 턴을 다 하셨어요!',
+    body: '이걸 12번 반복하면 게임이 끝나고, 총점이 가장 높은 사람이 이겨요. 이제 실전에서 만나요.',
+    action: '연습 끝내기',
   }
 }
 
@@ -256,18 +282,9 @@ function lessonFor(step: GuideStep, ctx: LessonContext): Lesson {
     case 'categories':
       return handLesson(ctx)
     case 'record':
-      return {
-        title: `6이 ${ctx.sixes}개! 식스에 기록해요`,
-        body: ctx.wide
-          ? `표시된 식스 행을 누르면 ${ctx.sixesScore}점으로 기록되고 턴이 끝나요. 6은 한 개당 6점이라 모을수록 커져요.`
-          : `아래 기록 패널에서 표시된 식스를 누르면 ${ctx.sixesScore}점으로 기록되고 턴이 끝나요. 6은 한 개당 6점이라 모을수록 커져요.`,
-      }
+      return recordLesson(ctx)
     case 'done':
-      return {
-        title: '한 턴을 다 하셨어요!',
-        body: '이걸 12번 반복하면 게임이 끝나고, 총점이 가장 높은 사람이 이겨요. 이제 실전에서 만나요.',
-        action: '연습 끝내기',
-      }
+      return doneLesson()
   }
 }
 
@@ -316,7 +333,6 @@ export function TutorialGuide({
     if (next) setStep(next)
   }, [keptSixes, motionNoticeVisible, rolled, rollCount, sixesOnTray, step, submitted])
 
-  const spotlight = useSpotlight(spotlightFor(step))
   const lesson = lessonFor(step, {
     candidates,
     handIndex,
@@ -326,6 +342,7 @@ export function TutorialGuide({
     sixesScore,
     wide,
   })
+  const spotlight = useSpotlight(spotlightFor(step, lesson.hand))
 
   /** 버튼 하나가 세 가지를 한다: 연습 끝내기 · 족보 다음 장 · 다음 단계. */
   const advance = () => {
@@ -344,7 +361,7 @@ export function TutorialGuide({
       <Card spotlight={spotlight}>
         {lesson.hand && (
           <p className="m-0 text-[11px] font-bold tracking-[0.1em] text-content-faint uppercase">
-            족보 {lesson.hand.index + 1} / {lesson.hand.total}
+            남은 족보 둘러보기 · {lesson.hand.index + 1} / {lesson.hand.total}
           </p>
         )}
         <SpeechBubble bubble={lesson.hand !== undefined}>
@@ -395,16 +412,17 @@ interface PlaySignals {
  * 통째로 놓친다.
  */
 function stepFromPlay(step: GuideStep, play: PlaySignals): GuideStep | null {
-  // 족보 설명과 마무리는 버튼으로만 넘어간다 — 읽는 중에 굴림 수가 바뀌어도 끌려가면 안 된다.
+  // 족보 설명과 마무리는 버튼으로만 넘어간다 — 읽는 중에 판이 바뀌어도 끌려가면 안 된다.
   if (step === 'done' || step === 'categories') return null
   /*
-   * 마지막 굴림을 쓰는 두 단계는 굴림 수만 본다. 아래 submitted보다 먼저 판단해야 한다 —
-   * 순서를 뒤집으면 흔들기 중에 기록이 들어왔을 때 마지막 굴림을 건너뛰고 끝난다.
+   * 기록을 마치면 족보 둘러보기로 넘어간다. 먼저 한 칸을 직접 적어 본 뒤에 나머지를 배우는
+   * 순서다 — 규칙 열두 개를 먼저 읽히면 무엇을 위한 규칙인지 모르는 채로 읽는다.
    */
+  if (play.submitted) return 'categories'
+  // 마지막 굴림을 쓰는 두 단계는 굴림 수만 본다.
   if (step === 'motion' || step === 'lastRoll') {
-    return play.rollCount >= MAX_ROLLS ? 'categories' : null
+    return play.rollCount >= MAX_ROLLS ? 'record' : null
   }
-  if (play.submitted) return 'done'
   return PLAY_ADVANCE[step]?.(play) ?? null
 }
 
@@ -432,10 +450,10 @@ function allSixesKept(play: PlaySignals) {
 
 /**
  * 두 번째 선택 뒤에 갈 곳. 안내보다 빨리 세 번을 다 굴려 버렸으면 굴릴 것이 없으니 바로
- * 족보로 간다 — 여기서 흔들기를 시키면 이미 끝난 굴림을 한 번 더 하라는 말이 된다.
+ * 기록으로 간다 — 여기서 흔들기를 시키면 이미 끝난 굴림을 한 번 더 하라는 말이 된다.
  */
 function afterKeepAgain(play: PlaySignals): GuideStep {
-  if (play.rollCount >= MAX_ROLLS) return 'categories'
+  if (play.rollCount >= MAX_ROLLS) return 'record'
   return play.motionNoticeVisible ? 'motion' : 'lastRoll'
 }
 
@@ -444,7 +462,8 @@ function nextOf(step: GuideStep): GuideStep {
   if (step === 'greet') return 'roll'
   // 흔들기를 마다한 사람도 마지막 굴림은 해야 한다 — 버튼으로 굴리는 같은 자리로 보낸다.
   if (step === 'motion') return 'lastRoll'
-  if (step === 'categories') return 'record'
+  // 족보를 다 둘러봤으면 마무리다.
+  if (step === 'categories') return 'done'
   return step
 }
 
@@ -467,8 +486,8 @@ function useSpotlight(selector: string | null): SpotlightRect | null {
       setRect(null)
       return
     }
+    const target = document.querySelector(selector)
     const measure = () => {
-      const target = document.querySelector(selector)
       if (!target) {
         setRect(null)
         return
@@ -476,11 +495,21 @@ function useSpotlight(selector: string | null): SpotlightRect | null {
       const box = target.getBoundingClientRect()
       setRect({ top: box.top, left: box.left, width: box.width, height: box.height })
     }
+    /*
+     * 강조할 것이 화면 밖이면 먼저 끌어온다. 족보를 한 칸씩 짚는 동안 타깃은 가로로 스크롤되는
+     * 퀵 칩 줄(좁은 화면)이나 세로로 스크롤되는 점수표(넓은 화면) 안에 있어서, 뒤쪽 칸은
+     * 그냥 두면 구멍이 화면 밖에 그려진다.
+     * nearest·center: 세로는 필요한 만큼만 움직이고(페이지 자체는 h-svh라 스크롤되지 않는다),
+     * 가로는 가운데로 가져와 다음 칸으로 넘어갈 때 조금씩 밀리지 않는다.
+     * jsdom에는 scrollIntoView가 없다 — 아래 ResizeObserver와 같은 이유로 있으면 쓴다.
+     */
+    if (typeof target?.scrollIntoView === 'function') {
+      target.scrollIntoView({ block: 'nearest', inline: 'center' })
+    }
     measure()
     window.addEventListener('resize', measure)
     // ResizeObserver가 없는 환경(jsdom 등)에서도 안내는 그대로 떠야 한다 — 구멍이 따라다니지
     // 않을 뿐이고, resize 이벤트가 큰 변화는 이미 잡는다.
-    const target = document.querySelector(selector)
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
     if (target && observer) observer.observe(target)
     return () => {
@@ -493,12 +522,12 @@ function useSpotlight(selector: string | null): SpotlightRect | null {
 }
 
 /**
- * 눌러야 할 곳이 있는 단계에서는 화면을 어둡게 덮지 않는다 — 어둠을 깔면 "여기를 누르세요"라고
- * 해놓고 정작 그 버튼을 가린다. 대신 강조 링만 씌우고, 링 **바깥**에는 보이지 않는 차단막을
- * 깔아 다른 버튼은 눌리지 않게 한다. 배우는 중에 엉뚱한 곳을 눌러 길을 잃지 않도록.
+ * 강조한 곳만 빼고 화면을 덮는다. 눌러야 할 것 하나만 밝게 남으니 "여기"가 설명 없이 읽히고,
+ * 덮인 자리는 클릭도 막혀 배우는 중에 엉뚱한 곳을 눌러 길을 잃지 않는다.
  *
- * 차단막을 구멍 뚫린 한 장 대신 네 장으로 두는 이유: box-shadow로 판 구멍은 그림자라 클릭을
- * 막지 못하고, clip-path로 판 구멍은 가장자리가 계단처럼 깨진다.
+ * 구멍 난 한 장이 아니라 네 장으로 둘러싸는 이유: box-shadow로 판 구멍은 그림자라 클릭을
+ * 막지 못하고, clip-path로 판 구멍은 가장자리가 계단처럼 깨진다. 네 장이면 구멍의 네 변이
+ * 정확히 맞고 각 장이 그대로 차단막이 된다.
  *
  * 누를 곳이 없는 단계(인사 · 마무리)는 통째로 덮어 읽는 데 집중시킨다.
  */
@@ -511,7 +540,8 @@ function Backdrop({ spotlight }: { spotlight: SpotlightRect | null }) {
   const left = spotlight.left - 6
   const right = spotlight.left + spotlight.width + 6
   const bottom = spotlight.top + spotlight.height + 6
-  const block = 'pointer-events-auto absolute'
+  // 구멍 주변만 덮는다 — 밝게 남은 한 곳이 곧 "여기를 누르세요"다.
+  const block = 'pointer-events-auto absolute bg-black/72'
 
   return (
     <>

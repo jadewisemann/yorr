@@ -24,9 +24,13 @@ const initialGuideSignals = {
   submitted: false,
 }
 
-/** 대본 마지막 굴림 [6 6 6 6 2]의 후보 점수. 같은 눈 4개라 포커도 26점으로 선다. */
+/** 대본 마지막 굴림 [6 6 6 6 2]의 후보 점수. 같은 눈 4개라 포커가 26점으로 식스보다 높다. */
 const LAST_ROLL_CANDIDATES: CategoryScores = {
   ones: 0,
+  twos: 2,
+  threes: 0,
+  fours: 0,
+  fives: 0,
   sixes: 24,
   choice: 26,
   fourOfAKind: 26,
@@ -35,6 +39,12 @@ const LAST_ROLL_CANDIDATES: CategoryScores = {
   largeStraight: 0,
   yacht: 0,
 }
+
+/**
+ * 포커를 기록한 뒤의 후보 점수 — 기록한 칸은 빠진다(서버가 미기입 칸만 돌려준다).
+ * 족보 둘러보기가 "남은 11칸"을 도는지 확인하려면 이 상태여야 한다.
+ */
+const { fourOfAKind: _recorded, ...AFTER_RECORD_CANDIDATES } = LAST_ROLL_CANDIDATES
 
 export function DevCatalog() {
   const [modalOpen, setModalOpen] = useState(false)
@@ -211,9 +221,15 @@ export function DevCatalog() {
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => setGuideSignals((signals) => ({ ...signals, submitted: true }))}
+            onClick={() =>
+              setGuideSignals((signals) => ({
+                ...signals,
+                candidates: AFTER_RECORD_CANDIDATES,
+                submitted: true,
+              }))
+            }
           >
-            기록 완료 신호
+            포커 기록 완료 (→ 족보 둘러보기)
           </Button>
           <Button size="sm" variant="ghost" onClick={resetGuide}>
             리셋
