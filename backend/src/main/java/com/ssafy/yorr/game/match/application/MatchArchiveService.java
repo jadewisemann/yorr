@@ -8,8 +8,10 @@ import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.user.domain.User;
 import com.ssafy.yorr.user.repository.UserRepository;
 import com.ssafy.yorr.ws.dto.GameOverPayload;
+import com.ssafy.yorr.config.CacheConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,7 +40,11 @@ public class MatchArchiveService {
 
     @org.springframework.beans.factory.annotation.Autowired
     public MatchArchiveService(MatchRepository matches, UserRepository users) {
-        this(matches, users, Clock.systemDefaultZone());
+        // finished_at은 UTC 벽시계로 저장한다. systemDefaultZone()이면 JVM 존에 따라 같은 코드가
+        // 다른 값을 쓴다 — 배포 컨테이너는 UTC, 개발자 PC는 KST라 9시간 어긋난 행이 섞인다.
+        // 기간으로 자르는 집계(주간 랭킹)는 그 어긋남을 복원할 방법이 없다. 이 서비스만 예외였고
+        // RoundTimerService·RoundTimeoutResolver는 이미 systemUTC()를 쓴다.
+        this(matches, users, Clock.systemUTC());
     }
 
     MatchArchiveService(MatchRepository matches, UserRepository users, Clock clock) {
@@ -51,7 +57,11 @@ public class MatchArchiveService {
      * @param room     끝난 게임의 방 스냅샷. 닉네임은 여기서 가져온다 — 순위 payload에는 점수만 있다.
      * @param rankings 서버가 확정한 최종 순위
      * @return 이 호출이 실제로 저장했는지. 이미 저장된 판이면 false.
+     * @implNote 랭킹 캐시를 비운다 — 주간 랭킹이 바뀔 수 있는 시점은 판이 끝날 때뿐이므로,
+     * 주기적으로 다시 계산하는 대신 여기서 알린다. 저장하지 않은 호출(중복 판)에도 비워지지만
+     * 그건 캐시 미스 한 번일 뿐 손해가 아니라, 반환값으로 조건을 거는 복잡함을 들이지 않았다.
      */
+    @CacheEvict(cacheNames = CacheConfig.WEEKLY_RANKING, allEntries = true)
     @Transactional
     public boolean archive(RoomSnapshot room, List<GameOverPayload.Ranking> rankings) {
         if (room == null || room.gameId() == null || room.gameId().isBlank()) return false;
