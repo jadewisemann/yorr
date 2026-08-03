@@ -7,6 +7,7 @@ import { PlayerCard } from '@/room/components/PlayerCard'
 import { playLandingSoundtrack } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
+import { LoadingOverlay } from '@/shared/components/LoadingOverlay'
 import { useAppStore } from '@/store'
 import { RoomExitGuard } from './RoomExitGuard'
 
@@ -99,6 +100,13 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
       {/* 다이얼로그는 main 밖에 둔다 — Modal이 main에 inert를 걸어 안에 있으면
           모달 자신까지 클릭이 막힌다(GamePage·GameResult와 같은 배치). */}
       <RoomExitGuard onClose={() => setExitRequested(false)} open={exitRequested} roomId={roomId} />
+      {/* phase가 waiting을 벗어난 순간부터 게임 화면으로 옮겨질 때까지 덮는다. 호스트의
+          "눌렀다"와 참가자의 "호스트가 시작했다"가 같은 신호라 조건이 하나로 끝난다 —
+          참가자는 예전에 아무 예고 없이 화면이 바뀌었다. */}
+      <LoadingOverlay
+        message="게임을 준비하고 있어요"
+        open={Boolean(roomSnapshot) && roomSnapshot?.phase !== 'waiting'}
+      />
       {/* 뷰포트 높이로 프레임을 고정하고 페이지 스크롤을 막는다 — 참가자가 많아져도
           스크롤은 아래 참가자 목록 안에서만 일어난다(QA FND-6, GamePlay와 같은 패턴). */}
       <main className="mx-auto flex h-svh w-full max-w-2xl flex-col gap-5 overflow-hidden px-gutter pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-content">
