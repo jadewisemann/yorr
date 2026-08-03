@@ -98,7 +98,11 @@ export function LandingProgress({ activeIndex, games, layout, onSelect }: Landin
           </span>
         </>
       ) : (
-        <span className="flex-1 text-right text-[12px] text-landing-text-muted">
+        /* 360px 미만에서는 감춘다. 카운터(55px)와 tablist(102px)가 flex-none이라 힌트에
+           99px만 남고 두 줄로 접히는데, 카운터 옆에서 오른쪽 정렬로 두 줄이 되면 안내가
+           아니라 깨진 것으로 읽힌다. 스와이프는 카드 자체로 발견되고 위치는 tablist가
+           계속 말하므로, 랜딩이 h-svh인 화면에서 한 층을 더 쓰는 것보다 낫다. */
+        <span className="flex-1 text-right text-[12px] text-landing-text-muted max-tiny:hidden">
           옆으로 밀어 다른 게임 보기
         </span>
       )}

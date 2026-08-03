@@ -276,7 +276,11 @@ export function EntryPage() {
             초대 코드는 이 카피의 오른쪽에 붙는다 — 게임 선택과 무관한 독립 경로라
             게임 CTA(이제 히어로 카드 안에 있다)와 여전히 다른 층이고, 세로로 한 층을
             따로 쓰지 않으므로 히어로가 그만큼 커진다. */}
-        <div className="flex flex-none items-center justify-between gap-3 px-5 pt-[clamp(10px,2vh,18px)]">
+        {/* 360px 미만에서는 나란히 두지 않는다. 초대 코드 칩이 shrink-0 116px이라 320px에서
+            태그라인에 152px만 남고, 24px 글자로 4줄(120px)이 된다 — 한 층을 아끼려고 옆에
+            붙인 것인데 그 층보다 큰 높이를 태그라인에서 되돌려 받는다. 쌓으면 태그라인이
+            280px를 받아 2줄로 돌아오고 합계 높이도 오히려 줄어든다. */}
+        <div className="flex flex-none items-center justify-between gap-3 px-5 pt-[clamp(10px,2vh,18px)] max-tiny:flex-col max-tiny:items-stretch max-tiny:gap-2.5">
           <h1 className="m-0 min-w-0 text-[24px]/[1.25] font-bold tracking-[-0.02em] text-landing-text-strong">
             링크 하나로 모이면 바로 시작하는 파티 게임
           </h1>

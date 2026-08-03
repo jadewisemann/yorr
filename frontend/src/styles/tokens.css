@@ -73,6 +73,12 @@
      Tailwind 기본 sm~2xl은 그대로 남는다. */
   --breakpoint-desktop: 75rem;
 
+  /* 320~359px. global.css가 min-width: 320px으로 잡은 지원 하한 쪽 끝이다.
+     이 구간에서는 나란히 세운 두 요소가 서로를 압착해 한쪽 텍스트가 줄 수를 두 배로
+     늘린다 — 랜딩 태그라인이 152px만 받아 24px 글자로 4줄이 됐다. `max-tiny:`로 그
+     자리만 세로로 쌓는다. 360px 이상에서는 원래 배치가 그대로 유효하므로 하한 전용이다. */
+  --breakpoint-tiny: 22.5rem;
+
   --spacing-tap: var(--ds-size-tap);
   --spacing-content: var(--ds-size-content);
   --spacing-landing: var(--ds-size-landing);
