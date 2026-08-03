@@ -195,26 +195,16 @@ describe('REST mock handlers', () => {
     expect(leaveUserId).toBe(creatorSession.you)
   })
 
-  it('대기실 봇을 추가하고 난이도를 변경한 뒤 삭제한다', async () => {
+  it('대기실 봇을 추가한 뒤 삭제한다', async () => {
     const auth = {
       sessionToken: creatorSession.sessionToken,
       userId: creatorSession.you,
     }
 
-    const added = await client.addBot(creatorSession.roomCode, 'NORMAL', auth)
+    const added = await client.addBot(creatorSession.roomCode, auth)
     const bot = added.players.find((player) => player.kind === 'BOT')
 
-    expect(bot).toMatchObject({ difficulty: 'NORMAL', status: 'online' })
-
-    const updated = await client.updateBot(
-      creatorSession.roomCode,
-      bot?.playerId ?? '',
-      'HARD',
-      auth,
-    )
-    expect(updated.players.find((player) => player.kind === 'BOT')).toMatchObject({
-      difficulty: 'HARD',
-    })
+    expect(bot).toMatchObject({ kind: 'BOT', status: 'online' })
 
     const removed = await client.removeBot(creatorSession.roomCode, bot?.playerId ?? '', auth)
     expect(removed.players).not.toContainEqual(expect.objectContaining({ kind: 'BOT' }))

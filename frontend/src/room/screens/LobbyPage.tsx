@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import type { BotDifficulty } from '@/realtime/wsEvents'
-import { useAddBot, useRemoveBot, useStartGame, useUpdateBot } from '@/room/api/useGameApi'
+import type { Player, PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
+import { useAddBot, useRemoveBot, useStartGame } from '@/room/api/useGameApi'
 import { InvitationPanel } from '@/room/components/InvitationPanel'
 import { PlayerCard } from '@/room/components/PlayerCard'
 import { playLandingSoundtrack } from '@/shared/audio/soundtrack'
@@ -44,15 +44,13 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const connectionStatus = useAppStore((state) => state.connectionStatus)
   const startGame = useStartGame()
   const addBot = useAddBot()
-  const updateBot = useUpdateBot()
   const removeBot = useRemoveBot()
   const [exitRequested, setExitRequested] = useState(false)
-  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('NORMAL')
   const matchingRoom = roomSession?.roomId === roomId
   const isHost = matchingRoom && roomSession.membershipRole === 'host'
   const capacity = roomSnapshot?.capacity ?? 6
-  const botMutationLoading = addBot.isLoading || updateBot.isLoading || removeBot.isLoading
-  const botMutationError = addBot.error ?? updateBot.error ?? removeBot.error
+  const botMutationLoading = addBot.isLoading || removeBot.isLoading
+  const botMutationError = addBot.error ?? removeBot.error
   const canStart =
     isHost &&
     connectionStatus === 'connected' &&
@@ -86,7 +84,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
 
   const handleAddBot = async () => {
     if (!isHost || !roomSnapshot || roomSnapshot.players.length >= capacity) return
-    await addBot.execute(botDifficulty)
+    await addBot.execute()
   }
 
   if (!roomSession || !matchingRoom || roomResumeReason) return null
@@ -132,44 +130,15 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
 
         <InvitationPanel roomCode={roomSession.roomCode} />
 
-        {roomSnapshot && isHost && (
-          <section
-            aria-label="AI 봇 관리"
-            className="grid flex-none grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-panel border border-border bg-surface-raised p-3"
-          >
-            <label className="grid min-w-0 gap-1 text-xs font-bold text-content-muted">
-              봇 난이도
-              <select
-                aria-label="추가할 봇 난이도"
-                className="min-h-10 rounded-card border border-border bg-canvas px-3 text-sm text-content"
-                disabled={botMutationLoading}
-                onChange={(event) => setBotDifficulty(event.target.value as BotDifficulty)}
-                value={botDifficulty}
-              >
-                {BOT_DIFFICULTIES.map((difficulty) => (
-                  <option key={difficulty} value={difficulty}>
-                    {difficultyLabel(difficulty)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Button
-              className="self-end"
-              disabled={botMutationLoading || roomSnapshot.players.length >= capacity}
-              loading={addBot.isLoading}
-              onClick={handleAddBot}
-              type="button"
-              variant="secondary"
-            >
-              봇 추가
-            </Button>
-            {botMutationError && (
-              <p className="col-span-2 m-0 text-xs text-danger" role="alert">
-                봇을 변경하지 못했어요: {botMutationError.message}
-              </p>
-            )}
-          </section>
-        )}
+        <BotManagementPanel
+          adding={addBot.isLoading}
+          capacity={capacity}
+          error={botMutationError}
+          loading={botMutationLoading}
+          onAdd={() => void handleAddBot()}
+          playerCount={roomSnapshot?.players.length ?? 0}
+          visible={Boolean(roomSnapshot && isHost)}
+        />
 
         {!roomSnapshot && (
           <p className="m-0 text-center text-sm text-content-muted" role="status">
@@ -177,124 +146,199 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           </p>
         )}
 
-        {roomSnapshot && (
-          <>
-            <div className="flex flex-none items-baseline justify-between">
-              <span className="text-[15px] font-semibold">참가 인원</span>
-              <span className="font-mono text-base font-bold tabular-nums">
-                {roomSnapshot.players.length}
-                <span className="text-content-faint"> / {capacity}</span>
-              </span>
-            </div>
-
-            {/* min-h-0 + overflow-y-auto: 참가자가 늘어나도 스크롤은 이 목록 안에서만
-                일어난다 — 헤더·초대 카드·시작 버튼은 항상 고정 위치에 남는다(QA FND-6). */}
-            <section
-              className="grid min-h-0 flex-1 auto-rows-min gap-2.5 overflow-y-auto"
-              aria-label={`참가자 ${roomSnapshot.players.length}명`}
-            >
-              {roomSnapshot.players.map((player) => (
-                <PlayerCard
-                  key={player.playerId}
-                  name={player.nickname}
-                  avatarSeed={player.playerId}
-                  status={player.status}
-                  current={player.playerId === roomSession.you}
-                  active={player.playerId === roomSession.you}
-                  subtitle={
-                    player.kind === 'BOT'
-                      ? `AI 봇 · ${difficultyLabel(player.difficulty ?? 'NORMAL')}`
-                      : undefined
-                  }
-                  trailing={
-                    player.kind === 'BOT' && isHost ? (
-                      <span className="flex items-center gap-2">
-                        <select
-                          aria-label={`${player.nickname} 난이도`}
-                          className="min-h-9 rounded-card border border-border bg-canvas px-2 text-xs text-content"
-                          disabled={botMutationLoading}
-                          onChange={(event) =>
-                            void updateBot.execute(
-                              player.playerId,
-                              event.target.value as BotDifficulty,
-                            )
-                          }
-                          value={player.difficulty ?? 'NORMAL'}
-                        >
-                          {BOT_DIFFICULTIES.map((difficulty) => (
-                            <option key={difficulty} value={difficulty}>
-                              {difficultyLabel(difficulty)}
-                            </option>
-                          ))}
-                        </select>
-                        <Button
-                          className="min-h-9 px-2.5 text-xs"
-                          disabled={botMutationLoading}
-                          onClick={() => void removeBot.execute(player.playerId)}
-                          type="button"
-                          variant="danger"
-                        >
-                          삭제
-                        </Button>
-                      </span>
-                    ) : undefined
-                  }
-                />
-              ))}
-              {roomSnapshot.players.length < capacity && (
-                <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-white/14 px-3 text-sm text-content-muted tabular-nums">
-                  <span
-                    aria-hidden="true"
-                    className="size-11 flex-none rounded-card border border-dashed border-white/18"
-                  />
-                  빈 자리 {capacity - roomSnapshot.players.length} · 링크를 공유해 초대하세요
-                </p>
-              )}
-            </section>
-
-            <div className="grid flex-none gap-2 border-t border-border pt-3.5 text-center">
-              <Button
-                size="lg"
-                // 비활성 이유는 아래 문장이 이미 화면에 적고 있다 — 버튼에 물려야
-                // 포커스가 왔을 때도 같이 읽힌다.
-                aria-describedby={canStart ? undefined : 'start-blocked'}
-                className="min-h-[3.625rem] w-full rounded-panel text-lg"
-                disabled={!canStart}
-                loading={startGame.isLoading}
-                onClick={handleStart}
-              >
-                {roomSession.membershipRole === 'participant'
-                  ? '게임 시작 · 호스트 전용'
-                  : '게임 시작'}
-              </Button>
-              {!canStart && (
-                <p className="m-0 text-sm text-content-muted" id="start-blocked">
-                  {roomSession.membershipRole === 'participant'
-                    ? '호스트가 게임을 시작하면 자동으로 이동해요.'
-                    : connectionStatus === 'connected'
-                      ? `${MIN_PLAYERS_TO_START}명부터 시작할 수 있어요.`
-                      : '연결된 뒤 게임을 시작할 수 있어요.'}
-                </p>
-              )}
-              {startGame.error && (
-                <p className="m-0 text-sm text-danger" role="alert">
-                  게임을 시작하지 못했어요: {startGame.error.message}
-                </p>
-              )}
-            </div>
-          </>
-        )}
+        <LobbyRoomContent
+          botLoading={botMutationLoading}
+          canStart={canStart}
+          capacity={capacity}
+          connectionStatus={connectionStatus}
+          isHost={isHost}
+          membershipRole={roomSession.membershipRole}
+          onRemoveBot={(playerId) => void removeBot.execute(playerId)}
+          onStart={() => void handleStart()}
+          snapshot={roomSnapshot}
+          startError={startGame.error}
+          startLoading={startGame.isLoading}
+          you={roomSession.you}
+        />
       </main>
     </>
   )
 }
 
-const BOT_DIFFICULTIES = ['EASY', 'NORMAL', 'HARD'] as const satisfies readonly BotDifficulty[]
+interface LobbyRoomContentProps {
+  snapshot: RoomSnapshot | null
+  capacity: number
+  you: PlayerId
+  isHost: boolean
+  membershipRole: 'host' | 'participant'
+  connectionStatus: ReturnType<typeof useAppStore.getState>['connectionStatus']
+  canStart: boolean
+  startLoading: boolean
+  startError: Error | null
+  botLoading: boolean
+  onStart: () => void
+  onRemoveBot: (playerId: PlayerId) => void
+}
 
-function difficultyLabel(difficulty: BotDifficulty) {
-  if (difficulty === 'EASY') return '쉬움'
-  if (difficulty === 'HARD') return '어려움'
-  return '보통'
+function LobbyRoomContent({
+  snapshot,
+  capacity,
+  you,
+  isHost,
+  membershipRole,
+  connectionStatus,
+  canStart,
+  startLoading,
+  startError,
+  botLoading,
+  onStart,
+  onRemoveBot,
+}: LobbyRoomContentProps) {
+  if (!snapshot) return null
+  return (
+    <>
+      <div className="flex flex-none items-baseline justify-between">
+        <span className="text-[15px] font-semibold">참가 인원</span>
+        <span className="font-mono text-base font-bold tabular-nums">
+          {snapshot.players.length}
+          <span className="text-content-faint"> / {capacity}</span>
+        </span>
+      </div>
+
+      <section
+        className="grid min-h-0 flex-1 auto-rows-min gap-2.5 overflow-y-auto"
+        aria-label={`참가자 ${snapshot.players.length}명`}
+      >
+        {snapshot.players.map((player) => (
+          <LobbyPlayerCard
+            isHost={isHost}
+            key={player.playerId}
+            loading={botLoading}
+            onRemove={onRemoveBot}
+            player={player}
+            you={you}
+          />
+        ))}
+        {snapshot.players.length < capacity && (
+          <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-white/14 px-3 text-sm text-content-muted tabular-nums">
+            <span
+              aria-hidden="true"
+              className="size-11 flex-none rounded-card border border-dashed border-white/18"
+            />
+            빈 자리 {capacity - snapshot.players.length} · 링크를 공유해 초대하세요
+          </p>
+        )}
+      </section>
+
+      <div className="grid flex-none gap-2 border-t border-border pt-3.5 text-center">
+        <Button
+          size="lg"
+          aria-describedby={canStart ? undefined : 'start-blocked'}
+          className="min-h-[3.625rem] w-full rounded-panel text-lg"
+          disabled={!canStart}
+          loading={startLoading}
+          onClick={onStart}
+        >
+          {membershipRole === 'participant' ? '게임 시작 · 호스트 전용' : '게임 시작'}
+        </Button>
+        {!canStart && (
+          <p className="m-0 text-sm text-content-muted" id="start-blocked">
+            {membershipRole === 'participant'
+              ? '호스트가 게임을 시작하면 자동으로 이동해요.'
+              : connectionStatus === 'connected'
+                ? `${MIN_PLAYERS_TO_START}명부터 시작할 수 있어요.`
+                : '연결된 뒤 게임을 시작할 수 있어요.'}
+          </p>
+        )}
+        {startError && (
+          <p className="m-0 text-sm text-danger" role="alert">
+            게임을 시작하지 못했어요: {startError.message}
+          </p>
+        )}
+      </div>
+    </>
+  )
+}
+
+interface BotManagementPanelProps {
+  visible: boolean
+  playerCount: number
+  capacity: number
+  loading: boolean
+  adding: boolean
+  error: Error | null
+  onAdd: () => void
+}
+
+function BotManagementPanel({
+  visible,
+  playerCount,
+  capacity,
+  loading,
+  adding,
+  error,
+  onAdd,
+}: BotManagementPanelProps) {
+  if (!visible) return null
+  return (
+    <section
+      aria-label="AI 봇 관리"
+      className="grid flex-none gap-2 rounded-panel border border-border bg-surface-raised p-3"
+    >
+      <p className="m-0 text-xs text-content-muted">
+        점수판과 남은 기회를 계산하는 AI 봇을 추가합니다.
+      </p>
+      <Button
+        disabled={loading || playerCount >= capacity}
+        loading={adding}
+        onClick={onAdd}
+        type="button"
+        variant="secondary"
+      >
+        봇 추가
+      </Button>
+      {error && (
+        <p className="m-0 text-xs text-danger" role="alert">
+          봇을 변경하지 못했어요: {error.message}
+        </p>
+      )}
+    </section>
+  )
+}
+
+interface LobbyPlayerCardProps {
+  player: Player
+  you: PlayerId
+  isHost: boolean
+  loading: boolean
+  onRemove: (playerId: PlayerId) => void
+}
+
+function LobbyPlayerCard({ player, you, isHost, loading, onRemove }: LobbyPlayerCardProps) {
+  const isBot = player.kind === 'BOT'
+  return (
+    <PlayerCard
+      name={player.nickname}
+      avatarSeed={player.playerId}
+      status={player.status}
+      current={player.playerId === you}
+      active={player.playerId === you}
+      subtitle={isBot ? '상태 기반 AI 봇' : undefined}
+      trailing={
+        isBot && isHost ? (
+          <Button
+            className="min-h-9 px-2.5 text-xs"
+            disabled={loading}
+            onClick={() => onRemove(player.playerId)}
+            type="button"
+            variant="danger"
+          >
+            삭제
+          </Button>
+        ) : undefined
+      }
+    />
+  )
 }
 
 function connectionLabel(status: ReturnType<typeof useAppStore.getState>['connectionStatus']) {

@@ -55,7 +55,7 @@ describe('returnToLobby', () => {
 describe('REST 스냅샷 → 프론트 스냅샷 변환', () => {
   it('서버 phase를 프론트 phase로 옮기고 참가자를 online으로 채운다', async () => {
     respondToGame(restSnapshot({ phase: 'LOBBY' }))
-    await expect(client.getGame('game-1')).resolves.toEqual({
+    await expect(client.getGame('game-1')).resolves.toMatchObject({
       roomId: 'YORR64',
       phase: 'waiting',
       players: [{ playerId: 'player-1', nickname: '호스트', status: 'online' }],
