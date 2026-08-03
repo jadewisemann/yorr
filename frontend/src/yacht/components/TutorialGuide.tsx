@@ -24,15 +24,21 @@ interface TutorialGuideProps {
 }
 
 /**
- * 굴림 세 번을 먼저 다 하고, 그다음에 족보를 설명한다. 예전에는 2굴림 뒤에 족보 읽기가
- * 끼어들고 남은 한 번을 그 뒤에 굴리게 했는데, 던지다 말고 읽고 다시 던지는 흐름이 어색했다.
- * 손이 하는 일(굴림·킵)을 끝내고 나서 머리가 하는 일(족보)로 넘어간다.
+ * 굴림 → 선택을 두 번 되풀이하고, 마지막 굴림을 흔들기로 체험한 뒤 족보를 설명한다.
+ *
+ * 요트의 한 턴은 "굴리고 남길 것을 고른다"의 반복이다. 그 반복을 한 번만 보여주면 규칙이
+ * 아니라 일회성 조작으로 읽혀서, 2굴림 뒤에도 고르는 단계(keepAgain)를 둔다 — 킵이 쌓이는
+ * 것이 여기서 처음 눈에 보인다.
+ *
+ * 족보는 손이 하는 일(굴림·선택)을 다 끝낸 뒤로 미룬다. 던지다 말고 읽고 다시 던지면
+ * 흐름이 끊긴다.
  */
 type GuideStep =
   | 'greet'
   | 'roll'
   | 'keep'
   | 'reroll'
+  | 'keepAgain'
   | 'motion'
   | 'lastRoll'
   | 'categories'
@@ -53,6 +59,7 @@ function spotlightFor(step: GuideStep): string | null {
     case 'lastRoll':
       return '[data-tutorial="roll"]'
     case 'keep':
+    case 'keepAgain':
       return '[data-tutorial="tray"]'
     case 'motion':
       return '[data-tutorial="motion"]'
@@ -69,60 +76,75 @@ interface Lesson {
   body: string
   /** 눌러야 다음으로 가는 단계에는 버튼을 두지 않는다 — 직접 해보는 것이 요점이다. */
   action?: string
-  /** 족보 요약표를 본문 아래에 편다. 족보 설명 단계에서만 쓴다. */
-  hands?: boolean
+  /** 족보 하나를 말풍선으로 설명하는 중. 몇 번째인지는 진행 표시로 보여준다. */
+  hand?: { index: number; total: number; score: number | undefined }
 }
 
 /**
- * 족보 12칸을 일곱 줄로 줄인 요약(S15P11A406-143). 예전에는 "설명은 ? 도움말에 있어요"로
- * 넘겼는데, 처음 온 사람에게 다른 곳을 찾아가라고 하면 대개 안 찾아간다 — 규칙을 알아야
- * 어디에 적을지 고를 수 있으니 여기서 바로 말한다.
+ * 족보 12칸을 일곱 장으로 줄여 **한 장씩** 설명한다(S15P11A406-143). 예전에는 "설명은 ?
+ * 도움말에 있어요"로 넘겼는데, 처음 온 사람에게 다른 곳을 찾아가라고 하면 대개 안 찾아간다 —
+ * 규칙을 알아야 어디에 적을지 고를 수 있으니 마스코트가 직접 말한다.
  *
- * 위 여섯 칸은 규칙이 하나라 한 줄로 묶는다. "에이스는 1을, 듀스는 2를…"을 여섯 번
- * 반복하면 읽다가 지치고, 정작 다른 하단 족보가 묻힌다.
+ * 한 화면에 일곱 줄을 펼치면 표가 되고, 표는 훑고 지나가진다. 한 번에 하나만 말하면
+ * 각 줄이 실제로 읽힌다.
+ *
+ * 위 여섯 칸은 규칙이 하나라 한 장으로 묶는다. "에이스는 1을, 듀스는 2를…"을 여섯 번
+ * 반복하면 읽다가 지치고 정작 하단 족보가 묻힌다.
  */
-const HAND_SUMMARY: ReadonlyArray<{
+const HAND_LESSONS: ReadonlyArray<{
   name: string
   rule: string
-  /** 지금 주사위로 몇 점인지 옆에 붙일 칸. 위 6칸 묶음처럼 대표할 칸이 없으면 없다. */
+  /** 지금 주사위로 몇 점인지 붙일 칸. 위 6칸 묶음처럼 대표할 칸이 없으면 없다. */
   category?: YachtCategory
 }> = [
-  { name: '에이스 ~ 식스', rule: '고른 숫자만 모아서 더해요' },
-  { name: '초이스', rule: '눈 다섯 개를 그냥 다 더해요', category: 'choice' },
-  { name: '포커', rule: '같은 눈 4개', category: 'fourOfAKind' },
-  { name: '풀하우스', rule: '같은 눈 3개 + 2개', category: 'fullHouse' },
-  { name: '스몰 스트레이트', rule: '연속 4개 · 15점', category: 'smallStraight' },
-  { name: '라지 스트레이트', rule: '연속 5개 · 30점', category: 'largeStraight' },
-  { name: '요트', rule: '다섯 개 모두 같은 눈 · 50점', category: 'yacht' },
+  {
+    name: '에이스 ~ 식스',
+    rule: '위 여섯 칸은 고른 숫자만 세서 더해요. 식스라면 6만 모으는 거예요.',
+  },
+  {
+    name: '초이스',
+    rule: '모양을 안 따져요. 눈 다섯 개를 그냥 다 더해서 적어요.',
+    category: 'choice',
+  },
+  { name: '포커', rule: '같은 눈이 4개 모이면 다섯 개를 다 더해요.', category: 'fourOfAKind' },
+  {
+    name: '풀하우스',
+    rule: '같은 눈 3개와 다른 눈 2개가 함께 있으면 다 더해요.',
+    category: 'fullHouse',
+  },
+  {
+    name: '스몰 스트레이트',
+    rule: '이어지는 눈 4개(예: 2·3·4·5)면 무조건 15점이에요.',
+    category: 'smallStraight',
+  },
+  {
+    name: '라지 스트레이트',
+    rule: '이어지는 눈 5개(예: 2·3·4·5·6)면 30점이에요.',
+    category: 'largeStraight',
+  },
+  {
+    name: '요트',
+    rule: '다섯 개가 모두 같은 눈이면 50점 — 이 게임에서 가장 큰 점수예요.',
+    category: 'yacht',
+  },
 ]
 
 /**
- * 족보 요약표. 규칙만 적으면 외울 것이 늘 뿐이라, 지금 주사위로 실제 몇 점인지를 같은 줄에
- * 붙인다 — 0점인 칸은 "이 모양이 아니다"를 스스로 말해 준다.
+ * 지금 주사위가 이 족보에 몇 점인지. 규칙만 적으면 외울 것이 늘 뿐이라 실제 점수를 붙인다 —
+ * 0점은 "지금 주사위는 이 모양이 아니다"를 스스로 말해 준다.
  */
-function HandSummary({ candidates }: { candidates: CategoryScores }) {
+function HandScore({ score }: { score: number }) {
   return (
-    <ul className="m-0 grid list-none gap-1 rounded-control bg-surface-sunken px-2.5 py-2">
-      {HAND_SUMMARY.map((hand) => {
-        const score = hand.category === undefined ? null : candidates[hand.category]
-        return (
-          <li className="flex items-baseline gap-2 text-[12.5px]/[1.35]" key={hand.name}>
-            <span className="flex-none font-semibold text-content">{hand.name}</span>
-            <span className="min-w-0 flex-1 text-content-faint">{hand.rule}</span>
-            {score !== null && score !== undefined && (
-              <span
-                className={cn(
-                  'flex-none font-mono font-bold tabular-nums',
-                  score > 0 ? 'text-brand-strong' : 'text-content-faint',
-                )}
-              >
-                {score}
-              </span>
-            )}
-          </li>
-        )
-      })}
-    </ul>
+    <p
+      className={cn(
+        'm-0 text-[12.5px] font-semibold',
+        score > 0 ? 'text-brand-strong' : 'text-content-faint',
+      )}
+    >
+      {score > 0
+        ? `지금 주사위로 적으면 ${score}점이에요.`
+        : '지금 주사위는 이 모양이 아니라 0점이에요.'}
+    </p>
   )
 }
 
@@ -135,7 +157,59 @@ interface LessonContext {
   keptSixes: number
   /** 6이 아닌데 킵해 둔 주사위 수. 있으면 풀라고 알려 준다. */
   keptOther: number
+  /** 족보 설명 중 몇 번째 장을 보고 있는지. */
+  handIndex: number
+  /** 지금 주사위의 족보별 점수. 설명 옆에 실제 점수를 붙인다. */
+  candidates: CategoryScores
   wide: boolean
+}
+
+/**
+ * 굴림 뒤 "남길 것을 고르는" 단계의 문구. 첫 선택과 두 번째 선택이 같은 판단을 하므로 한
+ * 곳에 둔다 — 두 번째는 이 고르기가 매 굴림마다 반복되는 규칙이라는 것을 덧붙인다.
+ */
+function keepLesson(ctx: LessonContext, again: boolean): Lesson {
+  // 6이 아닌 걸 킵했으면 그것부터 알려 준다 — 초심자는 잘못 눌렀다는 것 자체를 모른다.
+  if (ctx.keptOther > 0) {
+    return {
+      title: '6이 아닌 주사위를 킵했어요',
+      body: again
+        ? '한 번 더 탭하면 풀려요. 지금은 6만 모아 볼게요.'
+        : '한 번 더 탭하면 킵이 풀려요. 지금은 6만 남겨 볼게요 — 같은 눈을 모을수록 점수가 커지거든요.',
+    }
+  }
+
+  const left = ctx.sixes - ctx.keptSixes
+  if (again) {
+    return {
+      title: `6이 ${ctx.sixes}개로 늘었어요`,
+      body: `굴릴 때마다 남길 것을 다시 고르는 게 요트의 한 턴이에요. 새로 나온 6 ${left}개도 탭해서 킵해 보세요.`,
+    }
+  }
+  return {
+    title: ctx.keptSixes > 0 ? `좋아요, ${left}개 남았어요` : `6이 ${ctx.sixes}개 나왔어요`,
+    body:
+      ctx.keptSixes > 0
+        ? `나머지 6 ${left}개도 탭해서 킵해 보세요. 6을 전부 모아 두고 나머지만 다시 굴릴 거예요.`
+        : '같은 눈을 모으면 점수가 커져요. 6이 그려진 주사위를 모두 탭해서 킵해 보세요 — 킵한 주사위는 다시 굴려도 그대로 남아요.',
+  }
+}
+
+/** 족보 한 장. 마지막 장에서만 버튼 문구가 "적어 볼게요"로 바뀐다. */
+function handLesson(ctx: LessonContext): Lesson {
+  const hand = HAND_LESSONS[ctx.handIndex]
+  if (!hand) throw new Error(`족보 설명 ${ctx.handIndex}번째 장이 없습니다`)
+
+  return {
+    title: hand.name,
+    body: hand.rule,
+    hand: {
+      index: ctx.handIndex,
+      total: HAND_LESSONS.length,
+      score: hand.category === undefined ? undefined : ctx.candidates[hand.category],
+    },
+    action: ctx.handIndex >= HAND_LESSONS.length - 1 ? '적어 볼게요' : '다음',
+  }
 }
 
 /**
@@ -159,28 +233,15 @@ function lessonFor(step: GuideStep, ctx: LessonContext): Lesson {
           ? '빨갛게 표시된 굴리기 버튼을 눌러 보세요. 스페이스바로도 굴릴 수 있어요. 한 턴에 3번까지예요.'
           : '빨갛게 표시된 굴리기 버튼을 눌러 보세요. 한 턴에 3번까지 굴릴 수 있어요.',
       }
-    case 'keep': {
-      // 6이 아닌 걸 킵했으면 그것부터 알려 준다 — 초심자는 잘못 눌렀다는 것 자체를 모른다.
-      if (ctx.keptOther > 0) {
-        return {
-          title: '6이 아닌 주사위를 킵했어요',
-          body: '한 번 더 탭하면 킵이 풀려요. 지금은 6만 남겨 볼게요 — 같은 눈을 모을수록 점수가 커지거든요.',
-        }
-      }
-      const left = ctx.sixes - ctx.keptSixes
-      return {
-        title: ctx.keptSixes > 0 ? `좋아요, ${left}개 남았어요` : `6이 ${ctx.sixes}개 나왔어요`,
-        body:
-          ctx.keptSixes > 0
-            ? `나머지 6 ${left}개도 탭해서 킵해 보세요. 6을 전부 모아 두고 나머지만 다시 굴릴 거예요.`
-            : '같은 눈을 모으면 점수가 커져요. 6이 그려진 주사위를 모두 탭해서 킵해 보세요 — 킵한 주사위는 다시 굴려도 그대로 남아요.',
-      }
-    }
+    case 'keep':
+      return keepLesson(ctx, false)
     case 'reroll':
       return {
         title: '나머지만 다시 굴려요',
         body: '킵한 6은 그대로 두고 나머지만 다시 굴러가요. 6이 더 붙는지 볼까요? 굴리기를 한 번 더 눌러 보세요.',
       }
+    case 'keepAgain':
+      return keepLesson(ctx, true)
     case 'motion':
       return {
         title: '마지막 한 번은 흔들어서 굴려 볼까요?',
@@ -193,14 +254,7 @@ function lessonFor(step: GuideStep, ctx: LessonContext): Lesson {
         body: '한 턴에 세 번까지니까 이번이 마지막이에요. 굴리고 나면 다섯 개가 그대로 확정돼요.',
       }
     case 'categories':
-      return {
-        title: '이제 어디에 적을지 골라요',
-        body: `주사위는 확정됐어요. 점수를 적을 칸이 12개 있고, 각 칸이 원하는 모양이 달라요.${
-          ctx.sixes > 0 ? ` 지금 6이 ${ctx.sixes}개라 식스 칸이 ${ctx.sixesScore}점이에요.` : ''
-        }`,
-        hands: true,
-        action: '알겠어요',
-      }
+      return handLesson(ctx)
     case 'record':
       return {
         title: `6이 ${ctx.sixes}개! 식스에 기록해요`,
@@ -238,6 +292,8 @@ export function TutorialGuide({
   wide,
 }: TutorialGuideProps) {
   const [step, setStep] = useState<GuideStep>('greet')
+  // 족보 설명은 한 장씩 넘긴다. 단계 안에서만 쓰는 위치라 step과 따로 둔다.
+  const [handIndex, setHandIndex] = useState(0)
 
   /*
    * 6의 개수는 대본을 믿지 않고 화면(식스 후보 점수)에서 거꾸로 센다 — 사용자가 안내와 다르게
@@ -261,30 +317,51 @@ export function TutorialGuide({
   }, [keptSixes, motionNoticeVisible, rolled, rollCount, sixesOnTray, step, submitted])
 
   const spotlight = useSpotlight(spotlightFor(step))
-  const lesson = lessonFor(step, { keptOther, keptSixes, sixes: sixesOnTray, sixesScore, wide })
+  const lesson = lessonFor(step, {
+    candidates,
+    handIndex,
+    keptOther,
+    keptSixes,
+    sixes: sixesOnTray,
+    sixesScore,
+    wide,
+  })
+
+  /** 버튼 하나가 세 가지를 한다: 연습 끝내기 · 족보 다음 장 · 다음 단계. */
+  const advance = () => {
+    if (step === 'done') return onClose()
+    if (lesson.hand && lesson.hand.index < lesson.hand.total - 1) {
+      setHandIndex(lesson.hand.index + 1)
+      return
+    }
+    setStep(nextOf(step))
+  }
 
   return (
     // 래퍼는 클릭을 통과시킨다 — 여기서 막으면 강조해 놓은 버튼조차 눌리지 않는다.
     <div className="pointer-events-none fixed inset-0 z-modal" role="presentation">
       <Backdrop spotlight={spotlight} />
       <Card spotlight={spotlight}>
-        <h2 className="m-0 text-[17px] leading-tight font-bold text-content">{lesson.title}</h2>
-        <p
-          aria-live="polite"
-          className="m-0 text-[14.5px] leading-relaxed text-content-muted"
-          role="status"
-        >
-          {lesson.body}
-        </p>
-        {lesson.hands && <HandSummary candidates={candidates} />}
+        {lesson.hand && (
+          <p className="m-0 text-[11px] font-bold tracking-[0.1em] text-content-faint uppercase">
+            족보 {lesson.hand.index + 1} / {lesson.hand.total}
+          </p>
+        )}
+        <SpeechBubble bubble={lesson.hand !== undefined}>
+          <h2 className="m-0 text-[17px] leading-tight font-bold text-content">{lesson.title}</h2>
+          <p
+            aria-live="polite"
+            className="m-0 text-[14.5px] leading-relaxed text-content-muted"
+            role="status"
+          >
+            {lesson.body}
+          </p>
+          {lesson.hand?.score !== undefined && <HandScore score={lesson.hand.score} />}
+        </SpeechBubble>
         <div className="mt-0.5 flex items-center justify-between gap-3">
           <GuideTextButton label="연습 그만두기" onClick={onClose} />
           {lesson.action ? (
-            <Button
-              onClick={step === 'done' ? onClose : () => setStep(nextOf(step))}
-              size="sm"
-              variant="secondary"
-            >
+            <Button onClick={advance} size="sm" variant="secondary">
               {lesson.action}
             </Button>
           ) : (
@@ -318,26 +395,46 @@ interface PlaySignals {
  * 통째로 놓친다.
  */
 function stepFromPlay(step: GuideStep, play: PlaySignals): GuideStep | null {
-  // 마무리와 족보 설명은 버튼으로만 넘어간다 — 읽는 중에 굴림 수가 바뀌어도 끌려가면 안 된다.
+  // 족보 설명과 마무리는 버튼으로만 넘어간다 — 읽는 중에 굴림 수가 바뀌어도 끌려가면 안 된다.
   if (step === 'done' || step === 'categories') return null
-  // 마지막 굴림을 쓰는 두 단계. 굴림이 끝나면 족보 설명으로 넘어간다.
+  /*
+   * 마지막 굴림을 쓰는 두 단계는 굴림 수만 본다. 아래 submitted보다 먼저 판단해야 한다 —
+   * 순서를 뒤집으면 흔들기 중에 기록이 들어왔을 때 마지막 굴림을 건너뛰고 끝난다.
+   */
   if (step === 'motion' || step === 'lastRoll') {
     return play.rollCount >= MAX_ROLLS ? 'categories' : null
   }
   if (play.submitted) return 'done'
-  if ((step === 'greet' || step === 'roll') && play.rolled) return 'keep'
-  // 6이 두 개인데 하나만 킵하고 넘어가면 "같은 눈을 모은다"를 절반만 해본 셈이다.
-  if (step === 'keep' && play.keptSixes >= play.sixesOnTray) return 'reroll'
-  // 두 번째 굴림이 끝나면 남은 한 번을 쓴다 — 센서가 있으면 흔들어서, 없으면 그냥 한 번 더.
-  if (step === 'reroll' && play.rollCount >= 2) return afterReroll(play)
-  return null
+  return PLAY_ADVANCE[step]?.(play) ?? null
 }
 
 /**
- * 두 번째 굴림 뒤에 갈 곳. 안내보다 빨리 세 번을 다 굴려 버렸으면 굴릴 것이 없으니 바로
+ * 단계별로 "무엇이 충족되면 어디로 가는가". 표로 두면 안내 순서가 한눈에 읽힌다 —
+ * if 사슬로 늘어놓으면 순서가 코드 줄 순서에 숨는다.
+ *
+ * 여기 없는 단계(motion · lastRoll · categories · record · done)는 위에서 따로 다루거나
+ * 버튼으로만 넘어간다.
+ */
+const PLAY_ADVANCE: Partial<Record<GuideStep, (play: PlaySignals) => GuideStep | null>> = {
+  // 인사 중에 이미 굴려 버린 사람도 여기서 따라잡는다.
+  greet: (play) => (play.rolled ? 'keep' : null),
+  roll: (play) => (play.rolled ? 'keep' : null),
+  // 6이 두 개인데 하나만 킵하고 넘어가면 "같은 눈을 모은다"를 절반만 해본 셈이다.
+  keep: (play) => (allSixesKept(play) ? 'reroll' : null),
+  reroll: (play) => (play.rollCount >= 2 ? 'keepAgain' : null),
+  // 두 번 고르고 나면 남은 한 번을 쓴다 — 센서가 있으면 흔들어서, 없으면 그냥 한 번 더.
+  keepAgain: (play) => (allSixesKept(play) ? afterKeepAgain(play) : null),
+}
+
+function allSixesKept(play: PlaySignals) {
+  return play.keptSixes >= play.sixesOnTray
+}
+
+/**
+ * 두 번째 선택 뒤에 갈 곳. 안내보다 빨리 세 번을 다 굴려 버렸으면 굴릴 것이 없으니 바로
  * 족보로 간다 — 여기서 흔들기를 시키면 이미 끝난 굴림을 한 번 더 하라는 말이 된다.
  */
-function afterReroll(play: PlaySignals): GuideStep {
+function afterKeepAgain(play: PlaySignals): GuideStep {
   if (play.rollCount >= MAX_ROLLS) return 'categories'
   return play.motionNoticeVisible ? 'motion' : 'lastRoll'
 }
@@ -437,11 +534,12 @@ function Backdrop({ spotlight }: { spotlight: SpotlightRect | null }) {
  * 설명 카드. 강조한 곳을 가리면 안 되므로 구멍의 반대쪽 절반에 붙는다 —
  * 아래를 밝혔으면 위로, 위를 밝혔으면 아래로.
  *
- * 폭은 플레이 영역(`max-w-play`)에서 멈추고 가운데 선다. 딤과 차단막은 뷰포트를 덮어야 하므로
- * 이 오버레이의 컨테이닝 블록은 뷰포트지만(구멍 좌표가 getBoundingClientRect 값이다),
- * **카드는 게임과 같은 열에 서야 한다** — GamePlay의 main이 mx-auto max-w-play로 가운데
- * 좁게 서 있어서, 카드만 inset-x-4로 두면 넓은 화면에서 게임보다 훨씬 옆으로 튀어나온다.
+ * 폭은 26rem에서 멈추고 가운데 선다. 딤과 차단막은 뷰포트를 덮어야 하므로 이 오버레이의
+ * 컨테이닝 블록은 뷰포트지만(구멍 좌표가 getBoundingClientRect 값이다), 카드는 **읽기 좋은
+ * 한 덩어리**여야 한다 — 게임 열(max-w-play, 넓은 화면에서 1536px)에 맞추면 한 줄에 글자가
+ * 100자 넘게 들어가 읽기 어렵고, 안의 버튼도 그만큼 멀어져 누르기 나쁘다.
  * mx-auto가 left/right 둘 다 잡힌 절대 요소를 상한 안에서 가운데로 되돌린다.
+ * 모바일(375px)에서는 inset-x-4가 먼저 걸려 종전과 같은 343px이다.
  */
 function Card({ children, spotlight }: { children: ReactNode; spotlight: SpotlightRect | null }) {
   const below = spotlight !== null && spotlight.top < window.innerHeight / 2
@@ -449,7 +547,7 @@ function Card({ children, spotlight }: { children: ReactNode; spotlight: Spotlig
   return (
     <div
       className={cn(
-        'pointer-events-auto absolute inset-x-4 mx-auto grid max-w-play gap-2.5 rounded-card border border-white/20 bg-surface-raised p-4 shadow-raised',
+        'pointer-events-auto absolute inset-x-4 mx-auto grid max-w-104 gap-2.5 rounded-card border border-white/20 bg-surface-raised p-4 shadow-raised',
         spotlight === null
           ? 'top-1/2 -translate-y-1/2'
           : below
@@ -461,6 +559,28 @@ function Card({ children, spotlight }: { children: ReactNode; spotlight: Spotlig
         <DiceBuddy className="motion-safe:animate-guide-bob" />
         <div className="grid min-w-0 flex-1 gap-2">{children}</div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * 족보 설명을 마스코트의 말풍선으로 감싼다. 꼬리가 왼쪽 마스코트를 가리켜 "이 친구가 하나씩
+ * 말해 준다"로 읽힌다 — 규칙 나열이 아니라 설명으로 받아들여지는 차이다.
+ *
+ * 다른 단계는 감싸지 않고 그대로 통과시킨다. 굴리라고 재촉하는 문구까지 풍선에 넣으면
+ * 카드마다 배경이 한 겹 더 생겨 화면이 무거워진다.
+ */
+function SpeechBubble({ bubble, children }: { bubble: boolean; children: ReactNode }) {
+  if (!bubble) return <>{children}</>
+
+  return (
+    <div className="relative grid gap-2 rounded-control bg-surface-sunken px-3 py-2.5">
+      {/* 꼬리. 풍선과 같은 배경을 45° 돌려 왼쪽 변에 반쯤 걸친다. */}
+      <span
+        aria-hidden="true"
+        className="absolute top-4 -left-1 size-2.5 rotate-45 bg-surface-sunken"
+      />
+      {children}
     </div>
   )
 }
