@@ -395,7 +395,9 @@ export function TutorialGuide({
   return (
     // 래퍼는 클릭을 통과시킨다 — 여기서 막으면 강조해 놓은 버튼조차 눌리지 않는다.
     <div className="pointer-events-none fixed inset-0 z-modal" role="presentation">
-      <Backdrop dim={dimsAroundHole(step)} spotlight={spotlight} />
+      {/* 주사위가 날아가는 동안에는 백드롭을 통째로 걷는다 — 굴러가는 주사위가 이 연습의
+          볼거리인데 딤이 덮으면 안 보인다. 조작은 게임 자체가 잠그고 있어 막을 것도 없다. */}
+      {!rolling && <Backdrop dim={dimsAroundHole(step)} spotlight={spotlight} />}
       <Card spotlight={spotlight}>
         {lesson.hand && (
           <p className="m-0 text-[11px] font-bold tracking-[0.1em] text-content-faint uppercase">
@@ -566,12 +568,19 @@ function useSpotlight(selector: string | null): SpotlightRect | null {
     }
     measure()
     window.addEventListener('resize', measure)
+    /*
+     * transform 전환이 끝나면 다시 잰다. 마지막 굴림 뒤 기록 패널이 자동으로 열리며 위로
+     * 미끄러지는데, ResizeObserver는 조상의 transform 이동을 못 본다 — 구멍이 열리기 전
+     * 자리에 남아 정작 누르라는 포커 칩을 차단막이 덮고 있었다(3차 QA).
+     */
+    window.addEventListener('transitionend', measure, true)
     // ResizeObserver가 없는 환경(jsdom 등)에서도 안내는 그대로 떠야 한다 — 구멍이 따라다니지
     // 않을 뿐이고, resize 이벤트가 큰 변화는 이미 잡는다.
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
     if (target && observer) observer.observe(target)
     return () => {
       window.removeEventListener('resize', measure)
+      window.removeEventListener('transitionend', measure, true)
       observer?.disconnect()
     }
   }, [selector])

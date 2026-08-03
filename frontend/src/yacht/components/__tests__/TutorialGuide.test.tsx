@@ -254,6 +254,12 @@ describe('TutorialGuide', () => {
     expect(heading()).toBe('6이 3개로 늘었어요')
   })
 
+  it('주사위가 날아가는 동안에는 백드롭을 걷어 굴러가는 주사위가 보이게 한다', () => {
+    setup({ keptValues: [6, 6], rollCount: 2, rolled: true, rolling: true })
+
+    expect(blockers()).toHaveLength(0)
+  })
+
   /*
    * keepAgain은 keep과 같은 조건("6을 다 킵했나")으로 기다린다. 그래서 냉시작으로는 도달할 수
    * 없고, 두 번째 굴림이 6을 늘려 조건이 다시 깨지는 전이를 거쳐야 한다 — 실제 플레이 그대로다.
