@@ -1,7 +1,6 @@
 package com.ssafy.yorr.room.service;
 
 import com.ssafy.yorr.room.RoomRedisKeys;
-import com.ssafy.yorr.room.dto.BotDifficulty;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -36,16 +35,6 @@ public class BotParticipantService {
             return 1
             """, Long.class);
 
-    static final DefaultRedisScript<Long> UPDATE = new DefaultRedisScript<>("""
-            if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
-            if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 2 end
-            if redis.call('HGET', KEYS[1], 'hostId') ~= ARGV[1] then return 3 end
-            if redis.call('HEXISTS', KEYS[2], ARGV[1]) == 0 then return 3 end
-            if redis.call('HEXISTS', KEYS[3], ARGV[2]) == 0 then return 4 end
-            redis.call('HSET', KEYS[3], ARGV[2], ARGV[3])
-            return 1
-            """, Long.class);
-
     static final DefaultRedisScript<Long> REMOVE = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
             if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 2 end
@@ -61,8 +50,7 @@ public class BotParticipantService {
     private final RedisTemplate<String, String> redisTemplate;
     private final RoomValidationService rooms;
 
-    public RoomSnapshot add(String roomCode, String requesterId, BotDifficulty difficulty) {
-        requireDifficulty(difficulty);
+    public RoomSnapshot add(String roomCode, String requesterId) {
         String botId = "bot-" + UUID.randomUUID();
         String nickname = "요르봇 " + botId.substring(botId.length() - 4).toUpperCase(Locale.ROOT);
         Long result = redisTemplate.execute(
@@ -71,31 +59,9 @@ public class BotParticipantService {
                 requesterId,
                 botId,
                 nickname,
-                difficulty.name()
+                "BOT"
         );
         requireSuccess(result, false);
-        return rooms.getSnapshot(roomCode);
-    }
-
-    public RoomSnapshot update(
-            String roomCode,
-            String requesterId,
-            String botId,
-            BotDifficulty difficulty
-    ) {
-        requireDifficulty(difficulty);
-        Long result = redisTemplate.execute(
-                UPDATE,
-                List.of(
-                        RoomRedisKeys.roomKey(roomCode),
-                        RoomRedisKeys.playersKey(roomCode),
-                        RoomRedisKeys.botsKey(roomCode)
-                ),
-                requesterId,
-                botId,
-                difficulty.name()
-        );
-        requireSuccess(result, true);
         return rooms.getSnapshot(roomCode);
     }
 
@@ -112,10 +78,6 @@ public class BotParticipantService {
                 RoomRedisKeys.scoresKey(roomCode),
                 RoomRedisKeys.botsKey(roomCode)
         );
-    }
-
-    private static void requireDifficulty(BotDifficulty difficulty) {
-        if (difficulty == null) throw new IllegalArgumentException("invalid_difficulty");
     }
 
     private static void requireSuccess(Long result, boolean botMustExist) {

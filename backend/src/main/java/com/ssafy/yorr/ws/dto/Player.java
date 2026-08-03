@@ -1,7 +1,6 @@
 package com.ssafy.yorr.ws.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.ssafy.yorr.room.dto.BotDifficulty;
 import com.ssafy.yorr.room.dto.ParticipantKind;
 
 /**
@@ -14,10 +13,9 @@ public record Player(
         String nickname,
         PlayerStatus status,
         boolean isHost,
-        ParticipantKind kind,
-        BotDifficulty difficulty
+        ParticipantKind kind
 ) {
     public Player(String playerId, String nickname, PlayerStatus status, boolean isHost) {
-        this(playerId, nickname, status, isHost, ParticipantKind.HUMAN, null);
+        this(playerId, nickname, status, isHost, ParticipantKind.HUMAN);
     }
 }

@@ -62,10 +62,14 @@ public class ScoreConfirmationService {
      * 열거 순서는 {@link ScoreCategory} 선언 순서로 고정한다 — 랜덤 선택을 재현할 수 있어야 한다.
      */
     public List<ScoreCategory> openCategories(String gameId, String playerId) {
-        ScoreBoard scoreboard = scoreBoardStore.findScoreBoard(gameId, playerId);
+        ScoreBoard scoreboard = scoreBoard(gameId, playerId);
         return Arrays.stream(ScoreCategory.values())
                 .filter(category -> scoreboard.categories().get(category.apiKey()) == null)
                 .toList();
+    }
+
+    public ScoreBoard scoreBoard(String gameId, String playerId) {
+        return scoreBoardStore.findScoreBoard(gameId, playerId);
     }
 
     private static ScoreCategory categoryOf(String apiKey) {
