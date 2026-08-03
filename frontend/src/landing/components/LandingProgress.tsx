@@ -1,8 +1,8 @@
 import { type KeyboardEvent, useRef } from 'react'
 import type { Game } from '@/games'
 import { gameMeta, LANDING_PANEL_ID, landingTabId } from '@/landing/landingTabs'
-import { resolveTablistKey } from '@/landing/tablistNavigation'
 import { cn } from '@/shared/cn'
+import { resolveRovingKey } from '@/shared/rovingFocus'
 
 interface LandingProgressProps {
   activeIndex: number
@@ -21,7 +21,7 @@ export function LandingProgress({ activeIndex, games, layout, onSelect }: Landin
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([])
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const next = resolveTablistKey(event.key, activeIndex, games.length)
+    const next = resolveRovingKey(event.key, activeIndex, games.length)
     if (next === null) return
     event.preventDefault()
     onSelect(next)
