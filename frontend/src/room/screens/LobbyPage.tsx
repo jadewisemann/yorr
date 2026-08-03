@@ -232,9 +232,9 @@ function LobbyRoomContent({
 
       <div className="grid flex-none gap-2 border-t border-border pt-3.5 text-center">
         <Button
-          size="lg"
+          size="cta"
           aria-describedby={canStart ? undefined : 'start-blocked'}
-          className="min-h-[3.625rem] w-full rounded-panel text-lg"
+          className="w-full"
           disabled={!canStart}
           loading={startLoading}
           onClick={onStart}

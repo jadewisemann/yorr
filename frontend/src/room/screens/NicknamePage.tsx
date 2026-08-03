@@ -160,12 +160,7 @@ export function NicknamePage({ roomCode }: NicknamePageProps) {
               )}
             </div>
           )}
-          <Button
-            type="submit"
-            size="lg"
-            loading={task.isLoading}
-            className="min-h-[3.625rem] w-full rounded-panel text-lg"
-          >
+          <Button type="submit" size="cta" loading={task.isLoading} className="w-full">
             {task.isLoading
               ? roomCode
                 ? '입장하는 중이에요'

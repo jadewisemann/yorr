@@ -3,7 +3,7 @@ import { cn } from '@/shared/cn'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'cta'
   loading?: boolean
 }
 
@@ -18,11 +18,15 @@ const variants = {
   danger: 'border-brand/55 bg-brand/10 text-danger hover:bg-brand/18',
 } as const
 
-// sm은 여백과 글자만 줄인다 — 높이는 세 사이즈 모두 min-h-tap 이상을 지킨다.
+// sm은 여백과 글자만 줄인다 — 높이는 네 사이즈 모두 min-h-tap 이상을 지킨다.
+// cta는 화면 하단을 가로지르는 주 행동 버튼이다. 다섯 화면(대기실 시작·닉네임 입장·
+// 결과 대기실 복귀·잘못된 초대·404)이 lg에 같은 세 유틸리티를 덧붙여 쓰고 있었다 —
+// 사이즈로 승격해 그 반복을 한곳에 둔다. 폭은 화면마다 달라 여기서 정하지 않는다.
 const sizes = {
   sm: 'min-h-tap px-3 py-1.5 text-sm',
   md: 'min-h-tap px-6 py-3',
   lg: 'min-h-12 px-8 py-3.5 text-lg',
+  cta: 'min-h-[3.625rem] rounded-panel px-8 py-3.5 text-lg',
 } as const
 
 export function Button({

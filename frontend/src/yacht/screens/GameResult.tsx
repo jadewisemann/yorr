@@ -110,11 +110,10 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
             전체 점수표 보기
           </Button>
           <Button
-            className="min-h-[3.625rem] rounded-panel text-lg"
             disabled={!isHost}
             loading={returnToLobby.isLoading}
             onClick={handleReturnToLobby}
-            size="lg"
+            size="cta"
           >
             대기실로
           </Button>

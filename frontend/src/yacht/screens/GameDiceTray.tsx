@@ -258,15 +258,14 @@ function TrayBottomBand({
           spotlight={coachOpen}
         />
       </span>
-      {/* 안내문은 와이드에서만 — 모바일은 기록 패널이 안내를 겸한다. */}
-      {wide ? (
+      {/* 안내문은 와이드에서만 — 모바일은 기록 패널이 안내를 겸한다.
+          빈 자리를 <span/>으로 메우지 않는다. 트랙 셋(1fr auto 1fr)과 gap은 grid가
+          이미 잡고 있어, 항목이 없어도 가운데 칸은 그대로 선다. */}
+      {wide && (
         <p className="m-0 text-center text-sm/none whitespace-nowrap text-content-muted">
           {statusText}
         </p>
-      ) : (
-        <span />
       )}
-      <span />
     </div>
   )
 }

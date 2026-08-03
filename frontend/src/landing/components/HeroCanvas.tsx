@@ -92,5 +92,10 @@ export function HeroCanvas({ game }: HeroCanvasProps) {
     sceneRef.current?.setGame(game)
   }, [game])
 
-  return <div ref={containerRef} className="absolute inset-0" />
+  // 순수 장식이라 접근성 트리에서 빼고 포인터도 통과시킨다 — 예전에는 카드가 이 두 속성만
+  // 얹으려고 같은 크기의 상자로 한 번 더 감쌌다. 씬은 이 div에만 canvas를 붙이므로
+  // React가 관리하는 자식이 없고, 그래서 여기에 직접 둬도 안전하다.
+  return (
+    <div aria-hidden="true" ref={containerRef} className="pointer-events-none absolute inset-0" />
+  )
 }

@@ -173,7 +173,7 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
             tabIndex={open ? undefined : -1}
             type="button"
           >
-            <span aria-hidden="true">{reaction.emoji}</span>
+            {reaction.emoji}
           </button>
         ))}
       </div>
@@ -189,8 +189,9 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
         onClick={() => setOpen(!open)}
         type="button"
       >
-        {/* 픽커 5종과 겹치지 않는 글리프여야 한다 — 🙂는 🫡와 나란히 놓으면 같은 얼굴로 읽힌다. */}
-        <span aria-hidden="true">💬</span>
+        {/* 픽커 5종과 겹치지 않는 글리프여야 한다 — 🙂는 🫡와 나란히 놓으면 같은 얼굴로 읽힌다.
+            aria-label이 있으니 글리프를 aria-hidden으로 감싸지 않는다 — 이름은 이미 덮인다. */}
+        💬
       </button>
     </div>
   )

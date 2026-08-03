@@ -36,9 +36,7 @@ export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) 
           : 'border-landing-hairline-strong shadow-landing-card-quiet',
       )}
     >
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <HeroCanvas game={game.key} />
-      </div>
+      <HeroCanvas game={game.key} />
 
       {/* 상단 크라운. 제목이 위로 올라오면서 새로 필요해진 층이다 — 카드 바탕은 좌상단에서
           #141517이라 흰 글자가 16.7:1로 서지만, 3D 피사체는 아이보리(1.06:1)다.

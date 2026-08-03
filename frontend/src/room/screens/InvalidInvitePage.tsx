@@ -79,7 +79,7 @@ export function InvalidInvitePage({ initialCode }: InvalidInvitePageProps) {
           }}
         />
         <div className="mt-auto grid gap-3">
-          <Button className="min-h-[3.625rem] rounded-panel text-lg" type="submit">
+          <Button size="cta" type="submit">
             수정한 코드로 참가
           </Button>
           <Button type="button" variant="ghost" onClick={() => void navigate({ to: '/' })}>
