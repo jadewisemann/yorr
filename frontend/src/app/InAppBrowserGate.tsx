@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from 'react'
-import { Button } from '@/components/Button'
+import { Button } from '@/shared/components/Button'
 
 const dismissalKey = 'yorr.in-app-browser-dismissed'
 
