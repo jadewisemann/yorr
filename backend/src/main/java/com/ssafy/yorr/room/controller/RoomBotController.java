@@ -1,6 +1,5 @@
 package com.ssafy.yorr.room.controller;
 
-import com.ssafy.yorr.room.dto.BotRequest;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.room.service.BotParticipantService;
 import com.ssafy.yorr.user.UserIdentity;
@@ -15,10 +14,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -42,29 +39,10 @@ public class RoomBotController {
     public ResponseEntity<?> add(
             @PathVariable String roomCode,
             @RequestHeader("X-User-Id") String userId,
-            @RequestHeader("Authorization") String authorization,
-            @RequestBody BotRequest request
+            @RequestHeader("Authorization") String authorization
     ) {
         return mutate(roomCode, userId, authorization,
-                requester -> bots.add(roomCode, requester.userId(), request == null ? null : request.difficulty()));
-    }
-
-    @PatchMapping("/{botId}")
-    @Operation(summary = "대기실 봇 난이도 변경")
-    public ResponseEntity<?> update(
-            @PathVariable String roomCode,
-            @PathVariable String botId,
-            @RequestHeader("X-User-Id") String userId,
-            @RequestHeader("Authorization") String authorization,
-            @RequestBody BotRequest request
-    ) {
-        return mutate(roomCode, userId, authorization,
-                requester -> bots.update(
-                        roomCode,
-                        requester.userId(),
-                        botId,
-                        request == null ? null : request.difficulty()
-                ));
+                requester -> bots.add(roomCode, requester.userId()));
     }
 
     @DeleteMapping("/{botId}")

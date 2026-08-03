@@ -7,6 +7,7 @@ import com.ssafy.yorr.game.exception.ScoreConfirmationException;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
 import com.ssafy.yorr.game.module.GameModuleRegistry;
 import com.ssafy.yorr.game.yacht.YachtDiceGameModule;
+import com.ssafy.yorr.game.yacht.YachtTurnActionService;
 import com.ssafy.yorr.game.round.application.GameReconnectSnapshotService;
 import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionResult;
 import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
@@ -896,10 +897,15 @@ class GameWebSocketHandlerTest {
                     new GameModuleRegistry(List.of(new YachtDiceGameModule(
                             roundSynchronizationService,
                             roundTimerService,
+                            new YachtTurnActionService(
+                                    roundSynchronizationService,
+                                    roundTimerService,
+                                    broadcaster,
+                                    scoreRoundSubmissionService
+                            ),
                             registry,
                             new RealtimeRoomSnapshotService(roomService, registry),
                             broadcaster,
-                            scoreRoundSubmissionService,
                             reconnectSnapshotService,
                             objectMapper
                     )))

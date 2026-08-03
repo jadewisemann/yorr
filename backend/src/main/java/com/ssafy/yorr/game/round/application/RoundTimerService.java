@@ -18,6 +18,7 @@ import com.ssafy.yorr.ws.dto.WsEnvelope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -53,6 +54,7 @@ public class RoundTimerService {
     private final RoundSynchronizationService roundSynchronizationService;
     private final RoomSessionRegistry registry;
     private final RoomService roomService;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
     private final Map<String, ActiveDeadline> activeDeadlines = new ConcurrentHashMap<>();
     // roomId -> (playerId -> 오프라인으로 맞은 자기 턴 수). 재접속하면 지운다.
@@ -66,10 +68,11 @@ public class RoundTimerService {
             GameCompletionService gameCompletionService,
             RoundSynchronizationService roundSynchronizationService,
             RoomSessionRegistry registry,
-            RoomService roomService
+            RoomService roomService,
+            ApplicationEventPublisher eventPublisher
     ) {
         this(timeoutResolver, deadlineScheduler, broadcaster, gameCompletionService,
-                roundSynchronizationService, registry, roomService, Clock.systemUTC());
+                roundSynchronizationService, registry, roomService, Clock.systemUTC(), eventPublisher);
     }
 
     RoundTimerService(
@@ -82,6 +85,31 @@ public class RoundTimerService {
             RoomService roomService,
             Clock clock
     ) {
+        this(
+                timeoutResolver,
+                deadlineScheduler,
+                broadcaster,
+                gameCompletionService,
+                roundSynchronizationService,
+                registry,
+                roomService,
+                clock,
+                ignored -> {
+                }
+        );
+    }
+
+    private RoundTimerService(
+            RoundTimeoutResolver timeoutResolver,
+            RoundDeadlineScheduler deadlineScheduler,
+            RoomBroadcaster broadcaster,
+            GameCompletionService gameCompletionService,
+            RoundSynchronizationService roundSynchronizationService,
+            RoomSessionRegistry registry,
+            RoomService roomService,
+            Clock clock,
+            ApplicationEventPublisher eventPublisher
+    ) {
         this.timeoutResolver = timeoutResolver;
         this.deadlineScheduler = deadlineScheduler;
         this.broadcaster = broadcaster;
@@ -90,6 +118,7 @@ public class RoundTimerService {
         this.registry = registry;
         this.roomService = roomService;
         this.clock = clock;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -132,6 +161,7 @@ public class RoundTimerService {
                 roomId,
                 null
         ));
+        eventPublisher.publishEvent(new RoundStartedEvent(roomId, state));
         return deadline;
     }
 
