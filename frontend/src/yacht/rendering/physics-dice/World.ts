@@ -707,8 +707,19 @@ export class PhysicsDiceWorld {
       this.settledDice,
       this.keepAll,
     )
-    // 레일이 비는 순간을 정렬 시작과 맞춘다 — 주사위가 줄로 떠난 뒤 악센트 바만 남으면 안 된다.
-    positionKeepSlots(this.keepSlots, this.occupiedKeepSlots(), this.keepSlotMaterials)
+    /*
+     * 레일 바는 주사위가 가는 방향에 맞춰 움직인다.
+     *
+     * 떠나는 슬롯은 지금 끈다 — 주사위가 줄로 떠난 뒤 악센트 바만 남으면 안 된다.
+     * 반대로 **채워지는** 슬롯은 켜지 않는다. keepAll이 켜지는 마지막 굴림에서는 남은 주사위가
+     * 아직 날아오는 중인데, 여기서 다섯 칸을 다 켜면 빈 레일에 테두리만 먼저 생기고 주사위가
+     * 나중에 도착한다. 도착한 뒤에 켜는 것은 updateResultAlignment의 마무리가 맡는다.
+     */
+    positionKeepSlots(
+      this.keepSlots,
+      Math.min(this.heldOrder.length, this.occupiedKeepSlots()),
+      this.keepSlotMaterials,
+    )
   }
 
   private updateResultAlignment(time: number) {
@@ -726,6 +737,8 @@ export class PhysicsDiceWorld {
     const completed = this.request
     const completedDice = this.settledDice
     this.committedDice = [...completedDice]
+    // 주사위가 레일에 앉은 지금 채워진 슬롯을 켠다(startResultAlignment 주석 참고).
+    positionKeepSlots(this.keepSlots, this.occupiedKeepSlots(), this.keepSlotMaterials)
     // 궤적 종료 시 시각 위상을 body에 이미 베이크했다.
     this.entries.forEach((entry) => {
       entry.visualOffset.identity()
