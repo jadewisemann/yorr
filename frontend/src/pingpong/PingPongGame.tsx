@@ -39,7 +39,7 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
     try {
       client.send(
         buildClientMessage(
-          'pingpong.swing',
+          'game.ping_pong.swing',
           { inputSeq: ++inputSeq.current, clientTs: Date.now() },
           { roomId },
         ),

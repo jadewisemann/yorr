@@ -153,7 +153,9 @@ describe('GamePlay 데스크톱 레이아웃', () => {
     await user.click(screen.getByRole('button', { name: '모두 해제' }))
 
     expect(screen.getByText('킵 레일 · 비어 있음')).toBeVisible()
-    const holds = client.sentMessages.filter((message) => message.type === 'dice.hold')
+    const holds = client.sentMessages.filter(
+      (message) => message.type === 'game.yacht_dice.dice.hold',
+    )
     expect(holds).toHaveLength(1)
     expect(holds[0]?.payload).toEqual({
       held: [false, false, false, false, false],

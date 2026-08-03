@@ -101,7 +101,7 @@ public class PingPongGameModule implements GameModule {
 
     @Override
     public boolean handles(String messageType) {
-        return "pingpong.swing".equals(messageType);
+        return "swing".equals(messageType);
     }
 
     @Override
@@ -117,7 +117,7 @@ public class PingPongGameModule implements GameModule {
         } catch (IllegalArgumentException exception) {
             sendError(session, WsErrorCode.INVALID_MESSAGE, exception.getMessage(), message.msgId());
         } catch (Exception exception) {
-            sendError(session, WsErrorCode.INVALID_MESSAGE, "invalid pingpong.swing payload", message.msgId());
+            sendError(session, WsErrorCode.INVALID_MESSAGE, "invalid swing payload", message.msgId());
         }
     }
 

@@ -79,8 +79,14 @@ public class ExpectimaxYachtBotPolicy {
 
         private ScoreChoice bestScore(int[] diceCounts) {
             int[] dice = expand(diceCounts);
+            boolean choiceDominatedBySmallStraight =
+                    openCategories.contains(ScoreCategory.SMALL_STRAIGHT)
+                            && ScoreCategory.SMALL_STRAIGHT.isSatisfiedBy(dice);
             ScoreChoice best = null;
             for (ScoreCategory category : openCategories) {
+                if (category == ScoreCategory.CHOICE && choiceDominatedBySmallStraight) {
+                    continue;
+                }
                 int score = YachtScoreCalculator.calculateScore(category, dice);
                 double utility = valueEvaluator.categoryUtility(board, category, score);
                 ScoreChoice candidate = new ScoreChoice(category, utility);

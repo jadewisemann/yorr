@@ -61,10 +61,14 @@ offer를 만드는 규칙으로 피한다. ICE/TURN 설정은 이 계약에 없�
 
 ### 라운드·주사위·점수
 
+게임 도메인 이벤트는 모두 **`game.yacht_dice.` 접두사**가 붙는다(S15P11A406-177). 아래 이름은
+접두사를 뺀 표기다. 게임 모듈이 보내는 `game.yacht_dice.state.sync`도 있다 — payload는 방 레벨
+`state.sync`와 같고, 보내는 주체만 다르다.
+
 - C→S `round.submit`, `dice.roll`, `dice.hold`(굴림 중 KEEP 토글 동기화), `dice.shake`(흔드는
   강도·방향 relay), `dice.throw`(던지기 타이밍 relay)
 - S→C `round.start`, `round.end`, `dice.broadcast`, `dice.hold_changed`, `dice.shaken`,
-  `dice.thrown`, `score.update`, `game.over`
+  `dice.thrown`, `score.update`, `game.over`, `state.sync`
 
 `dice.shake`/`dice.shaken`과 `dice.throw`/`dice.thrown`은 관전 중인(현재 턴이 아닌) 참가자가
 활성 플레이어의 물리적 굴림 동작을 실시간으로 보게 하기 위한 이벤트다 — 사발이 실제로 기울기

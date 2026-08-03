@@ -246,7 +246,7 @@ class GameWebSocketHandlerTest {
         String playerBMessage = ((TextMessage) playerBCaptor.getValue()).getPayload();
 
         assertThat(playerAMessage).isEqualTo(playerBMessage);
-        assertThat(playerAMessage).contains("\"type\":\"dice.broadcast\"");
+        assertThat(playerAMessage).contains("\"type\":\"game.yacht_dice.dice.broadcast\"");
         assertThat(playerAMessage).contains("\"playerId\":\"player-a\"");
         assertThat(playerAMessage).contains("\"roundNumber\":1");
         assertThat(playerAMessage).contains("\"rollCount\":1");
@@ -295,7 +295,7 @@ class GameWebSocketHandlerTest {
         ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
         verify(playerB).sendMessage(captor.capture());
         String response = ((TextMessage) captor.getValue()).getPayload();
-        assertThat(response).contains("\"type\":\"dice.hold_changed\"");
+        assertThat(response).contains("\"type\":\"game.yacht_dice.dice.hold_changed\"");
         assertThat(response).contains("\"playerId\":\"player-a\"");
         assertThat(response).contains("\"held\":[true,true,false,false,false]");
         // KEEP 변경은 마감 타이머를 다시 걸지 않는다 — 토글로 턴을 무한히 늘릴 수 없어야 한다.
@@ -751,7 +751,7 @@ class GameWebSocketHandlerTest {
                         : state.activeDice())
                 .orElse(List.of(1, 2, 3, 4, 5));
         String message = objectMapper.writeValueAsString(new WsEnvelope<>(
-                "round.submit",
+                "game.yacht_dice.round.submit",
                 System.currentTimeMillis(),
                 new RoundSubmitPayload(1, dice, "smallStraight"),
                 roomId,
@@ -790,7 +790,7 @@ class GameWebSocketHandlerTest {
 
     private TextMessage rollMessage(String roomId, int rollCount, String msgId) throws Exception {
         String message = objectMapper.writeValueAsString(new WsEnvelope<>(
-                "dice.roll",
+                "game.yacht_dice.dice.roll",
                 System.currentTimeMillis(),
                 new DiceRollPayload(1, rollCount, List.of(false, false, false, false, false)),
                 roomId,
@@ -801,7 +801,7 @@ class GameWebSocketHandlerTest {
 
     private TextMessage holdMessage(String roomId, List<Boolean> held, String msgId) throws Exception {
         String message = objectMapper.writeValueAsString(new WsEnvelope<>(
-                "dice.hold",
+                "game.yacht_dice.dice.hold",
                 System.currentTimeMillis(),
                 new DiceHoldPayload(1, held),
                 roomId,

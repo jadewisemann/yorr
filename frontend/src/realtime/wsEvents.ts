@@ -51,6 +51,10 @@
  *    v0.8 (2026-08) voice.* 4종 제안(130) — WebRTC 풀메시 음성. 오디오는 피어끼리 직접 흐르고
  *                   서버는 시그널링만 중계한다. 🟡 PROPOSED — 팀 합의 전이라 아직 구현 없음.
  *                   current-baseline.md의 "WebRTC는 채택되지 않았다"를 이 티켓에서 뒤집는다.
+ *    v0.9 (2026-08) 게임 도메인 네임스페이스(177) — 게임 모듈 이벤트와 state.sync 에
+ *                   `game.<game_code>.` 접두사가 붙는다(예: yacht_dice, ping_pong).
+ *                   방 레벨 이벤트(sys.* · room.* · reaction.* · presence.* · 방 state.sync)는
+ *                   그대로다. 아래 주석의 짧은 이름은 접두사를 뺀 표기다.
  * ============================================================================
  */
 
@@ -596,12 +600,12 @@ export type ClientMessage =
   | WsEnvelope<'voice.leave', VoiceLeavePayload>
   | WsEnvelope<'voice.signal', VoiceSignalPayload>
   // ⚠️ STUB (게임 도메인)
-  | WsEnvelope<'dice.roll', DiceRollPayload>
-  | WsEnvelope<'dice.hold', DiceHoldPayload>
-  | WsEnvelope<'dice.shake', DiceShakePayload>
-  | WsEnvelope<'dice.throw', DiceThrowPayload>
-  | WsEnvelope<'round.submit', RoundSubmitPayload>
-  | WsEnvelope<'pingpong.swing', PingPongSwingPayload>
+  | WsEnvelope<'game.yacht_dice.dice.roll', DiceRollPayload>
+  | WsEnvelope<'game.yacht_dice.dice.hold', DiceHoldPayload>
+  | WsEnvelope<'game.yacht_dice.dice.shake', DiceShakePayload>
+  | WsEnvelope<'game.yacht_dice.dice.throw', DiceThrowPayload>
+  | WsEnvelope<'game.yacht_dice.round.submit', RoundSubmitPayload>
+  | WsEnvelope<'game.ping_pong.swing', PingPongSwingPayload>
 
 export type ServerMessage =
   // ✅ SYS-DC
@@ -618,6 +622,9 @@ export type ServerMessage =
   // ✅ SIGNAL
   | WsEnvelope<'reaction.broadcast', ReactionBroadcastPayload>
   | WsEnvelope<'state.sync', StateSyncPayload>
+  // 같은 payload지만 게임 모듈이 보낸 스냅샷이다(방 레벨 state.sync 와 별개 타입).
+  | WsEnvelope<'game.yacht_dice.state.sync', StateSyncPayload>
+  | WsEnvelope<'game.ping_pong.state.sync', StateSyncPayload>
   | WsEnvelope<'presence.update', PresenceUpdatePayload>
   // 🟡 PROPOSED (음성 · 130)
   | WsEnvelope<'voice.peers', VoicePeersPayload>
@@ -625,16 +632,17 @@ export type ServerMessage =
   // ✅ 공통
   | WsEnvelope<'error', ErrorPayload>
   // ⚠️ STUB (게임 도메인)
-  | WsEnvelope<'round.start', RoundStartPayload>
-  | WsEnvelope<'round.end', RoundEndPayload>
-  | WsEnvelope<'dice.broadcast', DiceBroadcastPayload>
-  | WsEnvelope<'dice.hold_changed', DiceHoldChangedPayload>
-  | WsEnvelope<'dice.shaken', DiceShakenPayload>
-  | WsEnvelope<'dice.thrown', DiceThrownPayload>
-  | WsEnvelope<'score.update', ScoreUpdatePayload>
-  | WsEnvelope<'game.over', GameOverPayload>
+  | WsEnvelope<'game.yacht_dice.round.start', RoundStartPayload>
+  | WsEnvelope<'game.yacht_dice.round.end', RoundEndPayload>
+  | WsEnvelope<'game.yacht_dice.dice.broadcast', DiceBroadcastPayload>
+  | WsEnvelope<'game.yacht_dice.dice.hold_changed', DiceHoldChangedPayload>
+  | WsEnvelope<'game.yacht_dice.dice.shaken', DiceShakenPayload>
+  | WsEnvelope<'game.yacht_dice.dice.thrown', DiceThrownPayload>
+  | WsEnvelope<'game.yacht_dice.score.update', ScoreUpdatePayload>
+  | WsEnvelope<'game.yacht_dice.game.over', GameOverPayload>
+  | WsEnvelope<'game.ping_pong.game.over', GameOverPayload>
   | WsEnvelope<'state.patch', StatePatchPayload>
-  | WsEnvelope<'pingpong.state', PingPongState>
+  | WsEnvelope<'game.ping_pong.state', PingPongState>
 
 export type WsMessage = ClientMessage | ServerMessage
 

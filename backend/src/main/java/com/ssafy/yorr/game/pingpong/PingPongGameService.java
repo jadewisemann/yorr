@@ -20,6 +20,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.ssafy.yorr.game.module.GameWsTypes.type;
+import static com.ssafy.yorr.game.pingpong.PingPongGameModule.CODE;
+
 @Service
 public class PingPongGameService {
 
@@ -97,7 +100,7 @@ public class PingPongGameService {
         states.remove(roomId);
         sessions.markPhase(roomId, RoomPhase.WAITING);
         broadcaster.broadcast(roomId, WsEnvelope.of(
-                "state.sync", new StateSyncPayload(realtimeSnapshots.snapshot(roomId))
+                type(CODE, "state.sync"), new StateSyncPayload(realtimeSnapshots.snapshot(roomId))
         ).withRoomId(roomId));
     }
 
@@ -148,10 +151,10 @@ public class PingPongGameService {
     }
 
     private void broadcast(String roomId, PingPongState state, boolean includeRoomSnapshot) {
-        broadcaster.broadcast(roomId, WsEnvelope.of("pingpong.state", state).withRoomId(roomId));
+        broadcaster.broadcast(roomId, WsEnvelope.of(type(CODE, "state"), state).withRoomId(roomId));
         if (includeRoomSnapshot) {
             broadcaster.broadcast(roomId, WsEnvelope.of(
-                    "state.sync", new StateSyncPayload(snapshot(roomId, state))
+                    type(CODE, "state.sync"), new StateSyncPayload(snapshot(roomId, state))
             ).withRoomId(roomId));
         }
     }

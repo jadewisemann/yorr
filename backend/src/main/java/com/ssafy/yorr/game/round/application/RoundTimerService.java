@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.ssafy.yorr.game.yacht.YachtDiceWsTypes.type;
+
 @Service
 public class RoundTimerService {
 
@@ -150,7 +152,7 @@ public class RoundTimerService {
                 () -> expireTurn(roomId, roundNumber, activePlayerId)
         );
         broadcaster.broadcast(roomId, new WsEnvelope<>(
-                "round.start",
+                type("round.start"),
                 clock.millis(),
                 new RoundStartPayload(
                         roundNumber,
@@ -321,14 +323,14 @@ public class RoundTimerService {
 
     private void broadcastScoreUpdate(String roomId, ScoreConfirmationResult score, String requestMsgId) {
         broadcaster.broadcast(roomId, WsEnvelope
-                .of("score.update", new ScoreUpdatePayload(score.playerId(), score.scoreboard()))
+                .of(type("score.update"), new ScoreUpdatePayload(score.playerId(), score.scoreboard()))
                 .withRoomId(roomId)
                 .withMsgId(requestMsgId));
     }
 
     private WsEnvelope<RoundEndPayload> roundEnd(String roomId, RoundCompletion completion) {
         return new WsEnvelope<>(
-                "round.end",
+                type("round.end"),
                 clock.millis(),
                 new RoundEndPayload(completion.roundNumber(), completion.submittedPlayerIds()),
                 roomId,

@@ -63,9 +63,9 @@ test('shows the final standings and returns the room to the lobby', async ({ pag
   await startHostedGame(page, server)
   await expect(page.getByText('내 턴이에요')).toBeVisible()
 
-  server.send('score.update', { playerId: HOST.id, scoreboard: HOST_BOARD })
-  server.send('score.update', { playerId: GUEST.id, scoreboard: GUEST_BOARD })
-  server.send('game.over', {
+  server.send('game.yacht_dice.score.update', { playerId: HOST.id, scoreboard: HOST_BOARD })
+  server.send('game.yacht_dice.score.update', { playerId: GUEST.id, scoreboard: GUEST_BOARD })
+  server.send('game.yacht_dice.game.over', {
     rankings: [
       { rank: 1, playerId: HOST.id, total: HOST_BOARD.total },
       { rank: 2, playerId: GUEST.id, total: GUEST_BOARD.total },
@@ -108,8 +108,8 @@ test('opens the full score matrix from the result screen', async ({ page }) => {
   await startHostedGame(page, server)
   await expect(page.getByText('내 턴이에요')).toBeVisible()
 
-  server.send('score.update', { playerId: HOST.id, scoreboard: HOST_BOARD })
-  server.send('game.over', {
+  server.send('game.yacht_dice.score.update', { playerId: HOST.id, scoreboard: HOST_BOARD })
+  server.send('game.yacht_dice.game.over', {
     rankings: [
       { rank: 1, playerId: HOST.id, total: HOST_BOARD.total },
       { rank: 2, playerId: GUEST.id, total: 0 },

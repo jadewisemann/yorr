@@ -1,7 +1,12 @@
 import { type ReactNode, useEffect } from 'react'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import type { RealtimeClient } from '@/realtime/realtimeClient'
-import { buildClientMessage, type RoomSnapshot, type ServerMessage } from '@/realtime/wsEvents'
+import {
+  buildClientMessage,
+  type GameOverPayload,
+  type RoomSnapshot,
+  type ServerMessage,
+} from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
 
 interface RealtimeSyncProps {
@@ -123,6 +128,8 @@ function isRoomReadyMessage(message: ServerMessage) {
   return (
     message.type === 'room.joined' ||
     message.type === 'state.sync' ||
+    message.type === 'game.yacht_dice.state.sync' ||
+    message.type === 'game.ping_pong.state.sync' ||
     message.type === 'sys.reconnected'
   )
 }
@@ -156,6 +163,8 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
       return
     case 'sys.reconnected':
     case 'state.sync':
+    case 'game.yacht_dice.state.sync':
+    case 'game.ping_pong.state.sync':
       store.replaceRoomSnapshot(keepGameState(message.payload.snapshot, store.roomSnapshot))
       return
     case 'room.player_joined':
@@ -167,19 +176,20 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
     case 'presence.update':
       applyPresenceUpdate(message.payload, store)
       return
-    case 'score.update':
+    case 'game.yacht_dice.score.update':
       applyScoreUpdate(message.payload, store)
       return
-    case 'round.start':
+    case 'game.yacht_dice.round.start':
       applyRoundStart(message.payload, store)
       return
-    case 'dice.broadcast':
+    case 'game.yacht_dice.dice.broadcast':
       applyDiceBroadcast(message, store)
       return
-    case 'game.over':
+    case 'game.yacht_dice.game.over':
+    case 'game.ping_pong.game.over':
       applyGameOver(message.payload, store)
       return
-    case 'pingpong.state':
+    case 'game.ping_pong.state':
       applyPingPongState(message.payload, store)
       return
     case 'room.closed':
@@ -194,7 +204,7 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
 }
 
 function applyPingPongState(
-  payload: Extract<ServerMessage, { type: 'pingpong.state' }>['payload'],
+  payload: Extract<ServerMessage, { type: 'game.ping_pong.state' }>['payload'],
   store: Store,
 ) {
   const snapshot = store.roomSnapshot
@@ -266,7 +276,7 @@ function applyPresenceUpdate(
 }
 
 function applyScoreUpdate(
-  payload: Extract<ServerMessage, { type: 'score.update' }>['payload'],
+  payload: Extract<ServerMessage, { type: 'game.yacht_dice.score.update' }>['payload'],
   store: Store,
 ) {
   if (!store.roomSnapshot?.game) return
@@ -285,7 +295,7 @@ function applyScoreUpdate(
  * 때만 초기화하고, 같은 턴이면 지금까지의 진행을 그대로 들고 간다.
  */
 function applyRoundStart(
-  payload: Extract<ServerMessage, { type: 'round.start' }>['payload'],
+  payload: Extract<ServerMessage, { type: 'game.yacht_dice.round.start' }>['payload'],
   store: Store,
 ) {
   const snapshot = store.roomSnapshot
@@ -314,7 +324,7 @@ function applyRoundStart(
  * (재접속 직후처럼) 서버와 같은 굴림 횟수에서 이어갈 수 있다.
  */
 function applyDiceBroadcast(
-  message: Extract<ServerMessage, { type: 'dice.broadcast' }>,
+  message: Extract<ServerMessage, { type: 'game.yacht_dice.dice.broadcast' }>,
   store: Store,
 ) {
   const { payload } = message
@@ -343,10 +353,7 @@ function applyDiceBroadcast(
  * 게임 종료. 이 핸들러가 없으면 서버가 종료를 알려도 화면이 계속 게임에 머문다.
  * 뒤따르는 state.sync도 phase를 finished로 바꾸지만, 순서에 의존하지 않도록 여기서도 바꾼다.
  */
-function applyGameOver(
-  payload: Extract<ServerMessage, { type: 'game.over' }>['payload'],
-  store: Store,
-) {
+function applyGameOver(payload: GameOverPayload, store: Store) {
   const snapshot = store.roomSnapshot
   if (!snapshot) return
   const game = snapshot.game

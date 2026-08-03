@@ -194,7 +194,7 @@ describe('GamePlay', () => {
     act(() => {
       client.send(
         buildClientMessage(
-          'dice.roll',
+          'game.yacht_dice.dice.roll',
           {
             held: [false, false, false, false, false],
             rollCount: 1,
@@ -226,7 +226,7 @@ describe('GamePlay', () => {
       act(() => {
         client.send(
           buildClientMessage(
-            'dice.roll',
+            'game.yacht_dice.dice.roll',
             { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
             { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
           ),
@@ -246,7 +246,7 @@ describe('GamePlay', () => {
       act(() => {
         client.emitMessage(
           serverMessage(
-            'dice.thrown',
+            'game.yacht_dice.dice.thrown',
             { playerId: creatorSession.you, rollCount: 1, roundNumber: 1 },
             { roomId: participantSession.roomId },
           ),
@@ -265,7 +265,7 @@ describe('GamePlay', () => {
     act(() => {
       client.emitMessage(
         serverMessage(
-          'dice.thrown',
+          'game.yacht_dice.dice.thrown',
           { playerId: creatorSession.you, rollCount: 1, roundNumber: 1 },
           { roomId: participantSession.roomId },
         ),
@@ -276,7 +276,7 @@ describe('GamePlay', () => {
     act(() => {
       client.send(
         buildClientMessage(
-          'dice.roll',
+          'game.yacht_dice.dice.roll',
           { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
           { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
         ),
@@ -298,7 +298,7 @@ describe('GamePlay', () => {
     act(() => {
       client.send(
         buildClientMessage(
-          'dice.roll',
+          'game.yacht_dice.dice.roll',
           { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
           { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
         ),
@@ -310,7 +310,7 @@ describe('GamePlay', () => {
     act(() => {
       client.emitMessage(
         serverMessage(
-          'dice.shaken',
+          'game.yacht_dice.dice.shaken',
           { direction: 'left', playerId: creatorSession.you, roundNumber: 1, strength: 0.5 },
           { roomId: participantSession.roomId },
         ),
@@ -327,7 +327,7 @@ describe('GamePlay', () => {
     act(() => {
       client.emitMessage(
         serverMessage(
-          'dice.broadcast',
+          'game.yacht_dice.dice.broadcast',
           {
             dice: [6, 6, 6, 6, 6],
             held: [false, false, false, false, false],
@@ -361,7 +361,7 @@ describe('GamePlay', () => {
     act(() => {
       client.send(
         buildClientMessage(
-          'dice.roll',
+          'game.yacht_dice.dice.roll',
           {
             held: [false, false, false, false, false],
             rollCount: 1,
@@ -391,7 +391,7 @@ describe('GamePlay', () => {
     act(() => {
       client.emitMessage(
         serverMessage(
-          'dice.broadcast',
+          'game.yacht_dice.dice.broadcast',
           {
             auto: true,
             dice: [6, 6, 6, 6, 6],
@@ -419,7 +419,7 @@ describe('GamePlay', () => {
     act(() => {
       client.emitMessage(
         serverMessage(
-          'dice.broadcast',
+          'game.yacht_dice.dice.broadcast',
           {
             dice: [2, 3, 4, 5, 6],
             held: [false, false, false, false, false],
@@ -446,7 +446,7 @@ describe('GamePlay', () => {
     act(() => {
       client.emitMessage(
         serverMessage(
-          'score.update',
+          'game.yacht_dice.score.update',
           {
             playerId: creatorSession.you,
             scoreboard: { ...board, categories: { ...board.categories, choice: 20 }, total: 20 },
@@ -465,7 +465,7 @@ describe('GamePlay', () => {
     act(() => {
       client.emitMessage(
         serverMessage(
-          'dice.broadcast',
+          'game.yacht_dice.dice.broadcast',
           {
             dice: [6, 5, 4, 3, 2],
             held: [false, false, false, false, false],
@@ -490,7 +490,7 @@ describe('GamePlay', () => {
     act(() => {
       client.emitMessage(
         serverMessage(
-          'dice.broadcast',
+          'game.yacht_dice.dice.broadcast',
           {
             dice: [6, 5, 4, 3, 2],
             held: [false, false, false, false, false],
@@ -509,7 +509,7 @@ describe('GamePlay', () => {
     act(() => {
       client.emitMessage(
         serverMessage(
-          'dice.hold_changed',
+          'game.yacht_dice.dice.hold_changed',
           {
             held: [true, true, false, false, false],
             playerId: creatorSession.you,
@@ -531,7 +531,9 @@ describe('GamePlay', () => {
     await user.click(screen.getByRole('button', { name: '첫 주사위 킵' }))
 
     // 굴림 사이의 킵 변경이 서버로 나가야 상대 화면이 따라올 수 있다.
-    const hold = client.sentMessages.filter((message) => message.type === 'dice.hold')
+    const hold = client.sentMessages.filter(
+      (message) => message.type === 'game.yacht_dice.dice.hold',
+    )
     expect(hold).toHaveLength(1)
     expect(hold[0]?.payload).toEqual({ held: [true, false, false, false, false], roundNumber: 1 })
   })
@@ -625,7 +627,9 @@ describe('GamePlay', () => {
     await user.click(screen.getByRole('button', { name: '취소' }))
 
     // 취소는 되돌릴 수 없는 선택을 실제로 막아야 한다 — 서버로 아무것도 나가지 않는다.
-    expect(client.sentMessages.some((message) => message.type === 'round.submit')).toBe(false)
+    expect(
+      client.sentMessages.some((message) => message.type === 'game.yacht_dice.round.submit'),
+    ).toBe(false)
     expect(screen.getByRole('button', { name: '에이스 0점 기록' })).toBeEnabled()
 
     await user.click(screen.getByRole('button', { name: '에이스 0점 기록' }))
@@ -633,12 +637,13 @@ describe('GamePlay', () => {
 
     expect(await screen.findByText('점수가 반영됐습니다. 다음 턴을 기다립니다.')).toBeVisible()
     expect(
-      client.sentMessages.find((message) => message.type === 'round.submit')?.payload,
+      client.sentMessages.find((message) => message.type === 'game.yacht_dice.round.submit')
+        ?.payload,
     ).toMatchObject({ category: 'ones', roundNumber: 1 })
   })
 
   it('서버가 기록을 거절하면 이유를 알리고 다시 고를 수 있게 되돌린다', async () => {
-    const client = withheldResponse(createRealtimeFixture(), 'round.submit')
+    const client = withheldResponse(createRealtimeFixture(), 'game.yacht_dice.round.submit')
     const { user } = renderGame({ client })
 
     await user.click(screen.getByRole('button', { name: '굴리기' }))
@@ -653,7 +658,7 @@ describe('GamePlay', () => {
           {
             code: 'NOT_YOUR_TURN',
             message: 'turn mismatch',
-            refMsgId: lastMsgId(client, 'round.submit'),
+            refMsgId: lastMsgId(client, 'game.yacht_dice.round.submit'),
           },
           { roomId: creatorSession.roomId },
         ),
@@ -679,7 +684,7 @@ describe('GamePlay', () => {
   })
 
   it('연결이 끊긴 채로 기록하면 알리고 선택 상태로 되돌린다', async () => {
-    const client = brokenSend(createRealtimeFixture(), 'round.submit')
+    const client = brokenSend(createRealtimeFixture(), 'game.yacht_dice.round.submit')
     const { user } = renderGame({ client })
 
     await user.click(screen.getByRole('button', { name: '굴리기' }))
@@ -712,7 +717,7 @@ describe('GamePlay', () => {
       act(() => {
         client.emitMessage(
           serverMessage(
-            'dice.broadcast',
+            'game.yacht_dice.dice.broadcast',
             {
               dice: [6, 5, 4, 3, 2],
               held: [false, false, false, false, false],
@@ -771,7 +776,7 @@ describe('GamePlay', () => {
 
     act(() => {
       client.emitMessage(
-        serverMessage('round.start', {
+        serverMessage('game.yacht_dice.round.start', {
           activePlayerId: participantPlayer.playerId,
           deadline: Date.now() + 30_000,
           roundNumber: 2,
@@ -780,7 +785,7 @@ describe('GamePlay', () => {
       )
       client.emitMessage(
         serverMessage(
-          'dice.broadcast',
+          'game.yacht_dice.dice.broadcast',
           {
             dice: [1, 2, 3, 4, 5],
             held: [false, false, false, false, false],
@@ -833,7 +838,7 @@ describe('GamePlay', () => {
   })
 
   it('굴림 요청을 보내지 못하면 알리고 굴리기를 다시 열어 둔다', async () => {
-    const client = brokenSend(createRealtimeFixture(), 'dice.roll')
+    const client = brokenSend(createRealtimeFixture(), 'game.yacht_dice.dice.roll')
     const { user } = renderGame({ client })
 
     await user.click(screen.getByRole('button', { name: '굴리기' }))
@@ -845,7 +850,7 @@ describe('GamePlay', () => {
   })
 
   it('서버가 굴림을 거절하면 서버 문구로 알리고 다시 굴릴 수 있게 한다', async () => {
-    const client = withheldResponse(createRealtimeFixture(), 'dice.roll')
+    const client = withheldResponse(createRealtimeFixture(), 'game.yacht_dice.dice.roll')
     const { user } = renderGame({ client })
 
     await user.click(screen.getByRole('button', { name: '굴리기' }))
@@ -858,7 +863,7 @@ describe('GamePlay', () => {
           {
             code: 'INVALID_MESSAGE',
             message: '이미 세 번 굴렸어요.',
-            refMsgId: lastMsgId(client, 'dice.roll'),
+            refMsgId: lastMsgId(client, 'game.yacht_dice.dice.roll'),
           },
           { roomId: creatorSession.roomId },
         ),
@@ -875,7 +880,7 @@ describe('GamePlay', () => {
     act(() => {
       client.emitMessage(
         serverMessage(
-          'dice.broadcast',
+          'game.yacht_dice.dice.broadcast',
           {
             dice: [1, 1, 1, 1, 1],
             held: [false, false, false, false, false],
@@ -912,7 +917,7 @@ describe('GamePlay', () => {
   })
 
   it('턴이 바뀌면 응답을 받지 못한 점수 제출 상태를 폐기한다', async () => {
-    const client = withheldResponse(createRealtimeFixture(), 'round.submit')
+    const client = withheldResponse(createRealtimeFixture(), 'game.yacht_dice.round.submit')
     const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
     if (!snapshot.game) throw new Error('playing snapshot is missing game state')
     const { rerenderWith, user } = renderGame({ client, snapshot })
@@ -951,7 +956,7 @@ describe('GamePlay', () => {
     act(() => {
       client.emitMessage(
         serverMessage(
-          'score.update',
+          'game.yacht_dice.score.update',
           { playerId: creatorSession.you, scoreboard: { ...board, upperSubtotal: 0, total: 0 } },
           { roomId: creatorSession.roomId },
         ),
