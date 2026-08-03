@@ -50,6 +50,15 @@
 - S→C `reaction.broadcast`, `state.sync`(방 전체 상태를 diff 없이 통째로 보냄 — 2~6인 규모라
   diff 비용이 필요 없다는 판단), `presence.update`, `state.patch`(정의되어 있으나 현재 미사용)
 
+### 음성 채팅 (🟡 제안 — 구현 없음, S15P11A406-130)
+
+- C→S `voice.join`, `voice.leave`, `voice.signal`(`{to, data}` — 서버가 `from`을 채워 전달)
+- S→C `voice.peers`(음성 채널 전체 명단. 증분 아님), `voice.signaled`(`{from, data}`)
+
+WebRTC **풀메시**다. 오디오는 피어끼리 직접 흐르고 서버는 시그널링만 중계한다 — `voice.signal`의
+`data`(SDP·ICE)를 서버가 파싱하지 않는 것이 계약이다. offer 충돌은 `playerId`가 작은 쪽이
+offer를 만드는 규칙으로 피한다. ICE/TURN 설정은 이 계약에 없다(필요해지면 REST로 분리).
+
 ### 라운드·주사위·점수
 
 - C→S `round.submit`, `dice.roll`, `dice.hold`(굴림 중 KEEP 토글 동기화), `dice.shake`(흔드는

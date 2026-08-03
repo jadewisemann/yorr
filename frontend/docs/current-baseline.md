@@ -58,7 +58,11 @@
 
 ## 실시간 통신
 
-- 게임 데이터는 WebSocket(WSS)을 사용한다. WebRTC는 채택되지 않았다.
+- 게임 데이터는 WebSocket(WSS)을 사용한다. **게임 데이터에 WebRTC는 쓰지 않는다** — 서버가
+  상태의 권위자여야 하므로 P2P로 흘릴 수 없다.
+- **음성 채팅(S15P11A406-130)만 WebRTC 풀메시를 쓴다.** 오디오는 피어끼리 직접 흐르고,
+  서로를 찾는 시그널링(`voice.*`)은 위의 같은 WebSocket을 탄다. 미디어 서버(SFU)는 두지
+  않는다 — 정원이 6명이라 필요 없다. 계약은 🟡 PROPOSED 상태이며 구현은 아직 없다.
 - 서버가 방·라운드·점수 상태의 권위자(authoritative server)다.
 - 실제 이벤트 목록·에러 코드·REST 엔드포인트는
   [`api/realtime-and-api.md`](./api/realtime-and-api.md) 참고. SSOT는
