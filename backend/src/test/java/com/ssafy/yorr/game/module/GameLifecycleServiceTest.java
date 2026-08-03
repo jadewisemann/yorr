@@ -30,8 +30,10 @@ class GameLifecycleServiceTest {
                 6,
                 List.of(new RoomPlayerSnapshot("host-1", "host", 0))
         ));
-        when(rooms.startGame("ROOM01")).thenReturn(game);
+        when(rooms.getSnapshot("ROOM01")).thenReturn(game.snapshot());
+        when(rooms.startGame("ROOM01", 1)).thenReturn(game);
         when(modules.require("YACHT_DICE")).thenReturn(module);
+        when(module.minPlayers()).thenReturn(1);
         RuntimeException failure = new IllegalStateException("initialization_failed");
         org.mockito.Mockito.doThrow(failure).when(module).start("ROOM01", game);
 

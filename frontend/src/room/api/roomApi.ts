@@ -1,4 +1,5 @@
 import { readAuthSession } from '@/auth/authSession'
+import type { GameCode } from '@/games'
 import type {
   DiceSet,
   GameState,
@@ -10,6 +11,7 @@ import type {
 import { apiRequest } from '@/shared/api/client'
 
 export interface CreateRoomRequest {
+  gameCode?: GameCode
   nickname: string
 }
 
@@ -25,6 +27,7 @@ export interface EnterRoomRequest {
 }
 
 export interface EnterRoomResponse {
+  game_code?: GameCode
   id: string
   nickname: string
   token: string
@@ -34,6 +37,7 @@ export interface EnterRoomResponse {
 export type RoomMembershipRole = 'host' | 'participant'
 
 export interface RoomSession {
+  gameCode?: GameCode
   gameId: string | null
   roomId: string
   roomCode: string
@@ -68,7 +72,12 @@ export interface AuthenticatedApiCallOptions extends ApiCallOptions {
 
 export class HttpRoomApiClient {
   createRoom(request: CreateRoomRequest, options?: ApiCallOptions) {
-    return enterRoom({ nickname: request.nickname }, 'host', options)
+    return enterRoom(
+      { nickname: request.nickname },
+      'host',
+      options,
+      request.gameCode ?? 'YACHT_DICE',
+    )
   }
 
   joinRoom(roomCode: string, request: JoinRoomRequest, options?: ApiCallOptions) {
@@ -141,9 +150,11 @@ function enterRoom(
   request: EnterRoomRequest,
   membershipRole: RoomMembershipRole,
   options?: ApiCallOptions,
+  gameCode?: GameCode,
 ) {
   const sessionToken = readAuthSession()?.sessionToken
-  return apiRequest<unknown>('/rooms', {
+  const path = gameCode ? `/rooms?game_code=${encodeURIComponent(gameCode)}` : '/rooms'
+  return apiRequest<unknown>(path, {
     method: 'POST',
     body: JSON.stringify(sessionToken ? { ...request, session_token: sessionToken } : request),
     ...requestSignal(options),
@@ -163,6 +174,7 @@ function toRoomSession(response: unknown, membershipRole: RoomMembershipRole): R
 
   return {
     gameId: null,
+    ...(isGameCode(response.game_code) ? { gameCode: response.game_code } : {}),
     roomId: response.room_id,
     roomCode: response.room_id,
     you: response.id,
@@ -204,6 +216,7 @@ function toRoomSnapshot(response: unknown): RoomSnapshot {
 
   return {
     roomId: response.roomCode,
+    ...(isGameCode(response.gameCode) ? { gameCode: response.gameCode } : {}),
     phase,
     players: response.players.map((player) => ({
       playerId: player.playerId,
@@ -272,6 +285,10 @@ function isRestRoomPlayer(value: unknown): value is {
 
 function isParticipantKind(value: unknown): value is ParticipantKind {
   return value === 'HUMAN' || value === 'BOT'
+}
+
+function isGameCode(value: unknown): value is GameCode {
+  return value === 'YACHT_DICE' || value === 'PING_PONG'
 }
 
 function toRoomPhase(value: unknown): RoomSnapshot['phase'] | undefined {
