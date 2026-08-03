@@ -2,6 +2,7 @@ package com.ssafy.yorr.room.controller;
 
 import com.ssafy.yorr.game.module.GameModuleRegistry;
 import com.ssafy.yorr.room.dto.JoinResult;
+import com.ssafy.yorr.room.dto.RoomMode;
 import com.ssafy.yorr.room.service.RoomCreateService;
 import com.ssafy.yorr.room.service.RoomValidationService;
 import com.ssafy.yorr.user.SessionAuthenticationException;
@@ -37,18 +38,31 @@ public class RoomController {
     @Operation(summary = "방 생성 또는 참가", description = "room_id가 없으면 game_code 게임의 방을 만들고, 있으면 해당 방에 참가합니다.")
     public ResponseEntity<?> enterRoom(
             @RequestBody GuestCreateRequest request,
-            @RequestParam(name = "game_code", defaultValue = "YACHT_DICE") String requestedGameCode
+            @RequestParam(name = "game_code", defaultValue = "YACHT_DICE") String requestedGameCode,
+            @RequestParam(name = "party", defaultValue = "false") boolean party
     ) {
         try {
             String roomId = request.roomId();
+            boolean creating = roomId == null || roomId.isBlank();
             String gameCode = null;
-            if (roomId == null || roomId.isBlank()) {
+            if (creating) {
                 gameCode = gameModules.canonicalCode(requestedGameCode);
             }
-            var entrant = resolveEntrant(request);
-            if (roomId == null || roomId.isBlank()) {
+            // 대시보드는 플레이어가 아니라 이름을 짓지 않는다 — 닉네임 화면을 건너뛰고 들어온다.
+            var entrant = resolveEntrant(creating && party ? withDashboardNickname(request) : request);
+            if (creating) {
+                // 정원은 게임이 정한다. 파티 방에서도 그대로 쓴다 — 대시보드는 명단에 들어가지
+                // 않으므로 이 수만큼의 컨트롤러가 온전히 들어올 수 있다.
                 roomId = roomCreateService.createRoom(
-                        gameModules.require(gameCode).maxPlayers(), entrant.userId(), gameCode);
+                        gameModules.require(gameCode).maxPlayers(), entrant.userId(), gameCode,
+                        party ? RoomMode.PARTY : RoomMode.NORMAL);
+            }
+            // 파티 방을 연 화면은 대시보드다 — 플레이어 명단에 넣지 않는다. 그래야 턴 순서·점수판·
+            // 정원이 모두 컨트롤러(폰)들만의 것이 된다. 호스트 권한은 방 hash의 hostId가 준다.
+            if (creating && party) {
+                userService.assignRoom(entrant.userId(), roomId, roomId, entrant.userId());
+                return ResponseEntity.ok(new GuestCreateResponse(
+                        entrant.userId(), entrant.nickname(), entrant.sessionToken(), roomId, gameCode));
             }
             JoinResult joined = roomService.join(roomId, entrant.identity(), entrant.sessionToken());
             userService.assignRoom(entrant.userId(), roomId, roomId, joined.snapshot().hostId());
@@ -62,6 +76,19 @@ public class RoomController {
         } catch (IllegalStateException e) {
             return ResponseEntity.status(409).body(e.getMessage());
         }
+    }
+
+    /** 대시보드 표시 이름. 참가자 목록에 오르지 않으므로 화면에 나오지 않는다(로그·관리용). */
+    private static final String DASHBOARD_NICKNAME = "대시보드";
+
+    /**
+     * 파티 방 생성 요청에 이름을 채워 준다. 닉네임 없이 들어와도 게스트 발급이
+     * {@code invalid_nickname}으로 막히지 않게 하려는 것뿐이다 — 로그인 세션이나 직접 적어 낸
+     * 이름이 있으면 건드리지 않는다.
+     */
+    private static GuestCreateRequest withDashboardNickname(GuestCreateRequest request) {
+        if (request.nickname() != null && !request.nickname().isBlank()) return request;
+        return new GuestCreateRequest(DASHBOARD_NICKNAME, request.roomId(), request.sessionToken());
     }
 
     /**

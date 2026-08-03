@@ -4,6 +4,7 @@ import com.ssafy.yorr.room.RoomRedisKeys;
 import com.ssafy.yorr.room.dto.GameStartResponse;
 import com.ssafy.yorr.room.dto.JoinResult;
 import com.ssafy.yorr.room.dto.ParticipantKind;
+import com.ssafy.yorr.room.dto.RoomMode;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
@@ -38,13 +39,23 @@ public class RoomValidationService implements RoomService {
             end
             return 1
             """, Long.class);
+    /**
+     * 마지막 참가자가 빠지면 방을 지운다 — 단 <b>파티 방은 예외</b>다.
+     * <p>
+     * 파티 방을 연 대시보드는 플레이어 명단에 없어서 members에 세어지지 않는다. 일반 방과 같이
+     * 처리하면 컨트롤러 하나가 잘못 들어왔다 나가는 것만으로 members가 0이 되어, 아직 QR을 띄우고
+     * 사람을 기다리는 대시보드의 방이 발밑에서 사라진다.
+     * <p>
+     * 파티 방은 대시보드가 소켓을 닫을 때 닫힌다(빈 방 검사는 WS 명단 기준이라 대시보드를 센다).
+     * 그마저 놓치면 방 TTL이 상한이다.
+     */
     private static final DefaultRedisScript<Long> LEAVE = new DefaultRedisScript<>("""
             if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
             if redis.call('HDEL', KEYS[2], ARGV[1]) == 0 then return -1 end
             redis.call('HDEL', KEYS[3], ARGV[1])
             redis.call('HDEL', KEYS[4], ARGV[1])
             local members = redis.call('HINCRBY', KEYS[1], 'members', -1)
-            if members <= 0 then
+            if members <= 0 and redis.call('HGET', KEYS[1], 'mode') ~= 'PARTY' then
                 redis.call('DEL', KEYS[1])
                 redis.call('DEL', KEYS[2])
                 redis.call('DEL', KEYS[3])
@@ -238,6 +249,16 @@ public class RoomValidationService implements RoomService {
                 RoomRedisKeys.playersKey(roomCode), RoomRedisKeys.scoresKey(roomCode),
                 RoomRedisKeys.botsKey(roomCode)));
         return Long.valueOf(1).equals(result);
+    }
+
+    /**
+     * 이 방이 파티 방인지. 대시보드는 플레이어 명단에 없으므로 호스트 검사에서
+     * "명단에도 있어야 한다"를 건너뛰어야 한다({@link com.ssafy.yorr.room.dto.RoomMode}).
+     * 없는 방·mode가 없는 옛 방은 일반 방으로 본다.
+     */
+    public boolean isPartyRoom(String roomCode) {
+        Object mode = redisTemplate.<Object, Object>opsForHash().get(RoomRedisKeys.roomKey(roomCode), "mode");
+        return RoomMode.PARTY.name().equals(mode);
     }
 
     public RoomSnapshot getGameSnapshot(String gameId) {

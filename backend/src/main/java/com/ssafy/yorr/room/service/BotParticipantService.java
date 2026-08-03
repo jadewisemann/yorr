@@ -11,6 +11,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+/**
+ * 대기실 AI 봇 참가자. 호스트만 추가·삭제할 수 있다.
+ * <p>
+ * 호스트 판정이 {@code hostId} 일치 + 플레이어 명단 존재의 두 조건인 이유와, 파티 방
+ * ({@code mode='PARTY'})에서 뒤 조건을 빼는 이유는 {@code RoomValidationController}의 호스트
+ * 검사와 같다 — 파티 방의 대시보드는 정의상 명단에 없다({@link com.ssafy.yorr.room.dto.RoomMode}).
+ */
 @Service
 @RequiredArgsConstructor
 public class BotParticipantService {
@@ -19,7 +26,8 @@ public class BotParticipantService {
             if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
             if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 2 end
             if redis.call('HGET', KEYS[1], 'hostId') ~= ARGV[1] then return 3 end
-            if redis.call('HEXISTS', KEYS[2], ARGV[1]) == 0 then return 3 end
+            if redis.call('HGET', KEYS[1], 'mode') ~= 'PARTY'
+                and redis.call('HEXISTS', KEYS[2], ARGV[1]) == 0 then return 3 end
             if redis.call('HLEN', KEYS[2]) >= tonumber(redis.call('HGET', KEYS[1], 'capacity')) then return 4 end
             if redis.call('HEXISTS', KEYS[2], ARGV[2]) == 1 then return 5 end
             redis.call('HSET', KEYS[2], ARGV[2], ARGV[3])
@@ -39,7 +47,8 @@ public class BotParticipantService {
             if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
             if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 2 end
             if redis.call('HGET', KEYS[1], 'hostId') ~= ARGV[1] then return 3 end
-            if redis.call('HEXISTS', KEYS[2], ARGV[1]) == 0 then return 3 end
+            if redis.call('HGET', KEYS[1], 'mode') ~= 'PARTY'
+                and redis.call('HEXISTS', KEYS[2], ARGV[1]) == 0 then return 3 end
             if redis.call('HDEL', KEYS[4], ARGV[2]) == 0 then return 4 end
             redis.call('HDEL', KEYS[2], ARGV[2])
             redis.call('HDEL', KEYS[3], ARGV[2])
