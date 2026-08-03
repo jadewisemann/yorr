@@ -20,6 +20,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.ssafy.yorr.game.yacht.YachtDiceWsTypes.type;
+
 @Component
 public class BotTurnOrchestrator {
 
@@ -135,7 +137,7 @@ public class BotTurnOrchestrator {
         }
         try {
             broadcaster.broadcast(roomId, WsEnvelope.of(
-                    "dice.thrown",
+                    type("dice.thrown"),
                     new DiceThrownPayload(
                             rolled.activePlayerId(),
                             rolled.roundNumber(),

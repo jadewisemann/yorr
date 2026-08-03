@@ -129,7 +129,7 @@ class BotTurnOrchestratorTest {
         ArgumentCaptor<WsEnvelope<?>> envelope =
                 (ArgumentCaptor) ArgumentCaptor.forClass(WsEnvelope.class);
         verify(broadcaster).broadcast(eq("room-a"), envelope.capture());
-        assertThat(envelope.getValue().type()).isEqualTo("dice.thrown");
+        assertThat(envelope.getValue().type()).isEqualTo("game.yacht_dice.dice.thrown");
         assertThat(envelope.getValue().payload()).isInstanceOfSatisfying(
                 DiceThrownPayload.class,
                 payload -> {

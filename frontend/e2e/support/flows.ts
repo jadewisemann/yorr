@@ -73,7 +73,7 @@ export async function startHostedGame(
   // 서버도 이 순간부터 "진행 중인 방"으로 답해야 한다 — 재접속 때 room.joined가 실어 보내는
   // 스냅샷이 대기 상태로 남아 있으면 재연결만으로 화면이 대기실로 되돌아간다.
   server.setSnapshot(playingSnapshot({ players, activePlayerId, turnOrder }))
-  server.send('round.start', {
+  server.send('game.yacht_dice.round.start', {
     roundNumber: 1,
     deadline: roundDeadline(),
     activePlayerId,

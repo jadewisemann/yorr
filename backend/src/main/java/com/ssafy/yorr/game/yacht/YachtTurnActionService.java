@@ -14,6 +14,8 @@ import com.ssafy.yorr.ws.dto.RoundSubmitPayload;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
 import org.springframework.stereotype.Service;
 
+import static com.ssafy.yorr.game.yacht.YachtDiceWsTypes.type;
+
 /**
  * 사람의 WebSocket 요청과 서버가 제어하는 봇이 공유하는 요트 다이스 행동 경계.
  *
@@ -47,7 +49,7 @@ public class YachtTurnActionService {
             String requestMsgId
     ) {
         RoundState state = rounds.recordRoll(roomId, actorId, payload);
-        broadcaster.broadcast(roomId, WsEnvelope.of("dice.broadcast", new DiceBroadcastPayload(
+        broadcaster.broadcast(roomId, WsEnvelope.of(type("dice.broadcast"), new DiceBroadcastPayload(
                 actorId,
                 state.roundNumber(),
                 state.activeRollCount(),
@@ -67,7 +69,7 @@ public class YachtTurnActionService {
     ) {
         RoundState state = rounds.recordHold(roomId, actorId, payload);
         broadcaster.broadcast(roomId, WsEnvelope.of(
-                "dice.hold_changed",
+                type("dice.hold_changed"),
                 new DiceHoldChangedPayload(actorId, state.roundNumber(), state.activeHeld())
         ).withRoomId(roomId).withMsgId(requestMsgId));
         return state;

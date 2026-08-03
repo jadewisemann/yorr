@@ -251,14 +251,14 @@ export async function startFakeGameServer(
       send('state.sync', { snapshot: next })
     },
     async answerRoll(dice, rollOptions) {
-      const message = await waitForClientMessage('dice.roll')
+      const message = await waitForClientMessage('game.yacht_dice.dice.roll')
       const payload = message.payload as {
         roundNumber: number
         rollCount: number
         held: HeldDice
       }
       send(
-        'dice.broadcast',
+        'game.yacht_dice.dice.broadcast',
         {
           playerId: rollOptions?.playerId ?? you,
           roundNumber: payload.roundNumber,
@@ -275,7 +275,7 @@ export async function startFakeGameServer(
       return payload
     },
     async answerSubmit(scoreboard, submitOptions) {
-      const message = await waitForClientMessage('round.submit')
+      const message = await waitForClientMessage('game.yacht_dice.round.submit')
       const payload = message.payload as { roundNumber: number; category: string }
       const playerId = submitOptions?.playerId ?? you
       if (snapshot?.game) {
@@ -285,7 +285,7 @@ export async function startFakeGameServer(
         }
       }
       send(
-        'score.update',
+        'game.yacht_dice.score.update',
         { playerId, scoreboard },
         {
           ...(message.msgId ? { msgId: message.msgId } : {}),

@@ -58,7 +58,11 @@ export function useGamePlaySubmission({
       pendingRef.current = { msgId }
       try {
         realtimeClient.send(
-          buildClientMessage('round.submit', { category, dice, roundNumber }, { roomId, msgId }),
+          buildClientMessage(
+            'game.yacht_dice.round.submit',
+            { category, dice, roundNumber },
+            { roomId, msgId },
+          ),
         )
       } catch {
         pendingRef.current = null
@@ -72,7 +76,7 @@ export function useGamePlaySubmission({
   const handleAutomaticRecord = useCallback(
     (message: ServerMessage) => {
       if (
-        message.type !== 'score.update' ||
+        message.type !== 'game.yacht_dice.score.update' ||
         message.payload.playerId !== you ||
         autoRecordedRoundRef.current === roundNumber
       ) {
@@ -93,7 +97,7 @@ export function useGamePlaySubmission({
         if (!pending) return handleAutomaticRecord(message)
 
         if (
-          message.type === 'score.update' &&
+          message.type === 'game.yacht_dice.score.update' &&
           message.msgId === pending.msgId &&
           message.payload.playerId === you
         ) {
