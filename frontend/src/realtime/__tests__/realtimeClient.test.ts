@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { WebSocketRealtimeClient } from './realtimeClient'
-import { buildClientMessage, type ServerMessage } from './wsEvents'
+import { WebSocketRealtimeClient } from '@/realtime/realtimeClient'
+import { buildClientMessage, type ServerMessage } from '@/realtime/wsEvents'
 
 /**
  * 전역 WebSocket 대역. 실제 소켓 없이 open/close/error/message 프레임을

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { serverMessage } from '@/mocks/fixtures'
-import { buildClientMessage, isServer, WS_PROTOCOL_VERSION } from './wsEvents'
+import { buildClientMessage, isServer, WS_PROTOCOL_VERSION } from '@/realtime/wsEvents'
 
 describe('isServer', () => {
   it('type이 일치할 때만 좁혀 준다', () => {

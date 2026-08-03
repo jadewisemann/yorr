@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockApiWorker } from './browser'
-import { enableMocking } from './enableMocking'
-import { resolveMswMode } from './mswMode'
+import { createMockApiWorker } from '@/mocks/browser'
+import { enableMocking } from '@/mocks/enableMocking'
+import { resolveMswMode } from '@/mocks/mswMode'
 
-vi.mock('./browser', () => ({ createMockApiWorker: vi.fn() }))
-vi.mock('./mswMode', () => ({ resolveMswMode: vi.fn() }))
+vi.mock('@/mocks/browser', () => ({ createMockApiWorker: vi.fn() }))
+vi.mock('@/mocks/mswMode', () => ({ resolveMswMode: vi.fn() }))
 
 const start = vi.fn(async () => undefined)
 const createWorker = vi.mocked(createMockApiWorker)

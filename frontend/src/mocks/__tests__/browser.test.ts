@@ -1,8 +1,8 @@
 import type { RequestHandler } from 'msw'
 import { setupWorker } from 'msw/browser'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockApiWorker } from './browser'
-import { createRestHandlers } from './restHandlers'
+import { createMockApiWorker } from '@/mocks/browser'
+import { createRestHandlers } from '@/mocks/restHandlers'
 
 vi.mock('msw/browser', () => ({ setupWorker: vi.fn(() => ({ start: vi.fn() })) }))
 

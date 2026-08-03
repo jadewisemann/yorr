@@ -1,6 +1,6 @@
 import { getResponse, HttpResponse, http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createServerFirstHandler } from './serverFirstHandler'
+import { createServerFirstHandler } from '@/mocks/serverFirstHandler'
 
 const ENDPOINT = new URL('/api/v1/rooms', window.location.origin).href
 

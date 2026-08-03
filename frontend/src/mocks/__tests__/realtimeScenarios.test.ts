@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildClientMessage } from '@/realtime/wsEvents'
 import {
   createPlayingRoomSnapshot,
   creatorSession,
   MOCK_ROOM_ID,
   participantSession,
-} from './fixtures'
-import { clearMockRoomSnapshot, loadMockRoomSnapshot, saveMockRoomSnapshot } from './mockRoomState'
-import { createRealtimeFixture } from './realtimeScenarios'
+} from '@/mocks/fixtures'
+import {
+  clearMockRoomSnapshot,
+  loadMockRoomSnapshot,
+  saveMockRoomSnapshot,
+} from '@/mocks/mockRoomState'
+import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
+import { buildClientMessage } from '@/realtime/wsEvents'
 
 describe('FakeRealtimeClient scenarios', () => {
   // 기억된 방 상태가 테스트 사이로 새면 room.join 응답이 순서에 따라 달라진다.

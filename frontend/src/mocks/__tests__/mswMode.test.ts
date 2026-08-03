@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { resolveMswMode } from './mswMode'
+import { resolveMswMode } from '@/mocks/mswMode'
 
 afterEach(() => {
   vi.unstubAllEnvs()

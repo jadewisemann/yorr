@@ -4,7 +4,12 @@ import { creatorSession, serverMessage } from '@/mocks/fixtures'
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { roomApiClient } from '@/room/api/roomApi'
 import { useAppStore } from '@/store'
-import { installUserAgentMock, mockApiError, renderAppHarness, resetAppTestState } from './harness'
+import {
+  installUserAgentMock,
+  mockApiError,
+  renderAppHarness,
+  resetAppTestState,
+} from '@/test/harness'
 
 describe('QR entrance integration', () => {
   afterEach(() => {

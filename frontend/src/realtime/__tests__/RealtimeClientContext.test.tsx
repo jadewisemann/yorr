@@ -1,8 +1,8 @@
 import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
-import { FakeRealtimeClient } from './fakeRealtimeClient'
-import { RealtimeClientProvider, useRealtimeClient } from './RealtimeClientContext'
+import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
+import { RealtimeClientProvider, useRealtimeClient } from '@/realtime/RealtimeClientContext'
 
 describe('useRealtimeClient', () => {
   it('Provider가 준 클라이언트를 그대로 돌려준다', () => {

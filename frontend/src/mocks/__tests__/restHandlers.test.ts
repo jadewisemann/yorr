@@ -1,11 +1,11 @@
 import { HttpResponse, http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { saveAuthSession } from '@/auth/authSession'
+import { creatorSession, participantSession } from '@/mocks/fixtures'
+import { clearMockRoomSnapshot } from '@/mocks/mockRoomState'
+import { createRestHandlers } from '@/mocks/restHandlers'
+import { mockApiServer } from '@/mocks/server'
 import { HttpRoomApiClient } from '@/room/api/roomApi'
-import { creatorSession, participantSession } from './fixtures'
-import { clearMockRoomSnapshot } from './mockRoomState'
-import { createRestHandlers } from './restHandlers'
-import { mockApiServer } from './server'
 
 const client = new HttpRoomApiClient()
 
