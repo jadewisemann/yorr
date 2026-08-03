@@ -1,7 +1,7 @@
 import { type KeyboardEvent, useRef } from 'react'
-import { gameMeta, LANDING_PANEL_ID, type LandingGame, landingTabId } from '@/landingGames'
+import { gameMeta, LANDING_PANEL_ID, type LandingGame, landingTabId } from '@/landing/landingGames'
+import { resolveTablistKey } from '@/landing/tablistNavigation'
 import { cn } from '@/shared/cn'
-import { resolveTablistKey } from '@/tablistNavigation'
 
 interface LandingProgressProps {
   activeIndex: number

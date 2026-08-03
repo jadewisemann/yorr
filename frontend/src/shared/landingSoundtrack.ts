@@ -1,4 +1,4 @@
-import { type HeroGameKey, landingGames } from '@/landingGames'
+import { type HeroGameKey, landingGames } from '@/landing/landingGames'
 import { onFirstGesture, primeAudio } from './audioUnlock'
 import { readSoundMuted } from './soundPreference'
 

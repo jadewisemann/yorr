@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveTablistKey } from './tablistNavigation'
+import { resolveTablistKey } from '@/landing/tablistNavigation'
 
 describe('resolveTablistKey', () => {
   it('moves forward with both orientations', () => {

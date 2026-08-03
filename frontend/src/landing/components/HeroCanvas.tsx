@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { HeroGameKey, HeroScene } from '@/rendering/hero/heroScene'
+import type { HeroGameKey, HeroScene } from '@/landing/rendering/heroScene'
 
 interface HeroCanvasProps {
   game: HeroGameKey
@@ -49,7 +49,7 @@ export function HeroCanvas({ game }: HeroCanvasProps) {
     let disposed = false
     let created: HeroScene | null = null
 
-    void import('@/rendering/hero/heroScene')
+    void import('@/landing/rendering/heroScene')
       .then(({ HeroScene: Scene }) => {
         if (disposed) return
         created = new Scene({ container, game: latestGameRef.current })

@@ -1,4 +1,4 @@
-import type { LandingGame } from '@/landingGames'
+import type { LandingGame } from '@/landing/landingGames'
 import { cn } from '@/shared/cn'
 import { HeroCanvas } from './HeroCanvas'
 

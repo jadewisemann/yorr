@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { LandingCodeDialog } from './LandingCodeDialog'
+import { LandingCodeDialog } from '@/landing/components/LandingCodeDialog'
 
 function renderDialog(overrides: Partial<Parameters<typeof LandingCodeDialog>[0]> = {}) {
   const onClose = vi.fn()

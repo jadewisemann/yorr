@@ -1,9 +1,9 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { EntryPage } from '@/landing/screens/EntryPage'
 import { creatorSession } from '@/mocks/fixtures'
 import { useAppStore } from '@/store'
-import { EntryPage } from './EntryPage'
 
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
 const { closeSession } = vi.hoisted(() => ({ closeSession: vi.fn().mockResolvedValue(undefined) }))

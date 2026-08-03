@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { landingGames } from '@/landingGames'
-import { LandingHeroCarousel } from './LandingHeroCarousel'
+import { LandingHeroCarousel } from '@/landing/components/LandingHeroCarousel'
+import { landingGames } from '@/landing/landingGames'
 
 beforeEach(() => {
   // jsdom에는 Pointer Events의 capture API가 없다 — 드래그 핸들러가 이걸 부르므로 스텁해 둔다.

@@ -1,8 +1,8 @@
 import { render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { HeroGameKey } from '@/landingGames'
-import type { HeroSceneOptions } from '@/rendering/hero/heroScene'
-import { HeroCanvas } from './HeroCanvas'
+import { HeroCanvas } from '@/landing/components/HeroCanvas'
+import type { HeroGameKey } from '@/landing/landingGames'
+import type { HeroSceneOptions } from '@/landing/rendering/heroScene'
 
 interface FakeScene {
   destroy: ReturnType<typeof vi.fn>
@@ -13,7 +13,7 @@ interface FakeScene {
 
 const { scenes } = vi.hoisted(() => ({ scenes: [] as FakeScene[] }))
 
-vi.mock('@/rendering/hero/heroScene', () => ({
+vi.mock('@/landing/rendering/heroScene', () => ({
   HeroScene: class {
     destroy = vi.fn()
     options: HeroSceneOptions

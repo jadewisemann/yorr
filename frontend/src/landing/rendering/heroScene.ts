@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { HeroGameKey } from '@/landingGames'
+import type { HeroGameKey } from '@/landing/landingGames'
 
 /**
  * 랜딩 히어로 3D 장면. 디자인 핸드오프의 `hero3d.js`(custom element)를 옮긴 것으로,

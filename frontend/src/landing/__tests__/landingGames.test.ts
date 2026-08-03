@@ -5,7 +5,7 @@ import {
   landingGameAt,
   landingGames,
   landingTabId,
-} from './landingGames'
+} from '@/landing/landingGames'
 
 describe('landingGames', () => {
   it('첫 게임은 실제로 플레이할 수 있는 요트 다이스다', () => {

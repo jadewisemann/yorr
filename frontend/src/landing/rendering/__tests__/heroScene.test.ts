@@ -1,13 +1,13 @@
 import * as THREE from 'three'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { HeroGameKey } from '@/landingGames'
+import type { HeroGameKey } from '@/landing/landingGames'
+import { HeroScene } from '@/landing/rendering/heroScene'
 import {
   createSizedContainer,
   FakeResizeObserver,
   FakeWebGLRenderer,
   stubCanvas2dContext,
 } from '@/test/threeStubs'
-import { HeroScene } from './heroScene'
 
 vi.mock('three', async (importOriginal) => {
   const { threeWithFakeRenderer } = await import('@/test/threeStubs')

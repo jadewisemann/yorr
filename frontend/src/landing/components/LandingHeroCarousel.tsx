@@ -8,7 +8,7 @@ import {
   useState,
   type WheelEvent,
 } from 'react'
-import { LANDING_PANEL_ID, type LandingGame, landingTabId } from '@/landingGames'
+import { LANDING_PANEL_ID, type LandingGame, landingTabId } from '@/landing/landingGames'
 import { cn } from '@/shared/cn'
 import { ENTER } from '@/shared/motion'
 import { LandingHeroCard } from './LandingHeroCard'

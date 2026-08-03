@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { googleLoginUrl, kakaoLoginUrl, renameProfile } from '@/api/authApi'
 import type { AuthSession } from '@/authSession'
+import { LandingPopover } from '@/landing/components/LandingPopover'
 import { cn } from '@/shared/cn'
 import { BottomSheet } from '@/shared/components/BottomSheet'
 import { NICKNAME_MAX_LENGTH } from '@/shared/nickname'
 import { useAppStore } from '@/store'
-import { LandingPopover } from './LandingPopover'
 
 interface AccountDialogProps {
   layout: 'narrow' | 'wide'
