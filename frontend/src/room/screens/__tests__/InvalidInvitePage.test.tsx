@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { InvalidInvitePage } from './InvalidInvitePage'
+import { InvalidInvitePage } from '@/room/screens/InvalidInvitePage'
 
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
 

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createInviteUrl, InvitationPanel } from './InvitationPanel'
+import { createInviteUrl, InvitationPanel } from '@/room/components/InvitationPanel'
 
 const { qrState } = vi.hoisted(() => ({ qrState: { fail: false } }))
 

@@ -1,9 +1,9 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { gameApiClient } from '@/api/gameApi'
 import { createEmptyScoreBoard, creatorSession } from '@/mocks/fixtures'
 import type { RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
+import { gameApiClient } from '@/room/api/gameApi'
 import { useAppStore } from '@/store'
 import { GameResult } from './GameResult'
 

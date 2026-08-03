@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
-import { sessionPhaseOf, sessionScreenOf } from './sessionFsm'
+import { sessionPhaseOf, sessionScreenOf } from '@/room/sessionFsm'
 
 const session = { roomId: 'YORR64' }
 

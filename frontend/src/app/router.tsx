@@ -20,10 +20,10 @@ import { ScreenFallback } from './ScreenFallback'
  * 그리로 갈 때 받는다. 로딩 표시는 아래 rootRoute의 Suspense 하나가 담당한다.
  */
 const importAuthCallbackPage = () => import('@/auth/screens/AuthCallbackPage')
-const importGamePage = () => import('@/screens/GamePage')
-const importInvalidInvitePage = () => import('@/screens/InvalidInvitePage')
-const importLobbyPage = () => import('@/screens/LobbyPage')
-const importNicknamePage = () => import('@/screens/NicknamePage')
+const importGamePage = () => import('@/room/screens/GamePage')
+const importInvalidInvitePage = () => import('@/room/screens/InvalidInvitePage')
+const importLobbyPage = () => import('@/room/screens/LobbyPage')
+const importNicknamePage = () => import('@/room/screens/NicknamePage')
 
 const AuthCallbackPage = lazy(() =>
   importAuthCallbackPage().then((mod) => ({ default: mod.AuthCallbackPage })),

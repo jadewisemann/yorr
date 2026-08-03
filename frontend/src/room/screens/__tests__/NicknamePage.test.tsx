@@ -1,9 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NicknamePage } from '@/room/screens/NicknamePage'
 import { useAppStore } from '@/store'
 import { mockApiError } from '@/test/harness'
-import { NicknamePage } from './NicknamePage'
 
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
 

@@ -8,8 +8,8 @@ import {
   participantSession,
   waitingRoomSnapshot,
 } from '@/mocks/fixtures'
+import { LobbyPage } from '@/room/screens/LobbyPage'
 import { useAppStore } from '@/store'
-import { LobbyPage } from './LobbyPage'
 
 const { navigate, prefetchPhysicsDiceWorld } = vi.hoisted(() => ({
   navigate: vi.fn(),

@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { useCreateRoom, useJoinRoom } from '@/api/useRoomApi'
+import { useCreateRoom, useJoinRoom } from '@/room/api/useRoomApi'
 import { toUserError } from '@/shared/api/userError'
 import { Button } from '@/shared/components/Button'
 import { TextField } from '@/shared/components/TextField'

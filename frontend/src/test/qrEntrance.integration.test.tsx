@@ -1,8 +1,8 @@
 import { act, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { gameApiClient } from '@/api/gameApi'
 import { creatorSession, serverMessage } from '@/mocks/fixtures'
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
+import { gameApiClient } from '@/room/api/gameApi'
 import { useAppStore } from '@/store'
 import { installUserAgentMock, mockApiError, renderAppHarness, resetAppTestState } from './harness'
 

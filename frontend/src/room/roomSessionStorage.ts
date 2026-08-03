@@ -1,5 +1,5 @@
-import type { RoomMembershipRole, RoomSession } from '@/api/gameApi'
 import type { Player, RoomPhase, RoomSnapshot } from '@/realtime/wsEvents'
+import type { RoomMembershipRole, RoomSession } from '@/room/api/gameApi'
 
 const roomSessionStorageKey = 'yorr.room-session'
 /**

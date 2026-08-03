@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { creatorSession } from '@/mocks/fixtures'
-import { clearRoomSession, readRoomSession, saveRoomSession } from './roomSessionStorage'
+import { clearRoomSession, readRoomSession, saveRoomSession } from '@/room/roomSessionStorage'
 
 const sessionTtlMs = 40 * 60 * 1000
 

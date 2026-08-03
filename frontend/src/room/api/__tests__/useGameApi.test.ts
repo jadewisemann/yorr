@@ -1,8 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createPlayingRoomSnapshot, creatorSession } from '@/mocks/fixtures'
+import { useGame, useReturnToLobby, useStartGame } from '@/room/api/useGameApi'
 import { useAppStore } from '@/store'
-import { useGame, useReturnToLobby, useStartGame } from './useGameApi'
 
 const MOCK_GAME_ID = 'mock-game-id'
 

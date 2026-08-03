@@ -8,8 +8,8 @@ import {
   waitingRoomSnapshot,
 } from '@/mocks/fixtures'
 import type { PhysicsDiceSet } from '@/rendering/physics-dice/types'
+import { GamePage } from '@/room/screens/GamePage'
 import { useAppStore } from '@/store'
-import { GamePage } from './GamePage'
 
 interface DiceSceneProps {
   dice: PhysicsDiceSet | null

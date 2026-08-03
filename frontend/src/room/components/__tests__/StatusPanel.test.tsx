@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { StatusPanel } from './StatusPanel'
+import { StatusPanel } from '@/room/components/StatusPanel'
 
 describe('StatusPanel', () => {
   // 오류만 alert다 — 나머지를 alert로 두면 로딩마다 스크린리더를 끊는다.

@@ -2,7 +2,7 @@ import { HttpResponse, http } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { creatorSession } from '@/mocks/fixtures'
 import { mockApiServer } from '@/mocks/server'
-import { HttpGameApiClient } from './gameApi'
+import { HttpGameApiClient } from '@/room/api/gameApi'
 
 const client = new HttpGameApiClient()
 

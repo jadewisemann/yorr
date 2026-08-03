@@ -1,7 +1,7 @@
 import { HttpResponse, http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { HttpGameApiClient } from '@/api/gameApi'
 import { saveAuthSession } from '@/auth/authSession'
+import { HttpGameApiClient } from '@/room/api/gameApi'
 import { creatorSession, participantSession } from './fixtures'
 import { clearMockRoomSnapshot } from './mockRoomState'
 import { createRestHandlers } from './restHandlers'
