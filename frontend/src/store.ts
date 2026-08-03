@@ -1,14 +1,19 @@
 import { create } from 'zustand'
-import type { RoomSession } from '@/api/gameApi'
-import { type AuthSession, clearAuthSession, readAuthSession, saveAuthSession } from '@/authSession'
+import {
+  type AuthSession,
+  clearAuthSession,
+  readAuthSession,
+  saveAuthSession,
+} from '@/auth/authSession'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
-import { clearRoomSession, readRoomSession, saveRoomSession } from '@/roomSessionStorage'
+import type { RoomSession } from '@/room/api/roomApi'
+import { clearRoomSession, readRoomSession, saveRoomSession } from '@/room/roomSessionStorage'
 import {
   type SessionEndReason,
   type SessionPhase,
   sessionEndNotices,
   sessionPhaseOf,
-} from '@/sessionFsm'
+} from '@/room/sessionFsm'
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'closed'
 export type RoomResumeReason = 'restored' | 'disconnected'

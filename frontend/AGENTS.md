@@ -14,32 +14,41 @@
 
 ## 디렉터리 구조 (src)
 
-레이어는 기본적으로 `src/` 바로 아래 **한 단계**에만 둔다. 레이어 안에 하위 폴더를 만들지
-않는다 — 유일한 예외는 `src/rendering/physics-dice/`와 `src/rendering/hero/`처럼 하나의 public
-API를 구성하는 강하게 결합된 subsystem이다.
+`src/` 바로 아래는 **도메인**이다. 레이어(`screens` · `components` · `api` …)는 도메인 **안에**
+둔다 — 레이어를 먼저 두면 야추 하나를 이해하려고 6개 폴더를 동시에 뒤져야 했다.
 
-- `src/app`: 라우터, 전역 provider, 앱 부팅, 개발 전용 화면(`DevCatalog`, `MotionLab`)
-- `src/screens`: URL에 대응하는 화면(`EntryPage`, `NicknamePage`, `LobbyPage`, `GamePage`, `GamePlay`, `GameResult`, `AuthCallbackPage` 등)
-- `src/components`: 재사용 UI 컴포넌트
-- `src/api`: REST client(`client.ts`)와 호출 훅(`gameApi.ts` · `authApi.ts` · `use*Api.ts`)
-- `src/realtime`: WebSocket wire contract(`wsEvents.ts`, SSOT)와 연결 client
-- `src/domain`: 순수 Yacht 게임 규칙(`dice.ts` · `scoring.ts` · `yachtGame.ts`). React/DOM/네트워크를 모른다
-- `src/feedback`: 진동·효과음·족보 콜아웃 등 플랫폼별 굴림 피드백
-- `src/input`: `DeviceMotion` 기반 흔들기·던지기 제스처 인식
-- `src/rendering`: 3D 물리 주사위(`rendering/physics-dice/`)와 랜딩 히어로 장면(`rendering/hero/`)
-- `src/mocks`: MSW handler와 fixture
-- `src/store.ts` · `src/cn.ts` · `src/styles/`: 전역 상태, class 병합, 디자인 토큰
+| 폴더 | 책임 |
+|---|---|
+| `app/` | 라우터, 전역 provider, 앱 부팅. 개발 전용 화면은 `app/dev/` |
+| `landing/` | 랜딩 화면과 히어로 연출 |
+| `auth/` | 소셜 로그인·세션 |
+| `room/` | 방 생성·입장·로비, 그리고 게임을 띄우는 껍데기(`screens/GamePage`) |
+| `yacht/` | 야추 구현 — 규칙·화면·게임판·주사위 물리·센서 입력·피드백 |
+| `shared/` | 프리미티브 UI, 공용 훅, REST client, `cn` |
+| `realtime/` | WebSocket wire contract(`wsEvents.ts`, SSOT)와 연결 client |
+| `mocks/` · `test/` · `styles/` | MSW, 테스트 하네스, 디자인 토큰 |
+| `games.ts` · `store.ts` · `main.tsx` | 게임 카탈로그, 앱 전역 상태, 엔트리 |
 
-**주의:** `src/core/{api,realtime}`와 `src/contracts/ws-events.ts`는 2026-07-23 무렵의 초안
-스캐폴드가 정리되지 않고 남은 **죽은 코드**다. 어디서도 import되지 않는다 — 새 코드에서
-참고하거나 의존하지 않는다. 삭제는 별도 코드 변경 티켓에서 처리한다.
+도메인 안에서는 필요한 레이어 폴더만 만든다(`yacht/domain/` · `yacht/screens/` ·
+`yacht/rendering/physics-dice/` 등). 실제 파일 없이 미래를 위한 폴더를 만들지 않는다.
+
+**테스트는 소스와 같은 폴더의 `__tests__/`** 에 둔다 — `yacht/domain/scoring.ts`의 테스트는
+`yacht/domain/__tests__/scoring.test.ts`다. 폴더를 열었을 때 소스만 보여야 읽힌다.
 
 규칙:
 
-- **레이어를 넘는 import만 `@/`를 쓴다.** 같은 폴더 안은 상대경로를 쓴다 — `@/`가 보이면 레이어 경계라는 뜻이다.
-- 파일 하나 = 개념 하나. 파일명만 훑어도 앱이 읽히도록 이름 짓는다.
-- 의존 방향은 `app → screens → components · api · realtime · domain → store · cn`으로 유지한다. `domain`과 `rendering`은 서로, 그리고 `screens`·`realtime`·`store`를 import하지 않는다. 되돌아가는 import를 만들지 않는다.
-- 실제 파일 없이 미래를 위한 폴더를 만들지 않는다. `features`, `entities`, `widgets`, `shared`는 추가하지 않는다.
+- **도메인·레이어를 넘는 import만 `@/`를 쓴다.** 같은 폴더 안은 상대경로를 쓴다 — `@/`가 보이면 경계라는 뜻이다.
+- 파일 하나 = 개념 하나. 파일명만 훑어도 앱이 읽히도록 이름 짓는다. 폴더가 이미 말해 주는 것을 파일명에 반복하지 않는다.
+- 의존 방향은 사용자 흐름 순서로 **단방향**이다: `app → landing → room → yacht`. `auth` · `shared` · `realtime` · `games.ts` · `store.ts`는 경계 모듈이라 어느 도메인에서나 참조한다. 되돌아가는 import를 만들지 않는다.
+- `yacht/domain/`은 React·DOM·네트워크를 모른다. `yacht/rendering/`은 `screens`·`realtime`·`store`를 import하지 않는다.
+
+**알려진 경계 예외 2건**(둘 다 로직 변경이 필요해 별도 티켓이다. 근거는 해당 파일 주석에 있다):
+
+- `realtime/wsEvents.ts` → `yacht/domain/*` — 와이어 계약 자체가 야추 모양이다(`dice.*`, `round.submit`의 `YachtCategory`). 게임을 추가하려면 게임 무관 envelope와 게임별 payload로 갈라야 한다.
+- `yacht/screens/GameResult.tsx` → `room/api/useGameApi` — 결과 화면이 "대기실로 돌아가기"를 직접 호출한다. `GamePage`가 콜백으로 내려주면 사라진다.
+
+**게임을 추가할 때** 손댈 곳은 세 군데다: `src/games.ts`에 항목 추가 → `src/<게임>/` 구현 →
+`room/screens/GamePage`에서 키로 화면 분기.
 
 자세한 설계 근거는 [`docs/engineering/architecture-and-stack.md`](docs/engineering/architecture-and-stack.md) 참고.
 
@@ -47,7 +56,7 @@ API를 구성하는 강하게 결합된 subsystem이다.
 
 - Tailwind CSS v4와 CSS-first `@theme`를 사용한다.
 - 색상·간격은 원시 값 대신 semantic token을 사용한다.
-- 공통 class 병합은 `src/cn.ts`의 `cn()`을 사용한다.
+- 공통 class 병합은 `src/shared/cn.ts`의 `cn()`을 사용한다.
 - 공통 UI가 있으면 화면에서 같은 컴포넌트를 새로 만들지 않는다.
 - 복잡한 animation만 CSS keyframes로 분리한다.
 - 디자인이 확정되지 않은 상태에서 pixel-perfect 작업을 임의로 확대하지 않는다.
