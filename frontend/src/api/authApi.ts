@@ -22,6 +22,12 @@ export function kakaoLoginUrl(options?: { forceLogin?: boolean }) {
   return options?.forceLogin ? `${base}?prompt=login` : base
 }
 
+/** 구글 OAuth 로그인 시작 주소. */
+export function googleLoginUrl(options?: { selectAccount?: boolean }) {
+  const base = `${API_BASE_URL}/auth/google/authorize`
+  return options?.selectAccount ? `${base}?prompt=select_account` : base
+}
+
 /**
  * 콜백이 넘긴 일회용 코드를 세션으로 바꾼다. 코드는 60초·1회용이라 실패하면 다시 로그인해야 한다.
  */
@@ -87,7 +93,7 @@ export const loginErrorMessages: Record<string, string> = {
   canceled: '로그인을 취소했어요.',
   invalid_state: '로그인 요청이 만료됐어요. 다시 시도해 주세요.',
   not_configured: '지금은 로그인을 사용할 수 없어요. 잠시 후 다시 시도해 주세요.',
-  provider_error: '카카오와 연결하지 못했어요. 다시 시도해 주세요.',
+  provider_error: '로그인 제공자와 연결하지 못했어요. 다시 시도해 주세요.',
 }
 
 export function loginErrorMessage(reason: string | undefined) {

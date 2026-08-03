@@ -277,8 +277,7 @@ describe('EntryPage', () => {
     const dialog = within(screen.getByRole('dialog', { name: '로그인' }))
 
     expect(dialog.getByRole('button', { name: '카카오로 계속하기' })).toBeEnabled()
-    // 아직 서버에 구글 경로가 없다 — 눌리는 것처럼 보이면 안 된다.
-    expect(dialog.getByRole('button', { name: /구글로 계속하기/ })).toBeDisabled()
+    expect(dialog.getByRole('button', { name: '구글로 계속하기' })).toBeEnabled()
   })
 
   it('shows the signed-in nickname and signs out from the account menu', async () => {
