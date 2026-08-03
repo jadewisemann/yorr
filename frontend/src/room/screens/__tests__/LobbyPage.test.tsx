@@ -29,6 +29,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 describe('LobbyPage', () => {
   beforeEach(() => {
     navigate.mockReset()
+    clearMockRoomSnapshot()
     prefetchPhysicsDiceWorld.mockReset()
     clearMockRoomSnapshot()
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
@@ -119,16 +120,13 @@ describe('LobbyPage', () => {
     expect(screen.getByText('호스트가 게임을 시작하면 자동으로 이동해요.')).toBeVisible()
   })
 
-  it('lets the host add, change, and remove a bot', async () => {
+  it('lets the host add and remove a bot', async () => {
     const user = userEvent.setup()
     render(<LobbyPage roomId={creatorSession.roomId} />)
 
     await user.click(screen.getByRole('button', { name: '봇 추가' }))
-    expect(await screen.findByText('AI 봇 · 보통')).toBeVisible()
+    expect(await screen.findByText('상태 기반 AI 봇')).toBeVisible()
     expect(screen.getByRole('region', { name: '참가자 3명' })).toBeVisible()
-
-    await user.selectOptions(screen.getByRole('combobox', { name: /요르봇 .* 난이도/ }), 'HARD')
-    expect(await screen.findByText('AI 봇 · 어려움')).toBeVisible()
 
     await user.click(screen.getByRole('button', { name: '삭제' }))
     await waitFor(() => expect(screen.getByRole('region', { name: '참가자 2명' })).toBeVisible())
