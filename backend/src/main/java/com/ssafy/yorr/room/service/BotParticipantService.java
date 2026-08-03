@@ -11,6 +11,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+/**
+ * 대기실 AI 봇 참가자. 호스트만 추가·삭제할 수 있다.
+ * <p>
+ * 호스트 판정이 {@code hostId} 일치 + 플레이어 명단 존재의 두 조건인 이유는
+ * {@code RoomValidationController}의 호스트 검사와 같다 — 방을 떠난 옛 호스트가 남의 방에
+ * 봇을 붙이지 못하게 하는 조건이다. 파티 방도 다르지 않다: 방장은 처음 들어온 컨트롤러이므로
+ * ({@link com.ssafy.yorr.room.dto.RoomMode}) hostId는 항상 명단 안의 사람을 가리킨다.
+ */
 @Service
 @RequiredArgsConstructor
 public class BotParticipantService {

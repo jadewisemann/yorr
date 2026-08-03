@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
+import { isRoomHost } from '@/room/api/roomApi'
 // 경계 규칙 예외 — yacht가 room을 본다. 결과 화면이 "대기실로 돌아가기"를 직접
 // 호출하기 때문이다. 부모인 room/screens/GamePage가 onLeaveRequest처럼 콜백으로
 // 내려주면 사라지지만 컴포넌트 계약이 바뀌는 로직 변경이라 별도 티켓이다.
@@ -11,6 +12,7 @@ import type { ActiveRoomSession } from '@/store'
 import { type RankedPlayer, ResultRanking } from '@/yacht/components/ResultRanking'
 import { ScoreMatrix } from '@/yacht/components/ScoreMatrix'
 import { UPPER_BONUS_POINTS } from '@/yacht/domain/scoring'
+import { PartyResultDashboard } from './PartyResultDashboard'
 
 interface GameResultProps {
   /** 나가기는 GamePage의 RoomExitGuard가 확인을 받고 처리한다(GamePlay와 같은 경로). */
@@ -29,13 +31,26 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
   const myRank = myIndex >= 0 ? myIndex + 1 : ranked.length
   const me = ranked[myIndex]
   const myBoard = snapshot.game?.scores[session.you]
-  const isHost = session.membershipRole === 'host'
+  const isHost = isRoomHost(snapshot, session.you)
 
   // 대기실 복귀는 방 전체가 함께 움직인다(화면 전환이 phase 기준이라 혼자 옮겨갈 수 없다).
   // 이동 자체는 서버의 state.sync를 받은 라우팅이 처리하므로 여기서 navigate하지 않는다.
   const handleReturnToLobby = async () => {
     if (!isHost) return
     await returnToLobby.execute()
+  }
+
+  // 파티 모드 대시보드는 플레이어가 아니라 아래의 개인 결과(내 등수·내 점수)를 채울 값이 없다.
+  // 순위 계산은 여기서 한 것을 그대로 넘긴다 — 두 화면이 다른 등수를 보이면 안 된다.
+  if (session.membershipRole === 'dashboard') {
+    return (
+      <PartyResultDashboard
+        onLeaveRequest={onLeaveRequest}
+        ranked={ranked}
+        session={session}
+        snapshot={snapshot}
+      />
+    )
   }
 
   return (

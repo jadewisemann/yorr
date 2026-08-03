@@ -92,6 +92,21 @@ export const participantSession = {
   snapshot: waitingRoomSnapshot,
 } satisfies RoomSession
 
+/**
+ * 파티 모드 대시보드. 방을 열었지만 <b>플레이어가 아니다</b> — `you`가 참가자 목록에 없는 것이
+ * 이 픽스처의 요점이다. 실서버도 대시보드를 플레이어 명단에 넣지 않는다(백엔드 `RoomMode.PARTY`).
+ */
+export const dashboardSession = {
+  gameId: null,
+  roomId: MOCK_ROOM_ID,
+  roomCode: MOCK_ROOM_CODE,
+  you: 'dashboard-64',
+  nickname: '대시보드',
+  membershipRole: 'dashboard',
+  sessionToken: 'session-dashboard-64',
+  snapshot: waitingRoomSnapshot,
+} satisfies RoomSession
+
 export function serverMessage<T extends ServerMessage['type']>(
   type: T,
   payload: Extract<ServerMessage, { type: T }>['payload'],

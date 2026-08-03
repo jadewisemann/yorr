@@ -85,6 +85,11 @@ export function EntryPage() {
     void navigate({ to: '/tutorial' })
   }
 
+  // 대시보드는 플레이어가 아니라 이름을 짓지 않는다 — 닉네임 화면을 거치지 않는다.
+  const handleOpenParty = () => {
+    void navigate({ to: '/party' })
+  }
+
   const handleJoin = () => {
     // 이동이 막히거나 되돌아오는 경우에도 열린 채로 남지 않게 먼저 닫는다.
     setCodeOpen(false)
@@ -190,6 +195,7 @@ export function EntryPage() {
               activeIndex={activeIndex}
               games={games}
               layout="wide"
+              onPartyMode={handleOpenParty}
               onPlay={handlePlay}
               onSelect={handleGameSelect}
             />
@@ -274,6 +280,7 @@ export function EntryPage() {
             activeIndex={activeIndex}
             games={games}
             layout="narrow"
+            onPartyMode={handleOpenParty}
             onPlay={handlePlay}
             onSelect={handleGameSelect}
           />

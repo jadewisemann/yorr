@@ -23,6 +23,8 @@ function boardWithTotal(total: number): ScoreBoard {
 const finishedSnapshot = {
   roomId: hostSession.roomId,
   phase: 'finished',
+  // 방장은 스냅샷이 정한다 — 입장 시점의 membershipRole은 승계를 표현할 수 없다(isRoomHost).
+  hostId: hostSession.you,
   players: [
     { playerId: hostSession.you, nickname: '민지', status: 'online' },
     { playerId: 'player-participant', nickname: '지훈', status: 'online' },
@@ -116,8 +118,8 @@ describe('GameResult', () => {
     render(
       <GameResult
         onLeaveRequest={() => {}}
-        session={{ ...hostSession, membershipRole: 'participant' }}
-        snapshot={finishedSnapshot}
+        session={hostSession}
+        snapshot={{ ...finishedSnapshot, hostId: 'player-participant' }}
       />,
     )
 
@@ -205,5 +207,73 @@ describe('GameResult', () => {
       expect.objectContaining({ sessionToken: hostSession.sessionToken, userId: hostSession.you }),
     )
     expect(navigate).not.toHaveBeenCalled()
+  })
+
+  /**
+   * 파티 모드 대시보드는 플레이어 명단에 없다 — 개인 결과를 그리면 `you`가 순위에서 안 찾혀
+   * <b>꼴등 0점</b>으로 계산되어, 큰 화면에 있지도 않은 플레이어가 뜬다.
+   */
+  describe('파티 모드 대시보드', () => {
+    const dashboard = { ...hostSession, membershipRole: 'dashboard' as const, you: 'dashboard-1' }
+
+    beforeEach(() => {
+      // wide(≥1024px) 분기 — 점수표 열이 그려지는 쪽이다. jsdom 기본은 좁은 레이아웃이다.
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn().mockReturnValue({
+          matches: true,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }),
+      )
+    })
+
+    it('개인 결과 대신 모두의 순위를 보여준다', () => {
+      render(
+        <GameResult
+          onLeaveRequest={() => {}}
+          session={dashboard}
+          snapshot={{ ...finishedSnapshot, hostId: 'player-participant' }}
+        />,
+      )
+
+      // 등수 헤드라인·ME 카드가 없어야 한다 — 대시보드의 등수라는 것은 존재하지 않는다.
+      expect(screen.queryByRole('heading', { name: /위$/ })).not.toBeInTheDocument()
+      expect(screen.queryByText('ME')).not.toBeInTheDocument()
+      // 순위는 세 명 그대로. 대시보드가 명단에 끼어들지 않는다.
+      expect(screen.getAllByRole('listitem')).toHaveLength(3)
+      expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('지훈')
+    })
+
+    /** 대시보드는 방장이 아니다 — 누를 수 없는 버튼 대신 누가 눌러야 하는지 알린다. */
+    it('대기실로 버튼 없이 방장을 기다린다고 알린다', () => {
+      render(
+        <GameResult
+          onLeaveRequest={() => {}}
+          session={dashboard}
+          snapshot={{ ...finishedSnapshot, hostId: 'player-participant' }}
+        />,
+      )
+
+      expect(screen.queryByRole('button', { name: '대기실로' })).not.toBeInTheDocument()
+      expect(screen.getByText('방장이 대기실로 옮기면 같은 멤버로 다시 시작해요.')).toBeVisible()
+      expect(screen.getByRole('button', { name: '방 닫기' })).toBeVisible()
+    })
+
+    /** TV를 탭할 사람은 없다 — 전체 점수표는 BottomSheet가 아니라 처음부터 펼쳐져 있어야 한다. */
+    it('전체 점수표를 펼친 채로 보여준다', () => {
+      render(
+        <GameResult
+          onLeaveRequest={() => {}}
+          session={dashboard}
+          snapshot={{ ...finishedSnapshot, hostId: 'player-participant' }}
+        />,
+      )
+
+      const sheet = screen.getByRole('region', { name: '전체 점수표' })
+      expect(within(sheet).getByRole('columnheader', { name: '지훈' })).toBeVisible()
+      // 폰 화면의 '나' 열은 없다 — 대시보드에는 '나'가 없다.
+      expect(within(sheet).queryByRole('columnheader', { name: '나' })).not.toBeInTheDocument()
+    })
   })
 })

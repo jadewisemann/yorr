@@ -10,6 +10,7 @@ import { calculateScoreCandidates } from '@/yacht/domain/scoring'
 import {
   createPlayingRoomSnapshot,
   creatorSession,
+  dashboardSession,
   MOCK_ROOM_ID,
   MOCK_ROUND_DURATION_MS,
   participantSession,
@@ -78,7 +79,9 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
     http.post('/api/v1/rooms', async ({ request }) => {
       await beforeResponse()
       const body = (await request.json()) as EnterRoomRequest
-      const session = body.room_id ? participantSession : creatorSession
+      // ?party=true = 파티 모드 방 열기. 이 세션은 대시보드가 되고 플레이어 명단에 들어가지 않는다.
+      const party = new URL(request.url).searchParams.get('party') === 'true'
+      const session = body.room_id ? participantSession : party ? dashboardSession : creatorSession
       if (body.room_id && body.room_id !== creatorSession.roomCode) {
         return HttpResponse.text('room_not_found', { status: 404 })
       }
@@ -245,10 +248,11 @@ function toRestRoomSnapshot(snapshot: typeof waitingRoomSnapshot) {
   }
 }
 
-function toEnterRoomResponse(session: RoomSession, nickname: string): EnterRoomResponse {
+/** 대시보드는 닉네임을 보내지 않는다 — 실서버처럼 mock도 그때는 세션의 이름을 돌려준다. */
+function toEnterRoomResponse(session: RoomSession, nickname?: string): EnterRoomResponse {
   return {
     id: session.you,
-    nickname,
+    nickname: nickname?.trim() ? nickname : session.nickname,
     token: session.sessionToken,
     room_id: session.roomId,
   }

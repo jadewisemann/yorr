@@ -70,9 +70,14 @@ interface UseGamePlayRollOptions {
   roomId: string
   showToast: (message: string) => void
   you: PlayerId
+  /**
+   * 이 화면이 언젠가 턴을 가질 수 있는가. 파티 모드 대시보드는 플레이어가 아니라 영구히
+   * false다 — 흔들기 센서를 켜지 않고 조작 안내도 띄우지 않는 근거가 된다.
+   */
+  canPlay: boolean
 }
 
-export function useGamePlayRoll({ game, roomId, showToast, you }: UseGamePlayRollOptions) {
+export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGamePlayRollOptions) {
   const realtimeClient = useRealtimeClient()
   const connectionStatus = useAppStore((state) => state.connectionStatus)
   const renderedGameRef = useRef(game)
@@ -458,7 +463,7 @@ export function useGamePlayRoll({ game, roomId, showToast, you }: UseGamePlayRol
     [beginRoll, local, publishShake, publishThrow],
   )
 
-  const motion = useMotionRollInput(handleGestureEvent)
+  const motion = useMotionRollInput(handleGestureEvent, canPlay)
   const pendingRoll = getPendingRoll(local)
 
   useEffect(() => {
@@ -529,6 +534,7 @@ export function useGamePlayRoll({ game, roomId, showToast, you }: UseGamePlayRol
   return {
     allKept,
     canHold,
+    canPlay,
     canPick,
     canRoll,
     completeRoll,
