@@ -166,7 +166,7 @@ describe('RealtimeSync', () => {
     )
 
     client.emitMessage(
-      serverMessage('round.start', {
+      serverMessage('game.yacht_dice.round.start', {
         activePlayerId: creatorPlayer.playerId,
         deadline: 2_000,
         roundNumber: 1,
@@ -174,7 +174,7 @@ describe('RealtimeSync', () => {
       }),
     )
     client.emitMessage(
-      serverMessage('score.update', {
+      serverMessage('game.yacht_dice.score.update', {
         playerId: participantPlayer.playerId,
         scoreboard: { ...createEmptyScoreBoard(), total: 24 },
       }),
@@ -199,7 +199,7 @@ describe('RealtimeSync', () => {
     )
 
     client.emitMessage(
-      serverMessage('round.start', {
+      serverMessage('game.yacht_dice.round.start', {
         activePlayerId: creatorPlayer.playerId,
         deadline: 2_000,
         roundNumber: 1,
@@ -207,7 +207,7 @@ describe('RealtimeSync', () => {
       }),
     )
     client.emitMessage(
-      serverMessage('score.update', {
+      serverMessage('game.yacht_dice.score.update', {
         playerId: participantPlayer.playerId,
         scoreboard: { ...createEmptyScoreBoard(), total: 24 },
       }),
@@ -241,7 +241,7 @@ describe('RealtimeSync', () => {
     )
 
     client.emitMessage(
-      serverMessage('round.start', {
+      serverMessage('game.yacht_dice.round.start', {
         activePlayerId: creatorPlayer.playerId,
         deadline: 2_000,
         roundNumber: 12,
@@ -249,7 +249,7 @@ describe('RealtimeSync', () => {
       }),
     )
     client.emitMessage(
-      serverMessage('game.over', {
+      serverMessage('game.yacht_dice.game.over', {
         rankings: [
           { rank: 1, playerId: participantPlayer.playerId, total: 205 },
           { rank: 2, playerId: creatorPlayer.playerId, total: 180 },
@@ -274,7 +274,7 @@ describe('RealtimeSync', () => {
     )
 
     client.emitMessage(
-      serverMessage('round.start', {
+      serverMessage('game.yacht_dice.round.start', {
         activePlayerId: creatorPlayer.playerId,
         deadline: 2_000,
         roundNumber: 12,
@@ -282,7 +282,7 @@ describe('RealtimeSync', () => {
       }),
     )
     client.emitMessage(
-      serverMessage('game.over', {
+      serverMessage('game.yacht_dice.game.over', {
         rankings: [
           { rank: 1, playerId: participantPlayer.playerId, total: 205 },
           { rank: 2, playerId: creatorPlayer.playerId, total: 180 },
@@ -314,7 +314,7 @@ describe('RealtimeSync', () => {
     )
 
     client.emitMessage(
-      serverMessage('round.start', {
+      serverMessage('game.yacht_dice.round.start', {
         activePlayerId: creatorPlayer.playerId,
         deadline: 2_000,
         roundNumber: 12,
@@ -442,7 +442,7 @@ describe('RealtimeSync', () => {
     )
 
     client.emitMessage(
-      serverMessage('round.start', {
+      serverMessage('game.yacht_dice.round.start', {
         activePlayerId: creatorPlayer.playerId,
         deadline: 2_000,
         roundNumber: 1,
@@ -450,7 +450,7 @@ describe('RealtimeSync', () => {
       }),
     )
     client.emitMessage(
-      serverMessage('dice.broadcast', {
+      serverMessage('game.yacht_dice.dice.broadcast', {
         playerId: creatorPlayer.playerId,
         roundNumber: 1,
         rollCount: 2,
@@ -467,7 +467,7 @@ describe('RealtimeSync', () => {
 
     // 지난 라운드의 뒤늦은 broadcast는 이미 넘어간 턴을 덮어써서는 안 된다.
     client.emitMessage(
-      serverMessage('dice.broadcast', {
+      serverMessage('game.yacht_dice.dice.broadcast', {
         playerId: creatorPlayer.playerId,
         roundNumber: 0,
         rollCount: 3,
@@ -479,7 +479,7 @@ describe('RealtimeSync', () => {
     expect(useAppStore.getState().roomSnapshot?.game).toMatchObject({ rollCount: 2 })
 
     client.emitMessage(
-      serverMessage('dice.broadcast', {
+      serverMessage('game.yacht_dice.dice.broadcast', {
         playerId: participantPlayer.playerId,
         roundNumber: 1,
         rollCount: 3,
@@ -490,7 +490,7 @@ describe('RealtimeSync', () => {
     expect(useAppStore.getState().roomSnapshot?.game).toMatchObject({ rollCount: 2 })
 
     client.emitMessage(
-      serverMessage('dice.broadcast', {
+      serverMessage('game.yacht_dice.dice.broadcast', {
         playerId: creatorPlayer.playerId,
         roundNumber: 1,
         rollCount: 1,
@@ -502,7 +502,7 @@ describe('RealtimeSync', () => {
 
     client.emitMessage(
       serverMessage(
-        'dice.broadcast',
+        'game.yacht_dice.dice.broadcast',
         {
           playerId: creatorPlayer.playerId,
           roundNumber: 1,
@@ -542,7 +542,9 @@ describe('RealtimeSync', () => {
     )
     const before = useAppStore.getState().roomSnapshot
 
-    client.emitMessage(serverMessage('round.end', { roundNumber: 1, submitted: [] }))
+    client.emitMessage(
+      serverMessage('game.yacht_dice.round.end', { roundNumber: 1, submitted: [] }),
+    )
     client.emitMessage(serverMessage('sys.pong', { serverTs: 1 }))
 
     expect(useAppStore.getState().roomSnapshot).toBe(before)
