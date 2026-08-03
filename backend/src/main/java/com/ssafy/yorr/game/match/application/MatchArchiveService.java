@@ -38,7 +38,11 @@ public class MatchArchiveService {
 
     @org.springframework.beans.factory.annotation.Autowired
     public MatchArchiveService(MatchRepository matches, UserRepository users) {
-        this(matches, users, Clock.systemDefaultZone());
+        // finished_at은 UTC 벽시계로 저장한다. systemDefaultZone()이면 JVM 존에 따라 같은 코드가
+        // 다른 값을 쓴다 — 배포 컨테이너는 UTC, 개발자 PC는 KST라 9시간 어긋난 행이 섞인다.
+        // 기간으로 자르는 집계(주간 랭킹)는 그 어긋남을 복원할 방법이 없다. 이 서비스만 예외였고
+        // RoundTimerService·RoundTimeoutResolver는 이미 systemUTC()를 쓴다.
+        this(matches, users, Clock.systemUTC());
     }
 
     MatchArchiveService(MatchRepository matches, UserRepository users, Clock clock) {
