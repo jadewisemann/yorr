@@ -777,6 +777,14 @@ export function createScene(canvas: HTMLCanvasElement): PingPongScene {
      프레임 갱신
      ============================================================ */
   function update(s: FrameState) {
+    const position = updateBall(s)
+    updateBallShadow(position)
+    updatePlayers(s)
+    updateTrail(position, s)
+    updateCameras(s.shake)
+  }
+
+  function updateBall(s: FrameState) {
     const prog = flightProgress(s.ballPos, s.ballDir, s.ballFault)
     const bx = xToWorld(s.ballX)
     const bz = posToZ(s.ballPos)
@@ -792,6 +800,20 @@ export function createScene(canvas: HTMLCanvasElement): PingPongScene {
     ball.rotation.x += s.ballDir * 0.42
     ball.rotation.y += 0.12
 
+    return { bx, by, bz, overTop }
+  }
+
+  function updateBallShadow({
+    bx,
+    by,
+    bz,
+    overTop,
+  }: {
+    bx: number
+    by: number
+    bz: number
+    overTop: boolean
+  }) {
     // 공 그림자 — 테이블 위면 상판에, 코트를 벗어나면 바닥에 떨어진다.
     const groundY = overTop ? TABLE_H + 0.003 : 0.006
     const height = Math.max(0, by - groundY)
@@ -801,7 +823,9 @@ export function createScene(canvas: HTMLCanvasElement): PingPongScene {
     ballShadow.scale.set(spread, spread, 1)
     const sm = ballShadow.material as THREE.MeshBasicMaterial
     sm.opacity = clamp(0.9 - height * 0.75, 0.14, 0.9)
+  }
 
+  function updatePlayers(s: FrameState) {
     // 라켓 (1인칭으로 보이는 내 라켓)
     poseP(p1Paddle, s.p1X, s.p1Swing)
     poseP(p2Paddle, s.p2X, s.p2Swing)
@@ -813,15 +837,23 @@ export function createScene(canvas: HTMLCanvasElement): PingPongScene {
     poseMascot(p2Mascot, s.p2X, s.p2Swing, react, t)
     p1Shadow.position.x = p1Mascot.root.position.x
     p2Shadow.position.x = p2Mascot.root.position.x
+  }
 
-    // 스매시 잔상
+  function updateTrail({ bx, by, bz }: { bx: number; by: number; bz: number }, s: FrameState) {
+    shiftTrailHistory()
+    history[0]?.set(bx, by, bz)
+    renderTrail(s.ballSmash && s.playing)
+  }
+
+  function shiftTrailHistory() {
     for (let i = history.length - 1; i > 0; i--) {
       const current = history[i]
       const previous = history[i - 1]
       if (current && previous) current.copy(previous)
     }
-    history[0]?.set(bx, by, bz)
-    const showTrail = s.ballSmash && s.playing
+  }
+
+  function renderTrail(showTrail: boolean) {
     for (let i = 0; i < trail.length; i++) {
       const dot = trail[i]
       const point = history[i]
@@ -829,14 +861,16 @@ export function createScene(canvas: HTMLCanvasElement): PingPongScene {
       dot.visible = showTrail
       if (showTrail && point) dot.position.copy(point)
     }
+  }
 
+  function updateCameras(shake: number) {
     // 화면 흔들림 — 카메라를 살짝 튕긴다
     for (const v of [1, 2] as Viewer[]) {
       const home = camHome[v]
-      if (s.shake > 0) {
+      if (shake > 0) {
         cams[v].position.set(
-          home.x + (Math.random() - 0.5) * SHAKE_AMP * s.shake,
-          home.y + (Math.random() - 0.5) * SHAKE_AMP * s.shake,
+          home.x + (Math.random() - 0.5) * SHAKE_AMP * shake,
+          home.y + (Math.random() - 0.5) * SHAKE_AMP * shake,
           home.z,
         )
       } else if (!cams[v].position.equals(home)) {
@@ -852,28 +886,40 @@ export function createScene(canvas: HTMLCanvasElement): PingPongScene {
    *  - 타이밍 링은 "지금 받는 사람" 화면에만 띄운다
    */
   function prepare(viewer: Viewer, s: FrameState) {
+    prepareViewer(viewer)
+    prepareTimingRing(viewer, s)
+  }
+
+  function prepareViewer(viewer: Viewer) {
     p1Mascot.root.visible = viewer !== 1
     p2Mascot.root.visible = viewer !== 2
     p1Shadow.visible = viewer !== 1
     p2Shadow.visible = viewer !== 2
     p1Paddle.group.visible = viewer === 1
     p2Paddle.group.visible = viewer === 2
+  }
 
+  function prepareTimingRing(viewer: Viewer, s: FrameState) {
     const dv = viewerDepth(s.ballPos, viewer)
     const incoming = viewer === 1 ? s.ballDir > 0 : s.ballDir < 0
     // 죽은 공엔 링을 띄우지 않는다 — 칠 수 없는 공에 타이밍을 재게 하면 안 된다
     const show = s.playing && incoming && !s.ballHit && !s.ballFault && dv > W1_LO - 0.14
     ring.visible = show
-    if (show) {
-      const d = Math.abs(dv - IDEAL1)
-      const inWin = dv >= W1_LO && dv <= W1_HI
-      ringMat.color.setHex(d <= PERFECT_D ? 0xffd24a : inWin ? 0x49e08a : 0xdfe6ec)
-      ringMat.opacity = d <= PERFECT_D ? 1 : inWin ? 0.9 : 0.42
-      ring.position.copy(ball.position)
-      ring.quaternion.copy(cams[viewer].quaternion) // 카메라를 정면으로 바라보게
-      const grow = d <= PERFECT_D ? 1.35 : 1
-      ring.scale.setScalar(grow)
-    }
+    if (!show) return
+
+    const { color, opacity, scale } = timingRingStyle(dv)
+    ringMat.color.setHex(color)
+    ringMat.opacity = opacity
+    ring.position.copy(ball.position)
+    ring.quaternion.copy(cams[viewer].quaternion) // 카메라를 정면으로 바라보게
+    ring.scale.setScalar(scale)
+  }
+
+  function timingRingStyle(depth: number) {
+    const distance = Math.abs(depth - IDEAL1)
+    if (distance <= PERFECT_D) return { color: 0xffd24a, opacity: 1, scale: 1.35 }
+    if (depth >= W1_LO && depth <= W1_HI) return { color: 0x49e08a, opacity: 0.9, scale: 1 }
+    return { color: 0xdfe6ec, opacity: 0.42, scale: 1 }
   }
 
   function render(s: FrameState) {

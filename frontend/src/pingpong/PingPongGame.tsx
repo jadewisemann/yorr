@@ -86,37 +86,7 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
     let raf = 0
     const frame = () => {
       const current = stateRef.current
-      if (current) {
-        const now = Date.now()
-        const ball = currentBall(current, now)
-        const eventAge = current.lastEvent ? now - current.lastEvent.at : Number.POSITIVE_INFINITY
-        const swingAmount = eventAge < 260 ? 1 - eventAge / 260 : 0
-        const eventPlayer = current.lastEvent?.playerId
-        const fault = ball.fault?.toLowerCase() as Fault | undefined
-        const rendered: FrameState = {
-          split: false,
-          viewer: viewerRef.current,
-          playing: current.phase === 'PLAYING',
-          ballPos: ball.pos,
-          ballDir: ball.direction,
-          ballX: ball.x,
-          ballSmash: ball.smash,
-          ballHit: false,
-          ballFault: fault ?? null,
-          ballFaultFrom: ball.faultFrom,
-          ballFall:
-            current.phase === 'COUNTDOWN' && ball.fault && current.lastEvent
-              ? Math.min(1.2, eventAge / 1_000)
-              : 0,
-          p1X: ball.x0,
-          p2X: ball.x0,
-          p1Swing: eventPlayer === current.playerOrder[0] ? swingAmount : 0,
-          p2Swing: eventPlayer === current.playerOrder[1] ? swingAmount : 0,
-          shake: current.lastEvent?.type === 'SMASH' && eventAge < 190 ? 1 - eventAge / 190 : 0,
-        }
-        scene.update(rendered)
-        scene.render(rendered)
-      }
+      if (current) renderSceneFrame(scene, current, viewerRef.current, Date.now())
       raf = requestAnimationFrame(frame)
     }
     raf = requestAnimationFrame(frame)
@@ -307,27 +277,53 @@ function currentBall(state: PingPongState, now: number) {
   }
 }
 
-function eventLabel(type: PingPongEventType, mine: boolean) {
-  switch (type) {
-    case 'SMASH':
-      return mine ? '스매시! 💥' : '상대 스매시!'
-    case 'NICE':
-      return mine ? '퍼펙트!' : '상대가 받아쳤어요'
-    case 'OK':
-      return mine ? '굿!' : '리턴!'
-    case 'TOO_EARLY':
-      return mine ? '너무 빨라요' : null
-    case 'TOO_LATE':
-      return mine ? '너무 늦었어요' : null
-    case 'OUT':
-      return mine ? '아웃!' : '상대 아웃!'
-    case 'NET':
-      return mine ? '네트…' : '상대 네트!'
-    case 'POINT':
-      return mine ? '득점!' : '실점'
-    case 'OPPONENT_LEFT':
-      return '상대가 나갔어요'
-    default:
-      return null
+function renderSceneFrame(scene: PingPongScene, state: PingPongState, viewer: 1 | 2, now: number) {
+  const rendered = createFrameState(state, viewer, now)
+  scene.update(rendered)
+  scene.render(rendered)
+}
+
+function createFrameState(state: PingPongState, viewer: 1 | 2, now: number): FrameState {
+  const ball = currentBall(state, now)
+  const eventAge = state.lastEvent ? now - state.lastEvent.at : Number.POSITIVE_INFINITY
+  const swingAmount = eventAge < 260 ? 1 - eventAge / 260 : 0
+  const eventPlayer = state.lastEvent?.playerId
+  const fault = ball.fault?.toLowerCase() as Fault | undefined
+  const falling = state.phase === 'COUNTDOWN' && ball.fault && state.lastEvent
+  return {
+    split: false,
+    viewer,
+    playing: state.phase === 'PLAYING',
+    ballPos: ball.pos,
+    ballDir: ball.direction,
+    ballX: ball.x,
+    ballSmash: ball.smash,
+    ballHit: false,
+    ballFault: fault ?? null,
+    ballFaultFrom: ball.faultFrom,
+    ballFall: falling ? Math.min(1.2, eventAge / 1_000) : 0,
+    p1X: ball.x0,
+    p2X: ball.x0,
+    p1Swing: eventPlayer === state.playerOrder[0] ? swingAmount : 0,
+    p2Swing: eventPlayer === state.playerOrder[1] ? swingAmount : 0,
+    shake: state.lastEvent?.type === 'SMASH' && eventAge < 190 ? 1 - eventAge / 190 : 0,
   }
+}
+
+const EVENT_LABELS: Partial<
+  Record<PingPongEventType, readonly [mine: string | null, opponent: string | null]>
+> = {
+  SMASH: ['스매시! 💥', '상대 스매시!'],
+  NICE: ['퍼펙트!', '상대가 받아쳤어요'],
+  OK: ['굿!', '리턴!'],
+  TOO_EARLY: ['너무 빨라요', null],
+  TOO_LATE: ['너무 늦었어요', null],
+  OUT: ['아웃!', '상대 아웃!'],
+  NET: ['네트…', '상대 네트!'],
+  POINT: ['득점!', '실점'],
+  OPPONENT_LEFT: ['상대가 나갔어요', '상대가 나갔어요'],
+}
+
+function eventLabel(type: PingPongEventType, mine: boolean) {
+  return EVENT_LABELS[type]?.[mine ? 0 : 1] ?? null
 }

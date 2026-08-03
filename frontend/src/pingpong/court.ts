@@ -154,15 +154,20 @@ const NET_B = 0.198
  *  from = 그 타구를 친 시점의 prog (실패 궤적의 시작점)
  */
 export function ballLift(prog: number, smash: boolean, fault: Fault = null, from = 0): number {
-  if (fault) {
-    const end = fault === 'out' ? OUT_END_PROG : NET_HIT_PROG
-    const span = end - from
-    const t = span <= 0 ? 1 : (prog - from) / span
-    const u = t < 0 ? 0 : t > 1 ? 1 : t
-    return fault === 'out' ? OUT_A * u * u + OUT_B * u + LAUNCH : NET_A * u * u + NET_B * u + LAUNCH
-  }
+  return fault ? faultLift(prog, fault, from) : rallyLift(prog, smash)
+}
+
+function faultLift(prog: number, fault: Exclude<Fault, null>, from: number): number {
+  const end = fault === 'out' ? OUT_END_PROG : NET_HIT_PROG
+  const span = end - from
+  const t = span <= 0 ? 1 : (prog - from) / span
+  const u = clampUnit(t)
+  return fault === 'out' ? OUT_A * u * u + OUT_B * u + LAUNCH : NET_A * u * u + NET_B * u + LAUNCH
+}
+
+function rallyLift(prog: number, smash: boolean): number {
   const f = flightOf(smash)
-  const p = prog < 0 ? 0 : prog > 1 ? 1 : prog
+  const p = clampUnit(prog)
   if (p <= f.bounceAt) {
     const { a, b } = smash ? A_SMASH : A_NORMAL
     const h = a * p * p + b * p + LAUNCH
@@ -173,6 +178,10 @@ export function ballLift(prog: number, smash: boolean, fault: Fault = null, from
   const t = span <= 0 ? 1 : (p - f.bounceAt) / span
   const u = 1 - t
   return 2 * t * u * f.reboundCtrl + t * t * ARRIVE
+}
+
+function clampUnit(value: number) {
+  return Math.max(0, Math.min(1, value))
 }
 
 /** 공의 월드 높이(y) = 테이블 면 + 궤적 높이 */

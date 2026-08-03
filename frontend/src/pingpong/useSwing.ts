@@ -27,6 +27,35 @@ interface UseSwingOptions {
   threshold?: number
 }
 
+interface MotionVector {
+  x: number
+  y: number
+  z: number
+}
+
+function motionVector(event: DeviceMotionEvent): MotionVector | null {
+  const acceleration =
+    event.acceleration && event.acceleration.x !== null
+      ? event.acceleration
+      : event.accelerationIncludingGravity
+  if (!acceleration) return null
+  return {
+    x: acceleration.x ?? 0,
+    y: acceleration.y ?? 0,
+    z: acceleration.z ?? 0,
+  }
+}
+
+function highPassMagnitude(sample: MotionVector, gravity: MotionVector) {
+  gravity.x += (sample.x - gravity.x) * GRAVITY_ALPHA
+  gravity.y += (sample.y - gravity.y) * GRAVITY_ALPHA
+  gravity.z += (sample.z - gravity.z) * GRAVITY_ALPHA
+  const dx = sample.x - gravity.x
+  const dy = sample.y - gravity.y
+  const dz = sample.z - gravity.z
+  return Math.sqrt(dx * dx + dy * dy + dz * dz)
+}
+
 export function useSwing({
   onSwing,
   enabled = true,
@@ -51,38 +80,26 @@ export function useSwing({
 
   const handleMotion = useCallback((e: DeviceMotionEvent) => {
     if (!enabledRef.current) return
-    const acc =
-      e.acceleration && e.acceleration.x !== null ? e.acceleration : e.accelerationIncludingGravity
-    if (!acc) return
-    const x = acc.x ?? 0
-    const y = acc.y ?? 0
-    const z = acc.z ?? 0
+    const sample = motionVector(e)
+    if (!sample) return
 
     // 중력 성분을 저역통과로 추정해 뺀다.
     //  - accelerationIncludingGravity 로 폴백한 기기(안드로이드 일부)에서는 가만히 든 폰도
     //    9.8 을 찍어서, 빼주지 않으면 임계값 14 가 실질 4 밖에 안 남는다 → 살짝만 움직여도 오감지.
     //  - 이미 중력이 빠진 acceleration 이면 추정치가 0 근처라 빼도 그대로다.
-    const g = grav.current
-    g.x += (x - g.x) * GRAVITY_ALPHA
-    g.y += (y - g.y) * GRAVITY_ALPHA
-    g.z += (z - g.z) * GRAVITY_ALPHA
-    const dx = x - g.x
-    const dy = y - g.y
-    const dz = z - g.z
-    const mag = Math.sqrt(dx * dx + dy * dy + dz * dz)
+    const mag = highPassMagnitude(sample, grav.current)
 
     const th = thresholdRef.current
     // 한 번 임계값을 넘으면, 다시 충분히 잦아들기 전까지는 새 스윙으로 안 친다.
     if (!armed.current) {
-      if (mag < th * RELEASE_RATIO) armed.current = true
+      armed.current = mag < th * RELEASE_RATIO
       return
     }
     const now = Date.now()
-    if (mag >= th && now - lastSwingAt.current > SWING_COOLDOWN_MS) {
-      lastSwingAt.current = now
-      armed.current = false
-      onSwingRef.current()
-    }
+    if (mag < th || now - lastSwingAt.current <= SWING_COOLDOWN_MS) return
+    lastSwingAt.current = now
+    armed.current = false
+    onSwingRef.current()
   }, [])
 
   /** 버튼 탭 안에서 호출 (iOS 권한 팝업) */
