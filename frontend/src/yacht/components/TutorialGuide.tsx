@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useLayoutEffect, useState } from 'react'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
 import type { CategoryScores, YachtCategory } from '@/yacht/domain/scoring'
+import { UPPER_BONUS_POINTS, UPPER_BONUS_THRESHOLD } from '@/yacht/domain/scoring'
 import { MAX_ROLLS } from '@/yacht/domain/yachtGame'
 import { categoryLabel } from '@/yacht/yachtCategoryView'
 
@@ -57,7 +58,8 @@ type GuideStep =
  * 칸인지는 여전히 모르므로, 이름과 자리를 같은 순간에 붙여 준다.
  */
 function spotlightFor(step: GuideStep, hand: Lesson['hand']): string | null {
-  if (hand) return `[data-tutorial-category="${hand.category}"]`
+  // 보너스 장은 짚을 칸이 없다 — 구멍 없이 화면을 덮고 읽게 둔다.
+  if (hand) return hand.category ? `[data-tutorial-category="${hand.category}"]` : null
   switch (step) {
     case 'roll':
     case 'reroll':
@@ -103,10 +105,10 @@ interface Lesson {
   /** 두 갈래로 갈리는 단계의 다른 쪽 선택. 지금은 마지막 굴림을 어떻게 던질지 뿐이다. */
   secondary?: { label: string; step: GuideStep }
   /**
-   * 족보 하나를 말풍선으로 설명하는 중. 설명하는 칸을 점수표에서 같이 강조하므로
-   * 어느 칸인지(category)까지 들고 있어야 한다.
+   * 족보 한 장을 설명하는 중. 설명하는 칸을 점수표에서 같이 강조하므로 어느 칸인지까지
+   * 들고 있어야 한다 — 보너스처럼 짚을 칸이 없는 장은 category가 없다.
    */
-  hand?: { category: YachtCategory; index: number; total: number; score: number | undefined }
+  hand?: { category?: YachtCategory; index: number; total: number; score?: number | undefined }
 }
 
 /**
@@ -120,7 +122,13 @@ interface Lesson {
  *
  * 이름은 categoryLabel에서 가져온다. 여기 따로 적으면 점수표와 다르게 부르는 순간이 온다.
  */
-const HAND_LESSONS: ReadonlyArray<{ category: YachtCategory; rule: string }> = [
+const HAND_LESSONS: ReadonlyArray<{
+  /** 점수표에서 짚을 칸. 보너스처럼 칸이 아닌 장은 없다 — 그 장은 가운데에서 읽는다. */
+  category?: YachtCategory
+  /** 칸이 아닌 장의 제목. */
+  name?: string
+  rule: string
+}> = [
   { category: 'ones', rule: '1이 나온 개수만큼 1점씩 더해요. 세 개면 3점이에요.' },
   { category: 'twos', rule: '2가 나온 개수만큼 2점씩 더해요.' },
   { category: 'threes', rule: '3이 나온 개수만큼 3점씩 더해요.' },
@@ -129,6 +137,12 @@ const HAND_LESSONS: ReadonlyArray<{ category: YachtCategory; rule: string }> = [
   {
     category: 'sixes',
     rule: '6이 나온 개수만큼 6점씩 더해요. 위 여섯 칸 중 한 개당 점수가 가장 커요.',
+  },
+  // 위 여섯 칸을 다 본 직후, 그 칸들이 모여 만드는 보너스를 말한다 — 아래 족보로 넘어가기 전에.
+  // 점수·기준은 점수표가 "소계 / 63 · 보너스 +35"로 쓰는 것과 같은 상수를 읽는다.
+  {
+    name: '위 칸 보너스',
+    rule: `방금 본 여섯 칸의 합이 ${UPPER_BONUS_THRESHOLD}점을 넘으면 보너스 ${UPPER_BONUS_POINTS}점이 따로 붙어요. 숫자마다 세 개씩만 모으면 딱 ${UPPER_BONUS_THRESHOLD}점이에요.`,
   },
   { category: 'choice', rule: '모양을 안 따져요. 눈 다섯 개를 그냥 다 더해서 적어요.' },
   { category: 'fourOfAKind', rule: '같은 눈이 4개 모이면 다섯 개를 다 더해요.' },
@@ -145,7 +159,10 @@ const HAND_LESSONS: ReadonlyArray<{ category: YachtCategory; rule: string }> = [
  * `candidates`에는 미기입 칸만 들어온다(calculateScoreCandidates가 사용한 칸을 뺀다).
  */
 function openHandLessons(candidates: CategoryScores) {
-  return HAND_LESSONS.filter((hand) => candidates[hand.category] !== undefined)
+  // 칸이 없는 장(보너스)은 기록과 무관하므로 항상 남는다.
+  return HAND_LESSONS.filter(
+    (hand) => hand.category === undefined || candidates[hand.category] !== undefined,
+  )
 }
 
 /**
@@ -237,14 +254,15 @@ function handLesson(ctx: LessonContext): Lesson {
   // 남은 칸이 없으면(모두 기록된 판) 설명할 것이 없다 — 마무리 문구로 대신한다.
   if (!hand) return doneLesson()
 
+  const category = hand.category
   return {
-    title: categoryLabel[hand.category],
+    title: category === undefined ? (hand.name ?? '') : categoryLabel[category],
     body: hand.rule,
     hand: {
-      category: hand.category,
+      // 보너스는 짚을 칸이 없다 — 강조도 말풍선도 없이 가운데에서 읽는다.
+      ...(category === undefined ? {} : { category, score: ctx.candidates[category] }),
       index: ctx.handIndex,
       total: lessons.length,
-      score: ctx.candidates[hand.category],
     },
     action: ctx.handIndex >= lessons.length - 1 ? '다 봤어요' : '다음',
   }
@@ -398,7 +416,7 @@ export function TutorialGuide({
       {/* 주사위가 날아가는 동안에는 백드롭을 통째로 걷는다 — 굴러가는 주사위가 이 연습의
           볼거리인데 딤이 덮으면 안 보인다. 조작은 게임 자체가 잠그고 있어 막을 것도 없다. */}
       {!rolling && <Backdrop dim={dimsAroundHole(step)} spotlight={spotlight} />}
-      <Card anchor={lesson.hand ? spotlight : null} spotlight={spotlight}>
+      <Card anchor={lesson.hand?.category ? spotlight : null} spotlight={spotlight}>
         {lesson.hand && (
           <p className="m-0 text-[11px] font-bold tracking-[0.1em] text-content-faint uppercase">
             남은 족보 둘러보기 · {lesson.hand.index + 1} / {lesson.hand.total}

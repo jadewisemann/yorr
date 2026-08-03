@@ -369,15 +369,47 @@ describe('TutorialGuide', () => {
   it('족보를 다른 곳으로 넘기지 않고 한 칸씩 말풍선으로 설명한다', async () => {
     const { user } = setup(atHandTour)
 
-    // 기록한 포커는 빠지고 남은 11칸을 돈다.
-    expect(screen.getByText('남은 족보 둘러보기 · 1 / 11')).toBeVisible()
+    // 기록한 포커는 빠지고 남은 11칸 + 보너스 한 장을 돈다.
+    expect(screen.getByText('남은 족보 둘러보기 · 1 / 12')).toBeVisible()
     expect(heading()).toBe('에이스')
     // 도움말·툴팁으로 미루는 문구가 남아 있으면 설명을 안 한 것이다.
     expect(screen.getByRole('status')).not.toHaveTextContent('도움말')
 
     await user.click(screen.getByRole('button', { name: '다음' }))
-    expect(screen.getByText('남은 족보 둘러보기 · 2 / 11')).toBeVisible()
+    expect(screen.getByText('남은 족보 둘러보기 · 2 / 12')).toBeVisible()
     expect(heading()).toBe('듀스')
+  })
+
+  /*
+   * 보너스는 위 여섯 칸이 모여 만드는 것이라 그 여섯 장 직후 · 아래 족보 직전에 들어가야
+   * 한다. 순서가 밀리면 "방금 본 여섯 칸"이 가리키는 것이 사라진다.
+   */
+  it('보너스 설명이 위 여섯 칸 직후, 특수 족보 직전에 들어간다', async () => {
+    const { user } = setup(atHandTour)
+
+    for (let page = 0; page < 6; page += 1) {
+      await user.click(screen.getByRole('button', { name: '다음' }))
+    }
+    expect(heading()).toBe('위 칸 보너스')
+    expect(screen.getByRole('status')).toHaveTextContent('63점을 넘으면 보너스 35점')
+
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    expect(heading()).toBe('초이스')
+  })
+
+  it('보너스는 짚을 칸이 없어 강조하지 않고 가운데에서 읽는다', async () => {
+    mountCategoryRows({ ones: { top: 200, left: 700, width: 280, height: 40 } })
+    const { user } = setup(atHandTour)
+
+    // 에이스 장은 칸을 짚어 구멍 네 장이 생긴다.
+    expect(blockers()).toHaveLength(4)
+
+    for (let page = 0; page < 6; page += 1) {
+      await user.click(screen.getByRole('button', { name: '다음' }))
+    }
+    expect(heading()).toBe('위 칸 보너스')
+    // 보너스 장은 구멍 없이 한 장으로 덮는다.
+    expect(blockers()).toHaveLength(1)
   })
 
   /*
@@ -482,11 +514,11 @@ describe('TutorialGuide', () => {
   it('마지막 칸까지 보면 마무리로 간다', async () => {
     const { onClose, user } = setup(atHandTour)
 
-    // 11칸 중 열 번은 '다음', 마지막 한 번만 '다 봤어요'다.
-    for (let page = 0; page < 10; page += 1) {
+    // 12장 중 열한 번은 '다음', 마지막 한 번만 '다 봤어요'다.
+    for (let page = 0; page < 11; page += 1) {
       await user.click(screen.getByRole('button', { name: '다음' }))
     }
-    expect(screen.getByText('남은 족보 둘러보기 · 11 / 11')).toBeVisible()
+    expect(screen.getByText('남은 족보 둘러보기 · 12 / 12')).toBeVisible()
     expect(heading()).toBe('요트')
 
     await user.click(screen.getByRole('button', { name: '다 봤어요' }))
