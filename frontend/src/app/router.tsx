@@ -7,9 +7,9 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect } from 'react'
-import { getRoomCodeError, normalizeRoomCode } from '@/roomCode'
-import { EntryPage } from '@/screens/EntryPage'
-import { NotFoundPage } from '@/screens/NotFoundPage'
+import { EntryPage } from '@/landing/screens/EntryPage'
+import { getRoomCodeError, normalizeRoomCode } from '@/room/roomCode'
+import { NotFoundPage } from './NotFoundPage'
 import { ScreenFallback } from './ScreenFallback'
 
 /**
@@ -19,11 +19,11 @@ import { ScreenFallback } from './ScreenFallback'
  * 전부 내려받고 있었다 — 첫 화면이 늦게 뜨는 가장 큰 원인이다. 방 안 화면들은 실제로
  * 그리로 갈 때 받는다. 로딩 표시는 아래 rootRoute의 Suspense 하나가 담당한다.
  */
-const importAuthCallbackPage = () => import('@/screens/AuthCallbackPage')
-const importGamePage = () => import('@/screens/GamePage')
-const importInvalidInvitePage = () => import('@/screens/InvalidInvitePage')
-const importLobbyPage = () => import('@/screens/LobbyPage')
-const importNicknamePage = () => import('@/screens/NicknamePage')
+const importAuthCallbackPage = () => import('@/auth/screens/AuthCallbackPage')
+const importGamePage = () => import('@/room/screens/GamePage')
+const importInvalidInvitePage = () => import('@/room/screens/InvalidInvitePage')
+const importLobbyPage = () => import('@/room/screens/LobbyPage')
+const importNicknamePage = () => import('@/room/screens/NicknamePage')
 
 const AuthCallbackPage = lazy(() =>
   importAuthCallbackPage().then((mod) => ({ default: mod.AuthCallbackPage })),
@@ -97,14 +97,14 @@ const indexRoute = createRoute({
 const devCatalogRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/__dev/components',
-  component: lazyRouteComponent(() => import('./DevCatalog'), 'DevCatalog'),
+  component: lazyRouteComponent(() => import('@/app/dev/DevCatalog'), 'DevCatalog'),
 })
 
 // 배포에서 실기기로 센서를 튜닝하는 페이지라 DevCatalog와 달리 DEV 게이트를 두지 않는다.
 const motionLabRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/__dev/motion',
-  component: lazyRouteComponent(() => import('./MotionLab'), 'MotionLab'),
+  component: lazyRouteComponent(() => import('@/app/dev/MotionLab'), 'MotionLab'),
 })
 
 /** 카카오 로그인 콜백. 서버가 일회용 code(또는 실패 사유 error)를 붙여 여기로 돌려보낸다. */

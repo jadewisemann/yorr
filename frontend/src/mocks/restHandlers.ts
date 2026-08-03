@@ -1,12 +1,12 @@
 import { delay, HttpResponse, http } from 'msw'
+import type { BotDifficulty, Player } from '@/realtime/wsEvents'
 import type {
   EnterRoomRequest,
   EnterRoomResponse,
   RoomSession,
   ScoreCandidatesRequest,
-} from '@/api/gameApi'
-import { calculateScoreCandidates } from '@/domain/scoring'
-import type { BotDifficulty, Player } from '@/realtime/wsEvents'
+} from '@/room/api/roomApi'
+import { calculateScoreCandidates } from '@/yacht/domain/scoring'
 import {
   createPlayingRoomSnapshot,
   creatorSession,

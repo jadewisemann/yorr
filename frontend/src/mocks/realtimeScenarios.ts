@@ -1,4 +1,3 @@
-import { type CategoryScores, calculateScoreSummary, scoreCategory } from '@/domain/scoring'
 import { type FakeMessageHandlers, FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import {
   type DiceSet,
@@ -6,6 +5,7 @@ import {
   type ServerMessage,
   WS_PROTOCOL_VERSION,
 } from '@/realtime/wsEvents'
+import { type CategoryScores, calculateScoreSummary, scoreCategory } from '@/yacht/domain/scoring'
 import {
   creatorSession,
   MOCK_ROOM_ID,

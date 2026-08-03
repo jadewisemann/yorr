@@ -1,7 +1,7 @@
 # 실시간·API 계약
 
 > 기준일: 2026-08-01 — [`../../src/realtime/wsEvents.ts`](../../src/realtime/wsEvents.ts)와
-> `src/api/*.ts`를 직접 읽고 정리했다. 필드·이벤트 이름이 이 문서와 충돌하면 코드가 이긴다.
+> `src/*/api/*.ts`를 직접 읽고 정리했다. 필드·이벤트 이름이 이 문서와 충돌하면 코드가 이긴다.
 
 ## 통신 구조
 
@@ -83,7 +83,7 @@
 
 ## REST API — 프론트가 실제로 호출하는 엔드포인트
 
-`src/api/gameApi.ts`, `src/api/authApi.ts` 기준.
+`src/room/api/roomApi.ts`, `src/auth/api/authApi.ts` 기준.
 
 | 메서드 | 경로 | 용도 |
 |---|---|---|
