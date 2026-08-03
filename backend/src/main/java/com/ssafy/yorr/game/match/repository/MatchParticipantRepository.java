@@ -1,6 +1,8 @@
 package com.ssafy.yorr.game.match.repository;
 
+import com.ssafy.yorr.config.CacheConfig;
 import com.ssafy.yorr.game.match.domain.MatchParticipant;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -34,9 +36,15 @@ public interface MatchParticipantRepository extends JpaRepository<MatchParticipa
      * 정렬에 {@code userId}를 덧붙인 건 동점자 순서를 고정하기 위함이다 — 없으면 같은 요청이
      * 호출마다 다른 순서를 낼 수 있고, 페이징에서 행이 중복·누락된다.
      *
+     * 캐시 키에 {@code from}이 들어가므로 주가 바뀌면 자연히 다른 항목이 된다 — 주 경계에서
+     * 지난 주 순위가 잠시 남아 보이는 경로가 없다. 판이 끝나면
+     * {@code MatchArchiveService}가 통째로 비운다.
+     *
      * @param from 포함. 주 시작 시각을 <b>UTC 벽시계</b>로 넘긴다({@code finished_at}과 같은 기준)
      * @param to   제외. 다음 주 시작 시각
      */
+    @Cacheable(cacheNames = CacheConfig.WEEKLY_RANKING,
+            key = "#from.toString() + '|' + #pageable.pageSize")
     @Query("""
             select p.user.id as userId, p.user.nickname as nickname,
                    max(p.totalScore) as bestScore

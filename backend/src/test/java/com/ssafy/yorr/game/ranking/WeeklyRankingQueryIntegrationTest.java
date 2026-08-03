@@ -1,16 +1,23 @@
 package com.ssafy.yorr.game.ranking;
 
+import com.ssafy.yorr.config.CacheConfig;
+import com.ssafy.yorr.game.match.application.MatchArchiveService;
 import com.ssafy.yorr.game.match.domain.Match;
 import com.ssafy.yorr.game.match.domain.MatchParticipant;
 import com.ssafy.yorr.game.match.repository.MatchParticipantRepository;
 import com.ssafy.yorr.game.match.repository.MatchParticipantRepository.WeeklyBest;
 import com.ssafy.yorr.game.match.repository.MatchRepository;
+import com.ssafy.yorr.room.dto.RoomPhase;
+import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
+import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.user.domain.User;
 import com.ssafy.yorr.user.repository.UserRepository;
+import com.ssafy.yorr.ws.dto.GameOverPayload;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -68,11 +75,20 @@ class WeeklyRankingQueryIntegrationTest {
     private MatchRepository matches;
     @Autowired
     private UserRepository users;
+    @Autowired
+    private MatchArchiveService archiveService;
+    @Autowired
+    private CacheManager caches;
 
+    /**
+     * 캐시도 함께 비운다. 항목마다 같은 주를 묻는데 캐시는 컨텍스트에 공유되므로, DB만
+     * 지우면 앞 항목의 결과가 다음 항목으로 흘러간다.
+     */
     @BeforeEach
     void clear() {
         matches.deleteAll();
         users.deleteAll();
+        caches.getCache(CacheConfig.WEEKLY_RANKING).clear();
     }
 
     private List<WeeklyBest> weeklyBest() {
@@ -153,5 +169,36 @@ class WeeklyRankingQueryIntegrationTest {
         assertThat(weeklyBest())
                 .extracting(WeeklyBest::getNickname)
                 .containsExactly("상위", "하위");
+    }
+
+    /**
+     * 집계는 판이 끝날 때만 바뀌므로 그 사이 요청은 캐시가 답한다. 판을 우회해 리포지토리로
+     * 직접 넣은 행이 보이지 않는 것이 캐시가 실제로 걸려 있다는 증거다.
+     */
+    @Test
+    void 같은_주를_다시_물으면_캐시가_답한다() {
+        User member = users.save(User.create("회원", null));
+        saveMatch("g-1", FROM, member, "회원", 200);
+        assertThat(weeklyBest()).extracting(WeeklyBest::getBestScore).containsExactly(200);
+
+        saveMatch("g-2", FROM, member, "회원", 500);
+
+        assertThat(weeklyBest()).extracting(WeeklyBest::getBestScore).containsExactly(200);
+    }
+
+    /** 판이 끝나면 캐시를 비운다 — 그 뒤 조회는 새 결과를 본다. */
+    @Test
+    void 판이_끝나면_캐시가_비워진다() {
+        User member = users.save(User.create("회원", null));
+        saveMatch("g-1", FROM, member, "회원", 200);
+        weeklyBest();
+
+        saveMatch("g-2", FROM, member, "회원", 500);
+        archiveService.archive(
+                new RoomSnapshot("ROOM01", "YACHT_DICE", "g-archived", "host", RoomPhase.FINISHED, 6,
+                        List.of(new RoomPlayerSnapshot("host", "호스트", 0))),
+                List.of(new GameOverPayload.Ranking(1, member.getId(), 10)));
+
+        assertThat(weeklyBest()).extracting(WeeklyBest::getBestScore).containsExactly(500);
     }
 }
