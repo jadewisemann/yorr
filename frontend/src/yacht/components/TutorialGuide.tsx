@@ -40,10 +40,11 @@ type GuideStep =
   | 'keep'
   | 'reroll'
   | 'keepAgain'
+  | 'askLastRoll'
   | 'motion'
   | 'lastRoll'
-  | 'categories'
   | 'record'
+  | 'categories'
   | 'done'
 
 /**
@@ -79,11 +80,26 @@ function spotlightFor(step: GuideStep, hand: Lesson['hand']): string | null {
  */
 const TUTORIAL_RECORD_CATEGORY: YachtCategory = 'fourOfAKind'
 
+/**
+ * 구멍 주변을 어둡게 덮을지.
+ *
+ * 주사위를 다루는 단계는 덮는다 — 트레이 하나만 밝으면 "여기"가 설명 없이 읽힌다.
+ *
+ * 점수표를 다루는 단계(기록 · 족보 둘러보기)는 덮지 않는다. 어둠이 표를 통째로 지우면
+ * 어느 칸에 적는 중인지, 적고 나서 무엇이 바뀌었는지를 볼 수 없다 — 정작 봐야 할 순간에
+ * 화면을 가리는 셈이다. 덮지 않아도 구멍 밖 차단막은 그대로라 엉뚱한 곳은 눌리지 않는다.
+ */
+function dimsAroundHole(step: GuideStep) {
+  return step !== 'record' && step !== 'categories'
+}
+
 interface Lesson {
   title: string
   body: string
   /** 눌러야 다음으로 가는 단계에는 버튼을 두지 않는다 — 직접 해보는 것이 요점이다. */
   action?: string
+  /** 두 갈래로 갈리는 단계의 다른 쪽 선택. 지금은 마지막 굴림을 어떻게 던질지 뿐이다. */
+  secondary?: { label: string; step: GuideStep }
   /**
    * 족보 하나를 말풍선으로 설명하는 중. 설명하는 칸을 점수표에서 같이 강조하므로
    * 어느 칸인지(category)까지 들고 있어야 한다.
@@ -160,6 +176,8 @@ interface LessonContext {
   keptOther: number
   /** 족보 설명 중 몇 번째 장을 보고 있는지. */
   handIndex: number
+  /** 센서를 켤 수 있는 기기인지. 마지막 굴림을 어떻게 던질지 묻는 문구가 갈린다. */
+  motionNoticeVisible: boolean
   /** 지금 주사위의 족보별 점수. 설명 옆에 실제 점수를 붙인다. */
   candidates: CategoryScores
   wide: boolean
@@ -268,16 +286,31 @@ function lessonFor(step: GuideStep, ctx: LessonContext): Lesson {
       }
     case 'keepAgain':
       return keepLesson(ctx, true)
+    case 'askLastRoll':
+      // 고르기를 끝낸 직후다. 여기서 곧바로 "센서를 켜라"로 넘어가면 방금 고른 결과를 볼
+      // 틈도 없이 다음 지시가 떨어진다 — 한 번 묻고 사용자가 넘길 때 움직인다.
+      return ctx.motionNoticeVisible
+        ? {
+            title: '이제 마지막 한 번이 남았어요',
+            body: '한 턴에 세 번까지니까 이번이 마지막이에요. 어떻게 던져 볼까요?',
+            action: '흔들어서 던지기',
+            secondary: { label: '버튼으로 던지기', step: 'lastRoll' },
+          }
+        : {
+            title: '이제 마지막 한 번이 남았어요',
+            body: '한 턴에 세 번까지니까 이번이 마지막이에요. 굴리고 나면 다섯 개가 그대로 확정돼요.',
+            action: '던져 볼게요',
+          }
     case 'motion':
       return {
-        title: '마지막 한 번은 흔들어서 굴려 볼까요?',
-        body: '버튼 대신 실제로 주사위를 굴리듯 폰을 흔들어도 돼요. 표시된 "흔들기"를 눌러 센서를 켜고, 폰을 흔들어 마지막 굴림을 해보세요.',
-        action: '버튼으로 굴릴게요',
+        title: '폰을 흔들어서 던져요',
+        body: '표시된 "흔들기"를 눌러 센서를 켜고, 실제로 주사위를 굴리듯 폰을 흔들어 보세요.',
+        action: '버튼으로 던질게요',
       }
     case 'lastRoll':
       return {
         title: '마지막 한 번 남았어요',
-        body: '한 턴에 세 번까지니까 이번이 마지막이에요. 굴리고 나면 다섯 개가 그대로 확정돼요.',
+        body: '표시된 굴리기를 눌러 보세요. 굴리고 나면 다섯 개가 그대로 확정돼요.',
       }
     case 'categories':
       return handLesson(ctx)
@@ -338,26 +371,27 @@ export function TutorialGuide({
     handIndex,
     keptOther,
     keptSixes,
+    motionNoticeVisible,
     sixes: sixesOnTray,
     sixesScore,
     wide,
   })
   const spotlight = useSpotlight(spotlightFor(step, lesson.hand))
 
-  /** 버튼 하나가 세 가지를 한다: 연습 끝내기 · 족보 다음 장 · 다음 단계. */
+  /** 버튼 하나가 세 가지를 한다: 연습 끝내기 · 족보 다음 칸 · 다음 단계. */
   const advance = () => {
     if (step === 'done') return onClose()
     if (lesson.hand && lesson.hand.index < lesson.hand.total - 1) {
       setHandIndex(lesson.hand.index + 1)
       return
     }
-    setStep(nextOf(step))
+    setStep(nextOf(step, motionNoticeVisible))
   }
 
   return (
     // 래퍼는 클릭을 통과시킨다 — 여기서 막으면 강조해 놓은 버튼조차 눌리지 않는다.
     <div className="pointer-events-none fixed inset-0 z-modal" role="presentation">
-      <Backdrop spotlight={spotlight} />
+      <Backdrop dim={dimsAroundHole(step)} spotlight={spotlight} />
       <Card spotlight={spotlight}>
         {lesson.hand && (
           <p className="m-0 text-[11px] font-bold tracking-[0.1em] text-content-faint uppercase">
@@ -378,9 +412,20 @@ export function TutorialGuide({
         <div className="mt-0.5 flex items-center justify-between gap-3">
           <GuideTextButton label="연습 그만두기" onClick={onClose} />
           {lesson.action ? (
-            <Button onClick={advance} size="sm" variant="secondary">
-              {lesson.action}
-            </Button>
+            <span className="flex items-center gap-2">
+              {lesson.secondary && (
+                <Button
+                  onClick={() => setStep(lesson.secondary?.step ?? step)}
+                  size="sm"
+                  variant="ghost"
+                >
+                  {lesson.secondary.label}
+                </Button>
+              )}
+              <Button onClick={advance} size="sm" variant="secondary">
+                {lesson.action}
+              </Button>
+            </span>
           ) : (
             // 직접 눌러야 넘어가는 단계 — 어디를 누를지는 강조 링이 말한다.
             <span className="text-[12px] font-semibold text-brand-strong">
@@ -430,8 +475,8 @@ function stepFromPlay(step: GuideStep, play: PlaySignals): GuideStep | null {
  * 단계별로 "무엇이 충족되면 어디로 가는가". 표로 두면 안내 순서가 한눈에 읽힌다 —
  * if 사슬로 늘어놓으면 순서가 코드 줄 순서에 숨는다.
  *
- * 여기 없는 단계(motion · lastRoll · categories · record · done)는 위에서 따로 다루거나
- * 버튼으로만 넘어간다.
+ * 여기 없는 단계(askLastRoll · motion · lastRoll · record · categories · done)는 위에서
+ * 따로 다루거나 버튼으로만 넘어간다.
  */
 const PLAY_ADVANCE: Partial<Record<GuideStep, (play: PlaySignals) => GuideStep | null>> = {
   // 인사 중에 이미 굴려 버린 사람도 여기서 따라잡는다.
@@ -450,16 +495,17 @@ function allSixesKept(play: PlaySignals) {
 
 /**
  * 두 번째 선택 뒤에 갈 곳. 안내보다 빨리 세 번을 다 굴려 버렸으면 굴릴 것이 없으니 바로
- * 기록으로 간다 — 여기서 흔들기를 시키면 이미 끝난 굴림을 한 번 더 하라는 말이 된다.
+ * 기록으로 간다 — 남지도 않은 굴림을 어떻게 던질지 물으면 답할 방법이 없다.
  */
 function afterKeepAgain(play: PlaySignals): GuideStep {
-  if (play.rollCount >= MAX_ROLLS) return 'record'
-  return play.motionNoticeVisible ? 'motion' : 'lastRoll'
+  return play.rollCount >= MAX_ROLLS ? 'record' : 'askLastRoll'
 }
 
 /** 버튼으로 넘기는 단계의 다음 칸. 나머지는 플레이 신호가 옮긴다. */
-function nextOf(step: GuideStep): GuideStep {
+function nextOf(step: GuideStep, motionAvailable: boolean): GuideStep {
   if (step === 'greet') return 'roll'
+  // 센서가 없는 기기에서는 물음이 한 갈래뿐이라 곧장 버튼 굴림으로 간다.
+  if (step === 'askLastRoll') return motionAvailable ? 'motion' : 'lastRoll'
   // 흔들기를 마다한 사람도 마지막 굴림은 해야 한다 — 버튼으로 굴리는 같은 자리로 보낸다.
   if (step === 'motion') return 'lastRoll'
   // 족보를 다 둘러봤으면 마무리다.
@@ -531,7 +577,7 @@ function useSpotlight(selector: string | null): SpotlightRect | null {
  *
  * 누를 곳이 없는 단계(인사 · 마무리)는 통째로 덮어 읽는 데 집중시킨다.
  */
-function Backdrop({ spotlight }: { spotlight: SpotlightRect | null }) {
+function Backdrop({ dim, spotlight }: { dim: boolean; spotlight: SpotlightRect | null }) {
   if (!spotlight) {
     return <div className="pointer-events-auto absolute inset-0 bg-black/72" />
   }
@@ -541,7 +587,8 @@ function Backdrop({ spotlight }: { spotlight: SpotlightRect | null }) {
   const right = spotlight.left + spotlight.width + 6
   const bottom = spotlight.top + spotlight.height + 6
   // 구멍 주변만 덮는다 — 밝게 남은 한 곳이 곧 "여기를 누르세요"다.
-  const block = 'pointer-events-auto absolute bg-black/72'
+  // dim이 꺼진 단계에서는 색만 빼고 차단막은 남긴다(dimsAroundHole 주석 참고).
+  const block = cn('pointer-events-auto absolute', dim && 'bg-black/72')
 
   return (
     <>

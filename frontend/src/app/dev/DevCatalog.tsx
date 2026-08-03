@@ -207,6 +207,13 @@ export function DevCatalog() {
           <Button
             size="sm"
             variant="secondary"
+            onClick={() => setGuideSignals((signals) => ({ ...signals, keptValues: [6, 6, 6] }))}
+          >
+            6 세 개 킵 (→ 던지기 물음)
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
             onClick={() =>
               setGuideSignals((signals) => ({
                 ...signals,
@@ -216,7 +223,7 @@ export function DevCatalog() {
               }))
             }
           >
-            3굴림 완료 (6이 4개 → 족보 설명)
+            3굴림 완료 (6이 4개 → 기록)
           </Button>
           <Button
             size="sm"
@@ -241,7 +248,9 @@ export function DevCatalog() {
               key={guideRun}
               candidates={guideSignals.candidates}
               keptValues={guideSignals.keptValues}
-              motionNoticeVisible={false}
+              // 센서가 있는 기기로 두고 본다 — 마지막 굴림 물음이 흔들기·버튼 두 갈래로
+              // 갈리는 쪽이 확인할 것이 많다. 센서 없는 기기는 물음이 한 갈래로 줄어든다.
+              motionNoticeVisible
               onClose={() => setGuideVisible(false)}
               rollCount={guideSignals.rollCount}
               rolled={guideSignals.rolled}

@@ -10,16 +10,71 @@ const ROWS_ID = 'fake-score-rows'
  * 이 표지가 없으면 강조할 것을 못 찾아 구멍 없이 화면만 덮는다.
  * jsdom의 getBoundingClientRect는 전부 0을 주니 칸마다 좌표를 따로 물려 준다.
  */
-function mountCategoryRows(rects: Record<string, DOMRectReadOnly | { [k: string]: number }>) {
+function mountCategoryRows(rects: Record<string, FakeRect>) {
+  for (const [category, rect] of Object.entries(rects)) {
+    const row = targetHolder().appendChild(document.createElement('div'))
+    row.dataset.tutorialCategory = category
+    row.getBoundingClientRect = () => domRect(rect)
+  }
+}
+
+/** 트레이·굴리기 버튼처럼 data-tutorial 표지로 찾는 자리를 흉내 낸다. */
+function mountTutorialTarget(name: string, rect: FakeRect) {
+  const el = targetHolder().appendChild(document.createElement('div'))
+  el.dataset.tutorial = name
+  el.getBoundingClientRect = () => domRect(rect)
+}
+
+interface FakeRect {
+  top: number
+  left: number
+  width: number
+  height: number
+}
+
+/** 가이드는 top·left·width·height만 읽지만, 반환형은 DOMRect를 지켜야 한다. */
+function domRect({ top, left, width, height }: FakeRect): DOMRect {
+  return {
+    top,
+    left,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
+    x: left,
+    y: top,
+    toJSON: () => ({}),
+  }
+}
+
+function targetHolder() {
+  const existing = document.getElementById(ROWS_ID)
+  if (existing) return existing
   const holder = document.createElement('div')
   holder.id = ROWS_ID
-  for (const [category, rect] of Object.entries(rects)) {
-    const row = document.createElement('div')
-    row.dataset.tutorialCategory = category
-    row.getBoundingClientRect = () => rect as DOMRect
-    holder.append(row)
-  }
   document.body.append(holder)
+  return holder
+}
+
+/**
+ * 구멍을 둘러싼 차단막 네 장. 덮는지(dimmed)와 클릭을 막는지(blocks)를 따로 본다 —
+ * 색을 빼도 막기는 남아야 한다.
+ */
+function blockers() {
+  const host = document.querySelector('[role="presentation"]')
+  if (!host) throw new Error('안내 오버레이를 찾을 수 없습니다')
+  return [...host.children]
+    .filter(
+      (child): child is HTMLElement =>
+        child instanceof HTMLElement &&
+        child.className.includes('pointer-events-auto') &&
+        // 설명 카드도 클릭을 받아야 하므로 pointer-events-auto다 — 차단막과 구분한다.
+        !child.className.includes('rounded-card'),
+    )
+    .map((pane) => ({
+      dimmed: pane.className.includes('bg-black/72'),
+      blocks: pane.className.includes('pointer-events-auto'),
+    }))
 }
 
 /** 강조 링의 위치·크기. Backdrop이 구멍 좌표(타깃에서 6px 바깥)로 그린 값이다. */
@@ -157,9 +212,11 @@ describe('TutorialGuide', () => {
     rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atKeepAgain} />)
     expect(heading()).toBe('6이 3개로 늘었어요')
 
-    // 다 고르고 나서야 마지막 굴림을 흔들기로 권한다.
+    // 다 고르면 바로 지시하지 않고 어떻게 던질지 먼저 묻는다.
     rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atLastRoll} />)
-    expect(heading()).toBe('마지막 한 번은 흔들어서 굴려 볼까요?')
+    expect(heading()).toBe('이제 마지막 한 번이 남았어요')
+    await user.click(screen.getByRole('button', { name: '흔들어서 던지기' }))
+    expect(heading()).toBe('폰을 흔들어서 던져요')
 
     rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atRecord} />)
     expect(heading()).toBe('6이 4개 — 이건 포커예요!')
@@ -205,22 +262,40 @@ describe('TutorialGuide', () => {
     expect(screen.getByRole('status')).toHaveTextContent('한 번 더 탭하면 킵이 풀려요')
   })
 
-  it('흔들기를 마다해도 마지막 굴림은 버튼으로 하게 한다', async () => {
-    const { rerender, user } = setup(atLastRoll)
+  /*
+   * 고르기를 끝낸 직후에 곧바로 "센서를 켜라"로 넘어가면 방금 고른 결과를 볼 틈도 없이 다음
+   * 지시가 떨어진다. 한 번 묻고, 사용자가 고른 쪽으로만 움직인다.
+   */
+  it('선택이 끝나면 지시하지 않고 어떻게 던질지 먼저 묻는다', async () => {
+    const { user } = setup(atLastRoll)
 
-    expect(heading()).toBe('마지막 한 번은 흔들어서 굴려 볼까요?')
-    await user.click(screen.getByRole('button', { name: '버튼으로 굴릴게요' }))
+    expect(heading()).toBe('이제 마지막 한 번이 남았어요')
+    expect(screen.getByRole('button', { name: '흔들어서 던지기' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '버튼으로 던지기' })).toBeVisible()
+    // 아직 센서 이야기는 꺼내지 않는다.
+    expect(screen.getByRole('status')).not.toHaveTextContent('흔들기')
 
-    // 흔들기를 건너뛴 사람도 기록으로 바로 가지 않는다 — 세 번째 굴림이 남아 있다.
+    await user.click(screen.getByRole('button', { name: '버튼으로 던지기' }))
     expect(heading()).toBe('마지막 한 번 남았어요')
-
-    rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atRecord} />)
-    expect(heading()).toBe('6이 4개 — 이건 포커예요!')
   })
 
-  it('센서가 없는 기기에서는 흔들기 대신 버튼으로 마지막 굴림을 안내한다', () => {
-    setup({ ...atLastRoll, motionNoticeVisible: false })
+  it('흔들기를 골랐다가도 버튼으로 되돌릴 수 있다', async () => {
+    const { user } = setup(atLastRoll)
 
+    await user.click(screen.getByRole('button', { name: '흔들어서 던지기' }))
+    expect(heading()).toBe('폰을 흔들어서 던져요')
+
+    await user.click(screen.getByRole('button', { name: '버튼으로 던질게요' }))
+    expect(heading()).toBe('마지막 한 번 남았어요')
+  })
+
+  it('센서가 없는 기기에서는 묻지 않고 한 갈래로만 안내한다', async () => {
+    const { user } = setup({ ...atLastRoll, motionNoticeVisible: false })
+
+    expect(heading()).toBe('이제 마지막 한 번이 남았어요')
+    expect(screen.queryByRole('button', { name: '흔들어서 던지기' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '던져 볼게요' }))
     expect(heading()).toBe('마지막 한 번 남았어요')
   })
 
@@ -303,6 +378,28 @@ describe('TutorialGuide', () => {
 
     expect(heading()).toBe('듀스')
     expect(halo()).toEqual({ top: 144, left: 14, width: 212, height: 52 })
+  })
+
+  /*
+   * 점수표를 다루는 동안에는 덮지 않는다 — 어둠이 표를 통째로 지우면 어느 칸에 적는 중인지,
+   * 적고 나서 무엇이 바뀌었는지를 볼 수 없다. 차단막은 색만 빠지고 그대로 남는다.
+   */
+  it('주사위 단계는 구멍 주변을 덮고, 점수표 단계는 덮지 않는다', () => {
+    mountTutorialTarget('tray', { top: 100, left: 10, width: 350, height: 300 })
+    mountCategoryRows({ fourOfAKind: { top: 500, left: 20, width: 200, height: 40 } })
+
+    const dice = setup({ keptValues: [6], rollCount: 1, rolled: true })
+    expect(heading()).toBe('좋아요, 1개 남았어요')
+    expect(blockers()).toHaveLength(4)
+    expect(blockers().every((pane) => pane.dimmed)).toBe(true)
+    dice.unmount()
+
+    setup(atRecord)
+    expect(heading()).toBe('6이 4개 — 이건 포커예요!')
+    const panes = blockers()
+    expect(panes.every((pane) => pane.dimmed)).toBe(false)
+    // 덮지 않아도 엉뚱한 곳은 눌리지 않아야 한다.
+    expect(panes.every((pane) => pane.blocks)).toBe(true)
   })
 
   it('기록할 칸으로는 식스가 아니라 포커를 짚는다', () => {
