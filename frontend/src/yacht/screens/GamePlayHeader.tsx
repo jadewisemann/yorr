@@ -46,7 +46,9 @@ export function GamePlayHeader({
         onClick={onToggleSound}
         pressed={!soundMuted}
       >
-        <span aria-hidden="true">{soundMuted ? '🔇' : '🔊'}</span>
+        {/* aria-hidden 래퍼는 없어도 된다 — HeaderButton이 aria-label을 달아
+            버튼의 접근 가능한 이름이 이미 글리프를 덮는다. */}
+        {soundMuted ? '🔇' : '🔊'}
       </HeaderButton>
       <RoundTimer
         compact
@@ -70,15 +72,14 @@ export function GamePlayHeader({
       <HeaderButton label="나가기" onClick={onLeave}>
         ✕
       </HeaderButton>
-      <div className={cn('min-w-0', wide ? undefined : 'flex-1')}>
-        <TurnStatus
-          activePlayer={activePlayer}
-          activePlayerId={activePlayerId}
-          isMyTurn={isMyTurn}
-          roundNumber={roundNumber}
-          submitted={submitted}
-        />
-      </div>
+      <TurnStatus
+        activePlayer={activePlayer}
+        activePlayerId={activePlayerId}
+        isMyTurn={isMyTurn}
+        roundNumber={roundNumber}
+        submitted={submitted}
+        wide={wide}
+      />
       {wide ? (
         <>
           <span aria-hidden="true" className="h-8 w-px flex-none bg-border" />
@@ -109,7 +110,7 @@ function HeaderButton({
     <button
       aria-label={label}
       {...(pressed === undefined ? {} : { 'aria-pressed': pressed })}
-      className="grid size-tap flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-[15px] font-bold text-content-muted transition-colors hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
+      className="grid size-tap flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-[15px] font-bold text-content-muted transition-colors hover:text-content focus-ring"
       onClick={onClick}
       type="button"
     >
@@ -124,12 +125,14 @@ function TurnStatus({
   isMyTurn,
   roundNumber,
   submitted,
+  wide,
 }: Pick<
   GamePlayHeaderProps,
-  'activePlayer' | 'activePlayerId' | 'isMyTurn' | 'roundNumber' | 'submitted'
+  'activePlayer' | 'activePlayerId' | 'isMyTurn' | 'roundNumber' | 'submitted' | 'wide'
 >) {
   return (
-    <span className="flex min-w-0 flex-col gap-0.5">
+    // narrow에서는 이 줄이 남는 폭을 먹어 오른쪽 컨트롤을 끝으로 민다(예전 감싸던 div의 역할).
+    <span className={cn('flex min-w-0 flex-col gap-0.5', !wide && 'flex-1')}>
       <span className="font-mono text-[11px] leading-none font-bold tracking-[0.16em] text-content-muted tabular-nums uppercase">
         Round {String(roundNumber).padStart(2, '0')} / {TOTAL_ROUNDS}
       </span>

@@ -111,11 +111,7 @@ export function ScoreSheet({
       const cell = scoreCell(value, preview, isPreviewCell)
       return (
         <span
-          className={cn(
-            'justify-self-stretch py-1 text-center font-mono text-[15px] font-bold tabular-nums',
-            cellHighlight(player.playerId),
-            cell.className,
-          )}
+          className={cn('score-cell', cellHighlight(player.playerId), cell.className)}
           key={player.playerId}
         >
           {cell.content}
@@ -128,12 +124,12 @@ export function ScoreSheet({
     // 이 세 class는 부모가 flex일 때만(wide 상시 패널) 의미가 있다 — 모바일 시트는 블록이라
     // 무시되고 행은 종전대로 44px 고정이다.
     const rowClassName = cn(
-      'grid max-h-15 min-h-11 w-full shrink-0 grow basis-auto items-center gap-1 border-0 border-b border-border/40 bg-transparent px-3 text-left',
+      'score-row',
       clickable &&
-        'cursor-pointer transition-colors hover:bg-brand/10 focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-[-3px]',
+        'focus-ring cursor-pointer transition-colors hover:bg-brand/10 focus-visible:outline-offset-[-3px]',
     )
     const label = (
-      <span className="flex min-w-0 items-center gap-1.5 text-[14px] font-semibold text-content">
+      <span className="score-label">
         <CategoryIcon category={category} className="size-4 flex-none text-content-muted" />
         <span className="truncate">{categoryLabel[category]}</span>
       </span>

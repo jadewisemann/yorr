@@ -28,7 +28,7 @@ export function InvalidInvitePage({ initialCode }: InvalidInvitePageProps) {
       <header>
         <button
           aria-label="뒤로 가기"
-          className="grid size-11 cursor-pointer place-items-center rounded-card border border-border bg-surface text-lg text-content transition-colors hover:bg-surface-raised focus-visible:outline-3 focus-visible:outline-focus"
+          className="grid size-11 cursor-pointer place-items-center rounded-card border border-border bg-surface text-lg text-content transition-colors hover:bg-surface-raised focus-ring"
           onClick={() => void navigate({ to: '/' })}
           type="button"
         >
@@ -79,7 +79,7 @@ export function InvalidInvitePage({ initialCode }: InvalidInvitePageProps) {
           }}
         />
         <div className="mt-auto grid gap-3">
-          <Button className="min-h-[3.625rem] rounded-panel text-lg" type="submit">
+          <Button size="cta" type="submit">
             수정한 코드로 참가
           </Button>
           <Button type="button" variant="ghost" onClick={() => void navigate({ to: '/' })}>

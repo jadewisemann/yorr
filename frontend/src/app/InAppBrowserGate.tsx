@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from 'react'
+import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
 
 const dismissalKey = 'yorr.in-app-browser-dismissed'
@@ -45,33 +46,9 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
       </div>
 
       <ul className="m-0 grid list-none gap-2.5 rounded-panel border border-border bg-surface p-4 text-sm">
-        <li className="flex items-center gap-2.5">
-          <span
-            aria-hidden="true"
-            className="grid size-[18px] flex-none place-items-center rounded-[6px] bg-positive/20 text-[10px] leading-none font-bold text-positive"
-          >
-            ✓
-          </span>
-          흔들어서 주사위 굴리기
-        </li>
-        <li className="flex items-center gap-2.5">
-          <span
-            aria-hidden="true"
-            className="grid size-[18px] flex-none place-items-center rounded-[6px] bg-positive/20 text-[10px] leading-none font-bold text-positive"
-          >
-            ✓
-          </span>
-          초대 링크 공유와 복사
-        </li>
-        <li className="flex items-center gap-2.5 text-content-muted">
-          <span
-            aria-hidden="true"
-            className="grid size-[18px] flex-none place-items-center rounded-[6px] bg-warning/20 text-[10px] leading-none font-bold text-warning"
-          >
-            !
-          </span>
-          인앱에서는 센서가 동작하지 않을 수 있어요
-        </li>
+        <ChecklistItem tone="ok">흔들어서 주사위 굴리기</ChecklistItem>
+        <ChecklistItem tone="ok">초대 링크 공유와 복사</ChecklistItem>
+        <ChecklistItem tone="warn">인앱에서는 센서가 동작하지 않을 수 있어요</ChecklistItem>
       </ul>
 
       <div className="mt-auto grid gap-2.5">
@@ -101,6 +78,37 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
         </Button>
       </div>
     </main>
+  )
+}
+
+/** 체크리스트 한 줄. 세 줄이 같은 배지를 쓰고 색과 글리프만 갈린다. */
+const checklistTone = {
+  ok: { glyph: '✓', badge: 'bg-positive/20 text-positive', row: undefined },
+  warn: { glyph: '!', badge: 'bg-warning/20 text-warning', row: 'text-content-muted' },
+} as const
+
+function ChecklistItem({
+  children,
+  tone,
+}: {
+  children: ReactNode
+  tone: keyof typeof checklistTone
+}) {
+  const { badge, glyph, row } = checklistTone[tone]
+
+  return (
+    <li className={cn('flex items-center gap-2.5', row)}>
+      <span
+        aria-hidden="true"
+        className={cn(
+          'grid size-[18px] flex-none place-items-center rounded-[6px] text-[10px] leading-none font-bold',
+          badge,
+        )}
+      >
+        {glyph}
+      </span>
+      {children}
+    </li>
   )
 }
 

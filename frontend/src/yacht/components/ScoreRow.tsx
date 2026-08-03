@@ -51,7 +51,7 @@ export function ScoreRow({
     sizes[size],
     onSelect &&
       !used &&
-      'cursor-pointer hover:border-brand focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2',
+      'cursor-pointer hover:border-brand focus-ring focus-visible:outline-offset-2',
     className,
   )
 
