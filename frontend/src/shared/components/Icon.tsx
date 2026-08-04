@@ -24,6 +24,17 @@ interface IconProps {
   className?: string | undefined
 }
 
+/**
+ * 점은 stroke가 아니라 <b>칠한 원</b>으로 그린다.
+ *
+ * `d="M10 14h.01"`처럼 길이 0인 선분에 둥근 끝을 씌우는 흔한 수법은 점 지름이 곧
+ * `strokeWidth`(1.8/20)라, 16px에서 <b>1.4px</b>밖에 안 되어 사실상 사라진다(실측).
+ * 반지름을 viewBox 기준으로 주면 크기와 함께 자란다.
+ */
+function Dot({ cx, cy, r }: { cx: number; cy: number; r: number }) {
+  return <circle cx={cx} cy={cy} fill="currentColor" r={r} stroke="none" />
+}
+
 /** 20×20 stroke 아이콘의 공통 껍데기. */
 function Svg({ children, className }: IconProps & { children: React.ReactNode }) {
   return (
@@ -77,8 +88,10 @@ export function IconSound({ className, muted }: IconProps & { muted: boolean }) 
   return (
     <Svg className={className}>
       <path d="M3.25 7.75h2.5L9.75 4.5v11L5.75 12.25h-2.5z" />
+      {/* 음소거 ✕는 스피커 몸통에서 한 칸 더 떼고 조금 작게 그린다 — 붙여 두면 14px 이하에서
+          몸통과 한 덩어리로 뭉개져 "소리 켜짐"과 실루엣이 구별되지 않았다. */}
       {muted ? (
-        <path d="M12.75 8.25 16.75 12.25M16.75 8.25 12.75 12.25" />
+        <path d="M13.25 8.5 16.5 11.75M16.5 8.5 13.25 11.75" />
       ) : (
         <>
           <path d="M12.75 7.5a3.5 3.5 0 0 1 0 5" />
@@ -89,12 +102,20 @@ export function IconSound({ className, muted }: IconProps & { muted: boolean }) 
   )
 }
 
-/** 경고·주의. */
+/**
+ * 경고·주의.
+ *
+ * <b>삼각형 테두리를 함께 그린다.</b> 느낌표만 남기면 작은 크기에서 세로 막대 하나로 보여
+ * 「!」가 아니라 얼룩이나 `l`로 읽힌다(12~16px 실측). 삼각형은 글자가 뭉개지는 크기에서도
+ * <b>모양만으로</b> 경고를 말하고, 옆의 {@link IconCheck}와 실루엣으로 갈린다 —
+ * `InAppBrowserGate`의 체크리스트가 두 아이콘을 같은 배지에 번갈아 넣는 자리다.
+ */
 export function IconWarning({ className }: IconProps) {
   return (
     <Svg className={className}>
-      <path d="M10 4.5v6.25" />
-      <path d="M10 14.5h.01" />
+      <path d="M10 3.4 18.4 16.6H1.6z" />
+      <path d="M10 8.4v3.1" />
+      <Dot cx={10} cy={14} r={1.05} />
     </Svg>
   )
 }
@@ -111,11 +132,13 @@ export function IconChevron({ className }: IconProps) {
   )
 }
 
-/** 목록에서 건너뛴 구간. 가로 세 점. */
+/** 목록에서 건너뛴 구간. 가로 세 점({@link Dot} 주석 — 16px에서 stroke 점은 사라진다). */
 export function IconEllipsis({ className }: IconProps) {
   return (
     <Svg className={className}>
-      <path d="M5.5 10h.01M10 10h.01M14.5 10h.01" />
+      <Dot cx={5.4} cy={10} r={1.4} />
+      <Dot cx={10} cy={10} r={1.4} />
+      <Dot cx={14.6} cy={10} r={1.4} />
     </Svg>
   )
 }
@@ -125,7 +148,7 @@ export function IconHelp({ className }: IconProps) {
   return (
     <Svg className={className}>
       <path d="M7.4 7.6a2.6 2.6 0 1 1 2.6 2.6v1.55" />
-      <path d="M10 14.75h.01" />
+      <Dot cx={10} cy={14.6} r={1.05} />
     </Svg>
   )
 }
