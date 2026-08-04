@@ -28,6 +28,7 @@ const importLobbyPage = () => import('@/room/screens/LobbyPage')
 const importNicknamePage = () => import('@/room/screens/NicknamePage')
 const importPartyDashboardPage = () => import('@/room/screens/PartyDashboardPage')
 const importPartyOnBigScreenPage = () => import('@/room/screens/PartyOnBigScreenPage')
+const importPingPongModePage = () => import('@/pingpong/PingPongModePage')
 
 const AuthCallbackPage = lazy(() =>
   importAuthCallbackPage().then((mod) => ({ default: mod.AuthCallbackPage })),
@@ -43,6 +44,9 @@ const PartyDashboardPage = lazy(() =>
 )
 const PartyOnBigScreenPage = lazy(() =>
   importPartyOnBigScreenPage().then((mod) => ({ default: mod.PartyOnBigScreenPage })),
+)
+const PingPongModePage = lazy(() =>
+  importPingPongModePage().then((mod) => ({ default: mod.PingPongModePage })),
 )
 
 /**
@@ -60,6 +64,7 @@ function useScreenPrefetch() {
       void importGamePage()
       void importInvalidInvitePage()
       void importAuthCallbackPage()
+      void importPingPongModePage()
     }
     if (typeof requestIdleCallback === 'function') {
       const id = requestIdleCallback(prefetch, { timeout: 3000 })
@@ -141,6 +146,12 @@ const tutorialRoute = createRoute({
   component: lazyRouteComponent(() => import('@/yacht/screens/TutorialPage'), 'TutorialPage'),
 })
 
+const pingPongRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/pingpong',
+  component: PingPongModePage,
+})
+
 const joinRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/join',
@@ -165,9 +176,13 @@ const joinRoute = createRoute({
 const partyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/party',
+  validateSearch: (search: Record<string, unknown>) => ({
+    game: search.game === 'pingpong' ? ('pingpong' as const) : ('yacht' as const),
+  }),
   component: () => {
+    const { game } = partyRoute.useSearch()
     const wide = useMediaQuery('(min-width: 760px)')
-    return wide ? <PartyDashboardPage /> : <PartyOnBigScreenPage />
+    return wide ? <PartyDashboardPage gameKey={game} /> : <PartyOnBigScreenPage gameKey={game} />
   },
 })
 
@@ -192,6 +207,7 @@ const gameRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   tutorialRoute,
+  pingPongRoute,
   authCallbackRoute,
   joinRoute,
   partyRoute,

@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect } from 'react'
+import { gameByKey } from '@/games'
 import type { Player, PlayerId } from '@/realtime/wsEvents'
 import { useCreatePartyRoom } from '@/room/api/useRoomApi'
 import { createInviteUrl, QrFallback } from '@/room/components/InvitationPanel'
@@ -36,8 +37,11 @@ import { useAppStore } from '@/store'
  */
 const WIDE_LAYOUT = '(min-width: 1024px)'
 
-export function PartyDashboardPage() {
+export type PartyGameKey = 'pingpong' | 'yacht'
+
+export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
   const navigate = useNavigate()
+  const game = gameByKey(gameKey)
   const wide = useMediaQuery(WIDE_LAYOUT)
   const roomSession = useAppStore((state) => state.roomSession)
   const roomSnapshot = useAppStore((state) => state.roomSnapshot)
@@ -54,20 +58,20 @@ export function PartyDashboardPage() {
   // 이미 찍고 들어온 사람들이 남의 방을 보게 된다.
   useEffect(() => {
     if (isDashboard || createParty.isLoading || createParty.error) return
-    void createParty.execute()
-  }, [createParty, isDashboard])
+    if (game.gameCode) void createParty.execute(game.gameCode)
+  }, [createParty, game.gameCode, isDashboard])
 
-  useEffect(() => playLandingSoundtrack('yacht'), [])
+  useEffect(() => playLandingSoundtrack(gameKey), [gameKey])
 
   // 게임이 시작되면 관전 뷰로 넘어간다. 이동은 phase가 시킨다(방 전체가 함께 움직인다).
   useEffect(() => {
-    if (!roomSession || !roomSnapshot || roomSnapshot.phase === 'waiting') return
+    if (!isDashboard || !roomSession || !roomSnapshot || roomSnapshot.phase === 'waiting') return
     void navigate({
       to: '/rooms/$roomId/game',
       params: { roomId: roomSession.roomId },
       replace: true,
     })
-  }, [navigate, roomSession, roomSnapshot])
+  }, [isDashboard, navigate, roomSession, roomSnapshot])
 
   if (!isDashboard || !roomSession) {
     return (
@@ -87,7 +91,7 @@ export function PartyDashboardPage() {
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex flex-none items-center gap-3 border-b border-border px-gutter py-3">
           <div className="grid min-w-0 flex-1 gap-1">
-            <h1 className="m-0 text-[19px] font-bold">파티 모드 · 요트 다이스</h1>
+            <h1 className="m-0 text-[19px] font-bold">파티 모드 · {game.name}</h1>
             <p className="m-0 flex items-center gap-2 text-[13px] text-content-muted">
               <span className="font-mono font-bold tracking-[0.12em] text-content">
                 {roomSession.roomCode}
