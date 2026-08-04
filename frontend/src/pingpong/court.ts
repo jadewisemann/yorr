@@ -14,8 +14,10 @@
  * posToZ 는 선형 확장으로 그대로 매핑한다.
  */
 
-/* ── 실제 탁구 규격 (ITTF, 단위 m) ── */
-export const TABLE_LEN = 2.74
+/* ── 실제 탁구 규격을 바탕으로 한 연출용 월드 치수 (단위 m) ── */
+const REGULATION_TABLE_LEN = 2.74
+/** 1인칭 화면에서 랠리 거리가 충분히 읽히도록 깊이만 28% 늘린다. */
+export const TABLE_LEN = REGULATION_TABLE_LEN * 1.28
 export const TABLE_W = 1.525
 export const TABLE_H = 0.76
 export const TABLE_THICK = 0.05
