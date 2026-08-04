@@ -36,7 +36,7 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
   viewerRef.current = viewerFor(state, session.you)
 
   const swing = useCallback(() => {
-    if (dashboard || stateRef.current?.phase !== 'PLAYING') return
+    if (dashboard || !canSwing(stateRef.current)) return
     try {
       client.send(
         buildClientMessage(
@@ -48,6 +48,16 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
       setSendError(null)
     } catch {
       setSendError('연결을 확인한 뒤 다시 스윙해 주세요.')
+    }
+  }, [client, dashboard, roomId])
+
+  const ready = useCallback(() => {
+    if (dashboard || stateRef.current?.phase !== 'PREPARING') return
+    try {
+      client.send(buildClientMessage('game.ping_pong.ready', {}, { roomId }))
+      setSendError(null)
+    } catch {
+      setSendError('연결을 확인한 뒤 다시 준비해 주세요.')
     }
   }, [client, dashboard, roomId])
 
@@ -133,6 +143,7 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
       error={sendError}
       nickname={session.nickname}
       onLeave={onLeaveRequest}
+      onReady={ready}
       onSwing={swing}
       permission={permission}
       playerId={session.you}
@@ -203,9 +214,12 @@ function PingPongDashboard({
           </div>
         </div>
       )}
+      {state.phase === 'PREPARING' && (
+        <PingPongPreparationDashboard snapshot={snapshot} state={state} />
+      )}
       {label && event && eventAge < 900 && (
         <div
-          className={`animate-pp-feedback-pop pointer-events-none absolute inset-x-0 top-[24%] z-10 text-center text-4xl font-black drop-shadow-[0_3px_12px_rgb(0_0_0_/_80%)] ${feedbackTextClass(event.type)}`}
+          className={`animate-pp-feedback-pop pointer-events-none absolute inset-x-0 top-[17%] z-10 text-center text-4xl font-black drop-shadow-[0_3px_12px_rgb(0_0_0_/_80%)] ${feedbackTextClass(event.type)}`}
         >
           {label}
         </div>
@@ -213,11 +227,60 @@ function PingPongDashboard({
       {event?.type === 'SMASH' && eventAge < 220 && (
         <div className="animate-pp-smash-flash pointer-events-none absolute inset-0 z-[5] bg-[radial-gradient(circle_at_50%_55%,rgb(255_150_110_/_45%),transparent_70%)]" />
       )}
-      {state.rally > 0 && <ComboBadge count={state.rally} />}
+      {state.rally > 0 && <ComboBadge count={state.rally} placement="dashboard" />}
       <p className="pointer-events-none absolute inset-x-0 bottom-5 z-20 m-0 text-center text-sm text-white/55">
         두 플레이어가 각자 휴대폰으로 조작하고 있어요.
       </p>
     </main>
+  )
+}
+
+function PingPongPreparationDashboard({
+  snapshot,
+  state,
+}: {
+  snapshot: RoomSnapshot
+  state: PingPongState
+}) {
+  const latestPractice =
+    state.lastEvent?.type === 'PRACTICE'
+      ? snapshot.players.find((player) => player.playerId === state.lastEvent?.playerId)
+      : null
+
+  return (
+    <section className="absolute inset-0 z-10 grid place-items-center bg-black/45 px-5 backdrop-blur-[2px]">
+      <div className="grid w-full max-w-xl gap-6 rounded-[2rem] border border-white/15 bg-[#0b111b]/95 p-7 text-center shadow-2xl">
+        <div>
+          <p className="m-0 font-mono text-xs tracking-[0.2em] text-[#73bfff]">WARM-UP</p>
+          <h1 className="mt-2 mb-0 text-4xl font-black">휴대폰으로 연습 공을 쳐보세요</h1>
+          <p className="mt-2 mb-0 text-white/55">두 명 모두 준비 완료하면 경기가 시작됩니다.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {state.playerOrder.map((playerId, index) => {
+            const player = snapshot.players.find((candidate) => candidate.playerId === playerId)
+            const ready = state.readyPlayerIds.includes(playerId)
+            return (
+              <div
+                className={`rounded-2xl border px-4 py-4 ${ready ? 'border-[#49e08a]/45 bg-[#49e08a]/12' : 'border-white/12 bg-white/6'}`}
+                key={playerId}
+              >
+                <span className="block truncate text-lg font-black">
+                  {player?.nickname ?? `P${index + 1}`}
+                </span>
+                <span className={ready ? 'text-[#8dffc0]' : 'text-white/45'}>
+                  {ready ? '준비 완료' : '연습 중'}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+        <p className="m-0 min-h-6 text-lg font-bold text-[#ffd24a]" role="status">
+          {latestPractice
+            ? `${latestPractice.nickname} 연습 스윙 감지!`
+            : '휴대폰에서 공을 한 번 쳐보세요'}
+        </p>
+      </div>
+    </section>
   )
 }
 
@@ -358,7 +421,11 @@ function viewerFor(state: PingPongState | undefined, playerId: string): 1 | 2 {
 }
 
 function canControl(dashboard: boolean, state: PingPongState | undefined) {
-  return !dashboard && state?.phase === 'PLAYING'
+  return !dashboard && canSwing(state)
+}
+
+function canSwing(state: PingPongState | undefined) {
+  return state?.phase === 'PREPARING' || state?.phase === 'PLAYING'
 }
 
 function renderSceneFrame(

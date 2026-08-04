@@ -5,10 +5,12 @@ import com.ssafy.yorr.game.round.application.port.RoundDeadlineScheduler;
 import com.ssafy.yorr.room.RoomRedisKeys;
 import com.ssafy.yorr.room.dto.GameStartResponse;
 import com.ssafy.yorr.room.dto.ParticipantKind;
+import com.ssafy.yorr.room.service.RoomValidationService;
 import com.ssafy.yorr.ws.RealtimeRoomSnapshotService;
 import com.ssafy.yorr.ws.RoomBroadcaster;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
 import com.ssafy.yorr.ws.dto.RoomPhase;
+import com.ssafy.yorr.ws.dto.RoomPlayerLeftPayload;
 import com.ssafy.yorr.ws.dto.RoomSnapshot;
 import com.ssafy.yorr.ws.dto.StateSyncPayload;
 import com.ssafy.yorr.ws.dto.WsEnvelope;
@@ -33,6 +35,7 @@ public class PingPongGameService {
     private final RoomSessionRegistry sessions;
     private final GameCompletionService completion;
     private final StringRedisTemplate redis;
+    private final RoomValidationService rooms;
 
     public PingPongGameService(
             RedisPingPongStateStore states,
@@ -41,7 +44,8 @@ public class PingPongGameService {
             RealtimeRoomSnapshotService realtimeSnapshots,
             RoomSessionRegistry sessions,
             GameCompletionService completion,
-            StringRedisTemplate redis
+            StringRedisTemplate redis,
+            RoomValidationService rooms
     ) {
         this.states = states;
         this.scheduler = scheduler;
@@ -50,6 +54,7 @@ public class PingPongGameService {
         this.sessions = sessions;
         this.completion = completion;
         this.redis = redis;
+        this.rooms = rooms;
     }
 
     public void start(String roomId, GameStartResponse game) {
@@ -75,6 +80,12 @@ public class PingPongGameService {
                 .ifPresent(next -> changed(roomId, next));
     }
 
+    public void ready(String roomId, String playerId) {
+        long now = System.currentTimeMillis();
+        states.mutate(roomId, current -> PingPongRules.ready(current, playerId, now))
+                .ifPresent(next -> changed(roomId, next));
+    }
+
     public RoomSnapshot reconnect(String roomId) {
         return states.find(roomId)
                 .map(state -> snapshot(roomId, state))
@@ -90,9 +101,33 @@ public class PingPongGameService {
     }
 
     public void removePlayer(String roomId, String playerId) {
+        boolean preparing = states.find(roomId)
+                .map(state -> state.phase() == PingPongState.Phase.PREPARING)
+                .orElse(false);
+        RoomSessionRegistry.Member removed = sessions.removePlayer(roomId, playerId);
+        boolean removedFromRoom = rooms.leave(roomId, playerId);
+        if (removed != null || removedFromRoom) {
+            broadcaster.broadcast(roomId, WsEnvelope.of("room.player_left",
+                            new RoomPlayerLeftPayload(playerId))
+                    .withRoomId(roomId));
+        }
+        if (preparing) {
+            cancelPreparation(roomId);
+            return;
+        }
         long now = System.currentTimeMillis();
         states.mutate(roomId, current -> PingPongRules.forfeit(current, playerId, now))
                 .ifPresent(next -> changed(roomId, next));
+    }
+
+    private void cancelPreparation(String roomId) {
+        scheduler.cancelRoom(roomId);
+        states.remove(roomId);
+        rooms.cancelActiveGame(roomId);
+        sessions.markPhase(roomId, RoomPhase.WAITING);
+        broadcaster.broadcast(roomId, WsEnvelope.of(
+                type(CODE, "state.sync"), new StateSyncPayload(realtimeSnapshots.snapshot(roomId))
+        ).withRoomId(roomId));
     }
 
     public void reset(String roomId) {

@@ -145,10 +145,12 @@ export interface GameState {
   held?: HeldDice
 }
 
-export type PingPongPhase = 'COUNTDOWN' | 'PLAYING' | 'FINISHED'
+export type PingPongPhase = 'PREPARING' | 'COUNTDOWN' | 'PLAYING' | 'FINISHED'
 export type PingPongFault = 'OUT' | 'NET'
 export type PingPongEventType =
   | 'READY'
+  | 'PRACTICE'
+  | 'PLAYER_READY'
   | 'SERVE'
   | 'TOO_EARLY'
   | 'TOO_LATE'
@@ -186,6 +188,7 @@ export interface PingPongState {
   playerOrder: PlayerId[]
   scores: Record<PlayerId, number>
   lastInputSeq: Record<PlayerId, number>
+  readyPlayerIds: PlayerId[]
   ball: PingPongBallState
   rally: number
   serveReceiverId?: PlayerId | null
@@ -197,6 +200,8 @@ export interface PingPongSwingPayload {
   inputSeq: number
   clientTs: number
 }
+
+export type PingPongReadyPayload = Record<string, never>
 
 /* ----- 석양이 진다 (game.duel.* · 서버 권위) -----
  * 진영 번호를 주지 않는다 — "나를 왼쪽에 두는" 배치는 화면의 몫이고 서버는 playerOrder만 안다.
@@ -662,6 +667,7 @@ export type ClientMessage =
   | WsEnvelope<'game.yacht_dice.dice.throw', DiceThrowPayload>
   | WsEnvelope<'game.yacht_dice.round.submit', RoundSubmitPayload>
   | WsEnvelope<'game.ping_pong.swing', PingPongSwingPayload>
+  | WsEnvelope<'game.ping_pong.ready', PingPongReadyPayload>
   | WsEnvelope<'game.duel.draw', DuelDrawPayload>
 
 export type ServerMessage =
