@@ -60,7 +60,7 @@ describe('PingPongController', () => {
 
     expect(screen.getByRole('button', { name: '탁구채를 휘두르기' })).toBeVisible()
     expect(screen.queryByLabelText(/3D 탁구 코트/)).not.toBeInTheDocument()
-    expect(screen.getByText('스매시! 💥')).toBeVisible()
+    expect(screen.getByText('스매시!')).toBeVisible()
     expect(screen.getByText('COMBO')).toBeVisible()
     expect(screen.getAllByText('4')).toHaveLength(2)
 

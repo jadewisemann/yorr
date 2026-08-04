@@ -11,6 +11,8 @@ interface LandingHeroCardProps {
   onPlay: () => void
   /** 플레이 왼쪽에 서는 파티 모드 CTA. wide·live 게임에서만 그려진다. */
   onPartyMode: () => void
+  /** 플레이 <b>위</b>에 서는 연습 모드 입구. 연습이 있는 게임(야추)에서만 그려진다. */
+  onTutorial: () => void
 }
 
 /**
@@ -26,7 +28,13 @@ interface LandingHeroCardProps {
  * 메타 필 273px = 410 > 안쪽 폭 297). 그래서 위·아래로 가른다: 제목·태그라인 위,
  * 메타 필·CTA 아래. 아래에 무거운 덩어리는 CTA 하나뿐이고 필은 헤어라인 칩이다.
  */
-export function LandingHeroCard({ game, layout, onPartyMode, onPlay }: LandingHeroCardProps) {
+export function LandingHeroCard({
+  game,
+  layout,
+  onPartyMode,
+  onPlay,
+  onTutorial,
+}: LandingHeroCardProps) {
   const wide = layout === 'wide'
   const actionLayout = actionLayoutClass(wide, game.key)
 
@@ -159,19 +167,23 @@ export function LandingHeroCard({ game, layout, onPartyMode, onPlay }: LandingHe
             <LandingMetaPills game={game} layout="narrow" />
           </div>
         )}
-        {/* 액션 클러스터. primary(플레이)가 읽기 방향의 끝인 <b>오른쪽</b>에 남고, 보조
-            진입은 왼쪽에 붙는다. 나중에 빠른 대전도 이 줄에 들어온다.
-            모든 자식의 높이가 같아야 한다(h-18/h-15) — 이 자리가 위아래로 뛰면 캐러셀이
-            카드를 미끄러뜨릴 때 슬라이드가 흔들려 보인다(아래 HeroCta 주석과 같은 이유). */}
-        <div className={cn('flex-none', actionLayout)}>
-          {showSecondaryAction(wide, game) && (
-            <PartyModeEntry
-              kind={game.key === 'pingpong' ? 'ai' : 'party'}
-              layout={layout}
-              onOpen={onPartyMode}
-            />
-          )}
-          <HeroCta game={game} layout={layout} onPlay={onPlay} />
+        {/* 연습 입구와 액션 클러스터. 세로로 쌓아 <b>연습이 플레이 버튼 바로 위</b>에 선다. */}
+        <div className={cn('flex flex-none flex-col gap-2', wide ? 'items-end' : 'items-stretch')}>
+          <TutorialSlot game={game} onTutorial={onTutorial} wide={wide} />
+          {/* primary(플레이)가 읽기 방향의 끝인 <b>오른쪽</b>에 남고, 보조 진입은 왼쪽에 붙는다.
+              나중에 빠른 대전도 이 줄에 들어온다.
+              모든 자식의 높이가 같아야 한다(h-18/h-15) — 이 자리가 위아래로 뛰면 캐러셀이
+              카드를 미끄러뜨릴 때 슬라이드가 흔들려 보인다(아래 HeroCta 주석과 같은 이유). */}
+          <div className={actionLayout}>
+            {showSecondaryAction(wide, game) && (
+              <PartyModeEntry
+                kind={game.key === 'pingpong' ? 'ai' : 'party'}
+                layout={layout}
+                onOpen={onPartyMode}
+              />
+            )}
+            <HeroCta game={game} layout={layout} onPlay={onPlay} />
+          </div>
         </div>
       </div>
     </div>
@@ -186,6 +198,50 @@ function actionLayoutClass(wide: boolean, gameKey: Game['key']) {
 
 function showSecondaryAction(wide: boolean, game: Game) {
   return game.live && (wide || game.key === 'pingpong')
+}
+
+/**
+ * 연습 모드 입구가 서는 한 줄(S15P11A406-143). 예전에는 진행 표시줄 <b>아래 층</b>에 있었는데,
+ * 연습이 있는 게임에서만 그 층이 생겼다 사라져 <b>게임을 넘길 때마다 페이지 레이아웃이
+ * 흔들렸고</b> 320px에서는 히어로 카드가 그만큼 눌렸다. 카드 안 하단 띠는 아래가 고정
+ * (bottom 앵커)이라 여기서 한 줄이 늘어도 플레이 버튼은 제자리다.
+ * <p>
+ * 자리는 <b>모든 카드가 함께 비워 둔다</b>(연습이 있는 게임은 야추뿐) — 카드마다 띠 높이가
+ * 다르면 캐러셀이 미끄러질 때 흔들려 보인다({@link HeroCta} 주석과 같은 이유).
+ */
+function TutorialSlot({
+  game,
+  onTutorial,
+  wide,
+}: {
+  game: Game
+  onTutorial: () => void
+  wide: boolean
+}) {
+  return (
+    <div className={cn('flex h-6 items-center', wide ? 'justify-end' : 'justify-start')}>
+      {game.key === 'yacht' && <TutorialEntry onClick={onTutorial} />}
+    </div>
+  )
+}
+
+/**
+ * 실전에 들어가기 전에 고를 수 있어야 하는 선택이라 플레이 CTA와 같은 흐름 — <b>바로 위</b>에
+ * 둔다. 게임 안에서는 더 이상 한 턴 튜토리얼을 켜지 않는다.
+ * <p>
+ * 밑줄 링크 모양을 유지한다 — 버튼 모양으로 만들면 옆의 파티 모드 진입과 같은 무게로 읽혀
+ * 화면에서 채운 레드(플레이) 하나만 튀는 위계가 무너진다.
+ */
+function TutorialEntry({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      className="cursor-pointer border-0 bg-transparent p-1 text-[14px] font-semibold text-landing-text-muted underline underline-offset-4 transition-colors duration-150 ease-out hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
+      onClick={onClick}
+      type="button"
+    >
+      처음이신가요? 튜토리얼로 연습하기
+    </button>
+  )
 }
 
 /** 카드 안쪽 액자. 네 모서리가 보이는 순간 비대칭(예전 left-11 / right-10)은 실수로 읽힌다. */
@@ -238,7 +294,11 @@ const lockedCtaSize = {
   wide: 'h-18 shrink-0 px-14 text-[22px]',
 } as const
 
-function HeroCta({ game, layout, onPlay }: Omit<LandingHeroCardProps, 'onPartyMode'>) {
+function HeroCta({
+  game,
+  layout,
+  onPlay,
+}: Omit<LandingHeroCardProps, 'onPartyMode' | 'onTutorial'>) {
   if (!game.live) {
     return (
       <button

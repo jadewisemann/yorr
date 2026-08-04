@@ -5,6 +5,7 @@ import {
   createRoomAsHost,
   gameUrl,
   lobbyUrl,
+  myTurnLabel,
   recordCategory,
   rollDice,
   startHostedGame,
@@ -32,7 +33,7 @@ test('plays a turn from the start button to the recorded score', async ({ page }
   await startHostedGame(page, server)
 
   expect(rest.startGameCount).toBe(1)
-  await expect(page.getByText('내 턴이에요')).toBeVisible()
+  await expect(myTurnLabel(page)).toBeVisible()
   // 상단 진행 표시는 서버가 준 턴 순서를 그대로 그린다.
   const turnOrder = page.getByRole('list', { name: '턴 순서' })
   await expect(turnOrder.getByRole('listitem')).toHaveCount(2)
@@ -61,7 +62,7 @@ test('shows the final standings and returns the room to the lobby', async ({ pag
 
   await createRoomAsHost(page, HOST.nickname)
   await startHostedGame(page, server)
-  await expect(page.getByText('내 턴이에요')).toBeVisible()
+  await expect(myTurnLabel(page)).toBeVisible()
 
   server.send('game.yacht_dice.score.update', { playerId: HOST.id, scoreboard: HOST_BOARD })
   server.send('game.yacht_dice.score.update', { playerId: GUEST.id, scoreboard: GUEST_BOARD })
@@ -106,7 +107,7 @@ test('opens the full score matrix from the result screen', async ({ page }) => {
 
   await createRoomAsHost(page, HOST.nickname)
   await startHostedGame(page, server)
-  await expect(page.getByText('내 턴이에요')).toBeVisible()
+  await expect(myTurnLabel(page)).toBeVisible()
 
   server.send('game.yacht_dice.score.update', { playerId: HOST.id, scoreboard: HOST_BOARD })
   server.send('game.yacht_dice.game.over', {

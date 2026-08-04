@@ -24,6 +24,8 @@ interface LandingHeroCarouselProps {
   /** 활성 카드 안 플레이 CTA. 카드가 소유하지만 어디로 갈지는 화면이 정한다. */
   onPlay: () => void
   onSelect: (index: number) => void
+  /** 활성 카드 안 연습 모드 입구. 플레이 바로 위에 선다. */
+  onTutorial: () => void
 }
 
 /** 이 거리 이상 끌고 놓으면 옆 게임으로 넘어간다. 그 아래는 가운데로 스냅된다. */
@@ -55,6 +57,7 @@ export function LandingHeroCarousel({
   onPartyMode,
   onPlay,
   onSelect,
+  onTutorial,
 }: LandingHeroCarouselProps) {
   const wide = layout === 'wide'
   const [dragOffset, setDragOffset] = useState(0)
@@ -234,7 +237,13 @@ export function LandingHeroCarousel({
           id={LANDING_PANEL_ID}
           role="tabpanel"
         >
-          <LandingHeroCard game={game} layout={layout} onPartyMode={onPartyMode} onPlay={onPlay} />
+          <LandingHeroCard
+            game={game}
+            layout={layout}
+            onPartyMode={onPartyMode}
+            onPlay={onPlay}
+            onTutorial={onTutorial}
+          />
 
           {/* 화살표는 카드 안쪽 가장자리에 붙여 <b>띠와 함께 움직인다</b>. 바깥 고정 좌표에
               두면 카드가 미끄러지는 동안 버튼만 제자리에 멈춰 있어 화면에서 홀로 떠 보였고,

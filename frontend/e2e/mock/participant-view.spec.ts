@@ -9,7 +9,7 @@ import {
   waitingSnapshot,
 } from '../support/contract'
 import { startFakeGameServer } from '../support/fakeGameServer'
-import { gameUrl, joinRoomAsGuest, useSimpleDiceRenderer } from '../support/flows'
+import { activeTurnLabel, gameUrl, joinRoomAsGuest, useSimpleDiceRenderer } from '../support/flows'
 import { mockRestApi } from '../support/restMock'
 
 /**
@@ -36,7 +36,7 @@ test('moves to the game screen when the host starts', async ({ page }) => {
   server.syncSnapshot(playingSnapshot({ players: roster, activePlayerId: HOST.id }))
 
   await expect(page).toHaveURL(gameUrl)
-  await expect(page.getByText(`${HOST.nickname}의 턴`).first()).toBeVisible()
+  await expect(activeTurnLabel(page, HOST.nickname)).toBeVisible()
   // 참가자는 시작 API도, 게임 조회 API도 부르지 않는다(gameId는 호스트만 받는다).
   expect(rest.startGameCount).toBe(0)
   expect(rest.gameFetchCount).toBe(0)
