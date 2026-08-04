@@ -10,17 +10,15 @@ import { cn } from '@/shared/cn'
  * 서 있어, 여기에 레드를 한 번 더 쓰면 무엇이 primary인지 사라진다. 대신 3D 위에 얹히는
  * 자리라 well 색만으로는 피사체가 비쳐 보이므로 backdrop blur를 함께 준다.
  *
- * <b>wide에서만 그린다</b>(호출부에서 분기). 폰의 대시보드는 덜 좋은 경험이 아니라 틀린
- * 경험이라 비활성 버튼조차 두지 않는다 — 링크로 직접 들어온 경우는 `/party`가 안내로 받는다.
- * narrow 카드 안쪽은 280px뿐이라 버튼 두 개가 한 줄에 서지 못하고 쌓여, 그만큼 3D 영역을
- * 잃는 문제도 함께 피한다.
+ * 기본은 wide에서만 그리지만, 탁구는 모바일에서도 AI/친구 선택이 필요해 narrow에 함께
+ * 노출한다. narrow 호출부는 두 CTA에 같은 폭을 주어 한 줄에서 글자가 깨지지 않게 한다.
  */
 const partyCta =
   'flex cursor-pointer items-center justify-center gap-2.5 rounded-[20px] border border-landing-hairline-strong bg-landing-well/70 font-bold text-landing-text backdrop-blur-sm transition-colors duration-150 ease-out hover:border-landing-accent/70 hover:bg-landing-soft focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-3'
 
 /** 플레이 CTA와 <b>같은 높이</b>다. 폭만 좁다 — primary가 면적으로 먼저 읽혀야 한다. */
 const partyCtaSize = {
-  narrow: 'h-15 flex-1 text-[17px]',
+  narrow: 'h-15 w-full min-w-0 gap-1.5 whitespace-nowrap px-2 text-[15px]',
   wide: 'h-18 shrink-0 px-7 text-[19px]',
 } as const
 

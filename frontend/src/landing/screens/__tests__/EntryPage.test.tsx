@@ -118,6 +118,18 @@ describe('EntryPage', () => {
     expect(navigate).toHaveBeenCalledWith({ to: '/pingpong' })
   })
 
+  it('keeps both ping pong actions in equal mobile columns', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    await user.click(screen.getByRole('tab', { name: /탁구/ }))
+
+    const ai = screen.getByRole('button', { name: '탁구 AI와 대전' })
+    const friend = screen.getByRole('button', { name: '탁구 친구와 대전' })
+    expect(ai.parentElement).toBe(friend.parentElement)
+    expect(ai.parentElement).toHaveClass('grid-cols-2')
+  })
+
   it('처음 온 사람은 방을 만들지 않고 연습 모드로 바로 들어간다', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)
@@ -172,11 +184,8 @@ describe('EntryPage', () => {
 
     await user.click(screen.getByRole('button', { name: '다음 게임' }))
 
-    expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
-    expect(screen.getByRole('tab', { name: /라이어스 다이스/ })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    )
+    expect(screen.getByRole('heading', { name: '탁구' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: /탁구/ })).toHaveAttribute('aria-selected', 'true')
   })
 
   // 목록이 순환하므로 화살표는 끝에서도 비활성이 되지 않는다 — 점 목록 방향키와 같은 규칙이다.

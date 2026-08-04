@@ -9,9 +9,13 @@ describe('games', () => {
   it('준비 중인 게임은 live=false로만 구분한다', () => {
     expect(games.filter((game) => game.live).map((game) => game.key)).toEqual([
       'yacht',
-      'duel',
       'pingpong',
+      'duel',
     ])
+  })
+
+  it('탁구는 요트 다이스 바로 다음에 노출한다', () => {
+    expect(games.slice(0, 2).map((game) => game.key)).toEqual(['yacht', 'pingpong'])
   })
 
   it('게임 키는 중복되지 않는다 — 탭 id가 키로 만들어진다', () => {

@@ -168,15 +168,27 @@ final class PingPongRules {
         int score = scores.getOrDefault(scorerId, 0) + 1;
         scores.put(scorerId, score);
         int version = state.version() + 1;
-        if (score >= WIN_SCORE) {
+        int opponentScore = scores.getOrDefault(state.playerOrder().get(scorer == 0 ? 1 : 0), 0);
+        if (score >= WIN_SCORE && score - opponentScore >= 2) {
             return copy(state, version, PingPongState.Phase.FINISHED, scores, state.lastInputSeq(), ball,
                     state.rally(), null, 0,
                     event(version, PingPongState.EventType.GAME_OVER, scorerId, now));
         }
-        int loser = scorer == 0 ? 1 : 0;
         return copy(state, version, PingPongState.Phase.COUNTDOWN, scores, state.lastInputSeq(), ball,
-                state.rally(), state.playerOrder().get(loser), now + POINT_COUNTDOWN_MILLIS,
+                state.rally(), serveReceiver(state.playerOrder(), scores), now + POINT_COUNTDOWN_MILLIS,
                 event(version, forcedType == null ? PingPongState.EventType.POINT : forcedType, scorerId, now));
+    }
+
+    /**
+     * 실제 탁구의 서브 교대 규칙. 서버가 직접 서브권을 소유하지 않고 "다음 서브를 받을 사람"을
+     * 저장하므로, 같은 인덱스를 2점 동안 유지한 뒤 바꾼다. 10:10부터는 매 점마다 바뀐다.
+     */
+    static String serveReceiver(List<String> playerOrder, Map<String, Integer> scores) {
+        int first = scores.getOrDefault(playerOrder.getFirst(), 0);
+        int second = scores.getOrDefault(playerOrder.get(1), 0);
+        int total = first + second;
+        int serviceTurn = total < 20 ? total / 2 : 10 + (total - 20);
+        return playerOrder.get(serviceTurn % 2);
     }
 
     private static PingPongState.Fault fault(double distance, boolean early) {
