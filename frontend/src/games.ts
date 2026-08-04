@@ -94,6 +94,17 @@ export function isGameKey(value: unknown): value is GameKey {
   return typeof value === 'string' && games.some((game) => game.key === value)
 }
 
+/**
+ * 파티 모드로 열 수 있는 게임인가. 파티 진입은 곧 방을 만드는 것이라 백엔드 게임
+ * 모듈(`gameCode`)이 있어야 한다 — 없는 게임으로 들어오면 방을 못 열고 빈 화면이 된다.
+ *
+ * 목록을 손으로 적지 않는 이유: 게임이 늘 때마다 여기와 라우트 두 곳을 같이 고쳐야 하는데,
+ * 한쪽을 잊으면 "버튼은 있고 갈 곳은 없는" 상태가 된다(결투가 실제로 그랬다).
+ */
+export function isPartyGameKey(value: unknown): value is GameKey {
+  return isGameKey(value) && gameByKey(value).gameCode !== undefined
+}
+
 export function gameByKey(key: GameKey | undefined): Game {
   return games.find((game) => game.key === key) ?? games[0]
 }

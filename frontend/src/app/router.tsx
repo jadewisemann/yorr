@@ -7,7 +7,7 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect } from 'react'
-import { isGameKey } from '@/games'
+import { isGameKey, isPartyGameKey } from '@/games'
 import { EntryPage } from '@/landing/screens/EntryPage'
 import { getRoomCodeError, normalizeRoomCode } from '@/room/roomCode'
 import { useMediaQuery } from '@/shared/useMediaQuery'
@@ -189,7 +189,8 @@ const partyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/party',
   validateSearch: (search: Record<string, unknown>) => ({
-    game: search.game === 'pingpong' ? ('pingpong' as const) : ('yacht' as const),
+    // 카탈로그가 정한다 — 게임을 추가할 때 이 줄을 같이 고칠 일이 없어야 한다.
+    game: isPartyGameKey(search.game) ? search.game : ('yacht' as const),
   }),
   component: () => {
     const { game } = partyRoute.useSearch()

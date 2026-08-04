@@ -33,6 +33,7 @@ function stage(overrides: Partial<DuelState>, impact = false, youShot: ShotTarge
     opponentName: '상대',
     state: duelState(overrides),
     you: ME,
+    youName: '나',
     youShot,
   })
 }
@@ -43,6 +44,22 @@ describe('buildStage', () => {
 
     expect(view.left.name).toBe('나')
     expect(view.right.name).toBe('상대')
+  })
+
+  /** 파티 모드 큰 화면은 관전이다 — "나"라고 부를 사람이 없어 둘 다 닉네임으로 세운다. */
+  it('관전 화면은 왼쪽도 닉네임으로 부른다', () => {
+    const view = buildStage({
+      impact: false,
+      opponentId: RIVAL,
+      opponentName: '두번째',
+      state: duelState({}),
+      you: ME,
+      youName: '첫번째',
+      youShot: null,
+    })
+
+    expect(view.left.name).toBe('첫번째')
+    expect(view.right.name).toBe('두번째')
   })
 
   it('총알이 닿기 전에는 맞은 쪽 체력이 아직 깎이지 않는다', () => {

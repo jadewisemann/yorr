@@ -34,8 +34,13 @@ export interface Stage {
 
 interface StageInput {
   state: DuelState
-  /** 나의 playerId. */
+  /** 왼쪽에 세울 playerId. 플레이어 화면에서는 자기 자신이고, 관전 화면에서는 첫 번째 총잡이다. */
   you: string
+  /**
+   * 왼쪽 이름표. 플레이어는 '나'로 보고, 큰 화면(파티 대시보드)은 관전이라 실제 닉네임으로
+   * 본다 — 관전 화면에 '나'가 뜨면 누구를 가리키는지 알 수 없다.
+   */
+  youName: string
   opponentId: string
   opponentName: string
   /** 총알이 목표에 닿았는가. */
@@ -54,6 +59,7 @@ export function buildStage({
   opponentName,
   state,
   you,
+  youName,
   youShot,
 }: StageInput): Stage {
   const round = state.lastRound ?? null
@@ -91,7 +97,7 @@ export function buildStage({
     clash: settled && round?.kind === 'TIE' && leftShot === 'opponent' && rightShot === 'opponent',
     foulSide: settled ? sideOf(round?.foulId, you, opponentId) : 0,
     ko: settled && !!round?.over,
-    left: fighter(you, '나', OUTFIT_LEFT, leftShot),
+    left: fighter(you, youName, OUTFIT_LEFT, leftShot),
     leftShot,
     pending,
     phase: arenaPhaseOf(state.phase, pending),
