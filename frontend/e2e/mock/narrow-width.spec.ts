@@ -153,7 +153,11 @@ async function labelFit(page: Page, text: string) {
   return page.evaluate((needle) => {
     const target = [...document.querySelectorAll<HTMLElement>('span, p')].find(
       (element) =>
-        (element.textContent ?? '').trim().endsWith(needle) && element.children.length <= 1,
+        (element.textContent ?? '').trim().endsWith(needle) &&
+        element.children.length <= 1 &&
+        // 감춰진 요소는 언제나 "들어간다" — 그 통과는 아무것도 지켜 주지 않는다.
+        // (헤더 턴 라벨처럼 폭에 따라 두 벌 중 하나를 감추는 자리가 있다.)
+        element.getClientRects().length > 0,
     )
     if (!target?.parentElement) return { fits: false, lines: -1 }
 
@@ -298,11 +302,13 @@ test('keeps the live game screen within 320px', async ({ page }) => {
   await expectKoreanWordBreakProtected(page, '실전 게임')
 
   // 헤더 턴 라벨. 이 칸은 320px에서 56px뿐이라 「내 턴이에요」가 「내 턴이」로 끊겼다 —
-  // flex 컨테이너에 걸린 truncate는 말줄임조차 붙이지 못했다. 짧은 라벨로 갈아 통째로 넣는다.
-  expect(await labelFit(page, '내 턴'), '헤더 턴 라벨이 제 칸을 넘거나 접혔다').toEqual({
-    fits: true,
-    lines: 1,
-  })
+  // flex 컨테이너에 걸린 truncate는 말줄임조차 붙이지 못했다. 그 폭에서만 짧은 라벨로 갈았으니
+  // 보이는 쪽을 골라 잰다(이 스펙은 320px과 393px 두 폭에서 돈다).
+  const narrow = (page.viewportSize()?.width ?? 0) < 360
+  expect(
+    await labelFit(page, narrow ? '내 턴' : '내 턴이에요'),
+    '헤더 턴 라벨이 제 칸을 넘거나 접혔다',
+  ).toEqual({ fits: true, lines: 1 })
 
   // 리액션은 독(오른쪽 끝)에서 솟아오른다. 닉네임 필이 버튼보다 넓어 오른쪽으로 삐져나가면
   // 정작 누가 보냈는지를 못 읽는다 — 뜬 것들이 전부 뷰포트 안에 있어야 한다.
@@ -324,9 +330,10 @@ test('keeps the live game screen within 320px', async ({ page }) => {
   await expect
     .poll(async () => (await flyingRights()).length, { message: '떠오른 리액션을 찾지 못했다' })
     .toBeGreaterThan(0)
+  const viewport = page.viewportSize()?.width ?? 0
   expect(
-    (await flyingRights()).filter((right) => right > 320),
-    '떠오른 리액션이 뷰포트 오른쪽을 넘었다 (drift가 양수인지 확인)',
+    (await flyingRights()).filter((right) => right > viewport + SUBPIXEL_SLACK),
+    `떠오른 리액션이 뷰포트(${viewport}px) 오른쪽을 넘었다 (drift가 양수인지 확인)`,
   ).toEqual([])
 })
 
