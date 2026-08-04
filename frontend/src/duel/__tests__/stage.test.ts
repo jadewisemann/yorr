@@ -158,6 +158,65 @@ describe('buildStage', () => {
     expect(stage(frozen, true).left.pose).toBe('hit')
   })
 
+  /** 진 쪽 총알을 그냥 지나가게 두면 "맞혔는데 아무 일도 없다"로 읽힌다. */
+  it('느렸던 쪽 총알은 빗나가고 한마디가 붙는다', () => {
+    const view = stage(
+      {
+        hp: { [ME]: 3, [RIVAL]: 2 },
+        lastRound: round({ hitId: RIVAL, number: 3, shooterId: ME }),
+        phase: 'RESULT',
+        reactions: { [ME]: 180, [RIVAL]: 240 },
+      },
+      false,
+      'opponent',
+    )
+
+    expect(view.winner).toBe(1)
+    expect(view.leftMiss).toBe(false)
+    expect(view.rightMiss).toBe(true)
+    // 말풍선은 총알이 스쳐 간 쪽(= 맞힌 쪽) 머리 위에 뜬다.
+    expect(view.miss?.side).toBe(1)
+    expect(view.miss?.taunt).toBeTruthy()
+  })
+
+  /** 두 화면이 다른 말을 하면 안 된다 — 난수 대신 서버가 준 값에서 뽑는다. */
+  it('같은 라운드는 몇 번을 다시 그려도 같은 한마디가 나온다', () => {
+    const shot = {
+      hp: { [ME]: 3, [RIVAL]: 2 },
+      lastRound: round({ hitId: RIVAL, number: 3, shooterId: ME }),
+      phase: 'RESULT' as const,
+      reactions: { [ME]: 180, [RIVAL]: 240 },
+    }
+
+    expect(stage(shot).miss?.taunt).toBe(stage(shot).miss?.taunt)
+  })
+
+  it('얼어붙어 못 뽑은 쪽에는 빗나감이 없다', () => {
+    const view = stage({
+      hp: { [ME]: 2, [RIVAL]: 3 },
+      lastRound: round({ hitId: ME, shooterId: RIVAL }),
+      phase: 'RESULT',
+      reactions: { [ME]: -2, [RIVAL]: 190 },
+    })
+
+    expect(view.leftShot).toBeNull()
+    expect(view.leftMiss).toBe(false)
+    expect(view.miss).toBeNull()
+  })
+
+  it('부정출발 라운드에는 빗나감이 없다 — 서로를 겨누지 않았다', () => {
+    const view = stage({
+      fouls: { [ME]: 1, [RIVAL]: 0 },
+      lastRound: round({ foulId: ME, kind: 'WARNING' }),
+      phase: 'RESULT',
+      reactions: { [ME]: -1 },
+    })
+
+    expect(view.leftMiss).toBe(false)
+    expect(view.rightMiss).toBe(false)
+    expect(view.miss).toBeNull()
+  })
+
   it('내가 뽑고 상대를 기다리는 동안에는 내 기록만 보여준다', () => {
     const view = stage({ phase: 'SIGNAL', reactions: { [ME]: 182 }, signalAt: 1_000 })
 
