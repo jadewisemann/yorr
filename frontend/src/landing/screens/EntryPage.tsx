@@ -54,10 +54,12 @@ export function EntryPage() {
   const game = gameAt(activeIndex)
   /**
    * 바닥 층에 실제로 그릴 게 있는가. ActiveRoomBanner는 roomSession이 없으면 null이다.
-   * 연습 모드 입구는 플레이할 수 있는 게임에서만 서므로(준비 중인 게임의 연습은 없다)
-   * 그것도 같이 센다.
+   *
+   * 연습 모드 입구는 더 이상 여기서 세지 않는다 — 카드 안 플레이 버튼 위로 옮겼다.
+   * 게임을 넘길 때마다 이 층이 생겼다 사라져 페이지 레이아웃이 흔들렸고, 320px에서는
+   * 그만큼 히어로 카드가 눌렸다(LandingHeroCard의 TutorialEntry 주석).
    */
-  const hasFooter = roomSession !== null || Boolean(appNotice) || game.live
+  const hasFooter = roomSession !== null || Boolean(appNotice)
 
   useEffect(() => {
     playLandingSoundtrack(game.key)
@@ -210,6 +212,7 @@ export function EntryPage() {
               onPartyMode={handleOpenParty}
               onPlay={handlePlay}
               onSelect={handleGameSelect}
+              onTutorial={handleTutorial}
             />
           </div>
 
@@ -227,7 +230,6 @@ export function EntryPage() {
               짧은 화면(932×430)에서 배너가 뷰포트 바닥에 붙는 것을 막는다. */}
           <div className="flex min-h-fit flex-1 flex-col items-center gap-3 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pt-[clamp(10px,2.2vh,22px)] pb-[clamp(20px,6vh,56px)]">
             <div className="flex w-full max-w-180 flex-col items-center gap-3">
-              {game.key === 'yacht' && <TutorialLink onClick={handleTutorial} />}
               <ActiveRoomBanner />
               {appNotice && (
                 <p className={noticeBase} role="status">
@@ -299,6 +301,7 @@ export function EntryPage() {
             onPartyMode={handleOpenParty}
             onPlay={handlePlay}
             onSelect={handleGameSelect}
+            onTutorial={handleTutorial}
           />
         </div>
 
@@ -312,7 +315,6 @@ export function EntryPage() {
         </div>
 
         <div className={narrowFooter[hasFooter ? 'filled' : 'empty']}>
-          {game.key === 'yacht' && <TutorialLink onClick={handleTutorial} />}
           <ActiveRoomBanner />
           {appNotice && (
             <p className={noticeBase} role="status">
@@ -324,28 +326,6 @@ export function EntryPage() {
       {codeDialog}
       {accountDialog}
     </>
-  )
-}
-
-/**
- * 연습 모드 진입(S15P11A406-143). 실전에 들어가기 전에 고를 수 있어야 하는 선택이라
- * 플레이 CTA와 같은 흐름에 둔다 — 게임 안에서는 더 이상 한 턴 튜토리얼을 켜지 않는다.
- * <p>
- * 카드 <b>안</b>(CTA 바로 아래)이 아니라 진행 표시줄 아래 층에 서는 이유: 카드 하단 띠는
- * 플레이·준비중 두 상태의 높이가 같아야 캐러셀이 미끄러질 때 흔들리지 않는다
- * ({@link LandingHeroCard}의 HeroCta 주석). live에서만 한 줄이 붙으면 그 전제가 깨진다.
- * <p>
- * 준비 중인 게임에서는 그리지 않는다 — 연습할 것이 아직 없다.
- */
-function TutorialLink({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      className="cursor-pointer border-0 bg-transparent p-1 text-[14px] font-semibold text-landing-text-muted underline underline-offset-4 transition-colors duration-150 ease-out hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
-      onClick={onClick}
-      type="button"
-    >
-      처음이신가요? 튜토리얼로 연습하기
-    </button>
   )
 }
 

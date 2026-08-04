@@ -19,6 +19,7 @@ describe('LandingHeroCarousel', () => {
         onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
+        onTutorial={vi.fn()}
       />,
     )
 
@@ -38,6 +39,7 @@ describe('LandingHeroCarousel', () => {
         onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
+        onTutorial={vi.fn()}
       />,
     )
 
@@ -52,6 +54,7 @@ describe('LandingHeroCarousel', () => {
         onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
+        onTutorial={vi.fn()}
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: '다음 게임' }))
@@ -69,6 +72,7 @@ describe('LandingHeroCarousel', () => {
         onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
+        onTutorial={vi.fn()}
       />,
     )
 
@@ -86,6 +90,7 @@ describe('LandingHeroCarousel', () => {
         onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
+        onTutorial={vi.fn()}
       />,
     )
 
@@ -106,6 +111,7 @@ describe('LandingHeroCarousel', () => {
         onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
+        onTutorial={vi.fn()}
       />,
     )
     const region = screen.getByRole('region', { name: '게임 캐러셀' })
@@ -128,6 +134,7 @@ describe('LandingHeroCarousel', () => {
         onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
+        onTutorial={vi.fn()}
       />,
     )
 
@@ -149,6 +156,7 @@ describe('LandingHeroCarousel', () => {
         onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
+        onTutorial={vi.fn()}
       />,
     )
     const region = screen.getByRole('region', { name: '게임 캐러셀' })
@@ -178,6 +186,7 @@ describe('LandingHeroCarousel', () => {
         onPartyMode={vi.fn()}
         onPlay={onPlay}
         onSelect={onSelect}
+        onTutorial={vi.fn()}
       />,
     )
     const region = screen.getByRole('region', { name: '게임 캐러셀' })
