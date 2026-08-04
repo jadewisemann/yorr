@@ -179,6 +179,65 @@
   --animate-duel-roll: duel-roll 1400ms linear infinite;
 }
 
+@keyframes pp-feedback-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  38% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pp-combo-hit {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.55) rotate(-5deg);
+  }
+  55% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.18) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1) rotate(0);
+  }
+}
+
+@keyframes pp-smash-flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.animate-pp-feedback-pop {
+  animation: pp-feedback-pop 240ms ease-out both;
+}
+
+.animate-pp-combo-hit {
+  animation: pp-combo-hit 260ms ease-out both;
+}
+
+.animate-pp-smash-flash {
+  animation: pp-smash-flash 220ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pp-feedback-pop,
+  .animate-pp-combo-hit,
+  .animate-pp-smash-flash {
+    animation: none;
+  }
+}
+
 :root {
   /* S15P11A406-117 다크 디자인 시스템 v1 — 블랙·화이트 + 레드 포인트.
      레드는 CTA·현재 턴·킵·경고·결과 강조에만 쓰고 정보 영역은 블랙·그레이를 유지한다.
