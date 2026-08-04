@@ -101,6 +101,7 @@ export function Arena({
   const firing = settled && foulSide === 0 && (tie || winner !== 0)
   // 파울 라운드 — 총알은 자기 발밑으로 (경고면 땅, 경고 소진이면 자기 발)
   const foulShot = settled && foulSide !== 0
+  const [leftFires, rightFires] = triggerPulls({ firing, foulShot, foulSide, tie, winner })
 
   return (
     <div
@@ -124,13 +125,20 @@ export function Arena({
         className="absolute"
         style={{ bottom: '28%', left: '17%', transform: 'translateX(-50%)' }}
       >
-        <Gunslinger fxKey={fxKey} height="var(--gs-h)" outfit={left.outfit} pose={left.pose} />
+        <Gunslinger
+          firing={leftFires}
+          fxKey={fxKey}
+          height="var(--gs-h)"
+          outfit={left.outfit}
+          pose={left.pose}
+        />
       </div>
       <div
         className="absolute"
         style={{ bottom: '28%', right: '17%', transform: 'translateX(50%)' }}
       >
         <Gunslinger
+          firing={rightFires}
           flip
           fxKey={fxKey}
           height="var(--gs-h)"
@@ -169,6 +177,32 @@ export function Arena({
       {children}
     </div>
   )
+}
+
+/**
+ * 방아쇠를 당기는 쪽 [왼쪽, 오른쪽].
+ *
+ * 총구 화염·반동은 <b>총알이 떠나는 순간</b>에 맞춘다. 뽑는 순간에 터뜨리면 총알은 판정이
+ * 난 뒤(최대 700ms)에야 날아가므로 화염과 총알이 따로 노는 두 동작으로 보인다. 뽑기는
+ * 자세로 즉시 보여 주고, 발사는 총알과 한 몸으로 묶는다.
+ */
+function triggerPulls({
+  firing,
+  foulShot,
+  foulSide,
+  tie,
+  winner,
+}: {
+  firing: boolean
+  foulShot: boolean
+  foulSide: 0 | 1 | 2
+  tie: boolean
+  winner: 0 | 1 | 2
+}): [boolean, boolean] {
+  // 부정출발은 자기 발밑으로 쏜다 — 상대는 방아쇠를 당기지도 않았다.
+  if (foulShot) return [foulSide === 1, foulSide === 2]
+  if (!firing) return [false, false]
+  return [tie || winner === 1, tie || winner === 2]
 }
 
 /**

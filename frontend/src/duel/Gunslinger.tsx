@@ -47,6 +47,14 @@ interface GunslingerProps {
   outfit: Outfit
   /** true = 왼쪽을 향해 서기 (오른쪽 진영) */
   flip?: boolean
+  /**
+   * 지금 방아쇠를 당겼는가 — 화염과 반동이 여기서 터진다.
+   *
+   * 뽑는 것(draw 자세)과 쏘는 것을 나눈 이유: 총알은 판정이 나야 방향이 정해지는데,
+   * 화염을 뽑는 순간에 터뜨리면 최대 700ms 뒤에 날아가는 총알과 따로 노는 두 동작으로
+   * 보인다. 뽑기는 탭한 즉시 보여 주고, 발사는 총알이 떠나는 순간에 맞춘다.
+   */
+  firing?: boolean
   /** 총을 쏜 라운드마다 바뀌는 키 — 반동·화염 애니메이션을 다시 재생시킨다. */
   fxKey?: number
   height?: number | string
@@ -55,12 +63,14 @@ interface GunslingerProps {
 export function Gunslinger({
   pose,
   outfit,
+  firing = false,
   flip = false,
   fxKey = 0,
   height = '100%',
 }: GunslingerProps) {
   const [upperArm, foreArm] = ARM[pose]
   const armed = pose === 'draw'
+  const shooting = armed && firing
   const down = pose === 'dead'
   // 한 화면에 여러 총잡이가 있어도 그라디언트가 섞이지 않게 인스턴스별 id를 쓴다.
   const gradientId = `duel-body-${useId().replace(/:/g, '')}`
@@ -89,7 +99,7 @@ export function Gunslinger({
         className={
           pose === 'hit' ? 'animate-duel-knockback' : down ? 'animate-duel-fall' : undefined
         }
-        key={`body-${pose}-${fxKey}`}
+        key={`body-${pose}-${shooting}-${fxKey}`}
         style={
           pose === 'hit'
             ? { transformOrigin: BODY_PIVOT }
@@ -104,12 +114,12 @@ export function Gunslinger({
         <g transform={`translate(54 64) rotate(${upperArm})`}>
           <path d="M -5.5 -5 L 5.5 -5 L 4 25 L -4 25 Z" fill="#150a11" />
           <g
-            className={armed ? 'animate-duel-recoil' : undefined}
+            className={shooting ? 'animate-duel-recoil' : undefined}
             transform={`translate(0 25) rotate(${foreArm})`}
           >
             <path d="M -4.2 0 L 4.2 0 L 3.2 21 L -3.2 21 Z" fill="#1c0e17" />
             <circle cx="0" cy="23" fill="#241118" r="4.2" />
-            {armed ? <Revolver flash={outfit.rim} /> : null}
+            {armed ? <Revolver firing={shooting} flash={outfit.rim} /> : null}
           </g>
         </g>
 
@@ -198,8 +208,8 @@ function Body({
   )
 }
 
-/** 리볼버 — 손 위치에서 팔 방향(+y)으로 뻗는다 */
-function Revolver({ flash }: { flash: string }) {
+/** 리볼버 — 손 위치에서 팔 방향(+y)으로 뻗는다. 화염은 방아쇠를 당긴 순간에만 터진다. */
+function Revolver({ firing, flash }: { firing: boolean; flash: string }) {
   return (
     <g>
       <path d="M -4.5 17 L 1.5 19 L 0.5 27 L -5.5 25 Z" fill="#2b1a14" />
@@ -207,12 +217,13 @@ function Revolver({ flash }: { flash: string }) {
       <rect fill="#3a3a44" height="8" rx="1.8" width="6.5" x="-3" y="22" />
       {/* 배럴 */}
       <rect fill="#4a4a56" height="14" rx="1.2" width="3.4" x="-1.6" y="29" />
-      {/* 총구 화염 */}
-      <g className="animate-duel-muzzle" style={{ transformOrigin: '0px 43px' }}>
-        <path d="M 0 60 L -7 45 L -2.5 43.5 L 0 30 L 2.5 43.5 L 7 45 Z" fill={flash} />
-        <circle cx="0" cy="44" fill="#fff3d0" opacity="0.9" r="6.5" />
-        <circle cx="0" cy="46" fill={flash} opacity="0.28" r="12" />
-      </g>
+      {firing && (
+        <g className="animate-duel-muzzle" style={{ transformOrigin: '0px 43px' }}>
+          <path d="M 0 60 L -7 45 L -2.5 43.5 L 0 30 L 2.5 43.5 L 7 45 Z" fill={flash} />
+          <circle cx="0" cy="44" fill="#fff3d0" opacity="0.9" r="6.5" />
+          <circle cx="0" cy="46" fill={flash} opacity="0.28" r="12" />
+        </g>
+      )}
     </g>
   )
 }
