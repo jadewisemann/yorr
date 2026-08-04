@@ -145,9 +145,9 @@
 
   /* ── 석양이 진다 ──────────────────────────────────────────────────────────
      퀵드로우는 "한 프레임에 뽑히는" 게 맛이라 뽑는 자세는 보간하지 않고 스냅으로 바꾸고,
-     반동·넉백만 여기서 얹는다. 총알이 날아가는 모습은 그리지 않는다 — 방향은 판정이 나야
-     정해지는데 판정은 상대를 기다려야 나오므로, 그 사이를 비행으로 메우면 쏘는 동작과
-     맞는 동작이 두 박자로 갈린다. */
+     반동·넉백·총알만 여기서 얹는다. 총알이 나는 시간은 화면마다 다르다(사거리가 다르다) —
+     duel/duel.ts의 flightMs가 폭을 재서 내고, 컴포넌트가 animation-duration으로 덮는다.
+     여기 적힌 시간은 그 값이 없을 때의 기본값일 뿐이다. */
 
   /* 총잡이: 뽑을 때 팔 반동 · 총구 화염은 한 프레임처럼 번쩍인다. */
   --animate-duel-recoil: duel-recoil 260ms cubic-bezier(0.15, 0.9, 0.3, 1) both;
@@ -162,6 +162,11 @@
   --animate-duel-sway: duel-sway 3400ms ease-in-out infinite;
   --animate-duel-lamp-pop: duel-lamp-pop 240ms cubic-bezier(0.2, 0.9, 0.2, 1.3) both;
   --animate-duel-signal-pop: duel-signal-pop 280ms cubic-bezier(0.2, 0.9, 0.2, 1.2) both;
+
+  /* 총알 — 사거리(트랙 폭)만큼 건너간다. 방향과 거리는 --duel-bullet-to가 준다. */
+  --animate-duel-bullet: duel-bullet 300ms linear both;
+  --animate-duel-bullet-clash: duel-bullet 150ms linear both;
+  --animate-duel-clash: duel-clash 500ms ease-out both;
 
   /* 착탄 — 상대 가슴의 섬광, 부정출발이면 자기 발밑의 흙먼지. */
   --animate-duel-impact: duel-impact 420ms ease-out both;
@@ -675,6 +680,35 @@
   100% {
     transform: scale(1);
     opacity: 1;
+  }
+}
+
+/* 총알은 transform으로만 움직인다 — left를 애니메이션하면 매 프레임 레이아웃이 다시 잡힌다.
+   움직이는 층이 트랙과 같은 폭이라 translateX(100%)가 정확히 사거리다. 방향과 거리(TIE는
+   가운데까지 50%)는 컴포넌트가 --duel-bullet-to로 준다. */
+@keyframes duel-bullet {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  10%,
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(var(--duel-bullet-to, 100%));
+    opacity: 0;
+  }
+}
+
+@keyframes duel-clash {
+  0% {
+    transform: translate(-50%, -50%) scale(0.1);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
   }
 }
 

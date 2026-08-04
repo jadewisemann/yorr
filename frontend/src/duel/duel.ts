@@ -14,8 +14,41 @@ export type ShotTarget = 'opponent' | 'ground'
 
 /** 서버 DuelRules.MAX_HP와 같은 값. 총알(체력) 칸 수다. */
 export const MAX_HP = 3
-/** 서버 DuelRules.MAX_FOULS와 같은 값. 이 개수가 차면 자기 발을 쏘고 결투를 잃는다. */
+/** 서버 DuelRules.MAX_FOULS와 같은 값. 이 개수가 차면 자기 발을 쏜다. */
 export const MAX_FOULS = 2
+
+/**
+ * 총알이 지나는 구간의 좌우 여백(무대 폭 대비). Arena가 총알 트랙을 이 값으로 세우고,
+ * 아래 flightMs가 같은 값으로 사거리를 낸다 — 둘이 갈라지면 착탄 시각이 어긋난다.
+ */
+export const BULLET_TRACK_INSET = 0.24
+
+/**
+ * 총알 속도(px/ms)와 시간 상하한.
+ *
+ * 폭이 390px인 폰과 1280px인 노트북에서 사거리가 3배 차이 난다. 시간을 고정하면 폰에서는
+ * 총알이 기어가고 노트북에서는 순간이동한다. 그래서 <b>거리를 재서 시간을 낸다</b>. 다만
+ * 순수 등속으로 두면 노트북에서 800ms를 넘어 늘어지므로 상하한으로 가둔다.
+ */
+const BULLET_SPEED_PX_MS = 1.6
+/**
+ * 좁은 화면의 하한. 등속으로 두면 폰에서 130ms인데, 그러면 판정이 도착하기도 전에 총알이
+ * 닿아 버려 피격이 늘 총알보다 늦는다(실측 63ms 지각). 왕복 지연을 덮을 만큼은 날아야
+ * 착탄과 피격이 같은 프레임에 온다.
+ */
+const MIN_FLIGHT_MS = 260
+const MAX_FLIGHT_MS = 420
+
+/**
+ * 이 화면에서 총알이 나는 시간. 무대 폭 하나만 받아 두 총잡이 사이 거리를 내고, 속도로
+ * 나눈다. 착탄·피격 자세·체력·섬광·화면 흔들림·문구가 모두 이 값 하나를 기준으로 잡히므로
+ * 화면 크기가 바뀌어도 서로 어긋나지 않는다.
+ */
+export function flightMs(stageWidth: number): number {
+  const distance = Math.max(0, stageWidth) * (1 - BULLET_TRACK_INSET * 2)
+  const raw = distance / BULLET_SPEED_PX_MS
+  return Math.round(Math.min(MAX_FLIGHT_MS, Math.max(MIN_FLIGHT_MS, raw)))
+}
 
 /** 정상적으로 뽑았는가 — 부정출발·미반응 센티넬이 아닌 실제 기록. */
 export function isClean(ms: number | null | undefined): ms is number {
