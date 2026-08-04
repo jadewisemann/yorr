@@ -22,7 +22,7 @@
  *    sys.*                              22(연결계열)     소켓 연결/세션 수명주기       (이정현) ✅
  *    room.*                             22 + ENT-ROOM   JOIN(인증+입장)·퇴장·멤버십   (이정현) ✅
  *    reaction.* / state.* / presence.*  26              리액션·상태 브로드캐스트      (이정현) ✅
- *    voice.*                            130             WebRTC 음성 시그널링(제안)    (이정현) 🟡
+ *    voice.*                            130             WebRTC 음성 시그널링           (이정현) ✅
  *    ─ 참고: 인증(구 auth.*)은 room.join 하나로 병합됨(v0.2). WebRTC는 음성(130)에서 도입.
  *    round.*                            23·24           라운드·타이머(STUB)           (고용훈)
  *    dice.*                             16~21           센서 주사위(STUB)             (정유진/고용훈)
@@ -35,6 +35,7 @@
  *    ✅ CONFIRMED : 내(이정현) 담당 범위 — 이번 P0에서 확정 구현.
  *    ⚠️ STUB      : 타 담당 제안 초안 — owner 확정 전까지 임시. 필드 변경 가능.
  *    🟡 PROPOSED  : 구현 전 제안 — 팀 합의를 받으려고 먼저 올린 것이다. 승인되면 ✅로 바꾼다.
+ *                   (현재 이 표시를 쓰는 항목은 없다)
  *
  *  history
  *    v0.1 (2026-07) 초안 — envelope + sys/auth/room/signal 확정, 게임 도메인 STUB.
@@ -49,12 +50,15 @@
  *    v0.7 (2026-08) dice.shake / dice.shaken 추가 — 흔들림 펄스를 그대로 중계한다. 그전까지
  *                   관전 화면은 정해진 애니메이션으로 계속 흔들려서, 굴린 사람이 손을 멈춰도 멈추지 않았다.
  *    v0.8 (2026-08) voice.* 4종 제안(130) — WebRTC 풀메시 음성. 오디오는 피어끼리 직접 흐르고
- *                   서버는 시그널링만 중계한다. 🟡 PROPOSED — 팀 합의 전이라 아직 구현 없음.
- *                   current-baseline.md의 "WebRTC는 채택되지 않았다"를 이 티켓에서 뒤집는다.
+ *                   서버는 시그널링만 중계한다. current-baseline.md의 "WebRTC는 채택되지
+ *                   않았다"를 이 티켓에서 뒤집었다. v1.0에서 팀 합의 완료(✅).
  *    v0.9 (2026-08) 게임 도메인 네임스페이스(177) — 게임 모듈 이벤트와 state.sync 에
  *                   `game.<game_code>.` 접두사가 붙는다(예: yacht_dice, ping_pong).
  *                   방 레벨 이벤트(sys.* · room.* · reaction.* · presence.* · 방 state.sync)는
  *                   그대로다. 아래 주석의 짧은 이름은 접두사를 뺀 표기다.
+ *    v1.0 (2026-08) voice.* 확정 — 정원 6인 · 음소거 비공개 · TURN 도입 · 접두사 없음(방 레벨).
+ *                   게임이 늘어도(ping_pong 등) 음성은 방 레벨이라 접두사를 받지 않는다.
+ *                   FE 구현(풀메시 메시·마이크 UX) 반영.
  * ============================================================================
  */
 
@@ -363,7 +367,7 @@ export interface PresenceUpdatePayload {
   status: PlayerStatus
 }
 
-/* ===== 🟡 PROPOSED · VOICE-001 · WebRTC 음성 시그널링 (130 · 이정현) =====
+/* ===== VOICE-001 · WebRTC 음성 시그널링 (130 · 이정현) ✅ =====
  *
  *  풀메시(full mesh)다. 오디오는 피어끼리 **직접** 흐르고, 서버는 "서로를 찾는 정보"만
  *  중계한다 — 미디어 서버(SFU)를 두지 않는다. 방 정원이 6명이라 피어당 연결 4~5개,
@@ -380,16 +384,19 @@ export interface PresenceUpdatePayload {
  *  문자열로 비교해 작은 쪽이 offer를 만든다.** 양쪽 FE가 같은 규칙을 쓰기만 하면 되므로
  *  서버는 관여하지 않지만, 규칙이 갈리면 연결이 안 되므로 계약에 적어 둔다.
  *
- *  ICE/TURN은 이 계약에 없다. 공용 STUN으로 시작하고, 서로 다른 NAT 뒤라 직결이 실패하는
- *  10~20%를 위해 TURN이 필요해지면 자격증명을 발급해야 한다 — 시간제한 토큰이라 방 전체에
- *  브로드캐스트하면 안 되고, REST(`GET /api/v1/voice/ice`)로 빼는 게 맞다. TURN 도입 여부
- *  자체가 비용 결정이므로 이 MR에서 정하지 않는다.
+ *  ICE/TURN은 이 계약에 없다 — REST(`GET /api/v1/voice/ice`)가 담당한다. 자격증명이 시간제한
+ *  토큰이라 방 전체에 브로드캐스트하면 안 되기 때문이다. FE에서 그 자리는
+ *  `realtime/voice/iceServers.ts` 한 곳이고, 엔드포인트가 없으면 공용 STUN으로 떨어진다.
  *
- *  ─ 합의가 필요한 지점(리뷰에서 결정)
- *    · 음소거를 상대에게 보이게 할지. 지금은 트랙만 끄므로 남에게는 "말 안 하는 중"으로 보인다.
- *      배지를 띄우려면 voice.mute(C→S)와 voice.peers의 muted 플래그가 추가로 필요하다.
- *    · "누가 말하는 중"은 각 클라가 받은 스트림의 음량을 직접 재서 그린다 — 서버로 올리면
- *      말할 때마다 메시지가 나가고 표시도 늦다. 그래서 계약에 관련 이벤트가 없다.
+ *  ─ 결정된 사항 (2026-08 · 이 계약은 아래를 전제로 한다)
+ *    · 정원 6인 확정 → 풀메시 유지. 늘리려면 위 업링크 계산부터 다시 본다.
+ *    · 음소거는 상대에게 보이지 않는다 → voice.mute도 muted 플래그도 두지 않는다.
+ *      트랙만 끄므로 남에게는 "말 안 하는 중"으로 보이고, 그걸로 충분하다는 판단이다.
+ *    · TURN 도입 확정(싸피 서버 UDP 개방 확인) → 자격증명은 시간제한 토큰이라
+ *      `GET /api/v1/voice/ice`로 발급한다. 방 전체에 방송하면 안 되므로 이 계약에는 없다.
+ *    · "누가 말하는 중"은 각 클라가 수신기의 audioLevel을 직접 읽어 그린다
+ *      (getSynchronizationSources) — 서버로 올리면 말할 때마다 메시지가 나가고 표시도 늦다.
+ *      그래서 계약에 관련 이벤트가 없다.
  */
 
 /** C→S: 음성 채널 입장. roomId는 envelope. room.join을 마친 뒤에만 유효하다(아니면 NOT_IN_ROOM). */
@@ -595,7 +602,7 @@ export type ClientMessage =
   | WsEnvelope<'room.ready', RoomReadyPayload>
   // ✅ SIGNAL
   | WsEnvelope<'reaction.send', ReactionSendPayload>
-  // 🟡 PROPOSED (음성 · 130)
+  // ✅ VOICE (음성 · 130)
   | WsEnvelope<'voice.join', VoiceJoinPayload>
   | WsEnvelope<'voice.leave', VoiceLeavePayload>
   | WsEnvelope<'voice.signal', VoiceSignalPayload>
@@ -626,7 +633,7 @@ export type ServerMessage =
   | WsEnvelope<'game.yacht_dice.state.sync', StateSyncPayload>
   | WsEnvelope<'game.ping_pong.state.sync', StateSyncPayload>
   | WsEnvelope<'presence.update', PresenceUpdatePayload>
-  // 🟡 PROPOSED (음성 · 130)
+  // ✅ VOICE (음성 · 130)
   | WsEnvelope<'voice.peers', VoicePeersPayload>
   | WsEnvelope<'voice.signaled', VoiceSignaledPayload>
   // ✅ 공통
