@@ -25,22 +25,34 @@ const partyCtaSize = {
 } as const
 
 export function PartyModeEntry({
+  kind,
   layout,
   onOpen,
 }: {
+  kind: 'ai' | 'party'
   layout: 'narrow' | 'wide'
   onOpen: () => void
 }) {
+  const ai = kind === 'ai'
   return (
     <button
-      aria-label="파티 모드로 시작하기"
+      aria-label={ai ? '탁구 AI와 대전' : '파티 모드로 시작하기'}
       className={cn(partyCta, partyCtaSize[layout])}
       onClick={onOpen}
       type="button"
     >
-      <ScreenGlyph />
-      파티 모드
+      {ai ? <OpponentGlyph /> : <ScreenGlyph />}
+      {ai ? 'AI와 대전' : '파티 모드'}
     </button>
+  )
+}
+
+function OpponentGlyph() {
+  return (
+    <span aria-hidden="true" className="flex items-center -space-x-1">
+      <span className="size-3.5 rounded-full border-2 border-current/70" />
+      <span className="size-3.5 rounded-full border-2 border-current/70" />
+    </span>
   )
 }
 

@@ -21,107 +21,11 @@ import {
 import { createScene, type PingPongScene } from './scene3d'
 import { useSwing } from './useSwing'
 
-const DIFFICULTY_LABEL: Record<LocalPingPongDifficulty, string> = {
-  easy: '쉬움',
-  hard: '어려움',
-  normal: '보통',
-}
-
-interface LocalSelection {
-  difficulty: LocalPingPongDifficulty
-  mode: LocalPingPongMode
-}
-
 export function PingPongModePage() {
   const navigate = useNavigate()
-  const [local, setLocal] = useState<LocalSelection | null>(null)
-
-  if (local) {
-    return (
-      <LocalPingPongGame
-        difficulty={local.difficulty}
-        key={`${local.mode}-${local.difficulty}`}
-        mode={local.mode}
-        onExit={() => setLocal(null)}
-      />
-    )
-  }
-
   return (
-    <main className="relative grid min-h-svh place-items-center overflow-hidden bg-[#070b12] px-5 py-[max(1.25rem,env(safe-area-inset-top))] text-white">
-      <div className="absolute inset-0 [background:radial-gradient(circle_at_50%_35%,rgb(43_143_224_/_24%),transparent_48%)]" />
-      <button
-        className="absolute top-[max(1rem,env(safe-area-inset-top))] left-4 z-10 min-h-11 rounded-full border border-white/15 bg-black/30 px-4 text-sm text-white/75"
-        onClick={() => void navigate({ to: '/' })}
-        type="button"
-      >
-        ‹ 게임 선택
-      </button>
-
-      <section className="relative z-10 grid w-full max-w-md gap-6 rounded-[2rem] border border-white/15 bg-black/35 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
-        <header className="text-center">
-          <div className="mb-2 text-5xl">🏓</div>
-          <p className="m-0 font-mono text-xs tracking-[0.22em] text-white/45">PING · PONG</p>
-          <h1 className="mt-2 mb-0 text-3xl font-black">플레이 모드</h1>
-          <p className="mt-2 mb-0 text-sm leading-relaxed text-white/55">
-            혼자 연습하거나, QR로 두 휴대폰을 연결하거나,
-            <br />
-            초대 링크로 온라인 대전을 시작하세요.
-          </p>
-        </header>
-
-        <div className="grid gap-3">
-          <div className="rounded-2xl border border-white/12 bg-white/6 p-3">
-            <p className="mt-0 mb-2 text-center font-mono text-xs tracking-[0.12em] text-white/45">
-              봇전 · 난이도 선택
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {(['easy', 'normal', 'hard'] as const).map((difficulty) => (
-                <button
-                  className={`min-h-12 rounded-xl border text-sm font-black transition active:scale-[0.98] ${difficultyClass(difficulty)}`}
-                  key={difficulty}
-                  onClick={() => setLocal({ difficulty, mode: 'solo' })}
-                  type="button"
-                >
-                  {DIFFICULTY_LABEL[difficulty]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button
-            className="min-h-16 rounded-2xl border border-[#ff8b7c]/45 bg-[#ff8b7c]/12 px-5 text-left transition active:scale-[0.99] active:bg-[#ff8b7c]/20"
-            onClick={() => void navigate({ to: '/party', search: { game: 'pingpong' } })}
-            type="button"
-          >
-            <strong className="block text-base text-[#ffb0a5]">1:1 파티 모드</strong>
-            <span className="mt-1 block text-xs text-white/50">
-              대기실 QR로 두 폰을 연결해 대전
-            </span>
-          </button>
-
-          <button
-            className="min-h-16 rounded-2xl border border-[#49e08a]/45 bg-[#49e08a]/12 px-5 text-left transition active:scale-[0.99] active:bg-[#49e08a]/20"
-            onClick={() =>
-              void navigate({ to: '/join', search: { code: undefined, game: 'pingpong' } })
-            }
-            type="button"
-          >
-            <strong className="block text-base text-[#8dffc0]">온라인 모드</strong>
-            <span className="mt-1 block text-xs text-white/50">
-              방을 만들고 초대 링크로 1:1 대전
-            </span>
-          </button>
-        </div>
-      </section>
-    </main>
+    <LocalPingPongGame difficulty="normal" mode="solo" onExit={() => void navigate({ to: '/' })} />
   )
-}
-
-function difficultyClass(difficulty: LocalPingPongDifficulty) {
-  if (difficulty === 'easy') return 'border-[#49e08a]/40 bg-[#49e08a]/12 text-[#8dffc0]'
-  if (difficulty === 'hard') return 'border-[#ff8b7c]/40 bg-[#ff8b7c]/12 text-[#ffb0a5]'
-  return 'border-[#73bfff]/55 bg-[#2b8fe0] text-white shadow-lg'
 }
 
 interface HudState {
@@ -271,10 +175,10 @@ function LocalPingPongGame({
           onClick={onExit}
           type="button"
         >
-          ‹ 모드 선택
+          ‹ 게임 선택
         </button>
         <span className="font-mono text-xs tracking-[0.14em] text-white/45">
-          {mode === 'solo' ? `봇전 · ${DIFFICULTY_LABEL[difficulty]}` : '1:1 파티 모드'}
+          {mode === 'solo' ? 'AI와 대전' : '1:1 파티 모드'}
         </span>
         {permission === 'unknown' ? (
           <button
@@ -362,7 +266,7 @@ function LocalPingPongGame({
                 다시 하기
               </Button>
               <Button onClick={onExit} size="lg" variant="secondary">
-                모드 선택
+                게임 선택
               </Button>
             </section>
           </div>

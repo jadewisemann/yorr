@@ -13,34 +13,21 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 describe('PingPongModePage', () => {
   beforeEach(() => navigate.mockReset())
 
-  it('offers bot, phone party, and online modes', () => {
+  it('starts the AI match immediately without a difficulty step', () => {
     render(<PingPongModePage />)
 
-    expect(screen.getByRole('button', { name: '쉬움' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: '보통' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: '어려움' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /1:1 파티 모드/ })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /온라인 모드/ })).toBeEnabled()
+    expect(screen.getByLabelText('로컬 3D 탁구 코트')).toBeInTheDocument()
+    expect(screen.getByText('AI와 대전')).toBeVisible()
+    expect(screen.queryByText('난이도 선택')).not.toBeInTheDocument()
+    expect(navigate).not.toHaveBeenCalled()
   })
 
-  it('opens a ping pong party room for two phone controllers', async () => {
+  it('returns from the AI match to game selection', async () => {
     const user = userEvent.setup()
     render(<PingPongModePage />)
 
-    await user.click(screen.getByRole('button', { name: /1:1 파티 모드/ }))
+    await user.click(screen.getByRole('button', { name: '‹ 게임 선택' }))
 
-    expect(navigate).toHaveBeenCalledWith({ to: '/party', search: { game: 'pingpong' } })
-  })
-
-  it('keeps online play on the existing YORR room flow', async () => {
-    const user = userEvent.setup()
-    render(<PingPongModePage />)
-
-    await user.click(screen.getByRole('button', { name: /온라인 모드/ }))
-
-    expect(navigate).toHaveBeenCalledWith({
-      to: '/join',
-      search: { code: undefined, game: 'pingpong' },
-    })
+    expect(navigate).toHaveBeenCalledWith({ to: '/' })
   })
 })

@@ -94,12 +94,26 @@ describe('EntryPage', () => {
     })
   })
 
-  it('opens the ping pong mode selector before creating an online room', async () => {
+  it('opens the ping pong party dashboard from the primary play button', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)
 
     await user.click(screen.getByRole('tab', { name: /탁구/ }))
-    await user.click(screen.getByRole('button', { name: '탁구 플레이' }))
+    await user.click(screen.getByRole('button', { name: '탁구 친구와 대전' }))
+
+    expect(navigate).toHaveBeenCalledWith({ to: '/party', search: { game: 'pingpong' } })
+  })
+
+  it.each([
+    ['narrow', false],
+    ['wide', true],
+  ])('opens ping pong AI play from the secondary button (%s)', async (_layout, wide) => {
+    const user = userEvent.setup()
+    useLayout(wide)
+    render(<EntryPage />)
+
+    await user.click(screen.getByRole('tab', { name: /탁구/ }))
+    await user.click(screen.getByRole('button', { name: '탁구 AI와 대전' }))
 
     expect(navigate).toHaveBeenCalledWith({ to: '/pingpong' })
   })
