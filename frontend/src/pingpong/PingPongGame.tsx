@@ -11,6 +11,7 @@ import { useReturnToLobby } from '@/room/api/useGameApi'
 import { Button } from '@/shared/components/Button'
 import type { ActiveRoomSession } from '@/store'
 import { type Fault, flightProgress } from './court'
+import { type PlayerTracking, trackIncomingBall } from './playerTracking'
 import { createScene, type FrameState, type PingPongScene } from './scene3d'
 import { useSwing } from './useSwing'
 
@@ -25,6 +26,7 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
   const client = useRealtimeClient()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sceneRef = useRef<PingPongScene | null>(null)
+  const trackingRef = useRef({ p1X: 0.5, p2X: 0.5 })
   const state = snapshot.game as unknown as PingPongState | undefined
   const stateRef = useRef(state)
   const viewerRef = useRef<1 | 2>(1)
@@ -87,7 +89,8 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
     let raf = 0
     const frame = () => {
       const current = stateRef.current
-      if (current) renderSceneFrame(scene, current, viewerRef.current, Date.now())
+      if (current)
+        renderSceneFrame(scene, current, viewerRef.current, Date.now(), trackingRef.current)
       raf = requestAnimationFrame(frame)
     }
     raf = requestAnimationFrame(frame)
@@ -278,14 +281,26 @@ function currentBall(state: PingPongState, now: number) {
   }
 }
 
-function renderSceneFrame(scene: PingPongScene, state: PingPongState, viewer: 1 | 2, now: number) {
-  const rendered = createFrameState(state, viewer, now)
+function renderSceneFrame(
+  scene: PingPongScene,
+  state: PingPongState,
+  viewer: 1 | 2,
+  now: number,
+  tracking: PlayerTracking,
+) {
+  const rendered = createFrameState(state, viewer, now, tracking)
   scene.update(rendered)
   scene.render(rendered)
 }
 
-function createFrameState(state: PingPongState, viewer: 1 | 2, now: number): FrameState {
+function createFrameState(
+  state: PingPongState,
+  viewer: 1 | 2,
+  now: number,
+  tracking: PlayerTracking,
+): FrameState {
   const ball = currentBall(state, now)
+  trackIncomingBall(tracking, ball.direction, ball.x)
   const eventAge = state.lastEvent ? now - state.lastEvent.at : Number.POSITIVE_INFINITY
   const swingAmount = eventAge < 260 ? 1 - eventAge / 260 : 0
   const eventPlayer = state.lastEvent?.playerId
@@ -303,8 +318,8 @@ function createFrameState(state: PingPongState, viewer: 1 | 2, now: number): Fra
     ballFault: fault ?? null,
     ballFaultFrom: ball.faultFrom,
     ballFall: falling ? Math.min(1.2, eventAge / 1_000) : 0,
-    p1X: ball.x0,
-    p2X: ball.x0,
+    p1X: tracking.p1X,
+    p2X: tracking.p2X,
     p1Swing: eventPlayer === state.playerOrder[0] ? swingAmount : 0,
     p2Swing: eventPlayer === state.playerOrder[1] ? swingAmount : 0,
     shake: state.lastEvent?.type === 'SMASH' && eventAge < 190 ? 1 - eventAge / 190 : 0,
