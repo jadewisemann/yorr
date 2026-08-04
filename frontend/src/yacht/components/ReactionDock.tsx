@@ -30,8 +30,12 @@ const FLIGHT_MS = 2_200
 const MAX_FLYING = 12
 /**
  * 항목마다 돌려 쓰는 좌우 흩뿌림. Math.random 대신 id로 고르면 테스트도 같은 그림을 본다.
+ * <p>
+ * <b>0 이하만 쓴다 — 독은 화면 오른쪽 끝에 붙어 있다.</b> 양수 drift는 이모지와 닉네임 필을
+ * 뷰포트 밖으로 밀어낸다(320px에서 실측: 필이 오른쪽에서 잘려 누가 보냈는지 못 읽었다).
+ * 왼쪽은 트레이 안쪽이라 얼마든지 흩어져도 된다.
  */
-const DRIFTS = ['-1.5rem', '-0.6rem', '0.2rem', '0.9rem', '1.6rem']
+const DRIFTS = ['-3.2rem', '-2.4rem', '-1.5rem', '-0.7rem', '0rem']
 
 /**
  * 세로 흩뿌림. 좌우만 흔들면 같은 순간에 도착한 것들이 <b>같은 높이에서 나란히</b> 올라가
@@ -199,7 +203,10 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
           // 이겨서 무시되고, motion-reduce로 애니메이션이 없을 때만 적용된다 — 그래야 동시에
           // 온 리액션이 한 점에 겹쳐 하나처럼 보이지 않는다. 좌우(--drift)만으로는 같은
           // 높이에 한 줄로 서므로 세로(--lift)까지 흔든다.
-          className="pointer-events-none absolute right-0 bottom-full flex w-tap translate-x-(--drift) translate-y-(--lift) flex-col items-center gap-1 animate-reaction-float motion-reduce:animate-none"
+          // items-end: 닉네임 필(max-w-24)은 버튼(w-tap)보다 넓다 — 가운데 정렬이면 버튼
+          // 오른쪽으로 26px 삐져나가고, 독이 화면 오른쪽 끝에 붙어 있으므로 그만큼 뷰포트를
+          // 넘어 잘렸다. 오른쪽 끝을 맞추면 넘치는 쪽이 안쪽(왼쪽)으로만 자란다.
+          className="pointer-events-none absolute right-0 bottom-full flex w-tap translate-x-(--drift) translate-y-(--lift) flex-col items-end gap-1 animate-reaction-float motion-reduce:animate-none"
           key={item.id}
           style={
             {
