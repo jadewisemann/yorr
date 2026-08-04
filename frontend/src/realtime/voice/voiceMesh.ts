@@ -15,7 +15,18 @@ import type { PlayerId, VoiceSignalData } from '../wsEvents'
  *   addIceCandidate는 remote description이 없으면 던진다. 그런데 상대의 후보는 offer/answer
  *   보다 먼저 도착할 수 있다(별개 메시지라 순서 보장이 없다). 큐가 없으면 통화가 간헐적으로
  *   안 붙고, 재현이 어려운 쪽으로 실패한다.
+ *
+ * ── 규칙 3: failed면 스스로 다시 협상한다
+ *   명단(voice.peers)은 사람이 들락날락할 때만 온다. 죽은 연결을 버리고 기다리기만 하면
+ *   명단이 다시 오지 않는 방에서는 영구히 "연결 중"이다. 폰은 화면 잠금·WiFi↔LTE 전환에서
+ *   실제로 여기 걸린다.
  */
+
+/**
+ * failed를 보고 다시 만들기까지 기다리는 시간. 곧바로 다시 시도하면 아직 돌아오지 않은 망에서
+ * 같은 실패를 그대로 밟는다.
+ */
+const RESTART_DELAY_MS = 2000
 
 interface Peer {
   connection: RTCPeerConnection
@@ -197,8 +208,9 @@ export class VoiceMesh {
     })
 
     connection.addEventListener('connectionstatechange', () => {
-      // failed는 되살아나지 않는다. 명단에 남아 있으면 syncPeers가 다시 만든다.
-      if (connection.connectionState === 'failed') this.dropPeer(id)
+      // failed는 되살아나지 않는다 — 버리고 새로 만든다(규칙 3).
+      // disconnected는 건드리지 않는다. 브라우저가 스스로 복구하는 경우가 많고, 못 하면 failed로 온다.
+      if (connection.connectionState === 'failed') this.restartPeer(id)
       this.options.onPeersChanged(this.peerIds())
     })
 
@@ -211,6 +223,28 @@ export class VoiceMesh {
       })
     }
     return peer
+  }
+
+  /**
+   * 죽은 연결을 버리고 처음부터 다시 협상한다(규칙 3).
+   *
+   * ICE restart(`createOffer({ iceRestart: true })`)를 쓰지 않는 이유: 재시작은 offer를 만드는
+   * 쪽만 할 수 있는데(규칙 1) 실패를 먼저 알아채는 쪽은 그 반대일 수 있다. 양쪽이 각자 연결을
+   * 새로 만들면 어느 쪽이 먼저 깨닫든 같은 경로로 복구된다 — 상대가 아직 살아 있다고 믿고
+   * 있어도 consent freshness(RFC 7675)로 30초 안에 같이 failed가 되고, 그때 작은 쪽이 offer한다.
+   *
+   * 재시도 횟수를 세지 않는다. 폰이 돌아왔을 때 스스로 붙는 게 중요하고, 포기해 버리면 사용자가
+   * 통화를 껐다 켜야 한다. 실패 한 번에 ICE 타임아웃(수 초~수십 초)이 이미 들어 있어 반복이
+   * 촘촘해지지도 않는다.
+   */
+  private restartPeer(id: PlayerId) {
+    this.dropPeer(id)
+    setTimeout(() => {
+      // 그 사이 통화를 끄거나(closed) 명단이 이미 다시 만들어 줬으면 아무것도 하지 않는다.
+      // 상대가 정말 나갔다면 leave가 뿌린 명단이 곧 이 연결을 다시 걷어간다.
+      if (this.closed || this.peers.has(id)) return
+      void this.addPeer(id)
+    }, RESTART_DELAY_MS)
   }
 
   private dropPeer(id: PlayerId) {
