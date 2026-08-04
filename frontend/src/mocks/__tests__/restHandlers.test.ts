@@ -2,7 +2,7 @@ import { HttpResponse, http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { saveAuthSession } from '@/auth/authSession'
 import { creatorSession, participantSession } from '@/mocks/fixtures'
-import { clearMockRoomSnapshot } from '@/mocks/mockRoomState'
+import { clearMockRoomSnapshot, loadMockRoomSnapshot } from '@/mocks/mockRoomState'
 import { createRestHandlers } from '@/mocks/restHandlers'
 import { mockApiServer } from '@/mocks/server'
 import { HttpRoomApiClient } from '@/room/api/roomApi'
@@ -84,6 +84,21 @@ describe('REST mock handlers', () => {
       token: creatorSession.sessionToken,
       room_id: creatorSession.roomId,
     })
+  })
+
+  it('탁구 파티방은 참가자 없이 정원 2명으로 시작한다', async () => {
+    const dashboard = await client.createPartyRoom('PING_PONG')
+
+    expect(dashboard).toMatchObject({
+      gameCode: 'PING_PONG',
+      membershipRole: 'dashboard',
+    })
+    expect(loadMockRoomSnapshot()).toMatchObject({
+      gameCode: 'PING_PONG',
+      capacity: 2,
+      players: [],
+    })
+    expect(loadMockRoomSnapshot()).not.toHaveProperty('hostId')
   })
 
   it('최신 백엔드 계약으로 방을 생성하고 참가한다', async () => {

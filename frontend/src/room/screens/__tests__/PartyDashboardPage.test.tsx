@@ -1,6 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { creatorPlayer, dashboardSession, waitingRoomSnapshot } from '@/mocks/fixtures'
+import {
+  creatorPlayer,
+  creatorSession,
+  dashboardSession,
+  waitingRoomSnapshot,
+} from '@/mocks/fixtures'
 import { PartyDashboardPage } from '@/room/screens/PartyDashboardPage'
 import { useAppStore } from '@/store'
 
@@ -35,7 +40,7 @@ describe('PartyDashboardPage', () => {
   it('방 코드와 참가 안내를 보여준다', async () => {
     givenDashboard()
 
-    render(<PartyDashboardPage />)
+    render(<PartyDashboardPage gameKey="yacht" />)
 
     // 헤더의 작은 코드와 QR 옆 큰 코드 — 방 건너 읽는 화면이라 두 곳에 함께 있다.
     expect(await screen.findAllByText(dashboardSession.roomCode)).toHaveLength(2)
@@ -51,7 +56,7 @@ describe('PartyDashboardPage', () => {
   it('참가자 목록에 자기 자신을 넣지 않는다', async () => {
     givenDashboard()
 
-    render(<PartyDashboardPage />)
+    render(<PartyDashboardPage gameKey="yacht" />)
 
     const column = await screen.findByRole('region', { name: /참가자/ })
     expect(column).toHaveTextContent(creatorPlayer.nickname)
@@ -61,7 +66,7 @@ describe('PartyDashboardPage', () => {
   it('연결을 기다리는 동안 그 사실을 알린다', async () => {
     givenDashboard('connecting')
 
-    render(<PartyDashboardPage />)
+    render(<PartyDashboardPage gameKey="yacht" />)
 
     expect(await screen.findByText('실시간 연결을 기다리고 있어요.')).toBeInTheDocument()
   })
@@ -73,7 +78,7 @@ describe('PartyDashboardPage', () => {
   it('조작 버튼 대신 방장이 시작한다는 것을 알린다', async () => {
     givenDashboard('connected')
 
-    render(<PartyDashboardPage />)
+    render(<PartyDashboardPage gameKey="yacht" />)
 
     expect(
       await screen.findByText(`${creatorPlayer.nickname} 님이 폰에서 게임을 시작할 수 있어요.`),
@@ -92,7 +97,7 @@ describe('PartyDashboardPage', () => {
     })
     useAppStore.getState().setConnectionStatus('connected')
 
-    render(<PartyDashboardPage />)
+    render(<PartyDashboardPage gameKey="yacht" />)
 
     expect(
       await screen.findByText('먼저 들어온 사람이 폰에서 게임을 시작할 수 있어요.'),
@@ -103,7 +108,7 @@ describe('PartyDashboardPage', () => {
   it('참가자 목록에서 방장을 표시한다', async () => {
     givenDashboard('connected')
 
-    render(<PartyDashboardPage />)
+    render(<PartyDashboardPage gameKey="yacht" />)
 
     const column = await screen.findByRole('region', { name: /참가자/ })
     expect(column).toHaveTextContent('방장')
@@ -114,12 +119,25 @@ describe('PartyDashboardPage', () => {
     givenDashboard('connected')
     useAppStore.getState().replaceRoomSnapshot({ ...waitingRoomSnapshot, phase: 'playing' })
 
-    render(<PartyDashboardPage />)
+    render(<PartyDashboardPage gameKey="yacht" />)
 
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith(
         expect.objectContaining({ to: '/rooms/$roomId/game', replace: true }),
       ),
+    )
+  })
+
+  it('이전 일반 방의 진행 상태로 파티 화면을 이동시키지 않는다', () => {
+    useAppStore.getState().setRoomSession({
+      ...creatorSession,
+      snapshot: { ...waitingRoomSnapshot, phase: 'playing' },
+    })
+
+    render(<PartyDashboardPage gameKey="pingpong" />)
+
+    expect(navigate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ to: '/rooms/$roomId/game' }),
     )
   })
 

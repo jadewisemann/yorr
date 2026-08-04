@@ -163,7 +163,13 @@ export function LandingHeroCard({ game, layout, onPartyMode, onPlay }: LandingHe
             모든 자식의 높이가 같아야 한다(h-18/h-15) — 이 자리가 위아래로 뛰면 캐러셀이
             카드를 미끄러뜨릴 때 슬라이드가 흔들려 보인다(아래 HeroCta 주석과 같은 이유). */}
         <div className={cn('flex flex-none', wide ? 'items-stretch gap-2.5' : 'gap-2')}>
-          {wide && game.live && <PartyModeEntry layout={layout} onOpen={onPartyMode} />}
+          {(wide || game.key === 'pingpong') && game.live && (
+            <PartyModeEntry
+              kind={game.key === 'pingpong' ? 'ai' : 'party'}
+              layout={layout}
+              onOpen={onPartyMode}
+            />
+          )}
           <HeroCta game={game} layout={layout} onPlay={onPlay} />
         </div>
       </div>
@@ -238,13 +244,13 @@ function HeroCta({ game, layout, onPlay }: Omit<LandingHeroCardProps, 'onPartyMo
 
   return (
     <button
-      aria-label={`${game.name} 플레이`}
+      aria-label={game.key === 'pingpong' ? '탁구 친구와 대전' : `${game.name} 플레이`}
       className={cn(playCta, playCtaSize[layout])}
       onClick={onPlay}
       type="button"
     >
       <PlayGlyph />
-      플레이
+      {game.key === 'pingpong' ? '친구와 대전' : '플레이'}
     </button>
   )
 }
