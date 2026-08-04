@@ -116,6 +116,7 @@ export function buildStage({
     foulSide: settled ? sideOf(round?.foulId, you, opponentId) : 0,
     ko: settled && !!round?.over,
     left: fighter(you, youName, OUTFIT_LEFT, leftShot),
+    leftMiss,
     leftShot,
     // 비아냥은 서버가 준 값(라운드 번호 + 빗나간 쪽 기록)에서 뽑아 두 화면이 같은 말을 한다.
     miss:

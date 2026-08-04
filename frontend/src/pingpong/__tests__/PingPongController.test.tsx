@@ -64,6 +64,7 @@ describe('PingPongController', () => {
     expect(paddle).toBeVisible()
     expect(screen.queryByLabelText(/3D 탁구 코트/)).not.toBeInTheDocument()
     expect(screen.getByText('스매시!')).toBeVisible()
+    expect(screen.getByTestId('ping-pong-paddle-face')).toHaveAttribute('data-player-tone', 'blue')
     expect(screen.getByText('COMBO')).toBeVisible()
     expect(screen.getAllByText('4')).toHaveLength(2)
 
@@ -178,5 +179,74 @@ describe('PingPongController', () => {
     expect(screen.getByText(/화면 터치 대체 조작/)).toBeVisible()
     await user.click(screen.getByRole('button', { name: '연습 공 치기' }))
     expect(onTouchSwing).toHaveBeenCalledOnce()
+  })
+
+  it('uses a red paddle for player 2', () => {
+    render(
+      <PingPongController
+        clock={1_100}
+        error={null}
+        nickname="P2"
+        onLeave={vi.fn()}
+        onReady={vi.fn()}
+        onTouchSwing={vi.fn()}
+        permission="granted"
+        playerId="player-2"
+        requestPermission={vi.fn()}
+        snapshot={snapshot}
+        state={state}
+      />,
+    )
+
+    expect(screen.getByTestId('ping-pong-paddle-face')).toHaveAttribute('data-player-tone', 'red')
+  })
+
+  it('shows deuce and match point between rallies', () => {
+    const countdownState: PingPongState = {
+      ...state,
+      lastEvent: null,
+      phase: 'COUNTDOWN',
+      rally: 0,
+      scores: { 'player-1': 10, 'player-2': 10 },
+    }
+    const { rerender } = render(
+      <PingPongController
+        clock={2_000}
+        error={null}
+        nickname="P1"
+        onLeave={vi.fn()}
+        onReady={vi.fn()}
+        onTouchSwing={vi.fn()}
+        permission="granted"
+        playerId="player-1"
+        requestPermission={vi.fn()}
+        snapshot={{ ...snapshot, game: countdownState } as unknown as RoomSnapshot}
+        state={countdownState}
+      />,
+    )
+
+    expect(screen.getByText('듀스!')).toBeVisible()
+
+    const matchPointState: PingPongState = {
+      ...countdownState,
+      scores: { 'player-1': 11, 'player-2': 10 },
+    }
+    rerender(
+      <PingPongController
+        clock={2_000}
+        error={null}
+        nickname="P1"
+        onLeave={vi.fn()}
+        onReady={vi.fn()}
+        onTouchSwing={vi.fn()}
+        permission="granted"
+        playerId="player-1"
+        requestPermission={vi.fn()}
+        snapshot={{ ...snapshot, game: matchPointState } as unknown as RoomSnapshot}
+        state={matchPointState}
+      />,
+    )
+
+    expect(screen.getByText('매치 포인트!')).toBeVisible()
   })
 })

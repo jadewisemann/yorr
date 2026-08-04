@@ -9,6 +9,7 @@ import {
 import { Button } from '@/shared/components/Button'
 import { IconBack } from '@/shared/components/Icon'
 import { useSwing } from '@/shared/useSwing'
+import { pingPongSituation, sharedSituationLabel } from './feedback'
 import {
   advanceLocalGame,
   createLocalGame,
@@ -54,6 +55,36 @@ function sameHud(left: HudState, right: HudState) {
     left.rally === right.rally &&
     left.s1 === right.s1 &&
     left.s2 === right.s2
+  )
+}
+
+function localSituationLabel(hud: HudState, firstLabel: string, secondLabel: string) {
+  if (hud.phase !== 'point') return null
+  return sharedSituationLabel(pingPongSituation(hud.s1, hud.s2), firstLabel, secondLabel)
+}
+
+function localTapPlayer(event: ReactPointerEvent<HTMLDivElement>, mode: LocalPingPongMode): 1 | 2 {
+  if (mode !== 'duo') return 1
+  const bounds = event.currentTarget.getBoundingClientRect()
+  return event.clientX - bounds.left < bounds.width / 2 ? 1 : 2
+}
+
+function LocalFeedbackMessage({
+  feedback,
+  situationLabel,
+}: {
+  feedback: LocalFeedback | null
+  situationLabel: string | null
+}) {
+  if (!feedback && !situationLabel) return null
+  return (
+    <div className="pointer-events-none absolute inset-0 grid place-items-center">
+      <strong
+        className={`text-4xl font-black drop-shadow-2xl ${feedback ? feedbackClass(feedback.kind) : 'text-[#ffd24a]'}`}
+      >
+        {feedback?.text ?? situationLabel}
+      </strong>
+    </div>
   )
 }
 
@@ -157,16 +188,12 @@ function LocalPingPongGame({
   }
 
   const onTap = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (mode !== 'duo') {
-      swing(1)
-      return
-    }
-    const bounds = event.currentTarget.getBoundingClientRect()
-    swing(event.clientX - bounds.left < bounds.width / 2 ? 1 : 2)
+    swing(localTapPlayer(event, mode))
   }
 
   const p1Label = mode === 'solo' ? 'YOU' : 'P1'
   const p2Label = mode === 'solo' ? 'CPU' : 'P2'
+  const situationLabel = localSituationLabel(hud, p1Label, p2Label)
 
   return (
     <main className="relative flex h-svh w-full flex-col overflow-hidden bg-[#070b12] text-white">
@@ -230,15 +257,7 @@ function LocalPingPongGame({
           </div>
         )}
 
-        {feedback && (
-          <div className="pointer-events-none absolute inset-0 grid place-items-center">
-            <strong
-              className={`text-4xl font-black drop-shadow-2xl ${feedbackClass(feedback.kind)}`}
-            >
-              {feedback.text}
-            </strong>
-          </div>
-        )}
+        <LocalFeedbackMessage feedback={feedback} situationLabel={situationLabel} />
 
         {glFailed && (
           <div className="absolute inset-0 z-20 grid place-items-center bg-[#070b12]/95 px-6 text-center">

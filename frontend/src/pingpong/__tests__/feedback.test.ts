@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { comboStyle, playerEventLabel, sharedEventLabel } from '../feedback'
+import {
+  comboStyle,
+  pingPongSituation,
+  playerEventLabel,
+  playerSituationLabel,
+  sharedEventLabel,
+  sharedSituationLabel,
+} from '../feedback'
 
 describe('ping pong feedback', () => {
   it('labels server events for a player and the shared party display', () => {
@@ -15,5 +22,18 @@ describe('ping pong feedback', () => {
     expect(comboStyle(3).color).toBe('#49e08a')
     expect(comboStyle(5).color).toBe('#ffd24a')
     expect(comboStyle(8).color).toBe('#ff7a4d')
+  })
+
+  it('labels deuce and match point from the authoritative score', () => {
+    const deuce = pingPongSituation(10, 10)
+    expect(playerSituationLabel(deuce, 0)).toBe('듀스!')
+    expect(sharedSituationLabel(deuce, '유정', '정현')).toBe('듀스!')
+
+    const firstMatchPoint = pingPongSituation(10, 8)
+    expect(playerSituationLabel(firstMatchPoint, 0)).toBe('매치 포인트!')
+    expect(playerSituationLabel(firstMatchPoint, 1)).toBe('상대 매치 포인트')
+    expect(sharedSituationLabel(firstMatchPoint, '유정', '정현')).toBe('유정 매치 포인트!')
+
+    expect(pingPongSituation(9, 9)).toBeNull()
   })
 })

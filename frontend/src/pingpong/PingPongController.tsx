@@ -1,6 +1,12 @@
 import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
 import type { SwingPermission } from '@/shared/useSwing'
-import { comboStyle, feedbackTextClass, playerEventLabel } from './feedback'
+import {
+  comboStyle,
+  feedbackTextClass,
+  pingPongSituation,
+  playerEventLabel,
+  playerSituationLabel,
+} from './feedback'
 
 interface PingPongControllerProps {
   clock: number
@@ -24,6 +30,7 @@ interface ControllerView {
   label: string | null
   opponentId: string
   opponentName: string
+  situationLabel: string | null
   swingActive: boolean
 }
 
@@ -39,6 +46,14 @@ function controllerView(
   const event = state.lastEvent
   const eventAge = event ? clock - event.at : Number.POSITIVE_INFINITY
   const ownEvent = event?.playerId === playerId
+  const playerIndex = me === 1 ? 1 : 0
+  const situation =
+    state.phase === 'COUNTDOWN'
+      ? pingPongSituation(
+          state.scores[state.playerOrder[0] ?? ''] ?? 0,
+          state.scores[state.playerOrder[1] ?? ''] ?? 0,
+        )
+      : null
   return {
     countdown:
       state.phase === 'COUNTDOWN'
@@ -50,6 +65,7 @@ function controllerView(
     label: event ? playerEventLabel(event.type, ownEvent) : null,
     opponentId,
     opponentName: opponent?.nickname ?? '상대',
+    situationLabel: playerSituationLabel(situation, playerIndex),
     swingActive: Boolean(ownEvent && eventAge < 260),
   }
 }
@@ -68,6 +84,7 @@ export function PingPongController({
   state,
 }: PingPongControllerProps) {
   const view = controllerView(state, snapshot, playerId, clock)
+  const paddleTone = state.playerOrder.indexOf(playerId) === 1 ? 'red' : 'blue'
 
   if (state.phase === 'PREPARING') {
     return (
@@ -78,6 +95,7 @@ export function PingPongController({
         onReady={onReady}
         onTouchSwing={onTouchSwing}
         permission={permission}
+        paddleTone={paddleTone}
         playerId={playerId}
         readyPlayerIds={state.readyPlayerIds}
         requestPermission={requestPermission}
@@ -120,6 +138,7 @@ export function PingPongController({
 
       <ControllerArena
         onTouchSwing={usesTouchFallback(permission) ? onTouchSwing : undefined}
+        paddleTone={paddleTone}
         rally={state.rally}
         view={view}
       />
@@ -160,14 +179,17 @@ export function PingPongController({
 
 function ControllerArena({
   onTouchSwing,
+  paddleTone,
   rally,
   view,
 }: {
   onTouchSwing?: (() => void) | undefined
+  paddleTone: PaddleTone
   rally: number
   view: ControllerView
 }) {
   const paddlePose = view.swingActive ? 'rotate-[-28deg] scale-110' : 'rotate-[-8deg]'
+  const paddleFace = paddleFaceClass(paddleTone)
   return (
     <button
       aria-label={onTouchSwing ? '탁구채를 눌러 스윙' : '휴대폰을 휘둘러 스윙'}
@@ -178,15 +200,16 @@ function ControllerArena({
     >
       <span
         aria-hidden="true"
-        className={`absolute top-[18%] left-1/2 block h-[42%] aspect-square -translate-x-1/2 rounded-full border-[10px] border-[#e2513c]/45 bg-[#e2513c] shadow-[0_18px_45px_rgb(226_81_60_/_35%)] transition-transform duration-150 ${paddlePose}`}
+        className={`absolute top-[18%] left-1/2 block h-[42%] aspect-square -translate-x-1/2 rounded-full border-[10px] transition-transform duration-150 ${paddleFace} ${paddlePose}`}
+        data-player-tone={paddleTone}
+        data-testid="ping-pong-paddle-face"
       />
       <span
         aria-hidden="true"
         className={`absolute top-[53%] left-1/2 h-[28%] w-10 origin-top -translate-x-1/2 rounded-b-full bg-[#201a1a] transition-transform duration-150 ${paddlePose}`}
       />
       <ControllerPrompt countdown={view.countdown} incoming={view.incoming} />
-      <ControllerEvent view={view} />
-      {rally > 0 && <ComboBadge count={rally} placement="controller" />}
+      <ControllerFeedback rally={rally} view={view} />
     </button>
   )
 }
@@ -206,13 +229,16 @@ function ControllerPrompt({ countdown, incoming }: { countdown: number; incoming
   )
 }
 
-function ControllerEvent({ view }: { view: ControllerView }) {
-  if (!view.label || !view.event || view.eventAge >= 900) return null
+function ControllerFeedback({ rally, view }: { rally: number; view: ControllerView }) {
+  const showEvent = Boolean(view.label && view.event && view.eventAge < 900)
+  const label = showEvent ? view.label : view.situationLabel
+  const tone = showEvent && view.event ? feedbackTextClass(view.event.type) : 'text-[#ffd24a]'
   return (
-    <span
-      className={`animate-pp-feedback-pop absolute inset-x-0 top-[7%] text-center text-3xl font-black drop-shadow-xl ${feedbackTextClass(view.event.type)}`}
-    >
-      {view.label}
+    <span className="pointer-events-none absolute inset-x-0 top-[7%] z-10 grid justify-items-center gap-2 text-center">
+      <span className={`min-h-9 text-3xl font-black drop-shadow-xl ${tone}`}>
+        {label && <span className="animate-pp-feedback-pop">{label}</span>}
+      </span>
+      {rally > 0 && <ComboBadge count={rally} />}
     </span>
   )
 }
@@ -223,6 +249,7 @@ function PingPongPreparationController({
   onLeave,
   onReady,
   onTouchSwing,
+  paddleTone,
   permission,
   playerId,
   readyPlayerIds,
@@ -235,6 +262,7 @@ function PingPongPreparationController({
   onLeave: () => void
   onReady: () => void
   onTouchSwing: () => void
+  paddleTone: PaddleTone
   permission: SwingPermission
   playerId: string
   readyPlayerIds: string[]
@@ -248,6 +276,7 @@ function PingPongPreparationController({
   const practiceAck =
     view.event?.type === 'PRACTICE' && view.event.playerId === playerId && view.eventAge < 1_200
   const practiceAction = selectPracticeAction(permission, requestPermission, onTouchSwing)
+  const paddleFace = paddleFaceClass(paddleTone)
 
   return (
     <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-[#070b12] px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
@@ -290,7 +319,9 @@ function PingPongPreparationController({
         />
         <span
           aria-hidden="true"
-          className={`absolute top-[46%] left-1/2 block h-[34%] aspect-square -translate-x-1/2 rounded-full border-[9px] border-[#e2513c]/45 bg-[#e2513c] shadow-[0_18px_45px_rgb(226_81_60_/_35%)] transition-transform duration-150 ${practiceAck ? 'rotate-[-28deg] scale-110' : 'rotate-[-8deg]'}`}
+          className={`absolute top-[46%] left-1/2 block h-[34%] aspect-square -translate-x-1/2 rounded-full border-[9px] transition-transform duration-150 ${paddleFace} ${practiceAck ? 'rotate-[-28deg] scale-110' : 'rotate-[-8deg]'}`}
+          data-player-tone={paddleTone}
+          data-testid="ping-pong-paddle-face"
         />
         <span
           className={`absolute inset-x-4 bottom-5 text-center text-base font-black ${practiced ? 'text-[#49e08a]' : 'text-white/70'}`}
@@ -384,24 +415,25 @@ function PreparationStatus({ label, ready }: { label: string; ready: boolean }) 
   )
 }
 
-export function ComboBadge({
-  count,
-  placement = 'dashboard',
-}: {
-  count: number
-  placement?: 'controller' | 'dashboard'
-}) {
+export function ComboBadge({ count }: { count: number }) {
   const tier = comboStyle(count)
-  const position = placement === 'controller' ? 'top-[34%]' : 'top-[36%]'
   return (
     <span
-      className={`animate-pp-combo-hit pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 text-center leading-none ${position}`}
+      className="animate-pp-combo-hit pointer-events-none text-center leading-none"
       style={{ color: tier.color, textShadow: tier.glow }}
     >
       <span className={`${tier.size} font-black tabular-nums`}>{count}</span>
       <span className="ml-1 align-super text-sm font-black tracking-widest">COMBO</span>
     </span>
   )
+}
+
+type PaddleTone = 'blue' | 'red'
+
+function paddleFaceClass(tone: PaddleTone) {
+  return tone === 'blue'
+    ? 'border-[#2b8fe0]/45 bg-[#2b8fe0] shadow-[0_18px_45px_rgb(43_143_224_/_35%)]'
+    : 'border-[#e2513c]/45 bg-[#e2513c] shadow-[0_18px_45px_rgb(226_81_60_/_35%)]'
 }
 
 function ControllerScore({
