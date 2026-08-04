@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record PingPongState(
@@ -12,6 +13,7 @@ public record PingPongState(
         List<String> playerOrder,
         Map<String, Integer> scores,
         Map<String, Long> lastInputSeq,
+        Set<String> readyPlayerIds,
         Ball ball,
         int rally,
         String serveReceiverId,
@@ -22,6 +24,7 @@ public record PingPongState(
         playerOrder = playerOrder == null ? List.of() : List.copyOf(playerOrder);
         scores = scores == null ? Map.of() : Map.copyOf(scores);
         lastInputSeq = lastInputSeq == null ? Map.of() : Map.copyOf(lastInputSeq);
+        readyPlayerIds = readyPlayerIds == null ? Set.of() : Set.copyOf(readyPlayerIds);
     }
 
     public boolean finished() {
@@ -29,6 +32,7 @@ public record PingPongState(
     }
 
     public enum Phase {
+        PREPARING,
         COUNTDOWN,
         PLAYING,
         FINISHED
@@ -41,6 +45,8 @@ public record PingPongState(
 
     public enum EventType {
         READY,
+        PRACTICE,
+        PLAYER_READY,
         SERVE,
         TOO_EARLY,
         TOO_LATE,

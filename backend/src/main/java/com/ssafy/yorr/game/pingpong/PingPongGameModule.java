@@ -101,7 +101,7 @@ public class PingPongGameModule implements GameModule {
 
     @Override
     public boolean handles(String messageType) {
-        return "swing".equals(messageType);
+        return "swing".equals(messageType) || "ready".equals(messageType);
     }
 
     @Override
@@ -112,6 +112,10 @@ public class PingPongGameModule implements GameModule {
             return;
         }
         try {
+            if ("ready".equals(message.type())) {
+                games.ready(message.roomId(), member.playerId());
+                return;
+            }
             PingPongSwingPayload payload = objectMapper.treeToValue(message.payload(), PingPongSwingPayload.class);
             games.swing(message.roomId(), member.playerId(), payload);
         } catch (IllegalArgumentException exception) {

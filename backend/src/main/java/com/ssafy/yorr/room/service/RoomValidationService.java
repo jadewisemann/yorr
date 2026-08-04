@@ -167,6 +167,20 @@ public class RoomValidationService implements RoomService {
             redis.call('DEL', KEYS[2])
             return 1
             """, Long.class);
+    /**
+     * 본 경기 전 준비 단계가 취소됐을 때 방을 다시 참가 가능한 대기실로 연다.
+     * gameId를 인자로 받지 않는 이유는 준비 중 참가자 퇴장 경로가 방 코드만 알고 있기 때문이다.
+     * 호출부는 게임 모듈의 PREPARING 상태를 먼저 확인하며, 스크립트도 PLAYING 방만 건드린다.
+     */
+    static final DefaultRedisScript<Long> CANCEL_ACTIVE_GAME = new DefaultRedisScript<>("""
+            if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
+            if redis.call('HGET', KEYS[1], 'phase') ~= 'PLAYING' then return 0 end
+            local gameId = redis.call('HGET', KEYS[1], 'gameId')
+            redis.call('HSET', KEYS[1], 'phase', 'LOBBY')
+            redis.call('HDEL', KEYS[1], 'gameId')
+            if gameId then redis.call('DEL', 'game:' .. gameId) end
+            return 1
+            """, Long.class);
 
     /**
      * 끝난 게임을 대기실로 되돌린다. FINISHED에서만 통과하므로 진행 중인 게임을 되돌릴 수는 없다.
@@ -275,6 +289,12 @@ public class RoomValidationService implements RoomService {
                 RoomRedisKeys.roomKey(roomCode),
                 RoomRedisKeys.gameKey(gameId)
         ), gameId);
+        return Long.valueOf(1).equals(result);
+    }
+
+    public boolean cancelActiveGame(String roomCode) {
+        Long result = redisTemplate.execute(CANCEL_ACTIVE_GAME,
+                List.of(RoomRedisKeys.roomKey(roomCode)));
         return Long.valueOf(1).equals(result);
     }
 

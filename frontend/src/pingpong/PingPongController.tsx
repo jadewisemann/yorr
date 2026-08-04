@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
 import type { SwingPermission } from '@/shared/useSwing'
-import { useSwing } from '@/shared/useSwing'
 import { comboStyle, feedbackTextClass, playerEventLabel } from './feedback'
 
 interface PingPongControllerProps {
@@ -9,6 +7,7 @@ interface PingPongControllerProps {
   error: string | null
   nickname: string
   onLeave: () => void
+  onReady: () => void
   onSwing: () => void
   permission: SwingPermission
   playerId: string
@@ -60,6 +59,7 @@ export function PingPongController({
   error,
   nickname,
   onLeave,
+  onReady,
   onSwing,
   permission,
   playerId,
@@ -68,6 +68,24 @@ export function PingPongController({
   state,
 }: PingPongControllerProps) {
   const view = controllerView(state, snapshot, playerId, clock)
+
+  if (state.phase === 'PREPARING') {
+    return (
+      <PingPongPreparationController
+        error={error}
+        nickname={nickname}
+        onLeave={onLeave}
+        onReady={onReady}
+        onSwing={onSwing}
+        permission={permission}
+        playerId={playerId}
+        readyPlayerIds={state.readyPlayerIds}
+        requestPermission={requestPermission}
+        state={state}
+        view={view}
+      />
+    )
+  }
 
   return (
     <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-[#070b12] px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
@@ -156,7 +174,7 @@ function ControllerArena({
       />
       <ControllerPrompt countdown={view.countdown} incoming={view.incoming} />
       <ControllerEvent view={view} />
-      {rally > 0 && <ComboBadge count={rally} />}
+      {rally > 0 && <ComboBadge count={rally} placement="controller" />}
     </button>
   )
 }
@@ -180,79 +198,148 @@ function ControllerEvent({ view }: { view: ControllerView }) {
   if (!view.label || !view.event || view.eventAge >= 900) return null
   return (
     <span
-      className={`animate-pp-feedback-pop absolute inset-x-0 top-[10%] text-center text-3xl font-black drop-shadow-xl ${feedbackTextClass(view.event.type)}`}
+      className={`animate-pp-feedback-pop absolute inset-x-0 top-[7%] text-center text-3xl font-black drop-shadow-xl ${feedbackTextClass(view.event.type)}`}
     >
       {view.label}
     </span>
   )
 }
 
-export function PingPongControllerSetup() {
-  const [practiceCount, setPracticeCount] = useState(0)
-  const [flash, setFlash] = useState(false)
-  const flashTimer = useRef<number | null>(null)
-  const practice = useCallback(() => {
-    setPracticeCount((count) => count + 1)
-    setFlash(true)
-    if (flashTimer.current !== null) window.clearTimeout(flashTimer.current)
-    flashTimer.current = window.setTimeout(() => setFlash(false), 180)
-  }, [])
-  const { permission, requestPermission } = useSwing({ enabled: true, onSwing: practice })
-
-  useEffect(
-    () => () => {
-      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current)
-    },
-    [],
-  )
+function PingPongPreparationController({
+  error,
+  nickname,
+  onLeave,
+  onReady,
+  onSwing,
+  permission,
+  playerId,
+  readyPlayerIds,
+  requestPermission,
+  state,
+  view,
+}: {
+  error: string | null
+  nickname: string
+  onLeave: () => void
+  onReady: () => void
+  onSwing: () => void
+  permission: SwingPermission
+  playerId: string
+  readyPlayerIds: string[]
+  requestPermission: () => Promise<void>
+  state: PingPongState
+  view: ControllerView
+}) {
+  const practiced = (state.lastInputSeq[playerId] ?? -1) >= 0
+  const ready = readyPlayerIds.includes(playerId)
+  const opponentReady = readyPlayerIds.includes(view.opponentId)
+  const practiceAck =
+    view.event?.type === 'PRACTICE' && view.event.playerId === playerId && view.eventAge < 1_200
 
   return (
-    <section
-      aria-label="탁구 컨트롤러 연습"
-      className="grid flex-none grid-cols-[5.25rem_minmax(0,1fr)] items-center gap-3 rounded-panel border border-[#2b8fe0]/35 bg-[#2b8fe0]/8 p-3"
-    >
+    <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-[#070b12] px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
+      <header className="flex flex-none items-center justify-between gap-3">
+        <div className="grid min-w-0 gap-0.5">
+          <span className="font-mono text-[11px] tracking-[0.18em] text-[#73bfff]">WARM-UP</span>
+          <strong className="truncate text-lg">{nickname}</strong>
+        </div>
+        <button
+          className="min-h-11 rounded-full border border-white/15 bg-white/6 px-4 text-sm text-white/70"
+          onClick={onLeave}
+          type="button"
+        >
+          나가기
+        </button>
+      </header>
+
+      <section className="mt-4 grid flex-none grid-cols-2 gap-2" aria-label="참가자 준비 상태">
+        <PreparationStatus label="나" ready={ready} />
+        <PreparationStatus label={view.opponentName} ready={opponentReady} />
+      </section>
+
+      <div className="mt-5 text-center">
+        <h1 className="m-0 text-2xl font-black">연습 공을 쳐보세요</h1>
+        <p className="mt-1.5 mb-0 text-sm text-white/55">
+          스윙이 감지된 뒤 준비 완료를 누르면 두 사람이 함께 시작해요.
+        </p>
+      </div>
+
       <button
-        aria-label="연습 스윙"
-        className={`relative grid size-[5.25rem] place-items-center rounded-2xl border border-[#e2513c]/45 bg-black/20 transition-transform ${flash ? 'scale-110 rotate-[-8deg]' : ''}`}
-        onClick={practice}
+        aria-label="연습 공 치기"
+        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-[2rem] border border-[#2b8fe0]/35 bg-[radial-gradient(circle_at_50%_42%,rgb(43_143_224_/_24%),transparent_60%)] active:bg-white/8"
+        onPointerDown={onSwing}
         type="button"
       >
-        <span aria-hidden="true" className="text-5xl">
-          🏓
+        <span
+          aria-hidden="true"
+          className={`absolute top-[18%] left-1/2 size-14 -translate-x-1/2 rounded-full bg-white shadow-[0_0_28px_rgb(255_255_255_/_55%)] ${practiceAck ? 'animate-pp-practice-ball' : ''}`}
+        />
+        <span
+          aria-hidden="true"
+          className={`absolute top-[46%] left-1/2 block h-[34%] aspect-square -translate-x-1/2 rounded-full border-[9px] border-[#e2513c]/45 bg-[#e2513c] shadow-[0_18px_45px_rgb(226_81_60_/_35%)] transition-transform duration-150 ${practiceAck ? 'rotate-[-28deg] scale-110' : 'rotate-[-8deg]'}`}
+        />
+        <span
+          className={`absolute inset-x-4 bottom-5 text-center text-base font-black ${practiced ? 'text-[#49e08a]' : 'text-white/70'}`}
+        >
+          {practiceAck ? '스윙 감지 완료! 공을 맞혔어요' : '폰을 휘두르거나 화면을 눌러 스윙'}
         </span>
       </button>
-      <div className="grid min-w-0 gap-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <strong className="text-sm">시작 전에 스윙해 보세요</strong>
-          <span className="font-mono text-xs text-[#73bfff]">{practiceCount}회 감지</span>
-        </div>
-        <p className="m-0 text-xs leading-relaxed text-content-muted">
-          폰을 탁구채처럼 휘두르거나 왼쪽 연습 버튼을 눌러보세요. 연습 입력은 점수에 반영되지
-          않아요.
-        </p>
-        {permission === 'unknown' ? (
+
+      <section className="mt-3 grid flex-none gap-2">
+        {permission === 'unknown' && (
           <button
-            className="min-h-9 justify-self-start rounded-full border border-[#49e08a]/40 bg-[#49e08a]/12 px-3 text-xs font-bold text-[#8dffc0]"
+            className="min-h-12 rounded-2xl border border-[#49e08a]/45 bg-[#49e08a]/12 px-5 font-bold text-[#8dffc0]"
             onClick={() => void requestPermission()}
             type="button"
           >
-            모션 센서 테스트
+            폰 스윙 켜기
           </button>
-        ) : (
-          <span className="text-xs text-[#49e08a]">
-            {permission === 'granted' ? '모션 센서 준비 완료' : '화면 탭으로도 플레이할 수 있어요'}
-          </span>
         )}
-      </div>
-    </section>
+        <button
+          className="min-h-14 rounded-2xl bg-[#e2513c] px-5 text-lg font-black text-white disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35"
+          disabled={!practiced || ready}
+          onClick={onReady}
+          type="button"
+        >
+          {ready
+            ? '준비 완료 · 친구를 기다리는 중'
+            : practiced
+              ? '준비 완료'
+              : '먼저 공을 한 번 쳐보세요'}
+        </button>
+        {error && (
+          <p className="m-0 text-center text-sm text-red-300" role="alert">
+            {error}
+          </p>
+        )}
+      </section>
+    </main>
   )
 }
 
-export function ComboBadge({ count }: { count: number }) {
+function PreparationStatus({ label, ready }: { label: string; ready: boolean }) {
+  return (
+    <div
+      className={`rounded-2xl border px-3 py-2.5 text-center text-sm font-bold ${ready ? 'border-[#49e08a]/45 bg-[#49e08a]/12 text-[#8dffc0]' : 'border-white/12 bg-white/6 text-white/45'}`}
+    >
+      <span className="block truncate">{label}</span>
+      <span className="mt-0.5 block text-xs">{ready ? '준비 완료' : '연습 중'}</span>
+    </div>
+  )
+}
+
+export function ComboBadge({
+  count,
+  placement = 'dashboard',
+}: {
+  count: number
+  placement?: 'controller' | 'dashboard'
+}) {
   const tier = comboStyle(count)
+  const position = placement === 'controller' ? 'top-[34%]' : 'top-[36%]'
   return (
     <span
-      className="animate-pp-combo-hit pointer-events-none absolute top-[23%] left-1/2 z-10 -translate-x-1/2 text-center leading-none"
+      className={`animate-pp-combo-hit pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 text-center leading-none ${position}`}
       style={{ color: tier.color, textShadow: tier.glow }}
     >
       <span className={`${tier.size} font-black tabular-nums`}>{count}</span>

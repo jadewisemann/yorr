@@ -1,8 +1,10 @@
 package com.ssafy.yorr.game.pingpong;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 final class PingPongRules {
 
@@ -39,16 +41,35 @@ final class PingPongRules {
         });
         return new PingPongState(
                 1,
-                PingPongState.Phase.COUNTDOWN,
+                PingPongState.Phase.PREPARING,
                 players,
                 scores,
                 sequences,
+                Set.of(),
                 new PingPongState.Ball(0, 1, NORMAL_SPEED, false, null, 0, 0.5, 0.5, now),
                 0,
                 players.getFirst(),
-                now + POINT_COUNTDOWN_MILLIS,
+                0,
                 new PingPongState.Event(1, PingPongState.EventType.READY, players.getFirst(), now)
         );
+    }
+
+    static PingPongState ready(PingPongState state, String playerId, long now) {
+        if (state.phase() != PingPongState.Phase.PREPARING
+                || !state.playerOrder().contains(playerId)
+                || state.lastInputSeq().getOrDefault(playerId, -1L) < 0
+                || state.readyPlayerIds().contains(playerId)) {
+            return state;
+        }
+        Set<String> readyPlayers = new LinkedHashSet<>(state.readyPlayerIds());
+        readyPlayers.add(playerId);
+        int version = state.version() + 1;
+        boolean everyoneReady = readyPlayers.containsAll(state.playerOrder());
+        return copy(state, version,
+                everyoneReady ? PingPongState.Phase.COUNTDOWN : PingPongState.Phase.PREPARING,
+                state.scores(), state.lastInputSeq(), readyPlayers, state.ball(), state.rally(),
+                state.serveReceiverId(), everyoneReady ? now + POINT_COUNTDOWN_MILLIS : 0,
+                event(version, PingPongState.EventType.PLAYER_READY, playerId, now));
     }
 
     static PingPongState serve(PingPongState state, long now, double targetX) {
@@ -70,6 +91,12 @@ final class PingPongRules {
 
         Map<String, Long> sequences = new LinkedHashMap<>(state.lastInputSeq());
         sequences.put(playerId, inputSeq);
+        if (state.phase() == PingPongState.Phase.PREPARING) {
+            int version = state.version() + 1;
+            return copy(state, version, state.phase(), state.scores(), sequences, state.readyPlayerIds(),
+                    state.ball(), state.rally(), state.serveReceiverId(), 0,
+                    event(version, PingPongState.EventType.PRACTICE, playerId, now));
+        }
         if (state.phase() != PingPongState.Phase.PLAYING || state.ball().fault() != null) {
             return copy(state, state.version() + 1, state.phase(), state.scores(), sequences, state.ball(),
                     state.rally(), state.serveReceiverId(), state.nextActionAt(), state.lastEvent());
@@ -241,13 +268,30 @@ final class PingPongRules {
             PingPongState.Phase phase,
             Map<String, Integer> scores,
             Map<String, Long> sequences,
+            Set<String> readyPlayers,
             PingPongState.Ball ball,
             int rally,
             String receiver,
             long nextActionAt,
             PingPongState.Event event
     ) {
-        return new PingPongState(version, phase, state.playerOrder(), scores, sequences, ball, rally,
+        return new PingPongState(version, phase, state.playerOrder(), scores, sequences, readyPlayers, ball, rally,
+                receiver, nextActionAt, event);
+    }
+
+    private static PingPongState copy(
+            PingPongState state,
+            int version,
+            PingPongState.Phase phase,
+            Map<String, Integer> scores,
+            Map<String, Long> sequences,
+            PingPongState.Ball ball,
+            int rally,
+            String receiver,
+            long nextActionAt,
+            PingPongState.Event event
+    ) {
+        return copy(state, version, phase, scores, sequences, state.readyPlayerIds(), ball, rally,
                 receiver, nextActionAt, event);
     }
 }
