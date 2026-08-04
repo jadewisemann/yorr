@@ -163,8 +163,9 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           하한 기기)에서는 QR·봇 패널·시작 버튼이 높이를 다 먹어 flex-1인 참가자 목록이 4px로
           짜부라졌다 — 목록에 하한(min-h)을 주면 내용이 프레임을 넘는데, 감춰 버리면 시작 버튼이
           닿지 않는 곳으로 사라진다. 프레임 안에서 스크롤되게 두면 둘 다 산다.
-          <b>문서 높이는 늘리지 않는다.</b> min-h-svh로 페이지 자체를 늘렸더니 화면 전환
-          (router의 view transition)이 중간에 취소되며 320px에서 렌더러가 죽었다. */}
+          <b>문서 높이(min-h-svh)로 늘리지 않는 이유:</b> 이 앱의 모든 화면은 정확히 한
+          뷰포트를 프레임으로 잡는다(GamePlay의 3D 트레이는 그 프레임에 맞춰 크기를 잡는다).
+          문서가 자라는 화면을 하나만 섞으면 화면마다 스크롤 주체가 달라진다. */}
       <main className="mx-auto flex h-svh w-full max-w-2xl flex-col gap-5 overflow-x-hidden px-gutter pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-content">
         {/* 디자인 03 헤더 — 좌측 타이틀·코드·연결 상태, 우측 나가기. */}
         <header className="flex items-center gap-3 border-b border-border pb-3.5">

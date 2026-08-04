@@ -62,8 +62,7 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
           고정 요소만 약 500px이라 flex-1인 랭킹이 25px로 짜부라져 **이 화면의 본문인 순위가 한
           줄도 안 보였다** — 목록 하한(min-h) + 프레임 안 스크롤로 둘 다 살린다. 가로는 그대로
           감춘다(위쪽 레드 글로우가 26rem이라 320px에서 좌우로 삐져나온다).
-          문서 높이를 늘리는 min-h-svh는 쓰지 않는다 — 화면 전환이 취소되며 렌더러가 죽었다
-          (LobbyPage 주석 참고). */}
+          문서 높이를 늘리는 min-h-svh는 쓰지 않는다 — 이유는 LobbyPage의 같은 주석에 있다. */}
       <main className="relative mx-auto flex h-svh w-full max-w-2xl flex-col overflow-x-hidden px-gutter pt-6 pb-[max(1.875rem,env(safe-area-inset-bottom))] text-content">
         {/* 디자인 08 — 상단에서 은은하게 퍼지는 레드 글로우. 정보가 아니라 분위기다. */}
         <div
