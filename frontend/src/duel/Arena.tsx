@@ -41,8 +41,8 @@ interface ArenaProps {
   /** 이 진영의 총알이 빗나갔는가 — 쐈지만 상대가 더 빨랐다. */
   leftMiss: boolean
   rightMiss: boolean
-  /** 빗나간 쪽과 그에게 던지는 한마디. */
-  miss: { name: string; taunt: string } | null
+  /** 총알이 스쳐 지나간 쪽(= 안 맞은 쪽)과 그가 내뱉는 한마디. 그 진영 머리 위에 뜬다. */
+  miss: { side: 1 | 2; taunt: string } | null
   /** 1ms까지 같아 총알이 공중에서 부딪히는 라운드. */
   clash: boolean
   /** 이 화면의 사거리에서 나온 총알 비행 시간(ms). */
@@ -206,11 +206,13 @@ export function Arena({
       {leftShot === 'ground' && <FoulDust delayMs={flightMs} selfShot={selfShot} side={1} />}
       {rightShot === 'ground' && <FoulDust delayMs={flightMs} selfShot={selfShot} side={2} />}
       {settled && !tie && winner !== 0 && <ImpactFlash delayMs={impactDelayMs} winner={winner} />}
+      {/* 빗나간 총알이 스쳐 간 쪽이 머리 위로 한마디 던진다 — 가운데 설명문보다 이쪽이
+          띠껍다. 총알이 지나간 뒤에 떠야 인과가 맞으므로 착탄 시각에 맞춘다. */}
+      {miss && <Taunt delayMs={impactDelayMs} side={miss.side} taunt={miss.taunt} />}
 
       <Headline
         actLabel={actLabel}
         landMs={impactDelayMs}
-        miss={miss}
         foulSide={foulSide}
         hint={hint}
         ko={ko}
@@ -401,6 +403,53 @@ function FoulDust({
           left: '50%',
           transform: 'translateX(-50%)',
           width: selfShot ? 'calc(var(--gs-h) * 0.62)' : 'calc(var(--gs-h) * 0.44)',
+        }}
+      />
+    </div>
+  )
+}
+
+/**
+ * 비아냥 말풍선 — 총알이 스쳐 간 쪽 머리 위에 뜬다.
+ *
+ * 꼬리가 말하는 사람을 가리켜야 누가 던진 말인지 읽힌다. 왼쪽 총잡이는 꼬리를 왼쪽 아래,
+ * 오른쪽 총잡이는 오른쪽 아래에 둔다.
+ */
+function Taunt({ delayMs, side, taunt }: { delayMs: number; side: 1 | 2; taunt: string }) {
+  const left = side === 1
+  return (
+    <div
+      className="animate-duel-slam pointer-events-none absolute"
+      style={{
+        [left ? 'left' : 'right']: '17%',
+        animationDelay: `${delayMs}ms`,
+        // 모자 위로 살짝 띄운다 — 캐릭터 키(--gs-h)에 매여 있어 화면 크기와 무관하다.
+        bottom: 'calc(28% + var(--gs-h) * 1.02)',
+        transform: `translateX(${left ? '-50%' : '50%'})`,
+      }}
+    >
+      <span
+        className="block rounded-xl px-3 py-1.5 text-[13px] leading-tight font-black whitespace-nowrap"
+        style={{
+          background: 'linear-gradient(#fff6df, #f0dcb0)',
+          border: '2px solid #8a6a3a',
+          boxShadow: '0 6px 16px rgb(0 0 0 / 45%)',
+          color: '#3a2410',
+        }}
+      >
+        {taunt}
+      </span>
+      {/* 꼬리 — 말풍선과 같은 색·테두리로 삼각형을 세운다 */}
+      <span
+        className="absolute block"
+        style={{
+          [left ? 'left' : 'right']: 14,
+          borderLeft: '7px solid transparent',
+          borderRight: '7px solid transparent',
+          borderTop: '9px solid #8a6a3a',
+          bottom: -9,
+          height: 0,
+          width: 0,
         }}
       />
     </div>
@@ -681,7 +730,6 @@ function Headline({
   landMs,
   left,
   maxFouls,
-  miss,
   pending,
   phase,
   right,
@@ -697,8 +745,6 @@ function Headline({
   landMs: number
   left: Fighter
   maxFouls: number
-  /** 빗나간 쪽과 그에게 던지는 한마디. 정상 승부에서만 있다. */
-  miss: { name: string; taunt: string } | null
   pending: boolean
   phase: ArenaPhase
   right: Fighter
@@ -721,7 +767,7 @@ function Headline({
   }
   if (tie) return <TieLine landMs={landMs} left={left} right={right} />
   if (winner === 0) return null
-  return <ShotLine ko={ko} landMs={landMs} miss={miss} shooter={winner === 1 ? left : right} />
+  return <ShotLine ko={ko} landMs={landMs} shooter={winner === 1 ? left : right} />
 }
 
 /** 대기 — 아직 빨강이다. */
@@ -854,18 +900,8 @@ function TieLine({ landMs, left, right }: { landMs: number; left: Fighter; right
   )
 }
 
-/** 정상 승부 — 먼저 뽑은 쪽이 맞혔다. 진 쪽도 쐈으면 빗나갔다고 못 박는다. */
-function ShotLine({
-  ko,
-  landMs,
-  miss,
-  shooter,
-}: {
-  ko: boolean
-  landMs: number
-  miss: { name: string; taunt: string } | null
-  shooter: Fighter
-}) {
+/** 정상 승부 — 먼저 뽑은 쪽이 맞혔다. 빗나간 총알 이야기는 말풍선이 대신 한다. */
+function ShotLine({ ko, landMs, shooter }: { ko: boolean; landMs: number; shooter: Fighter }) {
   return (
     <div className={WRAP} style={{ top: '24%' }}>
       <div
@@ -886,17 +922,6 @@ function ShotLine({
       >
         {shooter.name} — 먼저 뽑았다
       </div>
-      {/* 진 쪽도 쐈다. 그 총알이 상대까지 날아가 빗나가므로, 빗나갔다는 사실을 말로 못 박는다.
-          닉네임이 들어가는 줄이라 LABEL_MONO(uppercase)를 쓰지 않는다 — 남의 이름을 대문자로
-          바꿔 버린다. */}
-      {miss && (
-        <div
-          className="animate-duel-slam mt-1 text-xs font-bold"
-          style={{ animationDelay: `${landMs + 150}ms`, color: 'rgb(255 220 190 / 62%)' }}
-        >
-          {miss.name}의 총알은 빗나갔다 · {miss.taunt}
-        </div>
-      )}
     </div>
   )
 }

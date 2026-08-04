@@ -174,7 +174,8 @@ describe('buildStage', () => {
     expect(view.winner).toBe(1)
     expect(view.leftMiss).toBe(false)
     expect(view.rightMiss).toBe(true)
-    expect(view.miss?.name).toBe('상대')
+    // 말풍선은 총알이 스쳐 간 쪽(= 맞힌 쪽) 머리 위에 뜬다.
+    expect(view.miss?.side).toBe(1)
     expect(view.miss?.taunt).toBeTruthy()
   })
 

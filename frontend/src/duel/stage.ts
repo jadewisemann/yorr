@@ -25,8 +25,11 @@ export interface Stage {
   /** 이 진영의 총알이 빗나갔는가 — 쐈지만 상대가 더 빨랐다. */
   leftMiss: boolean
   rightMiss: boolean
-  /** 빗나간 쪽과 그에게 던지는 한마디. 아무도 빗나가지 않았으면 null. */
-  miss: { name: string; taunt: string } | null
+  /**
+   * 총알이 스쳐 지나간 쪽(= 안 맞은 쪽)과 그가 내뱉는 한마디. 말풍선이 이 진영 머리 위에
+   * 뜬다. 아무도 빗나가지 않았으면 null.
+   */
+  miss: { side: 1 | 2; taunt: string } | null
   /** 1ms까지 같아 총알이 공중에서 부딪히는 라운드. */
   clash: boolean
   winner: 0 | 1 | 2
@@ -97,7 +100,9 @@ export function buildStage({
     [you, leftShot],
     [opponentId, rightShot],
   )
+  // 빗나간 총알이 스쳐 지나간 쪽이 말한다 — 쏜 쪽이 아니라 맞힌 쪽, 즉 승자다.
   const misser = leftMiss ? you : rightMiss ? opponentId : null
+  const winnerSide = settled ? sideOf(round?.shooterId, you, opponentId) : 0
 
   return {
     // 1ms까지 같은 라운드만 총알이 공중에서 부딪힌다. 그 전에는 각자 제 갈 길로 날아간다.
@@ -108,12 +113,13 @@ export function buildStage({
     leftMiss,
     leftShot,
     // 비아냥은 서버가 준 값(라운드 번호 + 빗나간 쪽 기록)에서 뽑아 두 화면이 같은 말을 한다.
-    miss: misser
-      ? {
-          name: misser === you ? '나' : opponentName,
-          taunt: missTaunt((round?.number ?? 0) * 31 + (state.reactions[misser] ?? 0)),
-        }
-      : null,
+    miss:
+      misser && winnerSide !== 0
+        ? {
+            side: winnerSide,
+            taunt: missTaunt((round?.number ?? 0) * 31 + (state.reactions[misser] ?? 0)),
+          }
+        : null,
     pending,
     phase: arenaPhaseOf(state.phase, pending),
     right: fighter(opponentId, opponentName, OUTFIT_RIGHT, rightShot),
@@ -121,7 +127,7 @@ export function buildStage({
     rightShot,
     selfShot: round?.kind === 'SELF_SHOT',
     tie: settled && round?.kind === 'TIE',
-    winner: settled ? sideOf(round?.shooterId, you, opponentId) : 0,
+    winner: winnerSide,
   }
 }
 
