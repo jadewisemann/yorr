@@ -155,6 +155,25 @@ public class RoomSessionRegistry {
         return phases.getOrDefault(roomId, RoomPhase.WAITING);
     }
 
+    /** 현재 게임을 진행 중인 방의 수. */
+    public long activeRoomCount() {
+        return phases.values().stream()
+                .filter(RoomPhase.PLAYING::equals)
+                .count();
+    }
+
+    /** 현재 해당 게임을 플레이 중이며 WebSocket 연결이 살아 있는 참가자 수. */
+    public long activeParticipantCount(String gameCode) {
+        if (gameCode == null || gameCode.isBlank()) return 0L;
+
+        return bySession.values().stream()
+                .filter(member -> phaseOf(member.roomId()) == RoomPhase.PLAYING)
+                .filter(member -> gameCode.equalsIgnoreCase(gameCodeOf(member.roomId())))
+                .map(Member::playerId)
+                .distinct()
+                .count();
+    }
+
     public String gameCodeOf(String roomId) {
         return gameCodes.get(roomId);
     }
