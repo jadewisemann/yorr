@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { useVoice } from '@/realtime/voice/VoiceContext'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
+import { isPartyRoom } from '@/room/partyControllerStorage'
 import { readSoundMuted, saveSoundMuted } from '@/shared/audio/soundPreference'
 import { setSoundtrackMuted } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
@@ -27,6 +28,7 @@ import { MAX_ROLLS, type YachtGameAction } from '@/yacht/domain/yachtGame'
 import { canOfferMotion } from '@/yacht/input/motionTypes'
 import { useCountdown } from '@/yacht/useCountdown'
 import { categoryLabel, categoryShortLabel, isRecorded } from '@/yacht/yachtCategoryView'
+import { GameControllerPad } from './GameController'
 import { GameDiceTray } from './GameDiceTray'
 import { GamePlayHeader } from './GamePlayHeader'
 import { toMatrixPlayers, toTurnStripPlayers } from './gamePlayModel'
@@ -49,6 +51,12 @@ interface GamePlayProps {
    * 유일한 출처인 여기서 그대로 넘긴다.
    */
   guide?: (progress: TurnProgress) => ReactNode
+  /**
+   * 컨트롤러 화면을 강제로 켠다. 평소에는 아래 `controller`가 스스로 판단하므로 넘기지 않는다 —
+   * 개발용 화면(`/__dev/controller`)이 데스크톱에서도 이 화면을 열어 보려고 쓴다(자동 판단은
+   * 좁은 폭을 요구한다).
+   */
+  forceController?: boolean
 }
 
 /** 안내가 다음 단계로 넘어갈 근거. GamePlay가 이미 들고 있는 값을 그대로 준다. */
@@ -84,7 +92,14 @@ export interface TurnProgress {
   wide: boolean
 }
 
-export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: GamePlayProps) {
+export function GamePlay({
+  forceController = false,
+  guide,
+  onLeaveRequest,
+  roomId,
+  session,
+  snapshot,
+}: GamePlayProps) {
   const wide = useMediaQuery(WIDE_LAYOUT)
   const connectionStatus = useAppStore((state) => state.connectionStatus)
   const { message: toastMessage, showToast } = useToast()
@@ -113,6 +128,13 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
   // 파티 모드 대시보드는 플레이어가 아니다 — 이 화면은 게임을 비추기만 하므로 센서도
   // 조작 안내도 필요 없다(서버 턴 순서에 없어 isMyTurn도 영구히 false다).
   const canPlay = session.membershipRole !== 'dashboard'
+
+  /*
+   * 파티 모드 QR로 들어온 폰은 컨트롤러로 뜬다 — 트레이·점수표는 큰 화면이 맡는다.
+   * 넓은 화면에서는 켜지 않는다: 그 폭으로 대시보드 옆에 선 노트북이라면 게임판을 보는 것이
+   * 이상하지 않고, 손에 쥔 기기가 아니면 컨트롤러 은유 자체가 성립하지 않는다.
+   */
+  const controller = forceController || (!wide && canPlay && isPartyRoom(session.roomCode))
 
   const roll = useGamePlayRoll({
     canPlay,
@@ -225,7 +247,11 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
     />
   )
 
-  const diceScene = (
+  const diceScene = controller ? (
+    // 컨트롤러는 "내 차례!" 콜아웃을 그리지 않는다(진동으로 이미 알린다) — turnCallout 상태는
+    // 트레이 경로에서만 소비된다. 둘이 같이 뜨는 화면은 없다.
+    <GameControllerPad activePlayer={activePlayer} isMyTurn={isMyTurn} roll={roll} />
+  ) : (
     <GameDiceTray
       activePlayer={activePlayer}
       guided={guide !== undefined}
@@ -289,6 +315,7 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
   const canReleaseAll = keptCount > 0 && canHold
 
   // 기록은 점수표·칩 탭으로 끝나므로 CTA는 굴리기 하나다(디자인 하단 바).
+  // 컨트롤러도 이 하단 바를 그대로 쓴다 — 바뀌는 것은 위쪽(트레이 → 컨트롤러 패드)뿐이다.
   const actions = (
     <GamePlayActions
       activePlayerName={activePlayer?.nickname}

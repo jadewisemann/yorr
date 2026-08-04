@@ -213,20 +213,22 @@ describe('GamePlay 센서 굴림', () => {
     expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
   })
 
-  it('센서를 쓸 수 없다는 안내는 닫으면 다시 시야를 가리지 않는다', async () => {
+  it('센서 안내는 바로 뜨고, 닫으면 시야를 가리지 않는다', async () => {
     motion.availability = 'denied'
     const { rerenderGame, user } = renderGame()
 
-    // 안내는 저절로 뜨지 않는다 — 흔들기 칩을 눌러야 열린다.
-    expect(screen.queryByRole('region', { name: '센서 권한 안내' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /흔들기/ }))
-
+    // 켤 수 있는 상태가 되는 즉시 뜬다 — 칩을 눌러야 열리던 때는 아무도 누르지 않아
+    // 흔들기가 있다는 것 자체를 몰랐다(S15P11A406-182).
     expect(screen.getByRole('region', { name: '센서 권한 안내' })).toBeVisible()
     await user.click(screen.getByRole('button', { name: '센서 안내 닫기' }))
     rerenderGame()
 
     expect(screen.queryByRole('region', { name: '센서 권한 안내' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
+
+    // 닫은 뒤에도 칩으로 다시 부를 수 있다.
+    await user.click(screen.getByRole('button', { name: /흔들기/ }))
+    expect(screen.getByRole('region', { name: '센서 권한 안내' })).toBeVisible()
   })
 
   it('물리 씬이 깨져도 굴리기는 계속 열려 있다', () => {

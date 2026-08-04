@@ -98,9 +98,13 @@ export function InvitationPanel({ roomCode }: InvitationPanelProps) {
   )
 }
 
-export function createInviteUrl(roomCode: string) {
+/**
+ * `party`는 대시보드가 띄운 QR에만 붙는다 — 그 코드를 찍고 들어온 폰은 게임판이 아니라
+ * 컨트롤러 화면으로 뜬다(room/partyControllerStorage).
+ */
+export function createInviteUrl(roomCode: string, { party = false } = {}) {
   const origin = typeof window === 'undefined' ? 'https://yorr.invalid' : window.location.origin
-  return `${origin}/join?code=${encodeURIComponent(roomCode)}`
+  return `${origin}/join?code=${encodeURIComponent(roomCode)}${party ? '&party=1' : ''}`
 }
 
 /** QR 렌더 실패 대비. 대시보드도 같은 폴백을 써야 큰 화면에서 빈 사각형만 남지 않는다. */
