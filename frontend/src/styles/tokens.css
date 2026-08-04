@@ -785,7 +785,7 @@
    가운데까지 50%)는 컴포넌트가 --duel-bullet-to로 준다. */
 @keyframes duel-bullet {
   0% {
-    transform: translateX(0);
+    transform: translateX(0) translateY(0);
     opacity: 0;
   }
   10%,
@@ -793,7 +793,7 @@
     opacity: 1;
   }
   100% {
-    transform: translateX(var(--duel-bullet-to, 100%));
+    transform: translateX(var(--duel-bullet-to, 100%)) translateY(var(--duel-bullet-rise, 0px));
     opacity: 0;
   }
 }

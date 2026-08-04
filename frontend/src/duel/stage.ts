@@ -1,6 +1,6 @@
 import { DUEL_MISS, type DuelRound, type DuelState } from '@/realtime/wsEvents'
 import type { ArenaPhase, Fighter } from './Arena'
-import type { ShotTarget } from './duel'
+import { missTaunt, type ShotTarget } from './duel'
 import { OUTFIT_LEFT, OUTFIT_RIGHT, type Outfit, type Pose } from './Gunslinger'
 
 /**
@@ -22,6 +22,14 @@ export interface Stage {
   /** 각 진영이 쏜 총알. null이면 아직(또는 끝까지) 뽑지 않았다. */
   leftShot: ShotTarget | null
   rightShot: ShotTarget | null
+  /** 이 진영의 총알이 빗나갔는가 — 쐈지만 상대가 더 빨랐다. */
+  leftMiss: boolean
+  rightMiss: boolean
+  /**
+   * 총알이 스쳐 지나간 쪽(= 안 맞은 쪽)과 그가 내뱉는 한마디. 말풍선이 이 진영 머리 위에
+   * 뜬다. 아무도 빗나가지 않았으면 null.
+   */
+  miss: { side: 1 | 2; taunt: string } | null
   /** 1ms까지 같아 총알이 공중에서 부딪히는 라운드. */
   clash: boolean
   winner: 0 | 1 | 2
@@ -86,21 +94,59 @@ export function buildStage({
     pose: poseOf(playerId, round, settled, impact, shot !== null),
   })
 
+  const [leftMiss, rightMiss] = missedSides(
+    round,
+    settled,
+    [you, leftShot],
+    [opponentId, rightShot],
+  )
+  // 빗나간 총알이 스쳐 지나간 쪽이 말한다 — 쏜 쪽이 아니라 맞힌 쪽, 즉 승자다.
+  const misser = leftMiss ? you : rightMiss ? opponentId : null
+  const winnerSide = settled ? sideOf(round?.shooterId, you, opponentId) : 0
+
   return {
     // 1ms까지 같은 라운드만 총알이 공중에서 부딪힌다. 그 전에는 각자 제 갈 길로 날아간다.
     clash: settled && round?.kind === 'TIE' && leftShot === 'opponent' && rightShot === 'opponent',
     foulSide: settled ? sideOf(round?.foulId, you, opponentId) : 0,
     ko: settled && !!round?.over,
     left: fighter(you, '나', OUTFIT_LEFT, leftShot),
+    leftMiss,
     leftShot,
+    // 비아냥은 서버가 준 값(라운드 번호 + 빗나간 쪽 기록)에서 뽑아 두 화면이 같은 말을 한다.
+    miss:
+      misser && winnerSide !== 0
+        ? {
+            side: winnerSide,
+            taunt: missTaunt((round?.number ?? 0) * 31 + (state.reactions[misser] ?? 0)),
+          }
+        : null,
     pending,
     phase: arenaPhaseOf(state.phase, pending),
     right: fighter(opponentId, opponentName, OUTFIT_RIGHT, rightShot),
+    rightMiss,
     rightShot,
     selfShot: round?.kind === 'SELF_SHOT',
     tie: settled && round?.kind === 'TIE',
-    winner: settled ? sideOf(round?.shooterId, you, opponentId) : 0,
+    winner: winnerSide,
   }
+}
+
+/**
+ * 쐈지만 상대가 더 빨랐던 쪽 [왼쪽, 오른쪽] — 총알은 상대까지 가되 빗나간다.
+ * 진 쪽 총알을 그냥 지나가게 두면 "맞혔는데 아무 일도 없다"로 읽힌다.
+ */
+function missedSides(
+  round: DuelRound | null,
+  settled: boolean,
+  left: [id: string, shot: ShotTarget | null],
+  right: [id: string, shot: ShotTarget | null],
+): [boolean, boolean] {
+  // 부정출발 라운드는 서로를 겨누지 않았으므로 빗나감이 없다.
+  if (!settled || !round || round.foulId) return [false, false]
+  const shooter = round.shooterId
+  if (!shooter) return [false, false]
+  const missed = ([id, shot]: [string, ShotTarget | null]) => shooter !== id && shot === 'opponent'
+  return [missed(left), missed(right)]
 }
 
 function arenaPhaseOf(phase: DuelState['phase'], pending: boolean): ArenaPhase {
