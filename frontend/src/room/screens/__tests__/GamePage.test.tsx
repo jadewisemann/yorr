@@ -175,21 +175,18 @@ describe('GamePage motion roll flow', () => {
     )
   })
 
-  it('모션 센서 안내는 알럿으로 들이밀지 않고 흔들기 칩을 눌러야 열린다', () => {
+  it('모션 센서 안내는 켤 수 있는 기기에서 바로 뜬다', () => {
     mocks.motionAvailability = 'permissionRequired'
     render(<GamePage roomId={creatorSession.roomId} />)
 
-    // 게임을 보기도 전에 권한부터 판단하게 하지 않는다(S15P11A406-143).
-    expect(screen.queryByText('모션 센서를 사용해 볼까요?')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /흔들기/ })).toBeVisible()
+    // 칩을 눌러야 열리던 때는 아무도 누르지 않았다(S15P11A406-182).
+    expect(screen.getByText('모션 센서를 사용해 볼까요?')).toBeVisible()
   })
 
   it('브라우저와 관계없이 센서 시작 버튼에서 권한 요청을 시작한다', () => {
     mocks.motionAvailability = 'permissionRequired'
     render(<GamePage roomId={creatorSession.roomId} />)
-    fireEvent.click(screen.getByRole('button', { name: /흔들기/ }))
 
-    expect(screen.getByText('모션 센서를 사용해 볼까요?')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: '센서 사용 시작하기' }))
 
     expect(mocks.requestPermission).toHaveBeenCalledOnce()

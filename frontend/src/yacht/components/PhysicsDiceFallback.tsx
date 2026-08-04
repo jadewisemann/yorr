@@ -10,6 +10,11 @@ import { Dice } from './Dice'
 type PhysicsDiceFallbackProps = {
   dice: PhysicsDiceSet | null
   held: PhysicsHeldDice
+  /**
+   * 이 주사위 줄이 무엇인지. 3D 실패 대체 화면일 때가 기본값이지만, 파티 모드 컨트롤러는
+   * 이것을 <b>주 조작부</b>로 쓴다 — 거기서 "대체 화면"이라고 읽히면 안 된다.
+   */
+  label?: string
   message?: string
   onHeldToggle?: (index: PhysicsDiceIndex) => void
   onRollComplete: (requestId: string, dice: PhysicsDiceSet) => void
@@ -23,6 +28,7 @@ const DIE_KEYS = ['die-1', 'die-2', 'die-3', 'die-4', 'die-5'] as const
 export function PhysicsDiceFallback({
   dice,
   held,
+  label = '2D 주사위 대체 화면',
   message,
   onHeldToggle,
   onRollComplete,
@@ -54,7 +60,7 @@ export function PhysicsDiceFallback({
   return (
     <section
       className="absolute inset-0 grid content-center gap-6 bg-surface/70 p-5"
-      aria-label="2D 주사위 대체 화면"
+      aria-label={label}
     >
       {message && (
         <p className="m-0 text-center text-sm text-content-muted" role="status">
