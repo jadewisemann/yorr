@@ -110,9 +110,11 @@ export function EntryPage() {
       void navigate({ to: '/pingpong' })
       return
     }
+    // 고른 게임으로 열어야 한다 — 예전엔 'yacht'로 굳어 있어서, 결투 카드에서 눌러도
+    // 요트 파티가 열렸다(카드는 결투인데 대시보드 제목만 바뀌어 있었다).
     void navigate({
       to: '/party',
-      search: { game: 'yacht' },
+      search: { game: game.key },
     })
   }
 
