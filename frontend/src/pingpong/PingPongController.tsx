@@ -84,11 +84,8 @@ export function PingPongController({
   state,
 }: PingPongControllerProps) {
   const view = controllerView(state, snapshot, playerId, clock)
-  const myIndex = state.playerOrder.indexOf(playerId)
-  const paddleTone: PaddleTone = myIndex === 1 ? 'red' : 'blue'
-  const opponentTone: PaddleTone = paddleTone === 'blue' ? 'red' : 'blue'
-  const myLabel = `P${myIndex === 1 ? 2 : 1}`
-  const opponentLabel = `P${myIndex === 1 ? 1 : 2}`
+  const paddleTone: PaddleTone = state.playerOrder.indexOf(playerId) === 1 ? 'red' : 'blue'
+  const [p1, p2] = playerSlots(state, playerId, view.opponentName)
 
   if (state.phase === 'PREPARING') {
     return (
@@ -129,20 +126,20 @@ export function PingPongController({
 
       <section className="mt-4 flex flex-none items-center justify-between rounded-2xl border border-white/12 bg-white/6 px-4 py-3">
         <ControllerScore
-          label="나"
-          score={state.scores[playerId] ?? 0}
-          tag={myLabel}
-          tone={paddleTone}
+          label={p1.label}
+          score={state.scores[p1.id] ?? 0}
+          tag={p1.tag}
+          tone={p1.tone}
         />
         <div className="text-center">
           <span className="block font-mono text-[11px] tracking-[0.14em] text-white/40">RALLY</span>
           <strong className="font-mono text-2xl">{state.rally}</strong>
         </div>
         <ControllerScore
-          label={view.opponentName}
-          score={state.scores[view.opponentId] ?? 0}
-          tag={opponentLabel}
-          tone={opponentTone}
+          label={p2.label}
+          score={state.scores[p2.id] ?? 0}
+          tag={p2.tag}
+          tone={p2.tone}
         />
       </section>
 
@@ -282,11 +279,11 @@ function PingPongPreparationController({
 }) {
   const practiced = (state.lastInputSeq[playerId] ?? -1) >= 0
   const ready = readyPlayerIds.includes(playerId)
-  const opponentReady = readyPlayerIds.includes(view.opponentId)
   const practiceAck =
     view.event?.type === 'PRACTICE' && view.event.playerId === playerId && view.eventAge < 1_200
   const practiceAction = selectPracticeAction(permission, requestPermission, onTouchSwing)
   const paddleFace = paddleFaceClass(paddleTone)
+  const [p1, p2] = playerSlots(state, playerId, view.opponentName)
 
   return (
     <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-[#070b12] px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
@@ -305,8 +302,8 @@ function PingPongPreparationController({
       </header>
 
       <section className="mt-4 grid flex-none grid-cols-2 gap-2" aria-label="참가자 준비 상태">
-        <PreparationStatus label="나" ready={ready} />
-        <PreparationStatus label={view.opponentName} ready={opponentReady} />
+        <PreparationStatus label={p1.label} ready={readyPlayerIds.includes(p1.id)} tag={p1.tag} />
+        <PreparationStatus label={p2.label} ready={readyPlayerIds.includes(p2.id)} tag={p2.tag} />
       </section>
 
       <div className="mt-5 text-center">
@@ -414,12 +411,17 @@ function PreparationMotionStatus({
   )
 }
 
-function PreparationStatus({ label, ready }: { label: string; ready: boolean }) {
+function PreparationStatus({ label, ready, tag }: { label: string; ready: boolean; tag: string }) {
   return (
     <div
       className={`rounded-2xl border px-3 py-2.5 text-center text-sm font-bold ${ready ? 'border-[#49e08a]/45 bg-[#49e08a]/12 text-[#8dffc0]' : 'border-white/12 bg-white/6 text-white/45'}`}
     >
-      <span className="block truncate">{label}</span>
+      <span className="flex items-center justify-center gap-1">
+        <span className="rounded border border-current px-1 font-mono text-[10px] font-black leading-none">
+          {tag}
+        </span>
+        <span className="truncate">{label}</span>
+      </span>
       <span className="mt-0.5 block text-xs">{ready ? '준비 완료' : '연습 중'}</span>
     </div>
   )
@@ -444,6 +446,26 @@ function paddleFaceClass(tone: PaddleTone) {
   return tone === 'blue'
     ? 'border-[#2b8fe0]/45 bg-[#2b8fe0] shadow-[0_18px_45px_rgb(43_143_224_/_35%)]'
     : 'border-[#e2513c]/45 bg-[#e2513c] shadow-[0_18px_45px_rgb(226_81_60_/_35%)]'
+}
+
+interface PlayerSlot {
+  id: string
+  label: string
+  tag: 'P1' | 'P2'
+  tone: PaddleTone
+}
+
+/** 대시보드·코트와 같은 P1(왼쪽·파랑)·P2(오른쪽·빨강) 순서로 두 슬롯을 만든다. */
+function playerSlots(
+  state: PingPongState,
+  playerId: string,
+  opponentName: string,
+): [PlayerSlot, PlayerSlot] {
+  const slot = (index: 0 | 1, tag: 'P1' | 'P2', tone: PaddleTone): PlayerSlot => {
+    const id = state.playerOrder[index] ?? ''
+    return { id, label: playerId === id ? '나' : opponentName, tag, tone }
+  }
+  return [slot(0, 'P1', 'blue'), slot(1, 'P2', 'red')]
 }
 
 function ControllerScore({
