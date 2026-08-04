@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { BULLET_MS, isClean, msLabel, type ShotTarget, slots } from './duel'
+import { isClean, msLabel, type ShotTarget, slots } from './duel'
 import { Gunslinger, type Outfit, type Pose } from './Gunslinger'
 
 /**
@@ -33,15 +33,11 @@ interface ArenaProps {
   left: Fighter
   right: Fighter
   /**
-   * 각 진영이 쏜 총알. 판정이 아니라 <b>방아쇠를 당긴 사실</b>이라, 내 총알은 반응한 순간에
-   * 들어오고 상대 총알은 판정으로 알게 된 순간에 들어온다.
+   * 각 진영이 쏜 총. 판정이 아니라 <b>방아쇠를 당긴 사실</b>이라, 내 것은 누른 순간에
+   * 들어오고 상대 것은 판정으로 알게 된 순간에 들어온다.
    */
   leftShot: ShotTarget | null
   rightShot: ShotTarget | null
-  /** 1ms까지 같아 총알이 공중에서 부딪히는 라운드. */
-  clash: boolean
-  /** 총알이 목표에 닿기까지 남은 시간(ms). 이미 날아간 만큼은 깎여서 들어온다. */
-  impactDelayMs: number
   /** 결과에서 상대를 쏜 쪽 — 뷰 기준(1=왼쪽 · 2=오른쪽 · 0=아무도). */
   winner: 0 | 1 | 2
   tie: boolean
@@ -97,8 +93,6 @@ export function Arena({
   right,
   leftShot,
   rightShot,
-  clash,
-  impactDelayMs,
   winner,
   tie,
   foulSide,
@@ -111,17 +105,14 @@ export function Arena({
   children,
 }: ArenaProps) {
   const settled = phase === 'result' && !pending
-  // 총성이 울린 순간 화면이 흔들린다. 총알이 떠난 쪽이 하나라도 있으면 울린다.
+  // 총성이 울린 순간 화면이 흔들린다. 한쪽이라도 쐈으면 울린다.
   const shots = leftShot !== null || rightShot !== null
 
   return (
     <div
       className={`relative w-full flex-1 overflow-hidden ${shots ? 'animate-duel-shake' : ''}`}
       key={`arena-${fxKey}`}
-      style={{
-        ['--gs-h' as string]: 'clamp(112px, 25vh, 208px)',
-        ...(shots && { animationDelay: `${impactDelayMs}ms` }),
-      }}
+      style={{ ['--gs-h' as string]: 'clamp(112px, 25vh, 208px)' }}
     >
       <Wasteland phase={phase} />
 
@@ -159,20 +150,9 @@ export function Arena({
         />
       </div>
 
-      {/* 총알은 각자 방아쇠를 당긴 순간에 떠난다 — 두 진영의 출발 시각이 다를 수 있다. */}
-      {(leftShot === 'opponent' || rightShot === 'opponent') && (
-        <div
-          className="pointer-events-none absolute"
-          style={{ bottom: 'calc(28% + var(--gs-h) * 0.5)', height: 0, left: '24%', right: '24%' }}
-        >
-          {leftShot === 'opponent' && <Bullet clash={clash} color={left.outfit.rim} dir="r" />}
-          {rightShot === 'opponent' && <Bullet clash={clash} color={right.outfit.rim} dir="l" />}
-          {clash && <Clash />}
-        </div>
-      )}
       {leftShot === 'ground' && <FoulDust selfShot={selfShot} side={1} />}
       {rightShot === 'ground' && <FoulDust selfShot={selfShot} side={2} />}
-      {settled && !tie && winner !== 0 && <ImpactFlash delayMs={impactDelayMs} winner={winner} />}
+      {settled && !tie && winner !== 0 && <ImpactFlash winner={winner} />}
 
       <Headline
         actLabel={actLabel}
@@ -333,7 +313,7 @@ function Wasteland({ phase }: { phase: ArenaPhase }) {
   )
 }
 
-/** 부정출발 — 총알이 자기 발밑에 박히며 흙먼지가 인다. 상대에게는 가지 않는다. */
+/** 부정출발 — 발밑에 총알이 박히며 흙먼지가 인다. 상대에게는 가지 않는다. */
 function FoulDust({ selfShot, side }: { selfShot: boolean; side: 1 | 2 }) {
   return (
     <div
@@ -348,7 +328,6 @@ function FoulDust({ selfShot, side }: { selfShot: boolean; side: 1 | 2 }) {
       <div
         className="animate-duel-dust absolute"
         style={{
-          animationDelay: `${BULLET_MS}ms`,
           aspectRatio: '1',
           background: selfShot
             ? 'radial-gradient(circle, #fff 0%, #ffd0a0 22%, rgb(239 68 68 / 80%) 48%, rgb(120 53 15 / 0%) 72%)'
@@ -364,14 +343,13 @@ function FoulDust({ selfShot, side }: { selfShot: boolean; side: 1 | 2 }) {
   )
 }
 
-/** 피격 섬광 — 총알이 닿는 순간 맞은 쪽에서 터진다. */
-function ImpactFlash({ delayMs, winner }: { delayMs: number; winner: 0 | 1 | 2 }) {
+/** 피격 섬광 — 판정이 나는 순간 맞은 쪽에서 터진다. */
+function ImpactFlash({ winner }: { winner: 0 | 1 | 2 }) {
   return (
     <div
       className="animate-duel-impact pointer-events-none absolute"
       style={{
         [winner === 1 ? 'right' : 'left']: '17%',
-        animationDelay: `${delayMs}ms`,
         aspectRatio: '1',
         background:
           'radial-gradient(circle, #fff 0%, #ffd9a0 26%, rgb(239 68 68 / 85%) 52%, rgb(239 68 68 / 0%) 72%)',
@@ -551,52 +529,6 @@ function Shell({ live }: { live: boolean }) {
   )
 }
 
-function Bullet({ clash = false, color, dir }: { clash?: boolean; color: string; dir: 'r' | 'l' }) {
-  const animation = clash
-    ? dir === 'r'
-      ? 'animate-duel-bullet-cr'
-      : 'animate-duel-bullet-cl'
-    : dir === 'r'
-      ? 'animate-duel-bullet-r'
-      : 'animate-duel-bullet-l'
-  return (
-    <div className={`absolute ${animation}`} style={{ top: -2 }}>
-      {/* 예광탄 꼬리 + 탄두 */}
-      <div
-        style={{
-          background:
-            dir === 'r'
-              ? `linear-gradient(90deg, rgb(255 255 255 / 0%) 0%, ${color}99 60%, #fff 100%)`
-              : `linear-gradient(90deg, #fff 0%, ${color}99 40%, rgb(255 255 255 / 0%) 100%)`,
-          borderRadius: 999,
-          boxShadow: `0 0 10px ${color}, 0 0 20px ${color}66`,
-          height: 4,
-          transform: dir === 'r' ? 'translateX(-100%)' : 'none',
-          width: 'clamp(30px, 7vw, 52px)',
-        }}
-      />
-    </div>
-  )
-}
-
-/** TIE — 총알이 공중에서 부딪혀 튄다 */
-function Clash() {
-  return (
-    <div
-      className="animate-duel-clash absolute"
-      style={{
-        aspectRatio: '1',
-        background:
-          'radial-gradient(circle, #ffffff 0%, #fff1b8 24%, rgb(251 191 36 / 80%) 46%, rgb(251 191 36 / 0%) 70%)',
-        borderRadius: 999,
-        left: '50%',
-        top: 0,
-        width: 'clamp(52px, 13vw, 96px)',
-      }}
-    />
-  )
-}
-
 const WRAP = 'pointer-events-none absolute inset-x-0 flex flex-col items-center px-4 text-center'
 
 /**
@@ -714,7 +646,6 @@ function FoulLine({
       <div
         className="animate-duel-slam font-black"
         style={{
-          animationDelay: `${BULLET_MS}ms`,
           color,
           fontSize: selfShot ? 'clamp(28px, 8.5vw, 60px)' : 'clamp(40px, 12vw, 84px)',
           lineHeight: 0.95,
@@ -725,7 +656,7 @@ function FoulLine({
       </div>
       <div
         className="animate-duel-slam mt-1.5 text-sm font-bold"
-        style={{ animationDelay: `${BULLET_MS + 90}ms`, color: 'rgb(255 232 205 / 90%)' }}
+        style={{ color: 'rgb(255 232 205 / 90%)' }}
       >
         {selfShot
           ? `${who.name} — 경고 ${maxFouls}/${maxFouls} · 결투에서 진다`
@@ -733,7 +664,7 @@ function FoulLine({
       </div>
       <div
         className={`animate-duel-slam mt-1 ${LABEL_MONO}`}
-        style={{ animationDelay: `${BULLET_MS + 150}ms`, color: 'rgb(255 220 190 / 60%)' }}
+        style={{ color: 'rgb(255 220 190 / 60%)' }}
       >
         {selfShot ? '실격' : '라운드 무효 · 다음 부정출발은 패배'}
       </div>
@@ -748,7 +679,6 @@ function TieLine({ left, right }: { left: Fighter; right: Fighter }) {
       <div
         className="animate-duel-slam font-black"
         style={{
-          animationDelay: `${BULLET_MS}ms`,
           color: '#fde68a',
           fontSize: 'clamp(44px, 13vw, 92px)',
           lineHeight: 0.95,
@@ -759,7 +689,7 @@ function TieLine({ left, right }: { left: Fighter; right: Fighter }) {
       </div>
       <div
         className="animate-duel-slam mt-1 text-sm font-bold"
-        style={{ animationDelay: `${BULLET_MS + 90}ms`, color: 'rgb(253 230 138 / 85%)' }}
+        style={{ color: 'rgb(253 230 138 / 85%)' }}
       >
         {isClean(left.ms) && isClean(right.ms)
           ? `1ms 까지 똑같다 — 둘 다 ${left.ms}ms`
@@ -776,7 +706,6 @@ function ShotLine({ ko, shooter }: { ko: boolean; shooter: Fighter }) {
       <div
         className="animate-duel-slam font-black"
         style={{
-          animationDelay: `${BULLET_MS}ms`,
           color: ko ? '#fca5a5' : '#fff1d6',
           fontSize: ko ? 'clamp(44px, 13vw, 92px)' : 'clamp(34px, 10vw, 70px)',
           lineHeight: 0.95,
@@ -787,7 +716,7 @@ function ShotLine({ ko, shooter }: { ko: boolean; shooter: Fighter }) {
       </div>
       <div
         className="animate-duel-slam mt-1.5 text-sm font-bold"
-        style={{ animationDelay: `${BULLET_MS + 90}ms`, color: 'rgb(255 232 205 / 88%)' }}
+        style={{ color: 'rgb(255 232 205 / 88%)' }}
       >
         {shooter.name} — 먼저 뽑았다
       </div>
@@ -815,7 +744,7 @@ function TimeTag({
       className="animate-duel-slam pointer-events-none absolute"
       style={{
         [side]: '17%',
-        animationDelay: `${BULLET_MS}ms`,
+
         bottom: 'calc(28% - 30px)',
         transform: `translateX(${side === 'left' ? '-50%' : '50%'})`,
       }}

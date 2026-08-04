@@ -14,14 +14,8 @@ export type ShotTarget = 'opponent' | 'ground'
 
 /** 서버 DuelRules.MAX_HP와 같은 값. 총알(체력) 칸 수다. */
 export const MAX_HP = 3
-/** 서버 DuelRules.MAX_FOULS와 같은 값. 이 개수가 차면 자기 발을 쏜다. */
+/** 서버 DuelRules.MAX_FOULS와 같은 값. 이 개수가 차면 자기 발을 쏘고 결투를 잃는다. */
 export const MAX_FOULS = 2
-
-/**
- * 총알이 상대에게 닿는 시간. tokens.css의 duel-bullet-r/l 길이와 같아야 한다 —
- * 피격 자세와 체력 감소를 총알이 도착하는 순간에 맞추는 타이머가 이 값을 쓴다.
- */
-export const BULLET_MS = 340
 
 /** 정상적으로 뽑았는가 — 부정출발·미반응 센티넬이 아닌 실제 기록. */
 export function isClean(ms: number | null | undefined): ms is number {
