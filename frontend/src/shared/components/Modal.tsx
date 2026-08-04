@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { type ReactNode, useEffect, useId, useRef } from 'react'
 import { cn } from '@/shared/cn'
+import { IconClose } from '@/shared/components/Icon'
 import { popVariants, scrimVariants } from '@/shared/motion'
 import { useDialogBackground } from '@/shared/useDialogBackground'
 
@@ -95,12 +96,14 @@ export function Modal({ children, className, onClose, open, role = 'dialog', tit
               </h2>
               <button
                 ref={closeRef}
-                className="grid size-tap cursor-pointer place-items-center rounded-full bg-transparent text-2xl text-content focus-ring"
+                className="grid size-tap cursor-pointer place-items-center rounded-full bg-transparent text-content focus-ring"
                 type="button"
                 aria-label="닫기"
                 onClick={onClose}
               >
-                ×
+                {/* 글리프(×)가 아니라 공용 아이콘이다 — 문자는 폰트마다 굵기·중심이 달라
+                    같은 자리의 다른 닫기 버튼과 크기가 어긋난다(Icon.tsx 주석). */}
+                <IconClose className="size-5" />
               </button>
             </header>
             <div id={descriptionId}>{children}</div>

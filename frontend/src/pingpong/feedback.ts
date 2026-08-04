@@ -3,7 +3,8 @@ import type { PingPongEventType } from '@/realtime/wsEvents'
 const EVENT_LABELS: Partial<
   Record<PingPongEventType, readonly [mine: string | null, opponent: string | null]>
 > = {
-  SMASH: ['스매시! 💥', '상대 스매시!'],
+  // 이모지는 아이콘이 아니라 카피 속 장식이다 — 나머지 라벨에는 없어 형제와 맞지 않는다.
+  SMASH: ['스매시!', '상대 스매시!'],
   NICE: ['나이스!', '상대가 받아쳤어요'],
   OK: ['굿!', '리턴!'],
   TOO_EARLY: ['너무 빨라요', null],
@@ -21,7 +22,7 @@ export function playerEventLabel(type: PingPongEventType, mine: boolean) {
 export function sharedEventLabel(type: PingPongEventType, actorName: string) {
   switch (type) {
     case 'SMASH':
-      return `${actorName} 스매시! 💥`
+      return `${actorName} 스매시!`
     case 'NICE':
       return `${actorName} 나이스!`
     case 'OK':

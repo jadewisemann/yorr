@@ -13,6 +13,7 @@ import { savePartyRoom } from '@/room/partyControllerStorage'
 import { toUserError } from '@/shared/api/userError'
 import { playLandingSoundtrack } from '@/shared/audio/soundtrack'
 import { Button } from '@/shared/components/Button'
+import { IconBack } from '@/shared/components/Icon'
 import { TextField } from '@/shared/components/TextField'
 import { useAppStore } from '@/store'
 
@@ -89,11 +90,11 @@ export function NicknamePage({ gameKey, party = false, roomCode }: NicknamePageP
       <header className="relative flex items-center gap-3">
         <button
           aria-label="뒤로 가기"
-          className="grid size-11 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-lg text-content transition-colors hover:bg-surface-raised focus-ring"
+          className="grid size-11 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-content transition-colors hover:bg-surface-raised focus-ring"
           onClick={() => void navigate({ to: '/' })}
           type="button"
         >
-          ‹
+          <IconBack className="size-4.5" />
         </button>
         <span className="inline-flex h-[2.125rem] items-center gap-2 rounded-full border border-border bg-white/6 px-3.5 text-[13px] font-semibold">
           {roomCode ? (

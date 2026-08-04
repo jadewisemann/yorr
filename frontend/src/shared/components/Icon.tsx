@@ -1,0 +1,180 @@
+/**
+ * 화면 크롬(닫기·뒤로·소리·확인 등)에 쓰는 공용 아이콘.
+ *
+ * <b>규약은 {@link CategoryIcon}에서 그대로 가져온다</b> — 20×20 `viewBox`, 색은
+ * `currentColor`, `aria-hidden` 고정, 크기는 호출부의 `className`이 정한다. 저장소에 이미
+ * 아이콘 방식이 하나 있으므로 두 번째 방식을 만들지 않는다.
+ *
+ * <b>왜 이모지·글리프를 쓰지 않는가.</b> 여기 있는 아이콘들은 전부 `🔇`·`✕`·`✓`·`‹`처럼
+ * 문자로 그려져 있었다. 문자는 세 가지를 못 한다: `currentColor`를 따르지 않아 이모지는
+ * 무조건 플랫폼 색으로 나오고(모노톤 크롬에서 혼자 튄다), 폭과 베이스라인이 기기마다 달라
+ * 같은 줄의 줄바꿈 지점까지 흔들리고, 글자라서 `size-*`로 크기를 통제할 수 없다.
+ *
+ * <b>`aria-hidden`이 고정인 이유.</b> 이 아이콘들은 전부 `aria-label`이 달린 아이콘 전용
+ * 버튼 안이나 이미 텍스트가 있는 줄에 놓인다 — 접근 가능한 이름은 호출부가 책임지고,
+ * 아이콘은 예외 없이 장식이다. 이름이 필요한 자리라면 아이콘이 아니라 텍스트를 넣어야 한다.
+ *
+ * 선은 `strokeWidth={1.8}` + 둥근 끝이다. `CategoryIcon`의 1.6보다 굵은 이유는 그쪽은
+ * 20px 사각형과 원이고 이쪽은 12~28px에서 그려지는 선이라, 얇으면 끝이 깨져 보인다.
+ */
+
+interface IconProps {
+  // DOM이 아니라 아래 Svg 컴포넌트로 넘기는 값이라 `| undefined`를 명시한다
+  // (`exactOptionalPropertyTypes`).
+  className?: string | undefined
+}
+
+/**
+ * 점은 stroke가 아니라 <b>칠한 원</b>으로 그린다.
+ *
+ * `d="M10 14h.01"`처럼 길이 0인 선분에 둥근 끝을 씌우는 흔한 수법은 점 지름이 곧
+ * `strokeWidth`(1.8/20)라, 16px에서 <b>1.4px</b>밖에 안 되어 사실상 사라진다(실측).
+ * 반지름을 viewBox 기준으로 주면 크기와 함께 자란다.
+ */
+function Dot({ cx, cy, r }: { cx: number; cy: number; r: number }) {
+  return <circle cx={cx} cy={cy} fill="currentColor" r={r} stroke="none" />
+}
+
+/** 20×20 stroke 아이콘의 공통 껍데기. */
+function Svg({ children, className }: IconProps & { children: React.ReactNode }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.8}
+      viewBox="0 0 20 20"
+    >
+      {children}
+    </svg>
+  )
+}
+
+/** 확인·완료. */
+export function IconCheck({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M4.25 10.5 8 14.25 15.75 5.75" />
+    </Svg>
+  )
+}
+
+/** 닫기·나가기. */
+export function IconClose({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M5.25 5.25 14.75 14.75M14.75 5.25 5.25 14.75" />
+    </Svg>
+  )
+}
+
+/** 뒤로 가기. */
+export function IconBack({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M12.25 4.25 6.5 10l5.75 5.75" />
+    </Svg>
+  )
+}
+
+/**
+ * 소리 켜짐/꺼짐 한 컴포넌트. 호출부가 `muted ? A : B`로 갈라 쓰던 자리라
+ * 분기를 아이콘 안으로 들여 호출부에서 삼항을 없앤다.
+ */
+export function IconSound({ className, muted }: IconProps & { muted: boolean }) {
+  return (
+    <Svg className={className}>
+      <path d="M3.25 7.75h2.5L9.75 4.5v11L5.75 12.25h-2.5z" />
+      {/* 음소거 ✕는 스피커 몸통에서 한 칸 더 떼고 조금 작게 그린다 — 붙여 두면 14px 이하에서
+          몸통과 한 덩어리로 뭉개져 "소리 켜짐"과 실루엣이 구별되지 않았다. */}
+      {muted ? (
+        <path d="M13.25 8.5 16.5 11.75M16.5 8.5 13.25 11.75" />
+      ) : (
+        <>
+          <path d="M12.75 7.5a3.5 3.5 0 0 1 0 5" />
+          <path d="M15.25 5.25a6.75 6.75 0 0 1 0 9.5" />
+        </>
+      )}
+    </Svg>
+  )
+}
+
+/**
+ * 마이크 — 음성 채팅이 켜져 있음. 소리 아이콘 옆 배지 · 참가자별 마이크 버튼 · 오디오 시트가
+ * 같은 것을 쓴다(예전에는 `🎙️` 이모지가 네 군데에 흩어져 있었다).
+ */
+export function IconMic({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      {/* 캡슐 몸통 + 받침. 12px 배지로도 쓰이므로 안쪽 무늬는 넣지 않는다. */}
+      <path d="M10 3.6a2.35 2.35 0 0 1 2.35 2.35v3.6a2.35 2.35 0 0 1-4.7 0v-3.6A2.35 2.35 0 0 1 10 3.6z" />
+      <path d="M5.9 9.3a4.1 4.1 0 0 0 8.2 0" />
+      <path d="M10 13.4v3" />
+    </Svg>
+  )
+}
+
+/** 배경음. */
+export function IconMusic({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M8.4 14.1V5.4l6.2-1.4v8" />
+      <Dot cx={6.5} cy={14.3} r={1.9} />
+      <Dot cx={12.7} cy={12.3} r={1.9} />
+    </Svg>
+  )
+}
+
+/**
+ * 경고·주의.
+ *
+ * <b>삼각형 테두리를 함께 그린다.</b> 느낌표만 남기면 작은 크기에서 세로 막대 하나로 보여
+ * 「!」가 아니라 얼룩이나 `l`로 읽힌다(12~16px 실측). 삼각형은 글자가 뭉개지는 크기에서도
+ * <b>모양만으로</b> 경고를 말하고, 옆의 {@link IconCheck}와 실루엣으로 갈린다 —
+ * `InAppBrowserGate`의 체크리스트가 두 아이콘을 같은 배지에 번갈아 넣는 자리다.
+ */
+export function IconWarning({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M10 3.4 18.4 16.6H1.6z" />
+      <path d="M10 8.4v3.1" />
+      <Dot cx={10} cy={14} r={1.05} />
+    </Svg>
+  )
+}
+
+/**
+ * 펼침·접힘 표시. 닫힌 상태가 아래를 보고, 호출부가 `rotate-180`으로 뒤집는다 —
+ * 두 방향을 각각 그리면 회전 트랜지션을 잃는다.
+ */
+export function IconChevron({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M5.25 8 10 12.75 14.75 8" />
+    </Svg>
+  )
+}
+
+/** 목록에서 건너뛴 구간. 가로 세 점({@link Dot} 주석 — 16px에서 stroke 점은 사라진다). */
+export function IconEllipsis({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <Dot cx={5.4} cy={10} r={1.4} />
+      <Dot cx={10} cy={10} r={1.4} />
+      <Dot cx={14.6} cy={10} r={1.4} />
+    </Svg>
+  )
+}
+
+/** 도움말. */
+export function IconHelp({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M7.4 7.6a2.6 2.6 0 1 1 2.6 2.6v1.55" />
+      <Dot cx={10} cy={14.6} r={1.05} />
+    </Svg>
+  )
+}
