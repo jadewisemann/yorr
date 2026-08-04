@@ -1,6 +1,10 @@
 import { type GameKey, games } from '@/games'
+import { musicLevel } from './audioLevels'
 import { onFirstGesture, primeAudio } from './audioUnlock'
 import { readSoundMuted } from './soundPreference'
+
+/** 튜닝된 기본 배경음 볼륨. 슬라이더는 여기에 배율을 곱한다(audioLevels 참고). */
+const BASE_MUSIC_VOLUME = 0.35
 
 let soundtrack: HTMLAudioElement | null = null
 let gameTrack: HTMLAudioElement | null = null
@@ -20,18 +24,27 @@ function prepare(): void {
     const audio = new Audio(`/audio/landing/${key}.mp3`)
     audio.loop = true
     audio.preload = 'auto'
-    audio.volume = 0.35
     tracks.set(key, audio)
   }
   gameTrack = new Audio('/audio/game/yacht_ingame.mp3')
   gameTrack.loop = true
   gameTrack.preload = 'auto'
-  gameTrack.volume = 0.35
   resultTrack = new Audio('/audio/game/result.mp3')
   resultTrack.preload = 'auto'
-  resultTrack.volume = 0.35
+  applyMusicLevel()
 
   waitForGesture()
+}
+
+/**
+ * 저장된 배율을 지금 살아 있는 모든 트랙에 적용한다.
+ *
+ * 배경음은 계속 흐르므로 재생 시점에 읽는 것으로는 부족하다 — 슬라이더를 움직이는 즉시
+ * 들려야 한다. 효과음(짧은 소리)은 반대로 재생 시점에 읽으면 충분해서 이런 함수가 없다.
+ */
+export function applyMusicLevel(): void {
+  const volume = BASE_MUSIC_VOLUME * musicLevel()
+  for (const track of allTracks()) track.volume = volume
 }
 
 /**

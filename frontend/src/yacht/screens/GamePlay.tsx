@@ -1,10 +1,10 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
-import { VoiceButton } from '@/realtime/voice/VoiceButton'
 import { useVoice } from '@/realtime/voice/VoiceContext'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { readSoundMuted, saveSoundMuted } from '@/shared/audio/soundPreference'
 import { setSoundtrackMuted } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
+import { AudioSheet } from '@/shared/components/AudioSheet'
 import { Button } from '@/shared/components/Button'
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner'
 import { Modal } from '@/shared/components/Modal'
@@ -96,6 +96,7 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
   // 내 차례 시작 콜아웃 — 토스트보다 눈에 띄는 족보 이펙트와 같은 연출로 알린다. id = 리마운트 키.
   const [turnCallout, setTurnCallout] = useState<number | null>(null)
   const [soundMuted, setSoundMuted] = useState(readSoundMuted)
+  const [audioSheetOpen, setAudioSheetOpen] = useState(false)
   // 닫은 안내가 "어느 상태의 안내였는지"를 담는다. boolean으로 두면 상태가 바뀌어도 계속 닫혀
   // 새 안내를 놓친다 — 값이 달라지는 순간 자동으로 다시 뜨게 하려는 의도다.
   const [helpOpen, setHelpOpen] = useState(false)
@@ -246,7 +247,8 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
       leaderLabel={leaderLabel}
       onHelp={() => setHelpOpen(true)}
       onLeave={onLeaveRequest}
-      onToggleSound={toggleSound}
+      // 소리 버튼은 이제 토글이 아니라 오디오 시트를 연다 — 마이크·배경음·효과음이 한 자리다.
+      onOpenAudio={() => setAudioSheetOpen(true)}
       remainingMs={remainingMs}
       roundNumber={roundNumber}
       soundMuted={soundMuted}
@@ -401,17 +403,15 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
               그 위로 0.75rem 띄운다 — 9.25rem이었을 때 굴리기 버튼 오른쪽 끝을 덮고 있었다.
               접힌 기록 패널(8.5rem)도 이 값이면 함께 넘긴다.
               z-sticky라 기록 패널(z-sheet)을 펼치면 그 아래로 가려진다 — 의도한 순서다. */}
-          <div
+          {/* 마이크는 여기 없다 — 트레이 위에 버튼이 둘 겹치면 주사위가 답답하다.
+              소리 관련 조작은 헤더의 오디오 시트 한 곳으로 모았다(AudioSheet). */}
+          <ReactionDock
             className={cn(
-              'absolute right-gutter z-sticky flex flex-col items-end gap-2',
+              'absolute right-gutter z-sticky',
               wide ? 'bottom-[6.75rem]' : 'bottom-[calc(13.25rem+env(safe-area-inset-bottom))]',
             )}
-          >
-            {/* 마이크는 좁은 화면에서만 여기 선다 — 헤더가 320px에서 꽉 차기 때문이다.
-                넓은 화면에서는 소리 토글 옆(헤더)에 있다. */}
-            {wide ? null : <VoiceButton voice={voice} />}
-            <ReactionDock players={snapshot.players} />
-          </div>
+            players={snapshot.players}
+          />
         </div>
 
         {/* 디자인 Yacht Play 3D — 점수표는 우측 상시 패널이다.
@@ -432,6 +432,23 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
       </main>
 
       <ToastHost message={toastMessage} />
+      <AudioSheet
+        microphone={
+          voice.status === 'unsupported'
+            ? undefined
+            : {
+                connectedPeers: voice.peers.length,
+                denied: voice.status === 'denied',
+                on: voice.status === 'on',
+                onToggle: voice.toggle,
+                requesting: voice.status === 'requesting',
+              }
+        }
+        muted={soundMuted}
+        onClose={() => setAudioSheetOpen(false)}
+        onToggleMute={toggleSound}
+        open={audioSheetOpen}
+      />
       {zeroModal}
       <GameHelpModal onClose={() => setHelpOpen(false)} open={helpOpen} />
     </>
