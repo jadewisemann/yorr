@@ -43,7 +43,7 @@ const snapshot = {
 describe('PingPongController', () => {
   it('shows a paddle-only controller with feedback and combo instead of the court', async () => {
     const user = userEvent.setup()
-    const onSwing = vi.fn()
+    const onTouchSwing = vi.fn()
     render(
       <PingPongController
         clock={1_100}
@@ -51,7 +51,7 @@ describe('PingPongController', () => {
         nickname="나"
         onLeave={vi.fn()}
         onReady={vi.fn()}
-        onSwing={onSwing}
+        onTouchSwing={onTouchSwing}
         permission="granted"
         playerId="player-1"
         requestPermission={vi.fn()}
@@ -60,14 +60,16 @@ describe('PingPongController', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: '탁구채를 휘두르기' })).toBeVisible()
+    const paddle = screen.getByRole('button', { name: '휴대폰을 휘둘러 스윙' })
+    expect(paddle).toBeVisible()
     expect(screen.queryByLabelText(/3D 탁구 코트/)).not.toBeInTheDocument()
     expect(screen.getByText('스매시!')).toBeVisible()
     expect(screen.getByText('COMBO')).toBeVisible()
     expect(screen.getAllByText('4')).toHaveLength(2)
 
-    await user.click(screen.getByRole('button', { name: '화면을 눌러 스윙' }))
-    expect(onSwing).toHaveBeenCalledOnce()
+    expect(screen.getByText('모션 스윙 연결됨 · 휴대폰을 휘둘러 주세요')).toBeVisible()
+    await user.click(paddle)
+    expect(onTouchSwing).not.toHaveBeenCalled()
   })
 
   it('requires a confirmed practice swing before the player can become ready', async () => {
@@ -90,7 +92,7 @@ describe('PingPongController', () => {
         nickname="나"
         onLeave={vi.fn()}
         onReady={onReady}
-        onSwing={vi.fn()}
+        onTouchSwing={vi.fn()}
         permission="granted"
         playerId="player-1"
         requestPermission={vi.fn()}
@@ -105,5 +107,76 @@ describe('PingPongController', () => {
     expect(ready).toBeEnabled()
     await user.click(ready)
     expect(onReady).toHaveBeenCalledOnce()
+  })
+
+  it('activates the motion sensor without counting the activation tap as practice', async () => {
+    const user = userEvent.setup()
+    const requestPermission = vi.fn().mockResolvedValue(undefined)
+    const onTouchSwing = vi.fn()
+    const preparingState: PingPongState = {
+      ...state,
+      lastEvent: null,
+      lastInputSeq: { 'player-1': -1, 'player-2': -1 },
+      phase: 'PREPARING',
+      rally: 0,
+      readyPlayerIds: [],
+      scores: { 'player-1': 0, 'player-2': 0 },
+    }
+
+    render(
+      <PingPongController
+        clock={1_100}
+        error={null}
+        nickname="나"
+        onLeave={vi.fn()}
+        onReady={vi.fn()}
+        onTouchSwing={onTouchSwing}
+        permission="unknown"
+        playerId="player-1"
+        requestPermission={requestPermission}
+        snapshot={{ ...snapshot, game: preparingState } as unknown as RoomSnapshot}
+        state={preparingState}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '연습 공 치기' }))
+
+    expect(requestPermission).toHaveBeenCalledOnce()
+    expect(onTouchSwing).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: '먼저 공을 한 번 쳐보세요' })).toBeDisabled()
+  })
+
+  it('allows touch practice only as a sensor fallback', async () => {
+    const user = userEvent.setup()
+    const onTouchSwing = vi.fn()
+    const preparingState: PingPongState = {
+      ...state,
+      lastEvent: null,
+      lastInputSeq: { 'player-1': -1, 'player-2': -1 },
+      phase: 'PREPARING',
+      rally: 0,
+      readyPlayerIds: [],
+      scores: { 'player-1': 0, 'player-2': 0 },
+    }
+
+    render(
+      <PingPongController
+        clock={1_100}
+        error={null}
+        nickname="나"
+        onLeave={vi.fn()}
+        onReady={vi.fn()}
+        onTouchSwing={onTouchSwing}
+        permission="denied"
+        playerId="player-1"
+        requestPermission={vi.fn()}
+        snapshot={{ ...snapshot, game: preparingState } as unknown as RoomSnapshot}
+        state={preparingState}
+      />,
+    )
+
+    expect(screen.getByText(/화면 터치 대체 조작/)).toBeVisible()
+    await user.click(screen.getByRole('button', { name: '연습 공 치기' }))
+    expect(onTouchSwing).toHaveBeenCalledOnce()
   })
 })
