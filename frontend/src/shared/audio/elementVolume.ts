@@ -10,39 +10,30 @@
  * 같은 방식으로 볼륨을 조절하고 폰에서 동작하는 것이 확인돼 있어, 그쪽에서 배운 것을 그대로
  * 가져왔다 — `running`이 아니면 계속 깨우기, 제스처 리스너를 `once`로 떼지 않기.
  *
- * UA를 보고 판단하지 않는다. 실제로 대입해 보고 읽어서 확인한다 — 기기·버전 목록보다 오래 산다.
+ * **기능 탐지("대입해 보고 읽어서 확인")를 하지 않는다.** 실기기에서 그 방법이 속는 것을
+ * 확인했다 — iOS는 대입을 무시하면서 값은 저장해서, 읽어 보면 넣은 값이 그대로 나온다.
+ * 그래서 항상 Web Audio로 흘린다. UA도 보지 않는다. 대입이 먹는 브라우저에서도 GainNode는
+ * 똑같이 동작하므로 갈래를 둘 이유가 없다(코드도 줄어든다).
  */
 
-/** 이 브라우저에서 `.volume` 대입이 먹는가. 플랫폼 성질이라 요소마다 다시 재지 않는다. */
-let volumeWritable: boolean | null = null
 let context: AudioContext | null = null
 let listeningForGestures = false
 /** 요소별 GainNode. `createMediaElementSource`는 요소당 한 번만 부를 수 있어 재사용해야 한다. */
 const gains = new WeakMap<HTMLAudioElement, GainNode>()
 
 export function setElementVolume(audio: HTMLAudioElement, volume: number): void {
-  if (canWriteVolume(audio)) {
-    audio.volume = volume
-    return
-  }
+  // 0%는 GainNode와 별개로 muted로도 한 번 더 막는다. 이 대입은 iOS에서도 먹으므로,
+  // Web Audio 쪽이 어떤 이유로든 어긋나도 "0%인데 들린다"는 다시 나오지 않는다.
+  audio.muted = volume === 0
+
   const gain = gainFor(audio)
   if (gain) {
     gain.gain.value = volume
     resumeContext()
     return
   }
-  // Web Audio까지 못 쓰는 환경. 적어도 "0이면 안 들린다"는 지킨다 — muted는 iOS에서도 먹는다.
-  audio.muted = volume === 0
-}
-
-function canWriteVolume(audio: HTMLAudioElement): boolean {
-  if (volumeWritable !== null) return volumeWritable
-  const before = audio.volume
-  const probe = before > 0.5 ? 0.25 : 0.75
-  audio.volume = probe
-  volumeWritable = Math.abs(audio.volume - probe) < 0.001
-  if (volumeWritable) audio.volume = before
-  return volumeWritable
+  // Web Audio가 없는 환경(jsdom 등)에서는 종전 경로로 떨어진다.
+  audio.volume = volume
 }
 
 function gainFor(audio: HTMLAudioElement): GainNode | null {

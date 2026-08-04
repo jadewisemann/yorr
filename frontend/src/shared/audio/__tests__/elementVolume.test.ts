@@ -40,7 +40,7 @@ describe('setElementVolume', () => {
     vi.unstubAllGlobals()
   })
 
-  it('대입이 먹는 브라우저에서는 그냥 volume에 넣는다', async () => {
+  it('Web Audio가 없으면 종전대로 volume에 넣는다', async () => {
     const { setElementVolume } = await loadModule()
     const audio = document.createElement('audio')
 
@@ -49,14 +49,30 @@ describe('setElementVolume', () => {
     expect(audio.volume).toBeCloseTo(0.35)
   })
 
-  it('volume이 읽기 전용이면 GainNode로 줄인다 (iOS)', async () => {
+  // 대입이 먹는지 재보고 갈래를 타면 iOS에 속는다 — 무시하면서 값은 저장하기 때문이다.
+  // 그래서 요소가 뭐라고 답하든 GainNode로 간다.
+  it('Web Audio가 있으면 volume 대입이 먹는지와 무관하게 GainNode로 줄인다', async () => {
     const { gain } = stubAudioContext()
+    const { setElementVolume } = await loadModule()
+
+    setElementVolume(readOnlyVolumeAudio(), 0.35)
+    expect(gain.gain.value).toBeCloseTo(0.35)
+
+    // 대입이 정상인 요소도 같은 경로를 탄다(갈래가 없다).
+    setElementVolume(document.createElement('audio'), 0.2)
+    expect(gain.gain.value).toBeCloseTo(0.2)
+  })
+
+  it('0%는 GainNode와 별개로 muted로도 막는다', async () => {
+    stubAudioContext()
     const { setElementVolume } = await loadModule()
     const audio = readOnlyVolumeAudio()
 
-    setElementVolume(audio, 0.35)
+    setElementVolume(audio, 0)
+    expect(audio.muted).toBe(true)
 
-    expect(gain.gain.value).toBeCloseTo(0.35)
+    setElementVolume(audio, 0.5)
+    expect(audio.muted).toBe(false)
   })
 
   it('Web Audio도 없으면 최소한 0%는 무음으로 만든다', async () => {
