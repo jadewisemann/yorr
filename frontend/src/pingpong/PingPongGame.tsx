@@ -144,7 +144,7 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
       nickname={session.nickname}
       onLeave={onLeaveRequest}
       onReady={ready}
-      onSwing={swing}
+      onTouchSwing={swing}
       permission={permission}
       playerId={session.you}
       requestPermission={requestPermission}

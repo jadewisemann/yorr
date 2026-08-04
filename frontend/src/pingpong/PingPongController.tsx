@@ -8,7 +8,7 @@ interface PingPongControllerProps {
   nickname: string
   onLeave: () => void
   onReady: () => void
-  onSwing: () => void
+  onTouchSwing: () => void
   permission: SwingPermission
   playerId: string
   requestPermission: () => Promise<void>
@@ -60,7 +60,7 @@ export function PingPongController({
   nickname,
   onLeave,
   onReady,
-  onSwing,
+  onTouchSwing,
   permission,
   playerId,
   requestPermission,
@@ -76,7 +76,7 @@ export function PingPongController({
         nickname={nickname}
         onLeave={onLeave}
         onReady={onReady}
-        onSwing={onSwing}
+        onTouchSwing={onTouchSwing}
         permission={permission}
         playerId={playerId}
         readyPlayerIds={state.readyPlayerIds}
@@ -118,7 +118,11 @@ export function PingPongController({
         />
       </section>
 
-      <ControllerArena onSwing={onSwing} rally={state.rally} view={view} />
+      <ControllerArena
+        onTouchSwing={usesTouchFallback(permission) ? onTouchSwing : undefined}
+        rally={state.rally}
+        view={view}
+      />
 
       <section className="mt-3 grid flex-none gap-2 text-center">
         {permission === 'unknown' && (
@@ -130,13 +134,20 @@ export function PingPongController({
             폰 스윙 켜기
           </button>
         )}
-        <button
-          className="min-h-12 rounded-2xl border border-white/18 bg-white/8 px-5 font-bold active:scale-[0.98] active:bg-white/15"
-          onClick={onSwing}
-          type="button"
-        >
-          화면을 눌러 스윙
-        </button>
+        {permission === 'granted' && (
+          <p className="m-0 text-sm font-bold text-[#8dffc0]" role="status">
+            모션 스윙 연결됨 · 휴대폰을 휘둘러 주세요
+          </p>
+        )}
+        {usesTouchFallback(permission) && (
+          <button
+            className="min-h-12 rounded-2xl border border-white/18 bg-white/8 px-5 font-bold active:scale-[0.98] active:bg-white/15"
+            onClick={onTouchSwing}
+            type="button"
+          >
+            화면을 눌러 스윙 · 대체 조작
+          </button>
+        )}
         {error && (
           <p className="m-0 text-sm text-red-300" role="alert">
             {error}
@@ -148,20 +159,21 @@ export function PingPongController({
 }
 
 function ControllerArena({
-  onSwing,
+  onTouchSwing,
   rally,
   view,
 }: {
-  onSwing: () => void
+  onTouchSwing?: (() => void) | undefined
   rally: number
   view: ControllerView
 }) {
   const paddlePose = view.swingActive ? 'rotate-[-28deg] scale-110' : 'rotate-[-8deg]'
   return (
     <button
-      aria-label="탁구채를 휘두르기"
+      aria-label={onTouchSwing ? '탁구채를 눌러 스윙' : '휴대폰을 휘둘러 스윙'}
+      aria-disabled={!onTouchSwing}
       className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-[2rem] border border-white/12 bg-[radial-gradient(circle_at_50%_45%,rgb(43_143_224_/_22%),transparent_58%)] active:bg-white/8"
-      onPointerDown={onSwing}
+      onClick={onTouchSwing}
       type="button"
     >
       <span
@@ -210,7 +222,7 @@ function PingPongPreparationController({
   nickname,
   onLeave,
   onReady,
-  onSwing,
+  onTouchSwing,
   permission,
   playerId,
   readyPlayerIds,
@@ -222,7 +234,7 @@ function PingPongPreparationController({
   nickname: string
   onLeave: () => void
   onReady: () => void
-  onSwing: () => void
+  onTouchSwing: () => void
   permission: SwingPermission
   playerId: string
   readyPlayerIds: string[]
@@ -235,6 +247,7 @@ function PingPongPreparationController({
   const opponentReady = readyPlayerIds.includes(view.opponentId)
   const practiceAck =
     view.event?.type === 'PRACTICE' && view.event.playerId === playerId && view.eventAge < 1_200
+  const practiceAction = selectPracticeAction(permission, requestPermission, onTouchSwing)
 
   return (
     <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-[#070b12] px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
@@ -266,8 +279,9 @@ function PingPongPreparationController({
 
       <button
         aria-label="연습 공 치기"
+        aria-disabled={permission === 'granted'}
         className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-[2rem] border border-[#2b8fe0]/35 bg-[radial-gradient(circle_at_50%_42%,rgb(43_143_224_/_24%),transparent_60%)] active:bg-white/8"
-        onPointerDown={onSwing}
+        onClick={practiceAction}
         type="button"
       >
         <span
@@ -281,7 +295,7 @@ function PingPongPreparationController({
         <span
           className={`absolute inset-x-4 bottom-5 text-center text-base font-black ${practiced ? 'text-[#49e08a]' : 'text-white/70'}`}
         >
-          {practiceAck ? '스윙 감지 완료! 공을 맞혔어요' : '폰을 휘두르거나 화면을 눌러 스윙'}
+          {practiceAck ? '스윙 감지 완료! 공을 맞혔어요' : practicePrompt(permission)}
         </span>
       </button>
 
@@ -295,6 +309,7 @@ function PingPongPreparationController({
             폰 스윙 켜기
           </button>
         )}
+        <PreparationMotionStatus permission={permission} practiced={practiced} />
         <button
           className="min-h-14 rounded-2xl bg-[#e2513c] px-5 text-lg font-black text-white disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35"
           disabled={!practiced || ready}
@@ -314,6 +329,47 @@ function PingPongPreparationController({
         )}
       </section>
     </main>
+  )
+}
+
+function usesTouchFallback(permission: SwingPermission) {
+  return permission === 'denied' || permission === 'unsupported'
+}
+
+function selectPracticeAction(
+  permission: SwingPermission,
+  requestPermission: () => Promise<void>,
+  onTouchSwing: () => void,
+): (() => void) | undefined {
+  if (permission === 'unknown') return () => void requestPermission()
+  return usesTouchFallback(permission) ? onTouchSwing : undefined
+}
+
+function practicePrompt(permission: SwingPermission) {
+  if (permission === 'unknown') return '화면을 눌러 모션 센서 연결'
+  if (permission === 'granted') return '센서 연결 완료 · 휴대폰을 휘둘러 스윙'
+  return '화면을 눌러 스윙 · 센서 대체 조작'
+}
+
+function PreparationMotionStatus({
+  permission,
+  practiced,
+}: {
+  permission: SwingPermission
+  practiced: boolean
+}) {
+  if (practiced || permission === 'unknown') return null
+  if (permission === 'granted') {
+    return (
+      <p className="m-0 text-center text-sm font-bold text-[#8dffc0]" role="status">
+        센서 연결 완료 · 휴대폰을 실제로 휘둘러 주세요
+      </p>
+    )
+  }
+  return (
+    <p className="m-0 text-center text-sm text-amber-200" role="status">
+      모션 센서를 사용할 수 없어 화면 터치 대체 조작을 사용합니다.
+    </p>
   )
 }
 
