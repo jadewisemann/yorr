@@ -1,5 +1,6 @@
 import { effectsLevel } from '@/shared/audio/audioLevels'
 import { onFirstGesture, primeAudio } from '@/shared/audio/audioUnlock'
+import { setElementVolume } from '@/shared/audio/elementVolume'
 import type { PhysicsDiceIndex, PhysicsDicePhase } from '@/yacht/rendering/physics-dice/types'
 
 const SHAKE_RATE_LIMIT_MS = 80
@@ -49,9 +50,11 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}) 
    * 배율은 **재생 시점에** 읽는다. 모듈 로드 때 한 번 곱해 두면 설정을 바꿔도 이번 세션 내내
    * 옛 볼륨으로 난다. 이미 나고 있는 소리는 그대로 두고 다음 소리부터 반영된다 —
    * 짧은 효과음이라 눈치채지 못한다(배경음은 계속 흐르므로 soundtrack이 즉시 반영한다).
+   *
+   * `audio.volume`에 직접 넣지 않는다 — iOS는 그 대입을 무시한다(shared/audio/elementVolume).
    */
   const play = (audio: HTMLAudioElement, baseVolume: number) => {
-    audio.volume = baseVolume * effectsLevel()
+    setElementVolume(audio, baseVolume * effectsLevel())
     void audio.play().catch(() => undefined)
   }
 
