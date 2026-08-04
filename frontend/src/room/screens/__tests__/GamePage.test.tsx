@@ -10,6 +10,7 @@ import { GamePage } from '@/room/screens/GamePage'
 import { useAppStore } from '@/store'
 import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
 import type { PhysicsDiceSet } from '@/yacht/rendering/physics-dice/types'
+import { hideTutorial } from '@/yacht/tutorialPreference'
 
 interface DiceSceneProps {
   dice: PhysicsDiceSet | null
@@ -175,9 +176,13 @@ describe('GamePage motion roll flow', () => {
     )
   })
 
-  it('모션 센서 안내는 켤 수 있는 기기에서 바로 뜬다', () => {
+  it('모션 센서 안내는 켤 수 있는 기기에서 코치마크를 닫는 즉시 뜬다', () => {
     mocks.motionAvailability = 'permissionRequired'
     render(<GamePage roomId={creatorSession.roomId} />)
+
+    // 두 안내를 겹쳐 띄우지 않는다 — 센서 안내(z-30)가 코치마크의 닫기를 덮었다(186).
+    expect(screen.queryByText('모션 센서를 사용해 볼까요?')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '알겠어요' }))
 
     // 칩을 눌러야 열리던 때는 아무도 누르지 않았다(S15P11A406-182).
     expect(screen.getByText('모션 센서를 사용해 볼까요?')).toBeVisible()
@@ -185,6 +190,8 @@ describe('GamePage motion roll flow', () => {
 
   it('브라우저와 관계없이 센서 시작 버튼에서 권한 요청을 시작한다', () => {
     mocks.motionAvailability = 'permissionRequired'
+    // 코치마크를 이미 본 사람(재방문)으로 둔다 — 센서 안내가 마운트와 함께 뜨는 경로다.
+    hideTutorial()
     render(<GamePage roomId={creatorSession.roomId} />)
 
     fireEvent.click(screen.getByRole('button', { name: '센서 사용 시작하기' }))

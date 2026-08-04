@@ -37,15 +37,22 @@ export function GameDiceTray({
   turnCallout,
   wide,
 }: GameDiceTrayProps) {
-  // 모션 안내는 켤 수 있는 상태가 되는 즉시 뜬다(S15P11A406-182 QA). 닫으면 흔들기 칩으로
-  // 다시 연다 — 권한 안내는 3초 뒤 스스로 닫히므로 오래 막지 않는다.
-  const [motionPanelOpen, setMotionPanelOpen] = useState(true)
   /*
    * 첫 진입에는 "설명은 툴팁에 있다"만 알리는 코치마크를 띄운다(S15P11A406-143).
    * 한 턴을 따라다니던 마스코트 가이드는 실전에서 걷어내고 /tutorial 연습 모드로 옮겼다 —
    * 실전은 이미 아는 사람이 대부분이고, 배우는 건 실패해도 되는 자리에서 해야 한다.
    */
   const [coachOpen, setCoachOpen] = useState(() => !guided && !isTutorialHidden())
+  /*
+   * 모션 안내는 켤 수 있는 상태가 되는 즉시 뜬다(S15P11A406-182 QA). 닫으면 흔들기 칩으로
+   * 다시 연다 — 권한 안내는 3초 뒤 스스로 닫히므로 오래 막지 않는다.
+   *
+   * <b>단, 코치마크와 같은 순간에 뜨지는 않는다.</b> 두 안내가 겹치면 z-30인 이 패널이
+   * 코치마크(z-6)의 「알겠어요」를 덮어 <b>첫 진입 사용자가 코치마크를 닫을 수 없다</b>
+   * (182의 자동 열림과 143의 코치마크가 만나 생긴 자리다. 320px에서 실측·재현).
+   * 코치마크를 닫는 순간 이어서 뜬다 — 둘 다 첫 진입 안내지만 한 번에 하나씩 읽힌다.
+   */
+  const [motionPanelOpen, setMotionPanelOpen] = useState(() => !coachOpen)
   const {
     allKept,
     canHold,
@@ -192,6 +199,8 @@ export function GameDiceTray({
           onDone={() => {
             hideTutorial()
             setCoachOpen(false)
+            // 코치마크를 닫으면 미뤄 둔 모션 안내를 이어서 띄운다(위 motionPanelOpen 주석).
+            setMotionPanelOpen(true)
           }}
         />
       )}
