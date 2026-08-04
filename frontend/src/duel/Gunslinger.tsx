@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { type CSSProperties, useId } from 'react'
 
 /**
  * 총잡이 캐릭터 — 인라인 SVG, 외부 에셋 0.
@@ -30,6 +30,20 @@ export const OUTFIT_RIGHT: Outfit = { scarf: '#38bdf8', rim: '#ffd08a' }
 const BODY_PIVOT = '58px 172px'
 const HAT_PIVOT = '96px 168px'
 
+/** 몸 전체가 움직이는 층 — 맞으면 젖혀지고, 쓰러지면 발끝을 축으로 넘어간다. */
+function bodyMotion(pose: Pose): { className?: string; style?: CSSProperties } {
+  if (pose === 'hit') {
+    return { className: 'animate-duel-knockback', style: { transformOrigin: BODY_PIVOT } }
+  }
+  if (pose === 'dead') {
+    return {
+      className: 'animate-duel-fall',
+      style: { transform: 'rotate(-78deg)', transformOrigin: BODY_PIVOT },
+    }
+  }
+  return {}
+}
+
 /** 포즈별 팔 각도 — [어깨, 팔꿈치] (deg, SVG rotate) */
 const ARM: Record<Pose, [number, number]> = {
   // 아래로 내려 홀스터 위에 손
@@ -53,8 +67,6 @@ interface GunslingerProps {
    * 없어진 것처럼 보인다(화면에서 유일하게 밝은 것이 총이다).
    */
   fired?: boolean
-  /** 총을 쏜 라운드마다 바뀌는 키 — 반동·화염 애니메이션을 다시 재생시킨다. */
-  fxKey?: number
   height?: number | string
 }
 
@@ -63,7 +75,6 @@ export function Gunslinger({
   outfit,
   fired = false,
   flip = false,
-  fxKey = 0,
   height = '100%',
 }: GunslingerProps) {
   const [upperArm, foreArm] = ARM[pose]
@@ -72,6 +83,18 @@ export function Gunslinger({
   // 총구가 한 번 더 번쩍인다 — 맞은 사람이 스스로 쏜 것처럼 보인다.
   const shooting = fired && pose === 'draw'
   const down = pose === 'dead'
+  /**
+   * 뽑기는 스냅, 맞거나 쓰러지는 것은 이어서 움직인다.
+   *
+   * 퀵드로우는 "한 프레임에 뽑히는" 게 맛이라 보간하지 않는다. 반대로 피격은 몸이
+   * 애니메이션으로 젖혀지는 동안 팔만 순간이동하면 그 불일치가 버벅임으로 읽힌다 —
+   * 총이 43px을 한 프레임에 건너뛴다.
+   *
+   * 이징은 앞이 완만한 ease-out 계열이어야 한다. 처음이 급한 곡선(0.2, 0.7, …)은 첫
+   * 프레임에 절반(22px)을 가버려서, 전환을 걸어도 여전히 튄 것으로 읽힌다.
+   */
+  const transition =
+    pose === 'hit' || down ? 'transform 260ms cubic-bezier(0.33, 1, 0.68, 1)' : undefined
   // 한 화면에 여러 총잡이가 있어도 그라디언트가 섞이지 않게 인스턴스별 id를 쓴다.
   const gradientId = `duel-body-${useId().replace(/:/g, '')}`
 
@@ -94,32 +117,33 @@ export function Gunslinger({
       {/* 접지 그림자 — 석양이 낮아 길게 늘어진다 */}
       <ellipse cx="58" cy="176" fill="rgb(20 4 8 / 55%)" rx={down ? 46 : 26} ry="5" />
 
-      {/* 쓰러졌으면 몸 전체를 발끝 기준으로 뒤로 넘긴다 */}
-      <g
-        className={
-          pose === 'hit' ? 'animate-duel-knockback' : down ? 'animate-duel-fall' : undefined
-        }
-        key={`body-${pose}-${shooting}-${fxKey}`}
-        style={
-          pose === 'hit'
-            ? { transformOrigin: BODY_PIVOT }
-            : down
-              ? { transform: 'rotate(-78deg)', transformOrigin: BODY_PIVOT }
-              : undefined
-        }
-      >
+      {/*
+        국면이 바뀔 때 이 그룹을 다시 만들지 않는다(key 없음 — 라운드마다 Arena가 통째로
+        새로 마운트된다). 다시 만들면 안쪽 팔이 이전 각도를 잃어 전환이 끊기고, 코트가
+        흔들리는 주기도 매번 처음으로 되돌아간다. 한 라운드에 자세는 한 번만 바뀌므로
+        넉백·낙하는 class가 붙는 것만으로 한 번 재생된다.
+      */}
+      <g {...bodyMotion(pose)}>
         <Body gradientId={gradientId} hatless={down} outfit={outfit} />
 
-        {/* 총 든 팔 (어깨 → 팔꿈치 → 손/리볼버) */}
-        <g transform={`translate(54 64) rotate(${upperArm})`}>
-          <path d="M -5.5 -5 L 5.5 -5 L 4 25 L -4 25 Z" fill="#150a11" />
-          <g
-            className={shooting ? 'animate-duel-recoil' : undefined}
-            transform={`translate(0 25) rotate(${foreArm})`}
-          >
-            <path d="M -4.2 0 L 4.2 0 L 3.2 21 L -3.2 21 Z" fill="#1c0e17" />
-            <circle cx="0" cy="23" fill="#241118" r="4.2" />
-            {armed ? <Revolver firing={shooting} flash={outfit.rim} /> : null}
+        {/* 총 든 팔 (어깨 → 팔꿈치 → 손/리볼버).
+            층을 잘게 나눈 이유: CSS 애니메이션과 전환은 transform 속성을 <b>덮어쓴다</b>.
+            위치(translate)·반동·자세 각도를 한 층에 두면 반동이 재생되는 순간 팔뚝과 총이
+            어깨로 끌려 올라간다. */}
+        <g transform="translate(54 64)">
+          <g style={{ transform: `rotate(${upperArm}deg)`, transformOrigin: '0 0', transition }}>
+            <path d="M -5.5 -5 L 5.5 -5 L 4 25 L -4 25 Z" fill="#150a11" />
+            <g transform="translate(0 25)">
+              <g className={shooting ? 'animate-duel-recoil' : undefined}>
+                <g
+                  style={{ transform: `rotate(${foreArm}deg)`, transformOrigin: '0 0', transition }}
+                >
+                  <path d="M -4.2 0 L 4.2 0 L 3.2 21 L -3.2 21 Z" fill="#1c0e17" />
+                  <circle cx="0" cy="23" fill="#241118" r="4.2" />
+                  {armed ? <Revolver firing={shooting} flash={outfit.rim} /> : null}
+                </g>
+              </g>
+            </g>
           </g>
         </g>
 

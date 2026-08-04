@@ -141,7 +141,6 @@ export function Arena({
       >
         <Gunslinger
           fired={leftShot !== null}
-          fxKey={fxKey}
           height="var(--gs-h)"
           outfit={left.outfit}
           pose={left.pose}
@@ -154,7 +153,6 @@ export function Arena({
         <Gunslinger
           fired={rightShot !== null}
           flip
-          fxKey={fxKey}
           height="var(--gs-h)"
           outfit={right.outfit}
           pose={right.pose}
