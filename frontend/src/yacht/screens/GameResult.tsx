@@ -55,9 +55,16 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
 
   return (
     <>
-      {/* 뷰포트 높이로 프레임을 고정하고 페이지 스크롤을 막는다 — 인원이 많아져도
-          스크롤은 아래 랭킹 목록 안에서만 일어난다(QA FND-6, LobbyPage·GamePlay와 같은 패턴). */}
-      <main className="relative mx-auto flex h-svh w-full max-w-2xl flex-col overflow-hidden px-gutter pt-6 pb-[max(1.875rem,env(safe-area-inset-bottom))] text-content">
+      {/* 뷰포트 높이로 프레임을 고정하고, 인원이 많아져도 스크롤은 아래 랭킹 목록 안에서만
+          일어난다(QA FND-6, LobbyPage·GamePlay와 같은 패턴).
+
+          overflow-hidden이 아니라 overflow-x-hidden이다(세로는 auto로 계산된다). 320×568에서는
+          고정 요소만 약 500px이라 flex-1인 랭킹이 25px로 짜부라져 **이 화면의 본문인 순위가 한
+          줄도 안 보였다** — 목록 하한(min-h) + 프레임 안 스크롤로 둘 다 살린다. 가로는 그대로
+          감춘다(위쪽 레드 글로우가 26rem이라 320px에서 좌우로 삐져나온다).
+          문서 높이를 늘리는 min-h-svh는 쓰지 않는다 — 화면 전환이 취소되며 렌더러가 죽었다
+          (LobbyPage 주석 참고). */}
+      <main className="relative mx-auto flex h-svh w-full max-w-2xl flex-col overflow-x-hidden px-gutter pt-6 pb-[max(1.875rem,env(safe-area-inset-bottom))] text-content">
         {/* 디자인 08 — 상단에서 은은하게 퍼지는 레드 글로우. 정보가 아니라 분위기다. */}
         <div
           aria-hidden="true"
@@ -113,9 +120,11 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
           <span className="text-[13px] text-content-muted">총점 기준</span>
         </div>
         {/* min-h-0 + overflow-y-auto: 랭킹이 늘어나도 스크롤은 이 목록 안에서만 일어난다 —
-            내 점수 카드·하단 버튼은 항상 고정 위치에 남는다(QA FND-6). */}
+            내 점수 카드·하단 버튼은 항상 고정 위치에 남는다(QA FND-6).
+            min-h-28: 두 줄은 반드시 보인다. flex-1만으로는 짧은 화면에서 0에 가깝게 줄어드는데,
+            높이를 못 받은 목록은 "순위가 없다"로 읽힌다 — 이 하한이 프레임을 늘려 스크롤을 만든다. */}
         <ResultRanking
-          className="relative min-h-0 flex-1 auto-rows-min content-start overflow-y-auto"
+          className="relative min-h-28 flex-1 auto-rows-min content-start overflow-y-auto"
           players={ranked}
           you={session.you}
         />

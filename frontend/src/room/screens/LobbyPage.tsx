@@ -156,9 +156,16 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
         message="게임을 준비하고 있어요"
         open={Boolean(roomSnapshot) && roomSnapshot?.phase !== 'waiting'}
       />
-      {/* 뷰포트 높이로 프레임을 고정하고 페이지 스크롤을 막는다 — 참가자가 많아져도
-          스크롤은 아래 참가자 목록 안에서만 일어난다(QA FND-6, GamePlay와 같은 패턴). */}
-      <main className="mx-auto flex h-svh w-full max-w-2xl flex-col gap-5 overflow-hidden px-gutter pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-content">
+      {/* 뷰포트 높이로 프레임을 고정한다 — 참가자가 많아져도 스크롤은 아래 목록 안에서만
+          일어난다(QA FND-6, GamePlay와 같은 패턴).
+
+          overflow-hidden이 아니라 overflow-x-hidden이다(세로는 auto로 계산된다). 320×568(지원
+          하한 기기)에서는 QR·봇 패널·시작 버튼이 높이를 다 먹어 flex-1인 참가자 목록이 4px로
+          짜부라졌다 — 목록에 하한(min-h)을 주면 내용이 프레임을 넘는데, 감춰 버리면 시작 버튼이
+          닿지 않는 곳으로 사라진다. 프레임 안에서 스크롤되게 두면 둘 다 산다.
+          <b>문서 높이는 늘리지 않는다.</b> min-h-svh로 페이지 자체를 늘렸더니 화면 전환
+          (router의 view transition)이 중간에 취소되며 320px에서 렌더러가 죽었다. */}
+      <main className="mx-auto flex h-svh w-full max-w-2xl flex-col gap-5 overflow-x-hidden px-gutter pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-content">
         {/* 디자인 03 헤더 — 좌측 타이틀·코드·연결 상태, 우측 나가기. */}
         <header className="flex items-center gap-3 border-b border-border pb-3.5">
           <div className="grid min-w-0 flex-1 gap-1">
@@ -289,8 +296,9 @@ function LobbyRoomContent({
         </span>
       </div>
 
+      {/* min-h-28: 참가자 카드 한 장은 반드시 보인다(짧은 화면 대책 — main 주석 참고). */}
       <section
-        className="grid min-h-0 flex-1 auto-rows-min gap-2.5 overflow-y-auto"
+        className="grid min-h-28 flex-1 auto-rows-min gap-2.5 overflow-y-auto"
         aria-label={`참가자 ${snapshot.players.length}명`}
       >
         {snapshot.players.map((player) => (
