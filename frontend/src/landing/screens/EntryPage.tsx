@@ -7,6 +7,7 @@ import { gameAt, games } from '@/games'
 import { LandingCodeDialog } from '@/landing/components/LandingCodeDialog'
 import { LandingHeroCarousel } from '@/landing/components/LandingHeroCarousel'
 import { LandingProgress } from '@/landing/components/LandingProgress'
+import { PlayModeDialog } from '@/landing/components/PlayModeDialog'
 import { RankingTicker } from '@/landing/components/RankingTicker'
 import { useLeaveSession } from '@/room/api/useRoomApi'
 import { normalizeRoomCode } from '@/room/roomCode'
@@ -43,6 +44,7 @@ export function EntryPage() {
   const [code, setCode] = useState('')
   const [codeOpen, setCodeOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
+  const [playModeOpen, setPlayModeOpen] = useState(false)
   const appNotice = useAppStore((state) => state.appNotice)
   const authSession = useAppStore((state) => state.authSession)
   const roomSession = useAppStore((state) => state.roomSession)
@@ -79,12 +81,22 @@ export function EntryPage() {
     setActiveIndex(index)
   }
 
-  const handlePlay = () => {
+  // 플레이는 이제 곧바로 방을 만들지 않는다 — 친구와 할지, 모르는 사람과 할지부터 고른다.
+  const handlePlay = () => setPlayModeOpen(true)
+
+  const handleCreateRoom = () => {
+    setPlayModeOpen(false)
     if (game.key === 'pingpong') {
       void navigate({ to: '/party', search: { game: 'pingpong' } })
       return
     }
     void navigate({ to: '/join', search: { code: undefined, game: game.key } })
+  }
+
+  /** 빠른 대전도 이름은 직접 짓는다 — 닉네임 화면에서 대기열에 선다. */
+  const handleQuickMatch = () => {
+    setPlayModeOpen(false)
+    void navigate({ to: '/join', search: { code: undefined, game: game.key, mode: 'quick' } })
   }
 
   /** 연습 모드는 실전과 다른 화면이다 — 방을 만들지 않고 바로 들어간다. */
@@ -141,6 +153,20 @@ export function EntryPage() {
       onSignOut={handleSignOut}
       open={accountOpen}
       session={authSession}
+    />
+  )
+  const playModeDialog = (
+    <PlayModeDialog
+      game={game}
+      onClose={() => setPlayModeOpen(false)}
+      onCreateRoom={handleCreateRoom}
+      onQuickMatch={handleQuickMatch}
+      onSignIn={() => {
+        setPlayModeOpen(false)
+        setAccountOpen(true)
+      }}
+      open={playModeOpen}
+      signedIn={authSession !== null}
     />
   )
   if (wide) {
@@ -241,6 +267,7 @@ export function EntryPage() {
         </main>
         {codeDialog}
         {accountDialog}
+        {playModeDialog}
       </>
     )
   }
@@ -325,6 +352,7 @@ export function EntryPage() {
       </main>
       {codeDialog}
       {accountDialog}
+      {playModeDialog}
     </>
   )
 }
