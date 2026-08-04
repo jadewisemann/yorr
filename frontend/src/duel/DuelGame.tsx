@@ -1,4 +1,4 @@
-import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
+import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import {
   buildClientMessage,
@@ -193,6 +193,22 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
     )
   }
 
+  // 대시보드는 플레이어가 아니다 — 명단에 없으므로 "나 / 상대" 매핑이 성립하지 않는다.
+  // 두 총잡이를 서버가 준 순서대로 세우고 닉네임으로 부른다.
+  if (session.membershipRole === 'dashboard') {
+    return (
+      <DuelDashboard
+        flight={flight}
+        impact={impact}
+        impactDelayMs={impactDelay.current}
+        onClose={onLeaveRequest}
+        snapshot={snapshot}
+        stageRef={stageRef}
+        state={state}
+      />
+    )
+  }
+
   const opponentId = state.playerOrder.find((playerId) => playerId !== session.you) ?? ''
   const opponent = snapshot.players.find((player) => player.playerId === opponentId)
   const swinging = permission === 'granted'
@@ -209,6 +225,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
           opponentName: opponent?.nickname ?? '상대',
           state,
           you: session.you,
+          youName: '나',
           youShot: myShot?.round === state.round ? myShot.target : null,
         })}
         actLabel={swinging ? '휘둘러!' : 'TAP'}
@@ -266,10 +283,79 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
   )
 }
 
+/**
+ * 파티 모드 큰 화면 — 관전이다.
+ *
+ * 조작이 없다: 뽑는 것은 폰(컨트롤러)이 하고 이 화면은 결투를 보여 준다. 두 총잡이를 서버가
+ * 준 순서(playerOrder)대로 세우고 닉네임으로 부른다 — 대시보드는 명단에 없으므로 "나"라고
+ * 부를 사람이 없다. 총알도 로컬 신호가 없어 판정과 함께 들어온다(누른 사람이 없으니 맞다).
+ */
+function DuelDashboard({
+  flight,
+  impact,
+  impactDelayMs,
+  onClose,
+  snapshot,
+  stageRef,
+  state,
+}: {
+  flight: number
+  impact: boolean
+  impactDelayMs: number
+  onClose: () => void
+  snapshot: RoomSnapshot
+  stageRef: RefObject<HTMLElement | null>
+  state: DuelState
+}) {
+  const [first, second] = state.playerOrder
+  const nameOf = (playerId: string | undefined) =>
+    snapshot.players.find((player) => player.playerId === playerId)?.nickname ?? '?'
+
+  return (
+    <main
+      className="relative flex h-svh w-full flex-col overflow-hidden bg-[#0b0409] text-white select-none"
+      ref={stageRef}
+    >
+      <Arena
+        {...buildStage({
+          impact,
+          opponentId: second ?? '',
+          opponentName: nameOf(second),
+          state,
+          you: first ?? '',
+          youName: nameOf(first),
+          // 관전 화면은 방아쇠를 당기지 않는다 — 두 총알 모두 판정으로 알게 된다.
+          youShot: null,
+        })}
+        actLabel="DRAW!"
+        flightMs={flight}
+        fxKey={state.round}
+        hint="폰에서 뽑습니다"
+        impactDelayMs={impactDelayMs}
+        maxFouls={MAX_FOULS}
+        maxHp={MAX_HP}
+        round={state.round}
+      />
+
+      <button
+        className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 z-20 min-h-11 rounded-full border border-white/20 bg-black/45 px-4 text-sm backdrop-blur-md"
+        onClick={onClose}
+        type="button"
+      >
+        방 닫기
+      </button>
+    </main>
+  )
+}
+
 /** 결투가 끝났다 — 살아남은 쪽이 총을 내려놓고 서 있다. */
 export function DuelResult({ onLeaveRequest, session, snapshot }: Omit<DuelGameProps, 'roomId'>) {
   const returnToLobby = useReturnToLobby()
   const state = snapshot.game as unknown as DuelState | undefined
+  // 대시보드는 승패의 당사자가 아니다 — "살아남았다"라고 말할 주체가 없다.
+  if (session.membershipRole === 'dashboard') {
+    return <DuelDashboardResult onClose={onLeaveRequest} snapshot={snapshot} state={state} />
+  }
   const opponent = snapshot.players.find((player) => player.playerId !== session.you)
   const myHp = state?.hp[session.you] ?? 0
   const opponentHp = opponent ? (state?.hp[opponent.playerId] ?? 0) : 0
@@ -280,14 +366,11 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: Omit<DuelGameP
   const host = isRoomHost(snapshot, session.you)
 
   return (
-    <main
-      className="relative mx-auto flex h-svh w-full max-w-2xl flex-col items-center justify-center gap-5 overflow-hidden px-gutter text-white"
-      style={{ background: 'linear-gradient(#170817, #4a1622 58%, #0d0406)' }}
-    >
-      <div className="flex items-end" style={{ height: 150 }}>
+    <ResultBackdrop>
+      <div className="flex items-end" style={{ height: 'clamp(150px, 22vh, 260px)' }}>
         <Gunslinger
           flip={!won}
-          height={150}
+          height="100%"
           outfit={won ? OUTFIT_LEFT : OUTFIT_RIGHT}
           pose="ready"
         />
@@ -299,7 +382,10 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: Omit<DuelGameP
       >
         Last man standing
       </p>
-      <h1 className="m-0 text-5xl font-black" style={{ color: won ? '#86efac' : '#fca5a5' }}>
+      <h1
+        className="m-0 font-black"
+        style={{ color: won ? '#86efac' : '#fca5a5', fontSize: 'clamp(2.25rem, 6vw, 4.5rem)' }}
+      >
         {won ? '살아남았다' : '쓰러졌다'}
       </h1>
 
@@ -326,6 +412,87 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: Omit<DuelGameP
         <Button onClick={onLeaveRequest} size="lg" variant="secondary">
           방 나가기
         </Button>
+      </div>
+    </ResultBackdrop>
+  )
+}
+
+/**
+ * 파티 모드 큰 화면의 결과 — 누가 이겼는지 이름으로 말한다.
+ *
+ * 조작은 폰이 한다. 여기에는 "대기실로 돌아가기"를 두지 않는다 — 그건 방장(처음 들어온
+ * 컨트롤러) 몫이고, TV 앞에서 누를 마우스를 기대하지 않는 것과 같은 이유다.
+ */
+function DuelDashboardResult({
+  onClose,
+  snapshot,
+  state,
+}: {
+  onClose: () => void
+  snapshot: RoomSnapshot
+  state: DuelState | undefined
+}) {
+  const nameOf = (playerId: string | undefined) =>
+    snapshot.players.find((player) => player.playerId === playerId)?.nickname ?? '?'
+  const [first, second] = state?.playerOrder ?? []
+  const fallen = state?.lastRound?.koId
+  const survivor = fallen === first ? second : fallen === second ? first : undefined
+
+  return (
+    <ResultBackdrop>
+      <div className="flex items-end" style={{ height: 'clamp(150px, 22vh, 260px)' }}>
+        <Gunslinger
+          flip={survivor === second}
+          height="100%"
+          outfit={survivor === second ? OUTFIT_RIGHT : OUTFIT_LEFT}
+          pose="ready"
+        />
+      </div>
+
+      <p
+        className="m-0 font-mono text-[11px] tracking-[0.3em] uppercase"
+        style={{ color: '#ffcf8a' }}
+      >
+        Last man standing
+      </p>
+      <h1
+        className="m-0 font-black"
+        style={{ color: '#86efac', fontSize: 'clamp(2.25rem, 6vw, 4.5rem)' }}
+      >
+        {survivor ? `${nameOf(survivor)} 승리` : '무승부'}
+      </h1>
+
+      <section className="flex items-center gap-6 rounded-3xl border border-white/15 bg-white/8 px-8 py-6 backdrop-blur-md">
+        <Ammo hp={state?.hp[first ?? ''] ?? 0} name={nameOf(first)} outfit={OUTFIT_LEFT} />
+        <span className="text-2xl text-white/35">:</span>
+        <Ammo hp={state?.hp[second ?? ''] ?? 0} name={nameOf(second)} outfit={OUTFIT_RIGHT} />
+      </section>
+
+      <p className="m-0 text-center text-sm text-white/60">
+        방장이 폰에서 재대결을 시작할 수 있어요.
+      </p>
+      <Button onClick={onClose} size="lg" variant="secondary">
+        방 닫기
+      </Button>
+    </ResultBackdrop>
+  )
+}
+
+/**
+ * 결과 화면의 바탕.
+ *
+ * 석양 그라디언트를 <b>화면 전체</b>에 칠하고, 폭 제한은 안쪽 내용에만 준다. 예전에는 main
+ * 하나에 `max-w-2xl`과 배경을 같이 걸어서, 큰 화면(TV·모니터)에서 가운데 672px만 석양이고
+ * 양옆이 검게 남아 화면이 잘린 것처럼 보였다.
+ */
+function ResultBackdrop({ children }: { children: ReactNode }) {
+  return (
+    <main
+      className="relative flex h-svh w-full flex-col items-center justify-center overflow-hidden text-white"
+      style={{ background: 'linear-gradient(#170817, #4a1622 58%, #0d0406)' }}
+    >
+      <div className="flex w-full max-w-2xl flex-col items-center justify-center gap-5 px-gutter">
+        {children}
       </div>
     </main>
   )

@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect } from 'react'
-import { gameByKey } from '@/games'
+import { type GameKey, gameByKey } from '@/games'
 import type { Player, PlayerId } from '@/realtime/wsEvents'
 import { useCreatePartyRoom } from '@/room/api/useRoomApi'
 import { createInviteUrl, QrFallback } from '@/room/components/InvitationPanel'
@@ -37,7 +37,11 @@ import { useAppStore } from '@/store'
  */
 const WIDE_LAYOUT = '(min-width: 1024px)'
 
-export type PartyGameKey = 'pingpong' | 'yacht'
+/**
+ * 파티 대시보드가 받는 게임. 라우트가 `isPartyGameKey`로 걸러 주므로 여기 도달한 키는
+ * 반드시 백엔드 게임 모듈(`gameCode`)을 갖고 있다 — 이 화면은 그걸 믿고 방을 연다.
+ */
+export type PartyGameKey = GameKey
 
 export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
   const navigate = useNavigate()
