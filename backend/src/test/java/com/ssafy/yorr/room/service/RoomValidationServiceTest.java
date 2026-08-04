@@ -19,4 +19,12 @@ class RoomValidationServiceTest {
         assertThat(RoomValidationService.ROLLBACK_START.getScriptAsString())
                 .contains("redis.call('HGET', KEYS[1], 'gameId') ~= ARGV[1]");
     }
+
+    @Test
+    void cancelledPreparationReopensTheRoomAndDeletesThePendingGame() {
+        assertThat(RoomValidationService.CANCEL_ACTIVE_GAME.getScriptAsString())
+                .contains("'phase', 'LOBBY'")
+                .contains("redis.call('HDEL', KEYS[1], 'gameId')")
+                .contains("redis.call('DEL', 'game:' .. gameId)");
+    }
 }

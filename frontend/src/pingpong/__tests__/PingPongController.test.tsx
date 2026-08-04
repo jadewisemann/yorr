@@ -22,6 +22,7 @@ const state: PingPongState = {
   nextActionAt: 2_000,
   phase: 'PLAYING',
   playerOrder: ['player-1', 'player-2'],
+  readyPlayerIds: ['player-1', 'player-2'],
   rally: 4,
   scores: { 'player-1': 3, 'player-2': 2 },
   serveReceiverId: 'player-1',
@@ -49,6 +50,7 @@ describe('PingPongController', () => {
         error={null}
         nickname="나"
         onLeave={vi.fn()}
+        onReady={vi.fn()}
         onSwing={onSwing}
         permission="granted"
         playerId="player-1"
@@ -66,5 +68,42 @@ describe('PingPongController', () => {
 
     await user.click(screen.getByRole('button', { name: '화면을 눌러 스윙' }))
     expect(onSwing).toHaveBeenCalledOnce()
+  })
+
+  it('requires a confirmed practice swing before the player can become ready', async () => {
+    const user = userEvent.setup()
+    const onReady = vi.fn()
+    const preparingState: PingPongState = {
+      ...state,
+      lastEvent: { at: 1_000, id: 4, playerId: 'player-1', type: 'PRACTICE' },
+      lastInputSeq: { 'player-1': 0, 'player-2': -1 },
+      phase: 'PREPARING',
+      rally: 0,
+      readyPlayerIds: [],
+      scores: { 'player-1': 0, 'player-2': 0 },
+    }
+
+    render(
+      <PingPongController
+        clock={1_100}
+        error={null}
+        nickname="나"
+        onLeave={vi.fn()}
+        onReady={onReady}
+        onSwing={vi.fn()}
+        permission="granted"
+        playerId="player-1"
+        requestPermission={vi.fn()}
+        snapshot={{ ...snapshot, game: preparingState } as unknown as RoomSnapshot}
+        state={preparingState}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: '연습 공을 쳐보세요' })).toBeVisible()
+    expect(screen.getByText('스윙 감지 완료! 공을 맞혔어요')).toBeVisible()
+    const ready = screen.getByRole('button', { name: '준비 완료' })
+    expect(ready).toBeEnabled()
+    await user.click(ready)
+    expect(onReady).toHaveBeenCalledOnce()
   })
 })
