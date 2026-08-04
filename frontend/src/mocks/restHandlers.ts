@@ -30,6 +30,9 @@ export interface RestHandlerOptions {
 export function createRestHandlers(options: RestHandlerOptions = {}) {
   const scenario = options.scenario ?? 'success'
   let nextBotNumber = 1
+  // mock에는 상대가 없으므로 조회 횟수로 대기 → 매칭 → 시작을 흉내낸다. 한 번은 WAITING을
+  // 돌려줘야 백드롭과 취소 버튼이 실제로 보인다.
+  let quickMatchPolls = 0
 
   async function beforeResponse() {
     if (scenario === 'delay') await delay(options.delayMs ?? 300)
@@ -95,6 +98,41 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       return (
         unavailable() ?? HttpResponse.json(toEnterRoomResponse(session, body.nickname, gameCode))
       )
+    }),
+    // 빠른 대전. 실서버는 두 사용자를 짝지어 주지만 mock은 혼자이므로, 두 번째 조회에서
+    // 매칭이 잡히고 그다음 조회에서 게임이 시작된 것으로 둔다. 방은 기존 mock 방(YORR64)이라
+    // 매칭 이후 대기실·게임 화면이 그대로 이어진다.
+    http.post('/api/v1/quick-matches', async ({ request }) => {
+      await beforeResponse()
+      const failure = quickMatchUnauthorized(request) ?? unavailable()
+      if (failure) return failure
+      quickMatchPolls = 0
+      const gameCode = mockGameCode(new URL(request.url).searchParams.get('game_code'))
+      saveMockRoomSnapshot(initialRoomSnapshot(false, gameCode))
+      return HttpResponse.json({ status: 'WAITING', roomId: null, gameCode })
+    }),
+    http.get('/api/v1/quick-matches', async ({ request }) => {
+      await beforeResponse()
+      const failure = quickMatchUnauthorized(request) ?? unavailable()
+      if (failure) return failure
+      quickMatchPolls += 1
+      const gameCode = loadMockRoomSnapshot()?.gameCode ?? 'YACHT_DICE'
+      if (quickMatchPolls < 2) {
+        return HttpResponse.json({ status: 'WAITING', roomId: null, gameCode })
+      }
+      return HttpResponse.json({
+        status: quickMatchPolls < 3 ? 'MATCHED' : 'PLAYING',
+        roomId: MOCK_ROOM_ID,
+        gameCode,
+      })
+    }),
+    http.delete('/api/v1/quick-matches', async ({ request }) => {
+      await beforeResponse()
+      const failure = quickMatchUnauthorized(request)
+      if (failure) return failure
+      quickMatchPolls = 0
+      clearMockRoomSnapshot()
+      return HttpResponse.json({ status: 'NOT_QUEUED', roomId: null, gameCode: null })
     }),
     http.get('/api/v1/games/:gameId', async ({ params }) => {
       await beforeResponse()
@@ -270,6 +308,14 @@ function toEnterRoomResponse(
     token: session.sessionToken,
     room_id: session.roomId,
   }
+}
+
+/** 빠른 대전은 회원 세션 전용이다 — 실서버처럼 헤더가 없으면 평문 401로 거절한다. */
+function quickMatchUnauthorized(request: Request) {
+  const authorized =
+    request.headers.get('Authorization')?.startsWith('Bearer ') &&
+    Boolean(request.headers.get('X-User-Id'))
+  return authorized ? null : HttpResponse.text('unauthorized', { status: 401 })
 }
 
 function mockGameCode(value: string | null): GameCode {

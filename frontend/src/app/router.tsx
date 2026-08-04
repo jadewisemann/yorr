@@ -9,6 +9,7 @@ import {
 import { lazy, Suspense, useEffect } from 'react'
 import { isGameKey, isPartyGameKey } from '@/games'
 import { EntryPage } from '@/landing/screens/EntryPage'
+import { QuickMatchOverlay } from '@/room/components/QuickMatchOverlay'
 import { getRoomCodeError, normalizeRoomCode } from '@/room/roomCode'
 import { useMediaQuery } from '@/shared/useMediaQuery'
 import { NotFoundPage } from './NotFoundPage'
@@ -92,9 +93,15 @@ function ScreenTransition() {
   useScreenPrefetch()
 
   return (
-    <Suspense fallback={<ScreenFallback />}>
-      <Outlet />
-    </Suspense>
+    <>
+      <Suspense fallback={<ScreenFallback />}>
+        <Outlet />
+      </Suspense>
+      {/* 화면 <b>밖</b>에 한 번만 세운다 — 매칭 대기는 닉네임 화면에서 시작해 대기실까지
+          이어지므로, 어느 화면에 매달면 이동하는 순간 polling이 끊긴다.
+          대기 중이 아니면 아무것도 그리지 않는다. */}
+      <QuickMatchOverlay />
+    </>
   )
 }
 
@@ -170,13 +177,15 @@ const joinRoute = createRoute({
     // `/join`으로 navigate하는 화면들(EntryPage · InvalidInvitePage · PartyOnBigScreenPage)이
     // 전부 이 값을 넘겨야 한다.
     ...(search.party === '1' ? { party: true as const } : {}),
+    // 빠른 대전으로 들어왔는가. 방을 만들지 않고 대기열에 선다(같은 이유로 조건부 키다).
+    ...(search.mode === 'quick' ? { mode: 'quick' as const } : {}),
   }),
   component: () => {
-    const { code, game, party } = joinRoute.useSearch()
+    const { code, game, mode, party } = joinRoute.useSearch()
     if (code !== undefined && getRoomCodeError(code)) {
       return <InvalidInvitePage initialCode={code} />
     }
-    return <NicknamePage gameKey={game} party={party} roomCode={code} />
+    return <NicknamePage gameKey={game} mode={mode} party={party} roomCode={code} />
   },
 })
 

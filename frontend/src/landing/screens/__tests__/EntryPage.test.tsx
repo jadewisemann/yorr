@@ -51,6 +51,9 @@ describe('EntryPage', () => {
     closeSession.mockClear()
     renameProfile.mockReset()
     useAppStore.getState().reset()
+    // reset은 로그인을 건드리지 않는다(방을 나가도 로그인은 남는 것이 규칙이다) — 로그인
+    // 상태를 켜는 테스트가 다음 테스트로 새지 않게 여기서 지운다.
+    useAppStore.getState().signOut()
     useLayout(false)
   })
   afterEach(() => vi.restoreAllMocks())
@@ -82,15 +85,47 @@ describe('EntryPage', () => {
     expect(localStorage.getItem('yorr.sound-muted')).toBe('false')
   })
 
-  it('opens nickname entry for a new room', async () => {
+  // 두 레이아웃 모두 확인한다 — 모드 선택 모달은 wide·narrow가 각자 그리는 층에 서므로
+  // 한쪽에만 붙여도 다른 쪽 테스트는 통과한다(실제로 그렇게 빠뜨렸다).
+  it.each([
+    ['narrow', false],
+    ['wide', true],
+  ])('opens nickname entry for a new room (%s)', async (_layout, wide) => {
     const user = userEvent.setup()
+    useLayout(wide)
     render(<EntryPage />)
 
+    // 플레이는 이제 모드부터 고른다 — 방 만들기가 종전의 플레이 경로다.
     await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
+    await user.click(screen.getByRole('button', { name: /방 만들기/ }))
 
     expect(navigate).toHaveBeenCalledWith({
       to: '/join',
       search: { code: undefined, game: 'yacht' },
+    })
+  })
+
+  // 빠른 대전은 대기열에 설 회원 세션이 필요하다 — 비로그인은 로그인부터 받는다.
+  it('빠른 대전은 로그인한 사람만 대기열로 보낸다', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
+    await user.click(screen.getByRole('button', { name: /온라인 대전/ }))
+    expect(navigate).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: '로그인' })).toBeVisible()
+
+    useAppStore.getState().signIn({
+      userId: 'member-1',
+      nickname: '카카오회원',
+      sessionToken: 'token-1',
+    })
+    await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
+    await user.click(screen.getByRole('button', { name: /온라인 대전/ }))
+
+    expect(navigate).toHaveBeenCalledWith({
+      to: '/join',
+      search: { code: undefined, game: 'yacht', mode: 'quick' },
     })
   })
 
@@ -100,6 +135,7 @@ describe('EntryPage', () => {
 
     await user.click(screen.getByRole('tab', { name: /탁구/ }))
     await user.click(screen.getByRole('button', { name: '탁구 친구와 대전' }))
+    await user.click(screen.getByRole('button', { name: /방 만들기/ }))
 
     expect(navigate).toHaveBeenCalledWith({ to: '/party', search: { game: 'pingpong' } })
   })
