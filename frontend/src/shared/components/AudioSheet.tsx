@@ -106,6 +106,7 @@ export function AudioSheet({ microphone, muted, onClose, onToggleMute, open }: A
         <LevelSlider
           icon="🎵"
           label="배경음"
+          muted={muted}
           onChange={(value) => change('music', value)}
           value={levels.music}
         />
@@ -113,6 +114,7 @@ export function AudioSheet({ microphone, muted, onClose, onToggleMute, open }: A
           icon="🎲"
           label="효과음"
           hint="주사위·족보 음성"
+          muted={muted}
           onChange={(value) => change('effects', value)}
           value={levels.effects}
         />
@@ -128,29 +130,38 @@ function microphoneStatusLabel(microphone: NonNullable<AudioSheetProps['micropho
   return microphone.connectedPeers > 0 ? `${microphone.connectedPeers}명 연결됨` : '연결 대기 중'
 }
 
+/**
+ * 전체 음소거 중에는 값을 0으로 내리지 않는다. 슬라이더 위치는 **켰을 때 돌아갈 값**이라,
+ * 표시를 위해 덮어쓰면 사용자가 맞춰 둔 크기가 사라진다(끄고 켤 때마다 다시 맞춰야 한다).
+ * 대신 행 전체를 흐리게 하고 트랙 색을 빼고 값 자리에 "음소거"를 적어 **지금 듣지 않는다**는
+ * 것만 말한다 — 브랜드 색으로 채워진 트랙이 "이만큼 들린다"로 읽히던 게 문제였다.
+ * 조작도 막는다. 여기서 끌면 소리가 날 것 같지만 실제로는 음소거가 이기므로 아무 일도 없다.
+ */
 function LevelSlider({
   hint,
   icon,
   label,
+  muted,
   onChange,
   value,
 }: {
   hint?: string
   icon: string
   label: string
+  muted: boolean
   onChange: (value: number) => void
   value: number
 }) {
   const percent = Math.round(value * 100)
 
   return (
-    <section className="grid gap-1.5">
+    <section className={cn('grid gap-1.5', muted && 'opacity-45')}>
       <div className="flex items-center gap-2 text-[15px] font-semibold">
         <span aria-hidden="true">{icon}</span>
         {label}
         {hint && <span className="text-[12px] font-medium text-content-faint">{hint}</span>}
         <span className="ml-auto font-mono text-[13px] font-bold text-content-muted tabular-nums">
-          {percent}%
+          {muted ? '음소거' : `${percent}%`}
         </span>
       </div>
       {/*
@@ -160,11 +171,14 @@ function LevelSlider({
       */}
       <input
         aria-label={`${label} 볼륨`}
-        aria-valuetext={`${percent}퍼센트`}
+        aria-valuetext={muted ? '음소거' : `${percent}퍼센트`}
         className={cn(
-          'h-6 w-full cursor-pointer accent-brand',
+          'h-6 w-full',
+          // 음소거 중에는 브랜드 색을 뺀다 — 채워진 빨간 트랙이 "이만큼 들린다"로 읽힌다.
+          muted ? 'cursor-not-allowed accent-content-faint' : 'cursor-pointer accent-brand',
           'focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2',
         )}
+        disabled={muted}
         max={1}
         min={0}
         onChange={(event) => onChange(Number(event.target.value))}
