@@ -38,6 +38,11 @@ interface ArenaProps {
    */
   leftShot: ShotTarget | null
   rightShot: ShotTarget | null
+  /** 이 진영의 총알이 빗나갔는가 — 쐈지만 상대가 더 빨랐다. */
+  leftMiss: boolean
+  rightMiss: boolean
+  /** 빗나간 쪽과 그에게 던지는 한마디. */
+  miss: { name: string; taunt: string } | null
   /** 1ms까지 같아 총알이 공중에서 부딪히는 라운드. */
   clash: boolean
   /** 이 화면의 사거리에서 나온 총알 비행 시간(ms). */
@@ -99,6 +104,9 @@ export function Arena({
   right,
   leftShot,
   rightShot,
+  leftMiss,
+  rightMiss,
+  miss,
   clash,
   flightMs,
   impactDelayMs,
@@ -175,10 +183,22 @@ export function Arena({
           }}
         >
           {leftShot === 'opponent' && (
-            <Bullet clash={clash} color={left.outfit.rim} dir="r" flightMs={flightMs} />
+            <Bullet
+              clash={clash}
+              color={left.outfit.rim}
+              dir="r"
+              flightMs={flightMs}
+              miss={leftMiss}
+            />
           )}
           {rightShot === 'opponent' && (
-            <Bullet clash={clash} color={right.outfit.rim} dir="l" flightMs={flightMs} />
+            <Bullet
+              clash={clash}
+              color={right.outfit.rim}
+              dir="l"
+              flightMs={flightMs}
+              miss={rightMiss}
+            />
           )}
           {clash && <Clash delayMs={Math.round(flightMs * 0.42)} />}
         </div>
@@ -190,6 +210,7 @@ export function Arena({
       <Headline
         actLabel={actLabel}
         landMs={impactDelayMs}
+        miss={miss}
         foulSide={foulSide}
         hint={hint}
         ko={ko}
@@ -585,11 +606,14 @@ function Bullet({
   color,
   dir,
   flightMs,
+  miss = false,
 }: {
   clash?: boolean
   color: string
   dir: 'r' | 'l'
   flightMs: number
+  /** 상대가 더 빨랐다 — 총알은 끝까지 가되 어깨 위로 빗나간다. */
+  miss?: boolean
 }) {
   const away = dir === 'r' ? 1 : -1
   return (
@@ -597,6 +621,8 @@ function Bullet({
       className={clash ? 'animate-duel-bullet-clash' : 'animate-duel-bullet'}
       style={{
         animationDuration: `${clash ? Math.round(flightMs / 2) : flightMs}ms`,
+        // 빗나간 총알은 날아가며 위로 밀린다 — 표적을 지나 어깨 위로 빠진다.
+        ['--duel-bullet-rise' as string]: miss ? '-26px' : '0px',
         ['--duel-bullet-to' as string]: `${away * (clash ? 50 : 100)}%`,
         inset: 0,
         position: 'absolute',
@@ -655,6 +681,7 @@ function Headline({
   landMs,
   left,
   maxFouls,
+  miss,
   pending,
   phase,
   right,
@@ -670,6 +697,8 @@ function Headline({
   landMs: number
   left: Fighter
   maxFouls: number
+  /** 빗나간 쪽과 그에게 던지는 한마디. 정상 승부에서만 있다. */
+  miss: { name: string; taunt: string } | null
   pending: boolean
   phase: ArenaPhase
   right: Fighter
@@ -692,7 +721,7 @@ function Headline({
   }
   if (tie) return <TieLine landMs={landMs} left={left} right={right} />
   if (winner === 0) return null
-  return <ShotLine ko={ko} landMs={landMs} shooter={winner === 1 ? left : right} />
+  return <ShotLine ko={ko} landMs={landMs} miss={miss} shooter={winner === 1 ? left : right} />
 }
 
 /** 대기 — 아직 빨강이다. */
@@ -825,8 +854,18 @@ function TieLine({ landMs, left, right }: { landMs: number; left: Fighter; right
   )
 }
 
-/** 정상 승부 — 먼저 뽑은 쪽이 맞혔다. */
-function ShotLine({ ko, landMs, shooter }: { ko: boolean; landMs: number; shooter: Fighter }) {
+/** 정상 승부 — 먼저 뽑은 쪽이 맞혔다. 진 쪽도 쐈으면 빗나갔다고 못 박는다. */
+function ShotLine({
+  ko,
+  landMs,
+  miss,
+  shooter,
+}: {
+  ko: boolean
+  landMs: number
+  miss: { name: string; taunt: string } | null
+  shooter: Fighter
+}) {
   return (
     <div className={WRAP} style={{ top: '24%' }}>
       <div
@@ -847,6 +886,17 @@ function ShotLine({ ko, landMs, shooter }: { ko: boolean; landMs: number; shoote
       >
         {shooter.name} — 먼저 뽑았다
       </div>
+      {/* 진 쪽도 쐈다. 그 총알이 상대까지 날아가 빗나가므로, 빗나갔다는 사실을 말로 못 박는다.
+          닉네임이 들어가는 줄이라 LABEL_MONO(uppercase)를 쓰지 않는다 — 남의 이름을 대문자로
+          바꿔 버린다. */}
+      {miss && (
+        <div
+          className="animate-duel-slam mt-1 text-xs font-bold"
+          style={{ animationDelay: `${landMs + 150}ms`, color: 'rgb(255 220 190 / 62%)' }}
+        >
+          {miss.name}의 총알은 빗나갔다 · {miss.taunt}
+        </div>
+      )}
     </div>
   )
 }

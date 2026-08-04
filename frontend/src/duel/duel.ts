@@ -50,6 +50,29 @@ export function flightMs(stageWidth: number): number {
   return Math.round(Math.min(MAX_FLIGHT_MS, Math.max(MIN_FLIGHT_MS, raw)))
 }
 
+/**
+ * 빗나간 쪽에게 던지는 한마디.
+ *
+ * 진 쪽도 총을 쐈고 총알은 상대까지 날아간다 — 다만 빗나간다. 아무 말 없이 사라지면
+ * "맞혔는데 아무 일도 없다"로 읽히므로, 빗나갔다는 사실을 말로 못 박는다.
+ */
+const MISS_TAUNTS = [
+  '눈 감고 쐈나',
+  '손이 떨렸군',
+  '모자만 스쳤다',
+  '바람이 도왔군',
+  '탄이 아깝다',
+  '조금 더 자고 왔어야',
+] as const
+
+/**
+ * 이 라운드의 비아냥. 난수를 쓰지 않는다 — 두 사람이 <b>같은 말</b>을 봐야 하고, 같은
+ * 라운드를 다시 그려도(재접속·리렌더) 말이 바뀌면 안 된다. 그래서 서버가 준 값에서 뽑는다.
+ */
+export function missTaunt(seed: number): string {
+  return MISS_TAUNTS[Math.abs(Math.trunc(seed)) % MISS_TAUNTS.length] ?? MISS_TAUNTS[0]
+}
+
 /** 정상적으로 뽑았는가 — 부정출발·미반응 센티넬이 아닌 실제 기록. */
 export function isClean(ms: number | null | undefined): ms is number {
   return typeof ms === 'number' && ms >= 0
