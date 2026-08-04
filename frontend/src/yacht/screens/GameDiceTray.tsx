@@ -37,8 +37,9 @@ export function GameDiceTray({
   turnCallout,
   wide,
 }: GameDiceTrayProps) {
-  // 모션 안내는 저절로 뜨지 않는다 — 사용자가 흔들기 칩을 눌렀을 때만 열린다.
-  const [motionPanelOpen, setMotionPanelOpen] = useState(false)
+  // 모션 안내는 켤 수 있는 상태가 되는 즉시 뜬다(S15P11A406-182 QA). 닫으면 흔들기 칩으로
+  // 다시 연다 — 권한 안내는 3초 뒤 스스로 닫히므로 오래 막지 않는다.
+  const [motionPanelOpen, setMotionPanelOpen] = useState(true)
   /*
    * 첫 진입에는 "설명은 툴팁에 있다"만 알리는 코치마크를 띄운다(S15P11A406-143).
    * 한 턴을 따라다니던 마스코트 가이드는 실전에서 걷어내고 /tutorial 연습 모드로 옮겼다 —
@@ -76,13 +77,12 @@ export function GameDiceTray({
 
   const rolled = local.dice !== null
   /*
-   * 모션 센서는 알럿으로 들이밀지 않는다(S15P11A406-143). 언제 띄우든 "권한부터 판단하라"는
-   * 요구는 게임을 막고, 무슨 기능인지 모르는 채로 닫히면 두 번 다시 안 보인다.
+   * 한때 칩을 눌러야만 안내가 열렸다(S15P11A406-143). 실제로는 아무도 누르지 않아 흔들기가
+   * 있다는 것 자체를 모른 채 끝났다 — QA에서 "바로 뜨게"로 돌렸다(S15P11A406-182).
+   * 막지 않는 근거는 패널 쪽에 있다: 권한 안내는 3초 뒤 스스로 닫히고, 닫힌 뒤에는 칩이
+   * 다시 나타나 언제든 열 수 있다.
    *
-   * 대신 트레이 구석에 조용한 칩 하나를 두고, 궁금해서 누른 사람에게만 설명을 연다 —
-   * 켜고 싶어진 순간에 켜는 것이 가장 자연스럽고, 그 전까지는 아무것도 막지 않는다.
-   *
-   * canPlay=false(파티 모드 대시보드)면 칩 자체를 내지 않는다. 그 기기로는 굴릴 수 없어
+   * canPlay=false(파티 모드 대시보드)면 안내도 칩도 내지 않는다. 그 기기로는 굴릴 수 없어
    * 켤 이유가 없다 — 센서도 시작되지 않아 availability는 'unknown'에 머문다.
    */
   const motionOfferable = canPlay && canOfferMotion(motion.availability)
