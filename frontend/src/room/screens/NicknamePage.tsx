@@ -19,15 +19,45 @@ import { useAppStore } from '@/store'
 
 interface NicknamePageProps {
   gameKey?: GameKey | undefined
+  /** 빠른 대전으로 들어왔는지(`/join?...&mode=quick`). 방을 만들지 않고 대기열에 선다. */
+  mode?: 'quick' | undefined
   /** 파티 모드 QR로 들어왔는지(`/join?...&party=1`). 입장에 성공하면 그 방을 기억한다. */
   party?: boolean | undefined
   roomCode?: string | undefined
 }
 
-export function NicknamePage({ gameKey, party = false, roomCode }: NicknamePageProps) {
+/**
+ * 이 화면에 온 이유 셋. 갈리는 문구가 네 군데(칩·부제·CTA·진행 중)라 조건을 화면 곳곳에
+ * 흩어두지 않고 한곳에 모은다. `join`의 칩만 방 코드를 품어 화면에서 직접 그린다.
+ */
+const intents = {
+  join: {
+    chip: null,
+    subtitle: '같은 방 친구들에게 이 이름이 보여요',
+    cta: '대기실 입장',
+    busy: '입장하는 중이에요',
+  },
+  quick: {
+    chip: '온라인 대전',
+    subtitle: '지금 기다리는 다른 사람과 바로 이어드려요',
+    cta: '상대 찾기',
+    busy: '상대를 찾고 있어요',
+  },
+  create: {
+    chip: '온라인 프라이빗 룸',
+    subtitle: '방을 만들면 초대 링크가 바로 생성돼요',
+    cta: '대기실 입장',
+    busy: '방을 만들고 있어요',
+  },
+} as const
+
+export function NicknamePage({ gameKey, mode, party = false, roomCode }: NicknamePageProps) {
   const navigate = useNavigate()
   const createRoom = useCreateRoom()
   const joinRoom = useJoinRoom()
+  const startQuickMatch = useAppStore((state) => state.startQuickMatch)
+  // 이미 대기 중이면 다시 제출하지 않는다 — 백드롭이 이 화면을 덮고 있어도 Enter는 들어온다.
+  const waitingForMatch = useAppStore((state) => state.quickMatch !== null)
   const authSession = useAppStore((state) => state.authSession)
   const [suggestion] = useState(generateNickname)
   // 로그인했다면 그 계정의 닉네임에서 시작한다 — 로그인해 놓고 이름을 다시 짓게 하면
@@ -36,9 +66,14 @@ export function NicknamePage({ gameKey, party = false, roomCode }: NicknamePageP
   const [nickname, setNickname] = useState(() => authSession?.nickname ?? readSavedNickname() ?? '')
   const [validationError, setValidationError] = useState<string | null>(null)
   const submittingRef = useRef(false)
+  const quick = mode === 'quick'
+  const copy = intents[roomCode ? 'join' : quick ? 'quick' : 'create']
   const task = roomCode ? joinRoom : createRoom
   const selectedGame = gameByKey(gameKey)
   const userError = task.error ? toUserError(task.error) : null
+  // 빠른 대전은 대기열에 설 회원 세션이 있어야 한다. 게스트 토큰은 방에 들어갈 때만 발급되므로
+  // 지금은 로그인한 사람만 설 수 있다(랜딩 모달에서도 같은 이유로 로그인으로 보낸다).
+  const signInRequired = quick && !authSession
 
   useEffect(() => playLandingSoundtrack(selectedGame.key), [selectedGame.key])
 
@@ -46,19 +81,14 @@ export function NicknamePage({ gameKey, party = false, roomCode }: NicknamePageP
     if (userError?.clearsSession) useAppStore.getState().reset()
   }, [userError])
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (submittingRef.current) return
-    const resolved = resolveNickname(nickname, suggestion)
-    setValidationError(resolved.error)
-    if (resolved.error) return
-
+  /** 방을 만들거나 초대 코드로 들어간다. 성공하면 그 방의 대기실로 옮긴다. */
+  const enterRoom = async (resolvedNickname: string) => {
     submittingRef.current = true
     try {
       const session = roomCode
-        ? await joinRoom.execute(roomCode, { nickname: resolved.nickname })
+        ? await joinRoom.execute(roomCode, { nickname: resolvedNickname })
         : await createRoom.execute({
-            nickname: resolved.nickname,
+            nickname: resolvedNickname,
             gameCode: selectedGame.gameCode ?? 'YACHT_DICE',
           })
       if (!session) return
@@ -66,7 +96,7 @@ export function NicknamePage({ gameKey, party = false, roomCode }: NicknamePageP
       // 컨트롤러 여부는 입장에 성공한 뒤에 적는다 — 실패한 코드까지 기억하면 다음 방이
       // 엉뚱하게 컨트롤러로 뜬다.
       if (party) savePartyRoom(session.roomCode)
-      saveNickname(resolved.nickname)
+      saveNickname(resolvedNickname)
       await navigate({
         to: '/rooms/$roomId/lobby',
         params: { roomId: session.roomId },
@@ -74,6 +104,27 @@ export function NicknamePage({ gameKey, party = false, roomCode }: NicknamePageP
     } finally {
       submittingRef.current = false
     }
+  }
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (submittingRef.current || signInRequired || waitingForMatch) return
+    const resolved = resolveNickname(nickname, suggestion)
+    setValidationError(resolved.error)
+    if (resolved.error) return
+
+    // 빠른 대전은 여기서 방을 만들지 않는다 — 대기열에 서고, 백드롭(QuickMatchOverlay)이
+    // 매칭·이동을 맡는다. 이 화면은 그 뒤에 백드롭에 덮인 채로 남는다.
+    if (quick) {
+      saveNickname(resolved.nickname)
+      startQuickMatch({
+        gameCode: selectedGame.gameCode ?? 'YACHT_DICE',
+        nickname: resolved.nickname,
+      })
+      return
+    }
+
+    void enterRoom(resolved.nickname)
   }
 
   return (
@@ -103,7 +154,7 @@ export function NicknamePage({ gameKey, party = false, roomCode }: NicknamePageP
               <span className="font-mono font-bold tracking-[0.1em] text-content">{roomCode}</span>
             </>
           ) : (
-            '온라인 프라이빗 룸'
+            copy.chip
           )}
         </span>
       </header>
@@ -112,11 +163,7 @@ export function NicknamePage({ gameKey, party = false, roomCode }: NicknamePageP
         <h1 className="m-0 text-[28px] leading-[1.3] font-bold tracking-[-0.02em]">
           어떤 이름으로 참가할까요?
         </h1>
-        <p className="m-0 text-[15px] text-content-muted">
-          {roomCode
-            ? '같은 방 친구들에게 이 이름이 보여요'
-            : '방을 만들면 초대 링크가 바로 생성돼요'}
-        </p>
+        <p className="m-0 text-[15px] text-content-muted">{copy.subtitle}</p>
       </div>
 
       <form
@@ -146,7 +193,15 @@ export function NicknamePage({ gameKey, party = false, roomCode }: NicknamePageP
           }}
         />
         <div className="mt-auto grid gap-3">
-          {!roomCode && (
+          {signInRequired && (
+            <p
+              className="m-0 rounded-card border border-brand/36 bg-brand/8 px-3.5 py-3 text-sm text-danger"
+              role="alert"
+            >
+              빠른 대전은 로그인이 필요해요. 홈에서 로그인한 뒤 다시 시도해 주세요.
+            </p>
+          )}
+          {!roomCode && !quick && (
             <p className="m-0 flex items-center gap-2.5 rounded-card border border-border bg-surface px-3.5 py-3 text-sm text-content-muted">
               <span
                 aria-hidden="true"
@@ -173,12 +228,14 @@ export function NicknamePage({ gameKey, party = false, roomCode }: NicknamePageP
               )}
             </div>
           )}
-          <Button type="submit" size="cta" loading={task.isLoading} className="w-full">
-            {task.isLoading
-              ? roomCode
-                ? '입장하는 중이에요'
-                : '방을 만들고 있어요'
-              : '대기실 입장'}
+          <Button
+            className="w-full"
+            disabled={signInRequired}
+            loading={task.isLoading}
+            size="cta"
+            type="submit"
+          >
+            {task.isLoading ? copy.busy : copy.cta}
           </Button>
         </div>
       </form>
