@@ -26,7 +26,7 @@ describe('PingPongModePage', () => {
     const user = userEvent.setup()
     render(<PingPongModePage />)
 
-    await user.click(screen.getByRole('button', { name: '‹ 게임 선택' }))
+    await user.click(screen.getByRole('button', { name: '게임 선택' }))
 
     expect(navigate).toHaveBeenCalledWith({ to: '/' })
   })

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Button } from '@/shared/components/Button'
+import { IconClose } from '@/shared/components/Icon'
 
 /** 자동으로 닫히기까지의 시간. 링이 한 바퀴 도는 시간과 같은 값이다. */
 const AUTO_CLOSE_MS = 3000
@@ -86,7 +87,7 @@ function CloseButton({ autoClose = false, onClose }: { autoClose?: boolean; onCl
   return (
     <button
       aria-label="센서 안내 닫기"
-      className="relative grid size-tap shrink-0 cursor-pointer place-items-center rounded-full bg-transparent text-2xl text-content focus-ring"
+      className="relative grid size-tap shrink-0 cursor-pointer place-items-center rounded-full bg-transparent text-content focus-ring"
       onClick={onClose}
       type="button"
     >
@@ -96,7 +97,8 @@ function CloseButton({ autoClose = false, onClose }: { autoClose?: boolean; onCl
           className="pointer-events-none absolute inset-1 rounded-full [background:conic-gradient(var(--ds-color-brand-strong)_var(--sweep),transparent_0)] [mask:radial-gradient(farthest-side,transparent_calc(100%-2px),#000_calc(100%-2px))] motion-safe:animate-close-sweep"
         />
       )}
-      ×
+      {/* 닫기는 공용 아이콘으로 — 같은 역할의 다른 버튼(모달·게임 헤더)과 같은 그림이어야 한다. */}
+      <IconClose className="size-5" />
     </button>
   )
 }
