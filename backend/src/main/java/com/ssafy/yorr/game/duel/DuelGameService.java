@@ -138,13 +138,16 @@ public class DuelGameService {
     private void changed(String roomId, DuelState state) {
         if (state.finished()) {
             scheduler.cancelRoom(roomId);
-            // 남은 총알이 그대로 점수다 — 살아남은 쪽만 1발 이상 들고 끝난다.
+            // 남은 총알이 그대로 점수다. 단 쓰러진 쪽은 0으로 내린다 — 부정출발 실격은
+            // 총알이 남은 채로 지므로, 남은 수를 그대로 쓰면 순위가 뒤집힌다.
+            String fallen = state.lastRound() == null ? null : state.lastRound().koId();
             state.hp().forEach((playerId, remaining) -> {
                 // 방을 떠난 플레이어는 이 콜백보다 먼저 명단에서 지워진다.
                 // 사라진 참가자의 점수 항목을 되살리지 않는다.
                 if (Boolean.TRUE.equals(redis.opsForHash()
                         .hasKey(RoomRedisKeys.playersKey(roomId), playerId))) {
-                    redis.opsForHash().put(RoomRedisKeys.scoresKey(roomId), playerId, String.valueOf(remaining));
+                    int score = playerId.equals(fallen) ? 0 : remaining;
+                    redis.opsForHash().put(RoomRedisKeys.scoresKey(roomId), playerId, String.valueOf(score));
                 }
             });
             completion.finishIfComplete(roomId, true);

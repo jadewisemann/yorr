@@ -6,6 +6,12 @@ import { DUEL_FOUL } from '@/realtime/wsEvents'
  * "칸이 몇 개인지"는 이쪽이 알고 있어야 한다.
  */
 
+/**
+ * 총알이 어디로 갔는가. 부정출발은 상대가 아니라 자기 발밑으로 쏜다.
+ * 무대(Arena)와 번역기(stage)가 함께 쓰는 말이라 둘 중 어느 쪽도 아닌 여기 둔다.
+ */
+export type ShotTarget = 'opponent' | 'ground'
+
 /** 서버 DuelRules.MAX_HP와 같은 값. 총알(체력) 칸 수다. */
 export const MAX_HP = 3
 /** 서버 DuelRules.MAX_FOULS와 같은 값. 이 개수가 차면 자기 발을 쏜다. */

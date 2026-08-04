@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DuelRound, DuelState } from '@/realtime/wsEvents'
+import type { ShotTarget } from '../duel'
 import { buildStage } from '../stage'
 
 const ME = 'me'
@@ -25,14 +26,14 @@ function round(overrides: Partial<DuelRound> = {}): DuelRound {
   return { at: 0, kind: 'SHOT', number: 1, over: false, ...overrides }
 }
 
-function stage(overrides: Partial<DuelState>, impact = false, youDrew = false) {
+function stage(overrides: Partial<DuelState>, impact = false, youShot: ShotTarget | null = null) {
   return buildStage({
     impact,
     opponentId: RIVAL,
     opponentName: '상대',
     state: duelState(overrides),
     you: ME,
-    youDrew,
+    youShot,
   })
 }
 
@@ -110,17 +111,27 @@ describe('buildStage', () => {
     expect(view.left.hp).toBe(2)
   })
 
-  /** 서버 왕복을 기다리면 뽑아 놓고 가만히 서 있는 프레임이 생긴다 — 입력을 먹은 것처럼 보인다. */
-  it('방아쇠를 당기면 서버 응답 전에 총이 나간다', () => {
+  /** 서버 왕복(유예 최대 700ms)을 기다리면 총알이 뽑는 동작과 따로 노는 두 동작이 된다. */
+  it('반응한 순간 총알이 서버 응답 없이 떠난다', () => {
     const signal = { phase: 'SIGNAL' as const, signalAt: 1_000 }
 
+    expect(stage(signal).leftShot).toBeNull()
     expect(stage(signal).left.pose).toBe('ready')
-    expect(stage(signal, false, true).left.pose).toBe('draw')
+
+    const fired = stage(signal, false, 'opponent')
+
+    expect(fired.leftShot).toBe('opponent')
+    expect(fired.left.pose).toBe('draw')
+    // 내 총알만 떠난다 — 상대가 뽑았는지는 판정 전에 밝히지 않는다.
+    expect(fired.rightShot).toBeNull()
   })
 
-  /** 신호 전에 당겨도 총은 나간다 — 발밑으로 쏜 것을 곧바로 보여줘야 성급했음이 읽힌다. */
-  it('신호 전에 당겨도 곧바로 총이 나간다', () => {
-    expect(stage({}, false, true).left.pose).toBe('draw')
+  /** 신호 전에 당긴 총알은 상대가 아니라 자기 발밑에 박힌다. */
+  it('신호 전에 당기면 총알이 발밑으로 간다', () => {
+    const view = stage({}, false, 'ground')
+
+    expect(view.leftShot).toBe('ground')
+    expect(view.left.pose).toBe('draw')
   })
 
   it('진 쪽도 총알이 닿기 전까지는 겨눈 자세를 유지한다', () => {
@@ -181,5 +192,20 @@ describe('buildStage', () => {
     expect(view.right.pose).toBe('draw')
     expect(view.left.hp).toBe(3)
     expect(view.right.hp).toBe(3)
+    // 1ms까지 같은 라운드만 총알이 공중에서 부딪힌다.
+    expect(view.clash).toBe(true)
+  })
+
+  it('부정출발 라운드는 총알이 상대에게 가지 않는다', () => {
+    const view = stage({
+      fouls: { [ME]: 1, [RIVAL]: 0 },
+      lastRound: round({ foulId: ME, kind: 'WARNING' }),
+      phase: 'RESULT',
+      reactions: { [ME]: -1 },
+    })
+
+    expect(view.leftShot).toBe('ground')
+    expect(view.rightShot).toBeNull()
+    expect(view.clash).toBe(false)
   })
 })

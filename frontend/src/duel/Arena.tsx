@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { BULLET_MS, isClean, msLabel, slots } from './duel'
+import { BULLET_MS, isClean, msLabel, type ShotTarget, slots } from './duel'
 import { Gunslinger, type Outfit, type Pose } from './Gunslinger'
 
 /**
@@ -32,6 +32,16 @@ interface ArenaProps {
   maxFouls: number
   left: Fighter
   right: Fighter
+  /**
+   * 각 진영이 쏜 총알. 판정이 아니라 <b>방아쇠를 당긴 사실</b>이라, 내 총알은 반응한 순간에
+   * 들어오고 상대 총알은 판정으로 알게 된 순간에 들어온다.
+   */
+  leftShot: ShotTarget | null
+  rightShot: ShotTarget | null
+  /** 1ms까지 같아 총알이 공중에서 부딪히는 라운드. */
+  clash: boolean
+  /** 총알이 목표에 닿기까지 남은 시간(ms). 이미 날아간 만큼은 깎여서 들어온다. */
+  impactDelayMs: number
   /** 결과에서 상대를 쏜 쪽 — 뷰 기준(1=왼쪽 · 2=오른쪽 · 0=아무도). */
   winner: 0 | 1 | 2
   tie: boolean
@@ -85,6 +95,10 @@ export function Arena({
   maxFouls,
   left,
   right,
+  leftShot,
+  rightShot,
+  clash,
+  impactDelayMs,
   winner,
   tie,
   foulSide,
@@ -97,17 +111,17 @@ export function Arena({
   children,
 }: ArenaProps) {
   const settled = phase === 'result' && !pending
-  // 상대를 향해 총알이 날아가는 라운드 (파울 라운드는 상대에게 안 간다)
-  const firing = settled && foulSide === 0 && (tie || winner !== 0)
-  // 파울 라운드 — 총알은 자기 발밑으로 (경고면 땅, 경고 소진이면 자기 발)
-  const foulShot = settled && foulSide !== 0
-  const [leftFires, rightFires] = triggerPulls({ firing, foulShot, foulSide, tie, winner })
+  // 총성이 울린 순간 화면이 흔들린다. 총알이 떠난 쪽이 하나라도 있으면 울린다.
+  const shots = leftShot !== null || rightShot !== null
 
   return (
     <div
-      className={`relative w-full flex-1 overflow-hidden ${firing || foulShot ? 'animate-duel-shake' : ''}`}
+      className={`relative w-full flex-1 overflow-hidden ${shots ? 'animate-duel-shake' : ''}`}
       key={`arena-${fxKey}`}
-      style={{ ['--gs-h' as string]: 'clamp(112px, 25vh, 208px)' }}
+      style={{
+        ['--gs-h' as string]: 'clamp(112px, 25vh, 208px)',
+        ...(shots && { animationDelay: `${impactDelayMs}ms` }),
+      }}
     >
       <Wasteland phase={phase} />
 
@@ -126,7 +140,7 @@ export function Arena({
         style={{ bottom: '28%', left: '17%', transform: 'translateX(-50%)' }}
       >
         <Gunslinger
-          firing={leftFires}
+          firing={leftShot !== null}
           fxKey={fxKey}
           height="var(--gs-h)"
           outfit={left.outfit}
@@ -138,7 +152,7 @@ export function Arena({
         style={{ bottom: '28%', right: '17%', transform: 'translateX(50%)' }}
       >
         <Gunslinger
-          firing={rightFires}
+          firing={rightShot !== null}
           flip
           fxKey={fxKey}
           height="var(--gs-h)"
@@ -147,9 +161,20 @@ export function Arena({
         />
       </div>
 
-      {firing && <Bullets left={left} right={right} tie={tie} winner={winner} />}
-      {foulShot && <FoulDust foulSide={foulSide} selfShot={selfShot} />}
-      {firing && !tie && <ImpactFlash winner={winner} />}
+      {/* 총알은 각자 방아쇠를 당긴 순간에 떠난다 — 두 진영의 출발 시각이 다를 수 있다. */}
+      {(leftShot === 'opponent' || rightShot === 'opponent') && (
+        <div
+          className="pointer-events-none absolute"
+          style={{ bottom: 'calc(28% + var(--gs-h) * 0.5)', height: 0, left: '24%', right: '24%' }}
+        >
+          {leftShot === 'opponent' && <Bullet clash={clash} color={left.outfit.rim} dir="r" />}
+          {rightShot === 'opponent' && <Bullet clash={clash} color={right.outfit.rim} dir="l" />}
+          {clash && <Clash />}
+        </div>
+      )}
+      {leftShot === 'ground' && <FoulDust selfShot={selfShot} side={1} />}
+      {rightShot === 'ground' && <FoulDust selfShot={selfShot} side={2} />}
+      {settled && !tie && winner !== 0 && <ImpactFlash delayMs={impactDelayMs} winner={winner} />}
 
       <Headline
         actLabel={actLabel}
@@ -177,32 +202,6 @@ export function Arena({
       {children}
     </div>
   )
-}
-
-/**
- * 방아쇠를 당기는 쪽 [왼쪽, 오른쪽].
- *
- * 총구 화염·반동은 <b>총알이 떠나는 순간</b>에 맞춘다. 뽑는 순간에 터뜨리면 총알은 판정이
- * 난 뒤(최대 700ms)에야 날아가므로 화염과 총알이 따로 노는 두 동작으로 보인다. 뽑기는
- * 자세로 즉시 보여 주고, 발사는 총알과 한 몸으로 묶는다.
- */
-function triggerPulls({
-  firing,
-  foulShot,
-  foulSide,
-  tie,
-  winner,
-}: {
-  firing: boolean
-  foulShot: boolean
-  foulSide: 0 | 1 | 2
-  tie: boolean
-  winner: 0 | 1 | 2
-}): [boolean, boolean] {
-  // 부정출발은 자기 발밑으로 쏜다 — 상대는 방아쇠를 당기지도 않았다.
-  if (foulShot) return [foulSide === 1, foulSide === 2]
-  if (!firing) return [false, false]
-  return [tie || winner === 1, tie || winner === 2]
 }
 
 /**
@@ -336,45 +335,15 @@ function Wasteland({ phase }: { phase: ArenaPhase }) {
   )
 }
 
-/** 총알 — 가슴 높이로 날아간다. TIE면 가운데서 부딪혀 튄다. */
-function Bullets({
-  left,
-  right,
-  tie,
-  winner,
-}: {
-  left: Fighter
-  right: Fighter
-  tie: boolean
-  winner: 0 | 1 | 2
-}) {
-  return (
-    <div
-      className="pointer-events-none absolute"
-      style={{ bottom: 'calc(28% + var(--gs-h) * 0.5)', height: 0, left: '24%', right: '24%' }}
-    >
-      {tie ? (
-        <>
-          <Bullet clash color={left.outfit.rim} dir="r" />
-          <Bullet clash color={right.outfit.rim} dir="l" />
-          <Clash />
-        </>
-      ) : (
-        <Bullet color={(winner === 1 ? left : right).outfit.rim} dir={winner === 1 ? 'r' : 'l'} />
-      )}
-    </div>
-  )
-}
-
 /** 부정출발 — 총알이 자기 발밑에 박히며 흙먼지가 인다. 상대에게는 가지 않는다. */
-function FoulDust({ foulSide, selfShot }: { foulSide: 0 | 1 | 2; selfShot: boolean }) {
+function FoulDust({ selfShot, side }: { selfShot: boolean; side: 1 | 2 }) {
   return (
     <div
       className="pointer-events-none absolute"
       style={{
-        [foulSide === 1 ? 'left' : 'right']: '17%',
+        [side === 1 ? 'left' : 'right']: '17%',
         bottom: '28%',
-        transform: `translateX(${foulSide === 1 ? '-50%' : '50%'})`,
+        transform: `translateX(${side === 1 ? '-50%' : '50%'})`,
       }}
     >
       {/* 경고 소진(자기 발)이면 더 붉고 크게 */}
@@ -398,13 +367,13 @@ function FoulDust({ foulSide, selfShot }: { foulSide: 0 | 1 | 2; selfShot: boole
 }
 
 /** 피격 섬광 — 총알이 닿는 순간 맞은 쪽에서 터진다. */
-function ImpactFlash({ winner }: { winner: 0 | 1 | 2 }) {
+function ImpactFlash({ delayMs, winner }: { delayMs: number; winner: 0 | 1 | 2 }) {
   return (
     <div
       className="animate-duel-impact pointer-events-none absolute"
       style={{
         [winner === 1 ? 'right' : 'left']: '17%',
-        animationDelay: `${BULLET_MS}ms`,
+        animationDelay: `${delayMs}ms`,
         aspectRatio: '1',
         background:
           'radial-gradient(circle, #fff 0%, #ffd9a0 26%, rgb(239 68 68 / 85%) 52%, rgb(239 68 68 / 0%) 72%)',
@@ -761,14 +730,14 @@ function FoulLine({
         style={{ animationDelay: `${BULLET_MS + 90}ms`, color: 'rgb(255 232 205 / 90%)' }}
       >
         {selfShot
-          ? `${who.name} — 경고 ${maxFouls}/${maxFouls} · 1발 잃는다`
+          ? `${who.name} — 경고 ${maxFouls}/${maxFouls} · 결투에서 진다`
           : `${who.name} — 신호 전에 뽑았다 · 경고 ${who.fouls}/${maxFouls}`}
       </div>
       <div
         className={`animate-duel-slam mt-1 ${LABEL_MONO}`}
         style={{ animationDelay: `${BULLET_MS + 150}ms`, color: 'rgb(255 220 190 / 60%)' }}
       >
-        {selfShot ? '경고 리셋' : '라운드 무효 · 상대 무피해'}
+        {selfShot ? '실격' : '라운드 무효 · 다음 부정출발은 패배'}
       </div>
     </div>
   )

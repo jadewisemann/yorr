@@ -1,5 +1,6 @@
 import { DUEL_MISS, type DuelRound, type DuelState } from '@/realtime/wsEvents'
 import type { ArenaPhase, Fighter } from './Arena'
+import type { ShotTarget } from './duel'
 import { OUTFIT_LEFT, OUTFIT_RIGHT, type Outfit, type Pose } from './Gunslinger'
 
 /**
@@ -18,6 +19,11 @@ export interface Stage {
   phase: ArenaPhase
   left: Fighter
   right: Fighter
+  /** 각 진영이 쏜 총알. null이면 아직(또는 끝까지) 뽑지 않았다. */
+  leftShot: ShotTarget | null
+  rightShot: ShotTarget | null
+  /** 1ms까지 같아 총알이 공중에서 부딪히는 라운드. */
+  clash: boolean
   winner: 0 | 1 | 2
   foulSide: 0 | 1 | 2
   tie: boolean
@@ -32,13 +38,14 @@ interface StageInput {
   you: string
   opponentId: string
   opponentName: string
-  /** 총알이 상대에게 닿았는가. */
+  /** 총알이 목표에 닿았는가. */
   impact: boolean
   /**
-   * 내가 이번 라운드에 방아쇠를 당겼는가 — 서버 응답을 기다리지 않는 로컬 신호다.
-   * 뽑는 순간 총이 나가야 손맛이 산다. 왕복 지연만큼 가만히 서 있으면 입력을 먹은 것처럼 보인다.
+   * 내가 이번 라운드에 쏜 총알 — 서버 응답을 기다리지 않는 로컬 신호다. 반응한 순간에 총알이
+   * 떠나야 하나의 동작으로 읽힌다. 왕복 지연(유예 최대 700ms)만큼 기다리면 뽑는 동작과
+   * 총알이 따로 노는 두 동작이 된다. 상대에게 갈지 발밑에 박힐지는 신호를 봤는지로 갈린다.
    */
-  youDrew: boolean
+  youShot: ShotTarget | null
 }
 
 export function buildStage({
@@ -47,41 +54,49 @@ export function buildStage({
   opponentName,
   state,
   you,
-  youDrew,
+  youShot,
 }: StageInput): Stage {
   const round = state.lastRound ?? null
-  // 내 기록만 나왔고 상대를 기다리는 중. 자세와 달리 이쪽은 서버 응답을 기다린다 —
+  // 내 기록만 나왔고 상대를 기다리는 중. 총알과 달리 이쪽은 서버 응답을 기다린다 —
   // 기록(ms)은 서버가 검증한 값이라, 앞질러 그리면 잠깐 빈 자리를 "얼어붙음"으로 읽는다.
   const pending = state.phase === 'SIGNAL' && state.reactions[you] !== undefined
   const settled = state.phase === 'RESULT'
 
   /**
-   * 이 사람이 이번 라운드에 총을 뽑았는가. 내 것은 탭한 순간 알지만, 상대 것은 판정이 난
-   * 뒤에만 밝힌다 — 유예 중에 상대가 뽑는 게 보이면 승부가 김이 샌다.
+   * 이 사람이 쏜 총알. 내 것은 탭한 순간 알지만, 상대 것은 판정이 난 뒤에만 밝힌다 —
+   * 유예 중에 상대가 뽑는 게 보이면 승부가 김이 샌다.
    */
-  const drewOf = (playerId: string): boolean => {
-    if (playerId === you && youDrew) return true
-    if (!settled) return false
+  const shotOf = (playerId: string): ShotTarget | null => {
+    if (playerId === you && youShot) return youShot
+    if (!settled) return null
     const reaction = state.reactions[playerId]
-    return reaction !== undefined && reaction !== DUEL_MISS
+    if (reaction === undefined || reaction === DUEL_MISS) return null
+    return round?.foulId === playerId ? 'ground' : 'opponent'
   }
 
-  const fighter = (playerId: string, name: string, outfit: Outfit): Fighter => ({
+  const leftShot = shotOf(you)
+  const rightShot = shotOf(opponentId)
+
+  const fighter = (playerId: string, name: string, outfit: Outfit, shot: ShotTarget | null) => ({
     fouls: state.fouls[playerId] ?? 0,
     hp: (state.hp[playerId] ?? 0) + (settled && !impact && round?.hitId === playerId ? 1 : 0),
     ms: playerId === you || settled ? (state.reactions[playerId] ?? null) : null,
     name,
     outfit,
-    pose: poseOf(playerId, round, settled, impact, drewOf(playerId)),
+    pose: poseOf(playerId, round, settled, impact, shot !== null),
   })
 
   return {
+    // 1ms까지 같은 라운드만 총알이 공중에서 부딪힌다. 그 전에는 각자 제 갈 길로 날아간다.
+    clash: settled && round?.kind === 'TIE' && leftShot === 'opponent' && rightShot === 'opponent',
     foulSide: settled ? sideOf(round?.foulId, you, opponentId) : 0,
     ko: settled && !!round?.over,
-    left: fighter(you, '나', OUTFIT_LEFT),
+    left: fighter(you, '나', OUTFIT_LEFT, leftShot),
+    leftShot,
     pending,
     phase: arenaPhaseOf(state.phase, pending),
-    right: fighter(opponentId, opponentName, OUTFIT_RIGHT),
+    right: fighter(opponentId, opponentName, OUTFIT_RIGHT, rightShot),
+    rightShot,
     selfShot: round?.kind === 'SELF_SHOT',
     tie: settled && round?.kind === 'TIE',
     winner: settled ? sideOf(round?.shooterId, you, opponentId) : 0,

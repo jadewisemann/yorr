@@ -13,18 +13,18 @@ import java.util.Map;
  *
  * <p>반응은 ms 정수로 비교하고, 1ms까지 같으면 TIE(체력 변화 없이 다음 라운드)다.
  *
- * <p><b>부정출발 — 경고 누적</b>: 신호 전에 뽑으면 1회차는 라운드 무효(상대 무피해)이고
- * 경고만 쌓인다. 경고가 {@link #MAX_FOULS}개 차면 자기 발을 쏴서 본인이 1발 잃고 경고가
- * 리셋된다. 두 단계로 나눈 이유는 탭·폰 흔들기 입력이 손떨림으로 오작동하기 쉬운데 한 번의
- * 오작동이 곧바로 체력 1/3을 날리면 억울하기 때문이다. 반대로 완전 무료면 긴장이 사라지므로
- * 경고는 매치 내내 누적된다. (신호 전에는 아무 정보도 없어 "불리한 라운드를 파울로 회피"하는
- * 악용은 불가능하다.)
+ * <p><b>부정출발 — 매치 통산 2번이면 패배</b>: 신호 전에 뽑으면 1회차는 라운드 무효(상대
+ * 무피해)이고 경고만 쌓인다. 경고는 라운드마다 초기화되지 않고 <b>매치 내내 누적</b>되며,
+ * {@link #MAX_FOULS}개가 차는 순간 남은 총알과 무관하게 그 자리에서 결투를 잃는다.
+ * 1회차를 무료로 두는 이유는 탭·폰 흔들기 입력이 손떨림으로 오작동하기 쉬워서다. 반대로
+ * 계속 무료면 긴장이 사라지므로 두 번째는 곧바로 승부를 끝낸다. (신호 전에는 아무 정보도
+ * 없어 "불리한 라운드를 파울로 회피"하는 악용은 불가능하다.)
  */
 final class DuelRules {
 
     /** 결투에서 버틸 수 있는 총알 수. */
     static final int MAX_HP = 3;
-    /** 이 횟수째 부정출발에서 경고가 차서 자기 발을 쏜다. */
+    /** 매치 통산 이 횟수째 부정출발에서 자기 발을 쏘고 결투를 잃는다. */
     static final int MAX_FOULS = 2;
 
     /**
@@ -188,7 +188,11 @@ final class DuelRules {
 
     /**
      * 부정출발 라운드. 상대는 무피해다 — 신호 전이라 총을 뽑지도 않았다.
-     * 경고가 한도에 닿으면 자기 발을 쏘고 경고는 리셋된다.
+     *
+     * <p>경고는 라운드를 넘어 누적되고, 한도에 닿는 순간 자기 발을 쏘며 <b>남은 총알과
+     * 무관하게</b> 결투가 끝난다. 총알 한 발로 환산하지 않는 이유는 그러면 "총알을 아끼는
+     * 대신 파울을 쓴다"는 계산이 생기기 때문이다 — 부정출발은 값을 치르는 선택이 아니라
+     * 하면 안 되는 일이어야 한다.
      */
     private static DuelState.Round penalty(
             DuelState state,
@@ -198,16 +202,14 @@ final class DuelRules {
             long now
     ) {
         int count = fouls.getOrDefault(foulId, 0) + 1;
-        boolean cashed = count >= MAX_FOULS;
-        fouls.put(foulId, cashed ? 0 : count);
-        if (!cashed) {
+        fouls.put(foulId, count);
+        if (count < MAX_FOULS) {
             return new DuelState.Round(state.round(), DuelState.Kind.WARNING, null, null, null,
                     foulId, false, now);
         }
-        int left = Math.max(0, hp.getOrDefault(foulId, 0) - 1);
-        hp.put(foulId, left);
+        hp.put(foulId, Math.max(0, hp.getOrDefault(foulId, 0) - 1));
         return new DuelState.Round(state.round(), DuelState.Kind.SELF_SHOT, null, foulId,
-                left <= 0 ? foulId : null, foulId, left <= 0, now);
+                foulId, foulId, true, now);
     }
 
     /** 정상 승부 — 더 빨리 뽑은 쪽이 상대를 쏜다. */

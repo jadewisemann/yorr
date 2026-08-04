@@ -12,7 +12,7 @@ import { Button } from '@/shared/components/Button'
 import { useSwing } from '@/shared/useSwing'
 import type { ActiveRoomSession } from '@/store'
 import { Arena } from './Arena'
-import { BULLET_MS, MAX_FOULS, MAX_HP, slots } from './duel'
+import { BULLET_MS, MAX_FOULS, MAX_HP, type ShotTarget, slots } from './duel'
 import { Gunslinger, OUTFIT_LEFT, OUTFIT_RIGHT, type Outfit } from './Gunslinger'
 import { buildStage } from './stage'
 
@@ -34,6 +34,30 @@ interface DuelGameProps {
   snapshot: RoomSnapshot
 }
 
+/**
+ * 착탄까지 남은 시간. 목표를 맞히는 총알이 <b>내 것</b>이면 이미 날아간 만큼을 깎는다 —
+ * 내 총알은 반응한 순간 떠났으므로 판정이 늦게 와도 착탄 시각은 그대로여야 한다.
+ *
+ * 판정에 들어서는 순간 한 번만 재고 그 뒤로는 붙잡아 둔다. 매 렌더 다시 재면 CSS
+ * animation-delay가 계속 바뀌어 이미 재생 중인 연출이 앞으로 튄다.
+ */
+function useImpactDelay(
+  state: DuelState | undefined,
+  you: string,
+  firedAt: { current: number | null },
+) {
+  const delay = useRef(BULLET_MS)
+  const measuredRound = useRef(0)
+  if (state?.phase === 'RESULT' && measuredRound.current !== state.round) {
+    measuredRound.current = state.round
+    const last = state.lastRound
+    const mineLands = last?.shooterId === you || last?.foulId === you
+    const flown = mineLands && firedAt.current !== null ? performance.now() - firedAt.current : 0
+    delay.current = Math.max(0, Math.round(BULLET_MS - flown))
+  }
+  return delay
+}
+
 export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGameProps) {
   const client = useRealtimeClient()
   const state = snapshot.game as unknown as DuelState | undefined
@@ -48,11 +72,13 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
   const [motionOn, setMotionOn] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   /**
-   * 방아쇠를 당긴 라운드. 서버 응답을 기다리지 않고 총이 나가게 하려고 로컬로 기억한다.
-   * 라운드 번호를 담는 이유는 다음 라운드가 열리는 순간 비교만으로 자연히 풀리기 때문이다 —
-   * effect로 되돌리면 새 라운드의 첫 프레임에 총을 뽑은 자세가 한 번 스친다.
+   * 내가 이번 라운드에 쏜 총알 — 서버 응답을 기다리지 않고 반응한 순간에 총알을 내보내려고
+   * 로컬로 기억한다. 라운드 번호를 함께 담는 이유는 다음 라운드가 열리는 순간 비교만으로
+   * 자연히 풀리기 때문이다 — effect로 되돌리면 새 라운드의 첫 프레임에 총알이 한 번 스친다.
    */
-  const [drewRound, setDrewRound] = useState(0)
+  const [myShot, setMyShot] = useState<{ round: number; target: ShotTarget } | null>(null)
+  /** 내 총알이 떠난 시각. 판정이 늦게 와도 착탄까지 남은 시간을 이만큼 깎는다. */
+  const firedAt = useRef<number | null>(null)
 
   stateRef.current = state
   // 라운드는 WAITING → SIGNAL → RESULT 를 정확히 한 번씩 거치므로, 아래 두 타이밍은
@@ -64,14 +90,17 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
   if (phase === 'SIGNAL' && signalSeenAt.current === null) signalSeenAt.current = performance.now()
   if (phase !== 'SIGNAL' && signalSeenAt.current !== null) signalSeenAt.current = null
 
+  const impactDelay = useImpactDelay(state, session.you, firedAt)
+
   // 총알이 닿는 순간 — 피격 자세와 체력 감소를 여기에 맞춘다. 서버 시각(lastRound.at)이
   // 아니라 로컬 타이머로 세는 이유는 두 기기의 시계가 맞다는 보장이 없기 때문이다.
   useEffect(() => {
     setImpact(false)
     if (phase !== 'RESULT') return
-    const timeoutId = window.setTimeout(() => setImpact(true), BULLET_MS)
+    const timeoutId = window.setTimeout(() => setImpact(true), impactDelay.current)
     return () => window.clearTimeout(timeoutId)
-  }, [phase])
+    // 남은 시간은 판정에 들어서는 렌더에서 이미 확정된다 — 이 국면 안에서는 다시 바뀌지 않는다.
+  }, [phase, impactDelay.current])
 
   const draw = useCallback(() => {
     const current = stateRef.current
@@ -79,12 +108,14 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
     if (current.phase !== 'WAITING' && current.phase !== 'SIGNAL') return
     // 한 라운드에 한 발이다. 이미 뽑았으면 상대를 기다린다.
     if (current.reactions[session.you] !== undefined) return
-    const reactionMs =
-      current.phase === 'SIGNAL' && signalSeenAt.current !== null
-        ? Math.round(performance.now() - signalSeenAt.current)
-        : DUEL_FOUL
-    // 총은 지금 나간다. 판정은 서버가 하지만 손맛까지 왕복 지연을 기다릴 이유는 없다.
-    setDrewRound(current.round)
+    const early = current.phase === 'WAITING' || signalSeenAt.current === null
+    const reactionMs = early
+      ? DUEL_FOUL
+      : Math.round(performance.now() - (signalSeenAt.current ?? 0))
+    // 총알은 지금 떠난다. 판정은 서버가 하지만 손맛까지 왕복 지연을 기다릴 이유는 없다.
+    // 신호를 못 본 채 당겼으면 총알은 상대가 아니라 자기 발밑에 박힌다.
+    firedAt.current = performance.now()
+    setMyShot({ round: current.round, target: early ? 'ground' : 'opponent' })
     try {
       client.send(
         buildClientMessage(
@@ -95,8 +126,9 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
       )
       setSendError(null)
     } catch {
-      // 못 보냈으면 뽑지 않은 것이다 — 자세를 되돌려 다시 뽑을 수 있게 한다.
-      setDrewRound(0)
+      // 못 보냈으면 쏘지 않은 것이다 — 되돌려 다시 뽑을 수 있게 한다.
+      firedAt.current = null
+      setMyShot(null)
       setSendError('연결을 확인한 뒤 다시 뽑아 주세요.')
     }
   }, [client, roomId, session.you])
@@ -138,10 +170,11 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
           opponentName: opponent?.nickname ?? '상대',
           state,
           you: session.you,
-          youDrew: drewRound === state.round,
+          youShot: myShot?.round === state.round ? myShot.target : null,
         })}
         actLabel={swinging ? '휘둘러!' : 'TAP'}
         fxKey={state.round}
+        impactDelayMs={impactDelay.current}
         hint={swinging ? '초록이 되면 폰을 휘둘러 뽑아!' : '초록이 되면 화면을 탭 (스페이스바)!'}
         maxFouls={MAX_FOULS}
         maxHp={MAX_HP}
@@ -200,7 +233,10 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: Omit<DuelGameP
   const opponent = snapshot.players.find((player) => player.playerId !== session.you)
   const myHp = state?.hp[session.you] ?? 0
   const opponentHp = opponent ? (state?.hp[opponent.playerId] ?? 0) : 0
-  const won = myHp > opponentHp
+  // 쓰러진 사람이 진 사람이다. 남은 총알로 따지지 않는 이유는 부정출발 실격이
+  // 총알을 남긴 채로 지기 때문이다(이탈도 마찬가지다).
+  const fallen = state?.lastRound?.koId
+  const won = fallen ? fallen !== session.you : myHp > opponentHp
   const host = isRoomHost(snapshot, session.you)
 
   return (

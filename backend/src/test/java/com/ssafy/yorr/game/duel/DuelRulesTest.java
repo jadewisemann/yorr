@@ -48,16 +48,37 @@ class DuelRulesTest {
         assertThat(fouled.hp()).containsEntry(P1, DuelRules.MAX_HP).containsEntry(P2, DuelRules.MAX_HP);
     }
 
+    /** 두 번째 부정출발은 총알이 남아 있어도 그 자리에서 결투를 끝낸다. */
     @Test
-    void secondFalseStartCashesTheWarningIntoASelfShot() {
+    void secondFalseStartLosesTheDuelOutright() {
         DuelState warned = DuelRules.nextRound(DuelRules.draw(initial(), P1, 1, -1, 2_000), 3_000, 1_500);
 
         DuelState selfShot = DuelRules.draw(warned, P1, 2, -1, 3_400);
 
         assertThat(selfShot.lastRound().kind()).isEqualTo(DuelState.Kind.SELF_SHOT);
         assertThat(selfShot.lastRound().hitId()).isEqualTo(P1);
-        assertThat(selfShot.hp()).containsEntry(P1, DuelRules.MAX_HP - 1);
-        assertThat(selfShot.fouls()).containsEntry(P1, 0);
+        assertThat(selfShot.lastRound().koId()).isEqualTo(P1);
+        assertThat(selfShot.lastRound().over()).isTrue();
+        assertThat(selfShot.hp()).containsEntry(P1, DuelRules.MAX_HP - 1).containsEntry(P2, DuelRules.MAX_HP);
+        // 경고는 리셋되지 않는다 — 이 값이 곧 실격 사유다.
+        assertThat(selfShot.fouls()).containsEntry(P1, DuelRules.MAX_FOULS);
+        assertThat(DuelRules.hold(selfShot.lastRound())).isEqualTo(DuelRules.KO_HOLD_MILLIS);
+        assertThat(DuelRules.finish(selfShot).finished()).isTrue();
+    }
+
+    /** 경고는 라운드를 넘어 누적된다 — 라운드마다 두 번씩 기회를 주는 게 아니다. */
+    @Test
+    void warningsCarryAcrossRounds() {
+        DuelState signalled = DuelRules.signal(initial(), 5_000);
+        DuelState fouled = DuelRules.draw(signalled, P1, 1, -1, 5_100);
+
+        assertThat(fouled.lastRound().kind()).isEqualTo(DuelState.Kind.WARNING);
+        assertThat(fouled.fouls()).containsEntry(P1, 1);
+
+        DuelState nextRound = DuelRules.nextRound(fouled, 9_000, 1_500);
+
+        assertThat(nextRound.round()).isEqualTo(2);
+        assertThat(nextRound.fouls()).containsEntry(P1, 1);
     }
 
     /** 신호 전 입력은 payload가 어떤 ms를 신고해도 부정출발이다 — 판정 권한은 서버에 있다. */
