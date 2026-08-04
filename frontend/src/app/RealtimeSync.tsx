@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect } from 'react'
+import type { GameCode } from '@/games'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import type { RealtimeClient } from '@/realtime/realtimeClient'
 import {
@@ -130,6 +131,7 @@ function isRoomReadyMessage(message: ServerMessage) {
     message.type === 'state.sync' ||
     message.type === 'game.yacht_dice.state.sync' ||
     message.type === 'game.ping_pong.state.sync' ||
+    message.type === 'game.duel.state.sync' ||
     message.type === 'sys.reconnected'
   )
 }
@@ -165,6 +167,7 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
     case 'state.sync':
     case 'game.yacht_dice.state.sync':
     case 'game.ping_pong.state.sync':
+    case 'game.duel.state.sync':
       store.replaceRoomSnapshot(keepGameState(message.payload.snapshot, store.roomSnapshot))
       return
     case 'room.player_joined':
@@ -187,10 +190,14 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
       return
     case 'game.yacht_dice.game.over':
     case 'game.ping_pong.game.over':
+    case 'game.duel.game.over':
       applyGameOver(message.payload, store)
       return
     case 'game.ping_pong.state':
-      applyPingPongState(message.payload, store)
+      applyModuleGameState(message.payload, 'PING_PONG', store)
+      return
+    case 'game.duel.state':
+      applyModuleGameState(message.payload, 'DUEL', store)
       return
     case 'room.closed':
       store.endSession('room_closed')
@@ -203,12 +210,17 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
   }
 }
 
-function applyPingPongState(
-  payload: Extract<ServerMessage, { type: 'game.ping_pong.state' }>['payload'],
+/**
+ * 게임 모듈이 통째로 내려준 진행 상태. 자기 방의 게임에서 온 것만 받는다 — 방을 옮기는
+ * 순간 도착한 늦은 메시지가 다른 게임의 화면에 얹히면 그대로 크래시다.
+ */
+function applyModuleGameState(
+  payload: Extract<ServerMessage, { type: 'game.ping_pong.state' | 'game.duel.state' }>['payload'],
+  gameCode: GameCode,
   store: Store,
 ) {
   const snapshot = store.roomSnapshot
-  if (snapshot?.gameCode !== 'PING_PONG') return
+  if (snapshot?.gameCode !== gameCode) return
   // RoomSnapshot.game은 아직 Yacht 타입이 SSOT라 게임별 계약 분리 전까지 이 경계에서만 변환한다.
   store.replaceRoomSnapshot({
     ...snapshot,

@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react'
 import { Button } from '@/shared/components/Button'
+import { useSwing } from '@/shared/useSwing'
 import {
   advanceLocalGame,
   createLocalGame,
@@ -19,7 +20,6 @@ import {
   swingLocalGame,
 } from './localGame'
 import { createScene, type PingPongScene } from './scene3d'
-import { useSwing } from './useSwing'
 
 export function PingPongModePage() {
   const navigate = useNavigate()

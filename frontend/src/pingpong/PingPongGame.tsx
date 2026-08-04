@@ -9,11 +9,11 @@ import {
 import { isRoomHost } from '@/room/api/roomApi'
 import { useReturnToLobby } from '@/room/api/useGameApi'
 import { Button } from '@/shared/components/Button'
+import { useSwing } from '@/shared/useSwing'
 import type { ActiveRoomSession } from '@/store'
 import { type Fault, flightProgress } from './court'
 import { type PlayerTracking, trackIncomingBall } from './playerTracking'
 import { createScene, type FrameState, type PingPongScene } from './scene3d'
-import { useSwing } from './useSwing'
 
 interface PingPongGameProps {
   onLeaveRequest: () => void
