@@ -1,4 +1,5 @@
 import { cn } from '@/shared/cn'
+import { IconCheck } from '@/shared/components/Icon'
 import type { ScoreRowState } from '@/yacht/yachtCategoryView'
 
 export type { ScoreRowState }
@@ -43,7 +44,7 @@ export function ScoreRow({
       : state === 'zeroed'
         ? ' · 0점으로 사용됨'
         : state === 'selected'
-          ? ' ✓ 선택'
+          ? ' 선택'
           : ''
   const rowClassName = cn(
     'flex w-full items-center justify-between gap-3 rounded-control text-left transition-colors duration-150 ease-snappy',
@@ -61,7 +62,17 @@ export function ScoreRow({
         className={cn('min-w-0 truncate', state === 'selected' ? 'font-bold' : 'font-semibold')}
       >
         {label}
-        {suffix}
+        {/* 선택 표시만 아이콘이다. 아이콘은 aria-hidden이므로 접근 가능한 이름은 아래
+            aria-label의 suffix 텍스트가 그대로 책임진다 — 이름에 있던 '✓'는 낭독에서
+            "체크 표시"로 읽히는 노이즈였다. */}
+        {state === 'selected' ? (
+          <>
+            <IconCheck className="mx-1 inline size-3.5 align-middle" />
+            선택
+          </>
+        ) : (
+          suffix
+        )}
       </span>
       <span className="flex-none font-mono font-bold tabular-nums">{score ?? '—'}</span>
     </>

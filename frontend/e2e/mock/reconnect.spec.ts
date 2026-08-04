@@ -8,7 +8,13 @@ import {
   waitingSnapshot,
 } from '../support/contract'
 import { startFakeGameServer } from '../support/fakeGameServer'
-import { gameUrl, lobbyUrl, useSimpleDiceRenderer } from '../support/flows'
+import {
+  activeTurnLabel,
+  gameUrl,
+  lobbyUrl,
+  myTurnLabel,
+  useSimpleDiceRenderer,
+} from '../support/flows'
 import { mockRestApi } from '../support/restMock'
 import {
   playingSession,
@@ -47,7 +53,7 @@ test('resumes a game in progress from the stored session', async ({ page }) => {
 
   // 게임 중이던 세션은 대기실이 아니라 게임 화면으로 돌아간다.
   await expect(page).toHaveURL(gameUrl)
-  await expect(page.getByText('내 턴이에요')).toBeVisible()
+  await expect(myTurnLabel(page)).toBeVisible()
 
   // 재조인은 저장된 세션 토큰을 그대로 제시한다(서버가 정체성을 복원하는 근거).
   expect(server.joins).toHaveLength(1)
@@ -82,7 +88,7 @@ test('survives a reload in the middle of a game', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: '이어서 하기' }).click()
   await expect(page).toHaveURL(gameUrl)
-  await expect(page.getByText('내 턴이에요')).toBeVisible()
+  await expect(myTurnLabel(page)).toBeVisible()
 
   await page.reload()
 
@@ -91,7 +97,7 @@ test('survives a reload in the middle of a game', async ({ page }) => {
   await page.getByRole('button', { name: '이어서 하기' }).click()
 
   await expect(page).toHaveURL(gameUrl)
-  await expect(page.getByText('내 턴이에요')).toBeVisible()
+  await expect(myTurnLabel(page)).toBeVisible()
   expect(server.connections).toBeGreaterThanOrEqual(2)
 })
 
@@ -135,6 +141,6 @@ test('never sends the guest token before resuming', async ({ page }) => {
 
   await page.getByRole('button', { name: '이어서 하기' }).click()
   await expect(page).toHaveURL(gameUrl)
-  await expect(page.getByText(`${HOST.nickname}의 턴`).first()).toBeVisible()
+  await expect(activeTurnLabel(page, HOST.nickname)).toBeVisible()
   expect(server.joins[0]?.sessionToken).toBe(GUEST.token)
 })

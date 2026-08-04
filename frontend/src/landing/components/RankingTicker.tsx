@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { MyWeeklyRank, WeeklyRankingEntry } from '@/shared/api/rankingApi'
 import { useMyWeeklyRank, useWeeklyRanking } from '@/shared/api/useRankingApi'
 import { cn } from '@/shared/cn'
+import { IconChevron, IconEllipsis } from '@/shared/components/Icon'
 import { popVariants } from '@/shared/motion'
 import { useAppStore } from '@/store'
 
@@ -235,11 +236,8 @@ function FullRanking({
 
       {appendMe && (
         <>
-          <p
-            aria-hidden="true"
-            className="m-0 py-0.5 text-center text-[11px]/none text-landing-text-faint"
-          >
-            ⋯
+          <p aria-hidden="true" className="m-0 flex justify-center py-0.5 text-landing-text-faint">
+            <IconEllipsis className="size-4" />
           </p>
           <ol aria-label="내 순위" className="m-0 flex list-none flex-col p-0">
             <FullRankingRow
@@ -283,15 +281,9 @@ function FullRankingRow({ entry, mine }: { entry: WeeklyRankingEntry; mine: bool
 
 function Chevron({ open }: { open: boolean }) {
   return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        'text-[9px]/none transition-transform duration-150 ease-out',
-        open && 'rotate-180',
-      )}
-    >
-      ▼
-    </span>
+    <IconChevron
+      className={cn('size-3.5 transition-transform duration-150 ease-out', open && 'rotate-180')}
+    />
   )
 }
 
@@ -299,9 +291,11 @@ function Chevron({ open }: { open: boolean }) {
 function TickerLabel() {
   return (
     <p className="m-0 flex flex-none items-center gap-2 text-[12px]/none font-landing-bold whitespace-nowrap text-landing-text">
+      {/* 글로우를 뺀다 — RankBadge와 같은 이유다. 살아 있다는 신호는 맥동(ring-pulse)이
+          이미 주고, 빛나는 레드는 CTA 몫이다. */}
       <span
         aria-hidden="true"
-        className="size-2 rounded-full bg-landing-accent-text shadow-[0_0_10px_currentColor] motion-safe:animate-ring-pulse"
+        className="size-2 rounded-full bg-landing-accent-text motion-safe:animate-ring-pulse"
       />
       이번 주 파워랭킹
     </p>
@@ -354,9 +348,13 @@ function ScrollingTrack({
         'flex w-max animate-ticker-scroll',
         // 끝없이 도는 transform이므로 합성 레이어에 올려 둔다 — 아래에서 3D 히어로가 도는
         // 동안 이 띠가 메인 스레드의 레이아웃·페인트를 유발하지 않아야 한다.
-        'will-change-transform',
-        // 읽으려고 멈춰 세울 수 있어야 한다.
-        'hover:[animation-play-state:paused]',
+        // motion-safe로 좁히는 이유: motion-reduce에서는 애니메이션이 아예 없으므로
+        // 레이어를 붙잡고 있을 근거가 사라진다(will-change는 활성 애니메이션 동안만 쓴다).
+        'motion-safe:will-change-transform',
+        // 읽으려고 멈춰 세울 수 있어야 한다. hover만 두면 키보드·터치에는 멈출 방법이
+        // 없으므로 focus-within도 같이 받는다 — 안에 링크·버튼이 없어도 흐르는 띠에
+        // Tab이 닿는 순간 멈춰야 읽을 수 있다.
+        'hover:[animation-play-state:paused] focus-within:[animation-play-state:paused]',
         // 끝없이 흐르는 것은 vestibular 유발 요인이다. 멈춰 세우면 첫 벌만 남고 나머지는
         // 가로 스크롤로 직접 넘긴다(복제 벌은 아래에서 숨긴다).
         'motion-reduce:w-full motion-reduce:animate-none motion-reduce:overflow-x-auto',
@@ -435,14 +433,21 @@ function Score({ value }: { value: number }) {
   )
 }
 
-/** 1위만 레드에 글로우다. 띠 전체가 붉으면 무엇이 1위인지 형태로 구분되지 않는다. */
+/**
+ * 1위만 레드 배경이다. 띠 전체가 붉으면 무엇이 1위인지 형태로 구분되지 않는다.
+ *
+ * <b>글로우는 두지 않는다.</b> 배경색 반전만으로 이미 구분되고, 이 저장소는
+ * {@link LandingProgress}에서 같은 판단을 이미 내려 뒀다 — "화면에서 유일하게 빛나는
+ * 레드는 CTA여야 한다". 랭킹 띠는 랜딩 최상단에 있어서 글로우를 두면 그 아래 CTA와
+ * 시선을 다툰다.
+ */
 function RankBadge({ rank }: { rank: number }) {
   return (
     <span
       className={cn(
         'grid size-5.5 flex-none place-items-center rounded-[6px] font-mono text-[11px]/none font-bold tabular-nums',
         rank === 1
-          ? 'bg-landing-accent text-landing-accent-ink shadow-[0_0_12px_var(--ds-landing-accent-tint)]'
+          ? 'bg-landing-accent text-landing-accent-ink'
           : 'bg-landing-soft text-landing-text-muted',
       )}
     >
@@ -461,9 +466,14 @@ function RankBadge({ rank }: { rank: number }) {
 function EmptyNotice({ loading }: { loading: boolean }) {
   if (loading) return null
 
+  // 문구는 320px에 맞춰 짧다. 이전 문구("이번 주 기록이 아직 없어요 — 로그인하고 첫 순위의
+  // 주인이 되어보세요")는 narrow 뷰포트가 ~168px뿐이라 truncate가 앞머리만 남기고 **행동을
+  // 통째로 잘라냈다** — 빈 상태에는 다음 행동이 하나 남아 있어야 한다.
+  // 기록이 없다는 사실은 이름이 하나도 없는 것으로 이미 읽히고, 무엇의 순위인지는 왼쪽
+  // 고정 라벨("이번 주 파워랭킹")이 말한다. 그래서 남길 것은 행동뿐이다.
   return (
     <p className="m-0 truncate text-[12px]/none font-landing-medium text-landing-text-faint">
-      이번 주 기록이 아직 없어요 — 로그인하고 첫 순위의 주인이 되어보세요
+      로그인하고 1위 도전하기
     </p>
   )
 }

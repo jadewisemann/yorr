@@ -1,7 +1,12 @@
 import { expect, test } from '@playwright/test'
 import { GUEST, HOST, player, waitingSnapshot } from '../support/contract'
 import { startFakeGameServer } from '../support/fakeGameServer'
-import { createRoomAsHost, startHostedGame, useSimpleDiceRenderer } from '../support/flows'
+import {
+  createRoomAsHost,
+  myTurnLabel,
+  startHostedGame,
+  useSimpleDiceRenderer,
+} from '../support/flows'
 import { mockRestApi } from '../support/restMock'
 import { readRoomSession } from '../support/roomSession'
 
@@ -60,7 +65,7 @@ test('locks the dice while reconnecting in game and unlocks after recovery', asy
 
   // 재조인 응답의 스냅샷에는 진행 상태가 없다 — 그래도 지금 들고 있는 라운드를 유지해야 한다.
   await expect(page.getByText('다시 연결하는 중…')).toBeHidden({ timeout: 15_000 })
-  await expect(page.getByText('내 턴이에요')).toBeVisible()
+  await expect(myTurnLabel(page)).toBeVisible()
   await expect(roll).toBeEnabled()
 })
 

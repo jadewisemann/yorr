@@ -19,7 +19,9 @@ interface ResultRankingProps {
  */
 export function ResultRanking({ className, players, you }: ResultRankingProps) {
   return (
-    <ol className={cn('grid list-none gap-2 p-0', className)}>
+    // 목록에 이름을 붙인다 — 옆의 제목은 "FINAL STANDINGS"라 낭독이 영문으로 튀고,
+    // 스크롤되는 영역이라 이름이 있어야 보조기기에서 어디에 들어왔는지 알 수 있다.
+    <ol aria-label="최종 순위" className={cn('grid list-none gap-2 p-0', className)}>
       {players.map((player, index) => {
         const mine = player.playerId === you
         const winner = index === 0

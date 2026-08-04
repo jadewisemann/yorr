@@ -176,7 +176,7 @@ describe('RankingTicker · wide', () => {
     respondWith([])
     render(<RankingTicker layout="wide" />)
 
-    expect(await screen.findByText(/첫 순위의 주인이 되어보세요/)).toBeInTheDocument()
+    expect(await screen.findByText(/로그인하고 1위 도전하기/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /전체 보기/ })).not.toBeInTheDocument()
   })
 })
@@ -240,11 +240,13 @@ describe('RankingTicker · 내 순위', () => {
 })
 
 describe('RankingTicker · 갱신', () => {
+  // 문구는 320px에서 truncate가 행동을 잘라내지 않도록 짧아졌다. 지켜야 하는 것은
+  // "빈 상태에 다음 행동이 하나 남아 있다"이므로 로그인 권유가 보이는지만 본다.
   it('기록이 없는 주에는 로그인을 권한다', async () => {
     respondWith([])
     render(<RankingTicker layout="narrow" />)
 
-    expect(await screen.findByText(/첫 순위의 주인이 되어보세요/)).toBeInTheDocument()
+    expect(await screen.findByText(/로그인하고 1위 도전하기/)).toBeInTheDocument()
   })
 
   /** 랭킹은 부가 정보다. 못 읽었다는 사실을 랜딩 최상단에 얹어 알릴 일이 아니다. */

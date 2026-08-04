@@ -213,12 +213,18 @@ describe('GamePlay 센서 굴림', () => {
     expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
   })
 
-  it('센서 안내는 바로 뜨고, 닫으면 시야를 가리지 않는다', async () => {
+  it('센서 안내는 코치마크를 닫으면 이어서 뜨고, 닫으면 시야를 가리지 않는다', async () => {
     motion.availability = 'denied'
     const { rerenderGame, user } = renderGame()
 
-    // 켤 수 있는 상태가 되는 즉시 뜬다 — 칩을 눌러야 열리던 때는 아무도 누르지 않아
-    // 흔들기가 있다는 것 자체를 몰랐다(S15P11A406-182).
+    /*
+     * 첫 진입 코치마크가 떠 있는 동안에는 센서 안내를 띄우지 않는다 — z-30인 센서 안내가
+     * 코치마크(z-6)의 「알겠어요」를 덮어 코치마크를 닫을 수 없었다(S15P11A406-186).
+     * 코치마크를 닫으면 이어서 뜬다: 칩을 눌러야 열리던 때로 돌아가지 않는다(S15P11A406-182).
+     */
+    expect(screen.queryByRole('region', { name: '센서 권한 안내' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '알겠어요' }))
+
     expect(screen.getByRole('region', { name: '센서 권한 안내' })).toBeVisible()
     await user.click(screen.getByRole('button', { name: '센서 안내 닫기' }))
     rerenderGame()

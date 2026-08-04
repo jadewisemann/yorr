@@ -17,7 +17,8 @@ test('카카오 로그인에 성공하면 계정 정보가 남고, 로그아웃�
   await page.getByRole('button', { name: '카카오로 계속하기' }).click()
 
   await expect(page).toHaveURL(/\/$/)
-  await expect(page.getByRole('status')).toHaveText(`${MEMBER.nickname}님, 반가워요!`)
+  // 성공 인사는 띄우지 않는다 — 헤더 아바타가 로그인 상태를 이미 말한다
+  // (AuthCallbackPage 주석). 그래서 여기서 보는 것은 계정 버튼 하나다.
   await expect(page.getByRole('button', { name: MEMBER.nickname })).toBeVisible()
 
   await page.getByRole('button', { name: MEMBER.nickname }).click()

@@ -1,4 +1,5 @@
 import { cn } from '@/shared/cn'
+import { IconMic } from '@/shared/components/Icon'
 import type { PlayerId } from '../wsEvents'
 import type { VoiceChat } from './useVoiceChat'
 
@@ -45,7 +46,9 @@ export function PeerMicButton({ className, playerId, voice }: PeerMicButtonProps
       }}
       type="button"
     >
-      <span aria-hidden="true">🎙️</span>
+      {/* 이모지가 아니라 공용 SVG다 — 이모지는 currentColor를 따르지 않아 흐리게(opacity)
+          눌러도 플랫폼 색이 그대로 남고, 말하는 중 초록 링과 색이 어긋난다(Icon.tsx 주석). */}
+      <IconMic className="size-4" />
       {/* 껐다는 표시는 사선. 흐려지는 것만으로는 "조용한 사람"과 구분되지 않는다. */}
       {muted && (
         <span

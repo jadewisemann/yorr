@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { type AudioLevels, audioLevels, setAudioLevel } from '@/shared/audio/audioLevels'
 import { applyMusicLevel } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
 import { BottomSheet } from '@/shared/components/BottomSheet'
 import { Button } from '@/shared/components/Button'
+import { IconMic, IconMusic, IconSound } from '@/shared/components/Icon'
 
 interface AudioSheetProps {
   onClose: () => void
@@ -73,9 +74,7 @@ export function AudioSheet({ microphone, muted, onClose, onToggleMute, open }: A
         {microphone && (
           <section className="grid gap-2 rounded-panel border border-border bg-surface-raised p-3.5">
             <div className="flex items-center gap-2">
-              <span aria-hidden="true" className="text-[15px]">
-                🎙️
-              </span>
+              <IconMic className="size-4.5 flex-none text-content-muted" />
               <span className="text-[15px] font-semibold">마이크</span>
               <span className="ml-auto text-[13px] text-content-muted tabular-nums">
                 {microphoneStatusLabel(microphone)}
@@ -104,14 +103,14 @@ export function AudioSheet({ microphone, muted, onClose, onToggleMute, open }: A
         )}
 
         <LevelSlider
-          icon="🎵"
+          icon={<IconMusic className="size-4.5 flex-none text-content-muted" />}
           label="배경음"
           muted={muted}
           onChange={(value) => change('music', value)}
           value={levels.music}
         />
         <LevelSlider
-          icon="🎲"
+          icon={<IconSound className="size-4.5 flex-none text-content-muted" muted={false} />}
           label="효과음"
           hint="주사위·족보 음성"
           muted={muted}
@@ -146,7 +145,8 @@ function LevelSlider({
   value,
 }: {
   hint?: string
-  icon: string
+  /** 줄 앞 아이콘. 공용 `Icon`을 넘긴다 — 이모지는 모노톤 크롬에서 혼자 튄다. */
+  icon: ReactNode
   label: string
   muted: boolean
   onChange: (value: number) => void
@@ -157,7 +157,7 @@ function LevelSlider({
   return (
     <section className={cn('grid gap-1.5', muted && 'opacity-45')}>
       <div className="flex items-center gap-2 text-[15px] font-semibold">
-        <span aria-hidden="true">{icon}</span>
+        {icon}
         {label}
         {hint && <span className="text-[12px] font-medium text-content-faint">{hint}</span>}
         <span className="ml-auto font-mono text-[13px] font-bold text-content-muted tabular-nums">

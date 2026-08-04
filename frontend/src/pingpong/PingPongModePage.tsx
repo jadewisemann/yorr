@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react'
 import { Button } from '@/shared/components/Button'
+import { IconBack } from '@/shared/components/Icon'
 import { useSwing } from '@/shared/useSwing'
 import {
   advanceLocalGame,
@@ -171,11 +172,14 @@ function LocalPingPongGame({
     <main className="relative flex h-svh w-full flex-col overflow-hidden bg-[#070b12] text-white">
       <header className="relative z-20 flex flex-none items-center justify-between gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
         <button
-          className="min-h-11 rounded-full border border-white/15 bg-white/6 px-4 text-sm text-white/75"
+          className="flex min-h-11 items-center gap-1.5 rounded-full border border-white/15 bg-white/6 px-4 text-sm text-white/75"
           onClick={onExit}
           type="button"
         >
-          ‹ 게임 선택
+          {/* 꺾쇠는 공용 아이콘이다 — 문자 `‹`는 폰트마다 폭·중심이 달라 글자와 어긋난다
+              (Icon.tsx 주석. 닉네임·초대 오류 화면의 뒤로 가기와 같은 그림이 된다). */}
+          <IconBack className="size-4" />
+          게임 선택
         </button>
         <span className="font-mono text-xs tracking-[0.14em] text-white/45">
           {mode === 'solo' ? 'AI와 대전' : '1:1 파티 모드'}

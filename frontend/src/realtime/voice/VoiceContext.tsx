@@ -12,7 +12,8 @@ import { useVoiceChat, type VoiceChat } from './useVoiceChat'
 
 /**
  * Provider 없이 렌더된 화면이 보는 값. 던지지 않고 "마이크 못 씀"으로 떨어진다 —
- * VoiceButton이 unsupported면 스스로 사라지므로 화면은 음성 기능만 없는 상태로 정상 동작한다.
+ * 마이크 UI(오디오 시트의 마이크 행 · PeerMicButton)는 unsupported면 스스로 사라지므로
+ * 화면은 음성 기능만 없는 상태로 정상 동작한다.
  * (RealtimeClientContext는 없으면 던진다. 그건 없으면 앱이 아예 안 돌아가기 때문이고,
  *  음성은 없어도 게임이 돌아가므로 심각도가 다르다.)
  */

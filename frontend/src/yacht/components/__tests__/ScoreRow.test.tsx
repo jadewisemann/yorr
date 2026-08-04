@@ -13,7 +13,8 @@ describe('ScoreRow', () => {
   it('exposes the selected state to assistive tech, not just the border', () => {
     render(<ScoreRow label="Fours" score={12} state="selected" onSelect={vi.fn()} />)
 
-    const row = screen.getByRole('button', { name: 'Fours 12 ✓ 선택' })
+    // 체크 표시는 aria-hidden SVG로 옮겼다 — 접근성 이름에는 '선택'이라는 낱말만 남는다.
+    const row = screen.getByRole('button', { name: 'Fours 12 선택' })
     expect(row).toHaveAttribute('aria-pressed', 'true')
     expect(row).toBeEnabled()
   })

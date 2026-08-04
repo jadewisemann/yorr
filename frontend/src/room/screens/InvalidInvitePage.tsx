@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
 import { getRoomCodeError, normalizeRoomCode } from '@/room/roomCode'
 import { Button } from '@/shared/components/Button'
+import { IconBack, IconWarning } from '@/shared/components/Icon'
 import { TextField } from '@/shared/components/TextField'
 
 interface InvalidInvitePageProps {
@@ -28,20 +29,20 @@ export function InvalidInvitePage({ initialCode }: InvalidInvitePageProps) {
       <header>
         <button
           aria-label="뒤로 가기"
-          className="grid size-11 cursor-pointer place-items-center rounded-card border border-border bg-surface text-lg text-content transition-colors hover:bg-surface-raised focus-ring"
+          className="grid size-11 cursor-pointer place-items-center rounded-card border border-border bg-surface text-content transition-colors hover:bg-surface-raised focus-ring"
           onClick={() => void navigate({ to: '/' })}
           type="button"
         >
-          ‹
+          <IconBack className="size-4.5" />
         </button>
       </header>
 
       <div className="mt-12 grid gap-4">
         <span
           aria-hidden="true"
-          className="grid size-13 place-items-center rounded-panel border border-brand/42 bg-brand/12 text-2xl font-bold text-danger"
+          className="grid size-13 place-items-center rounded-panel border border-brand/42 bg-brand/12 text-danger"
         >
-          !
+          <IconWarning className="size-7" />
         </span>
         <h1 className="m-0 text-[27px] leading-[1.3] font-bold tracking-[-0.02em]">
           초대 코드를 확인해 주세요

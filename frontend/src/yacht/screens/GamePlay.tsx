@@ -8,6 +8,7 @@ import { cn } from '@/shared/cn'
 import { AudioSheet } from '@/shared/components/AudioSheet'
 import { Button } from '@/shared/components/Button'
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner'
+import { IconCheck } from '@/shared/components/Icon'
 import { Modal } from '@/shared/components/Modal'
 import { ToastHost, useToast } from '@/shared/components/ToastHost'
 import { useMediaQuery } from '@/shared/useMediaQuery'
@@ -375,12 +376,17 @@ export function GamePlay({
       >
         <div className="relative flex min-h-0 flex-1 flex-col">
           {/* 배너는 오버레이로 띄운다 — 플로우에 끼우면 나타날 때마다 3D 트레이 크기를 밀어
-              씬이 리사이즈된다. 연결 상태는 일시적이라 헤더를 잠깐 덮는 쪽이 낫다. */}
-          <ConnectionBanner
-            // closed면 조작이 전부 잠겼다는 유일한 시각 신호다 — 노치 아래로 들어가면 안 된다.
-            className="absolute inset-x-0 top-0 z-banner pt-[calc(0.5rem+env(safe-area-inset-top))]"
-            status={connectionStatus}
-          />
+              씬이 리사이즈된다. 연결 상태는 일시적이라 헤더를 잠깐 덮는 쪽이 낫다.
+
+              덮을 것이라면 불투명해야 한다. 배너 자신의 배경은 상태 색 틴트(예: bg-warning/12)라
+              그것만으로는 아래 헤더 글자가 그대로 배어 나와 배너와 헤더가 서로를 못 읽게 만든다
+              (320·412px 양쪽에서 확인). 그래서 불투명한 판을 한 장 뒤에 깐다.
+              has-[p]: 배너는 live region 유지를 위해 항상 마운트되고 문구가 있을 때만 <p>를
+              그린다 — 그 조건을 그대로 읽어 덮을 때만 판이 생긴다. */}
+          <div className="absolute inset-x-0 top-0 z-banner pt-[calc(0.5rem+env(safe-area-inset-top))] has-[p]:bg-canvas">
+            {/* closed면 조작이 전부 잠겼다는 유일한 시각 신호다 — 노치 아래로 들어가면 안 된다. */}
+            <ConnectionBanner status={connectionStatus} />
+          </div>
           {header}
           {turnStrip}
 
@@ -611,9 +617,9 @@ function WaitingNotice({
       <p className="m-0 flex min-h-15 flex-1 items-center justify-center gap-2.5 rounded-panel border border-positive/40 bg-positive/10 px-4 text-center text-sm font-semibold text-positive">
         <span
           aria-hidden="true"
-          className="grid size-5 flex-none place-items-center rounded-[7px] bg-positive/20 text-[11px] leading-none font-bold"
+          className="grid size-5 flex-none place-items-center rounded-[7px] bg-positive/20"
         >
-          ✓
+          <IconCheck className="size-3" />
         </span>
         점수가 반영됐습니다. 다음 턴을 기다립니다.
       </p>
