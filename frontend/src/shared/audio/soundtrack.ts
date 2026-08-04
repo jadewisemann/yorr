@@ -1,6 +1,7 @@
 import { type GameKey, games } from '@/games'
 import { musicLevel } from './audioLevels'
 import { onFirstGesture, primeAudio } from './audioUnlock'
+import { setElementVolume } from './elementVolume'
 import { readSoundMuted } from './soundPreference'
 
 /** 튜닝된 기본 배경음 볼륨. 슬라이더는 여기에 배율을 곱한다(audioLevels 참고). */
@@ -41,10 +42,12 @@ function prepare(): void {
  *
  * 배경음은 계속 흐르므로 재생 시점에 읽는 것으로는 부족하다 — 슬라이더를 움직이는 즉시
  * 들려야 한다. 효과음(짧은 소리)은 반대로 재생 시점에 읽으면 충분해서 이런 함수가 없다.
+ *
+ * `track.volume`에 직접 넣지 않는다 — iOS는 그 대입을 무시한다(elementVolume 참고).
  */
 export function applyMusicLevel(): void {
   const volume = BASE_MUSIC_VOLUME * musicLevel()
-  for (const track of allTracks()) track.volume = volume
+  for (const track of allTracks()) setElementVolume(track, volume)
 }
 
 /**
