@@ -103,6 +103,32 @@ export function IconSound({ className, muted }: IconProps & { muted: boolean }) 
 }
 
 /**
+ * 마이크 — 음성 채팅이 켜져 있음. 소리 아이콘 옆 배지 · 참가자별 마이크 버튼 · 오디오 시트가
+ * 같은 것을 쓴다(예전에는 `🎙️` 이모지가 네 군데에 흩어져 있었다).
+ */
+export function IconMic({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      {/* 캡슐 몸통 + 받침. 12px 배지로도 쓰이므로 안쪽 무늬는 넣지 않는다. */}
+      <path d="M10 3.6a2.35 2.35 0 0 1 2.35 2.35v3.6a2.35 2.35 0 0 1-4.7 0v-3.6A2.35 2.35 0 0 1 10 3.6z" />
+      <path d="M5.9 9.3a4.1 4.1 0 0 0 8.2 0" />
+      <path d="M10 13.4v3" />
+    </Svg>
+  )
+}
+
+/** 배경음. */
+export function IconMusic({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M8.4 14.1V5.4l6.2-1.4v8" />
+      <Dot cx={6.5} cy={14.3} r={1.9} />
+      <Dot cx={12.7} cy={12.3} r={1.9} />
+    </Svg>
+  )
+}
+
+/**
  * 경고·주의.
  *
  * <b>삼각형 테두리를 함께 그린다.</b> 느낌표만 남기면 작은 크기에서 세로 막대 하나로 보여

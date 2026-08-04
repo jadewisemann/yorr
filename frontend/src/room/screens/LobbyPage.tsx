@@ -15,6 +15,7 @@ import { playLandingSoundtrack, setSoundtrackMuted } from '@/shared/audio/soundt
 import { cn } from '@/shared/cn'
 import { AudioSheet } from '@/shared/components/AudioSheet'
 import { Button } from '@/shared/components/Button'
+import { IconMic, IconSound } from '@/shared/components/Icon'
 import { LoadingOverlay } from '@/shared/components/LoadingOverlay'
 import { useAppStore } from '@/store'
 import { RoomExitGuard } from './RoomExitGuard'
@@ -202,7 +203,14 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
             type="button"
             variant="secondary"
           >
-            <span aria-hidden="true">{voice.status === 'on' ? '🎙️' : '🔊'}</span>
+            {/* 게임 헤더의 오디오 버튼과 같은 조합이다 — 소리 아이콘 + 통화 중일 때 마이크 배지.
+                두 화면이 같은 것을 다른 그림으로 말하면 같은 버튼으로 읽히지 않는다. */}
+            <span className="relative">
+              <IconSound className="size-4.5" muted={soundMuted} />
+              {voice.status === 'on' && (
+                <IconMic className="absolute -top-1.5 -right-2 size-3 text-positive" />
+              )}
+            </span>
           </Button>
           <Button
             className="flex-none px-3.5 text-sm"

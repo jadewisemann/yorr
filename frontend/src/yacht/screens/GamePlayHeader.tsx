@@ -1,7 +1,7 @@
 import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
 import type { Player, PlayerId } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
-import { IconClose, IconHelp, IconSound } from '@/shared/components/Icon'
+import { IconClose, IconHelp, IconMic, IconSound } from '@/shared/components/Icon'
 import type { ConnectionStatus } from '@/store'
 import { RoundTimer } from '@/yacht/components/RoundTimer'
 
@@ -59,16 +59,14 @@ export function GamePlayHeader({
         pressed={voice.status === 'on'}
       >
         {/* 아이콘 자체가 aria-hidden이다 — 버튼의 접근 가능한 이름은 HeaderButton의
-            aria-label이 책임진다. */}
+            aria-label이 책임진다.
+            마이크 배지는 초록으로 둔다 — 회색 소리 아이콘 위에 얹히므로 같은 색이면 배지가
+            아이콘의 일부로 읽힌다. "지금 살아 있다"는 신호를 색으로도 준다(턴 점과 같은 규칙).
+            LobbyPage 헤더의 오디오 버튼이 같은 조합을 쓴다. */}
         <span className="relative">
           <IconSound className="size-4.5" muted={soundMuted} />
           {voice.status === 'on' && (
-            <span
-              aria-hidden="true"
-              className="absolute -top-2 -right-2.5 text-[11px] leading-none"
-            >
-              🎙️
-            </span>
+            <IconMic className="absolute -top-1.5 -right-2 size-3 text-positive" />
           )}
         </span>
       </HeaderButton>
