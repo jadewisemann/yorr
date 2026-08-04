@@ -357,6 +357,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (member != null && registry.phaseOf(member.roomId()) == RoomPhase.PLAYING) {
             broadcaster.unregister(session); // 본인을 팬아웃에서 뺀 뒤 player_left가 나간다
             game(member.roomId()).removePlayer(member.roomId(), member.playerId());
+            userService.clearRoom(member.playerId());
             return;
         }
         leaveRoom(session);
@@ -507,6 +508,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (gone == null) {
             return;
         }
+        userService.clearRoom(gone.playerId());
         broadcaster.broadcast(gone.roomId(), WsEnvelope.of("room.player_left",
                         new RoomPlayerLeftPayload(gone.playerId()))
                 .withRoomId(gone.roomId()));
