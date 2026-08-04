@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test'
-import { HOST } from '../support/contract'
+import { GUEST, HOST, player, scoreBoard, waitingSnapshot } from '../support/contract'
 import { startFakeGameServer } from '../support/fakeGameServer'
-import { createRoomAsHost, useSimpleDiceRenderer } from '../support/flows'
+import { createRoomAsHost, startHostedGame, useSimpleDiceRenderer } from '../support/flows'
 import { mockRestApi } from '../support/restMock'
 
 /**
@@ -170,6 +170,36 @@ async function labelFit(page: Page, text: string) {
   }, text)
 }
 
+/**
+ * 스크롤 목록이 <b>제 몫의 높이를 받았는지</b>. 320×568(지원 하한 기기)에서는 고정 요소가
+ * 높이를 다 먹어 `flex-1` 목록이 한 줄도 못 보일 만큼 짜부라졌다 — 랭킹·참가자 명단은 그
+ * 화면의 본문이라, 높이를 못 받으면 "목록이 비어 있다"로 읽힌다.
+ *
+ * <b>toBeVisible로는 잡히지 않는다.</b> 25px로 잘린 행도 Playwright에는 visible이다.
+ * 그래서 목록의 보이는 높이를 첫 행 높이와 견준다.
+ */
+async function expectListShowsRows(page: Page, listLabel: string, minRows: number) {
+  const measured = await page.evaluate(
+    ({ label }) => {
+      const list =
+        document.querySelector<HTMLElement>(`[aria-label="${label}"]`) ??
+        document.querySelector<HTMLElement>(`[aria-label*="${label}"]`)
+      const row = list?.firstElementChild
+      if (!list || !row) return null
+      return { listHeight: list.clientHeight, rowHeight: row.getBoundingClientRect().height }
+    },
+    { label: listLabel },
+  )
+
+  expect(measured, `${listLabel}: 목록이나 첫 행을 찾지 못했다`).not.toBeNull()
+  const { listHeight, rowHeight } = measured ?? { listHeight: 0, rowHeight: 1 }
+  expect(
+    Math.floor(listHeight / rowHeight),
+    `${listLabel}: 보이는 높이 ${Math.round(listHeight)}px에 ${Math.round(rowHeight)}px 행이 ` +
+      `${minRows}줄 들어가지 않는다 (고정 요소가 높이를 다 먹었는지 확인)`,
+  ).toBeGreaterThanOrEqual(minRows)
+}
+
 test('keeps the landing page within 320px and protects Korean word breaks', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
@@ -209,19 +239,17 @@ test('keeps the lobby within 320px', async ({ page }) => {
 
   await expectNoHorizontalOverflow(page, '대기실')
   await expectKoreanWordBreakProtected(page, '대기실')
+  // QR·봇 패널·시작 버튼이 높이를 다 먹어 참가자 카드가 한 장도 안 보였던 자리다.
+  await expectListShowsRows(page, '참가자', 1)
 })
 
 /**
  * 게임 화면은 좁은 폭에서 가장 붐빈다 — 헤더(나가기·턴·타이머·소리·도움말)가 320px에서
  * 고정 폭으로만 276px을 먹고, 턴 표시 칸은 남은 56px을 받는다.
  *
- * <b>`/tutorial`로 들어간다.</b> 연습 모드가 같은 `GamePlay`·`GamePlayHeader`를 쓰므로
- * 실시간 방 없이 같은 레이아웃을 볼 수 있다 — `startHostedGame`은 mock 흐름에서 호스트가
- * 되지 않아(`waitingSnapshot`에 `hostId`가 없다) 쓸 수 없고, 같은 이유로
- * `game-flow.spec.ts` 4건이 이 티켓 전부터 실패하고 있다(S15P11A406-167).
- *
- * 실전 전용 요소(연결 배너 · 참가자 점수시트 · 리액션 독)는 이 경로로 덮이지 않는다.
- * 그 부분은 167 이후에 실시간 흐름으로 따로 확인해야 한다.
+ * <b>`/tutorial`로 들어간다.</b> 연습 모드가 같은 `GamePlay`·`GamePlayHeader`를 쓰므로 실시간
+ * 방 없이 같은 레이아웃을 볼 수 있고, 실전에는 없는 안내 오버레이까지 여기서 함께 본다.
+ * 실전 흐름은 아래 'live game' 스펙이 따로 덮는다.
  */
 test('keeps the practice game screen within 320px', async ({ page }) => {
   await useSimpleDiceRenderer(page)
@@ -242,4 +270,89 @@ test('keeps the practice game screen within 320px', async ({ page }) => {
     fits: true,
     lines: 1,
   })
+})
+
+/**
+ * 실전 게임 화면. 연습 모드(`/tutorial`)로는 덮이지 않는 것들이 여기 있다 —
+ * 참가자 턴 스트립 · 리액션 독 · 연결 배너.
+ *
+ * <b>화면을 덮는 오버레이는 가로 넘침 검사에 걸리지 않는다.</b> `GamePlay`의 main이
+ * `overflow-hidden`이라 그 안의 모든 넘침은 "조상이 감춰 준다"로 분류된다 — 잘려서 안 보이는
+ * 것이 곧 괜찮은 것은 아니므로, 뷰포트를 넘는지 좌표로 직접 본다.
+ */
+test('keeps the live game screen within 320px', async ({ page }) => {
+  await useSimpleDiceRenderer(page)
+  await mockRestApi(page)
+  const server = await startFakeGameServer(page, {
+    you: HOST.id,
+    snapshot: waitingSnapshot([player(HOST), player(GUEST)]),
+  })
+
+  await createRoomAsHost(page, HOST.nickname)
+  await startHostedGame(page, server)
+  await page.getByRole('button', { name: /^굴리기/ }).waitFor()
+  // 첫 진입 코치마크가 화면을 덮은 채로는 아래 요소들을 볼 수 없다.
+  await page.getByRole('button', { name: '알겠어요' }).click()
+
+  await expectNoHorizontalOverflow(page, '실전 게임')
+  await expectKoreanWordBreakProtected(page, '실전 게임')
+
+  // 헤더 턴 라벨. 이 칸은 320px에서 56px뿐이라 「내 턴이에요」가 「내 턴이」로 끊겼다 —
+  // flex 컨테이너에 걸린 truncate는 말줄임조차 붙이지 못했다. 짧은 라벨로 갈아 통째로 넣는다.
+  expect(await labelFit(page, '내 턴'), '헤더 턴 라벨이 제 칸을 넘거나 접혔다').toEqual({
+    fits: true,
+    lines: 1,
+  })
+
+  // 리액션은 독(오른쪽 끝)에서 솟아오른다. 닉네임 필이 버튼보다 넓어 오른쪽으로 삐져나가면
+  // 정작 누가 보냈는지를 못 읽는다 — 뜬 것들이 전부 뷰포트 안에 있어야 한다.
+  // 다섯 개를 보낸다 — 흩뿌림 값(DRIFTS)이 항목마다 돌아가므로 하나만 띄우면 그 하나의
+  // drift만 검사한 셈이 된다. 다섯이면 모든 값을 한 번씩 쓴다.
+  for (const reaction of ['like', 'laugh', 'shock', 'clap', 'gg']) {
+    server.send('reaction.broadcast', { playerId: GUEST.id, reaction })
+  }
+  // 뜬 이모지와 닉네임 필의 오른쪽 끝. motion-reduce라 제자리에 뜨므로 좌표가 흔들리지 않는다.
+  // 감싸는 span이 아니라 <b>안쪽 조각</b>을 재야 한다 — 감싸는 쪽은 right-0에 폭이 고정(w-tap)이라
+  // 언제나 독 안에 있고, 삐져나가는 것은 그보다 넓은 필이다.
+  const flyingRights = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('span[aria-hidden="true"] > span')].map(
+        (element) => Math.round(element.getBoundingClientRect().right),
+      ),
+    )
+  // 리액션은 소켓을 한 바퀴 돌아 온다 — 도착을 기다린 뒤에 잰다(FLIGHT_MS 2.2초 안에 끝난다).
+  await expect
+    .poll(async () => (await flyingRights()).length, { message: '떠오른 리액션을 찾지 못했다' })
+    .toBeGreaterThan(0)
+  expect(
+    (await flyingRights()).filter((right) => right > 320),
+    '떠오른 리액션이 뷰포트 오른쪽을 넘었다 (drift가 양수인지 확인)',
+  ).toEqual([])
+})
+
+/** 결과 화면 — 320×568에서 순위 목록이 25px로 짜부라져 한 줄도 보이지 않았던 자리다. */
+test('keeps the result screen readable within 320px', async ({ page }) => {
+  await useSimpleDiceRenderer(page)
+  await mockRestApi(page)
+  const server = await startFakeGameServer(page, {
+    you: HOST.id,
+    snapshot: waitingSnapshot([player(HOST), player(GUEST)]),
+  })
+
+  await createRoomAsHost(page, HOST.nickname)
+  await startHostedGame(page, server)
+  await page.getByRole('button', { name: /^굴리기/ }).waitFor()
+
+  server.send('game.yacht_dice.game.over', {
+    rankings: [
+      { rank: 1, playerId: HOST.id, total: scoreBoard({ yacht: 50 }).total },
+      { rank: 2, playerId: GUEST.id, total: 0 },
+    ],
+  })
+  await expect(page.getByRole('heading', { level: 1, name: '1위' })).toBeVisible()
+
+  await expectNoHorizontalOverflow(page, '결과')
+  await expectKoreanWordBreakProtected(page, '결과')
+  // 순위는 견주는 것이 요점이다 — 두 줄은 함께 보여야 한다.
+  await expectListShowsRows(page, '최종 순위', 2)
 })

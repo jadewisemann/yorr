@@ -30,6 +30,29 @@ export async function useSimpleDiceRenderer(page: Page) {
   await page.emulateMedia({ reducedMotion: 'reduce' })
 }
 
+/**
+ * 헤더의 "내 턴" 표시.
+ *
+ * 문구를 그대로 찾지 않는 이유: 320px(지원 하한 기기)에서는 이 칸에 56px밖에 남지 않아
+ * 「내 턴이에요」가 통째로 들어가지 않는다 — 그 폭에서만 「내 턴」으로 갈리고, 두 벌을 놓고
+ * CSS가 하나를 감춘다(GamePlayHeader 주석 참고). 문구를 못 박아 두면 같은 스펙이 mobile-320
+ * 프로젝트에서만 실패한다.
+ */
+export function myTurnLabel(page: Page) {
+  return page
+    .locator('header')
+    .getByText(/^내 턴/)
+    .filter({ visible: true })
+}
+
+/** 헤더의 "OO의 턴" 표시. 320px에서는 닉네임만 남는다({@link myTurnLabel}과 같은 이유). */
+export function activeTurnLabel(page: Page, nickname: string) {
+  return page
+    .locator('header')
+    .getByText(new RegExp(`^${nickname}(의 턴)?$`))
+    .filter({ visible: true })
+}
+
 /** 랜딩 → 방 만들기 → 닉네임 → 대기실. 닉네임을 비우면 제안 닉네임으로 입장한다. */
 export async function createRoomAsHost(page: Page, nickname?: string) {
   await page.goto('/')

@@ -157,7 +157,7 @@ export function scoreBoard(recorded: Partial<Record<YachtCategory, number>>): Sc
 }
 
 export function waitingSnapshot(players: Player[], roomId = ROOM_CODE): RoomSnapshot {
-  return { roomId, phase: 'waiting', players }
+  return { roomId, phase: 'waiting', players, hostId: HOST.id }
 }
 
 export function playingSnapshot(options: {
