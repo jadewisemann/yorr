@@ -110,6 +110,13 @@ const devCatalogRoute = createRoute({
   component: lazyRouteComponent(() => import('@/app/dev/DevCatalog'), 'DevCatalog'),
 })
 
+/** 파티 모드 컨트롤러를 가짜 서버로 굴려 보는 화면. 카탈로그와 같은 DEV 게이트를 쓴다. */
+const controllerLabRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/__dev/controller',
+  component: lazyRouteComponent(() => import('@/app/dev/ControllerLab'), 'ControllerLab'),
+})
+
 // 배포에서 실기기로 센서를 튜닝하는 페이지라 DevCatalog와 달리 DEV 게이트를 두지 않는다.
 const motionLabRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -147,13 +154,18 @@ const joinRoute = createRoute({
   validateSearch: (search: Record<string, unknown>) => ({
     code: typeof search.code === 'string' ? normalizeRoomCode(search.code) : undefined,
     game: isGameKey(search.game) ? search.game : undefined,
+    // 파티 모드 대시보드가 띄운 QR에만 붙는다 — 이 링크로 들어온 폰은 컨트롤러가 된다.
+    // 키를 조건부로 <b>넣지 않는</b> 이유: `party: false`로 두면 타입이 필수 키가 되어
+    // `/join`으로 navigate하는 화면들(EntryPage · InvalidInvitePage · PartyOnBigScreenPage)이
+    // 전부 이 값을 넘겨야 한다.
+    ...(search.party === '1' ? { party: true as const } : {}),
   }),
   component: () => {
-    const { code, game } = joinRoute.useSearch()
+    const { code, game, party } = joinRoute.useSearch()
     if (code !== undefined && getRoomCodeError(code)) {
       return <InvalidInvitePage initialCode={code} />
     }
-    return <NicknamePage gameKey={game} roomCode={code} />
+    return <NicknamePage gameKey={game} party={party} roomCode={code} />
   },
 })
 
@@ -198,6 +210,7 @@ const routeTree = rootRoute.addChildren([
   lobbyRoute,
   gameRoute,
   devCatalogRoute,
+  controllerLabRoute,
   motionLabRoute,
 ])
 

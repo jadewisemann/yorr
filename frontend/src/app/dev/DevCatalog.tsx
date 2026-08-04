@@ -79,6 +79,21 @@ export function DevCatalog() {
       </header>
 
       <section className={sectionClassName}>
+        <h2 className="text-xl font-bold">Screens</h2>
+        <p className="m-0 text-sm text-content-muted">
+          컴포넌트가 아니라 화면 전체를 가짜 서버로 굴려 보는 자리
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <a className="quick-chip focus-ring" href="/__dev/controller">
+            파티 모드 컨트롤러
+          </a>
+          <a className="quick-chip focus-ring" href="/__dev/motion">
+            모션 센서 랩
+          </a>
+        </div>
+      </section>
+
+      <section className={sectionClassName}>
         <h2 className="text-xl font-bold">Button</h2>
         <div className="flex flex-wrap gap-3">
           <Button size="sm">Small</Button>

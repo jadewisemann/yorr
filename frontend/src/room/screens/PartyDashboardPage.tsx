@@ -133,7 +133,7 @@ export function PartyDashboardPage() {
                 level="M"
                 marginSize={1}
                 title={`방 ${roomSession.roomCode} 초대 QR 코드`}
-                value={createInviteUrl(roomSession.roomCode)}
+                value={createInviteUrl(roomSession.roomCode, { party: true })}
               />
             </QrFallback>
             <div className="grid min-w-0 gap-2 text-left">
@@ -144,7 +144,7 @@ export function PartyDashboardPage() {
                 {roomSession.roomCode}
               </span>
               <p className="m-0 truncate font-mono text-[15px] text-content-muted">
-                {createInviteUrl(roomSession.roomCode)}
+                {createInviteUrl(roomSession.roomCode, { party: true })}
               </p>
             </div>
           </div>
