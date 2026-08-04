@@ -218,6 +218,21 @@
   }
 }
 
+@keyframes pp-practice-ball {
+  0% {
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 1;
+  }
+  55% {
+    transform: translateX(-50%) translateY(8rem) scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) translateY(-2rem) scale(0.7);
+    opacity: 0.25;
+  }
+}
+
 .animate-pp-feedback-pop {
   animation: pp-feedback-pop 240ms ease-out both;
 }
@@ -230,10 +245,18 @@
   animation: pp-smash-flash 220ms ease-out both;
 }
 
+.animate-pp-practice-ball {
+  animation: pp-practice-ball 520ms var(--ease-snappy) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-pp-feedback-pop,
   .animate-pp-combo-hit,
   .animate-pp-smash-flash {
+    animation: none;
+  }
+
+  .animate-pp-practice-ball {
     animation: none;
   }
 }

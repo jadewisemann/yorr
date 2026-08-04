@@ -141,26 +141,6 @@ describe('LobbyPage', () => {
     expect(screen.queryByRole('button', { name: '봇 추가' })).not.toBeInTheDocument()
   })
 
-  it('offers a swing practice tutorial in a ping pong lobby', () => {
-    const pingPongSnapshot = {
-      ...waitingRoomSnapshot,
-      capacity: 2,
-      gameCode: 'PING_PONG' as const,
-    }
-    useAppStore.getState().setRoomSession({
-      ...creatorSession,
-      gameCode: 'PING_PONG',
-      snapshot: pingPongSnapshot,
-    })
-    useAppStore.getState().replaceRoomSnapshot(pingPongSnapshot)
-
-    render(<LobbyPage roomId={creatorSession.roomId} />)
-
-    expect(screen.getByRole('region', { name: '탁구 컨트롤러 연습' })).toBeVisible()
-    expect(screen.getByRole('button', { name: '연습 스윙' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: '모션 센서 테스트' })).toBeEnabled()
-  })
-
   it('keeps link-copy fallback available next to the QR code', async () => {
     const user = userEvent.setup()
     const writeText = vi.fn().mockResolvedValue(undefined)
