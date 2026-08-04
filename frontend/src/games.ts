@@ -68,7 +68,7 @@ export const games: [Game, ...Game[]] = [
     name: '탁구',
     tagline: '한 손가락으로 겨루는 초고속 랠리.',
     description: '먼저 11점을 얻는 쪽이 이기는 1:1 스피드 대결',
-    players: '2 PLAYERS',
+    players: '1–2 PLAYERS',
     duration: '약 3분',
     gameCode: 'PING_PONG',
     control: '화면 탭 · 폰 스윙',

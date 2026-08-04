@@ -10,6 +10,7 @@ import org.springframework.web.socket.WebSocketSession;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -43,6 +44,9 @@ public class RoomSessionRegistry {
     // roomId -> 진행 단계(없으면 WAITING). 게임 시작은 REST 가 처리하므로 그쪽에서 markPhase 로 알려준다.
     private final Map<String, RoomPhase> phases = new ConcurrentHashMap<>();
     private final Map<String, String> gameCodes = new ConcurrentHashMap<>();
+    // roomId -> 음성 채널에 들어와 있는 playerId. 방 명단(rooms)과 **별개**다 —
+    // 방에는 있는데 마이크만 내려놓은 상태가 정상이라 같은 맵에 섞을 수 없다.
+    private final Map<String, Set<String>> voiceMembers = new ConcurrentHashMap<>();
 
     public void registerGame(String roomId, String gameCode) {
         if (gameCode == null || gameCode.isBlank()) throw new IllegalArgumentException("invalid_game_code");
@@ -93,6 +97,7 @@ public class RoomSessionRegistry {
                 rooms.remove(member.roomId());
                 gameCodes.remove(member.roomId());
                 phases.remove(member.roomId()); // 방 코드가 재사용돼도 이전 단계가 남지 않도록 같이 버린다.
+                voiceMembers.remove(member.roomId());
             }
         }
         return member;
@@ -138,8 +143,40 @@ public class RoomSessionRegistry {
             rooms.remove(roomId);
             gameCodes.remove(roomId);
             phases.remove(roomId);
+            voiceMembers.remove(roomId);
         }
         return member;
+    }
+
+    /* ----- 음성 채널(voice.*) 명단 -----
+     * 방 명단과 따로 관리한다. 아래 세 메서드는 모두 **갱신 후 전체 명단**을 돌려준다 —
+     * 계약(voice.peers)이 증분이 아니라 전체 스냅샷이라 호출부가 바로 브로드캐스트할 수 있다.
+     */
+
+    /** 음성 채널 입장. 이미 들어와 있으면 아무 일도 없다(중복 voice.join은 무해해야 한다). */
+    public List<String> joinVoice(String roomId, String playerId) {
+        Set<String> members = voiceMembers.computeIfAbsent(roomId, key -> ConcurrentHashMap.newKeySet());
+        members.add(playerId);
+        return List.copyOf(members);
+    }
+
+    /**
+     * 음성 채널 퇴장. voice.leave·소켓 종료·방 퇴장이 모두 이리로 온다 —
+     * voice.leave를 못 보내고 끊기는 경우가 정상 경로라 어느 쪽에서 불러도 안전해야 한다.
+     */
+    public List<String> leaveVoice(String roomId, String playerId) {
+        Set<String> members = voiceMembers.get(roomId);
+        if (members == null) return List.of();
+        members.remove(playerId);
+        // 빈 Set을 남기면 방이 사라진 뒤에도 키가 쌓인다.
+        if (members.isEmpty()) voiceMembers.remove(roomId, members);
+        return List.copyOf(members);
+    }
+
+    /** 지금 음성 채널에 있는 사람들. 통화 중이 아무도 없으면 빈 목록. */
+    public List<String> voiceMembersOf(String roomId) {
+        Set<String> members = voiceMembers.get(roomId);
+        return members == null ? List.of() : List.copyOf(members);
     }
 
     /**

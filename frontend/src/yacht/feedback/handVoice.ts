@@ -1,3 +1,4 @@
+import { effectsLevel } from '@/shared/audio/audioLevels'
 import { SPECIAL_HANDS_BY_RANK, type SpecialHand } from '@/yacht/domain/specialHands'
 
 /**
@@ -118,6 +119,9 @@ export function createHandVoice({ muted = false }: { muted?: boolean } = {}): Ha
     },
     play(hand) {
       if (isMuted || !context || !master) return
+      // 배율을 재생 시점에 읽는다 — 콜아웃마다 새로 잡으므로 설정을 바꾸면 다음 족보부터
+      // 반영된다(createRollFeedback과 같은 판단).
+      master.gain.value = VOICE_VOLUME * effectsLevel()
       const buffer = buffers.get(hand)
       // 아직 디코딩이 안 끝났으면 이번 콜아웃은 텍스트만 나간다. 억지로 기다리면
       // 콜아웃이 사라진 뒤에 소리가 나서 더 어색하다.

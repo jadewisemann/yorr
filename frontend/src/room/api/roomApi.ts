@@ -108,10 +108,8 @@ export class HttpRoomApiClient {
    * — 그래서 이 화면은 대시보드가 되고, 턴 순서·점수판·정원은 QR로 들어올 폰들의 것이 된다.
    * 닉네임을 보내지 않는 이유도 같다: 대시보드는 참가자 목록에 오르지 않는다.
    */
-  createPartyRoom(options?: ApiCallOptions) {
-    // 게임은 아직 고정이다 — 진입 버튼이 게임 카드 안에 있으므로 게임별 파티 방을 열려면
-    // /party 라우트가 게임을 받아야 한다(현재 live 게임이 요트뿐이라 값은 같다).
-    return enterRoom({}, 'dashboard', options, 'YACHT_DICE', true)
+  createPartyRoom(gameCode: GameCode, options?: ApiCallOptions) {
+    return enterRoom({}, 'dashboard', options, gameCode, true)
   }
 
   joinRoom(roomCode: string, request: JoinRoomRequest, options?: ApiCallOptions) {

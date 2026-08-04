@@ -77,6 +77,10 @@ export function EntryPage() {
   }
 
   const handlePlay = () => {
+    if (game.key === 'pingpong') {
+      void navigate({ to: '/party', search: { game: 'pingpong' } })
+      return
+    }
     void navigate({ to: '/join', search: { code: undefined, game: game.key } })
   }
 
@@ -87,7 +91,14 @@ export function EntryPage() {
 
   // 대시보드는 플레이어가 아니라 이름을 짓지 않는다 — 닉네임 화면을 거치지 않는다.
   const handleOpenParty = () => {
-    void navigate({ to: '/party' })
+    if (game.key === 'pingpong') {
+      void navigate({ to: '/pingpong' })
+      return
+    }
+    void navigate({
+      to: '/party',
+      search: { game: 'yacht' },
+    })
   }
 
   const handleJoin = () => {
