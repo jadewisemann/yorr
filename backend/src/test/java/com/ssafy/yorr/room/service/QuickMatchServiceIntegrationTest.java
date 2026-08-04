@@ -3,6 +3,7 @@ package com.ssafy.yorr.room.service;
 import com.ssafy.yorr.game.module.GameLifecycleService;
 import com.ssafy.yorr.game.module.GameModule;
 import com.ssafy.yorr.game.module.GameModuleRegistry;
+import com.ssafy.yorr.room.RoomRedisKeys;
 import com.ssafy.yorr.room.dto.QuickMatchResponse;
 import com.ssafy.yorr.user.UserIdentity;
 import com.ssafy.yorr.user.UserType;
@@ -43,6 +44,8 @@ class QuickMatchServiceIntegrationTest {
     private RoomSessionRegistry sessions;
     private GameLifecycleService games;
     private GameModuleRegistry gameModules;
+    private UserService users;
+    private RoomValidationService rooms;
 
     @BeforeAll
     static void connectRedis() {
@@ -63,9 +66,10 @@ class QuickMatchServiceIntegrationTest {
             connection.serverCommands().flushAll();
         }
         RoomCreateService roomCreates = new RoomCreateService(redis);
-        RoomValidationService rooms = new RoomValidationService(redis);
+        rooms = new RoomValidationService(redis);
         sessions = new RoomSessionRegistry();
         games = mock(GameLifecycleService.class);
+        users = new UserService(redis);
         gameModules = mock(GameModuleRegistry.class);
         when(gameModules.require(org.mockito.ArgumentMatchers.anyString())).thenAnswer(invocation -> {
             GameModule module = mock(GameModule.class);
@@ -77,7 +81,7 @@ class QuickMatchServiceIntegrationTest {
                 redis,
                 roomCreates,
                 rooms,
-                new UserService(redis),
+                users,
                 sessions,
                 games,
                 gameModules
@@ -138,6 +142,43 @@ class QuickMatchServiceIntegrationTest {
 
         assertThat(matches.cancel(player.userId()).status()).isEqualTo(QuickMatchResponse.Status.NOT_QUEUED);
         assertThat(matches.status(player.userId()).status()).isEqualTo(QuickMatchResponse.Status.NOT_QUEUED);
+    }
+
+    @Test
+    void leavingRoomClearsThePreviousMatchTicket() {
+        UserIdentity first = user("player-a", "A");
+        UserIdentity second = user("player-b", "B");
+        matches.enter(first, "YACHT_DICE");
+        matches.enter(second, "YACHT_DICE");
+
+        users.clearRoom(first.userId());
+
+        assertThat(matches.status(first.userId()).status()).isEqualTo(QuickMatchResponse.Status.NOT_QUEUED);
+    }
+
+    @Test
+    void reportingPlayingClearsThePreviousMatchTicket() {
+        UserIdentity first = user("player-a", "A");
+        UserIdentity second = user("player-b", "B");
+        matches.enter(first, "YACHT_DICE");
+        String roomId = matches.enter(second, "YACHT_DICE").roomId();
+        rooms.startGame(roomId, 2);
+
+        assertThat(matches.status(first.userId()).status()).isEqualTo(QuickMatchResponse.Status.PLAYING);
+        assertThat(matches.status(first.userId()).status()).isEqualTo(QuickMatchResponse.Status.NOT_QUEUED);
+    }
+
+    @Test
+    void finishedPreviousMatchDoesNotBlockANewMatch() {
+        UserIdentity first = user("player-a", "A");
+        UserIdentity second = user("player-b", "B");
+        matches.enter(first, "YACHT_DICE");
+        String oldRoomId = matches.enter(second, "YACHT_DICE").roomId();
+        redis.opsForHash().put(RoomRedisKeys.roomKey(oldRoomId), "phase", "FINISHED");
+
+        assertThat(matches.enter(first, "YACHT_DICE").status()).isEqualTo(QuickMatchResponse.Status.WAITING);
+        assertThat(rooms.getSnapshot(oldRoomId).players())
+                .noneMatch(player -> player.playerId().equals(first.userId()));
     }
 
     @Test
