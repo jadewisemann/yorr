@@ -507,10 +507,10 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
       setReleaseRequestId(null)
       setRollInputMode(null)
       if (isMyTurn) motion.resetGesture('roll-complete')
-      const hand = detectSpecialHand(completedDice)
-      if (hand && !isRecorded(activeBoard?.categories[hand])) {
-        setRollHighlight({ hand, id: Date.now() })
-      }
+      const hand = detectSpecialHand(completedDice, (candidate) =>
+        isRecorded(activeBoard?.categories[candidate]),
+      )
+      if (hand) setRollHighlight({ hand, id: Date.now() })
     },
     [activeBoard, dispatch, isMyTurn, motion, pendingRoll],
   )

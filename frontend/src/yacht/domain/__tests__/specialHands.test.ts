@@ -17,6 +17,14 @@ describe('detectSpecialHand', () => {
     expect(detectSpecialHand([1, 2, 3, 4, 6] as DiceSet)).toBe('smallStraight')
   })
 
+  it('이미 채운 족보는 건너뛰고 다음 순위로 내려간다', () => {
+    const large: DiceSet = [1, 2, 3, 4, 5] as DiceSet
+    expect(detectSpecialHand(large, (hand) => hand === 'largeStraight')).toBe('smallStraight')
+    expect(
+      detectSpecialHand(large, (hand) => hand === 'largeStraight' || hand === 'smallStraight'),
+    ).toBeNull()
+  })
+
   it('풀하우스를 감지한다', () => {
     expect(detectSpecialHand([3, 3, 2, 2, 2] as DiceSet)).toBe('fullHouse')
   })

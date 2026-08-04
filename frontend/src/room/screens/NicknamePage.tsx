@@ -9,6 +9,7 @@ import {
 } from '@/auth/nickname'
 import { type GameKey, gameByKey } from '@/games'
 import { useCreateRoom, useJoinRoom } from '@/room/api/useRoomApi'
+import { savePartyRoom } from '@/room/partyControllerStorage'
 import { toUserError } from '@/shared/api/userError'
 import { playLandingSoundtrack } from '@/shared/audio/soundtrack'
 import { Button } from '@/shared/components/Button'
@@ -17,10 +18,12 @@ import { useAppStore } from '@/store'
 
 interface NicknamePageProps {
   gameKey?: GameKey | undefined
+  /** 파티 모드 QR로 들어왔는지(`/join?...&party=1`). 입장에 성공하면 그 방을 기억한다. */
+  party?: boolean | undefined
   roomCode?: string | undefined
 }
 
-export function NicknamePage({ gameKey, roomCode }: NicknamePageProps) {
+export function NicknamePage({ gameKey, party = false, roomCode }: NicknamePageProps) {
   const navigate = useNavigate()
   const createRoom = useCreateRoom()
   const joinRoom = useJoinRoom()
@@ -59,6 +62,9 @@ export function NicknamePage({ gameKey, roomCode }: NicknamePageProps) {
           })
       if (!session) return
 
+      // 컨트롤러 여부는 입장에 성공한 뒤에 적는다 — 실패한 코드까지 기억하면 다음 방이
+      // 엉뚱하게 컨트롤러로 뜬다.
+      if (party) savePartyRoom(session.roomCode)
       saveNickname(resolved.nickname)
       await navigate({
         to: '/rooms/$roomId/lobby',
