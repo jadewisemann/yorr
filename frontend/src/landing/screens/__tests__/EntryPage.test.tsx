@@ -94,6 +94,16 @@ describe('EntryPage', () => {
     })
   })
 
+  it('opens the ping pong mode selector before creating an online room', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    await user.click(screen.getByRole('tab', { name: /탁구/ }))
+    await user.click(screen.getByRole('button', { name: '탁구 플레이' }))
+
+    expect(navigate).toHaveBeenCalledWith({ to: '/pingpong' })
+  })
+
   it('처음 온 사람은 방을 만들지 않고 연습 모드로 바로 들어간다', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)

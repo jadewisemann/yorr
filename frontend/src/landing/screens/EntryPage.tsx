@@ -77,6 +77,10 @@ export function EntryPage() {
   }
 
   const handlePlay = () => {
+    if (game.key === 'pingpong') {
+      void navigate({ to: '/pingpong' })
+      return
+    }
     void navigate({ to: '/join', search: { code: undefined, game: game.key } })
   }
 
