@@ -194,7 +194,7 @@ export interface PingPongSwingPayload {
   clientTs: number
 }
 
-/* ----- 정오의 결투 (game.duel.* · 서버 권위) -----
+/* ----- 석양이 진다 (game.duel.* · 서버 권위) -----
  * 진영 번호를 주지 않는다 — "나를 왼쪽에 두는" 배치는 화면의 몫이고 서버는 playerOrder만 안다.
  */
 

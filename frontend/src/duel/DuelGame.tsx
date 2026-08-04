@@ -17,7 +17,7 @@ import { Gunslinger, OUTFIT_LEFT, OUTFIT_RIGHT, type Outfit } from './Gunslinger
 import { buildStage } from './stage'
 
 /**
- * 정오의 결투 — 1:1 반응속도 대결.
+ * 석양이 진다 — 1:1 반응속도 대결.
  *
  * 신호등이 초록으로 바뀌는 순간 먼저 뽑은 쪽이 쏜다. 1ms까지 같으면 TIE고, 3발 맞으면
  * 쓰러진다. 신호 전에 뽑으면 경고가 쌓이고 두 개가 차면 자기 발을 쏜다(규칙은 서버 소유).

@@ -48,13 +48,11 @@ interface GunslingerProps {
   /** true = 왼쪽을 향해 서기 (오른쪽 진영) */
   flip?: boolean
   /**
-   * 지금 방아쇠를 당겼는가 — 화염과 반동이 여기서 터진다.
-   *
-   * 뽑는 것(draw 자세)과 쏘는 것을 나눈 이유: 총알은 판정이 나야 방향이 정해지는데,
-   * 화염을 뽑는 순간에 터뜨리면 최대 700ms 뒤에 날아가는 총알과 따로 노는 두 동작으로
-   * 보인다. 뽑기는 탭한 즉시 보여 주고, 발사는 총알이 떠나는 순간에 맞춘다.
+   * 이 라운드에 총을 쐈는가. 총알이 떠나는 순간 화염과 반동이 터지고, 그 뒤로도 <b>총은
+   * 손에 남는다</b> — 맞아 젖혀지는 순간 총이 사라지면 검은 실루엣만 남아 팔이 통째로
+   * 없어진 것처럼 보인다(화면에서 유일하게 밝은 것이 총이다).
    */
-  firing?: boolean
+  fired?: boolean
   /** 총을 쏜 라운드마다 바뀌는 키 — 반동·화염 애니메이션을 다시 재생시킨다. */
   fxKey?: number
   height?: number | string
@@ -63,14 +61,16 @@ interface GunslingerProps {
 export function Gunslinger({
   pose,
   outfit,
-  firing = false,
+  fired = false,
   flip = false,
   fxKey = 0,
   height = '100%',
 }: GunslingerProps) {
   const [upperArm, foreArm] = ARM[pose]
-  const armed = pose === 'draw'
-  const shooting = armed && firing
+  const armed = fired || pose === 'draw'
+  // 화염·반동은 겨눈 자세에서만 터진다. 자세가 바뀔 때마다 다시 재생되면 맞는 순간
+  // 총구가 한 번 더 번쩍인다 — 맞은 사람이 스스로 쏜 것처럼 보인다.
+  const shooting = fired && pose === 'draw'
   const down = pose === 'dead'
   // 한 화면에 여러 총잡이가 있어도 그라디언트가 섞이지 않게 인스턴스별 id를 쓴다.
   const gradientId = `duel-body-${useId().replace(/:/g, '')}`

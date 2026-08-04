@@ -140,7 +140,7 @@ export function Arena({
         style={{ bottom: '28%', left: '17%', transform: 'translateX(-50%)' }}
       >
         <Gunslinger
-          firing={leftShot !== null}
+          fired={leftShot !== null}
           fxKey={fxKey}
           height="var(--gs-h)"
           outfit={left.outfit}
@@ -152,7 +152,7 @@ export function Arena({
         style={{ bottom: '28%', right: '17%', transform: 'translateX(50%)' }}
       >
         <Gunslinger
-          firing={rightShot !== null}
+          fired={rightShot !== null}
           flip
           fxKey={fxKey}
           height="var(--gs-h)"

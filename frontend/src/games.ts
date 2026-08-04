@@ -54,7 +54,7 @@ export const games: [Game, ...Game[]] = [
   },
   {
     key: 'duel',
-    name: '정오의 결투',
+    name: '석양이 진다',
     tagline: '신호가 뜨는 순간, 먼저 뽑으세요.',
     description: '먼저 3발 맞히는 쪽이 살아남는 반응 속도 대결',
     players: '2 PLAYERS',
