@@ -1,6 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { creatorPlayer, dashboardSession, waitingRoomSnapshot } from '@/mocks/fixtures'
+import {
+  creatorPlayer,
+  creatorSession,
+  dashboardSession,
+  waitingRoomSnapshot,
+} from '@/mocks/fixtures'
 import { PartyDashboardPage } from '@/room/screens/PartyDashboardPage'
 import { useAppStore } from '@/store'
 
@@ -120,6 +125,19 @@ describe('PartyDashboardPage', () => {
       expect(navigate).toHaveBeenCalledWith(
         expect.objectContaining({ to: '/rooms/$roomId/game', replace: true }),
       ),
+    )
+  })
+
+  it('이전 일반 방의 진행 상태로 파티 화면을 이동시키지 않는다', () => {
+    useAppStore.getState().setRoomSession({
+      ...creatorSession,
+      snapshot: { ...waitingRoomSnapshot, phase: 'playing' },
+    })
+
+    render(<PartyDashboardPage gameKey="pingpong" />)
+
+    expect(navigate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ to: '/rooms/$roomId/game' }),
     )
   })
 

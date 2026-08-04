@@ -65,13 +65,13 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
 
   // 게임이 시작되면 관전 뷰로 넘어간다. 이동은 phase가 시킨다(방 전체가 함께 움직인다).
   useEffect(() => {
-    if (!roomSession || !roomSnapshot || roomSnapshot.phase === 'waiting') return
+    if (!isDashboard || !roomSession || !roomSnapshot || roomSnapshot.phase === 'waiting') return
     void navigate({
       to: '/rooms/$roomId/game',
       params: { roomId: roomSession.roomId },
       replace: true,
     })
-  }, [navigate, roomSession, roomSnapshot])
+  }, [isDashboard, navigate, roomSession, roomSnapshot])
 
   if (!isDashboard || !roomSession) {
     return (
