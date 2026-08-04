@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -14,8 +15,7 @@ class PingPongRulesTest {
 
     @Test
     void exactTimingReturnsASmashAndDuplicateInputIsIgnored() {
-        PingPongState initial = PingPongRules.initial(List.of(P1, P2), 1_000);
-        PingPongState served = PingPongRules.serve(initial, 4_000, 0.7);
+        PingPongState served = startMatch();
 
         PingPongState smashed = PingPongRules.swing(served, P1, 1, 4_900, 0.3);
         PingPongState duplicate = PingPongRules.swing(smashed, P1, 1, 4_901, 0.4);
@@ -29,8 +29,7 @@ class PingPongRulesTest {
 
     @Test
     void missingTheBallAwardsTheOpponentWithoutChangingServeAfterOnePoint() {
-        PingPongState initial = PingPongRules.initial(List.of(P1, P2), 1_000);
-        PingPongState served = PingPongRules.serve(initial, 4_000, 0.7);
+        PingPongState served = startMatch();
 
         PingPongState point = PingPongRules.expire(served, served.nextActionAt());
 
@@ -78,6 +77,36 @@ class PingPongRulesTest {
         assertThat(finished.lastEvent().type()).isEqualTo(PingPongState.EventType.OPPONENT_LEFT);
     }
 
+    @Test
+    void bothPlayersPracticeAndReadyBeforeTheCountdownStarts() {
+        PingPongState state = PingPongRules.initial(List.of(P1, P2), 1_000);
+        assertThat(state.phase()).isEqualTo(PingPongState.Phase.PREPARING);
+        assertThat(state.nextActionAt()).isZero();
+
+        PingPongState ignoredReady = PingPongRules.ready(state, P1, 1_100);
+        assertThat(ignoredReady).isEqualTo(state);
+
+        PingPongState p1Practiced = PingPongRules.swing(state, P1, 0, 1_200, 0.5);
+        PingPongState p1Ready = PingPongRules.ready(p1Practiced, P1, 1_300);
+        assertThat(p1Ready.phase()).isEqualTo(PingPongState.Phase.PREPARING);
+        assertThat(p1Ready.readyPlayerIds()).containsExactly(P1);
+
+        PingPongState p2Practiced = PingPongRules.swing(p1Ready, P2, 0, 1_400, 0.5);
+        PingPongState allReady = PingPongRules.ready(p2Practiced, P2, 1_500);
+        assertThat(allReady.phase()).isEqualTo(PingPongState.Phase.COUNTDOWN);
+        assertThat(allReady.readyPlayerIds()).containsExactlyInAnyOrder(P1, P2);
+        assertThat(allReady.nextActionAt()).isEqualTo(1_500 + PingPongRules.POINT_COUNTDOWN_MILLIS);
+    }
+
+    private PingPongState startMatch() {
+        PingPongState state = PingPongRules.initial(List.of(P1, P2), 1_000);
+        state = PingPongRules.swing(state, P1, 0, 1_100, 0.5);
+        state = PingPongRules.ready(state, P1, 1_200);
+        state = PingPongRules.swing(state, P2, 0, 1_300, 0.5);
+        state = PingPongRules.ready(state, P2, 1_400);
+        return PingPongRules.serve(state, 4_000, 0.7);
+    }
+
     private PingPongState playingAtScore(int p1, int p2) {
         return new PingPongState(
                 1,
@@ -85,6 +114,7 @@ class PingPongRulesTest {
                 List.of(P1, P2),
                 Map.of(P1, p1, P2, p2),
                 Map.of(P1, -1L, P2, -1L),
+                Set.of(P1, P2),
                 new PingPongState.Ball(0, 1, PingPongRules.NORMAL_SPEED, false, null, 0, 0.5, 0.5, 1_000),
                 0,
                 P1,
