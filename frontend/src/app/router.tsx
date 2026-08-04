@@ -176,9 +176,13 @@ const joinRoute = createRoute({
 const partyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/party',
+  validateSearch: (search: Record<string, unknown>) => ({
+    game: search.game === 'pingpong' ? ('pingpong' as const) : ('yacht' as const),
+  }),
   component: () => {
+    const { game } = partyRoute.useSearch()
     const wide = useMediaQuery('(min-width: 760px)')
-    return wide ? <PartyDashboardPage /> : <PartyOnBigScreenPage />
+    return wide ? <PartyDashboardPage gameKey={game} /> : <PartyOnBigScreenPage gameKey={game} />
   },
 })
 

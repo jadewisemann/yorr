@@ -64,7 +64,7 @@ export function PingPongModePage() {
           <p className="m-0 font-mono text-xs tracking-[0.22em] text-white/45">PING · PONG</p>
           <h1 className="mt-2 mb-0 text-3xl font-black">플레이 모드</h1>
           <p className="mt-2 mb-0 text-sm leading-relaxed text-white/55">
-            혼자 연습하거나, 한 화면에서 맞붙거나,
+            혼자 연습하거나, QR로 두 휴대폰을 연결하거나,
             <br />
             초대 링크로 온라인 대전을 시작하세요.
           </p>
@@ -91,12 +91,12 @@ export function PingPongModePage() {
 
           <button
             className="min-h-16 rounded-2xl border border-[#ff8b7c]/45 bg-[#ff8b7c]/12 px-5 text-left transition active:scale-[0.99] active:bg-[#ff8b7c]/20"
-            onClick={() => setLocal({ difficulty: 'normal', mode: 'duo' })}
+            onClick={() => void navigate({ to: '/party', search: { game: 'pingpong' } })}
             type="button"
           >
             <strong className="block text-base text-[#ffb0a5]">1:1 파티 모드</strong>
             <span className="mt-1 block text-xs text-white/50">
-              한 화면을 반으로 나눠 바로 대전
+              대기실 QR로 두 폰을 연결해 대전
             </span>
           </button>
 

@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { Button } from '@/shared/components/Button'
+import type { PartyGameKey } from './PartyDashboardPage'
 
 /**
  * 좁은 화면으로 `/party`에 들어왔을 때. 랜딩에는 이 진입점이 아예 없으므로 여기 오는 경우는
@@ -9,7 +10,7 @@ import { Button } from '@/shared/components/Button'
  * 경험이다(자기 화면을 자기가 들고 있으면 남이 볼 게임판이 아니다). 그래서 랜딩에도 비활성
  * 버튼조차 두지 않고, 여기서는 무엇을 하면 되는지만 알려준 뒤 정상 경로로 돌려보낸다.
  */
-export function PartyOnBigScreenPage() {
+export function PartyOnBigScreenPage({ gameKey }: { gameKey: PartyGameKey }) {
   const navigate = useNavigate()
 
   return (
@@ -27,7 +28,7 @@ export function PartyOnBigScreenPage() {
       <div className="mt-auto grid gap-2.5">
         <Button
           className="min-h-[3.625rem] w-full rounded-panel text-lg"
-          onClick={() => void navigate({ to: '/join', search: { code: undefined, game: 'yacht' } })}
+          onClick={() => void navigate({ to: '/join', search: { code: undefined, game: gameKey } })}
           size="lg"
         >
           폰으로 그냥 플레이하기

@@ -13,7 +13,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 describe('PingPongModePage', () => {
   beforeEach(() => navigate.mockReset())
 
-  it('offers bot, local party, and online modes', () => {
+  it('offers bot, phone party, and online modes', () => {
     render(<PingPongModePage />)
 
     expect(screen.getByRole('button', { name: '쉬움' })).toBeEnabled()
@@ -21,6 +21,15 @@ describe('PingPongModePage', () => {
     expect(screen.getByRole('button', { name: '어려움' })).toBeEnabled()
     expect(screen.getByRole('button', { name: /1:1 파티 모드/ })).toBeEnabled()
     expect(screen.getByRole('button', { name: /온라인 모드/ })).toBeEnabled()
+  })
+
+  it('opens a ping pong party room for two phone controllers', async () => {
+    const user = userEvent.setup()
+    render(<PingPongModePage />)
+
+    await user.click(screen.getByRole('button', { name: /1:1 파티 모드/ }))
+
+    expect(navigate).toHaveBeenCalledWith({ to: '/party', search: { game: 'pingpong' } })
   })
 
   it('keeps online play on the existing YORR room flow', async () => {

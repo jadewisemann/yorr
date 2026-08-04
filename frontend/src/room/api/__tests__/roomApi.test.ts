@@ -11,6 +11,32 @@ const auth = {
   userId: creatorSession.you,
 }
 
+describe('파티 방 생성', () => {
+  it('선택한 탁구 게임 코드와 대시보드 모드를 요청한다', async () => {
+    let search = ''
+    mockApiServer.use(
+      http.post('/api/v1/rooms', ({ request }) => {
+        search = new URL(request.url).search
+        return HttpResponse.json({
+          game_code: 'PING_PONG',
+          id: 'dashboard-1',
+          nickname: '대시보드',
+          room_id: 'PING64',
+          token: 'dashboard-token',
+        })
+      }),
+    )
+
+    await expect(client.createPartyRoom('PING_PONG')).resolves.toMatchObject({
+      gameCode: 'PING_PONG',
+      membershipRole: 'dashboard',
+      roomCode: 'PING64',
+    })
+    expect(new URLSearchParams(search).get('game_code')).toBe('PING_PONG')
+    expect(new URLSearchParams(search).get('party')).toBe('true')
+  })
+})
+
 function respondToGame(body: unknown) {
   // 일부러 형태가 어긋난 응답(배열·문자열 필드 등)까지 흘려보내 클라이언트 쪽 검증을 확인한다 —
   // 그래서 body는 unknown이고, HttpResponse.json 쪽 타입에 맞추기 위해서만 캐스팅한다.
