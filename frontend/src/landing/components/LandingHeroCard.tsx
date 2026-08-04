@@ -28,6 +28,7 @@ interface LandingHeroCardProps {
  */
 export function LandingHeroCard({ game, layout, onPartyMode, onPlay }: LandingHeroCardProps) {
   const wide = layout === 'wide'
+  const actionLayout = actionLayoutClass(wide, game.key)
 
   return (
     <div
@@ -162,8 +163,8 @@ export function LandingHeroCard({ game, layout, onPartyMode, onPlay }: LandingHe
             진입은 왼쪽에 붙는다. 나중에 빠른 대전도 이 줄에 들어온다.
             모든 자식의 높이가 같아야 한다(h-18/h-15) — 이 자리가 위아래로 뛰면 캐러셀이
             카드를 미끄러뜨릴 때 슬라이드가 흔들려 보인다(아래 HeroCta 주석과 같은 이유). */}
-        <div className={cn('flex flex-none', wide ? 'items-stretch gap-2.5' : 'gap-2')}>
-          {(wide || game.key === 'pingpong') && game.live && (
+        <div className={cn('flex-none', actionLayout)}>
+          {showSecondaryAction(wide, game) && (
             <PartyModeEntry
               kind={game.key === 'pingpong' ? 'ai' : 'party'}
               layout={layout}
@@ -175,6 +176,16 @@ export function LandingHeroCard({ game, layout, onPartyMode, onPlay }: LandingHe
       </div>
     </div>
   )
+}
+
+function actionLayoutClass(wide: boolean, gameKey: Game['key']) {
+  if (wide) return 'flex items-stretch gap-2.5'
+  if (gameKey === 'pingpong') return 'grid w-full grid-cols-2 gap-2'
+  return 'flex gap-2'
+}
+
+function showSecondaryAction(wide: boolean, game: Game) {
+  return game.live && (wide || game.key === 'pingpong')
 }
 
 /** 카드 안쪽 액자. 네 모서리가 보이는 순간 비대칭(예전 left-11 / right-10)은 실수로 읽힌다. */

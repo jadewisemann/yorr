@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { type GameCode, gameByCode } from '@/games'
+import { PingPongControllerSetup } from '@/pingpong/PingPongController'
 import { PeerMicButton } from '@/realtime/voice/PeerMicButton'
 import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
 import { useVoice } from '@/realtime/voice/VoiceContext'
@@ -51,6 +52,10 @@ function isDuoGame(gameCode: GameCode | undefined): boolean {
   return gameCode === 'PING_PONG' || gameCode === 'DUEL'
 }
 
+function isPingPongGame(snapshotCode: GameCode | undefined, sessionCode: GameCode | undefined) {
+  return snapshotCode === 'PING_PONG' || sessionCode === 'PING_PONG'
+}
+
 export function LobbyPage({ roomId }: LobbyPageProps) {
   const navigate = useNavigate()
   const roomSession = useAppStore((state) => state.roomSession)
@@ -70,6 +75,10 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const capacity = roomSnapshot?.capacity ?? 6
   const duoGame =
     isDuoGame(roomSnapshot?.gameCode) || (matchingRoom && isDuoGame(roomSession?.gameCode))
+  const pingPong = isPingPongGame(
+    roomSnapshot?.gameCode,
+    matchingRoom ? roomSession?.gameCode : undefined,
+  )
   const minPlayersToStart = duoGame ? 2 : 1
   const botMutationLoading = addBot.isLoading || removeBot.isLoading
   const botMutationError = addBot.error ?? removeBot.error
@@ -198,6 +207,8 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
         </header>
 
         <InvitationPanel roomCode={roomSession.roomCode} />
+
+        {pingPong && <PingPongControllerSetup />}
 
         <BotManagementPanel
           adding={addBot.isLoading}

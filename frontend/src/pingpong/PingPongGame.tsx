@@ -1,17 +1,14 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
-import {
-  buildClientMessage,
-  type PingPongEventType,
-  type PingPongState,
-  type RoomSnapshot,
-} from '@/realtime/wsEvents'
+import { buildClientMessage, type PingPongState, type RoomSnapshot } from '@/realtime/wsEvents'
 import { isRoomHost } from '@/room/api/roomApi'
 import { useReturnToLobby } from '@/room/api/useGameApi'
 import { Button } from '@/shared/components/Button'
 import { useSwing } from '@/shared/useSwing'
 import type { ActiveRoomSession } from '@/store'
 import { type Fault, flightProgress } from './court'
+import { feedbackTextClass, sharedEventLabel } from './feedback'
+import { ComboBadge, PingPongController } from './PingPongController'
 import { type PlayerTracking, trackIncomingBall } from './playerTracking'
 import { createScene, type FrameState, type PingPongScene } from './scene3d'
 
@@ -130,91 +127,19 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
     )
   }
 
-  const me = state.playerOrder.indexOf(session.you)
-  const opponentId = state.playerOrder[me === 0 ? 1 : 0] ?? ''
-  const opponent = snapshot.players.find((player) => player.playerId === opponentId)
-  const countdown =
-    state.phase === 'COUNTDOWN' ? Math.max(1, Math.ceil((state.nextActionAt - clock) / 1_000)) : 0
-  const label = state.lastEvent
-    ? eventLabel(state.lastEvent.type, state.lastEvent.playerId === session.you)
-    : null
-
   return (
-    <main className="relative h-svh w-full overflow-hidden bg-[#070b12] text-white">
-      <canvas
-        aria-label="3D 탁구 코트"
-        className="absolute inset-0 size-full touch-none"
-        onPointerDown={swing}
-        ref={canvasRef}
-      />
-
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-3 p-4 pt-[max(1rem,env(safe-area-inset-top))]">
-        <Score name={session.nickname} score={state.scores[session.you] ?? 0} tone="blue" />
-        <div className="mt-1 rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-center font-mono text-xs tracking-[0.14em] backdrop-blur-md">
-          RALLY {state.rally}
-        </div>
-        <Score
-          name={opponent?.nickname ?? '상대'}
-          score={state.scores[opponentId] ?? 0}
-          tone="red"
-        />
-      </header>
-
-      <button
-        className="absolute top-[max(5.5rem,calc(env(safe-area-inset-top)+4.5rem))] left-4 z-20 min-h-11 rounded-full border border-white/20 bg-black/45 px-4 text-sm backdrop-blur-md"
-        onClick={(event) => {
-          event.stopPropagation()
-          onLeaveRequest()
-        }}
-        type="button"
-      >
-        나가기
-      </button>
-
-      {countdown > 0 && (
-        <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
-          <div className="grid size-32 place-items-center rounded-full border border-white/20 bg-black/45 font-mono text-7xl font-black backdrop-blur-md">
-            {countdown}
-          </div>
-        </div>
-      )}
-
-      {label && clock - (state.lastEvent?.at ?? 0) < 900 && (
-        <div className="pointer-events-none absolute inset-x-0 top-[24%] z-10 text-center text-3xl font-black drop-shadow-[0_3px_12px_rgb(0_0_0_/_80%)]">
-          {label}
-        </div>
-      )}
-
-      <section className="absolute inset-x-0 bottom-0 z-20 grid justify-items-center gap-2 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-        {permission === 'unknown' && (
-          <button
-            className="min-h-11 rounded-full border border-[#49e08a]/50 bg-[#49e08a]/15 px-5 text-sm font-bold text-[#8dffc0] backdrop-blur-md"
-            onClick={(event) => {
-              event.stopPropagation()
-              void requestPermission()
-            }}
-            type="button"
-          >
-            휴대폰 스윙 켜기
-          </button>
-        )}
-        <button
-          className="min-h-14 w-full max-w-sm rounded-2xl border border-white/20 bg-white/12 px-6 text-lg font-black backdrop-blur-md active:scale-[0.98] active:bg-white/20"
-          onClick={(event) => {
-            event.stopPropagation()
-            swing()
-          }}
-          type="button"
-        >
-          탭 또는 폰을 휘둘러 스윙
-        </button>
-        {sendError && (
-          <p className="m-0 rounded-full bg-black/55 px-3 py-1 text-sm text-red-300" role="alert">
-            {sendError}
-          </p>
-        )}
-      </section>
-    </main>
+    <PingPongController
+      clock={clock}
+      error={sendError}
+      nickname={session.nickname}
+      onLeave={onLeaveRequest}
+      onSwing={swing}
+      permission={permission}
+      playerId={session.you}
+      requestPermission={requestPermission}
+      snapshot={snapshot}
+      state={state}
+    />
   )
 }
 
@@ -237,6 +162,10 @@ function PingPongDashboard({
   const secondPlayer = snapshot.players.find((player) => player.playerId === secondPlayerId)
   const countdown =
     state.phase === 'COUNTDOWN' ? Math.max(1, Math.ceil((state.nextActionAt - clock) / 1_000)) : 0
+  const event = state.lastEvent
+  const eventAge = event ? clock - event.at : Number.POSITIVE_INFINITY
+  const actor = snapshot.players.find((player) => player.playerId === event?.playerId)
+  const label = event ? sharedEventLabel(event.type, actor?.nickname ?? '플레이어') : null
 
   return (
     <main className="relative h-svh w-full overflow-hidden bg-[#070b12] text-white">
@@ -274,6 +203,17 @@ function PingPongDashboard({
           </div>
         </div>
       )}
+      {label && event && eventAge < 900 && (
+        <div
+          className={`animate-pp-feedback-pop pointer-events-none absolute inset-x-0 top-[24%] z-10 text-center text-4xl font-black drop-shadow-[0_3px_12px_rgb(0_0_0_/_80%)] ${feedbackTextClass(event.type)}`}
+        >
+          {label}
+        </div>
+      )}
+      {event?.type === 'SMASH' && eventAge < 220 && (
+        <div className="animate-pp-smash-flash pointer-events-none absolute inset-0 z-[5] bg-[radial-gradient(circle_at_50%_55%,rgb(255_150_110_/_45%),transparent_70%)]" />
+      )}
+      {state.rally > 0 && <ComboBadge count={state.rally} />}
       <p className="pointer-events-none absolute inset-x-0 bottom-5 z-20 m-0 text-center text-sm text-white/55">
         두 플레이어가 각자 휴대폰으로 조작하고 있어요.
       </p>
@@ -466,22 +406,4 @@ function createFrameState(
     p2Swing: eventPlayer === state.playerOrder[1] ? swingAmount : 0,
     shake: state.lastEvent?.type === 'SMASH' && eventAge < 190 ? 1 - eventAge / 190 : 0,
   }
-}
-
-const EVENT_LABELS: Partial<
-  Record<PingPongEventType, readonly [mine: string | null, opponent: string | null]>
-> = {
-  SMASH: ['스매시! 💥', '상대 스매시!'],
-  NICE: ['퍼펙트!', '상대가 받아쳤어요'],
-  OK: ['굿!', '리턴!'],
-  TOO_EARLY: ['너무 빨라요', null],
-  TOO_LATE: ['너무 늦었어요', null],
-  OUT: ['아웃!', '상대 아웃!'],
-  NET: ['네트…', '상대 네트!'],
-  POINT: ['득점!', '실점'],
-  OPPONENT_LEFT: ['상대가 나갔어요', '상대가 나갔어요'],
-}
-
-function eventLabel(type: PingPongEventType, mine: boolean) {
-  return EVENT_LABELS[type]?.[mine ? 0 : 1] ?? null
 }
