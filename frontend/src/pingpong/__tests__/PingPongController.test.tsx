@@ -181,12 +181,12 @@ describe('PingPongController', () => {
     expect(onTouchSwing).toHaveBeenCalledOnce()
   })
 
-  it('uses a red paddle for player 2', () => {
+  it('uses a red paddle and P2 identity for player 2', () => {
     render(
       <PingPongController
         clock={1_100}
         error={null}
-        nickname="P2"
+        nickname="이유정"
         onLeave={vi.fn()}
         onReady={vi.fn()}
         onTouchSwing={vi.fn()}
@@ -199,6 +199,7 @@ describe('PingPongController', () => {
     )
 
     expect(screen.getByTestId('ping-pong-paddle-face')).toHaveAttribute('data-player-tone', 'red')
+    expect(screen.getByText('P2')).toBeVisible()
   })
 
   it('shows deuce and match point between rallies', () => {

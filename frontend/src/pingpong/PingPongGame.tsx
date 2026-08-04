@@ -216,6 +216,7 @@ function PingPongDashboard({
         <Score
           name={firstPlayer?.nickname ?? 'P1'}
           score={state.scores[firstPlayerId] ?? 0}
+          tag="P1"
           tone="blue"
         />
         <div className="mt-1 rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-center font-mono text-xs tracking-[0.14em] backdrop-blur-md">
@@ -224,6 +225,7 @@ function PingPongDashboard({
         <Score
           name={secondPlayer?.nickname ?? 'P2'}
           score={state.scores[secondPlayerId] ?? 0}
+          tag="P2"
           tone="red"
         />
       </header>
@@ -438,18 +440,27 @@ function Score({
   name,
   score,
   tone,
+  tag,
   large = false,
 }: {
   name: string
   score: number
   tone: 'blue' | 'red'
+  tag?: string
   large?: boolean
 }) {
   return (
     <div
       className={`grid min-w-20 text-center ${tone === 'blue' ? 'text-[#73bfff]' : 'text-[#ff8b7c]'}`}
     >
-      <span className="max-w-28 truncate text-xs font-bold text-white/65">{name}</span>
+      <span className="flex min-w-0 items-center justify-center gap-1 text-xs font-bold text-white/65">
+        {tag && (
+          <span className="rounded border border-current px-1 font-mono text-[10px] font-black leading-none">
+            {tag}
+          </span>
+        )}
+        <span className="max-w-28 truncate">{name}</span>
+      </span>
       <strong className={`font-mono leading-none ${large ? 'text-7xl' : 'text-4xl'}`}>
         {score}
       </strong>

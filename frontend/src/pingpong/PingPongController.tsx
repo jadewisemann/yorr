@@ -84,7 +84,11 @@ export function PingPongController({
   state,
 }: PingPongControllerProps) {
   const view = controllerView(state, snapshot, playerId, clock)
-  const paddleTone = state.playerOrder.indexOf(playerId) === 1 ? 'red' : 'blue'
+  const myIndex = state.playerOrder.indexOf(playerId)
+  const paddleTone: PaddleTone = myIndex === 1 ? 'red' : 'blue'
+  const opponentTone: PaddleTone = paddleTone === 'blue' ? 'red' : 'blue'
+  const myLabel = `P${myIndex === 1 ? 2 : 1}`
+  const opponentLabel = `P${myIndex === 1 ? 1 : 2}`
 
   if (state.phase === 'PREPARING') {
     return (
@@ -124,7 +128,12 @@ export function PingPongController({
       </header>
 
       <section className="mt-4 flex flex-none items-center justify-between rounded-2xl border border-white/12 bg-white/6 px-4 py-3">
-        <ControllerScore label="나" score={state.scores[playerId] ?? 0} tone="blue" />
+        <ControllerScore
+          label="나"
+          score={state.scores[playerId] ?? 0}
+          tag={myLabel}
+          tone={paddleTone}
+        />
         <div className="text-center">
           <span className="block font-mono text-[11px] tracking-[0.14em] text-white/40">RALLY</span>
           <strong className="font-mono text-2xl">{state.rally}</strong>
@@ -132,7 +141,8 @@ export function PingPongController({
         <ControllerScore
           label={view.opponentName}
           score={state.scores[view.opponentId] ?? 0}
-          tone="red"
+          tag={opponentLabel}
+          tone={opponentTone}
         />
       </section>
 
@@ -439,15 +449,22 @@ function paddleFaceClass(tone: PaddleTone) {
 function ControllerScore({
   label,
   score,
+  tag,
   tone,
 }: {
   label: string
   score: number
+  tag: string
   tone: 'blue' | 'red'
 }) {
   return (
     <div className={tone === 'blue' ? 'text-[#73bfff]' : 'text-[#ff8b7c]'}>
-      <span className="block max-w-24 truncate text-xs font-bold text-white/55">{label}</span>
+      <span className="flex max-w-24 items-center gap-1 text-xs font-bold text-white/55">
+        <span className="rounded border border-current px-1 font-mono text-[10px] font-black leading-none">
+          {tag}
+        </span>
+        <span className="truncate">{label}</span>
+      </span>
       <strong className="font-mono text-3xl leading-none">{score}</strong>
     </div>
   )
