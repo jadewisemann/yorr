@@ -181,7 +181,7 @@ function TurnStatus({
       </span>
       <span
         className={cn(
-          'flex items-center gap-1.5 truncate text-[16px] font-bold transition-colors duration-(--ds-motion-base) motion-safe:animate-turn-flash',
+          'flex min-w-0 items-center gap-1.5 text-[16px] font-bold transition-colors duration-(--ds-motion-base) motion-safe:animate-turn-flash',
           !isMyTurn && activePlayer && 'text-brand-soft',
         )}
         key={activePlayerId ?? 'sync'}
@@ -193,7 +193,22 @@ function TurnStatus({
             turnDotClass(isMyTurn, submitted, activePlayer !== undefined),
           )}
         />
-        {turnStatusLabel(isMyTurn, submitted, activePlayer?.nickname)}
+        {/*
+          truncate는 글자를 가진 요소에 걸어야 한다 — flex 컨테이너에 걸면 text-overflow가
+          익명 플렉스 아이템에 닿지 않아 말줄임 없이 그냥 잘린다. 320px에서 「내 턴이에요」가
+          「내 턴이」로 끊겨 오작동처럼 읽혔다.
+
+          그리고 이 칸은 320px에서 56px뿐이라(Round 라벨 주석의 계산) 말줄임을 붙여도 한 글자
+          남는다 — 그 폭에서는 짧은 라벨로 바꿔 통째로 들어가게 한다. 정확한 상태는 위의
+          sr-only h1과 트레이 안내문이 이미 말한다. 두 벌을 놓고 CSS로 고르는 이유: display:none
+          쪽은 낭독되지 않으므로 보조기기도 보이는 것만 읽는다.
+        */}
+        <span className="truncate max-tiny:hidden">
+          {turnStatusLabel(isMyTurn, submitted, activePlayer?.nickname)}
+        </span>
+        <span className="hidden truncate max-tiny:inline">
+          {shortTurnStatusLabel(isMyTurn, submitted, activePlayer?.nickname)}
+        </span>
       </span>
     </span>
   )
@@ -203,6 +218,17 @@ function turnStatusLabel(isMyTurn: boolean, submitted: boolean, activePlayerName
   if (isMyTurn && !submitted) return '내 턴이에요'
   if (isMyTurn) return '제출 완료 · 대기 중'
   return activePlayerName ? `${activePlayerName}의 턴` : '턴 동기화 중'
+}
+
+/**
+ * 320~359px용 짧은 라벨. 없는 정보를 만들지 않고 같은 사실을 짧게 말한다 —
+ * 「제출 완료 · 대기 중」의 뒷말은 앞말에 이미 들어 있고, 남의 턴은 닉네임만으로도 읽힌다
+ * (그 옆의 턴 점이 진행 중임을 말한다).
+ */
+function shortTurnStatusLabel(isMyTurn: boolean, submitted: boolean, activePlayerName?: string) {
+  if (isMyTurn && !submitted) return '내 턴'
+  if (isMyTurn) return '제출 완료'
+  return activePlayerName ?? '동기화 중'
 }
 
 function turnDotClass(isMyTurn: boolean, submitted: boolean, hasActivePlayer: boolean) {
