@@ -112,10 +112,11 @@ export function Arena({
 
       <SignalLamp phase={phase} round={round} />
 
-      <div className="absolute" style={{ left: 12, top: 50 }}>
+      {/* 왼쪽 이름표는 나가기 버튼(높이 44 + 상단 12) 바로 아래에 선다 — 겹치면 이름이 잘린다. */}
+      <div className="absolute" style={{ left: 12, top: 62 }}>
         <Plate align="left" fighter={left} maxFouls={maxFouls} maxHp={maxHp} />
       </div>
-      <div className="absolute" style={{ right: 12, top: 50 }}>
+      <div className="absolute" style={{ right: 12, top: 62 }}>
         <Plate align="right" fighter={right} maxFouls={maxFouls} maxHp={maxHp} />
       </div>
 
