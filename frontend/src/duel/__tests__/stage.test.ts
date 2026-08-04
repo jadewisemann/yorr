@@ -25,13 +25,14 @@ function round(overrides: Partial<DuelRound> = {}): DuelRound {
   return { at: 0, kind: 'SHOT', number: 1, over: false, ...overrides }
 }
 
-function stage(overrides: Partial<DuelState>, impact = false) {
+function stage(overrides: Partial<DuelState>, impact = false, youDrew = false) {
   return buildStage({
     impact,
     opponentId: RIVAL,
     opponentName: '상대',
     state: duelState(overrides),
     you: ME,
+    youDrew,
   })
 }
 
@@ -107,6 +108,43 @@ describe('buildStage', () => {
     expect(view.selfShot).toBe(true)
     expect(view.left.pose).toBe('hit')
     expect(view.left.hp).toBe(2)
+  })
+
+  /** 서버 왕복을 기다리면 뽑아 놓고 가만히 서 있는 프레임이 생긴다 — 입력을 먹은 것처럼 보인다. */
+  it('방아쇠를 당기면 서버 응답 전에 총이 나간다', () => {
+    const signal = { phase: 'SIGNAL' as const, signalAt: 1_000 }
+
+    expect(stage(signal).left.pose).toBe('ready')
+    expect(stage(signal, false, true).left.pose).toBe('draw')
+  })
+
+  /** 신호 전에 당겨도 총은 나간다 — 발밑으로 쏜 것을 곧바로 보여줘야 성급했음이 읽힌다. */
+  it('신호 전에 당겨도 곧바로 총이 나간다', () => {
+    expect(stage({}, false, true).left.pose).toBe('draw')
+  })
+
+  it('진 쪽도 총알이 닿기 전까지는 겨눈 자세를 유지한다', () => {
+    const slower = {
+      hp: { [ME]: 2, [RIVAL]: 3 },
+      lastRound: round({ hitId: ME, shooterId: RIVAL }),
+      phase: 'RESULT' as const,
+      reactions: { [ME]: 320, [RIVAL]: 190 },
+    }
+
+    expect(stage(slower).left.pose).toBe('draw')
+    expect(stage(slower, true).left.pose).toBe('hit')
+  })
+
+  it('얼어붙어 못 뽑은 쪽은 끝까지 홀스터에 손을 얹고 있다', () => {
+    const frozen = {
+      hp: { [ME]: 2, [RIVAL]: 3 },
+      lastRound: round({ hitId: ME, shooterId: RIVAL }),
+      phase: 'RESULT' as const,
+      reactions: { [ME]: -2, [RIVAL]: 190 },
+    }
+
+    expect(stage(frozen).left.pose).toBe('ready')
+    expect(stage(frozen, true).left.pose).toBe('hit')
   })
 
   it('내가 뽑고 상대를 기다리는 동안에는 내 기록만 보여준다', () => {

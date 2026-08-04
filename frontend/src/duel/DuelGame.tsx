@@ -47,6 +47,12 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
   const [impact, setImpact] = useState(false)
   const [motionOn, setMotionOn] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  /**
+   * 방아쇠를 당긴 라운드. 서버 응답을 기다리지 않고 총이 나가게 하려고 로컬로 기억한다.
+   * 라운드 번호를 담는 이유는 다음 라운드가 열리는 순간 비교만으로 자연히 풀리기 때문이다 —
+   * effect로 되돌리면 새 라운드의 첫 프레임에 총을 뽑은 자세가 한 번 스친다.
+   */
+  const [drewRound, setDrewRound] = useState(0)
 
   stateRef.current = state
   // 라운드는 WAITING → SIGNAL → RESULT 를 정확히 한 번씩 거치므로, 아래 두 타이밍은
@@ -77,6 +83,8 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
       current.phase === 'SIGNAL' && signalSeenAt.current !== null
         ? Math.round(performance.now() - signalSeenAt.current)
         : DUEL_FOUL
+    // 총은 지금 나간다. 판정은 서버가 하지만 손맛까지 왕복 지연을 기다릴 이유는 없다.
+    setDrewRound(current.round)
     try {
       client.send(
         buildClientMessage(
@@ -87,6 +95,8 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
       )
       setSendError(null)
     } catch {
+      // 못 보냈으면 뽑지 않은 것이다 — 자세를 되돌려 다시 뽑을 수 있게 한다.
+      setDrewRound(0)
       setSendError('연결을 확인한 뒤 다시 뽑아 주세요.')
     }
   }, [client, roomId, session.you])
@@ -128,6 +138,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
           opponentName: opponent?.nickname ?? '상대',
           state,
           you: session.you,
+          youDrew: drewRound === state.round,
         })}
         actLabel={swinging ? '휘둘러!' : 'TAP'}
         fxKey={state.round}
