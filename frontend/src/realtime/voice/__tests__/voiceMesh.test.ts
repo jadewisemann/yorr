@@ -7,9 +7,11 @@ import { VoiceMesh } from '../voiceMesh'
  * VoiceMesh가 **직접 정하는 두 규칙**만 본다 — 둘 다 틀리면 통화가 조용히 안 붙는다.
  *   1. offer는 playerId가 작은 쪽만 만든다(glare 방지)
  *   2. remote description 전에 온 ICE 후보는 큐에 쌓았다가 나중에 넣는다
+ *   3. failed면 명단을 기다리지 않고 스스로 다시 협상한다
  */
 
 interface FakeConnection {
+  addEventListener: ReturnType<typeof vi.fn>
   addIceCandidate: ReturnType<typeof vi.fn>
   setRemoteDescription: ReturnType<typeof vi.fn>
   createOffer: ReturnType<typeof vi.fn>
@@ -54,6 +56,14 @@ function stubWebRtc() {
     element.play = vi.fn(async () => undefined)
     return element
   })
+}
+
+/** 브라우저가 연결 상태를 바꿨다고 알리는 것을 흉내낸다. 가짜 addEventListener가 기록만 하므로 손으로 부른다. */
+function fireStateChange(connection: FakeConnection, state: string) {
+  connection.connectionState = state
+  for (const [type, listener] of connection.addEventListener.mock.calls) {
+    if (type === 'connectionstatechange') (listener as () => void)()
+  }
 }
 
 function createMesh(you: PlayerId) {
@@ -152,6 +162,54 @@ describe('VoiceMesh', () => {
     if (!connection) throw new Error('연결이 만들어지지 않았다')
     connection.connectionState = 'connected'
     expect(mesh.peerIds()).toEqual(['bbb'])
+  })
+
+  // 명단은 사람이 들락날락할 때만 온다. 여기서 다시 만들지 않으면 폰이 화면 잠금·망 전환으로
+  // 한 번 끊긴 뒤 영구히 "연결 중"에 머문다.
+  it('failed면 명단을 기다리지 않고 다시 협상한다', async () => {
+    vi.useFakeTimers()
+    try {
+      const { mesh, sent } = createMesh('aaa')
+      mesh.syncPeers(['aaa', 'bbb'])
+      await vi.waitFor(() => expect(sent).toHaveLength(1))
+
+      const dead = connections[0]
+      if (!dead) throw new Error('연결이 만들어지지 않았다')
+      fireStateChange(dead, 'failed')
+
+      // 죽은 연결은 즉시 버린다 — 배지가 "연결됨"으로 남으면 화면이 거짓말을 한다.
+      expect(mesh.knownPeerIds()).toEqual([])
+      expect(dead.close).toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(5000)
+
+      // 명단(voice.peers)은 다시 오지 않았는데도 새 연결로 다시 offer를 보냈다.
+      expect(mesh.knownPeerIds()).toEqual(['bbb'])
+      expect(connections).toHaveLength(2)
+      expect(sent).toHaveLength(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('통화를 끄면 재협상 예약도 함께 사라진다', async () => {
+    vi.useFakeTimers()
+    try {
+      const { mesh } = createMesh('aaa')
+      mesh.syncPeers(['aaa', 'bbb'])
+      const dead = connections[0]
+      if (!dead) throw new Error('연결이 만들어지지 않았다')
+
+      fireStateChange(dead, 'failed')
+      mesh.close()
+      await vi.advanceTimersByTimeAsync(5000)
+
+      // 마이크를 끈 뒤 연결이 되살아나면 소리가 새어 나간다.
+      expect(mesh.knownPeerIds()).toEqual([])
+      expect(connections).toHaveLength(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('close는 모든 연결을 닫는다', async () => {
