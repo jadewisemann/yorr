@@ -1,3 +1,4 @@
+import type { GameCode } from '@/games'
 import { useAsyncTask } from '@/shared/api/useAsyncTask'
 import { useAppStore } from '@/store'
 import type { CreateRoomRequest, JoinRoomRequest, RoomSession } from './roomApi'
@@ -19,9 +20,10 @@ export function useCreateRoom() {
 export function useCreatePartyRoom() {
   const setRoomSession = useAppStore((state) => state.setRoomSession)
 
-  return useAsyncTask<[], RoomSession>((signal) => roomApiClient.createPartyRoom({ signal }), {
-    onSuccess: setRoomSession,
-  })
+  return useAsyncTask<[GameCode], RoomSession>(
+    (signal, gameCode) => roomApiClient.createPartyRoom(gameCode, { signal }),
+    { onSuccess: setRoomSession },
+  )
 }
 
 export function useJoinRoom() {

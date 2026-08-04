@@ -1,5 +1,6 @@
 import { delay, HttpResponse, http } from 'msw'
-import type { Player } from '@/realtime/wsEvents'
+import type { GameCode } from '@/games'
+import type { Player, RoomSnapshot } from '@/realtime/wsEvents'
 import type {
   EnterRoomRequest,
   EnterRoomResponse,
@@ -80,12 +81,20 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       await beforeResponse()
       const body = (await request.json()) as EnterRoomRequest
       // ?party=true = 파티 모드 방 열기. 이 세션은 대시보드가 되고 플레이어 명단에 들어가지 않는다.
-      const party = new URL(request.url).searchParams.get('party') === 'true'
-      const session = body.room_id ? participantSession : party ? dashboardSession : creatorSession
+      const search = new URL(request.url).searchParams
+      const party = search.get('party') === 'true'
+      const requestedGameCode = mockGameCode(search.get('game_code'))
+      const session = mockRoomSession(body, party)
       if (body.room_id && body.room_id !== creatorSession.roomCode) {
         return HttpResponse.text('room_not_found', { status: 404 })
       }
-      return unavailable() ?? HttpResponse.json(toEnterRoomResponse(session, body.nickname))
+      const gameCode = enteredGameCode(body, requestedGameCode)
+      if (!body.room_id) {
+        saveMockRoomSnapshot(initialRoomSnapshot(party, gameCode))
+      }
+      return (
+        unavailable() ?? HttpResponse.json(toEnterRoomResponse(session, body.nickname, gameCode))
+      )
     }),
     http.get('/api/v1/games/:gameId', async ({ params }) => {
       await beforeResponse()
@@ -249,11 +258,44 @@ function toRestRoomSnapshot(snapshot: typeof waitingRoomSnapshot) {
 }
 
 /** 대시보드는 닉네임을 보내지 않는다 — 실서버처럼 mock도 그때는 세션의 이름을 돌려준다. */
-function toEnterRoomResponse(session: RoomSession, nickname?: string): EnterRoomResponse {
+function toEnterRoomResponse(
+  session: RoomSession,
+  nickname: string | undefined,
+  gameCode: GameCode,
+): EnterRoomResponse {
   return {
+    game_code: gameCode,
     id: session.you,
     nickname: nickname?.trim() ? nickname : session.nickname,
     token: session.sessionToken,
     room_id: session.roomId,
+  }
+}
+
+function mockGameCode(value: string | null): GameCode {
+  return value === 'PING_PONG' ? 'PING_PONG' : 'YACHT_DICE'
+}
+
+function mockRoomSession(body: EnterRoomRequest, party: boolean): RoomSession {
+  if (body.room_id) return participantSession
+  return party ? dashboardSession : creatorSession
+}
+
+function enteredGameCode(body: EnterRoomRequest, requestedGameCode: GameCode): GameCode {
+  if (!body.room_id) return requestedGameCode
+  return loadMockRoomSnapshot()?.gameCode ?? 'YACHT_DICE'
+}
+
+function initialRoomSnapshot(party: boolean, gameCode: GameCode): RoomSnapshot {
+  return party ? createPartyWaitingSnapshot(gameCode) : { ...waitingRoomSnapshot, gameCode }
+}
+
+function createPartyWaitingSnapshot(gameCode: GameCode): RoomSnapshot {
+  const { hostId: _hostId, ...withoutHost } = waitingRoomSnapshot
+  return {
+    ...withoutHost,
+    gameCode,
+    capacity: gameCode === 'PING_PONG' ? 2 : 6,
+    players: [],
   }
 }
