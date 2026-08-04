@@ -27,12 +27,17 @@ interface IceConfigResponse {
  * rewrite에 걸려 index.html이 200으로 돌아오고, json() 파싱 실패가 조용히 fallback으로
  * 떨어져 TURN이 영원히 안 붙는다(같은 NAT 밖 조합은 "연결 중"에서 멈춘다).
  *
+ * `credentials`를 붙이지 않는다. 이 엔드포인트는 쿠키를 보지 않고(식별자는 선택적
+ * `X-User-Id` 헤더), 백엔드 CORS는 `allowCredentials(false)`에 `Access-Control-Allow-Origin: *`이다.
+ * `include`를 붙이면 브라우저가 그 조합을 거부해 배포본에서 응답이 통째로 버려진다 —
+ * 다른 REST 호출(`apiRequest`)도 credentials를 쓰지 않는다.
+ *
  * ⚠️ 자격증명에 수명이 있으므로 결과를 앱 수명 내내 캐시하면 안 된다. 통화를 시작할 때마다
  *    부른다 — 6인 방에서 한 번씩이라 호출량이 문제 되는 규모가 아니다.
  */
 export async function loadIceServers(): Promise<RTCIceServer[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/voice/ice`, { credentials: 'include' })
+    const response = await fetch(`${API_BASE_URL}/voice/ice`)
     if (!response.ok) return FALLBACK_ICE_SERVERS
     const config = (await response.json()) as IceConfigResponse
     // 서버가 빈 배열을 주면 STUN도 없이 연결을 시도하게 된다 — 그건 fallback이 낫다.
