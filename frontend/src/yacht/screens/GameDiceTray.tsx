@@ -108,7 +108,11 @@ export function GameDiceTray({
       )}
       data-tutorial="tray"
     >
-      <div className="pointer-events-none absolute top-3 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint tabular-nums uppercase">
+      {/* 320px에서는 감춘다. 이 라벨과 오른쪽 상단 띠(흔들기 · 남은 굴리기 · ⓘ)는 서로를 밀 수
+          없는 절대 배치 형제라, 둘의 폭 합(약 300px)이 트레이를 넘으면 글자가 칩 위에 겹쳐 그려진다
+          — 겹친 라벨은 안내가 아니라 오작동으로 읽힌다(A-2 캐러셀 힌트와 같은 판단).
+          잃는 정보가 없다: 굴림 횟수는 오른쪽 칩이, 누구 턴인지는 헤더가 이미 말한다. */}
+      <div className="pointer-events-none absolute top-3 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint tabular-nums uppercase max-tiny:hidden">
         {trayLabel}
       </div>
       <TrayTopBand
