@@ -77,7 +77,9 @@ public class QuickMatchService {
     public QuickMatchResponse status(String userId) {
         QuickMatchResponse response = statusOf(userId);
         if (response.roomId() != null) startIfReady(response.roomId());
-        return statusOf(userId);
+        QuickMatchResponse current = statusOf(userId);
+        if (current.status() == QuickMatchResponse.Status.PLAYING) redis.delete(ticketKey(userId));
+        return current;
     }
 
     public QuickMatchResponse cancel(String userId) {
@@ -161,9 +163,13 @@ public class QuickMatchService {
         if (ticket.isEmpty()) return new QuickMatchResponse(QuickMatchResponse.Status.NOT_QUEUED, null, null);
         String gameCode = (String) ticket.get("gameCode");
         String roomId = (String) ticket.get("roomId");
-        if (roomId != null && rooms.getSnapshot(roomId).phase() == null) {
-            redis.delete(ticketKey(userId));
-            return new QuickMatchResponse(QuickMatchResponse.Status.NOT_QUEUED, null, gameCode);
+        if (roomId != null) {
+            RoomSnapshot room = rooms.getSnapshot(roomId);
+            if (room.phase() == null || room.phase() == RoomPhase.FINISHED) {
+                if (room.phase() == RoomPhase.FINISHED) rooms.leave(roomId, userId);
+                users.clearRoom(userId);
+                return new QuickMatchResponse(QuickMatchResponse.Status.NOT_QUEUED, null, gameCode);
+            }
         }
         QuickMatchResponse.Status status = roomId == null
                 ? QuickMatchResponse.Status.WAITING
