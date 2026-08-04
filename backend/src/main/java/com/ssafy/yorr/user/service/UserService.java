@@ -76,6 +76,7 @@ public class UserService {
 
     public void clearRoom(String userId) {
         redisTemplate.opsForHash().delete(key(userId), "roomId", "roomCode", "host");
+        redisTemplate.delete("quick-match:user:" + userId);
     }
 
     public UserIdentity authenticate(String userId, String authorization) {
