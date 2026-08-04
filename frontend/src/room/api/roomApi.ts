@@ -327,7 +327,7 @@ function isParticipantKind(value: unknown): value is ParticipantKind {
 }
 
 function isGameCode(value: unknown): value is GameCode {
-  return value === 'YACHT_DICE' || value === 'PING_PONG'
+  return value === 'YACHT_DICE' || value === 'PING_PONG' || value === 'DUEL'
 }
 
 function toRoomPhase(value: unknown): RoomSnapshot['phase'] | undefined {

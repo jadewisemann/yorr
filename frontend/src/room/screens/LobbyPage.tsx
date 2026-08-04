@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import { type GameCode, gameByCode } from '@/games'
 import type { Player, PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
 import { isRoomHost } from '@/room/api/roomApi'
 import { useAddBot, useRemoveBot, useStartGame } from '@/room/api/useGameApi'
@@ -37,6 +38,14 @@ interface LobbyPageProps {
   roomId: string
 }
 
+/**
+ * 1:1 게임(탁구·결투)인가. 이 게임들은 봇을 받지 않고, 둘이 모여야 시작하며, 야추의 주사위
+ * 월드도 쓰지 않는다 — 대기실이 세 곳에서 같은 판단을 하므로 이름을 붙여 둔다.
+ */
+function isDuoGame(gameCode: GameCode | undefined): boolean {
+  return gameCode === 'PING_PONG' || gameCode === 'DUEL'
+}
+
 export function LobbyPage({ roomId }: LobbyPageProps) {
   const navigate = useNavigate()
   const roomSession = useAppStore((state) => state.roomSession)
@@ -50,10 +59,9 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const matchingRoom = roomSession?.roomId === roomId
   const isHost = matchingRoom && isRoomHost(roomSnapshot, roomSession.you)
   const capacity = roomSnapshot?.capacity ?? 6
-  const pingPong =
-    roomSnapshot?.gameCode === 'PING_PONG' ||
-    (matchingRoom && roomSession?.gameCode === 'PING_PONG')
-  const minPlayersToStart = pingPong ? 2 : 1
+  const duoGame =
+    isDuoGame(roomSnapshot?.gameCode) || (matchingRoom && isDuoGame(roomSession?.gameCode))
+  const minPlayersToStart = duoGame ? 2 : 1
   const botMutationLoading = addBot.isLoading || removeBot.isLoading
   const botMutationError = addBot.error ?? removeBot.error
   const canStart =
@@ -64,7 +72,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
 
   useEffect(() => {
     if (roomSnapshot?.phase === 'waiting') {
-      playLandingSoundtrack(roomSnapshot.gameCode === 'PING_PONG' ? 'pingpong' : 'yacht')
+      playLandingSoundtrack(gameByCode(roomSnapshot.gameCode).key)
     }
     if (!roomSession || !matchingRoom || roomResumeReason) {
       void navigate({ to: '/', replace: true })
@@ -80,9 +88,9 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   }, [matchingRoom, navigate, roomResumeReason, roomSession, roomSnapshot])
 
   useEffect(() => {
-    if (!matchingRoom || roomSnapshot?.phase !== 'waiting' || pingPong) return
+    if (!matchingRoom || roomSnapshot?.phase !== 'waiting' || duoGame) return
     return schedulePhysicsDicePrefetch()
-  }, [matchingRoom, pingPong, roomSnapshot?.phase])
+  }, [duoGame, matchingRoom, roomSnapshot?.phase])
 
   const handleStart = async () => {
     if (!roomSession || !canStart) return
@@ -151,7 +159,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           loading={botMutationLoading}
           onAdd={() => void handleAddBot()}
           playerCount={roomSnapshot?.players.length ?? 0}
-          visible={Boolean(roomSnapshot && isHost && !pingPong)}
+          visible={Boolean(roomSnapshot && isHost && !duoGame)}
         />
 
         {!roomSnapshot && (
