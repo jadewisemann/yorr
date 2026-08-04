@@ -402,7 +402,7 @@ export class HeroScene {
 
   private buildDuel() {
     const group = new THREE.Group()
-    // 6연발 실린더 — 총을 그리지 않고도 '정오의 결투'가 읽히게 하는 모티프다.
+    // 6연발 실린더 — 총을 그리지 않고도 '석양이 진다'가 읽히게 하는 모티프다.
     const drum = new THREE.Group()
     const body = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 0.72, 48), lambert(SLATE))
     body.castShadow = true

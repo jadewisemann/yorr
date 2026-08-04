@@ -9,7 +9,7 @@
 
 /** 게임 식별자. 목록이 SSOT이므로 타입도 여기서 소유한다. */
 export type GameKey = 'duel' | 'fishing' | 'liars' | 'pingpong' | 'yacht'
-export type GameCode = 'PING_PONG' | 'YACHT_DICE'
+export type GameCode = 'DUEL' | 'PING_PONG' | 'YACHT_DICE'
 
 export interface Game {
   /** 조작 방식 한 마디. 히어로 카드 메타 필의 세 번째 칸이다. */
@@ -54,13 +54,14 @@ export const games: [Game, ...Game[]] = [
   },
   {
     key: 'duel',
-    name: '정오의 결투',
+    name: '석양이 진다',
     tagline: '신호가 뜨는 순간, 먼저 뽑으세요.',
-    description: '0.01초로 승부가 갈리는 반응 속도 대결',
-    players: '2–4 PLAYERS',
-    duration: '약 1분',
-    control: '화면 탭',
-    live: false,
+    description: '먼저 3발 맞히는 쪽이 살아남는 반응 속도 대결',
+    players: '2 PLAYERS',
+    duration: '약 2분',
+    gameCode: 'DUEL',
+    control: '화면 탭 · 폰 휘두르기',
+    live: true,
   },
   {
     key: 'pingpong',
@@ -95,4 +96,12 @@ export function isGameKey(value: unknown): value is GameKey {
 
 export function gameByKey(key: GameKey | undefined): Game {
   return games.find((game) => game.key === key) ?? games[0]
+}
+
+/**
+ * 방의 게임 코드로 카탈로그 항목을 찾는다. 코드는 백엔드 모듈 이름이라 키와 표기가 다르고
+ * (`PING_PONG` ↔ `pingpong`), 방에서 온 코드로 랜딩 BGM·카피를 고를 때 이 변환이 필요하다.
+ */
+export function gameByCode(code: GameCode | undefined): Game {
+  return games.find((game) => game.gameCode === code) ?? games[0]
 }

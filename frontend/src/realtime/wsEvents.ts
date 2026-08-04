@@ -198,6 +198,55 @@ export interface PingPongSwingPayload {
   clientTs: number
 }
 
+/* ----- 석양이 진다 (game.duel.* · 서버 권위) -----
+ * 진영 번호를 주지 않는다 — "나를 왼쪽에 두는" 배치는 화면의 몫이고 서버는 playerOrder만 안다.
+ */
+
+export type DuelPhase = 'WAITING' | 'SIGNAL' | 'RESULT' | 'FINISHED'
+/** 라운드 성격. 규칙은 서버 DuelRules가 소유하고 화면은 연출만 고른다. */
+export type DuelRoundKind = 'SHOT' | 'TIE' | 'WARNING' | 'SELF_SHOT' | 'FORFEIT'
+
+/** 반응 시간 센티넬 — 실제 ms는 0 이상이다. */
+export const DUEL_FOUL = -1
+export const DUEL_MISS = -2
+
+export interface DuelRound {
+  number: number
+  kind: DuelRoundKind
+  /** 상대를 쏜 쪽. TIE·부정출발 라운드에는 없다. */
+  shooterId?: PlayerId | null
+  /** 체력을 잃은 쪽. self-shot이면 부정출발한 본인이다. */
+  hitId?: PlayerId | null
+  koId?: PlayerId | null
+  foulId?: PlayerId | null
+  over: boolean
+  at: number
+}
+
+export interface DuelState {
+  version: number
+  phase: DuelPhase
+  playerOrder: PlayerId[]
+  /** 남은 총알. 0이면 쓰러졌다. */
+  hp: Record<PlayerId, number>
+  /** 쌓인 부정출발 경고. 한도에 닿아 소진되면 0으로 돌아간다. */
+  fouls: Record<PlayerId, number>
+  /** 이번 라운드의 반응 시간(ms). DUEL_FOUL·DUEL_MISS가 섞여 있다. */
+  reactions: Record<PlayerId, number>
+  lastInputSeq: Record<PlayerId, number>
+  round: number
+  /** 신호등이 초록으로 바뀐 서버 시각. 0이면 아직 빨강이다. */
+  signalAt: number
+  nextActionAt: number
+  lastRound?: DuelRound | null
+}
+
+/** reactionMs는 클라이언트가 신호를 본 순간부터 잰 값이고, 음수면 신호 전에 뽑았다는 신고다. */
+export interface DuelDrawPayload {
+  inputSeq: number
+  reactionMs: number
+}
+
 /* ----- 요트 정규룰 족보 (score.* / game.* · owner: 유상은 40·41·43) -----
  *  ⚠️ 아래 "키 이름"은 FE 점수판·BE 채점이 하드코딩 → 확정하면 되돌리기 비쌈.
  *     반면 "점수 계산 규칙"은 서버(상은)가 수행 → 여긴 참고 주석일 뿐.
@@ -613,6 +662,7 @@ export type ClientMessage =
   | WsEnvelope<'game.yacht_dice.dice.throw', DiceThrowPayload>
   | WsEnvelope<'game.yacht_dice.round.submit', RoundSubmitPayload>
   | WsEnvelope<'game.ping_pong.swing', PingPongSwingPayload>
+  | WsEnvelope<'game.duel.draw', DuelDrawPayload>
 
 export type ServerMessage =
   // ✅ SYS-DC
@@ -632,6 +682,7 @@ export type ServerMessage =
   // 같은 payload지만 게임 모듈이 보낸 스냅샷이다(방 레벨 state.sync 와 별개 타입).
   | WsEnvelope<'game.yacht_dice.state.sync', StateSyncPayload>
   | WsEnvelope<'game.ping_pong.state.sync', StateSyncPayload>
+  | WsEnvelope<'game.duel.state.sync', StateSyncPayload>
   | WsEnvelope<'presence.update', PresenceUpdatePayload>
   // ✅ VOICE (음성 · 130)
   | WsEnvelope<'voice.peers', VoicePeersPayload>
@@ -648,8 +699,10 @@ export type ServerMessage =
   | WsEnvelope<'game.yacht_dice.score.update', ScoreUpdatePayload>
   | WsEnvelope<'game.yacht_dice.game.over', GameOverPayload>
   | WsEnvelope<'game.ping_pong.game.over', GameOverPayload>
+  | WsEnvelope<'game.duel.game.over', GameOverPayload>
   | WsEnvelope<'state.patch', StatePatchPayload>
   | WsEnvelope<'game.ping_pong.state', PingPongState>
+  | WsEnvelope<'game.duel.state', DuelState>
 
 export type WsMessage = ClientMessage | ServerMessage
 

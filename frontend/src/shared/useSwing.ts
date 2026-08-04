@@ -4,12 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * useSwing
  * -------------------------------------------------------------
  * 휴대폰을 "왕복으로 스윙"하는 동작을 DeviceMotion(가속도)으로 감지해
- * onSwing() 을 호출한다. (탁구 라켓 휘두르기 트리거)
+ * onSwing() 을 호출한다. 탁구의 라켓 휘두르기, 결투의 총 뽑기가 같은 신호를 쓴다 —
+ * 게임을 모르는 기기 입력이라 도메인이 아니라 shared 에 둔다.
  *
  * - 스윙 = 순간 가속도 크기가 임계값을 넘는 스파이크. 쿨다운으로 왕복 중
  *   과도하게 여러 번 잡히지 않게 한다.
  * - iOS 13+ 는 requestPermission() 을 버튼 탭 안에서 호출해야 한다(HTTPS 필수).
- * - 연결/권한이 없으면 게임은 마우스 클릭으로 스윙 (이 훅과 무관하게 동작).
+ * - 연결/권한이 없으면 게임은 탭·클릭으로 진행한다 (이 훅과 무관하게 동작).
  */
 
 export type SwingPermission = 'unknown' | 'granted' | 'denied' | 'unsupported'
