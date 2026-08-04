@@ -1,3 +1,4 @@
+import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
 import type { Player, PlayerId } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
 import type { ConnectionStatus } from '@/store'
@@ -13,11 +14,14 @@ interface GamePlayHeaderProps {
   leaderLabel: string
   onHelp: () => void
   onLeave: () => void
-  onToggleSound: () => void
+  /** 소리 버튼이 오디오 시트를 연다(토글이 아니다 — 음소거는 시트 안에 있다). */
+  onOpenAudio: () => void
   remainingMs: number
   roundNumber: number
   soundMuted: boolean
   submitted: boolean
+  /** 음성 채팅 상태. 마이크 버튼은 소리 토글과 같은 자리에 선다. */
+  voice: VoiceChat
   wide: boolean
 }
 
@@ -29,11 +33,12 @@ export function GamePlayHeader({
   leaderLabel,
   onHelp,
   onLeave,
-  onToggleSound,
+  onOpenAudio,
   remainingMs,
   roundNumber,
   soundMuted,
   submitted,
+  voice,
   wide,
 }: GamePlayHeaderProps) {
   const controls = (
@@ -41,14 +46,28 @@ export function GamePlayHeader({
       <HeaderButton label="게임 도움말" onClick={onHelp}>
         ?
       </HeaderButton>
+      {/*
+        소리 버튼 하나가 오디오 전체(마이크·배경음·효과음)의 입구다. 버튼을 늘리지 않는 게
+        핵심이다 — 320px 헤더는 ✕·턴표시·?·🔊·타이머로 이미 꽉 차서, 마이크를 따로 넣으면
+        턴 표시가 한 글자씩 세로로 접힌다(실측). 트레이에 띄우면 주사위 위에 겹쳐 답답하다.
+        마이크가 켜져 있으면 배지로 알려 시트를 열지 않고도 상태가 읽힌다.
+      */}
       <HeaderButton
-        label={soundMuted ? '소리 켜기' : '소리 끄기'}
-        onClick={onToggleSound}
-        pressed={!soundMuted}
+        label={audioLabel(soundMuted, voice)}
+        onClick={onOpenAudio}
+        pressed={voice.status === 'on'}
       >
-        {/* aria-hidden 래퍼는 없어도 된다 — HeaderButton이 aria-label을 달아
-            버튼의 접근 가능한 이름이 이미 글리프를 덮는다. */}
-        {soundMuted ? '🔇' : '🔊'}
+        <span className="relative">
+          {soundMuted ? '🔇' : '🔊'}
+          {voice.status === 'on' && (
+            <span
+              aria-hidden="true"
+              className="absolute -top-2 -right-2.5 text-[11px] leading-none"
+            >
+              🎙️
+            </span>
+          )}
+        </span>
       </HeaderButton>
       <RoundTimer
         compact
@@ -93,6 +112,16 @@ export function GamePlayHeader({
       )}
     </header>
   )
+}
+
+/** 시트를 열지 않고도 지금 상태가 읽히게 라벨에 소리·마이크를 함께 담는다. */
+function audioLabel(soundMuted: boolean, voice: VoiceChat) {
+  const sound = soundMuted ? '소리 꺼짐' : '소리 켜짐'
+  if (voice.status === 'on') {
+    const peers = voice.peers.length
+    return `오디오 설정 · ${sound} · 마이크 켜짐${peers > 0 ? ` · ${peers}명 연결됨` : ''}`
+  }
+  return `오디오 설정 · ${sound} · 마이크 꺼짐`
 }
 
 function HeaderButton({

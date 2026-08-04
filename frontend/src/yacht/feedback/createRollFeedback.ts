@@ -1,3 +1,4 @@
+import { effectsLevel } from '@/shared/audio/audioLevels'
 import { onFirstGesture, primeAudio } from '@/shared/audio/audioUnlock'
 import type { PhysicsDiceIndex, PhysicsDicePhase } from '@/yacht/rendering/physics-dice/types'
 
@@ -30,9 +31,11 @@ const hits = Array.from({ length: 5 }, (_, index) => {
 })
 shake.loop = true
 shake.preload = 'auto'
-shake.volume = 0.5
 pour.preload = 'auto'
-pour.volume = 0.7
+
+/** 서로 다르게 맞춰 둔 기본 믹스. 슬라이더는 여기에 배율을 곱한다(shared/audio/audioLevels). */
+const SHAKE_BASE_VOLUME = 0.5
+const POUR_BASE_VOLUME = 0.7
 
 onFirstGesture(() => primeAudio([shake, pour, ...hits]))
 
@@ -42,7 +45,13 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}) 
   let isMuted = muted
   let shakeIdleTimer: ReturnType<typeof setTimeout> | null = null
 
-  const play = (audio: HTMLAudioElement) => {
+  /**
+   * 배율은 **재생 시점에** 읽는다. 모듈 로드 때 한 번 곱해 두면 설정을 바꿔도 이번 세션 내내
+   * 옛 볼륨으로 난다. 이미 나고 있는 소리는 그대로 두고 다음 소리부터 반영된다 —
+   * 짧은 효과음이라 눈치채지 못한다(배경음은 계속 흐르므로 soundtrack이 즉시 반영한다).
+   */
+  const play = (audio: HTMLAudioElement, baseVolume: number) => {
+    audio.volume = baseVolume * effectsLevel()
     void audio.play().catch(() => undefined)
   }
 
@@ -58,7 +67,7 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}) 
    */
   const keepShakeSounding = () => {
     if (phase !== 'shaking' || isMuted) return
-    if (shake.paused) play(shake)
+    if (shake.paused) play(shake, SHAKE_BASE_VOLUME)
     clearShakeIdle()
     shakeIdleTimer = setTimeout(() => {
       shakeIdleTimer = null
@@ -80,8 +89,8 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}) 
       const audio = hits[index]
       if (!audio) return
       audio.currentTime = 0
-      audio.volume = 0.15 + Math.min(1, strength) * 0.65
-      play(audio)
+      // 세기에 따라 base가 매번 다르다 — play가 여기에 배율을 곱한다.
+      play(audio, 0.15 + Math.min(1, strength) * 0.65)
     },
     dispose() {
       if (typeof navigator.vibrate === 'function') navigator.vibrate(0)
@@ -97,7 +106,7 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}) 
       phase = next
       clearShakeIdle()
       if (next === 'shaking') {
-        if (!isMuted) play(shake)
+        if (!isMuted) play(shake, SHAKE_BASE_VOLUME)
         return
       }
       shake.pause()
@@ -106,7 +115,7 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}) 
       // 바닥에 닿으며 hits가 난다.
       if (next === 'pouring' && !isMuted) {
         pour.currentTime = 0
-        play(pour)
+        play(pour, POUR_BASE_VOLUME)
       }
     },
     setMuted(next: boolean) {
@@ -116,7 +125,7 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}) 
         pour.pause()
         for (const audio of hits) audio.pause()
       } else if (phase === 'shaking') {
-        play(shake)
+        play(shake, SHAKE_BASE_VOLUME)
       }
     },
     remoteShakePulse() {

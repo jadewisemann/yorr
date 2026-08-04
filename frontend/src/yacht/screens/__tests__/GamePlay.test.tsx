@@ -162,16 +162,30 @@ function SyncedGamePlay() {
 describe('GamePlay', () => {
   beforeEach(() => useAppStore.getState().reset())
 
-  it('헤더에서 도움말을 열고 소리 상태를 바꿄다', async () => {
+  it('헤더에서 도움말을 연다', async () => {
     const { user } = renderGame()
-    const soundButton = screen.getByRole('button', { name: /소리 [켜끄]기/ })
-    const initialPressed = soundButton.getAttribute('aria-pressed')
 
     await user.click(screen.getByRole('button', { name: '게임 도움말' }))
-    expect(screen.getByRole('dialog', { name: '게임 도움말' })).toBeVisible()
 
-    await user.click(soundButton)
-    expect(soundButton.getAttribute('aria-pressed')).not.toBe(initialPressed)
+    expect(screen.getByRole('dialog', { name: '게임 도움말' })).toBeVisible()
+  })
+
+  // 소리 버튼은 토글이 아니라 오디오 시트를 연다 — 마이크·배경음·효과음이 한 자리에 있고,
+  // 헤더에 버튼을 늘리지 않으려고 입구를 하나로 모았다. 음소거는 시트 안에서 한다.
+  it('소리 버튼이 오디오 시트를 열고 그 안에서 음소거한다', async () => {
+    const { user } = renderGame()
+
+    await user.click(screen.getByRole('button', { name: /오디오 설정/ }))
+    const sheet = screen.getByRole('dialog', { name: '오디오 설정' })
+    expect(sheet).toBeVisible()
+
+    // 배경음·효과음은 각각 조절한다(전에는 전부 아니면 전무였다).
+    expect(within(sheet).getByRole('slider', { name: '배경음 볼륨' })).toBeVisible()
+    expect(within(sheet).getByRole('slider', { name: '효과음 볼륨' })).toBeVisible()
+
+    await user.click(within(sheet).getByRole('button', { name: '전체 음소거' }))
+
+    expect(within(sheet).getByRole('button', { name: '소리 켜기' })).toBeVisible()
   })
 
   it('keeps a single roll CTA', async () => {
