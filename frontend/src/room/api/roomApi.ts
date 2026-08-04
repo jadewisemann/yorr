@@ -335,14 +335,14 @@ function toRoomPhase(value: unknown): RoomSnapshot['phase'] | undefined {
   return undefined
 }
 
-function authenticatedHeaders(options: AuthenticatedApiCallOptions) {
+export function authenticatedHeaders(options: AuthenticatedApiCallOptions) {
   return {
     Authorization: `Bearer ${options.sessionToken}`,
     'X-User-Id': options.userId,
   }
 }
 
-function requestSignal(options?: ApiCallOptions): Pick<RequestInit, 'signal'> | undefined {
+export function requestSignal(options?: ApiCallOptions): Pick<RequestInit, 'signal'> | undefined {
   return options?.signal ? { signal: options.signal } : undefined
 }
 
