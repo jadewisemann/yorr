@@ -219,7 +219,7 @@ export function GamePlay({ guide, onLeaveRequest, roomId, session, snapshot }: G
       activePlayerId={activePlayerId}
       players={turnPlayers}
       // 말하는 사람은 "누구 차례인가"를 보러 가는 자리에서 같이 읽힌다 — 별도 목록을 만들지 않는다.
-      speaking={voice.speaking}
+      voice={voice}
       you={session.you}
     />
   )

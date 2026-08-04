@@ -37,7 +37,15 @@ export function VoiceButton({ className, voice }: VoiceButtonProps) {
       onClick={voice.toggle}
       type="button"
     >
-      <span aria-hidden="true">{on ? '🎙️' : '🔇'}</span>
+      {/* 꺼진 상태도 마이크 글리프를 유지한다. 🔇로 바꾸면 바로 옆 소리 토글(🔊/🔇)과 같은
+          스피커 모양이 되어 "게임 소리"와 "내 마이크"가 구분되지 않는다. 상태는 색·테두리와
+          아래 사선이 말한다. */}
+      <span aria-hidden="true" className={cn('relative', !on && 'opacity-70')}>
+        🎙️
+        {!on && !requesting && (
+          <span className="absolute top-1/2 left-1/2 h-[1.5px] w-5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-full bg-content-muted" />
+        )}
+      </span>
 
       {/* 연결된 상대 수. 0명이면 숨긴다 — "혼자 켜둔 상태"를 0으로 강조할 이유가 없다. */}
       {on && voice.peers.length > 0 && (

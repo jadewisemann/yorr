@@ -1,3 +1,5 @@
+import { PeerMicButton } from '@/realtime/voice/PeerMicButton'
+import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
 import type { PlayerId, PlayerStatus } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
 
@@ -13,8 +15,11 @@ interface TurnStripProps {
   players: TurnStripPlayer[]
   activePlayerId: PlayerId | undefined
   className?: string
-  /** 음성 채팅에서 지금 말하고 있는 사람들. 통화를 끈 상태면 비어 있다. */
-  speaking?: ReadonlySet<PlayerId>
+  /**
+   * 음성 채팅 상태. 통화 중이면 각 칩 이름 오른쪽 끝에 그 사람 마이크가 선다
+   * (말하는 중 표시 + 그 사람 소리만 끄는 버튼). 없으면 마이크를 그리지 않는다.
+   */
+  voice?: VoiceChat
   you: PlayerId
 }
 
@@ -24,13 +29,7 @@ interface TurnStripProps {
  * 이름을 그대로 노출하고 내 칩만 "나" 태그로 구분한다. 머리글자 원형 배지는 누가 누군지 읽히지 않았고,
  * 내 이름이 화면에서 사라지는 문제도 있었다. 하단의 "다음 턴을 기다리는 중" 문구는 이 표시로 대체한다.
  */
-export function TurnStrip({
-  players,
-  activePlayerId,
-  className,
-  speaking,
-  you,
-}: TurnStripProps) {
+export function TurnStrip({ players, activePlayerId, className, voice, you }: TurnStripProps) {
   return (
     <ol
       aria-label="턴 순서"
@@ -43,7 +42,7 @@ export function TurnStrip({
       {players.map((player) => {
         const active = player.playerId === activePlayerId
         const mine = player.playerId === you
-        const talking = speaking?.has(player.playerId) ?? false
+        const talking = voice?.speaking.has(player.playerId) ?? false
         return (
           <li className="min-w-[5.25rem] flex-1" key={player.playerId}>
             <span
@@ -78,17 +77,15 @@ export function TurnStrip({
                   {player.nickname}
                   {mine && ' (나)'}
                 </span>
-                {/* 초록 테두리만으로 알리지 않는다 — 색은 저대비·색각 이상에서 먼저 사라진다.
-                    sr-only 텍스트까지 넣으면 말할 때마다 낭독돼 소음이 되므로 글리프만 둔다. */}
-                {talking && (
-                  <span aria-hidden="true" className="flex-none text-[10px] leading-none">
-                    🎙️
-                  </span>
-                )}
                 {player.status === 'offline' && (
                   <span className="flex-none rounded-full border border-warning/40 bg-warning/12 px-1.5 py-0.5 text-[9px]/none font-bold text-warning">
                     연결 끊김
                   </span>
+                )}
+                {/* 이름표 오른쪽 끝. ml-auto로 밀어 칩마다 같은 자리에 서게 한다 —
+                    이름 길이에 따라 위치가 달라지면 여러 칩을 훑을 때 눈이 찾아다녀야 한다. */}
+                {voice && (
+                  <PeerMicButton className="ml-auto" playerId={player.playerId} voice={voice} />
                 )}
               </span>
               <span

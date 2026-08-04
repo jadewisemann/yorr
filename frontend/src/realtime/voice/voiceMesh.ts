@@ -38,6 +38,11 @@ export interface VoiceMeshOptions {
 
 export class VoiceMesh {
   private readonly peers = new Map<PlayerId, Peer>()
+  /**
+   * 내가 소리를 끈 상대. 연결이 아니라 여기(메시)가 들고 있어야 한다 — 상대가 잠깐 끊겼다
+   * 돌아오면 새 RTCPeerConnection이 만들어지는데, 그때 다시 소리가 나면 껐던 뜻이 사라진다.
+   */
+  private readonly mutedPeers = new Set<PlayerId>()
   private closed = false
 
   constructor(private readonly options: VoiceMeshOptions) {}
@@ -59,6 +64,25 @@ export class VoiceMesh {
   /** 협상 중인 것까지 포함한 전체. 명단 diff(syncPeers)와 테스트가 쓴다. */
   knownPeerIds(): PlayerId[] {
     return [...this.peers.keys()]
+  }
+
+  /**
+   * 특정 상대의 소리만 끈다("저 사람 목소리는 안 듣고 싶다").
+   *
+   * 연결은 그대로 두고 재생만 막는다 — 트랙을 끊으면 다시 들으려 할 때 재협상이 필요하고,
+   * 상대에게도 연결이 끊긴 것처럼 보인다. audio.muted는 그 둘 다 건드리지 않는다.
+   * 상대는 내가 자기 소리를 껐다는 사실을 알 수 없다(계약에 관련 메시지가 없다).
+   */
+  setPeerMuted(id: PlayerId, muted: boolean) {
+    if (muted) this.mutedPeers.add(id)
+    else this.mutedPeers.delete(id)
+    const peer = this.peers.get(id)
+    if (peer) peer.audio.muted = muted
+  }
+
+  /** 내가 소리를 끈 상대들. 재접속으로 연결이 새로 만들어져도 유지된다. */
+  mutedPeerIds(): PlayerId[] {
+    return [...this.mutedPeers]
   }
 
   /**
@@ -150,6 +174,8 @@ export class VoiceMesh {
     // 화면에 보일 것은 없으므로 접근성 트리와 레이아웃에서 모두 빼낸다.
     audio.hidden = true
     audio.setAttribute('aria-hidden', 'true')
+    // 껐던 상대가 재접속하면 연결이 새로 만들어진다 — 그때 소리가 다시 나면 안 된다.
+    audio.muted = this.mutedPeers.has(id)
     document.body.append(audio)
     const peer: Peer = { audio, connection, pendingCandidates: [] }
     this.peers.set(id, peer)

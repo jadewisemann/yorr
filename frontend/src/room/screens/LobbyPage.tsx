@@ -1,5 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import { PeerMicButton } from '@/realtime/voice/PeerMicButton'
+import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
 import { VoiceButton } from '@/realtime/voice/VoiceButton'
 import { useVoice } from '@/realtime/voice/VoiceContext'
 import type { Player, PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
@@ -177,7 +179,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           onRemoveBot={(playerId) => void removeBot.execute(playerId)}
           onStart={() => void handleStart()}
           snapshot={roomSnapshot}
-          speaking={voice.speaking}
+          voice={voice}
           startError={startGame.error}
           startLoading={startGame.isLoading}
           you={roomSession.you}
@@ -198,8 +200,8 @@ interface LobbyRoomContentProps {
   startLoading: boolean
   startError: Error | null
   botLoading: boolean
-  /** 음성 채팅에서 지금 말하고 있는 사람들. 통화를 끈 상태면 비어 있다. */
-  speaking: ReadonlySet<PlayerId>
+  /** 음성 채팅 상태. 참가자 카드 이름 오른쪽 끝에 그 사람 마이크가 선다. */
+  voice: VoiceChat
   onStart: () => void
   onRemoveBot: (playerId: PlayerId) => void
 }
@@ -215,7 +217,7 @@ function LobbyRoomContent({
   startLoading,
   startError,
   botLoading,
-  speaking,
+  voice,
   onStart,
   onRemoveBot,
 }: LobbyRoomContentProps) {
@@ -241,7 +243,7 @@ function LobbyRoomContent({
             loading={botLoading}
             onRemove={onRemoveBot}
             player={player}
-            speaking={speaking.has(player.playerId)}
+            voice={voice}
             you={you}
           />
         ))}
@@ -337,19 +339,12 @@ interface LobbyPlayerCardProps {
   you: PlayerId
   isHost: boolean
   loading: boolean
-  /** 음성 채팅으로 지금 말하고 있는지. 봇은 항상 false다. */
-  speaking: boolean
+  /** 음성 채팅 상태. 이름 오른쪽 끝에 그 사람 마이크를 세운다(봇은 통화에 없어 안 뜬다). */
+  voice: VoiceChat
   onRemove: (playerId: PlayerId) => void
 }
 
-function LobbyPlayerCard({
-  player,
-  you,
-  isHost,
-  loading,
-  speaking,
-  onRemove,
-}: LobbyPlayerCardProps) {
+function LobbyPlayerCard({ player, you, isHost, loading, voice, onRemove }: LobbyPlayerCardProps) {
   const isBot = player.kind === 'BOT'
   return (
     <PlayerCard
@@ -358,7 +353,8 @@ function LobbyPlayerCard({
       status={player.status}
       current={player.playerId === you}
       active={player.playerId === you}
-      speaking={speaking}
+      speaking={voice.speaking.has(player.playerId)}
+      nameEnd={<PeerMicButton playerId={player.playerId} voice={voice} />}
       subtitle={isBot ? '상태 기반 AI 봇' : undefined}
       trailing={
         isBot && isHost ? (

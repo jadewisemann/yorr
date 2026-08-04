@@ -17,10 +17,12 @@ import { useVoiceChat, type VoiceChat } from './useVoiceChat'
  *  음성은 없어도 게임이 돌아가므로 심각도가 다르다.)
  */
 const NO_VOICE: VoiceChat = {
+  mutedPeers: new Set(),
   peers: [],
   speaking: new Set(),
   status: 'unsupported',
   toggle: () => undefined,
+  toggleMutePeer: () => undefined,
 }
 
 const VoiceContext = createContext<VoiceChat>(NO_VOICE)

@@ -33,7 +33,11 @@ export interface VoiceChat {
   peers: PlayerId[]
   /** 지금 말하고 있는 상대들. 내 자신은 포함되지 않는다. */
   speaking: ReadonlySet<PlayerId>
+  /** 내가 소리를 끈 상대들. 상대는 이 사실을 알 수 없다. */
+  mutedPeers: ReadonlySet<PlayerId>
   toggle: () => void
+  /** 특정 상대의 소리만 끄고 켠다. 통화 연결은 유지된다. */
+  toggleMutePeer: (playerId: PlayerId) => void
 }
 
 /**
@@ -52,6 +56,8 @@ export function useVoiceChat(you: PlayerId): VoiceChat {
   )
   const [peers, setPeers] = useState<PlayerId[]>([])
   const [speaking, setSpeaking] = useState<Set<PlayerId>>(new Set())
+  // 진짜 값은 mesh가 들고 있다(재접속해도 유지돼야 하므로). 여기 상태는 렌더용 사본이다.
+  const [mutedPeers, setMutedPeers] = useState<Set<PlayerId>>(new Set())
 
   const meshRef = useRef<VoiceMesh | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -67,6 +73,9 @@ export function useVoiceChat(you: PlayerId): VoiceChat {
     streamRef.current = null
     setPeers([])
     setSpeaking(new Set())
+    // 통화를 끄면 mesh와 함께 사라지므로 화면 상태도 비운다 — 다음 통화에 남아 있으면
+    // 껐던 기억이 없는 사람의 소리가 조용히 안 들린다.
+    setMutedPeers(new Set())
   }, [])
 
   // 서버 메시지 구독. mesh가 없을 때(통화 꺼짐) 오는 메시지는 그냥 무시된다.
@@ -146,6 +155,13 @@ export function useVoiceChat(you: PlayerId): VoiceChat {
     setStatus('on')
   }, [client, stop])
 
+  const toggleMutePeer = useCallback((playerId: PlayerId) => {
+    const mesh = meshRef.current
+    if (!mesh) return
+    mesh.setPeerMuted(playerId, !mesh.mutedPeerIds().includes(playerId))
+    setMutedPeers(new Set(mesh.mutedPeerIds()))
+  }, [])
+
   const toggle = useCallback(() => {
     if (status === 'on') {
       try {
@@ -161,5 +177,5 @@ export function useVoiceChat(you: PlayerId): VoiceChat {
     void start()
   }, [client, start, status, stop])
 
-  return { peers, speaking, status, toggle }
+  return { mutedPeers, peers, speaking, status, toggle, toggleMutePeer }
 }

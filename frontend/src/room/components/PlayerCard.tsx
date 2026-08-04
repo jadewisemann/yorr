@@ -12,6 +12,11 @@ type PlayerCardProps = {
   trailing?: ReactNode | undefined
   /** 음성 채팅에서 지금 말하고 있는지. 통화를 끈 상태면 항상 false다. */
   speaking?: boolean
+  /**
+   * 이름표 오른쪽 끝에 붙는 슬롯. 지금은 그 사람의 마이크(PeerMicButton)가 온다.
+   * 이 컴포넌트는 봇 카드에도 쓰이므로 음성을 직접 알지 않고 슬롯만 내준다.
+   */
+  nameEnd?: ReactNode
   className?: string
 }
 const statusLabel = {
@@ -33,6 +38,7 @@ export function PlayerCard({
   current = false,
   name,
   avatarSeed = name,
+  nameEnd,
   score,
   speaking = false,
   status = 'online',
@@ -69,12 +75,8 @@ export function PlayerCard({
               나
             </span>
           )}
-          {/* 초록 테두리만으로 알리지 않는다 — 색은 저대비·색각 이상에서 먼저 사라진다. */}
-          {speaking && (
-            <span aria-hidden="true" className="shrink-0 text-xs leading-none">
-              🎙️
-            </span>
-          )}
+          {/* 이름표 오른쪽 끝. ml-auto로 밀어 카드마다 같은 자리에 세운다. */}
+          {nameEnd && <span className="ml-auto shrink-0">{nameEnd}</span>}
         </span>
         {status === 'offline' && !subtitle ? (
           <span className="mt-1 inline-flex rounded-full border border-warning/40 bg-warning/12 px-2 py-0.5 text-xs font-bold text-warning">
