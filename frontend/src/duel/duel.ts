@@ -12,6 +12,43 @@ import { DUEL_FOUL } from '@/realtime/wsEvents'
  */
 export type ShotTarget = 'opponent' | 'ground'
 
+/**
+ * 무엇으로 뽑았는가. 세 입력이 모두 같은 `draw()`로 수렴하지만 <b>동작에 걸리는 시간이
+ * 다르다</b> — 폰을 휘두르려면 팔이 움직여야 하고, 탭과 스페이스바는 손가락만 움직인다.
+ * 같은 반응속도로 재면 스윙 쪽이 구조적으로 진다.
+ */
+export type DuelInputSource = 'key' | 'swing' | 'tap'
+
+/**
+ * 입력별 페널티(ms). 스윙이 기준(0)이고 손가락 입력에 그만큼을 얹는다.
+ *
+ * <b>실기기에서 튜닝하는 값이다.</b> 팔을 휘두르는 데 걸리는 시간에서 임계값(threshold 15)을
+ * 넘기는 순간까지가 진짜 차이인데, 그건 기기 센서 샘플링 주기와 사람 팔 길이에 달렸다 —
+ * 계산으로 나오지 않는다. 지금 값은 두 입력을 나란히 눌러 본 초기 추정이다.
+ *
+ * 탭과 키보드를 같은 값으로 두는 이유는 둘 다 "손가락 한 번"이라서다. 폰 터치 패널 지연이
+ * 키보드보다 20~40ms 크다는 보고가 있으니, 실기기에서 갈라야 하면 여기서 갈라진다.
+ *
+ * ponytail: 서버 `DuelRules.GRACE_MILLIS`(700)이 천장이다 — 페널티는 전송을 그만큼 늦춰서
+ * 거는데(이유는 DuelGame.draw 주석), 유예보다 길게 잡으면 기다리는 동안 라운드가 끝나
+ * "얼어붙음"으로 기록된다. 실기기 튜닝도 이 안에서 한다.
+ */
+export const DRAW_PENALTY_MS: Record<DuelInputSource, number> = {
+  key: 100,
+  swing: 0,
+  tap: 100,
+}
+
+/**
+ * 이 뽑기에 얹을 페널티(ms).
+ *
+ * 센티넬은 0이다 — 부정출발(-1)에 100을 더하면 99가 되어 <b>가장 빠른 정상 기록</b>으로
+ * 둔갑한다. 얼어붙음(-2)도 마찬가지고, 애초에 둘 다 "얼마나 빨랐나"가 아니라 상황이다.
+ */
+export function drawPenaltyMs(reactionMs: number, source: DuelInputSource): number {
+  return isClean(reactionMs) ? DRAW_PENALTY_MS[source] : 0
+}
+
 /** 서버 DuelRules.MAX_HP와 같은 값. 총알(체력) 칸 수다. */
 export const MAX_HP = 3
 /** 서버 DuelRules.MAX_FOULS와 같은 값. 이 개수가 차면 자기 발을 쏜다. */
