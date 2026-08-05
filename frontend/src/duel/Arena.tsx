@@ -608,7 +608,7 @@ function Plate({
 }
 
 /** 경고 한 칸 — 부정출발 누적 (작은 삼각형) */
-function Warn({ lit }: { lit: boolean }) {
+export function Warn({ lit }: { lit: boolean }) {
   return (
     <span
       className="block"
@@ -625,7 +625,7 @@ function Warn({ lit }: { lit: boolean }) {
 }
 
 /** 체력 한 칸 = 탄약 한 발 (맞으면 빈 탄피) */
-function Shell({ live }: { live: boolean }) {
+export function Shell({ live }: { live: boolean }) {
   return (
     <span
       className="block"

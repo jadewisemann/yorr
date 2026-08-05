@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { DUEL_FOUL, DUEL_MISS } from '@/realtime/wsEvents'
-import { DRAW_PENALTY_MS, drawPenaltyMs } from '../duel'
+import { DUEL_FOUL, DUEL_MISS, type DuelRound, type DuelState } from '@/realtime/wsEvents'
+import { DRAW_PENALTY_MS, drawOutcome, drawPenaltyMs } from '../duel'
 
 /**
  * 입력 소스별 페널티. (S15P11A406-207)
@@ -42,5 +42,58 @@ describe('drawPenaltyMs', () => {
   /** 0ms는 센티넬이 아니라 "신호와 같은 프레임에 뽑았다"다 — 정상 기록이므로 얹는다. */
   it('0ms도 정상 기록이라 페널티가 얹힌다', () => {
     expect(drawPenaltyMs(0, 'tap')).toBe(DRAW_PENALTY_MS.tap)
+  })
+})
+
+const ME = 'me'
+const RIVAL = 'rival'
+
+function resultState(round: Partial<DuelRound>): DuelState {
+  return {
+    fouls: {},
+    hp: {},
+    lastInputSeq: {},
+    lastRound: { at: 0, kind: 'SHOT', number: 1, over: false, ...round },
+    nextActionAt: 0,
+    phase: 'RESULT',
+    playerOrder: [ME, RIVAL],
+    reactions: {},
+    round: 1,
+    signalAt: 0,
+    version: 1,
+  }
+}
+
+/**
+ * 폰이 읽는 한 줄. 큰 화면은 라운드를 이야기로 풀지만 폰은 <b>내게 무슨 일이 났는지</b>만
+ * 한 단어로 안다 — 같은 라운드를 두 사람이 각자 자기 기준으로 다르게 읽어야 한다.
+ */
+describe('drawOutcome', () => {
+  it('쏜 쪽과 맞은 쪽이 같은 라운드를 다르게 읽는다', () => {
+    const state = resultState({ hitId: RIVAL, shooterId: ME })
+
+    expect(drawOutcome(state, ME)).toEqual({ label: '명중!', tone: 'win' })
+    expect(drawOutcome(state, RIVAL)).toEqual({ label: '맞았다', tone: 'lose' })
+  })
+
+  it('자기 발을 쏜 쪽만 자기 잘못으로 읽는다', () => {
+    const state = resultState({ foulId: RIVAL, hitId: RIVAL, kind: 'SELF_SHOT' })
+
+    expect(drawOutcome(state, RIVAL).tone).toBe('lose')
+    expect(drawOutcome(state, ME).tone).toBe('win')
+  })
+
+  /** 경고·무승부는 체력이 안 깎였다 — 이겼다고도 졌다고도 말하지 않는다. */
+  it('체력이 안 깎인 라운드는 승패로 읽지 않는다', () => {
+    expect(drawOutcome(resultState({ foulId: ME, kind: 'WARNING' }), ME).tone).toBe('warn')
+    expect(drawOutcome(resultState({ kind: 'TIE' }), ME).tone).toBe('warn')
+  })
+
+  /** 첫 라운드가 열리기 전에도 컨트롤러는 그려진다 — 빈 자리로 두면 문구가 undefined가 된다. */
+  it('아직 판정이 없으면 대기로 읽는다', () => {
+    const state = resultState({})
+    state.lastRound = null
+
+    expect(drawOutcome(state, ME).label).toBe('대기')
   })
 })

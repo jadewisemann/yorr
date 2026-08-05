@@ -1,4 +1,4 @@
-import { DUEL_FOUL } from '@/realtime/wsEvents'
+import { DUEL_FOUL, type DuelState } from '@/realtime/wsEvents'
 
 /**
  * 결투 화면이 쓰는 상수와 표시 헬퍼. 규칙 자체는 서버(DuelRules)가 소유하고, 여기에는
@@ -135,6 +135,42 @@ export function slots(name: string, total: number, filled: number) {
     filled: index < filled,
     id: `${name}-${index}`,
   }))
+}
+
+/**
+ * 손 안의 컨트롤러가 읽는 한 줄. (S15P11A406-207)
+ *
+ * 큰 화면(Arena)은 라운드를 <b>이야기</b>로 풀지만(누가 빗나갔고 몇 ms였고 비아냥까지) 폰은
+ * 아래를 보는 시간이 짧다 — 자기에게 무슨 일이 일어났는지만 한 단어로 안다. 그래서 같은
+ * 라운드를 두 화면이 다르게 말하고, 이 함수는 <b>폰 쪽 어휘</b>만 맡는다.
+ *
+ * 톤은 세 가지다: 'win'은 내가 이겼을 때, 'lose'는 내가 맞았을 때, 'warn'은 경고·무승부처럼
+ * 체력이 안 깎인 채 끝난 라운드다.
+ */
+export function drawOutcome(
+  state: DuelState,
+  you: string,
+): { label: string; tone: 'lose' | 'warn' | 'win' } {
+  const round = state.lastRound
+  if (!round) return { label: '대기', tone: 'warn' }
+  const mine = round.foulId === you
+  switch (round.kind) {
+    case 'FORFEIT':
+      return { label: '상대가 떠났다', tone: 'win' }
+    case 'SELF_SHOT':
+      return mine
+        ? { label: '자기 발을 쐈다', tone: 'lose' }
+        : { label: '상대가 자기 발을 쐈다', tone: 'win' }
+    case 'TIE':
+      return { label: '동시에 뽑았다', tone: 'warn' }
+    case 'WARNING':
+      return mine ? { label: '성급했다', tone: 'warn' } : { label: '상대가 성급했다', tone: 'warn' }
+    default:
+      // 얼어붙어 못 뽑은 쪽도 맞는다 — 쏜 사람이 아닌 쪽은 전부 'lose'다.
+      return round.shooterId === you
+        ? { label: '명중!', tone: 'win' }
+        : { label: '맞았다', tone: 'lose' }
+  }
 }
 
 /** 반응 시간 표시 문구. 센티넬은 숫자가 아니라 상황으로 읽힌다. */
