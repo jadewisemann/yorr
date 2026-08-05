@@ -1,4 +1,4 @@
-import { type GameKey, games } from '@/games'
+import { type GameCode, type GameKey, games } from '@/games'
 import { musicLevel } from './audioLevels'
 import { onFirstGesture, primeAudio } from './audioUnlock'
 import { setElementVolume } from './elementVolume'
@@ -8,14 +8,14 @@ import { readSoundMuted } from './soundPreference'
 const BASE_MUSIC_VOLUME = 0.35
 
 let soundtrack: HTMLAudioElement | null = null
-let gameTrack: HTMLAudioElement | null = null
+const gameTracks = new Map<GameCode, HTMLAudioElement>()
 let resultTrack: HTMLAudioElement | null = null
 let stopWaitingForGesture: (() => void) | null = null
 const tracks = new Map<GameKey, HTMLAudioElement>()
 
 /** 화면이 바뀔 때마다 갈아탈 수 있는 트랙 전부. 잠금은 요소마다 따로라 한꺼번에 풀어둔다. */
 function allTracks(): HTMLAudioElement[] {
-  return [...tracks.values(), gameTrack, resultTrack].filter((track) => track !== null)
+  return [...tracks.values(), ...gameTracks.values(), resultTrack].filter((track) => track !== null)
 }
 
 function prepare(): void {
@@ -27,9 +27,16 @@ function prepare(): void {
     audio.preload = 'auto'
     tracks.set(key, audio)
   }
-  gameTrack = new Audio('/audio/game/yacht_ingame.mp3')
-  gameTrack.loop = true
-  gameTrack.preload = 'auto'
+  for (const [code, source] of Object.entries({
+    DUEL: '/audio/game/duel-ingame.mp3',
+    PING_PONG: '/audio/game/ping-pong-ingame.mp3',
+    YACHT_DICE: '/audio/game/yacht_ingame.mp3',
+  }) as [GameCode, string][]) {
+    const audio = new Audio(source)
+    audio.loop = true
+    audio.preload = 'auto'
+    gameTracks.set(code, audio)
+  }
   resultTrack = new Audio('/audio/game/result.mp3')
   resultTrack.preload = 'auto'
   applyMusicLevel()
@@ -73,9 +80,9 @@ export function playLandingSoundtrack(game: GameKey): void {
   play(tracks.get(game) ?? null)
 }
 
-export function playGameSoundtrack(): void {
+export function playGameSoundtrack(game: GameCode = 'YACHT_DICE'): void {
   prepare()
-  play(gameTrack)
+  play(gameTracks.get(game) ?? null)
 }
 
 export function playResultSoundtrack(): void {

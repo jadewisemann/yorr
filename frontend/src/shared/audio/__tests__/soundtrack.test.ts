@@ -94,6 +94,32 @@ it('stops the game track before playing the one-shot result track', async () => 
   vi.unstubAllGlobals()
 })
 
+it('게임에 맞는 인게임 BGM을 재생한다', async () => {
+  vi.resetModules()
+  const audios: HTMLAudioElement[] = []
+  vi.stubGlobal(
+    'Audio',
+    vi.fn(function AudioMock(src?: string) {
+      const audio = document.createElement('audio')
+      if (src) audio.setAttribute('src', src)
+      audio.play = vi.fn(() => Promise.resolve())
+      audio.pause = vi.fn()
+      audios.push(audio)
+      return audio
+    }),
+  )
+
+  const { playGameSoundtrack } = await import('@/shared/audio/soundtrack')
+  playGameSoundtrack('PING_PONG')
+
+  const pingPong = audios.find((audio) =>
+    audio.getAttribute('src')?.endsWith('/ping-pong-ingame.mp3'),
+  )
+  expect(pingPong?.play).toHaveBeenCalledOnce()
+
+  vi.unstubAllGlobals()
+})
+
 it('plays the matching hero track for the selected landing game', async () => {
   vi.resetModules()
   const audios: HTMLAudioElement[] = []
