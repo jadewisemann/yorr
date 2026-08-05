@@ -308,7 +308,13 @@ function PingPongPreparationController({
 
       <div className="mt-5 text-center">
         <h1 className="m-0 text-2xl font-black">연습 공을 쳐보세요</h1>
+        {/* 잡는 법이 여기 있는 이유: 빠른 대전으로 들어온 폰은 대기실 사용법
+            (`PingPongControllerHowTo`)을 지나지 않는다 — 매칭이 잡히면 대기 백드롭이 걷히기
+            전에 경기가 시작돼서, 이 화면이 그 사람이 보는 첫 안내다(S15P11A406-206). */}
         <p className="mt-1.5 mb-0 text-sm text-white/55">
+          {usesTouchFallback(permission)
+            ? '화면을 눌러 받아치세요. '
+            : '폰을 라켓처럼 세워 쥐고 팔로 짧게 휘두르세요. '}
           스윙이 감지된 뒤 준비 완료를 누르면 두 사람이 함께 시작해요.
         </p>
       </div>
