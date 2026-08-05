@@ -7,8 +7,13 @@ import { useVoice } from '@/realtime/voice/VoiceContext'
 import type { Player, PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
 import { isRoomHost } from '@/room/api/roomApi'
 import { useAddBot, useRemoveBot, useStartGame } from '@/room/api/useGameApi'
+import {
+  ControllerConnectSequence,
+  controllerHowTo,
+} from '@/room/components/ControllerConnectSequence'
 import { InvitationPanel } from '@/room/components/InvitationPanel'
 import { PlayerCard } from '@/room/components/PlayerCard'
+import { isPartyRoom } from '@/room/partyControllerStorage'
 import { readSoundMuted, saveSoundMuted } from '@/shared/audio/soundPreference'
 import { playLandingSoundtrack, setSoundtrackMuted } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
@@ -75,6 +80,10 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
     isDuoGame(roomSnapshot?.gameCode) || (matchingRoom && isDuoGame(roomSession?.gameCode))
   const minPlayersToStart = duoGame ? 2 : 1
   const botMutationLoading = addBot.isLoading || removeBot.isLoading
+  // 파티 모드 QR로 들어온 폰. 초대 패널을 세울 자리에 연결 안내가 대신 선다 —
+  // QR·링크는 큰 화면이 이미 띄우고 있어서 여기 또 있으면 자기 폰을 자기가 찍게 된다.
+  const controller = matchingRoom && isPartyRoom(roomSession.roomCode)
+  const HowTo = controllerHowTo[roomSnapshot?.gameCode ?? roomSession?.gameCode ?? 'YACHT_DICE']
   const botMutationError = addBot.error ?? removeBot.error
   const canStart =
     isHost &&
@@ -217,7 +226,14 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           </Button>
         </header>
 
-        <InvitationPanel roomCode={roomSession.roomCode} />
+        {controller ? (
+          <ControllerConnectSequence
+            howTo={HowTo ? <HowTo /> : undefined}
+            status={connectionStatus}
+          />
+        ) : (
+          <InvitationPanel roomCode={roomSession.roomCode} />
+        )}
 
         <BotManagementPanel
           adding={addBot.isLoading}
@@ -229,7 +245,9 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           visible={Boolean(roomSnapshot && isHost && !duoGame)}
         />
 
-        {!roomSnapshot && (
+        {/* 컨트롤러는 위 연결 안내가 같은 말을 이미 하고 있다 — 두 줄이 겹치면
+            어느 쪽이 지금 상태인지 알 수 없다. */}
+        {!roomSnapshot && !controller && (
           <p className="m-0 text-center text-sm text-content-muted" role="status">
             실시간 대기실에 연결하고 있어요.
           </p>
