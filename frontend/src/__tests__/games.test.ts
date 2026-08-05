@@ -20,10 +20,10 @@ describe('games', () => {
 
   // 처음 온 사람이 화살표로 지나가는 앞 칸들이 전부 잠긴 카드면 할 게 없는 서비스로 읽힌다.
   it('플레이할 수 있는 게임이 준비 중인 게임보다 앞에 선다', () => {
-    const lastLive = games.findLastIndex((game) => game.live)
     const firstLocked = games.findIndex((game) => !game.live)
 
-    expect(lastLive).toBeLessThan(firstLocked)
+    expect(firstLocked).toBeGreaterThan(-1)
+    expect(games.slice(firstLocked).every((game) => !game.live)).toBe(true)
   })
 
   it('게임 키는 중복되지 않는다 — 탭 id가 키로 만들어진다', () => {

@@ -66,6 +66,35 @@ describe('EntryPage', () => {
     expect(screen.getByRole('button', { name: '요트 다이스 플레이' })).toBeVisible()
   })
 
+  /**
+   * 선택이 화면 안 state에만 있던 시절에는 게임을 고르고 다른 화면에 갔다 돌아오면 무조건
+   * 첫 게임으로 리셋됐다. 이제 URL이 위치를 들고 있어, 뒤로가기로 돌아온 랜딩은 보던 카드에
+   * 그대로 선다(뒤로가기 자체는 라우터가 이 화면을 새 `?game=`으로 다시 마운트하는 일이다).
+   */
+  it('쿼리스트링이 가리키는 게임에서 열리고, 카드를 넘기면 URL을 덮어쓴다', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage gameKey="duel" />)
+
+    expect(screen.getByRole('heading', { name: '석양이 진다' })).toBeVisible()
+
+    await user.click(screen.getByRole('tab', { name: /탁구/ }))
+
+    // replace여야 한다 — 카드를 넘길 때마다 히스토리가 쌓이면 뒤로가기가 랜딩 안에서
+    // 게임을 하나씩 되짚느라 직전 화면으로 나가지 못한다.
+    expect(navigate).toHaveBeenCalledWith({
+      to: '/',
+      search: { game: 'pingpong' },
+      replace: true,
+    })
+  })
+
+  /** 손으로 고친 `?game=`이나 사라진 게임 키가 와도 캐러셀이 빈 칸에 서면 안 된다. */
+  it('모르는 게임 키로 들어오면 첫 게임으로 연다', () => {
+    render(<EntryPage gameKey={'nope' as never} />)
+
+    expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
+  })
+
   // 랜딩은 진입하자마자 BGM이 흐른다. 게임 화면과 같은 저장 설정을 써야, 조용한 곳에서
   // 한 번 끈 사람이 대기실·게임으로 넘어가서 다시 소리를 듣지 않는다.
   it('랜딩에서 소리를 끄면 설정이 저장돼 다음 화면까지 이어진다', async () => {

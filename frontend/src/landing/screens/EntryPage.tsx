@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { closeSession } from '@/auth/api/authApi'
 import type { AuthSession } from '@/auth/authSession'
 import { AccountDialog, Avatar } from '@/auth/components/AccountDialog'
-import { gameAt, games } from '@/games'
+import { gameAt, type GameKey, gameIndexOf, games } from '@/games'
 import { LandingCodeDialog } from '@/landing/components/LandingCodeDialog'
 import { LandingHeroCarousel } from '@/landing/components/LandingHeroCarousel'
 import { LandingProgress } from '@/landing/components/LandingProgress'
@@ -37,10 +37,21 @@ const narrowFooter = {
   empty: 'flex-none pb-[max(14px,env(safe-area-inset-bottom))]',
 } as const
 
-export function EntryPage() {
+interface EntryPageProps {
+  /**
+   * URL `?game=`이 들고 있는 게임. 진입 시 캐러셀의 시작 칸을 정한다 — 없으면 첫 게임이다.
+   * <p>
+   * 마운트 시점의 <b>초기값으로만</b> 읽는다. 선택이 바뀌면 아래 handleGameSelect가 URL을
+   * replace로 갱신하므로 이 화면이 떠 있는 동안 값이 밖에서 바뀔 일이 없고, 다른 화면에
+   * 갔다 뒤로가기로 돌아오면 이 화면이 새로 마운트돼 새 초기값을 읽는다.
+   */
+  gameKey?: GameKey | undefined
+}
+
+export function EntryPage({ gameKey }: EntryPageProps) {
   const navigate = useNavigate()
   const wide = useMediaQuery(WIDE_LAYOUT)
-  const [activeIndex, setActiveIndex] = useState(0)
+  const [activeIndex, setActiveIndex] = useState(() => gameIndexOf(gameKey))
   const [code, setCode] = useState('')
   const [codeOpen, setCodeOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -76,9 +87,16 @@ export function EntryPage() {
     setSoundtrackMuted(muted)
   }
 
+  /**
+   * 고른 게임을 URL에 남긴다. `replace`인 이유: 카드를 넘기는 것은 화면 이동이 아니라 이 화면
+   * 안의 위치 변경이라, 히스토리에 쌓으면 뒤로가기가 랜딩 안에서 게임을 하나씩 되짚느라
+   * <b>직전 화면으로 못 나간다</b>. 덮어쓰면 다른 화면에서 돌아올 때 마지막 위치만 복원된다.
+   */
   const handleGameSelect = (index: number) => {
-    playLandingSoundtrack(gameAt(index).key)
+    const { key } = gameAt(index)
+    playLandingSoundtrack(key)
     setActiveIndex(index)
+    void navigate({ to: '/', search: { game: key }, replace: true })
   }
 
   // 플레이는 이제 곧바로 방을 만들지 않는다 — 친구와 할지, 모르는 사람과 할지부터 고른다.
