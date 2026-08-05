@@ -25,7 +25,7 @@ export function InvalidInvitePage({ initialCode }: InvalidInvitePageProps) {
 
   return (
     // 디자인 13 — 카드 없이 풀스크린. 좌상단 뒤로가기, 레드 경고 아이콘, 좌측 정렬 헤드라인.
-    <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-gutter pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-content">
+    <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-gutter pt-safe-top pb-safe-bottom text-content">
       <header>
         <button
           aria-label="뒤로 가기"

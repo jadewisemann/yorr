@@ -57,7 +57,7 @@ export function DuelController({
   const live = signal === 'hold' || signal === 'draw'
 
   return (
-    <main className="relative flex h-svh w-full touch-none flex-col overflow-hidden bg-duel-canvas px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white select-none">
+    <main className="relative flex h-svh w-full touch-none flex-col overflow-hidden bg-duel-canvas px-5 pt-safe-top pb-safe-bottom text-white select-none">
       <header className="flex flex-none items-center justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
           <span className="font-mono text-[11px] tracking-[0.18em] text-[#ffcf8a]/60">

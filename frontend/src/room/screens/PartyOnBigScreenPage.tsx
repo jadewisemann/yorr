@@ -14,7 +14,7 @@ export function PartyOnBigScreenPage({ gameKey }: { gameKey: PartyGameKey }) {
   const navigate = useNavigate()
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-6 px-gutter pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-content">
+    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-6 px-gutter pt-[max(2.5rem,env(safe-area-inset-top))] pb-safe-bottom text-content">
       <div className="grid gap-3">
         <h1 className="m-0 text-[27px] font-bold tracking-[-0.02em]">
           파티 모드는 큰 화면에서 열어 주세요

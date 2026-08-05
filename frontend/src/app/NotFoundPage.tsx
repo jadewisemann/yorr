@@ -7,7 +7,7 @@ export function NotFoundPage() {
   const path = typeof window === 'undefined' ? '' : window.location.pathname
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-gutter pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-content">
+    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-gutter pt-safe-top pb-safe-bottom text-content">
       <header className="pt-2">
         <span className="font-mono text-[22px] leading-none font-bold tracking-[-0.03em]">
           YO<span className="text-brand">R</span>R
