@@ -44,11 +44,11 @@ const WHEEL_THRESHOLD = 18
 /**
  * 칸을 넘길 때 띠가 미끄러지는 거리(컨테이너 폭 대비 %). 인접한 두 카드의 **중심 사이
  * 거리**다 — 이만큼 움직여야 새 카드가 직전에 이웃 카드가 서 있던 자리에서 들어온 것처럼
- * 보인다. 카드가 가운데 서므로(중심 50%) 값을 정하는 것은 <b>peek 좌표뿐</b>이다
- * (narrow -15.6%+24.6%, wide -12.2%+36.1%). 카드 자체의 좌우 여백을 바꿔도 이 값은
- * 그대로지만, peek 좌표를 바꾸면 여기도 같이 고친다.
+ * 보인다. 가운데 카드가 중심 50%에 서므로 값을 정하는 것은 <b>이웃 카드 좌표뿐</b>이다
+ * (narrow -15.6%+24.6% → 중심 -3.3%, wide 0%+13.5% → 중심 6.75%). 가운데 카드의 좌우
+ * 여백을 바꿔도 이 값은 그대로지만, 이웃 좌표를 바꾸면 여기도 같이 고친다.
  */
-const SLIDE_DISTANCE_PCT = { narrow: 53.3, wide: 44.15 }
+const SLIDE_DISTANCE_PCT = { narrow: 53.3, wide: 43.25 }
 
 export function LandingHeroCarousel({
   activeIndex,
@@ -70,9 +70,11 @@ export function LandingHeroCarousel({
   const previousIndexRef = useRef(activeIndex)
 
   const game = games[activeIndex]
-  /** 끝에서도 이웃이 있다 — 목록이 순환하므로 양옆 미리보기가 비지 않는다. */
-  const previous = games[(activeIndex - 1 + games.length) % games.length]
-  const next = games[(activeIndex + 1) % games.length]
+  /** 끝에서도 이웃이 있다 — 목록이 순환하므로 양옆 카드가 비지 않는다. */
+  const previousIndex = (activeIndex - 1 + games.length) % games.length
+  const nextIndex = (activeIndex + 1) % games.length
+  const previous = games[previousIndex]
+  const next = games[nextIndex]
 
   /**
    * 칸이 바뀌면 띠를 이웃 카드가 있던 자리에서 밀어 넣는다. 화살표·스와이프·휠뿐 아니라
@@ -221,8 +223,22 @@ export function LandingHeroCarousel({
       {/* 띠 전체를 한 덩어리로 움직인다 — 카드 세 장을 각각 애니메이션하면 이웃 카드가
           제 위치를 벗어나고, 퇴장 카드를 따로 그리면 3D 히어로가 두 벌 살아난다. */}
       <motion.div animate={track} className="absolute inset-0" initial={false}>
-        {previous && <PeekCard game={previous} layout={layout} side="left" />}
-        {next && <PeekCard game={next} layout={layout} side="right" />}
+        {previous && (
+          <NeighborCard
+            game={previous}
+            layout={layout}
+            onSelect={wide ? () => onSelect(previousIndex) : null}
+            side="left"
+          />
+        )}
+        {next && (
+          <NeighborCard
+            game={next}
+            layout={layout}
+            onSelect={wide ? () => onSelect(nextIndex) : null}
+            side="right"
+          />
+        )}
         <div
           aria-labelledby={landingTabId(game.key)}
           className={cn(
@@ -287,49 +303,74 @@ function circularDelta(from: number, to: number, length: number) {
 }
 
 /**
- * 양옆으로 반쯤 걸쳐 보이는 이웃 카드. 선택은 화살표·점 목록이 담당하므로 여기서는
- * 조작 대상을 늘리지 않고 "옆에 더 있다"만 말한다.
+ * 양옆에 서는 이웃 카드. 두 레이아웃이 하는 일이 다르다.
+ * <p>
+ * <b>wide</b>는 띠 <b>안쪽</b>에 온전히 선다(예전엔 -12.2%로 걸쳐 있어 화면 밖으로 잘려
+ * 나갔다). 카드 석 장이 한 화면에 함께 보이고, 이웃 카드를 눌러 바로 그 게임으로 넘어간다.
+ * 가운데 카드 폭(69.4%)은 건드리지 않는다 — 760px에서 이미 하단 띠의 태그라인 칸이 83px뿐이라
+ * 여기서 더 좁히면 액션 클러스터에 밀려 글자가 깨진다({@link LandingHeroCard} 하단 띠 주석).
+ * 그래서 이웃은 남는 갓길(양쪽 15.3%)에 들어간다.
+ * <p>
+ * <b>narrow</b>는 종전 그대로 "옆에 더 있다"만 말하는 장식이다. 390px에서 내보일 수 있는
+ * 폭이 35px이라 탭 타깃이 되지 못하고, 포인터를 받으면 스와이프와 다툰다.
+ * <p>
+ * 3D는 가운데 카드만 그린다 — 이웃은 {@link LandingHeroCard}가 아니라 이 정적 판이므로
+ * 카드가 셋 보여도 살아 있는 HeroCanvas는 여전히 하나다.
  */
-function PeekCard({
+function NeighborCard({
   game,
   layout,
+  onSelect,
   side,
 }: {
   game: Game
   layout: 'narrow' | 'wide'
+  /** 눌러 고를 수 있는가. null이면 장식(narrow)이다. */
+  onSelect: (() => void) | null
   side: 'left' | 'right'
 }) {
   const wide = layout === 'wide'
+  const shell = cn(
+    'absolute overflow-hidden border border-landing-hairline [background:var(--ds-landing-ghost)]',
+    // narrow 퍼센트는 레퍼런스 좌표(390×436)를 그대로 옮긴 값이다. wide는 가운데 카드가
+    // 비워 둔 갓길(0 ~ 15.3%) 안에서 13.5%를 쓰고 나머지 1.8%가 카드 사이 틈이 된다.
+    wide
+      ? 'top-[7.2%] h-[85.6%] w-[13.5%] rounded-[26px]'
+      : 'pointer-events-none top-[6%] h-[88%] w-[24.6%] rounded-[24px] opacity-40',
+    wide
+      ? side === 'left'
+        ? 'left-0'
+        : 'right-0'
+      : side === 'left'
+        ? 'left-[-15.6%]'
+        : 'right-[-15.6%]',
+  )
+
+  if (!onSelect) return <div aria-hidden="true" className={shell} />
 
   return (
-    <div
-      aria-hidden="true"
+    <button
+      aria-label={`${game.name} 선택`}
       className={cn(
-        'pointer-events-none absolute overflow-hidden border border-landing-hairline [background:var(--ds-landing-ghost)]',
-        // 퍼센트는 레퍼런스 좌표(1440×472 / 390×436)를 그대로 옮긴 값이다.
-        wide
-          ? 'top-[7.2%] h-[85.6%] w-[36.1%] rounded-[26px] opacity-[0.34]'
-          : 'top-[6%] h-[88%] w-[24.6%] rounded-[24px] opacity-40',
-        wide
-          ? side === 'left'
-            ? 'left-[-12.2%]'
-            : 'right-[-12.2%]'
-          : side === 'left'
-            ? 'left-[-15.6%]'
-            : 'right-[-15.6%]',
+        shell,
+        // 가운데 카드보다 뒤로 물러나 있어야 무엇이 선택된 카드인지 읽힌다. 다만 눌리는
+        // 물건이므로 예전 장식 시절(0.34)만큼 어둡게 두지는 않는다.
+        'cursor-pointer p-0 opacity-65 transition-opacity duration-150 ease-out hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
       )}
+      onClick={onSelect}
+      type="button"
     >
-      {wide && (
-        <span
-          className={cn(
-            'absolute bottom-6 max-w-[46%] text-[22px] font-bold text-landing-text-muted',
-            side === 'left' ? 'left-6.5' : 'right-6.5 text-right',
-          )}
-        >
-          {game.name}
-        </span>
-      )}
-    </div>
+      {/* 갓길 카드는 1600px 띠에서도 216px이라 이름 한 줄이 전부다. 인원·시간은 고른 뒤
+          가운데 카드의 메타 필이 말한다. */}
+      <span
+        className={cn(
+          'absolute inset-x-3.5 bottom-5 block text-balance text-left text-[clamp(13px,1.15vw,20px)]/[1.2] font-bold',
+          game.live ? 'text-landing-text' : 'text-landing-text-muted',
+        )}
+      >
+        {game.name}
+      </span>
+    </button>
   )
 }
 

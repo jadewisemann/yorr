@@ -110,10 +110,24 @@ const rootRoute = createRootRoute({
   notFoundComponent: NotFoundPage,
 })
 
+/**
+ * 랜딩. `?game=`이 캐러셀에서 보던 칸을 들고 있어, 게임을 고르고 다른 화면에 갔다가
+ * 브라우저 뒤로가기로 돌아오면 그 게임에 그대로 선다 — 예전에는 선택이 화면 안 state에만
+ * 있어 무조건 첫 게임으로 리셋됐다.
+ * <p>
+ * 키를 <b>조건부로</b> 넣는다(`/join`의 party·mode와 같은 이유). 항상 있는 키로 두면 타입상
+ * 필수가 되어 `navigate({ to: '/' })`로 랜딩에 복귀하는 화면 일곱 곳이 전부 이 값을 넘겨야 한다.
+ */
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: EntryPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    ...(isGameKey(search.game) ? { game: search.game } : {}),
+  }),
+  component: () => {
+    const { game } = indexRoute.useSearch()
+    return <EntryPage gameKey={game} />
+  },
 })
 
 const devCatalogRoute = createRoute({
