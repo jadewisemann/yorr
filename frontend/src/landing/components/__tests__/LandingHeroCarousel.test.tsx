@@ -16,10 +16,8 @@ describe('LandingHeroCarousel', () => {
         activeIndex={0}
         games={games}
         layout="wide"
-        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
-        onTutorial={vi.fn()}
       />,
     )
 
@@ -36,10 +34,8 @@ describe('LandingHeroCarousel', () => {
         activeIndex={0}
         games={games}
         layout="wide"
-        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
-        onTutorial={vi.fn()}
       />,
     )
 
@@ -51,10 +47,8 @@ describe('LandingHeroCarousel', () => {
         activeIndex={games.length - 1}
         games={games}
         layout="wide"
-        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
-        onTutorial={vi.fn()}
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: '다음 게임' }))
@@ -70,10 +64,8 @@ describe('LandingHeroCarousel', () => {
         activeIndex={0}
         games={games}
         layout="wide"
-        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
-        onTutorial={vi.fn()}
       />,
     )
 
@@ -95,10 +87,8 @@ describe('LandingHeroCarousel', () => {
         activeIndex={0}
         games={games}
         layout="narrow"
-        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={vi.fn()}
-        onTutorial={vi.fn()}
       />,
     )
 
@@ -113,10 +103,8 @@ describe('LandingHeroCarousel', () => {
         activeIndex={0}
         games={games}
         layout="narrow"
-        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
-        onTutorial={vi.fn()}
       />,
     )
 
@@ -131,10 +119,8 @@ describe('LandingHeroCarousel', () => {
         activeIndex={1}
         games={games}
         layout="wide"
-        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
-        onTutorial={vi.fn()}
       />,
     )
 
@@ -152,10 +138,8 @@ describe('LandingHeroCarousel', () => {
         activeIndex={1}
         games={games}
         layout="wide"
-        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
-        onTutorial={vi.fn()}
       />,
     )
     const region = screen.getByRole('region', { name: '게임 캐러셀' })
@@ -175,10 +159,8 @@ describe('LandingHeroCarousel', () => {
         activeIndex={1}
         games={games}
         layout="wide"
-        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
-        onTutorial={vi.fn()}
       />,
     )
 
@@ -197,10 +179,8 @@ describe('LandingHeroCarousel', () => {
         activeIndex={1}
         games={games}
         layout="narrow"
-        onPartyMode={vi.fn()}
         onPlay={vi.fn()}
         onSelect={onSelect}
-        onTutorial={vi.fn()}
       />,
     )
     const region = screen.getByRole('region', { name: '게임 캐러셀' })
@@ -227,10 +207,8 @@ describe('LandingHeroCarousel', () => {
         activeIndex={0}
         games={games}
         layout="narrow"
-        onPartyMode={vi.fn()}
         onPlay={onPlay}
         onSelect={onSelect}
-        onTutorial={vi.fn()}
       />,
     )
     const region = screen.getByRole('region', { name: '게임 캐러셀' })

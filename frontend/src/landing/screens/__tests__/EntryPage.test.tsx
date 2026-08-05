@@ -80,11 +80,13 @@ describe('EntryPage', () => {
     await user.click(screen.getByRole('tab', { name: /탁구/ }))
 
     // replace여야 한다 — 카드를 넘길 때마다 히스토리가 쌓이면 뒤로가기가 랜딩 안에서
-    // 게임을 하나씩 되짚느라 직전 화면으로 나가지 못한다.
+    // 게임을 하나씩 되짚느라 직전 화면으로 나가지 못한다. viewTransition도 꺼야 한다 —
+    // 페이지 전체 전환 연출(항상 오른쪽 진입)이 캐러셀 슬라이드와 반대 방향으로 겹쳤다.
     expect(navigate).toHaveBeenCalledWith({
       to: '/',
       search: { game: 'pingpong' },
       replace: true,
+      viewTransition: false,
     })
   })
 
@@ -163,7 +165,7 @@ describe('EntryPage', () => {
     render(<EntryPage />)
 
     await user.click(screen.getByRole('tab', { name: /탁구/ }))
-    await user.click(screen.getByRole('button', { name: '탁구 친구와 대전' }))
+    await user.click(screen.getByRole('button', { name: '탁구 플레이' }))
     await user.click(screen.getByRole('button', { name: /방 만들기/ }))
 
     expect(navigate).toHaveBeenCalledWith({ to: '/party', search: { game: 'pingpong' } })
@@ -172,34 +174,46 @@ describe('EntryPage', () => {
   it.each([
     ['narrow', false],
     ['wide', true],
-  ])('opens ping pong AI play from the secondary button (%s)', async (_layout, wide) => {
+  ])('opens ping pong AI play from the mode card (%s)', async (_layout, wide) => {
     const user = userEvent.setup()
     useLayout(wide)
     render(<EntryPage />)
 
     await user.click(screen.getByRole('tab', { name: /탁구/ }))
-    await user.click(screen.getByRole('button', { name: '탁구 AI와 대전' }))
+    await user.click(screen.getByRole('button', { name: '탁구 플레이' }))
+    await user.click(screen.getByRole('button', { name: /AI와 대전/ }))
 
     expect(navigate).toHaveBeenCalledWith({ to: '/pingpong' })
   })
 
-  it('keeps both ping pong actions in equal mobile columns', async () => {
+  /** 모드 카드는 게임에 맞는 것만 선다 — 탁구에 파티 모드가 서면 방 만들기와 중복이다. */
+  it('shows game-specific mode cards in the play dialog', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)
 
     await user.click(screen.getByRole('tab', { name: /탁구/ }))
+    await user.click(screen.getByRole('button', { name: '탁구 플레이' }))
+    const pingpong = within(screen.getByRole('dialog', { name: '탁구 시작하기' }))
+    expect(pingpong.getByRole('button', { name: /AI와 대전/ })).toBeVisible()
+    expect(pingpong.queryByRole('button', { name: /파티 모드/ })).not.toBeInTheDocument()
+    expect(pingpong.queryByRole('button', { name: /튜토리얼/ })).not.toBeInTheDocument()
+    await user.keyboard('{Escape}')
 
-    const ai = screen.getByRole('button', { name: '탁구 AI와 대전' })
-    const friend = screen.getByRole('button', { name: '탁구 친구와 대전' })
-    expect(ai.parentElement).toBe(friend.parentElement)
-    expect(ai.parentElement).toHaveClass('grid-cols-2')
+    await user.click(screen.getByRole('tab', { name: /석양이 진다/ }))
+    await user.click(screen.getByRole('button', { name: '석양이 진다 플레이' }))
+    const duel = within(screen.getByRole('dialog', { name: '석양이 진다 시작하기' }))
+    expect(duel.getByRole('button', { name: /파티 모드/ })).toBeVisible()
+
+    await user.click(duel.getByRole('button', { name: /파티 모드/ }))
+    expect(navigate).toHaveBeenCalledWith({ to: '/party', search: { game: 'duel' } })
   })
 
   it('처음 온 사람은 방을 만들지 않고 연습 모드로 바로 들어간다', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)
 
-    await user.click(screen.getByRole('button', { name: /튜토리얼로 연습하기/ }))
+    await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
+    await user.click(screen.getByRole('button', { name: /튜토리얼/ }))
 
     // 연습은 실전과 다른 화면이다 — /join을 거치지 않는다.
     expect(navigate).toHaveBeenCalledWith({ to: '/tutorial' })
@@ -211,8 +225,6 @@ describe('EntryPage', () => {
 
     await user.click(screen.getByRole('tab', { name: /라이어스 다이스/ }))
 
-    // 준비 중인 게임에는 연습할 것이 아직 없다.
-    expect(screen.queryByRole('button', { name: /튜토리얼로 연습하기/ })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
     // COMING SOON 배지도 마찬가지 — 못 누르는 회색 버튼이 같은 사실을 더 강하게 말한다.
     expect(screen.queryByRole('button', { name: /플레이$/ })).not.toBeInTheDocument()

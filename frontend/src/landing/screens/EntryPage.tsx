@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { type RefObject, useEffect, useRef, useState } from 'react'
 import { closeSession } from '@/auth/api/authApi'
 import type { AuthSession } from '@/auth/authSession'
 import { AccountDialog, Avatar } from '@/auth/components/AccountDialog'
@@ -56,6 +56,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
   const [codeOpen, setCodeOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [playModeOpen, setPlayModeOpen] = useState(false)
+  const codeEntryRef = useRef<HTMLButtonElement>(null)
   const appNotice = useAppStore((state) => state.appNotice)
   const authSession = useAppStore((state) => state.authSession)
   const roomSession = useAppStore((state) => state.roomSession)
@@ -91,12 +92,17 @@ export function EntryPage({ gameKey }: EntryPageProps) {
    * 고른 게임을 URL에 남긴다. `replace`인 이유: 카드를 넘기는 것은 화면 이동이 아니라 이 화면
    * 안의 위치 변경이라, 히스토리에 쌓으면 뒤로가기가 랜딩 안에서 게임을 하나씩 되짚느라
    * <b>직전 화면으로 못 나간다</b>. 덮어쓰면 다른 화면에서 돌아올 때 마지막 위치만 복원된다.
+   *
+   * `viewTransition: false`도 같은 이유다 — 라우터 기본값(defaultViewTransition)이 켜져
+   * 있어 이 URL 갱신에도 <b>페이지 전체</b> 전환 연출(screen-push-in, 항상 오른쪽에서
+   * 진입)이 발동했다. 왼쪽으로 넘겨도 히어로와 헤더가 오른쪽에서 밀려 들어와, 캐러셀
+   * 자체의 슬라이드와 반대 방향으로 겹쳐 보였다.
    */
   const handleGameSelect = (index: number) => {
     const { key } = gameAt(index)
     playLandingSoundtrack(key)
     setActiveIndex(index)
-    void navigate({ to: '/', search: { game: key }, replace: true })
+    void navigate({ to: '/', search: { game: key }, replace: true, viewTransition: false })
   }
 
   // 플레이는 이제 곧바로 방을 만들지 않는다 — 친구와 할지, 모르는 사람과 할지부터 고른다.
@@ -119,15 +125,19 @@ export function EntryPage({ gameKey }: EntryPageProps) {
 
   /** 연습 모드는 실전과 다른 화면이다 — 방을 만들지 않고 바로 들어간다. */
   const handleTutorial = () => {
+    setPlayModeOpen(false)
     void navigate({ to: '/tutorial' })
   }
 
+  /** 탁구 전용 로컬 AI 대전. 방도 서버도 없이 바로 붙는다. */
+  const handleAiMatch = () => {
+    setPlayModeOpen(false)
+    void navigate({ to: '/pingpong' })
+  }
+
   // 대시보드는 플레이어가 아니라 이름을 짓지 않는다 — 닉네임 화면을 거치지 않는다.
-  const handleOpenParty = () => {
-    if (game.key === 'pingpong') {
-      void navigate({ to: '/pingpong' })
-      return
-    }
+  const handlePartyMode = () => {
+    setPlayModeOpen(false)
     // 고른 게임으로 열어야 한다 — 예전엔 'yacht'로 굳어 있어서, 결투 카드에서 눌러도
     // 요트 파티가 열렸다(카드는 결투인데 대시보드 제목만 바뀌어 있었다).
     void navigate({
@@ -158,6 +168,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
    */
   const codeDialog = (
     <LandingCodeDialog
+      anchorRef={wide ? undefined : codeEntryRef}
       code={code}
       layout={wide ? 'wide' : 'narrow'}
       onClose={() => setCodeOpen(false)}
@@ -178,13 +189,16 @@ export function EntryPage({ gameKey }: EntryPageProps) {
   const playModeDialog = (
     <PlayModeDialog
       game={game}
+      onAiMatch={handleAiMatch}
       onClose={() => setPlayModeOpen(false)}
       onCreateRoom={handleCreateRoom}
+      onPartyMode={handlePartyMode}
       onQuickMatch={handleQuickMatch}
       onSignIn={() => {
         setPlayModeOpen(false)
         setAccountOpen(true)
       }}
+      onTutorial={handleTutorial}
       open={playModeOpen}
       signedIn={authSession !== null}
     />
@@ -225,7 +239,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
               </div>
               <span className="flex min-w-0 items-center gap-2.5">
                 {/* 게임 CTA와 다른 층 — 선택한 게임과 무관한 독립 진입 경로다. */}
-                <CodeEntryRow onOpen={() => setCodeOpen(true)} />
+                <CodeEntryRow anchorRef={codeEntryRef} onOpen={() => setCodeOpen(true)} />
                 <span aria-hidden="true" className="h-6.5 w-px flex-none bg-landing-hairline" />
                 <SoundToggle muted={soundMuted} onToggle={toggleSound} />
                 <AccountControl
@@ -255,10 +269,8 @@ export function EntryPage({ gameKey }: EntryPageProps) {
               activeIndex={activeIndex}
               games={games}
               layout="wide"
-              onPartyMode={handleOpenParty}
               onPlay={handlePlay}
               onSelect={handleGameSelect}
-              onTutorial={handleTutorial}
             />
           </div>
 
@@ -333,7 +345,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
           <h1 className="m-0 min-w-0 text-[24px]/[1.25] font-bold tracking-[-0.02em] text-landing-text-strong">
             링크 하나로 모이면 바로 시작하는 파티 게임
           </h1>
-          <CodeEntryRow onOpen={() => setCodeOpen(true)} />
+          <CodeEntryRow anchorRef={codeEntryRef} onOpen={() => setCodeOpen(true)} />
         </div>
 
         {/* 히어로가 남는 높이를 전부 먹는다. 나머지를 고정 높이로 두고 히어로만 늘고 줄면
@@ -345,10 +357,8 @@ export function EntryPage({ gameKey }: EntryPageProps) {
             activeIndex={activeIndex}
             games={games}
             layout="narrow"
-            onPartyMode={handleOpenParty}
             onPlay={handlePlay}
             onSelect={handleGameSelect}
-            onTutorial={handleTutorial}
           />
         </div>
 
@@ -408,9 +418,21 @@ export function EntryPage({ gameKey }: EntryPageProps) {
 const codeEntry =
   'flex min-h-tap shrink-0 cursor-pointer items-center gap-2 rounded-full border-0 bg-landing-accent pr-3 pl-4 text-[14px] font-landing-bold text-landing-accent-ink outline-white transition-colors duration-150 ease-out hover:bg-landing-accent/90 focus-visible:outline-3 focus-visible:outline-offset-2'
 
-function CodeEntryRow({ onOpen }: { onOpen: () => void }) {
+function CodeEntryRow({
+  anchorRef,
+  onOpen,
+}: {
+  anchorRef: RefObject<HTMLButtonElement | null>
+  onOpen: () => void
+}) {
   return (
-    <button aria-label="초대 코드로 참가" className={codeEntry} onClick={onOpen} type="button">
+    <button
+      ref={anchorRef}
+      aria-label="초대 코드로 참가"
+      className={codeEntry}
+      onClick={onOpen}
+      type="button"
+    >
       초대 코드
       {/* 글자 뒤에 입력 필드를 줄여 그린다 — 코드 칸 세 개를 그린 아이콘은 "무엇을
           누르는가"를 말하지 못했다. 커서가 깜빡이는 빈 칸은 "여기에 쳐 넣는다"로 읽힌다. */}

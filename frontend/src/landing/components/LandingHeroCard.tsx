@@ -1,7 +1,6 @@
 import type { Game } from '@/games'
 import { cn } from '@/shared/cn'
 import { HeroCanvas } from './HeroCanvas'
-import { PartyModeEntry } from './PartyModeEntry'
 
 interface LandingHeroCardProps {
   game: Game
@@ -9,10 +8,6 @@ interface LandingHeroCardProps {
   layout: 'narrow' | 'wide'
   /** 카드 안 플레이 CTA. 준비 중인 게임은 잠긴 버튼이 같은 자리에 서므로 호출되지 않는다. */
   onPlay: () => void
-  /** 플레이 왼쪽에 서는 파티 모드 CTA. wide·live 게임에서만 그려진다. */
-  onPartyMode: () => void
-  /** 플레이 <b>위</b>에 서는 연습 모드 입구. 연습이 있는 게임(야추)에서만 그려진다. */
-  onTutorial: () => void
 }
 
 /**
@@ -28,15 +23,8 @@ interface LandingHeroCardProps {
  * 메타 필 273px = 410 > 안쪽 폭 297). 그래서 위·아래로 가른다: 제목·태그라인 위,
  * 메타 필·CTA 아래. 아래에 무거운 덩어리는 CTA 하나뿐이고 필은 헤어라인 칩이다.
  */
-export function LandingHeroCard({
-  game,
-  layout,
-  onPartyMode,
-  onPlay,
-  onTutorial,
-}: LandingHeroCardProps) {
+export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) {
   const wide = layout === 'wide'
-  const actionLayout = actionLayoutClass(wide, game.key)
 
   return (
     <div
@@ -167,80 +155,14 @@ export function LandingHeroCard({
             <LandingMetaPills game={game} layout="narrow" />
           </div>
         )}
-        {/* 연습 입구와 액션 클러스터. 세로로 쌓아 <b>연습이 플레이 버튼 바로 위</b>에 선다. */}
-        <div className={cn('flex flex-none flex-col gap-2', wide ? 'items-end' : 'items-stretch')}>
-          <TutorialSlot game={game} onTutorial={onTutorial} wide={wide} />
-          {/* primary(플레이)가 읽기 방향의 끝인 <b>오른쪽</b>에 남고, 보조 진입은 왼쪽에 붙는다.
-              나중에 빠른 대전도 이 줄에 들어온다.
-              모든 자식의 높이가 같아야 한다(h-18/h-15) — 이 자리가 위아래로 뛰면 캐러셀이
-              카드를 미끄러뜨릴 때 슬라이드가 흔들려 보인다(아래 HeroCta 주석과 같은 이유). */}
-          <div className={actionLayout}>
-            {showSecondaryAction(wide, game) && (
-              <PartyModeEntry
-                kind={game.key === 'pingpong' ? 'ai' : 'party'}
-                layout={layout}
-                onOpen={onPartyMode}
-              />
-            )}
-            <HeroCta game={game} layout={layout} onPlay={onPlay} />
-          </div>
+        {/* CTA는 플레이 하나뿐이다(S15P11A406-213) — 파티 모드·AI 대전·연습 같은 진입
+            방식은 플레이를 누르면 서는 모드 선택 카드(PlayModeDialog)로 옮겼다. 카드에
+            버튼이 여럿 서면 게임마다 클러스터 폭이 달라져 캐러셀이 흔들려 보였다. */}
+        <div className={cn('flex flex-none', wide ? 'justify-end' : 'items-stretch')}>
+          <HeroCta game={game} layout={layout} onPlay={onPlay} />
         </div>
       </div>
     </div>
-  )
-}
-
-function actionLayoutClass(wide: boolean, gameKey: Game['key']) {
-  if (wide) return 'flex items-stretch gap-2.5'
-  if (gameKey === 'pingpong') return 'grid w-full grid-cols-2 gap-2'
-  return 'flex gap-2'
-}
-
-function showSecondaryAction(wide: boolean, game: Game) {
-  return game.live && (wide || game.key === 'pingpong')
-}
-
-/**
- * 연습 모드 입구가 서는 한 줄(S15P11A406-143). 예전에는 진행 표시줄 <b>아래 층</b>에 있었는데,
- * 연습이 있는 게임에서만 그 층이 생겼다 사라져 <b>게임을 넘길 때마다 페이지 레이아웃이
- * 흔들렸고</b> 320px에서는 히어로 카드가 그만큼 눌렸다. 카드 안 하단 띠는 아래가 고정
- * (bottom 앵커)이라 여기서 한 줄이 늘어도 플레이 버튼은 제자리다.
- * <p>
- * 자리는 <b>모든 카드가 함께 비워 둔다</b>(연습이 있는 게임은 야추뿐) — 카드마다 띠 높이가
- * 다르면 캐러셀이 미끄러질 때 흔들려 보인다({@link HeroCta} 주석과 같은 이유).
- */
-function TutorialSlot({
-  game,
-  onTutorial,
-  wide,
-}: {
-  game: Game
-  onTutorial: () => void
-  wide: boolean
-}) {
-  return (
-    <div className={cn('flex h-6 items-center', wide ? 'justify-end' : 'justify-start')}>
-      {game.key === 'yacht' && <TutorialEntry onClick={onTutorial} />}
-    </div>
-  )
-}
-
-/**
- * 실전에 들어가기 전에 고를 수 있어야 하는 선택이라 플레이 CTA와 같은 흐름 — <b>바로 위</b>에
- * 둔다. 게임 안에서는 더 이상 한 턴 튜토리얼을 켜지 않는다.
- * <p>
- * 밑줄 링크 모양을 유지한다 — 버튼 모양으로 만들면 옆의 파티 모드 진입과 같은 무게로 읽혀
- * 화면에서 채운 레드(플레이) 하나만 튀는 위계가 무너진다.
- */
-function TutorialEntry({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      className="cursor-pointer border-0 bg-transparent p-1 text-[14px] font-semibold text-landing-text-muted underline underline-offset-4 transition-colors duration-150 ease-out hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
-      onClick={onClick}
-      type="button"
-    >
-      처음이신가요? 튜토리얼로 연습하기
-    </button>
   )
 }
 
@@ -294,11 +216,7 @@ const lockedCtaSize = {
   wide: 'h-18 shrink-0 px-14 text-[22px]',
 } as const
 
-function HeroCta({
-  game,
-  layout,
-  onPlay,
-}: Omit<LandingHeroCardProps, 'onPartyMode' | 'onTutorial'>) {
+function HeroCta({ game, layout, onPlay }: LandingHeroCardProps) {
   if (!game.live) {
     return (
       <button
@@ -315,13 +233,13 @@ function HeroCta({
 
   return (
     <button
-      aria-label={game.key === 'pingpong' ? '탁구 친구와 대전' : `${game.name} 플레이`}
+      aria-label={`${game.name} 플레이`}
       className={cn(playCta, playCtaSize[layout])}
       onClick={onPlay}
       type="button"
     >
       <PlayGlyph />
-      {game.key === 'pingpong' ? '친구와 대전' : '플레이'}
+      플레이
     </button>
   )
 }

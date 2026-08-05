@@ -1,4 +1,4 @@
-import { motion, useAnimationControls, useReducedMotion } from 'motion/react'
+import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react'
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -19,13 +19,9 @@ interface LandingHeroCarouselProps {
   games: Game[]
   /** wide = 좌우 화살표까지 있는 데스크톱, narrow = 스와이프만 있는 모바일. */
   layout: 'narrow' | 'wide'
-  /** 활성 카드 안 파티 모드 CTA. 플레이와 같은 액션 클러스터에 선다. */
-  onPartyMode: () => void
   /** 활성 카드 안 플레이 CTA. 카드가 소유하지만 어디로 갈지는 화면이 정한다. */
   onPlay: () => void
   onSelect: (index: number) => void
-  /** 활성 카드 안 연습 모드 입구. 플레이 바로 위에 선다. */
-  onTutorial: () => void
 }
 
 /** 이 거리 이상 끌고 놓으면 옆 게임으로 넘어간다. 그 아래는 가운데로 스냅된다. */
@@ -54,10 +50,8 @@ export function LandingHeroCarousel({
   activeIndex,
   games,
   layout,
-  onPartyMode,
   onPlay,
   onSelect,
-  onTutorial,
 }: LandingHeroCarouselProps) {
   const wide = layout === 'wide'
   const [dragOffset, setDragOffset] = useState(0)
@@ -65,7 +59,13 @@ export function LandingHeroCarousel({
   /** 이번 제스처가 임계값을 넘겨 드래그로 승격했는지. 뒤따르는 click을 삼킬지의 근거다. */
   const draggedRef = useRef(false)
   const lastWheelRef = useRef(0)
-  const track = useAnimationControls()
+  /**
+   * 띠의 x는 MotionValue + 명령형 {@link animate}로 움직인다. useAnimationControls의
+   * start()는 이 조합(레이아웃 이펙트 안 set→start)에서 애니메이션을 시작하지 못해 띠가
+   * 출발점(±43%)에 그대로 주차됐다 — 카드가 화면 밖에 멈춘 채로 남는 실측 버그.
+   */
+  const trackX = useMotionValue<number | string>(0)
+  const slideAnim = useRef<ReturnType<typeof animate> | null>(null)
   const reduceMotion = useReducedMotion()
   const previousIndexRef = useRef(activeIndex)
 
@@ -88,16 +88,18 @@ export function LandingHeroCarousel({
     const from = previousIndexRef.current
     previousIndexRef.current = activeIndex
     if (from === activeIndex) return
+    slideAnim.current?.stop()
     // 드래그로 넘어온 경우 x가 손가락 위치에 남아 있다 — 어느 쪽이든 0으로 정리한다.
     if (reduceMotion) {
-      track.set({ x: 0 })
+      trackX.set(0)
       return
     }
     // 점을 눌러 두 칸 이상 건너뛰어도 화면에는 카드 세 장뿐이다. 한 칸 거리로 고정한다.
     const direction = Math.sign(circularDelta(from, activeIndex, games.length))
-    track.set({ x: `${direction * SLIDE_DISTANCE_PCT[layout]}%` })
-    void track.start({ x: 0, transition: ENTER })
-  }, [activeIndex, games.length, layout, reduceMotion, track])
+    trackX.set(`${direction * SLIDE_DISTANCE_PCT[layout]}%`)
+    // 출발점과 같은 %-단위로 끝점을 준다 — 문자열끼리여야 보간이 성립한다.
+    slideAnim.current = animate(trackX, '0%', ENTER)
+  }, [activeIndex, games.length, layout, reduceMotion, trackX])
 
   /** 목록 끝에서 반대편으로 감싼다(점 목록 방향키와 같은 규칙). */
   const step = (delta: number) => {
@@ -173,7 +175,8 @@ export function LandingHeroCarousel({
     const offset = Math.max(-DRAG_LIMIT_PX, Math.min(DRAG_LIMIT_PX, raw))
     setDragOffset(offset)
     // 끌리는 동안은 손가락을 그대로 따라간다 — 애니메이션이 아니라 즉시 반영이다.
-    track.set({ x: offset })
+    slideAnim.current?.stop()
+    trackX.set(offset)
   }
 
   const handlePointerUp = () => {
@@ -187,7 +190,8 @@ export function LandingHeroCarousel({
     setDragOffset(0)
     if (Math.abs(travelled) < STEP_DISTANCE_PX[layout]) {
       // 문턱을 못 넘었으면 제자리로 되돌린다. 칸이 바뀌는 경우는 위 layout effect가 맡는다.
-      void track.start({ x: 0, transition: ENTER })
+      slideAnim.current?.stop()
+      slideAnim.current = animate(trackX, 0, ENTER)
       return
     }
     step(travelled > 0 ? -1 : 1)
@@ -222,7 +226,7 @@ export function LandingHeroCarousel({
     >
       {/* 띠 전체를 한 덩어리로 움직인다 — 카드 세 장을 각각 애니메이션하면 이웃 카드가
           제 위치를 벗어나고, 퇴장 카드를 따로 그리면 3D 히어로가 두 벌 살아난다. */}
-      <motion.div animate={track} className="absolute inset-0" initial={false}>
+      <motion.div className="absolute inset-0" style={{ x: trackX }}>
         {previous && (
           <NeighborCard
             game={previous}
@@ -253,13 +257,7 @@ export function LandingHeroCarousel({
           id={LANDING_PANEL_ID}
           role="tabpanel"
         >
-          <LandingHeroCard
-            game={game}
-            layout={layout}
-            onPartyMode={onPartyMode}
-            onPlay={onPlay}
-            onTutorial={onTutorial}
-          />
+          <LandingHeroCard game={game} layout={layout} onPlay={onPlay} />
 
           {/* 화살표는 카드 안쪽 가장자리에 붙여 <b>띠와 함께 움직인다</b>. 바깥 고정 좌표에
               두면 카드가 미끄러지는 동안 버튼만 제자리에 멈춰 있어 화면에서 홀로 떠 보였고,
@@ -393,10 +391,9 @@ function ArrowButton({
         // 원형 판을 걷었다 — 카드 안에 들어온 뒤로는 그 테두리가 카드 위에 뜬 별개
         // 위젯처럼 보였다. 꺾쇠만 남기면 카드에 얹힌 표식으로 읽힌다. 탭 타깃(44px)은
         // 투명한 히트 영역으로 그대로 지킨다.
-        'absolute top-1/2 z-1 grid size-tap -translate-y-1/2 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-landing-text-muted transition-colors duration-150 ease-out hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+        'absolute top-1/2 z-1 grid size-tap aspect-square -translate-y-1/2 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-landing-text-muted transition-colors duration-150 ease-out hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
         // 카드 안쪽 가장자리에 붙는다 — 카드의 일부로 읽히고 띠와 함께 움직인다.
-        wide ? 'right-2 left-2' : 'right-0.5 left-0.5',
-        isNext ? 'left-auto' : 'right-auto',
+        isNext ? (wide ? 'right-2' : 'right-0.5') : wide ? 'left-2' : 'left-0.5',
       )}
       onClick={onClick}
       type="button"
@@ -406,7 +403,7 @@ function ArrowButton({
       <span
         aria-hidden="true"
         className={cn(
-          'rotate-45 scale-y-135 border-current',
+          'rotate-45 border-current',
           wide ? 'size-3.5 border-t-2 border-r-2' : 'size-3 border-t-2 border-r-2',
           isNext ? undefined : 'rotate-[225deg]',
         )}
