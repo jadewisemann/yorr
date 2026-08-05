@@ -74,9 +74,10 @@ public class PingPongGameService {
 
     public void swing(String roomId, String playerId, PingPongSwingPayload payload) {
         if (payload == null || payload.inputSeq() < 0) throw new IllegalArgumentException("invalid_ping_pong_swing");
-        long now = System.currentTimeMillis();
+        // 업링크 지연만큼 되감아 "친 순간"으로 판정한다. 되감기 폭은 PingPongRules 가 묶는다.
+        long swungAt = PingPongRules.judgedAt(System.currentTimeMillis(), payload.clientTs());
         states.mutate(roomId, current -> PingPongRules.swing(
-                        current, playerId, payload.inputSeq(), now, randomTarget()))
+                        current, playerId, payload.inputSeq(), swungAt, randomTarget()))
                 .ifPresent(next -> changed(roomId, next));
     }
 
