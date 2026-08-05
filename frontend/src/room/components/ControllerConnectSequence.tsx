@@ -1,4 +1,5 @@
 import { type ComponentType, type ReactNode, useEffect, useRef, useState } from 'react'
+import { DuelHowTo } from '@/duel/DuelHowTo'
 import type { GameCode } from '@/games'
 import { PingPongControllerHowTo } from '@/pingpong/PingPongControllerHowTo'
 import { CONNECTED_HOLD_MS, CONNECTED_VIBRATE_MS, CONNECTING_MIN_MS } from '@/room/connectSequence'
@@ -37,6 +38,7 @@ export type ControllerConnectStep = 'connecting' | 'connected' | 'ready'
  * 등록 예: `{ YACHT_DICE: YachtControllerHowTo }`
  */
 export const controllerHowTo: Partial<Record<GameCode, ComponentType>> = {
+  DUEL: DuelHowTo,
   PING_PONG: PingPongControllerHowTo,
 }
 
