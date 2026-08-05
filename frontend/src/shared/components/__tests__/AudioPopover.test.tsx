@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { AudioSheet } from '../AudioSheet'
+import { AudioPopover } from '../AudioPopover'
 
 /**
  * 전체 음소거 중에 슬라이더가 "이만큼 들린다"로 읽히던 문제(50%에 손잡이가 있고 트랙이
@@ -8,13 +8,13 @@ import { AudioSheet } from '../AudioSheet'
  * 흐리게 + 조작 불가 + "음소거" 표기로 말한다.
  */
 
-function renderSheet(muted: boolean) {
-  render(<AudioSheet muted={muted} onClose={vi.fn()} onToggleMute={vi.fn()} open={true} />)
+function renderPopover(muted: boolean) {
+  render(<AudioPopover muted={muted} onClose={vi.fn()} onToggleMute={vi.fn()} open={true} />)
 }
 
-describe('AudioSheet', () => {
+describe('AudioPopover', () => {
   it('음소거 중에는 슬라이더가 조작 불가이고 값 대신 음소거라고 적는다', () => {
-    renderSheet(true)
+    renderPopover(true)
 
     for (const label of ['배경음 볼륨', '효과음 볼륨']) {
       const slider = screen.getByLabelText(label)
@@ -27,7 +27,7 @@ describe('AudioSheet', () => {
   })
 
   it('소리가 켜져 있으면 슬라이더로 조절할 수 있다', () => {
-    renderSheet(false)
+    renderPopover(false)
 
     const slider = screen.getByLabelText('배경음 볼륨')
     expect(slider).toBeEnabled()
