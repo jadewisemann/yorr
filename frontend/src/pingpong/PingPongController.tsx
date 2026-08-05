@@ -289,7 +289,9 @@ function PingPongPreparationController({
     <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-pp-canvas px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
       <header className="flex flex-none items-center justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
-          <span className="font-mono text-2xs tracking-[0.18em] text-pp-rival-text">WARM-UP</span>
+          <span className="font-mono text-2xs tracking-[0.18em] text-pp-side-blue-text">
+            WARM-UP
+          </span>
           <strong className="truncate text-lg">{nickname}</strong>
         </div>
         <button
@@ -322,7 +324,7 @@ function PingPongPreparationController({
       <button
         aria-label="연습 공 치기"
         aria-disabled={permission === 'granted'}
-        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-pp-rival/35 bg-[radial-gradient(circle_at_50%_42%,rgb(43_143_224_/_24%),transparent_60%)] active:bg-white/8"
+        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-pp-side-blue/35 bg-[radial-gradient(circle_at_50%_42%,rgb(43_143_224_/_24%),transparent_60%)] active:bg-white/8"
         onClick={practiceAction}
         type="button"
       >
@@ -456,7 +458,7 @@ type PaddleTone = 'blue' | 'red'
 
 function paddleFaceClass(tone: PaddleTone) {
   return tone === 'blue'
-    ? 'border-pp-rival/45 bg-pp-rival shadow-[0_18px_45px_rgb(43_143_224_/_35%)]'
+    ? 'border-pp-side-blue/45 bg-pp-side-blue shadow-[0_18px_45px_rgb(43_143_224_/_35%)]'
     : 'border-pp-danger/45 bg-pp-danger shadow-[0_18px_45px_rgb(226_81_60_/_35%)]'
 }
 
@@ -492,7 +494,7 @@ function ControllerScore({
   tone: 'blue' | 'red'
 }) {
   return (
-    <div className={tone === 'blue' ? 'text-pp-rival-text' : 'text-pp-danger-text'}>
+    <div className={tone === 'blue' ? 'text-pp-side-blue-text' : 'text-pp-danger-text'}>
       <span className="flex max-w-24 items-center gap-1 text-xs font-bold text-white/55">
         <span className="rounded-xs border border-current px-1 font-mono text-2xs font-black leading-none">
           {tag}

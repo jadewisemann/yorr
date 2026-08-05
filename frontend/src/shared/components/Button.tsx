@@ -15,7 +15,10 @@ type ButtonProps = ComponentProps<'button'> & {
 const variants = {
   primary: 'bg-brand text-on-brand shadow-cta hover:bg-brand-strong disabled:shadow-none',
   secondary: 'bg-inverse text-on-inverse hover:bg-white',
-  ghost: 'border-white/18 bg-transparent text-content hover:bg-white/6',
+  // 테두리가 white/18(캔버스 위 1.62:1)이라 카탈로그에서 나란히 세우면 비활성 Primary
+  // (brand/55 면, 2.10:1)가 이 활성 버튼보다 넓고 진하게 보인다. 글자는 제 밝기를 유지하니
+  // 뜻이 뒤집히지는 않지만, 3순위 행동의 윤곽이 "누를 수 없는 것"보다 흐릴 이유는 없다.
+  ghost: 'border-white/28 bg-transparent text-content hover:bg-white/6',
   danger: 'border-brand/55 bg-brand/10 text-danger hover:bg-brand/18',
 } as const
 

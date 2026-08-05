@@ -261,7 +261,7 @@ function LocalPingPongGame({
         {mode === 'duo' && (
           <>
             <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-white/20" />
-            <span className="pointer-events-none absolute top-3 left-3 font-mono text-xs text-pp-rival-text">
+            <span className="pointer-events-none absolute top-3 left-3 font-mono text-xs text-pp-side-blue-text">
               ◀ P1
             </span>
             <span className="pointer-events-none absolute top-3 right-3 font-mono text-xs text-pp-danger-text">
@@ -341,7 +341,7 @@ function LocalScore({
 }) {
   return (
     <div
-      className={`grid min-w-20 text-center ${tone === 'blue' ? 'text-pp-rival-text' : 'text-pp-danger-text'}`}
+      className={`grid min-w-20 text-center ${tone === 'blue' ? 'text-pp-side-blue-text' : 'text-pp-danger-text'}`}
     >
       <span className="font-mono text-xs font-bold text-white/55">{label}</span>
       <strong className="font-mono text-4xl leading-none">{score}</strong>

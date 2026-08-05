@@ -518,7 +518,7 @@ function PingPongPreparation({
     <section className="absolute inset-0 z-10 grid place-items-center bg-black/45 px-5 backdrop-blur-[2px]">
       <div className="grid w-full max-w-xl gap-6 rounded-hero border border-white/15 bg-pp-surface/95 p-7 text-center shadow-2xl">
         <div>
-          <p className="m-0 font-mono text-xs tracking-[0.2em] text-pp-rival-text">WARM-UP</p>
+          <p className="m-0 font-mono text-xs tracking-[0.2em] text-pp-side-blue-text">WARM-UP</p>
           <h1 className="mt-2 mb-0 text-4xl font-black">{heading}</h1>
           <p className="mt-2 mb-0 text-white/55">두 명 모두 준비 완료하면 경기가 시작됩니다.</p>
         </div>
@@ -661,7 +661,7 @@ function Score({
 }) {
   return (
     <div
-      className={`grid min-w-20 text-center ${tone === 'blue' ? 'text-pp-rival-text' : 'text-pp-danger-text'}`}
+      className={`grid min-w-20 text-center ${tone === 'blue' ? 'text-pp-side-blue-text' : 'text-pp-danger-text'}`}
     >
       <span className="flex min-w-0 items-center justify-center gap-1 text-xs font-bold text-white/65">
         {tag && (
