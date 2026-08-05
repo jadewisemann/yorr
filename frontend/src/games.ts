@@ -29,7 +29,12 @@ export interface Game {
   tagline: string
 }
 
-/** 랜딩 히어로의 게임 목록. 순서가 곧 화면의 01–05 인덱스다. */
+/**
+ * 랜딩 히어로의 게임 목록. 순서가 곧 화면의 01–05 인덱스다.
+ * <p>
+ * 플레이할 수 있는 게임(`live: true`)이 앞에 선다 — 랜딩에 처음 온 사람이 화살표를 눌러
+ * 지나가는 첫 칸들이 전부 잠긴 '준비 중' 카드면, 지금 할 수 있는 게 없는 서비스로 읽힌다.
+ */
 export const games: [Game, ...Game[]] = [
   {
     key: 'yacht',
@@ -54,16 +59,6 @@ export const games: [Game, ...Game[]] = [
     live: true,
   },
   {
-    key: 'liars',
-    name: '라이어스 다이스',
-    tagline: '가진 주사위를 숨기고 허풍을 겨루세요.',
-    description: '상대의 선언을 믿거나 의심해 마지막 주사위를 지키는 심리 게임',
-    players: '2–6 PLAYERS',
-    duration: '약 6분',
-    control: '화면 탭',
-    live: false,
-  },
-  {
     key: 'duel',
     name: '석양이 진다',
     tagline: '신호가 뜨는 순간, 먼저 뽑으세요.',
@@ -73,6 +68,16 @@ export const games: [Game, ...Game[]] = [
     gameCode: 'DUEL',
     control: '화면 탭 · 폰 휘두르기',
     live: true,
+  },
+  {
+    key: 'liars',
+    name: '라이어스 다이스',
+    tagline: '가진 주사위를 숨기고 허풍을 겨루세요.',
+    description: '상대의 선언을 믿거나 의심해 마지막 주사위를 지키는 심리 게임',
+    players: '2–6 PLAYERS',
+    duration: '약 6분',
+    control: '화면 탭',
+    live: false,
   },
   {
     key: 'fishing',
@@ -88,6 +93,16 @@ export const games: [Game, ...Game[]] = [
 
 export function gameAt(index: number): Game {
   return games[index] ?? games[0]
+}
+
+/**
+ * 키로 목록 위치를 되찾는다. {@link gameAt}의 반대 방향이고, 랜딩이 `?game=` 쿼리에서
+ * 캐러셀의 시작 칸을 정할 때 쓴다. 모르는 키는 첫 칸이다 — 인덱스가 곧 화면 위치라
+ * -1이 새면 카드가 비어 버린다.
+ */
+export function gameIndexOf(key: GameKey | undefined): number {
+  const index = games.findIndex((game) => game.key === key)
+  return index === -1 ? 0 : index
 }
 
 export function isGameKey(value: unknown): value is GameKey {
