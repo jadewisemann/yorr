@@ -37,6 +37,11 @@ interface ScoreSheetProps {
    * 스크롤 영역 밖에 서고 그 사이에 여백이 생긴다.
    */
   header?: ReactNode
+  /**
+   * 레버리지 모드가 이번 턴에 2배를 건 족보(S15P11A406-208). 그 행만 강조하고 ×2 배지를 단다.
+   * 일반 모드는 넘기지 않는다 — 없으면 표는 종전과 같다.
+   */
+  leverageCategory?: YachtCategory | null
   onPick: (category: YachtCategory) => void
   players: ScoreSheetPlayer[]
   you: PlayerId
@@ -85,6 +90,7 @@ export function ScoreSheet({
   className,
   'data-tutorial': dataTutorial,
   header,
+  leverageCategory = null,
   onPick,
   players,
   you,
@@ -123,8 +129,11 @@ export function ScoreSheet({
     // flex-1(1 1 0%)로 두면 짧은 창에서 행이 44px 아래로 찌그러져 탭 타깃이 무너진다.
     // 이 세 class는 부모가 flex일 때만(wide 상시 패널) 의미가 있다 — 모바일 시트는 블록이라
     // 무시되고 행은 종전대로 44px 고정이다.
+    // 레버리지 행은 색만으로 구분하지 않는다 — 왼쪽 굵은 선과 ×2 배지가 함께 선다(와이어프레임 ⑤).
+    const leveraged = category === leverageCategory
     const rowClassName = cn(
       'score-row',
+      leveraged && 'border-l-3 border-l-brand bg-brand/8',
       clickable &&
         'focus-ring cursor-pointer transition-colors hover:bg-brand/10 focus-visible:outline-offset-[-3px]',
     )
@@ -132,6 +141,11 @@ export function ScoreSheet({
       <span className="score-label">
         <CategoryIcon category={category} className="size-4 flex-none text-content-muted" />
         <span className="truncate">{categoryLabel[category]}</span>
+        {leveraged && (
+          <span className="flex-none rounded-full bg-brand px-1.5 font-mono text-[10px] font-bold text-on-brand">
+            ×2
+          </span>
+        )}
       </span>
     )
 
@@ -150,7 +164,7 @@ export function ScoreSheet({
     }
     return (
       <button
-        aria-label={`${categoryLabel[category]} ${preview}`}
+        aria-label={`${categoryLabel[category]}${leveraged ? ' 2배' : ''} ${preview}`}
         className={rowClassName}
         data-tutorial-category={category}
         key={category}

@@ -19,6 +19,7 @@ import { RecordPanel } from '@/yacht/components/RecordPanel'
 import { ScoreSheet } from '@/yacht/components/ScoreSheet'
 import { TurnStrip } from '@/yacht/components/TurnStrip'
 import type { DiceIndex } from '@/yacht/domain/dice'
+import { applyLeverage } from '@/yacht/domain/leverage'
 import {
   type CategoryScores,
   calculateScoreCandidates,
@@ -52,6 +53,14 @@ interface GamePlayProps {
    * 유일한 출처인 여기서 그대로 넘긴다.
    */
   guide?: (progress: TurnProgress) => ReactNode
+  /**
+   * 레버리지 모드(S15P11A406-208)가 이번 턴에 2배를 건 족보. 일반 모드는 넘기지 않는다 —
+   * 넘기지 않으면 이 화면은 종전과 완전히 같다.
+   *
+   * 점수를 확정하는 것은 여기가 아니다(서버·로컬 서버 몫). 이 값은 미리보기 숫자와
+   * 하이라이트에만 쓴다.
+   */
+  leverageCategory?: YachtCategory | null
   /**
    * 컨트롤러 화면을 강제로 켠다. 평소에는 아래 `controller`가 스스로 판단하므로 넘기지 않는다 —
    * 개발용 화면(`/__dev/controller`)이 데스크톱에서도 이 화면을 열어 보려고 쓴다(자동 판단은
@@ -96,6 +105,7 @@ export interface TurnProgress {
 export function GamePlay({
   forceController = false,
   guide,
+  leverageCategory = null,
   onLeaveRequest,
   roomId,
   session,
@@ -183,8 +193,9 @@ export function GamePlay({
   const usedCategories = YACHT_CATEGORIES.filter((category) =>
     isRecorded(activeBoard?.categories[category]),
   )
+  // 레버리지 족보는 미리보기부터 2배로 보여야 한다 — 기록하고 나서야 2배인 걸 알면 고를 수 없다.
   const candidates: CategoryScores = local.dice
-    ? calculateScoreCandidates(local.dice, usedCategories)
+    ? applyLeverage(calculateScoreCandidates(local.dice, usedCategories), leverageCategory)
     : {}
   const rolled = local.dice !== null
 
@@ -307,6 +318,7 @@ export function GamePlay({
       canPick={canPick}
       candidates={candidates}
       categories={openCategories}
+      leverageCategory={leverageCategory}
       onPick={pickCategory}
       rolled={rolled}
     />
@@ -342,6 +354,7 @@ export function GamePlay({
       // 손잡이(sheet-handle)를 가리키고, 기록은 퀵 칩 줄(sheet)로 안내한다.
       {...(wide ? { 'data-tutorial': 'sheet' } : {})}
       header={header}
+      leverageCategory={leverageCategory}
       onPick={pickCategory}
       players={sheetPlayers}
       you={session.you}
@@ -510,12 +523,14 @@ function QuickCategoryStrip({
   canPick,
   candidates,
   categories,
+  leverageCategory,
   onPick,
   rolled,
 }: {
   canPick: boolean
   candidates: CategoryScores
   categories: YachtCategory[]
+  leverageCategory: YachtCategory | null
   onPick: (category: YachtCategory) => void
   rolled: boolean
 }) {
@@ -528,18 +543,21 @@ function QuickCategoryStrip({
       {categories.map((category) => {
         const score = rolled ? (candidates[category] ?? 0) : null
         const scoreLabel = score === null ? '' : ` ${score}점 기록`
+        // 레버리지 칩은 색만으로 구분하지 않는다 — ×2 배지가 흑백에서도 읽힌다.
+        const leveraged = category === leverageCategory
         return (
           <li className="flex-none" key={category}>
             <button
-              aria-label={`${categoryLabel[category]}${scoreLabel}`}
-              className="quick-chip focus-ring"
+              aria-label={`${categoryLabel[category]}${leveraged ? ' 2배' : ''}${scoreLabel}`}
+              className={cn('quick-chip focus-ring', leveraged && 'border-2 border-brand')}
               data-tutorial-category={category}
               disabled={!canPick || !rolled}
               onClick={() => onPick(category)}
               type="button"
             >
-              <span className="text-[10px] font-semibold tracking-[0.07em] uppercase">
+              <span className="flex items-center gap-1 text-[10px] font-semibold tracking-[0.07em] uppercase">
                 {categoryShortLabel[category]}
+                {leveraged && <span className="text-brand-strong">×2</span>}
               </span>
               <span className="font-mono text-[22px] leading-none font-bold tabular-nums">
                 {score ?? '—'}
