@@ -110,6 +110,15 @@
      자리만 세로로 쌓는다. 360px 이상에서는 원래 배치가 그대로 유효하므로 하한 전용이다. */
   --breakpoint-tiny: 22.5rem;
 
+  /* 400px. 주사위 트레이의 좌상단 라벨과 우상단 띠(흔들기 · 남은 굴리기 · ⓘ)가 함께 서려면
+     트레이 안쪽으로 약 358px이 필요하다(라벨 120 + 띠 210 + 좌우 패딩 28). 거터가 양쪽
+     20px이므로 뷰포트로는 398px이 갈림길이다.
+     한때 이 자리를 tiny(360px)로 막아 뒀는데 실측하면 375px에서 12px 겹쳐 "굴림 1/3"의
+     횟수가 칩 밑에 깔린다 — 375·390·393(iPhone SE·14·Pixel)이 전부 이 구간이다.
+     tiny를 올리지 않고 단을 따로 두는 이유: tiny는 랜딩 태그라인이 두 줄로 접히는 지점이라
+     360px이 맞고, 여기와 같은 값일 이유가 없다. */
+  --breakpoint-tray: 25rem;
+
   --spacing-tap: var(--ds-size-tap);
   --spacing-content: var(--ds-size-content);
   --spacing-landing: var(--ds-size-landing);

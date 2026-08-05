@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Player } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
+import { IconShake } from '@/shared/components/Icon'
 import { Tooltip } from '@/shared/components/Tooltip'
 import { MotionPermissionPanel } from '@/yacht/components/MotionPermissionPanel'
 import { PhysicsDiceScene } from '@/yacht/components/PhysicsDiceScene'
@@ -115,11 +116,13 @@ export function GameDiceTray({
       )}
       data-tutorial="tray"
     >
-      {/* 320px에서는 감춘다. 이 라벨과 오른쪽 상단 띠(흔들기 · 남은 굴리기 · ⓘ)는 서로를 밀 수
-          없는 절대 배치 형제라, 둘의 폭 합(약 300px)이 트레이를 넘으면 글자가 칩 위에 겹쳐 그려진다
+      {/* 400px 미만에서는 감춘다. 이 라벨과 오른쪽 상단 띠(흔들기 · 남은 굴리기 · ⓘ)는 서로를
+          밀 수 없는 절대 배치 형제라, 둘의 폭 합이 트레이를 넘으면 글자가 칩 위에 겹쳐 그려진다
           — 겹친 라벨은 안내가 아니라 오작동으로 읽힌다(A-2 캐러셀 힌트와 같은 판단).
+          한때 tiny(360px)로 막아 뒀는데 실측하면 375px에서 12px 겹쳐 "굴림 1/3"의 횟수가 칩
+          밑에 깔렸다. 갈림길은 398px이라 tray(400px)로 올린다 — 근거는 그 토큰 주석에 있다.
           잃는 정보가 없다: 굴림 횟수는 오른쪽 칩이, 누구 턴인지는 헤더가 이미 말한다. */}
-      <div className="pointer-events-none absolute top-3 left-4 z-10 text-2xs font-bold tracking-[0.13em] text-content-faint tabular-nums uppercase max-tiny:hidden">
+      <div className="pointer-events-none absolute top-3 left-4 z-10 text-2xs font-bold tracking-[0.13em] text-content-faint tabular-nums uppercase max-tray:hidden">
         {trayLabel}
       </div>
       <TrayTopBand
@@ -233,7 +236,7 @@ function TrayTopBand({
           onClick={onOpenMotionPanel}
           type="button"
         >
-          <span aria-hidden="true">📱</span>
+          <IconShake className="size-3.5" />
           흔들기
         </button>
       )}
