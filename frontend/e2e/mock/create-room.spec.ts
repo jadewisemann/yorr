@@ -16,6 +16,7 @@ test('creates a room with the suggested nickname and lands in the lobby', async 
 
   await page.goto('/')
   await page.getByRole('button', { name: '요트 다이스 플레이' }).click()
+  await page.getByRole('button', { name: /^방 만들기/ }).click()
 
   // 닉네임을 비워두면 placeholder에 보이는 제안 닉네임으로 입장한다.
   const field = page.getByRole('textbox', { name: '닉네임' })
@@ -78,6 +79,7 @@ test('rejects a nickname longer than the limit before calling the API', async ({
 
   await page.goto('/')
   await page.getByRole('button', { name: '요트 다이스 플레이' }).click()
+  await page.getByRole('button', { name: /^방 만들기/ }).click()
   await page.getByRole('textbox', { name: '닉네임' }).fill('가나다라마바사아자차카타파')
   await page.getByRole('button', { name: '대기실 입장' }).click()
 
