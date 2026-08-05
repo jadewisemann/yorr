@@ -27,6 +27,9 @@
   --color-physics-die: var(--ds-color-physics-die);
   --color-physics-pip: var(--ds-color-physics-pip);
 
+  --color-duel-canvas: var(--ds-duel-canvas);
+  --color-pingpong-canvas: var(--ds-pingpong-canvas);
+
   /* 와이어프레임 1d 신규 3색 — 기존 11색은 그대로 둔다. */
   --color-surface-sunken: var(--ds-color-surface-sunken);
   --color-content-faint: var(--ds-color-content-faint);
@@ -318,6 +321,13 @@
   --ds-physics-tray: radial-gradient(120% 85% at 50% 18%, #24252a 0%, #141517 48%, #0a0b0c 100%);
   --ds-color-physics-rail: #0d0e10;
   --ds-color-physics-slot: rgb(255 255 255 / 14%);
+
+  /* 게임별 캔버스. 야추는 앱 canvas를 그대로 쓰지만 듀얼(따뜻한 near-black)과
+     탁구(차가운 near-black)는 각자 색을 가진다 — 랜딩과 같은 이유로 네임스페이스를 둔다.
+     탁구 값은 pingpong/scene3d.ts의 setClearColor·FogExp2와 **같은 값을 양쪽에 적어둔
+     것**이다. CSS 배경과 WebGL clear color가 어긋나면 캔버스 경계에 이음선이 보인다. */
+  --ds-duel-canvas: #0b0409;
+  --ds-pingpong-canvas: #070b12;
 
   /* 랜딩 히어로 전용 팔레트 — 본편과 같은 블랙 계열로 통일하되 반투명 패널은 랜딩에서만
      쓰므로 네임스페이스를 유지한다. 헤어라인은 예외다: 앱 쪽에서도 12곳이 같은 값을 쓰므로
