@@ -1,4 +1,5 @@
 import type { DuelState } from '@/realtime/wsEvents'
+import { ControllerScreen } from '@/shared/components/Screen'
 import type { SwingPermission } from '@/shared/useSwing'
 import { Shell, Warn } from './Arena'
 import { DRAW_PENALTY_MS, drawOutcome, MAX_FOULS, MAX_HP, msLabel, slots } from './duel'
@@ -57,7 +58,7 @@ export function DuelController({
   const live = signal === 'hold' || signal === 'draw'
 
   return (
-    <main className="relative flex h-svh w-full touch-none flex-col overflow-hidden bg-duel-canvas px-5 pt-safe-top pb-safe-bottom text-white select-none">
+    <ControllerScreen className="bg-duel-canvas">
       <header className="flex flex-none items-center justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
           <span className="font-mono text-[11px] tracking-[0.18em] text-[#ffcf8a]/60">
@@ -141,7 +142,7 @@ export function DuelController({
           </p>
         )}
       </section>
-    </main>
+    </ControllerScreen>
   )
 }
 

@@ -1,4 +1,5 @@
 import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
+import { ControllerScreen } from '@/shared/components/Screen'
 import type { SwingPermission } from '@/shared/useSwing'
 import {
   comboStyle,
@@ -107,7 +108,7 @@ export function PingPongController({
   }
 
   return (
-    <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-pingpong-canvas px-5 pt-safe-top pb-safe-bottom text-white">
+    <ControllerScreen className="bg-pingpong-canvas">
       <header className="flex flex-none items-center justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
           <span className="font-mono text-[11px] tracking-[0.18em] text-white/40">
@@ -180,7 +181,7 @@ export function PingPongController({
           </p>
         )}
       </section>
-    </main>
+    </ControllerScreen>
   )
 }
 
@@ -286,7 +287,7 @@ function PingPongPreparationController({
   const [p1, p2] = playerSlots(state, playerId, view.opponentName)
 
   return (
-    <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-pingpong-canvas px-5 pt-safe-top pb-safe-bottom text-white">
+    <ControllerScreen className="bg-pingpong-canvas">
       <header className="flex flex-none items-center justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
           <span className="font-mono text-[11px] tracking-[0.18em] text-[#73bfff]">WARM-UP</span>
@@ -368,7 +369,7 @@ function PingPongPreparationController({
           </p>
         )}
       </section>
-    </main>
+    </ControllerScreen>
   )
 }
 
