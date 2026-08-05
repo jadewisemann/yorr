@@ -64,6 +64,13 @@ frontend/src/
 - **3D 물리 주사위 전용**: `physics-die`, `physics-pip`, `physics-accent`, `physics-danger`
 - **랜딩 히어로 전용**(`landing-*`): 패널·카드·그림자·텍스트 등 랜딩 화면에서만 쓰는 별도
   네임스페이스. 본편 화면 색과 섞어 쓰지 않는다.
+- **게임별 팔레트**(`pp-*` 탁구, `duel-*` 결투): 게임마다 세계관이 다르므로 네임스페이스를
+  나눈다 — 서부극 결투가 요트 로비처럼 생기면 안 되고, 반대로 그 세계관 색이 전역 토큰을
+  오염시켜도 안 된다. **단, 세계관과 무관한 것은 시스템 토큰을 가리킨다**: "주의·이김·짐"은
+  앱 전체가 같은 말로 해야 하므로 `duel-gold`/`positive`/`danger`와 `pp-danger*`는
+  `warning`/`positive`/`brand`/`brand-soft`를 가리킨다. 게임에서만 쓰는 색을 새로 만들 때는
+  시스템 색과 충분히 떨어졌는지 확인한다 — RGB 거리 10~25면 나란히 놓아도 구분되지 않아
+  팔레트가 아니라 실수가 된다.
 - **소셜 로그인**: `kakao`, `kakao-ink` — 카카오 브랜드 색은 제공자 규정상 그대로 사용한다.
 - **모션**: `ease-snappy`, 다양한 `animate-*`(턴 전환, 족보 콜아웃, 튜토리얼 가이드 등).
   지속시간은 `--ds-motion-*` 원시값과 `src/motion.ts`가 함께 보관한다
@@ -71,6 +78,47 @@ frontend/src/
 
 새 semantic token을 추가할 때는 `--ds-*` 원시 값을 먼저 정의하고 `@theme inline`에서
 연결한다. 원시 색을 컴포넌트 class에 직접 넣지 않는다.
+
+## 사다리(scale)
+
+크기는 **정해진 단에서만 고른다.** 눈대중으로 px를 적으면 사다리가 아니라 연속값이 되고,
+화면을 옮겨 다닐 때 "미묘하게 안 맞는" 느낌의 1순위 원인이 된다(S15P11A406-214에서 실제로
+글자 20종·라운드 28종까지 벌어져 있었다).
+
+### 글자
+
+Tailwind 기본 사다리 + `text-2xs`(11px) 한 단이다. 11px은 한글 하한이라 그 아래 단은 만들지
+않는다.
+
+```text
+2xs 11 · xs 12 · sm 14 · base 16 · lg 18 · xl 20 · 2xl 24 · 3xl 30 · 4xl 36 …
+```
+
+### 라운드
+
+일곱 단 + `full`이다. 양 끝의 `chip`·`hero`는 그 사이가 필요할 때마다 화면에서 raw px를
+적던 자리를 없애려고 채운 것이다.
+
+```text
+xs 2 · chip 6 · control 12 · card 14 · panel 18 · sheet 26 · hero 32 · full
+```
+
+`rounded-2xl`처럼 Tailwind 기본 라운드 이름은 쓰지 않는다 — 토큰과 값이 겹치거나 어긋난다.
+
+### 간격
+
+Tailwind 기본 spacing을 그대로 쓴다. 임의 값은 `env(safe-area-inset-*)`·`clamp()`처럼
+사다리로 표현할 수 없는 것에만 허용한다.
+
+## 아이콘
+
+화면 크롬 아이콘은 `shared/components/Icon.tsx` 하나로 모은다. 규약은 20×20 `viewBox`,
+색은 `currentColor`, `aria-hidden` 고정, 크기는 호출부의 `className`이 정한다.
+
+**이모지·문자 글리프를 쓰지 않는다.** 이모지는 `currentColor`를 따르지 않아 모노톤 화면에서
+혼자 플랫폼 색으로 뜨고, 폭·베이스라인이 기기마다 달라 같은 줄의 줄바꿈까지 흔들리고,
+글자라서 `size-*`로 크기를 통제할 수 없다. 예외는 **이모지가 곧 콘텐츠인 곳** 하나다
+(리액션 픽커 — 사용자가 고르는 대상이 이모지 자체다).
 
 ## 모션
 
@@ -106,7 +154,8 @@ frontend/src/
 2. variant class는 동적으로 문자열을 만들지 않고 정적 map에 기록한다.
 3. 외부 배치는 `className`으로 확장한다. 내부 구조와 상태 표현은 컴포넌트가 소유한다.
 4. 클릭 가능한 요소는 최소 `min-h-tap`을 지킨다.
-5. focus ring, disabled, loading, error, reconnect 상태를 누락하지 않는다.
+5. focus ring, **pressed**, disabled, loading, error, reconnect 상태를 누락하지 않는다.
+   pressed(`active:`)는 hover가 없는 터치에서 "닿았다"를 알리는 유일한 채널이다.
 6. animation은 `motion-reduce`에서 제거하거나 최소화한다.
 7. 임의 값은 safe-area, fluid typography처럼 token화가 부적합한 경우에만 사용한다.
 
