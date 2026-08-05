@@ -38,7 +38,7 @@
 
   /* 모바일 기록 패널의 퀵 칩 — 열린 족보 수만큼(최대 12) 한 줄에 눕는다. */
   .quick-chip {
-    @apply flex h-[4.125rem] min-w-[5.5rem] cursor-pointer flex-col items-start justify-between rounded-control border border-border bg-surface px-2.5 py-2 text-left text-content transition-colors focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55;
+    @apply flex h-[4.125rem] min-w-[5.5rem] cursor-pointer flex-col items-start justify-between rounded-control border border-border bg-surface px-2.5 py-2 text-left text-content transition-[color,background-color,border-color,scale] active:not-disabled:scale-[0.97] focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55;
   }
 
   /* 리액션 픽커 이모지 버튼 5종. */

@@ -333,9 +333,21 @@
   /* 코드 입력 예시("YORR64")를 그린다. 형식을 알려주는 실제 정보이므로 4.5:1을 맞춘다. */
   --ds-landing-placeholder: #8a8b92;
 
+  /* 필름 그레인 — 캔버스와 랜딩 배경 위에 얹는 <b>맨 위 배경 레이어</b>다.
+     이 화면들은 전부 큰 면적의 매끈한 radial-gradient라 넓은 디스플레이에서 계단(banding)이
+     보이고, 무엇보다 화면 전체가 진공처럼 평평하다. 회색 노이즈를 아주 얕게 깔면 그 두 개가
+     동시에 사라진다.
+     별도 오버레이 DOM을 만들지 않고 background 레이어로 두는 이유: 오버레이는 position·
+     z-index·pointer-events를 매 화면에서 다시 맞춰야 하고, 모달 위로 올라갈 위험이 있다.
+     배경 레이어에는 그 문제가 없다 — 표면(카드·시트)은 자기 배경으로 그레인을 덮는다.
+     saturate 0으로 무채색을 만든다. feTurbulence 원본은 컬러 노이즈라 그대로 쓰면
+     흑백 화면에 색점이 뜬다. */
+  --ds-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
+
   /* 화면 바닥 — 가운데 위에서 떨어지는 화이트 스포트라이트와 CTA 아래 레드 글로우.
      3D는 히어로 카드 안에서만 돌아가므로 배경은 순수 장식이다. */
   --ds-landing-bg:
+    var(--ds-noise),
     radial-gradient(40% 30% at 50% 78%, rgb(229 57 53 / 10%) 0%, rgb(229 57 53 / 0) 70%),
     radial-gradient(58% 52% at 50% 34%, rgb(255 255 255 / 9%) 0%, rgb(255 255 255 / 0) 66%), #08090a;
   /* 선택된 히어로 카드 바닥과 그 위에 겹치는 세 레이어(광택 · 스포트라이트 · 하단 스크림). */
