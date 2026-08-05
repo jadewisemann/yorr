@@ -69,6 +69,26 @@ describe('InvitePopover', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('초대 링크를 복사했어요.')
   })
 
+  // 팝오버가 닫혀도 이 컴포넌트는 대기실에 살아 있다 — 지난 결과를 지우지 않으면 다시 열었을 때
+  // 방금 누른 결과처럼 읽힌다.
+  it('닫으면 지난 복사 결과 문구를 지운다', async () => {
+    const user = userEvent.setup()
+    stubClipboard(vi.fn().mockResolvedValue(undefined))
+    const onClose = vi.fn()
+    const { rerender } = render(<InvitePopover onClose={onClose} open roomCode="AB12CD" />)
+
+    await user.click(screen.getByRole('button', { name: '링크 복사' }))
+    expect(await screen.findByRole('status')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '닫기' }))
+    expect(onClose).toHaveBeenCalledOnce()
+
+    rerender(<InvitePopover onClose={onClose} open={false} roomCode="AB12CD" />)
+    rerender(<InvitePopover onClose={onClose} open roomCode="AB12CD" />)
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   // 자동 복사는 권한·브라우저 사정으로 흔히 막힌다 — 그때 직접 복사할 길을 안내해야 한다.
   it('복사가 막히면 직접 복사하도록 안내한다', async () => {
     const user = userEvent.setup()
