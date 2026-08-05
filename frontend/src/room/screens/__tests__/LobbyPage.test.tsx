@@ -9,6 +9,7 @@ import {
   waitingRoomSnapshot,
 } from '@/mocks/fixtures'
 import { clearMockRoomSnapshot } from '@/mocks/mockRoomState'
+import { savePartyRoom } from '@/room/partyControllerStorage'
 import { LobbyPage } from '@/room/screens/LobbyPage'
 import { useAppStore } from '@/store'
 
@@ -41,9 +42,29 @@ describe('LobbyPage', () => {
       }),
     )
     vi.stubGlobal('cancelIdleCallback', vi.fn())
+    // 파티 방 표시는 localStorage에 남는다 — 지우지 않으면 앞 테스트가 뒤 테스트를 컨트롤러로 만든다.
+    localStorage.clear()
     useAppStore.getState().reset()
     useAppStore.getState().setRoomSession(creatorSession)
     useAppStore.getState().setConnectionStatus('connected')
+  })
+
+  // 파티 QR로 들어온 폰은 초대 패널이 필요 없다 — QR·링크는 큰 화면이 이미 띄우고 있고,
+  // 그 자리에는 "내가 컨트롤러다"라는 안내가 서야 한다(S15P11A406-205).
+  it('파티 컨트롤러에게는 초대 패널 대신 연결 안내를 보여준다', () => {
+    savePartyRoom(creatorSession.roomCode)
+
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    expect(screen.getByRole('region', { name: '컨트롤러 연결' })).toBeVisible()
+    expect(screen.queryByRole('region', { name: '친구 초대하기' })).not.toBeInTheDocument()
+  })
+
+  it('일반 방에서는 초대 패널을 그대로 둔다', () => {
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    expect(screen.getByRole('region', { name: '친구 초대하기' })).toBeVisible()
+    expect(screen.queryByRole('region', { name: '컨트롤러 연결' })).not.toBeInTheDocument()
   })
 
   it('첫 화면을 그린 뒤 물리 주사위 모듈을 유휴 시간에 미리 불러온다', async () => {
