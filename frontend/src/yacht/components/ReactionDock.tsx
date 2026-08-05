@@ -255,7 +255,10 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
         {REACTIONS.map((reaction, index) => (
           <button
             aria-label={reaction.label}
-            className="reaction-chip focus-ring"
+            // active:scale-90 — 리액션은 서버를 한 바퀴 돌아 와야 화면에 뜬다. 그 사이가
+            // 무반응으로 읽혀 "눌렸나?" 하고 다시 누르게 된다. 누르는 순간의 응답은 칩이
+            // 직접 낸다(전송 성공을 뜻하지 않는다 — 그것은 떠오르는 이모지가 말한다).
+            className="reaction-chip focus-ring active:scale-90"
             key={reaction.type}
             onClick={() => send(reaction.type)}
             ref={(element) => {
