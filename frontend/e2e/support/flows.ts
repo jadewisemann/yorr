@@ -53,10 +53,15 @@ export function activeTurnLabel(page: Page, nickname: string) {
     .filter({ visible: true })
 }
 
-/** 랜딩 → 방 만들기 → 닉네임 → 대기실. 닉네임을 비우면 제안 닉네임으로 입장한다. */
+/** 랜딩 → 모드 선택 → 방 만들기 → 닉네임 → 대기실. 닉네임을 비우면 제안 닉네임으로 입장한다. */
 export async function createRoomAsHost(page: Page, nickname?: string) {
   await page.goto('/')
   await page.getByRole('button', { name: '요트 다이스 플레이' }).click()
+
+  // 플레이는 곧바로 방을 만들지 않는다 — 친구와 할지(방 만들기) 모르는 사람과 할지(온라인
+  // 대전)부터 고르는 모드 모달이 선다(EntryPage.handlePlay). 두 버튼 모두 설명 줄을 품어
+  // 접근성 이름이 "방 만들기 초대 링크를 …"이므로 앞머리로만 맞춘다.
+  await page.getByRole('button', { name: /^방 만들기/ }).click()
 
   const field = page.getByRole('textbox', { name: '닉네임' })
   await expect(field).toBeVisible()
