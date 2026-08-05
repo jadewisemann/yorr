@@ -11,11 +11,13 @@ interface PopoverProps {
    */
   anchorRef?: RefObject<HTMLElement | null> | undefined
   children: ReactNode
+  className?: string | undefined
   /** 열자마자 초점을 둘 요소의 선택자. 무엇을 하러 열었는지에 따라 다르다. */
   focusSelector?: string
   label: string
   onClose: () => void
   open: boolean
+  width?: number | undefined
 }
 
 /** 뷰포트 가장자리에 남겨 둘 여백. */
@@ -49,10 +51,10 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), Math.max(min, max))
 }
 
-function placeByAnchor(anchor: HTMLElement): Placement {
+function placeByAnchor(anchor: HTMLElement, preferredWidth = PANEL_WIDTH): Placement {
   const rect = anchor.getBoundingClientRect()
   const { innerHeight, innerWidth } = window
-  const width = Math.min(PANEL_WIDTH, innerWidth - VIEWPORT_MARGIN * 2)
+  const width = Math.min(preferredWidth, innerWidth - VIEWPORT_MARGIN * 2)
   // 앵커 중앙에 맞추되 뷰포트 안으로 눌러 넣는다 — 320px에서 헤더 우측 버튼에 그대로 맞추면
   // 패널 오른쪽이 화면 밖으로 나간다.
   const left = clamp(
@@ -86,10 +88,12 @@ function placeByAnchor(anchor: HTMLElement): Placement {
 export function Popover({
   anchorRef,
   children,
+  className,
   focusSelector = 'input, button',
   label,
   onClose,
   open,
+  width,
 }: PopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
@@ -102,12 +106,12 @@ export function Popover({
   useLayoutEffect(() => {
     const anchor = anchorRef?.current
     if (!open || !anchor) return
-    const measure = () => setPlacement(placeByAnchor(anchor))
+    const measure = () => setPlacement(placeByAnchor(anchor, width))
     measure()
     // 화면 회전·주소창 접힘으로 뷰포트가 바뀌면 앵커도 함께 움직인다.
     window.addEventListener('resize', measure)
     return () => window.removeEventListener('resize', measure)
-  }, [anchorRef, open])
+  }, [anchorRef, open, width])
 
   useEffect(() => {
     if (!open) return
@@ -157,7 +161,8 @@ export function Popover({
               // 헤더가 가운데로 모이는 폭부터는 헤더 우측단을 따라가야 한다 — 안 그러면
               // 2560에서 트리거와 팝오버가 480px 어긋난다.
               !placed &&
-                'top-26 right-[max(calc((100%-min(100%,var(--ds-size-landing)))/2+0.153*min(100%,var(--ds-size-landing))),env(safe-area-inset-right))] w-98',
+                'top-26 right-3 w-[min(24.5rem,calc(100%-1.5rem))] [@media(min-width:760px)]:right-[max(calc((100%-min(100%,var(--ds-size-landing)))/2+0.153*min(100%,var(--ds-size-landing))),env(safe-area-inset-right))]',
+              className,
             )}
             exit="exit"
             initial="hidden"

@@ -24,6 +24,6 @@ describe('NotFoundPage', () => {
     await user.click(screen.getByRole('button', { name: '홈으로' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
-    expect(await screen.findByRole('button', { name: '플레이' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: '요트 다이스' })).toBeVisible()
   })
 })
