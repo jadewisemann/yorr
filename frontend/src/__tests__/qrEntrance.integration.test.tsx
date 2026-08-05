@@ -170,7 +170,7 @@ describe('QR entrance integration', () => {
       realtimeClient.emitMessage(serverMessage('room.closed', { reason: 'server_shutdown' }))
     })
 
-    expect(await screen.findByRole('heading', { name: '요트 다이스' })).toBeVisible()
+    expect(await screen.findByRole('button', { name: '플레이' })).toBeVisible()
     expect(screen.getByText('방이 종료되어 홈으로 이동했어요.')).toBeVisible()
     expect(useAppStore.getState().roomSession).toBeNull()
   })
@@ -184,7 +184,7 @@ describe('QR entrance integration', () => {
       expect(await screen.findByRole('heading', { name: '외부 브라우저를 권장해요' })).toBeVisible()
       await user.click(screen.getByRole('button', { name: '그냥 진행' }))
 
-      expect(await screen.findByRole('heading', { name: '요트 다이스' })).toBeVisible()
+      expect(await screen.findByRole('button', { name: '플레이' })).toBeVisible()
     } finally {
       userAgent.restore()
     }

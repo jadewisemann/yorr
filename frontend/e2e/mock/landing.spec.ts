@@ -10,36 +10,29 @@ function codeDialog(page: import('@playwright/test').Page) {
   return page.getByRole('dialog', { name: '초대받은 방에 참가' })
 }
 
-test('switches the hero and the call to action when another game is picked', async ({ page }) => {
+test('opens the game list from the hero play button', async ({ page }) => {
   await page.goto('/')
 
+  // 히어로의 선택지는 플레이 하나뿐이다 — 게임 비교는 카드 목록 뷰가 맡는다.
+  await page.getByRole('button', { name: '플레이', exact: true }).click()
+
+  await expect(page).toHaveURL(/view=games/)
   await expect(page.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
   await expect(page.getByRole('button', { name: '요트 다이스 플레이' })).toBeVisible()
-
-  await page.getByRole('tab', { name: /라이어스 다이스/ }).click()
-
-  // 준비 중인 게임은 제목과 CTA가 함께 바뀐다. 하나만 바뀌면 안내가 어긋난다.
-  await expect(page.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '준비 중인 게임' })).toBeDisabled()
-  await expect(page.getByRole('button', { name: '요트 다이스 플레이' })).toBeHidden()
+  // 준비 중인 게임은 같은 목록에서 잠긴 버튼으로 선다.
+  await expect(page.getByRole('button', { name: '준비 중인 게임' }).first()).toBeDisabled()
 })
 
-test('moves between games with the arrow keys and wraps at the end', async ({ page }) => {
+test('returns to the hero with browser back from the game list', async ({ page }) => {
   await page.goto('/')
 
-  const firstTab = page.getByRole('tab', { name: /요트 다이스/ })
-  await firstTab.focus()
+  await page.getByRole('button', { name: '플레이', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '탁구' })).toBeVisible()
 
-  await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
-
-  // 첫 탭에서 왼쪽으로 가면 마지막으로 감싼다(WAI-ARIA tabs 패턴).
-  await page.keyboard.press('ArrowLeft')
-  await page.keyboard.press('ArrowLeft')
-  await expect(page.getByRole('heading', { name: '낚시' })).toBeVisible()
-
-  await page.keyboard.press('Home')
-  await expect(page.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
+  // 목록 진입은 push다 — 뒤로가기는 목록을 되짚지 않고 히어로로 돌아온다.
+  await page.goBack()
+  await expect(page.getByRole('button', { name: '플레이', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '탁구' })).toBeHidden()
 })
 
 test('pulls the room code out of a pasted invite link', async ({ page }) => {
