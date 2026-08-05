@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createInviteUrl } from '@/room/components/InvitationPanel'
+import { createInviteUrl } from '@/room/components/InvitePopover'
 import { isPartyRoom, savePartyRoom } from '@/room/partyControllerStorage'
 
 describe('파티 컨트롤러 판별', () => {

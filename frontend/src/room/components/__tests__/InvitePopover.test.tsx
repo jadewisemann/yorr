@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createInviteUrl, InvitationPanel } from '@/room/components/InvitationPanel'
+import { createInviteUrl, InvitePopover } from '@/room/components/InvitePopover'
 
 const { qrState } = vi.hoisted(() => ({ qrState: { fail: false } }))
 
@@ -47,9 +47,9 @@ describe('createInviteUrl', () => {
   })
 })
 
-describe('InvitationPanel', () => {
+describe('InvitePopover', () => {
   it('방 코드와 초대 링크를 함께 보여 준다', () => {
-    render(<InvitationPanel roomCode="AB12CD" />)
+    render(<InvitePopover onClose={() => undefined} open roomCode="AB12CD" />)
 
     expect(screen.getByText('AB12CD')).toBeVisible()
     expect(screen.getByText(createInviteUrl('AB12CD'))).toBeVisible()
@@ -60,7 +60,7 @@ describe('InvitationPanel', () => {
     const user = userEvent.setup()
     const writeText = vi.fn().mockResolvedValue(undefined)
     stubClipboard(writeText)
-    render(<InvitationPanel roomCode="AB12CD" />)
+    render(<InvitePopover onClose={() => undefined} open roomCode="AB12CD" />)
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '링크 복사' }))
@@ -73,7 +73,7 @@ describe('InvitationPanel', () => {
   it('복사가 막히면 직접 복사하도록 안내한다', async () => {
     const user = userEvent.setup()
     stubClipboard(vi.fn().mockRejectedValue(new Error('denied')))
-    render(<InvitationPanel roomCode="AB12CD" />)
+    render(<InvitePopover onClose={() => undefined} open roomCode="AB12CD" />)
 
     await user.click(screen.getByRole('button', { name: '링크 복사' }))
 
@@ -83,7 +83,7 @@ describe('InvitationPanel', () => {
   })
 
   it('공유를 지원하지 않는 브라우저에서는 공유 버튼을 감춘다', () => {
-    render(<InvitationPanel roomCode="AB12CD" />)
+    render(<InvitePopover onClose={() => undefined} open roomCode="AB12CD" />)
 
     expect(screen.queryByRole('button', { name: '공유하기' })).not.toBeInTheDocument()
   })
@@ -92,7 +92,7 @@ describe('InvitationPanel', () => {
     const share = vi.fn().mockResolvedValue(undefined)
     stubShare(share)
     const user = userEvent.setup()
-    render(<InvitationPanel roomCode="AB12CD" />)
+    render(<InvitePopover onClose={() => undefined} open roomCode="AB12CD" />)
 
     await user.click(screen.getByRole('button', { name: '공유하기' }))
 
@@ -108,7 +108,7 @@ describe('InvitationPanel', () => {
   it('사용자가 공유를 취소하면 아무 문구도 남기지 않는다', async () => {
     stubShare(vi.fn().mockRejectedValue(new DOMException('cancelled', 'AbortError')))
     const user = userEvent.setup()
-    render(<InvitationPanel roomCode="AB12CD" />)
+    render(<InvitePopover onClose={() => undefined} open roomCode="AB12CD" />)
 
     await user.click(screen.getByRole('button', { name: '공유하기' }))
 
@@ -118,7 +118,7 @@ describe('InvitationPanel', () => {
   it('공유를 열지 못하면 링크 복사로 우회하도록 알린다', async () => {
     stubShare(vi.fn().mockRejectedValue(new Error('not allowed')))
     const user = userEvent.setup()
-    render(<InvitationPanel roomCode="AB12CD" />)
+    render(<InvitePopover onClose={() => undefined} open roomCode="AB12CD" />)
 
     await user.click(screen.getByRole('button', { name: '공유하기' }))
 
@@ -132,7 +132,7 @@ describe('InvitationPanel', () => {
     qrState.fail = true
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
-    render(<InvitationPanel roomCode="AB12CD" />)
+    render(<InvitePopover onClose={() => undefined} open roomCode="AB12CD" />)
 
     expect(screen.getByText('QR을 만들지 못했어요. 링크나 방 코드를 사용해 주세요.')).toBeVisible()
     expect(screen.getByText('AB12CD')).toBeVisible()
