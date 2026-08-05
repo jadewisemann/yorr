@@ -123,10 +123,13 @@ const indexRoute = createRoute({
   path: '/',
   validateSearch: (search: Record<string, unknown>) => ({
     ...(isGameKey(search.game) ? { game: search.game } : {}),
+    // 히어로(기본)와 게임 선택 카드 목록을 가르는 값. URL이 들고 있어야 목록에서 다른
+    // 화면에 갔다 뒤로가기로 돌아와도 목록으로 돌아온다(S15P11A406-213).
+    ...(search.view === 'games' ? { view: 'games' as const } : {}),
   }),
   component: () => {
-    const { game } = indexRoute.useSearch()
-    return <EntryPage gameKey={game} />
+    const { game, view } = indexRoute.useSearch()
+    return <EntryPage gameKey={game} view={view} />
   },
 })
 
