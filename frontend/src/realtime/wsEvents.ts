@@ -70,6 +70,7 @@ import type { GameCode } from '@/games'
 // 변경이라 별도 티켓이다. 그때까지 realtime/은 shared/가 아니라 경계에 둔다.
 import type { DiceSet, HeldDice } from '@/yacht/domain/dice'
 import type { YachtCategory } from '@/yacht/domain/scoring'
+import type { TeamYachtView } from '@/yacht/domain/teamProject'
 
 export type { DiceSet, DiceValue, HeldDice } from '@/yacht/domain/dice'
 export type { YachtCategory, YachtLowerCategory, YachtUpperCategory } from '@/yacht/domain/scoring'
@@ -250,6 +251,26 @@ export interface DuelState {
 export interface DuelDrawPayload {
   inputSeq: number
   reactionMs: number
+}
+
+/* ----- 조별과제 야트 (game.team_yacht.* · 서버 권위 · 209) -----
+ *  3인 1팀이 점수판 하나를 공유한다. 한 라운드는 "세 사람이 한 번씩 굴리기"이고, 기록은
+ *  다수결이다. 일반 야추(YACHT_DICE)와 **다른 게임 코드**라 계약도 따로 산다 — dice.* ·
+ *  round.submit을 재사용하지 않는다(재사용하면 두 모드가 서로의 분기를 밟는다).
+ *
+ *  ⭐ 숨긴 정보는 서버가 지킨다. state는 브로드캐스트가 아니라 **플레이어별 개인 메시지**이고,
+ *    앞 주자가 버린 주사위 눈은 애초에 담기지 않는다(TeamYachtView.dice의 null).
+ *    서버 대응부: backend/.../game/teamyacht/TeamYachtView.java
+ */
+/** C→S: 굴린다. 무엇을 굴릴지는 서버가 안다(잠기지 않은 전부) — 그래서 payload가 비어 있다. */
+export type TeamYachtRollPayload = Record<string, never>
+/** C→S: 킵할 주사위 자리(0~4). 개수 제약은 서버가 다시 판정한다. */
+export interface TeamYachtKeepPayload {
+  keep: number[]
+}
+/** C→S: 기록하고 싶은 족보 한 표. 세 표가 모이면 서버가 다수결(또는 룰렛)로 기록한다. */
+export interface TeamYachtVotePayload {
+  category: YachtCategory
 }
 
 /* ----- 요트 정규룰 족보 (score.* / game.* · owner: 유상은 40·41·43) -----
@@ -669,6 +690,9 @@ export type ClientMessage =
   | WsEnvelope<'game.ping_pong.swing', PingPongSwingPayload>
   | WsEnvelope<'game.ping_pong.ready', PingPongReadyPayload>
   | WsEnvelope<'game.duel.draw', DuelDrawPayload>
+  | WsEnvelope<'game.team_yacht.roll', TeamYachtRollPayload>
+  | WsEnvelope<'game.team_yacht.keep', TeamYachtKeepPayload>
+  | WsEnvelope<'game.team_yacht.vote', TeamYachtVotePayload>
 
 export type ServerMessage =
   // ✅ SYS-DC
@@ -709,6 +733,10 @@ export type ServerMessage =
   | WsEnvelope<'state.patch', StatePatchPayload>
   | WsEnvelope<'game.ping_pong.state', PingPongState>
   | WsEnvelope<'game.duel.state', DuelState>
+  // 조별과제 야트(209). state는 방송이 아니라 개인 메시지다 — 사람마다 보이는 눈이 다르다.
+  | WsEnvelope<'game.team_yacht.state', TeamYachtView>
+  | WsEnvelope<'game.team_yacht.state.sync', StateSyncPayload>
+  | WsEnvelope<'game.team_yacht.game.over', GameOverPayload>
 
 export type WsMessage = ClientMessage | ServerMessage
 
