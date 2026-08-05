@@ -20,9 +20,12 @@ export function onFirstGesture(run: () => void): () => void {
     run()
   }
   const detach = () => {
-    for (const type of GESTURE_EVENTS) document.removeEventListener(type, handler)
+    for (const type of GESTURE_EVENTS) document.removeEventListener(type, handler, true)
   }
-  for (const type of GESTURE_EVENTS) document.addEventListener(type, handler, { passive: true })
+  // target의 게임 입력보다 먼저 잠금을 풀어야 같은 첫 입력의 효과음도 난다.
+  for (const type of GESTURE_EVENTS) {
+    document.addEventListener(type, handler, { capture: true, passive: true })
+  }
   return detach
 }
 

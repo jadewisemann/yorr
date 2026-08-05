@@ -6,7 +6,7 @@ import { useReturnToLobby } from '@/room/api/useGameApi'
 import { Button } from '@/shared/components/Button'
 import { useSwing } from '@/shared/useSwing'
 import type { ActiveRoomSession } from '@/store'
-import { type Fault, flightProgress } from './court'
+import { type Fault, flightOf, flightProgress } from './court'
 import {
   feedbackTextClass,
   pingPongSituation,
@@ -16,6 +16,7 @@ import {
 import { ComboBadge, PingPongController } from './PingPongController'
 import { type PlayerTracking, trackIncomingBall } from './playerTracking'
 import { createScene, type FrameState, type PingPongScene } from './scene3d'
+import { playRacketHit, playTableHit } from './sounds'
 
 interface PingPongGameProps {
   onLeaveRequest: () => void
@@ -34,6 +35,7 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
   const stateRef = useRef(state)
   const viewerRef = useRef<1 | 2>(1)
   const inputSeq = useRef(0)
+  const soundedEvent = useRef(0)
   const [clock, setClock] = useState(Date.now())
   const [sendError, setSendError] = useState<string | null>(null)
 
@@ -85,6 +87,25 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [swing])
+
+  useEffect(() => {
+    const event = state?.lastEvent
+    if (!event || event.id === soundedEvent.current) return
+    soundedEvent.current = event.id
+    playRacketHit(event.type)
+  }, [state?.lastEvent])
+
+  useEffect(() => {
+    const ball = state?.ball
+    if (!ball || ball.fault || state?.phase !== 'PLAYING') return
+    const elapsed = Math.max(0, Date.now() - ball.launchedAt) / 1_000
+    const currentPos = ball.pos + ball.direction * ball.speed * elapsed
+    const start = flightProgress(currentPos, ball.direction)
+    const delay = ((flightOf(ball.smash).bounceAt - start) / ball.speed) * 1_000
+    if (delay < 0) return
+    const timeoutId = window.setTimeout(playTableHit, delay)
+    return () => window.clearTimeout(timeoutId)
+  }, [state?.ball, state?.phase])
 
   useEffect(() => {
     const canvas = canvasRef.current
