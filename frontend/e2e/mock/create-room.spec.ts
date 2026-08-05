@@ -40,7 +40,7 @@ test('creates a room with the suggested nickname and lands in the lobby', async 
   await expect(page.getByRole('article', { name: `${suggestion}, 온라인` })).toBeVisible()
 })
 
-test('shows the room code, invite panel and an open seat hint in the lobby', async ({ page }) => {
+test('shows the room code, invite popover and an open seat hint in the lobby', async ({ page }) => {
   await mockRestApi(page)
   await startFakeGameServer(page, {
     you: HOST.id,
@@ -49,10 +49,15 @@ test('shows the room code, invite panel and an open seat hint in the lobby', asy
 
   await createRoomAsHost(page, '요르호스트')
 
-  const invite = page.getByRole('region', { name: '친구 초대하기' })
+  // 초대는 인라인 카드가 아니라 초대 버튼에 붙는 말풍선이다(S15P11A406-203).
+  await page.getByRole('button', { name: '초대' }).click()
+  const invite = page.getByRole('dialog', { name: '친구 초대하기' })
   await expect(invite.getByText(ROOM_CODE, { exact: true })).toBeVisible()
   await expect(invite.getByText(`/join?code=${ROOM_CODE}`)).toBeVisible()
   await expect(invite.getByRole('button', { name: '링크 복사' })).toBeVisible()
+
+  // 말풍선을 닫고 나면 대기실 본문이 그대로 남아 있어야 한다(스크림·inert 원복).
+  await invite.getByRole('button', { name: '닫기' }).click()
 
   await expect(page.getByRole('region', { name: '참가자 1명' })).toBeVisible()
   await expect(page.getByText('빈 자리 5 · 링크를 공유해 초대하세요')).toBeVisible()
