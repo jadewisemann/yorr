@@ -160,6 +160,16 @@ const tutorialRoute = createRoute({
   component: lazyRouteComponent(() => import('@/yacht/screens/TutorialPage'), 'TutorialPage'),
 })
 
+/**
+ * 레버리지 다이스(S15P11A406-208). 연습 모드와 같은 로컬 판이라 방도 세션도 없이 바로 들어온다.
+ * 변형 룰 모드는 이 자리에 한 줄씩 늘어난다 — 랜딩 진입점은 온라인 지원 후에 붙인다.
+ */
+const leverageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/leverage',
+  component: lazyRouteComponent(() => import('@/yacht/screens/LeveragePage'), 'LeveragePage'),
+})
+
 const pingPongRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/pingpong',
@@ -229,6 +239,7 @@ const gameRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   tutorialRoute,
+  leverageRoute,
   pingPongRoute,
   authCallbackRoute,
   joinRoute,
