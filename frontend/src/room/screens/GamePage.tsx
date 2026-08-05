@@ -20,6 +20,12 @@ const moduleScreens = {
       import('@/duel/DuelGame').then((module) => ({ default: module.DuelResult })),
     ),
   },
+  LIARS: {
+    Game: lazy(() => import('@/liars/LiarsGame').then((module) => ({ default: module.LiarsGame }))),
+    Result: lazy(() =>
+      import('@/liars/LiarsGame').then((module) => ({ default: module.LiarsResult })),
+    ),
+  },
   PING_PONG: {
     Game: lazy(() =>
       import('@/pingpong/PingPongGame').then((module) => ({ default: module.PingPongGame })),
@@ -31,7 +37,9 @@ const moduleScreens = {
 }
 
 function screensOf(gameCode: GameCode | undefined) {
-  return gameCode === 'DUEL' || gameCode === 'PING_PONG' ? moduleScreens[gameCode] : null
+  return gameCode !== undefined && gameCode in moduleScreens
+    ? moduleScreens[gameCode as keyof typeof moduleScreens]
+    : null
 }
 
 /**

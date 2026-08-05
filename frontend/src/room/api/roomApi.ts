@@ -1,5 +1,5 @@
 import { readAuthSession } from '@/auth/authSession'
-import { isGameCode } from '@/games'
+import { type GameCode, isGameCode } from '@/games'
 import type {
   DiceSet,
   GameState,
