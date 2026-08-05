@@ -9,6 +9,7 @@ import {
 import { Button } from '@/shared/components/Button'
 import { IconBack } from '@/shared/components/Icon'
 import { useSwing } from '@/shared/useSwing'
+import { useAppStore } from '@/store'
 import { pingPongSituation, sharedSituationLabel } from './feedback'
 import {
   advanceLocalGame,
@@ -21,6 +22,7 @@ import {
   restartLocalGame,
   swingLocalGame,
 } from './localGame'
+import { savePingPongAiResult } from './pingPongAiResultApi'
 import { createScene, type PingPongScene } from './scene3d'
 
 export function PingPongModePage() {
@@ -97,8 +99,11 @@ function LocalPingPongGame({
   mode: LocalPingPongMode
   onExit: () => void
 }) {
+  const authSession = useAppStore((state) => state.authSession)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<LocalPingPongState>(createLocalGame(mode, difficulty))
+  const resultIdRef = useRef(createResultId())
+  const submittedResultRef = useRef<string | null>(null)
   const labelTimerRef = useRef<number | null>(null)
   const [feedback, setFeedback] = useState<LocalFeedback | null>(null)
   const [glFailed, setGlFailed] = useState(false)
@@ -181,8 +186,24 @@ function LocalPingPongGame({
     }
   }, [showFeedback])
 
+  const saveResult = useCallback(() => {
+    if (mode !== 'solo' || hud.phase !== 'over' || !authSession) return
+    const resultId = resultIdRef.current
+    if (submittedResultRef.current === resultId) return
+    submittedResultRef.current = resultId
+    void savePingPongAiResult(authSession.sessionToken, {
+      resultId,
+      humanScore: hud.s1,
+      aiScore: hud.s2,
+    }).catch(() => {})
+  }, [authSession, hud.phase, hud.s1, hud.s2, mode])
+
+  useEffect(() => saveResult(), [saveResult])
+
   const restart = () => {
     restartLocalGame(gameRef.current)
+    resultIdRef.current = createResultId()
+    submittedResultRef.current = null
     setFeedback(null)
     setHud(hudOf(gameRef.current))
   }
@@ -303,6 +324,10 @@ function LocalPingPongGame({
       </footer>
     </main>
   )
+}
+
+function createResultId() {
+  return globalThis.crypto.randomUUID()
 }
 
 function LocalScore({
