@@ -28,4 +28,22 @@ describe('savePingPongAiResult', () => {
       aiScore: 7,
     })
   })
+
+  it('게스트 결과는 인증 헤더 없이 전송한다', async () => {
+    let authorization: string | null = 'not-called'
+    mockApiServer.use(
+      http.post('/api/v1/games/ping-pong/ai-results', ({ request }) => {
+        authorization = request.headers.get('Authorization')
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+
+    await savePingPongAiResult(null, {
+      resultId: 'f6136597-b2ac-4d12-9d52-174cb3f45f45',
+      humanScore: 6,
+      aiScore: 11,
+    })
+
+    expect(authorization).toBeNull()
+  })
 })

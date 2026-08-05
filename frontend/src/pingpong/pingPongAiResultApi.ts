@@ -7,12 +7,12 @@ export interface PingPongAiResultRequest {
 }
 
 export function savePingPongAiResult(
-  sessionToken: string,
+  sessionToken: string | null,
   result: PingPongAiResultRequest,
 ): Promise<void> {
   return apiRequest<void>('/games/ping-pong/ai-results', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${sessionToken}` },
+    ...(sessionToken ? { headers: { Authorization: `Bearer ${sessionToken}` } } : {}),
     body: JSON.stringify(result),
   })
 }

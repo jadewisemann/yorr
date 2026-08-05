@@ -14,6 +14,7 @@ public class PingPongAiResultService {
     static final String LOCAL_AI_ROOM_CODE = "LOCAL_AI";
     static final String AI_PLAYER_ID = "ping-pong-ai";
     static final String AI_NICKNAME = "AI";
+    static final String GUEST_NICKNAME = "게스트";
 
     private final MatchArchiveService matches;
 
@@ -23,6 +24,15 @@ public class PingPongAiResultService {
 
     public boolean archive(UserIdentity user, PingPongAiResultRequest request) {
         if (user == null || request == null) throw new IllegalArgumentException("invalid_ai_result");
+        return archive(user.userId(), user.nickname(), request);
+    }
+
+    public boolean archiveGuest(PingPongAiResultRequest request) {
+        if (request == null) throw new IllegalArgumentException("invalid_ai_result");
+        return archive(UUID.randomUUID().toString(), GUEST_NICKNAME, request);
+    }
+
+    private boolean archive(String playerId, String nickname, PingPongAiResultRequest request) {
         String resultId = normalizeResultId(request.resultId());
         validateFinalScore(request.humanScore(), request.aiScore());
 
@@ -33,7 +43,7 @@ public class PingPongAiResultService {
                 PingPongGameModule.CODE,
                 LOCAL_AI_ROOM_CODE,
                 List.of(
-                        new ParticipantResult(user.userId(), user.nickname(), request.humanScore(), humanRank),
+                        new ParticipantResult(playerId, nickname, request.humanScore(), humanRank),
                         new ParticipantResult(AI_PLAYER_ID, AI_NICKNAME, request.aiScore(), aiRank)
                 )
         );

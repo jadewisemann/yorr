@@ -187,11 +187,11 @@ function LocalPingPongGame({
   }, [showFeedback])
 
   const saveResult = useCallback(() => {
-    if (mode !== 'solo' || hud.phase !== 'over' || !authSession) return
+    if (mode !== 'solo' || hud.phase !== 'over') return
     const resultId = resultIdRef.current
     if (submittedResultRef.current === resultId) return
     submittedResultRef.current = resultId
-    void savePingPongAiResult(authSession.sessionToken, {
+    void savePingPongAiResult(authSession?.sessionToken ?? null, {
       resultId,
       humanScore: hud.s1,
       aiScore: hud.s2,

@@ -43,21 +43,28 @@ class PingPongAiResultControllerTest {
     }
 
     @Test
-    void 인증되지_않은_요청은_거절한다() throws Exception {
-        when(users.authenticateSession(null)).thenThrow(new SessionAuthenticationException());
+    void 비로그인_게스트의_결과를_저장한다() throws Exception {
+        mockMvc.perform(request()).andExpect(status().isNoContent());
 
-        mockMvc.perform(request()).andExpect(status().isUnauthorized());
-        verifyNoInteractions(results);
+        verify(results).archiveGuest(any(PingPongAiResultRequest.class));
+        verifyNoInteractions(users);
     }
 
     @Test
-    void 게스트_세션은_기록을_남길_수_없다() throws Exception {
+    void 기존_게스트_세션도_해당_UUID로_결과를_저장한다() throws Exception {
         when(users.authenticateSession("guest-token"))
                 .thenReturn(new UserIdentity("guest-1", "손님", UserType.GUEST));
 
         mockMvc.perform(request().header("Authorization", "Bearer guest-token"))
-                .andExpect(status().isForbidden());
-        verifyNoInteractions(results);
+                .andExpect(status().isNoContent());
+        verify(results).archive(any(UserIdentity.class), any(PingPongAiResultRequest.class));
+    }
+
+    @Test
+    void 잘못된_인증_헤더는_거절한다() throws Exception {
+        mockMvc.perform(request().header("Authorization", "invalid"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(results, users);
     }
 
     private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request() {

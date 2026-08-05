@@ -187,4 +187,25 @@ class MatchArchiveServiceIntegrationTest {
         assertThat(pingPongAiResults.archive(identity, result)).isFalse();
         assertThat(matches.count()).isEqualTo(1);
     }
+
+    @Test
+    void 로컬_AI_탁구_게스트는_user_없이_UUID와_점수를_저장한다() {
+        String resultId = "7f7b50af-a2ec-47b6-93e6-6a54046d8ad0";
+
+        assertThat(pingPongAiResults.archiveGuest(
+                new PingPongAiResultRequest(resultId, 11, 4))).isTrue();
+
+        Match stored = matches.findWithParticipantsByGameId(resultId).orElseThrow();
+        MatchParticipant guest = stored.getParticipants().stream()
+                .filter(participant -> !participant.getPlayerId().equals("ping-pong-ai"))
+                .findFirst().orElseThrow();
+        assertThat(stored.getGameCode()).isEqualTo("PING_PONG");
+        assertThat(stored.getRoomCode()).isEqualTo("LOCAL_AI");
+        assertThat(guest.getUser()).isNull();
+        assertThat(guest.getPlayerId()).matches(
+                "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+        assertThat(guest.getDisplayNickname()).isEqualTo("게스트");
+        assertThat(guest.getTotalScore()).isEqualTo(11);
+        assertThat(guest.getRanking()).isEqualTo(1);
+    }
 }
