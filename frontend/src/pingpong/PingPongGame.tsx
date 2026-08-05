@@ -168,7 +168,7 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
 
   if (!state) {
     return (
-      <main className="grid h-svh place-items-center bg-pingpong-canvas text-white">
+      <main className="grid h-svh place-items-center bg-pp-canvas text-white">
         탁구 코트를 준비하고 있어요.
       </main>
     )
@@ -248,7 +248,7 @@ function PingPongDashboard({
   state: PingPongState
 }) {
   return (
-    <main className="relative h-svh w-full overflow-hidden bg-pingpong-canvas text-white">
+    <main className="relative h-svh w-full overflow-hidden bg-pp-canvas text-white">
       <canvas
         aria-label="파티 모드 3D 탁구 코트"
         className="absolute inset-0 size-full"
@@ -315,7 +315,7 @@ function PingPongDesktopPlayer({
   state: PingPongState
 }) {
   return (
-    <main className="relative h-svh w-full overflow-hidden bg-pingpong-canvas text-white">
+    <main className="relative h-svh w-full overflow-hidden bg-pp-canvas text-white">
       <canvas aria-label="3D 탁구 코트" className="absolute inset-0 size-full" ref={canvasRef} />
       {/* 코트 전체가 스윙 버튼이다 — 캔버스 위에 투명하게 덮으므로 어디를 클릭해도 받아친다.
           아래 버튼·오버레이는 z-10 이상이라 이 판에 먹히지 않는다. */}
@@ -480,7 +480,7 @@ function DashboardFeedback({
 }) {
   const showEvent = Boolean(eventLabel && event && eventAge < 900)
   const label = showEvent ? eventLabel : situationLabel
-  const tone = showEvent && event ? feedbackTextClass(event.type) : 'text-[#ffd24a]'
+  const tone = showEvent && event ? feedbackTextClass(event.type) : 'text-pp-gold'
   return (
     <div className="pointer-events-none absolute inset-x-0 top-[17%] z-10 grid justify-items-center gap-3 text-center">
       <div
@@ -516,9 +516,9 @@ function PingPongPreparation({
 
   return (
     <section className="absolute inset-0 z-10 grid place-items-center bg-black/45 px-5 backdrop-blur-[2px]">
-      <div className="grid w-full max-w-xl gap-6 rounded-[2rem] border border-white/15 bg-[#0b111b]/95 p-7 text-center shadow-2xl">
+      <div className="grid w-full max-w-xl gap-6 rounded-hero border border-white/15 bg-pp-surface/95 p-7 text-center shadow-2xl">
         <div>
-          <p className="m-0 font-mono text-xs tracking-[0.2em] text-[#73bfff]">WARM-UP</p>
+          <p className="m-0 font-mono text-xs tracking-[0.2em] text-pp-side-blue-text">WARM-UP</p>
           <h1 className="mt-2 mb-0 text-4xl font-black">{heading}</h1>
           <p className="mt-2 mb-0 text-white/55">두 명 모두 준비 완료하면 경기가 시작됩니다.</p>
         </div>
@@ -528,20 +528,20 @@ function PingPongPreparation({
             const ready = state.readyPlayerIds.includes(playerId)
             return (
               <div
-                className={`rounded-2xl border px-4 py-4 ${ready ? 'border-[#49e08a]/45 bg-[#49e08a]/12' : 'border-white/12 bg-white/6'}`}
+                className={`rounded-card border px-4 py-4 ${ready ? 'border-pp-accent/45 bg-pp-accent/12' : 'border-white/12 bg-white/6'}`}
                 key={playerId}
               >
                 <span className="block truncate text-lg font-black">
                   {player?.nickname ?? `P${index + 1}`}
                 </span>
-                <span className={ready ? 'text-[#8dffc0]' : 'text-white/45'}>
+                <span className={ready ? 'text-pp-accent-text' : 'text-white/45'}>
                   {ready ? '준비 완료' : '연습 중'}
                 </span>
               </div>
             )
           })}
         </div>
-        <p className="m-0 min-h-6 text-lg font-bold text-[#ffd24a]" role="status">
+        <p className="m-0 min-h-6 text-lg font-bold text-pp-gold" role="status">
           {latestPractice ? `${latestPractice.nickname} 연습 스윙 감지!` : '공을 한 번 쳐보세요'}
         </p>
         {action}
@@ -570,13 +570,13 @@ export function PingPongResult({
   const host = isRoomHost(snapshot, session.you)
 
   return (
-    <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-pingpong-canvas px-gutter text-white">
+    <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-pp-canvas px-gutter text-white">
       <div className="absolute inset-0 [background:radial-gradient(circle_at_50%_30%,rgb(43_143_224_/_20%),transparent_45%)]" />
       <p className="relative m-0 font-mono text-xs tracking-[0.22em] text-white/55">
         MATCH FINISHED
       </p>
       <h1 className="relative m-0 text-5xl font-black">{won ? '승리!' : '좋은 경기였어요'}</h1>
-      <section className="relative flex items-center gap-6 rounded-3xl border border-white/15 bg-white/8 px-8 py-7 backdrop-blur-md">
+      <section className="relative flex items-center gap-6 rounded-sheet border border-white/15 bg-white/8 px-8 py-7 backdrop-blur-md">
         <Score name="나" score={myScore} tone="blue" large />
         <span className="text-2xl text-white/35">:</span>
         <Score name={opponent?.nickname ?? '상대'} score={opponentScore} tone="red" large />
@@ -618,10 +618,10 @@ function PingPongDashboardResult({
   const secondPlayer = snapshot.players.find((player) => player.playerId === secondPlayerId)
 
   return (
-    <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-pingpong-canvas px-gutter text-white">
+    <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-pp-canvas px-gutter text-white">
       <p className="m-0 font-mono text-xs tracking-[0.22em] text-white/55">MATCH FINISHED</p>
       <h1 className="m-0 text-5xl font-black">경기 종료</h1>
-      <section className="flex items-center gap-6 rounded-3xl border border-white/15 bg-white/8 px-8 py-7">
+      <section className="flex items-center gap-6 rounded-sheet border border-white/15 bg-white/8 px-8 py-7">
         <Score
           name={firstPlayer?.nickname ?? 'P1'}
           score={state?.scores[firstPlayerId] ?? 0}
@@ -661,11 +661,11 @@ function Score({
 }) {
   return (
     <div
-      className={`grid min-w-20 text-center ${tone === 'blue' ? 'text-[#73bfff]' : 'text-[#ff8b7c]'}`}
+      className={`grid min-w-20 text-center ${tone === 'blue' ? 'text-pp-side-blue-text' : 'text-pp-danger-text'}`}
     >
       <span className="flex min-w-0 items-center justify-center gap-1 text-xs font-bold text-white/65">
         {tag && (
-          <span className="rounded border border-current px-1 font-mono text-[10px] font-black leading-none">
+          <span className="rounded-xs border border-current px-1 font-mono text-2xs font-black leading-none">
             {tag}
           </span>
         )}

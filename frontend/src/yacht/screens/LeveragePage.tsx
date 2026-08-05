@@ -61,10 +61,10 @@ function LeverageRun({ onRestart }: { onRestart: () => void }) {
   if (snapshot.phase === 'finished') {
     return (
       <main className="mx-auto flex h-svh w-full max-w-md flex-col items-center justify-center gap-6 px-gutter text-content">
-        <p className="m-0 font-mono text-[11px] font-bold tracking-[0.16em] text-content-muted uppercase">
+        <p className="m-0 font-mono text-2xs font-bold tracking-[0.16em] text-content-muted uppercase">
           레버리지 · {LEVERAGE_ROUNDS}라운드 종료
         </p>
-        <strong className="font-mono text-[64px] leading-none font-bold tabular-nums">
+        <strong className="font-mono text-6xl leading-none font-bold tabular-nums">
           {board?.total ?? 0}
         </strong>
         <div className="grid w-full gap-2">
@@ -101,7 +101,7 @@ function LeverageNotice({ category }: { category: YachtCategory | null }) {
 
   return (
     <p className="pointer-events-none absolute inset-x-0 top-2 z-sticky m-0 flex justify-center">
-      <span className="rounded-full border border-brand bg-brand/15 px-3 py-1 text-[12px] font-bold text-brand-strong">
+      <span className="rounded-full border border-brand bg-brand/15 px-3 py-1 text-xs font-bold text-brand-strong">
         이번 턴 ×{LEVERAGE_MULTIPLIER} — {categoryLabel[category]}
       </span>
     </p>

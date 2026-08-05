@@ -25,11 +25,21 @@ const statusLabel = {
   offline: '연결 끊김',
 }
 
+/**
+ * 아바타 바탕 4종. 이름 해시로 고른다.
+ *
+ * 네 번째가 brand-strong(#ff4d48)이었는데 첫 번째 brand(#e53935)와 RGB 거리가 33이라
+ * 대기실에 나란히 서면 같은 빨강 둘로 읽혔다 — 네 칸 중 하나를 버리는 셈이다.
+ * warning으로 바꿔 빨강·초록·흰색·앰버 넉 장이 서로 확실히 갈리게 한다.
+ *
+ * 6인 방에서는 여전히 겹친다. 톤은 두 번째 채널일 뿐이고 이름 첫 글자가 먼저 구분하므로
+ * 색을 더 만들지는 않았다 — 흑백+레드 시스템에 색상을 늘리는 건 별도 판단이다.
+ */
 const avatarTones = [
   'bg-brand text-on-brand',
   'bg-positive text-canvas',
   'bg-focus text-canvas',
-  'bg-brand-strong text-on-brand',
+  'bg-warning text-canvas',
 ] as const
 
 export function PlayerCard({
@@ -71,7 +81,7 @@ export function PlayerCard({
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate font-bold">{name}</span>
           {current && (
-            <span className="shrink-0 rounded-[6px] bg-content px-2 py-0.5 text-xs font-bold text-canvas">
+            <span className="shrink-0 rounded-chip bg-content px-2 py-0.5 text-xs font-bold text-canvas">
               나
             </span>
           )}

@@ -29,20 +29,20 @@
   }
 
   .score-label {
-    @apply flex min-w-0 items-center gap-1.5 text-[14px] font-semibold text-content;
+    @apply flex min-w-0 items-center gap-1.5 text-sm font-semibold text-content;
   }
 
   .score-cell {
-    @apply justify-self-stretch py-1 text-center font-mono text-[15px] font-bold tabular-nums;
+    @apply justify-self-stretch py-1 text-center font-mono text-sm font-bold tabular-nums;
   }
 
   /* 모바일 기록 패널의 퀵 칩 — 열린 족보 수만큼(최대 12) 한 줄에 눕는다. */
   .quick-chip {
-    @apply flex h-[4.125rem] min-w-[5.5rem] cursor-pointer flex-col items-start justify-between rounded-control border border-border bg-surface px-2.5 py-2 text-left text-content transition-colors focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55;
+    @apply flex h-[4.125rem] min-w-[5.5rem] cursor-pointer flex-col items-start justify-between rounded-control border border-border bg-surface px-2.5 py-2 text-left text-content transition-[color,background-color,border-color,scale] active:not-disabled:scale-[0.97] focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55;
   }
 
   /* 리액션 픽커 이모지 버튼 5종. */
   .reaction-chip {
-    @apply grid size-11 cursor-pointer place-items-center rounded-card border-0 bg-transparent p-0 text-[22px] leading-none transition-transform hover:scale-115;
+    @apply grid size-11 cursor-pointer place-items-center rounded-card border-0 bg-transparent p-0 text-xl leading-none transition-transform hover:scale-115;
   }
 }

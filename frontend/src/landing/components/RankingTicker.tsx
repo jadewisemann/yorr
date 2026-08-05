@@ -154,7 +154,7 @@ function WideBand({
           aria-controls={PANEL_ID}
           aria-expanded={open}
           className={cn(
-            'flex h-full flex-none cursor-pointer items-center gap-1.5 border-0 bg-transparent px-1 text-[12.5px] font-landing-bold transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+            'flex h-full flex-none cursor-pointer items-center gap-1.5 border-0 bg-transparent px-1 text-xs font-landing-bold transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
             open ? 'text-landing-accent-text' : 'text-landing-text-muted hover:text-landing-text',
           )}
           onClick={() => setOpen((previous) => !previous)}
@@ -179,7 +179,7 @@ function WideBand({
             />
             <motion.div
               animate="visible"
-              className="absolute top-full right-0 z-banner mt-2.5 w-90 rounded-[18px] border border-landing-hairline-strong bg-surface-raised p-2 shadow-landing-popover"
+              className="absolute top-full right-0 z-banner mt-2.5 w-90 rounded-panel border border-landing-hairline-strong bg-surface-raised p-2 shadow-landing-popover"
               exit="exit"
               id={PANEL_ID}
               initial="hidden"
@@ -260,7 +260,7 @@ function FullRankingRow({ entry, mine }: { entry: WeeklyRankingEntry; mine: bool
   return (
     <li
       className={cn(
-        'flex items-center gap-3 rounded-[12px] px-2.5 py-2',
+        'flex items-center gap-3 rounded-control px-2.5 py-2',
         // 1위는 색으로, 나는 테두리로 구분한다 — 둘 다 배경을 칠하면 내가 1위일 때 겹쳐
         // 어느 쪽 강조인지 읽히지 않는다.
         entry.rank === 1 && 'bg-landing-accent-tint',
@@ -268,11 +268,9 @@ function FullRankingRow({ entry, mine }: { entry: WeeklyRankingEntry; mine: bool
       )}
     >
       <RankBadge rank={entry.rank} />
-      <span className="min-w-0 flex-1 truncate text-[14px]/none font-landing-medium text-landing-text-strong">
+      <span className="min-w-0 flex-1 truncate text-sm/none font-landing-medium text-landing-text-strong">
         {entry.nickname}
-        {mine && (
-          <span className="ml-1.5 text-[11px] font-normal text-landing-accent-text">나</span>
-        )}
+        {mine && <span className="ml-1.5 text-2xs font-normal text-landing-accent-text">나</span>}
       </span>
       <Score value={entry.bestScore} />
     </li>
@@ -290,7 +288,7 @@ function Chevron({ open }: { open: boolean }) {
 /** 흐르지 않는 왼쪽 고정 라벨. 시세표의 거래소 이름 자리다 — 무엇이 흐르는지 먼저 말한다. */
 function TickerLabel() {
   return (
-    <p className="m-0 flex flex-none items-center gap-2 text-[12px]/none font-landing-bold whitespace-nowrap text-landing-text">
+    <p className="m-0 flex flex-none items-center gap-2 text-xs/none font-landing-bold whitespace-nowrap text-landing-text">
       {/* 글로우를 뺀다 — RankBadge와 같은 이유다. 살아 있다는 신호는 맥동(ring-pulse)이
           이미 주고, 빛나는 레드는 CTA 몫이다. */}
       <span
@@ -408,7 +406,7 @@ function EntryRow({
           <RankBadge rank={entry.rank} />
           <span
             className={cn(
-              'text-[14px]/none font-landing-medium',
+              'text-sm/none font-landing-medium',
               // 흐르는 띠에서 내 이름이 지나갈 때 알아볼 수 있어야 한다. 배경을 칠하면 흐르는
               // 중에 덩어리가 튀어 시선을 끌어가므로 글자색만 바꾼다.
               entry.userId === myUserId ? 'text-landing-accent-text' : 'text-landing-text-strong',
@@ -426,9 +424,9 @@ function EntryRow({
 /** 점수만 mono다 — 자리수가 흔들리지 않아 흐르는 중에도, 열로 세워도 숫자로 읽힌다. */
 function Score({ value }: { value: number }) {
   return (
-    <span className="flex-none font-mono text-[15px]/none font-bold text-landing-text tabular-nums">
+    <span className="flex-none font-mono text-sm/none font-bold text-landing-text tabular-nums">
       {value}
-      <span className="ml-0.5 font-sans text-[11px] font-normal text-landing-text-faint">점</span>
+      <span className="ml-0.5 font-sans text-2xs font-normal text-landing-text-faint">점</span>
     </span>
   )
 }
@@ -445,7 +443,7 @@ function RankBadge({ rank }: { rank: number }) {
   return (
     <span
       className={cn(
-        'grid size-5.5 flex-none place-items-center rounded-[6px] font-mono text-[11px]/none font-bold tabular-nums',
+        'grid size-5.5 flex-none place-items-center rounded-chip font-mono text-2xs/none font-bold tabular-nums',
         rank === 1
           ? 'bg-landing-accent text-landing-accent-ink'
           : 'bg-landing-soft text-landing-text-muted',
@@ -472,7 +470,7 @@ function EmptyNotice({ loading }: { loading: boolean }) {
   // 기록이 없다는 사실은 이름이 하나도 없는 것으로 이미 읽히고, 무엇의 순위인지는 왼쪽
   // 고정 라벨("이번 주 요트랭킹")이 말한다. 그래서 남길 것은 행동뿐이다.
   return (
-    <p className="m-0 truncate text-[12px]/none font-landing-medium text-landing-text-faint">
+    <p className="m-0 truncate text-xs/none font-landing-medium text-landing-text-faint">
       로그인하고 1위 도전하기
     </p>
   )

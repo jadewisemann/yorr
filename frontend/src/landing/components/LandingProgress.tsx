@@ -34,7 +34,7 @@ export function LandingProgress({ activeIndex, games, layout, onSelect }: Landin
       <span
         className={cn(
           'flex-none font-mono font-bold tracking-[0.08em] tabular-nums',
-          wide ? 'text-[16px]' : 'text-[14px]',
+          wide ? 'text-base' : 'text-sm',
         )}
       >
         <span className="text-landing-text">{String(activeIndex + 1).padStart(2, '0')}</span>
@@ -93,7 +93,7 @@ export function LandingProgress({ activeIndex, games, layout, onSelect }: Landin
       {wide ? (
         <>
           <span aria-hidden="true" className="h-4 w-px flex-none bg-landing-hairline-strong" />
-          <span className="flex-none font-mono text-[12px] font-semibold tracking-[0.18em] text-landing-text-muted">
+          <span className="flex-none font-mono text-xs font-semibold tracking-[0.18em] text-landing-text-muted">
             DRAG OR USE ← →
           </span>
         </>
@@ -102,7 +102,7 @@ export function LandingProgress({ activeIndex, games, layout, onSelect }: Landin
            99px만 남고 두 줄로 접히는데, 카운터 옆에서 오른쪽 정렬로 두 줄이 되면 안내가
            아니라 깨진 것으로 읽힌다. 스와이프는 카드 자체로 발견되고 위치는 tablist가
            계속 말하므로, 랜딩이 h-svh인 화면에서 한 층을 더 쓰는 것보다 낫다. */
-        <span className="flex-1 text-right text-[12px] text-landing-text-muted max-tiny:hidden">
+        <span className="flex-1 text-right text-xs text-landing-text-muted max-tiny:hidden">
           옆으로 밀어 다른 게임 보기
         </span>
       )}

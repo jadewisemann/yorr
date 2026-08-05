@@ -56,8 +56,8 @@ export function PartyResultDashboard({
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex flex-none items-center gap-3 border-b border-border px-gutter py-3">
           <div className="grid min-w-0 flex-1 gap-1">
-            <h1 className="m-0 text-[19px] font-bold">최종 결과 · 요트 다이스</h1>
-            <p className="m-0 flex items-center gap-2 text-[13px] text-content-muted">
+            <h1 className="m-0 text-lg font-bold">최종 결과 · 요트 다이스</h1>
+            <p className="m-0 flex items-center gap-2 text-xs text-content-muted">
               <span className="font-mono font-bold tracking-[0.12em] text-content">
                 {session.roomCode}
               </span>
@@ -77,7 +77,7 @@ export function PartyResultDashboard({
         </header>
 
         {/* TurnStrip이 있던 자리. 진행 중 "누구 차례"가 서 있던 높이를 결과에서도 지킨다. */}
-        <p className="m-0 flex flex-none items-center gap-2 border-b border-border px-gutter py-2.5 text-[13px] text-content-muted">
+        <p className="m-0 flex flex-none items-center gap-2 border-b border-border px-gutter py-2.5 text-xs text-content-muted">
           {snapshot.game?.roundNumber ?? 12}라운드 종료
           {winner && (
             <>
@@ -92,7 +92,7 @@ export function PartyResultDashboard({
         {/* 화면의 주인공. 큰 화면에서 여러 사람이 동시에 읽으므로 폰보다 크게 세운다
             (ResultRanking 자체가 스크롤 컨테이너 — 인원이 늘어도 프레임은 고정이다). */}
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-gutter py-4">
-          <h2 className="m-0 flex-none font-mono text-[12px] font-bold tracking-[0.16em] text-content-muted uppercase">
+          <h2 className="m-0 flex-none font-mono text-xs font-bold tracking-[0.16em] text-content-muted uppercase">
             Final Standings
           </h2>
           <ResultRanking
@@ -104,7 +104,7 @@ export function PartyResultDashboard({
 
         {/* [굴리기]·[게임 시작]이 있던 띠. 대시보드는 누를 것이 없으니 안내만 남는다. */}
         <footer className="flex flex-none items-center justify-center border-t border-border px-gutter py-4">
-          <p className="m-0 text-center text-[15px] text-content-muted" role="status">
+          <p className="m-0 text-center text-sm text-content-muted" role="status">
             방장이 대기실로 옮기면 같은 멤버로 다시 시작해요.
           </p>
         </footer>
@@ -113,7 +113,7 @@ export function PartyResultDashboard({
       {/* ScoreSheet가 있던 열. 폰과 달리 처음부터 펼쳐 둔다 — TV를 탭할 사람은 없다. */}
       {wide && (
         <section aria-label="전체 점수표" className="flex min-h-0 flex-col border-l border-border">
-          <h2 className="m-0 flex-none px-3 pt-2.5 pb-1.5 text-[15px] font-bold tracking-[0.02em]">
+          <h2 className="m-0 flex-none px-3 pt-2.5 pb-1.5 text-sm font-bold tracking-[0.02em]">
             전체 점수표
           </h2>
           <ScoreMatrix

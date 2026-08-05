@@ -65,12 +65,12 @@ export function TurnStrip({ players, activePlayerId, className, voice, you }: Tu
                   aria-hidden="true"
                   className={cn(
                     'size-1.5 flex-none',
-                    active ? 'rounded-[2px] bg-brand-strong' : 'rounded-full bg-content-faint',
+                    active ? 'rounded-xs bg-brand-strong' : 'rounded-full bg-content-faint',
                   )}
                 />
                 <span
                   className={cn(
-                    'truncate text-[12px] font-semibold',
+                    'truncate text-xs font-semibold',
                     active ? 'text-brand-soft' : 'text-content-muted',
                   )}
                 >
@@ -78,7 +78,7 @@ export function TurnStrip({ players, activePlayerId, className, voice, you }: Tu
                   {mine && ' (나)'}
                 </span>
                 {player.status === 'offline' && (
-                  <span className="flex-none rounded-full border border-warning/40 bg-warning/12 px-1.5 py-0.5 text-[9px]/none font-bold text-warning">
+                  <span className="flex-none rounded-full border border-warning/40 bg-warning/12 px-1.5 py-0.5 text-2xs/none font-bold text-warning">
                     연결 끊김
                   </span>
                 )}
@@ -90,7 +90,7 @@ export function TurnStrip({ players, activePlayerId, className, voice, you }: Tu
               </span>
               <span
                 className={cn(
-                  'font-mono text-[17px] leading-none font-bold tabular-nums',
+                  'font-mono text-base leading-none font-bold tabular-nums',
                   active ? 'text-white' : 'text-content',
                 )}
               >

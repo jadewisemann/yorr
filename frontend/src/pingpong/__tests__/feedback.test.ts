@@ -19,9 +19,9 @@ describe('ping pong feedback', () => {
 
   it('raises the combo tier as the rally continues', () => {
     expect(comboStyle(1).color).toBe('#ffffff')
-    expect(comboStyle(3).color).toBe('#49e08a')
-    expect(comboStyle(5).color).toBe('#ffd24a')
-    expect(comboStyle(8).color).toBe('#ff7a4d')
+    expect(comboStyle(3).color).toBe('var(--ds-pp-accent)')
+    expect(comboStyle(5).color).toBe('var(--ds-pp-gold)')
+    expect(comboStyle(8).color).toBe('var(--ds-pp-smash)')
   })
 
   it('labels deuce and match point from the authoritative score', () => {

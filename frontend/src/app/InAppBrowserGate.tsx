@@ -40,8 +40,8 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
     // 디자인 14 — 좌측 정렬 풀스크린 안내. 무엇이 되고 무엇이 제한되는지 체크리스트로 보여준다.
     <Screen className="max-w-lg gap-6 pt-[max(2.5rem,env(safe-area-inset-top))]">
       <div className="grid gap-3">
-        <h1 className="m-0 text-[27px] font-bold tracking-[-0.02em]">외부 브라우저를 권장해요</h1>
-        <p className="m-0 text-[15px] leading-[1.6] text-content-muted">
+        <h1 className="m-0 text-2xl font-bold tracking-[-0.02em]">외부 브라우저를 권장해요</h1>
+        <p className="m-0 text-sm leading-[1.6] text-content-muted">
           Chrome 또는 Safari에서 열면 흔들기 센서와 링크 공유가 안정적으로 동작해요. 인앱
           브라우저에서는 일부 기능이 제한될 수 있어요.
         </p>
@@ -102,7 +102,7 @@ function ChecklistItem({
     <li className={cn('flex items-center gap-2.5', row)}>
       <span
         aria-hidden="true"
-        className={cn('grid size-[18px] flex-none place-items-center rounded-[6px]', badge)}
+        className={cn('grid size-[18px] flex-none place-items-center rounded-chip', badge)}
       >
         <Icon className="size-3" />
       </span>

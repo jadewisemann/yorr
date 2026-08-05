@@ -73,7 +73,7 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
           게임 종료, {ranked.length}명 중 {myRank}위, {me?.total ?? 0}점
         </p>
 
-        <span className="relative inline-flex w-fit items-center gap-2 rounded-full border border-border bg-surface-veil px-3 py-1.5 font-mono text-[10px] font-bold tracking-[0.16em] text-content-muted uppercase">
+        <span className="relative inline-flex w-fit items-center gap-2 rounded-full border border-border bg-surface-veil px-3 py-1.5 font-mono text-2xs font-bold tracking-[0.16em] text-content-muted uppercase">
           {snapshot.game?.roundNumber ?? 12}라운드 종료
         </span>
         <div className="relative mt-3 flex items-end gap-3">
@@ -86,17 +86,17 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
           </span>
         </div>
 
-        <section className="relative mt-5 flex items-center justify-between gap-4 rounded-[1.25rem] border border-border-strong bg-surface-raised p-4.5">
+        <section className="relative mt-5 flex items-center justify-between gap-4 rounded-panel border border-border-strong bg-surface-raised p-4.5">
           <div className="min-w-0">
-            <p className="m-0 flex items-center gap-2 truncate text-[17px] font-bold">
+            <p className="m-0 flex items-center gap-2 truncate text-base font-bold">
               {session.nickname}
-              <span className="rounded-[6px] bg-content px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.1em] text-canvas">
+              <span className="rounded-chip bg-content px-1.5 py-0.5 font-mono text-2xs font-bold tracking-[0.1em] text-canvas">
                 ME
               </span>
             </p>
             <p
               className={cn(
-                'm-0 mt-1.5 text-[13px]',
+                'm-0 mt-1.5 text-xs',
                 myBoard && myBoard.upperBonus >= UPPER_BONUS_POINTS
                   ? 'text-positive'
                   : 'text-content-muted',
@@ -107,16 +107,16 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
                 : '상단 보너스 미달'}
             </p>
           </div>
-          <strong className="font-mono text-[38px] leading-none font-bold tabular-nums">
+          <strong className="font-mono text-4xl leading-none font-bold tabular-nums">
             {me?.total ?? 0}
           </strong>
         </section>
 
         <div className="relative mt-6 mb-2 flex items-baseline justify-between">
-          <h2 className="m-0 font-mono text-[11px] font-bold tracking-[0.14em] text-content-muted uppercase">
+          <h2 className="m-0 font-mono text-2xs font-bold tracking-[0.14em] text-content-muted uppercase">
             Final Standings
           </h2>
-          <span className="text-[13px] text-content-muted">총점 기준</span>
+          <span className="text-xs text-content-muted">총점 기준</span>
         </div>
         {/* min-h-0 + overflow-y-auto: 랭킹이 늘어나도 스크롤은 이 목록 안에서만 일어난다 —
             내 점수 카드·하단 버튼은 항상 고정 위치에 남는다(QA FND-6).
@@ -147,7 +147,7 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
           >
             나가기
           </Button>
-          <p className="m-0 text-center text-[10.5px] text-content-muted">
+          <p className="m-0 text-center text-2xs text-content-muted">
             {isHost
               ? '대기실로 돌아가면 같은 멤버로 다시 시작할 수 있어요'
               : '방장이 대기실로 옮기기를 기다리는 중'}

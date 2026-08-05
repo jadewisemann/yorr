@@ -60,7 +60,7 @@ export function GameControllerPad({ activePlayer, isMyTurn, roll }: GameControll
         />
       )}
 
-      <p className="m-0 text-center text-[17px] font-bold" role="status">
+      <p className="m-0 text-center text-base font-bold" role="status">
         {isMyTurn ? '내 차례' : `${activePlayer?.nickname ?? '—'} 차례`}
       </p>
 
@@ -81,7 +81,7 @@ export function GameControllerPad({ activePlayer, isMyTurn, roll }: GameControll
         <RollCounter rollsUsed={settledRollCount} />
         {motionOfferable && !motionPanelOpen && (
           <button
-            className="cursor-pointer rounded-full border border-border bg-surface/80 px-2.5 py-1 text-[11px] font-bold tracking-[0.06em] text-content-muted uppercase focus-ring"
+            className="cursor-pointer rounded-full border border-border bg-surface/80 px-2.5 py-1 text-2xs font-bold tracking-[0.06em] text-content-muted uppercase focus-ring"
             onClick={() => setMotionPanelOpen(true)}
             type="button"
           >
@@ -89,7 +89,7 @@ export function GameControllerPad({ activePlayer, isMyTurn, roll }: GameControll
           </button>
         )}
         {rollInputMode === 'motion' && !pendingRoll && (
-          <span className="text-[11px] text-content-faint">흔들어서 굴려도 돼요</span>
+          <span className="text-2xs text-content-faint">흔들어서 굴려도 돼요</span>
         )}
       </div>
 

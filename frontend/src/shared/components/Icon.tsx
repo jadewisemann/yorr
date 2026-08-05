@@ -178,3 +178,20 @@ export function IconHelp({ className }: IconProps) {
     </Svg>
   )
 }
+
+/**
+ * 폰 흔들기. 세로로 선 폰과 좌우로 퍼지는 진동 호 두 개다.
+ *
+ * 이 자리에는 원래 `📱`가 들어 있었다 — 위 주석이 이모지를 쓰지 않는 이유로 든
+ * "모노톤 크롬에서 혼자 튄다"가 실제로 일어나던 곳이다. 회색 텍스트(text-content-muted)
+ * 옆에서 폰만 파랗게 떴다.
+ */
+export function IconShake({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <rect height={12.5} rx={1.6} width={5.5} x={7.25} y={3.75} />
+      <path d="M4.4 7.9a4.2 4.2 0 0 0 0 4.2" />
+      <path d="M15.6 7.9a4.2 4.2 0 0 1 0 4.2" />
+    </Svg>
+  )
+}

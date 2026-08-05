@@ -15,7 +15,10 @@ type ButtonProps = ComponentProps<'button'> & {
 const variants = {
   primary: 'bg-brand text-on-brand shadow-cta hover:bg-brand-strong disabled:shadow-none',
   secondary: 'bg-inverse text-on-inverse hover:bg-white',
-  ghost: 'border-border-strong bg-transparent text-content hover:bg-surface-veil',
+  // 테두리가 white/18(캔버스 위 1.62:1)이라 카탈로그에서 나란히 세우면 비활성 Primary
+  // (brand/55 면, 2.10:1)가 이 활성 버튼보다 넓고 진하게 보인다. 글자는 제 밝기를 유지하니
+  // 뜻이 뒤집히지는 않지만, 3순위 행동의 윤곽이 "누를 수 없는 것"보다 흐릴 이유는 없다.
+  ghost: 'border-white/28 bg-transparent text-content hover:bg-surface-veil',
   danger: 'border-brand/55 bg-brand/10 text-danger hover:bg-brand/18',
 } as const
 
@@ -42,7 +45,9 @@ export function Button({
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-card border border-transparent font-bold transition-[color,background-color,border-color,opacity,translate] duration-150 ease-snappy hover:not-disabled:-translate-y-px focus-ring focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55',
+        // 눌림은 뜬 것을 되돌리고(translate-y-0) 살짝 눌러 앉힌다 — 손가락이 닿은 순간
+        // 화면이 반응했다는 걸 hover가 없는 터치에서도 알 수 있는 유일한 채널이다.
+        'inline-flex items-center justify-center gap-2 rounded-card border border-transparent font-bold transition-[color,background-color,border-color,opacity,translate,scale] duration-150 ease-snappy hover:not-disabled:-translate-y-px active:not-disabled:translate-y-0 active:not-disabled:scale-[0.97] focus-ring focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55',
         variants[variant],
         sizes[size],
         className,

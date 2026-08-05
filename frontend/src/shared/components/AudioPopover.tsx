@@ -63,9 +63,9 @@ export function AudioPopover({
   return (
     <Popover anchorRef={anchorRef} label="오디오 설정" onClose={onClose} open={open}>
       <div className="flex items-baseline justify-between pb-1">
-        <h2 className="m-0 text-[17px] font-bold">오디오</h2>
+        <h2 className="m-0 text-base font-bold">오디오</h2>
         <button
-          className="cursor-pointer border-0 bg-transparent p-0 text-[13px] font-semibold text-content-muted hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
+          className="cursor-pointer border-0 bg-transparent p-0 text-xs font-semibold text-content-muted hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
           onClick={onClose}
           type="button"
         >
@@ -87,8 +87,8 @@ export function AudioPopover({
           <section className="grid gap-2 rounded-panel border border-border bg-surface-raised p-3.5">
             <div className="flex items-center gap-2">
               <IconMic className="size-4.5 flex-none text-content-muted" />
-              <span className="text-[15px] font-semibold">마이크</span>
-              <span className="ml-auto text-[13px] text-content-muted tabular-nums">
+              <span className="text-sm font-semibold">마이크</span>
+              <span className="ml-auto text-xs text-content-muted tabular-nums">
                 {microphoneStatusLabel(microphone)}
               </span>
             </div>
@@ -102,12 +102,12 @@ export function AudioPopover({
               {microphone.on ? '음성 채팅 끄기' : '음성 채팅 켜기'}
             </Button>
             {microphone.denied && (
-              <p className="m-0 text-[13px] text-warning">
+              <p className="m-0 text-xs text-warning">
                 브라우저가 마이크를 막았어요. 주소창의 권한 설정에서 허용한 뒤 다시 눌러 주세요.
               </p>
             )}
             {microphone.on && (
-              <p className="m-0 text-[13px] text-content-faint">
+              <p className="m-0 text-xs text-content-faint">
                 특정 사람 목소리만 끄려면 참가자 이름 옆 마이크를 누르세요.
               </p>
             )}
@@ -168,11 +168,11 @@ function LevelSlider({
 
   return (
     <section className={cn('grid gap-1.5', muted && 'opacity-45')}>
-      <div className="flex items-center gap-2 text-[15px] font-semibold">
+      <div className="flex items-center gap-2 text-sm font-semibold">
         {icon}
         {label}
-        {hint && <span className="text-[12px] font-medium text-content-faint">{hint}</span>}
-        <span className="ml-auto font-mono text-[13px] font-bold text-content-muted tabular-nums">
+        {hint && <span className="text-xs font-medium text-content-faint">{hint}</span>}
+        <span className="ml-auto font-mono text-xs font-bold text-content-muted tabular-nums">
           {muted ? '음소거' : `${percent}%`}
         </span>
       </div>

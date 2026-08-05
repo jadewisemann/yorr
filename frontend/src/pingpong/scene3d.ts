@@ -537,7 +537,7 @@ export interface PingPongScene {
 }
 
 /**
- * 캔버스 배경색. `styles/tokens.css`의 `--ds-pingpong-canvas`와 **같은 값을 양쪽에 적어둔
+ * 캔버스 배경색. `styles/tokens.css`의 `--ds-pp-canvas`와 **같은 값을 양쪽에 적어둔
  * 것**이다(WebGL은 CSS 변수를 읽지 못한다). 한쪽만 고치면 캔버스 경계에 이음선이 보인다.
  */
 const CANVAS_COLOR = 0x070b12

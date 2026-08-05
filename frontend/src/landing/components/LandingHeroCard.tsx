@@ -30,7 +30,7 @@ export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) 
     <div
       className={cn(
         'relative h-full w-full overflow-hidden border [background:var(--ds-landing-card)]',
-        wide ? 'rounded-[30px]' : 'rounded-[26px]',
+        wide ? 'rounded-sheet' : 'rounded-sheet',
         game.live
           ? 'border-landing-accent/42 shadow-landing-card'
           : 'border-landing-hairline-strong shadow-landing-card-quiet',
@@ -110,7 +110,7 @@ export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) 
               뷰포트 세로 600px 아래에서는 접는다: 카드가 281px로 줄어드는 구간이라
               태그라인이 들어오면 3D 띠가 116 → 88px로 무너지고 피사체 상단과 겹친다. */}
           {!wide && (
-            <p className="m-0 text-pretty text-[15px]/[1.35] font-semibold text-landing-text-strong [@media(max-height:600px)]:hidden">
+            <p className="m-0 text-pretty text-sm/[1.35] font-semibold text-landing-text-strong [@media(max-height:600px)]:hidden">
               {game.tagline}
             </p>
           )}
@@ -183,7 +183,7 @@ const bandBottom = {
   wide: 'bottom-[clamp(18px,6.8%,36px)]',
 } as const
 
-/** 상단 크라운·하단 스크림 깊이. narrow가 더 깊은 이유는 아래 카피(15px 태그라인)가
+/** 상단 크라운·하단 스크림 깊이. narrow가 더 깊은 이유는 아래 카피(text-sm 태그라인)가
     wide 제목(66px 볼드)보다 작은 글자라 더 어두운 바닥을 요구하기 때문이다. */
 const cardCrown = { narrow: 'h-[30%]', wide: 'h-[26%]' } as const
 const cardScrim = { narrow: 'h-[28%]', wide: 'h-[26%]' } as const
@@ -201,19 +201,19 @@ const cardScrim = { narrow: 'h-[28%]', wide: 'h-[26%]' } as const
  * 뛰면 카드 균형이 게임마다 흔들린다.
  */
 const playCta =
-  'flex cursor-pointer items-center justify-center gap-3.5 rounded-[20px] border-0 bg-landing-accent font-bold text-landing-accent-ink transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-3'
+  'flex cursor-pointer items-center justify-center gap-3.5 rounded-panel border-0 bg-landing-accent font-bold text-landing-accent-ink transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-3'
 const lockedCta =
-  'flex cursor-not-allowed items-center justify-center gap-3.5 rounded-[20px] border border-landing-hairline-strong bg-landing-disabled font-bold text-landing-text-faint'
+  'flex cursor-not-allowed items-center justify-center gap-3.5 rounded-panel border border-landing-hairline-strong bg-landing-disabled font-bold text-landing-text-faint'
 
 /** narrow는 카드 폭을 꽉 채우고(엄지 사거리), wide는 우하단 모서리에 제 폭으로 선다. */
 const playCtaSize = {
-  narrow: 'h-15 w-full text-[19px] shadow-landing-cta-sheet',
-  wide: 'h-18 shrink-0 px-13 text-[23px] shadow-landing-cta',
+  narrow: 'h-15 w-full text-lg shadow-landing-cta-sheet',
+  wide: 'h-18 shrink-0 px-13 text-2xl shadow-landing-cta',
 } as const
 
 const lockedCtaSize = {
-  narrow: 'h-15 w-full text-[18px]',
-  wide: 'h-18 shrink-0 px-14 text-[22px]',
+  narrow: 'h-15 w-full text-lg',
+  wide: 'h-18 shrink-0 px-14 text-xl',
 } as const
 
 function HeroCta({ game, layout, onPlay }: LandingHeroCardProps) {
@@ -225,7 +225,7 @@ function HeroCta({ game, layout, onPlay }: LandingHeroCardProps) {
         disabled
         type="button"
       >
-        <span aria-hidden="true" className="size-2.5 rounded-[2px] bg-current" />
+        <span aria-hidden="true" className="size-2.5 rounded-xs bg-current" />
         준비 중
       </button>
     )
@@ -262,13 +262,13 @@ interface LandingMetaPillsProps {
     세 칸 합이 273px이라 여기서 한 단만 키워도 두 줄로 접힌다. 접히면 하단 덩어리가
     36px 두꺼워진다. */
 const metaPillSize = {
-  narrow: 'h-7.5 px-1.5 text-[11px]',
-  wide: 'h-8.5 px-3 text-[13px]',
+  narrow: 'h-7.5 px-1.5 text-2xs',
+  wide: 'h-8.5 px-3 text-xs',
 } as const
 
 const metaBadgeSize = {
-  narrow: 'text-[11px]',
-  wide: 'text-[12px]',
+  narrow: 'text-2xs',
+  wide: 'text-xs',
 } as const
 
 /**

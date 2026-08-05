@@ -184,7 +184,7 @@ function HandScore({ score }: { score: number }) {
   return (
     <p
       className={cn(
-        'm-0 text-[12.5px] font-semibold',
+        'm-0 text-xs font-semibold',
         score > 0 ? 'text-brand-strong' : 'text-content-faint',
       )}
     >
@@ -430,14 +430,14 @@ export function TutorialGuide({
       {/* 족보를 설명하는 장은 짚은 자리 옆에 말풍선으로 붙는다 — 보너스도 여섯 칸 덩어리 옆이다. */}
       <Card anchor={lesson.hand ? spotlight : null} spotlight={spotlight}>
         {lesson.hand && (
-          <p className="m-0 text-[11px] font-bold tracking-[0.1em] text-content-faint uppercase">
+          <p className="m-0 text-2xs font-bold tracking-[0.1em] text-content-faint uppercase">
             남은 족보 둘러보기 · {lesson.hand.index + 1} / {lesson.hand.total}
           </p>
         )}
-        <h2 className="m-0 text-[17px] leading-tight font-bold text-content">{lesson.title}</h2>
+        <h2 className="m-0 text-base leading-tight font-bold text-content">{lesson.title}</h2>
         <p
           aria-live="polite"
-          className="m-0 text-[14.5px] leading-relaxed text-content-muted"
+          className="m-0 text-sm leading-relaxed text-content-muted"
           role="status"
         >
           {lesson.body}
@@ -462,9 +462,7 @@ export function TutorialGuide({
             </span>
           ) : (
             // 직접 눌러야 넘어가는 단계 — 어디를 누를지는 강조 링이 말한다.
-            <span className="text-[12px] font-semibold text-brand-strong">
-              표시된 곳을 눌러 보세요
-            </span>
+            <span className="text-xs font-semibold text-brand-strong">표시된 곳을 눌러 보세요</span>
           )}
         </div>
       </Card>
@@ -661,7 +659,7 @@ function Backdrop({ dim, spotlight }: { dim: boolean; spotlight: SpotlightRect |
       />
       <div className={block} style={{ top, height: bottom - top, left: right, right: 0 }} />
       <div
-        className="pointer-events-none absolute rounded-[1.25rem] ring-3 ring-brand-strong motion-safe:animate-tutorial-halo"
+        className="pointer-events-none absolute rounded-panel ring-3 ring-brand-strong motion-safe:animate-tutorial-halo"
         style={{ top, left, width: spotlight.width + 12, height: spotlight.height + 12 }}
       />
     </>
@@ -766,7 +764,7 @@ function anchoredPlacement(anchor: SpotlightRect) {
 function GuideTextButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
-      className="cursor-pointer border-0 bg-transparent p-1 text-[12px] font-semibold text-content-faint underline underline-offset-2 transition-colors hover:text-content focus-ring focus-visible:outline-offset-2"
+      className="cursor-pointer border-0 bg-transparent p-1 text-xs font-semibold text-content-faint underline underline-offset-2 transition-colors hover:text-content focus-ring focus-visible:outline-offset-2"
       onClick={onClick}
       type="button"
     >

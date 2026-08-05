@@ -70,7 +70,7 @@ interface ArenaProps {
   children?: ReactNode
 }
 
-const LABEL_MONO = 'font-mono text-[11px] tracking-[0.16em] uppercase'
+const LABEL_MONO = 'font-mono text-2xs tracking-[0.16em] uppercase'
 
 /** 국면별 하늘 — 신호가 뜨면 황야 전체가 초록으로 뒤집힌다. */
 function sky(phase: ArenaPhase): string {
@@ -429,7 +429,7 @@ function Taunt({ delayMs, side, taunt }: { delayMs: number; side: 1 | 2; taunt: 
       }}
     >
       <span
-        className="block rounded-xl px-3 py-1.5 text-[13px] leading-tight font-black whitespace-nowrap"
+        className="block rounded-control px-3 py-1.5 text-xs leading-tight font-black whitespace-nowrap"
         style={{
           background: 'linear-gradient(#fff6df, #f0dcb0)',
           border: '2px solid #8a6a3a',
@@ -543,7 +543,7 @@ function SignalLamp({ phase, round }: { phase: ArenaPhase; round: number }) {
       </div>
       {/* 라운드 나무 간판 */}
       <div
-        className={`mt-1.5 rounded-[3px] px-3 py-0.5 ${LABEL_MONO}`}
+        className={`mt-1.5 rounded-xs px-3 py-0.5 ${LABEL_MONO}`}
         style={{
           background: 'linear-gradient(#6b4429, #472c1a)',
           border: '1px solid #2a1a10',
@@ -586,7 +586,7 @@ function Plate({
         />
         <span
           className="text-xs font-black tracking-wide whitespace-nowrap"
-          style={{ color: dead ? 'rgb(255 255 255 / 35%)' : '#f4e6d0' }}
+          style={{ color: dead ? 'rgb(255 255 255 / 35%)' : 'var(--ds-duel-ink)' }}
         >
           {fighter.name}
         </span>
@@ -613,7 +613,7 @@ export function Warn({ lit }: { lit: boolean }) {
     <span
       className="block"
       style={{
-        borderBottom: `8px solid ${lit ? '#fbbf24' : 'rgb(255 255 255 / 20%)'}`,
+        borderBottom: `8px solid ${lit ? 'var(--ds-duel-gold)' : 'rgb(255 255 255 / 20%)'}`,
         borderLeft: '4.5px solid transparent',
         borderRight: '4.5px solid transparent',
         filter: lit ? 'drop-shadow(0 0 4px rgb(251 191 36 / 90%))' : undefined,
@@ -839,7 +839,7 @@ function FoulLine({
   selfShot: boolean
   who: Fighter
 }) {
-  const color = selfShot ? '#fca5a5' : '#fbbf24'
+  const color = selfShot ? 'var(--ds-duel-danger)' : 'var(--ds-duel-gold)'
   return (
     <div className={WRAP} style={{ top: '24%' }}>
       <div
@@ -908,7 +908,7 @@ function ShotLine({ ko, landMs, shooter }: { ko: boolean; landMs: number; shoote
         className="animate-duel-slam font-black"
         style={{
           animationDelay: `${landMs}ms`,
-          color: ko ? '#fca5a5' : '#fff1d6',
+          color: ko ? 'var(--ds-duel-danger)' : '#fff1d6',
           fontSize: ko ? 'clamp(44px, 13vw, 92px)' : 'clamp(34px, 10vw, 70px)',
           lineHeight: 0.95,
           textShadow: `0 0 30px ${shooter.outfit.scarf}, 0 4px 0 rgb(0 0 0 / 50%)`,
@@ -942,7 +942,13 @@ function TimeTag({
 }) {
   if (ms == null) return null
   const good = isClean(ms)
-  const color = tie ? '#fde68a' : won ? '#86efac' : good ? '#fca5a5' : '#f87171'
+  const color = tie
+    ? '#fde68a'
+    : won
+      ? 'var(--ds-duel-positive)'
+      : good
+        ? 'var(--ds-duel-danger)'
+        : '#f87171'
   return (
     <div
       className="animate-duel-slam pointer-events-none absolute"
@@ -954,7 +960,7 @@ function TimeTag({
       }}
     >
       <span
-        className="rounded-md px-2 py-0.5 text-xs font-black whitespace-nowrap tabular-nums"
+        className="rounded-chip px-2 py-0.5 text-xs font-black whitespace-nowrap tabular-nums"
         style={{ background: 'rgb(8 3 5 / 72%)', border: `1px solid ${color}55`, color }}
       >
         {msLabel(ms)}

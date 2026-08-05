@@ -90,8 +90,8 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex flex-none items-center gap-3 border-b border-border px-gutter py-3">
           <div className="grid min-w-0 flex-1 gap-1">
-            <h1 className="m-0 text-[19px] font-bold">파티 모드 · {game.name}</h1>
-            <p className="m-0 flex items-center gap-2 text-[13px] text-content-muted">
+            <h1 className="m-0 text-lg font-bold">파티 모드 · {game.name}</h1>
+            <p className="m-0 flex items-center gap-2 text-xs text-content-muted">
               <span className="font-mono font-bold tracking-[0.12em] text-content">
                 {roomSession.roomCode}
               </span>
@@ -120,7 +120,7 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
         </header>
 
         {/* TurnStrip이 들어설 자리. 시작 전에는 인원 한 줄이 같은 높이를 지킨다. */}
-        <p className="m-0 flex flex-none items-center gap-2 border-b border-border px-gutter py-2.5 text-[13px] text-content-muted">
+        <p className="m-0 flex flex-none items-center gap-2 border-b border-border px-gutter py-2.5 text-xs text-content-muted">
           참가자 {players.length}명
           <span aria-hidden="true" className="h-3 w-px bg-border-strong" />
           최대 {capacity}명
@@ -140,27 +140,27 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
               />
             </QrFallback>
             <div className="grid min-w-0 gap-2 text-left">
-              <span className="font-mono text-[13px] font-bold tracking-[0.14em] text-content-muted uppercase">
+              <span className="font-mono text-xs font-bold tracking-[0.14em] text-content-muted uppercase">
                 Room Code
               </span>
               <span className="block truncate font-mono text-[clamp(3rem,7vw,5.5rem)] leading-none font-bold tracking-[0.1em] tabular-nums">
                 {roomSession.roomCode}
               </span>
-              <p className="m-0 truncate font-mono text-[15px] text-content-muted">
+              <p className="m-0 truncate font-mono text-sm text-content-muted">
                 {createInviteUrl(roomSession.roomCode, { party: true })}
               </p>
             </div>
           </div>
           {/* 링크 복사·공유 버튼은 두지 않는다 — TV·모니터에서 클립보드도 navigator.share도
               쓸 데가 없다. QR과 큰 코드가 전달 수단 전부다. */}
-          <p className="m-0 text-[15px] text-content-muted">폰으로 QR을 찍으면 바로 참여해요.</p>
+          <p className="m-0 text-sm text-content-muted">폰으로 QR을 찍으면 바로 참여해요.</p>
         </div>
 
         {/* [굴리기]가 들어설 띠. 대시보드에는 누를 것이 없다 — 방장(처음 들어온 폰)이 시작한다.
             누를 수 없는 버튼을 회색으로 세워 두면 TV 앞 사람이 마우스를 찾아 헤매므로,
             버튼을 아예 두지 않고 누가 눌러야 하는지만 알린다. */}
         <footer className="flex flex-none items-center justify-center border-t border-border px-gutter py-4">
-          <p className="m-0 text-center text-[15px] text-content-muted" role="status">
+          <p className="m-0 text-center text-sm text-content-muted" role="status">
             {connectionStatus !== 'connected'
               ? '실시간 연결을 기다리고 있어요.'
               : host
@@ -193,8 +193,8 @@ function ParticipantColumn({
       className="flex min-h-0 flex-col border-l border-border"
     >
       <div className="flex flex-none items-baseline justify-between gap-3 px-3 pt-2.5 pb-1.5">
-        <h2 className="m-0 text-[15px] font-bold tracking-[0.02em] whitespace-nowrap">참가자</h2>
-        <p className="m-0 font-mono text-[12px] tabular-nums text-content-faint">
+        <h2 className="m-0 text-sm font-bold tracking-[0.02em] whitespace-nowrap">참가자</h2>
+        <p className="m-0 font-mono text-xs tabular-nums text-content-faint">
           {players.length} / {capacity}
         </p>
       </div>
@@ -210,7 +210,7 @@ function ParticipantColumn({
             // 봐야 하는지 알려주지 않으면 TV 앞 사람들이 서로를 쳐다보게 된다.
             trailing={
               player.playerId === hostId ? (
-                <span className="rounded-[6px] bg-border px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.1em] text-content-muted">
+                <span className="rounded-chip bg-border px-1.5 py-0.5 font-mono text-2xs font-bold tracking-[0.1em] text-content-muted">
                   방장
                 </span>
               ) : undefined
@@ -242,7 +242,7 @@ function PartyOpeningNotice({ error, onHome }: { error: Error | null; onHome: ()
     <main className="mx-auto flex h-svh w-full max-w-lg flex-col items-center justify-center gap-4 px-gutter text-center text-content">
       {error ? (
         <>
-          <p className="m-0 text-[17px] font-bold" role="alert">
+          <p className="m-0 text-base font-bold" role="alert">
             파티 방을 열지 못했어요
           </p>
           <p className="m-0 text-sm text-content-muted">{error.message}</p>
@@ -251,7 +251,7 @@ function PartyOpeningNotice({ error, onHome }: { error: Error | null; onHome: ()
           </Button>
         </>
       ) : (
-        <p className="m-0 text-[15px] text-content-muted" role="status">
+        <p className="m-0 text-sm text-content-muted" role="status">
           파티 방을 열고 있어요.
         </p>
       )}

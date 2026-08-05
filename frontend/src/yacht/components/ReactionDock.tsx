@@ -218,11 +218,11 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
             } as CSSProperties
           }
         >
-          <span className="text-[30px] leading-none drop-shadow-[0_2px_10px_rgb(0_0_0_/_60%)]">
+          <span className="text-3xl leading-none drop-shadow-[0_2px_10px_rgb(0_0_0_/_60%)]">
             {item.emoji}
           </span>
           {item.nickname && (
-            <span className="max-w-24 truncate rounded-full bg-surface-overlay/90 px-1.5 py-px text-[10px] font-semibold whitespace-nowrap text-content-muted">
+            <span className="max-w-24 truncate rounded-full bg-surface-overlay/90 px-1.5 py-px text-2xs font-semibold whitespace-nowrap text-content-muted">
               {item.nickname}
             </span>
           )}
@@ -280,7 +280,7 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
         aria-expanded={open}
         aria-label="리액션 보내기"
         className={cn(
-          'grid size-tap cursor-pointer place-items-center rounded-card border border-border bg-surface/90 text-[19px] shadow-raised transition-colors focus-ring',
+          'grid size-tap cursor-pointer place-items-center rounded-card border border-border bg-surface/90 text-lg shadow-raised transition-colors focus-ring',
           open && 'border-brand bg-brand/15',
         )}
         onClick={() => (open ? close(false) : setOpen(true))}
