@@ -197,6 +197,9 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
         <span
           aria-hidden="true"
           // bottom-full: 버튼 바로 위에서 출발한다. w-tap + items-center로 버튼 중심에 정렬.
+          // 이 위쪽 통로는 비워 둔다 — 픽커를 여기(bottom-full)에 두었을 때 막 보낸 이모지가
+          // 그 판 뒤에서 떠올라, 연달아 눌러도 아무 일도 일어나지 않는 것처럼 보였다.
+          // 그래서 픽커는 트리거 왼쪽(right-full)으로 비켰다.
           // motion-reduce에서는 제자리에 뜬 채로 FLIGHT_MS 뒤 사라진다 — "누가 리액션을
           // 보냈다"는 정보는 남기고 움직임만 뺀다(RollResultCallout과 같은 처리).
           // translate-x/y-(--drift/--lift): 애니메이션이 도는 동안은 keyframe의 transform이
@@ -228,12 +231,18 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
 
       {/* 픽커는 항상 마운트해두고 열림/닫힘만 전환한다 — 마운트/언마운트가 아니라 상태
           전환이라 CSS transition으로 충분하다(motion은 진입·퇴장용). absolute로 띄워
-          닫혔을 때 버튼을 아래로 밀지 않게 한다. */}
+          닫혔을 때 버튼을 아래로 밀지 않게 한다.
+          <b>트리거 위가 아니라 옆(right-full)으로 편다.</b> 위에 두면 판이 이모지가 솟는
+          자리를 정확히 덮는다 — 날아오르는 첫 구간(-1rem 언저리)이 통째로 판 뒤라 연타해도
+          화면이 조용했고, motion-reduce에서는 제자리에 뜨므로 아예 보이지 않았다.
+          옆으로 비키면 위쪽 통로가 열려 모바일·데스크탑 모두 누른 즉시 이모지가 보인다.
+          독은 화면 오른쪽 끝에 붙어 있으니 왼쪽으로만 자란다 — 320px에서도 거터 안에 선다
+          (칩 44×5 + 간격·패딩 = 238px, 트리거까지 290px < 320 - 거터 16 × 2). */}
       <div
         aria-label="리액션 고르기"
         aria-orientation="horizontal"
         className={cn(
-          'absolute right-0 bottom-full mb-2 flex gap-0.5 rounded-panel border border-border bg-surface-overlay/95 p-1 shadow-raised transition-all duration-(--ds-motion-fast) ease-snappy',
+          'absolute top-1/2 right-full mr-2 flex -translate-y-1/2 gap-0.5 rounded-panel border border-border bg-surface-overlay/95 p-1 shadow-raised transition-all duration-(--ds-motion-fast) ease-snappy',
           open ? 'scale-100 opacity-100' : 'pointer-events-none scale-90 opacity-0',
         )}
         id={pickerId}
@@ -241,7 +250,7 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
         // 여러 버튼이 한 덩어리로 움직이는 묶음이다 — toolbar로 알리면 보조기기가 방향키
         // 이동을 예고하고, Tab은 픽커 전체를 한 칸으로 지나간다.
         role="toolbar"
-        style={{ transformOrigin: 'bottom right' }}
+        style={{ transformOrigin: 'right center' }}
       >
         {REACTIONS.map((reaction, index) => (
           <button
