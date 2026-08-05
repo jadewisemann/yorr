@@ -6,6 +6,7 @@ import com.ssafy.yorr.game.round.domain.RoundCompletion;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.game.round.domain.RoundSubmissionResult;
 import com.ssafy.yorr.room.service.RoomService;
+import com.ssafy.yorr.room.dto.ParticipantKind;
 import com.ssafy.yorr.ws.RoomBroadcaster;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
 import com.ssafy.yorr.ws.dto.PlayerStatus;
@@ -17,6 +18,7 @@ import com.ssafy.yorr.ws.dto.WsEnvelope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -25,6 +27,8 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static com.ssafy.yorr.game.yacht.YachtDiceWsTypes.type;
 
 @Service
 public class RoundTimerService {
@@ -52,6 +56,7 @@ public class RoundTimerService {
     private final RoundSynchronizationService roundSynchronizationService;
     private final RoomSessionRegistry registry;
     private final RoomService roomService;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
     private final Map<String, ActiveDeadline> activeDeadlines = new ConcurrentHashMap<>();
     // roomId -> (playerId -> 오프라인으로 맞은 자기 턴 수). 재접속하면 지운다.
@@ -65,10 +70,11 @@ public class RoundTimerService {
             GameCompletionService gameCompletionService,
             RoundSynchronizationService roundSynchronizationService,
             RoomSessionRegistry registry,
-            RoomService roomService
+            RoomService roomService,
+            ApplicationEventPublisher eventPublisher
     ) {
         this(timeoutResolver, deadlineScheduler, broadcaster, gameCompletionService,
-                roundSynchronizationService, registry, roomService, Clock.systemUTC());
+                roundSynchronizationService, registry, roomService, Clock.systemUTC(), eventPublisher);
     }
 
     RoundTimerService(
@@ -81,6 +87,31 @@ public class RoundTimerService {
             RoomService roomService,
             Clock clock
     ) {
+        this(
+                timeoutResolver,
+                deadlineScheduler,
+                broadcaster,
+                gameCompletionService,
+                roundSynchronizationService,
+                registry,
+                roomService,
+                clock,
+                ignored -> {
+                }
+        );
+    }
+
+    private RoundTimerService(
+            RoundTimeoutResolver timeoutResolver,
+            RoundDeadlineScheduler deadlineScheduler,
+            RoomBroadcaster broadcaster,
+            GameCompletionService gameCompletionService,
+            RoundSynchronizationService roundSynchronizationService,
+            RoomSessionRegistry registry,
+            RoomService roomService,
+            Clock clock,
+            ApplicationEventPublisher eventPublisher
+    ) {
         this.timeoutResolver = timeoutResolver;
         this.deadlineScheduler = deadlineScheduler;
         this.broadcaster = broadcaster;
@@ -89,6 +120,7 @@ public class RoundTimerService {
         this.registry = registry;
         this.roomService = roomService;
         this.clock = clock;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -120,7 +152,7 @@ public class RoundTimerService {
                 () -> expireTurn(roomId, roundNumber, activePlayerId)
         );
         broadcaster.broadcast(roomId, new WsEnvelope<>(
-                "round.start",
+                type("round.start"),
                 clock.millis(),
                 new RoundStartPayload(
                         roundNumber,
@@ -131,6 +163,7 @@ public class RoundTimerService {
                 roomId,
                 null
         ));
+        eventPublisher.publishEvent(new RoundStartedEvent(roomId, state));
         return deadline;
     }
 
@@ -260,6 +293,13 @@ public class RoundTimerService {
 
     /** 명단에 없는 플레이어(비정상 상태)도 오프라인으로 본다 — 연결이 없다는 사실은 같다. */
     private boolean isOffline(String roomId, String playerId) {
+        com.ssafy.yorr.room.dto.RoomSnapshot room = roomService.getSnapshot(roomId);
+        boolean serverControlled = room != null && room.players().stream()
+                .anyMatch(player -> player.playerId().equals(playerId)
+                        && player.kind() == ParticipantKind.BOT);
+        if (serverControlled) {
+            return false;
+        }
         RoomSessionRegistry.Member member = registry.find(roomId, playerId);
         return member == null || member.status() == PlayerStatus.OFFLINE;
     }
@@ -283,14 +323,14 @@ public class RoundTimerService {
 
     private void broadcastScoreUpdate(String roomId, ScoreConfirmationResult score, String requestMsgId) {
         broadcaster.broadcast(roomId, WsEnvelope
-                .of("score.update", new ScoreUpdatePayload(score.playerId(), score.scoreboard()))
+                .of(type("score.update"), new ScoreUpdatePayload(score.playerId(), score.scoreboard()))
                 .withRoomId(roomId)
                 .withMsgId(requestMsgId));
     }
 
     private WsEnvelope<RoundEndPayload> roundEnd(String roomId, RoundCompletion completion) {
         return new WsEnvelope<>(
-                "round.end",
+                type("round.end"),
                 clock.millis(),
                 new RoundEndPayload(completion.roundNumber(), completion.submittedPlayerIds()),
                 roomId,

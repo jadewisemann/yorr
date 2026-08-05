@@ -62,8 +62,7 @@ public class RoomValidationController {
         }
         RoomSnapshot snapshot = roomService.getSnapshot(roomCode);
         if (snapshot.phase() == null) return roomNotFound();
-        if (!user.userId().equals(snapshot.hostId())
-                || snapshot.players().stream().noneMatch(player -> user.userId().equals(player.playerId()))) {
+        if (!isHost(snapshot, user)) {
             return ResponseEntity.status(403).body("host_only");
         }
         try {
@@ -96,8 +95,7 @@ public class RoomValidationController {
         }
         RoomSnapshot snapshot = roomService.getSnapshot(roomCode);
         if (snapshot.phase() == null) return roomNotFound();
-        if (!user.userId().equals(snapshot.hostId())
-                || snapshot.players().stream().noneMatch(player -> user.userId().equals(player.playerId()))) {
+        if (!isHost(snapshot, user)) {
             return ResponseEntity.status(403).body("host_only");
         }
 
@@ -106,6 +104,19 @@ public class RoomValidationController {
             return ResponseEntity.status(409).body("not_finished");
         }
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 이 사람이 방을 조작할 수 있는 호스트인가.
+     * <p>
+     * hostId 일치 + <b>플레이어 명단에도 있을 것</b>을 함께 본다 — 방을 떠난 옛 호스트가 토큰만
+     * 들고 남의 게임을 시작하는 것을 막는 조건이다. 파티 방도 같다: 대시보드는 방을 열기만 하고
+     * 방장은 처음 들어온 컨트롤러가 되므로(RoomValidationService의 JOIN·LEAVE 규약), hostId는
+     * 항상 명단 안의 사람을 가리킨다.
+     */
+    private boolean isHost(RoomSnapshot snapshot, UserIdentity user) {
+        if (!user.userId().equals(snapshot.hostId())) return false;
+        return snapshot.players().stream().anyMatch(player -> user.userId().equals(player.playerId()));
     }
 
     /**

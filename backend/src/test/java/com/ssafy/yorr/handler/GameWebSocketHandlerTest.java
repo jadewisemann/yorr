@@ -7,6 +7,7 @@ import com.ssafy.yorr.game.exception.ScoreConfirmationException;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
 import com.ssafy.yorr.game.module.GameModuleRegistry;
 import com.ssafy.yorr.game.yacht.YachtDiceGameModule;
+import com.ssafy.yorr.game.yacht.YachtTurnActionService;
 import com.ssafy.yorr.game.round.application.GameReconnectSnapshotService;
 import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionResult;
 import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
@@ -24,6 +25,7 @@ import com.ssafy.yorr.user.UserType;
 import com.ssafy.yorr.ws.InMemoryRoomBroadcaster;
 import com.ssafy.yorr.ws.HeartbeatMonitor;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
+import com.ssafy.yorr.ws.RealtimeRoomSnapshotService;
 import com.ssafy.yorr.ws.dto.RoomJoinPayload;
 import com.ssafy.yorr.ws.dto.DiceHoldPayload;
 import com.ssafy.yorr.ws.dto.DiceRollPayload;
@@ -50,6 +52,7 @@ import static com.ssafy.yorr.game.exception.ScoreConfirmationException.Reason.ST
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
@@ -244,7 +247,7 @@ class GameWebSocketHandlerTest {
         String playerBMessage = ((TextMessage) playerBCaptor.getValue()).getPayload();
 
         assertThat(playerAMessage).isEqualTo(playerBMessage);
-        assertThat(playerAMessage).contains("\"type\":\"dice.broadcast\"");
+        assertThat(playerAMessage).contains("\"type\":\"game.yacht_dice.dice.broadcast\"");
         assertThat(playerAMessage).contains("\"playerId\":\"player-a\"");
         assertThat(playerAMessage).contains("\"roundNumber\":1");
         assertThat(playerAMessage).contains("\"rollCount\":1");
@@ -293,7 +296,7 @@ class GameWebSocketHandlerTest {
         ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
         verify(playerB).sendMessage(captor.capture());
         String response = ((TextMessage) captor.getValue()).getPayload();
-        assertThat(response).contains("\"type\":\"dice.hold_changed\"");
+        assertThat(response).contains("\"type\":\"game.yacht_dice.dice.hold_changed\"");
         assertThat(response).contains("\"playerId\":\"player-a\"");
         assertThat(response).contains("\"held\":[true,true,false,false,false]");
         // KEEP 변경은 마감 타이머를 다시 걸지 않는다 — 토글로 턴을 무한히 늘릴 수 없어야 한다.
@@ -749,7 +752,7 @@ class GameWebSocketHandlerTest {
                         : state.activeDice())
                 .orElse(List.of(1, 2, 3, 4, 5));
         String message = objectMapper.writeValueAsString(new WsEnvelope<>(
-                "round.submit",
+                "game.yacht_dice.round.submit",
                 System.currentTimeMillis(),
                 new RoundSubmitPayload(1, dice, "smallStraight"),
                 roomId,
@@ -776,6 +779,106 @@ class GameWebSocketHandlerTest {
         )));
     }
 
+    /* ----- 음성 채팅(voice.*) 시그널링 ----- */
+
+    @Test
+    void voiceJoinBroadcastsTheWholeRosterToEveryoneInTheRoom() throws Exception {
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        WebSocketSession playerB = sessionWithPlayer("player-b");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        registry.join("room-a", playerB, "player-b", "Player B");
+        broadcaster.register("room-a", playerA);
+        broadcaster.register("room-a", playerB);
+
+        handler.handle(playerA, voiceMessage("voice.join", Map.of(), "voice-join-a"));
+
+        // 통화에 참여하지 않은 B도 받아야 한다 — 누가 통화 중인지 보고 들어갈지 판단한다.
+        assertThat(singleResponse(playerA)).contains("\"type\":\"voice.peers\"", "\"player-a\"");
+        assertThat(singleResponse(playerB)).contains("\"type\":\"voice.peers\"", "\"player-a\"");
+    }
+
+    @Test
+    void voiceSignalGoesOnlyToTheNamedPeerWithAServerFilledFrom() throws Exception {
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        WebSocketSession playerB = sessionWithPlayer("player-b");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        registry.join("room-a", playerB, "player-b", "Player B");
+        broadcaster.register("room-a", playerA);
+        broadcaster.register("room-a", playerB);
+
+        handler.handle(playerA, voiceMessage(
+                "voice.signal",
+                // from을 클라이언트가 우겨 넣어도 서버가 무시해야 한다(사칭 방지).
+                Map.of("to", "player-b", "from", "player-임의조작",
+                        "data", Map.of("kind", "candidate", "candidate", Map.of("candidate", "host udp"))),
+                "voice-signal-a"
+        ));
+
+        String delivered = singleResponse(playerB);
+        assertThat(delivered).contains("\"type\":\"voice.signaled\"", "\"from\":\"player-a\"", "host udp");
+        assertThat(delivered).doesNotContain("player-임의조작");
+        // 시그널은 두 피어 사이의 협상이라 방 전체로 나가면 안 된다.
+        verify(playerA, never()).sendMessage(any());
+    }
+
+    @Test
+    void voiceSignalToAMissingPeerIsDroppedWithoutAnError() throws Exception {
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        broadcaster.register("room-a", playerA);
+
+        handler.handle(playerA, voiceMessage(
+                "voice.signal",
+                Map.of("to", "player-이미나감", "data", Map.of("kind", "candidate")),
+                "voice-signal-orphan"
+        ));
+
+        // 협상 중 이탈은 정상 상황이다 — 에러로 만들면 나갈 때마다 남은 쪽에 잡음이 쌓인다.
+        verify(playerA, never()).sendMessage(any());
+    }
+
+    @Test
+    void closingTheSocketRemovesThePlayerFromTheVoiceRoster() throws Exception {
+        WebSocketSession playerA = sessionWithPlayer("player-a");
+        WebSocketSession playerB = sessionWithPlayer("player-b");
+        registry.join("room-a", playerA, "player-a", "Player A");
+        registry.join("room-a", playerB, "player-b", "Player B");
+        broadcaster.register("room-a", playerA);
+        broadcaster.register("room-a", playerB);
+        handler.handle(playerA, voiceMessage("voice.join", Map.of(), "voice-join-a"));
+        clearInvocations(playerA, playerB);
+
+        // 탭을 닫으면 voice.leave 없이 끊긴다 — 이게 정상 경로다.
+        handler.afterConnectionClosed(playerA, CloseStatus.NORMAL);
+
+        assertThat(registry.voiceMembersOf("room-a")).isEmpty();
+        // 남은 사람이 이미 없는 피어에게 계속 offer를 보내지 않도록 명단을 다시 뿌려야 한다.
+        ArgumentCaptor<WebSocketMessage<?>> captor = ArgumentCaptor.forClass(WebSocketMessage.class);
+        verify(playerB, atLeastOnce()).sendMessage(captor.capture());
+        assertThat(captor.getAllValues())
+                .anySatisfy(message -> assertThat(((TextMessage) message).getPayload())
+                        .contains("\"type\":\"voice.peers\"", "\"peers\":[]"));
+    }
+
+    @Test
+    void voiceJoinBeforeEnteringTheRoomIsRejected() throws Exception {
+        WebSocketSession stranger = session("stranger-session");
+
+        handler.handle(stranger, voiceMessage("voice.join", Map.of(), "voice-join-stranger"));
+
+        assertThat(singleResponse(stranger)).contains("\"type\":\"error\"", "\"code\":\"NOT_IN_ROOM\"");
+    }
+
+    private TextMessage voiceMessage(String type, Map<String, Object> payload, String msgId) throws Exception {
+        return new TextMessage(objectMapper.writeValueAsString(new WsEnvelope<>(
+                type,
+                System.currentTimeMillis(),
+                payload,
+                "room-a",
+                msgId
+        )));
+    }
+
     private TextMessage pingMessage() throws Exception {
         return new TextMessage(objectMapper.writeValueAsString(new WsEnvelope<>(
                 "sys.ping",
@@ -788,7 +891,7 @@ class GameWebSocketHandlerTest {
 
     private TextMessage rollMessage(String roomId, int rollCount, String msgId) throws Exception {
         String message = objectMapper.writeValueAsString(new WsEnvelope<>(
-                "dice.roll",
+                "game.yacht_dice.dice.roll",
                 System.currentTimeMillis(),
                 new DiceRollPayload(1, rollCount, List.of(false, false, false, false, false)),
                 roomId,
@@ -799,7 +902,7 @@ class GameWebSocketHandlerTest {
 
     private TextMessage holdMessage(String roomId, List<Boolean> held, String msgId) throws Exception {
         String message = objectMapper.writeValueAsString(new WsEnvelope<>(
-                "dice.hold",
+                "game.yacht_dice.dice.hold",
                 System.currentTimeMillis(),
                 new DiceHoldPayload(1, held),
                 roomId,
@@ -887,6 +990,7 @@ class GameWebSocketHandlerTest {
                     objectMapper,
                     broadcaster,
                     registry,
+                    new RealtimeRoomSnapshotService(roomService, registry),
                     heartbeatMonitor,
                     userService,
                     roomService,
@@ -894,9 +998,15 @@ class GameWebSocketHandlerTest {
                     new GameModuleRegistry(List.of(new YachtDiceGameModule(
                             roundSynchronizationService,
                             roundTimerService,
+                            new YachtTurnActionService(
+                                    roundSynchronizationService,
+                                    roundTimerService,
+                                    broadcaster,
+                                    scoreRoundSubmissionService
+                            ),
                             registry,
+                            new RealtimeRoomSnapshotService(roomService, registry),
                             broadcaster,
-                            scoreRoundSubmissionService,
                             reconnectSnapshotService,
                             objectMapper
                     )))

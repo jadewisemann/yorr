@@ -30,10 +30,38 @@ export async function useSimpleDiceRenderer(page: Page) {
   await page.emulateMedia({ reducedMotion: 'reduce' })
 }
 
-/** 랜딩 → 방 만들기 → 닉네임 → 대기실. 닉네임을 비우면 제안 닉네임으로 입장한다. */
+/**
+ * 헤더의 "내 턴" 표시.
+ *
+ * 문구를 그대로 찾지 않는 이유: 320px(지원 하한 기기)에서는 이 칸에 56px밖에 남지 않아
+ * 「내 턴이에요」가 통째로 들어가지 않는다 — 그 폭에서만 「내 턴」으로 갈리고, 두 벌을 놓고
+ * CSS가 하나를 감춘다(GamePlayHeader 주석 참고). 문구를 못 박아 두면 같은 스펙이 mobile-320
+ * 프로젝트에서만 실패한다.
+ */
+export function myTurnLabel(page: Page) {
+  return page
+    .locator('header')
+    .getByText(/^내 턴/)
+    .filter({ visible: true })
+}
+
+/** 헤더의 "OO의 턴" 표시. 320px에서는 닉네임만 남는다({@link myTurnLabel}과 같은 이유). */
+export function activeTurnLabel(page: Page, nickname: string) {
+  return page
+    .locator('header')
+    .getByText(new RegExp(`^${nickname}(의 턴)?$`))
+    .filter({ visible: true })
+}
+
+/** 랜딩 → 모드 선택 → 방 만들기 → 닉네임 → 대기실. 닉네임을 비우면 제안 닉네임으로 입장한다. */
 export async function createRoomAsHost(page: Page, nickname?: string) {
   await page.goto('/')
   await page.getByRole('button', { name: '요트 다이스 플레이' }).click()
+
+  // 플레이는 곧바로 방을 만들지 않는다 — 친구와 할지(방 만들기) 모르는 사람과 할지(온라인
+  // 대전)부터 고르는 모드 모달이 선다(EntryPage.handlePlay). 두 버튼 모두 설명 줄을 품어
+  // 접근성 이름이 "방 만들기 초대 링크를 …"이므로 앞머리로만 맞춘다.
+  await page.getByRole('button', { name: /^방 만들기/ }).click()
 
   const field = page.getByRole('textbox', { name: '닉네임' })
   await expect(field).toBeVisible()
@@ -73,7 +101,7 @@ export async function startHostedGame(
   // 서버도 이 순간부터 "진행 중인 방"으로 답해야 한다 — 재접속 때 room.joined가 실어 보내는
   // 스냅샷이 대기 상태로 남아 있으면 재연결만으로 화면이 대기실로 되돌아간다.
   server.setSnapshot(playingSnapshot({ players, activePlayerId, turnOrder }))
-  server.send('round.start', {
+  server.send('game.yacht_dice.round.start', {
     roundNumber: 1,
     deadline: roundDeadline(),
     activePlayerId,

@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 public class GameModuleRegistry {
@@ -35,10 +36,20 @@ public class GameModuleRegistry {
         return require(code).code();
     }
 
+    public Set<String> supportedCodes() {
+        return modules.keySet();
+    }
+
     public boolean dispatch(String gameCode, WebSocketSession session, InboundEnvelope message) throws IOException {
         GameModule module = require(gameCode);
-        if (!module.handles(message.type())) return false;
-        module.handle(session, message);
+        String prefix = "game." + module.code().toLowerCase(Locale.ROOT) + ".";
+        if (message.type() == null || !message.type().startsWith(prefix)) return false;
+
+        String eventType = message.type().substring(prefix.length());
+        if (!module.handles(eventType)) return false;
+        module.handle(session, new InboundEnvelope(
+                eventType, message.ts(), message.payload(), message.roomId(), message.msgId()
+        ));
         return true;
     }
 

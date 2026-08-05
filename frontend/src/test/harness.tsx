@@ -3,12 +3,13 @@ import { render } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { vi } from 'vitest'
-import type { RoomSession } from '@/api/gameApi'
 import { InAppBrowserGate } from '@/app/InAppBrowserGate'
 import { RealtimeSync } from '@/app/RealtimeSync'
 import { createAppRouter } from '@/app/router'
 import { mockApiServer } from '@/mocks/server'
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
+import { VoiceProvider } from '@/realtime/voice/VoiceContext'
+import type { RoomSession } from '@/room/api/roomApi'
 import { useAppStore } from '@/store'
 
 export interface AppHarnessOptions {
@@ -40,7 +41,10 @@ export function renderAppHarness(options: AppHarnessOptions = {}) {
   const view = render(
     <InAppBrowserGate>
       <RealtimeSync client={realtimeClient}>
-        <RouterProvider router={router} />
+        {/* App.tsx와 같은 트리를 유지한다 — 여기서 빠지면 통합 테스트에서만 마이크 버튼이 없다. */}
+        <VoiceProvider>
+          <RouterProvider router={router} />
+        </VoiceProvider>
       </RealtimeSync>
     </InAppBrowserGate>,
   )

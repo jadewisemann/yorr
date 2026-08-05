@@ -22,7 +22,8 @@
  *    sys.*                              22(연결계열)     소켓 연결/세션 수명주기       (이정현) ✅
  *    room.*                             22 + ENT-ROOM   JOIN(인증+입장)·퇴장·멤버십   (이정현) ✅
  *    reaction.* / state.* / presence.*  26              리액션·상태 브로드캐스트      (이정현) ✅
- *    ─ 참고: 인증(구 auth.*)은 room.join 하나로 병합됨(v0.2). WebRTC는 음성(develop)으로 이관.
+ *    voice.*                            130             WebRTC 음성 시그널링           (이정현) ✅
+ *    ─ 참고: 인증(구 auth.*)은 room.join 하나로 병합됨(v0.2). WebRTC는 음성(130)에서 도입.
  *    round.*                            23·24           라운드·타이머(STUB)           (고용훈)
  *    dice.*                             16~21           센서 주사위(STUB)             (정유진/고용훈)
  *    score.* / game.*                   40·41·43        족보·점수·승패(STUB)          (유상은)
@@ -33,6 +34,8 @@
  *  범례
  *    ✅ CONFIRMED : 내(이정현) 담당 범위 — 이번 P0에서 확정 구현.
  *    ⚠️ STUB      : 타 담당 제안 초안 — owner 확정 전까지 임시. 필드 변경 가능.
+ *    🟡 PROPOSED  : 구현 전 제안 — 팀 합의를 받으려고 먼저 올린 것이다. 승인되면 ✅로 바꾼다.
+ *                   (현재 이 표시를 쓰는 항목은 없다)
  *
  *  history
  *    v0.1 (2026-07) 초안 — envelope + sys/auth/room/signal 확정, 게임 도메인 STUB.
@@ -46,19 +49,35 @@
  *                   dice.broadcast 직후 타이머로 사발을 쏟아, 굴린 사람이 흔드는 중에 결과가 먼저 보였다.
  *    v0.7 (2026-08) dice.shake / dice.shaken 추가 — 흔들림 펄스를 그대로 중계한다. 그전까지
  *                   관전 화면은 정해진 애니메이션으로 계속 흔들려서, 굴린 사람이 손을 멈춰도 멈추지 않았다.
+ *    v0.8 (2026-08) voice.* 4종 제안(130) — WebRTC 풀메시 음성. 오디오는 피어끼리 직접 흐르고
+ *                   서버는 시그널링만 중계한다. current-baseline.md의 "WebRTC는 채택되지
+ *                   않았다"를 이 티켓에서 뒤집었다. v1.0에서 팀 합의 완료(✅).
+ *    v0.9 (2026-08) 게임 도메인 네임스페이스(177) — 게임 모듈 이벤트와 state.sync 에
+ *                   `game.<game_code>.` 접두사가 붙는다(예: yacht_dice, ping_pong).
+ *                   방 레벨 이벤트(sys.* · room.* · reaction.* · presence.* · 방 state.sync)는
+ *                   그대로다. 아래 주석의 짧은 이름은 접두사를 뺀 표기다.
+ *    v1.0 (2026-08) voice.* 확정 — 정원 6인 · 음소거 비공개 · TURN 도입 · 접두사 없음(방 레벨).
+ *                   게임이 늘어도(ping_pong 등) 음성은 방 레벨이라 접두사를 받지 않는다.
+ *                   FE 구현(풀메시 메시·마이크 UX) 반영.
  * ============================================================================
  */
 
-import type { DiceSet, HeldDice } from '@/domain/dice'
-import type { YachtCategory } from '@/domain/scoring'
+import type { GameCode } from '@/games'
+// 경계 규칙 예외 — realtime은 도메인 위의 계층인데 아래 import는 yacht를 본다.
+// 와이어 계약 자체가 야추 모양이기 때문이다: dice.* 이벤트와 round.submit의
+// YachtCategory가 프로토콜에 박혀 있다. 게임을 추가하려면 게임 무관 envelope와
+// 게임별 payload로 갈라야 하고(백엔드는 GameModule로 이미 분리했다) 그건 로직
+// 변경이라 별도 티켓이다. 그때까지 realtime/은 shared/가 아니라 경계에 둔다.
+import type { DiceSet, HeldDice } from '@/yacht/domain/dice'
+import type { YachtCategory } from '@/yacht/domain/scoring'
 
-export type { DiceSet, DiceValue, HeldDice } from '@/domain/dice'
-export type { YachtCategory, YachtLowerCategory, YachtUpperCategory } from '@/domain/scoring'
+export type { DiceSet, DiceValue, HeldDice } from '@/yacht/domain/dice'
+export type { YachtCategory, YachtLowerCategory, YachtUpperCategory } from '@/yacht/domain/scoring'
 export {
   UPPER_BONUS_POINTS,
   UPPER_BONUS_THRESHOLD,
   YACHT_CATEGORIES,
-} from '@/domain/scoring'
+} from '@/yacht/domain/scoring'
 
 export const WS_PROTOCOL_VERSION = 1 as const
 
@@ -71,11 +90,14 @@ export type RoomId = string
 export type SessionToken = string
 
 export type PlayerStatus = 'online' | 'away' | 'offline'
+export type ParticipantKind = 'HUMAN' | 'BOT'
 
 export interface Player {
   playerId: PlayerId
   nickname: string
   status: PlayerStatus
+  kind?: ParticipantKind
+  isHost?: boolean
 }
 
 export type RoomPhase = 'waiting' | 'playing' | 'finished'
@@ -85,9 +107,12 @@ export type RoomPhase = 'waiting' | 'playing' | 'finished'
  * game 필드(진행 상태)는 게임 도메인 소유 → GameState 참조.
  */
 export interface RoomSnapshot {
+  gameCode?: GameCode
   roomId: RoomId
   phase: RoomPhase
   players: Player[]
+  hostId?: PlayerId
+  capacity?: number
   /** ⚠️ STUB: 게임 진행 중일 때만 존재. owner: 고용훈/유상은 */
   game?: GameState
 }
@@ -118,6 +143,113 @@ export interface GameState {
   dice?: DiceSet
   /** 턴 주인이 유지 중인 KEEP. 첫 굴림 전에는 없다. */
   held?: HeldDice
+}
+
+export type PingPongPhase = 'PREPARING' | 'COUNTDOWN' | 'PLAYING' | 'FINISHED'
+export type PingPongFault = 'OUT' | 'NET'
+export type PingPongEventType =
+  | 'READY'
+  | 'PRACTICE'
+  | 'PLAYER_READY'
+  | 'SERVE'
+  | 'TOO_EARLY'
+  | 'TOO_LATE'
+  | 'OK'
+  | 'NICE'
+  | 'SMASH'
+  | 'OUT'
+  | 'NET'
+  | 'POINT'
+  | 'GAME_OVER'
+  | 'OPPONENT_LEFT'
+
+export interface PingPongBallState {
+  pos: number
+  direction: 1 | -1
+  speed: number
+  smash: boolean
+  fault?: PingPongFault | null
+  faultFrom: number
+  x0: number
+  x1: number
+  launchedAt: number
+}
+
+export interface PingPongEvent {
+  id: number
+  type: PingPongEventType
+  playerId?: PlayerId | null
+  at: number
+}
+
+export interface PingPongState {
+  version: number
+  phase: PingPongPhase
+  playerOrder: PlayerId[]
+  scores: Record<PlayerId, number>
+  lastInputSeq: Record<PlayerId, number>
+  readyPlayerIds: PlayerId[]
+  ball: PingPongBallState
+  rally: number
+  serveReceiverId?: PlayerId | null
+  nextActionAt: number
+  lastEvent?: PingPongEvent | null
+}
+
+export interface PingPongSwingPayload {
+  inputSeq: number
+  clientTs: number
+}
+
+export type PingPongReadyPayload = Record<string, never>
+
+/* ----- 석양이 진다 (game.duel.* · 서버 권위) -----
+ * 진영 번호를 주지 않는다 — "나를 왼쪽에 두는" 배치는 화면의 몫이고 서버는 playerOrder만 안다.
+ */
+
+export type DuelPhase = 'WAITING' | 'SIGNAL' | 'RESULT' | 'FINISHED'
+/** 라운드 성격. 규칙은 서버 DuelRules가 소유하고 화면은 연출만 고른다. */
+export type DuelRoundKind = 'SHOT' | 'TIE' | 'WARNING' | 'SELF_SHOT' | 'FORFEIT'
+
+/** 반응 시간 센티넬 — 실제 ms는 0 이상이다. */
+export const DUEL_FOUL = -1
+export const DUEL_MISS = -2
+
+export interface DuelRound {
+  number: number
+  kind: DuelRoundKind
+  /** 상대를 쏜 쪽. TIE·부정출발 라운드에는 없다. */
+  shooterId?: PlayerId | null
+  /** 체력을 잃은 쪽. self-shot이면 부정출발한 본인이다. */
+  hitId?: PlayerId | null
+  koId?: PlayerId | null
+  foulId?: PlayerId | null
+  over: boolean
+  at: number
+}
+
+export interface DuelState {
+  version: number
+  phase: DuelPhase
+  playerOrder: PlayerId[]
+  /** 남은 총알. 0이면 쓰러졌다. */
+  hp: Record<PlayerId, number>
+  /** 쌓인 부정출발 경고. 한도에 닿아 소진되면 0으로 돌아간다. */
+  fouls: Record<PlayerId, number>
+  /** 이번 라운드의 반응 시간(ms). DUEL_FOUL·DUEL_MISS가 섞여 있다. */
+  reactions: Record<PlayerId, number>
+  lastInputSeq: Record<PlayerId, number>
+  round: number
+  /** 신호등이 초록으로 바뀐 서버 시각. 0이면 아직 빨강이다. */
+  signalAt: number
+  nextActionAt: number
+  lastRound?: DuelRound | null
+}
+
+/** reactionMs는 클라이언트가 신호를 본 순간부터 잰 값이고, 음수면 신호 전에 뽑았다는 신고다. */
+export interface DuelDrawPayload {
+  inputSeq: number
+  reactionMs: number
 }
 
 /* ----- 요트 정규룰 족보 (score.* / game.* · owner: 유상은 40·41·43) -----
@@ -289,6 +421,80 @@ export interface PresenceUpdatePayload {
   status: PlayerStatus
 }
 
+/* ===== VOICE-001 · WebRTC 음성 시그널링 (130 · 이정현) ✅ =====
+ *
+ *  풀메시(full mesh)다. 오디오는 피어끼리 **직접** 흐르고, 서버는 "서로를 찾는 정보"만
+ *  중계한다 — 미디어 서버(SFU)를 두지 않는다. 방 정원이 6명이라 피어당 연결 4~5개,
+ *  업링크 Opus 30kbps × 5 ≈ 150kbps로 감당되는 구간이다. 정원이 늘면 이 선택을 다시 봐야
+ *  한다(인코딩을 N번 돌리는 비용이 모바일에서 배터리·발열로 먼저 나타난다).
+ *
+ *  서버가 하는 일은 딱 두 가지다.
+ *    1. 음성 채널 명단 관리 — 누가 들어오고 나갔는지 방에 알린다(voice.peers).
+ *    2. voice.signal을 **내용을 열지 않고** 지목된 상대에게 그대로 전달한다.
+ *  SDP·ICE를 서버가 파싱하면 안 된다. 파싱하는 순간 브라우저가 규격을 늘릴 때마다
+ *  서버를 같이 고쳐야 한다 — 봉투만 보고 배달하면 그 일이 사라진다.
+ *
+ *  offer 충돌(glare) 방지: 두 피어가 동시에 offer를 보내면 협상이 깨진다. **playerId를
+ *  문자열로 비교해 작은 쪽이 offer를 만든다.** 양쪽 FE가 같은 규칙을 쓰기만 하면 되므로
+ *  서버는 관여하지 않지만, 규칙이 갈리면 연결이 안 되므로 계약에 적어 둔다.
+ *
+ *  ICE/TURN은 이 계약에 없다 — REST(`GET /api/v1/voice/ice`)가 담당한다. 자격증명이 시간제한
+ *  토큰이라 방 전체에 브로드캐스트하면 안 되기 때문이다. FE에서 그 자리는
+ *  `realtime/voice/iceServers.ts` 한 곳이고, 엔드포인트가 없으면 공용 STUN으로 떨어진다.
+ *
+ *  ─ 결정된 사항 (2026-08 · 이 계약은 아래를 전제로 한다)
+ *    · 정원 6인 확정 → 풀메시 유지. 늘리려면 위 업링크 계산부터 다시 본다.
+ *    · 음소거는 상대에게 보이지 않는다 → voice.mute도 muted 플래그도 두지 않는다.
+ *      트랙만 끄므로 남에게는 "말 안 하는 중"으로 보이고, 그걸로 충분하다는 판단이다.
+ *    · TURN 도입 확정(싸피 서버 UDP 개방 확인) → 자격증명은 시간제한 토큰이라
+ *      `GET /api/v1/voice/ice`로 발급한다. 방 전체에 방송하면 안 되므로 이 계약에는 없다.
+ *    · "누가 말하는 중"은 각 클라가 수신기의 audioLevel을 직접 읽어 그린다
+ *      (getSynchronizationSources) — 서버로 올리면 말할 때마다 메시지가 나가고 표시도 늦다.
+ *      그래서 계약에 관련 이벤트가 없다.
+ */
+
+/** C→S: 음성 채널 입장. roomId는 envelope. room.join을 마친 뒤에만 유효하다(아니면 NOT_IN_ROOM). */
+export type VoiceJoinPayload = Record<string, never> // 빈 payload
+/** C→S: 음성 채널 퇴장. 방에서 나가는 게 아니다 — room.leave와 별개로 마이크만 내려놓는다. */
+export type VoiceLeavePayload = Record<string, never> // 빈 payload
+/**
+ * S→C: 음성 채널 참가자 **전체 명단**. 누가 들어오거나 나갈 때마다 통째로 다시 보낸다.
+ *
+ * 증분(joined/left) 대신 전체 명단인 이유는 state.sync와 같다 — 2~6인 규모에서 diff가
+ * 아끼는 것보다, 메시지 하나를 놓쳤을 때 명단이 영구히 어긋나는 위험이 크다.
+ * 소켓이 죽은 참가자도 서버가 여기서 빼고 다시 뿌린다(voice.leave를 못 보내고 끊기는 경우).
+ * 본인도 명단에 포함된다.
+ */
+export interface VoicePeersPayload {
+  peers: PlayerId[]
+}
+/**
+ * 시그널링 봉투 안에 들어가는 것. **서버는 이 안을 열지 않는다** — Java 쪽에서는 raw JSON
+ * (JsonNode 등)으로 받아 그대로 넘긴다. 아래 모양은 FE끼리의 약속이다.
+ */
+export type VoiceSignalData =
+  /** setRemoteDescription에 그대로 넣는다. offer·answer 둘 다 이 형태다(type이 안에 있다). */
+  | { kind: 'description'; description: RTCSessionDescriptionInit }
+  /** addIceCandidate에 그대로 넣는다. 한 연결당 수십 개가 오갈 수 있다. */
+  | { kind: 'candidate'; candidate: RTCIceCandidateInit }
+/**
+ * C→S: 지목한 상대에게 시그널을 전달해 달라고 요청한다. from은 서버가 채운다(클라가 주장하는
+ * 신분을 믿으면 남을 사칭할 수 있다). 상대가 이미 음성 채널을 떠났으면 서버는 조용히 버린다 —
+ * 협상 중 이탈은 정상 상황이라 에러로 만들 이유가 없다.
+ *
+ * ⚠️ ICE 후보는 다른 메시지보다 훨씬 잦다(연결 수립 순간에 몰린다). RATE_LIMITED를
+ *    room.ready 같은 기준으로 걸면 통화가 안 붙는다 — 이 타입은 한도를 따로 잡아야 한다.
+ */
+export interface VoiceSignalPayload {
+  to: PlayerId
+  data: VoiceSignalData
+}
+/** S→C: 누가 나에게 보낸 시그널. from은 서버가 검증해 채운 값이다. */
+export interface VoiceSignaledPayload {
+  from: PlayerId
+  data: VoiceSignalData
+}
+
 /* ===== ⚠️ STUB: 게임 도메인 — owner 확정 전 임시 초안 ===== */
 
 // S→C ⚠️ owner 고용훈(23·24): 라운드 시작.
@@ -450,12 +656,19 @@ export type ClientMessage =
   | WsEnvelope<'room.ready', RoomReadyPayload>
   // ✅ SIGNAL
   | WsEnvelope<'reaction.send', ReactionSendPayload>
+  // ✅ VOICE (음성 · 130)
+  | WsEnvelope<'voice.join', VoiceJoinPayload>
+  | WsEnvelope<'voice.leave', VoiceLeavePayload>
+  | WsEnvelope<'voice.signal', VoiceSignalPayload>
   // ⚠️ STUB (게임 도메인)
-  | WsEnvelope<'dice.roll', DiceRollPayload>
-  | WsEnvelope<'dice.hold', DiceHoldPayload>
-  | WsEnvelope<'dice.shake', DiceShakePayload>
-  | WsEnvelope<'dice.throw', DiceThrowPayload>
-  | WsEnvelope<'round.submit', RoundSubmitPayload>
+  | WsEnvelope<'game.yacht_dice.dice.roll', DiceRollPayload>
+  | WsEnvelope<'game.yacht_dice.dice.hold', DiceHoldPayload>
+  | WsEnvelope<'game.yacht_dice.dice.shake', DiceShakePayload>
+  | WsEnvelope<'game.yacht_dice.dice.throw', DiceThrowPayload>
+  | WsEnvelope<'game.yacht_dice.round.submit', RoundSubmitPayload>
+  | WsEnvelope<'game.ping_pong.swing', PingPongSwingPayload>
+  | WsEnvelope<'game.ping_pong.ready', PingPongReadyPayload>
+  | WsEnvelope<'game.duel.draw', DuelDrawPayload>
 
 export type ServerMessage =
   // ✅ SYS-DC
@@ -472,19 +685,30 @@ export type ServerMessage =
   // ✅ SIGNAL
   | WsEnvelope<'reaction.broadcast', ReactionBroadcastPayload>
   | WsEnvelope<'state.sync', StateSyncPayload>
+  // 같은 payload지만 게임 모듈이 보낸 스냅샷이다(방 레벨 state.sync 와 별개 타입).
+  | WsEnvelope<'game.yacht_dice.state.sync', StateSyncPayload>
+  | WsEnvelope<'game.ping_pong.state.sync', StateSyncPayload>
+  | WsEnvelope<'game.duel.state.sync', StateSyncPayload>
   | WsEnvelope<'presence.update', PresenceUpdatePayload>
+  // ✅ VOICE (음성 · 130)
+  | WsEnvelope<'voice.peers', VoicePeersPayload>
+  | WsEnvelope<'voice.signaled', VoiceSignaledPayload>
   // ✅ 공통
   | WsEnvelope<'error', ErrorPayload>
   // ⚠️ STUB (게임 도메인)
-  | WsEnvelope<'round.start', RoundStartPayload>
-  | WsEnvelope<'round.end', RoundEndPayload>
-  | WsEnvelope<'dice.broadcast', DiceBroadcastPayload>
-  | WsEnvelope<'dice.hold_changed', DiceHoldChangedPayload>
-  | WsEnvelope<'dice.shaken', DiceShakenPayload>
-  | WsEnvelope<'dice.thrown', DiceThrownPayload>
-  | WsEnvelope<'score.update', ScoreUpdatePayload>
-  | WsEnvelope<'game.over', GameOverPayload>
+  | WsEnvelope<'game.yacht_dice.round.start', RoundStartPayload>
+  | WsEnvelope<'game.yacht_dice.round.end', RoundEndPayload>
+  | WsEnvelope<'game.yacht_dice.dice.broadcast', DiceBroadcastPayload>
+  | WsEnvelope<'game.yacht_dice.dice.hold_changed', DiceHoldChangedPayload>
+  | WsEnvelope<'game.yacht_dice.dice.shaken', DiceShakenPayload>
+  | WsEnvelope<'game.yacht_dice.dice.thrown', DiceThrownPayload>
+  | WsEnvelope<'game.yacht_dice.score.update', ScoreUpdatePayload>
+  | WsEnvelope<'game.yacht_dice.game.over', GameOverPayload>
+  | WsEnvelope<'game.ping_pong.game.over', GameOverPayload>
+  | WsEnvelope<'game.duel.game.over', GameOverPayload>
   | WsEnvelope<'state.patch', StatePatchPayload>
+  | WsEnvelope<'game.ping_pong.state', PingPongState>
+  | WsEnvelope<'game.duel.state', DuelState>
 
 export type WsMessage = ClientMessage | ServerMessage
 

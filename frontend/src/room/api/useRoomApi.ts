@@ -1,0 +1,60 @@
+import type { GameCode } from '@/games'
+import { useAsyncTask } from '@/shared/api/useAsyncTask'
+import { useAppStore } from '@/store'
+import type { CreateRoomRequest, JoinRoomRequest, RoomSession } from './roomApi'
+import { roomApiClient } from './roomApi'
+
+export function useCreateRoom() {
+  const setRoomSession = useAppStore((state) => state.setRoomSession)
+
+  return useAsyncTask<[CreateRoomRequest], RoomSession>(
+    (signal, request) => roomApiClient.createRoom(request, { signal }),
+    { onSuccess: setRoomSession },
+  )
+}
+
+/**
+ * 파티 모드 대시보드로 방을 연다. 닉네임 화면을 거치지 않는다 — 대시보드는 플레이어가 아니라
+ * 이름을 짓지 않기 때문이다.
+ */
+export function useCreatePartyRoom() {
+  const setRoomSession = useAppStore((state) => state.setRoomSession)
+
+  return useAsyncTask<[GameCode], RoomSession>(
+    (signal, gameCode) => roomApiClient.createPartyRoom(gameCode, { signal }),
+    { onSuccess: setRoomSession },
+  )
+}
+
+export function useJoinRoom() {
+  const setRoomSession = useAppStore((state) => state.setRoomSession)
+
+  return useAsyncTask<[string, JoinRoomRequest], RoomSession>(
+    (signal, roomId, request) => roomApiClient.joinRoom(roomId, request, { signal }),
+    { onSuccess: setRoomSession },
+  )
+}
+
+/**
+ * 퇴장 단일 경로. 서버에 나간다고 알린 뒤(FSM: any → idle) 로컬 세션을 정리한다.
+ * REST가 실패해도 로컬은 반드시 정리한다 — 서버는 소켓 종료 시 스스로 명단을 정리하므로,
+ * 요청 실패가 사용자를 방에 가두는 이유가 될 수 없다.
+ */
+export function useLeaveSession() {
+  const leaveRoom = useAsyncTask<[], void>(async (signal) => {
+    const session = useAppStore.getState().roomSession
+    if (!session) return
+    await roomApiClient.leaveRoom(session.roomCode, {
+      signal,
+      sessionToken: session.sessionToken,
+      userId: session.you,
+    })
+  })
+
+  const leave = async () => {
+    await leaveRoom.execute()
+    useAppStore.getState().endSession('left')
+  }
+
+  return { isLeaving: leaveRoom.isLoading, leave }
+}

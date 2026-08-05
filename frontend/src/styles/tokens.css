@@ -4,20 +4,25 @@
   --color-canvas: var(--ds-color-canvas);
   --color-surface: var(--ds-color-surface);
   --color-surface-raised: var(--ds-color-surface-raised);
+  --color-surface-overlay: var(--ds-color-surface-overlay);
   --color-border: var(--ds-color-border);
   --color-content: var(--ds-color-content);
   --color-content-muted: var(--ds-color-content-muted);
   --color-brand: var(--ds-color-brand);
   --color-brand-strong: var(--ds-color-brand-strong);
+  --color-brand-soft: var(--ds-color-brand-soft);
   --color-on-brand: var(--ds-color-on-brand);
+  --color-inverse: var(--ds-color-inverse);
+  --color-on-inverse: var(--ds-color-on-inverse);
   --color-positive: var(--ds-color-positive);
   --color-warning: var(--ds-color-warning);
   --color-danger: var(--ds-color-danger);
   --color-focus: var(--ds-color-focus);
+  /* 2D fallback 주사위(Dice.tsx)만 utility로 쓴다. accent·danger는 3D 재질 색이라
+     appearance.ts가 아래 --ds-* 원시값을 직접 읽는다 — alias를 만들면 아무도 안 쓰는
+     utility만 생긴다. */
   --color-physics-die: var(--ds-color-physics-die);
   --color-physics-pip: var(--ds-color-physics-pip);
-  --color-physics-accent: var(--ds-color-physics-accent);
-  --color-physics-danger: var(--ds-color-physics-danger);
 
   /* 와이어프레임 1d 신규 3색 — 기존 11색은 그대로 둔다. */
   --color-surface-sunken: var(--ds-color-surface-sunken);
@@ -54,7 +59,6 @@
   --shadow-landing-cta-sheet: var(--ds-landing-shadow-cta-sheet);
 
   --text-display: var(--ds-text-display);
-  --text-title: var(--ds-text-title);
   /* 디자인 시스템 최대 굵기는 700 — 800은 Pretendard에서 뭉개진다. */
   --font-weight-medium: 600;
   --font-weight-bold: 700;
@@ -63,8 +67,22 @@
   --font-weight-landing-medium: 500;
   --font-weight-landing-bold: 700;
 
+  /* 태블릿 가로·작은 노트북(760~1199)에서 랜딩 헤더가 한 줄에 다 서지 못한다.
+     760은 DOM 구조가 갈리는 지점이라 JS(useMediaQuery)가 맡고, 1200은 스타일만
+     갈리므로 variant로 둔다 — 미디어쿼리를 JS로 하나 더 구독할 이유가 없다.
+     Tailwind 기본 sm~2xl은 그대로 남는다. */
+  --breakpoint-desktop: 75rem;
+
+  /* 320~359px. global.css가 min-width: 320px으로 잡은 지원 하한 쪽 끝이다.
+     이 구간에서는 나란히 세운 두 요소가 서로를 압착해 한쪽 텍스트가 줄 수를 두 배로
+     늘린다 — 랜딩 태그라인이 152px만 받아 24px 글자로 4줄이 됐다. `max-tiny:`로 그
+     자리만 세로로 쌓는다. 360px 이상에서는 원래 배치가 그대로 유효하므로 하한 전용이다. */
+  --breakpoint-tiny: 22.5rem;
+
   --spacing-tap: var(--ds-size-tap);
   --spacing-content: var(--ds-size-content);
+  --spacing-landing: var(--ds-size-landing);
+  --spacing-play: var(--ds-size-play);
   --spacing-gutter: var(--ds-size-gutter);
 
   --radius-control: var(--ds-radius-control);
@@ -80,10 +98,9 @@
   /* 숫자·코드·라벨은 전부 Space Grotesk(tabular) — 디자인의 NUMERALS 규칙. */
   --font-mono: "Space Grotesk", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  /* 1d 모션 스케일 — fast(킵 토글) / base(시트·전환) / roll(주사위) */
-  --duration-fast: var(--ds-motion-fast);
-  --duration-base: var(--ds-motion-base);
-  --duration-roll: var(--ds-motion-roll);
+  /* 지속시간에는 `--duration-*` 테마 네임스페이스가 없다(Tailwind v4). 여기에 적어도
+     utility가 생성되지 않아 `duration-base`는 조용히 기본값으로 떨어진다 — class에서는
+     `duration-(--ds-motion-base)`처럼 원시값을 직접 참조한다. */
 
   /* 전역 레이어 순서. 화면마다 40·50·60을 손으로 적으면 어느 게 위인지 알 수 없다. */
   --z-index-sticky: var(--ds-z-sticky);
@@ -106,8 +123,148 @@
   --animate-callout-flash: callout-flash 700ms ease-out both;
   --animate-callout-burst: callout-burst 800ms ease-out both;
 
+  /* 리액션 이모지 — 이모지 버튼에서 솟아올라 흩어지며 사라진다. 지속시간은
+     ReactionDock의 FLIGHT_MS와 같은 값이다(그 타이머가 목록에서 지운다). */
+  --animate-reaction-float: reaction-float 2200ms ease-out both;
+
   /* 튜토리얼 가이드 마스코트 — 공중에 떠서 천천히 오르내리는 부유감. */
   --animate-guide-bob: guide-bob 2600ms ease-in-out infinite;
+
+  /* 초대 코드 버튼 안 입력 칸의 커서. "여기에 쳐 넣는다"를 형태로 말한다. */
+  --animate-caret-blink: caret-blink 1200ms steps(1, end) infinite;
+
+  /* 센서 안내 닫기 버튼을 두르는 링. 한 바퀴 도는 동안(3초) 안내가 스스로 닫힌다.
+     MotionPermissionPanel의 AUTO_CLOSE_MS와 같은 값이다. */
+  --animate-close-sweep: close-sweep 3000ms linear both;
+
+  /* 연습 모드가 "여기를 누르세요"라고 가리키는 자리. 요소를 키우지 않고(ring-pulse와 다르다)
+     테두리만 바깥으로 번져 나가며 사라진다 — 강조 대상이 실제 버튼이라 크기가 흔들리면
+     누르려던 손이 빗나간다.
+     linear로 둔다: ease-out은 앞에서 거의 다 퍼져 버려 뒤쪽 절반이 사실상 안 보이고,
+     그 구간이 쉬는 시간처럼 읽힌다. 균일하게 번져야 파동이 끊기지 않는다. */
+  --animate-tutorial-halo: tutorial-halo 1600ms linear infinite;
+
+  /* 주간 랭킹 띠가 옆으로 흐르는 것. 지속시간은 항목 수에 따라 RankingTicker가 인라인으로
+     덮어쓴다 — 항목이 늘어도 흐르는 속도(초/항목)가 같아야 읽는 속도가 유지된다.
+     여기 값은 그 계산이 없을 때의 안전한 기본값이다. */
+  --animate-ticker-scroll: ticker-scroll 40s linear infinite;
+
+  /* ── 석양이 진다 ──────────────────────────────────────────────────────────
+     퀵드로우는 "한 프레임에 뽑히는" 게 맛이라 뽑는 자세는 보간하지 않고 스냅으로 바꾸고,
+     반동·넉백·총알만 여기서 얹는다. 총알이 나는 시간은 화면마다 다르다(사거리가 다르다) —
+     duel/duel.ts의 flightMs가 폭을 재서 내고, 컴포넌트가 animation-duration으로 덮는다.
+     여기 적힌 시간은 그 값이 없을 때의 기본값일 뿐이다. */
+
+  /* 총잡이: 뽑을 때 팔 반동 · 총구 화염은 한 프레임처럼 번쩍인다. */
+  --animate-duel-recoil: duel-recoil 260ms cubic-bezier(0.15, 0.9, 0.3, 1) both;
+  --animate-duel-muzzle: duel-muzzle 200ms ease-out both;
+  /* 피격은 뒤로 젖혀졌다 버티고, 사망은 발끝을 축으로 넘어가 그 자세로 남는다. */
+  --animate-duel-knockback: duel-knockback 600ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  --animate-duel-fall: duel-fall 720ms cubic-bezier(0.5, 0, 0.75, 0.4) both;
+  --animate-duel-hatoff: duel-hatoff 800ms cubic-bezier(0.3, 0.1, 0.6, 1) both;
+  --animate-duel-coat: duel-coat 2600ms ease-in-out infinite;
+
+  /* 신호등: 매달려 흔들리다가 초록으로 터진다. */
+  --animate-duel-sway: duel-sway 3400ms ease-in-out infinite;
+  --animate-duel-lamp-pop: duel-lamp-pop 240ms cubic-bezier(0.2, 0.9, 0.2, 1.3) both;
+  --animate-duel-signal-pop: duel-signal-pop 280ms cubic-bezier(0.2, 0.9, 0.2, 1.2) both;
+
+  /* 총알 — 사거리(트랙 폭)만큼 건너간다. 방향과 거리는 --duel-bullet-to가 준다. */
+  --animate-duel-bullet: duel-bullet 300ms linear both;
+  --animate-duel-bullet-clash: duel-bullet 150ms linear both;
+  --animate-duel-clash: duel-clash 500ms ease-out both;
+
+  /* 착탄 — 상대 가슴의 섬광, 부정출발이면 자기 발밑의 흙먼지. */
+  --animate-duel-impact: duel-impact 420ms ease-out both;
+  --animate-duel-dust: duel-dust 720ms ease-out both;
+  --animate-duel-shake: duel-shake 340ms ease-out 320ms both;
+  --animate-duel-slam: duel-slam 340ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+
+  /* 회전초 — 대기 국면의 정적을 재는 유일한 움직임. */
+  --animate-duel-tumble: duel-tumble 9s linear infinite;
+  --animate-duel-roll: duel-roll 1400ms linear infinite;
+}
+
+@keyframes pp-feedback-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  38% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pp-combo-hit {
+  0% {
+    opacity: 0;
+    transform: scale(0.55) rotate(-5deg);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.18) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+@keyframes pp-smash-flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pp-practice-ball {
+  0% {
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 1;
+  }
+  55% {
+    transform: translateX(-50%) translateY(8rem) scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) translateY(-2rem) scale(0.7);
+    opacity: 0.25;
+  }
+}
+
+.animate-pp-feedback-pop {
+  animation: pp-feedback-pop 240ms ease-out both;
+}
+
+.animate-pp-combo-hit {
+  animation: pp-combo-hit 260ms ease-out both;
+}
+
+.animate-pp-smash-flash {
+  animation: pp-smash-flash 220ms ease-out both;
+}
+
+.animate-pp-practice-ball {
+  animation: pp-practice-ball 520ms var(--ease-snappy) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pp-feedback-pop,
+  .animate-pp-combo-hit,
+  .animate-pp-smash-flash {
+    animation: none;
+  }
+
+  .animate-pp-practice-ball {
+    animation: none;
+  }
 }
 
 :root {
@@ -121,12 +278,23 @@
   --ds-color-canvas: #08090a;
   --ds-color-surface: #111214;
   --ds-color-surface-raised: #18191c;
+  /* raised보다 한 단 더 뜬 표면 — 캔버스 위에 겹쳐 떠 있는 토스트가 여기에 선다.
+     장식용 고스트 텍스트(404)도 같은 밝기 단계를 쓴다. */
+  --ds-color-surface-overlay: #202125;
   --ds-color-border: rgb(255 255 255 / 10%);
   --ds-color-content: #f7f7f5;
   --ds-color-content-muted: #a4a5aa;
   --ds-color-brand: #e53935;
   --ds-color-brand-strong: #ff4d48;
+  /* 레드 계열 텍스트 강조 — 현재 턴 이름, 승자 배지처럼 brand/brand-strong으로는
+     너무 세거나 레드 틴트 배경 위에서 대비가 떨어지는 자리에 쓴다. 랜딩의
+     --ds-landing-accent-text와 값이 같지만 네임스페이스가 다르므로 따로 둔다. */
+  --ds-color-brand-soft: #ff8a86;
   --ds-color-on-brand: #ffffff;
+  /* 다크 캔버스를 뒤집은 밝은 면 — Secondary 버튼(디자인 시스템 03의 아이보리 화이트)이
+     여기에 선다. content(#f7f7f5)보다 살짝 눌러 텍스트와 구분한다. */
+  --ds-color-inverse: #f2f2f0;
+  --ds-color-on-inverse: #111214;
   --ds-color-positive: #8fcb9b;
   --ds-color-warning: #e9b44c;
   --ds-color-danger: #ff6b66;
@@ -177,11 +345,25 @@
     rgb(255 255 255 / 20%) 0%,
     rgb(255 255 255 / 0) 72%
   );
+  /* 카드 상단 크라운 — 제목·메타 필이 3D 위에 직접 서지 않게 한다. 카드 바탕 자체는
+     좌상단에서 #141517이라 흰 글자가 16.7:1로 서지만, 3D 피사체는 아이보리(#f4f1e8,
+     1.06:1)이고 낚싯대는 카드 높이의 6% 지점까지 올라온다. 하단 스크림보다 얕고 옅다 —
+     이 띠에 서는 것은 볼드 대형 제목과 자기 면을 가진 필뿐이고, 위에서 아래로 걷히므로
+     피사체의 머리만 눌리고 몸통은 남는다. */
+  --ds-landing-card-crown: linear-gradient(
+    180deg,
+    rgb(8 9 10 / 88%) 0%,
+    rgb(8 9 10 / 62%) 58%,
+    rgb(8 9 10 / 0) 100%
+  );
+  /* 하단 스크림 — 네 모서리 배치에서 아래 띠가 담는 것은 CTA 한 줄과 한 줄 카피뿐이다.
+     제목 66px까지 덮던 시절의 깊이(72~96%)를 그대로 두면 3D 트레이의 접지면과 낚시 찌가
+     잠긴다. 시작을 늦추고 중간 농도를 낮췄다 — 바닥 92%는 accent line이 설 자리라 남긴다. */
   --ds-landing-card-scrim: linear-gradient(
     180deg,
     rgb(8 9 10 / 0) 0%,
-    rgb(8 9 10 / 72%) 42%,
-    rgb(8 9 10 / 96%) 100%
+    rgb(8 9 10 / 46%) 44%,
+    rgb(8 9 10 / 92%) 100%
   );
   --ds-landing-accent-line: linear-gradient(
     90deg,
@@ -193,7 +375,10 @@
   --ds-landing-ghost: radial-gradient(90% 70% at 50% 34%, #1c1d21 0%, #0d0e10 70%);
 
   --ds-landing-shadow-panel: inset 0 0 0 1px rgb(255 255 255 / 10%);
-  --ds-landing-shadow-card: 0 40px 80px rgb(0 0 0 / 72%), 0 0 90px rgb(229 57 53 / 14%);
+  /* 카드 그림자에는 레드를 섞지 않는다 — "지금 플레이 가능"은 테두리 색과 PLAYABLE NOW
+     배지가 말한다. 글로우는 야외·저대비·색각 이상에서 가장 먼저 사라지는 채널이라
+     상태를 혼자 짊어지면 안 되고, 화면에서 유일하게 빛나는 레드는 CTA여야 한다. */
+  --ds-landing-shadow-card: 0 40px 80px rgb(0 0 0 / 72%);
   --ds-landing-shadow-card-quiet: 0 40px 80px rgb(0 0 0 / 70%);
   --ds-landing-shadow-card-inset:
     inset 0 2px 0 rgb(255 255 255 / 7%), inset 0 -80px 120px rgb(0 0 0 / 72%);
@@ -209,13 +394,11 @@
   --ds-color-content-faint: #82838a;
   --ds-color-scrim: rgb(0 0 0 / 66%);
   /* 굴림 콜아웃 텍스트의 화이트 글로우 — 외곽선 대신 글자에서 빛이 퍼지는 느낌으로
-     3D 트레이 위에서 글자를 띄운다. 팝 애니메이션이 0에서 이 값까지 키운다. */
+     3D 트레이 위에서 글자를 띄운다. 정적으로 얹고 팝 애니메이션의 opacity를 따라
+     같이 떠오른다(글로우 자체를 보간하면 매 프레임 블러를 다시 래스터화한다). */
   --ds-callout-glow:
     0 0 0.04em rgb(255 255 255 / 95%), 0 0 0.16em rgb(255 244 242 / 60%),
     0 0 0.45em rgb(255 77 72 / 45%), 0 0.08em 0.6em rgb(0 0 0 / 35%);
-  --ds-callout-glow-none:
-    0 0 0 rgb(255 255 255 / 0%), 0 0 0 rgb(255 244 242 / 0%), 0 0 0 rgb(255 77 72 / 0%),
-    0 0 0 rgb(0 0 0 / 0%);
 
   /* "사용 완료" 족보의 빗금. 색 말고 패턴으로도 구분되게 하는 두 번째 채널이다. */
   --ds-hatch-used: repeating-linear-gradient(
@@ -225,9 +408,20 @@
   );
 
   --ds-text-display: clamp(1.75rem, 7vw, 2.5rem);
-  --ds-text-title: clamp(1.25rem, 5vw, 1.375rem);
   --ds-size-tap: 2.75rem;
   --ds-size-content: 72rem;
+  /* 랜딩 히어로 측정치 — 헤더와 캐러셀 띠가 함께 매달린다. 가운데 카드 폭이 띠 폭의
+     69.4%라 띠를 전면 폭으로 두면 2560에서 카드가 3.76:1 레터박스가 된다.
+     100rem = 1600px: 이웃 카드까지 띠 안쪽(갓길 15.3%)에 서므로 카드 세 장이 이 폭
+     안에서 함께 읽힌다. */
+  --ds-size-landing: 100rem;
+  /* 게임 화면(2단) 전용 폭. 상수가 아니라 뷰포트 **높이**별 3단이다 — 3D 트레이의 직교
+     카메라가 높이로 스케일되기 때문이다(World.ts resize:
+     vertical = clamp(4.25/aspect, 3.35, 4.6), horizontal = vertical × aspect).
+     트레이가 세로로 길어지면(aspect < 0.924) horizontal이 arena 반폭 4.25 아래로 떨어져
+     좌우가 잘리고, 반대로 너무 납작하면 빈 바닥만 늘어난다. 아래 단계는 aspect를
+     1.19~1.52에 붙잡아 어느 화면에서도 arena가 잘리지 않게 한다. */
+  --ds-size-play: 80rem;
   /* 화면 좌우 거터 — 390px에서 20px, 320px에서 16px. */
   --ds-size-gutter: 1.25rem;
   /* S15P11A406-117 다크 시스템 — 컨트롤 12·카드 14·패널 18·시트 26px 라운드. */
@@ -255,6 +449,20 @@
 @media (max-width: 22.5rem) {
   :root {
     --ds-size-gutter: 1rem;
+  }
+}
+
+/* 뷰포트가 높아질수록 주사위 트레이가 세로로 길어진다 — 폭 상한도 같이 올려
+   aspect를 arena 전폭이 담기는 구간에 붙잡아 둔다(--ds-size-play 주석 참고). */
+@media (min-height: 56.25rem) {
+  :root {
+    --ds-size-play: 96rem;
+  }
+}
+
+@media (min-height: 75rem) {
+  :root {
+    --ds-size-play: 108rem;
   }
 }
 
@@ -307,11 +515,13 @@
   }
 }
 
+/* transform·opacity만 움직인다. 글로우는 컴포넌트가 정적으로 얹고 opacity를 따라
+   같이 떠오르므로, 여기서 text-shadow를 보간하면 주사위가 막 멈춘 프레임에
+   화면 폭짜리 블러를 매 프레임 다시 래스터화하게 된다. */
 @keyframes callout-pop {
   0% {
     transform: scale(0.55);
     opacity: 0;
-    text-shadow: var(--ds-callout-glow-none);
   }
   60% {
     transform: scale(1.08);
@@ -320,7 +530,6 @@
   100% {
     transform: scale(1);
     opacity: 1;
-    text-shadow: var(--ds-callout-glow);
   }
 }
 
@@ -344,6 +553,84 @@
   }
 }
 
+/* conic-gradient의 각도만 보간한다 — @property로 등록해야 브라우저가 각도를 애니메이션
+   가능한 값으로 안다. 등록하지 않으면 0deg에서 360deg로 한 번에 점프한다. */
+@property --sweep {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 360deg;
+}
+
+@keyframes close-sweep {
+  from {
+    --sweep: 360deg;
+  }
+  to {
+    --sweep: 0deg;
+  }
+}
+
+@keyframes caret-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* transform·opacity만 움직인다(callout-burst와 같은 규칙). --drift는 항목마다 다른 값이
+   들어와 동시에 뜬 이모지가 한 덩어리로 겹쳐 보이지 않게 좌우로 흩는다. */
+/*
+ * 리액션이 솟아오르는 길. --drift가 좌우, --lift가 도달 높이를 항목마다 흔든다.
+ *
+ * --lift가 필요한 이유: 좌우만 흔들면 같은 순간에 도착한 것들이 **같은 높이에서 나란히**
+ * 올라가 한 줄로 읽힌다(6명이 연타하면 자주 겹친다). 높이까지 다르면 같은 수의 이모지가
+ * 서로를 가리지 않는다. motion-reduce에서는 keyframe이 없어 호출부의 translate-y가
+ * 그대로 적용되므로, 제자리에 뜨는 것들도 같은 값으로 세로로 흩어진다.
+ */
+@keyframes reaction-float {
+  0% {
+    transform: translate(0, 0.5rem) scale(0.4);
+    opacity: 0;
+  }
+  18% {
+    transform: translate(calc(var(--drift, 0rem) * 0.25), calc(-1rem + var(--lift, 0rem) * 0.15))
+      scale(1.15);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--drift, 0rem), calc(-8.5rem + var(--lift, 0rem))) scale(0.85);
+    opacity: 0;
+  }
+}
+
+/*
+ * 트랙 안에 같은 목록을 여러 벌 넣고 <b>정확히 한 벌 폭만</b> 밀면, 두 번째 벌이 첫 번째 벌이
+ * 있던 자리에 도착하는 순간 프레임이 처음과 똑같아진다 — 이어붙인 곳이 보이지 않는다.
+ *
+ * 이동 거리를 --ticker-shift로 받는 이유: 한 벌 폭은 트랙 폭의 1/복제수이고, 복제수는 항목
+ * 개수에 따라 달라진다(RankingTicker가 계산해 넣는다). 여기에 -50%를 박아두면 두 벌일 때만
+ * 맞고 그 밖에는 되돌아가는 순간 눈에 보이게 튄다.
+ *
+ * transform만 움직인다(레이아웃·페인트를 유발하는 속성은 건드리지 않는다). 합성 레이어 승격은
+ * RankingTicker의 will-change-transform이 명시한다 — 여기서 translate3d로 힌트를 줘도
+ * 빌드의 CSS minifier가 translate로 줄여 없앤다.
+ */
+@keyframes ticker-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(var(--ticker-shift, -50%), 0, 0);
+  }
+}
+
 @keyframes guide-bob {
   0%,
   100% {
@@ -351,5 +638,267 @@
   }
   50% {
     transform: translateY(-0.4rem) rotate(3deg);
+  }
+}
+
+/* 파동이 사이클 전체를 쓴다 — 70%에서 이미 투명해지고 100%까지 쉬면 그 30%(540ms)가
+   빈 시간이라 반짝임이 끊겼다 보였다. 마지막 프레임이 완전히 투명하므로 다음 파동이
+   중심에서 곧바로 이어져 쉬는 틈이 없다. */
+@keyframes tutorial-halo {
+  from {
+    box-shadow: 0 0 0 0 rgb(255 77 72 / 40%);
+  }
+  to {
+    box-shadow: 0 0 0 0.875rem rgb(255 77 72 / 0%);
+  }
+}
+
+/* ── 정오의 결투 ─────────────────────────────────────────────────────────────
+   transform-origin이 필요한 것들(knockback·fall·hatoff)은 SVG 좌표계 기준이라
+   컴포넌트가 인라인으로 준다 — 여기서 걸면 --gs-h가 바뀌는 화면에서 축이 어긋난다. */
+
+@keyframes duel-recoil {
+  0% {
+    transform: rotate(-16deg);
+  }
+  22% {
+    transform: rotate(7deg);
+  }
+  55% {
+    transform: rotate(-2deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes duel-muzzle {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  14% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+  46% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+}
+
+@keyframes duel-knockback {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  18% {
+    transform: translateX(-9px) rotate(-11deg);
+  }
+  46% {
+    transform: translateX(-4px) rotate(-5deg);
+  }
+}
+
+@keyframes duel-fall {
+  0% {
+    transform: rotate(0deg);
+  }
+  30% {
+    transform: rotate(-16deg);
+  }
+  100% {
+    transform: rotate(-78deg);
+  }
+}
+
+@keyframes duel-hatoff {
+  0% {
+    transform: translate(-34px, -120px) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0) rotate(220deg);
+    opacity: 1;
+  }
+}
+
+@keyframes duel-coat {
+  0%,
+  100% {
+    transform: rotate(-2deg) skewX(0deg);
+  }
+  50% {
+    transform: rotate(3deg) skewX(-4deg);
+  }
+}
+
+@keyframes duel-sway {
+  0%,
+  100% {
+    transform: translateX(-50%) rotate(-1.6deg);
+  }
+  50% {
+    transform: translateX(-50%) rotate(1.6deg);
+  }
+}
+
+@keyframes duel-lamp-pop {
+  0% {
+    transform: scale(0.82);
+  }
+  40% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes duel-signal-pop {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  40% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 총알은 transform으로만 움직인다 — left를 애니메이션하면 매 프레임 레이아웃이 다시 잡힌다.
+   움직이는 층이 트랙과 같은 폭이라 translateX(100%)가 정확히 사거리다. 방향과 거리(TIE는
+   가운데까지 50%)는 컴포넌트가 --duel-bullet-to로 준다. */
+@keyframes duel-bullet {
+  0% {
+    transform: translateX(0) translateY(0);
+    opacity: 0;
+  }
+  10%,
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(var(--duel-bullet-to, 100%)) translateY(var(--duel-bullet-rise, 0px));
+    opacity: 0;
+  }
+}
+
+@keyframes duel-clash {
+  0% {
+    transform: translate(-50%, -50%) scale(0.1);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes duel-dust {
+  0% {
+    transform: translateX(-50%) scale(0.15);
+    opacity: 0;
+  }
+  16% {
+    transform: translateX(-50%) scale(0.9);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) scale(1.9) translateY(-18%);
+    opacity: 0;
+  }
+}
+
+@keyframes duel-impact {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  18% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+@keyframes duel-shake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  12% {
+    transform: translate(-5px, 3px);
+  }
+  26% {
+    transform: translate(4px, -3px);
+  }
+  40% {
+    transform: translate(-3px, -2px);
+  }
+  56% {
+    transform: translate(2px, 2px);
+  }
+  72% {
+    transform: translate(-1px, 0);
+  }
+}
+
+@keyframes duel-slam {
+  0% {
+    transform: scale(1.9) translateY(-14px);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(0.94) translateY(0);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes duel-tumble {
+  0% {
+    left: -12%;
+    opacity: 0;
+  }
+  8%,
+  92% {
+    opacity: 0.8;
+  }
+  100% {
+    left: 108%;
+    opacity: 0;
+  }
+}
+
+@keyframes duel-roll {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }

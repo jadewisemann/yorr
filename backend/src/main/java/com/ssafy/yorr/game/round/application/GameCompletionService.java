@@ -6,6 +6,7 @@ import com.ssafy.yorr.game.round.application.port.RoundDeadlineScheduler;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.room.service.RoomService;
 import com.ssafy.yorr.ws.RoomBroadcaster;
+import com.ssafy.yorr.ws.RealtimeRoomSnapshotService;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
 import com.ssafy.yorr.ws.dto.GameOverPayload;
 import com.ssafy.yorr.ws.dto.RoomPhase;
@@ -14,6 +15,8 @@ import com.ssafy.yorr.ws.dto.WsEnvelope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+
+import static com.ssafy.yorr.game.module.GameWsTypes.type;
 
 import java.util.Comparator;
 import java.util.List;
@@ -39,6 +42,7 @@ public class GameCompletionService {
     private final RoundDeadlineScheduler deadlineScheduler;
     private final RoomService roomService;
     private final RoomSessionRegistry registry;
+    private final RealtimeRoomSnapshotService realtimeSnapshots;
     private final RoomBroadcaster broadcaster;
 
     public GameCompletionService(
@@ -47,6 +51,7 @@ public class GameCompletionService {
             RoundDeadlineScheduler deadlineScheduler,
             RoomService roomService,
             RoomSessionRegistry registry,
+            RealtimeRoomSnapshotService realtimeSnapshots,
             RoomBroadcaster broadcaster
     ) {
         this.completionStore = completionStore;
@@ -54,6 +59,7 @@ public class GameCompletionService {
         this.deadlineScheduler = deadlineScheduler;
         this.roomService = roomService;
         this.registry = registry;
+        this.realtimeSnapshots = realtimeSnapshots;
         this.broadcaster = broadcaster;
     }
 
@@ -78,10 +84,12 @@ public class GameCompletionService {
         registry.markPhase(roomId, RoomPhase.FINISHED);
         List<GameOverPayload.Ranking> rankings = rankings(roomId);
         archive(room, rankings);
-        broadcaster.broadcast(roomId, WsEnvelope.of("game.over", new GameOverPayload(rankings))
+        broadcaster.broadcast(roomId, WsEnvelope.of(type(room.gameCode(), "game.over"), new GameOverPayload(rankings))
                 .withRoomId(roomId));
         // phase(finished)는 스냅샷으로만 전달된다 — 이걸 빼면 클라가 결과 화면으로 넘어가지 못한다.
-        broadcaster.broadcast(roomId, WsEnvelope.of("state.sync", new StateSyncPayload(registry.snapshot(roomId)))
+        broadcaster.broadcast(roomId, WsEnvelope.of(
+                        type(room.gameCode(), "state.sync"),
+                        new StateSyncPayload(realtimeSnapshots.snapshot(roomId)))
                 .withRoomId(roomId));
         log.info("game.over: room={} game={} force={}", roomId, room.gameId(), force);
         return true;

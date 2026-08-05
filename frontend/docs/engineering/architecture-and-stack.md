@@ -7,31 +7,80 @@
 
 ## 디렉터리 구조 (`src/`)
 
-레이어는 기본적으로 `src/` 바로 아래 한 단계에만 둔다.
+`src/` 바로 아래는 **도메인**이다. 레이어는 도메인 안에 둔다.
 
 | 폴더 | 책임 |
 |---|---|
-| `app/` | 라우터(`router.tsx`), 전역 provider, 앱 부팅, 개발 전용 화면(`DevCatalog`, `MotionLab`) |
-| `screens/` | URL에 대응하는 화면(`EntryPage`, `NicknamePage`, `LobbyPage`, `GamePage`, `GamePlay`, `GameResult`, `AuthCallbackPage` 등) |
-| `components/` | 재사용 UI 컴포넌트 |
-| `api/` | REST client(`client.ts`)와 도메인별 호출 훅(`gameApi.ts`, `authApi.ts`, `useRoomApi.ts`, `useGameApi.ts`) |
-| `realtime/` | WebSocket wire contract(`wsEvents.ts`, SSOT)와 연결 client(`realtimeClient.ts`, `fakeRealtimeClient.ts`) |
-| `domain/` | 순수 Yacht 게임 규칙 — `dice.ts`(굴림 계획), `scoring.ts`(점수 계산), `specialHands.ts`, `yachtGame.ts`(상태 전이). React/DOM/네트워크를 모른다 |
-| `feedback/` | 플랫폼별 굴림 피드백(진동·효과음·족보 콜아웃 보이스) — `createRollFeedback.ts`, `handVoice.ts` |
-| `input/` | `DeviceMotion` 기반 흔들기·던지기 제스처 인식 — `MotionInputController.ts`, `MotionGestureRecognizer.ts` |
-| `rendering/` | 브라우저 렌더링 인프라. 일반 렌더링 파일은 이 폴더 한 단계에 두되, 하나의 public API를 구성하는 강하게 결합된 subsystem은 예외적으로 하위 폴더를 허용한다: `rendering/physics-dice/`(Three.js + Rapier 3D 주사위 시뮬레이션, 14개 파일)와 `rendering/hero/`(랜딩 히어로 WebGL 장면) |
-| `mocks/` | MSW handler와 fixture |
-| `store.ts` · `cn.ts` · `styles/` | 전역 상태, class 병합, 디자인 토큰(`styles/global.css`, `styles/tokens.css`) |
+| `app/` | 라우터(`router.tsx`), 전역 provider, 앱 부팅. 개발 전용 화면은 `app/dev/`(`DevCatalog` · `MotionLab` · `PhysicsDiceDemo` · `HandVoiceLab`) |
+| `landing/` | 랜딩 화면(`screens/EntryPage`), 히어로 카드·카루셀·진행 탭, 히어로 WebGL 장면(`rendering/heroScene.ts`) |
+| `auth/` | 소셜 로그인 — `authSession`, `api/authApi`, `screens/AuthCallbackPage`, `components/AccountDialog` |
+| `room/` | 방 생성·입장·로비와 **게임을 띄우는 껍데기**. `api/roomApi`(REST), `screens/GamePage`(phase로 게임 화면 선택), `screens/LobbyPage` · `NicknamePage` · `InvalidInvitePage` · `RoomExitGuard` |
+| `yacht/` | 야추 구현 전부 — `domain/`(순수 규칙: `dice` · `scoring` · `specialHands` · `yachtGame`), `screens/`, `components/`(게임판 15개), `rendering/physics-dice/`(Three.js + Rapier), `input/`(DeviceMotion 제스처), `feedback/`(진동·효과음·족보 보이스) |
+| `shared/` | 프리미티브 UI(`components/Button` · `Modal` · `BottomSheet` · `Popover` …), 공용 훅, `api/client`, `cn`, `soundtrack` |
+| `realtime/` | WebSocket wire contract(`wsEvents.ts`, SSOT)와 연결 client(`realtimeClient.ts` · `fakeRealtimeClient.ts`) |
+| `mocks/` · `test/` · `styles/` | MSW handler와 fixture, 테스트 하네스, 디자인 토큰 |
+| `games.ts` · `store.ts` · `main.tsx` | 게임 카탈로그, 앱 전역 상태, 엔트리 |
 
-### 알려진 이슈 — 사용하지 않는 디렉터리
+### 왜 도메인 우선인가
 
-`src/core/{api,realtime}`와 `src/contracts/ws-events.ts`가 존재하지만 **어디서도 import되지
-않는다**(`@/realtime/wsEvents`는 23개 파일에서 사용, `@/core`·`@/contracts`는 0곳). Git 히스토리상
-`src/core/api/client.ts`는 2026-07-23 이후 수정이 없어, 초기 스캐폴드가 `src/api` + `src/realtime`
-+ `src/domain` 구조로 대체된 뒤 삭제되지 않고 남은 것으로 보인다. `src/contracts/ws-events.ts`는
-`src/realtime/wsEvents.ts`의 오래된 사본이며 `reaction.*`/`presence.*`/`dice.shake`/`dice.throw`가
-빠져 있고 실제와 다른 `isHost`/`hostId` 필드가 남아 있다. **새 코드에서 참고하거나 의존하지
-않는다.** 삭제는 이 문서 정리와 별개의 코드 변경으로 처리한다.
+이전 구조는 레이어 우선(`screens/` · `components/` · `api/` · `domain/`)이었다. 문제는 도메인이
+레이어마다 흩어진다는 것이다 — 야추 하나를 이해하려면 `domain/` · `screens/` · `components/` ·
+`rendering/` · `input/` · `feedback/` · `api/` 7개 폴더와 `src/` 루트(파일 19개가 산재)를 동시에
+뒤져야 했다. `components/` 한 폴더에 랜딩 카드 7개와 야추 게임판 12개와 로비 패널 4개와 공용
+버튼이 평평하게 섞여 있었다.
+
+도메인 우선으로 두면 게임을 추가할 때 폴더 하나만 늘어난다.
+
+### 테스트 배치
+
+**테스트는 소스와 같은 폴더의 `__tests__/`** 에 둔다 — `yacht/domain/scoring.ts`의 테스트는
+`yacht/domain/__tests__/scoring.test.ts`다. co-location을 쓰던 이전 구조에서는 `components/`를
+열면 40여 개 파일 중 절반이 `*.test.tsx`라서 그 폴더에 무엇이 있는지 읽히지 않았다.
+
+`vitest.config.ts`는 손대지 않았다 — `include: ['src/**/*.test.{ts,tsx}']` 글롭이 중첩된
+`__tests__/`를 이미 잡고, vitest는 테스트 파일을 커버리지 분모에서 자동으로 뺀다.
+
+### 게임을 추가할 때
+
+손댈 곳은 세 군데다.
+
+1. `src/games.ts`에 항목 추가 — 게임 카탈로그의 SSOT다. `live: false`면 랜딩에서 "준비 중"으로
+   노출되고, `true`로 바꾸면 플레이 가능해진다. 현재 야추·석양이 진다·탁구가 `live`이고
+   라이어스 다이스·낚시가 대기 중이다. 백엔드 게임 모듈이 있는 게임은 `gameCode`도 함께 준다.
+2. `src/<게임>/` 구현 — `yacht/`와 같은 모양.
+3. `room/screens/GamePage`에서 키로 화면 분기 — 이 컴포넌트는 방 껍데기라서 야추 개념이 없고
+   `roomSnapshot.phase`로 진행 화면과 결과 화면을 고르기만 한다. 게임이 갈라지는 지점이다.
+   진행·결과 화면을 스스로 들고 있는 게임(탁구·결투)은 `moduleScreens`에 짝으로 등록하고,
+   야추만 방 진행 REST(`useGame`)를 함께 쓴다.
+
+## 의존 방향
+
+사용자 흐름 순서로 **단방향**이다.
+
+```text
+app → landing → room → yacht
+```
+
+`auth` · `shared` · `realtime` · `games.ts` · `store.ts`는 경계 모듈이라 어느 도메인에서나
+참조한다. 되돌아가는 import를 만들지 않는다. `yacht/domain/`은 React · DOM · 네트워크를 모르고,
+`yacht/rendering/`은 `screens` · `realtime` · `store`를 import하지 않는다.
+
+**레이어·도메인을 넘는 import만 `@/`를 쓴다.** 같은 폴더 안은 상대경로를 쓴다. 실제 파일 없이
+미래를 위한 폴더를 만들지 않는다.
+
+### 알려진 경계 예외 2건
+
+둘 다 로직 변경이 필요해 구조 재편과 분리했다. 근거는 해당 파일 주석에 남겨 두었다.
+
+- **`realtime/wsEvents.ts` → `yacht/domain/*`** — 와이어 계약 자체가 야추 모양이다. `dice.*`
+  이벤트와 `round.submit`의 `YachtCategory`가 프로토콜에 박혀 있어서, `realtime/`을 `shared/`
+  안에 넣으면 의존 방향이 역행한다. 그래서 도메인 위의 경계 계층으로 남겨 두었다. 게임을
+  추가하려면 게임 무관 envelope와 게임별 payload로 갈라야 한다 — 백엔드는 `GameModule`로 이미
+  분리했고 프론트 계약만 남았다. **게임 추가를 실제로 막고 있는 것은 폴더 구조가 아니라 이
+  프로토콜이다.**
+- **`yacht/screens/GameResult.tsx` → `room/api/useGameApi`** — 결과 화면이 "대기실로 돌아가기"를
+  직접 호출한다. 부모인 `room/screens/GamePage`가 `onLeaveRequest`처럼 콜백으로 내려주면
+  사라진다.
 
 ## 상태 설계
 
@@ -78,18 +127,6 @@ draft, 애니메이션, pending 입력을 폐기한다.
   정해지면 도입.
 - **ts-pattern**: 현재 타입만으로 `switch` exhaustive 처리가 가능해 필수는 아님.
 - **es-toolkit**: 반복 구현되는 유틸리티가 생기기 전까지 추가하지 않음.
-
-## 의존 방향
-
-```text
-app → screens → components · api · realtime → store · cn
-domain은 React, DOM, 네트워크, rendering을 import하지 않는다.
-rendering은 domain · screens · components · realtime · store를 import하지 않는다.
-```
-
-**레이어를 넘는 import만 `@/`를 쓴다.** 같은 폴더 안은 상대경로를 쓴다. 실제 파일 없이 미래를
-위한 폴더를 만들지 않는다 — `features`, `entities`, `widgets`, `shared`는 추가하지 않는다.
-`core`는 위 "알려진 이슈"에 남은 죽은 코드일 뿐 규칙의 예외가 아니다.
 
 ## 테스트 전략
 

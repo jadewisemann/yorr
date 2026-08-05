@@ -2,6 +2,7 @@ package com.ssafy.yorr.handler;
 
 import com.ssafy.yorr.ws.InMemoryRoomBroadcaster;
 import com.ssafy.yorr.ws.HeartbeatMonitor;
+import com.ssafy.yorr.ws.RealtimeRoomSnapshotService;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -32,6 +33,9 @@ import com.ssafy.yorr.ws.dto.PlayerStatus;
 import com.ssafy.yorr.ws.dto.PresenceUpdatePayload;
 import com.ssafy.yorr.ws.dto.ReactionSendPayload;
 import com.ssafy.yorr.ws.dto.ReactionBroadcastPayload;
+import com.ssafy.yorr.ws.dto.VoicePeersPayload;
+import com.ssafy.yorr.ws.dto.VoiceSignalPayload;
+import com.ssafy.yorr.ws.dto.VoiceSignaledPayload;
 import com.ssafy.yorr.ws.dto.StateSyncPayload;
 import com.ssafy.yorr.ws.dto.DisconnectReason;
 import com.ssafy.yorr.ws.dto.SysDisconnectPayload;
@@ -56,6 +60,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper; // Boot4가 만드는 JsonMapper 빈이 여기 주입됨
     private final InMemoryRoomBroadcaster broadcaster;
     private final RoomSessionRegistry registry; // 방 명단(누가 어느 방에)
+    private final RealtimeRoomSnapshotService realtimeSnapshots;
     private final HeartbeatMonitor heartbeatMonitor;
     private final UserService userService;      // 게스트 정체성 발급(티켓 70 재사용)
     private final RoomService roomService;                     // 빈 방 닫기(Redis 키 정리)
@@ -84,6 +89,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     public GameWebSocketHandler(ObjectMapper objectMapper,
                                 InMemoryRoomBroadcaster broadcaster,
                                 RoomSessionRegistry registry,
+                                RealtimeRoomSnapshotService realtimeSnapshots,
                                 HeartbeatMonitor heartbeatMonitor,
                                 UserService userService,
                                 RoomService roomService,
@@ -92,6 +98,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         this.objectMapper = objectMapper;
         this.broadcaster = broadcaster;
         this.registry = registry;
+        this.realtimeSnapshots = realtimeSnapshots;
         this.heartbeatMonitor = heartbeatMonitor;
         this.userService = userService;
         this.roomService = roomService;
@@ -135,6 +142,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             case "room.leave" -> handleRoomLeave(session, in);
             case "room.ready" -> handleRoomReady(session, in);
             case "reaction.send" -> handleReactionSend(session, in);
+            // 음성은 방 레벨이라 게임 네임스페이스(game.yacht_dice.*) 접두사가 없다.
+            case "voice.join"   -> handleVoiceJoin(session, in);
+            case "voice.leave"  -> handleVoiceLeave(session, in);
+            case "voice.signal" -> handleVoiceSignal(session, in);
             default -> handleGameMessage(session, in);
         }
     }
@@ -148,6 +159,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (!gameModules.dispatch(registry.gameCodeOf(member.roomId()), session, message)) {
             log.debug("지원하지 않는 게임 메시지: game={} type={}",
                     registry.gameCodeOf(member.roomId()), message.type());
+            sendError(session, WsErrorCode.INVALID_MESSAGE,
+                    "현재 방에서 지원하지 않는 게임 메시지입니다.", message.msgId());
         }
     }
 
@@ -232,7 +245,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        RoomSnapshot snapshot = registry.snapshot(payload.roomId()); // 본인 포함 전체 명단
+        RoomSnapshot snapshot = realtimeSnapshots.snapshot(payload.roomId()); // Redis 참가자 + 사람 접속 상태
 
         // (2) 본인에게: room.joined (발급 playerId·세션토큰·전체 스냅샷). 본인에게만.
         send(session, WsEnvelope.of("room.joined",
@@ -311,6 +324,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         log.info("연결 닫힘: {} / {}", session.getId(), status);
         heartbeatMonitor.untrack(session);
+        // 아래 분기(오프라인 전이 / 명단 이탈)보다 먼저 해야 한다 — registry.of가 아직
+        // 이 세션의 멤버를 돌려주는 동안에만 누구였는지 알 수 있다.
+        dropFromVoice(session);
         RoomSessionRegistry.Member member = registry.of(session);
         if (member == null) {
             broadcaster.unregister(session);
@@ -334,10 +350,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
      * 선택된 게임 모듈의 플레이어 제거 경로로 보낸다.
      */
     private void handleRoomLeave(WebSocketSession session, InboundEnvelope in) {
+        // 방을 떠나면 음성 채널에서도 나간다. 아래 두 분기 모두 명단에서 이 세션을 지우므로
+        // 그 전에 처리해야 누구였는지 알 수 있다.
+        dropFromVoice(session);
         RoomSessionRegistry.Member member = registry.of(session);
         if (member != null && registry.phaseOf(member.roomId()) == RoomPhase.PLAYING) {
             broadcaster.unregister(session); // 본인을 팬아웃에서 뺀 뒤 player_left가 나간다
             game(member.roomId()).removePlayer(member.roomId(), member.playerId());
+            userService.clearRoom(member.playerId());
             return;
         }
         leaveRoom(session);
@@ -392,6 +412,93 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 .withRoomId(me.roomId()));
     }
 
+    /* ============================================================================
+     * 음성 채팅(voice.*) — WebRTC 풀메시 시그널링
+     *
+     * 오디오는 브라우저끼리 직접 흐른다. 서버가 하는 일은 딱 둘이다.
+     *   1. 음성 채널 명단 관리 → 바뀔 때마다 voice.peers로 방 전원에게 전체 명단을 뿌린다
+     *   2. voice.signal을 **내용을 열지 않고** 지목된 상대에게 그대로 전달한다
+     * SDP·ICE를 파싱하지 않는 것이 계약이다 — 파싱하면 브라우저가 규격을 늘릴 때마다
+     * 서버를 같이 고쳐야 한다. 그래서 payload의 data는 JsonNode로 흘려보낸다.
+     * ==========================================================================*/
+
+    /** voice.join → 명단에 넣고 voice.peers 브로드캐스트. 중복 입장은 무해하다. */
+    private void handleVoiceJoin(WebSocketSession session, InboundEnvelope in) throws IOException {
+        RoomSessionRegistry.Member me = registry.of(session);
+        if (me == null) {
+            sendError(session, WsErrorCode.NOT_IN_ROOM, "방에 입장한 뒤에만 음성 채널에 들어올 수 있습니다.", in.msgId());
+            return;
+        }
+        broadcastVoicePeers(me.roomId(), registry.joinVoice(me.roomId(), me.playerId()));
+    }
+
+    /** voice.leave → 명단에서 빼고 voice.peers 브로드캐스트. 방에서 나가는 것은 아니다. */
+    private void handleVoiceLeave(WebSocketSession session, InboundEnvelope in) throws IOException {
+        RoomSessionRegistry.Member me = registry.of(session);
+        if (me == null) {
+            sendError(session, WsErrorCode.NOT_IN_ROOM, "방에 입장한 뒤에만 음성 채널을 떠날 수 있습니다.", in.msgId());
+            return;
+        }
+        broadcastVoicePeers(me.roomId(), registry.leaveVoice(me.roomId(), me.playerId()));
+    }
+
+    /**
+     * voice.signal → 지목된 한 명에게만 voice.signaled로 전달한다. 방 전체 브로드캐스트가
+     * 아닌 유일한 메시지다 — SDP·ICE는 특정 두 피어 사이의 협상이라 남이 받으면 의미가 없다.
+     * <p>
+     * 상대가 이미 음성 채널을 떠났거나 소켓이 닫혔으면 <b>조용히 버린다</b>. 협상 중 이탈은
+     * 정상 상황이고, 에러로 만들면 이탈할 때마다 남은 쪽에 잡음이 쌓인다.
+     */
+    private void handleVoiceSignal(WebSocketSession session, InboundEnvelope in) throws IOException {
+        VoiceSignalPayload payload;
+        try {
+            payload = objectMapper.treeToValue(in.payload(), VoiceSignalPayload.class);
+        } catch (Exception e) {
+            sendError(session, WsErrorCode.INVALID_MESSAGE, "voice.signal payload가 올바르지 않습니다.", in.msgId());
+            return;
+        }
+        if (payload == null || payload.to() == null || payload.to().isBlank() || payload.data() == null) {
+            sendError(session, WsErrorCode.INVALID_MESSAGE, "voice.signal은 to와 data가 필요합니다.", in.msgId());
+            return;
+        }
+        RoomSessionRegistry.Member me = registry.of(session);
+        if (me == null) {
+            sendError(session, WsErrorCode.NOT_IN_ROOM, "방에 입장한 뒤에만 시그널을 보낼 수 있습니다.", in.msgId());
+            return;
+        }
+        RoomSessionRegistry.Member target = registry.find(me.roomId(), payload.to());
+        if (target == null || target.session() == null || !target.session().isOpen()) return;
+
+        // from은 registry에서 꺼낸 값이다 — 클라이언트가 보낸 값을 쓰면 남을 사칭할 수 있다.
+        send(target.session(), WsEnvelope.of("voice.signaled",
+                        new VoiceSignaledPayload(me.playerId(), payload.data()))
+                .withRoomId(me.roomId()));
+    }
+
+    /**
+     * 음성 채널 명단이 바뀌었다고 방 전원에게 알린다. 통화에 참여하지 않는 사람도 받는다 —
+     * "누가 말하는 중"을 그리려면 명단을 알아야 하고, 마이크를 켜기 전에도 통화 중인 사람이
+     * 보여야 들어갈지 판단할 수 있다.
+     */
+    private void broadcastVoicePeers(String roomId, java.util.List<String> peers) {
+        broadcaster.broadcast(roomId, WsEnvelope.of("voice.peers", new VoicePeersPayload(peers))
+                .withRoomId(roomId));
+    }
+
+    /**
+     * 소켓이 죽거나 방을 떠날 때 음성 명단에서 뺀다.
+     * <p>
+     * voice.leave를 못 보내고 끊기는 것이 <b>정상 경로</b>다(브라우저 탭을 닫으면 그렇다).
+     * 이걸 안 하면 남은 사람들이 이미 없는 피어에게 계속 offer를 보낸다.
+     */
+    private void dropFromVoice(WebSocketSession session) {
+        RoomSessionRegistry.Member member = registry.of(session);
+        if (member == null) return;
+        if (registry.voiceMembersOf(member.roomId()).contains(member.playerId())) {
+            broadcastVoicePeers(member.roomId(), registry.leaveVoice(member.roomId(), member.playerId()));
+        }
+    }
+
     /** 명시 퇴장 처리: 명단 제거 → 팬아웃 제거 → 남은 멤버에게 player_left. */
     private void leaveRoom(WebSocketSession session) {
         RoomSessionRegistry.Member member = registry.of(session);
@@ -401,6 +508,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (gone == null) {
             return;
         }
+        userService.clearRoom(gone.playerId());
         broadcaster.broadcast(gone.roomId(), WsEnvelope.of("room.player_left",
                         new RoomPlayerLeftPayload(gone.playerId()))
                 .withRoomId(gone.roomId()));
@@ -469,7 +577,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
      */
     public void broadcastStateSync(String roomId) {
         broadcaster.broadcast(roomId, WsEnvelope.of("state.sync",
-                        new StateSyncPayload(registry.snapshot(roomId)))
+                        new StateSyncPayload(realtimeSnapshots.snapshot(roomId)))
                 .withRoomId(roomId));
     }
 

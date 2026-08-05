@@ -3,11 +3,15 @@ package com.ssafy.yorr.game.match.application;
 import com.ssafy.yorr.game.match.domain.Match;
 import com.ssafy.yorr.game.match.domain.MatchParticipant;
 import com.ssafy.yorr.game.match.repository.MatchRepository;
+import com.ssafy.yorr.game.pingpong.PingPongAiResultRequest;
+import com.ssafy.yorr.game.pingpong.PingPongAiResultService;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.user.domain.User;
 import com.ssafy.yorr.user.repository.UserRepository;
+import com.ssafy.yorr.user.UserIdentity;
+import com.ssafy.yorr.user.UserType;
 import com.ssafy.yorr.ws.dto.GameOverPayload;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +62,8 @@ class MatchArchiveServiceIntegrationTest {
 
     @Autowired
     private MatchArchiveService service;
+    @Autowired
+    private PingPongAiResultService pingPongAiResults;
     @Autowired
     private MatchRepository matches;
     @Autowired
@@ -139,5 +145,67 @@ class MatchArchiveServiceIntegrationTest {
                 matches.findWithParticipantsByGameId(GAME_ID).orElseThrow().getParticipants();
         assertThat(participants.getFirst().getDisplayNickname()).isEqualTo("떠난회원");
         assertThat(participants.get(1).getDisplayNickname()).isEqualTo("guest-gone");
+    }
+
+    @Test
+    void 로컬_AI_탁구는_사람과_AI의_최종_점수를_함께_저장한다() {
+        User member = users.save(User.create("탁구회원", null));
+        String resultId = "1d61e930-cbea-41f3-935d-85fb95919e44";
+
+        assertThat(pingPongAiResults.archive(
+                new UserIdentity(member.getId(), member.getNickname(), UserType.MEMBER),
+                new PingPongAiResultRequest(resultId, 11, 7))).isTrue();
+
+        Match stored = matches.findWithParticipantsByGameId(resultId).orElseThrow();
+        assertThat(stored.getGameCode()).isEqualTo("PING_PONG");
+        assertThat(stored.getRoomCode()).isEqualTo("LOCAL_AI");
+        assertThat(stored.getPlayerCount()).isEqualTo(2);
+        assertThat(stored.getParticipants())
+                .extracting(MatchParticipant::getPlayerId, MatchParticipant::getTotalScore,
+                        MatchParticipant::getRanking)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.api.Assertions.tuple(member.getId(), 11, 1),
+                        org.assertj.core.api.Assertions.tuple("ping-pong-ai", 7, 2));
+        MatchParticipant human = stored.getParticipants().stream()
+                .filter(participant -> participant.getPlayerId().equals(member.getId()))
+                .findFirst().orElseThrow();
+        MatchParticipant ai = stored.getParticipants().stream()
+                .filter(participant -> participant.getPlayerId().equals("ping-pong-ai"))
+                .findFirst().orElseThrow();
+        assertThat(human.getUser()).isNotNull();
+        assertThat(ai.getUser()).isNull();
+    }
+
+    @Test
+    void 같은_로컬_AI_결과를_재전송해도_한_번만_저장한다() {
+        User member = users.save(User.create("탁구회원", null));
+        UserIdentity identity = new UserIdentity(member.getId(), member.getNickname(), UserType.MEMBER);
+        PingPongAiResultRequest result = new PingPongAiResultRequest(
+                "32a17150-a1f3-4aed-ab59-11ac95665833", 8, 11);
+
+        assertThat(pingPongAiResults.archive(identity, result)).isTrue();
+        assertThat(pingPongAiResults.archive(identity, result)).isFalse();
+        assertThat(matches.count()).isEqualTo(1);
+    }
+
+    @Test
+    void 로컬_AI_탁구_게스트는_user_없이_UUID와_점수를_저장한다() {
+        String resultId = "7f7b50af-a2ec-47b6-93e6-6a54046d8ad0";
+
+        assertThat(pingPongAiResults.archiveGuest(
+                new PingPongAiResultRequest(resultId, 11, 4))).isTrue();
+
+        Match stored = matches.findWithParticipantsByGameId(resultId).orElseThrow();
+        MatchParticipant guest = stored.getParticipants().stream()
+                .filter(participant -> !participant.getPlayerId().equals("ping-pong-ai"))
+                .findFirst().orElseThrow();
+        assertThat(stored.getGameCode()).isEqualTo("PING_PONG");
+        assertThat(stored.getRoomCode()).isEqualTo("LOCAL_AI");
+        assertThat(guest.getUser()).isNull();
+        assertThat(guest.getPlayerId()).matches(
+                "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+        assertThat(guest.getDisplayNickname()).isEqualTo("게스트");
+        assertThat(guest.getTotalScore()).isEqualTo(11);
+        assertThat(guest.getRanking()).isEqualTo(1);
     }
 }
