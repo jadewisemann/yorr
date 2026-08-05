@@ -119,9 +119,11 @@ class TeamYachtRulesTest {
 
         assertThat(TeamYachtRules.rouletteWinner(seed, candidates))
                 .isEqualTo(TeamYachtRules.rouletteWinner(seed, candidates));
+        // 프론트 domain/teamProject.ts의 같은 시드·후보와 결과가 일치해야 한다(2/3 경계를 앞뒤로 짚는다).
         assertThat(TeamYachtRules.rouletteWinner(0L, candidates)).isEqualTo("ones");
-        // 프론트 domain/teamProject.ts의 같은 시드·후보와 결과가 일치해야 한다(계산식 고정).
-        assertThat(TeamYachtRules.rouletteWinner(2_863_311_530L, candidates)).isEqualTo("threes");
+        assertThat(TeamYachtRules.rouletteWinner(2_863_311_530L, candidates)).isEqualTo("twos");
+        assertThat(TeamYachtRules.rouletteWinner(2_863_311_531L, candidates)).isEqualTo("threes");
+        assertThat(TeamYachtRules.rouletteWinner(4_294_967_295L, candidates)).isEqualTo("threes");
     }
 
     @Test
