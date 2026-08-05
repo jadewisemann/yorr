@@ -1,5 +1,9 @@
 import type { PingPongEventType } from '@/realtime/wsEvents'
 
+export type PingPongSituation =
+  | { leader: 0 | 1; type: 'MATCH_POINT' }
+  | { leader: null; type: 'DEUCE' }
+
 const EVENT_LABELS: Partial<
   Record<PingPongEventType, readonly [mine: string | null, opponent: string | null]>
 > = {
@@ -58,4 +62,30 @@ export function comboStyle(count: number) {
   if (count >= 5) return { color: '#ffd24a', size: 'text-6xl', glow: '0 0 20px #ffd24a8c' }
   if (count >= 3) return { color: '#49e08a', size: 'text-5xl', glow: '0 0 16px #49e08a80' }
   return { color: '#ffffff', size: 'text-5xl', glow: '0 2px 10px #00000080' }
+}
+
+export function pingPongSituation(
+  firstScore: number,
+  secondScore: number,
+): PingPongSituation | null {
+  if (firstScore >= 10 && firstScore === secondScore) return { leader: null, type: 'DEUCE' }
+  if (firstScore >= 10 && firstScore > secondScore) return { leader: 0, type: 'MATCH_POINT' }
+  if (secondScore >= 10 && secondScore > firstScore) return { leader: 1, type: 'MATCH_POINT' }
+  return null
+}
+
+export function playerSituationLabel(situation: PingPongSituation | null, player: 0 | 1) {
+  if (!situation) return null
+  if (situation.type === 'DEUCE') return '듀스!'
+  return situation.leader === player ? '매치 포인트!' : '상대 매치 포인트'
+}
+
+export function sharedSituationLabel(
+  situation: PingPongSituation | null,
+  firstName: string,
+  secondName: string,
+) {
+  if (!situation) return null
+  if (situation.type === 'DEUCE') return '듀스!'
+  return `${situation.leader === 0 ? firstName : secondName} 매치 포인트!`
 }
