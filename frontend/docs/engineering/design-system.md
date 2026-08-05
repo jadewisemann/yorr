@@ -58,7 +58,10 @@ frontend/src/
 
 전체 목록은 `tokens.css`를 확인한다. 큰 그룹만 요약하면:
 
-- **핵심 UI**: `canvas`, `surface`, `surface-raised`, `surface-sunken`, `border`, `content`,
+- **화면 프레임**: `Screen`(높이 정책 + safe-area) 하나와 그것을 감싼 `PlayBoard`(게임판) ·
+  `ControllerScreen`(폰 컨트롤러). 화면에서 `min-h-dvh`·`h-svh` 껍데기를 새로 쓰지 않는다.
+- **핵심 UI**: `canvas`, `surface`, `surface-raised`, `surface-sunken`, `border`,
+  `border-raised`, `border-strong`, `surface-veil`, `content`,
   `content-muted`, `content-faint`, `focus`, `scrim`
 - **상태**: `brand`, `brand-strong`, `on-brand`, `positive`, `warning`, `danger`
 - **3D 물리 주사위 전용**: `physics-die`, `physics-pip`, `physics-accent`, `physics-danger`
@@ -107,8 +110,37 @@ xs 2 · chip 6 · control 12 · card 14 · panel 18 · sheet 26 · hero 32 · fu
 
 ### 간격
 
-Tailwind 기본 spacing을 그대로 쓴다. 임의 값은 `env(safe-area-inset-*)`·`clamp()`처럼
-사다리로 표현할 수 없는 것에만 허용한다.
+Tailwind 기본 spacing을 그대로 쓴다. 임의 값은 `clamp()`처럼 사다리로 표현할 수 없는 것에만
+허용한다.
+
+`env(safe-area-inset-*)`는 **더 이상 임의 값으로 쓰지 않는다.** 화면 위·아래 끝의 두 하한만
+토큰이다 — `pt-safe-top`(위, `max(1rem, env(...))`) · `pb-safe-bottom`(아래, `max(1.25rem, env(...))`).
+25곳이 각자 이 산술을 손으로 썼고 하한이 10종까지 벌어져 있었다. 그중 이 두 하한이 14곳이다.
+남은 하한은 그 화면만의 값이라 임의 값으로 둔다.
+
+위아래 하한이 다른 것은 의도다 — 아래는 홈 인디케이터 제스처 영역을 더 피한다.
+
+### 흰색 알파 헤어라인
+
+반투명 흰색 경계는 **세 단**이다. 값으로 구별되므로 눈대중으로 `white/NN`을 적지 않는다.
+
+```text
+border(10%) · border-raised(14%) · border-strong(18%)
+```
+
+`border`는 기본 경계, `border-raised`는 떠 있는 표면(시트 상단·툴팁·칩·점선 빈자리)의 경계,
+`border-strong`은 강조·선택 상태와 1px 구분선이다. 면으로 아주 옅게 깔 때는
+`surface-veil`(6%)을 쓴다 — `surface`(#111214)는 불투명해서 뒤의 배경 그라디언트를 가린다.
+
+랜딩의 `landing-hairline`·`landing-hairline-strong`은 **같은 원시값을 참조한다.** 헤어라인은
+랜딩 팔레트가 아니라 앱과 공유하는 중성 사다리다(랜딩 밖 12곳이 같은 값을 썼다).
+
+이 사다리에 없는 단이 필요하면 **이유를 주석에 적고** 임의 값을 쓴다 —
+`Button`의 ghost 테두리(`white/28`)가 그 선례다(캔버스 위 대비 근거).
+
+게임 화면(`duel/`·`pingpong/`)의 텍스트는 아직 `text-white/35`~`/85` 10단을 쓴다.
+`content`/`content-muted`/`content-faint`를 흰색 알파로 다시 구현한 것이라 정리 대상이지만,
+게임 캔버스 위 밝기 결정이 필요해 별도 티켓으로 둔다.
 
 ## 아이콘
 
