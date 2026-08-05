@@ -16,7 +16,7 @@ describe('App', () => {
 
     render(<App />)
 
-    expect(await screen.findByRole('button', { name: '플레이' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: '요트 다이스' })).toBeVisible()
     expect(useAppStore.getState().connectionStatus).toBe('idle')
   })
 
@@ -28,7 +28,7 @@ describe('App', () => {
       render(<App />)
 
       expect(await screen.findByRole('heading', { name: '외부 브라우저를 권장해요' })).toBeVisible()
-      expect(screen.queryByRole('button', { name: '플레이' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: '요트 다이스' })).not.toBeInTheDocument()
     } finally {
       userAgent.restore()
     }

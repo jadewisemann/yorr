@@ -58,65 +58,41 @@ describe('EntryPage', () => {
   })
   afterEach(() => vi.restoreAllMocks())
 
-  /** 히어로에는 이제 선택지가 하나뿐이다 — 플레이. 게임 비교는 카드 목록 뷰가 맡는다. */
-  it('히어로는 플레이 버튼 하나로 열리고, 누르면 카드 목록 뷰로 이동한다', async () => {
-    const user = userEvent.setup()
+  it('opens on the released game with its play call to action', () => {
     render(<EntryPage />)
 
-    const play = screen.getByRole('button', { name: '플레이' })
-    expect(play).toBeVisible()
-    expect(screen.queryByRole('button', { name: '요트 다이스 플레이' })).not.toBeInTheDocument()
-
-    await user.click(play)
-
-    // push여야 한다 — 목록은 화면 이동이라, 뒤로가기로 히어로에 돌아올 수 있어야 한다.
-    expect(navigate).toHaveBeenCalledWith({
-      to: '/',
-      search: { view: 'games', game: 'yacht' },
-    })
-  })
-
-  it('카드 목록 뷰는 모든 게임을 이미지 자리·이름·설명과 함께 나열한다', () => {
-    render(<EntryPage view="games" />)
-
-    // live 게임이 앞 — 목록 순서는 games 배열이 정한다.
     expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
-    expect(screen.getByRole('heading', { name: '낚시' })).toBeVisible()
-    expect(
-      screen.getByText('12라운드 동안 가장 높은 점수를 완성하는 실시간 주사위 게임'),
-    ).toBeVisible()
-    // 카드 상단은 "어떻게 노는지" — 조작 라벨이 이미지 자리와 짝으로 선다.
-    // (요트·낚시가 같은 조작이라 두 카드에 선다)
-    expect(screen.getAllByText('휴대폰 흔들기')).toHaveLength(2)
+    // "지금 플레이 가능"은 눌리는 CTA가 말한다 — PLAYABLE NOW 배지는 같은 말의 중복이었다.
     expect(screen.getByRole('button', { name: '요트 다이스 플레이' })).toBeVisible()
   })
 
   /**
    * 선택이 화면 안 state에만 있던 시절에는 게임을 고르고 다른 화면에 갔다 돌아오면 무조건
-   * 첫 게임으로 리셋됐다. 이제 URL이 뷰와 선택을 들고 있어, 뒤로가기로 돌아온 랜딩은
-   * 목록 뷰의 마지막 선택에 그대로 선다.
+   * 첫 게임으로 리셋됐다. 이제 URL이 위치를 들고 있어, 뒤로가기로 돌아온 랜딩은 보던 카드에
+   * 그대로 선다(뒤로가기 자체는 라우터가 이 화면을 새 `?game=`으로 다시 마운트하는 일이다).
    */
-  it('카드를 고르면 URL을 덮어쓰고 모드 선택을 연다', async () => {
+  it('쿼리스트링이 가리키는 게임에서 열리고, 카드를 넘기면 URL을 덮어쓴다', async () => {
     const user = userEvent.setup()
-    render(<EntryPage gameKey="duel" view="games" />)
+    render(<EntryPage gameKey="duel" />)
 
-    await user.click(screen.getByRole('button', { name: '석양이 진다 플레이' }))
+    expect(screen.getByRole('heading', { name: '석양이 진다' })).toBeVisible()
 
-    // replace여야 한다 — 카드를 고를 때마다 히스토리가 쌓이면 뒤로가기가 랜딩 안에서
-    // 선택을 하나씩 되짚느라 직전 화면으로 나가지 못한다.
+    await user.click(screen.getByRole('tab', { name: /탁구/ }))
+
+    // replace여야 한다 — 카드를 넘길 때마다 히스토리가 쌓이면 뒤로가기가 랜딩 안에서
+    // 게임을 하나씩 되짚느라 직전 화면으로 나가지 못한다.
     expect(navigate).toHaveBeenCalledWith({
       to: '/',
-      search: { view: 'games', game: 'duel' },
+      search: { game: 'pingpong' },
       replace: true,
     })
-    expect(screen.getByRole('dialog', { name: '석양이 진다 시작하기' })).toBeVisible()
   })
 
-  /** 손으로 고친 `?game=`이나 사라진 게임 키가 와도 히어로가 빈 씬에 서면 안 된다. */
+  /** 손으로 고친 `?game=`이나 사라진 게임 키가 와도 캐러셀이 빈 칸에 서면 안 된다. */
   it('모르는 게임 키로 들어오면 첫 게임으로 연다', () => {
     render(<EntryPage gameKey={'nope' as never} />)
 
-    expect(screen.getByRole('button', { name: '플레이' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
   })
 
   // 랜딩은 진입하자마자 BGM이 흐른다. 게임 화면과 같은 저장 설정을 써야, 조용한 곳에서
@@ -146,7 +122,7 @@ describe('EntryPage', () => {
   ])('opens nickname entry for a new room (%s)', async (_layout, wide) => {
     const user = userEvent.setup()
     useLayout(wide)
-    render(<EntryPage view="games" />)
+    render(<EntryPage />)
 
     // 플레이는 이제 모드부터 고른다 — 방 만들기가 종전의 플레이 경로다.
     await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
@@ -161,12 +137,11 @@ describe('EntryPage', () => {
   // 빠른 대전은 대기열에 설 회원 세션이 필요하다 — 비로그인은 로그인부터 받는다.
   it('빠른 대전은 로그인한 사람만 대기열로 보낸다', async () => {
     const user = userEvent.setup()
-    render(<EntryPage view="games" />)
+    render(<EntryPage />)
 
     await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
     await user.click(screen.getByRole('button', { name: /온라인 대전/ }))
-    // 카드 선택은 URL 덮어쓰기(replace)만 부른다 — 대기열(/join)로 넘어가면 안 된다.
-    expect(navigate).not.toHaveBeenCalledWith(expect.objectContaining({ to: '/join' }))
+    expect(navigate).not.toHaveBeenCalled()
     expect(screen.getByRole('dialog', { name: '로그인' })).toBeVisible()
 
     useAppStore.getState().signIn({
@@ -185,8 +160,9 @@ describe('EntryPage', () => {
 
   it('opens the ping pong party dashboard from the primary play button', async () => {
     const user = userEvent.setup()
-    render(<EntryPage view="games" />)
+    render(<EntryPage />)
 
+    await user.click(screen.getByRole('tab', { name: /탁구/ }))
     await user.click(screen.getByRole('button', { name: '탁구 친구와 대전' }))
     await user.click(screen.getByRole('button', { name: /방 만들기/ }))
 
@@ -199,15 +175,19 @@ describe('EntryPage', () => {
   ])('opens ping pong AI play from the secondary button (%s)', async (_layout, wide) => {
     const user = userEvent.setup()
     useLayout(wide)
-    render(<EntryPage view="games" />)
+    render(<EntryPage />)
 
+    await user.click(screen.getByRole('tab', { name: /탁구/ }))
     await user.click(screen.getByRole('button', { name: '탁구 AI와 대전' }))
 
     expect(navigate).toHaveBeenCalledWith({ to: '/pingpong' })
   })
 
-  it('keeps both ping pong actions in equal mobile columns', () => {
-    render(<EntryPage view="games" />)
+  it('keeps both ping pong actions in equal mobile columns', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    await user.click(screen.getByRole('tab', { name: /탁구/ }))
 
     const ai = screen.getByRole('button', { name: '탁구 AI와 대전' })
     const friend = screen.getByRole('button', { name: '탁구 친구와 대전' })
@@ -217,7 +197,7 @@ describe('EntryPage', () => {
 
   it('처음 온 사람은 방을 만들지 않고 연습 모드로 바로 들어간다', async () => {
     const user = userEvent.setup()
-    render(<EntryPage view="games" />)
+    render(<EntryPage />)
 
     await user.click(screen.getByRole('button', { name: /튜토리얼로 연습하기/ }))
 
@@ -225,21 +205,74 @@ describe('EntryPage', () => {
     expect(navigate).toHaveBeenCalledWith({ to: '/tutorial' })
   })
 
-  it('locks the call to action for a game that has not shipped', () => {
-    render(<EntryPage view="games" />)
+  it('locks the call to action for a game that has not shipped', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
 
-    // 준비 중인 게임에는 연습할 것이 아직 없다 — 연습 입구는 야추 카드에만 선다.
-    const liarsCard = screen.getByRole('heading', { name: '라이어스 다이스' }).closest('article')
-    expect(liarsCard).not.toBeNull()
-    const liars = within(liarsCard as HTMLElement)
-    expect(liars.queryByRole('button', { name: /튜토리얼로 연습하기/ })).not.toBeInTheDocument()
-    // COMING SOON 배지 없이 못 누르는 회색 버튼이 같은 사실을 더 강하게 말한다.
-    expect(liars.queryByRole('button', { name: /플레이$/ })).not.toBeInTheDocument()
-    const locked = liars.getByRole('button', { name: '준비 중인 게임' })
+    await user.click(screen.getByRole('tab', { name: /라이어스 다이스/ }))
+
+    // 준비 중인 게임에는 연습할 것이 아직 없다.
+    expect(screen.queryByRole('button', { name: /튜토리얼로 연습하기/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
+    // COMING SOON 배지도 마찬가지 — 못 누르는 회색 버튼이 같은 사실을 더 강하게 말한다.
+    expect(screen.queryByRole('button', { name: /플레이$/ })).not.toBeInTheDocument()
+    const locked = screen.getByRole('button', { name: '준비 중인 게임' })
     expect(locked).toBeDisabled()
 
-    // 코드 참가는 게임 선택과 무관한 독립 경로다 — 어떤 뷰에서든 살아 있어야 한다.
-    expect(screen.getByRole('button', { name: '초대 코드로 참가' })).toBeEnabled()
+    // 코드 참가는 게임 선택과 무관한 독립 경로다 — 어떤 게임이 선택돼 있든 살아 있어야 하고,
+    // 게임 CTA와 같은 부모에 나란히 서면 "이 게임을 코드로 연다"로 읽힌다.
+    const codeEntry = screen.getByRole('button', { name: '초대 코드로 참가' })
+    expect(codeEntry).toBeEnabled()
+    expect(codeEntry.parentElement).not.toBe(locked.parentElement)
+  })
+
+  it('wraps around the carousel tablist with the arrow keys and keeps focus on the selection', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    const firstTab = screen.getByRole('tab', { name: /요트 다이스/ })
+    firstTab.focus()
+    await user.keyboard('{ArrowLeft}')
+
+    const lastTab = screen.getByRole('tab', { name: /낚시/ })
+    expect(lastTab).toHaveFocus()
+    expect(lastTab).toHaveAttribute('aria-selected', 'true')
+    expect(lastTab).toHaveAttribute('tabindex', '0')
+    expect(firstTab).toHaveAttribute('tabindex', '-1')
+    expect(screen.getByRole('heading', { name: '낚시' })).toBeVisible()
+  })
+
+  it('steps through the carousel with the arrow buttons on the wide layout', async () => {
+    useLayout(true)
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    await user.click(screen.getByRole('button', { name: '다음 게임' }))
+
+    expect(screen.getByRole('heading', { name: '탁구' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: /탁구/ })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  // 목록이 순환하므로 화살표는 끝에서도 비활성이 되지 않는다 — 점 목록 방향키와 같은 규칙이다.
+  it('wraps the carousel at both ends with the arrow buttons', async () => {
+    const user = userEvent.setup()
+    render(<EntryPage />)
+
+    // 첫 게임에서 이전 → 마지막으로 감싼다.
+    await user.click(screen.getByRole('button', { name: '이전 게임' }))
+    expect(screen.getByRole('heading', { name: '낚시' })).toBeVisible()
+
+    // 마지막에서 다음 → 다시 처음으로.
+    await user.click(screen.getByRole('button', { name: '다음 게임' }))
+    expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
+  })
+
+  // 스와이프는 발견 가능한 조작이 아니다 — 모바일에도 명시적인 이동 버튼이 있어야 한다.
+  it('keeps the carousel arrows on the narrow layout', () => {
+    render(<EntryPage />)
+
+    expect(screen.getByRole('button', { name: '이전 게임' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '다음 게임' })).toBeEnabled()
   })
 
   it('sanitizes the room code in the code dialog and only enables join once it is valid', async () => {
