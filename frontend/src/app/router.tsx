@@ -49,6 +49,9 @@ const PartyOnBigScreenPage = lazy(() =>
 const PingPongModePage = lazy(() =>
   importPingPongModePage().then((mod) => ({ default: mod.PingPongModePage })),
 )
+const TeamProjectPage = lazy(() =>
+  import('@/yacht/screens/TeamProjectPage').then((mod) => ({ default: mod.TeamProjectPage })),
+)
 
 /**
  * 첫 화면이 그려진 뒤 남는 시간에 나머지 화면 청크를 미리 받아둔다.
@@ -184,6 +187,22 @@ const leverageRoute = createRoute({
   component: lazyRouteComponent(() => import('@/yacht/screens/LeveragePage'), 'LeveragePage'),
 })
 
+/**
+ * 조별과제 야트(S15P11A406-209). 온라인 3인 한 팀이라 방이 필요한데, 랜딩 카탈로그에는
+ * 넣지 않는다 — 방을 여는 최소 경로를 화면이 직접 들고 있고 초대는 `?code=`로 붙는다.
+ */
+const teamYachtRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/team-yacht',
+  validateSearch: (search: Record<string, unknown>) => ({
+    ...(typeof search.code === 'string' ? { code: normalizeRoomCode(search.code) } : {}),
+  }),
+  component: () => {
+    const { code } = teamYachtRoute.useSearch()
+    return <TeamProjectPage code={code} />
+  },
+})
+
 const pingPongRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/pingpong',
@@ -254,6 +273,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   tutorialRoute,
   leverageRoute,
+  teamYachtRoute,
   pingPongRoute,
   authCallbackRoute,
   joinRoute,

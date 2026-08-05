@@ -85,7 +85,8 @@ export function keepBounds(leg: number, kept: readonly boolean[]) {
 export function isValidKeep(leg: number, kept: readonly boolean[], picks: readonly number[]) {
   const unique = new Set(picks)
   if (unique.size !== picks.length) return false
-  if (picks.some((index) => index < 0 || index >= TEAM_YACHT_DICE_COUNT || kept[index])) return false
+  if (picks.some((index) => index < 0 || index >= TEAM_YACHT_DICE_COUNT || kept[index]))
+    return false
   const { max, min } = keepBounds(leg, kept)
   return unique.size >= min && unique.size <= max
 }
@@ -98,8 +99,13 @@ export function tallyVotes(
   seats: readonly string[],
   votes: Readonly<Record<string, YachtCategory>>,
 ): { winner: YachtCategory } | { candidates: YachtCategory[] } | null {
-  const candidates = seats.map((seat) => votes[seat])
-  if (candidates.some((category) => category === undefined)) return null
+  const candidates: YachtCategory[] = []
+  for (const seat of seats) {
+    const vote = votes[seat]
+    // 아직 표가 다 모이지 않았다 — 여기서 아무것도 정하지 않는다.
+    if (vote === undefined) return null
+    candidates.push(vote)
+  }
 
   const majority = candidates.find(
     (category) => candidates.filter((other) => other === category).length >= 2,

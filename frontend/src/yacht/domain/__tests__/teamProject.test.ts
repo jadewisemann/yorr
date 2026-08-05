@@ -47,8 +47,7 @@ describe('킵 제약', () => {
 })
 
 describe('다수결', () => {
-  const votes = (a: string, b: string, c: string) =>
-    ({ a, b, c }) as Record<string, YachtCategory>
+  const votes = (a: string, b: string, c: string) => ({ a, b, c }) as Record<string, YachtCategory>
 
   it('2표 이상 받은 족보가 기록된다', () => {
     expect(tallyVotes(SEATS, votes('choice', 'choice', 'yacht'))).toEqual({ winner: 'choice' })
@@ -104,7 +103,8 @@ describe('좌석 로테이션', () => {
     const firstRunnerCount: Record<string, number> = {}
     let seats = SEATS
     for (let round = 1; round <= TEAM_YACHT_ROUNDS; round++) {
-      firstRunnerCount[seats[0]] = (firstRunnerCount[seats[0]] ?? 0) + 1
+      const [first] = seats
+      if (first) firstRunnerCount[first] = (firstRunnerCount[first] ?? 0) + 1
       seats = rotateSeats(seats)
     }
 
