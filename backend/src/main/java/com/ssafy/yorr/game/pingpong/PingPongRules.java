@@ -27,6 +27,8 @@ final class PingPongRules {
     private static final double FAULT_BAND = 0.04;
     private static final double EARLY_MARGIN = IDEAL_1 - WINDOW_1_LOW;
     private static final double LATE_MARGIN = WINDOW_1_HIGH - IDEAL_1;
+    /** 스윙을 과거로 되감을 수 있는 최대 폭 (아래 judgedAt 참고) */
+    private static final long MAX_ROLLBACK_MILLIS = 120;
 
     private PingPongRules() {
     }
@@ -83,6 +85,22 @@ final class PingPongRules {
         return copy(state, version, PingPongState.Phase.PLAYING, state.scores(), state.lastInputSeq(), ball,
                 0, state.serveReceiverId(), missDeadline(ball, now),
                 event(version, PingPongState.EventType.SERVE, state.serveReceiverId(), now));
+    }
+
+    /**
+     * 스윙을 판정할 시각. 메시지가 <b>도착한</b> 순간으로 재면 업링크 지연이 통째로 "늦게 침"이
+     * 된다 — 이상 지점 0.9 에서 네트 판정이 시작되는 1.02 까지가 0.12 뿐이라, 보통 속도(1.0 pos/s)
+     * 에서 120ms만 밀려도 눈으로 완벽하게 맞춘 스윙이 네트로 떨어진다(스매시 리턴은 62ms).
+     * 그래서 클라가 찍은 시각으로 판정하되, 되감을 수 있는 폭을 묶는다.
+     *  · clientTs > now  → 서버 시각으로 자른다 (미래에서 온 스윙은 없다)
+     *  · 너무 오래된 값   → MAX_ROLLBACK_MILLIS 까지만 (죽은 공을 쳤다고 우기는 것 차단)
+     *
+     * ponytail: 클라 시계가 서버보다 뒤져 있으면 그만큼 공짜 되감기를 얻는다(최대 120ms).
+     * 시계에서 완전히 벗어나려면 clientTs 대신 "이 공 상태를 받은 뒤 흐른 ms"를 보내고
+     * launchedAt 에 더해야 한다 — 그때 이 함수는 사라진다.
+     */
+    static long judgedAt(long now, long clientTs) {
+        return Math.max(now - MAX_ROLLBACK_MILLIS, Math.min(now, clientTs));
     }
 
     static PingPongState swing(PingPongState state, String playerId, long inputSeq, long now, double targetX) {

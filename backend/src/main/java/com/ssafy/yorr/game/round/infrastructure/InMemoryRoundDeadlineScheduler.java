@@ -18,13 +18,22 @@ import java.util.concurrent.atomic.AtomicLong;
 @Component
 public class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
 
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "round-deadline");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final ScheduledExecutorService executor;
     private final ConcurrentMap<String, ScheduledRound> scheduledRounds = new ConcurrentHashMap<>();
     private final AtomicLong generations = new AtomicLong();
+
+    public InMemoryRoundDeadlineScheduler() {
+        this(Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "round-deadline");
+            thread.setDaemon(true);
+            return thread;
+        }));
+    }
+
+    /** 예약과 슬롯 등록의 순서를 검증하려면 즉시 실행 executor 를 넣어야 한다 (테스트 전용 seam). */
+    InMemoryRoundDeadlineScheduler(ScheduledExecutorService executor) {
+        this.executor = executor;
+    }
 
     @Override
     public void schedule(String roomId, int roundNumber, Instant deadline, Runnable timeoutAction) {
@@ -40,18 +49,27 @@ public class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
 
         long delayMillis = Math.max(0, Duration.between(Instant.now(), deadline).toMillis());
         long generation = generations.incrementAndGet();
+
+        // 슬롯을 예약보다 먼저 잡는다. 마감이 이미 지났으면(delayMillis == 0) 워커가 아래
+        // executor.schedule 직후 바로 실행되는데, 그때 이 세대가 맵에 없으면 runIfCurrent 가
+        // "내 차례가 아니다"로 보고 조용히 스킵한다 → 그 방은 다음 schedule 까지 타임아웃이
+        // 영영 안 온다(탁구: 서브·실점이 멈추고 공이 화면에 얼어붙음).
+        ScheduledRound previous = scheduledRounds.put(
+                roomId,
+                new ScheduledRound(roundNumber, generation, null)
+        );
+        cancelQuietly(previous);
+
         ScheduledFuture<?> future = executor.schedule(
                 () -> runIfCurrent(roomId, roundNumber, generation, timeoutAction),
                 delayMillis,
                 TimeUnit.MILLISECONDS
         );
-        ScheduledRound previous = scheduledRounds.put(
-                roomId,
-                new ScheduledRound(roundNumber, generation, future)
-        );
-        if (previous != null) {
-            previous.future().cancel(false);
-        }
+        // 이미 실행돼 슬롯이 비었으면 붙일 곳이 없다 — computeIfPresent 가 no-op 이다.
+        scheduledRounds.computeIfPresent(roomId, (key, scheduled) ->
+                scheduled.generation() == generation
+                        ? new ScheduledRound(roundNumber, generation, future)
+                        : scheduled);
     }
 
     @Override
@@ -60,15 +78,19 @@ public class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
             if (scheduled.roundNumber() != roundNumber) {
                 return scheduled;
             }
-            scheduled.future().cancel(false);
+            cancelQuietly(scheduled);
             return null;
         });
     }
 
     @Override
     public void cancelRoom(String roomId) {
-        ScheduledRound scheduled = scheduledRounds.remove(roomId);
-        if (scheduled != null) {
+        cancelQuietly(scheduledRounds.remove(roomId));
+    }
+
+    /** future 는 슬롯을 먼저 잡는 구간에서만 잠깐 null 이다 (schedule 주석 참고). */
+    private static void cancelQuietly(ScheduledRound scheduled) {
+        if (scheduled != null && scheduled.future() != null) {
             scheduled.future().cancel(false);
         }
     }
