@@ -383,27 +383,40 @@
   --ds-pp-rival-text: #73bfff;
   --ds-pp-gold: #ffd24a;
   --ds-pp-smash: #ff7a4d;
-  --ds-pp-danger: #e2513c;
-  /* 나쁜 판정 텍스트. 같은 뜻인데 feedback.ts는 #ff8b7c, PingPongModePage는 #ff6b6b로
-     서로 다른 빨강을 쓰고 있었다 — 밝은 쪽으로 합친다(어두운 캔버스 위 대비). */
-  --ds-pp-danger-text: #ff8b7c;
+  /* 실패는 시스템 레드를 그대로 쓴다. 탁구만의 빨강(#e2513c · #ff8b7c)이 따로 있었지만
+     시스템 brand·brand-soft와의 RGB 거리가 25 · 10이라 나란히 놓아도 구분되지 않는다 —
+     구분되지 않는 색이 둘이면 그건 팔레트가 아니라 실수다. 초록·파랑·금색·주황은 이
+     화면의 네온 신호계라 그대로 둔다(시스템 색과 거리 37~75). */
+  --ds-pp-danger: var(--ds-color-brand);
+  --ds-pp-danger-text: var(--ds-color-brand-soft);
+  /* 이 팔레트에서 유일하게 한 번만 쓰이는 색(빗맞음 피드백). 늘어나면 시스템
+     content-muted로 합칠 자리다. */
   --ds-pp-muted: #c7ced7;
   /* 라켓 손잡이. UI 색이 아니라 그림 색이지만 클래스에 박혀 있어 같이 데려온다. */
   --ds-pp-paddle-grip: #201a1a;
 
   /* ── 결투 팔레트 ─────────────────────────────────────────────────────────────
-     석양·등불의 앰버 계열 위에 승/패만 초록·빨강으로 갈린다.
-     signal·gold·positive·danger 넷은 Tailwind 기본 팔레트(amber-500 · amber-400 ·
-     green-300 · red-300)를 그대로 붙여넣은 값이다. 그래서 이 화면만 다른 화면과 색이
-     안 맞는다 — 일단 이름만 붙여 한곳에 모으고, 값 조정은 시각 방향을 정할 때 한다. */
+     석양·등불의 앰버 한 줄기 위에 승/패만 갈린다.
+
+     고친 것: signal·gold·positive·danger 넷은 Tailwind 기본 팔레트(amber-500 ·
+     amber-400 · green-300 · red-300)를 붙여넣은 값이었다. 앰버 둘은 색상환에서
+     accent(H35)와 어긋나 있었고(H38 · H43) 넷 다 채도 92~100%였다 — 같은 화면 안에서
+     서로 다른 노랑 넷이 경쟁하니 어느 것도 신호로 읽히지 않았다.
+
+     지금은 앰버가 accent-soft(L81) → accent(L77) → signal(L55) 한 줄기다. 색상은 H35로
+     묶고 밝기로만 갈라, 셋이 같은 등불의 세기 차이로 읽힌다.
+
+     노랑·초록·빨강은 시스템 토큰을 그대로 가리킨다. "주의 · 이김 · 짐"은 게임 세계관이
+     아니라 앱 전체가 같은 말로 해야 하는 것이다 — 결투에서만 다른 초록으로 이기면
+     그건 세계관이 아니라 버그로 보인다. */
   --ds-duel-canvas: #0b0409;
   --ds-duel-accent: #ffcf8a;
   --ds-duel-accent-soft: #ffd9a0;
   --ds-duel-ink: #f4e6d0;
-  --ds-duel-signal: #f59e0b;
-  --ds-duel-gold: #fbbf24;
-  --ds-duel-positive: #86efac;
-  --ds-duel-danger: #fca5a5;
+  --ds-duel-signal: #e09a3a;
+  --ds-duel-gold: var(--ds-color-warning);
+  --ds-duel-positive: var(--ds-color-positive);
+  --ds-duel-danger: var(--ds-color-brand-soft);
 
   /* 필름 그레인 — 캔버스와 랜딩 배경 위에 얹는 <b>맨 위 배경 레이어</b>다.
      이 화면들은 전부 큰 면적의 매끈한 radial-gradient라 넓은 디스플레이에서 계단(banding)이
