@@ -370,7 +370,8 @@ function PingPongPreparationController({
   )
 }
 
-function usesTouchFallback(permission: SwingPermission) {
+/** 센서 대신 화면 탭으로 스윙하는 기기인가. 대기실 사용법(`PingPongControllerHowTo`)도 같은 선을 쓴다. */
+export function usesTouchFallback(permission: SwingPermission) {
   return permission === 'denied' || permission === 'unsupported'
 }
 

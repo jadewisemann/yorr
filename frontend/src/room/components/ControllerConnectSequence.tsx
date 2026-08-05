@@ -1,5 +1,6 @@
 import { type ComponentType, type ReactNode, useEffect, useRef, useState } from 'react'
 import type { GameCode } from '@/games'
+import { PingPongControllerHowTo } from '@/pingpong/PingPongControllerHowTo'
 import { CONNECTED_HOLD_MS, CONNECTED_VIBRATE_MS, CONNECTING_MIN_MS } from '@/room/connectSequence'
 import { cn } from '@/shared/cn'
 import type { ConnectionStatus } from '@/store'
@@ -35,7 +36,9 @@ export type ControllerConnectStep = 'connecting' | 'connected' | 'ready'
  *
  * 등록 예: `{ YACHT_DICE: YachtControllerHowTo }`
  */
-export const controllerHowTo: Partial<Record<GameCode, ComponentType>> = {}
+export const controllerHowTo: Partial<Record<GameCode, ComponentType>> = {
+  PING_PONG: PingPongControllerHowTo,
+}
 
 const steps = [
   { key: 'connecting', label: '연결 중', detail: '컨트롤러를 방에 연결하고 있어요' },
