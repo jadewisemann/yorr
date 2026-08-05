@@ -44,18 +44,20 @@ public interface MatchParticipantRepository extends JpaRepository<MatchParticipa
      * @param to   제외. 다음 주 시작 시각
      */
     @Cacheable(cacheNames = CacheConfig.WEEKLY_RANKING,
-            key = "#from.toString() + '|' + #pageable.pageSize")
+            key = "#gameCode + '|' + #from.toString() + '|' + #pageable.pageSize")
     @Query("""
             select p.user.id as userId, p.user.nickname as nickname,
                    max(p.totalScore) as bestScore
             from MatchParticipant p
             where p.user is not null
+              and p.match.gameCode = :gameCode
               and p.match.finishedAt >= :from
               and p.match.finishedAt < :to
             group by p.user.id, p.user.nickname
             order by max(p.totalScore) desc, p.user.id asc
             """)
-    List<WeeklyBest> findWeeklyBest(@Param("from") LocalDateTime from,
+    List<WeeklyBest> findWeeklyBest(@Param("gameCode") String gameCode,
+                                    @Param("from") LocalDateTime from,
                                     @Param("to") LocalDateTime to,
                                     Pageable pageable);
 
@@ -70,10 +72,12 @@ public interface MatchParticipantRepository extends JpaRepository<MatchParticipa
             select max(p.totalScore)
             from MatchParticipant p
             where p.user.id = :userId
+              and p.match.gameCode = :gameCode
               and p.match.finishedAt >= :from
               and p.match.finishedAt < :to
             """)
     Integer findWeeklyBestScoreOf(@Param("userId") String userId,
+                                  @Param("gameCode") String gameCode,
                                   @Param("from") LocalDateTime from,
                                   @Param("to") LocalDateTime to);
 
@@ -91,11 +95,13 @@ public interface MatchParticipantRepository extends JpaRepository<MatchParticipa
             select count(distinct p.user.id)
             from MatchParticipant p
             where p.user is not null
+              and p.match.gameCode = :gameCode
               and p.match.finishedAt >= :from
               and p.match.finishedAt < :to
               and p.totalScore > :score
             """)
     long countMembersScoringMoreThan(@Param("score") int score,
+                                     @Param("gameCode") String gameCode,
                                      @Param("from") LocalDateTime from,
                                      @Param("to") LocalDateTime to);
 }
