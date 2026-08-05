@@ -74,6 +74,7 @@ export function useSwing({
   }, [onSwing, enabled, threshold])
 
   const lastSwingAt = useRef(0)
+  const listening = useRef(false)
   /** 저역통과로 추정한 중력 벡터 */
   const grav = useRef({ x: 0, y: 0, z: 0 })
   /** 스파이크가 한 번 내려갔는지 (히스테리시스) */
@@ -103,34 +104,67 @@ export function useSwing({
     onSwingRef.current()
   }, [])
 
-  /** 버튼 탭 안에서 호출 (iOS 권한 팝업) */
-  const requestPermission = useCallback(async () => {
-    if (typeof DeviceMotionEvent === 'undefined') {
+  const startListening = useCallback(() => {
+    if (listening.current) return
+    grav.current = { x: 0, y: 0, z: 0 }
+    armed.current = true
+    window.addEventListener('devicemotion', handleMotion)
+    listening.current = true
+  }, [handleMotion])
+
+  const stopListening = useCallback(() => {
+    if (!listening.current) return
+    window.removeEventListener('devicemotion', handleMotion)
+    listening.current = false
+  }, [handleMotion])
+
+  useEffect(() => {
+    const deviceMotion = window.DeviceMotionEvent as
+      | (typeof DeviceMotionEvent & {
+          requestPermission?: () => Promise<'granted' | 'denied'>
+        })
+      | undefined
+    if (!deviceMotion) {
       setPermission('unsupported')
       return
     }
-    const anyDME = DeviceMotionEvent as unknown as {
-      requestPermission?: () => Promise<'granted' | 'denied'>
+    // Android 계열 브라우저는 별도 권한 API가 없으므로 마운트 즉시 센서를 연결한다.
+    // iOS는 사용자 제스처 안에서 requestPermission()을 호출해야 하므로 버튼 입력을 기다린다.
+    if (typeof deviceMotion.requestPermission !== 'function') {
+      startListening()
+      setPermission('granted')
+    }
+    return stopListening
+  }, [startListening, stopListening])
+
+  /** 버튼 탭 안에서 호출 (iOS 권한 팝업) */
+  const requestPermission = useCallback(async () => {
+    const deviceMotion = window.DeviceMotionEvent as
+      | (typeof DeviceMotionEvent & {
+          requestPermission?: () => Promise<'granted' | 'denied'>
+        })
+      | undefined
+    if (!deviceMotion) {
+      setPermission('unsupported')
+      return
     }
     try {
-      if (typeof anyDME.requestPermission === 'function') {
-        const res = await anyDME.requestPermission()
+      if (typeof deviceMotion.requestPermission === 'function') {
+        const res = await deviceMotion.requestPermission()
         if (res === 'granted') {
-          window.addEventListener('devicemotion', handleMotion)
+          startListening()
           setPermission('granted')
         } else {
           setPermission('denied')
         }
       } else {
-        window.addEventListener('devicemotion', handleMotion)
+        startListening()
         setPermission('granted')
       }
     } catch {
       setPermission('denied')
     }
-  }, [handleMotion])
-
-  useEffect(() => () => window.removeEventListener('devicemotion', handleMotion), [handleMotion])
+  }, [startListening])
 
   return { permission, requestPermission }
 }
