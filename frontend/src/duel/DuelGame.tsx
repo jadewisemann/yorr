@@ -14,6 +14,7 @@ import type { ActiveRoomSession } from '@/store'
 import { Arena } from './Arena'
 import { flightMs, MAX_FOULS, MAX_HP, type ShotTarget, slots } from './duel'
 import { Gunslinger, OUTFIT_LEFT, OUTFIT_RIGHT, type Outfit } from './Gunslinger'
+import { playGunHit, playGunShot } from './sounds'
 import { buildStage } from './stage'
 
 /**
@@ -108,6 +109,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
   const [myShot, setMyShot] = useState<{ round: number; target: ShotTarget } | null>(null)
   /** 내 총알이 떠난 시각. 판정이 늦게 와도 착탄까지 남은 시간을 이만큼 깎는다. */
   const firedAt = useRef<number | null>(null)
+  const soundedRound = useRef(0)
 
   stateRef.current = state
   // 라운드는 WAITING → SIGNAL → RESULT 를 정확히 한 번씩 거치므로, 아래 두 타이밍은
@@ -133,10 +135,20 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
     setImpact(false)
     if (phase !== 'RESULT') return
     const wake = Math.max(0, impactDelay.current - IMPACT_LEAD_MS)
-    const timeoutId = window.setTimeout(() => setImpact(true), wake)
+    const timeoutId = window.setTimeout(() => {
+      setImpact(true)
+      if (state?.lastRound?.hitId) playGunHit()
+    }, wake)
     return () => window.clearTimeout(timeoutId)
     // 남은 시간은 판정에 들어서는 렌더에서 이미 확정된다 — 이 국면 안에서는 다시 바뀌지 않는다.
-  }, [phase, impactDelay.current])
+  }, [phase, impactDelay.current, state?.lastRound?.hitId])
+
+  useEffect(() => {
+    const round = state?.lastRound
+    if (!round || round.number === soundedRound.current || round.kind === 'FORFEIT') return
+    soundedRound.current = round.number
+    playGunShot()
+  }, [state?.lastRound])
 
   const draw = useCallback(() => {
     const current = stateRef.current
@@ -160,6 +172,8 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
           { roomId },
         ),
       )
+      soundedRound.current = current.round
+      playGunShot()
       setSendError(null)
     } catch {
       // 못 보냈으면 쏘지 않은 것이다 — 되돌려 다시 뽑을 수 있게 한다.

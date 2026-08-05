@@ -52,6 +52,7 @@ export function GamePage({ roomId }: { roomId: string }) {
   const [resultReady, setResultReady] = useState(false)
   const matchingRoom = roomSession?.roomId === roomId
   const screens = screensOf(roomSnapshot?.gameCode ?? roomSession?.gameCode)
+  const gameCode = roomSnapshot?.gameCode ?? roomSession?.gameCode
   const finished = roomSnapshot?.phase === 'finished'
 
   useEffect(() => {
@@ -68,8 +69,8 @@ export function GamePage({ roomId }: { roomId: string }) {
 
   useEffect(() => {
     if (roomSnapshot?.phase === 'finished') playResultSoundtrack()
-    else if (roomSnapshot?.phase === 'playing') playGameSoundtrack()
-  }, [roomSnapshot?.phase])
+    else if (roomSnapshot?.phase === 'playing') playGameSoundtrack(gameCode)
+  }, [gameCode, roomSnapshot?.phase])
 
   useEffect(() => {
     if (!roomSession || !roomSnapshot || !matchingRoom || roomResumeReason) {

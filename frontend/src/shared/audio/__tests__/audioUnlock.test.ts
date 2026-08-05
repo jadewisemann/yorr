@@ -9,6 +9,19 @@ function fakeAudio(paused = true) {
   return audio
 }
 
+it('게임 입력 핸들러보다 먼저 오디오 잠금을 해제한다', () => {
+  const order: string[] = []
+  const button = document.createElement('button')
+  document.body.append(button)
+  onFirstGesture(() => order.push('unlock'))
+  button.addEventListener('pointerdown', () => order.push('input'))
+
+  button.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+
+  expect(order).toEqual(['unlock', 'input'])
+  button.remove()
+})
+
 it('제스처 안에서 요소를 재생했다 즉시 멈춰 잠금만 푼다', () => {
   const audio = fakeAudio()
 
