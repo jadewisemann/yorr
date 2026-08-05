@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import { type RefObject, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { type GameCode, gameByCode } from '@/games'
 import { PeerMicButton } from '@/realtime/voice/PeerMicButton'
 import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
@@ -265,15 +265,34 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           </p>
         )}
 
+        {/* 초대 버튼은 이미 있던 줄에 얹는다 — 세로를 되찾으려고 초대 카드를 치운 자리에 새 줄을
+            만들면 도로 같은 높이를 쓴다. 인원 수를 보고 "아직 덜 모였다"고 느끼는 자리가 초대를
+            누르는 자리이기도 하다. 스냅샷을 기다리는 동안에도 그린다 — 방을 만든 직후가 초대
+            링크를 뿌리는 순간인데 그때 버튼이 없으면 옮긴 의미가 없다. */}
+        <div className="flex flex-none items-center justify-between gap-3">
+          <span className="text-[15px] font-semibold">참가 인원</span>
+          <span className="ml-auto font-mono text-base font-bold tabular-nums">
+            {roomSnapshot?.players.length ?? 0}
+            <span className="text-content-faint"> / {capacity}</span>
+          </span>
+          <Button
+            className="min-h-9 flex-none px-3 text-sm"
+            onClick={() => setInviteOpen(true)}
+            ref={inviteButtonRef}
+            type="button"
+            variant="secondary"
+          >
+            초대
+          </Button>
+        </div>
+
         <LobbyRoomContent
           botLoading={botMutationLoading}
           canStart={canStart}
           capacity={capacity}
           connectionStatus={connectionStatus}
-          inviteButtonRef={inviteButtonRef}
           isHost={isHost}
           minPlayers={minPlayersToStart}
-          onInvite={() => setInviteOpen(true)}
           onRemoveBot={(playerId) => void removeBot.execute(playerId)}
           onStart={() => void handleStart()}
           snapshot={roomSnapshot}
@@ -300,9 +319,6 @@ interface LobbyRoomContentProps {
   botLoading: boolean
   /** 음성 채팅 상태. 참가자 카드 이름 오른쪽 끝에 그 사람 마이크가 선다. */
   voice: VoiceChat
-  /** 초대 말풍선이 붙을 자리. 말풍선 자체는 `<main>` 밖에서 그려진다(inert 함정). */
-  inviteButtonRef: RefObject<HTMLButtonElement | null>
-  onInvite: () => void
   onStart: () => void
   onRemoveBot: (playerId: PlayerId) => void
 }
@@ -319,34 +335,12 @@ function LobbyRoomContent({
   startError,
   botLoading,
   voice,
-  inviteButtonRef,
-  onInvite,
   onStart,
   onRemoveBot,
 }: LobbyRoomContentProps) {
   if (!snapshot) return null
   return (
     <>
-      {/* 초대 버튼은 이미 있던 줄에 얹는다 — 세로를 되찾으려고 카드를 치운 자리에 새 줄을
-          만들면 도로 같은 높이를 쓴다. 인원 수를 보고 "아직 덜 모였다"고 느끼는 자리가
-          초대를 누르는 자리이기도 하다. */}
-      <div className="flex flex-none items-center justify-between gap-3">
-        <span className="text-[15px] font-semibold">참가 인원</span>
-        <span className="ml-auto font-mono text-base font-bold tabular-nums">
-          {snapshot.players.length}
-          <span className="text-content-faint"> / {capacity}</span>
-        </span>
-        <Button
-          className="min-h-9 flex-none px-3 text-sm"
-          onClick={onInvite}
-          ref={inviteButtonRef}
-          type="button"
-          variant="secondary"
-        >
-          초대
-        </Button>
-      </div>
-
       {/* min-h-28: 참가자 카드 한 장은 반드시 보인다(짧은 화면 대책 — main 주석 참고). */}
       <section
         className="grid min-h-28 flex-1 auto-rows-min gap-2.5 overflow-y-auto"
