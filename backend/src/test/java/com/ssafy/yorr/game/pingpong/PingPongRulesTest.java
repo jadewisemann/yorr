@@ -13,6 +13,17 @@ class PingPongRulesTest {
     private static final String P1 = "player-1";
     private static final String P2 = "player-2";
 
+    /**
+     * 업링크 지연은 되감아 주되, 미래에서 온 스윙과 죽은 공을 친 스윙은 잘라낸다.
+     * 되감기 한계 120ms 는 PingPongRules.MAX_ROLLBACK_MILLIS.
+     */
+    @Test
+    void judgedAtRewindsTheUplinkDelayWithinBounds() {
+        assertThat(PingPongRules.judgedAt(10_000, 9_920)).isEqualTo(9_920);
+        assertThat(PingPongRules.judgedAt(10_000, 10_050)).isEqualTo(10_000);
+        assertThat(PingPongRules.judgedAt(10_000, 9_000)).isEqualTo(9_880);
+    }
+
     @Test
     void exactTimingReturnsASmashAndDuplicateInputIsIgnored() {
         PingPongState served = startMatch();
