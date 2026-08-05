@@ -35,6 +35,11 @@ import static com.ssafy.yorr.game.module.GameWsTypes.type;
  *   <li>각자에게 따로 → {@code game.liars.hand}에 <b>자기 손패만</b></li>
  * </ul>
  * 남의 눈이 브로드캐스트에 실리는 건 챌린지로 공개되는 {@code lastReveal.hands} 하나뿐이다.
+ *
+ * <p>ponytail: 타이머는 공개 판정(REVEAL) → 다음 라운드 하나뿐이다. <b>턴 마감이 없어</b>,
+ * 연결은 살아 있는데 아무 조작도 하지 않는 사람이 있으면 그 방은 그 턴에서 멈춘다(끊기면
+ * removePlayer가 이탈로 처리한다). 야추처럼 턴 마감이 필요해지면 {@code RoundTimerService}
+ * 자리에 "마감 시 자동 챌린지"를 붙이는 게 가장 작은 길이다.
  */
 @Service
 public class LiarsGameService {
