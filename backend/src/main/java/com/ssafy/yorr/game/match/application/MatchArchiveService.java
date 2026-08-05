@@ -20,7 +20,6 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 /**
  * 끝난 판을 DB에 남긴다. 여기까지 오지 않으면 결과는 Redis와 함께 40분 만에 사라진다.
@@ -66,31 +65,57 @@ public class MatchArchiveService {
     public boolean archive(RoomSnapshot room, List<GameOverPayload.Ranking> rankings) {
         if (room == null || room.gameId() == null || room.gameId().isBlank()) return false;
         if (rankings == null || rankings.isEmpty()) return false;
-        if (matches.existsByGameId(room.gameId())) return false;
 
         Map<String, String> nicknames = room.players().stream().collect(java.util.stream.Collectors.toMap(
                 RoomPlayerSnapshot::playerId, RoomPlayerSnapshot::nickname, (first, second) -> first));
+        List<ParticipantResult> participants = rankings.stream()
+                .map(ranking -> new ParticipantResult(
+                        ranking.playerId(),
+                        nicknames.get(ranking.playerId()),
+                        ranking.total(),
+                        ranking.rank()))
+                .toList();
+        return archive(room.gameId(), room.gameCode(), room.roomCode(), participants);
+    }
 
-        Match match = Match.finished(room.gameId(), room.gameCode(), room.roomCode(),
-                LocalDateTime.now(clock));
-        for (GameOverPayload.Ranking ranking : rankings) {
-            User user = users.findById(ranking.playerId()).orElse(null);
-            String nickname = nicknames.getOrDefault(ranking.playerId(),
-                    user == null ? ranking.playerId() : user.getNickname());
-            match.add(MatchParticipant.of(user, ranking.playerId(), trim(nickname),
-                    ranking.total(), ranking.rank()));
+    /** 방 없이 진행된 로컬 게임도 같은 경기·참가자 저장 규칙을 사용한다. */
+    @CacheEvict(cacheNames = CacheConfig.WEEKLY_RANKING, allEntries = true)
+    @Transactional
+    public boolean archive(
+            String gameId,
+            String gameCode,
+            String roomCode,
+            List<ParticipantResult> results
+    ) {
+        if (gameId == null || gameId.isBlank() || gameCode == null || gameCode.isBlank()
+                || roomCode == null || roomCode.isBlank() || results == null || results.isEmpty()) {
+            return false;
+        }
+        if (matches.existsByGameId(gameId)) return false;
+
+        Match match = Match.finished(gameId, gameCode, roomCode, LocalDateTime.now(clock));
+        for (ParticipantResult result : results) {
+            User user = users.findById(result.playerId()).orElse(null);
+            String nickname = result.displayNickname() == null || result.displayNickname().isBlank()
+                    ? user == null ? result.playerId() : user.getNickname()
+                    : result.displayNickname();
+            match.add(MatchParticipant.of(user, result.playerId(), trim(nickname),
+                    result.totalScore(), result.ranking()));
         }
 
         try {
             matches.save(match);
         } catch (DataIntegrityViolationException race) {
             // 종료가 동시에 두 번 처리됐다. UNIQUE가 막았으니 먼저 저장한 쪽을 그대로 둔다.
-            log.info("이미 저장된 판입니다: game={}", room.gameId());
+            log.info("이미 저장된 판입니다: game={}", gameId);
             return false;
         }
         log.info("게임 결과를 저장했습니다: game={} room={} players={}",
-                room.gameId(), room.roomCode(), match.getPlayerCount());
+                gameId, roomCode, match.getPlayerCount());
         return true;
+    }
+
+    public record ParticipantResult(String playerId, String displayNickname, int totalScore, int ranking) {
     }
 
     /** display_nickname은 20자다. 그때 보였던 이름을 남기는 게 목적이라 잘라서라도 남긴다. */
