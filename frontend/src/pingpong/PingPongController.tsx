@@ -308,7 +308,13 @@ function PingPongPreparationController({
 
       <div className="mt-5 text-center">
         <h1 className="m-0 text-2xl font-black">연습 공을 쳐보세요</h1>
+        {/* 잡는 법이 여기 있는 이유: 빠른 대전으로 들어온 폰은 대기실 사용법
+            (`PingPongControllerHowTo`)을 지나지 않는다 — 매칭이 잡히면 대기 백드롭이 걷히기
+            전에 경기가 시작돼서, 이 화면이 그 사람이 보는 첫 안내다(S15P11A406-206). */}
         <p className="mt-1.5 mb-0 text-sm text-white/55">
+          {usesTouchFallback(permission)
+            ? '화면을 눌러 받아치세요. '
+            : '폰을 라켓처럼 세워 쥐고 팔로 짧게 휘두르세요. '}
           스윙이 감지된 뒤 준비 완료를 누르면 두 사람이 함께 시작해요.
         </p>
       </div>
@@ -354,11 +360,7 @@ function PingPongPreparationController({
           onClick={onReady}
           type="button"
         >
-          {ready
-            ? '준비 완료 · 친구를 기다리는 중'
-            : practiced
-              ? '준비 완료'
-              : '먼저 공을 한 번 쳐보세요'}
+          {readyButtonLabel(practiced, ready)}
         </button>
         {error && (
           <p className="m-0 text-center text-sm text-red-300" role="alert">
@@ -370,7 +372,8 @@ function PingPongPreparationController({
   )
 }
 
-function usesTouchFallback(permission: SwingPermission) {
+/** 센서 대신 화면 탭으로 스윙하는 기기인가. 대기실 사용법(`PingPongControllerHowTo`)도 같은 선을 쓴다. */
+export function usesTouchFallback(permission: SwingPermission) {
   return permission === 'denied' || permission === 'unsupported'
 }
 
@@ -387,6 +390,15 @@ function practicePrompt(permission: SwingPermission) {
   if (permission === 'unknown') return '화면을 눌러 모션 센서 연결'
   if (permission === 'granted') return '센서 연결 완료 · 휴대폰을 휘둘러 스윙'
   return '화면을 눌러 스윙 · 센서 대체 조작'
+}
+
+/**
+ * 워밍업 준비 완료 버튼의 문구. 폰 컨트롤러와 데스크톱 코트가 같은 세 상태를 말한다 —
+ * 한쪽만 고치면 같은 조건에서 두 기기가 다른 말을 한다.
+ */
+export function readyButtonLabel(practiced: boolean, ready: boolean) {
+  if (ready) return '준비 완료 · 친구를 기다리는 중'
+  return practiced ? '준비 완료' : '먼저 공을 한 번 쳐보세요'
 }
 
 function PreparationMotionStatus({
