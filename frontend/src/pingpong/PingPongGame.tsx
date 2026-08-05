@@ -4,6 +4,7 @@ import { buildClientMessage, type PingPongState, type RoomSnapshot } from '@/rea
 import { isRoomHost } from '@/room/api/roomApi'
 import { useReturnToLobby } from '@/room/api/useGameApi'
 import { Button } from '@/shared/components/Button'
+import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import { useMediaQuery } from '@/shared/useMediaQuery'
 import { useSwing } from '@/shared/useSwing'
 import type { ActiveRoomSession } from '@/store'
@@ -254,13 +255,14 @@ function PingPongDashboard({
         className="absolute inset-0 size-full"
         ref={canvasRef}
       />
-      <button
-        className="absolute top-20 left-4 z-20 min-h-11 rounded-full border border-white/20 bg-black/45 px-4 text-sm backdrop-blur-md"
+      <GameChromeButton
+        className="absolute top-20 left-4 z-20"
+        tone="overlay"
         onClick={onClose}
         type="button"
       >
         방 닫기
-      </button>
+      </GameChromeButton>
       <CourtOverlay
         badge={`PARTY · RALLY ${state.rally}`}
         clock={clock}
@@ -325,13 +327,14 @@ function PingPongDesktopPlayer({
         onClick={onSwing}
         type="button"
       />
-      <button
-        className="absolute top-20 left-4 z-20 min-h-11 rounded-full border border-white/20 bg-black/45 px-4 text-sm backdrop-blur-md"
+      <GameChromeButton
+        className="absolute top-20 left-4 z-20"
+        tone="overlay"
         onClick={onLeave}
         type="button"
       >
         나가기
-      </button>
+      </GameChromeButton>
       <CourtOverlay
         badge={`RALLY ${state.rally}`}
         clock={clock}

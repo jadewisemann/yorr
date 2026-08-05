@@ -10,6 +10,7 @@ import { isRoomHost } from '@/room/api/roomApi'
 import { useReturnToLobby } from '@/room/api/useGameApi'
 import { isPartyRoom } from '@/room/partyControllerStorage'
 import { Button } from '@/shared/components/Button'
+import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import { useSwing } from '@/shared/useSwing'
 import type { ActiveRoomSession } from '@/store'
 import { Arena } from './Arena'
@@ -336,8 +337,9 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
         />
       </Arena>
 
-      <button
-        className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 z-20 min-h-11 rounded-full border border-white/20 bg-black/45 px-4 text-sm backdrop-blur-md"
+      <GameChromeButton
+        className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 z-20"
+        tone="overlay"
         onClick={(event) => {
           event.stopPropagation()
           onLeaveRequest()
@@ -345,7 +347,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
         type="button"
       >
         나가기
-      </button>
+      </GameChromeButton>
 
       <section className="absolute inset-x-0 bottom-0 z-20 grid justify-items-center gap-2 px-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {permission === 'unknown' && (
@@ -424,13 +426,14 @@ function DuelDashboard({
         round={state.round}
       />
 
-      <button
-        className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 z-20 min-h-11 rounded-full border border-white/20 bg-black/45 px-4 text-sm backdrop-blur-md"
+      <GameChromeButton
+        className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 z-20"
+        tone="overlay"
         onClick={onClose}
         type="button"
       >
         방 닫기
-      </button>
+      </GameChromeButton>
     </main>
   )
 }

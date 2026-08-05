@@ -1,4 +1,5 @@
 import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
+import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import { ControllerScreen } from '@/shared/components/Screen'
 import type { SwingPermission } from '@/shared/useSwing'
 import {
@@ -116,13 +117,7 @@ export function PingPongController({
           </span>
           <strong className="truncate text-lg">{nickname}</strong>
         </div>
-        <button
-          className="min-h-11 rounded-full border border-white/15 bg-white/6 px-4 text-sm text-white/70"
-          onClick={onLeave}
-          type="button"
-        >
-          나가기
-        </button>
+        <GameChromeButton onClick={onLeave}>나가기</GameChromeButton>
       </header>
 
       <section className="mt-4 flex flex-none items-center justify-between rounded-card border border-white/12 bg-white/6 px-4 py-3">
@@ -295,13 +290,7 @@ function PingPongPreparationController({
           </span>
           <strong className="truncate text-lg">{nickname}</strong>
         </div>
-        <button
-          className="min-h-11 rounded-full border border-white/15 bg-white/6 px-4 text-sm text-white/70"
-          onClick={onLeave}
-          type="button"
-        >
-          나가기
-        </button>
+        <GameChromeButton onClick={onLeave}>나가기</GameChromeButton>
       </header>
 
       <section className="mt-4 grid flex-none grid-cols-2 gap-2" aria-label="참가자 준비 상태">

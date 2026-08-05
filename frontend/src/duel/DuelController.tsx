@@ -1,4 +1,5 @@
 import type { DuelState } from '@/realtime/wsEvents'
+import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import { ControllerScreen } from '@/shared/components/Screen'
 import type { SwingPermission } from '@/shared/useSwing'
 import { Shell, Warn } from './Arena'
@@ -66,13 +67,7 @@ export function DuelController({
           </span>
           <strong className="truncate text-lg">{nickname}</strong>
         </div>
-        <button
-          className="min-h-11 rounded-full border border-white/15 bg-white/6 px-4 text-sm text-white/70"
-          onClick={onLeave}
-          type="button"
-        >
-          나가기
-        </button>
+        <GameChromeButton onClick={onLeave}>나가기</GameChromeButton>
       </header>
 
       {/* 기록(ms)은 판정이 난 뒤에만, 그리고 <b>여기에만</b> 뜬다. 유예 중에 상대 기록이
