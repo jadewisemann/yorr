@@ -2,6 +2,7 @@ package com.ssafy.yorr.game.ranking.application;
 
 import com.ssafy.yorr.game.match.repository.MatchParticipantRepository;
 import com.ssafy.yorr.game.match.repository.MatchParticipantRepository.WeeklyBest;
+import com.ssafy.yorr.game.yacht.YachtDiceGameModule;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -55,6 +56,7 @@ public class WeeklyRankingService {
     public WeeklyRanking currentWeek(int limit) {
         ZonedDateTime weekStart = weekStart();
         List<WeeklyBest> rows = participants.findWeeklyBest(
+                YachtDiceGameModule.CODE,
                 utcWallClock(weekStart),
                 utcWallClock(weekStart.plusWeeks(1)),
                 PageRequest.of(0, clampLimit(limit)));
@@ -74,10 +76,10 @@ public class WeeklyRankingService {
         LocalDateTime from = utcWallClock(weekStart);
         LocalDateTime to = utcWallClock(weekStart.plusWeeks(1));
 
-        Integer best = participants.findWeeklyBestScoreOf(userId, from, to);
+        Integer best = participants.findWeeklyBestScoreOf(userId, YachtDiceGameModule.CODE, from, to);
         if (best == null) return null;
 
-        long better = participants.countMembersScoringMoreThan(best, from, to);
+        long better = participants.countMembersScoringMoreThan(best, YachtDiceGameModule.CODE, from, to);
         return new MyWeeklyRank(weekStart.toLocalDate(), (int) better + 1, best);
     }
 

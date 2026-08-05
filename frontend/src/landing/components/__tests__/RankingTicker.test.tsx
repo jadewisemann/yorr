@@ -259,7 +259,7 @@ describe('RankingTicker · 갱신', () => {
     render(<RankingTicker layout="wide" />)
 
     await waitFor(() =>
-      expect(screen.queryByRole('region', { name: '이번 주 파워랭킹' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('region', { name: '이번 주 요트랭킹' })).not.toBeInTheDocument(),
     )
   })
 })

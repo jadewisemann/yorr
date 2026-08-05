@@ -52,7 +52,7 @@ export function RankingTicker({ layout }: { layout: 'narrow' | 'wide' }) {
 
   return (
     <section
-      aria-label="이번 주 파워랭킹"
+      aria-label="이번 주 요트랭킹"
       className={cn(
         // 배경은 landing-panel(86% 불투명)이다. landing-well은 배경 바탕(#08090a)을 같은 색
         // 55%로 얹은 값이라 랜딩 위에서 아예 분리되지 않는다 — 띠가 있는 줄도 모른다.
@@ -297,7 +297,7 @@ function TickerLabel() {
         aria-hidden="true"
         className="size-2 rounded-full bg-landing-accent-text motion-safe:animate-ring-pulse"
       />
-      이번 주 파워랭킹
+      이번 주 요트랭킹
     </p>
   )
 }
@@ -470,7 +470,7 @@ function EmptyNotice({ loading }: { loading: boolean }) {
   // 주인이 되어보세요")는 narrow 뷰포트가 ~168px뿐이라 truncate가 앞머리만 남기고 **행동을
   // 통째로 잘라냈다** — 빈 상태에는 다음 행동이 하나 남아 있어야 한다.
   // 기록이 없다는 사실은 이름이 하나도 없는 것으로 이미 읽히고, 무엇의 순위인지는 왼쪽
-  // 고정 라벨("이번 주 파워랭킹")이 말한다. 그래서 남길 것은 행동뿐이다.
+  // 고정 라벨("이번 주 요트랭킹")이 말한다. 그래서 남길 것은 행동뿐이다.
   return (
     <p className="m-0 truncate text-[12px]/none font-landing-medium text-landing-text-faint">
       로그인하고 1위 도전하기
