@@ -1,7 +1,8 @@
-import type { ButtonHTMLAttributes } from 'react'
+import type { ComponentProps } from 'react'
 import { cn } from '@/shared/cn'
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+// ComponentProps라 ref도 그대로 통과한다 — 팝오버가 버튼에 붙으려면 앵커가 필요하다.
+type ButtonProps = ComponentProps<'button'> & {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
   size?: 'sm' | 'md' | 'lg' | 'cta'
   loading?: boolean
