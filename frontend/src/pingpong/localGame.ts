@@ -190,7 +190,7 @@ function scorePoint(state: LocalPingPongState, scorer: 1 | 2, now: number): Loca
   if (scorer === 1) state.s1 += 1
   else state.s2 += 1
 
-  if (state.s1 >= WIN_SCORE || state.s2 >= WIN_SCORE) {
+  if ((state.s1 >= WIN_SCORE || state.s2 >= WIN_SCORE) && Math.abs(state.s1 - state.s2) >= 2) {
     state.phase = 'over'
     return pointFeedback(state, scorer)
   }

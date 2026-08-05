@@ -57,4 +57,24 @@ describe('local ping pong game', () => {
     expect(game.ball.dir).toBe(1)
     expect(game.ball.pos).toBe(0.02)
   })
+
+  it('continues through deuce until one player leads by two points', () => {
+    const game = createLocalGame('solo', 'normal', highRandom)
+    game.s1 = 10
+    game.s2 = 10
+    game.ball.pos = MISS1 - 0.01
+    game.ball.speed = 1
+
+    advanceLocalGame(game, 1_000, 0.02, highRandom)
+
+    expect(game.s2).toBe(11)
+    expect(game.phase).toBe('point')
+
+    game.phase = 'playing'
+    game.ball.pos = MISS1 - 0.01
+    advanceLocalGame(game, 2_000, 0.02, highRandom)
+
+    expect(game.s2).toBe(12)
+    expect(game.phase).toBe('over')
+  })
 })
