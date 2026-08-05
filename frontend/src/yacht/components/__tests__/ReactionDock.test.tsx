@@ -11,8 +11,23 @@ const players: Player[] = [
   { nickname: '유진', playerId: 'p2', status: 'online' },
 ]
 
+/**
+ * 서버는 리액션을 <b>보낸 본인에게도</b> 되돌려준다(`GameWebSocketHandler.handleReactionSend`).
+ * 내 화면에 뜨는 이모지도 전부 이 에코백을 타고 오므로, 페이크도 같이 되돌려줘야
+ * "누른 것이 내 화면에 뜨는지"를 볼 수 있다 — 낙관적 렌더링은 없다.
+ */
 function renderDock() {
-  const client = new FakeRealtimeClient()
+  const client = new FakeRealtimeClient({
+    handlers: {
+      'reaction.send': (message) => [
+        {
+          payload: { playerId: 'p1', reaction: message.payload.reaction },
+          ts: 0,
+          type: 'reaction.broadcast',
+        },
+      ],
+    },
+  })
   const view = render(
     <RealtimeClientProvider client={client}>
       <ReactionDock players={players} />
@@ -38,8 +53,12 @@ describe('ReactionDock', () => {
    * 픽커가 닫혀 세 번 보내려고 세 번 열어야 했다 — "게임 화면을 계속 덮지 않는다"는 원래
    * 의도는 바깥 누르기·Escape·트리거 다시 누르기가 대신 받는다(그 전에는 자동 닫힘이
    * 유일한 수단이었다).
+   * <p>
+   * 열려 있는 것만으로는 부족했다. 픽커가 트리거 <b>위</b>에 서 있던 동안에는 막 보낸
+   * 이모지가 그 판 뒤에서 떠올라, 연타해도 화면이 조용했다(motion-reduce에서는 제자리에
+   * 뜨므로 아예 보이지 않았다). 누른 만큼 실제로 뜨는지까지 본다.
    */
-  it('연달아 보낼 수 있도록 보낸 뒤에도 픽커가 열려 있다', async () => {
+  it('연달아 보낼 수 있도록 보낸 뒤에도 픽커가 열려 있고, 누른 만큼 뜬다', async () => {
     const { client, user } = renderDock()
     const trigger = screen.getByRole('button', { name: '리액션 보내기' })
 
@@ -49,6 +68,26 @@ describe('ReactionDock', () => {
 
     expect(client.sentMessages).toHaveLength(2)
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    // 에코백을 타고 내 화면에도 두 개가 떴다 — 감싸는 span 하나가 이모지 하나다.
+    expect(document.querySelectorAll('span[aria-hidden="true"]')).toHaveLength(2)
+  })
+
+  /**
+   * 이모지는 트리거 <b>위</b>(`bottom-full`)로 솟는다. 픽커를 같은 자리에 두면 판이 그 통로를
+   * 덮어 방금 보낸 것이 보이지 않는다 — 픽커는 옆으로 비켜서야 한다.
+   * <p>
+   * jsdom은 레이아웃을 계산하지 않아 겹침을 좌표로 잴 수 없다. 겹침을 정하는 것은 두 층이
+   * <b>어느 변에 매달렸는지</b>이므로 그것을 본다.
+   */
+  it('픽커는 이모지가 솟는 통로를 비켜 선다', async () => {
+    const { user } = renderDock()
+
+    await user.click(screen.getByRole('button', { name: '리액션 보내기' }))
+    await user.click(screen.getByRole('button', { name: '박수' }))
+
+    const flying = document.querySelector('span[aria-hidden="true"]')
+    expect(flying?.className).toContain('bottom-full')
+    expect(screen.getByRole('toolbar').className).not.toContain('bottom-full')
   })
 
   it('바깥을 누르면 닫고, Escape는 트리거로 포커스를 돌린다', async () => {

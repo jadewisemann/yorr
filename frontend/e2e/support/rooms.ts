@@ -14,10 +14,13 @@ export function uniqueNickname(prefix: string) {
   return `${prefix} ${Math.random().toString(36).slice(2, 6)}`.slice(0, 12)
 }
 
-/** 랜딩 → 방 만들기 → 닉네임 입력 → 로비 진입. 로비 URL 의 방 코드를 돌려준다. */
+/** 랜딩 → 모드 선택 → 방 만들기 → 닉네임 입력 → 로비 진입. 로비 URL 의 방 코드를 돌려준다. */
 export async function createRoom(page: Page, nickname: string) {
   await page.goto('/')
   await page.getByRole('button', { name: '요트 다이스 플레이' }).click()
+  // 플레이 다음에 모드 선택 모달이 선다(EntryPage.handlePlay). 버튼 이름에 설명 줄이
+  // 붙으므로 앞머리로만 맞춘다.
+  await page.getByRole('button', { name: /^방 만들기/ }).click()
   await page.getByRole('textbox', { name: '닉네임' }).fill(nickname)
   await page.getByRole('button', { name: '대기실 입장' }).click()
 
