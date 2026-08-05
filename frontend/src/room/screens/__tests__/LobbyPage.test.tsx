@@ -162,6 +162,22 @@ describe('LobbyPage', () => {
     expect(screen.queryByRole('button', { name: '봇 추가' })).not.toBeInTheDocument()
   })
 
+  // 초대 카드가 세로를 다 먹어 말풍선으로 옮겼다(S15P11A406-203) — QR·코드·복사는 대기실에
+  // 상주하지 않고 초대 버튼 뒤에 있다.
+  it('초대 팝업을 열기 전에는 QR과 방 코드를 화면에 두지 않는다', async () => {
+    const user = userEvent.setup()
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    expect(screen.queryByRole('img', { name: /초대 QR 코드/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '링크 복사' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '초대' }))
+
+    const popover = await screen.findByRole('dialog', { name: '친구 초대하기' })
+    expect(within(popover).getByRole('img', { name: /초대 QR 코드/ })).toBeInTheDocument()
+    expect(within(popover).getByText(creatorSession.roomCode)).toBeVisible()
+  })
+
   it('keeps link-copy fallback available next to the QR code', async () => {
     const user = userEvent.setup()
     const writeText = vi.fn().mockResolvedValue(undefined)
@@ -171,7 +187,8 @@ describe('LobbyPage', () => {
     })
 
     render(<LobbyPage roomId={creatorSession.roomId} />)
-    await user.click(screen.getByRole('button', { name: '링크 복사' }))
+    await user.click(screen.getByRole('button', { name: '초대' }))
+    await user.click(await screen.findByRole('button', { name: '링크 복사' }))
 
     expect(writeText).toHaveBeenCalledWith(
       `${window.location.origin}/join?code=${creatorSession.roomCode}`,
