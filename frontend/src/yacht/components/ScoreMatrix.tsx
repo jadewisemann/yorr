@@ -37,7 +37,7 @@ export function ScoreMatrix({ className, players }: ScoreMatrixProps) {
         <th
           className={cn(
             stickyLabel,
-            'border-b border-border/40 bg-canvas text-[12px] font-semibold text-content-muted',
+            'border-b border-border/40 bg-canvas text-xs font-semibold text-content-muted',
           )}
           scope="row"
         >
@@ -72,7 +72,7 @@ export function ScoreMatrix({ className, players }: ScoreMatrixProps) {
             <th
               className={cn(
                 stickyLabel,
-                'border-b-2 border-border bg-canvas text-[10.5px] font-bold text-content-muted',
+                'border-b-2 border-border bg-canvas text-2xs font-bold text-content-muted',
               )}
               scope="col"
             >
@@ -81,7 +81,7 @@ export function ScoreMatrix({ className, players }: ScoreMatrixProps) {
             {players.map((player, index) => (
               <th
                 className={cn(
-                  'min-w-14 border-b-2 border-border bg-canvas px-1 py-2.5 text-center text-[10.5px] font-bold',
+                  'min-w-14 border-b-2 border-border bg-canvas px-1 py-2.5 text-center text-2xs font-bold',
                   index === 0 ? 'text-content' : 'text-content-muted',
                 )}
                 key={player.playerId}
@@ -98,7 +98,7 @@ export function ScoreMatrix({ className, players }: ScoreMatrixProps) {
             <th
               className={cn(
                 stickyLabel,
-                'border-b border-border bg-surface-sunken text-[10.5px] font-bold text-content-muted',
+                'border-b border-border bg-surface-sunken text-2xs font-bold text-content-muted',
               )}
               scope="row"
             >
@@ -110,7 +110,7 @@ export function ScoreMatrix({ className, players }: ScoreMatrixProps) {
               return (
                 <td
                   className={cn(
-                    'border-b border-border bg-surface-sunken px-1 py-2 text-center font-mono text-[11px] font-bold tabular-nums',
+                    'border-b border-border bg-surface-sunken px-1 py-2 text-center font-mono text-2xs font-bold tabular-nums',
                     achieved ? 'text-brand-strong' : 'text-content-muted',
                   )}
                   key={player.playerId}
@@ -130,7 +130,7 @@ export function ScoreMatrix({ className, players }: ScoreMatrixProps) {
             </th>
             {players.map((player) => (
               <td
-                className="bg-brand px-1 py-3 text-center font-mono text-[15px] font-bold text-on-brand tabular-nums"
+                className="bg-brand px-1 py-3 text-center font-mono text-sm font-bold text-on-brand tabular-nums"
                 key={player.playerId}
               >
                 {player.scoreboard?.total ?? 0}
@@ -147,7 +147,7 @@ function ScoreCell({ strong, value }: { strong: boolean; value: number | null })
   return (
     <td
       className={cn(
-        'border-b border-l border-border/40 px-1 py-2.5 text-center font-mono text-[12px] tabular-nums',
+        'border-b border-l border-border/40 px-1 py-2.5 text-center font-mono text-xs tabular-nums',
         value === null && 'text-content-faint',
         value === 0 && 'text-danger',
         value !== null && value > 0 && (strong ? 'font-bold text-content' : 'text-content-muted'),

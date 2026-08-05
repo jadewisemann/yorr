@@ -22,9 +22,9 @@ const states: Record<ScoreRowState, string> = {
 }
 
 const sizes = {
-  md: 'min-h-tap px-3 text-[12px]',
+  md: 'min-h-tap px-3 text-xs',
   // sm은 웹 좌측 상시 패널 전용이다. 포인터가 정확한 환경이라 tap 타깃보다 조밀해도 된다.
-  sm: 'min-h-[2.375rem] px-3 text-[12px]',
+  sm: 'min-h-[2.375rem] px-3 text-xs',
 } as const
 
 export function ScoreRow({

@@ -109,7 +109,7 @@ export function Tooltip({
         {children ?? (
           <span
             aria-hidden="true"
-            className="grid size-4.5 place-items-center rounded-full border border-current text-[10px] leading-none font-bold"
+            className="grid size-4.5 place-items-center rounded-full border border-current text-2xs leading-none font-bold"
           >
             ?
           </span>

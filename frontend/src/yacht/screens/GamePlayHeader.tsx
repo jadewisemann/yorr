@@ -181,13 +181,13 @@ function TurnStatus({
         (「요르 게임 진행 중 · N / 12 라운드」). nowrap을 함께 걸어 남은 폭이 더 줄어도
         접히는 대신 잘리게 한다 — 접히면 헤더 안에서 줄 수가 흔들린다.
       */}
-      <span className="font-mono text-[11px] leading-none font-bold tracking-[0.16em] whitespace-nowrap text-content-muted tabular-nums uppercase max-tiny:tracking-normal">
+      <span className="font-mono text-2xs leading-none font-bold tracking-[0.16em] whitespace-nowrap text-content-muted tabular-nums uppercase max-tiny:tracking-normal">
         <span className="max-tiny:hidden">Round </span>
         {String(roundNumber).padStart(2, '0')} / {TOTAL_ROUNDS}
       </span>
       <span
         className={cn(
-          'flex min-w-0 items-center gap-1.5 text-[16px] font-bold transition-colors duration-(--ds-motion-base) motion-safe:animate-turn-flash',
+          'flex min-w-0 items-center gap-1.5 text-base font-bold transition-colors duration-(--ds-motion-base) motion-safe:animate-turn-flash',
           !isMyTurn && activePlayer && 'text-brand-soft',
         )}
         key={activePlayerId ?? 'sync'}
@@ -256,7 +256,7 @@ function ConnectionIndicator({ status }: { status: ConnectionStatus }) {
   }[status]
 
   return (
-    <span className="inline-flex h-[2.125rem] flex-none items-center gap-2 rounded-full border border-border bg-white/6 px-3.5 text-[13px] font-semibold">
+    <span className="inline-flex h-[2.125rem] flex-none items-center gap-2 rounded-full border border-border bg-white/6 px-3.5 text-xs font-semibold">
       <span
         aria-hidden="true"
         className={cn('size-[7px] rounded-full', connected ? 'bg-positive' : 'bg-warning')}
@@ -269,10 +269,10 @@ function ConnectionIndicator({ status }: { status: ConnectionStatus }) {
 function HeaderStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-      <span className="text-[10px] font-medium tracking-[0.08em] text-content-faint uppercase">
+      <span className="text-2xs font-medium tracking-[0.08em] text-content-faint uppercase">
         {label}
       </span>
-      <span className="text-[17px] font-bold text-content">{value}</span>
+      <span className="text-base font-bold text-content">{value}</span>
     </div>
   )
 }

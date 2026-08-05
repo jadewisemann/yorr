@@ -75,7 +75,7 @@ export function ControllerConnectSequence({ howTo, status }: ControllerConnectSe
             />
             <span
               className={cn(
-                'text-[11px] font-semibold whitespace-nowrap',
+                'text-2xs font-semibold whitespace-nowrap',
                 index === current ? 'text-content' : 'text-content-faint',
               )}
             >

@@ -333,8 +333,8 @@ function NeighborCard({
     // narrow 퍼센트는 레퍼런스 좌표(390×436)를 그대로 옮긴 값이다. wide는 가운데 카드가
     // 비워 둔 갓길(0 ~ 15.3%) 안에서 13.5%를 쓰고 나머지 1.8%가 카드 사이 틈이 된다.
     wide
-      ? 'top-[7.2%] h-[85.6%] w-[13.5%] rounded-[26px]'
-      : 'pointer-events-none top-[6%] h-[88%] w-[24.6%] rounded-[24px] opacity-40',
+      ? 'top-[7.2%] h-[85.6%] w-[13.5%] rounded-sheet'
+      : 'pointer-events-none top-[6%] h-[88%] w-[24.6%] rounded-sheet opacity-40',
     wide
       ? side === 'left'
         ? 'left-0'

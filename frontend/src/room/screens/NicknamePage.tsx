@@ -147,7 +147,7 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
         >
           <IconBack className="size-4.5" />
         </button>
-        <span className="inline-flex h-[2.125rem] items-center gap-2 rounded-full border border-border bg-white/6 px-3.5 text-[13px] font-semibold">
+        <span className="inline-flex h-[2.125rem] items-center gap-2 rounded-full border border-border bg-white/6 px-3.5 text-xs font-semibold">
           {roomCode ? (
             <>
               초대 코드{' '}
@@ -160,10 +160,10 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
       </header>
 
       <div className="relative mt-11 grid gap-2.5">
-        <h1 className="m-0 text-[28px] leading-[1.3] font-bold tracking-[-0.02em]">
+        <h1 className="m-0 text-2xl leading-[1.3] font-bold tracking-[-0.02em]">
           어떤 이름으로 참가할까요?
         </h1>
-        <p className="m-0 text-[15px] text-content-muted">{copy.subtitle}</p>
+        <p className="m-0 text-sm text-content-muted">{copy.subtitle}</p>
       </div>
 
       <form
@@ -205,7 +205,7 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
             <p className="m-0 flex items-center gap-2.5 rounded-card border border-border bg-surface px-3.5 py-3 text-sm text-content-muted">
               <span
                 aria-hidden="true"
-                className="grid size-5 flex-none place-items-center rounded-[6px] bg-white/10 text-[11px] leading-none font-bold text-content"
+                className="grid size-5 flex-none place-items-center rounded-chip bg-white/10 text-2xs leading-none font-bold text-content"
               >
                 1
               </span>

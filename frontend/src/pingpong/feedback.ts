@@ -49,18 +49,34 @@ export function sharedEventLabel(type: PingPongEventType, actorName: string) {
 }
 
 export function feedbackTextClass(type: PingPongEventType) {
-  if (type === 'SMASH') return 'text-[#ff7a4d]'
-  if (type === 'NICE') return 'text-[#ffd24a]'
+  if (type === 'SMASH') return 'text-pp-smash'
+  if (type === 'NICE') return 'text-pp-gold'
   if (type === 'TOO_EARLY' || type === 'TOO_LATE' || type === 'OUT' || type === 'NET') {
-    return 'text-[#ff8b7c]'
+    return 'text-pp-danger-text'
   }
   return 'text-white'
 }
 
+// 글로우도 토큰을 따라간다 — 색만 토큰이고 글로우가 리터럴이면 팔레트를 바꿨을 때
+// 글자와 그 뒤 번짐이 서로 다른 색이 된다. 알파는 color-mix로 얹는다.
+const glow = (token: string, blur: string, alpha: number) =>
+  `0 0 ${blur} color-mix(in srgb, var(${token}) ${alpha}%, transparent)`
+
 export function comboStyle(count: number) {
-  if (count >= 8) return { color: '#ff7a4d', size: 'text-7xl', glow: '0 0 24px #ff7a4d99' }
-  if (count >= 5) return { color: '#ffd24a', size: 'text-6xl', glow: '0 0 20px #ffd24a8c' }
-  if (count >= 3) return { color: '#49e08a', size: 'text-5xl', glow: '0 0 16px #49e08a80' }
+  if (count >= 8)
+    return {
+      color: 'var(--ds-pp-smash)',
+      size: 'text-7xl',
+      glow: glow('--ds-pp-smash', '24px', 60),
+    }
+  if (count >= 5)
+    return { color: 'var(--ds-pp-gold)', size: 'text-6xl', glow: glow('--ds-pp-gold', '20px', 55) }
+  if (count >= 3)
+    return {
+      color: 'var(--ds-pp-accent)',
+      size: 'text-5xl',
+      glow: glow('--ds-pp-accent', '16px', 50),
+    }
   return { color: '#ffffff', size: 'text-5xl', glow: '0 2px 10px #00000080' }
 }
 

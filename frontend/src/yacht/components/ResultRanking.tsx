@@ -40,24 +40,24 @@ export function ResultRanking({ className, players, you }: ResultRankingProps) {
           >
             <span
               className={cn(
-                'w-6 flex-none text-center font-mono text-[17px] font-bold tabular-nums',
+                'w-6 flex-none text-center font-mono text-base font-bold tabular-nums',
                 winner ? 'text-brand-strong' : mine ? 'text-content' : 'text-content-faint',
               )}
             >
               {index + 1}
             </span>
-            <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-content">
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-content">
               {player.nickname}
               {mine && <span className="ml-1 font-bold text-content-muted">(나)</span>}
               {winner && (
-                <span className="ml-2 rounded-[6px] bg-brand/20 px-1.5 py-0.5 align-middle font-mono text-[10px] font-bold tracking-[0.1em] text-brand-soft">
+                <span className="ml-2 rounded-chip bg-brand/20 px-1.5 py-0.5 align-middle font-mono text-2xs font-bold tracking-[0.1em] text-brand-soft">
                   WIN
                 </span>
               )}
             </span>
             <span
               className={cn(
-                'flex-none font-mono text-[19px] font-bold tabular-nums',
+                'flex-none font-mono text-lg font-bold tabular-nums',
                 winner ? 'text-brand-strong' : 'text-content',
               )}
             >

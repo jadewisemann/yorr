@@ -25,7 +25,7 @@ const WIDE_LAYOUT = '(min-width: 760px)'
 const wordmark = 'font-mono font-bold tracking-[-0.03em] text-landing-text'
 const wordmarkTag =
   'font-mono font-bold tracking-[0.24em] whitespace-nowrap text-landing-text-muted uppercase'
-const noticeBase = 'm-0 text-center text-[12.5px]/[1.5] font-semibold text-landing-accent-text'
+const noticeBase = 'm-0 text-center text-xs/[1.5] font-semibold text-landing-accent-text'
 
 /**
  * narrow 화면 바닥 층. 복귀 배너·안내가 없으면 <b>상단 여백까지 지운다</b> — 비어 있는 층이
@@ -219,10 +219,10 @@ export function EntryPage({ gameKey }: EntryPageProps) {
             <div className="flex w-[69.4%] items-center justify-between gap-8">
               <div className="flex items-center gap-5">
                 <span className="flex items-baseline gap-2.5">
-                  <span className={cn(wordmark, 'text-[27px]/none')}>
+                  <span className={cn(wordmark, 'text-2xl/none')}>
                     YO<span className="text-landing-accent">R</span>R
                   </span>
-                  <span className={cn(wordmarkTag, 'text-[11px]/none')}>Yorr Arcade</span>
+                  <span className={cn(wordmarkTag, 'text-2xs/none')}>Yorr Arcade</span>
                 </span>
                 {/* 1200 아래에서는 이 한 줄을 접는다. 워드마크·초대 코드·계정은 줄어들 수
                     없고 이 카피만 줄바꿈 금지라, 760~1199에서 헤더 합계가 띠 폭(69.4%)을
@@ -233,7 +233,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
                   aria-hidden="true"
                   className="hidden h-6.5 w-px bg-landing-hairline-strong desktop:block"
                 />
-                <h1 className="sr-only m-0 text-[17px]/none font-bold whitespace-nowrap text-landing-text-strong desktop:not-sr-only">
+                <h1 className="sr-only m-0 text-base/none font-bold whitespace-nowrap text-landing-text-strong desktop:not-sr-only">
                   링크 하나로 모이면 바로 시작하는 파티 게임
                 </h1>
               </div>
@@ -315,10 +315,10 @@ export function EntryPage({ gameKey }: EntryPageProps) {
 
         <div className="flex flex-none items-center justify-between gap-3 px-5 pt-3.5">
           <span className="flex items-baseline gap-2.5">
-            <span className={cn(wordmark, 'text-[24px]/none')}>
+            <span className={cn(wordmark, 'text-2xl/none')}>
               YO<span className="text-landing-accent">R</span>R
             </span>
-            <span className={cn(wordmarkTag, 'text-[10px]/none')}>Arcade</span>
+            <span className={cn(wordmarkTag, 'text-2xs/none')}>Arcade</span>
           </span>
           <span className="flex min-w-0 items-center gap-2">
             <SoundToggle muted={soundMuted} onToggle={toggleSound} />
@@ -342,7 +342,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
             붙인 것인데 그 층보다 큰 높이를 태그라인에서 되돌려 받는다. 쌓으면 태그라인이
             280px를 받아 2줄로 돌아오고 합계 높이도 오히려 줄어든다. */}
         <div className="flex flex-none items-center justify-between gap-3 px-5 pt-[clamp(10px,2vh,18px)] max-tiny:flex-col max-tiny:items-stretch max-tiny:gap-2.5">
-          <h1 className="m-0 min-w-0 text-[24px]/[1.25] font-bold tracking-[-0.02em] text-landing-text-strong">
+          <h1 className="m-0 min-w-0 text-2xl/[1.25] font-bold tracking-[-0.02em] text-landing-text-strong">
             링크 하나로 모이면 바로 시작하는 파티 게임
           </h1>
           <CodeEntryRow anchorRef={codeEntryRef} onOpen={() => setCodeOpen(true)} />
@@ -416,7 +416,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
  * 같은 일을 하는 버튼이 화면 폭에 따라 다른 물건으로 보였다.
  */
 const codeEntry =
-  'flex min-h-tap shrink-0 cursor-pointer items-center gap-2 rounded-full border-0 bg-landing-accent pr-3 pl-4 text-[14px] font-landing-bold text-landing-accent-ink outline-white transition-colors duration-150 ease-out hover:bg-landing-accent/90 focus-visible:outline-3 focus-visible:outline-offset-2'
+  'flex min-h-tap shrink-0 cursor-pointer items-center gap-2 rounded-full border-0 bg-landing-accent pr-3 pl-4 text-sm font-landing-bold text-landing-accent-ink outline-white transition-colors duration-150 ease-out hover:bg-landing-accent/90 focus-visible:outline-3 focus-visible:outline-offset-2'
 
 function CodeEntryRow({
   anchorRef,
@@ -446,7 +446,7 @@ function InputGlyph() {
   return (
     <span
       aria-hidden="true"
-      className="flex h-6 w-7 flex-none items-center justify-center rounded-[7px] border border-current/45 bg-current/12"
+      className="flex h-6 w-7 flex-none items-center justify-center rounded-chip border border-current/45 bg-current/12"
     >
       <span className="h-3 w-px bg-current motion-safe:animate-caret-blink" />
     </span>
@@ -500,8 +500,8 @@ function AccountControl({
         session
           ? 'size-tap justify-center px-0'
           : wide
-            ? 'gap-2.5 px-5 text-[15px]'
-            : 'gap-2 px-3.5 text-[13px]',
+            ? 'gap-2.5 px-5 text-sm'
+            : 'gap-2 px-3.5 text-xs',
       )}
       onClick={onOpen}
       type="button"
@@ -541,13 +541,13 @@ function ActiveRoomBanner() {
     <section
       aria-label="진행 중인 방"
       className={cn(
-        'flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[18px] border px-4 py-3 shadow-landing-panel',
+        'flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-panel border px-4 py-3 shadow-landing-panel',
         needsResume
           ? 'border-landing-accent/45 bg-landing-accent-tint'
           : 'border-transparent bg-landing-well',
       )}
     >
-      <p className="m-0 flex min-w-0 items-center gap-3 text-[13px]/[1.4] font-landing-medium text-landing-text-strong">
+      <p className="m-0 flex min-w-0 items-center gap-3 text-xs/[1.4] font-landing-medium text-landing-text-strong">
         {needsResume && (
           <span
             aria-hidden="true"
@@ -567,14 +567,14 @@ function ActiveRoomBanner() {
       </p>
       <div className="flex flex-none items-center gap-2">
         <button
-          className="min-h-tap cursor-pointer rounded-[14px] border-0 bg-landing-accent px-4 py-2.5 text-[14px] font-landing-bold text-landing-accent-ink focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2"
+          className="min-h-tap cursor-pointer rounded-card border-0 bg-landing-accent px-4 py-2.5 text-sm font-landing-bold text-landing-accent-ink focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2"
           onClick={handleReturn}
           type="button"
         >
           {needsResume ? returnLabel : '돌아가기'}
         </button>
         <button
-          className="min-h-tap cursor-pointer rounded-full border-0 bg-transparent px-2.5 py-2 text-[13px] font-landing-bold text-landing-text-muted underline-offset-2 hover:underline focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2 disabled:opacity-60"
+          className="min-h-tap cursor-pointer rounded-full border-0 bg-transparent px-2.5 py-2 text-xs font-landing-bold text-landing-text-muted underline-offset-2 hover:underline focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2 disabled:opacity-60"
           disabled={isLeaving}
           onClick={() => void leave()}
           type="button"

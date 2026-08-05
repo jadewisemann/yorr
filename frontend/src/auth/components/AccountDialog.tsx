@@ -46,7 +46,7 @@ export function AccountDialog({ layout, onClose, onSignOut, open, session }: Acc
   return (
     <Popover focusSelector="button" label={label} onClose={onClose} open={open}>
       <div className="grid gap-4">
-        <h2 className="m-0 text-[17px]/none font-bold text-content">{label}</h2>
+        <h2 className="m-0 text-base/none font-bold text-content">{label}</h2>
         {panel}
       </div>
     </Popover>
@@ -54,14 +54,14 @@ export function AccountDialog({ layout, onClose, onSignOut, open, session }: Acc
 }
 
 const row =
-  'flex w-full items-center gap-3 rounded-[16px] border border-border bg-surface px-4 py-3.5 text-left text-[15px] font-semibold text-content transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2'
+  'flex w-full items-center gap-3 rounded-card border border-border bg-surface px-4 py-3.5 text-left text-sm font-semibold text-content transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2'
 const activeRow = 'cursor-pointer hover:border-landing-hairline-strong hover:bg-surface-raised'
 const lockedRow = 'cursor-not-allowed text-content-faint'
 
 function ProviderChoice() {
   return (
     <div className="grid gap-2.5">
-      <p className="m-0 text-[13px]/[1.5] text-content-muted">
+      <p className="m-0 text-xs/[1.5] text-content-muted">
         로그인하면 전적과 프로필이 계정에 남아요. 로그인 없이도 바로 플레이할 수 있어요.
       </p>
       <button
@@ -88,7 +88,7 @@ function ProviderChoice() {
         여기서만 재인증을 요청한다.
       */}
       <button
-        className="min-h-tap cursor-pointer justify-self-center rounded-full border-0 bg-transparent px-3 py-1 text-[12.5px] font-semibold text-content-muted underline-offset-2 hover:text-content hover:underline focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
+        className="min-h-tap cursor-pointer justify-self-center rounded-full border-0 bg-transparent px-3 py-1 text-xs font-semibold text-content-muted underline-offset-2 hover:text-content hover:underline focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
         onClick={() => globalThis.location.assign(kakaoLoginUrl({ forceLogin: true }))}
         type="button"
       >
@@ -107,13 +107,13 @@ function AccountMenu({ onSignOut, session }: { onSignOut: () => void; session: A
         <NicknameEditor onDone={() => setEditing(false)} session={session} />
       ) : (
         <>
-          <div className="flex items-center gap-3 rounded-[16px] bg-surface px-4 py-3.5">
+          <div className="flex items-center gap-3 rounded-card bg-surface px-4 py-3.5">
             <Avatar nickname={session.nickname} size="lg" />
             <span className="grid min-w-0 gap-0.5">
-              <strong className="truncate text-[15px] font-bold text-content">
+              <strong className="truncate text-sm font-bold text-content">
                 {session.nickname}
               </strong>
-              <span className="text-[12.5px] text-content-muted">로그인됨</span>
+              <span className="text-xs text-content-muted">로그인됨</span>
             </span>
           </div>
           <button className={cn(row, activeRow)} onClick={() => setEditing(true)} type="button">
@@ -174,16 +174,16 @@ function NicknameEditor({ onDone, session }: { onDone: () => void; session: Auth
 
   return (
     <form
-      className="grid gap-2.5 rounded-[16px] bg-surface px-4 py-3.5"
+      className="grid gap-2.5 rounded-card bg-surface px-4 py-3.5"
       onSubmit={(event) => {
         event.preventDefault()
         void save()
       }}
     >
-      <label className="grid gap-1.5 text-[12.5px] font-semibold text-content-muted">
+      <label className="grid gap-1.5 text-xs font-semibold text-content-muted">
         닉네임
         <input
-          className="rounded-[12px] border border-border bg-surface-raised px-3 py-2.5 text-[15px] font-semibold text-content focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-1"
+          className="rounded-control border border-border bg-surface-raised px-3 py-2.5 text-sm font-semibold text-content focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-1"
           disabled={saving}
           maxLength={NICKNAME_MAX_LENGTH}
           onChange={(event) => {
@@ -194,9 +194,9 @@ function NicknameEditor({ onDone, session }: { onDone: () => void; session: Auth
         />
       </label>
       {/* 지난 판의 이름까지 바뀌는 것으로 오해하지 않게 미리 알린다. */}
-      <p className="m-0 text-[12px] text-content-faint">지난 게임 기록에 남은 이름은 그대로예요.</p>
+      <p className="m-0 text-xs text-content-faint">지난 게임 기록에 남은 이름은 그대로예요.</p>
       {error && (
-        <p className="m-0 text-[12.5px] font-semibold text-landing-accent-text" role="alert">
+        <p className="m-0 text-xs font-semibold text-landing-accent-text" role="alert">
           {error}
         </p>
       )}
@@ -223,7 +223,7 @@ function NicknameEditor({ onDone, session }: { onDone: () => void; session: Auth
 
 function ComingSoonPill() {
   return (
-    <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-[11px] font-semibold text-content-faint">
+    <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-2xs font-semibold text-content-faint">
       준비 중
     </span>
   )
@@ -236,7 +236,7 @@ export function Avatar({ nickname, size }: { nickname: string; size: 'lg' | 'sm'
       aria-hidden="true"
       className={cn(
         'flex flex-none items-center justify-center rounded-full bg-landing-accent-tint font-bold text-landing-accent-text',
-        size === 'lg' ? 'size-9 text-[15px]' : 'size-6 text-[12px]',
+        size === 'lg' ? 'size-9 text-sm' : 'size-6 text-xs',
       )}
     >
       {[...nickname][0] ?? '?'}
@@ -252,7 +252,7 @@ function ProviderMark({ provider }: { provider: 'google' | 'kakao' }) {
     <span
       aria-hidden="true"
       className={cn(
-        'flex size-7 flex-none items-center justify-center rounded-[9px] text-[13px] font-bold',
+        'flex size-7 flex-none items-center justify-center rounded-control text-xs font-bold',
         provider === 'kakao'
           ? 'bg-kakao text-kakao-ink'
           : 'border border-border text-content-faint',

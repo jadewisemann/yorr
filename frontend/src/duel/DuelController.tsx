@@ -57,10 +57,10 @@ export function DuelController({
   const live = signal === 'hold' || signal === 'draw'
 
   return (
-    <main className="relative flex h-svh w-full touch-none flex-col overflow-hidden bg-[#0b0409] px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white select-none">
+    <main className="relative flex h-svh w-full touch-none flex-col overflow-hidden bg-duel-canvas px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white select-none">
       <header className="flex flex-none items-center justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
-          <span className="font-mono text-[11px] tracking-[0.18em] text-[#ffcf8a]/60">
+          <span className="font-mono text-2xs tracking-[0.18em] text-duel-accent/60">
             PHONE CONTROLLER
           </span>
           <strong className="truncate text-lg">{nickname}</strong>
@@ -79,7 +79,7 @@ export function DuelController({
           같은 것을 두 번 읽는다. */}
       <section
         aria-label="탄약과 경고"
-        className="mt-4 grid flex-none grid-cols-2 gap-2 rounded-2xl border border-white/12 bg-white/6 p-3"
+        className="mt-4 grid flex-none grid-cols-2 gap-2 rounded-card border border-white/12 bg-white/6 p-3"
       >
         <AmmoRow
           fouls={fouls}
@@ -99,7 +99,7 @@ export function DuelController({
 
       <button
         aria-label="뽑기"
-        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-[2rem] border border-[#ffcf8a]/20 bg-[radial-gradient(circle_at_50%_40%,rgb(255_207_138_/_10%),transparent_62%)] active:bg-white/8"
+        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-duel-accent/20 bg-[radial-gradient(circle_at_50%_40%,rgb(255_207_138_/_10%),transparent_62%)] active:bg-white/8"
         onPointerDown={(event) => {
           event.preventDefault()
           onDraw()
@@ -120,14 +120,14 @@ export function DuelController({
       <section className="mt-3 grid flex-none gap-2 text-center">
         {/* 경고는 신호를 기다리는 동안에만 세운다 — 판정 문구와 겹쳐 읽히면 둘 다 안 읽힌다. */}
         {live && fouls > 0 && (
-          <p className="m-0 text-sm font-bold text-[#fbbf24]" role="status">
+          <p className="m-0 text-sm font-bold text-duel-gold" role="status">
             부정출발 경고 {fouls}/{MAX_FOULS} ·{' '}
             {fouls >= MAX_FOULS - 1 ? '한 번 더면 자기 발을 쏜다' : '신호를 보고 뽑아라'}
           </p>
         )}
         {permission === 'unknown' && (
           <button
-            className="min-h-12 rounded-2xl border border-[#f59e0b]/50 bg-[#f59e0b]/15 px-5 font-bold text-[#ffd9a0]"
+            className="min-h-12 rounded-card border border-duel-signal/50 bg-duel-signal/15 px-5 font-bold text-duel-accent-soft"
             onClick={onEnableMotion}
             type="button"
           >
@@ -189,7 +189,11 @@ function DrawPrompt({
   if (signal === 'result') {
     const outcome = drawOutcome(state, you)
     const tone =
-      outcome.tone === 'win' ? 'text-[#86efac]' : outcome.tone === 'lose' ? 'text-[#fca5a5]' : ''
+      outcome.tone === 'win'
+        ? 'text-duel-positive'
+        : outcome.tone === 'lose'
+          ? 'text-duel-danger'
+          : ''
     return (
       <Prompt sub={undefined} tone={tone}>
         {outcome.label}
@@ -198,14 +202,14 @@ function DrawPrompt({
   }
   if (signal === 'waiting') {
     return (
-      <Prompt sub={`${opponentName}를 기다린다`} tone="text-[#ffcf8a]">
+      <Prompt sub={`${opponentName}를 기다린다`} tone="text-duel-accent">
         {msLabel(ms)}
       </Prompt>
     )
   }
   if (signal === 'draw') {
     return (
-      <Prompt tone="text-[#86efac]" sub={undefined}>
+      <Prompt tone="text-duel-positive" sub={undefined}>
         뽑아!
       </Prompt>
     )
@@ -247,7 +251,7 @@ function holdHint(permission: SwingPermission): string {
 function DrawSourceStatus({ permission }: { permission: SwingPermission }) {
   if (permission === 'granted') {
     return (
-      <p className="m-0 text-sm font-bold text-[#86efac]" role="status">
+      <p className="m-0 text-sm font-bold text-duel-positive" role="status">
         스윙 연결됨 · 폰을 휘둘러 뽑는다
       </p>
     )
@@ -277,7 +281,7 @@ function AmmoRow({
   return (
     <div className="grid min-w-0 gap-1.5">
       <span className="flex items-center gap-1.5">
-        <span className="min-w-0 truncate text-xs font-black text-[#f4e6d0]">{label}</span>
+        <span className="min-w-0 truncate text-xs font-black text-duel-ink">{label}</span>
         <span className="flex flex-none items-center gap-0.5">
           {slots('warn', MAX_FOULS, fouls).map((slot) => (
             <Warn key={slot.id} lit={slot.filled} />
@@ -290,7 +294,7 @@ function AmmoRow({
         ))}
       </span>
       {/* 자리는 늘 잡아 둔다 — 기록이 뜰 때마다 위 칸이 밀려 올라가면 눈이 따라가지 못한다. */}
-      <span className="min-h-4 font-mono text-[11px] text-white/40">
+      <span className="min-h-4 font-mono text-2xs text-white/40">
         {showMs && ms !== null ? msLabel(ms) : null}
       </span>
     </div>

@@ -67,7 +67,7 @@ export function PlayerBadge({
     <span
       className={cn(
         'inline-flex items-center justify-center rounded-full border font-bold',
-        size === 'md' ? 'size-7 text-[11px]' : 'size-6 text-[10px]',
+        size === 'md' ? 'size-7 text-2xs' : 'size-6 text-2xs',
         active
           ? 'border-brand bg-brand text-on-brand'
           : 'border-border bg-surface text-content-muted',
@@ -142,7 +142,7 @@ export function ScoreSheet({
         <CategoryIcon category={category} className="size-4 flex-none text-content-muted" />
         <span className="truncate">{categoryLabel[category]}</span>
         {leveraged && (
-          <span className="flex-none rounded-full bg-brand px-1.5 font-mono text-[10px] font-bold text-on-brand">
+          <span className="flex-none rounded-full bg-brand px-1.5 font-mono text-2xs font-bold text-on-brand">
             ×2
           </span>
         )}
@@ -197,7 +197,7 @@ export function ScoreSheet({
         <span
           className={cn(
             'truncate font-bold tracking-[0.08em] uppercase',
-            emphasis ? 'text-[11px] text-content-muted' : 'text-[10.5px] text-content-muted',
+            emphasis ? 'text-2xs text-content-muted' : 'text-2xs text-content-muted',
           )}
         >
           {label}
@@ -207,11 +207,11 @@ export function ScoreSheet({
             className={cn(
               'text-center font-mono font-bold tabular-nums',
               emphasis
-                ? 'text-[20px] text-brand-strong'
+                ? 'text-xl text-brand-strong'
                 : options?.achieved?.[index]
                   ? // 보너스 달성 강조(QA S15P11A406-102) — 달성한 플레이어의 셀만 brand로 띄운다.
-                    'text-[13px] text-brand-strong'
-                  : 'text-[12px] text-content-muted',
+                    'text-xs text-brand-strong'
+                  : 'text-xs text-content-muted',
               cellHighlight(players[index]?.playerId ?? ''),
             )}
             // biome-ignore lint/suspicious/noArrayIndexKey: 열 순서 = players 순서로 고정이다
@@ -247,7 +247,7 @@ export function ScoreSheet({
           className="grid min-h-9 items-center gap-1 border-b border-border px-3"
           style={columns}
         >
-          <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.08em] text-content-muted uppercase">
+          <span className="flex items-center gap-1.5 text-2xs font-bold tracking-[0.08em] text-content-muted uppercase">
             족보
             <Tooltip
               align="start"

@@ -9,7 +9,7 @@ export function NotFoundPage() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-gutter pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-content">
       <header className="pt-2">
-        <span className="font-mono text-[22px] leading-none font-bold tracking-[-0.03em]">
+        <span className="font-mono text-xl leading-none font-bold tracking-[-0.03em]">
           YO<span className="text-brand">R</span>R
         </span>
       </header>
@@ -21,8 +21,8 @@ export function NotFoundPage() {
         >
           404
         </span>
-        <h1 className="m-0 text-[26px] font-bold tracking-[-0.02em]">페이지를 찾을 수 없습니다</h1>
-        <p className="m-0 text-[15px] leading-[1.6] text-content-muted">
+        <h1 className="m-0 text-2xl font-bold tracking-[-0.02em]">페이지를 찾을 수 없습니다</h1>
+        <p className="m-0 text-sm leading-[1.6] text-content-muted">
           주소가 바뀌었거나 만료된 링크일 수 있어요. 홈에서 방을 새로 만들거나 초대 코드로 참가해
           주세요.
         </p>
@@ -30,11 +30,11 @@ export function NotFoundPage() {
           <p className="m-0 flex items-center gap-2.5 rounded-card border border-border bg-surface px-3.5 py-3">
             <span
               aria-hidden="true"
-              className="grid size-5 flex-none place-items-center rounded-[6px] bg-white/10 text-[11px] leading-none font-bold"
+              className="grid size-5 flex-none place-items-center rounded-chip bg-white/10 text-2xs leading-none font-bold"
             >
               i
             </span>
-            <span className="truncate font-mono text-[13px] text-content-muted">{path}</span>
+            <span className="truncate font-mono text-xs text-content-muted">{path}</span>
           </p>
         )}
       </div>

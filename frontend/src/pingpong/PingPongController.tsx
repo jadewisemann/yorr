@@ -107,10 +107,10 @@ export function PingPongController({
   }
 
   return (
-    <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-[#070b12] px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
+    <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-pp-canvas px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
       <header className="flex flex-none items-center justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
-          <span className="font-mono text-[11px] tracking-[0.18em] text-white/40">
+          <span className="font-mono text-2xs tracking-[0.18em] text-white/40">
             PHONE CONTROLLER
           </span>
           <strong className="truncate text-lg">{nickname}</strong>
@@ -124,7 +124,7 @@ export function PingPongController({
         </button>
       </header>
 
-      <section className="mt-4 flex flex-none items-center justify-between rounded-2xl border border-white/12 bg-white/6 px-4 py-3">
+      <section className="mt-4 flex flex-none items-center justify-between rounded-card border border-white/12 bg-white/6 px-4 py-3">
         <ControllerScore
           label={p1.label}
           score={state.scores[p1.id] ?? 0}
@@ -132,7 +132,7 @@ export function PingPongController({
           tone={p1.tone}
         />
         <div className="text-center">
-          <span className="block font-mono text-[11px] tracking-[0.14em] text-white/40">RALLY</span>
+          <span className="block font-mono text-2xs tracking-[0.14em] text-white/40">RALLY</span>
           <strong className="font-mono text-2xl">{state.rally}</strong>
         </div>
         <ControllerScore
@@ -153,7 +153,7 @@ export function PingPongController({
       <section className="mt-3 grid flex-none gap-2 text-center">
         {permission === 'unknown' && (
           <button
-            className="min-h-12 rounded-2xl border border-[#49e08a]/45 bg-[#49e08a]/12 px-5 font-bold text-[#8dffc0]"
+            className="min-h-12 rounded-card border border-pp-accent/45 bg-pp-accent/12 px-5 font-bold text-pp-accent-text"
             onClick={() => void requestPermission()}
             type="button"
           >
@@ -161,13 +161,13 @@ export function PingPongController({
           </button>
         )}
         {permission === 'granted' && (
-          <p className="m-0 text-sm font-bold text-[#8dffc0]" role="status">
+          <p className="m-0 text-sm font-bold text-pp-accent-text" role="status">
             모션 스윙 연결됨 · 휴대폰을 휘둘러 주세요
           </p>
         )}
         {usesTouchFallback(permission) && (
           <button
-            className="min-h-12 rounded-2xl border border-white/18 bg-white/8 px-5 font-bold active:scale-[0.98] active:bg-white/15"
+            className="min-h-12 rounded-card border border-white/18 bg-white/8 px-5 font-bold active:scale-[0.98] active:bg-white/15"
             onClick={onTouchSwing}
             type="button"
           >
@@ -201,7 +201,7 @@ function ControllerArena({
     <button
       aria-label={onTouchSwing ? '탁구채를 눌러 스윙' : '휴대폰을 휘둘러 스윙'}
       aria-disabled={!onTouchSwing}
-      className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-[2rem] border border-white/12 bg-[radial-gradient(circle_at_50%_45%,rgb(43_143_224_/_22%),transparent_58%)] active:bg-white/8"
+      className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-white/12 bg-[radial-gradient(circle_at_50%_45%,rgb(43_143_224_/_22%),transparent_58%)] active:bg-white/8"
       onClick={onTouchSwing}
       type="button"
     >
@@ -213,7 +213,7 @@ function ControllerArena({
       />
       <span
         aria-hidden="true"
-        className={`absolute top-[53%] left-1/2 h-[28%] w-10 origin-top -translate-x-1/2 rounded-b-full bg-[#201a1a] transition-transform duration-150 ${paddlePose}`}
+        className={`absolute top-[53%] left-1/2 h-[28%] w-10 origin-top -translate-x-1/2 rounded-b-full bg-pp-paddle-grip transition-transform duration-150 ${paddlePose}`}
       />
       <ControllerPrompt countdown={view.countdown} incoming={view.incoming} />
       <ControllerFeedback rally={rally} view={view} />
@@ -239,7 +239,7 @@ function ControllerPrompt({ countdown, incoming }: { countdown: number; incoming
 function ControllerFeedback({ rally, view }: { rally: number; view: ControllerView }) {
   const showEvent = Boolean(view.label && view.event && view.eventAge < 900)
   const label = showEvent ? view.label : view.situationLabel
-  const tone = showEvent && view.event ? feedbackTextClass(view.event.type) : 'text-[#ffd24a]'
+  const tone = showEvent && view.event ? feedbackTextClass(view.event.type) : 'text-pp-gold'
   return (
     <span className="pointer-events-none absolute inset-x-0 top-[7%] z-10 grid justify-items-center gap-2 text-center">
       <span className={`min-h-9 text-3xl font-black drop-shadow-xl ${tone}`}>
@@ -286,10 +286,10 @@ function PingPongPreparationController({
   const [p1, p2] = playerSlots(state, playerId, view.opponentName)
 
   return (
-    <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-[#070b12] px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
+    <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-pp-canvas px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
       <header className="flex flex-none items-center justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
-          <span className="font-mono text-[11px] tracking-[0.18em] text-[#73bfff]">WARM-UP</span>
+          <span className="font-mono text-2xs tracking-[0.18em] text-pp-rival-text">WARM-UP</span>
           <strong className="truncate text-lg">{nickname}</strong>
         </div>
         <button
@@ -322,7 +322,7 @@ function PingPongPreparationController({
       <button
         aria-label="연습 공 치기"
         aria-disabled={permission === 'granted'}
-        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-[2rem] border border-[#2b8fe0]/35 bg-[radial-gradient(circle_at_50%_42%,rgb(43_143_224_/_24%),transparent_60%)] active:bg-white/8"
+        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-pp-rival/35 bg-[radial-gradient(circle_at_50%_42%,rgb(43_143_224_/_24%),transparent_60%)] active:bg-white/8"
         onClick={practiceAction}
         type="button"
       >
@@ -337,7 +337,7 @@ function PingPongPreparationController({
           data-testid="ping-pong-paddle-face"
         />
         <span
-          className={`absolute inset-x-4 bottom-5 text-center text-base font-black ${practiced ? 'text-[#49e08a]' : 'text-white/70'}`}
+          className={`absolute inset-x-4 bottom-5 text-center text-base font-black ${practiced ? 'text-pp-accent' : 'text-white/70'}`}
         >
           {practiceAck ? '스윙 감지 완료! 공을 맞혔어요' : practicePrompt(permission)}
         </span>
@@ -346,7 +346,7 @@ function PingPongPreparationController({
       <section className="mt-3 grid flex-none gap-2">
         {permission === 'unknown' && (
           <button
-            className="min-h-12 rounded-2xl border border-[#49e08a]/45 bg-[#49e08a]/12 px-5 font-bold text-[#8dffc0]"
+            className="min-h-12 rounded-card border border-pp-accent/45 bg-pp-accent/12 px-5 font-bold text-pp-accent-text"
             onClick={() => void requestPermission()}
             type="button"
           >
@@ -355,7 +355,7 @@ function PingPongPreparationController({
         )}
         <PreparationMotionStatus permission={permission} practiced={practiced} />
         <button
-          className="min-h-14 rounded-2xl bg-[#e2513c] px-5 text-lg font-black text-white disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35"
+          className="min-h-14 rounded-card bg-pp-danger px-5 text-lg font-black text-white disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35"
           disabled={!practiced || ready}
           onClick={onReady}
           type="button"
@@ -411,7 +411,7 @@ function PreparationMotionStatus({
   if (practiced || permission === 'unknown') return null
   if (permission === 'granted') {
     return (
-      <p className="m-0 text-center text-sm font-bold text-[#8dffc0]" role="status">
+      <p className="m-0 text-center text-sm font-bold text-pp-accent-text" role="status">
         센서 연결 완료 · 휴대폰을 실제로 휘둘러 주세요
       </p>
     )
@@ -426,10 +426,10 @@ function PreparationMotionStatus({
 function PreparationStatus({ label, ready, tag }: { label: string; ready: boolean; tag: string }) {
   return (
     <div
-      className={`rounded-2xl border px-3 py-2.5 text-center text-sm font-bold ${ready ? 'border-[#49e08a]/45 bg-[#49e08a]/12 text-[#8dffc0]' : 'border-white/12 bg-white/6 text-white/45'}`}
+      className={`rounded-card border px-3 py-2.5 text-center text-sm font-bold ${ready ? 'border-pp-accent/45 bg-pp-accent/12 text-pp-accent-text' : 'border-white/12 bg-white/6 text-white/45'}`}
     >
       <span className="flex items-center justify-center gap-1">
-        <span className="rounded border border-current px-1 font-mono text-[10px] font-black leading-none">
+        <span className="rounded-xs border border-current px-1 font-mono text-2xs font-black leading-none">
           {tag}
         </span>
         <span className="truncate">{label}</span>
@@ -456,8 +456,8 @@ type PaddleTone = 'blue' | 'red'
 
 function paddleFaceClass(tone: PaddleTone) {
   return tone === 'blue'
-    ? 'border-[#2b8fe0]/45 bg-[#2b8fe0] shadow-[0_18px_45px_rgb(43_143_224_/_35%)]'
-    : 'border-[#e2513c]/45 bg-[#e2513c] shadow-[0_18px_45px_rgb(226_81_60_/_35%)]'
+    ? 'border-pp-rival/45 bg-pp-rival shadow-[0_18px_45px_rgb(43_143_224_/_35%)]'
+    : 'border-pp-danger/45 bg-pp-danger shadow-[0_18px_45px_rgb(226_81_60_/_35%)]'
 }
 
 interface PlayerSlot {
@@ -492,9 +492,9 @@ function ControllerScore({
   tone: 'blue' | 'red'
 }) {
   return (
-    <div className={tone === 'blue' ? 'text-[#73bfff]' : 'text-[#ff8b7c]'}>
+    <div className={tone === 'blue' ? 'text-pp-rival-text' : 'text-pp-danger-text'}>
       <span className="flex max-w-24 items-center gap-1 text-xs font-bold text-white/55">
-        <span className="rounded border border-current px-1 font-mono text-[10px] font-black leading-none">
+        <span className="rounded-xs border border-current px-1 font-mono text-2xs font-black leading-none">
           {tag}
         </span>
         <span className="truncate">{label}</span>

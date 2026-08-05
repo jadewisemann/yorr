@@ -47,7 +47,7 @@ export function RoundTimer({
         <span
           aria-label="남은 시간"
           className={cn(
-            'grid size-[2.7rem] place-items-center rounded-full bg-canvas font-mono text-[15px] tabular-nums transition-colors',
+            'grid size-[2.7rem] place-items-center rounded-full bg-canvas font-mono text-sm tabular-nums transition-colors',
             warning ? 'font-bold text-brand-strong' : 'font-medium text-content',
           )}
           role="timer"

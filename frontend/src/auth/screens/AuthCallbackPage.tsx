@@ -50,7 +50,7 @@ export function AuthCallbackPage({
 
   return (
     <main className="flex h-svh w-full items-center justify-center [background:var(--ds-landing-bg)]">
-      <p className="m-0 text-[15px] font-semibold text-landing-text-muted" role="status">
+      <p className="m-0 text-sm font-semibold text-landing-text-muted" role="status">
         로그인하는 중이에요…
       </p>
     </main>

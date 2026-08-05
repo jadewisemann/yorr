@@ -108,7 +108,7 @@ export function Gunslinger({
       <defs>
         {/* 몸통: 앞쪽(석양 반대)이 살짝 밝고 뒤로 갈수록 새카맣게 */}
         <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0%" stopColor="#0b0409" />
+          <stop offset="0%" stopColor="var(--ds-duel-canvas)" />
           <stop offset="60%" stopColor="#1c0e17" />
           <stop offset="100%" stopColor="#3a1c22" />
         </linearGradient>

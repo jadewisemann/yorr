@@ -16,10 +16,10 @@ export function PartyOnBigScreenPage({ gameKey }: { gameKey: PartyGameKey }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-6 px-gutter pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-content">
       <div className="grid gap-3">
-        <h1 className="m-0 text-[27px] font-bold tracking-[-0.02em]">
+        <h1 className="m-0 text-2xl font-bold tracking-[-0.02em]">
           파티 모드는 큰 화면에서 열어 주세요
         </h1>
-        <p className="m-0 text-[15px] leading-[1.6] text-content-muted">
+        <p className="m-0 text-sm leading-[1.6] text-content-muted">
           이 화면이 게임판이 되고, 다른 사람들은 QR을 찍어 폰으로 참여해요. TV·모니터·노트북에서
           요르를 열면 바로 시작할 수 있어요.
         </p>

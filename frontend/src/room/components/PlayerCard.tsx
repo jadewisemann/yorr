@@ -71,7 +71,7 @@ export function PlayerCard({
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate font-bold">{name}</span>
           {current && (
-            <span className="shrink-0 rounded-[6px] bg-content px-2 py-0.5 text-xs font-bold text-canvas">
+            <span className="shrink-0 rounded-chip bg-content px-2 py-0.5 text-xs font-bold text-canvas">
               나
             </span>
           )}

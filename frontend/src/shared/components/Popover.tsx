@@ -155,7 +155,7 @@ export function Popover({
             aria-label={label}
             aria-modal="true"
             className={cn(
-              'absolute rounded-[20px] border border-landing-hairline-strong bg-surface-raised p-6 shadow-landing-popover',
+              'absolute rounded-panel border border-landing-hairline-strong bg-surface-raised p-6 shadow-landing-popover',
               // 앵커가 없을 때(랜딩 헤더)의 고정 자리. 트리거는 폭이 제한된 헤더
               // (max-w-landing) 안에 있는데 이 껍데기는 fixed inset-0이라 뷰포트 기준이다.
               // 헤더가 가운데로 모이는 폭부터는 헤더 우측단을 따라가야 한다 — 안 그러면

@@ -255,7 +255,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
 
   if (!state) {
     return (
-      <main className="grid h-svh place-items-center bg-[#0b0409] text-white">
+      <main className="grid h-svh place-items-center bg-duel-canvas text-white">
         결투장을 준비하고 있어요.
       </main>
     )
@@ -303,7 +303,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
 
   return (
     <main
-      className="relative flex h-svh w-full flex-col overflow-hidden bg-[#0b0409] text-white select-none"
+      className="relative flex h-svh w-full flex-col overflow-hidden bg-duel-canvas text-white select-none"
       ref={stageRef}
     >
       <Arena
@@ -350,7 +350,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
       <section className="absolute inset-x-0 bottom-0 z-20 grid justify-items-center gap-2 px-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {permission === 'unknown' && (
           <button
-            className="min-h-11 rounded-full border border-[#f59e0b]/50 bg-[#f59e0b]/15 px-5 text-sm font-bold text-[#ffd9a0] backdrop-blur-md"
+            className="min-h-11 rounded-full border border-duel-signal/50 bg-duel-signal/15 px-5 text-sm font-bold text-duel-accent-soft backdrop-blur-md"
             onClick={(event) => {
               event.stopPropagation()
               void requestPermission()
@@ -400,7 +400,7 @@ function DuelDashboard({
 
   return (
     <main
-      className="relative flex h-svh w-full flex-col overflow-hidden bg-[#0b0409] text-white select-none"
+      className="relative flex h-svh w-full flex-col overflow-hidden bg-duel-canvas text-white select-none"
       ref={stageRef}
     >
       <Arena
@@ -464,19 +464,22 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: Omit<DuelGameP
       </div>
 
       <p
-        className="m-0 font-mono text-[11px] tracking-[0.3em] uppercase"
-        style={{ color: '#ffcf8a' }}
+        className="m-0 font-mono text-2xs tracking-[0.3em] uppercase"
+        style={{ color: 'var(--ds-duel-accent)' }}
       >
         Last man standing
       </p>
       <h1
         className="m-0 font-black"
-        style={{ color: won ? '#86efac' : '#fca5a5', fontSize: 'clamp(2.25rem, 6vw, 4.5rem)' }}
+        style={{
+          color: won ? 'var(--ds-duel-positive)' : 'var(--ds-duel-danger)',
+          fontSize: 'clamp(2.25rem, 6vw, 4.5rem)',
+        }}
       >
         {won ? '살아남았다' : '쓰러졌다'}
       </h1>
 
-      <section className="flex items-center gap-6 rounded-3xl border border-white/15 bg-white/8 px-8 py-6 backdrop-blur-md">
+      <section className="flex items-center gap-6 rounded-sheet border border-white/15 bg-white/8 px-8 py-6 backdrop-blur-md">
         <Ammo hp={myHp} name="나" outfit={OUTFIT_LEFT} />
         <span className="text-2xl text-white/35">:</span>
         <Ammo hp={opponentHp} name={opponent?.nickname ?? '상대'} outfit={OUTFIT_RIGHT} />
@@ -537,19 +540,19 @@ function DuelDashboardResult({
       </div>
 
       <p
-        className="m-0 font-mono text-[11px] tracking-[0.3em] uppercase"
-        style={{ color: '#ffcf8a' }}
+        className="m-0 font-mono text-2xs tracking-[0.3em] uppercase"
+        style={{ color: 'var(--ds-duel-accent)' }}
       >
         Last man standing
       </p>
       <h1
         className="m-0 font-black"
-        style={{ color: '#86efac', fontSize: 'clamp(2.25rem, 6vw, 4.5rem)' }}
+        style={{ color: 'var(--ds-duel-positive)', fontSize: 'clamp(2.25rem, 6vw, 4.5rem)' }}
       >
         {survivor ? `${nameOf(survivor)} 승리` : '무승부'}
       </h1>
 
-      <section className="flex items-center gap-6 rounded-3xl border border-white/15 bg-white/8 px-8 py-6 backdrop-blur-md">
+      <section className="flex items-center gap-6 rounded-sheet border border-white/15 bg-white/8 px-8 py-6 backdrop-blur-md">
         <Ammo hp={state?.hp[first ?? ''] ?? 0} name={nameOf(first)} outfit={OUTFIT_LEFT} />
         <span className="text-2xl text-white/35">:</span>
         <Ammo hp={state?.hp[second ?? ''] ?? 0} name={nameOf(second)} outfit={OUTFIT_RIGHT} />

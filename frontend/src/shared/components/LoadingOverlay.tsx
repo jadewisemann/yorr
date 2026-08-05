@@ -43,7 +43,7 @@ export function LoadingOverlay({
               className="size-9 animate-spin-slow rounded-full border-3 border-current border-r-transparent motion-reduce:animate-none"
             />
           )}
-          <p className="m-0 max-w-80 text-center text-[15px] font-semibold">{message}</p>
+          <p className="m-0 max-w-80 text-center text-sm font-semibold">{message}</p>
           {children}
         </motion.div>
       )}

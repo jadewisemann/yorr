@@ -40,19 +40,19 @@ export function PlayModeDialog({
       open={open}
       title={`${game.name} 시작하기`}
     >
-      <p className="-mt-2 mb-5 text-[13px] text-content-muted">
+      <p className="-mt-2 mb-5 text-xs text-content-muted">
         {game.players} · {game.duration} · {game.control}
       </p>
 
-      <section className="rounded-[1rem] border border-brand/30 bg-brand/8 p-5">
+      <section className="rounded-card border border-brand/30 bg-brand/8 p-5">
         <div className="mb-4">
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <h3 className="m-0 text-[17px] font-bold text-content">방 만들기</h3>
-            <span className="rounded-full border border-brand/40 px-2 py-0.5 text-[10.5px] font-bold tracking-[0.08em] text-brand">
+            <h3 className="m-0 text-base font-bold text-content">방 만들기</h3>
+            <span className="rounded-full border border-brand/40 px-2 py-0.5 text-2xs font-bold tracking-[0.08em] text-brand">
               추천
             </span>
           </div>
-          <p className="m-0 text-[13.5px]/[1.55] text-content-muted">
+          <p className="m-0 text-xs/[1.55] text-content-muted">
             초대 링크를 보내면 친구가 로그인 없이 바로 들어와요.
           </p>
         </div>
@@ -62,7 +62,7 @@ export function PlayModeDialog({
       </section>
 
       <div className="mt-5">
-        <p className="mb-1 px-1 text-[11px] font-semibold tracking-[0.14em] text-content-muted">
+        <p className="mb-1 px-1 text-2xs font-semibold tracking-[0.14em] text-content-muted">
           다른 방식으로 시작
         </p>
         <ModeRow
@@ -127,11 +127,11 @@ function ModeRow({
         <ModeIcon kind={icon} />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-[14.5px] font-semibold text-content">{title}</span>
-        <span className="text-[12.5px] text-content-muted">{description}</span>
+        <span className="text-sm font-semibold text-content">{title}</span>
+        <span className="text-xs text-content-muted">{description}</span>
       </span>
       {tag && (
-        <span className="rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap text-content-muted">
+        <span className="rounded-full border border-border px-2.5 py-1 text-2xs font-semibold whitespace-nowrap text-content-muted">
           {tag}
         </span>
       )}

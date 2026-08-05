@@ -59,9 +59,9 @@ export function InvitePopover({ anchorRef, onClose, open, roomCode }: InvitePopo
   return (
     <Popover anchorRef={anchorRef} label="친구 초대하기" onClose={close} open={open}>
       <div className="flex items-baseline justify-between pb-1">
-        <h2 className="m-0 text-[17px] font-bold">친구 초대</h2>
+        <h2 className="m-0 text-base font-bold">친구 초대</h2>
         <button
-          className="cursor-pointer border-0 bg-transparent p-0 text-[13px] font-semibold text-content-muted hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
+          className="cursor-pointer border-0 bg-transparent p-0 text-xs font-semibold text-content-muted hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
           onClick={close}
           type="button"
         >
@@ -83,14 +83,14 @@ export function InvitePopover({ anchorRef, onClose, open, roomCode }: InvitePopo
           {/* min-w-0: 방 코드 최대 12자는 이 폭에서 넘친다 — truncate가 먹으려면 이 열의
               최소폭이 내용 기준(auto)이 아니어야 한다(QA FND-4와 같은 함정). */}
           <div className="grid min-w-0 flex-1 gap-1">
-            <span className="font-mono text-[11px] font-bold tracking-[0.14em] text-content-muted uppercase">
+            <span className="font-mono text-2xs font-bold tracking-[0.14em] text-content-muted uppercase">
               Room Code
             </span>
-            <span className="block truncate font-mono text-[22px] leading-none font-bold tracking-[0.1em]">
+            <span className="block truncate font-mono text-xl leading-none font-bold tracking-[0.1em]">
               {roomCode}
             </span>
             {/* 자동 복사가 막혔을 때 길게 눌러 직접 복사하는 대상이라 실제 링크를 보여 준다. */}
-            <p className="m-0 truncate font-mono text-[11px] text-content-muted">{inviteUrl}</p>
+            <p className="m-0 truncate font-mono text-2xs text-content-muted">{inviteUrl}</p>
           </div>
         </div>
         <div className="flex gap-2">

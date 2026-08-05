@@ -24,7 +24,7 @@ export function RollCounter({ className, maxRolls = 3, rollsUsed }: RollCounterP
       <DieFace value={remaining} />
       <p
         className={cn(
-          'm-0 text-[15px] font-bold whitespace-nowrap tabular-nums',
+          'm-0 text-sm font-bold whitespace-nowrap tabular-nums',
           remaining > 0 ? 'text-content' : 'text-content-muted',
         )}
       >

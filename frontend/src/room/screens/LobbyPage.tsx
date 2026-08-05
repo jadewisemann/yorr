@@ -185,8 +185,8 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
         {/* 디자인 03 헤더 — 좌측 타이틀·코드·연결 상태, 우측 나가기. */}
         <header className="flex items-center gap-3 border-b border-border pb-3.5">
           <div className="grid min-w-0 flex-1 gap-1">
-            <h1 className="m-0 text-[19px] font-bold">대기실</h1>
-            <p className="m-0 flex items-center gap-2 text-[13px] text-content-muted">
+            <h1 className="m-0 text-lg font-bold">대기실</h1>
+            <p className="m-0 flex items-center gap-2 text-xs text-content-muted">
               <span className="font-mono font-bold tracking-[0.12em] text-content">
                 {roomSession.roomCode}
               </span>
@@ -270,7 +270,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
             누르는 자리이기도 하다. 스냅샷을 기다리는 동안에도 그린다 — 방을 만든 직후가 초대
             링크를 뿌리는 순간인데 그때 버튼이 없으면 옮긴 의미가 없다. */}
         <div className="flex flex-none items-center justify-between gap-3">
-          <span className="text-[15px] font-semibold">참가 인원</span>
+          <span className="text-sm font-semibold">참가 인원</span>
           <span className="ml-auto font-mono text-base font-bold tabular-nums">
             {roomSnapshot?.players.length ?? 0}
             <span className="text-content-faint"> / {capacity}</span>

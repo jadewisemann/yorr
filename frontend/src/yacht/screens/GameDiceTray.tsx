@@ -108,7 +108,7 @@ export function GameDiceTray({
   return (
     <div
       className={cn(
-        'relative min-h-0 flex-1 overflow-hidden rounded-[1.375rem] border border-white/8 shadow-[inset_0_2px_0_rgb(255_255_255_/_6%),inset_0_-26px_46px_rgb(0_0_0_/_62%)] transition-transform [background:var(--ds-physics-tray)] motion-reduce:transform-none',
+        'relative min-h-0 flex-1 overflow-hidden rounded-panel border border-white/8 shadow-[inset_0_2px_0_rgb(255_255_255_/_6%),inset_0_-26px_46px_rgb(0_0_0_/_62%)] transition-transform [background:var(--ds-physics-tray)] motion-reduce:transform-none',
         wide ? 'mx-gutter my-3' : 'mx-gutter mt-3 mb-1',
         motion.lastPulseDirection === 'left' && '-translate-x-1',
         motion.lastPulseDirection === 'right' && 'translate-x-1',
@@ -119,7 +119,7 @@ export function GameDiceTray({
           없는 절대 배치 형제라, 둘의 폭 합(약 300px)이 트레이를 넘으면 글자가 칩 위에 겹쳐 그려진다
           — 겹친 라벨은 안내가 아니라 오작동으로 읽힌다(A-2 캐러셀 힌트와 같은 판단).
           잃는 정보가 없다: 굴림 횟수는 오른쪽 칩이, 누구 턴인지는 헤더가 이미 말한다. */}
-      <div className="pointer-events-none absolute top-3 left-4 z-10 text-[10px] font-bold tracking-[0.13em] text-content-faint tabular-nums uppercase max-tiny:hidden">
+      <div className="pointer-events-none absolute top-3 left-4 z-10 text-2xs font-bold tracking-[0.13em] text-content-faint tabular-nums uppercase max-tiny:hidden">
         {trayLabel}
       </div>
       <TrayTopBand
@@ -159,7 +159,7 @@ export function GameDiceTray({
           onClick={handleRoll}
           type="button"
         >
-          <span className="text-[11px] font-bold tracking-[0.1em] text-content-faint uppercase">
+          <span className="text-2xs font-bold tracking-[0.1em] text-content-faint uppercase">
             탭해서 굴리기
           </span>
         </button>
@@ -228,7 +228,7 @@ function TrayTopBand({
       {/* 흔들기 안내로 들어가는 조용한 입구. 알럿과 달리 아무것도 막지 않고 기다린다. */}
       {showMotionChip && (
         <button
-          className="pointer-events-auto flex cursor-pointer items-center gap-1 rounded-full border border-border bg-surface/80 px-2 py-1 text-[10px] font-bold tracking-[0.06em] text-content-muted uppercase transition-colors hover:text-content focus-ring focus-visible:outline-offset-2"
+          className="pointer-events-auto flex cursor-pointer items-center gap-1 rounded-full border border-border bg-surface/80 px-2 py-1 text-2xs font-bold tracking-[0.06em] text-content-muted uppercase transition-colors hover:text-content focus-ring focus-visible:outline-offset-2"
           data-tutorial="motion"
           onClick={onOpenMotionPanel}
           type="button"
@@ -265,7 +265,7 @@ function TrayBottomBand({
     <div className="pointer-events-none absolute inset-x-4 bottom-2.5 z-10 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
       {/* 주사위를 탭할 때마다 숫자가 바뀐다 — tabular-nums가 없으면 라벨 폭이 흔들려
           옆에 붙은 툴팁 트리거까지 함께 밀린다. */}
-      <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.13em] text-content-faint tabular-nums uppercase">
+      <span className="flex items-center gap-1.5 text-2xs font-bold tracking-[0.13em] text-content-faint tabular-nums uppercase">
         킵 레일 · {keptText}
         <Tooltip
           align="start"
@@ -305,10 +305,10 @@ function TooltipCoachmark({ onDone }: { onDone: () => void }) {
         type="button"
       />
       <div className="absolute inset-x-6 top-1/2 z-[6] grid -translate-y-1/2 gap-2.5 rounded-card border border-white/18 bg-surface-raised/95 p-3.5 shadow-raised">
-        <p aria-live="polite" className="m-0 text-[13.5px] leading-relaxed text-content">
+        <p aria-live="polite" className="m-0 text-xs leading-relaxed text-content">
           지금 빛나는 동그라미 두 개를 눌러 보세요. 굴리기 횟수와 킵 레일 설명이 그 자리에서 나와요.
         </p>
-        <p className="m-0 text-[12.5px] leading-relaxed text-content-muted">
+        <p className="m-0 text-xs leading-relaxed text-content-muted">
           요트다이스가 처음이라면 헤더의 도움말에서 <strong>튜토리얼 모드</strong>를 켜 보세요.
         </p>
         <Button onClick={onDone} size="sm" variant="secondary">

@@ -48,13 +48,13 @@ export function ConnectionBanner({ className, status }: ConnectionBannerProps) {
               status === 'closed'
                 ? 'h-0.5 w-2.5 bg-danger'
                 : status === 'reconnecting'
-                  ? 'size-2 rounded-[2px] bg-warning'
+                  ? 'size-2 rounded-xs bg-warning'
                   : 'size-2.5 rounded-full border-2 border-content-muted',
             )}
           />
           <p
             className={cn(
-              'm-0 min-w-0 text-[12.5px] font-bold',
+              'm-0 min-w-0 text-xs font-bold',
               status === 'reconnecting'
                 ? 'text-warning'
                 : status === 'closed'

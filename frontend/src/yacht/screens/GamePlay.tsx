@@ -471,10 +471,10 @@ export function GamePlay({
           ? scoreSheet(
               'min-h-0 border-l border-border',
               <div className="flex items-baseline justify-between gap-3 px-3 pt-2.5 pb-1.5">
-                <h2 className="m-0 text-[15px] font-bold tracking-[0.02em] whitespace-nowrap">
+                <h2 className="m-0 text-sm font-bold tracking-[0.02em] whitespace-nowrap">
                   점수표
                 </h2>
-                <p className="m-0 truncate text-[12px] text-content-faint">{sheetHint}</p>
+                <p className="m-0 truncate text-xs text-content-faint">{sheetHint}</p>
               </div>,
             )
           : null}
@@ -559,11 +559,11 @@ function QuickCategoryStrip({
               onClick={() => onPick(category)}
               type="button"
             >
-              <span className="flex items-center gap-1 text-[10px] font-semibold tracking-[0.07em] uppercase">
+              <span className="flex items-center gap-1 text-2xs font-semibold tracking-[0.07em] uppercase">
                 {categoryShortLabel[category]}
                 {leveraged && <span className="text-brand-strong">×2</span>}
               </span>
-              <span className="font-mono text-[22px] leading-none font-bold tabular-nums">
+              <span className="font-mono text-xl leading-none font-bold tabular-nums">
                 {score ?? '—'}
               </span>
             </button>
@@ -603,7 +603,7 @@ function GamePlayActions({
   return (
     <>
       <Button
-        className={cn('min-h-15 rounded-panel text-[17px]', wide ? 'w-[300px]' : 'flex-1')}
+        className={cn('min-h-15 rounded-panel text-base', wide ? 'w-[300px]' : 'flex-1')}
         data-tutorial="roll"
         disabled={!canRoll}
         loading={rolling || submitting}
@@ -639,7 +639,7 @@ function WaitingNotice({
       <p className="m-0 flex min-h-15 flex-1 items-center justify-center gap-2.5 rounded-panel border border-positive/40 bg-positive/10 px-4 text-center text-sm font-semibold text-positive">
         <span
           aria-hidden="true"
-          className="grid size-5 flex-none place-items-center rounded-[7px] bg-positive/20"
+          className="grid size-5 flex-none place-items-center rounded-chip bg-positive/20"
         >
           <IconCheck className="size-3" />
         </span>
@@ -652,7 +652,7 @@ function WaitingNotice({
     <p className="m-0 flex min-h-15 flex-1 items-center justify-center gap-2.5 rounded-panel border border-border bg-surface px-4 text-center text-sm font-semibold text-content-muted">
       <span
         aria-hidden="true"
-        className="size-2 flex-none rounded-[2px] bg-brand-strong motion-safe:animate-ring-pulse"
+        className="size-2 flex-none rounded-xs bg-brand-strong motion-safe:animate-ring-pulse"
       />
       {activePlayerName ? `${activePlayerName}(이)가 굴리는 중` : '턴 동기화 중'}
     </p>
