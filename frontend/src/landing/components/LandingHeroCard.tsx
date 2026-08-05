@@ -200,8 +200,10 @@ const cardScrim = { narrow: 'h-[28%]', wide: 'h-[26%]' } as const
  * 이미 같은 말을 한다. 두 상태의 폭이 거의 같은 것도 중요하다 — 모서리에 선 요소는 폭이
  * 뛰면 카드 균형이 게임마다 흔들린다.
  */
+// 눌림은 공통 Button과 같은 값(scale 0.97)이다. 이 앱에서 가장 많이 눌리는 자리인데
+// 그것만 빠져 있었다 — 터치에서는 hover가 없어 누른 순간 아무 반응이 없었다.
 const playCta =
-  'flex cursor-pointer items-center justify-center gap-3.5 rounded-panel border-0 bg-landing-accent font-bold text-landing-accent-ink transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-3'
+  'flex cursor-pointer items-center justify-center gap-3.5 rounded-panel border-0 bg-landing-accent font-bold text-landing-accent-ink transition-[color,background-color,border-color,scale] duration-150 ease-out focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-3 active:scale-[0.97]'
 const lockedCta =
   'flex cursor-not-allowed items-center justify-center gap-3.5 rounded-panel border border-landing-hairline-strong bg-landing-disabled font-bold text-landing-text-faint'
 
