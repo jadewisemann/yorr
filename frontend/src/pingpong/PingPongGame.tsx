@@ -7,7 +7,12 @@ import { Button } from '@/shared/components/Button'
 import { useSwing } from '@/shared/useSwing'
 import type { ActiveRoomSession } from '@/store'
 import { type Fault, flightProgress } from './court'
-import { feedbackTextClass, sharedEventLabel } from './feedback'
+import {
+  feedbackTextClass,
+  pingPongSituation,
+  sharedEventLabel,
+  sharedSituationLabel,
+} from './feedback'
 import { ComboBadge, PingPongController } from './PingPongController'
 import { type PlayerTracking, trackIncomingBall } from './playerTracking'
 import { createScene, type FrameState, type PingPongScene } from './scene3d'
@@ -154,6 +159,21 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
   )
 }
 
+function dashboardSituationLabel(
+  state: PingPongState,
+  firstPlayerId: string,
+  secondPlayerId: string,
+  firstName: string,
+  secondName: string,
+) {
+  if (state.phase !== 'COUNTDOWN') return null
+  return sharedSituationLabel(
+    pingPongSituation(state.scores[firstPlayerId] ?? 0, state.scores[secondPlayerId] ?? 0),
+    firstName,
+    secondName,
+  )
+}
+
 function PingPongDashboard({
   canvasRef,
   clock,
@@ -177,6 +197,13 @@ function PingPongDashboard({
   const eventAge = event ? clock - event.at : Number.POSITIVE_INFINITY
   const actor = snapshot.players.find((player) => player.playerId === event?.playerId)
   const label = event ? sharedEventLabel(event.type, actor?.nickname ?? '플레이어') : null
+  const situationLabel = dashboardSituationLabel(
+    state,
+    firstPlayerId,
+    secondPlayerId,
+    firstPlayer?.nickname ?? 'P1',
+    secondPlayer?.nickname ?? 'P2',
+  )
 
   return (
     <main className="relative h-svh w-full overflow-hidden bg-[#070b12] text-white">
@@ -189,6 +216,7 @@ function PingPongDashboard({
         <Score
           name={firstPlayer?.nickname ?? 'P1'}
           score={state.scores[firstPlayerId] ?? 0}
+          tag="P1"
           tone="blue"
         />
         <div className="mt-1 rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-center font-mono text-xs tracking-[0.14em] backdrop-blur-md">
@@ -197,6 +225,7 @@ function PingPongDashboard({
         <Score
           name={secondPlayer?.nickname ?? 'P2'}
           score={state.scores[secondPlayerId] ?? 0}
+          tag="P2"
           tone="red"
         />
       </header>
@@ -217,21 +246,48 @@ function PingPongDashboard({
       {state.phase === 'PREPARING' && (
         <PingPongPreparationDashboard snapshot={snapshot} state={state} />
       )}
-      {label && event && eventAge < 900 && (
-        <div
-          className={`animate-pp-feedback-pop pointer-events-none absolute inset-x-0 top-[17%] z-10 text-center text-4xl font-black drop-shadow-[0_3px_12px_rgb(0_0_0_/_80%)] ${feedbackTextClass(event.type)}`}
-        >
-          {label}
-        </div>
-      )}
+      <DashboardFeedback
+        event={event}
+        eventAge={eventAge}
+        eventLabel={label}
+        rally={state.rally}
+        situationLabel={situationLabel}
+      />
       {event?.type === 'SMASH' && eventAge < 220 && (
         <div className="animate-pp-smash-flash pointer-events-none absolute inset-0 z-[5] bg-[radial-gradient(circle_at_50%_55%,rgb(255_150_110_/_45%),transparent_70%)]" />
       )}
-      {state.rally > 0 && <ComboBadge count={state.rally} placement="dashboard" />}
       <p className="pointer-events-none absolute inset-x-0 bottom-5 z-20 m-0 text-center text-sm text-white/55">
         두 플레이어가 각자 휴대폰으로 조작하고 있어요.
       </p>
     </main>
+  )
+}
+
+function DashboardFeedback({
+  event,
+  eventAge,
+  eventLabel,
+  rally,
+  situationLabel,
+}: {
+  event: PingPongState['lastEvent']
+  eventAge: number
+  eventLabel: string | null
+  rally: number
+  situationLabel: string | null
+}) {
+  const showEvent = Boolean(eventLabel && event && eventAge < 900)
+  const label = showEvent ? eventLabel : situationLabel
+  const tone = showEvent && event ? feedbackTextClass(event.type) : 'text-[#ffd24a]'
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-[17%] z-10 grid justify-items-center gap-3 text-center">
+      <div
+        className={`min-h-12 text-4xl font-black drop-shadow-[0_3px_12px_rgb(0_0_0_/_80%)] ${tone}`}
+      >
+        {label && <span className="animate-pp-feedback-pop">{label}</span>}
+      </div>
+      {rally > 0 && <ComboBadge count={rally} />}
+    </div>
   )
 }
 
@@ -304,7 +360,7 @@ export function PingPongResult({
   const host = isRoomHost(snapshot, session.you)
 
   return (
-    <main className="relative mx-auto flex h-svh w-full max-w-2xl flex-col items-center justify-center gap-7 overflow-hidden bg-[#070b12] px-gutter text-white">
+    <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-[#070b12] px-gutter text-white">
       <div className="absolute inset-0 [background:radial-gradient(circle_at_50%_30%,rgb(43_143_224_/_20%),transparent_45%)]" />
       <p className="relative m-0 font-mono text-xs tracking-[0.22em] text-white/55">
         MATCH FINISHED
@@ -352,7 +408,7 @@ function PingPongDashboardResult({
   const secondPlayer = snapshot.players.find((player) => player.playerId === secondPlayerId)
 
   return (
-    <main className="relative mx-auto flex h-svh w-full max-w-2xl flex-col items-center justify-center gap-7 overflow-hidden bg-[#070b12] px-gutter text-white">
+    <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-[#070b12] px-gutter text-white">
       <p className="m-0 font-mono text-xs tracking-[0.22em] text-white/55">MATCH FINISHED</p>
       <h1 className="m-0 text-5xl font-black">경기 종료</h1>
       <section className="flex items-center gap-6 rounded-3xl border border-white/15 bg-white/8 px-8 py-7">
@@ -384,18 +440,27 @@ function Score({
   name,
   score,
   tone,
+  tag,
   large = false,
 }: {
   name: string
   score: number
   tone: 'blue' | 'red'
+  tag?: string
   large?: boolean
 }) {
   return (
     <div
       className={`grid min-w-20 text-center ${tone === 'blue' ? 'text-[#73bfff]' : 'text-[#ff8b7c]'}`}
     >
-      <span className="max-w-28 truncate text-xs font-bold text-white/65">{name}</span>
+      <span className="flex min-w-0 items-center justify-center gap-1 text-xs font-bold text-white/65">
+        {tag && (
+          <span className="rounded border border-current px-1 font-mono text-[10px] font-black leading-none">
+            {tag}
+          </span>
+        )}
+        <span className="max-w-28 truncate">{name}</span>
+      </span>
       <strong className={`font-mono leading-none ${large ? 'text-7xl' : 'text-4xl'}`}>
         {score}
       </strong>
