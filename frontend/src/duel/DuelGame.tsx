@@ -131,7 +131,6 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
    */
   const signalSeenAt = useRef<number | null>(null)
   const [impact, setImpact] = useState(false)
-  const [motionOn, setMotionOn] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   /**
    * 내가 이번 라운드에 쏜 총알 — 서버 응답을 기다리지 않고 반응한 순간에 총알을 내보내려고
@@ -234,8 +233,11 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
   // 방을 떠나면 기다리던 전송을 취소한다 — 이미 나온 방에 뽑기가 기록되면 안 된다.
   useEffect(() => () => window.clearTimeout(penaltyTimer.current), [])
 
+  // enabled를 따로 걸지 않는다. useSwing은 권한이 허용된 뒤에만 listener를 붙이므로
+  // 이 게이트는 중복인데, 실제로는 해가 됐다 — 안드로이드는 권한 API가 없어 마운트 즉시
+  // 'granted'가 되고, 그러면 아래 "휘두르기 켜기" 버튼이 뜨지 않아 게이트를 열 방법이
+  // 사라진다. 센서는 붙어 있는데 스윙이 전부 버려지는 화면이었다.
   const { permission, requestPermission } = useSwing({
-    enabled: motionOn,
     onSwing: () => draw('swing'),
     threshold: 15,
   })
@@ -288,10 +290,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
           snapshot.players.find((player) => player.playerId === session.you)?.nickname ?? ''
         }
         onDraw={() => draw('tap')}
-        onEnableMotion={() => {
-          setMotionOn(true)
-          void requestPermission()
-        }}
+        onEnableMotion={() => void requestPermission()}
         onLeave={onLeaveRequest}
         opponentName={opponent?.nickname ?? '상대'}
         permission={permission}
@@ -353,7 +352,6 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
             className="min-h-11 rounded-full border border-[#f59e0b]/50 bg-[#f59e0b]/15 px-5 text-sm font-bold text-[#ffd9a0] backdrop-blur-md"
             onClick={(event) => {
               event.stopPropagation()
-              setMotionOn(true)
               void requestPermission()
             }}
             type="button"
