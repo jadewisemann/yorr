@@ -85,8 +85,13 @@ public final class TeamYachtRules {
         require(state.stage() == TeamYachtState.Stage.KEEP, "not_keep_stage");
         require(actorId.equals(state.runnerId()), "not_your_turn");
 
-        require(picks != null && !picks.contains(null), "invalid_keep_index");
-        Set<Integer> picked = new LinkedHashSet<>(picks);
+        require(picks != null, "invalid_keep_payload");
+        // contains(null)로 검사하지 않는다 — List.of()는 그 호출에서 NPE를 던진다.
+        Set<Integer> picked = new LinkedHashSet<>();
+        for (Integer pick : picks) {
+            require(pick != null, "invalid_keep_index");
+            picked.add(pick);
+        }
         require(picked.size() == picks.size(), "duplicate_keep_index");
         for (int index : picked) {
             require(index >= 0 && index < DICE_COUNT, "invalid_keep_index");
