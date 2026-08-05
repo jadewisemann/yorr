@@ -90,6 +90,12 @@
   --spacing-landing: var(--ds-size-landing);
   --spacing-play: var(--ds-size-play);
   --spacing-gutter: var(--ds-size-gutter);
+  /* 화면 위·아래 끝의 safe-area 여백. 25곳이 각자 max(하한, env(...))를 손으로 썼고
+     하한이 10종이었다 — 가장 많이 쓰인 두 하한만 이름을 준다(위 1rem 6곳, 아래 1.25rem 8곳).
+     나머지 하한은 그 화면만의 값이라 호출부에 임의값으로 남긴다.
+     위아래 하한이 다른 것은 의도다 — 아래는 홈 인디케이터 제스처 영역을 더 피한다. */
+  --spacing-safe-top: var(--ds-size-safe-top);
+  --spacing-safe-bottom: var(--ds-size-safe-bottom);
 
   --radius-control: var(--ds-radius-control);
   --radius-card: var(--ds-radius-card);
@@ -448,6 +454,8 @@
   --ds-size-play: 80rem;
   /* 화면 좌우 거터 — 390px에서 20px, 320px에서 16px. */
   --ds-size-gutter: 1.25rem;
+  --ds-size-safe-top: max(1rem, env(safe-area-inset-top));
+  --ds-size-safe-bottom: max(1.25rem, env(safe-area-inset-bottom));
   /* S15P11A406-117 다크 시스템 — 컨트롤 12·카드 14·패널 18·시트 26px 라운드. */
   --ds-radius-control: 0.75rem;
   --ds-radius-card: 0.875rem;
