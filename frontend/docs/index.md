@@ -24,6 +24,7 @@
 | `api/` | [realtime-and-api.md](./api/realtime-and-api.md) | WebSocket 이벤트·에러 코드, REST 엔드포인트 — 배경 설명용. 정확한 타입은 `../src/realtime/wsEvents.ts`가 SSOT |
 | `product/` | [user-flow.md](./product/user-flow.md) | 진입~결과까지 실제 화면 흐름 (Mermaid) |
 | `product/` | [yacht-rules.md](./product/yacht-rules.md) | 요트다이스 12개 카테고리와 점수 규칙 |
+| `product/` | [team-yacht-rules.md](./product/team-yacht-rules.md) | 조별과제 야트(3인 1팀) 확정 규칙, 그리고 아직 검증되지 않은 것 |
 
 ## 단일 기준 원칙
 
