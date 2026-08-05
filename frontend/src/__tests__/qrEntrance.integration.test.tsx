@@ -26,7 +26,9 @@ describe('QR entrance integration', () => {
     await user.click(screen.getByRole('button', { name: '대기실 입장' }))
 
     expect(await screen.findByRole('heading', { name: '대기실' })).toBeVisible()
-    expect(screen.getByRole('img', { name: '방 YORR64 초대 QR 코드' })).toBeVisible()
+    // QR은 초대 말풍선 안에 있다(S15P11A406-203) — 정규화된 코드가 초대 QR까지 이어지는지 본다.
+    await user.click(screen.getByRole('button', { name: '초대' }))
+    expect(await screen.findByRole('img', { name: '방 YORR64 초대 QR 코드' })).toBeVisible()
     expect(useAppStore.getState().roomSession?.roomCode).toBe('YORR64')
     await waitFor(() =>
       expect(realtimeClient.sentMessages[0]).toMatchObject({
@@ -97,6 +99,7 @@ describe('QR entrance integration', () => {
     try {
       const inviteUrl = `${window.location.origin}/join?code=${creatorSession.roomCode}`
 
+      await user.click(await screen.findByRole('button', { name: '초대' }))
       await user.click(await screen.findByRole('button', { name: '링크 복사' }))
       await user.click(screen.getByRole('button', { name: '공유하기' }))
 
