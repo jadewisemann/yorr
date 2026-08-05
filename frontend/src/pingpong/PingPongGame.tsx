@@ -168,7 +168,7 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
 
   if (!state) {
     return (
-      <main className="grid h-svh place-items-center bg-[#070b12] text-white">
+      <main className="grid h-svh place-items-center bg-pingpong-canvas text-white">
         탁구 코트를 준비하고 있어요.
       </main>
     )
@@ -248,7 +248,7 @@ function PingPongDashboard({
   state: PingPongState
 }) {
   return (
-    <main className="relative h-svh w-full overflow-hidden bg-[#070b12] text-white">
+    <main className="relative h-svh w-full overflow-hidden bg-pingpong-canvas text-white">
       <canvas
         aria-label="파티 모드 3D 탁구 코트"
         className="absolute inset-0 size-full"
@@ -315,7 +315,7 @@ function PingPongDesktopPlayer({
   state: PingPongState
 }) {
   return (
-    <main className="relative h-svh w-full overflow-hidden bg-[#070b12] text-white">
+    <main className="relative h-svh w-full overflow-hidden bg-pingpong-canvas text-white">
       <canvas aria-label="3D 탁구 코트" className="absolute inset-0 size-full" ref={canvasRef} />
       {/* 코트 전체가 스윙 버튼이다 — 캔버스 위에 투명하게 덮으므로 어디를 클릭해도 받아친다.
           아래 버튼·오버레이는 z-10 이상이라 이 판에 먹히지 않는다. */}
@@ -570,7 +570,7 @@ export function PingPongResult({
   const host = isRoomHost(snapshot, session.you)
 
   return (
-    <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-[#070b12] px-gutter text-white">
+    <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-pingpong-canvas px-gutter text-white">
       <div className="absolute inset-0 [background:radial-gradient(circle_at_50%_30%,rgb(43_143_224_/_20%),transparent_45%)]" />
       <p className="relative m-0 font-mono text-xs tracking-[0.22em] text-white/55">
         MATCH FINISHED
@@ -618,7 +618,7 @@ function PingPongDashboardResult({
   const secondPlayer = snapshot.players.find((player) => player.playerId === secondPlayerId)
 
   return (
-    <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-[#070b12] px-gutter text-white">
+    <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-pingpong-canvas px-gutter text-white">
       <p className="m-0 font-mono text-xs tracking-[0.22em] text-white/55">MATCH FINISHED</p>
       <h1 className="m-0 text-5xl font-black">경기 종료</h1>
       <section className="flex items-center gap-6 rounded-3xl border border-white/15 bg-white/8 px-8 py-7">

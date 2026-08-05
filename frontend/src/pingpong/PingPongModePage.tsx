@@ -217,7 +217,7 @@ function LocalPingPongGame({
   const situationLabel = localSituationLabel(hud, p1Label, p2Label)
 
   return (
-    <main className="relative flex h-svh w-full flex-col overflow-hidden bg-[#070b12] text-white">
+    <main className="relative flex h-svh w-full flex-col overflow-hidden bg-pingpong-canvas text-white">
       <header className="relative z-20 flex flex-none items-center justify-between gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
         <button
           className="flex min-h-11 items-center gap-1.5 rounded-full border border-white/15 bg-white/6 px-4 text-sm text-white/75"
@@ -281,7 +281,7 @@ function LocalPingPongGame({
         <LocalFeedbackMessage feedback={feedback} situationLabel={situationLabel} />
 
         {glFailed && (
-          <div className="absolute inset-0 z-20 grid place-items-center bg-[#070b12]/95 px-6 text-center">
+          <div className="absolute inset-0 z-20 grid place-items-center bg-pingpong-canvas/95 px-6 text-center">
             <div>
               <div className="text-5xl">🧩</div>
               <h2 className="mt-3 text-xl font-black">3D를 띄울 수 없어요</h2>

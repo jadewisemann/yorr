@@ -255,7 +255,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
 
   if (!state) {
     return (
-      <main className="grid h-svh place-items-center bg-[#0b0409] text-white">
+      <main className="grid h-svh place-items-center bg-duel-canvas text-white">
         결투장을 준비하고 있어요.
       </main>
     )
@@ -303,7 +303,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
 
   return (
     <main
-      className="relative flex h-svh w-full flex-col overflow-hidden bg-[#0b0409] text-white select-none"
+      className="relative flex h-svh w-full flex-col overflow-hidden bg-duel-canvas text-white select-none"
       ref={stageRef}
     >
       <Arena
@@ -400,7 +400,7 @@ function DuelDashboard({
 
   return (
     <main
-      className="relative flex h-svh w-full flex-col overflow-hidden bg-[#0b0409] text-white select-none"
+      className="relative flex h-svh w-full flex-col overflow-hidden bg-duel-canvas text-white select-none"
       ref={stageRef}
     >
       <Arena

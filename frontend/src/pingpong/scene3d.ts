@@ -536,14 +536,20 @@ export interface PingPongScene {
   dispose(): void
 }
 
+/**
+ * 캔버스 배경색. `styles/tokens.css`의 `--ds-pingpong-canvas`와 **같은 값을 양쪽에 적어둔
+ * 것**이다(WebGL은 CSS 변수를 읽지 못한다). 한쪽만 고치면 캔버스 경계에 이음선이 보인다.
+ */
+const CANVAS_COLOR = 0x070b12
+
 export function createScene(canvas: HTMLCanvasElement): PingPongScene {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
-  renderer.setClearColor(0x070b12, 1)
+  renderer.setClearColor(CANVAS_COLOR, 1)
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.12
 
   const scene = new THREE.Scene()
-  scene.fog = new THREE.FogExp2(0x070b12, 0.085)
+  scene.fog = new THREE.FogExp2(CANVAS_COLOR, 0.085)
 
   /* 정리 대상 추적 */
   const geos: THREE.BufferGeometry[] = []

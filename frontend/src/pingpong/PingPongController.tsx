@@ -107,7 +107,7 @@ export function PingPongController({
   }
 
   return (
-    <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-[#070b12] px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
+    <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-pingpong-canvas px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
       <header className="flex flex-none items-center justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
           <span className="font-mono text-[11px] tracking-[0.18em] text-white/40">
@@ -286,7 +286,7 @@ function PingPongPreparationController({
   const [p1, p2] = playerSlots(state, playerId, view.opponentName)
 
   return (
-    <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-[#070b12] px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
+    <main className="relative flex h-svh w-full touch-none select-none flex-col overflow-hidden bg-pingpong-canvas px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white">
       <header className="flex flex-none items-center justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
           <span className="font-mono text-[11px] tracking-[0.18em] text-[#73bfff]">WARM-UP</span>
