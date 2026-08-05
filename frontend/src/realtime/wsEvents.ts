@@ -252,6 +252,74 @@ export interface DuelDrawPayload {
   reactionMs: number
 }
 
+/* ----- 라이어스 다이스 (game.liars.* · 서버 권위 · 210) -----
+ * ⚠️ 이 게임의 핵심 계약은 **숨긴 정보를 브로드캐스트에 싣지 않는 것**이다.
+ * 남의 주사위 눈은 `game.liars.state`에 절대 들어가지 않는다 — 프론트에서 가리는 방식은
+ * 개발자 도구로 뚫린다. 내 눈은 나에게만 가는 `game.liars.hand`로 오고, 남의 눈은
+ * 챌린지로 공개되는 순간에만 `lastReveal.hands`에 실려 전원에게 내려온다.
+ */
+
+export type LiarsPhase = 'BIDDING' | 'REVEAL' | 'FINISHED'
+
+/** 선언 = "이 눈이 판 전체에 최소 quantity개 있다". 다음 선언은 반드시 이보다 높아야 한다. */
+export interface LiarsBid {
+  playerId: PlayerId
+  quantity: number
+  face: number
+}
+
+/** 챌린지 판정 결과. 이 순간에만 모두의 주사위가 공개된다. */
+export interface LiarsReveal {
+  round: number
+  bid: LiarsBid
+  challengerId: PlayerId
+  /** 실제로 세어 나온 개수. */
+  actual: number
+  /** 선언이 사실이었나(actual ≥ quantity). 사실이면 의심한 쪽이 주사위를 잃는다. */
+  bidTrue: boolean
+  loserId: PlayerId
+  /** 주사위가 0개가 되어 탈락한 사람(있으면). */
+  eliminatedId?: PlayerId | null
+  /** 공개된 손패 전부. */
+  hands: Record<PlayerId, number[]>
+}
+
+/**
+ * S→C: 방 전체가 보는 판 상태. 손패는 없다(위 주석 참고) — 남은 개수만 안다.
+ * `snapshot.game` 자리에 그대로 얹힌다(탁구·결투와 같은 방식).
+ */
+export interface LiarsState {
+  version: number
+  phase: LiarsPhase
+  playerOrder: PlayerId[]
+  /** 남은 주사위 개수. 0이면 탈락. */
+  dice: Record<PlayerId, number>
+  /** 지금 선언·의심할 차례. REVEAL·FINISHED에는 없다. */
+  turnId?: PlayerId | null
+  /** 현재 서 있는 선언. 라운드 시작에는 없다. */
+  bid?: LiarsBid | null
+  round: number
+  lastReveal?: LiarsReveal | null
+  winnerId?: PlayerId | null
+  /** REVEAL이 끝나 다음 라운드로 넘어갈 서버 시각. 0이면 대기 없음. */
+  nextActionAt: number
+}
+
+/** S→C: **나에게만** 오는 내 주사위. 이 메시지는 방송하지 않는다. */
+export interface LiarsHandPayload {
+  round: number
+  dice: number[]
+}
+
+/** C→S: 선언. 검증(직전 선언보다 높은가·판에 있는 개수를 넘지 않는가)은 서버가 한다. */
+export interface LiarsBidPayload {
+  quantity: number
+  face: number
+}
+
+/** C→S: 직전 선언을 의심한다. 서버가 전원 공개 후 판정한다. */
+export type LiarsChallengePayload = Record<string, never>
+
 /* ----- 요트 정규룰 족보 (score.* / game.* · owner: 유상은 40·41·43) -----
  *  ⚠️ 아래 "키 이름"은 FE 점수판·BE 채점이 하드코딩 → 확정하면 되돌리기 비쌈.
  *     반면 "점수 계산 규칙"은 서버(상은)가 수행 → 여긴 참고 주석일 뿐.
@@ -669,6 +737,8 @@ export type ClientMessage =
   | WsEnvelope<'game.ping_pong.swing', PingPongSwingPayload>
   | WsEnvelope<'game.ping_pong.ready', PingPongReadyPayload>
   | WsEnvelope<'game.duel.draw', DuelDrawPayload>
+  | WsEnvelope<'game.liars.bid', LiarsBidPayload>
+  | WsEnvelope<'game.liars.challenge', LiarsChallengePayload>
 
 export type ServerMessage =
   // ✅ SYS-DC
@@ -689,6 +759,7 @@ export type ServerMessage =
   | WsEnvelope<'game.yacht_dice.state.sync', StateSyncPayload>
   | WsEnvelope<'game.ping_pong.state.sync', StateSyncPayload>
   | WsEnvelope<'game.duel.state.sync', StateSyncPayload>
+  | WsEnvelope<'game.liars.state.sync', StateSyncPayload>
   | WsEnvelope<'presence.update', PresenceUpdatePayload>
   // ✅ VOICE (음성 · 130)
   | WsEnvelope<'voice.peers', VoicePeersPayload>
@@ -706,9 +777,12 @@ export type ServerMessage =
   | WsEnvelope<'game.yacht_dice.game.over', GameOverPayload>
   | WsEnvelope<'game.ping_pong.game.over', GameOverPayload>
   | WsEnvelope<'game.duel.game.over', GameOverPayload>
+  | WsEnvelope<'game.liars.game.over', GameOverPayload>
   | WsEnvelope<'state.patch', StatePatchPayload>
   | WsEnvelope<'game.ping_pong.state', PingPongState>
   | WsEnvelope<'game.duel.state', DuelState>
+  | WsEnvelope<'game.liars.state', LiarsState>
+  | WsEnvelope<'game.liars.hand', LiarsHandPayload>
 
 export type WsMessage = ClientMessage | ServerMessage
 

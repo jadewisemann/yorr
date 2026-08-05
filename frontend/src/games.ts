@@ -9,7 +9,7 @@
 
 /** 게임 식별자. 목록이 SSOT이므로 타입도 여기서 소유한다. */
 export type GameKey = 'duel' | 'fishing' | 'liars' | 'pingpong' | 'yacht'
-export type GameCode = 'DUEL' | 'PING_PONG' | 'YACHT_DICE'
+export type GameCode = 'DUEL' | 'LIARS' | 'PING_PONG' | 'YACHT_DICE'
 
 export interface Game {
   /** 조작 방식 한 마디. 히어로 카드 메타 필의 세 번째 칸이다. */
@@ -76,7 +76,10 @@ export const games: [Game, ...Game[]] = [
     description: '상대의 선언을 믿거나 의심해 마지막 주사위를 지키는 심리 게임',
     players: '2–6 PLAYERS',
     duration: '약 6분',
+    gameCode: 'LIARS',
     control: '화면 탭',
+    // 게임 자체는 온라인 멀티로 동작한다(백엔드 LIARS 모듈 · 210). 랜딩 카드는 아직 '준비 중'으로
+    // 두고 `/join?game=liars` 직접 진입으로만 열어둔다 — 랜딩 노출은 QA 후 별도로 켠다.
     live: false,
   },
   {
