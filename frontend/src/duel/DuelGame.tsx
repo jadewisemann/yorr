@@ -8,11 +8,22 @@ import {
 } from '@/realtime/wsEvents'
 import { isRoomHost } from '@/room/api/roomApi'
 import { useReturnToLobby } from '@/room/api/useGameApi'
+import { isPartyRoom } from '@/room/partyControllerStorage'
 import { Button } from '@/shared/components/Button'
 import { useSwing } from '@/shared/useSwing'
 import type { ActiveRoomSession } from '@/store'
 import { Arena } from './Arena'
-import { flightMs, MAX_FOULS, MAX_HP, type ShotTarget, slots } from './duel'
+import { DuelController } from './DuelController'
+import {
+  type DuelInputSource,
+  drawPenaltyMs,
+  flightMs,
+  MAX_FOULS,
+  MAX_HP,
+  type ShotTarget,
+  SWING_THRESHOLD,
+  slots,
+} from './duel'
 import { Gunslinger, OUTFIT_LEFT, OUTFIT_RIGHT, type Outfit } from './Gunslinger'
 import { playGunHit, playGunShot } from './sounds'
 import { buildStage } from './stage'
@@ -87,6 +98,28 @@ function useImpactDelay(
   return delay
 }
 
+/**
+ * 기다리는 전송이 없다는 뜻. `setTimeout`은 1부터 세므로 0은 어떤 타이머도 아니고,
+ * `clearTimeout(0)`은 아무 일도 하지 않는다 — null을 따로 두고 매번 검사할 이유가 없다.
+ */
+const NO_TIMER = 0
+
+/**
+ * 페널티만큼 늦춰서 보낸다. 취소할 수 있게 타이머 id를 돌려준다(0이면 지금 보내고 null).
+ *
+ * <b>왜 늦추는가.</b> 신고 숫자만 키워 보내면 서버가 깎아 버린다 — `DuelRules.draw`가 받은
+ * 값을 `now - signalAt`(= 실제 반응 + 왕복 지연)으로 clamp하므로, 왕복이 짧은 회선에서는
+ * 얹은 100ms가 통째로 사라진다. 그러면 밸런스가 회선 속도에 따라 달라진다(로컬 개발에서는
+ * 페널티가 아예 없다). 전송을 늦추면 서버의 기준 시각도 그만큼 뒤로 밀려 깎이지 않는다.
+ */
+function sendAfter(penaltyMs: number, send: () => void): number {
+  if (penaltyMs === 0) {
+    send()
+    return NO_TIMER
+  }
+  return window.setTimeout(send, penaltyMs)
+}
+
 export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGameProps) {
   const client = useRealtimeClient()
   const state = snapshot.game as unknown as DuelState | undefined
@@ -99,7 +132,6 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
    */
   const signalSeenAt = useRef<number | null>(null)
   const [impact, setImpact] = useState(false)
-  const [motionOn, setMotionOn] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   /**
    * 내가 이번 라운드에 쏜 총알 — 서버 응답을 기다리지 않고 반응한 순간에 총알을 내보내려고
@@ -109,6 +141,8 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
   const [myShot, setMyShot] = useState<{ round: number; target: ShotTarget } | null>(null)
   /** 내 총알이 떠난 시각. 판정이 늦게 와도 착탄까지 남은 시간을 이만큼 깎는다. */
   const firedAt = useRef<number | null>(null)
+  /** 페널티를 기다리는 전송. 이유는 {@link sendAfter}에 있다. */
+  const penaltyTimer = useRef(NO_TIMER)
   const soundedRound = useRef(0)
 
   stateRef.current = state
@@ -118,8 +152,8 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
 
   // 신호를 처음 그리는 렌더에서 기준 시각을 잡는다. effect까지 미루면 커밋과 effect 사이에
   // 들어온 아주 빠른 탭이 기준을 못 찾고 부정출발로 신고돼 버린다 — 억울한 경고다.
-  if (phase === 'SIGNAL' && signalSeenAt.current === null) signalSeenAt.current = performance.now()
-  if (phase !== 'SIGNAL' && signalSeenAt.current !== null) signalSeenAt.current = null
+  // 신호가 아니면 비운다 — 다음 라운드가 지난 라운드의 기준으로 재면 안 된다.
+  signalSeenAt.current = phase === 'SIGNAL' ? (signalSeenAt.current ?? performance.now()) : null
 
   // 이 화면의 사거리에서 나온 비행 시간. 총알 애니메이션과 착탄 타이밍이 같은 값을 쓴다.
   const flight = flightMs(useStageWidth(stageRef))
@@ -150,50 +184,70 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
     playGunShot()
   }, [state?.lastRound])
 
-  const draw = useCallback(() => {
-    const current = stateRef.current
-    if (!current) return
-    if (current.phase !== 'WAITING' && current.phase !== 'SIGNAL') return
-    // 한 라운드에 한 발이다. 이미 뽑았으면 상대를 기다린다.
-    if (current.reactions[session.you] !== undefined) return
-    const early = current.phase === 'WAITING' || signalSeenAt.current === null
-    const reactionMs = early
-      ? DUEL_FOUL
-      : Math.round(performance.now() - (signalSeenAt.current ?? 0))
-    // 총알은 지금 떠난다. 판정은 서버가 하지만 손맛까지 왕복 지연을 기다릴 이유는 없다.
-    // 신호를 못 본 채 당겼으면 총알은 상대가 아니라 자기 발밑에 박힌다.
-    firedAt.current = performance.now()
-    setMyShot({ round: current.round, target: early ? 'ground' : 'opponent' })
-    try {
-      client.send(
-        buildClientMessage(
-          'game.duel.draw',
-          { inputSeq: ++inputSeq.current, reactionMs },
-          { roomId },
-        ),
-      )
+  const draw = useCallback(
+    (source: DuelInputSource) => {
+      const current = stateRef.current
+      if (!current) return
+      if (current.phase !== 'WAITING' && current.phase !== 'SIGNAL') return
+      // 한 라운드에 한 발이다. 이미 뽑았으면 상대를 기다린다.
+      if (current.reactions[session.you] !== undefined) return
+      const early = current.phase === 'WAITING' || signalSeenAt.current === null
+      const measured = early
+        ? DUEL_FOUL
+        : Math.round(performance.now() - (signalSeenAt.current ?? 0))
+      const penalty = drawPenaltyMs(measured, source)
+      // 총알은 지금 떠난다. 판정은 서버가 하지만 손맛까지 왕복 지연을 기다릴 이유는 없다.
+      // 신호를 못 본 채 당겼으면 총알은 상대가 아니라 자기 발밑에 박힌다.
+      //
+      // 페널티가 붙는 입력도 <b>연출은 지금</b> 한다. 총소리와 총알을 100ms 늦추면 탭이
+      // 불리해지는 대신 고장난 것처럼 느껴진다 — 페널티는 기록에 걸리는 것이고, 어느 입력이
+      // 빠른지는 컨트롤러 화면이 말로 알려 준다.
+      firedAt.current = performance.now()
+      setMyShot({ round: current.round, target: early ? 'ground' : 'opponent' })
       soundedRound.current = current.round
       playGunShot()
-      setSendError(null)
-    } catch {
-      // 못 보냈으면 쏘지 않은 것이다 — 되돌려 다시 뽑을 수 있게 한다.
-      firedAt.current = null
-      setMyShot(null)
-      setSendError('연결을 확인한 뒤 다시 뽑아 주세요.')
-    }
-  }, [client, roomId, session.you])
 
+      const send = () => {
+        penaltyTimer.current = NO_TIMER
+        try {
+          client.send(
+            buildClientMessage(
+              'game.duel.draw',
+              { inputSeq: ++inputSeq.current, reactionMs: measured + penalty },
+              { roomId },
+            ),
+          )
+          setSendError(null)
+        } catch {
+          // 못 보냈으면 쏘지 않은 것이다 — 되돌려 다시 뽑을 수 있게 한다.
+          firedAt.current = null
+          setMyShot(null)
+          setSendError('연결을 확인한 뒤 다시 뽑아 주세요.')
+        }
+      }
+
+      penaltyTimer.current = sendAfter(penalty, send)
+    },
+    [client, roomId, session.you],
+  )
+
+  // 방을 떠나면 기다리던 전송을 취소한다 — 이미 나온 방에 뽑기가 기록되면 안 된다.
+  useEffect(() => () => window.clearTimeout(penaltyTimer.current), [])
+
+  // enabled를 따로 걸지 않는다. useSwing은 권한이 허용된 뒤에만 listener를 붙이므로
+  // 이 게이트는 중복인데, 실제로는 해가 됐다 — 안드로이드는 권한 API가 없어 마운트 즉시
+  // 'granted'가 되고, 그러면 아래 "휘두르기 켜기" 버튼이 뜨지 않아 게이트를 열 방법이
+  // 사라진다. 센서는 붙어 있는데 스윙이 전부 버려지는 화면이었다.
   const { permission, requestPermission } = useSwing({
-    enabled: motionOn,
-    onSwing: draw,
-    threshold: 15,
+    onSwing: () => draw('swing'),
+    threshold: SWING_THRESHOLD,
   })
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.repeat || event.code !== 'Space') return
       event.preventDefault()
-      draw()
+      draw('key')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -227,6 +281,26 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
   const opponent = snapshot.players.find((player) => player.playerId === opponentId)
   const swinging = permission === 'granted'
 
+  // QR로 들어온 폰은 컨트롤러다 — 결투는 큰 화면에서 보고, 이 폰은 뽑는 일만 한다.
+  // 판별은 205와 같은 기준(내 localStorage에 적힌 파티 방 코드)을 쓴다.
+  if (isPartyRoom(session.roomCode)) {
+    return (
+      <DuelController
+        error={sendError}
+        nickname={
+          snapshot.players.find((player) => player.playerId === session.you)?.nickname ?? ''
+        }
+        onDraw={() => draw('tap')}
+        onEnableMotion={() => void requestPermission()}
+        onLeave={onLeaveRequest}
+        opponentName={opponent?.nickname ?? '상대'}
+        permission={permission}
+        playerId={session.you}
+        state={state}
+      />
+    )
+  }
+
   return (
     <main
       className="relative flex h-svh w-full flex-col overflow-hidden bg-[#0b0409] text-white select-none"
@@ -256,7 +330,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
           className="absolute inset-0 touch-none"
           onPointerDown={(event) => {
             event.preventDefault()
-            draw()
+            draw('tap')
           }}
           type="button"
         />
@@ -279,7 +353,6 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
             className="min-h-11 rounded-full border border-[#f59e0b]/50 bg-[#f59e0b]/15 px-5 text-sm font-bold text-[#ffd9a0] backdrop-blur-md"
             onClick={(event) => {
               event.stopPropagation()
-              setMotionOn(true)
               void requestPermission()
             }}
             type="button"
