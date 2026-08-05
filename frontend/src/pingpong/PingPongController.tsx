@@ -354,11 +354,7 @@ function PingPongPreparationController({
           onClick={onReady}
           type="button"
         >
-          {ready
-            ? '준비 완료 · 친구를 기다리는 중'
-            : practiced
-              ? '준비 완료'
-              : '먼저 공을 한 번 쳐보세요'}
+          {readyButtonLabel(practiced, ready)}
         </button>
         {error && (
           <p className="m-0 text-center text-sm text-red-300" role="alert">
@@ -388,6 +384,15 @@ function practicePrompt(permission: SwingPermission) {
   if (permission === 'unknown') return '화면을 눌러 모션 센서 연결'
   if (permission === 'granted') return '센서 연결 완료 · 휴대폰을 휘둘러 스윙'
   return '화면을 눌러 스윙 · 센서 대체 조작'
+}
+
+/**
+ * 워밍업 준비 완료 버튼의 문구. 폰 컨트롤러와 데스크톱 코트가 같은 세 상태를 말한다 —
+ * 한쪽만 고치면 같은 조건에서 두 기기가 다른 말을 한다.
+ */
+export function readyButtonLabel(practiced: boolean, ready: boolean) {
+  if (ready) return '준비 완료 · 친구를 기다리는 중'
+  return practiced ? '준비 완료' : '먼저 공을 한 번 쳐보세요'
 }
 
 function PreparationMotionStatus({
