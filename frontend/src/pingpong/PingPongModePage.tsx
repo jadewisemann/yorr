@@ -7,7 +7,7 @@ import {
   useState,
 } from 'react'
 import { Button } from '@/shared/components/Button'
-import { IconBack } from '@/shared/components/Icon'
+import { IconBack, IconWarning } from '@/shared/components/Icon'
 import { useSwing } from '@/shared/useSwing'
 import { useAppStore } from '@/store'
 import { pingPongSituation, sharedSituationLabel } from './feedback'
@@ -283,7 +283,9 @@ function LocalPingPongGame({
         {glFailed && (
           <div className="absolute inset-0 z-20 grid place-items-center bg-pp-canvas/95 px-6 text-center">
             <div>
-              <div className="text-5xl">🧩</div>
+              {/* 🧩였다. 퍼즐 조각은 "WebGL을 못 쓴다"와 아무 관계가 없고 이모지라 이
+                  화면에서 혼자 컬러로 떴다 — 오류 상태이므로 경고 아이콘이 맞는 말이다. */}
+              <IconWarning className="mx-auto size-10 text-pp-gold" />
               <h2 className="mt-3 text-xl font-black">3D를 띄울 수 없어요</h2>
               <p className="text-sm text-white/55">
                 WebGL을 지원하는 최신 브라우저에서 다시 열어주세요.
@@ -294,13 +296,18 @@ function LocalPingPongGame({
 
         {hud.phase === 'over' && (
           <div className="absolute inset-0 z-20 grid place-items-center bg-black/65 px-5 backdrop-blur-sm">
+            {/* 여기 48px 🏆가 있었다. 둘이 틀렸다: 이모지는 Icon.tsx가 금지한 것이고
+                (모노톤 화면에서 혼자 플랫폼 색으로 뜬다), 무엇보다 아래 제목이 "패배"일
+                때도 트로피가 떴다. 트로피를 조건부로 바꾸는 대신 지운다 — 제목과 점수가
+                이미 결과를 말하고, 반은 거짓말하던 장식이 사라지면 남는 게 없다. */}
             <section className="grid w-full max-w-xs gap-4 rounded-sheet border border-white/15 bg-pp-surface p-6 text-center shadow-2xl">
-              <div className="text-5xl">🏆</div>
               <h2 className="m-0 text-2xl font-black">
+                {/* 진 쪽 문구는 온라인 결과 화면(PingPongGame)과 같은 말을 쓴다 — 같은
+                    게임의 결과인데 한쪽은 "패배", 다른 쪽은 "좋은 경기였어요"였다. */}
                 {mode === 'solo'
                   ? hud.s1 > hud.s2
                     ? '승리!'
-                    : '패배'
+                    : '좋은 경기였어요'
                   : `P${hud.s1 > hud.s2 ? 1 : 2} 승리!`}
               </h2>
               <p className="m-0 text-lg text-white/65">

@@ -183,7 +183,7 @@ const bandBottom = {
   wide: 'bottom-[clamp(18px,6.8%,36px)]',
 } as const
 
-/** 상단 크라운·하단 스크림 깊이. narrow가 더 깊은 이유는 아래 카피(15px 태그라인)가
+/** 상단 크라운·하단 스크림 깊이. narrow가 더 깊은 이유는 아래 카피(text-sm 태그라인)가
     wide 제목(66px 볼드)보다 작은 글자라 더 어두운 바닥을 요구하기 때문이다. */
 const cardCrown = { narrow: 'h-[30%]', wide: 'h-[26%]' } as const
 const cardScrim = { narrow: 'h-[28%]', wide: 'h-[26%]' } as const
