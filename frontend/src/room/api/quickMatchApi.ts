@@ -4,7 +4,7 @@
  *
  * 게임마다 이 파일을 늘릴 필요는 없다 — 게임은 `game_code` 하나로만 구분된다.
  */
-import type { GameCode } from '@/games'
+import { type GameCode, isGameCode } from '@/games'
 import { apiRequest } from '@/shared/api/client'
 import { type AuthenticatedApiCallOptions, authenticatedHeaders, requestSignal } from './roomApi'
 
@@ -73,8 +73,4 @@ function toQuickMatch(response: unknown): QuickMatch {
 
 function isQuickMatchStatus(value: unknown): value is QuickMatchStatus {
   return value === 'NOT_QUEUED' || value === 'WAITING' || value === 'MATCHED' || value === 'PLAYING'
-}
-
-function isGameCode(value: unknown): value is GameCode {
-  return value === 'YACHT_DICE' || value === 'PING_PONG' || value === 'DUEL'
 }

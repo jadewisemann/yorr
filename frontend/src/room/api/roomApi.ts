@@ -1,5 +1,5 @@
 import { readAuthSession } from '@/auth/authSession'
-import type { GameCode } from '@/games'
+import { isGameCode } from '@/games'
 import type {
   DiceSet,
   GameState,
@@ -322,10 +322,6 @@ function isRestRoomPlayer(value: unknown): value is {
 
 function isParticipantKind(value: unknown): value is ParticipantKind {
   return value === 'HUMAN' || value === 'BOT'
-}
-
-function isGameCode(value: unknown): value is GameCode {
-  return value === 'YACHT_DICE' || value === 'PING_PONG' || value === 'DUEL'
 }
 
 function toRoomPhase(value: unknown): RoomSnapshot['phase'] | undefined {

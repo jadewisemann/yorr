@@ -113,6 +113,17 @@ export function isGameKey(value: unknown): value is GameKey {
 }
 
 /**
+ * 서버가 돌려준 게임 코드가 우리가 아는 코드인가. REST 응답 파싱의 경계 검사다.
+ *
+ * 목록을 손으로 적지 않는 이유: 코드가 박힌 곳이 방 API·빠른 대전 두 군데였고, 게임을 추가할
+ * 때 한쪽을 잊으면 "방은 열렸는데 진행 화면이 야추로 뜨는" 상태가 된다(gameCode가 undefined로
+ * 떨어져 GamePage의 분기가 기본값을 탄다).
+ */
+export function isGameCode(value: unknown): value is GameCode {
+  return games.some((game) => game.gameCode !== undefined && game.gameCode === value)
+}
+
+/**
  * 파티 모드로 열 수 있는 게임인가. 파티 진입은 곧 방을 만드는 것이라 백엔드 게임
  * 모듈(`gameCode`)이 있어야 한다 — 없는 게임으로 들어오면 방을 못 열고 빈 화면이 된다.
  *
