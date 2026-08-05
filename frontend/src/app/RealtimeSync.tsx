@@ -8,16 +8,13 @@ import {
   type RoomSnapshot,
   type ServerMessage,
 } from '@/realtime/wsEvents'
+import { MAX_RECONNECT_ATTEMPTS, RECONNECT_DELAY_MS } from '@/room/connectSequence'
 import { useAppStore } from '@/store'
 
 interface RealtimeSyncProps {
   children: ReactNode
   client: RealtimeClient
 }
-
-const reconnectDelayMs = 1_000
-/** 이 횟수만큼 연속으로 재연결에 실패하면 세션을 포기한다(FSM: any → idle). */
-const maxReconnectAttempts = 10
 
 export function RealtimeSync({ children, client }: RealtimeSyncProps) {
   const roomId = useAppStore((state) => state.roomSession?.roomId)
@@ -55,7 +52,7 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
     const scheduleReconnect = () => {
       if (reconnectTimer) return
       reconnectAttempts += 1
-      if (reconnectAttempts > maxReconnectAttempts) {
+      if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
         useAppStore.getState().endSession('disconnected')
         return
       }
@@ -64,7 +61,7 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
       reconnectTimer = setTimeout(() => {
         reconnectTimer = undefined
         if (active) client.connect()
-      }, reconnectDelayMs)
+      }, RECONNECT_DELAY_MS)
     }
 
     const unsubscribeMessage = client.onMessage((message) => {
