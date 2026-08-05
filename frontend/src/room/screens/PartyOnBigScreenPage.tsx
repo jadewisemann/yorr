@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { Button } from '@/shared/components/Button'
+import { Screen } from '@/shared/components/Screen'
 import type { PartyGameKey } from './PartyDashboardPage'
 
 /**
@@ -14,7 +15,7 @@ export function PartyOnBigScreenPage({ gameKey }: { gameKey: PartyGameKey }) {
   const navigate = useNavigate()
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-6 px-gutter pt-[max(2.5rem,env(safe-area-inset-top))] pb-safe-bottom text-content">
+    <Screen className="max-w-lg gap-6 pt-[max(2.5rem,env(safe-area-inset-top))]">
       <div className="grid gap-3">
         <h1 className="m-0 text-[27px] font-bold tracking-[-0.02em]">
           파티 모드는 큰 화면에서 열어 주세요
@@ -41,6 +42,6 @@ export function PartyOnBigScreenPage({ gameKey }: { gameKey: PartyGameKey }) {
           홈으로
         </Button>
       </div>
-    </main>
+    </Screen>
   )
 }

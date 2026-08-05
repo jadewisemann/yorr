@@ -14,6 +14,7 @@ import { toUserError } from '@/shared/api/userError'
 import { playLandingSoundtrack } from '@/shared/audio/soundtrack'
 import { Button } from '@/shared/components/Button'
 import { IconBack } from '@/shared/components/Icon'
+import { Screen } from '@/shared/components/Screen'
 import { TextField } from '@/shared/components/TextField'
 import { useAppStore } from '@/store'
 
@@ -130,7 +131,7 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
   return (
     // 디자인 02 — 카드 없이 풀스크린. 좌상단 뒤로가기·코드 칩, 좌측 정렬 헤드라인,
     // 하단 고정 CTA. 배경엔 방 코드 워터마크가 아주 흐리게 깔린다.
-    <main className="relative mx-auto flex min-h-dvh w-full max-w-2xl flex-col overflow-hidden px-gutter pt-safe-top pb-safe-bottom text-content">
+    <Screen className="relative max-w-2xl overflow-hidden">
       <span
         aria-hidden="true"
         className="pointer-events-none absolute top-32 -left-7 font-mono text-[11.875rem] leading-none font-bold tracking-[-0.04em] text-white/4 select-none"
@@ -239,6 +240,6 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
           </Button>
         </div>
       </form>
-    </main>
+    </Screen>
   )
 }

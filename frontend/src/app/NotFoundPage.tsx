@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { Button } from '@/shared/components/Button'
+import { Screen } from '@/shared/components/Screen'
 
 /** 디자인 26 — 알 수 없는 경로의 시스템 페이지. 큰 404는 장식이라 흐린 잉크로 깔아둔다. */
 export function NotFoundPage() {
@@ -7,7 +8,7 @@ export function NotFoundPage() {
   const path = typeof window === 'undefined' ? '' : window.location.pathname
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-gutter pt-safe-top pb-safe-bottom text-content">
+    <Screen className="max-w-lg">
       <header className="pt-2">
         <span className="font-mono text-[22px] leading-none font-bold tracking-[-0.03em]">
           YO<span className="text-brand">R</span>R
@@ -47,6 +48,6 @@ export function NotFoundPage() {
       >
         홈으로
       </Button>
-    </main>
+    </Screen>
   )
 }

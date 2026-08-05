@@ -3,6 +3,7 @@ import { type FormEvent, useState } from 'react'
 import { getRoomCodeError, normalizeRoomCode } from '@/room/roomCode'
 import { Button } from '@/shared/components/Button'
 import { IconBack, IconWarning } from '@/shared/components/Icon'
+import { Screen } from '@/shared/components/Screen'
 import { TextField } from '@/shared/components/TextField'
 
 interface InvalidInvitePageProps {
@@ -25,7 +26,7 @@ export function InvalidInvitePage({ initialCode }: InvalidInvitePageProps) {
 
   return (
     // 디자인 13 — 카드 없이 풀스크린. 좌상단 뒤로가기, 레드 경고 아이콘, 좌측 정렬 헤드라인.
-    <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-gutter pt-safe-top pb-safe-bottom text-content">
+    <Screen className="max-w-2xl">
       <header>
         <button
           aria-label="뒤로 가기"
@@ -88,6 +89,6 @@ export function InvalidInvitePage({ initialCode }: InvalidInvitePageProps) {
           </Button>
         </div>
       </form>
-    </main>
+    </Screen>
   )
 }
