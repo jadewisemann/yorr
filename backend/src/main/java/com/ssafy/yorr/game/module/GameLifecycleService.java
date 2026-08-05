@@ -17,9 +17,10 @@ public class GameLifecycleService {
     }
 
     public GameStartResponse start(String roomCode) {
-        GameStartResponse game = rooms.startGame(roomCode);
+        RoomSnapshot room = rooms.getSnapshot(roomCode);
+        GameModule module = modules.require(room.gameCode());
+        GameStartResponse game = rooms.startGame(roomCode, Math.max(1, module.minPlayers()));
         try {
-            GameModule module = modules.require(game.snapshot().gameCode());
             module.start(roomCode, game);
             return game;
         } catch (RuntimeException exception) {

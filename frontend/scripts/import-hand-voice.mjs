@@ -219,19 +219,12 @@ async function decode(page, path) {
 function shape({ samples }, slug) {
   if (samples.length === 0) fail(`${slug}: 디코딩 결과가 비어 있습니다.`)
 
-  let sum = 0
-  for (const value of samples) sum += value
-  const offset = sum / samples.length
-  const centered = Float32Array.from(samples, (value) => value - offset)
-
-  let sourcePeak = 0
-  for (const value of centered) sourcePeak = Math.max(sourcePeak, Math.abs(value))
+  const centered = centerSamples(samples)
+  const sourcePeak = peakMagnitude(centered)
   if (sourcePeak <= 0.001) fail(`${slug}: 거의 무음입니다. 마이크 입력을 확인해 주세요.`)
 
   const speech = findSpeech(centered, slug)
-  const begin = Math.max(0, speech.begin - msToSamples(HEAD_KEEP_MS))
-  const end = Math.min(centered.length, speech.end + msToSamples(TAIL_KEEP_MS))
-  const trimmed = centered.subarray(begin, end)
+  const trimmed = trimSpeech(centered, speech)
 
   // 에코는 트림 다음에 붙인다 — 먼저 붙이면 울림 꼬리가 "말소리 밖"으로 잡혀 잘려나가고,
   // 앞뒤 잡음까지 같이 울린다. 페이드아웃도 꼬리 끝에 걸려야 매끄럽게 사라진다.
@@ -242,23 +235,67 @@ function shape({ samples }, slug) {
   // 기준이 돼서, 5개 파일의 체감 크기가 서로 달라진다.
   const loudness = maxWindowRms(voiced, msToSamples(LOUDNESS_WINDOW_MS))
   const gain = Math.min(TARGET_LOUDNESS / loudness, MAX_GAIN)
+  const { output, limited } = normalizeSamples(voiced, gain)
 
-  const fadeIn = Math.min(msToSamples(FADE_IN_MS), Math.floor(voiced.length / 2))
-  const fadeOut = Math.min(msToSamples(FADE_OUT_MS), Math.floor(voiced.length / 2))
-  const output = new Int16Array(voiced.length)
+  const durationMs = (1000 * output.length) / SAMPLE_RATE
+  // 리미터가 넓게 물리면 소리가 뭉개진다. 뾰족한 순간 몇 개를 눕히는 정도여야 한다.
+  const limitedRatio = limited / output.length
+  warnAboutSource(slug, sourcePeak, speech)
+  warnAboutDuration(slug, durationMs)
+  warnAboutLevels(slug, gain, limitedRatio)
+
+  return {
+    echo,
+    gain,
+    limitedRatio,
+    loudness: maxWindowRms(output, msToSamples(LOUDNESS_WINDOW_MS), 32767),
+    samples: output,
+    sourcePeak,
+    speech,
+  }
+}
+
+function centerSamples(samples) {
+  let sum = 0
+  for (const value of samples) sum += value
+  const offset = sum / samples.length
+  return Float32Array.from(samples, (value) => value - offset)
+}
+
+function peakMagnitude(samples) {
+  let peak = 0
+  for (const value of samples) peak = Math.max(peak, Math.abs(value))
+  return peak
+}
+
+function trimSpeech(samples, speech) {
+  const begin = Math.max(0, speech.begin - msToSamples(HEAD_KEEP_MS))
+  const end = Math.min(samples.length, speech.end + msToSamples(TAIL_KEEP_MS))
+  return samples.subarray(begin, end)
+}
+
+function normalizeSamples(samples, gain) {
+  const fadeIn = Math.min(msToSamples(FADE_IN_MS), Math.floor(samples.length / 2))
+  const fadeOut = Math.min(msToSamples(FADE_OUT_MS), Math.floor(samples.length / 2))
+  const output = new Int16Array(samples.length)
   let limited = 0
-  for (let index = 0; index < voiced.length; index += 1) {
-    // 잘라낸 자리에서 딱 끊기면 톡 하는 클릭이 남는다.
-    let envelope = 1
-    if (index < fadeIn) envelope = index / fadeIn
-    const fromEnd = voiced.length - 1 - index
-    if (fromEnd < fadeOut) envelope = Math.min(envelope, fromEnd / fadeOut)
-    const raw = voiced[index] * gain * envelope
+  for (let index = 0; index < samples.length; index += 1) {
+    const envelope = fadeEnvelope(index, samples.length, fadeIn, fadeOut)
+    const raw = samples[index] * gain * envelope
     if (Math.abs(raw) > LIMIT_KNEE) limited += 1
     output[index] = Math.round(softLimit(raw) * 32767)
   }
+  return { output, limited }
+}
 
-  const durationMs = (1000 * output.length) / SAMPLE_RATE
+function fadeEnvelope(index, length, fadeIn, fadeOut) {
+  const entering = index < fadeIn ? index / fadeIn : 1
+  const fromEnd = length - 1 - index
+  const leaving = fromEnd < fadeOut ? fromEnd / fadeOut : 1
+  return Math.min(entering, leaving)
+}
+
+function warnAboutSource(slug, sourcePeak, speech) {
   if (sourcePeak > 0.995)
     warnings.push(
       `${slug}: 원본이 클리핑됐을 수 있습니다 — 마이크에서 더 떨어져 다시 녹음해 보세요.`,
@@ -272,6 +309,9 @@ function shape({ samples }, slug) {
       `${slug}: 검출 구간(${speech.beginMs}~${speech.endMs}ms) 밖 ${leftover}ms 쯤에 소리가 남아 있습니다 — ` +
         `wav를 들어보고 말끝이 잘렸으면 그 부분까지 붙여서 다시 녹음해 주세요.`,
     )
+}
+
+function warnAboutDuration(slug, durationMs) {
   const budgetMs = CALLOUT_MS[slug] - CALLOUT_MARGIN_MS
   if (durationMs > budgetMs)
     warnings.push(
@@ -283,28 +323,19 @@ function shape({ samples }, slug) {
     warnings.push(
       `${slug}: ${Math.round(durationMs)}ms로 너무 짧습니다 — 앞부분이 잘렸는지 들어봐 주세요.`,
     )
+}
+
+function warnAboutLevels(slug, gain, limitedRatio) {
   if (gain >= MAX_GAIN)
     warnings.push(
       `${slug}: 너무 작게 녹음돼 ${MAX_GAIN}배까지만 키웠습니다 — 다른 족보보다 작게 들립니다. ` +
         `마이크에 조금 더 가까이서 다시 녹음해 주세요.`,
     )
-  // 리미터가 넓게 물리면 소리가 뭉개진다. 뾰족한 순간 몇 개를 눕히는 정도여야 한다.
-  const limitedRatio = limited / output.length
   if (limitedRatio > 0.05)
     warnings.push(
       `${slug}: 리미터가 샘플의 ${(100 * limitedRatio).toFixed(1)}%에 걸렸습니다 — ` +
         `들어보고 뭉개진 느낌이면 마이크에서 조금 떨어져 다시 녹음해 주세요.`,
     )
-
-  return {
-    echo,
-    gain,
-    limitedRatio,
-    loudness: maxWindowRms(output, msToSamples(LOUDNESS_WINDOW_MS), 32767),
-    samples: output,
-    sourcePeak,
-    speech,
-  }
 }
 
 /**
@@ -368,6 +399,32 @@ function softLimit(value) {
  */
 function findSpeech(samples, slug) {
   const window = msToSamples(WINDOW_MS)
+  const rms = windowRms(samples, window)
+  if (rms.length === 0) fail(`${slug}: 녹음이 ${WINDOW_MS}ms보다 짧습니다.`)
+
+  const { loudest, loudestAt } = loudestWindow(rms)
+  const onset = loudest * ONSET_RATIO
+  const edge = loudest * EDGE_RATIO
+
+  const runs = speechRuns(rms, onset)
+  const run = runs.find(({ start, end }) => loudestAt >= start && loudestAt <= end)
+  if (!run) fail(`${slug}: 말소리 구간을 찾지 못했습니다.`)
+
+  const { first, last } = expandSpeechRun(rms, run, edge)
+  const { noise, leftovers } = analyzeOutsideSpeech(rms, first, last, loudest)
+
+  return {
+    begin: first * window,
+    end: Math.min(samples.length, (last + 1) * window),
+    beginMs: first * WINDOW_MS,
+    endMs: (last + 1) * WINDOW_MS,
+    loudest,
+    noise,
+    leftovers,
+  }
+}
+
+function windowRms(samples, window) {
   const rms = []
   for (let start = 0; start + window <= samples.length; start += window) {
     let square = 0
@@ -376,19 +433,21 @@ function findSpeech(samples, slug) {
     }
     rms.push(Math.sqrt(square / window))
   }
-  if (rms.length === 0) fail(`${slug}: 녹음이 ${WINDOW_MS}ms보다 짧습니다.`)
+  return rms
+}
 
+function loudestWindow(rms) {
   let loudest = 0
   let loudestAt = 0
   for (let index = 0; index < rms.length; index += 1) {
-    if (rms[index] > loudest) {
-      loudest = rms[index]
-      loudestAt = index
-    }
+    if (rms[index] <= loudest) continue
+    loudest = rms[index]
+    loudestAt = index
   }
-  const onset = loudest * ONSET_RATIO
-  const edge = loudest * EDGE_RATIO
+  return { loudest, loudestAt }
+}
 
+function speechRuns(rms, onset) {
   const gap = Math.round(GAP_MS / WINDOW_MS)
   const runs = []
   for (let index = 0; index < rms.length; index += 1) {
@@ -397,16 +456,19 @@ function findSpeech(samples, slug) {
     if (previous && index - previous.end <= gap) previous.end = index
     else runs.push({ start: index, end: index })
   }
-  const run = runs.find(({ start, end }) => loudestAt >= start && loudestAt <= end)
-  if (!run) fail(`${slug}: 말소리 구간을 찾지 못했습니다.`)
+  return runs
+}
 
+function expandSpeechRun(rms, run, edge) {
   const reach = Math.round(EDGE_MAX_MS / WINDOW_MS)
   let first = run.start
   while (first > 0 && run.start - first < reach && rms[first - 1] > edge) first -= 1
   let last = run.end
   while (last < rms.length - 1 && last - run.end < reach && rms[last + 1] > edge) last += 1
+  return { first, last }
+}
 
-  // 구간 밖 소리는 잡음(median)과 "말끝이 잘렸을 수도 있는 소리"(ONSET급)를 나눠서 본다.
+function analyzeOutsideSpeech(rms, first, last, loudest) {
   const outside = []
   const leftovers = []
   for (let index = 0; index < rms.length; index += 1) {
@@ -415,13 +477,7 @@ function findSpeech(samples, slug) {
     if (rms[index] > loudest * LEFTOVER_RATIO) leftovers.push(index * WINDOW_MS)
   }
   outside.sort((left, right) => left - right)
-
   return {
-    begin: first * window,
-    end: Math.min(samples.length, (last + 1) * window),
-    beginMs: first * WINDOW_MS,
-    endMs: (last + 1) * WINDOW_MS,
-    loudest,
     noise: outside.length > 0 ? outside[Math.floor(outside.length / 2)] : 0,
     // 연속으로 여러 창이 남으면 경고가 도배된다 — 구간별 첫 지점만 알린다.
     leftovers: leftovers.filter((ms, index) => index === 0 || ms - leftovers[index - 1] > GAP_MS),

@@ -1,17 +1,20 @@
 import { type ReactNode, useEffect } from 'react'
+import type { GameCode } from '@/games'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import type { RealtimeClient } from '@/realtime/realtimeClient'
-import { buildClientMessage, type RoomSnapshot, type ServerMessage } from '@/realtime/wsEvents'
+import {
+  buildClientMessage,
+  type GameOverPayload,
+  type RoomSnapshot,
+  type ServerMessage,
+} from '@/realtime/wsEvents'
+import { MAX_RECONNECT_ATTEMPTS, RECONNECT_DELAY_MS } from '@/room/connectSequence'
 import { useAppStore } from '@/store'
 
 interface RealtimeSyncProps {
   children: ReactNode
   client: RealtimeClient
 }
-
-const reconnectDelayMs = 1_000
-/** 이 횟수만큼 연속으로 재연결에 실패하면 세션을 포기한다(FSM: any → idle). */
-const maxReconnectAttempts = 10
 
 export function RealtimeSync({ children, client }: RealtimeSyncProps) {
   const roomId = useAppStore((state) => state.roomSession?.roomId)
@@ -49,7 +52,7 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
     const scheduleReconnect = () => {
       if (reconnectTimer) return
       reconnectAttempts += 1
-      if (reconnectAttempts > maxReconnectAttempts) {
+      if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
         useAppStore.getState().endSession('disconnected')
         return
       }
@@ -58,7 +61,7 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
       reconnectTimer = setTimeout(() => {
         reconnectTimer = undefined
         if (active) client.connect()
-      }, reconnectDelayMs)
+      }, RECONNECT_DELAY_MS)
     }
 
     const unsubscribeMessage = client.onMessage((message) => {
@@ -123,6 +126,9 @@ function isRoomReadyMessage(message: ServerMessage) {
   return (
     message.type === 'room.joined' ||
     message.type === 'state.sync' ||
+    message.type === 'game.yacht_dice.state.sync' ||
+    message.type === 'game.ping_pong.state.sync' ||
+    message.type === 'game.duel.state.sync' ||
     message.type === 'sys.reconnected'
   )
 }
@@ -156,6 +162,9 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
       return
     case 'sys.reconnected':
     case 'state.sync':
+    case 'game.yacht_dice.state.sync':
+    case 'game.ping_pong.state.sync':
+    case 'game.duel.state.sync':
       store.replaceRoomSnapshot(keepGameState(message.payload.snapshot, store.roomSnapshot))
       return
     case 'room.player_joined':
@@ -167,17 +176,25 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
     case 'presence.update':
       applyPresenceUpdate(message.payload, store)
       return
-    case 'score.update':
+    case 'game.yacht_dice.score.update':
       applyScoreUpdate(message.payload, store)
       return
-    case 'round.start':
+    case 'game.yacht_dice.round.start':
       applyRoundStart(message.payload, store)
       return
-    case 'dice.broadcast':
+    case 'game.yacht_dice.dice.broadcast':
       applyDiceBroadcast(message, store)
       return
-    case 'game.over':
+    case 'game.yacht_dice.game.over':
+    case 'game.ping_pong.game.over':
+    case 'game.duel.game.over':
       applyGameOver(message.payload, store)
+      return
+    case 'game.ping_pong.state':
+      applyModuleGameState(message.payload, 'PING_PONG', store)
+      return
+    case 'game.duel.state':
+      applyModuleGameState(message.payload, 'DUEL', store)
       return
     case 'room.closed':
       store.endSession('room_closed')
@@ -188,6 +205,24 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
     default:
       return
   }
+}
+
+/**
+ * 게임 모듈이 통째로 내려준 진행 상태. 자기 방의 게임에서 온 것만 받는다 — 방을 옮기는
+ * 순간 도착한 늦은 메시지가 다른 게임의 화면에 얹히면 그대로 크래시다.
+ */
+function applyModuleGameState(
+  payload: Extract<ServerMessage, { type: 'game.ping_pong.state' | 'game.duel.state' }>['payload'],
+  gameCode: GameCode,
+  store: Store,
+) {
+  const snapshot = store.roomSnapshot
+  if (snapshot?.gameCode !== gameCode) return
+  // RoomSnapshot.game은 아직 Yacht 타입이 SSOT라 게임별 계약 분리 전까지 이 경계에서만 변환한다.
+  store.replaceRoomSnapshot({
+    ...snapshot,
+    game: payload as unknown as NonNullable<RoomSnapshot['game']>,
+  })
 }
 
 type Store = ReturnType<typeof useAppStore.getState>
@@ -250,7 +285,7 @@ function applyPresenceUpdate(
 }
 
 function applyScoreUpdate(
-  payload: Extract<ServerMessage, { type: 'score.update' }>['payload'],
+  payload: Extract<ServerMessage, { type: 'game.yacht_dice.score.update' }>['payload'],
   store: Store,
 ) {
   if (!store.roomSnapshot?.game) return
@@ -269,7 +304,7 @@ function applyScoreUpdate(
  * 때만 초기화하고, 같은 턴이면 지금까지의 진행을 그대로 들고 간다.
  */
 function applyRoundStart(
-  payload: Extract<ServerMessage, { type: 'round.start' }>['payload'],
+  payload: Extract<ServerMessage, { type: 'game.yacht_dice.round.start' }>['payload'],
   store: Store,
 ) {
   const snapshot = store.roomSnapshot
@@ -298,7 +333,7 @@ function applyRoundStart(
  * (재접속 직후처럼) 서버와 같은 굴림 횟수에서 이어갈 수 있다.
  */
 function applyDiceBroadcast(
-  message: Extract<ServerMessage, { type: 'dice.broadcast' }>,
+  message: Extract<ServerMessage, { type: 'game.yacht_dice.dice.broadcast' }>,
   store: Store,
 ) {
   const { payload } = message
@@ -327,10 +362,7 @@ function applyDiceBroadcast(
  * 게임 종료. 이 핸들러가 없으면 서버가 종료를 알려도 화면이 계속 게임에 머문다.
  * 뒤따르는 state.sync도 phase를 finished로 바꾸지만, 순서에 의존하지 않도록 여기서도 바꾼다.
  */
-function applyGameOver(
-  payload: Extract<ServerMessage, { type: 'game.over' }>['payload'],
-  store: Store,
-) {
+function applyGameOver(payload: GameOverPayload, store: Store) {
   const snapshot = store.roomSnapshot
   if (!snapshot) return
   const game = snapshot.game

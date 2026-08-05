@@ -5,15 +5,12 @@ import com.ssafy.yorr.game.exception.ScoreConfirmationException;
 import com.ssafy.yorr.game.round.application.GameReconnectSnapshotService;
 import com.ssafy.yorr.game.round.application.RoundSynchronizationService;
 import com.ssafy.yorr.game.round.application.RoundTimerService;
-import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionResult;
-import com.ssafy.yorr.game.round.application.ScoreRoundSubmissionService;
 import com.ssafy.yorr.game.round.domain.RoundSynchronizationException;
 import com.ssafy.yorr.game.round.domain.RoundState;
 import com.ssafy.yorr.room.dto.GameStartResponse;
 import com.ssafy.yorr.ws.RoomBroadcaster;
+import com.ssafy.yorr.ws.RealtimeRoomSnapshotService;
 import com.ssafy.yorr.ws.RoomSessionRegistry;
-import com.ssafy.yorr.ws.dto.DiceBroadcastPayload;
-import com.ssafy.yorr.ws.dto.DiceHoldChangedPayload;
 import com.ssafy.yorr.ws.dto.DiceHoldPayload;
 import com.ssafy.yorr.ws.dto.DiceRollPayload;
 import com.ssafy.yorr.ws.dto.DiceShakePayload;
@@ -37,6 +34,8 @@ import java.io.IOException;
 import java.util.Comparator;
 import java.util.Set;
 
+import static com.ssafy.yorr.game.yacht.YachtDiceWsTypes.type;
+
 @Component
 public class YachtDiceGameModule implements GameModule {
 
@@ -44,26 +43,29 @@ public class YachtDiceGameModule implements GameModule {
 
     private final RoundSynchronizationService rounds;
     private final RoundTimerService timers;
+    private final YachtTurnActionService actions;
     private final RoomSessionRegistry sessions;
+    private final RealtimeRoomSnapshotService realtimeSnapshots;
     private final RoomBroadcaster broadcaster;
-    private final ScoreRoundSubmissionService submissions;
     private final GameReconnectSnapshotService reconnectSnapshots;
     private final ObjectMapper objectMapper;
 
     public YachtDiceGameModule(
             RoundSynchronizationService rounds,
             RoundTimerService timers,
+            YachtTurnActionService actions,
             RoomSessionRegistry sessions,
+            RealtimeRoomSnapshotService realtimeSnapshots,
             RoomBroadcaster broadcaster,
-            ScoreRoundSubmissionService submissions,
             GameReconnectSnapshotService reconnectSnapshots,
             ObjectMapper objectMapper
     ) {
         this.rounds = rounds;
         this.timers = timers;
+        this.actions = actions;
         this.sessions = sessions;
+        this.realtimeSnapshots = realtimeSnapshots;
         this.broadcaster = broadcaster;
-        this.submissions = submissions;
         this.reconnectSnapshots = reconnectSnapshots;
         this.objectMapper = objectMapper;
     }
@@ -172,16 +174,7 @@ public class YachtDiceGameModule implements GameModule {
             return;
         }
         try {
-            RoundState state = rounds.recordRoll(message.roomId(), member.playerId(), payload);
-            broadcaster.broadcast(message.roomId(), WsEnvelope.of("dice.broadcast", new DiceBroadcastPayload(
-                    member.playerId(),
-                    state.roundNumber(),
-                    state.activeRollCount(),
-                    state.activeDice(),
-                    payload.held(),
-                    false
-            )).withRoomId(message.roomId()).withMsgId(message.msgId()));
-            timers.start(message.roomId(), state);
+            actions.roll(message.roomId(), member.playerId(), payload, message.msgId());
         } catch (RoundSynchronizationException exception) {
             sendError(session, errorCode(exception.reason()), exception.getMessage(), message.msgId());
         } catch (IllegalArgumentException exception) {
@@ -200,11 +193,7 @@ public class YachtDiceGameModule implements GameModule {
             return;
         }
         try {
-            RoundState state = rounds.recordHold(message.roomId(), member.playerId(), payload);
-            broadcaster.broadcast(message.roomId(), WsEnvelope.of(
-                    "dice.hold_changed",
-                    new DiceHoldChangedPayload(member.playerId(), state.roundNumber(), state.activeHeld())
-            ).withRoomId(message.roomId()).withMsgId(message.msgId()));
+            actions.hold(message.roomId(), member.playerId(), payload, message.msgId());
         } catch (RoundSynchronizationException exception) {
             sendError(session, errorCode(exception.reason()), exception.getMessage(), message.msgId());
         } catch (IllegalArgumentException exception) {
@@ -235,7 +224,7 @@ public class YachtDiceGameModule implements GameModule {
                 .orElse(false);
         if (!activePlayer) return;
         broadcaster.broadcast(message.roomId(), WsEnvelope.of(
-                "dice.shaken",
+                type("dice.shaken"),
                 new DiceShakenPayload(member.playerId(), payload.roundNumber(),
                         payload.direction(), payload.strength())
         ).withRoomId(message.roomId()).withMsgId(message.msgId()));
@@ -265,7 +254,7 @@ public class YachtDiceGameModule implements GameModule {
             return;
         }
         broadcaster.broadcast(message.roomId(), WsEnvelope.of(
-                "dice.thrown",
+                type("dice.thrown"),
                 new DiceThrownPayload(member.playerId(), payload.roundNumber(), payload.rollCount())
         ).withRoomId(message.roomId()).withMsgId(message.msgId()));
     }
@@ -281,8 +270,7 @@ public class YachtDiceGameModule implements GameModule {
             return;
         }
         try {
-            ScoreRoundSubmissionResult result = submissions.submit(message.roomId(), member.playerId(), payload);
-            timers.advanceTurn(message.roomId(), result, message.msgId());
+            actions.submitScore(message.roomId(), member.playerId(), payload, message.msgId());
         } catch (ScoreConfirmationException exception) {
             sendError(session, errorCode(exception.reason()), exception.getMessage(), message.msgId());
         } catch (RoundSynchronizationException exception) {
@@ -333,8 +321,8 @@ public class YachtDiceGameModule implements GameModule {
 
     private void broadcastState(String roomCode) {
         broadcaster.broadcast(roomCode, WsEnvelope.of(
-                "state.sync",
-                new StateSyncPayload(sessions.snapshot(roomCode))
+                type("state.sync"),
+                new StateSyncPayload(realtimeSnapshots.snapshot(roomCode))
         ).withRoomId(roomCode));
     }
 }

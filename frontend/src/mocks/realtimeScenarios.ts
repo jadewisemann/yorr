@@ -1,4 +1,3 @@
-import { type CategoryScores, calculateScoreSummary, scoreCategory } from '@/domain/scoring'
 import { type FakeMessageHandlers, FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import {
   type DiceSet,
@@ -6,8 +5,10 @@ import {
   type ServerMessage,
   WS_PROTOCOL_VERSION,
 } from '@/realtime/wsEvents'
+import { type CategoryScores, calculateScoreSummary, scoreCategory } from '@/yacht/domain/scoring'
 import {
   creatorSession,
+  dashboardSession,
   MOCK_ROOM_ID,
   MOCK_ROUND_DURATION_MS,
   participantSession,
@@ -65,10 +66,18 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         ]
       }
 
+      // 토큰으로 정체성을 가른다. 실서버가 sessionToken을 인증해 그 사람의 userId를 돌려주는
+      // 것과 같은 자리다 — room.joined의 you가 곧 클라이언트의 정체성이 된다(applyRoomJoined가
+      // roomSession.you를 이 값으로 덮는다).
+      //
+      // 파티 모드 대시보드를 따로 알아봐야 한다. 모르는 토큰을 creator로 떨어뜨리면 대시보드가
+      // 플레이어 정체성을 받아 자기 턴이 되고, 플레이어가 아니어야 할 화면에서 주사위가 눌린다.
       const joinedSession =
         message.payload.sessionToken === participantSession.sessionToken
           ? participantSession
-          : session
+          : message.payload.sessionToken === dashboardSession.sessionToken
+            ? dashboardSession
+            : session
 
       // 실서버처럼 mock이 기억하는 현재 방 상태(진행 phase·점수판)를 돌려준다 —
       // 새로고침 후 재접속해도 게임이 대기 중으로 되돌아가지 않는다(QA 참고 항목).
@@ -100,14 +109,14 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         { roomId: MOCK_ROOM_ID, msgId: message.msgId },
       ),
     ],
-    'dice.roll': (message) => {
+    'game.yacht_dice.dice.roll': (message) => {
       const rolled: DiceSet = [6, 5, 4, 3, 2]
       serverDice = rolled.map((value, index) =>
         message.payload.held[index] ? serverDice[index] : value,
       ) as unknown as DiceSet
       return [
         serverMessage(
-          'dice.broadcast',
+          'game.yacht_dice.dice.broadcast',
           {
             playerId: session.you,
             roundNumber: message.payload.roundNumber,
@@ -120,9 +129,9 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
       ]
     },
     // 실서버와 같은 단순 릴레이 — 흔든 펄스를 그대로 되돌려준다.
-    'dice.shake': (message) => [
+    'game.yacht_dice.dice.shake': (message) => [
       serverMessage(
-        'dice.shaken',
+        'game.yacht_dice.dice.shaken',
         {
           playerId: session.you,
           roundNumber: message.payload.roundNumber,
@@ -133,9 +142,9 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
       ),
     ],
     // 실서버와 같은 단순 릴레이 — 상태를 건드리지 않고 "던졌다"만 되돌려준다.
-    'dice.throw': (message) => [
+    'game.yacht_dice.dice.throw': (message) => [
       serverMessage(
-        'dice.thrown',
+        'game.yacht_dice.dice.thrown',
         {
           playerId: session.you,
           rollCount: message.payload.rollCount,
@@ -144,9 +153,9 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         { roomId: MOCK_ROOM_ID, msgId: message.msgId },
       ),
     ],
-    'dice.hold': (message) => [
+    'game.yacht_dice.dice.hold': (message) => [
       serverMessage(
-        'dice.hold_changed',
+        'game.yacht_dice.dice.hold_changed',
         {
           held: message.payload.held,
           playerId: session.you,
@@ -155,7 +164,7 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         { roomId: MOCK_ROOM_ID, msgId: message.msgId },
       ),
     ],
-    'round.submit': (message) => {
+    'game.yacht_dice.round.submit': (message) => {
       const stored = loadMockRoomSnapshot()
       const scoreboard =
         stored?.game?.scores[session.you] ?? playingRoomSnapshot.game?.scores[session.you]
@@ -186,12 +195,12 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         })
       }
       const scoreUpdate = serverMessage(
-        'score.update',
+        'game.yacht_dice.score.update',
         { playerId: session.you, scoreboard: updatedScoreboard },
         { roomId: MOCK_ROOM_ID, msgId: message.msgId },
       )
       const roundEnd = serverMessage(
-        'round.end',
+        'game.yacht_dice.round.end',
         { roundNumber: message.payload.roundNumber, submitted: [session.you] },
         { roomId: MOCK_ROOM_ID },
       )

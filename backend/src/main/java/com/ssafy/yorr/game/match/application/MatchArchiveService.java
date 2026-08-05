@@ -8,8 +8,10 @@ import com.ssafy.yorr.room.dto.RoomSnapshot;
 import com.ssafy.yorr.user.domain.User;
 import com.ssafy.yorr.user.repository.UserRepository;
 import com.ssafy.yorr.ws.dto.GameOverPayload;
+import com.ssafy.yorr.config.CacheConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +20,6 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 /**
  * 끝난 판을 DB에 남긴다. 여기까지 오지 않으면 결과는 Redis와 함께 40분 만에 사라진다.
@@ -38,7 +39,11 @@ public class MatchArchiveService {
 
     @org.springframework.beans.factory.annotation.Autowired
     public MatchArchiveService(MatchRepository matches, UserRepository users) {
-        this(matches, users, Clock.systemDefaultZone());
+        // finished_at은 UTC 벽시계로 저장한다. systemDefaultZone()이면 JVM 존에 따라 같은 코드가
+        // 다른 값을 쓴다 — 배포 컨테이너는 UTC, 개발자 PC는 KST라 9시간 어긋난 행이 섞인다.
+        // 기간으로 자르는 집계(주간 랭킹)는 그 어긋남을 복원할 방법이 없다. 이 서비스만 예외였고
+        // RoundTimerService·RoundTimeoutResolver는 이미 systemUTC()를 쓴다.
+        this(matches, users, Clock.systemUTC());
     }
 
     MatchArchiveService(MatchRepository matches, UserRepository users, Clock clock) {
@@ -51,36 +56,66 @@ public class MatchArchiveService {
      * @param room     끝난 게임의 방 스냅샷. 닉네임은 여기서 가져온다 — 순위 payload에는 점수만 있다.
      * @param rankings 서버가 확정한 최종 순위
      * @return 이 호출이 실제로 저장했는지. 이미 저장된 판이면 false.
+     * @implNote 랭킹 캐시를 비운다 — 주간 랭킹이 바뀔 수 있는 시점은 판이 끝날 때뿐이므로,
+     * 주기적으로 다시 계산하는 대신 여기서 알린다. 저장하지 않은 호출(중복 판)에도 비워지지만
+     * 그건 캐시 미스 한 번일 뿐 손해가 아니라, 반환값으로 조건을 거는 복잡함을 들이지 않았다.
      */
+    @CacheEvict(cacheNames = CacheConfig.WEEKLY_RANKING, allEntries = true)
     @Transactional
     public boolean archive(RoomSnapshot room, List<GameOverPayload.Ranking> rankings) {
         if (room == null || room.gameId() == null || room.gameId().isBlank()) return false;
         if (rankings == null || rankings.isEmpty()) return false;
-        if (matches.existsByGameId(room.gameId())) return false;
 
         Map<String, String> nicknames = room.players().stream().collect(java.util.stream.Collectors.toMap(
                 RoomPlayerSnapshot::playerId, RoomPlayerSnapshot::nickname, (first, second) -> first));
+        List<ParticipantResult> participants = rankings.stream()
+                .map(ranking -> new ParticipantResult(
+                        ranking.playerId(),
+                        nicknames.get(ranking.playerId()),
+                        ranking.total(),
+                        ranking.rank()))
+                .toList();
+        return archive(room.gameId(), room.gameCode(), room.roomCode(), participants);
+    }
 
-        Match match = Match.finished(room.gameId(), room.gameCode(), room.roomCode(),
-                LocalDateTime.now(clock));
-        for (GameOverPayload.Ranking ranking : rankings) {
-            User user = users.findById(ranking.playerId()).orElse(null);
-            String nickname = nicknames.getOrDefault(ranking.playerId(),
-                    user == null ? ranking.playerId() : user.getNickname());
-            match.add(MatchParticipant.of(user, ranking.playerId(), trim(nickname),
-                    ranking.total(), ranking.rank()));
+    /** 방 없이 진행된 로컬 게임도 같은 경기·참가자 저장 규칙을 사용한다. */
+    @CacheEvict(cacheNames = CacheConfig.WEEKLY_RANKING, allEntries = true)
+    @Transactional
+    public boolean archive(
+            String gameId,
+            String gameCode,
+            String roomCode,
+            List<ParticipantResult> results
+    ) {
+        if (gameId == null || gameId.isBlank() || gameCode == null || gameCode.isBlank()
+                || roomCode == null || roomCode.isBlank() || results == null || results.isEmpty()) {
+            return false;
+        }
+        if (matches.existsByGameId(gameId)) return false;
+
+        Match match = Match.finished(gameId, gameCode, roomCode, LocalDateTime.now(clock));
+        for (ParticipantResult result : results) {
+            User user = users.findById(result.playerId()).orElse(null);
+            String nickname = result.displayNickname() == null || result.displayNickname().isBlank()
+                    ? user == null ? result.playerId() : user.getNickname()
+                    : result.displayNickname();
+            match.add(MatchParticipant.of(user, result.playerId(), trim(nickname),
+                    result.totalScore(), result.ranking()));
         }
 
         try {
             matches.save(match);
         } catch (DataIntegrityViolationException race) {
             // 종료가 동시에 두 번 처리됐다. UNIQUE가 막았으니 먼저 저장한 쪽을 그대로 둔다.
-            log.info("이미 저장된 판입니다: game={}", room.gameId());
+            log.info("이미 저장된 판입니다: game={}", gameId);
             return false;
         }
         log.info("게임 결과를 저장했습니다: game={} room={} players={}",
-                room.gameId(), room.roomCode(), match.getPlayerCount());
+                gameId, roomCode, match.getPlayerCount());
         return true;
+    }
+
+    public record ParticipantResult(String playerId, String displayNickname, int totalScore, int ranking) {
     }
 
     /** display_nickname은 20자다. 그때 보였던 이름을 남기는 게 목적이라 잘라서라도 남긴다. */

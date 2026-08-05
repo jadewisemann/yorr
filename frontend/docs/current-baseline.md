@@ -23,7 +23,7 @@
 ## 방 역할
 
 - 방을 만든 사람이 `host`, 참가한 사람이 `participant`다(`RoomMembershipRole`,
-  [`../src/api/gameApi.ts`](../src/api/gameApi.ts)).
+  [`../src/room/api/roomApi.ts`](../src/room/api/roomApi.ts)).
 - 게임 시작과 종료 후 "대기실로 복귀(재대결)"는 `host`만 요청할 수 있다
   (`LobbyPage.tsx`, `GameResult.tsx`가 `membershipRole === 'host'`로 버튼을 막는다).
 - 과거 기획 문서에 있던 "방장 역할을 두지 않는다"는 결정은 폐기되었다 — 현재 코드와 반대다.
@@ -43,6 +43,9 @@
 - React 19 + Vite + TypeScript strict, 모바일 웹 SPA. HTTPS/WSS 필수.
 - 라우팅: TanStack Router. 상태: Zustand. 포맷: Biome. 스타일: Tailwind CSS v4(CSS-first
   `@theme`, 확정 사용 — 검토 단계 아님).
+- 모션: `motion`(구 Framer Motion)이 진입·퇴장·제스처를, CSS keyframes가 장식·상태 강조를
+  맡는다. 경계는 [`engineering/design-system.md`](./engineering/design-system.md)의 「모션」이
+  기준이다.
 - 3D 물리 주사위: Three.js + `@dimforge/rapier3d-compat`(`src/rendering/physics-dice/`).
 - QR: `qrcode.react`로 클라이언트에서 직접 생성(외부 이미지 API 미사용).
 - 센서: `DeviceMotion`/`DeviceOrientation`으로 흔들기·던지기 제스처를 판정
@@ -55,7 +58,11 @@
 
 ## 실시간 통신
 
-- 게임 데이터는 WebSocket(WSS)을 사용한다. WebRTC는 채택되지 않았다.
+- 게임 데이터는 WebSocket(WSS)을 사용한다. **게임 데이터에 WebRTC는 쓰지 않는다** — 서버가
+  상태의 권위자여야 하므로 P2P로 흘릴 수 없다.
+- **음성 채팅(S15P11A406-130)만 WebRTC 풀메시를 쓴다.** 오디오는 피어끼리 직접 흐르고,
+  서로를 찾는 시그널링(`voice.*`)은 위의 같은 WebSocket을 탄다. 미디어 서버(SFU)는 두지
+  않는다 — 정원이 6명이라 필요 없다. 계약은 🟡 PROPOSED 상태이며 구현은 아직 없다.
 - 서버가 방·라운드·점수 상태의 권위자(authoritative server)다.
 - 실제 이벤트 목록·에러 코드·REST 엔드포인트는
   [`api/realtime-and-api.md`](./api/realtime-and-api.md) 참고. SSOT는
@@ -75,7 +82,7 @@
 
 ## 닉네임 정책
 
-> 2026-07-23 결정, 코드와 일치 확인됨(`src/screens/NicknamePage.tsx`).
+> 2026-07-23 결정, 코드와 일치 확인됨(`src/room/screens/NicknamePage.tsx`).
 
 - 닉네임은 사용자 식별자가 아닌 화면 표시용 값이다. 같은 방에서도 중복을 허용하며, 실제 식별은
   서버가 발급한 `playerId`/`sessionToken`을 사용한다.
@@ -97,10 +104,14 @@
 
 ## 알려진 이슈
 
-- `src/core/{api,realtime}`와 `src/contracts/ws-events.ts`는 어디서도 import되지 않는 죽은
-  코드다(2026-07-23 무렵의 초안 스캐폴드가 정리되지 않고 남음). 실제 구현은 `src/api`,
-  `src/realtime`, `src/domain`이다. 신규 코드를 작성할 때 참고하거나 의존하지 않는다. 삭제는
-  별도 코드 변경 티켓에서 처리한다(문서 정리만으로는 해결하지 않음).
+- 경계 규칙 예외 2건 — `realtime/wsEvents.ts`가 `yacht/domain/*`을, `yacht/screens/GameResult.tsx`가
+  `room/api/useGameApi`를 import한다. 근거와 해소 방법은
+  [`engineering/architecture-and-stack.md`](engineering/architecture-and-stack.md)의
+  「알려진 경계 예외 2건」에 있다.
+- 단위 테스트가 부하 상태에서 간헐적으로 실패한다(`GamePlay`·`GamePage`·`RoomExitGuard`
+  ·`qrEntrance`, 그리고 `physics-dice/World.test.ts`가 47개를 통째로 skip하기도 한다).
+  단독 실행하면 전부 통과한다 — S15P11A406-172. skip이 나면 커버리지 수치도 같이 떨어져
+  임계값 미달로 보이므로, 커버리지를 판단할 때는 테스트 100 파일 823개가 다 돌았는지 먼저 본다.
 
 ## 미확정 사항
 

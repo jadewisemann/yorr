@@ -1,4 +1,3 @@
-import type { RoomSession } from '@/api/gameApi'
 import type {
   Player,
   RoomSnapshot,
@@ -7,6 +6,7 @@ import type {
   YachtCategory,
 } from '@/realtime/wsEvents'
 import { YACHT_CATEGORIES } from '@/realtime/wsEvents'
+import type { RoomSession } from '@/room/api/roomApi'
 
 export const MOCK_ROOM_ID = 'YORR64'
 export const MOCK_ROOM_CODE = 'YORR64'
@@ -15,12 +15,16 @@ export const creatorPlayer: Player = {
   playerId: 'player-creator',
   nickname: '느긋한 주사위',
   status: 'online',
+  kind: 'HUMAN',
+  isHost: true,
 }
 
 export const participantPlayer: Player = {
   playerId: 'player-participant',
   nickname: '참가자',
   status: 'online',
+  kind: 'HUMAN',
+  isHost: false,
 }
 
 export function createEmptyScoreBoard(): ScoreBoard {
@@ -38,6 +42,8 @@ export function createEmptyScoreBoard(): ScoreBoard {
 export const waitingRoomSnapshot: RoomSnapshot = {
   roomId: MOCK_ROOM_ID,
   phase: 'waiting',
+  hostId: creatorPlayer.playerId,
+  capacity: 6,
   players: [creatorPlayer, participantPlayer],
 }
 
@@ -83,6 +89,21 @@ export const participantSession = {
   nickname: participantPlayer.nickname,
   membershipRole: 'participant',
   sessionToken: 'session-participant-64',
+  snapshot: waitingRoomSnapshot,
+} satisfies RoomSession
+
+/**
+ * 파티 모드 대시보드. 방을 열었지만 <b>플레이어가 아니다</b> — `you`가 참가자 목록에 없는 것이
+ * 이 픽스처의 요점이다. 실서버도 대시보드를 플레이어 명단에 넣지 않는다(백엔드 `RoomMode.PARTY`).
+ */
+export const dashboardSession = {
+  gameId: null,
+  roomId: MOCK_ROOM_ID,
+  roomCode: MOCK_ROOM_CODE,
+  you: 'dashboard-64',
+  nickname: '대시보드',
+  membershipRole: 'dashboard',
+  sessionToken: 'session-dashboard-64',
   snapshot: waitingRoomSnapshot,
 } satisfies RoomSession
 

@@ -97,7 +97,7 @@ class RoundTimerServiceTest {
         // 마감 직전에 떠난 round.submit이 도착할 틈을 주고 나서 강제 진행한다.
         assertThat(scheduler.deadline).isEqualTo(deadline.plus(RoundTimerService.EXPIRY_GRACE));
         WsEnvelope<?> message = capturedBroadcast();
-        assertThat(message.type()).isEqualTo("round.start");
+        assertThat(message.type()).isEqualTo("game.yacht_dice.round.start");
         assertThat(message.ts()).isEqualTo(NOW.toEpochMilli());
         assertThat(message.roomId()).isEqualTo("room-a");
         assertThat(message.msgId()).isNull();
@@ -167,7 +167,7 @@ class RoundTimerServiceTest {
 
         List<WsEnvelope<?>> messages = capturedBroadcasts(2);
         assertThat(messages.get(0).payload()).isEqualTo(new RoundEndPayload(1, SOLO));
-        assertThat(messages.get(1).type()).isEqualTo("round.start");
+        assertThat(messages.get(1).type()).isEqualTo("game.yacht_dice.round.start");
     }
 
     /** 마감 처리로 들어온 점수는 resolver가 이미 방송했다. 여기서 또 쏘면 클라가 중복 반영한다. */
@@ -182,7 +182,7 @@ class RoundTimerServiceTest {
         scheduler.fire();
 
         assertThat(capturedBroadcasts(2))
-                .noneMatch(message -> message.type().equals("score.update"));
+                .noneMatch(message -> message.type().equals("game.yacht_dice.score.update"));
     }
 
     @Test
@@ -192,10 +192,10 @@ class RoundTimerServiceTest {
         timerService.advanceTurn("room-a", new ScoreRoundSubmissionResult(score("player-a"), completed), "msg-1");
 
         List<WsEnvelope<?>> messages = capturedBroadcasts(3);
-        assertThat(messages.get(0).type()).isEqualTo("score.update");
+        assertThat(messages.get(0).type()).isEqualTo("game.yacht_dice.score.update");
         assertThat(messages.get(0).msgId()).isEqualTo("msg-1");
-        assertThat(messages.get(1).type()).isEqualTo("round.end");
-        assertThat(messages.get(2).type()).isEqualTo("round.start");
+        assertThat(messages.get(1).type()).isEqualTo("game.yacht_dice.round.end");
+        assertThat(messages.get(2).type()).isEqualTo("game.yacht_dice.round.start");
     }
 
     /**
@@ -213,7 +213,7 @@ class RoundTimerServiceTest {
 
         timerService.advanceTurn("room-a", new ScoreRoundSubmissionResult(null, lastRound), null);
 
-        assertThat(capturedBroadcasts(1).get(0).type()).isEqualTo("round.end");
+        assertThat(capturedBroadcasts(1).get(0).type()).isEqualTo("game.yacht_dice.round.end");
         assertThat(scheduler.timeoutAction).isNull();
         assertThat(timerService.currentDeadline("room-a")).isEmpty();
     }
@@ -227,7 +227,7 @@ class RoundTimerServiceTest {
 
         timerService.advanceTurn("room-a", new ScoreRoundSubmissionResult(null, lastRound), null);
 
-        assertThat(capturedBroadcasts(1).get(0).type()).isEqualTo("round.end");
+        assertThat(capturedBroadcasts(1).get(0).type()).isEqualTo("game.yacht_dice.round.end");
         assertThat(scheduler.timeoutAction).isNull();
     }
 

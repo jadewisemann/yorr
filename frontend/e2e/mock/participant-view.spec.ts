@@ -9,7 +9,7 @@ import {
   waitingSnapshot,
 } from '../support/contract'
 import { startFakeGameServer } from '../support/fakeGameServer'
-import { gameUrl, joinRoomAsGuest, useSimpleDiceRenderer } from '../support/flows'
+import { activeTurnLabel, gameUrl, joinRoomAsGuest, useSimpleDiceRenderer } from '../support/flows'
 import { mockRestApi } from '../support/restMock'
 
 /**
@@ -36,7 +36,7 @@ test('moves to the game screen when the host starts', async ({ page }) => {
   server.syncSnapshot(playingSnapshot({ players: roster, activePlayerId: HOST.id }))
 
   await expect(page).toHaveURL(gameUrl)
-  await expect(page.getByText(`${HOST.nickname}의 턴`).first()).toBeVisible()
+  await expect(activeTurnLabel(page, HOST.nickname)).toBeVisible()
   // 참가자는 시작 API도, 게임 조회 API도 부르지 않는다(gameId는 호스트만 받는다).
   expect(rest.startGameCount).toBe(0)
   expect(rest.gameFetchCount).toBe(0)
@@ -57,7 +57,7 @@ test('watches the active player roll without any roll control', async ({ page })
   await expect(page.getByRole('button', { name: /^굴리기/ })).toBeHidden()
   await expect(page.getByText(`${HOST.nickname}(이)가 굴리는 중`)).toBeVisible()
 
-  server.send('dice.broadcast', {
+  server.send('game.yacht_dice.dice.broadcast', {
     playerId: HOST.id,
     roundNumber: 1,
     rollCount: 1,
@@ -66,7 +66,7 @@ test('watches the active player roll without any roll control', async ({ page })
   })
   // 관전자 화면은 dice.broadcast만으로는 사발을 쏟지 않는다 — 굴린 사람이 던지는 시점(dice.thrown)에
   // 맞춰야 그 사람의 손 동작과 화면이 어긋나지 않는다(wsEvents.ts v0.6 이력).
-  server.send('dice.thrown', { playerId: HOST.id, roundNumber: 1, rollCount: 1 })
+  server.send('game.yacht_dice.dice.thrown', { playerId: HOST.id, roundNumber: 1, rollCount: 1 })
 
   // 서버 브로드캐스트가 관전자 화면에도 그대로 재생된다.
   await expect(page.getByRole('button', { name: '6 주사위 KEEP' })).toHaveCount(5)
@@ -74,7 +74,7 @@ test('watches the active player roll without any roll control', async ({ page })
   // 그 전에 dice.hold_changed가 오면 아직 'rolling' phase라 조용히 버려진다.
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)))
 
-  server.send('dice.hold_changed', {
+  server.send('game.yacht_dice.dice.hold_changed', {
     playerId: HOST.id,
     roundNumber: 1,
     held: [true, true, false, false, false],
@@ -95,9 +95,9 @@ test('keeps return-to-lobby disabled for a participant on the result screen', as
 
   const hostBoard = scoreBoard({ yacht: 50 })
   const guestBoard = scoreBoard({ threes: 9 })
-  server.send('score.update', { playerId: HOST.id, scoreboard: hostBoard })
-  server.send('score.update', { playerId: GUEST.id, scoreboard: guestBoard })
-  server.send('game.over', {
+  server.send('game.yacht_dice.score.update', { playerId: HOST.id, scoreboard: hostBoard })
+  server.send('game.yacht_dice.score.update', { playerId: GUEST.id, scoreboard: guestBoard })
+  server.send('game.yacht_dice.game.over', {
     rankings: [
       { rank: 1, playerId: HOST.id, total: hostBoard.total },
       { rank: 2, playerId: GUEST.id, total: guestBoard.total },
@@ -121,7 +121,7 @@ test('follows the host back to the lobby after the game', async ({ page }) => {
   server.syncSnapshot(playingSnapshot({ players: roster, activePlayerId: HOST.id }))
   await expect(page).toHaveURL(gameUrl)
 
-  server.send('game.over', {
+  server.send('game.yacht_dice.game.over', {
     rankings: [
       { rank: 1, playerId: HOST.id, total: 50 },
       { rank: 2, playerId: GUEST.id, total: 9 },

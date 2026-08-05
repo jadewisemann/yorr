@@ -1,0 +1,112 @@
+import { type GameCode, type GameKey, games } from '@/games'
+import { musicLevel } from './audioLevels'
+import { onFirstGesture, primeAudio } from './audioUnlock'
+import { setElementVolume } from './elementVolume'
+import { readSoundMuted } from './soundPreference'
+
+/** 튜닝된 기본 배경음 볼륨. 슬라이더는 여기에 배율을 곱한다(audioLevels 참고). */
+const BASE_MUSIC_VOLUME = 0.35
+
+let soundtrack: HTMLAudioElement | null = null
+const gameTracks = new Map<GameCode, HTMLAudioElement>()
+let resultTrack: HTMLAudioElement | null = null
+let stopWaitingForGesture: (() => void) | null = null
+const tracks = new Map<GameKey, HTMLAudioElement>()
+
+/** 화면이 바뀔 때마다 갈아탈 수 있는 트랙 전부. 잠금은 요소마다 따로라 한꺼번에 풀어둔다. */
+function allTracks(): HTMLAudioElement[] {
+  return [...tracks.values(), ...gameTracks.values(), resultTrack].filter((track) => track !== null)
+}
+
+function prepare(): void {
+  if (tracks.size) return
+
+  for (const { key } of games) {
+    const audio = new Audio(`/audio/landing/${key}.mp3`)
+    audio.loop = true
+    audio.preload = 'auto'
+    tracks.set(key, audio)
+  }
+  for (const [code, source] of Object.entries({
+    DUEL: '/audio/game/duel-ingame.mp3',
+    PING_PONG: '/audio/game/ping-pong-ingame.mp3',
+    YACHT_DICE: '/audio/game/yacht_ingame.mp3',
+  }) as [GameCode, string][]) {
+    const audio = new Audio(source)
+    audio.loop = true
+    audio.preload = 'auto'
+    gameTracks.set(code, audio)
+  }
+  resultTrack = new Audio('/audio/game/result.mp3')
+  resultTrack.preload = 'auto'
+  applyMusicLevel()
+
+  waitForGesture()
+}
+
+/**
+ * 저장된 배율을 지금 살아 있는 모든 트랙에 적용한다.
+ *
+ * 배경음은 계속 흐르므로 재생 시점에 읽는 것으로는 부족하다 — 슬라이더를 움직이는 즉시
+ * 들려야 한다. 효과음(짧은 소리)은 반대로 재생 시점에 읽으면 충분해서 이런 함수가 없다.
+ *
+ * `track.volume`에 직접 넣지 않는다 — iOS는 그 대입을 무시한다(elementVolume 참고).
+ */
+export function applyMusicLevel(): void {
+  const volume = BASE_MUSIC_VOLUME * musicLevel()
+  for (const track of allTracks()) setElementVolume(track, volume)
+}
+
+/**
+ * 첫 조작에서 모든 트랙의 잠금을 풀고, 지금 틀어야 할 트랙을 재생한다.
+ *
+ * 트랙 하나가 아니라 전부를 푸는 게 핵심이다 — iOS는 요소마다 잠금을 따로 기억해서,
+ * 랜딩 BGM만 풀어두면 게임 화면으로 넘어가며 갈아탄 yacht_ingame이 조용하다(그 전환에는
+ * 제스처가 없다). 재생이 거절되면 리스너를 다시 걸어 다음 조작에서 만회한다.
+ */
+function waitForGesture(): void {
+  if (stopWaitingForGesture) return
+  stopWaitingForGesture = onFirstGesture(() => {
+    stopWaitingForGesture = null
+    // 지금 틀 트랙은 바로 아래에서 제대로 재생하므로 잠금 해제 대상에서 뺀다.
+    primeAudio(allTracks().filter((track) => track !== soundtrack))
+    if (readSoundMuted()) return
+    void soundtrack?.play().catch(() => waitForGesture())
+  })
+}
+
+export function playLandingSoundtrack(game: GameKey): void {
+  prepare()
+  play(tracks.get(game) ?? null)
+}
+
+export function playGameSoundtrack(game: GameCode = 'YACHT_DICE'): void {
+  prepare()
+  play(gameTracks.get(game) ?? null)
+}
+
+export function playResultSoundtrack(): void {
+  prepare()
+  play(resultTrack)
+}
+
+function play(next: HTMLAudioElement | null): void {
+  if (!next) return
+  if (soundtrack !== next) {
+    if (soundtrack) {
+      soundtrack.onended = null
+      soundtrack.pause()
+      soundtrack.currentTime = 0
+    }
+    next.currentTime = 0
+    soundtrack = next
+  }
+  if (readSoundMuted()) return
+  // 거절 = 아직 이 요소가 잠겨 있다(화면 전환처럼 제스처 없이 갈아탄 경우). 다음 조작을 노린다.
+  void soundtrack.play().catch(() => waitForGesture())
+}
+
+export function setSoundtrackMuted(muted: boolean): void {
+  if (muted) soundtrack?.pause()
+  else void soundtrack?.play().catch(() => waitForGesture())
+}

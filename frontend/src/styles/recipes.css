@@ -1,0 +1,48 @@
+/*
+ * 반복 조합 레시피.
+ *
+ * 왜 필요한가: 소스는 이미 DRY다 — 아래 조합들은 전부 `.map()` 한 곳이나 컴포넌트
+ * 하나에서 나온다. 문제는 **렌더된 DOM**이다. 같은 200~300자 class 문자열이 화면 하나에
+ * 12번씩 찍혀, 게임 화면 HTML 34.5KB 중 10.8KB(31%)가 완전 중복 문자열이었다.
+ * DevTools에서 트리를 읽을 수 없고, 노드마다 그 문자열을 들고 있을 이유도 없다.
+ *
+ * 왜 `@utility`가 아니라 `@layer components`인가: Tailwind v4의 레이어 순서는
+ * theme → base → components → utilities다. 여기 둔 레시피는 **항상** 인라인 유틸리티에게
+ * 진다 — 호출부에서 `cn('score-row', 'bg-brand/10')`처럼 덮어쓰면 CSS 순서를 따질 것 없이
+ * 유틸리티가 이긴다. `@utility`로 만들면 같은 utilities 레이어에 들어가 승자가
+ * 선언 순서로 갈리고, tailwind-merge는 커스텀 이름의 충돌 그룹을 모르므로 둘 다 살아남는다.
+ *
+ * 기준: **DOM에 5번 이상** 반복되는 조합만 여기 둔다. 일회성 스타일은 인라인이 낫다 —
+ * 컴포넌트를 열었을 때 스타일이 보여야 한다.
+ */
+@layer components {
+  /* 포커스 링. 프로젝트 표준은 3px 실선 + focus 토큰이고, offset만 자리마다 다르다
+     (2 / 4 / -3px) — offset은 그대로 호출부에 유틸리티로 남긴다. */
+  .focus-ring {
+    @apply focus-visible:outline-3 focus-visible:outline-focus;
+  }
+
+  /* 점수표 한 행과 그 안의 라벨·점수 칸. 족보 12개 + 소계·보너스·합계가 같은 모양이다.
+     열 너비는 인원수에 따라 달라지므로 style의 gridTemplateColumns가 따로 준다. */
+  .score-row {
+    @apply grid max-h-15 min-h-11 w-full shrink-0 grow basis-auto items-center gap-1 border-0 border-b border-border/40 bg-transparent px-3 text-left;
+  }
+
+  .score-label {
+    @apply flex min-w-0 items-center gap-1.5 text-[14px] font-semibold text-content;
+  }
+
+  .score-cell {
+    @apply justify-self-stretch py-1 text-center font-mono text-[15px] font-bold tabular-nums;
+  }
+
+  /* 모바일 기록 패널의 퀵 칩 — 열린 족보 수만큼(최대 12) 한 줄에 눕는다. */
+  .quick-chip {
+    @apply flex h-[4.125rem] min-w-[5.5rem] cursor-pointer flex-col items-start justify-between rounded-control border border-border bg-surface px-2.5 py-2 text-left text-content transition-colors focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55;
+  }
+
+  /* 리액션 픽커 이모지 버튼 5종. */
+  .reaction-chip {
+    @apply grid size-11 cursor-pointer place-items-center rounded-card border-0 bg-transparent p-0 text-[22px] leading-none transition-transform hover:scale-115;
+  }
+}
