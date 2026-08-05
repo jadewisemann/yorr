@@ -1,7 +1,7 @@
 import type { DuelState } from '@/realtime/wsEvents'
 import type { SwingPermission } from '@/shared/useSwing'
 import { Shell, Warn } from './Arena'
-import { DRAW_PENALTY_MS, drawOutcome, isClean, MAX_FOULS, MAX_HP, msLabel, slots } from './duel'
+import { DRAW_PENALTY_MS, drawOutcome, MAX_FOULS, MAX_HP, msLabel, slots } from './duel'
 
 /**
  * 파티 모드 폰 화면 — 손 안의 리볼버. (S15P11A406-207)
@@ -74,17 +74,25 @@ export function DuelController({
         </button>
       </header>
 
+      {/* 기록(ms)은 판정이 난 뒤에만, 그리고 <b>여기에만</b> 뜬다. 유예 중에 상대 기록이
+          보이면 승부가 김이 새고, 같은 숫자를 가운데 문구와 여기 둘 다 쓰면 좁은 화면에서
+          같은 것을 두 번 읽는다. */}
       <section
         aria-label="탄약과 경고"
         className="mt-4 grid flex-none grid-cols-2 gap-2 rounded-2xl border border-white/12 bg-white/6 p-3"
       >
-        <AmmoRow fouls={fouls} hp={state.hp[playerId] ?? 0} label="나" ms={myMs} showMs />
+        <AmmoRow
+          fouls={fouls}
+          hp={state.hp[playerId] ?? 0}
+          label="나"
+          ms={myMs}
+          showMs={signal === 'result'}
+        />
         <AmmoRow
           fouls={state.fouls[rival] ?? 0}
           hp={state.hp[rival] ?? 0}
           label={opponentName}
           ms={state.reactions[rival] ?? null}
-          // 유예 중에 상대 기록이 보이면 승부가 김이 샌다 — 판정이 난 뒤에만 밝힌다.
           showMs={signal === 'result'}
         />
       </section>
@@ -183,7 +191,7 @@ function DrawPrompt({
     const tone =
       outcome.tone === 'win' ? 'text-[#86efac]' : outcome.tone === 'lose' ? 'text-[#fca5a5]' : ''
     return (
-      <Prompt sub={isClean(ms) ? msLabel(ms) : undefined} tone={tone}>
+      <Prompt sub={undefined} tone={tone}>
         {outcome.label}
       </Prompt>
     )
