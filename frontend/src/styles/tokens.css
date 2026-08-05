@@ -6,6 +6,9 @@
   --color-surface-raised: var(--ds-color-surface-raised);
   --color-surface-overlay: var(--ds-color-surface-overlay);
   --color-border: var(--ds-color-border);
+  --color-border-raised: var(--ds-color-border-raised);
+  --color-border-strong: var(--ds-color-border-strong);
+  --color-surface-veil: var(--ds-color-surface-veil);
   --color-content: var(--ds-color-content);
   --color-content-muted: var(--ds-color-content-muted);
   --color-brand: var(--ds-color-brand);
@@ -281,7 +284,14 @@
   /* raised보다 한 단 더 뜬 표면 — 캔버스 위에 겹쳐 떠 있는 토스트가 여기에 선다.
      장식용 고스트 텍스트(404)도 같은 밝기 단계를 쓴다. */
   --ds-color-surface-overlay: #202125;
+  /* 흰색 알파 hairline 사다리. 세 단이 값으로 구별된다 — 기본 경계, 떠 있는 표면의 경계,
+     강조·선택 경계. 랜딩 네임스페이스가 아래에서 같은 원시값을 참조한다(값을 두 번 적지 않는다). */
   --ds-color-border: rgb(255 255 255 / 10%);
+  --ds-color-border-raised: rgb(255 255 255 / 14%);
+  --ds-color-border-strong: rgb(255 255 255 / 18%);
+  /* 캔버스 위에 아주 옅게 깔리는 칩·배너 바닥. surface(#111214)는 불투명해서 뒤의
+     배경 그라디언트를 가리므로 이 자리에 못 쓴다. */
+  --ds-color-surface-veil: rgb(255 255 255 / 6%);
   --ds-color-content: #f7f7f5;
   --ds-color-content-muted: #a4a5aa;
   --ds-color-brand: #e53935;
@@ -309,16 +319,20 @@
   --ds-color-physics-rail: #0d0e10;
   --ds-color-physics-slot: rgb(255 255 255 / 14%);
 
-  /* 랜딩 히어로 전용 팔레트 — 본편과 같은 블랙 계열로 통일하되
-     반투명 패널·헤어라인은 랜딩에서만 쓰므로 네임스페이스를 유지한다. */
+  /* 랜딩 히어로 전용 팔레트 — 본편과 같은 블랙 계열로 통일하되 반투명 패널은 랜딩에서만
+     쓰므로 네임스페이스를 유지한다. 헤어라인은 예외다: 앱 쪽에서도 12곳이 같은 값을 쓰므로
+     위의 공유 사다리를 참조한다. */
   --ds-landing-panel: rgb(17 18 20 / 86%);
   --ds-landing-well: rgb(8 9 10 / 55%);
   --ds-landing-soft: rgb(255 255 255 / 7%);
   /* 코드 입력 필드 바닥. 팝오버·시트(#18191c)보다 한 단 낮게 가라앉힌다. */
   --ds-landing-field: #111214;
   --ds-landing-bar: rgb(255 255 255 / 22%);
-  --ds-landing-hairline: rgb(255 255 255 / 10%);
-  --ds-landing-hairline-strong: rgb(255 255 255 / 18%);
+  /* 헤어라인은 랜딩 팔레트가 아니라 앱과 공유하는 중성 사다리다 — 값을 다시 적지 않고
+     위의 원시값을 참조한다. 호출부의 landing-hairline* utility는 그대로 두되, 새 코드는
+     border/border-strong를 쓴다. */
+  --ds-landing-hairline: var(--ds-color-border);
+  --ds-landing-hairline-strong: var(--ds-color-border-strong);
   --ds-landing-accent: #e53935;
   --ds-landing-accent-ink: #ffffff;
   --ds-landing-accent-tint: rgb(229 57 53 / 16%);
