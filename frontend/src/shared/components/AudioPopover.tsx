@@ -1,12 +1,14 @@
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, type RefObject, useState } from 'react'
 import { type AudioLevels, audioLevels, setAudioLevel } from '@/shared/audio/audioLevels'
 import { applyMusicLevel } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
-import { BottomSheet } from '@/shared/components/BottomSheet'
 import { Button } from '@/shared/components/Button'
 import { IconMic, IconMusic, IconSound } from '@/shared/components/Icon'
+import { Popover } from '@/shared/components/Popover'
 
-interface AudioSheetProps {
+interface AudioPopoverProps {
+  /** 팝오버를 여는 소리 버튼. 그 옆에 붙는다. */
+  anchorRef?: RefObject<HTMLElement | null>
   onClose: () => void
   onToggleMute: () => void
   open: boolean
@@ -27,16 +29,26 @@ interface AudioSheetProps {
 }
 
 /**
- * 소리 관련 조작을 한 자리에 모은 시트.
+ * 소리 관련 조작을 한 자리에 모은 말풍선.
  * <p>
  * 헤더의 소리 버튼이 이걸 연다. 마이크를 헤더에 따로 두면 320px에서 턴 표시가 한 글자씩
  * 세로로 접히고, 트레이에 띄우면 주사위 위에 버튼이 겹쳐 답답하다 — 버튼 개수를 늘리지 않고
  * 소리 입구를 하나로 만드는 쪽을 골랐다.
  * <p>
  * 음소거가 1탭에서 2탭이 된다. 시끄러운 곳에서 급하게 끄는 동작이 아니라 조용한 곳에서 한 번
- * 정하는 성격이라 감당한다고 봤고, 대신 전체 음소거를 시트 맨 위에 둬 경로를 짧게 유지한다.
+ * 정하는 성격이라 감당한다고 봤고, 대신 전체 음소거를 맨 위에 둬 경로를 짧게 유지한다.
+ * <p>
+ * 시트가 아니라 누른 버튼에 붙는 말풍선이다 — 화면 76%를 덮으면 대기실·게임판이 가려지는데,
+ * 볼륨은 뒤 화면을 보면서(소리를 들으면서) 맞추는 조작이다.
  */
-export function AudioSheet({ microphone, muted, onClose, onToggleMute, open }: AudioSheetProps) {
+export function AudioPopover({
+  anchorRef,
+  microphone,
+  muted,
+  onClose,
+  onToggleMute,
+  open,
+}: AudioPopoverProps) {
   // 슬라이더는 드래그 중 매 프레임 렌더돼야 하므로 화면 상태를 따로 든다.
   // 진짜 값은 audioLevels(메모리 + localStorage)가 들고 있다.
   const [levels, setLevels] = useState<AudioLevels>(audioLevels)
@@ -49,7 +61,7 @@ export function AudioSheet({ microphone, muted, onClose, onToggleMute, open }: A
   }
 
   return (
-    <BottomSheet className="h-auto max-h-[76%]" onClose={onClose} open={open} title="오디오 설정">
+    <Popover anchorRef={anchorRef} label="오디오 설정" onClose={onClose} open={open}>
       <div className="flex items-baseline justify-between pb-1">
         <h2 className="m-0 text-[17px] font-bold">오디오</h2>
         <button
@@ -118,11 +130,11 @@ export function AudioSheet({ microphone, muted, onClose, onToggleMute, open }: A
           value={levels.effects}
         />
       </div>
-    </BottomSheet>
+    </Popover>
   )
 }
 
-function microphoneStatusLabel(microphone: NonNullable<AudioSheetProps['microphone']>) {
+function microphoneStatusLabel(microphone: NonNullable<AudioPopoverProps['microphone']>) {
   if (microphone.requesting) return '권한 요청 중'
   if (microphone.denied) return '권한 거부됨'
   if (!microphone.on) return '꺼짐'
