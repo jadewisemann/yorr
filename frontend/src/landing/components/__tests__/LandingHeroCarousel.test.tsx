@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { games } from '@/games'
+import { gameAt, games } from '@/games'
 import { LandingHeroCarousel } from '@/landing/components/LandingHeroCarousel'
 
 beforeEach(() => {
@@ -59,6 +59,50 @@ describe('LandingHeroCarousel', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: '다음 게임' }))
     expect(onSelect).toHaveBeenCalledWith(0)
+  })
+
+  // wide는 카드 석 장이 한 화면에 함께 선다 — 보이는 카드를 눌렀는데 아무 일도
+  // 일어나지 않으면 안 된다.
+  it('wide에서는 양옆 이웃 카드를 눌러 바로 그 게임으로 넘어간다', () => {
+    const onSelect = vi.fn()
+    render(
+      <LandingHeroCarousel
+        activeIndex={0}
+        games={games}
+        layout="wide"
+        onPartyMode={vi.fn()}
+        onPlay={vi.fn()}
+        onSelect={onSelect}
+        onTutorial={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: `${gameAt(1).name} 선택` }))
+    expect(onSelect).toHaveBeenCalledWith(1)
+
+    // 목록이 순환하므로 첫 칸의 왼쪽 이웃은 마지막 게임이다.
+    fireEvent.click(screen.getByRole('button', { name: `${gameAt(games.length - 1).name} 선택` }))
+    expect(onSelect).toHaveBeenCalledWith(games.length - 1)
+  })
+
+  /**
+   * narrow의 이웃 카드는 390px에서 35px만 내보인다 — 탭 타깃이 되지 못하고 포인터를 받으면
+   * 스와이프와 다툰다. 조작 대상이 아니라 장식으로 남아야 한다.
+   */
+  it('narrow의 이웃 카드는 누를 수 있는 물건이 아니다', () => {
+    render(
+      <LandingHeroCarousel
+        activeIndex={0}
+        games={games}
+        layout="narrow"
+        onPartyMode={vi.fn()}
+        onPlay={vi.fn()}
+        onSelect={vi.fn()}
+        onTutorial={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: /선택$/ })).not.toBeInTheDocument()
   })
 
   // 스와이프는 발견 가능한 조작이 아니다 — 모바일에도 이동 버튼이 있어야 한다.
