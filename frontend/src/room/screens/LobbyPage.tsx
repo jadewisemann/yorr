@@ -275,15 +275,17 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
             {roomSnapshot?.players.length ?? 0}
             <span className="text-content-faint"> / {capacity}</span>
           </span>
-          <Button
-            className="min-h-9 flex-none px-3 text-sm"
-            onClick={() => setInviteOpen(true)}
-            ref={inviteButtonRef}
-            type="button"
-            variant="secondary"
-          >
-            초대
-          </Button>
+          {!controller && (
+            <Button
+              className="min-h-9 flex-none px-3 text-sm"
+              onClick={() => setInviteOpen(true)}
+              ref={inviteButtonRef}
+              type="button"
+              variant="secondary"
+            >
+              초대
+            </Button>
+          )}
         </div>
 
         <LobbyRoomContent

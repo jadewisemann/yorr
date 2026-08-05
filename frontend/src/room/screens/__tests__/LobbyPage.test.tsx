@@ -49,21 +49,22 @@ describe('LobbyPage', () => {
     useAppStore.getState().setConnectionStatus('connected')
   })
 
-  // 파티 QR로 들어온 폰은 초대 패널이 필요 없다 — QR·링크는 큰 화면이 이미 띄우고 있고,
+  // 파티 QR로 들어온 폰은 초대할 이유가 없다 — QR·링크는 큰 화면이 이미 띄우고 있고,
   // 그 자리에는 "내가 컨트롤러다"라는 안내가 서야 한다(S15P11A406-205).
-  it('파티 컨트롤러에게는 초대 패널 대신 연결 안내를 보여준다', () => {
+  // 초대가 말풍선으로 바뀐 뒤로는(S15P11A406-203) 초대 입구인 버튼 자체가 없어야 한다.
+  it('파티 컨트롤러에게는 초대 입구 대신 연결 안내를 보여준다', () => {
     savePartyRoom(creatorSession.roomCode)
 
     render(<LobbyPage roomId={creatorSession.roomId} />)
 
     expect(screen.getByRole('region', { name: '컨트롤러 연결' })).toBeVisible()
-    expect(screen.queryByRole('region', { name: '친구 초대하기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '초대' })).not.toBeInTheDocument()
   })
 
-  it('일반 방에서는 초대 패널을 그대로 둔다', () => {
+  it('일반 방에서는 초대 버튼을 그대로 둔다', () => {
     render(<LobbyPage roomId={creatorSession.roomId} />)
 
-    expect(screen.getByRole('region', { name: '친구 초대하기' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '초대' })).toBeVisible()
     expect(screen.queryByRole('region', { name: '컨트롤러 연결' })).not.toBeInTheDocument()
   })
 
