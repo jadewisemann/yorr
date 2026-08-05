@@ -5,7 +5,7 @@ import { isPartyRoom } from '@/room/partyControllerStorage'
 import { readSoundMuted, saveSoundMuted } from '@/shared/audio/soundPreference'
 import { setSoundtrackMuted } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
-import { AudioSheet } from '@/shared/components/AudioSheet'
+import { AudioPopover } from '@/shared/components/AudioPopover'
 import { Button } from '@/shared/components/Button'
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner'
 import { IconCheck } from '@/shared/components/Icon'
@@ -112,7 +112,9 @@ export function GamePlay({
   // 내 차례 시작 콜아웃 — 토스트보다 눈에 띄는 족보 이펙트와 같은 연출로 알린다. id = 리마운트 키.
   const [turnCallout, setTurnCallout] = useState<number | null>(null)
   const [soundMuted, setSoundMuted] = useState(readSoundMuted)
-  const [audioSheetOpen, setAudioSheetOpen] = useState(false)
+  const [audioOpen, setAudioOpen] = useState(false)
+  // 오디오 말풍선이 붙을 자리 — 헤더의 소리 버튼이다.
+  const audioButtonRef = useRef<HTMLButtonElement>(null)
   // 닫은 안내가 "어느 상태의 안내였는지"를 담는다. boolean으로 두면 상태가 바뀌어도 계속 닫혀
   // 새 안내를 놓친다 — 값이 달라지는 순간 자동으로 다시 뜨게 하려는 의도다.
   const [helpOpen, setHelpOpen] = useState(false)
@@ -274,8 +276,9 @@ export function GamePlay({
       leaderLabel={leaderLabel}
       onHelp={() => setHelpOpen(true)}
       onLeave={onLeaveRequest}
-      // 소리 버튼은 이제 토글이 아니라 오디오 시트를 연다 — 마이크·배경음·효과음이 한 자리다.
-      onOpenAudio={() => setAudioSheetOpen(true)}
+      audioButtonRef={audioButtonRef}
+      // 소리 버튼은 이제 토글이 아니라 오디오 말풍선을 연다 — 마이크·배경음·효과음이 한 자리다.
+      onOpenAudio={() => setAudioOpen(true)}
       remainingMs={remainingMs}
       roundNumber={roundNumber}
       soundMuted={soundMuted}
@@ -437,7 +440,7 @@ export function GamePlay({
               접힌 기록 패널(8.5rem)도 이 값이면 함께 넘긴다.
               z-sticky라 기록 패널(z-sheet)을 펼치면 그 아래로 가려진다 — 의도한 순서다. */}
           {/* 마이크는 여기 없다 — 트레이 위에 버튼이 둘 겹치면 주사위가 답답하다.
-              소리 관련 조작은 헤더의 오디오 시트 한 곳으로 모았다(AudioSheet). */}
+              소리 관련 조작은 헤더의 오디오 말풍선 한 곳으로 모았다(AudioPopover). */}
           <ReactionDock
             className={cn(
               'absolute right-gutter z-sticky',
@@ -465,7 +468,8 @@ export function GamePlay({
       </main>
 
       <ToastHost message={toastMessage} />
-      <AudioSheet
+      <AudioPopover
+        anchorRef={audioButtonRef}
         microphone={
           voice.status === 'unsupported'
             ? undefined
@@ -478,9 +482,9 @@ export function GamePlay({
               }
         }
         muted={soundMuted}
-        onClose={() => setAudioSheetOpen(false)}
+        onClose={() => setAudioOpen(false)}
         onToggleMute={toggleSound}
-        open={audioSheetOpen}
+        open={audioOpen}
       />
       {zeroModal}
       <GameHelpModal onClose={() => setHelpOpen(false)} open={helpOpen} />

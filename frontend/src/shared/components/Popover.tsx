@@ -9,7 +9,7 @@ interface PopoverProps {
    * 꼬리를 물릴 기준 요소 — 보통 이 팝오버를 연 버튼이다. 넘기면 그 아래(아래가 좁으면 위)에
    * 붙고 뷰포트 안으로 눌러 넣는다. 넘기지 않으면 랜딩 헤더 우상단 고정 자리에 그린다.
    */
-  anchorRef?: RefObject<HTMLElement | null>
+  anchorRef?: RefObject<HTMLElement | null> | undefined
   children: ReactNode
   /** 열자마자 초점을 둘 요소의 선택자. 무엇을 하러 열었는지에 따라 다르다. */
   focusSelector?: string

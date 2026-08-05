@@ -8,7 +8,7 @@ import { Popover } from '@/shared/components/Popover'
 
 interface AudioPopoverProps {
   /** 팝오버를 여는 소리 버튼. 그 옆에 붙는다. */
-  anchorRef?: RefObject<HTMLElement | null>
+  anchorRef?: RefObject<HTMLElement | null> | undefined
   onClose: () => void
   onToggleMute: () => void
   open: boolean
