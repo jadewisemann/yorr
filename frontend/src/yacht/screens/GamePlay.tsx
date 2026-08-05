@@ -10,8 +10,9 @@ import { Button } from '@/shared/components/Button'
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner'
 import { IconCheck } from '@/shared/components/Icon'
 import { Modal } from '@/shared/components/Modal'
+import { PlayBoard } from '@/shared/components/Screen'
 import { ToastHost, useToast } from '@/shared/components/ToastHost'
-import { useMediaQuery } from '@/shared/useMediaQuery'
+import { useWideLayout } from '@/shared/useWideLayout'
 import { type ActiveRoomSession, useAppStore } from '@/store'
 import { GameHelpModal } from '@/yacht/components/GameHelpModal'
 import { ReactionDock } from '@/yacht/components/ReactionDock'
@@ -38,7 +39,6 @@ import { useGamePlayRoll } from './useGamePlayRoll'
 import { useGamePlaySubmission } from './useGamePlaySubmission'
 
 /** 이 폭부터 점수표를 시트 대신 좌측 상시 패널로 승격한다(와이어프레임 1c). */
-const WIDE_LAYOUT = '(min-width: 1024px)'
 interface GamePlayProps {
   roomId: string
   session: ActiveRoomSession
@@ -111,7 +111,7 @@ export function GamePlay({
   session,
   snapshot,
 }: GamePlayProps) {
-  const wide = useMediaQuery(WIDE_LAYOUT)
+  const wide = useWideLayout()
   const connectionStatus = useAppStore((state) => state.connectionStatus)
   const { message: toastMessage, showToast } = useToast()
   // 통화 자체는 라우터 위 VoiceProvider가 들고 있다 — 대기실에서 켠 통화가 여기로 이어진다.
@@ -384,12 +384,7 @@ export function GamePlay({
           32.5rem은 80px 과잉이었고 그만큼을 트레이에 넘긴다.
           minmax(0,1fr): 그냥 1fr은 minmax(auto,1fr)이라 TurnStrip 6인이 왼쪽 열 최소 폭을
           밀어올릴 수 있다. */}
-      <main
-        className={cn(
-          'mx-auto h-svh w-full max-w-play overflow-hidden bg-canvas text-content',
-          wide ? 'grid grid-cols-[minmax(0,1fr)_28rem]' : 'flex flex-col',
-        )}
-      >
+      <PlayBoard wide={wide}>
         <div className="relative flex min-h-0 flex-1 flex-col">
           {/* 배너는 오버레이로 띄운다 — 플로우에 끼우면 나타날 때마다 3D 트레이 크기를 밀어
               씬이 리사이즈된다. 연결 상태는 일시적이라 헤더를 잠깐 덮는 쪽이 낫다.
@@ -478,7 +473,7 @@ export function GamePlay({
               </div>,
             )
           : null}
-      </main>
+      </PlayBoard>
 
       <ToastHost message={toastMessage} />
       <AudioPopover

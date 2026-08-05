@@ -1,7 +1,7 @@
 import type { RoomSnapshot } from '@/realtime/wsEvents'
-import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
-import { useMediaQuery } from '@/shared/useMediaQuery'
+import { PlayBoard } from '@/shared/components/Screen'
+import { useWideLayout } from '@/shared/useWideLayout'
 import type { ActiveRoomSession } from '@/store'
 import { type RankedPlayer, ResultRanking } from '@/yacht/components/ResultRanking'
 import { ScoreMatrix } from '@/yacht/components/ScoreMatrix'
@@ -32,7 +32,6 @@ import { ScoreMatrix } from '@/yacht/components/ScoreMatrix'
  * <b>[대기실로] 버튼도 두지 않는다.</b> 대시보드는 방장이 아니다(방장은 처음 들어온 컨트롤러다).
  * 누를 수 없는 버튼을 회색으로 세워 두는 대신, 누가 눌러야 하는지를 문장으로 알린다.
  */
-const WIDE_LAYOUT = '(min-width: 1024px)'
 
 interface PartyResultDashboardProps {
   /** 방 닫기. GamePage의 RoomExitGuard가 확인을 받고 처리한다(GamePlay와 같은 경로). */
@@ -49,16 +48,11 @@ export function PartyResultDashboard({
   session,
   snapshot,
 }: PartyResultDashboardProps) {
-  const wide = useMediaQuery(WIDE_LAYOUT)
+  const wide = useWideLayout()
   const winner = ranked[0]
 
   return (
-    <main
-      className={cn(
-        'mx-auto h-svh w-full max-w-play overflow-hidden bg-canvas text-content',
-        wide ? 'grid grid-cols-[minmax(0,1fr)_28rem]' : 'flex flex-col',
-      )}
-    >
+    <PlayBoard wide={wide}>
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex flex-none items-center gap-3 border-b border-border px-gutter py-3">
           <div className="grid min-w-0 flex-1 gap-1">
@@ -132,6 +126,6 @@ export function PartyResultDashboard({
           />
         </section>
       )}
-    </main>
+    </PlayBoard>
   )
 }

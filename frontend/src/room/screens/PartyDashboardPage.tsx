@@ -9,7 +9,8 @@ import { PlayerCard } from '@/room/components/PlayerCard'
 import { playLandingSoundtrack } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
-import { useMediaQuery } from '@/shared/useMediaQuery'
+import { PlayBoard } from '@/shared/components/Screen'
+import { useWideLayout } from '@/shared/useWideLayout'
 import { useAppStore } from '@/store'
 
 /**
@@ -35,7 +36,6 @@ import { useAppStore } from '@/store'
  * 폭 분기도 랜딩 기준(760px)이 아니라 <b>게임 화면 기준(1024px)</b>을 쓴다 — 시작 전후가
  * 같은 지점에서 같은 모양으로 꺾여야 한다.
  */
-const WIDE_LAYOUT = '(min-width: 1024px)'
 
 /**
  * 파티 대시보드가 받는 게임. 라우트가 `isPartyGameKey`로 걸러 주므로 여기 도달한 키는
@@ -46,7 +46,7 @@ export type PartyGameKey = GameKey
 export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
   const navigate = useNavigate()
   const game = gameByKey(gameKey)
-  const wide = useMediaQuery(WIDE_LAYOUT)
+  const wide = useWideLayout()
   const roomSession = useAppStore((state) => state.roomSession)
   const roomSnapshot = useAppStore((state) => state.roomSnapshot)
   const connectionStatus = useAppStore((state) => state.connectionStatus)
@@ -86,12 +86,7 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
   const host = players.find((player) => player.playerId === hostId)
 
   return (
-    <main
-      className={cn(
-        'mx-auto h-svh w-full max-w-play overflow-hidden bg-canvas text-content',
-        wide ? 'grid grid-cols-[minmax(0,1fr)_28rem]' : 'flex flex-col',
-      )}
-    >
+    <PlayBoard wide={wide}>
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex flex-none items-center gap-3 border-b border-border px-gutter py-3">
           <div className="grid min-w-0 flex-1 gap-1">
@@ -177,7 +172,7 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
 
       {/* ScoreSheet가 들어설 열. 헤더 행 모양도 점수표와 같게 맞춘다. */}
       {wide && <ParticipantColumn capacity={capacity} hostId={hostId} players={players} />}
-    </main>
+    </PlayBoard>
   )
 }
 
