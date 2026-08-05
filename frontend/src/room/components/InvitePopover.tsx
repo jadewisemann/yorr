@@ -1,7 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react'
 import { Component, type ErrorInfo, type ReactNode, type RefObject, useState } from 'react'
 import { Button } from '@/shared/components/Button'
-import { Popover } from '@/shared/components/Popover'
+import { Popover, PopoverHeader } from '@/shared/components/Popover'
 
 interface InvitePopoverProps {
   /** 팝오버를 여는 초대 버튼. 그 아래에 꼬리를 물고 붙는다. */
@@ -58,16 +58,7 @@ export function InvitePopover({ anchorRef, onClose, open, roomCode }: InvitePopo
 
   return (
     <Popover anchorRef={anchorRef} label="친구 초대하기" onClose={close} open={open}>
-      <div className="flex items-baseline justify-between pb-1">
-        <h2 className="m-0 text-base font-bold">친구 초대</h2>
-        <button
-          className="cursor-pointer border-0 bg-transparent p-0 text-xs font-semibold text-content-muted hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
-          onClick={close}
-          type="button"
-        >
-          닫기
-        </button>
-      </div>
+      <PopoverHeader onClose={close}>친구 초대</PopoverHeader>
 
       <div className="mt-3 grid gap-3">
         <div className="flex min-w-0 items-center gap-3">

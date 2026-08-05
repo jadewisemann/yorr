@@ -4,6 +4,30 @@ import { cn } from '@/shared/cn'
 import { popVariants, scrimVariants } from '@/shared/motion'
 import { useDialogBackground } from '@/shared/useDialogBackground'
 
+/**
+ * 팝오버 제목 줄과 닫기. 초대·오디오 팝오버가 같은 여덟 줄을 각자 쓰고 있었다.
+ *
+ * 닫기는 공통 `Button`으로 바꾸지 않았다 — 굵기·gap·라운드·transition을 거의 다 덮어써야 해서
+ * 그건 `Button`을 쓰는 게 아니라 흉내내는 것이다. 대신 빠져 있던 두 가지를 채운다:
+ * 눌림, 그리고 탭 타깃. 원래는 `p-0`이라 12px 글자 높이가 곧 탭 영역이었다(약 16px).
+ * `min-h-tap`으로 44px을 만들고 음수 마진으로 제목 줄 높이는 그대로 둔다 — 부모가
+ * `items-baseline`이라 여백을 넣어도 제목과의 베이스라인 정렬은 흐트러지지 않는다.
+ */
+export function PopoverHeader({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+  return (
+    <div className="flex items-baseline justify-between pb-1">
+      <h2 className="m-0 text-base font-bold">{children}</h2>
+      <button
+        className="-my-3 -mr-2 inline-flex min-h-tap cursor-pointer items-center border-0 bg-transparent px-2 text-xs font-semibold text-content-muted transition-[color,scale] duration-150 hover:text-content active:scale-[0.94] focus-ring focus-visible:outline-offset-2"
+        onClick={onClose}
+        type="button"
+      >
+        닫기
+      </button>
+    </div>
+  )
+}
+
 interface PopoverProps {
   /**
    * 꼬리를 물릴 기준 요소 — 보통 이 팝오버를 연 버튼이다. 넘기면 그 아래(아래가 좁으면 위)에

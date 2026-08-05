@@ -4,7 +4,7 @@ import { applyMusicLevel } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
 import { IconMic, IconMusic, IconSound } from '@/shared/components/Icon'
-import { Popover } from '@/shared/components/Popover'
+import { Popover, PopoverHeader } from '@/shared/components/Popover'
 
 interface AudioPopoverProps {
   /** 팝오버를 여는 소리 버튼. 그 옆에 붙는다. */
@@ -62,16 +62,7 @@ export function AudioPopover({
 
   return (
     <Popover anchorRef={anchorRef} label="오디오 설정" onClose={onClose} open={open}>
-      <div className="flex items-baseline justify-between pb-1">
-        <h2 className="m-0 text-base font-bold">오디오</h2>
-        <button
-          className="cursor-pointer border-0 bg-transparent p-0 text-xs font-semibold text-content-muted hover:text-content focus-visible:outline-3 focus-visible:outline-focus"
-          onClick={onClose}
-          type="button"
-        >
-          닫기
-        </button>
-      </div>
+      <PopoverHeader onClose={onClose}>오디오</PopoverHeader>
 
       {/* 전체 음소거를 맨 위에 둔다 — 가장 자주 쓰는 조작이 가장 얕은 자리에 있어야 한다. */}
       <Button
