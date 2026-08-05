@@ -9,6 +9,7 @@ import com.ssafy.yorr.game.match.repository.MatchParticipantRepository.WeeklyBes
 import com.ssafy.yorr.game.match.repository.MatchRepository;
 import com.ssafy.yorr.game.ranking.application.WeeklyRankingService.WeeklyRanking;
 import com.ssafy.yorr.game.ranking.controller.dto.WeeklyRankingResponse;
+import com.ssafy.yorr.game.yacht.YachtDiceGameModule;
 import com.ssafy.yorr.room.dto.RoomPhase;
 import com.ssafy.yorr.room.dto.RoomPlayerSnapshot;
 import com.ssafy.yorr.room.dto.RoomSnapshot;
@@ -94,13 +95,18 @@ class WeeklyRankingQueryIntegrationTest {
     }
 
     private List<WeeklyBest> weeklyBest() {
-        return participants.findWeeklyBest(FROM, TO, PageRequest.of(0, 100));
+        return participants.findWeeklyBest(YachtDiceGameModule.CODE, FROM, TO, PageRequest.of(0, 100));
     }
 
     /** 참가자 하나로 이루어진 판. 점수 외의 값은 이 질의가 보지 않으므로 최소한만 채운다. */
     private void saveMatch(String gameId, LocalDateTime finishedAt,
                            User user, String displayNickname, int score) {
-        Match match = Match.finished(gameId, "YACHT_DICE", "ROOM01", finishedAt);
+        saveMatch(gameId, YachtDiceGameModule.CODE, finishedAt, user, displayNickname, score);
+    }
+
+    private void saveMatch(String gameId, String gameCode, LocalDateTime finishedAt,
+                           User user, String displayNickname, int score) {
+        Match match = Match.finished(gameId, gameCode, "ROOM01", finishedAt);
         match.add(MatchParticipant.of(user, user == null ? "guest-" + gameId : user.getId(),
                 displayNickname, score, 1));
         matches.save(match);
@@ -202,8 +208,10 @@ class WeeklyRankingQueryIntegrationTest {
                 .containsExactlyInAnyOrder(tuple("일등", 1), tuple("공동이등가", 2),
                         tuple("공동이등나", 2), tuple("나", 4));
 
-        assertThat(participants.findWeeklyBestScoreOf(me.getId(), FROM, TO)).isEqualTo(100);
-        assertThat(participants.countMembersScoringMoreThan(100, FROM, TO) + 1).isEqualTo(4);
+        assertThat(participants.findWeeklyBestScoreOf(me.getId(), YachtDiceGameModule.CODE, FROM, TO))
+                .isEqualTo(100);
+        assertThat(participants.countMembersScoringMoreThan(
+                100, YachtDiceGameModule.CODE, FROM, TO) + 1).isEqualTo(4);
     }
 
     /** 여러 판을 했으면 그중 최고점이 내 점수다 — 마지막 판이 아니다. */
@@ -214,7 +222,22 @@ class WeeklyRankingQueryIntegrationTest {
         saveMatch("g-2", FROM.plusDays(1), me, "나", 260);
         saveMatch("g-3", FROM.plusDays(2), me, "나", 80);
 
-        assertThat(participants.findWeeklyBestScoreOf(me.getId(), FROM, TO)).isEqualTo(260);
+        assertThat(participants.findWeeklyBestScoreOf(
+                me.getId(), YachtDiceGameModule.CODE, FROM, TO)).isEqualTo(260);
+    }
+
+    @Test
+    void 요트다이스_기록_없이_탁구나_결투_기록만_있으면_랭킹에_나타나지_않는다() {
+        User pingPongPlayer = users.save(User.create("탁구회원", null));
+        User duelPlayer = users.save(User.create("결투회원", null));
+        saveMatch("ping-pong", "PING_PONG", FROM, pingPongPlayer, "탁구회원", 11);
+        saveMatch("duel", "DUEL", FROM, duelPlayer, "결투회원", 3);
+
+        assertThat(weeklyBest()).isEmpty();
+        assertThat(participants.findWeeklyBestScoreOf(
+                pingPongPlayer.getId(), YachtDiceGameModule.CODE, FROM, TO)).isNull();
+        assertThat(participants.findWeeklyBestScoreOf(
+                duelPlayer.getId(), YachtDiceGameModule.CODE, FROM, TO)).isNull();
     }
 
     /** 기록 없음은 0점과 다르다 — null이어야 "오를 자리가 없다"를 표현할 수 있다. */
@@ -223,7 +246,8 @@ class WeeklyRankingQueryIntegrationTest {
         User me = users.save(User.create("나", null));
         saveMatch("g-last-week", FROM.minusDays(3), me, "나", 500);
 
-        assertThat(participants.findWeeklyBestScoreOf(me.getId(), FROM, TO)).isNull();
+        assertThat(participants.findWeeklyBestScoreOf(
+                me.getId(), YachtDiceGameModule.CODE, FROM, TO)).isNull();
     }
 
     /**
@@ -239,6 +263,22 @@ class WeeklyRankingQueryIntegrationTest {
         saveMatch("g-2", FROM, member, "회원", 500);
 
         assertThat(weeklyBest()).extracting(WeeklyBest::getBestScore).containsExactly(200);
+    }
+
+    @Test
+    void 같은_주라도_게임이_다르면_별도_캐시를_사용한다() {
+        User yachtPlayer = users.save(User.create("요트회원", null));
+        User pingPongPlayer = users.save(User.create("탁구회원", null));
+        saveMatch("yacht", YachtDiceGameModule.CODE, FROM, yachtPlayer, "요트회원", 200);
+        saveMatch("ping-pong", "PING_PONG", FROM, pingPongPlayer, "탁구회원", 11);
+
+        assertThat(participants.findWeeklyBest(
+                YachtDiceGameModule.CODE, FROM, TO, PageRequest.of(0, 100)))
+                .extracting(WeeklyBest::getBestScore)
+                .containsExactly(200);
+        assertThat(participants.findWeeklyBest("PING_PONG", FROM, TO, PageRequest.of(0, 100)))
+                .extracting(WeeklyBest::getBestScore)
+                .containsExactly(11);
     }
 
     /** 판이 끝나면 캐시를 비운다 — 그 뒤 조회는 새 결과를 본다. */

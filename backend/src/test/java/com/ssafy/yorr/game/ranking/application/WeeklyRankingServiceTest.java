@@ -1,6 +1,7 @@
 package com.ssafy.yorr.game.ranking.application;
 
 import com.ssafy.yorr.game.match.repository.MatchParticipantRepository;
+import com.ssafy.yorr.game.yacht.YachtDiceGameModule;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Pageable;
@@ -29,7 +30,7 @@ class WeeklyRankingServiceTest {
     private final MatchParticipantRepository participants = mock(MatchParticipantRepository.class);
 
     private WeeklyRankingService serviceAt(String utcInstant) {
-        when(participants.findWeeklyBest(any(), any(), any())).thenReturn(List.of());
+        when(participants.findWeeklyBest(any(), any(), any(), any())).thenReturn(List.of());
         return new WeeklyRankingService(participants, Clock.fixed(Instant.parse(utcInstant), ZoneOffset.UTC));
     }
 
@@ -44,7 +45,8 @@ class WeeklyRankingServiceTest {
 
         assertThat(result.weekStart()).isEqualTo(LocalDate.of(2026, 8, 3));
         verify(participants).findWeeklyBest(
-                utc("2026-08-02T15:00"), utc("2026-08-09T15:00"), Pageable.ofSize(10));
+                YachtDiceGameModule.CODE, utc("2026-08-02T15:00"),
+                utc("2026-08-09T15:00"), Pageable.ofSize(10));
     }
 
     @Test
@@ -54,7 +56,8 @@ class WeeklyRankingServiceTest {
 
         assertThat(result.weekStart()).isEqualTo(LocalDate.of(2026, 7, 27));
         verify(participants).findWeeklyBest(
-                utc("2026-07-26T15:00"), utc("2026-08-02T15:00"), Pageable.ofSize(10));
+                YachtDiceGameModule.CODE, utc("2026-07-26T15:00"),
+                utc("2026-08-02T15:00"), Pageable.ofSize(10));
     }
 
     @Test
@@ -64,7 +67,7 @@ class WeeklyRankingServiceTest {
 
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
         verify(participants, org.mockito.Mockito.times(2))
-                .findWeeklyBest(any(), any(), pageable.capture());
+                .findWeeklyBest(any(), any(), any(), pageable.capture());
 
         assertThat(pageable.getAllValues())
                 .extracting(Pageable::getPageSize)
