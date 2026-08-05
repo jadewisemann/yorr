@@ -21,6 +21,7 @@ import {
   MAX_FOULS,
   MAX_HP,
   type ShotTarget,
+  SWING_THRESHOLD,
   slots,
 } from './duel'
 import { Gunslinger, OUTFIT_LEFT, OUTFIT_RIGHT, type Outfit } from './Gunslinger'
@@ -239,7 +240,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
   // 사라진다. 센서는 붙어 있는데 스윙이 전부 버려지는 화면이었다.
   const { permission, requestPermission } = useSwing({
     onSwing: () => draw('swing'),
-    threshold: 15,
+    threshold: SWING_THRESHOLD,
   })
 
   useEffect(() => {
