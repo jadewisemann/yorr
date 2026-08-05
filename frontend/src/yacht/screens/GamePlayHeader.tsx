@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
 import type { Player, PlayerId } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
@@ -9,6 +10,8 @@ const TOTAL_ROUNDS = 12
 
 interface GamePlayHeaderProps {
   activePlayer: Player | undefined
+  /** 오디오 말풍선이 붙을 자리. 소리 버튼에 꽂는다. */
+  audioButtonRef?: Ref<HTMLButtonElement> | undefined
   activePlayerId: PlayerId | undefined
   connectionStatus: ConnectionStatus
   isMyTurn: boolean
@@ -29,6 +32,7 @@ interface GamePlayHeaderProps {
 export function GamePlayHeader({
   activePlayer,
   activePlayerId,
+  audioButtonRef,
   connectionStatus,
   isMyTurn,
   leaderLabel,
@@ -57,6 +61,7 @@ export function GamePlayHeader({
         label={audioLabel(soundMuted, voice)}
         onClick={onOpenAudio}
         pressed={voice.status === 'on'}
+        ref={audioButtonRef}
       >
         {/* 아이콘 자체가 aria-hidden이다 — 버튼의 접근 가능한 이름은 HeaderButton의
             aria-label이 책임진다.
@@ -130,11 +135,13 @@ function HeaderButton({
   label,
   onClick,
   pressed,
+  ref,
 }: {
   children: React.ReactNode
   label: string
   onClick: () => void
   pressed?: boolean
+  ref?: Ref<HTMLButtonElement> | undefined
 }) {
   return (
     <button
@@ -142,6 +149,7 @@ function HeaderButton({
       {...(pressed === undefined ? {} : { 'aria-pressed': pressed })}
       className="grid size-tap flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-content-muted transition-colors hover:text-content focus-ring"
       onClick={onClick}
+      ref={ref}
       type="button"
     >
       {children}

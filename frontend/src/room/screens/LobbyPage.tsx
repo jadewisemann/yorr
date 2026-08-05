@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { type GameCode, gameByCode } from '@/games'
 import { PeerMicButton } from '@/realtime/voice/PeerMicButton'
 import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
@@ -12,7 +12,7 @@ import { PlayerCard } from '@/room/components/PlayerCard'
 import { readSoundMuted, saveSoundMuted } from '@/shared/audio/soundPreference'
 import { playLandingSoundtrack, setSoundtrackMuted } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
-import { AudioSheet } from '@/shared/components/AudioSheet'
+import { AudioPopover } from '@/shared/components/AudioPopover'
 import { Button } from '@/shared/components/Button'
 import { IconMic, IconSound } from '@/shared/components/Icon'
 import { LoadingOverlay } from '@/shared/components/LoadingOverlay'
@@ -63,7 +63,9 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const removeBot = useRemoveBot()
   // 통화 자체는 라우터 위 VoiceProvider가 들고 있다 — 여기서는 상태만 읽는다.
   const voice = useVoice()
-  const [audioSheetOpen, setAudioSheetOpen] = useState(false)
+  const [audioOpen, setAudioOpen] = useState(false)
+  // 오디오 말풍선이 붙을 자리 — 헤더의 소리 버튼이다.
+  const audioButtonRef = useRef<HTMLButtonElement>(null)
   const [soundMuted, setSoundMuted] = useState(readSoundMuted)
   const [exitRequested, setExitRequested] = useState(false)
   const matchingRoom = roomSession?.roomId === roomId
@@ -119,7 +121,8 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
       {/* 다이얼로그는 main 밖에 둔다 — Modal이 main에 inert를 걸어 안에 있으면
           모달 자신까지 클릭이 막힌다(GamePage·GameResult와 같은 배치). */}
       <RoomExitGuard onClose={() => setExitRequested(false)} open={exitRequested} roomId={roomId} />
-      <AudioSheet
+      <AudioPopover
+        anchorRef={audioButtonRef}
         microphone={
           voice.status === 'unsupported'
             ? undefined
@@ -132,14 +135,14 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
               }
         }
         muted={soundMuted}
-        onClose={() => setAudioSheetOpen(false)}
+        onClose={() => setAudioOpen(false)}
         onToggleMute={() => {
           const muted = !soundMuted
           setSoundMuted(muted)
           saveSoundMuted(muted)
           setSoundtrackMuted(muted)
         }}
-        open={audioSheetOpen}
+        open={audioOpen}
       />
       {/* phase가 waiting을 벗어난 순간부터 게임 화면으로 옮겨질 때까지 덮는다. 호스트의
           "눌렀다"와 참가자의 "호스트가 시작했다"가 같은 신호라 조건이 하나로 끝난다 —
@@ -182,7 +185,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           </div>
           {/* 게임 시작 전에 마이크 권한을 끝내두게 여기에 둔다 — 시작 직후에 권한 창이 뜨면
               첫 턴을 놓친다. 켠 통화는 게임 화면으로 그대로 이어진다(VoiceProvider가 라우터 위).
-              게임 화면과 같은 입구(오디오 시트)를 쓴다. */}
+              게임 화면과 같은 입구(오디오 말풍선)를 쓴다. */}
           <Button
             aria-label={
               voice.status === 'on'
@@ -190,7 +193,8 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
                 : '오디오 설정 · 마이크 꺼짐'
             }
             className={cn('flex-none px-3 text-base', voice.status === 'on' && 'border-brand')}
-            onClick={() => setAudioSheetOpen(true)}
+            onClick={() => setAudioOpen(true)}
+            ref={audioButtonRef}
             type="button"
             variant="secondary"
           >
