@@ -129,6 +129,7 @@ function isRoomReadyMessage(message: ServerMessage) {
     message.type === 'game.yacht_dice.state.sync' ||
     message.type === 'game.ping_pong.state.sync' ||
     message.type === 'game.duel.state.sync' ||
+    message.type === 'game.liars.state.sync' ||
     message.type === 'sys.reconnected'
   )
 }
@@ -165,6 +166,7 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
     case 'game.yacht_dice.state.sync':
     case 'game.ping_pong.state.sync':
     case 'game.duel.state.sync':
+    case 'game.liars.state.sync':
       store.replaceRoomSnapshot(keepGameState(message.payload.snapshot, store.roomSnapshot))
       return
     case 'room.player_joined':
@@ -188,6 +190,7 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
     case 'game.yacht_dice.game.over':
     case 'game.ping_pong.game.over':
     case 'game.duel.game.over':
+    case 'game.liars.game.over':
       applyGameOver(message.payload, store)
       return
     case 'game.ping_pong.state':
@@ -195,6 +198,10 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
       return
     case 'game.duel.state':
       applyModuleGameState(message.payload, 'DUEL', store)
+      return
+    // 손패(game.liars.hand)는 개인에게만 오는 비밀이라 방 스냅샷에 넣지 않는다 — 그 화면이 직접 받는다.
+    case 'game.liars.state':
+      applyModuleGameState(message.payload, 'LIARS', store)
       return
     case 'room.closed':
       store.endSession('room_closed')
@@ -212,7 +219,10 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
  * 순간 도착한 늦은 메시지가 다른 게임의 화면에 얹히면 그대로 크래시다.
  */
 function applyModuleGameState(
-  payload: Extract<ServerMessage, { type: 'game.ping_pong.state' | 'game.duel.state' }>['payload'],
+  payload: Extract<
+    ServerMessage,
+    { type: 'game.ping_pong.state' | 'game.duel.state' | 'game.liars.state' }
+  >['payload'],
   gameCode: GameCode,
   store: Store,
 ) {

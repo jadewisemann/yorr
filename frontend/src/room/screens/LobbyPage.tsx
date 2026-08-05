@@ -50,11 +50,12 @@ interface LobbyPageProps {
 }
 
 /**
- * 1:1 게임(탁구·결투)인가. 이 게임들은 봇을 받지 않고, 둘이 모여야 시작하며, 야추의 주사위
- * 월드도 쓰지 않는다 — 대기실이 세 곳에서 같은 판단을 하므로 이름을 붙여 둔다.
+ * 상대가 있어야 하는 게임인가(탁구·결투·라이어스). 이 게임들은 봇을 받지 않고, 둘 이상
+ * 모여야 시작하며, 야추의 주사위 월드도 쓰지 않는다 — 대기실이 세 곳에서 같은 판단을 하므로
+ * 이름을 붙여 둔다. 라이어스는 1:1이 아니라 2~6인이지만 세 판단이 모두 같다.
  */
 function isDuoGame(gameCode: GameCode | undefined): boolean {
-  return gameCode === 'PING_PONG' || gameCode === 'DUEL'
+  return gameCode === 'PING_PONG' || gameCode === 'DUEL' || gameCode === 'LIARS'
 }
 
 export function LobbyPage({ roomId }: LobbyPageProps) {

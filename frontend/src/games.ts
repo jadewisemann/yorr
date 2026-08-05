@@ -9,7 +9,7 @@
 
 /** 게임 식별자. 목록이 SSOT이므로 타입도 여기서 소유한다. */
 export type GameKey = 'duel' | 'fishing' | 'liars' | 'pingpong' | 'yacht'
-export type GameCode = 'DUEL' | 'PING_PONG' | 'YACHT_DICE'
+export type GameCode = 'DUEL' | 'LIARS' | 'PING_PONG' | 'YACHT_DICE'
 
 export interface Game {
   /** 조작 방식 한 마디. 히어로 카드 메타 필의 세 번째 칸이다. */
@@ -76,7 +76,10 @@ export const games: [Game, ...Game[]] = [
     description: '상대의 선언을 믿거나 의심해 마지막 주사위를 지키는 심리 게임',
     players: '2–6 PLAYERS',
     duration: '약 6분',
+    gameCode: 'LIARS',
     control: '화면 탭',
+    // 게임 자체는 온라인 멀티로 동작한다(백엔드 LIARS 모듈 · 210). 랜딩 카드는 아직 '준비 중'으로
+    // 두고 `/join?game=liars` 직접 진입으로만 열어둔다 — 랜딩 노출은 QA 후 별도로 켠다.
     live: false,
   },
   {
@@ -107,6 +110,17 @@ export function gameIndexOf(key: GameKey | undefined): number {
 
 export function isGameKey(value: unknown): value is GameKey {
   return typeof value === 'string' && games.some((game) => game.key === value)
+}
+
+/**
+ * 서버가 돌려준 게임 코드가 우리가 아는 코드인가. REST 응답 파싱의 경계 검사다.
+ *
+ * 목록을 손으로 적지 않는 이유: 코드가 박힌 곳이 방 API·빠른 대전 두 군데였고, 게임을 추가할
+ * 때 한쪽을 잊으면 "방은 열렸는데 진행 화면이 야추로 뜨는" 상태가 된다(gameCode가 undefined로
+ * 떨어져 GamePage의 분기가 기본값을 탄다).
+ */
+export function isGameCode(value: unknown): value is GameCode {
+  return games.some((game) => game.gameCode !== undefined && game.gameCode === value)
 }
 
 /**
