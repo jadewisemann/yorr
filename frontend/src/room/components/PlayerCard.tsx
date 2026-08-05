@@ -52,7 +52,7 @@ export function PlayerCard({
     <article
       className={cn(
         'grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-panel border border-border bg-surface-raised p-3',
-        active && 'border-white/18',
+        active && 'border-border-strong',
         status === 'offline' && 'opacity-60',
         // 말하는 중 — TurnStrip과 같은 신호(초록 outline + 🎙)를 쓴다. border는 active가
         // 이미 쓰고 있으므로 outline으로 두른다.

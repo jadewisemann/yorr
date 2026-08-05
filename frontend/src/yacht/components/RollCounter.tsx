@@ -17,7 +17,7 @@ export function RollCounter({ className, maxRolls = 3, rollsUsed }: RollCounterP
   return (
     <div
       className={cn(
-        'inline-flex flex-none items-center gap-2 rounded-card border border-white/14 bg-surface-raised/92 px-3 py-1.5',
+        'inline-flex flex-none items-center gap-2 rounded-card border border-border-raised bg-surface-raised/92 px-3 py-1.5',
         className,
       )}
     >

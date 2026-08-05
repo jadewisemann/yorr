@@ -256,7 +256,7 @@ function ConnectionIndicator({ status }: { status: ConnectionStatus }) {
   }[status]
 
   return (
-    <span className="inline-flex h-[2.125rem] flex-none items-center gap-2 rounded-full border border-border bg-white/6 px-3.5 text-[13px] font-semibold">
+    <span className="inline-flex h-[2.125rem] flex-none items-center gap-2 rounded-full border border-border bg-surface-veil px-3.5 text-[13px] font-semibold">
       <span
         aria-hidden="true"
         className={cn('size-[7px] rounded-full', connected ? 'bg-positive' : 'bg-warning')}

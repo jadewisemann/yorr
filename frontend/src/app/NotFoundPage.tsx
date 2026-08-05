@@ -30,7 +30,7 @@ export function NotFoundPage() {
           <p className="m-0 flex items-center gap-2.5 rounded-card border border-border bg-surface px-3.5 py-3">
             <span
               aria-hidden="true"
-              className="grid size-5 flex-none place-items-center rounded-[6px] bg-white/10 text-[11px] leading-none font-bold"
+              className="grid size-5 flex-none place-items-center rounded-[6px] bg-border text-[11px] leading-none font-bold"
             >
               i
             </span>

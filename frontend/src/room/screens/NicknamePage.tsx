@@ -147,7 +147,7 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
         >
           <IconBack className="size-4.5" />
         </button>
-        <span className="inline-flex h-[2.125rem] items-center gap-2 rounded-full border border-border bg-white/6 px-3.5 text-[13px] font-semibold">
+        <span className="inline-flex h-[2.125rem] items-center gap-2 rounded-full border border-border bg-surface-veil px-3.5 text-[13px] font-semibold">
           {roomCode ? (
             <>
               초대 코드{' '}
@@ -205,7 +205,7 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
             <p className="m-0 flex items-center gap-2.5 rounded-card border border-border bg-surface px-3.5 py-3 text-sm text-content-muted">
               <span
                 aria-hidden="true"
-                className="grid size-5 flex-none place-items-center rounded-[6px] bg-white/10 text-[11px] leading-none font-bold text-content"
+                className="grid size-5 flex-none place-items-center rounded-[6px] bg-border text-[11px] leading-none font-bold text-content"
               >
                 1
               </span>

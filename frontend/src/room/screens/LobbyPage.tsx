@@ -190,7 +190,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
               <span className="font-mono font-bold tracking-[0.12em] text-content">
                 {roomSession.roomCode}
               </span>
-              <span aria-hidden="true" className="h-3 w-px bg-white/18" />
+              <span aria-hidden="true" className="h-3 w-px bg-border-strong" />
               <span className="inline-flex items-center gap-1.5" role="status">
                 <span
                   aria-hidden="true"
@@ -360,10 +360,10 @@ function LobbyRoomContent({
           />
         ))}
         {snapshot.players.length < capacity && (
-          <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-white/14 px-3 text-sm text-content-muted tabular-nums">
+          <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-border-raised px-3 text-sm text-content-muted tabular-nums">
             <span
               aria-hidden="true"
-              className="size-11 flex-none rounded-card border border-dashed border-white/18"
+              className="size-11 flex-none rounded-card border border-dashed border-border-strong"
             />
             빈 자리 {capacity - snapshot.players.length} · 링크를 공유해 초대하세요
           </p>

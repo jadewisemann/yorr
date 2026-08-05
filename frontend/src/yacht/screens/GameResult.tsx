@@ -73,7 +73,7 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
           게임 종료, {ranked.length}명 중 {myRank}위, {me?.total ?? 0}점
         </p>
 
-        <span className="relative inline-flex w-fit items-center gap-2 rounded-full border border-border bg-white/6 px-3 py-1.5 font-mono text-[10px] font-bold tracking-[0.16em] text-content-muted uppercase">
+        <span className="relative inline-flex w-fit items-center gap-2 rounded-full border border-border bg-surface-veil px-3 py-1.5 font-mono text-[10px] font-bold tracking-[0.16em] text-content-muted uppercase">
           {snapshot.game?.roundNumber ?? 12}라운드 종료
         </span>
         <div className="relative mt-3 flex items-end gap-3">
@@ -86,7 +86,7 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
           </span>
         </div>
 
-        <section className="relative mt-5 flex items-center justify-between gap-4 rounded-[1.25rem] border border-white/18 bg-surface-raised p-4.5">
+        <section className="relative mt-5 flex items-center justify-between gap-4 rounded-[1.25rem] border border-border-strong bg-surface-raised p-4.5">
           <div className="min-w-0">
             <p className="m-0 flex items-center gap-2 truncate text-[17px] font-bold">
               {session.nickname}

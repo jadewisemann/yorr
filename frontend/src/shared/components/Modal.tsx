@@ -82,7 +82,7 @@ export function Modal({ children, className, onClose, open, role = 'dialog', tit
             aria-modal="true"
             className={cn(
               'relative',
-              'w-full max-w-lg rounded-[1.25rem] border border-white/18 bg-surface-raised p-6 text-content shadow-raised',
+              'w-full max-w-lg rounded-[1.25rem] border border-border-strong bg-surface-raised p-6 text-content shadow-raised',
               className,
             )}
             exit="exit"

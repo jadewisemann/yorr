@@ -304,7 +304,7 @@ function TooltipCoachmark({ onDone }: { onDone: () => void }) {
         onClick={onDone}
         type="button"
       />
-      <div className="absolute inset-x-6 top-1/2 z-[6] grid -translate-y-1/2 gap-2.5 rounded-card border border-white/18 bg-surface-raised/95 p-3.5 shadow-raised">
+      <div className="absolute inset-x-6 top-1/2 z-[6] grid -translate-y-1/2 gap-2.5 rounded-card border border-border-strong bg-surface-raised/95 p-3.5 shadow-raised">
         <p aria-live="polite" className="m-0 text-[13.5px] leading-relaxed text-content">
           지금 빛나는 동그라미 두 개를 눌러 보세요. 굴리기 횟수와 킵 레일 설명이 그 자리에서 나와요.
         </p>

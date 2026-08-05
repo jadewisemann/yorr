@@ -15,7 +15,7 @@ type ButtonProps = ComponentProps<'button'> & {
 const variants = {
   primary: 'bg-brand text-on-brand shadow-cta hover:bg-brand-strong disabled:shadow-none',
   secondary: 'bg-inverse text-on-inverse hover:bg-white',
-  ghost: 'border-white/18 bg-transparent text-content hover:bg-white/6',
+  ghost: 'border-border-strong bg-transparent text-content hover:bg-surface-veil',
   danger: 'border-brand/55 bg-brand/10 text-danger hover:bg-brand/18',
 } as const
 

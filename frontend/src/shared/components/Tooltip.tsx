@@ -118,7 +118,7 @@ export function Tooltip({
       {open && (
         <span
           className={cn(
-            'absolute z-modal w-max max-w-56 rounded-card border border-white/14 bg-surface-raised px-3 py-2 text-left text-xs leading-relaxed font-medium text-content shadow-raised',
+            'absolute z-modal w-max max-w-56 rounded-card border border-border-raised bg-surface-raised px-3 py-2 text-left text-xs leading-relaxed font-medium text-content shadow-raised',
             side === 'bottom' ? 'top-full mt-1.5' : 'bottom-full mb-1.5',
             align === 'center' && 'left-1/2 -translate-x-1/2',
             align === 'start' && 'left-0',

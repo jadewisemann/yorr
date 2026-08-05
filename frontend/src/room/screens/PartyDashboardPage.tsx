@@ -100,7 +100,7 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
               <span className="font-mono font-bold tracking-[0.12em] text-content">
                 {roomSession.roomCode}
               </span>
-              <span aria-hidden="true" className="h-3 w-px bg-white/18" />
+              <span aria-hidden="true" className="h-3 w-px bg-border-strong" />
               <span className="inline-flex items-center gap-1.5" role="status">
                 <span
                   aria-hidden="true"
@@ -127,7 +127,7 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
         {/* TurnStrip이 들어설 자리. 시작 전에는 인원 한 줄이 같은 높이를 지킨다. */}
         <p className="m-0 flex flex-none items-center gap-2 border-b border-border px-gutter py-2.5 text-[13px] text-content-muted">
           참가자 {players.length}명
-          <span aria-hidden="true" className="h-3 w-px bg-white/18" />
+          <span aria-hidden="true" className="h-3 w-px bg-border-strong" />
           최대 {capacity}명
         </p>
 
@@ -215,7 +215,7 @@ function ParticipantColumn({
             // 봐야 하는지 알려주지 않으면 TV 앞 사람들이 서로를 쳐다보게 된다.
             trailing={
               player.playerId === hostId ? (
-                <span className="rounded-[6px] bg-white/10 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.1em] text-content-muted">
+                <span className="rounded-[6px] bg-border px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.1em] text-content-muted">
                   방장
                 </span>
               ) : undefined
@@ -223,15 +223,15 @@ function ParticipantColumn({
           />
         ))}
         {players.length === 0 && (
-          <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-white/14 px-3 text-sm text-content-muted">
+          <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-border-raised px-3 text-sm text-content-muted">
             아직 아무도 없어요 · QR을 찍어 주세요
           </p>
         )}
         {emptySeats > 0 && players.length > 0 && (
-          <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-white/14 px-3 text-sm text-content-muted tabular-nums">
+          <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-border-raised px-3 text-sm text-content-muted tabular-nums">
             <span
               aria-hidden="true"
-              className="size-11 flex-none rounded-card border border-dashed border-white/18"
+              className="size-11 flex-none rounded-card border border-dashed border-border-strong"
             />
             빈 자리 {emptySeats}
           </p>

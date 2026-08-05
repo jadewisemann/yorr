@@ -67,7 +67,7 @@ export function PartyResultDashboard({
               <span className="font-mono font-bold tracking-[0.12em] text-content">
                 {session.roomCode}
               </span>
-              <span aria-hidden="true" className="h-3 w-px bg-white/18" />
+              <span aria-hidden="true" className="h-3 w-px bg-border-strong" />
               참가자 {ranked.length}명
             </p>
           </div>
@@ -87,7 +87,7 @@ export function PartyResultDashboard({
           {snapshot.game?.roundNumber ?? 12}라운드 종료
           {winner && (
             <>
-              <span aria-hidden="true" className="h-3 w-px bg-white/18" />
+              <span aria-hidden="true" className="h-3 w-px bg-border-strong" />
               <span className="truncate">
                 우승 <span className="font-bold text-content">{winner.nickname}</span>
               </span>

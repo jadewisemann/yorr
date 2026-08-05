@@ -32,7 +32,7 @@ export function ConnectionBanner({ className, status }: ConnectionBannerProps) {
       className={cn(
         // 색상만으로 상태를 구분하지 않는다(디자인 시스템 05) — 점 모양·라벨을 함께 쓴다.
         message && 'flex items-center gap-2.5 border-b px-gutter py-2',
-        status === 'connecting' && 'border-border bg-white/6',
+        status === 'connecting' && 'border-border bg-surface-veil',
         status === 'reconnecting' && 'border-warning/40 bg-warning/12',
         status === 'closed' && 'border-brand/42 bg-brand/12',
         className,
