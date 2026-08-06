@@ -15,9 +15,11 @@ import { RoomExitGuard } from './RoomExitGuard'
  */
 const moduleScreens = {
   DUEL: {
-    Game: lazy(() => import('@/duel/DuelGame').then((module) => ({ default: module.DuelGame }))),
+    Game: lazy(() =>
+      import('@/duel/screens/DuelGame').then((module) => ({ default: module.DuelGame })),
+    ),
     Result: lazy(() =>
-      import('@/duel/DuelGame').then((module) => ({ default: module.DuelResult })),
+      import('@/duel/screens/DuelGame').then((module) => ({ default: module.DuelResult })),
     ),
   },
   PING_PONG: {

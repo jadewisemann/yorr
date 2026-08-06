@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { DRAW_PENALTY_MS, drawOutcome, drawPenaltyMs } from '@/duel/domain/duel'
 import { DUEL_FOUL, DUEL_MISS, type DuelRound, type DuelState } from '@/realtime/wsEvents'
-import { DRAW_PENALTY_MS, drawOutcome, drawPenaltyMs } from '../duel'
 
 /**
  * 입력 소스별 페널티. (S15P11A406-207)

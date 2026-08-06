@@ -1,4 +1,10 @@
 import type { ReactNode, RefObject } from 'react'
+import { Arena } from '@/duel/components/Arena'
+import { Gunslinger } from '@/duel/components/Gunslinger'
+import { MAX_FOULS, MAX_HP, slots } from '@/duel/domain/duel'
+import { OUTFIT_LEFT, OUTFIT_RIGHT, type Outfit } from '@/duel/domain/fighter'
+import { buildStage } from '@/duel/domain/stage'
+import { useDuelGame } from '@/duel/model/useDuelGame'
 import type { DuelState, RoomSnapshot } from '@/realtime/wsEvents'
 import { isRoomHost } from '@/room/api/roomApi'
 import { useReturnToLobby } from '@/room/api/useGameApi'
@@ -6,12 +12,7 @@ import { isPartyRoom } from '@/room/partyControllerStorage'
 import { Button } from '@/shared/components/Button'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import type { ActiveRoomSession } from '@/store'
-import { Arena } from './Arena'
 import { DuelController } from './DuelController'
-import { MAX_FOULS, MAX_HP, slots } from './duel'
-import { Gunslinger, OUTFIT_LEFT, OUTFIT_RIGHT, type Outfit } from './Gunslinger'
-import { buildStage } from './stage'
-import { useDuelGame } from './useDuelGame'
 
 /**
  * 석양이 진다 — 1:1 반응속도 대결.

@@ -1,7 +1,13 @@
 import { DUEL_MISS, type DuelRound, type DuelState } from '@/realtime/wsEvents'
-import type { ArenaPhase, Fighter } from './Arena'
 import { missTaunt, type ShotTarget } from './duel'
-import { OUTFIT_LEFT, OUTFIT_RIGHT, type Outfit, type Pose } from './Gunslinger'
+import {
+  type ArenaPhase,
+  type Fighter,
+  OUTFIT_LEFT,
+  OUTFIT_RIGHT,
+  type Outfit,
+  type Pose,
+} from './fighter'
 
 /**
  * 서버 상태 → 무대 화면. 순수 함수라 React·DOM을 모른다.

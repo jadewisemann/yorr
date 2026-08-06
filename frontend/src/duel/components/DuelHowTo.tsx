@@ -1,6 +1,6 @@
 import { useState } from 'react'
+import { MAX_FOULS, SWING_THRESHOLD } from '@/duel/domain/duel'
 import { useSwing } from '@/shared/useSwing'
-import { MAX_FOULS, SWING_THRESHOLD } from './duel'
 
 /**
  * 대기실 폰에 뜨는 석양 사용법. (S15P11A406-207)

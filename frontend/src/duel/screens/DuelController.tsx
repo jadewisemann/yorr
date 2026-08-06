@@ -1,9 +1,9 @@
+import { Shell, Warn } from '@/duel/components/Arena'
+import { DRAW_PENALTY_MS, drawOutcome, MAX_FOULS, MAX_HP, msLabel, slots } from '@/duel/domain/duel'
 import type { DuelState } from '@/realtime/wsEvents'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import { ControllerScreen } from '@/shared/components/Screen'
 import type { SwingPermission } from '@/shared/useSwing'
-import { Shell, Warn } from './Arena'
-import { DRAW_PENALTY_MS, drawOutcome, MAX_FOULS, MAX_HP, msLabel, slots } from './duel'
 
 /**
  * 파티 모드 폰 화면 — 손 안의 리볼버. (S15P11A406-207)

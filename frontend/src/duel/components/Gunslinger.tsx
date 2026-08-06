@@ -1,4 +1,5 @@
 import { type CSSProperties, useId } from 'react'
+import type { Outfit, Pose } from '@/duel/domain/fighter'
 
 /**
  * 총잡이 캐릭터 — 인라인 SVG, 외부 에셋 0.
@@ -12,19 +13,6 @@ import { type CSSProperties, useId } from 'react'
  * 팔은 어깨·팔꿈치 두 관절을 각도로만 돌린다. 퀵드로우는 "한 프레임에 뽑히는" 게 맛이라
  * 보간 없이 스냅으로 바꾸고, 반동·넉백만 CSS 애니메이션으로 얹는다.
  */
-
-export type Pose = 'ready' | 'draw' | 'hit' | 'dead'
-
-/** 진영 색 — 스카프·모자띠·총구 화염에 쓰여 두 캐릭터를 구분한다. */
-export interface Outfit {
-  /** 스카프·모자띠 (진영 색) */
-  scarf: string
-  /** 림라이트 (석양 반사) */
-  rim: string
-}
-
-export const OUTFIT_LEFT: Outfit = { scarf: '#e0483a', rim: '#ffb56b' }
-export const OUTFIT_RIGHT: Outfit = { scarf: '#38bdf8', rim: '#ffd08a' }
 
 /** 넘어질 때 몸이 도는 축 · 굴러간 모자가 도는 축 — SVG 좌표계 기준이다. */
 const BODY_PIVOT = '58px 172px'

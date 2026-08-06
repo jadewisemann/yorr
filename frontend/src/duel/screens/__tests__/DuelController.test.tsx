@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { DRAW_PENALTY_MS } from '@/duel/domain/duel'
+import { DuelController } from '@/duel/screens/DuelController'
 import type { DuelState } from '@/realtime/wsEvents'
-import { DuelController } from '../DuelController'
-import { DRAW_PENALTY_MS } from '../duel'
 
 /**
  * 파티 모드 폰 컨트롤러. (S15P11A406-207)
@@ -49,7 +49,7 @@ function renderController(state: DuelState, props: { permission?: 'denied' | 'gr
   return { onDraw }
 }
 
-describe('DuelController', () => {
+describe('@/duel/screens/DuelController', () => {
   it('신호가 빨강이면 기다리라고, 초록이면 뽑으라고 말한다', () => {
     renderController(duelState({ phase: 'WAITING' }))
     expect(screen.getByText('기다려')).toBeInTheDocument()

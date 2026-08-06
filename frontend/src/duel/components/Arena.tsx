@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
-import { BULLET_TRACK_INSET, isClean, msLabel, type ShotTarget, slots } from './duel'
-import { Gunslinger, type Outfit, type Pose } from './Gunslinger'
+import { BULLET_TRACK_INSET, isClean, msLabel, type ShotTarget, slots } from '@/duel/domain/duel'
+import type { ArenaPhase, Fighter } from '@/duel/domain/fighter'
+import { Gunslinger } from './Gunslinger'
 
 /**
  * 결투 무대 — 순수 표현 컴포넌트.
@@ -11,19 +12,6 @@ import { Gunslinger, type Outfit, type Pose } from './Gunslinger'
  * 좌표 기준: 지평선 = 위에서 72%. 캐릭터는 지평선에 발을 딛는다(bottom 28%). 캐릭터 키는
  * --gs-h 하나로 관리하고 총알 높이도 여기서 파생시킨다.
  */
-
-export type ArenaPhase = 'waiting' | 'signal' | 'result'
-
-export interface Fighter {
-  name: string
-  pose: Pose
-  outfit: Outfit
-  hp: number
-  /** 이번 라운드 기록. 결과 국면에서만 쓴다. */
-  ms: number | null
-  /** 쌓인 부정출발 경고 — 이름표에 삼각형으로 표시된다. */
-  fouls: number
-}
 
 interface ArenaProps {
   phase: ArenaPhase

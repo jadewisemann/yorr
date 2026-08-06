@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import type { ShotTarget } from '@/duel/domain/duel'
+import { buildStage } from '@/duel/domain/stage'
 import type { DuelRound, DuelState } from '@/realtime/wsEvents'
-import type { ShotTarget } from '../duel'
-import { buildStage } from '../stage'
 
 const ME = 'me'
 const RIVAL = 'rival'

@@ -1,16 +1,16 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
-import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
-import { buildClientMessage, DUEL_FOUL, type DuelState } from '@/realtime/wsEvents'
-import { useSwing } from '@/shared/useSwing'
-import type { ActiveRoomSession } from '@/store'
 import {
   type DuelInputSource,
   drawPenaltyMs,
   flightMs,
   type ShotTarget,
   SWING_THRESHOLD,
-} from './duel'
-import { playGunHit, playGunShot } from './sounds'
+} from '@/duel/domain/duel'
+import { playGunHit, playGunShot } from '@/duel/sounds'
+import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
+import { buildClientMessage, DUEL_FOUL, type DuelState } from '@/realtime/wsEvents'
+import { useSwing } from '@/shared/useSwing'
+import type { ActiveRoomSession } from '@/store'
 
 /**
  * 피격 타이머를 이만큼 앞당겨 깨운다. setTimeout이 깨어난 뒤 React 렌더와 페인트가 한두

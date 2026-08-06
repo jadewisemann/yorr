@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
-import { DuelHowTo } from '../DuelHowTo'
-import { SWING_THRESHOLD } from '../duel'
+import { DuelHowTo } from '@/duel/components/DuelHowTo'
+import { SWING_THRESHOLD } from '@/duel/domain/duel'
 
 /**
  * 대기실 사용법 슬롯. (S15P11A406-207)
@@ -33,7 +33,7 @@ function swing() {
   )
 }
 
-describe('DuelHowTo', () => {
+describe('@/duel/components/DuelHowTo', () => {
   afterEach(restoreDeviceMotion)
 
   /**
