@@ -1,5 +1,5 @@
 import type { PlayerId, RoomPhase, RoomSnapshot } from '@/realtime/wsEvents'
-import { useAsyncQuery, useAsyncTask } from '@/shared/api/useAsyncTask'
+import { useAsyncTask, useFetchEffect } from '@/shared/api/useAsyncTask'
 import { useAppStore } from '@/store'
 import type { GameStartResult } from './roomApi'
 import { roomApiClient } from './roomApi'
@@ -7,7 +7,7 @@ import { roomApiClient } from './roomApi'
 export function useGame(gameId: string | null) {
   const replaceRoomSnapshot = useAppStore((state) => state.replaceRoomSnapshot)
 
-  return useAsyncQuery<RoomSnapshot>(
+  return useFetchEffect<RoomSnapshot>(
     gameId ? `game:${gameId}` : null,
     (signal) => requireId(gameId, 'Game ID', (id) => roomApiClient.getGame(id, { signal })),
     {

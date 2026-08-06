@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { fetchMyWeeklyRank, fetchWeeklyRanking } from './rankingApi'
-import { useAsyncQuery } from './useAsyncTask'
+import { useFetchEffect } from './useAsyncTask'
 
 /** 띠 하나에 흘려보낼 인원. 더 받아도 한 바퀴가 길어져 아무도 끝까지 보지 않는다. */
 export const TICKER_LIMIT = 10
@@ -53,7 +53,7 @@ export function useWeeklyRanking({
   intervalMs?: number
   limit?: number
 } = {}) {
-  const query = useAsyncQuery(`weekly-ranking:${limit}`, (signal) =>
+  const query = useFetchEffect(`weekly-ranking:${limit}`, (signal) =>
     fetchWeeklyRanking({ limit, signal }),
   )
 
@@ -63,8 +63,8 @@ export function useWeeklyRanking({
 }
 
 /**
- * 내 순위. 로그인하지 않았으면 아예 묻지 않는다 — {@code queryKey}가 null이면
- * {@link useAsyncQuery}가 요청을 걸지 않고 상태를 비운다.
+ * 내 순위. 로그인하지 않았으면 아예 묻지 않는다 — 키가 null이면
+ * {@link useFetchEffect}가 요청을 걸지 않고 상태를 비운다.
  * <p>
  * 상위 목록과 같은 주기로 갱신한다. 두 값이 다른 시점의 것이면 "목록엔 내가 4위인데 내 순위는
  * 7위"처럼 한 화면에서 어긋난 숫자가 보인다.
@@ -73,7 +73,7 @@ export function useMyWeeklyRank(
   sessionToken: string | null,
   { intervalMs = REFRESH_INTERVAL_MS }: { intervalMs?: number } = {},
 ) {
-  const query = useAsyncQuery(sessionToken ? `my-weekly-rank:${sessionToken}` : null, (signal) =>
+  const query = useFetchEffect(sessionToken ? `my-weekly-rank:${sessionToken}` : null, (signal) =>
     sessionToken ? fetchMyWeeklyRank(sessionToken, { signal }) : Promise.resolve(null),
   )
 
