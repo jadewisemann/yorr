@@ -80,6 +80,7 @@
                   {
                     "group": [
                       "@/duel/model/**",
+                      "@/landing/model/**",
                       "@/landing/rendering/**",
                       "@/pingpong/model/**",
                       "@/pingpong/rendering/**",
@@ -105,6 +106,7 @@
                 "patterns": [
                   {
                     "group": [
+                      "@/landing/model/**",
                       "@/landing/rendering/**",
                       "@/pingpong/model/**",
                       "@/pingpong/rendering/**",
@@ -156,6 +158,7 @@
                   {
                     "group": [
                       "@/duel/model/**",
+                      "@/landing/model/**",
                       "@/landing/rendering/**",
                       "@/yacht/model/**",
                       "@/yacht/rendering/**"
@@ -180,6 +183,7 @@
                   {
                     "group": [
                       "@/duel/model/**",
+                      "@/landing/model/**",
                       "@/landing/rendering/**",
                       "@/pingpong/model/**",
                       "@/pingpong/rendering/**"
