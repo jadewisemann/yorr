@@ -64,11 +64,11 @@
       "includes": [
         "src/**",
         "!src/app/dev/**",
+        "!**/__tests__/**",
         "!src/duel/**",
         "!src/landing/**",
         "!src/pingpong/**",
-        "!src/yacht/**",
-        "!**/__tests__/**"
+        "!src/yacht/**"
       ],
       "linter": {
         "rules": {
@@ -83,6 +83,7 @@
                       "@/landing/rendering/**",
                       "@/pingpong/model/**",
                       "@/pingpong/rendering/**",
+                      "@/yacht/model/**",
                       "@/yacht/rendering/**"
                     ]
                   }
@@ -107,6 +108,7 @@
                       "@/landing/rendering/**",
                       "@/pingpong/model/**",
                       "@/pingpong/rendering/**",
+                      "@/yacht/model/**",
                       "@/yacht/rendering/**"
                     ]
                   }
@@ -131,6 +133,7 @@
                       "@/duel/model/**",
                       "@/pingpong/model/**",
                       "@/pingpong/rendering/**",
+                      "@/yacht/model/**",
                       "@/yacht/rendering/**"
                     ]
                   }
@@ -151,7 +154,12 @@
               "options": {
                 "patterns": [
                   {
-                    "group": ["@/duel/model/**", "@/landing/rendering/**", "@/yacht/rendering/**"]
+                    "group": [
+                      "@/duel/model/**",
+                      "@/landing/rendering/**",
+                      "@/yacht/model/**",
+                      "@/yacht/rendering/**"
+                    ]
                   }
                 ]
               }

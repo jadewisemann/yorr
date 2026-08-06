@@ -7,8 +7,8 @@ import {
   UPPER_BONUS_THRESHOLD,
   YACHT_UPPER_CATEGORIES,
 } from '@/yacht/domain/scoring'
+import { categoryLabel } from '@/yacht/domain/yachtCategoryView'
 import { MAX_ROLLS } from '@/yacht/domain/yachtGame'
-import { categoryLabel } from '@/yacht/yachtCategoryView'
 
 interface TutorialGuideProps {
   /** 주사위가 날아가는 중인지. 이 동안에는 단계가 움직이지 않는다(stepFromPlay 주석 참고). */

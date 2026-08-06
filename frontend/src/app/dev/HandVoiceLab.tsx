@@ -4,8 +4,8 @@ import { Dice } from '@/yacht/components/Dice'
 import { RollResultCallout } from '@/yacht/components/RollResultCallout'
 import type { DiceSet } from '@/yacht/domain/dice'
 import type { SpecialHand } from '@/yacht/domain/specialHands'
+import { categoryLabel } from '@/yacht/domain/yachtCategoryView'
 import { createHandVoice, HAND_VOICE_SOURCE, type HandVoice } from '@/yacht/feedback/handVoice'
-import { categoryLabel } from '@/yacht/yachtCategoryView'
 
 /**
  * 숫자키 1~5에 붙는 족보. 주사위는 `detectSpecialHand`가 같은 족보를 고르도록 골랐다 —

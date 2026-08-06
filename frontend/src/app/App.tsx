@@ -1,5 +1,5 @@
 import { RouterProvider } from '@tanstack/react-router'
-import { useAuthSessionCheck } from '@/auth/useAuthSessionCheck'
+import { useAuthSessionCheck } from '@/auth/model/useAuthSessionCheck'
 import { resolveMswMode } from '@/mocks/mswMode'
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
 import { WebSocketRealtimeClient } from '@/realtime/realtimeClient'

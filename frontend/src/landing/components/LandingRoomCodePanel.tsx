@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react'
-import { isCompleteRoomCode, sanitizeRoomCodeInput } from '@/room/roomCode'
+import { isCompleteRoomCode, sanitizeRoomCodeInput } from '@/room/domain/roomCode'
 import { IconClose } from '@/shared/components/Icon'
 
 interface LandingRoomCodePanelProps {

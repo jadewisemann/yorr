@@ -8,13 +8,13 @@ import {
 import type { GameCode } from '@/games'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import type { RoomSession } from '@/room/api/roomApi'
-import { clearRoomSession, readRoomSession, saveRoomSession } from '@/room/roomSessionStorage'
 import {
   type SessionEndReason,
   type SessionPhase,
   sessionEndNotices,
   sessionPhaseOf,
-} from '@/room/sessionFsm'
+} from '@/room/domain/sessionFsm'
+import { clearRoomSession, readRoomSession, saveRoomSession } from '@/room/roomSessionStorage'
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'closed'
 export type RoomResumeReason = 'restored' | 'disconnected'

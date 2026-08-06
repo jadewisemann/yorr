@@ -3,13 +3,13 @@ import type { ServerMessage } from '@/realtime/wsEvents'
 import { buildClientMessage } from '@/realtime/wsEvents'
 import type { DiceSet } from '@/yacht/domain/dice'
 import { pickLeverageCategory } from '@/yacht/domain/leverage'
-import { scoreCategory, type YachtCategory } from '@/yacht/domain/scoring'
 import {
   createLeverageClient,
   LEVERAGE_PLAYER_ID,
   LEVERAGE_ROOM_ID,
   LEVERAGE_ROUNDS,
-} from '@/yacht/leverageGame'
+} from '@/yacht/domain/leverageGame'
+import { scoreCategory, type YachtCategory } from '@/yacht/domain/scoring'
 
 const SEED = 20260805
 const YACHT_DICE: DiceSet = [5, 5, 5, 5, 5]

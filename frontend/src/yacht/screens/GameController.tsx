@@ -6,7 +6,7 @@ import { PhysicsDiceFallback } from '@/yacht/components/PhysicsDiceFallback'
 import { RollCounter } from '@/yacht/components/RollCounter'
 import { RollResultCallout } from '@/yacht/components/RollResultCallout'
 import { canOfferMotion } from '@/yacht/input/motionTypes'
-import type { GamePlayRoll } from './useGamePlayRoll'
+import type { GamePlayRoll } from '@/yacht/model/useGamePlayRoll'
 
 /**
  * 파티 모드 폰 화면 — <b>게임판이 아니라 컨트롤러</b>다(S15P11A406-182).

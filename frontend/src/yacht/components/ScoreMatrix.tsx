@@ -8,7 +8,7 @@ import {
   YACHT_UPPER_CATEGORIES,
   type YachtCategory,
 } from '@/yacht/domain/scoring'
-import { categoryLabel } from '@/yacht/yachtCategoryView'
+import { categoryLabel } from '@/yacht/domain/yachtCategoryView'
 import { CategoryIcon } from './CategoryIcon'
 
 interface ScoreMatrixPlayer {

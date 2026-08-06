@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { cn } from '@/shared/cn'
 import type { SpecialHand } from '@/yacht/domain/specialHands'
-import { categoryLabel } from '@/yacht/yachtCategoryView'
+import { categoryLabel } from '@/yacht/domain/yachtCategoryView'
 
 interface RollResultCalloutProps {
   hand: SpecialHand

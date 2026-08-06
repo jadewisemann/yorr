@@ -16,6 +16,7 @@ import {
   toggleHeldDie,
 } from '@/yacht/domain/dice'
 import { detectSpecialHand, type SpecialHand } from '@/yacht/domain/specialHands'
+import { isRecorded } from '@/yacht/domain/yachtCategoryView'
 import {
   createYachtGame,
   getPendingRoll,
@@ -29,7 +30,6 @@ import { createHandVoice, type HandVoice } from '@/yacht/feedback/handVoice'
 import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
 import { useMotionRollInput } from '@/yacht/input/useMotionRollInput'
 import type { PhysicsDiceMotionPulse, PhysicsDicePhase } from '@/yacht/rendering/physics-dice/types'
-import { isRecorded } from '@/yacht/yachtCategoryView'
 import {
   animationSeedForRoll,
   isCurrentDiceBroadcast,

@@ -5,7 +5,7 @@ import {
   YACHT_LOWER_CATEGORIES,
   YACHT_UPPER_CATEGORIES,
 } from '@/yacht/domain/scoring'
-import { categoryDescription, categoryLabel } from '@/yacht/yachtCategoryView'
+import { categoryDescription, categoryLabel } from '@/yacht/domain/yachtCategoryView'
 import { CategoryIcon } from './CategoryIcon'
 
 interface GameHelpModalProps {

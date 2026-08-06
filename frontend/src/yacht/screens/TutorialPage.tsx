@@ -3,7 +3,11 @@ import { useEffect, useState } from 'react'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import { useAppStore } from '@/store'
 import { TutorialGuide } from '@/yacht/components/TutorialGuide'
-import { createTutorialClient, createTutorialSnapshot, tutorialSession } from '@/yacht/tutorialGame'
+import {
+  createTutorialClient,
+  createTutorialSnapshot,
+  tutorialSession,
+} from '@/yacht/domain/tutorialGame'
 import { GamePlay } from './GamePlay'
 
 /**

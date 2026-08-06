@@ -10,8 +10,8 @@ import { RollCounter } from '@/yacht/components/RollCounter'
 import { EffectCallout, RollResultCallout } from '@/yacht/components/RollResultCallout'
 import { MAX_ROLLS } from '@/yacht/domain/yachtGame'
 import { canOfferMotion } from '@/yacht/input/motionTypes'
+import type { GamePlayRoll } from '@/yacht/model/useGamePlayRoll'
 import { hideTutorial, isTutorialHidden } from '@/yacht/tutorialPreference'
-import type { GamePlayRoll } from './useGamePlayRoll'
 
 interface GameDiceTrayProps {
   activePlayer: Player | undefined

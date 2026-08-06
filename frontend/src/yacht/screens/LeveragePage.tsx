@@ -4,17 +4,17 @@ import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import { Button } from '@/shared/components/Button'
 import { useAppStore } from '@/store'
 import { LEVERAGE_MULTIPLIER, pickLeverageCategory } from '@/yacht/domain/leverage'
-import { YACHT_CATEGORIES, type YachtCategory } from '@/yacht/domain/scoring'
 import {
   createLeverageClient,
   createLeverageSnapshot,
   LEVERAGE_PLAYER_ID,
   LEVERAGE_ROUNDS,
   leverageSession,
-} from '@/yacht/leverageGame'
-import { categoryLabel, isRecorded } from '@/yacht/yachtCategoryView'
+} from '@/yacht/domain/leverageGame'
+import { YACHT_CATEGORIES, type YachtCategory } from '@/yacht/domain/scoring'
+import { categoryLabel, isRecorded } from '@/yacht/domain/yachtCategoryView'
+import { useLocalRoomSnapshot } from '@/yacht/model/useLocalRoomSnapshot'
 import { GamePlay } from './GamePlay'
-import { useLocalRoomSnapshot } from './useLocalRoomSnapshot'
 
 /**
  * 레버리지 다이스(S15P11A406-208). 매 턴 족보 하나가 뽑히고, 그 족보에 기록하면 점수가 2배다.

@@ -4,7 +4,7 @@ import {
   isCompleteRoomCode,
   normalizeRoomCode,
   sanitizeRoomCodeInput,
-} from '@/room/roomCode'
+} from '@/room/domain/roomCode'
 
 describe('room code rules', () => {
   it('normalizes a room code from text input or query string', () => {

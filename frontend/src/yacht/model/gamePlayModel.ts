@@ -8,7 +8,7 @@ import type {
 } from '@/realtime/wsEvents'
 import type { DiceSet } from '@/yacht/domain/dice'
 import { YACHT_CATEGORIES, type YachtCategory } from '@/yacht/domain/scoring'
-import { isRecorded } from '@/yacht/yachtCategoryView'
+import { isRecorded } from '@/yacht/domain/yachtCategoryView'
 
 export type RollInputMode = 'motion' | 'tap'
 export type RollAnimationMode = RollInputMode | 'remote' | 'auto'

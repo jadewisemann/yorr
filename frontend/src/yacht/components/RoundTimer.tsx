@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/shared/cn'
-import { formatCountdown, TIMER_WARNING_MS } from '@/yacht/useCountdown'
+import { formatCountdown, TIMER_WARNING_MS } from '@/yacht/model/useCountdown'
 
 interface RoundTimerProps {
   className?: string

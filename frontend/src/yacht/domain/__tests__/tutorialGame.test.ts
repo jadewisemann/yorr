@@ -6,7 +6,7 @@ import {
   createTutorialSnapshot,
   TUTORIAL_PLAYER_ID,
   TUTORIAL_ROOM_ID,
-} from '@/yacht/tutorialGame'
+} from '@/yacht/domain/tutorialGame'
 
 /** 연습 서버가 어떤 메시지든 돌려주면 그대로 모아 준다. */
 function sendAndCollect(

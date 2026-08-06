@@ -9,7 +9,7 @@ import {
   YACHT_LOWER_CATEGORIES,
   YACHT_UPPER_CATEGORIES,
 } from '@/yacht/domain/scoring'
-import { categoryLabel, isRecorded } from '@/yacht/yachtCategoryView'
+import { categoryLabel, isRecorded } from '@/yacht/domain/yachtCategoryView'
 import { CategoryIcon } from './CategoryIcon'
 
 export interface ScoreSheetPlayer {

@@ -2,8 +2,12 @@ import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import { useAppStore } from '@/store'
+import {
+  createTutorialClient,
+  createTutorialSnapshot,
+  tutorialSession,
+} from '@/yacht/domain/tutorialGame'
 import { GamePlay } from '@/yacht/screens/GamePlay'
-import { createTutorialClient, createTutorialSnapshot, tutorialSession } from '@/yacht/tutorialGame'
 
 /**
  * 파티 모드 컨트롤러를 <b>실제로 굴려 보는</b> 개발 화면(`/__dev/controller`).

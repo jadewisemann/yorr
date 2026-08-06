@@ -27,16 +27,16 @@ import {
   YACHT_CATEGORIES,
   type YachtCategory,
 } from '@/yacht/domain/scoring'
+import { categoryLabel, categoryShortLabel, isRecorded } from '@/yacht/domain/yachtCategoryView'
 import { MAX_ROLLS, type YachtGameAction } from '@/yacht/domain/yachtGame'
 import { canOfferMotion } from '@/yacht/input/motionTypes'
-import { useCountdown } from '@/yacht/useCountdown'
-import { categoryLabel, categoryShortLabel, isRecorded } from '@/yacht/yachtCategoryView'
+import { toMatrixPlayers, toTurnStripPlayers } from '@/yacht/model/gamePlayModel'
+import { useCountdown } from '@/yacht/model/useCountdown'
+import { useGamePlayRoll } from '@/yacht/model/useGamePlayRoll'
+import { useGamePlaySubmission } from '@/yacht/model/useGamePlaySubmission'
 import { GameControllerPad } from './GameController'
 import { GameDiceTray } from './GameDiceTray'
 import { GamePlayHeader } from './GamePlayHeader'
-import { toMatrixPlayers, toTurnStripPlayers } from './gamePlayModel'
-import { useGamePlayRoll } from './useGamePlayRoll'
-import { useGamePlaySubmission } from './useGamePlaySubmission'
 
 /** 이 폭부터 점수표를 시트 대신 좌측 상시 패널로 승격한다(와이어프레임 1c). */
 interface GamePlayProps {

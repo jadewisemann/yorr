@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
-import { getRoomCodeError, normalizeRoomCode } from '@/room/roomCode'
+import { getRoomCodeError, normalizeRoomCode } from '@/room/domain/roomCode'
 import { Button } from '@/shared/components/Button'
 import { IconBack, IconWarning } from '@/shared/components/Icon'
 import { Screen } from '@/shared/components/Screen'

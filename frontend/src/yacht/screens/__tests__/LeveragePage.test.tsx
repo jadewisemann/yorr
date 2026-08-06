@@ -4,10 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppStore } from '@/store'
 import { createDiceSet } from '@/yacht/domain/dice'
 import { scoreCategory, type YachtCategory } from '@/yacht/domain/scoring'
+import { categoryLabel } from '@/yacht/domain/yachtCategoryView'
 import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
 import type { PhysicsDiceRollRequest, PhysicsDiceSet } from '@/yacht/rendering/physics-dice/types'
 import { LeveragePage } from '@/yacht/screens/LeveragePage'
-import { categoryLabel } from '@/yacht/yachtCategoryView'
 
 const mocks = vi.hoisted(() => ({ navigate: vi.fn() }))
 

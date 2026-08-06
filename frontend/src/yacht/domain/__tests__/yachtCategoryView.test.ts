@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { categoryRowState, isRecorded } from '@/yacht/yachtCategoryView'
+import { categoryRowState, isRecorded } from '@/yacht/domain/yachtCategoryView'
 
 describe('categoryRowState', () => {
   it('marks an unrecorded category as available or selected', () => {

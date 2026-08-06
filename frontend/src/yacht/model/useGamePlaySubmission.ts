@@ -8,8 +8,8 @@ import {
 } from '@/realtime/wsEvents'
 import type { DiceSet } from '@/yacht/domain/dice'
 import type { YachtCategory } from '@/yacht/domain/scoring'
+import { categoryLabel } from '@/yacht/domain/yachtCategoryView'
 import type { YachtGameAction } from '@/yacht/domain/yachtGame'
-import { categoryLabel } from '@/yacht/yachtCategoryView'
 import { newlyRecordedCategory, turnAwareErrorMessage } from './gamePlayModel'
 
 interface UseGamePlaySubmissionOptions {

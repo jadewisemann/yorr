@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useAuthSessionCheck } from '@/auth/useAuthSessionCheck'
+import { useAuthSessionCheck } from '@/auth/model/useAuthSessionCheck'
 import { useAppStore } from '@/store'
 
 const { verifySession } = vi.hoisted(() => ({ verifySession: vi.fn() }))

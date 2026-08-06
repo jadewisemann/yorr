@@ -16,9 +16,9 @@ import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import { buildClientMessage, type ClientMessageType, type RoomSnapshot } from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
+import { animationSeedForRoll } from '@/yacht/model/gamePlayModel'
 import type { PhysicsDiceRollRequest, PhysicsDiceSet } from '@/yacht/rendering/physics-dice/types'
 import { GamePlay } from '@/yacht/screens/GamePlay'
-import { animationSeedForRoll } from '@/yacht/screens/gamePlayModel'
 
 /**
  * 물리 렌더러는 rAF와 WebGL에 의존해 jsdom에서 굴림을 끝낼 수 없다.
