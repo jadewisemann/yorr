@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
+import { createRollRequestLedger, type RollRequestLedger } from '@/yacht/model/rollRequestLedger'
 import { loadPhysicsDiceWorld } from '@/yacht/rendering/physics-dice/loadWorld'
 import type {
   PhysicsDiceIndex,
@@ -49,8 +50,7 @@ type LatestSceneState = {
 function applyInitialSceneState(
   world: PhysicsDiceWorldInstance,
   latest: LatestSceneState,
-  startedRequests: Set<string>,
-  releasedRequests: Set<string>,
+  ledger: RollRequestLedger,
 ) {
   world.applyQuality(latest.quality)
   if (latest.motionFollow !== undefined) world.setMotionFollow(latest.motionFollow)
@@ -60,14 +60,9 @@ function applyInitialSceneState(
 
   const request = latest.request
   if (!request) return
-  if (!startedRequests.has(request.requestId)) {
-    startedRequests.add(request.requestId)
-    world.startRoll(request)
-  }
-  if (latest.releaseRequestId !== request.requestId || releasedRequests.has(request.requestId))
-    return
-  releasedRequests.add(request.requestId)
-  world.pour()
+  ledger.startOnce(request.requestId, () => world.startRoll(request))
+  if (latest.releaseRequestId !== request.requestId) return
+  ledger.releaseOnce(request.requestId, () => world.pour())
 }
 
 /**
@@ -104,9 +99,7 @@ export function usePhysicsDiceWorld({
     releaseRequestId,
     request,
   })
-  const startedRequestsRef = useRef(new Set<string>())
-  const releasedRequestsRef = useRef(new Set<string>())
-  const completedRequestsRef = useRef(new Set<string>())
+  const ledgerRef = useRef(createRollRequestLedger())
   const lastPulseIdRef = useRef(0)
   const [fallbackMessage, setFallbackMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -141,9 +134,7 @@ export function usePhysicsDiceWorld({
     let createdWorld: PhysicsDiceWorldInstance | null = null
 
     const completeOnce = (requestId: string, completedDice: PhysicsDiceSet) => {
-      if (completedRequestsRef.current.has(requestId)) return
-      completedRequestsRef.current.add(requestId)
-      rollComplete(requestId, completedDice)
+      ledgerRef.current.completeOnce(requestId, () => rollComplete(requestId, completedDice))
     }
     const callbacks: PhysicsDiceWorldCallbacks = {
       onDiceImpact: (index, strength) => diceImpact(index, strength),
@@ -165,12 +156,7 @@ export function usePhysicsDiceWorld({
         await createdWorld.init()
         if (disposed) return
         worldRef.current = createdWorld
-        applyInitialSceneState(
-          createdWorld,
-          latestRef.current,
-          startedRequestsRef.current,
-          releasedRequestsRef.current,
-        )
+        applyInitialSceneState(createdWorld, latestRef.current, ledgerRef.current)
         setLoading(false)
       })
       .catch((cause: unknown) => {
@@ -196,9 +182,8 @@ export function usePhysicsDiceWorld({
 
   useEffect(() => {
     const world = worldRef.current
-    if (!world || !request || startedRequestsRef.current.has(request.requestId)) return
-    startedRequestsRef.current.add(request.requestId)
-    world.startRoll(request)
+    if (!world || !request) return
+    ledgerRef.current.startOnce(request.requestId, () => world.startRoll(request))
   }, [request])
 
   // startRoll 뒤에 둔다 — 마지막 굴림이 시작되는 커밋에서는 씬이 이미 굴리는 중이어야
@@ -209,16 +194,8 @@ export function usePhysicsDiceWorld({
 
   useEffect(() => {
     const world = worldRef.current
-    if (
-      !world ||
-      !request ||
-      releaseRequestId !== request.requestId ||
-      releasedRequestsRef.current.has(request.requestId)
-    ) {
-      return
-    }
-    releasedRequestsRef.current.add(request.requestId)
-    world.pour()
+    if (!world || !request || releaseRequestId !== request.requestId) return
+    ledgerRef.current.releaseOnce(request.requestId, () => world.pour())
   }, [releaseRequestId, request])
 
   useEffect(() => {
