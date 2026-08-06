@@ -35,6 +35,7 @@ import {
   rollPresentationReducer,
   turnAwareErrorMessage,
 } from './gamePlayModel'
+import { createRemoteReleaseGate } from './remoteReleaseGate'
 import { useRollBroadcast } from './useRollBroadcast'
 import { useRollFeedback } from './useRollFeedback'
 
@@ -106,12 +107,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
   const inputModeRef = useRef(rollInputMode)
   const pendingRollRequestRef = useRef<PendingRollRequest | null>(null)
   const queuedMotionReleaseRef = useRef(false)
-  const remoteRollRef = useRef<{
-    requestId: string
-    rollCount: number
-    roundNumber: number
-  } | null>(null)
-  const queuedRemoteReleaseRef = useRef<{ rollCount: number; roundNumber: number } | null>(null)
+  const remoteReleaseRef = useRef(createRemoteReleaseGate())
   // 렌더 중에 ref를 쓰지 않는다 — 버려지는 렌더(동시성)에서 커밋되지 않은 값이 남는다.
   // layout effect는 페인트 전에 돌아서 이벤트·rAF가 읽는 시점에는 이미 최신이다.
   useLayoutEffect(() => {
@@ -146,8 +142,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
     present({ type: 'turnReset' })
     pendingRollRequestRef.current = null
     queuedMotionReleaseRef.current = false
-    remoteRollRef.current = null
-    queuedRemoteReleaseRef.current = null
+    remoteReleaseRef.current.reset()
   }, [activePlayerId, resetLocalFor, roundNumber])
 
   const dispatch = useCallback((action: YachtGameAction) => {
@@ -226,14 +221,15 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
         ownRoll,
         pendingInputMode: pendingInputModeFor(message, ownRoll, forced, pending),
       })
-      remoteRollRef.current =
+      const releaseNow = remoteReleaseRef.current.rollAccepted(
         animationMode === 'remote'
           ? {
               requestId,
               rollCount: message.payload.rollCount,
               roundNumber: message.payload.roundNumber,
             }
-          : null
+          : null,
+      )
       pendingRollRequestRef.current = null
       present({ type: 'broadcastAccepted', mode: animationMode })
       acceptedRollTurnRef.current = {
@@ -270,15 +266,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
         present({ type: 'released', requestId })
         publishThrow(message.payload.rollCount)
       }
-      const queuedRemote = queuedRemoteReleaseRef.current
-      if (
-        animationMode === 'remote' &&
-        queuedRemote?.roundNumber === message.payload.roundNumber &&
-        queuedRemote.rollCount === message.payload.rollCount
-      ) {
-        queuedRemoteReleaseRef.current = null
-        present({ type: 'released', requestId })
-      }
+      if (releaseNow) present({ type: 'released', requestId: releaseNow })
     },
     [publishThrow, roomId, showToast, you],
   )
@@ -290,7 +278,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
         message.payload.roundNumber !== roundNumber ||
         message.payload.playerId !== activePlayerId ||
         message.payload.playerId === you ||
-        !remoteRollRef.current
+        !remoteReleaseRef.current.rolling
       ) {
         return
       }
@@ -310,19 +298,11 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
       ) {
         return
       }
-      const remote = remoteRollRef.current
-      if (
-        remote?.roundNumber === message.payload.roundNumber &&
-        remote.rollCount === message.payload.rollCount
-      ) {
-        remoteRollRef.current = null
-        present({ type: 'released', requestId: remote.requestId })
-        return
-      }
-      queuedRemoteReleaseRef.current = {
+      const releaseNow = remoteReleaseRef.current.throwObserved({
         rollCount: message.payload.rollCount,
         roundNumber: message.payload.roundNumber,
-      }
+      })
+      if (releaseNow) present({ type: 'released', requestId: releaseNow })
     },
     [activePlayerId, roomId, roundNumber, you],
   )
