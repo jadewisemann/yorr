@@ -196,7 +196,11 @@ border(10%) · border-raised(14%) · border-strong(18%)
 3. 외부 배치는 `className`으로 확장한다. 내부 구조와 상태 표현은 컴포넌트가 소유한다.
 4. 클릭 가능한 요소는 최소 `min-h-tap`을 지킨다.
 5. focus ring, **pressed**, disabled, loading, error, reconnect 상태를 누락하지 않는다.
-   pressed(`active:`)는 hover가 없는 터치에서 "닿았다"를 알리는 유일한 채널이다.
+   pressed는 hover가 없는 터치에서 "닿았다"를 알리는 유일한 채널이다. 값은 한 곳에 있다 —
+   `recipes.css`의 **`pressable`**(scale 0.97)을 쓰고 직접 `active:scale-*`를 적지 않는다.
+   `Button`도 이 레시피를 쓴다. 예외는 두 가지다: 24px 이하 글리프는 3%가 보이지 않아
+   `active:scale-90`을 직접 주고, 눌림을 빼는 자리(전체화면 스크림 · 제스처를 받는 조작면 ·
+   점수표 칸 · 드래그 손잡이)는 왜 빼는지 그 자리에 적는다.
 6. animation은 `motion-reduce`에서 제거하거나 최소화한다.
 7. 임의 값은 safe-area, fluid typography처럼 token화가 부적합한 경우에만 사용한다.
 
