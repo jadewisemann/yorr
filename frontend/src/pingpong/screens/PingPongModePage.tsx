@@ -1,4 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
+import { useState } from 'react'
+import { PhonePairing } from '@/pingpong/components/PhonePairing'
 import type {
   LocalFeedback,
   LocalPingPongDifficulty,
@@ -6,15 +8,55 @@ import type {
 } from '@/pingpong/domain/localGame'
 import { pingPongSituation, sharedSituationLabel } from '@/pingpong/feedback'
 import { type HudState, useLocalPingPongGame } from '@/pingpong/model/useLocalPingPongGame'
+import { usePeerInput } from '@/realtime/peerInput'
 import { Button } from '@/shared/components/Button'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import { IconBack, IconWarning } from '@/shared/components/Icon'
+import type { SwingPermission } from '@/shared/useSwing'
+import { useWideLayout } from '@/shared/useWideLayout'
 
 export function PingPongModePage() {
   const navigate = useNavigate()
   return (
     <LocalPingPongGame difficulty="normal" mode="solo" onExit={() => void navigate({ to: '/' })} />
   )
+}
+
+/**
+ * 헤더 오른쪽 한 칸 — 이 기기에서 <b>모션으로 치는 방법</b>을 안내한다.
+ *
+ * 큰 화면에는 흔들 센서가 없어 "폰 스윙 켜기"를 눌러도 아무 일이 없다. 그 자리에 폰을
+ * 컨트롤러로 붙이는 길을 준다 — 이 화면에서 모션으로 칠 수 있는 유일한 수단이다.
+ */
+function MotionControl({
+  onPair,
+  onRequestPermission,
+  permission,
+  wide,
+}: {
+  onPair: () => void
+  onRequestPermission: () => void
+  permission: SwingPermission
+  wide: boolean
+}) {
+  const pill =
+    'min-h-11 rounded-full border border-pp-accent/40 bg-pp-accent/12 px-3 text-xs font-bold text-pp-accent-text transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]'
+
+  if (wide) {
+    return (
+      <button className={pill} onClick={onPair} type="button">
+        폰으로 조작
+      </button>
+    )
+  }
+  if (permission === 'unknown') {
+    return (
+      <button className={pill} onClick={onRequestPermission} type="button">
+        폰 스윙
+      </button>
+    )
+  }
+  return <span className="min-w-20 text-right text-xs text-pp-accent">스윙 ON</span>
 }
 
 function localSituationLabel(hud: HudState, firstLabel: string, secondLabel: string) {
@@ -50,8 +92,25 @@ function LocalPingPongGame({
   mode: LocalPingPongMode
   onExit: () => void
 }) {
-  const { canvasRef, feedback, glFailed, hud, onTap, permission, requestPermission, restart } =
-    useLocalPingPongGame({ difficulty, mode })
+  const {
+    canvasRef,
+    feedback,
+    glFailed,
+    hud,
+    onTap,
+    permission,
+    requestPermission,
+    restart,
+    swing,
+  } = useLocalPingPongGame({ difficulty, mode })
+  const wide = useWideLayout()
+  const [pairing, setPairing] = useState(false)
+
+  // 폰이 보낸 스윙. 판정·AI·렌더는 전부 이 화면 안에서 그대로 돈다 — 폰은 입력만 대신한다.
+  // solo가 아니면 무시한다: duo는 한 폰에 두 사람이 붙는 모드라 어느 쪽인지 알 수 없다.
+  usePeerInput((input) => {
+    if (input.type === 'SWING' && mode === 'solo') swing(1, true)
+  })
 
   const p1Label = mode === 'solo' ? 'YOU' : 'P1'
   const p2Label = mode === 'solo' ? 'CPU' : 'P2'
@@ -69,18 +128,15 @@ function LocalPingPongGame({
         <span className="font-mono text-xs tracking-[0.14em] text-game-content-faint">
           {mode === 'solo' ? 'AI와 대전' : '1:1 파티 모드'}
         </span>
-        {permission === 'unknown' ? (
-          <button
-            className="min-h-11 rounded-full border border-pp-accent/40 bg-pp-accent/12 px-3 text-xs font-bold text-pp-accent-text transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
-            onClick={() => void requestPermission()}
-            type="button"
-          >
-            폰 스윙
-          </button>
-        ) : (
-          <span className="min-w-20 text-right text-xs text-pp-accent">스윙 ON</span>
-        )}
+        <MotionControl
+          onPair={() => setPairing(true)}
+          onRequestPermission={() => void requestPermission()}
+          permission={permission}
+          wide={wide}
+        />
       </header>
+
+      {pairing && <PhonePairing onClose={() => setPairing(false)} />}
 
       <section className="relative z-10 flex flex-none items-end justify-center gap-7 pb-2">
         <LocalScore label={p1Label} score={hud.s1} tone="blue" />

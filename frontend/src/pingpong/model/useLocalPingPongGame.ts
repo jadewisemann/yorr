@@ -191,5 +191,18 @@ export function useLocalPingPongGame({ difficulty, mode }: UseLocalPingPongGameO
     swing(tapPlayer(event, mode))
   }
 
-  return { canvasRef, feedback, glFailed, hud, onTap, permission, requestPermission, restart }
+  // swing을 내보내는 이유: 폰 컨트롤러가 보낸 조작이 여기로 들어온다(`usePeerInput`).
+  // 원격 입력을 이 훅 안에서 구독하지 않는다 — 그러면 로컬 게임이 방·소켓을 알게 되고,
+  // 폰 없이 혼자 하는 대부분의 판까지 실시간 계층을 끌고 들어온다.
+  return {
+    canvasRef,
+    feedback,
+    glFailed,
+    hud,
+    onTap,
+    permission,
+    requestPermission,
+    restart,
+    swing,
+  }
 }

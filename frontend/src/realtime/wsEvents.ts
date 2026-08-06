@@ -477,6 +477,25 @@ export type VoiceSignalData =
   | { kind: 'description'; description: RTCSessionDescriptionInit }
   /** addIceCandidate에 그대로 넣는다. 한 연결당 수십 개가 오갈 수 있다. */
   | { kind: 'candidate'; candidate: RTCIceCandidateInit }
+  /**
+   * 폰 컨트롤러가 큰 화면에 보내는 조작. 음성과 아무 상관이 없는데 여기 얹은 이유는,
+   * <b>서버가 방 안의 두 사람 사이로 임의 데이터를 날라 주는 통로가 이것뿐</b>이기 때문이다
+   * (`handleVoiceSignal`은 방 멤버십만 보고 `data`는 JsonNode로 흘려보낸다 — 음성 채널
+   * 참가조차 요구하지 않는다).
+   *
+   * 왜 `game.ping_pong.swing`이 아닌가: 그 메시지는 <b>서버가 판정하는</b> 경기용이다.
+   * 로컬 AI 모드는 게임이 큰 화면 브라우저 안에서만 돌아 서버가 그 경기의 존재를 모르므로,
+   * 보내봐야 "그런 게임 없음"으로 버려진다.
+   *
+   * ponytail: 서버에 게임 무관 릴레이(`peer.message` 같은)가 생기면 이 케이스를 지우고
+   * `peerMessage.ts`의 두 함수만 갈아끼운다 — 호출부는 이 타입을 모른다.
+   */
+  | { kind: 'input'; input: PeerInput }
+
+/** 큰 화면이 알아들을 수 있는 조작. 게임마다 한 줄씩 는다. */
+export type PeerInput =
+  /** 라켓을 휘둘렀다 / 총을 뽑았다 — 지금은 "했다"는 사실만 있으면 충분하다. */
+  { type: 'SWING' } | { type: 'DRAW' }
 /**
  * C→S: 지목한 상대에게 시그널을 전달해 달라고 요청한다. from은 서버가 채운다(클라가 주장하는
  * 신분을 믿으면 남을 사칭할 수 있다). 상대가 이미 음성 채널을 떠났으면 서버는 조용히 버린다 —

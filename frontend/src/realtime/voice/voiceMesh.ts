@@ -142,6 +142,9 @@ export class VoiceMesh {
   /** 상대가 보낸 시그널을 적용한다. 계약의 voice.signaled가 그대로 들어온다. */
   async accept(from: PlayerId, data: VoiceSignalData) {
     if (this.closed) return
+    // 같은 봉투(voice.signal)로 폰 컨트롤러의 조작도 온다 — 통화와 무관하니 여기서 끊는다.
+    // addPeer보다 먼저 걸러야 한다: 스윙 하나 때문에 RTCPeerConnection이 생기면 안 된다.
+    if (data.kind === 'input') return
     // 상대가 먼저 offer를 보내면 명단보다 시그널이 먼저 도착할 수 있다 — 그때도 연결을 만든다.
     const peer = this.peers.get(from) ?? (await this.addPeer(from))
     if (!peer) return

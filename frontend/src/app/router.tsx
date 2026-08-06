@@ -30,6 +30,7 @@ const importNicknamePage = () => import('@/room/screens/NicknamePage')
 const importPartyDashboardPage = () => import('@/room/screens/PartyDashboardPage')
 const importPartyOnBigScreenPage = () => import('@/room/screens/PartyOnBigScreenPage')
 const importPingPongModePage = () => import('@/pingpong/screens/PingPongModePage')
+const importRemoteControllerPage = () => import('@/room/screens/RemoteControllerPage')
 
 const AuthCallbackPage = lazy(() =>
   importAuthCallbackPage().then((mod) => ({ default: mod.AuthCallbackPage })),
@@ -48,6 +49,9 @@ const PartyOnBigScreenPage = lazy(() =>
 )
 const PingPongModePage = lazy(() =>
   importPingPongModePage().then((mod) => ({ default: mod.PingPongModePage })),
+)
+const RemoteControllerPage = lazy(() =>
+  importRemoteControllerPage().then((mod) => ({ default: mod.RemoteControllerPage })),
 )
 
 /**
@@ -232,6 +236,33 @@ const partyRoute = createRoute({
   },
 })
 
+/**
+ * 로컬 게임(AI 대전)의 폰 컨트롤러. 큰 화면이 띄운 QR로만 도달한다.
+ *
+ * `/join`을 타지 않는 이유: 저쪽은 닉네임 → 대기실로 이어지는데, 이 방은 서버 게임을
+ * 시작하지 않으므로 대기실에서 영원히 기다리게 된다. 여기는 방에 붙는 즉시 컨트롤러다.
+ *
+ * `to`는 큰 화면의 playerId다. 대시보드는 `RoomSnapshot.players`에 없어서 폰이 스스로
+ * 찾아낼 수 없고, QR을 만드는 쪽은 자기 id를 알고 있으므로 거기서 실어 보낸다.
+ */
+const remoteControllerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/controller',
+  validateSearch: (search: Record<string, unknown>) => ({
+    code: typeof search.code === 'string' ? normalizeRoomCode(search.code) : undefined,
+    // 게임마다 보낼 조작이 다르다. 모르는 값은 스윙으로 받는다 — 탁구가 첫 사용처다.
+    input: search.input === 'DRAW' ? ('DRAW' as const) : ('SWING' as const),
+    to: typeof search.to === 'string' ? search.to : undefined,
+  }),
+  component: () => {
+    const { code, input, to } = remoteControllerRoute.useSearch()
+    if (code === undefined || getRoomCodeError(code) || !to) {
+      return <InvalidInvitePage initialCode={code ?? ''} />
+    }
+    return <RemoteControllerPage hostPlayerId={to} input={input} roomCode={code} />
+  },
+})
+
 const lobbyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/rooms/$roomId/lobby',
@@ -260,6 +291,7 @@ const routeTree = rootRoute.addChildren([
   partyRoute,
   lobbyRoute,
   gameRoute,
+  remoteControllerRoute,
   devCatalogRoute,
   controllerLabRoute,
   motionLabRoute,
