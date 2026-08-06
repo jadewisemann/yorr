@@ -24,23 +24,24 @@ export function playerEventLabel(type: PingPongEventType, mine: boolean) {
 }
 
 /**
- * 판정이 손에 닿는 모양. 라벨과 같은 표에서 갈라져 나온다 — 화면이 "스매시!"라고 말할 때
- * 손도 세게 울려야 한 사건으로 읽힌다.
+ * 판정이 손에 닿는 모양 — <b>라켓에 공이 닿은 순간</b>만 울린다.
  *
- * 성공은 <b>한 번</b>, 실패는 <b>끊어서</b> 친다. 세기만 다르게 하면 짧은 진동끼리 구별이
- * 안 되지만(손은 20ms와 30ms를 구분하지 못한다) 끊김은 바로 알아챈다.
+ * 실제 탁구가 그렇다. 손에 오는 것은 스윙이 아니라 충격이고, 헛치면 아무 느낌이 없다.
+ * 그래서 휘두르는 순간에는 울리지 않는다 — 그러면 한 타에 두 번(스윙 + 판정) 떨린다.
  *
- * 여기 없는 이벤트는 진동이 없다. SERVE·READY처럼 내가 한 일이 아닌 것까지 울리면
- * 랠리 내내 폰이 떨어 정작 내 타구가 묻힌다.
+ * 잘 맞을수록 세게 친다. OUT·NET도 <b>맞긴 맞았으므로</b> 울린다 — 나간 것은 그 다음
+ * 일이고, 그건 화면 글씨가 말한다.
+ *
+ * TOO_EARLY·TOO_LATE는 헛스윙이라 <b>없다</b>. 무음인 것이 곧 "안 맞았다"는 정보라서,
+ * 폰을 보지 않아도 알 수 있다. SERVE·READY처럼 내가 한 일이 아닌 것도 마찬가지로 없다 —
+ * 랠리 내내 떨면 정작 내 타구가 묻힌다.
  */
 const EVENT_VIBRATION: Partial<Record<PingPongEventType, VibratePattern>> = {
   SMASH: 45,
   NICE: 26,
   OK: 16,
-  TOO_EARLY: [10, 45, 10],
-  TOO_LATE: [10, 45, 10],
-  OUT: [28, 55, 28],
-  NET: [28, 55, 28],
+  OUT: 28,
+  NET: 28,
 }
 
 export function eventVibration(type: PingPongEventType): VibratePattern | undefined {

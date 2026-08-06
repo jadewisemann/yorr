@@ -11,16 +11,6 @@ import { useSwing } from '@/shared/useSwing'
 import { vibrate } from '@/shared/vibrate'
 import type { ActiveRoomSession } from '@/store'
 
-/**
- * 휘두른 순간 손에 주는 짧은 확인. 판정(`eventVibration`)을 기다리지 않는 이유는 그것이
- * 서버 왕복 뒤에 오기 때문이다 — 팔은 이미 멈췄는데 그때 울리면 내 스윙이 아니라 딴 일로
- * 느껴진다. 그래서 이건 "쳤다/못 쳤다"가 아니라 <b>"내 팔이 움직인 걸 폰이 읽었다"</b>는
- * 신호다. 헛스윙에도 울리는 것이 맞다 — 안 울리면 센서가 죽은 것과 구별되지 않는다.
- *
- * 판정 진동과 겹쳐 뭉개지지 않게 가장 짧은 축으로 둔다(제일 약한 판정 OK가 16).
- */
-const SWING_TICK_MS = 8
-
 interface UsePingPongGameOptions {
   /** 3D 코트를 띄우는 화면인가 = canvas 가 마운트되는가. */
   court: boolean
@@ -65,7 +55,6 @@ export function usePingPongGame({
 
   const swing = useCallback(() => {
     if (dashboard || !canSwing(stateRef.current)) return
-    vibrate(SWING_TICK_MS)
     try {
       client.send(
         buildClientMessage(
