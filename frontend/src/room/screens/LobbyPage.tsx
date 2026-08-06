@@ -29,8 +29,8 @@ const PREFETCH_FALLBACK_DELAY_MS = 500
 function schedulePhysicsDicePrefetch() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
   const prefetch = () => {
-    void import('@/yacht/rendering/physics-dice/loadWorld').then(({ prefetchPhysicsDiceWorld }) =>
-      prefetchPhysicsDiceWorld(),
+    void import('@/yacht/prefetchPhysicsDice').then(({ prefetchPhysicsDice }) =>
+      prefetchPhysicsDice(),
     )
   }
   const idleApi = window as unknown as {

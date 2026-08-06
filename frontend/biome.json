@@ -59,6 +59,130 @@
           }
         }
       }
+    },
+    {
+      "includes": [
+        "src/**",
+        "!src/app/dev/**",
+        "!src/duel/**",
+        "!src/landing/**",
+        "!src/pingpong/**",
+        "!src/yacht/**",
+        "!**/__tests__/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/duel/model/**",
+                      "@/landing/rendering/**",
+                      "@/pingpong/model/**",
+                      "@/pingpong/rendering/**",
+                      "@/yacht/rendering/**"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/duel/**", "!**/__tests__/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/landing/rendering/**",
+                      "@/pingpong/model/**",
+                      "@/pingpong/rendering/**",
+                      "@/yacht/rendering/**"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/landing/**", "!**/__tests__/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/duel/model/**",
+                      "@/pingpong/model/**",
+                      "@/pingpong/rendering/**",
+                      "@/yacht/rendering/**"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/pingpong/**", "!**/__tests__/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@/duel/model/**", "@/landing/rendering/**", "@/yacht/rendering/**"]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/yacht/**", "!**/__tests__/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/duel/model/**",
+                      "@/landing/rendering/**",
+                      "@/pingpong/model/**",
+                      "@/pingpong/rendering/**"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }
