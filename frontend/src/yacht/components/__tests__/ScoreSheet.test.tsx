@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { createEmptyScoreBoard } from '@/mocks/fixtures'
 import type { ScoreBoard } from '@/realtime/wsEvents'
-import { PlayerBadge, ScoreSheet, type ScoreSheetPlayer } from '@/yacht/components/ScoreSheet'
+import { ScoreSheet, type ScoreSheetPlayer } from '@/yacht/components/ScoreSheet'
+import { PlayerBadge } from '@/yacht/components/ScoreSheet/PlayerBadge'
 import type { CategoryScores, YachtCategory } from '@/yacht/domain/scoring'
 
 function board(

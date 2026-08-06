@@ -268,3 +268,6 @@ function clampRollCount(count: number): RollCount {
   if (!Number.isInteger(count) || count < 0) return 0
   return (count > 3 ? 3 : count) as RollCount
 }
+
+/** 한 게임의 라운드 수. 족보 12개를 한 번씩 채운다. */
+export const TOTAL_ROUNDS = 12

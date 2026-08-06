@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import type { RefObject } from 'react'
 import type { AuthSession } from '@/auth/authSession'
-import { Avatar } from '@/auth/components/AccountDialog'
+import { Avatar } from '@/auth/components/AccountDialog/AccountMenu'
 import { useLeaveSession } from '@/room/api/useRoomApi'
 import { sessionScreenOf } from '@/room/domain/sessionFsm'
 import { cn } from '@/shared/cn'

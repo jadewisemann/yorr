@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { PlayerId, ScoreBoard } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
 import { Tooltip } from '@/shared/components/Tooltip'
+import { PlayerBadge, scoreCell } from '@/yacht/components/ScoreSheet/PlayerBadge'
 import type { CategoryScores, YachtCategory } from '@/yacht/domain/scoring'
 import {
   UPPER_BONUS_POINTS,
@@ -45,38 +46,6 @@ interface ScoreSheetProps {
   onPick: (category: YachtCategory) => void
   players: ScoreSheetPlayer[]
   you: PlayerId
-}
-
-function scoreCell(value: number | null | undefined, preview: number | null, isPreview: boolean) {
-  if (isPreview) return { className: 'bg-brand/15 text-brand-strong', content: preview }
-  if (!isRecorded(value)) return { className: 'text-content-faint', content: '·' }
-  return { className: value === 0 ? 'text-danger' : 'text-content', content: value }
-}
-
-/** 플레이어 머리글자 칩. 헤더·트레이에서도 같은 표기를 쓰도록 내보낸다. */
-export function PlayerBadge({
-  active = false,
-  nickname,
-  size = 'md',
-}: {
-  active?: boolean
-  nickname: string
-  size?: 'sm' | 'md'
-}) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center justify-center rounded-full border font-bold',
-        size === 'md' ? 'size-7 text-2xs' : 'size-6 text-2xs',
-        active
-          ? 'border-brand bg-brand text-on-brand'
-          : 'border-border bg-surface text-content-muted',
-      )}
-      title={nickname}
-    >
-      {initialsOf(nickname)}
-    </span>
-  )
 }
 
 /**
@@ -294,13 +263,4 @@ export function ScoreSheet({
       )}
     </section>
   )
-}
-
-/** 한글 닉네임은 앞 두 글자, 라틴은 단어 머리글자. 디자인의 아바타 표기 규칙. */
-function initialsOf(nickname: string) {
-  if (/[가-힣]/.test(nickname)) return nickname.slice(0, 2)
-  const parts = nickname.split(/[\s'’-]+/).filter(Boolean)
-  const first = parts[0]?.[0] ?? nickname[0] ?? '?'
-  const second = parts[1]?.[0] ?? ''
-  return `${first}${second}`.toUpperCase()
 }
