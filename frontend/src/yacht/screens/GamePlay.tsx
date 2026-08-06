@@ -13,17 +13,10 @@ import { QuickCategoryStrip } from '@/yacht/components/GamePlay/QuickCategoryStr
 import { ZeroScoreModal } from '@/yacht/components/GamePlay/ZeroScoreModal'
 import { ScoreSheet } from '@/yacht/components/ScoreSheet'
 import { TurnStrip } from '@/yacht/components/TurnStrip'
-import { applyLeverage } from '@/yacht/domain/leverage'
-import {
-  type CategoryScores,
-  calculateScoreCandidates,
-  YACHT_CATEGORIES,
-  type YachtCategory,
-} from '@/yacht/domain/scoring'
-import { isRecorded } from '@/yacht/domain/yachtCategoryView'
+import type { CategoryScores, YachtCategory } from '@/yacht/domain/scoring'
 import { canOfferMotion } from '@/yacht/input/motionTypes'
-import { scoreLeaderLabel, scoreRecordTitle, scoreSheetHint } from '@/yacht/model/gamePlayLabels'
-import { toMatrixPlayers, toTurnStripPlayers } from '@/yacht/model/playerViews'
+import { scoreRecordTitle, scoreSheetHint } from '@/yacht/model/gamePlayLabels'
+import { buildGamePlayView } from '@/yacht/model/gamePlayView'
 import { useCountdown } from '@/yacht/model/useCountdown'
 import {
   useGamePlayChrome,
@@ -121,10 +114,7 @@ export function GamePlay({
   const roundNumber = game?.roundNumber ?? 1
   const activePlayerId = game?.activePlayerId
   const isMyTurn = activePlayerId === session.you
-  const activePlayer = snapshot.players.find((player) => player.playerId === activePlayerId)
   const remainingMs = useCountdown(game?.roundDeadline ?? null)
-  const myBoard = game?.scores[session.you]
-  const activeBoard = activePlayerId ? game?.scores[activePlayerId] : undefined
 
   // 파티 모드 대시보드는 플레이어가 아니다 — 이 화면은 게임을 비추기만 하므로 센서도
   // 조작 안내도 필요 없다(서버 턴 순서에 없어 isMyTurn도 영구히 false다).
@@ -157,6 +147,24 @@ export function GamePlay({
     submitted,
     submitting,
   } = roll
+
+  // 화면이 그릴 값은 한 번에 계산한다 — 조각 사이에 흩어져 있으면 읽는 순서가 끊긴다.
+  const {
+    activePlayer,
+    candidates,
+    leaderLabel,
+    myBoard,
+    openCategories,
+    rolled,
+    sheetPlayers,
+    turnPlayers,
+  } = buildGamePlayView({
+    dice: local.dice,
+    game,
+    leverageCategory,
+    players: snapshot.players,
+    you: session.you,
+  })
 
   const {
     audioButtonRef,
@@ -193,19 +201,6 @@ export function GamePlay({
     you: session.you,
   })
 
-  const usedCategories = YACHT_CATEGORIES.filter((category) =>
-    isRecorded(activeBoard?.categories[category]),
-  )
-  // 레버리지 족보는 미리보기부터 2배로 보여야 한다 — 기록하고 나서야 2배인 걸 알면 고를 수 없다.
-  const candidates: CategoryScores = local.dice
-    ? applyLeverage(calculateScoreCandidates(local.dice, usedCategories), leverageCategory)
-    : {}
-  const rolled = local.dice !== null
-
-  // 디자인의 한 장 점수시트 — 모든 플레이어를 열로 눕힌다. 내 열이 항상 첫 번째다.
-  const sheetPlayers = toMatrixPlayers(snapshot.players, game?.scores, session.you)
-  const leaderLabel = scoreLeaderLabel(sheetPlayers)
-
   // 점수표 행·퀵 칩 공용 원큐 기록. 0점만 잃는 선택이라 확인 모달을 거친다.
   const pickCategory = (category: YachtCategory) => {
     if (!canPick) return
@@ -236,8 +231,6 @@ export function GamePlay({
 
   useShortcuts(wide && isMyTurn, { onRoll: handleRoll, dispatch })
 
-  // 상단 진행 표시 — 서버가 준 턴 순서 그대로다(명단 순서는 턴 순서가 아니다).
-  const turnPlayers = toTurnStripPlayers(snapshot.players, game?.turnOrder, game?.scores)
   const turnStrip = (
     <TurnStrip
       activePlayerId={activePlayerId}
@@ -296,11 +289,6 @@ export function GamePlay({
         if (category) submitCategory(category)
       }}
     />
-  )
-
-  // 디자인의 quick chips — 열린 족보를 고정 순서로 눕히고 탭 한 번에 기록한다.
-  const openCategories = YACHT_CATEGORIES.filter(
-    (category) => !isRecorded(activeBoard?.categories[category]),
   )
 
   const quickStrip = (
