@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Ammo } from '@/duel/components/Ammo'
 import { Gunslinger } from '@/duel/components/Gunslinger'
 import { ResultBackdrop } from '@/duel/components/ResultBackdrop'
@@ -7,6 +8,7 @@ import type { DuelState, RoomSnapshot } from '@/realtime/wsEvents'
 import { isRoomHost } from '@/room/api/roomApi'
 import { useReturnToLobby } from '@/room/api/useGameApi'
 import { Button } from '@/shared/components/Button'
+import { LOSE_VIBRATION, vibrate, WIN_VIBRATION } from '@/shared/vibrate'
 import type { ActiveRoomSession } from '@/store'
 
 /**
@@ -46,10 +48,7 @@ const OUTCOME_HEADING: Record<DuelOutcome, string> = {
 export function DuelResult({ onLeaveRequest, session, snapshot }: DuelResultProps) {
   const returnToLobby = useReturnToLobby()
   const state = snapshot.game as unknown as DuelState | undefined
-  // 대시보드는 승패의 당사자가 아니다 — "살아남았다"라고 말할 주체가 없다.
-  if (session.membershipRole === 'dashboard') {
-    return <DuelDashboardResult onClose={onLeaveRequest} snapshot={snapshot} state={state} />
-  }
+  const dashboard = session.membershipRole === 'dashboard'
   const opponent = snapshot.players.find((player) => player.playerId !== session.you)
   const myHp = state?.hp[session.you] ?? 0
   const opponentHp = opponent ? (state?.hp[opponent.playerId] ?? 0) : 0
@@ -60,6 +59,24 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: DuelResultProp
     you: session.you,
   })
   const won = outcome === 'won'
+
+  // 승패 진동은 여기서 울린다 — 결투가 FINISHED가 되는 렌더에서 `useDuelGame`은 이미
+  // 언마운트되므로 그쪽 effect는 돌지 못한다. 쓰러지는 순간의 진동(KO)은 아직 결투 화면이
+  // 살아 있을 때 오는 것이라 이것과 겹치지 않는다.
+  //
+  // 무승부는 울리지 않는다 — 이기지도 지지도 않았는데 승리 진동이 오면 손이 먼저 오해한다
+  // (제목 색을 중립으로 둔 것과 같은 이유다).
+  useEffect(() => {
+    if (dashboard || outcome === 'draw') return
+    vibrate(outcome === 'won' ? WIN_VIBRATION : LOSE_VIBRATION)
+  }, [dashboard, outcome])
+
+  // 대시보드는 승패의 당사자가 아니다 — "살아남았다"라고 말할 주체가 없다.
+  // (승패 계산이 이 분기보다 위로 올라온 이유는 위 훅이 조건부일 수 없어서다.)
+  if (dashboard) {
+    return <DuelDashboardResult onClose={onLeaveRequest} snapshot={snapshot} state={state} />
+  }
+
   const host = isRoomHost(snapshot, session.you)
 
   return (

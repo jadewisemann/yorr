@@ -23,6 +23,30 @@ export function playerEventLabel(type: PingPongEventType, mine: boolean) {
   return EVENT_LABELS[type]?.[mine ? 0 : 1] ?? null
 }
 
+/**
+ * 판정이 손에 닿는 모양. 라벨과 같은 표에서 갈라져 나온다 — 화면이 "스매시!"라고 말할 때
+ * 손도 세게 울려야 한 사건으로 읽힌다.
+ *
+ * 성공은 <b>한 번</b>, 실패는 <b>끊어서</b> 친다. 세기만 다르게 하면 짧은 진동끼리 구별이
+ * 안 되지만(손은 20ms와 30ms를 구분하지 못한다) 끊김은 바로 알아챈다.
+ *
+ * 여기 없는 이벤트는 진동이 없다. SERVE·READY처럼 내가 한 일이 아닌 것까지 울리면
+ * 랠리 내내 폰이 떨어 정작 내 타구가 묻힌다.
+ */
+const EVENT_VIBRATION: Partial<Record<PingPongEventType, VibratePattern>> = {
+  SMASH: 45,
+  NICE: 26,
+  OK: 16,
+  TOO_EARLY: [10, 45, 10],
+  TOO_LATE: [10, 45, 10],
+  OUT: [28, 55, 28],
+  NET: [28, 55, 28],
+}
+
+export function eventVibration(type: PingPongEventType): VibratePattern | undefined {
+  return EVENT_VIBRATION[type]
+}
+
 export function sharedEventLabel(type: PingPongEventType, actorName: string) {
   switch (type) {
     case 'SMASH':

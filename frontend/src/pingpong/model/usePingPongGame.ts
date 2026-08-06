@@ -2,12 +2,24 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { type Fault, flightOf, flightProgress } from '@/pingpong/domain/court'
 import type { FrameState } from '@/pingpong/domain/frameState'
 import { type PlayerTracking, trackIncomingBall } from '@/pingpong/domain/playerTracking'
+import { eventVibration } from '@/pingpong/feedback'
 import { createScene, type PingPongScene } from '@/pingpong/rendering/scene3d'
 import { playRacketHit, playTableHit } from '@/pingpong/sounds'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import { buildClientMessage, type PingPongState } from '@/realtime/wsEvents'
 import { useSwing } from '@/shared/useSwing'
+import { vibrate } from '@/shared/vibrate'
 import type { ActiveRoomSession } from '@/store'
+
+/**
+ * 휘두른 순간 손에 주는 짧은 확인. 판정(`eventVibration`)을 기다리지 않는 이유는 그것이
+ * 서버 왕복 뒤에 오기 때문이다 — 팔은 이미 멈췄는데 그때 울리면 내 스윙이 아니라 딴 일로
+ * 느껴진다. 그래서 이건 "쳤다/못 쳤다"가 아니라 <b>"내 팔이 움직인 걸 폰이 읽었다"</b>는
+ * 신호다. 헛스윙에도 울리는 것이 맞다 — 안 울리면 센서가 죽은 것과 구별되지 않는다.
+ *
+ * 판정 진동과 겹쳐 뭉개지지 않게 가장 짧은 축으로 둔다(제일 약한 판정 OK가 16).
+ */
+const SWING_TICK_MS = 8
 
 interface UsePingPongGameOptions {
   /** 3D 코트를 띄우는 화면인가 = canvas 가 마운트되는가. */
@@ -53,6 +65,7 @@ export function usePingPongGame({
 
   const swing = useCallback(() => {
     if (dashboard || !canSwing(stateRef.current)) return
+    vibrate(SWING_TICK_MS)
     try {
       client.send(
         buildClientMessage(
@@ -102,7 +115,12 @@ export function usePingPongGame({
     if (!event || event.id === soundedEvent.current) return
     soundedEvent.current = event.id
     playRacketHit(event.type)
-  }, [state?.lastEvent])
+    // 소리는 코트 전체가 듣지만 진동은 <b>친 사람 손</b>에만 온다. 상대 타구까지 울리면
+    // 랠리 내내 폰이 떨어서 내 스윙이 묻히고, 대시보드는 애초에 아무의 손도 아니다.
+    if (event.playerId !== session.you) return
+    const pattern = eventVibration(event.type)
+    if (pattern !== undefined) vibrate(pattern)
+  }, [state?.lastEvent, session.you])
 
   useEffect(() => {
     const ball = state?.ball

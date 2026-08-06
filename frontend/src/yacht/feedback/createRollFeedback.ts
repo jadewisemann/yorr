@@ -1,6 +1,7 @@
 import { effectsLevel } from '@/shared/audio/audioLevels'
 import { onFirstGesture, primeAudio } from '@/shared/audio/audioUnlock'
 import { setElementVolume } from '@/shared/audio/elementVolume'
+import { vibrate } from '@/shared/vibrate'
 import type { PhysicsDiceIndex, PhysicsDicePhase } from '@/yacht/rendering/physics-dice/types'
 
 const SHAKE_RATE_LIMIT_MS = 80
@@ -78,11 +79,6 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}) 
     }, SHAKE_IDLE_STOP_MS)
   }
 
-  const vibrate = (pattern: VibratePattern) => {
-    if (document.hidden || typeof navigator.vibrate !== 'function') return
-    navigator.vibrate(pattern)
-  }
-
   return {
     armed() {
       vibrate(24)
@@ -96,6 +92,8 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}) 
       play(audio, 0.15 + Math.min(1, strength) * 0.65)
     },
     dispose() {
+      // 여기만 공용 vibrate()를 쓰지 않는다 — 그쪽은 탭이 숨으면 건너뛰는데, 취소는
+      // 숨은 뒤에도 해야 한다. 안 그러면 주머니 속에서 진동이 남아 계속 돈다.
       if (typeof navigator.vibrate === 'function') navigator.vibrate(0)
       clearShakeIdle()
       shake.pause()

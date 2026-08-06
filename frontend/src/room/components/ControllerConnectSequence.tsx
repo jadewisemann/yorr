@@ -4,6 +4,7 @@ import type { GameCode } from '@/games'
 import { PingPongControllerHowTo } from '@/pingpong/components/PingPongControllerHowTo'
 import { CONNECTED_HOLD_MS, CONNECTED_VIBRATE_MS, CONNECTING_MIN_MS } from '@/room/connectSequence'
 import { cn } from '@/shared/cn'
+import { vibrate } from '@/shared/vibrate'
 import type { ConnectionStatus } from '@/store'
 
 /**
@@ -125,8 +126,7 @@ function useConnectStep(status: ConnectionStatus): ControllerConnectStep {
     const remaining = Math.max(0, CONNECTING_MIN_MS - (Date.now() - connectingSince.current))
     const toConnected = window.setTimeout(() => {
       setStep('connected')
-      // iOS Safari에는 vibrate가 없다 — 있는 기기에서만 울린다.
-      if ('vibrate' in navigator) navigator.vibrate(CONNECTED_VIBRATE_MS)
+      vibrate(CONNECTED_VIBRATE_MS)
     }, remaining)
     const toReady = window.setTimeout(() => setStep('ready'), remaining + CONNECTED_HOLD_MS)
 

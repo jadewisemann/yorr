@@ -1,8 +1,10 @@
+import { useEffect } from 'react'
 import { Score } from '@/pingpong/components/Score'
 import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
 import { isRoomHost } from '@/room/api/roomApi'
 import { useReturnToLobby } from '@/room/api/useGameApi'
 import { Button } from '@/shared/components/Button'
+import { LOSE_VIBRATION, vibrate, WIN_VIBRATION } from '@/shared/vibrate'
 import type { ActiveRoomSession } from '@/store'
 
 interface PingPongResultProps {
@@ -15,15 +17,22 @@ export function PingPongResult({ onLeaveRequest, session, snapshot }: PingPongRe
   const returnToLobby = useReturnToLobby()
   const state = snapshot.game as unknown as PingPongState | undefined
   const dashboard = session.membershipRole === 'dashboard'
+  const opponent = snapshot.players.find((player) => player.playerId !== session.you)
+  const myScore = state?.scores[session.you] ?? 0
+  const opponentScore = opponent ? (state?.scores[opponent.playerId] ?? 0) : 0
+  const won = myScore > opponentScore
+
+  // 승패 진동은 여기서 울린다 — 경기가 FINISHED가 되는 렌더에서 `usePingPongGame`은 이미
+  // 언마운트되므로 그쪽 effect는 돌지 못한다. 대시보드는 아무의 손도 아니라 조용하다.
+  // (점수 계산이 대시보드 분기보다 위로 올라온 이유도 이 훅이 조건부일 수 없어서다.)
+  useEffect(() => {
+    if (!dashboard) vibrate(won ? WIN_VIBRATION : LOSE_VIBRATION)
+  }, [dashboard, won])
 
   if (dashboard) {
     return <PingPongDashboardResult onClose={onLeaveRequest} snapshot={snapshot} state={state} />
   }
 
-  const opponent = snapshot.players.find((player) => player.playerId !== session.you)
-  const myScore = state?.scores[session.you] ?? 0
-  const opponentScore = opponent ? (state?.scores[opponent.playerId] ?? 0) : 0
-  const won = myScore > opponentScore
   const host = isRoomHost(snapshot, session.you)
 
   return (

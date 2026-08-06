@@ -11,6 +11,7 @@ import { playGunHit, playGunShot } from '@/duel/sounds'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import { buildClientMessage, DUEL_FOUL, type DuelState } from '@/realtime/wsEvents'
 import { useSwing } from '@/shared/useSwing'
+import { vibrate } from '@/shared/vibrate'
 import type { ActiveRoomSession } from '@/store'
 
 /**
@@ -18,6 +19,16 @@ import type { ActiveRoomSession } from '@/store'
  * 프레임 더 걸려, 보정 없이 재면 자세가 총알보다 50~60ms 늦게 바뀐다(실측).
  */
 const IMPACT_LEAD_MS = 45
+
+/**
+ * 손에 오는 세 가지 — 쏘고, 맞고, 쓰러진다.
+ *
+ * 반동은 한 번 툭 친다(총성과 같은 순간). 피격은 끊어 쳐서 반동과 구별하고, 쓰러짐은 길게
+ * 끌어 "한 발 더 맞았다"가 아니라 "끝났다"로 읽히게 한다 — 세기만 키우면 셋이 뭉개진다.
+ */
+const SHOT_VIBRATION = 18
+const HIT_VIBRATION = [40, 60, 40]
+const KO_VIBRATION = [60, 70, 60, 70, 180]
 
 /**
  * 기다리는 전송이 없다는 뜻. `setTimeout`은 1부터 세므로 0은 어떤 타이머도 아니고,
@@ -164,16 +175,25 @@ export function useDuelGame({ roomId, session, state }: UseDuelGameOptions) {
   // 타이머는 CSS 지연보다 늦게 도착한다 — 타이머가 깨어난 뒤 React가 다시 렌더하고 화면에
   // 칠해지기까지 한두 프레임이 더 걸린다. 실측 50~60ms였다. 그만큼 앞당겨 깨워야 자세가
   // 총알과 같은 프레임에 바뀐다. CSS 지연(impactDelay)에는 이 보정을 넣지 않는다.
+  //
+  // 두 id를 effect 밖에서 꺼내 두는 이유: 안에서 lastRound를 통째로 잡으면 그 객체가
+  // 의존성이 되고, 서버 갱신마다 참조가 바뀌어 착탄 타이머가 매번 리셋된다.
+  const hitId = state?.lastRound?.hitId
+  const koId = state?.lastRound?.koId
   useEffect(() => {
     setImpact(false)
     if (phase !== 'RESULT') return
     const wake = Math.max(0, impactDelay - IMPACT_LEAD_MS)
     const timeoutId = window.setTimeout(() => {
       setImpact(true)
-      if (state?.lastRound?.hitId) playGunHit()
+      if (hitId) playGunHit()
+      // 총성은 둘 다 듣지만 진동은 맞은 사람에게만 온다. 쓰러진 것은 맞은 것이기도 하므로
+      // 둘 다 울리면 한 발에 두 번 떨린다 — 더 큰 쪽만 남긴다.
+      if (koId === session.you) vibrate(KO_VIBRATION)
+      else if (hitId === session.you) vibrate(HIT_VIBRATION)
     }, wake)
     return () => window.clearTimeout(timeoutId)
-  }, [phase, impactDelay, state?.lastRound?.hitId])
+  }, [phase, impactDelay, hitId, koId, session.you])
 
   useEffect(() => {
     const round = state?.lastRound
@@ -207,6 +227,9 @@ export function useDuelGame({ roomId, session, state }: UseDuelGameOptions) {
       })
       soundedRound.current = current.round
       playGunShot()
+      // 반동도 연출이다 — 총성과 같은 프레임에 온다. 부정출발이라 자기 발을 쏘게 될
+      // 입력에도 울린다: 방아쇠는 당겨졌고, 잘못 당겼다는 말은 판정이 와서 한다.
+      vibrate(SHOT_VIBRATION)
 
       const send = () => {
         penaltyTimer.current = NO_TIMER
