@@ -1,9 +1,7 @@
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useVoice } from '@/realtime/voice/VoiceContext'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { isPartyRoom } from '@/room/partyControllerStorage'
-import { readSoundMuted, saveSoundMuted } from '@/shared/audio/soundPreference'
-import { setSoundtrackMuted } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
 import { AudioPopover } from '@/shared/components/AudioPopover'
 import { Button } from '@/shared/components/Button'
@@ -19,7 +17,6 @@ import { ReactionDock } from '@/yacht/components/ReactionDock'
 import { RecordPanel } from '@/yacht/components/RecordPanel'
 import { ScoreSheet } from '@/yacht/components/ScoreSheet'
 import { TurnStrip } from '@/yacht/components/TurnStrip'
-import type { DiceIndex } from '@/yacht/domain/dice'
 import { applyLeverage } from '@/yacht/domain/leverage'
 import {
   type CategoryScores,
@@ -28,10 +25,16 @@ import {
   type YachtCategory,
 } from '@/yacht/domain/scoring'
 import { categoryLabel, categoryShortLabel, isRecorded } from '@/yacht/domain/yachtCategoryView'
-import { MAX_ROLLS, type YachtGameAction } from '@/yacht/domain/yachtGame'
 import { canOfferMotion } from '@/yacht/input/motionTypes'
 import { toMatrixPlayers, toTurnStripPlayers } from '@/yacht/model/gamePlayModel'
 import { useCountdown } from '@/yacht/model/useCountdown'
+import {
+  useGamePlayChrome,
+  useMyTurnAlert,
+  useRoundStartNotice,
+  useShortcuts,
+  vibrateForMyTurn,
+} from '@/yacht/model/useGamePlayChrome'
 import { useGamePlayRoll } from '@/yacht/model/useGamePlayRoll'
 import { useGamePlaySubmission } from '@/yacht/model/useGamePlaySubmission'
 import { GameControllerPad } from './GameController'
@@ -117,18 +120,6 @@ export function GamePlay({
   // 통화 자체는 라우터 위 VoiceProvider가 들고 있다 — 대기실에서 켠 통화가 여기로 이어진다.
   const voice = useVoice()
 
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [zeroConfirm, setZeroConfirm] = useState<YachtCategory | null>(null)
-  // 내 차례 시작 콜아웃 — 토스트보다 눈에 띄는 족보 이펙트와 같은 연출로 알린다. id = 리마운트 키.
-  const [turnCallout, setTurnCallout] = useState<number | null>(null)
-  const [soundMuted, setSoundMuted] = useState(readSoundMuted)
-  const [audioOpen, setAudioOpen] = useState(false)
-  // 오디오 말풍선이 붙을 자리 — 헤더의 소리 버튼이다.
-  const audioButtonRef = useRef<HTMLButtonElement>(null)
-  // 닫은 안내가 "어느 상태의 안내였는지"를 담는다. boolean으로 두면 상태가 바뀌어도 계속 닫혀
-  // 새 안내를 놓친다 — 값이 달라지는 순간 자동으로 다시 뜨게 하려는 의도다.
-  const [helpOpen, setHelpOpen] = useState(false)
-
   const game = snapshot.game
   const roundNumber = game?.roundNumber ?? 1
   const activePlayerId = game?.activePlayerId
@@ -170,16 +161,30 @@ export function GamePlay({
     submitted,
     submitting,
   } = roll
-  const activePlayerRef = useRef(activePlayerId)
-  useEffect(() => {
-    if (activePlayerRef.current === activePlayerId) return
-    activePlayerRef.current = activePlayerId
-    setZeroConfirm(null)
-    // 남의 턴을 구경하며 열어둔 점수시트가 턴이 넘어간 뒤에도 남아있으면 안 된다(QA FND-5).
-    setSheetOpen(false)
-  }, [activePlayerId])
 
-  const closeSheet = useCallback(() => setSheetOpen(false), [])
+  const {
+    audioButtonRef,
+    audioOpen,
+    closeSheet,
+    helpOpen,
+    setAudioOpen,
+    setHelpOpen,
+    setSheetOpen,
+    setTurnCallout,
+    setZeroConfirm,
+    sheetOpen,
+    soundMuted,
+    toggleSound,
+    turnCallout,
+    zeroConfirm,
+  } = useGamePlayChrome({
+    activePlayerId,
+    phase: local.phase,
+    rollCount: local.rollCount,
+    setRollMuted,
+    submitted,
+    wide,
+  })
   const { submitCategory } = useGamePlaySubmission({
     activePlayerId,
     dice: local.dice,
@@ -205,14 +210,6 @@ export function GamePlay({
   const sheetPlayers = toMatrixPlayers(snapshot.players, game?.scores, session.you)
   const leaderLabel = scoreLeaderLabel(sheetPlayers)
 
-  const toggleSound = () => {
-    const muted = !soundMuted
-    setSoundMuted(muted)
-    saveSoundMuted(muted)
-    setRollMuted(muted)
-    setSoundtrackMuted(muted)
-  }
-
   // 점수표 행·퀵 칩 공용 원큐 기록. 0점만 잃는 선택이라 확인 모달을 거친다.
   const pickCategory = (category: YachtCategory) => {
     if (!canPick) return
@@ -222,12 +219,6 @@ export function GamePlay({
     }
     submitCategory(category)
   }
-
-  // 마지막 굴림이 끝나면 족보 시트를 자동으로 연다(1d 인터랙션 명세).
-  useEffect(() => {
-    if (wide || submitted) return
-    if (local.phase === 'choosing' && local.rollCount >= MAX_ROLLS) setSheetOpen(true)
-  }, [local.phase, local.rollCount, submitted, wide])
 
   useMyTurnAlert({
     isMyTurn: isMyTurn && !submitted,
@@ -685,95 +676,8 @@ function ZeroScoreModal({
   )
 }
 
-/** 웹 전용 단축키. 리스너를 매 렌더 다시 붙이지 않도록 최신 핸들러만 ref로 넘긴다. */
-function useShortcuts(
-  enabled: boolean,
-  handlers: {
-    dispatch: (action: YachtGameAction) => void
-    onRoll: () => void
-  },
-) {
-  const handlersRef = useRef(handlers)
-  handlersRef.current = handlers
-
-  useEffect(() => {
-    if (!enabled) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      // 버튼·입력처럼 Space·Enter가 고유 동작인 요소에 포커스가 있으면 단축키를 양보한다.
-      // 여기서 preventDefault하면 그 요소의 활성화 자체가 막힌다.
-      if (
-        event.target instanceof Element &&
-        event.target.closest(
-          'a[href],button,input,select,textarea,[contenteditable],[role="button"]',
-        )
-      ) {
-        return
-      }
-      if (event.code === 'Space') {
-        event.preventDefault()
-        handlersRef.current.onRoll()
-        return
-      }
-      const slot = Number(event.key)
-      if (Number.isInteger(slot) && slot >= 1 && slot <= 5) {
-        handlersRef.current.dispatch({ type: 'holdToggled', index: (slot - 1) as DiceIndex })
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [enabled])
-}
-
 /**
  * 마감 처리는 서버가 한다 — 남은 굴림이 있으면 대신 굴리고, 다 쓰면 남은 족보 중 하나를 기록한 뒤
  * 턴을 넘긴다(RoundTimeoutResolver). 클라이언트가 같은 일을 하면 두 경로가 경합하면서 어느 쪽도
  * 기록되지 않는 창이 생기므로 여기서는 아무것도 하지 않는다.
  */
-/**
- * 내 차례가 시작되는 순간 한 번 알린다(QA 7번). 턴이 넘어가면 다시 무장된다.
- * 렌더마다 발화하지 않도록 직전 값과 비교한다 — 상태가 아니라 "전이"가 트리거다.
- */
-function useMyTurnAlert({ isMyTurn, onAlert }: { isMyTurn: boolean; onAlert: () => void }) {
-  const wasMyTurnRef = useRef(false)
-  const onAlertRef = useRef(onAlert)
-  onAlertRef.current = onAlert
-
-  useEffect(() => {
-    if (isMyTurn && !wasMyTurnRef.current) onAlertRef.current()
-    wasMyTurnRef.current = isMyTurn
-  }, [isMyTurn])
-}
-
-/**
- * 라운드가 바뀌는 순간 한 번 알린다(QA FND-7). 관전자에게도 전환 신호를 주되,
- * 턴마다 띄우면 피로하므로 라운드 시작으로 한정한다.
- */
-function useRoundStartNotice({
-  onNotice,
-  roundNumber,
-}: {
-  onNotice: () => void
-  roundNumber: number
-}) {
-  const previousRoundRef = useRef<number | null>(null)
-  const onNoticeRef = useRef(onNotice)
-  onNoticeRef.current = onNotice
-
-  useEffect(() => {
-    const previous = previousRoundRef.current
-    previousRoundRef.current = roundNumber
-    // 첫 렌더(중간 입장·재접속 포함)는 "전환"이 아니다 — 라운드가 실제로 바뀔 때만 알린다.
-    if (previous === null || previous === roundNumber) return
-    onNoticeRef.current()
-  }, [roundNumber])
-}
-
-/** 짧은 두 번 진동. 미지원(iOS Safari 등)이면 조용히 넘어간다 — 토스트가 이미 알린다. */
-function vibrateForMyTurn() {
-  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return
-  try {
-    navigator.vibrate([90, 60, 90])
-  } catch {
-    // 사용자 제스처 없이 호출하면 던지는 브라우저가 있다. 알림 실패가 게임을 막아선 안 된다.
-  }
-}
