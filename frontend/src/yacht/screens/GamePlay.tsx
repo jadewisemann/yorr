@@ -154,7 +154,6 @@ export function GamePlay({
     releaseAll,
     roll: handleRoll,
     rolling,
-    setMuted: setRollMuted,
     submitted,
     submitting,
   } = roll
@@ -178,7 +177,7 @@ export function GamePlay({
     activePlayerId,
     phase: local.phase,
     rollCount: local.rollCount,
-    setRollMuted,
+    setRollMuted: roll.feedback.setMuted,
     submitted,
     wide,
   })

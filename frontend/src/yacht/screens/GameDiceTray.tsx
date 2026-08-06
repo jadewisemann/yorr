@@ -69,20 +69,15 @@ export function GameDiceTray({
     completeRoll,
     confirmThrow,
     currentRollNumber,
-    dismissRollHighlight,
     keptCount,
     lastRollInPlay,
     local,
     motion,
-    motionPulse,
-    onDiceImpact,
-    onPhysicsError,
-    onPhysicsPhaseChange,
+    feedback,
     pendingRoll,
     releaseRequestId,
     remoteShaking,
     roll: handleRoll,
-    rollHighlight,
     rollInputMode,
     rollsLeft,
     settledRollCount,
@@ -149,11 +144,11 @@ export function GameDiceTray({
         held={local.held}
         keepAll={lastRollInPlay}
         motionFollow={rollInputMode === 'motion' || remoteShaking}
-        motionPulse={motionPulse}
-        onDiceImpact={onDiceImpact}
-        onError={onPhysicsError}
+        motionPulse={feedback.motionPulse}
+        onDiceImpact={feedback.diceImpact}
+        onError={feedback.physicsError}
         {...(canHold ? { onHeldToggle: toggleHeld } : {})}
-        onPhaseChange={onPhysicsPhaseChange}
+        onPhaseChange={feedback.phaseChanged}
         onRollComplete={completeRoll}
         releaseRequestId={releaseRequestId}
         request={pendingRoll}
@@ -174,11 +169,11 @@ export function GameDiceTray({
           </span>
         </button>
       )}
-      {rollHighlight && (
+      {feedback.rollHighlight && (
         <RollResultCallout
-          hand={rollHighlight.hand}
-          key={rollHighlight.id}
-          onDone={dismissRollHighlight}
+          hand={feedback.rollHighlight.hand}
+          key={feedback.rollHighlight.id}
+          onDone={feedback.dismissHighlight}
         />
       )}
       {turnCallout !== null && (

@@ -35,12 +35,11 @@ export function GameControllerPad({ activePlayer, isMyTurn, roll }: GameControll
     canPlay,
     completeRoll,
     confirmThrow,
-    dismissRollHighlight,
     local,
     motion,
     pendingRoll,
     releaseRequestId,
-    rollHighlight,
+    feedback,
     rollInputMode,
     settledRollCount,
     toggleHeld,
@@ -107,11 +106,11 @@ export function GameControllerPad({ activePlayer, isMyTurn, roll }: GameControll
       {/* "내 차례!" 대형 콜아웃은 두지 않는다 — 컨트롤러는 손에 들려 있고 진동이 이미 알린다.
           좁은 패드에서 화면을 덮는 연출은 조작을 잠깐 가릴 뿐이다. 족보 연출은 남긴다:
           점수가 되는 결과라 눌러야 할 것이 달라진다. */}
-      {rollHighlight && (
+      {feedback.rollHighlight && (
         <RollResultCallout
-          hand={rollHighlight.hand}
-          key={rollHighlight.id}
-          onDone={dismissRollHighlight}
+          hand={feedback.rollHighlight.hand}
+          key={feedback.rollHighlight.id}
+          onDone={feedback.dismissHighlight}
         />
       )}
     </section>
