@@ -6,7 +6,6 @@ import {
   type PlayerId,
   type ServerMessage,
 } from '@/realtime/wsEvents'
-import { readSoundMuted } from '@/shared/audio/soundPreference'
 import { useAppStore } from '@/store'
 import {
   type DiceIndex,
@@ -15,7 +14,6 @@ import {
   NO_HELD_DICE,
   toggleHeldDie,
 } from '@/yacht/domain/dice'
-import { detectSpecialHand, type SpecialHand } from '@/yacht/domain/specialHands'
 import { isRecorded } from '@/yacht/domain/yachtCategoryView'
 import {
   createYachtGame,
@@ -25,11 +23,8 @@ import {
   type YachtGameAction,
   yachtGameReducer,
 } from '@/yacht/domain/yachtGame'
-import { createRollFeedback } from '@/yacht/feedback/createRollFeedback'
-import { createHandVoice, type HandVoice } from '@/yacht/feedback/handVoice'
 import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
 import { useMotionRollInput } from '@/yacht/input/useMotionRollInput'
-import type { PhysicsDiceMotionPulse, PhysicsDicePhase } from '@/yacht/rendering/physics-dice/types'
 import {
   animationSeedForRoll,
   isCurrentDiceBroadcast,
@@ -39,9 +34,10 @@ import {
   rollAnimationMode,
   turnAwareErrorMessage,
 } from './gamePlayModel'
+import { useRollBroadcast } from './useRollBroadcast'
+import { useRollFeedback } from './useRollFeedback'
 
 const TAP_RELEASE_DELAY_MS = 600
-const SHAKE_RELAY_INTERVAL_MS = 60
 
 type DiceBroadcastMessage = Extract<ServerMessage, { type: 'game.yacht_dice.dice.broadcast' }>
 type DiceShakenMessage = Extract<ServerMessage, { type: 'game.yacht_dice.dice.shaken' }>
@@ -98,14 +94,11 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
   const [releaseRequestId, setReleaseRequestId] = useState<string | null>(null)
   const [rollInputMode, setRollInputMode] = useState<RollAnimationMode | null>(null)
   const [requestingRoll, setRequestingRoll] = useState(false)
-  const [motionPulse, setMotionPulse] = useState<PhysicsDiceMotionPulse | null>(null)
   const [remoteShaking, setRemoteShaking] = useState(false)
-  const [rollHighlight, setRollHighlight] = useState<{ hand: SpecialHand; id: number } | null>(null)
+  const feedback = useRollFeedback()
 
   const acceptedRollTurnRef = useRef<{ playerId: PlayerId; roundNumber: number } | null>(null)
   const activePlayerRef = useRef(activePlayerId)
-  const motionPulseSequenceRef = useRef(0)
-  const lastShakeSentAtRef = useRef(0)
   const rollSequenceRef = useRef(0)
   const inputModeRef = useRef(rollInputMode)
   const pendingRollRequestRef = useRef<PendingRollRequest | null>(null)
@@ -116,10 +109,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
     roundNumber: number
   } | null>(null)
   const queuedRemoteReleaseRef = useRef<{ rollCount: number; roundNumber: number } | null>(null)
-  const feedbackRef = useRef<ReturnType<typeof createRollFeedback> | null>(null)
-  const handVoiceRef = useRef<HandVoice | null>(null)
   inputModeRef.current = rollInputMode
-  if (!feedbackRef.current) feedbackRef.current = createRollFeedback({ muted: readSoundMuted() })
 
   /** 그 라운드의 빈 판으로 되돌린다. 시드는 유지한다 — 같은 방은 같은 굴림을 그려야 한다. */
   const resetLocalFor = useCallback(
@@ -180,55 +170,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
     local.phase === 'rolling' ? local.rollCount : Math.min(MAX_ROLLS, local.rollCount + 1)
   const settledRollCount = local.phase === 'rolling' ? local.rollCount - 1 : local.rollCount
 
-  const publishHeld = useCallback(
-    (held: HeldDice) => {
-      try {
-        realtimeClient.send(
-          buildClientMessage('game.yacht_dice.dice.hold', { held, roundNumber }, { roomId }),
-        )
-      } catch {
-        // ConnectionBanner owns transport failure feedback.
-      }
-    },
-    [realtimeClient, roomId, roundNumber],
-  )
-
-  const publishShake = useCallback(
-    (direction: 'left' | 'right', strength: number) => {
-      const now = performance.now()
-      if (now - lastShakeSentAtRef.current < SHAKE_RELAY_INTERVAL_MS) return
-      lastShakeSentAtRef.current = now
-      try {
-        realtimeClient.send(
-          buildClientMessage(
-            'game.yacht_dice.dice.shake',
-            { direction, roundNumber, strength },
-            { roomId },
-          ),
-        )
-      } catch {
-        // ConnectionBanner owns transport failure feedback.
-      }
-    },
-    [realtimeClient, roomId, roundNumber],
-  )
-
-  const publishThrow = useCallback(
-    (rollCount: number) => {
-      try {
-        realtimeClient.send(
-          buildClientMessage(
-            'game.yacht_dice.dice.throw',
-            { rollCount: rollCount as 1 | 2 | 3, roundNumber },
-            { roomId },
-          ),
-        )
-      } catch {
-        // A lost presentation signal must not block the game.
-      }
-    },
-    [realtimeClient, roomId, roundNumber],
-  )
+  const { publishHeld, publishShake, publishThrow } = useRollBroadcast(roomId, roundNumber)
 
   const beginRoll = useCallback(
     (inputMode: RollInputMode) => {
@@ -351,16 +293,10 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
       ) {
         return
       }
-      feedbackRef.current?.remoteShakePulse()
       setRemoteShaking(true)
-      motionPulseSequenceRef.current += 1
-      setMotionPulse({
-        id: motionPulseSequenceRef.current,
-        direction: message.payload.direction,
-        strength: message.payload.strength,
-      })
+      feedback.pulse(message.payload.direction, message.payload.strength, 'remote')
     },
-    [activePlayerId, roomId, roundNumber, you],
+    [activePlayerId, feedback.pulse, roomId, roundNumber, you],
   )
 
   const handleThrown = useCallback(
@@ -439,17 +375,11 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
     (event: MotionGestureEvent) => {
       switch (event.type) {
         case 'shakePulse':
-          feedbackRef.current?.shakePulse(event.direction, event.strength)
-          motionPulseSequenceRef.current += 1
-          setMotionPulse({
-            id: motionPulseSequenceRef.current,
-            direction: event.direction,
-            strength: event.strength,
-          })
+          feedback.pulse(event.direction, event.strength, 'local')
           publishShake(event.direction, event.strength)
           return
         case 'shakeStarted':
-          feedbackRef.current?.armed()
+          feedback.armed()
           beginRoll('motion')
           return
         case 'throwDetected': {
@@ -461,7 +391,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
             }
             return
           }
-          feedbackRef.current?.thrown()
+          feedback.thrown()
           setReleaseRequestId(request.requestId)
           publishThrow(local.rollCount)
           return
@@ -471,7 +401,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
           return
       }
     },
-    [beginRoll, local, publishShake, publishThrow],
+    [beginRoll, feedback, local, publishShake, publishThrow],
   )
 
   const motion = useMotionRollInput(handleGestureEvent, canPlay)
@@ -486,29 +416,14 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
     return () => clearTimeout(timeout)
   }, [local.rollCount, pendingRoll, publishThrow, rollInputMode])
 
-  useEffect(() => () => feedbackRef.current?.dispose(), [])
-
-  useEffect(() => {
-    const voice = createHandVoice({ muted: readSoundMuted() })
-    handVoiceRef.current = voice
-    return () => {
-      voice.dispose()
-      handVoiceRef.current = null
-    }
-  }, [])
-
-  useEffect(() => {
-    if (rollHighlight) handVoiceRef.current?.play(rollHighlight.hand)
-  }, [rollHighlight])
-
   const roll = useCallback(() => beginRoll('tap'), [beginRoll])
 
   const confirmThrow = useCallback(() => {
     if (!pendingRoll || releaseRequestId === pendingRoll.requestId) return
-    feedbackRef.current?.thrown()
+    feedback.thrown()
     setReleaseRequestId(pendingRoll.requestId)
     publishThrow(local.rollCount)
-  }, [local.rollCount, pendingRoll, publishThrow, releaseRequestId])
+  }, [feedback, local.rollCount, pendingRoll, publishThrow, releaseRequestId])
 
   const completeRoll = useCallback(
     (requestId: string, _dice: DiceSet) => {
@@ -518,12 +433,11 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
       setReleaseRequestId(null)
       setRollInputMode(null)
       if (isMyTurn) motion.resetGesture('roll-complete')
-      const hand = detectSpecialHand(completedDice, (candidate) =>
+      feedback.highlightSpecialHand(completedDice, (candidate) =>
         isRecorded(activeBoard?.categories[candidate]),
       )
-      if (hand) setRollHighlight({ hand, id: Date.now() })
     },
-    [activeBoard, dispatch, isMyTurn, motion, pendingRoll],
+    [activeBoard, dispatch, feedback, isMyTurn, motion, pendingRoll],
   )
 
   const toggleHeld = useCallback(
@@ -552,30 +466,26 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
     confirmThrow,
     currentRollNumber,
     dispatch,
-    dismissRollHighlight: () => setRollHighlight(null),
+    dismissRollHighlight: feedback.dismissHighlight,
     lastRollInPlay,
     keptCount,
     local,
     motion,
-    motionPulse,
-    onDiceImpact: (index: DiceIndex, strength: number) =>
-      feedbackRef.current?.diceImpact(index, strength),
-    onPhysicsError: () => feedbackRef.current?.error(),
-    onPhysicsPhaseChange: (phase: PhysicsDicePhase) => feedbackRef.current?.phaseChanged(phase),
+    motionPulse: feedback.motionPulse,
+    onDiceImpact: feedback.diceImpact,
+    onPhysicsError: feedback.physicsError,
+    onPhysicsPhaseChange: feedback.phaseChanged,
     pendingRoll,
     releaseAll,
     releaseRequestId,
     remoteShaking,
     roll,
-    rollHighlight,
+    rollHighlight: feedback.rollHighlight,
     rollInputMode,
     rolling,
     rollsLeft,
     settledRollCount,
-    setMuted: (muted: boolean) => {
-      feedbackRef.current?.setMuted(muted)
-      handVoiceRef.current?.setMuted(muted)
-    },
+    setMuted: feedback.setMuted,
     submitting,
     submitted,
     toggleHeld,
