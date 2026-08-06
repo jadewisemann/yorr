@@ -1,60 +1,12 @@
-import {
-  type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from 'react'
-import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
-import { buildClientMessage, type Player, type ReactionType } from '@/realtime/wsEvents'
+import type { CSSProperties } from 'react'
+import type { Player } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
-import { resolveRovingKey } from '@/shared/rovingFocus'
-
 /**
  * 계약(`wsEvents.ts`)의 `ReactionType` 5종 ↔ 화면 이모지. 배열 순서가 픽커에 놓이는 순서다.
  * 이모지는 화면에만 살고 와이어에는 `type` 문자열만 흐른다 — 서버는 이 표를 모른다.
  */
-const REACTIONS = [
-  { emoji: '👍', label: '좋아요', type: 'like' },
-  { emoji: '😂', label: '웃겨요', type: 'laugh' },
-  { emoji: '😱', label: '놀랐어요', type: 'shock' },
-  { emoji: '👏', label: '박수', type: 'clap' },
-  { emoji: '🫡', label: 'GG', type: 'gg' },
-] as const satisfies ReadonlyArray<{ emoji: string; label: string; type: ReactionType }>
-
-/** tokens.css의 `--animate-reaction-float` 지속시간과 같은 값. */
-const FLIGHT_MS = 2_200
-/** 동시에 떠 있을 수 있는 개수. 6명이 연타해도 화면이 이모지로 덮이지 않게 한다. */
-const MAX_FLYING = 12
-/**
- * 항목마다 돌려 쓰는 좌우 흩뿌림. Math.random 대신 id로 고르면 테스트도 같은 그림을 본다.
- * <p>
- * <b>0 이하만 쓴다 — 독은 화면 오른쪽 끝에 붙어 있다.</b> 양수 drift는 이모지와 닉네임 필을
- * 뷰포트 밖으로 밀어낸다(320px에서 실측: 필이 오른쪽에서 잘려 누가 보냈는지 못 읽었다).
- * 왼쪽은 트레이 안쪽이라 얼마든지 흩어져도 된다.
- */
-const DRIFTS = ['-3.2rem', '-2.4rem', '-1.5rem', '-0.7rem', '0rem']
-
-/**
- * 세로 흩뿌림. 좌우만 흔들면 같은 순간에 도착한 것들이 <b>같은 높이에서 나란히</b> 올라가
- * 한 줄로 읽히고, motion-reduce에서는 제자리에 뜨는 닉네임 필이 그대로 겹친다.
- * <p>
- * <b>길이를 {@link DRIFTS}와 서로소로 둔다</b>(5 × 3). 같은 길이면 두 값이 같은 주기로 돌아
- * 조합이 5가지뿐인데, 서로소면 15가지가 돌아가서 연타해도 같은 자리가 겹치지 않는다.
- * 정확히 15개를 넘겨야 반복되므로 {@link MAX_FLYING}(12)보다 크다 — 화면에 함께 떠 있는
- * 것들끼리는 절대 같은 좌표를 쓰지 않는다.
- */
-const LIFTS = ['0rem', '-1.15rem', '-2.3rem']
-
-interface Flying {
-  emoji: string
-  id: number
-  /** 낭독용 이름. 계약에 없는 reaction이 오면 빈 문자열이다. */
-  label: string
-  nickname: string
-}
+import { DRIFTS, LIFTS, REACTIONS } from '@/yacht/domain/reactions'
+import { useReactionDock } from '@/yacht/model/useReactionDock'
 
 interface ReactionDockProps {
   className?: string
@@ -72,116 +24,19 @@ interface ReactionDockProps {
  * 뜬 이모지는 휘발성 연출이라 전역 store에 넣지 않고 여기서 소켓을 직접 구독한다.
  */
 export function ReactionDock({ className, players }: ReactionDockProps) {
-  const client = useRealtimeClient()
-  const pickerId = useId()
-  const [open, setOpen] = useState(false)
-  const [flying, setFlying] = useState<Flying[]>([])
-  const dockRef = useRef<HTMLDivElement | null>(null)
-  const triggerRef = useRef<HTMLButtonElement | null>(null)
-  const chipsRef = useRef<(HTMLButtonElement | null)[]>([])
-  /** roving tabindex의 현재 위치. 픽커를 열면 늘 첫 칸부터 시작한다. */
-  const [focusedChip, setFocusedChip] = useState(0)
-  // players는 점수·presence 갱신마다 새 배열로 온다. 구독 effect의 deps에 넣으면
-  // 그때마다 재구독하므로 최신 값만 ref로 넘긴다.
-  const playersRef = useRef(players)
-  playersRef.current = players
-  const nextIdRef = useRef(0)
-
-  useEffect(() => {
-    const timers = new Set<ReturnType<typeof setTimeout>>()
-
-    const unsubscribe = client.onMessage((message) => {
-      if (message.type !== 'reaction.broadcast') return
-      const { playerId, reaction } = message.payload
-      const id = nextIdRef.current++
-      // 서버가 계약에 없는 reaction을 보낼 수 있다(FE보다 먼저 종류가 늘어난 경우).
-      // 알 수 없는 값이면 말풍선으로 떨어뜨린다 — 리액션 하나 때문에 화면이 죽으면 안 된다.
-      const known = REACTIONS.find((candidate) => candidate.type === reaction)
-      setFlying((current) => [
-        // 연타로 화면이 덮이지 않게 오래된 것부터 버린다.
-        ...current.slice(-(MAX_FLYING - 1)),
-        {
-          emoji: known?.emoji ?? '💬',
-          id,
-          label: known?.label ?? '',
-          nickname:
-            playersRef.current.find((player) => player.playerId === playerId)?.nickname ?? '',
-        },
-      ])
-      // animationend에 걸면 prefers-reduced-motion에서 이벤트가 오지 않아 영원히 쌓인다.
-      timers.add(
-        setTimeout(
-          () => setFlying((current) => current.filter((item) => item.id !== id)),
-          FLIGHT_MS,
-        ),
-      )
-    })
-
-    return () => {
-      unsubscribe()
-      for (const timer of timers) clearTimeout(timer)
-    }
-  }, [client])
-
-  /**
-   * Escape로 닫고 트리거로 포커스를 돌린다. 픽커 안에서 Escape를 눌렀을 때 포커스가
-   * 사라진 요소에 남으면 다음 Tab이 문서 처음으로 튄다.
-   */
-  const close = useCallback((restoreFocus: boolean) => {
-    setOpen(false)
-    if (restoreFocus) triggerRef.current?.focus()
-  }, [])
-
-  useEffect(() => {
-    if (!open) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close(true)
-    }
-    // 바깥을 누르면 닫는다. 랜딩의 랭킹 드롭다운과 같은 규칙이다 — 리액션 픽커도 모달이
-    // 아니므로 뒤를 잠그지 않고, 열어 둔 채 다른 곳을 누르면 그대로 닫히기만 한다.
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (target instanceof Node && dockRef.current?.contains(target)) return
-      close(false)
-    }
-    document.addEventListener('keydown', onKeyDown)
-    document.addEventListener('pointerdown', onPointerDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      document.removeEventListener('pointerdown', onPointerDown)
-    }
-  }, [close, open])
-
-  // 열면 첫 칸에 포커스를 준다. 픽커가 DOM에서 트리거보다 **앞**에 있어(닫혔을 때 버튼을
-  // 아래로 밀지 않으려고 absolute로 띄운 결과) Tab을 앞으로 눌러서는 칸에 도달할 수 없었다.
-  useEffect(() => {
-    if (!open) return
-    setFocusedChip(0)
-    chipsRef.current[0]?.focus()
-  }, [open])
-
-  /**
-   * 리액션을 보낸다. <b>보낸 뒤에도 픽커를 닫지 않는다.</b> 리액션은 대화가 아니라 환호라서
-   * 연달아 누르는 것이 기본 사용법인데, 매번 닫히면 세 번 보내려고 픽커를 세 번 열어야 했다.
-   * 닫는 것은 Escape · 바깥 누르기 · 트리거 다시 누르기가 맡는다.
-   */
-  const send = (reaction: ReactionType) => {
-    try {
-      client.send(buildClientMessage('reaction.send', { reaction }))
-    } catch {
-      // 소켓이 끊긴 동안의 리액션은 조용히 버린다 — 재전송할 가치가 없는 연출이고,
-      // 연결이 끊겼다는 사실은 ConnectionBanner가 이미 말하고 있다.
-    }
-  }
-
-  /** 방향키로 칸 사이를 옮긴다(WAI-ARIA toolbar). Tab은 픽커 전체를 한 칸으로 지나간다. */
-  const handleChipKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const next = resolveRovingKey(event.key, focusedChip, REACTIONS.length)
-    if (next === null) return
-    event.preventDefault()
-    setFocusedChip(next)
-    chipsRef.current[next]?.focus()
-  }
+  const {
+    chipsRef,
+    close,
+    dockRef,
+    flying,
+    focusedChip,
+    handleChipKeyDown,
+    open,
+    pickerId,
+    send,
+    setOpen,
+    triggerRef,
+  } = useReactionDock(players)
 
   const latest = flying.at(-1)
 
