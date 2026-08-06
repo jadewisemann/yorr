@@ -3,6 +3,7 @@ import {
   type DuelInputSource,
   drawPenaltyMs,
   flightMs,
+  impactDelayMs,
   type ShotTarget,
   SWING_THRESHOLD,
 } from '@/duel/domain/duel'
@@ -46,11 +47,13 @@ function useStageWidth(ref: RefObject<HTMLElement | null>): number {
 }
 
 /**
- * 착탄까지 남은 시간. 목표를 맞히는 총알이 <b>내 것</b>이면 이미 날아간 만큼을 깎는다 —
- * 내 총알은 반응한 순간 떠났으므로 판정이 늦게 와도 착탄 시각은 그대로여야 한다.
+ * 착탄까지 남은 시간(ms). 규칙은 {@link impactDelayMs}에 있고 여기서는 <b>언제 재는지</b>만 정한다.
  *
- * 판정에 들어서는 순간 한 번만 재고 그 뒤로는 붙잡아 둔다. 매 렌더 다시 재면 CSS
+ * 판정에 들어서는 렌더에서 한 번만 재고 그 뒤로는 붙잡아 둔다. 매 렌더 다시 재면 CSS
  * animation-delay가 계속 바뀌어 이미 재생 중인 연출이 앞으로 튄다.
+ *
+ * 렌더 중 setState는 React가 지원하는 "props가 바뀔 때 상태 조정" 패턴이다 — 이 렌더의
+ * 출력은 버려지고 새 값으로 다시 그린다. 라운드 번호로 막아 두어 라운드당 한 번만 돈다.
  */
 function useImpactDelay(
   state: DuelState | undefined,
@@ -58,16 +61,14 @@ function useImpactDelay(
   firedAt: { current: number | null },
   flight: number,
 ) {
-  const delay = useRef(flight)
-  const measuredRound = useRef(0)
-  if (state?.phase === 'RESULT' && measuredRound.current !== state.round) {
-    measuredRound.current = state.round
+  const [measured, setMeasured] = useState({ delayMs: flight, round: 0 })
+  if (state?.phase === 'RESULT' && measured.round !== state.round) {
     const last = state.lastRound
     const mineLands = last?.shooterId === you || last?.foulId === you
     const flown = mineLands && firedAt.current !== null ? performance.now() - firedAt.current : 0
-    delay.current = Math.max(0, Math.round(flight - flown))
+    setMeasured({ delayMs: impactDelayMs(flight, flown), round: state.round })
   }
-  return delay
+  return measured.delayMs
 }
 
 /**
@@ -145,14 +146,13 @@ export function useDuelGame({ roomId, session, state }: UseDuelGameOptions) {
   useEffect(() => {
     setImpact(false)
     if (phase !== 'RESULT') return
-    const wake = Math.max(0, impactDelay.current - IMPACT_LEAD_MS)
+    const wake = Math.max(0, impactDelay - IMPACT_LEAD_MS)
     const timeoutId = window.setTimeout(() => {
       setImpact(true)
       if (state?.lastRound?.hitId) playGunHit()
     }, wake)
     return () => window.clearTimeout(timeoutId)
-    // 남은 시간은 판정에 들어서는 렌더에서 이미 확정된다 — 이 국면 안에서는 다시 바뀌지 않는다.
-  }, [phase, impactDelay.current, state?.lastRound?.hitId])
+  }, [phase, impactDelay, state?.lastRound?.hitId])
 
   useEffect(() => {
     const round = state?.lastRound

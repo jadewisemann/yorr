@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DRAW_PENALTY_MS, drawOutcome, drawPenaltyMs } from '@/duel/domain/duel'
+import { DRAW_PENALTY_MS, drawOutcome, drawPenaltyMs, impactDelayMs } from '@/duel/domain/duel'
 import { DUEL_FOUL, DUEL_MISS, type DuelRound, type DuelState } from '@/realtime/wsEvents'
 
 /**
@@ -95,5 +95,23 @@ describe('drawOutcome', () => {
     state.lastRound = null
 
     expect(drawOutcome(state, ME).label).toBe('대기')
+  })
+})
+
+/**
+ * 착탄까지 남은 시간. 판정이 늦게 와도 <b>착탄 시각은 그대로여야 한다</b>는 게 규칙이고,
+ * 그 보정이 빠지면 총알이 이미 지나간 자리에서 자세가 바뀐다.
+ */
+describe('impactDelayMs', () => {
+  it('내 총알이면 이미 날아간 만큼을 깎는다', () => {
+    expect(impactDelayMs(300, 120)).toBe(180)
+  })
+
+  it('남의 총알이면(날아간 시간 0) 비행 시간 그대로다', () => {
+    expect(impactDelayMs(300, 0)).toBe(300)
+  })
+
+  it('판정이 비행 시간보다 늦게 오면 즉시 착탄이다 — 음수로 내려가지 않는다', () => {
+    expect(impactDelayMs(300, 900)).toBe(0)
   })
 })

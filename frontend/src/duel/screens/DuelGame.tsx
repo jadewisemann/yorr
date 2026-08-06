@@ -56,7 +56,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
       <DuelDashboard
         flight={flight}
         impact={impact}
-        impactDelayMs={impactDelay.current}
+        impactDelayMs={impactDelay}
         onClose={onLeaveRequest}
         snapshot={snapshot}
         stageRef={stageRef}
@@ -107,7 +107,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
         actLabel={swinging ? '휘둘러!' : 'TAP'}
         flightMs={flight}
         fxKey={state.round}
-        impactDelayMs={impactDelay.current}
+        impactDelayMs={impactDelay}
         hint={swinging ? '초록이 되면 폰을 휘둘러 뽑아!' : '초록이 되면 화면을 탭 (스페이스바)!'}
         maxFouls={MAX_FOULS}
         maxHp={MAX_HP}

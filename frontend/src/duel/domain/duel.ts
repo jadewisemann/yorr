@@ -97,6 +97,17 @@ export function flightMs(stageWidth: number): number {
 }
 
 /**
+ * 판정이 도착한 시점에서 착탄까지 남은 시간.
+ *
+ * 목표를 맞히는 총알이 <b>내 것</b>이면 이미 날아간 만큼(`flownMs`)을 깎는다 — 내 총알은
+ * 반응한 순간 떠났으므로 판정이 늦게 와도 착탄 시각은 그대로여야 한다. 남의 총알이면
+ * 판정과 함께 출발하므로 깎을 것이 없다(`flownMs`가 0).
+ */
+export function impactDelayMs(flight: number, flownMs: number): number {
+  return Math.max(0, Math.round(flight - flownMs))
+}
+
+/**
  * 총알이 스쳐 지나간 쪽이 내뱉는 한마디.
  *
  * 진 쪽도 총을 쐈고 총알은 상대까지 날아간다 — 다만 빗나간다. 아무 말 없이 사라지면
