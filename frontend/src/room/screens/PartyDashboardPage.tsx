@@ -2,16 +2,16 @@ import { useNavigate } from '@tanstack/react-router'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect } from 'react'
 import { type GameKey, gameByKey } from '@/games'
-import type { Player, PlayerId } from '@/realtime/wsEvents'
 import { useCreatePartyRoom } from '@/room/api/useRoomApi'
 import { createInviteUrl, QrFallback } from '@/room/components/InvitePopover'
-import { PlayerCard } from '@/room/components/PlayerCard'
+import { ParticipantColumn } from '@/room/components/PartyDashboard/ParticipantColumn'
 import { playLandingSoundtrack } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
 import { PlayBoard } from '@/shared/components/Screen'
 import { useWideLayout } from '@/shared/useWideLayout'
 import { useAppStore } from '@/store'
+import { PartyOpeningNotice } from './PartyOpeningNotice'
 
 /**
  * 파티 모드 대시보드 대기 화면 — 큰 화면이 게임판이 되고, 사람들은 QR을 찍어 폰으로 붙는다.
@@ -173,89 +173,6 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
       {/* ScoreSheet가 들어설 열. 헤더 행 모양도 점수표와 같게 맞춘다. */}
       {wide && <ParticipantColumn capacity={capacity} hostId={hostId} players={players} />}
     </PlayBoard>
-  )
-}
-
-function ParticipantColumn({
-  capacity,
-  hostId,
-  players,
-}: {
-  capacity: number
-  hostId: PlayerId | undefined
-  players: Player[]
-}) {
-  const emptySeats = Math.max(0, capacity - players.length)
-
-  return (
-    <section
-      aria-label={`참가자 ${players.length}명`}
-      className="flex min-h-0 flex-col border-l border-border"
-    >
-      <div className="flex flex-none items-baseline justify-between gap-3 px-3 pt-2.5 pb-1.5">
-        <h2 className="m-0 text-sm font-bold tracking-[0.02em] whitespace-nowrap">참가자</h2>
-        <p className="m-0 font-mono text-xs tabular-nums text-content-faint">
-          {players.length} / {capacity}
-        </p>
-      </div>
-      <div className="grid min-h-0 flex-1 auto-rows-min gap-2.5 overflow-y-auto px-3 pb-3">
-        {players.map((player) => (
-          <PlayerCard
-            avatarSeed={player.playerId}
-            key={player.playerId}
-            name={player.nickname}
-            status={player.status}
-            subtitle={player.kind === 'BOT' ? '상태 기반 AI 봇' : undefined}
-            // 방장 표시가 이 화면에서 정보인 이유: 시작 버튼이 이 화면에 없으므로, 누구 폰을
-            // 봐야 하는지 알려주지 않으면 TV 앞 사람들이 서로를 쳐다보게 된다.
-            trailing={
-              player.playerId === hostId ? (
-                <span className="rounded-chip bg-border px-1.5 py-0.5 font-mono text-2xs font-bold tracking-[0.1em] text-content-muted">
-                  방장
-                </span>
-              ) : undefined
-            }
-          />
-        ))}
-        {players.length === 0 && (
-          <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-border-raised px-3 text-sm text-content-muted">
-            아직 아무도 없어요 · QR을 찍어 주세요
-          </p>
-        )}
-        {emptySeats > 0 && players.length > 0 && (
-          <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-border-raised px-3 text-sm text-content-muted tabular-nums">
-            <span
-              aria-hidden="true"
-              className="size-11 flex-none rounded-card border border-dashed border-border-strong"
-            />
-            빈 자리 {emptySeats}
-          </p>
-        )}
-      </div>
-    </section>
-  )
-}
-
-/** 방을 여는 동안, 또는 열지 못했을 때. */
-function PartyOpeningNotice({ error, onHome }: { error: Error | null; onHome: () => void }) {
-  return (
-    <main className="mx-auto flex h-svh w-full max-w-lg flex-col items-center justify-center gap-4 px-gutter text-center text-content">
-      {error ? (
-        <>
-          <p className="m-0 text-base font-bold" role="alert">
-            파티 방을 열지 못했어요
-          </p>
-          <p className="m-0 text-sm text-content-muted">{error.message}</p>
-          <Button onClick={onHome} variant="secondary">
-            홈으로
-          </Button>
-        </>
-      ) : (
-        <p className="m-0 text-sm text-content-muted" role="status">
-          파티 방을 열고 있어요.
-        </p>
-      )}
-    </main>
   )
 }
 
