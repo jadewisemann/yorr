@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRealtimeClient } from '../RealtimeClientContext'
 import { buildClientMessage, type PlayerId } from '../wsEvents'
 import { loadIceServers } from './iceServers'
@@ -63,7 +63,11 @@ export function useVoiceChat(you: PlayerId): VoiceChat {
   const streamRef = useRef<MediaStream | null>(null)
   // 최신 mesh를 이벤트 구독에서 보되, 구독을 mesh 생성마다 다시 걸지 않기 위해 ref로 읽는다.
   const youRef = useRef(you)
-  youRef.current = you
+  // 렌더 중에 ref를 쓰지 않는다 — 버려지는 렌더(동시성)에서 커밋되지 않은 값이 남는다.
+  // layout effect는 페인트 전에 돌아서 이벤트·rAF가 읽는 시점에는 이미 최신이다.
+  useLayoutEffect(() => {
+    youRef.current = you
+  })
 
   const stop = useCallback(() => {
     meshRef.current?.close()

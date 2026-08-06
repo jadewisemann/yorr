@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import {
   buildClientMessage,
@@ -77,7 +77,6 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
   const realtimeClient = useRealtimeClient()
   const connectionStatus = useAppStore((state) => state.connectionStatus)
   const renderedGameRef = useRef(game)
-  renderedGameRef.current = game
 
   const roundNumber = game?.roundNumber ?? 1
   const activePlayerId = game?.activePlayerId
@@ -109,7 +108,12 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
     roundNumber: number
   } | null>(null)
   const queuedRemoteReleaseRef = useRef<{ rollCount: number; roundNumber: number } | null>(null)
-  inputModeRef.current = rollInputMode
+  // 렌더 중에 ref를 쓰지 않는다 — 버려지는 렌더(동시성)에서 커밋되지 않은 값이 남는다.
+  // layout effect는 페인트 전에 돌아서 이벤트·rAF가 읽는 시점에는 이미 최신이다.
+  useLayoutEffect(() => {
+    renderedGameRef.current = game
+    inputModeRef.current = rollInputMode
+  })
 
   /** 그 라운드의 빈 판으로 되돌린다. 시드는 유지한다 — 같은 방은 같은 굴림을 그려야 한다. */
   const resetLocalFor = useCallback(

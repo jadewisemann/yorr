@@ -1,5 +1,5 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import { buildClientMessage, type Player, type ReactionType } from '@/realtime/wsEvents'
 import { resolveRovingKey } from '@/shared/rovingFocus'
@@ -24,7 +24,11 @@ export function useReactionDock(players: Player[]) {
   // players는 점수·presence 갱신마다 새 배열로 온다. 구독 effect의 deps에 넣으면
   // 그때마다 재구독하므로 최신 값만 ref로 넘긴다.
   const playersRef = useRef(players)
-  playersRef.current = players
+  // 렌더 중에 ref를 쓰지 않는다 — 버려지는 렌더(동시성)에서 커밋되지 않은 값이 남는다.
+  // layout effect는 페인트 전에 돌아서 이벤트·rAF가 읽는 시점에는 이미 최신이다.
+  useLayoutEffect(() => {
+    playersRef.current = players
+  })
   const nextIdRef = useRef(0)
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { loadPhysicsDiceWorld } from '@/yacht/rendering/physics-dice/loadWorld'
 import type {
   PhysicsDiceIndex,
@@ -122,7 +122,11 @@ export function usePhysicsDiceWorld({
   const rollComplete = useEffectEvent((requestId: string, completedDice: PhysicsDiceSet) =>
     onRollComplete(requestId, completedDice),
   )
-  latestRef.current = { dice, held, keepAll, motionFollow, quality, releaseRequestId, request }
+  // 렌더 중에 ref를 쓰지 않는다 — 버려지는 렌더(동시성)에서 커밋되지 않은 값이 남는다.
+  // layout effect는 페인트 전에 돌아서 이벤트·rAF가 읽는 시점에는 이미 최신이다.
+  useLayoutEffect(() => {
+    latestRef.current = { dice, held, keepAll, motionFollow, quality, releaseRequestId, request }
+  })
 
   useEffect(() => {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches

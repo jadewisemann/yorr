@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 export type AsyncStatus = 'idle' | 'loading' | 'success' | 'error'
 
@@ -31,9 +31,11 @@ export function useAsyncTask<TArgs extends unknown[], TData>(
   const controllerRef = useRef<AbortController | null>(null)
 
   // execute는 이벤트 경로에서 호출되므로 useEffectEvent를 쓸 수 없다(Effect Event는 effect
-  // 안에서만 호출할 수 있다). 최신 값을 ref로 넘기는 우회로가 여기서는 아직 유효하다.
-  taskRef.current = task
-  onSuccessRef.current = options.onSuccess
+  // 안에서만 호출할 수 있다). 최신 값을 ref로 넘기되, 대입은 렌더가 아니라 커밋 뒤에 한다.
+  useLayoutEffect(() => {
+    taskRef.current = task
+    onSuccessRef.current = options.onSuccess
+  })
 
   // 언마운트되면 진행 중인 요청을 끊는다. 끊긴 실행은 아래에서 signal.aborted로 걸러지므로
   // "마운트되어 있나" 플래그를 따로 두지 않는다 — abort가 그 역할을 이미 한다.

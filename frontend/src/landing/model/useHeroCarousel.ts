@@ -103,7 +103,11 @@ export function useHeroCarousel({ activeIndex, games, layout, onSelect }: UseHer
   }
   // 문서 리스너가 매 렌더 붙었다 떨어지지 않도록 ref로 읽는다.
   const stepRef = useRef(step)
-  stepRef.current = step
+  // 렌더 중에 ref를 쓰지 않는다 — 버려지는 렌더(동시성)에서 커밋되지 않은 값이 남는다.
+  // layout effect는 페인트 전에 돌아서 이벤트·rAF가 읽는 시점에는 이미 최신이다.
+  useLayoutEffect(() => {
+    stepRef.current = step
+  })
 
   /**
    * 방향키는 <b>문서에서</b> 듣는다. 예전에는 아래 `<section>`의 onKeyDown이었는데,

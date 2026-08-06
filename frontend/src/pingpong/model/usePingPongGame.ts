@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { type Fault, flightOf, flightProgress } from '@/pingpong/domain/court'
 import type { FrameState } from '@/pingpong/domain/frameState'
 import { type PlayerTracking, trackIncomingBall } from '@/pingpong/domain/playerTracking'
@@ -44,8 +44,12 @@ export function usePingPongGame({
   const [clock, setClock] = useState(Date.now())
   const [sendError, setSendError] = useState<string | null>(null)
 
-  stateRef.current = state
-  viewerRef.current = viewerFor(state, session.you)
+  // 렌더 중에 ref를 쓰지 않는다 — 버려지는 렌더(동시성)에서 커밋되지 않은 값이 남는다.
+  // layout effect는 페인트 전에 돌아서 이벤트·rAF가 읽는 시점에는 이미 최신이다.
+  useLayoutEffect(() => {
+    stateRef.current = state
+    viewerRef.current = viewerFor(state, session.you)
+  })
 
   const swing = useCallback(() => {
     if (dashboard || !canSwing(stateRef.current)) return

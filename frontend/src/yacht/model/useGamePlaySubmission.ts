@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import {
   buildClientMessage,
@@ -41,7 +41,11 @@ export function useGamePlaySubmission({
   const autoRecordedRoundRef = useRef<number | null>(null)
   const turnKey = `${roundNumber}:${activePlayerId ?? ''}`
   const previousTurnKeyRef = useRef(turnKey)
-  previousBoardRef.current = myBoard
+  // 렌더 중에 ref를 쓰지 않는다 — 버려지는 렌더(동시성)에서 커밋되지 않은 값이 남는다.
+  // layout effect는 페인트 전에 돌아서 이벤트·rAF가 읽는 시점에는 이미 최신이다.
+  useLayoutEffect(() => {
+    previousBoardRef.current = myBoard
+  })
 
   useEffect(() => {
     if (previousTurnKeyRef.current === turnKey) return

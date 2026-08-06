@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { GameKey, HeroScene } from '@/landing/rendering/heroScene'
 
 interface HeroCanvasProps {
@@ -40,7 +40,11 @@ export function HeroCanvas({ game }: HeroCanvasProps) {
   // 씬은 지연 로드라 다이얼로그가 먼저 열려 있을 수 있다 — 생성 시점에 현재 상태를 물려준다.
   const pausedRef = useRef(false)
 
-  latestGameRef.current = game
+  // 렌더 중에 ref를 쓰지 않는다 — 버려지는 렌더(동시성)에서 커밋되지 않은 값이 남는다.
+  // layout effect는 페인트 전에 돌아서 이벤트·rAF가 읽는 시점에는 이미 최신이다.
+  useLayoutEffect(() => {
+    latestGameRef.current = game
+  })
 
   useEffect(() => {
     const container = containerRef.current
