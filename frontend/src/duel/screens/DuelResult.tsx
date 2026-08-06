@@ -1,6 +1,7 @@
 import { Ammo } from '@/duel/components/Ammo'
 import { Gunslinger } from '@/duel/components/Gunslinger'
 import { ResultBackdrop } from '@/duel/components/ResultBackdrop'
+import { type DuelOutcome, duelOutcome } from '@/duel/domain/duel'
 import { OUTFIT_LEFT, OUTFIT_RIGHT } from '@/duel/domain/fighter'
 import type { DuelState, RoomSnapshot } from '@/realtime/wsEvents'
 import { isRoomHost } from '@/room/api/roomApi'
@@ -26,6 +27,22 @@ interface DuelResultProps {
   snapshot: RoomSnapshot
 }
 
+/**
+ * 결과 색. 무승부는 이기지도 지지도 않았으므로 승리 초록도 패배 빨강도 아닌 본문 아이보리다 —
+ * 색만 보고 결과를 읽는 사람에게 중립이 「이겼다」로 읽히면 안 된다.
+ */
+const OUTCOME_COLOR: Record<DuelOutcome, string> = {
+  draw: 'var(--ds-duel-ink)',
+  lost: 'var(--ds-duel-danger)',
+  won: 'var(--ds-duel-positive)',
+}
+
+const OUTCOME_HEADING: Record<DuelOutcome, string> = {
+  draw: '비겼다',
+  lost: '쓰러졌다',
+  won: '살아남았다',
+}
+
 export function DuelResult({ onLeaveRequest, session, snapshot }: DuelResultProps) {
   const returnToLobby = useReturnToLobby()
   const state = snapshot.game as unknown as DuelState | undefined
@@ -36,17 +53,20 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: DuelResultProp
   const opponent = snapshot.players.find((player) => player.playerId !== session.you)
   const myHp = state?.hp[session.you] ?? 0
   const opponentHp = opponent ? (state?.hp[opponent.playerId] ?? 0) : 0
-  // 쓰러진 사람이 진 사람이다. 남은 총알로 따지지 않는 이유는 부정출발 실격이
-  // 총알을 남긴 채로 지기 때문이다(이탈도 마찬가지다).
-  const fallen = state?.lastRound?.koId
-  const won = fallen ? fallen !== session.you : myHp > opponentHp
+  const outcome = duelOutcome({
+    fallenId: state?.lastRound?.koId,
+    myHp,
+    opponentHp,
+    you: session.you,
+  })
+  const won = outcome === 'won'
   const host = isRoomHost(snapshot, session.you)
 
   return (
     <ResultBackdrop>
       <div className="flex items-end" style={{ height: 'clamp(150px, 22vh, 260px)' }}>
         <Gunslinger
-          flip={!won}
+          flip={outcome === 'lost'}
           height="100%"
           outfit={won ? OUTFIT_LEFT : OUTFIT_RIGHT}
           pose="ready"
@@ -57,16 +77,17 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: DuelResultProp
         className="m-0 font-mono text-2xs tracking-[0.3em] uppercase"
         style={{ color: 'var(--ds-duel-accent)' }}
       >
-        Last man standing
+        {/* 무승부에는 아무도 마지막까지 서 있지 않았다 — 눈썹 문구가 결과와 어긋나면 안 된다. */}
+        {outcome === 'draw' ? 'Standoff' : 'Last man standing'}
       </p>
       <h1
         className="m-0 font-black"
         style={{
-          color: won ? 'var(--ds-duel-positive)' : 'var(--ds-duel-danger)',
+          color: OUTCOME_COLOR[outcome],
           fontSize: 'clamp(2.25rem, 6vw, 4.5rem)',
         }}
       >
-        {won ? '살아남았다' : '쓰러졌다'}
+        {OUTCOME_HEADING[outcome]}
       </h1>
 
       <section className="flex items-center gap-6 rounded-sheet border border-white/15 bg-white/8 px-8 py-6 backdrop-blur-md">
@@ -133,11 +154,15 @@ export function DuelDashboardResult({
         className="m-0 font-mono text-2xs tracking-[0.3em] uppercase"
         style={{ color: 'var(--ds-duel-accent)' }}
       >
-        Last man standing
+        {survivor ? 'Last man standing' : 'Standoff'}
       </p>
       <h1
         className="m-0 font-black"
-        style={{ color: 'var(--ds-duel-positive)', fontSize: 'clamp(2.25rem, 6vw, 4.5rem)' }}
+        style={{
+          // 승리 초록을 무승부에도 쓰고 있었다 — 글자만 「무승부」인데 색은 이겼다고 말했다.
+          color: survivor ? 'var(--ds-duel-positive)' : 'var(--ds-duel-ink)',
+          fontSize: 'clamp(2.25rem, 6vw, 4.5rem)',
+        }}
       >
         {survivor ? `${nameOf(survivor)} 승리` : '무승부'}
       </h1>

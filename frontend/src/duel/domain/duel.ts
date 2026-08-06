@@ -107,6 +107,32 @@ export function impactDelayMs(flight: number, flownMs: number): number {
   return Math.max(0, Math.round(flight - flownMs))
 }
 
+export type DuelOutcome = 'draw' | 'lost' | 'won'
+
+/**
+ * 한 판의 결과. **무승부가 따로 있다** — 이 판정이 둘(승/패)뿐이던 동안 실제로 두 가지가
+ * 틀리게 그려졌다: 폰 화면은 무승부에 양쪽 모두 「쓰러졌다」를 붉게 띄웠고, 대시보드는
+ * 제목 글자만 「무승부」로 바꾼 채 승리 초록을 그대로 썼다.
+ *
+ * 쓰러진 사람이 진 사람이다. 남은 총알로 따지지 않는 이유는 부정출발 실격이 총알을 남긴 채로
+ * 지기 때문이다(이탈도 마찬가지다). 쓰러진 사람이 없을 때만 총알을 본다.
+ */
+export function duelOutcome({
+  fallenId,
+  myHp,
+  opponentHp,
+  you,
+}: {
+  fallenId: string | null | undefined
+  myHp: number
+  opponentHp: number
+  you: string
+}): DuelOutcome {
+  if (fallenId) return fallenId === you ? 'lost' : 'won'
+  if (myHp === opponentHp) return 'draw'
+  return myHp > opponentHp ? 'won' : 'lost'
+}
+
 /**
  * 총알이 스쳐 지나간 쪽이 내뱉는 한마디.
  *

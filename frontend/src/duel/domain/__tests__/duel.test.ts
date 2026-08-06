@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { DRAW_PENALTY_MS, drawOutcome, drawPenaltyMs, impactDelayMs } from '@/duel/domain/duel'
+import {
+  DRAW_PENALTY_MS,
+  drawOutcome,
+  drawPenaltyMs,
+  duelOutcome,
+  impactDelayMs,
+} from '@/duel/domain/duel'
 import { DUEL_FOUL, DUEL_MISS, type DuelRound, type DuelState } from '@/realtime/wsEvents'
 
 /**
@@ -113,5 +119,27 @@ describe('impactDelayMs', () => {
 
   it('판정이 비행 시간보다 늦게 오면 즉시 착탄이다 — 음수로 내려가지 않는다', () => {
     expect(impactDelayMs(300, 900)).toBe(0)
+  })
+})
+
+/**
+ * 한 판의 결과. 무승부를 셋째 상태로 두지 않았던 동안 폰 화면은 양쪽 모두에게
+ * 「쓰러졌다」를 붉게 띄웠고, 대시보드는 「무승부」에 승리 초록을 썼다.
+ */
+describe('duelOutcome', () => {
+  const base = { myHp: 2, opponentHp: 2, you: 'me' }
+
+  it('쓰러진 사람이 진 사람이다 — 총알이 남아 있어도(부정출발 실격) 진다', () => {
+    expect(duelOutcome({ ...base, fallenId: 'me', myHp: 3, opponentHp: 1 })).toBe('lost')
+    expect(duelOutcome({ ...base, fallenId: 'you', myHp: 1, opponentHp: 3 })).toBe('won')
+  })
+
+  it('쓰러진 사람이 없고 총알이 같으면 무승부다', () => {
+    expect(duelOutcome({ ...base, fallenId: undefined })).toBe('draw')
+  })
+
+  it('쓰러진 사람이 없으면 남은 총알로 가른다', () => {
+    expect(duelOutcome({ ...base, fallenId: undefined, myHp: 3, opponentHp: 1 })).toBe('won')
+    expect(duelOutcome({ ...base, fallenId: undefined, myHp: 1, opponentHp: 3 })).toBe('lost')
   })
 })
