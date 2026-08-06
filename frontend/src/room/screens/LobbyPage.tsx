@@ -1,3 +1,4 @@
+import { useVoice } from '@/realtime/voice/VoiceContext'
 import {
   ControllerConnectSequence,
   controllerHowTo,
@@ -6,7 +7,9 @@ import { InvitePopover } from '@/room/components/InvitePopover'
 import { BotManagementPanel } from '@/room/components/Lobby/BotManagementPanel'
 import { LobbyRoomContent } from '@/room/components/Lobby/LobbyRoomContent'
 import { connectionLabel } from '@/room/domain/lobbyLabels'
-import { useLobbyPage } from '@/room/model/useLobbyPage'
+import { useLobbyActions } from '@/room/model/useLobbyActions'
+import { useLobbyChrome } from '@/room/model/useLobbyChrome'
+import { useLobbyRoom } from '@/room/model/useLobbyRoom'
 import { cn } from '@/shared/cn'
 import { AudioPopover } from '@/shared/components/AudioPopover'
 import { AudioStatusIcon, audioLabel } from '@/shared/components/AudioStatusIcon'
@@ -19,9 +22,14 @@ interface LobbyPageProps {
 }
 
 export function LobbyPage({ roomId }: LobbyPageProps) {
-  const lobby = useLobbyPage(roomId)
-  const { connectionStatus, session, snapshot, voice } = lobby
-  const HowTo = controllerHowTo[lobby.gameCode]
+  const room = useLobbyRoom(roomId)
+  const chrome = useLobbyChrome()
+  const actions = useLobbyActions(room)
+  // 통화 자체는 라우터 위 VoiceProvider가 들고 있다 — 여기서는 상태만 읽는다.
+  const voice = useVoice()
+
+  const { connectionStatus, session, snapshot } = room
+  const HowTo = controllerHowTo[room.gameCode]
   const micOn = voice.status === 'on'
 
   if (!session) return null
@@ -30,33 +38,29 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
     <>
       {/* 다이얼로그는 main 밖에 둔다 — Modal이 main에 inert를 걸어 안에 있으면
           모달 자신까지 클릭이 막힌다(GamePage·GameResult와 같은 배치). */}
-      <RoomExitGuard
-        onClose={() => lobby.setExitRequested(false)}
-        open={lobby.exitRequested}
-        roomId={roomId}
-      />
+      <RoomExitGuard onClose={chrome.cancelExit} open={chrome.exitRequested} roomId={roomId} />
       <AudioPopover
-        anchorRef={lobby.audioButtonRef}
+        anchorRef={chrome.audio.buttonRef}
         microphone={
           voice.status === 'unsupported'
             ? undefined
             : {
                 connectedPeers: voice.peers.length,
                 denied: voice.status === 'denied',
-                on: voice.status === 'on',
+                on: micOn,
                 onToggle: voice.toggle,
                 requesting: voice.status === 'requesting',
               }
         }
-        muted={lobby.soundMuted}
-        onClose={() => lobby.setAudioOpen(false)}
-        onToggleMute={lobby.handleToggleMute}
-        open={lobby.audioOpen}
+        muted={chrome.soundMuted}
+        onClose={chrome.audio.close}
+        onToggleMute={chrome.toggleMute}
+        open={chrome.audio.open}
       />
       <InvitePopover
-        anchorRef={lobby.inviteButtonRef}
-        onClose={() => lobby.setInviteOpen(false)}
-        open={lobby.inviteOpen}
+        anchorRef={chrome.invite.buttonRef}
+        onClose={chrome.invite.close}
+        open={chrome.invite.open}
         roomCode={session.roomCode}
       />
       {/* phase가 waiting을 벗어난 순간부터 게임 화면으로 옮겨질 때까지 덮는다. 호스트의
@@ -106,20 +110,20 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           <Button
             aria-label={audioLabel({
               micOn,
-              muted: lobby.soundMuted,
+              muted: chrome.soundMuted,
               peerCount: voice.peers.length,
             })}
             className={cn('flex-none px-3 text-base', micOn && 'border-brand')}
-            onClick={() => lobby.setAudioOpen(true)}
-            ref={lobby.audioButtonRef}
+            onClick={chrome.audio.show}
+            ref={chrome.audio.buttonRef}
             type="button"
             variant="secondary"
           >
-            <AudioStatusIcon micOn={micOn} muted={lobby.soundMuted} />
+            <AudioStatusIcon micOn={micOn} muted={chrome.soundMuted} />
           </Button>
           <Button
             className="flex-none px-3.5 text-sm"
-            onClick={() => lobby.setExitRequested(true)}
+            onClick={chrome.requestExit}
             type="button"
             variant="danger"
           >
@@ -130,7 +134,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
         {/* 컨트롤러 자리에는 연결 안내만 선다(S15P11A406-205). 초대 입구는 아래 참가 인원 줄로
             옮겼고, 컨트롤러에게는 그 버튼도 주지 않는다 — 큰 화면이 이미 QR을 띄우고 있어서
             자기 폰으로 자기 QR을 찍는 길이 된다. */}
-        {lobby.controller && (
+        {room.controller && (
           <ControllerConnectSequence
             howTo={HowTo ? <HowTo /> : undefined}
             status={connectionStatus}
@@ -138,18 +142,18 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
         )}
 
         <BotManagementPanel
-          adding={lobby.botAdding}
-          capacity={lobby.capacity}
-          error={lobby.botError}
-          loading={lobby.botLoading}
-          onAdd={() => void lobby.handleAddBot()}
+          adding={actions.addingBot}
+          capacity={room.capacity}
+          error={actions.botError}
+          loading={actions.botLoading}
+          onAdd={() => void actions.addBot()}
           playerCount={snapshot?.players.length ?? 0}
-          visible={Boolean(snapshot && lobby.isHost && !lobby.duoGame)}
+          visible={Boolean(snapshot && room.isHost && !room.duoGame)}
         />
 
         {/* 컨트롤러는 위 연결 안내가 같은 말을 이미 하고 있다 — 두 줄이 겹치면
             어느 쪽이 지금 상태인지 알 수 없다. */}
-        {!snapshot && !lobby.controller && (
+        {!snapshot && !room.controller && (
           <p className="m-0 text-center text-sm text-content-muted" role="status">
             실시간 대기실에 연결하고 있어요.
           </p>
@@ -163,13 +167,13 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           <span className="text-sm font-semibold">참가 인원</span>
           <span className="ml-auto font-mono text-base font-bold tabular-nums">
             {snapshot?.players.length ?? 0}
-            <span className="text-content-faint"> / {lobby.capacity}</span>
+            <span className="text-content-faint"> / {room.capacity}</span>
           </span>
-          {!lobby.controller && (
+          {!room.controller && (
             <Button
               className="min-h-9 flex-none px-3 text-sm"
-              onClick={() => lobby.setInviteOpen(true)}
-              ref={lobby.inviteButtonRef}
+              onClick={chrome.invite.show}
+              ref={chrome.invite.buttonRef}
               type="button"
               variant="secondary"
             >
@@ -179,18 +183,18 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
         </div>
 
         <LobbyRoomContent
-          botLoading={lobby.botLoading}
-          canStart={lobby.canStart}
-          capacity={lobby.capacity}
+          botLoading={actions.botLoading}
+          canStart={room.canStart}
+          capacity={room.capacity}
           connectionStatus={connectionStatus}
-          isHost={lobby.isHost}
-          minPlayers={lobby.minPlayersToStart}
-          onRemoveBot={lobby.handleRemoveBot}
-          onStart={() => void lobby.handleStart()}
+          isHost={room.isHost}
+          minPlayers={room.minPlayers}
+          onRemoveBot={actions.removeBot}
+          onStart={() => void actions.start()}
           snapshot={snapshot}
           voice={voice}
-          startError={lobby.startError}
-          startLoading={lobby.startLoading}
+          startError={actions.startError}
+          startLoading={actions.startLoading}
           you={session.you}
         />
       </main>
