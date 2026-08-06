@@ -19,7 +19,7 @@ const moduleScreens = {
       import('@/duel/screens/DuelGame').then((module) => ({ default: module.DuelGame })),
     ),
     Result: lazy(() =>
-      import('@/duel/screens/DuelGame').then((module) => ({ default: module.DuelResult })),
+      import('@/duel/screens/DuelResult').then((module) => ({ default: module.DuelResult })),
     ),
   },
   PING_PONG: {
