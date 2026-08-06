@@ -29,7 +29,7 @@ const moduleScreens = {
       })),
     ),
     Result: lazy(() =>
-      import('@/pingpong/screens/PingPongGame').then((module) => ({
+      import('@/pingpong/screens/PingPongResult').then((module) => ({
         default: module.PingPongResult,
       })),
     ),
