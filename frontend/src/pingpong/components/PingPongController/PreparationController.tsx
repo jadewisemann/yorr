@@ -68,7 +68,7 @@ export function PreparationStatus({
 }) {
   return (
     <div
-      className={`rounded-card border px-3 py-2.5 text-center text-sm font-bold ${ready ? 'border-pp-accent/45 bg-pp-accent/12 text-pp-accent-text' : 'border-white/12 bg-white/6 text-white/45'}`}
+      className={`rounded-card border px-3 py-2.5 text-center text-sm font-bold ${ready ? 'border-pp-accent/45 bg-pp-accent/12 text-pp-accent-text' : 'border-white/12 bg-white/6 text-game-content-faint'}`}
     >
       <span className="flex items-center justify-center gap-1">
         <span className="rounded-xs border border-current px-1 font-mono text-2xs font-black leading-none">
@@ -138,7 +138,7 @@ export function PingPongPreparationController({
         {/* 잡는 법이 여기 있는 이유: 빠른 대전으로 들어온 폰은 대기실 사용법
             (`PingPongControllerHowTo`)을 지나지 않는다 — 매칭이 잡히면 대기 백드롭이 걷히기
             전에 경기가 시작돼서, 이 화면이 그 사람이 보는 첫 안내다(S15P11A406-206). */}
-        <p className="mt-1.5 mb-0 text-sm text-white/55">
+        <p className="mt-1.5 mb-0 text-sm text-game-content-muted">
           {usesTouchFallback(permission)
             ? '화면을 눌러 받아치세요. '
             : '폰을 라켓처럼 세워 쥐고 팔로 짧게 휘두르세요. '}
@@ -164,7 +164,7 @@ export function PingPongPreparationController({
           data-testid="ping-pong-paddle-face"
         />
         <span
-          className={`absolute inset-x-4 bottom-5 text-center text-base font-black ${practiced ? 'text-pp-accent' : 'text-white/70'}`}
+          className={`absolute inset-x-4 bottom-5 text-center text-base font-black ${practiced ? 'text-pp-accent' : 'text-game-content'}`}
         >
           {practiceAck ? '스윙 감지 완료! 공을 맞혔어요' : practicePrompt(permission)}
         </span>

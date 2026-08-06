@@ -104,7 +104,7 @@ export function PingPongController({
     <ControllerScreen className="bg-pp-canvas">
       <header className="flex flex-none items-center justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
-          <span className="font-mono text-2xs tracking-[0.18em] text-white/40">
+          <span className="font-mono text-2xs tracking-[0.18em] text-game-content-faint">
             PHONE CONTROLLER
           </span>
           <strong className="truncate text-lg">{nickname}</strong>
@@ -120,7 +120,9 @@ export function PingPongController({
           tone={p1.tone}
         />
         <div className="text-center">
-          <span className="block font-mono text-2xs tracking-[0.14em] text-white/40">RALLY</span>
+          <span className="block font-mono text-2xs tracking-[0.14em] text-game-content-faint">
+            RALLY
+          </span>
           <strong className="font-mono text-2xl">{state.rally}</strong>
         </div>
         <ControllerScore

@@ -29,13 +29,13 @@ export function PingPongResult({ onLeaveRequest, session, snapshot }: PingPongRe
   return (
     <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-pp-canvas px-gutter text-white">
       <div className="absolute inset-0 [background:radial-gradient(circle_at_50%_30%,rgb(43_143_224_/_20%),transparent_45%)]" />
-      <p className="relative m-0 font-mono text-xs tracking-[0.22em] text-white/55">
+      <p className="relative m-0 font-mono text-xs tracking-[0.22em] text-game-content-muted">
         MATCH FINISHED
       </p>
       <h1 className="relative m-0 text-5xl font-black">{won ? '승리!' : '좋은 경기였어요'}</h1>
       <section className="relative flex items-center gap-6 rounded-sheet border border-white/15 bg-white/8 px-8 py-7 backdrop-blur-md">
         <Score name="나" score={myScore} tone="blue" large />
-        <span className="text-2xl text-white/35">:</span>
+        <span className="text-2xl text-game-separator">:</span>
         <Score name={opponent?.nickname ?? '상대'} score={opponentScore} tone="red" large />
       </section>
       <div className="relative grid w-full max-w-sm gap-3">
@@ -48,7 +48,7 @@ export function PingPongResult({ onLeaveRequest, session, snapshot }: PingPongRe
             대기실로 돌아가기
           </Button>
         ) : (
-          <p className="m-0 text-center text-sm text-white/60">
+          <p className="m-0 text-center text-sm text-game-content-muted">
             호스트가 재대결을 준비하고 있어요.
           </p>
         )}
@@ -76,7 +76,9 @@ export function PingPongDashboardResult({
 
   return (
     <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-pp-canvas px-gutter text-white">
-      <p className="m-0 font-mono text-xs tracking-[0.22em] text-white/55">MATCH FINISHED</p>
+      <p className="m-0 font-mono text-xs tracking-[0.22em] text-game-content-muted">
+        MATCH FINISHED
+      </p>
       <h1 className="m-0 text-5xl font-black">경기 종료</h1>
       <section className="flex items-center gap-6 rounded-sheet border border-white/15 bg-white/8 px-8 py-7">
         <Score
@@ -85,7 +87,7 @@ export function PingPongDashboardResult({
           tone="blue"
           large
         />
-        <span className="text-2xl text-white/35">:</span>
+        <span className="text-2xl text-game-separator">:</span>
         <Score
           name={secondPlayer?.nickname ?? 'P2'}
           score={state?.scores[secondPlayerId] ?? 0}
@@ -93,7 +95,7 @@ export function PingPongDashboardResult({
           large
         />
       </section>
-      <p className="m-0 text-center text-sm text-white/60">
+      <p className="m-0 text-center text-sm text-game-content-muted">
         방장이 폰에서 재대결을 준비할 수 있어요.
       </p>
       <Button size="lg" onClick={onClose} variant="secondary">

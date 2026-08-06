@@ -27,7 +27,7 @@ export function ControllerScore({
 }) {
   return (
     <div className={tone === 'blue' ? 'text-pp-side-blue-text' : 'text-pp-danger-text'}>
-      <span className="flex max-w-24 items-center gap-1 text-xs font-bold text-white/55">
+      <span className="flex max-w-24 items-center gap-1 text-xs font-bold text-game-content-muted">
         <span className="rounded-xs border border-current px-1 font-mono text-2xs font-black leading-none">
           {tag}
         </span>

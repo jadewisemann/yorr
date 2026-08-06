@@ -70,6 +70,12 @@
   --color-pp-muted: var(--ds-pp-muted);
   --color-pp-paddle-grip: var(--ds-pp-paddle-grip);
 
+  /* 게임 화면 텍스트 — 두 게임이 공유한다. 근거는 아래 원시값 선언에 있다. */
+  --color-game-content: var(--ds-game-content);
+  --color-game-content-muted: var(--ds-game-content-muted);
+  --color-game-content-faint: var(--ds-game-content-faint);
+  --color-game-separator: var(--ds-game-separator);
+
   --color-duel-canvas: var(--ds-duel-canvas);
   --color-duel-accent: var(--ds-duel-accent);
   --color-duel-accent-soft: var(--ds-duel-accent-soft);
@@ -452,6 +458,24 @@
   --ds-duel-gold: var(--ds-color-warning);
   --ds-duel-positive: var(--ds-color-positive);
   --ds-duel-danger: var(--ds-color-brand-soft);
+
+  /* 게임 화면 텍스트 밝기. 결투·탁구가 content / content-muted / content-faint 사다리를
+     흰색 알파 11단(/30 /35 /40 /45 /50 /55 /60 /65 /70 /75 /85, 33곳)으로 다시 구현하고
+     있었다. 나란히 놓으면 /40과 /45는 구분되지 않는다 — 사다리가 아니라 그때그때 적은 값이다.
+
+     불투명 content-*를 그대로 쓰지 않는 이유: 두 게임의 캔버스가 앱 캔버스와 다르고(결투
+     #0b0409는 따뜻하고, 탁구는 살아 있는 3D 위에 글자가 얹힌다) 알파여야 배경이 비친다.
+     그래서 **색이 아니라 명암비를 앱 사다리에 맞췄다**(캔버스 위 실측):
+
+       content-muted 8.11:1  ↔  white/65  8.51:1
+       content-faint 5.28:1  ↔  white/50  5.33:1
+
+     separator는 점수 사이 ":" 글리프 전용이다(2xl 이상). 읽는 글이 아니라 자리 표시라
+     흐리게 두되, 예전 /30(2.53:1)은 24px 큰 글자 기준 3:1에도 못 미쳐 /35로 올렸다. */
+  --ds-game-content: rgb(255 255 255 / 85%);
+  --ds-game-content-muted: rgb(255 255 255 / 65%);
+  --ds-game-content-faint: rgb(255 255 255 / 50%);
+  --ds-game-separator: rgb(255 255 255 / 35%);
 
   /* 필름 그레인 — 캔버스와 랜딩 배경 위에 얹는 <b>맨 위 배경 레이어</b>다.
      이 화면들은 전부 큰 면적의 매끈한 radial-gradient라 넓은 디스플레이에서 계단(banding)이

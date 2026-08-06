@@ -39,7 +39,7 @@ export function Prompt({
   return (
     <span className="absolute inset-x-4 bottom-[12%] grid justify-items-center gap-1.5 text-center">
       <strong className={`text-4xl font-black ${tone}`}>{children}</strong>
-      {sub && <span className="text-sm text-white/50">{sub}</span>}
+      {sub && <span className="text-sm text-game-content-faint">{sub}</span>}
     </span>
   )
 }
@@ -89,7 +89,7 @@ export function DrawPrompt({
     )
   }
   return (
-    <Prompt sub={holdHint(permission)} tone="text-white/45">
+    <Prompt sub={holdHint(permission)} tone="text-game-content-faint">
       기다려
     </Prompt>
   )

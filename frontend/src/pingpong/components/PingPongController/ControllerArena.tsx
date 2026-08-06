@@ -23,7 +23,7 @@ export function ControllerPrompt({
     )
   }
   return (
-    <span className="absolute inset-x-5 bottom-7 text-center text-base font-bold text-white/75">
+    <span className="absolute inset-x-5 bottom-7 text-center text-base font-bold text-game-content">
       {incoming ? '지금 공이 오고 있어요 · 타이밍에 맞춰 스윙!' : '상대의 리턴을 기다리세요'}
     </span>
   )

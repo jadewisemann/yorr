@@ -93,7 +93,7 @@ export function AmmoRow({
         ))}
       </span>
       {/* 자리는 늘 잡아 둔다 — 기록이 뜰 때마다 위 칸이 밀려 올라가면 눈이 따라가지 못한다. */}
-      <span className="min-h-4 font-mono text-2xs text-white/40">
+      <span className="min-h-4 font-mono text-2xs text-game-content-faint">
         {showMs && ms !== null ? msLabel(ms) : null}
       </span>
     </div>

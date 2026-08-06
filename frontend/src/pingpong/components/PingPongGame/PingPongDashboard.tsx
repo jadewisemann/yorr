@@ -47,7 +47,7 @@ export function PingPongDashboard({
         snapshot={snapshot}
         state={state}
       />
-      <p className="pointer-events-none absolute inset-x-0 bottom-5 z-20 m-0 text-center text-sm text-white/55">
+      <p className="pointer-events-none absolute inset-x-0 bottom-5 z-20 m-0 text-center text-sm text-game-content-muted">
         두 플레이어가 각자 휴대폰으로 조작하고 있어요.
       </p>
     </main>

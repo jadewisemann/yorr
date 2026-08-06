@@ -23,7 +23,9 @@ export function PingPongPreparation({
         <div>
           <p className="m-0 font-mono text-xs tracking-[0.2em] text-pp-side-blue-text">WARM-UP</p>
           <h1 className="mt-2 mb-0 text-4xl font-black">{heading}</h1>
-          <p className="mt-2 mb-0 text-white/55">두 명 모두 준비 완료하면 경기가 시작됩니다.</p>
+          <p className="mt-2 mb-0 text-game-content-muted">
+            두 명 모두 준비 완료하면 경기가 시작됩니다.
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           {state.playerOrder.map((playerId, index) => {
@@ -37,7 +39,7 @@ export function PingPongPreparation({
                 <span className="block truncate text-lg font-black">
                   {player?.nickname ?? `P${index + 1}`}
                 </span>
-                <span className={ready ? 'text-pp-accent-text' : 'text-white/45'}>
+                <span className={ready ? 'text-pp-accent-text' : 'text-game-content-faint'}>
                   {ready ? '준비 완료' : '연습 중'}
                 </span>
               </div>

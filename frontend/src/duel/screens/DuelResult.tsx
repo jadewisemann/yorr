@@ -92,7 +92,7 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: DuelResultProp
 
       <section className="flex items-center gap-6 rounded-sheet border border-white/15 bg-white/8 px-8 py-6 backdrop-blur-md">
         <Ammo hp={myHp} name="나" outfit={OUTFIT_LEFT} />
-        <span className="text-2xl text-white/35">:</span>
+        <span className="text-2xl text-game-separator">:</span>
         <Ammo hp={opponentHp} name={opponent?.nickname ?? '상대'} outfit={OUTFIT_RIGHT} />
       </section>
 
@@ -106,7 +106,7 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: DuelResultProp
             대기실로 돌아가기
           </Button>
         ) : (
-          <p className="m-0 text-center text-sm text-white/60">
+          <p className="m-0 text-center text-sm text-game-content-muted">
             호스트가 재대결을 준비하고 있어요.
           </p>
         )}
@@ -169,11 +169,11 @@ export function DuelDashboardResult({
 
       <section className="flex items-center gap-6 rounded-sheet border border-white/15 bg-white/8 px-8 py-6 backdrop-blur-md">
         <Ammo hp={state?.hp[first ?? ''] ?? 0} name={nameOf(first)} outfit={OUTFIT_LEFT} />
-        <span className="text-2xl text-white/35">:</span>
+        <span className="text-2xl text-game-separator">:</span>
         <Ammo hp={state?.hp[second ?? ''] ?? 0} name={nameOf(second)} outfit={OUTFIT_RIGHT} />
       </section>
 
-      <p className="m-0 text-center text-sm text-white/60">
+      <p className="m-0 text-center text-sm text-game-content-muted">
         방장이 폰에서 재대결을 시작할 수 있어요.
       </p>
       <Button onClick={onClose} size="lg" variant="secondary">

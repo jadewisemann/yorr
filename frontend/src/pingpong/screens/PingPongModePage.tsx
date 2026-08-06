@@ -66,7 +66,7 @@ function LocalPingPongGame({
           <IconBack className="size-4" />
           게임 선택
         </GameChromeButton>
-        <span className="font-mono text-xs tracking-[0.14em] text-white/45">
+        <span className="font-mono text-xs tracking-[0.14em] text-game-content-faint">
           {mode === 'solo' ? 'AI와 대전' : '1:1 파티 모드'}
         </span>
         {permission === 'unknown' ? (
@@ -84,7 +84,7 @@ function LocalPingPongGame({
 
       <section className="relative z-10 flex flex-none items-end justify-center gap-7 pb-2">
         <LocalScore label={p1Label} score={hud.s1} tone="blue" />
-        <span className="pb-1 text-2xl text-white/30">:</span>
+        <span className="pb-1 text-2xl text-game-separator">:</span>
         <LocalScore label={p2Label} score={hud.s2} tone="red" />
       </section>
 
@@ -109,7 +109,7 @@ function LocalPingPongGame({
 
         {hud.countdown > 0 && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center">
-            <strong className="text-[14vh] leading-none text-white/85 drop-shadow-2xl">
+            <strong className="text-[14vh] leading-none text-game-content drop-shadow-2xl">
               {hud.countdown}
             </strong>
           </div>
@@ -124,7 +124,7 @@ function LocalPingPongGame({
                   화면에서 혼자 컬러로 떴다 — 오류 상태이므로 경고 아이콘이 맞는 말이다. */}
               <IconWarning className="mx-auto size-10 text-pp-gold" />
               <h2 className="mt-3 text-xl font-black">3D를 띄울 수 없어요</h2>
-              <p className="text-sm text-white/55">
+              <p className="text-sm text-game-content-muted">
                 WebGL을 지원하는 최신 브라우저에서 다시 열어주세요.
               </p>
             </div>
@@ -147,7 +147,7 @@ function LocalPingPongGame({
                     : '좋은 경기였어요'
                   : `P${hud.s1 > hud.s2 ? 1 : 2} 승리!`}
               </h2>
-              <p className="m-0 text-lg text-white/65">
+              <p className="m-0 text-lg text-game-content-muted">
                 {hud.s1} : {hud.s2}
               </p>
               <Button onClick={restart} size="lg">
@@ -161,7 +161,7 @@ function LocalPingPongGame({
         )}
       </div>
 
-      <footer className="relative z-10 flex-none px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center text-xs text-white/40">
+      <footer className="relative z-10 flex-none px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center text-xs text-game-content-faint">
         {mode === 'duo'
           ? '왼쪽 탭·스페이스 = P1 · 오른쪽 탭·P = P2'
           : '화면 탭·스페이스·휴대폰 스윙으로 받아치기'}
@@ -183,7 +183,7 @@ function LocalScore({
     <div
       className={`grid min-w-20 text-center ${tone === 'blue' ? 'text-pp-side-blue-text' : 'text-pp-danger-text'}`}
     >
-      <span className="font-mono text-xs font-bold text-white/55">{label}</span>
+      <span className="font-mono text-xs font-bold text-game-content-muted">{label}</span>
       <strong className="font-mono text-4xl leading-none">{score}</strong>
     </div>
   )

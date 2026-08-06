@@ -15,7 +15,7 @@ export function Score({
     <div
       className={`grid min-w-20 text-center ${tone === 'blue' ? 'text-pp-side-blue-text' : 'text-pp-danger-text'}`}
     >
-      <span className="flex min-w-0 items-center justify-center gap-1 text-xs font-bold text-white/65">
+      <span className="flex min-w-0 items-center justify-center gap-1 text-xs font-bold text-game-content-muted">
         {tag && (
           <span className="rounded-xs border border-current px-1 font-mono text-2xs font-black leading-none">
             {tag}

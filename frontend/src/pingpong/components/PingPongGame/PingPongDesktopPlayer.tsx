@@ -84,7 +84,7 @@ export function PingPongDesktopPlayer({
         snapshot={snapshot}
         state={state}
       />
-      <p className="pointer-events-none absolute inset-x-0 bottom-5 z-20 m-0 text-center text-sm text-white/55">
+      <p className="pointer-events-none absolute inset-x-0 bottom-5 z-20 m-0 text-center text-sm text-game-content-muted">
         스페이스바 또는 화면 클릭으로 받아치기
       </p>
       {error && (
