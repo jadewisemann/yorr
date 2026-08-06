@@ -1,5 +1,13 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import { cn } from '@/shared/cn'
 import { popVariants, scrimVariants } from '@/shared/motion'
 import { useDialogBackground } from '@/shared/useDialogBackground'
@@ -120,8 +128,8 @@ export function Popover({
   width,
 }: PopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null)
-  const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  // 부모가 매 렌더 새 onClose를 넘겨도 Escape 리스너가 다시 붙지 않는다.
+  const close = useEffectEvent(onClose)
   const [placement, setPlacement] = useState<Placement | null>(null)
 
   useDialogBackground(open)
@@ -143,7 +151,7 @@ export function Popover({
     panelRef.current?.querySelector<HTMLElement>(focusSelector)?.focus()
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCloseRef.current()
+      if (event.key === 'Escape') close()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => {

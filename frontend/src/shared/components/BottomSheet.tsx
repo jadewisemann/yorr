@@ -3,6 +3,7 @@ import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
 } from 'react'
@@ -50,9 +51,8 @@ export function BottomSheet({ children, className, onClose, open, title }: Botto
   const [dragOffset, setDragOffset] = useState(0)
   const dragStartRef = useRef<number | null>(null)
 
-  // 부모가 매 렌더 새 onClose를 넘겨도 포커스 트랩이 다시 잡히지 않도록 ref로 읽는다.
-  const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  // 부모가 매 렌더 새 onClose를 넘겨도 포커스 트랩이 다시 잡히지 않는다.
+  const close = useEffectEvent(onClose)
 
   // 포커스 effect보다 먼저 선언한다 — cleanup이 먼저 돌아야 inert가 풀린 뒤
   // 아래 effect가 뒤 화면의 원래 위치로 포커스를 되돌릴 수 있다.
@@ -63,8 +63,7 @@ export function BottomSheet({ children, className, onClose, open, title }: Botto
     const previousFocus = document.activeElement as HTMLElement | null
     focusablesIn(sheetRef.current)[0]?.focus()
 
-    const onKeyDown = (event: KeyboardEvent) =>
-      keepFocusInSheet(event, sheetRef.current, onCloseRef.current)
+    const onKeyDown = (event: KeyboardEvent) => keepFocusInSheet(event, sheetRef.current, close)
 
     document.addEventListener('keydown', onKeyDown)
     return () => {

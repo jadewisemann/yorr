@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { readSoundMuted, saveSoundMuted } from '@/shared/audio/soundPreference'
 import { setSoundtrackMuted } from '@/shared/audio/soundtrack'
 import type { DiceIndex } from '@/yacht/domain/dice'
@@ -84,7 +84,10 @@ export function useGamePlayChrome({
   }
 }
 
-/** 웹 전용 단축키. 리스너를 매 렌더 다시 붙이지 않도록 최신 핸들러만 ref로 넘긴다. */
+/**
+ * 웹 전용 단축키. 핸들러가 바뀌어도 리스너를 다시 붙이지 않는다 — 리스너를 붙였다 떼는
+ * 기준은 `enabled` 하나뿐이고, 핸들러는 발화 시점의 최신 것을 쓴다(`useEffectEvent`).
+ */
 export function useShortcuts(
   enabled: boolean,
   handlers: {
@@ -92,32 +95,29 @@ export function useShortcuts(
     onRoll: () => void
   },
 ) {
-  const handlersRef = useRef(handlers)
-  handlersRef.current = handlers
+  const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    // 버튼·입력처럼 Space·Enter가 고유 동작인 요소에 포커스가 있으면 단축키를 양보한다.
+    // 여기서 preventDefault하면 그 요소의 활성화 자체가 막힌다.
+    if (
+      event.target instanceof Element &&
+      event.target.closest('a[href],button,input,select,textarea,[contenteditable],[role="button"]')
+    ) {
+      return
+    }
+    if (event.code === 'Space') {
+      event.preventDefault()
+      handlers.onRoll()
+      return
+    }
+    const slot = Number(event.key)
+    if (Number.isInteger(slot) && slot >= 1 && slot <= 5) {
+      handlers.dispatch({ type: 'holdToggled', index: (slot - 1) as DiceIndex })
+    }
+  })
 
   useEffect(() => {
     if (!enabled) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      // 버튼·입력처럼 Space·Enter가 고유 동작인 요소에 포커스가 있으면 단축키를 양보한다.
-      // 여기서 preventDefault하면 그 요소의 활성화 자체가 막힌다.
-      if (
-        event.target instanceof Element &&
-        event.target.closest(
-          'a[href],button,input,select,textarea,[contenteditable],[role="button"]',
-        )
-      ) {
-        return
-      }
-      if (event.code === 'Space') {
-        event.preventDefault()
-        handlersRef.current.onRoll()
-        return
-      }
-      const slot = Number(event.key)
-      if (Number.isInteger(slot) && slot >= 1 && slot <= 5) {
-        handlersRef.current.dispatch({ type: 'holdToggled', index: (slot - 1) as DiceIndex })
-      }
-    }
+    const onKeyDown = (event: KeyboardEvent) => handleKeyDown(event)
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [enabled])
@@ -129,11 +129,10 @@ export function useShortcuts(
  */
 export function useMyTurnAlert({ isMyTurn, onAlert }: { isMyTurn: boolean; onAlert: () => void }) {
   const wasMyTurnRef = useRef(false)
-  const onAlertRef = useRef(onAlert)
-  onAlertRef.current = onAlert
+  const alert = useEffectEvent(onAlert)
 
   useEffect(() => {
-    if (isMyTurn && !wasMyTurnRef.current) onAlertRef.current()
+    if (isMyTurn && !wasMyTurnRef.current) alert()
     wasMyTurnRef.current = isMyTurn
   }, [isMyTurn])
 }
@@ -150,15 +149,14 @@ export function useRoundStartNotice({
   roundNumber: number
 }) {
   const previousRoundRef = useRef<number | null>(null)
-  const onNoticeRef = useRef(onNotice)
-  onNoticeRef.current = onNotice
+  const notice = useEffectEvent(onNotice)
 
   useEffect(() => {
     const previous = previousRoundRef.current
     previousRoundRef.current = roundNumber
     // 첫 렌더(중간 입장·재접속 포함)는 "전환"이 아니다 — 라운드가 실제로 바뀔 때만 알린다.
     if (previous === null || previous === roundNumber) return
-    onNoticeRef.current()
+    notice()
   }, [roundNumber])
 }
 
