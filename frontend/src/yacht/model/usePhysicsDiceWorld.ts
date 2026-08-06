@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
-import { createRollRequestLedger, type RollRequestLedger } from '@/yacht/model/rollRequestLedger'
+import { createRollRequestLedger, type RollRequestLedger } from '@/yacht/model/roll/requestLedger'
 import { loadPhysicsDiceWorld } from '@/yacht/rendering/physics-dice/loadWorld'
 import type {
   PhysicsDiceIndex,

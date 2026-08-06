@@ -10,7 +10,8 @@ import type { DiceSet } from '@/yacht/domain/dice'
 import type { YachtCategory } from '@/yacht/domain/scoring'
 import { categoryLabel } from '@/yacht/domain/yachtCategoryView'
 import type { YachtGameAction } from '@/yacht/domain/yachtGame'
-import { newlyRecordedCategory, turnAwareErrorMessage } from './gamePlayModel'
+import { turnAwareErrorMessage } from './roll/messages'
+import { newlyRecordedCategory } from './scoreDiff'
 
 interface UseGamePlaySubmissionOptions {
   activePlayerId: PlayerId | undefined

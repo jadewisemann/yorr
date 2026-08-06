@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createRemoteReleaseGate } from '@/yacht/model/remoteReleaseGate'
+import { createRemoteReleaseGate } from '@/yacht/model/roll/remoteReleaseGate'
 
 const ROLL = { requestId: 'r1', rollCount: 2, roundNumber: 3 }
 const THROW = { rollCount: 2, roundNumber: 3 }

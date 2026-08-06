@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createRollRequestLedger } from '@/yacht/model/rollRequestLedger'
+import { createRollRequestLedger } from '@/yacht/model/roll/requestLedger'
 
 /**
  * 같은 요청이 두 경로로 도착한다 — 월드가 서 있으면 effect가, 로드 중이었으면 생성 직후의

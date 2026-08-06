@@ -1,5 +1,5 @@
 import type { CategoryScores } from '@/yacht/domain/scoring'
-import type { toMatrixPlayers } from '@/yacht/model/gamePlayModel'
+import type { toMatrixPlayers } from '@/yacht/model/playerViews'
 
 /** 안내가 다음 단계로 넘어갈 근거. GamePlay가 이미 들고 있는 값을 그대로 준다. */
 export interface TurnProgress {

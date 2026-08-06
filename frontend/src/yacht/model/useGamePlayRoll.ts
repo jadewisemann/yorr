@@ -25,19 +25,12 @@ import {
 } from '@/yacht/domain/yachtGame'
 import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
 import { useMotionRollInput } from '@/yacht/input/useMotionRollInput'
-import {
-  animationSeedForRoll,
-  IDLE_ROLL_PRESENTATION,
-  isCurrentDiceBroadcast,
-  latestGameState,
-  type RollInputMode,
-  rollAnimationMode,
-  rollPresentationReducer,
-  turnAwareErrorMessage,
-} from './gamePlayModel'
-import { createRemoteReleaseGate } from './remoteReleaseGate'
-import { useRollBroadcast } from './useRollBroadcast'
-import { useRollFeedback } from './useRollFeedback'
+import { animationSeedForRoll, type RollInputMode, rollAnimationMode } from './roll/animation'
+import { isCurrentDiceBroadcast, latestGameState, turnAwareErrorMessage } from './roll/messages'
+import { IDLE_ROLL_PRESENTATION, rollPresentationReducer } from './roll/presentation'
+import { createRemoteReleaseGate } from './roll/remoteReleaseGate'
+import { useRollBroadcast } from './roll/useBroadcast'
+import { useRollFeedback } from './roll/useFeedback'
 
 const TAP_RELEASE_DELAY_MS = 600
 

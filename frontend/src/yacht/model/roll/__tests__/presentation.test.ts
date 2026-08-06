@@ -3,7 +3,7 @@ import {
   IDLE_ROLL_PRESENTATION,
   type RollPresentation,
   rollPresentationReducer as reduce,
-} from '@/yacht/model/gamePlayModel'
+} from '@/yacht/model/roll/presentation'
 
 /**
  * 굴림 연출 상태. 예전엔 useState 넷이었고 여섯 자리에서 2~4개를 짝지어 세팅했다 —

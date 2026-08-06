@@ -16,7 +16,7 @@ import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import { buildClientMessage, type ClientMessageType, type RoomSnapshot } from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
-import { animationSeedForRoll } from '@/yacht/model/gamePlayModel'
+import { animationSeedForRoll } from '@/yacht/model/roll/animation'
 import type { PhysicsDiceRollRequest, PhysicsDiceSet } from '@/yacht/rendering/physics-dice/types'
 import { GamePlay } from '@/yacht/screens/GamePlay'
 

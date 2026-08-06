@@ -23,7 +23,7 @@ import {
 import { isRecorded } from '@/yacht/domain/yachtCategoryView'
 import { canOfferMotion } from '@/yacht/input/motionTypes'
 import { scoreLeaderLabel, scoreRecordTitle, scoreSheetHint } from '@/yacht/model/gamePlayLabels'
-import { toMatrixPlayers, toTurnStripPlayers } from '@/yacht/model/gamePlayModel'
+import { toMatrixPlayers, toTurnStripPlayers } from '@/yacht/model/playerViews'
 import { useCountdown } from '@/yacht/model/useCountdown'
 import {
   useGamePlayChrome,
