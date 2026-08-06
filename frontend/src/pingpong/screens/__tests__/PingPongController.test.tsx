@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { waitingRoomSnapshot } from '@/mocks/fixtures'
+import { PingPongController } from '@/pingpong/screens/PingPongController'
 import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
-import { PingPongController } from '../PingPongController'
 
 const state: PingPongState = {
   ball: {
@@ -40,7 +40,7 @@ const snapshot = {
   ],
 } as unknown as RoomSnapshot
 
-describe('PingPongController', () => {
+describe('@/pingpong/screens/PingPongController', () => {
   it('shows a paddle-only controller with feedback and combo instead of the court', async () => {
     const user = userEvent.setup()
     const onTouchSwing = vi.fn()

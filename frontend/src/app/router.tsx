@@ -29,7 +29,7 @@ const importLobbyPage = () => import('@/room/screens/LobbyPage')
 const importNicknamePage = () => import('@/room/screens/NicknamePage')
 const importPartyDashboardPage = () => import('@/room/screens/PartyDashboardPage')
 const importPartyOnBigScreenPage = () => import('@/room/screens/PartyOnBigScreenPage')
-const importPingPongModePage = () => import('@/pingpong/PingPongModePage')
+const importPingPongModePage = () => import('@/pingpong/screens/PingPongModePage')
 
 const AuthCallbackPage = lazy(() =>
   importAuthCallbackPage().then((mod) => ({ default: mod.AuthCallbackPage })),

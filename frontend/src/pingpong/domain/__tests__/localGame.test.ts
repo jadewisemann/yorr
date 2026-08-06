@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { MISS1, SMASH_SPEED } from '../court'
-import { advanceLocalGame, createLocalGame, swingLocalGame } from '../localGame'
+import { MISS1, SMASH_SPEED } from '@/pingpong/domain/court'
+import { advanceLocalGame, createLocalGame, swingLocalGame } from '@/pingpong/domain/localGame'
 
 const highRandom = () => 0.99
 

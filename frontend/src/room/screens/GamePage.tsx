@@ -24,10 +24,14 @@ const moduleScreens = {
   },
   PING_PONG: {
     Game: lazy(() =>
-      import('@/pingpong/PingPongGame').then((module) => ({ default: module.PingPongGame })),
+      import('@/pingpong/screens/PingPongGame').then((module) => ({
+        default: module.PingPongGame,
+      })),
     ),
     Result: lazy(() =>
-      import('@/pingpong/PingPongGame').then((module) => ({ default: module.PingPongResult })),
+      import('@/pingpong/screens/PingPongGame').then((module) => ({
+        default: module.PingPongResult,
+      })),
     ),
   },
 }

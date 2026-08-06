@@ -3,7 +3,6 @@ import {
   BALL_R,
   ballY,
   FAR_Z,
-  type Fault,
   flightProgress,
   IDEAL1,
   IDEAL2,
@@ -20,7 +19,8 @@ import {
   W1_HI,
   W1_LO,
   xToWorld,
-} from './court'
+} from '@/pingpong/domain/court'
+import type { FrameState, Viewer } from '@/pingpong/domain/frameState'
 
 /**
  * scene3d.ts — 탁구 3D 무대 (Three.js)
@@ -50,35 +50,6 @@ const LOOK_AHEAD = -0.3 // 시선이 향하는 z (자기 코트 기준 네트 �
 const PADDLE_Y = TABLE_H + 0.15 // 라켓을 쥔 높이
 const SHAKE_AMP = 0.05 // 스매시 화면 흔들림 (m)
 const TRAIL = 5 // 스매시 잔상 개수
-
-type Viewer = 1 | 2
-
-/** 프레임마다 렌더러에 넘기는 게임 상태 (렌더러는 이것만 안다) */
-export interface FrameState {
-  /** 좌우 분할로 두 시점을 함께 그릴지 */
-  split: boolean
-  /** 단일 화면일 때 누구 시점인지 */
-  viewer: Viewer
-  playing: boolean
-  ballPos: number
-  ballDir: 1 | -1
-  ballX: number
-  ballSmash: boolean
-  ballHit: boolean
-  /** 아웃·네트로 죽은 공 (아무도 못 침) */
-  ballFault: Fault
-  /** 실패 궤적의 시작 prog */
-  ballFaultFrom: number
-  /** 실점 확정 후 떨어진 시간(초). 죽은 공을 바닥으로 내려앉힌다. */
-  ballFall: number
-  p1X: number
-  p2X: number
-  /** 0=평소, 1=방금 휘둘렀음 */
-  p1Swing: number
-  p2Swing: number
-  /** 0=평온, 1=최대 흔들림 */
-  shake: number
-}
 
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v)
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t

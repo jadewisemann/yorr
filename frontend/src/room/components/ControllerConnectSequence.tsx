@@ -1,7 +1,7 @@
 import { type ComponentType, type ReactNode, useEffect, useRef, useState } from 'react'
 import { DuelHowTo } from '@/duel/components/DuelHowTo'
 import type { GameCode } from '@/games'
-import { PingPongControllerHowTo } from '@/pingpong/PingPongControllerHowTo'
+import { PingPongControllerHowTo } from '@/pingpong/components/PingPongControllerHowTo'
 import { CONNECTED_HOLD_MS, CONNECTED_VIBRATE_MS, CONNECTING_MIN_MS } from '@/room/connectSequence'
 import { cn } from '@/shared/cn'
 import type { ConnectionStatus } from '@/store'

@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PingPongControllerHowTo } from '../PingPongControllerHowTo'
+import { PingPongControllerHowTo } from '@/pingpong/components/PingPongControllerHowTo'
 
 /** 센서가 값을 주는 순간. useSwing은 중력을 저역통과로 빼므로 임계값(14)보다 넉넉히 준다. */
 function swingPhone() {
@@ -17,7 +17,7 @@ function stubMotionSensor() {
   vi.stubGlobal('DeviceMotionEvent', function DeviceMotionEventStub() {})
 }
 
-describe('PingPongControllerHowTo', () => {
+describe('@/pingpong/components/PingPongControllerHowTo', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('잡는 법 → 스윙 감지 → 완료 순으로 넘어간다', async () => {

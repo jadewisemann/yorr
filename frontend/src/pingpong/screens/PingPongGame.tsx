@@ -1,4 +1,15 @@
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react'
+import { type Fault, flightOf, flightProgress } from '@/pingpong/domain/court'
+import type { FrameState } from '@/pingpong/domain/frameState'
+import { type PlayerTracking, trackIncomingBall } from '@/pingpong/domain/playerTracking'
+import {
+  feedbackTextClass,
+  pingPongSituation,
+  sharedEventLabel,
+  sharedSituationLabel,
+} from '@/pingpong/feedback'
+import { createScene, type PingPongScene } from '@/pingpong/rendering/scene3d'
+import { playRacketHit, playTableHit } from '@/pingpong/sounds'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import { buildClientMessage, type PingPongState, type RoomSnapshot } from '@/realtime/wsEvents'
 import { isRoomHost } from '@/room/api/roomApi'
@@ -8,17 +19,7 @@ import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import { useMediaQuery } from '@/shared/useMediaQuery'
 import { useSwing } from '@/shared/useSwing'
 import type { ActiveRoomSession } from '@/store'
-import { type Fault, flightOf, flightProgress } from './court'
-import {
-  feedbackTextClass,
-  pingPongSituation,
-  sharedEventLabel,
-  sharedSituationLabel,
-} from './feedback'
 import { ComboBadge, PingPongController, readyButtonLabel } from './PingPongController'
-import { type PlayerTracking, trackIncomingBall } from './playerTracking'
-import { createScene, type FrameState, type PingPongScene } from './scene3d'
-import { playRacketHit, playTableHit } from './sounds'
 
 interface PingPongGameProps {
   onLeaveRequest: () => void

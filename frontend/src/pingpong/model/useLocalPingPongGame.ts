@@ -5,8 +5,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useSwing } from '@/shared/useSwing'
-import { useAppStore } from '@/store'
+import { savePingPongAiResult } from '@/pingpong/api/pingPongAiResultApi'
 import {
   advanceLocalGame,
   createLocalGame,
@@ -17,9 +16,10 @@ import {
   localFrameState,
   restartLocalGame,
   swingLocalGame,
-} from './localGame'
-import { savePingPongAiResult } from './pingPongAiResultApi'
-import { createScene, type PingPongScene } from './scene3d'
+} from '@/pingpong/domain/localGame'
+import { createScene, type PingPongScene } from '@/pingpong/rendering/scene3d'
+import { useSwing } from '@/shared/useSwing'
+import { useAppStore } from '@/store'
 
 /** 화면이 실제로 그리는 값만 골라낸 스냅샷. 이것이 바뀔 때만 리렌더한다. */
 export interface HudState {

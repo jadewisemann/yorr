@@ -2,15 +2,15 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { waitingRoomSnapshot } from '@/mocks/fixtures'
+import { PingPongGame } from '@/pingpong/screens/PingPongGame'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import type { RealtimeClient } from '@/realtime/realtimeClient'
 import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
 import type { ActiveRoomSession } from '@/store'
-import { PingPongGame } from '../PingPongGame'
 
 // jsdom에는 WebGL이 없어 실제 씬은 만들어지지 않는다. 여기서 보는 것은 "어느 화면이 떴는가"라
 // 씬은 조용한 대역으로 충분하다(3D 거동은 scene3d 자신의 테스트가 맡는다).
-vi.mock('../scene3d', () => ({
+vi.mock('@/pingpong/rendering/scene3d', () => ({
   createScene: () => ({ dispose: vi.fn(), render: vi.fn(), resize: vi.fn(), update: vi.fn() }),
 }))
 

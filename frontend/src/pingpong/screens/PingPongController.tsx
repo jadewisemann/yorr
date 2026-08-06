@@ -1,14 +1,14 @@
-import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
-import { GameChromeButton } from '@/shared/components/GameChromeButton'
-import { ControllerScreen } from '@/shared/components/Screen'
-import type { SwingPermission } from '@/shared/useSwing'
 import {
   comboStyle,
   feedbackTextClass,
   pingPongSituation,
   playerEventLabel,
   playerSituationLabel,
-} from './feedback'
+} from '@/pingpong/feedback'
+import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
+import { GameChromeButton } from '@/shared/components/GameChromeButton'
+import { ControllerScreen } from '@/shared/components/Screen'
+import type { SwingPermission } from '@/shared/useSwing'
 
 interface PingPongControllerProps {
   clock: number

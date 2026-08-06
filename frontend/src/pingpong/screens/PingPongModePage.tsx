@@ -1,10 +1,14 @@
 import { useNavigate } from '@tanstack/react-router'
+import type {
+  LocalFeedback,
+  LocalPingPongDifficulty,
+  LocalPingPongMode,
+} from '@/pingpong/domain/localGame'
+import { pingPongSituation, sharedSituationLabel } from '@/pingpong/feedback'
+import { type HudState, useLocalPingPongGame } from '@/pingpong/model/useLocalPingPongGame'
 import { Button } from '@/shared/components/Button'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import { IconBack, IconWarning } from '@/shared/components/Icon'
-import { pingPongSituation, sharedSituationLabel } from './feedback'
-import type { LocalFeedback, LocalPingPongDifficulty, LocalPingPongMode } from './localGame'
-import { type HudState, useLocalPingPongGame } from './useLocalPingPongGame'
 
 export function PingPongModePage() {
   const navigate = useNavigate()

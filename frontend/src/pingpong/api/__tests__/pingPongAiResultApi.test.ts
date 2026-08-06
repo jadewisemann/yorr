@@ -1,7 +1,7 @@
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { mockApiServer } from '@/mocks/server'
-import { savePingPongAiResult } from '../pingPongAiResultApi'
+import { savePingPongAiResult } from '@/pingpong/api/pingPongAiResultApi'
 
 describe('savePingPongAiResult', () => {
   it('로그인 토큰과 사람·AI 최종 점수를 전송한다', async () => {

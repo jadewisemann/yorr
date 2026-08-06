@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { PingPongModePage } from '../PingPongModePage'
+import { PingPongModePage } from '@/pingpong/screens/PingPongModePage'
 
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
 
@@ -10,7 +10,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   useNavigate: () => navigate,
 }))
 
-describe('PingPongModePage', () => {
+describe('@/pingpong/screens/PingPongModePage', () => {
   beforeEach(() => navigate.mockReset())
 
   it('starts the AI match immediately without a difficulty step', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FAR_Z, NEAR_Z, posToZ, TABLE_LEN } from '../court'
+import { FAR_Z, NEAR_Z, posToZ, TABLE_LEN } from '@/pingpong/domain/court'
 
 describe('ping pong court depth', () => {
   it('uses the extended table depth for both geometry endpoints and ball travel', () => {

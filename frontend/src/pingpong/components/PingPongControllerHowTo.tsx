@@ -1,7 +1,7 @@
 import { useState } from 'react'
+import { usesTouchFallback } from '@/pingpong/screens/PingPongController'
 import { Button } from '@/shared/components/Button'
 import { useSwing } from '@/shared/useSwing'
-import { usesTouchFallback } from './PingPongController'
 
 /**
  * 대기실 연결 시퀀스 마지막 단계에 꽂히는 탁구 사용법. (S15P11A406-206)

@@ -6,7 +6,7 @@ import {
   playerSituationLabel,
   sharedEventLabel,
   sharedSituationLabel,
-} from '../feedback'
+} from '@/pingpong/feedback'
 
 describe('ping pong feedback', () => {
   it('labels server events for a player and the shared party display', () => {

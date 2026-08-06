@@ -20,8 +20,8 @@ import {
   WEAK_SPEED,
   WIN_SCORE,
 } from './court'
+import type { FrameState } from './frameState'
 import { trackIncomingBall } from './playerTracking'
-import type { FrameState } from './scene3d'
 
 const POINT_COUNTDOWN_MS = 2_600
 const SWING_MS = 260
