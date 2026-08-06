@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import {
   buildClientMessage,
@@ -27,11 +27,12 @@ import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
 import { useMotionRollInput } from '@/yacht/input/useMotionRollInput'
 import {
   animationSeedForRoll,
+  IDLE_ROLL_PRESENTATION,
   isCurrentDiceBroadcast,
   latestGameState,
-  type RollAnimationMode,
   type RollInputMode,
   rollAnimationMode,
+  rollPresentationReducer,
   turnAwareErrorMessage,
 } from './gamePlayModel'
 import { useRollBroadcast } from './useRollBroadcast'
@@ -90,10 +91,13 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
       held: game?.held ?? null,
     }),
   )
-  const [releaseRequestId, setReleaseRequestId] = useState<string | null>(null)
-  const [rollInputMode, setRollInputMode] = useState<RollAnimationMode | null>(null)
-  const [requestingRoll, setRequestingRoll] = useState(false)
-  const [remoteShaking, setRemoteShaking] = useState(false)
+  const [presentation, present] = useReducer(rollPresentationReducer, IDLE_ROLL_PRESENTATION)
+  const {
+    inputMode: rollInputMode,
+    releaseRequestId,
+    remoteShaking,
+    requesting: requestingRoll,
+  } = presentation
   const feedback = useRollFeedback()
 
   const acceptedRollTurnRef = useRef<{ playerId: PlayerId; roundNumber: number } | null>(null)
@@ -139,10 +143,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
     const diceForThisTurnAlreadyArrived =
       acceptedRollTurn?.playerId === activePlayerId && acceptedRollTurn?.roundNumber === roundNumber
     if (!diceForThisTurnAlreadyArrived) resetLocalFor(roundNumber)
-    setReleaseRequestId(null)
-    setRollInputMode(null)
-    setRequestingRoll(false)
-    setRemoteShaking(false)
+    present({ type: 'turnReset' })
     pendingRollRequestRef.current = null
     queuedMotionReleaseRef.current = false
     remoteRollRef.current = null
@@ -182,10 +183,10 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
       rollSequenceRef.current += 1
       const requestId = `r${roundNumber}-${rollSequenceRef.current}`
       const msgId = `roll-${roundNumber}-${local.rollCount + 1}-${Date.now()}`
-      setReleaseRequestId(null)
-      setRollInputMode(inputMode)
+      present({ type: 'requested', inputMode })
+      // 다음 제스처 이벤트가 같은 틱에 들어올 수 있어 ref는 여기서 바로 맞춘다
+      // (렌더를 기다리는 layout effect보다 빠르다).
       inputModeRef.current = inputMode
-      setRequestingRoll(true)
       queuedMotionReleaseRef.current = false
       pendingRollRequestRef.current = { inputMode, msgId, requestId }
       try {
@@ -202,8 +203,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
         )
       } catch {
         pendingRollRequestRef.current = null
-        setRequestingRoll(false)
-        setRollInputMode(null)
+        present({ type: 'requestFailed' })
         showToast('주사위를 요청하지 못했어요. 연결 상태를 확인해 주세요.')
       }
     },
@@ -235,10 +235,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
             }
           : null
       pendingRollRequestRef.current = null
-      setRequestingRoll(false)
-      setReleaseRequestId(null)
-      setRollInputMode(animationMode)
-      setRemoteShaking(false)
+      present({ type: 'broadcastAccepted', mode: animationMode })
       acceptedRollTurnRef.current = {
         playerId: message.payload.playerId,
         roundNumber: message.payload.roundNumber,
@@ -270,7 +267,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
       }
       if (ownRoll && queuedMotionReleaseRef.current) {
         queuedMotionReleaseRef.current = false
-        setReleaseRequestId(requestId)
+        present({ type: 'released', requestId })
         publishThrow(message.payload.rollCount)
       }
       const queuedRemote = queuedRemoteReleaseRef.current
@@ -280,7 +277,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
         queuedRemote.rollCount === message.payload.rollCount
       ) {
         queuedRemoteReleaseRef.current = null
-        setReleaseRequestId(requestId)
+        present({ type: 'released', requestId })
       }
     },
     [publishThrow, roomId, showToast, you],
@@ -297,7 +294,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
       ) {
         return
       }
-      setRemoteShaking(true)
+      present({ type: 'remoteShakeStarted' })
       feedback.pulse(message.payload.direction, message.payload.strength, 'remote')
     },
     [activePlayerId, feedback.pulse, roomId, roundNumber, you],
@@ -319,7 +316,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
         remote.rollCount === message.payload.rollCount
       ) {
         remoteRollRef.current = null
-        setReleaseRequestId(remote.requestId)
+        present({ type: 'released', requestId: remote.requestId })
         return
       }
       queuedRemoteReleaseRef.current = {
@@ -349,8 +346,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
       const pending = pendingRollRequestRef.current
       if (!pending || message.payload.refMsgId !== pending.msgId) return
       pendingRollRequestRef.current = null
-      setRequestingRoll(false)
-      setRollInputMode(null)
+      present({ type: 'requestFailed' })
       showToast(turnAwareErrorMessage(message.payload))
     },
     [showToast],
@@ -396,7 +392,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
             return
           }
           feedback.thrown()
-          setReleaseRequestId(request.requestId)
+          present({ type: 'released', requestId: request.requestId })
           publishThrow(local.rollCount)
           return
         }
@@ -414,7 +410,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
   useEffect(() => {
     if (!pendingRoll || (rollInputMode !== 'tap' && rollInputMode !== 'auto')) return
     const timeout = setTimeout(() => {
-      setReleaseRequestId(pendingRoll.requestId)
+      present({ type: 'released', requestId: pendingRoll.requestId })
       if (rollInputMode === 'tap') publishThrow(local.rollCount)
     }, TAP_RELEASE_DELAY_MS)
     return () => clearTimeout(timeout)
@@ -425,7 +421,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
   const confirmThrow = useCallback(() => {
     if (!pendingRoll || releaseRequestId === pendingRoll.requestId) return
     feedback.thrown()
-    setReleaseRequestId(pendingRoll.requestId)
+    present({ type: 'released', requestId: pendingRoll.requestId })
     publishThrow(local.rollCount)
   }, [feedback, local.rollCount, pendingRoll, publishThrow, releaseRequestId])
 
@@ -434,8 +430,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
       const completedDice = pendingRoll?.requestId === requestId ? pendingRoll.targetDice : null
       if (!completedDice) return
       dispatch({ type: 'rollCompleted', requestId, dice: completedDice })
-      setReleaseRequestId(null)
-      setRollInputMode(null)
+      present({ type: 'completed' })
       if (isMyTurn) motion.resetGesture('roll-complete')
       feedback.highlightSpecialHand(completedDice, (candidate) =>
         isRecorded(activeBoard?.categories[candidate]),
