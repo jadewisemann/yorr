@@ -120,6 +120,12 @@ Tailwind 기본 spacing을 그대로 쓴다. 임의 값은 `clamp()`처럼 사�
 
 위아래 하한이 다른 것은 의도다 — 아래는 홈 인디케이터 제스처 영역을 더 피한다.
 
+### 화면 프레임
+
+화면에서 `min-h-dvh`·`h-svh` 껍데기를 새로 쓰지 않는다. `Screen`이 높이 정책과 safe-area를
+소유하고, `PlayBoard`(게임판)·`ControllerScreen`(폰 컨트롤러)이 그것을 감싼다.
+`max-width`·배경은 props가 아니라 `className`으로 확장한다.
+
 ### 흰색 알파 헤어라인
 
 반투명 흰색 경계는 **세 단**이다. 값으로 구별되므로 눈대중으로 `white/NN`을 적지 않는다.
@@ -183,6 +189,9 @@ border(10%) · border-raised(14%) · border-strong(18%)
 ## 컴포넌트 규칙
 
 1. 화면에서 HTML button을 새로 꾸미지 않고 공통 `Button`을 우선 사용한다.
+   `Button`으로 표현할 수 없으면 **`Button`을 감싼 얇은 컴포넌트**를 만든다
+   (선례: `GameChromeButton` — 게임 크롬 알약 버튼 7곳을 하나로).
+   감싸는 쪽에 스타일을 쌓지 말고 공통 컴포넌트의 variant map에 추가한다.
 2. variant class는 동적으로 문자열을 만들지 않고 정적 map에 기록한다.
 3. 외부 배치는 `className`으로 확장한다. 내부 구조와 상태 표현은 컴포넌트가 소유한다.
 4. 클릭 가능한 요소는 최소 `min-h-tap`을 지킨다.
