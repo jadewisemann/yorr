@@ -1,5 +1,5 @@
 import type { RefObject } from 'react'
-import { readyButtonLabel } from '@/pingpong/screens/PingPongController'
+import { readyButtonLabel } from '@/pingpong/components/PingPongController/PreparationController'
 import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
 import { Button } from '@/shared/components/Button'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { usesTouchFallback } from '@/pingpong/screens/PingPongController'
+import { usesTouchFallback } from '@/pingpong/components/PingPongController/PreparationController'
 import { Button } from '@/shared/components/Button'
 import { useSwing } from '@/shared/useSwing'
 

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { ComboBadge } from '@/pingpong/components/ComboBadge'
 import { Score } from '@/pingpong/components/Score'
 import {
   feedbackTextClass,
@@ -6,7 +7,6 @@ import {
   sharedEventLabel,
   sharedSituationLabel,
 } from '@/pingpong/feedback'
-import { ComboBadge } from '@/pingpong/screens/PingPongController'
 import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
 
 export function CourtOverlay({
