@@ -1,10 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
-import { type GameCode, gameByCode } from '@/games'
-import { PeerMicButton } from '@/realtime/voice/PeerMicButton'
-import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
+import { gameByCode } from '@/games'
 import { useVoice } from '@/realtime/voice/VoiceContext'
-import type { Player, PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
 import { isRoomHost } from '@/room/api/roomApi'
 import { useAddBot, useRemoveBot, useStartGame } from '@/room/api/useGameApi'
 import {
@@ -12,7 +9,9 @@ import {
   controllerHowTo,
 } from '@/room/components/ControllerConnectSequence'
 import { InvitePopover } from '@/room/components/InvitePopover'
-import { PlayerCard } from '@/room/components/PlayerCard'
+import { BotManagementPanel } from '@/room/components/Lobby/BotManagementPanel'
+import { LobbyRoomContent } from '@/room/components/Lobby/LobbyRoomContent'
+import { connectionLabel, isDuoGame } from '@/room/domain/lobbyLabels'
 import { isPartyRoom } from '@/room/partyControllerStorage'
 import { readSoundMuted, saveSoundMuted } from '@/shared/audio/soundPreference'
 import { playLandingSoundtrack, setSoundtrackMuted } from '@/shared/audio/soundtrack'
@@ -47,14 +46,6 @@ function schedulePhysicsDicePrefetch() {
 
 interface LobbyPageProps {
   roomId: string
-}
-
-/**
- * 1:1 게임(탁구·결투)인가. 이 게임들은 봇을 받지 않고, 둘이 모여야 시작하며, 야추의 주사위
- * 월드도 쓰지 않는다 — 대기실이 세 곳에서 같은 판단을 하므로 이름을 붙여 둔다.
- */
-function isDuoGame(gameCode: GameCode | undefined): boolean {
-  return gameCode === 'PING_PONG' || gameCode === 'DUEL'
 }
 
 export function LobbyPage({ roomId }: LobbyPageProps) {
@@ -306,188 +297,4 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
       </main>
     </>
   )
-}
-
-interface LobbyRoomContentProps {
-  snapshot: RoomSnapshot | null
-  capacity: number
-  you: PlayerId
-  isHost: boolean
-  minPlayers: number
-  connectionStatus: ReturnType<typeof useAppStore.getState>['connectionStatus']
-  canStart: boolean
-  startLoading: boolean
-  startError: Error | null
-  botLoading: boolean
-  /** 음성 채팅 상태. 참가자 카드 이름 오른쪽 끝에 그 사람 마이크가 선다. */
-  voice: VoiceChat
-  onStart: () => void
-  onRemoveBot: (playerId: PlayerId) => void
-}
-
-function LobbyRoomContent({
-  snapshot,
-  capacity,
-  you,
-  isHost,
-  minPlayers,
-  connectionStatus,
-  canStart,
-  startLoading,
-  startError,
-  botLoading,
-  voice,
-  onStart,
-  onRemoveBot,
-}: LobbyRoomContentProps) {
-  if (!snapshot) return null
-  return (
-    <>
-      {/* min-h-28: 참가자 카드 한 장은 반드시 보인다(짧은 화면 대책 — main 주석 참고). */}
-      <section
-        className="grid min-h-28 flex-1 auto-rows-min gap-2.5 overflow-y-auto"
-        aria-label={`참가자 ${snapshot.players.length}명`}
-      >
-        {snapshot.players.map((player) => (
-          <LobbyPlayerCard
-            isHost={isHost}
-            key={player.playerId}
-            loading={botLoading}
-            onRemove={onRemoveBot}
-            player={player}
-            voice={voice}
-            you={you}
-          />
-        ))}
-        {snapshot.players.length < capacity && (
-          <p className="m-0 flex min-h-[4.25rem] items-center gap-3 rounded-panel border border-dashed border-border-raised px-3 text-sm text-content-muted tabular-nums">
-            <span
-              aria-hidden="true"
-              className="size-11 flex-none rounded-card border border-dashed border-border-strong"
-            />
-            빈 자리 {capacity - snapshot.players.length} · 링크를 공유해 초대하세요
-          </p>
-        )}
-      </section>
-
-      <div className="grid flex-none gap-2 border-t border-border pt-3.5 text-center">
-        <Button
-          size="cta"
-          aria-describedby={canStart ? undefined : 'start-blocked'}
-          className="w-full"
-          disabled={!canStart}
-          loading={startLoading}
-          onClick={onStart}
-        >
-          {isHost ? '게임 시작' : '게임 시작 · 호스트 전용'}
-        </Button>
-        {!canStart && (
-          <p className="m-0 text-sm text-content-muted" id="start-blocked">
-            {!isHost
-              ? '호스트가 게임을 시작하면 자동으로 이동해요.'
-              : connectionStatus === 'connected'
-                ? `${minPlayers}명부터 시작할 수 있어요.`
-                : '연결된 뒤 게임을 시작할 수 있어요.'}
-          </p>
-        )}
-        {startError && (
-          <p className="m-0 text-sm text-danger" role="alert">
-            게임을 시작하지 못했어요: {startError.message}
-          </p>
-        )}
-      </div>
-    </>
-  )
-}
-
-interface BotManagementPanelProps {
-  visible: boolean
-  playerCount: number
-  capacity: number
-  loading: boolean
-  adding: boolean
-  error: Error | null
-  onAdd: () => void
-}
-
-function BotManagementPanel({
-  visible,
-  playerCount,
-  capacity,
-  loading,
-  adding,
-  error,
-  onAdd,
-}: BotManagementPanelProps) {
-  if (!visible) return null
-  return (
-    <section
-      aria-label="AI 봇 관리"
-      className="grid flex-none gap-2 rounded-panel border border-border bg-surface-raised p-3"
-    >
-      <p className="m-0 text-xs text-content-muted">
-        점수판과 남은 기회를 계산하는 AI 봇을 추가합니다.
-      </p>
-      <Button
-        disabled={loading || playerCount >= capacity}
-        loading={adding}
-        onClick={onAdd}
-        type="button"
-        variant="secondary"
-      >
-        봇 추가
-      </Button>
-      {error && (
-        <p className="m-0 text-xs text-danger" role="alert">
-          봇을 변경하지 못했어요: {error.message}
-        </p>
-      )}
-    </section>
-  )
-}
-
-interface LobbyPlayerCardProps {
-  player: Player
-  you: PlayerId
-  isHost: boolean
-  loading: boolean
-  /** 음성 채팅 상태. 이름 오른쪽 끝에 그 사람 마이크를 세운다(봇은 통화에 없어 안 뜬다). */
-  voice: VoiceChat
-  onRemove: (playerId: PlayerId) => void
-}
-
-function LobbyPlayerCard({ player, you, isHost, loading, voice, onRemove }: LobbyPlayerCardProps) {
-  const isBot = player.kind === 'BOT'
-  return (
-    <PlayerCard
-      name={player.nickname}
-      avatarSeed={player.playerId}
-      status={player.status}
-      current={player.playerId === you}
-      active={player.playerId === you}
-      speaking={voice.speaking.has(player.playerId)}
-      nameEnd={<PeerMicButton playerId={player.playerId} voice={voice} />}
-      subtitle={isBot ? '상태 기반 AI 봇' : undefined}
-      trailing={
-        isBot && isHost ? (
-          <Button
-            className="min-h-9 px-2.5 text-xs"
-            disabled={loading}
-            onClick={() => onRemove(player.playerId)}
-            type="button"
-            variant="danger"
-          >
-            삭제
-          </Button>
-        ) : undefined
-      }
-    />
-  )
-}
-
-function connectionLabel(status: ReturnType<typeof useAppStore.getState>['connectionStatus']) {
-  if (status === 'connected') return '연결됨'
-  if (status === 'reconnecting') return '재연결 중'
-  if (status === 'closed') return '연결 종료'
-  return '연결 중'
 }
