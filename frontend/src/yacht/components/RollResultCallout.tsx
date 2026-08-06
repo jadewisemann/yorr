@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useEffectEvent, useLayoutEffect, useRef } from 'react'
 import { cn } from '@/shared/cn'
 import type { SpecialHand } from '@/yacht/domain/specialHands'
 import { categoryLabel } from '@/yacht/domain/yachtCategoryView'
@@ -46,12 +46,11 @@ export function RollResultCallout({ hand, onDone }: RollResultCalloutProps) {
  */
 export function EffectCallout({ onDone, text, tier }: EffectCalloutProps) {
   // 부모(카운트다운)가 매초 리렌더하며 onDone을 새로 만든다. deps에 넣으면
-  // 타임아웃이 계속 리셋돼 콜아웃이 닫히지 않으므로 ref로 최신 핸들러만 읽는다.
-  const onDoneRef = useRef(onDone)
-  onDoneRef.current = onDone
+  // 타임아웃이 계속 리셋돼 콜아웃이 닫히지 않는다 — 발화 시점의 최신 핸들러만 쓴다.
+  const done = useEffectEvent(onDone)
 
   useEffect(() => {
-    const timeout = setTimeout(() => onDoneRef.current(), durationMsByTier[tier])
+    const timeout = setTimeout(() => done(), durationMsByTier[tier])
     return () => clearTimeout(timeout)
   }, [tier])
 

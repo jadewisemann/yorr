@@ -1,4 +1,4 @@
-import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
+import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   type DuelInputSource,
   drawPenaltyMs,
@@ -58,14 +58,17 @@ function useStageWidth(ref: RefObject<HTMLElement | null>): number {
 function useImpactDelay(
   state: DuelState | undefined,
   you: string,
-  firedAt: { current: number | null },
+  myShot: MyShot | null,
   flight: number,
 ) {
   const [measured, setMeasured] = useState({ delayMs: flight, round: 0 })
   if (state?.phase === 'RESULT' && measured.round !== state.round) {
     const last = state.lastRound
     const mineLands = last?.shooterId === you || last?.foulId === you
-    const flown = mineLands && firedAt.current !== null ? performance.now() - firedAt.current : 0
+    // 이번 라운드에 내가 쏜 총알일 때만 깎는다. 시간 초과로 진 라운드는 foulId가 나이지만
+    // 쏜 적이 없어서, 라운드를 안 보면 지난 라운드의 발사 시각으로 재고 즉시 착탄이 된다.
+    const mine = myShot?.round === state.round ? myShot : null
+    const flown = mineLands && mine ? performance.now() - mine.firedAtMs : 0
     setMeasured({ delayMs: impactDelayMs(flight, flown), round: state.round })
   }
   return measured.delayMs
@@ -85,6 +88,16 @@ function sendAfter(penaltyMs: number, send: () => void): number {
     return NO_TIMER
   }
   return window.setTimeout(send, penaltyMs)
+}
+
+/**
+ * 내가 이번 라운드에 쏜 총알. 떠난 시각을 함께 담는다 — 착탄까지 남은 시간을 그만큼 깎는데,
+ * 별도 ref로 두면 렌더 중에 ref를 읽어야 해서 같은 상태를 둘로 나눠 들게 된다.
+ */
+interface MyShot {
+  firedAtMs: number
+  round: number
+  target: ShotTarget
 }
 
 interface UseDuelGameOptions {
@@ -116,26 +129,34 @@ export function useDuelGame({ roomId, session, state }: UseDuelGameOptions) {
    * 로컬로 기억한다. 라운드 번호를 함께 담는 이유는 다음 라운드가 열리는 순간 비교만으로
    * 자연히 풀리기 때문이다 — effect로 되돌리면 새 라운드의 첫 프레임에 총알이 한 번 스친다.
    */
-  const [myShot, setMyShot] = useState<{ round: number; target: ShotTarget } | null>(null)
-  /** 내 총알이 떠난 시각. 판정이 늦게 와도 착탄까지 남은 시간을 이만큼 깎는다. */
-  const firedAt = useRef<number | null>(null)
+  const [myShot, setMyShot] = useState<MyShot | null>(null)
   /** 페널티를 기다리는 전송. 이유는 {@link sendAfter}에 있다. */
   const penaltyTimer = useRef(NO_TIMER)
   const soundedRound = useRef(0)
 
-  stateRef.current = state
   // 라운드는 WAITING → SIGNAL → RESULT 를 정확히 한 번씩 거치므로, 아래 두 타이밍은
   // 라운드 번호를 따로 볼 것 없이 국면 변화만으로 라운드마다 새로 잡힌다.
   const phase = state?.phase
 
-  // 신호를 처음 그리는 렌더에서 기준 시각을 잡는다. effect까지 미루면 커밋과 effect 사이에
-  // 들어온 아주 빠른 탭이 기준을 못 찾고 부정출발로 신고돼 버린다 — 억울한 경고다.
-  // 신호가 아니면 비운다 — 다음 라운드가 지난 라운드의 기준으로 재면 안 된다.
-  signalSeenAt.current = phase === 'SIGNAL' ? (signalSeenAt.current ?? performance.now()) : null
+  /*
+   * 이벤트 경로(draw)가 읽는 두 값을 페인트 직전에 맞춰 둔다.
+   *
+   * useEffect가 아니라 useLayoutEffect다 — 사람은 화면에 칠해진 신호를 보고 반응하고,
+   * layout effect는 그 페인트보다 먼저 돈다. 그래서 아무리 빠른 탭도 기준 시각이 비어 있는
+   * 창에 들어오지 못한다(useEffect는 페인트 뒤라 그 창이 열린다).
+   *
+   * signalSeenAt: 내가 신호를 본 시각. 반응 시간을 서버 도착 시각으로 재면 왕복 지연이
+   * 그대로 핸디캡이 되므로 각자 자기 화면 기준으로 재서 올린다(서버가 상한만 검증한다).
+   * 신호 국면이 아니면 비운다 — 다음 라운드가 지난 라운드의 기준으로 재면 안 된다.
+   */
+  useLayoutEffect(() => {
+    stateRef.current = state
+    signalSeenAt.current = phase === 'SIGNAL' ? (signalSeenAt.current ?? performance.now()) : null
+  })
 
   // 이 화면의 사거리에서 나온 비행 시간. 총알 애니메이션과 착탄 타이밍이 같은 값을 쓴다.
   const flight = flightMs(useStageWidth(stageRef))
-  const impactDelay = useImpactDelay(state, session.you, firedAt, flight)
+  const impactDelay = useImpactDelay(state, session.you, myShot, flight)
 
   // 총알이 닿는 순간 — 피격 자세와 체력 감소를 여기에 맞춘다. 서버 시각(lastRound.at)이
   // 아니라 로컬 타이머로 세는 이유는 두 기기의 시계가 맞다는 보장이 없기 때문이다.
@@ -179,8 +200,11 @@ export function useDuelGame({ roomId, session, state }: UseDuelGameOptions) {
       // 페널티가 붙는 입력도 <b>연출은 지금</b> 한다. 총소리와 총알을 100ms 늦추면 탭이
       // 불리해지는 대신 고장난 것처럼 느껴진다 — 페널티는 기록에 걸리는 것이고, 어느 입력이
       // 빠른지는 컨트롤러 화면이 말로 알려 준다.
-      firedAt.current = performance.now()
-      setMyShot({ round: current.round, target: early ? 'ground' : 'opponent' })
+      setMyShot({
+        firedAtMs: performance.now(),
+        round: current.round,
+        target: early ? 'ground' : 'opponent',
+      })
       soundedRound.current = current.round
       playGunShot()
 
@@ -197,7 +221,6 @@ export function useDuelGame({ roomId, session, state }: UseDuelGameOptions) {
           setSendError(null)
         } catch {
           // 못 보냈으면 쏘지 않은 것이다 — 되돌려 다시 뽑을 수 있게 한다.
-          firedAt.current = null
           setMyShot(null)
           setSendError('연결을 확인한 뒤 다시 뽑아 주세요.')
         }

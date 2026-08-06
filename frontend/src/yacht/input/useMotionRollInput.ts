@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { MotionInputController } from './MotionInputController'
 import type { MotionAvailability, MotionGestureEvent, MotionGestureSnapshot } from './motionTypes'
 
@@ -32,17 +32,16 @@ export function useMotionRollInput(
   onGestureEvent: (event: MotionGestureEvent) => void,
   enabled = true,
 ) {
-  const eventCallbackRef = useRef(onGestureEvent)
+  const gestureEvent = useEffectEvent(onGestureEvent)
   const controllerRef = useRef<MotionInputController | null>(null)
   const [availability, setAvailability] = useState<MotionAvailability>('unknown')
   const [snapshot, setSnapshot] = useState(INITIAL_SNAPSHOT)
-  eventCallbackRef.current = onGestureEvent
 
   useEffect(() => {
     if (!enabled) return
     const controller = new MotionInputController({
       onAvailabilityChange: setAvailability,
-      onGestureEvent: (event) => eventCallbackRef.current(event),
+      onGestureEvent: (event) => gestureEvent(event),
       onGestureSnapshot: setSnapshot,
     })
     controllerRef.current = controller

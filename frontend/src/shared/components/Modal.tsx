@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { type ReactNode, useEffect, useId, useRef } from 'react'
+import { type ReactNode, useEffect, useEffectEvent, useId, useRef } from 'react'
 import { cn } from '@/shared/cn'
 import { IconClose } from '@/shared/components/Icon'
 import { popVariants, scrimVariants } from '@/shared/motion'
@@ -25,9 +25,8 @@ export function Modal({ children, className, onClose, open, role = 'dialog', tit
   const closeRef = useRef<HTMLButtonElement>(null)
   const alert = role === 'alertdialog'
 
-  // 부모가 매 렌더 새 onClose를 넘겨도 포커스를 다시 뺏지 않도록 ref로 읽는다.
-  const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  // 부모가 매 렌더 새 onClose를 넘겨도 포커스를 다시 뺏지 않는다.
+  const close = useEffectEvent(onClose)
 
   // 포커스 effect보다 먼저 선언한다 — cleanup 순서 때문이다(BottomSheet와 동일).
   useDialogBackground(open)
@@ -36,7 +35,7 @@ export function Modal({ children, className, onClose, open, role = 'dialog', tit
     if (!open) return
     const previousFocus = document.activeElement as HTMLElement | null
     closeRef.current?.focus()
-    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onCloseRef.current()
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && close()
     document.addEventListener('keydown', closeOnEscape)
     return () => {
       document.removeEventListener('keydown', closeOnEscape)

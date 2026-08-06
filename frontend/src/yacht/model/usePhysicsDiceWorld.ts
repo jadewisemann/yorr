@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { loadPhysicsDiceWorld } from '@/yacht/rendering/physics-dice/loadWorld'
 import type {
   PhysicsDiceIndex,
@@ -95,13 +95,6 @@ export function usePhysicsDiceWorld({
 }: PhysicsDiceSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const worldRef = useRef<PhysicsDiceWorldInstance | null>(null)
-  const callbacksRef = useRef({
-    onDiceImpact,
-    onError,
-    onHeldToggle,
-    onPhaseChange,
-    onRollComplete,
-  })
   const latestRef = useRef({
     dice,
     held,
@@ -119,7 +112,16 @@ export function usePhysicsDiceWorld({
   const [loading, setLoading] = useState(true)
   const [resizing, setResizing] = useState(false)
 
-  callbacksRef.current = { onDiceImpact, onError, onHeldToggle, onPhaseChange, onRollComplete }
+  // 물리 월드는 effect 안에서 한 번 만들고 그 뒤로 콜백만 최신을 쓴다.
+  const diceImpact = useEffectEvent((index: PhysicsDiceIndex, strength: number) =>
+    onDiceImpact?.(index, strength),
+  )
+  const reportError = useEffectEvent((cause: Error) => onError?.(cause))
+  const heldToggle = useEffectEvent((index: PhysicsDiceIndex) => onHeldToggle?.(index))
+  const phaseChange = useEffectEvent((phase: PhysicsDicePhase) => onPhaseChange?.(phase))
+  const rollComplete = useEffectEvent((requestId: string, completedDice: PhysicsDiceSet) =>
+    onRollComplete(requestId, completedDice),
+  )
   latestRef.current = { dice, held, keepAll, motionFollow, quality, releaseRequestId, request }
 
   useEffect(() => {
@@ -137,13 +139,13 @@ export function usePhysicsDiceWorld({
     const completeOnce = (requestId: string, completedDice: PhysicsDiceSet) => {
       if (completedRequestsRef.current.has(requestId)) return
       completedRequestsRef.current.add(requestId)
-      callbacksRef.current.onRollComplete(requestId, completedDice)
+      rollComplete(requestId, completedDice)
     }
     const callbacks: PhysicsDiceWorldCallbacks = {
-      onDiceImpact: (index, strength) => callbacksRef.current.onDiceImpact?.(index, strength),
-      onError: (error) => callbacksRef.current.onError?.(error),
-      onHeldToggle: (index) => callbacksRef.current.onHeldToggle?.(index),
-      onPhaseChange: (phase) => callbacksRef.current.onPhaseChange?.(phase),
+      onDiceImpact: (index, strength) => diceImpact(index, strength),
+      onError: (cause) => reportError(cause),
+      onHeldToggle: (index) => heldToggle(index),
+      onPhaseChange: (phase) => phaseChange(phase),
       onResizeChange: setResizing,
       onRollComplete: completeOnce,
     }
@@ -169,12 +171,12 @@ export function usePhysicsDiceWorld({
       })
       .catch((cause: unknown) => {
         if (disposed) return
-        const error = cause instanceof Error ? cause : new Error('3D 주사위 엔진 초기화 실패')
+        const loadError = cause instanceof Error ? cause : new Error('3D 주사위 엔진 초기화 실패')
         createdWorld?.destroy()
         createdWorld = null
         worldRef.current = null
         setFallbackMessage('3D 엔진을 사용할 수 없어 간단한 주사위 화면으로 전환했습니다.')
-        callbacksRef.current.onError?.(error)
+        reportError(loadError)
       })
 
     return () => {

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useEffectEvent } from 'react'
 import { Button } from '@/shared/components/Button'
 import { IconClose } from '@/shared/components/Icon'
 
@@ -74,13 +74,12 @@ export function MotionPermissionPanel({
  * 있고, 시간 제한 자체가 WCAG 2.2.1의 대상이다 — 링이 멈추면 닫기도 멈춘다.
  */
 function CloseButton({ autoClose = false, onClose }: { autoClose?: boolean; onClose: () => void }) {
-  const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  const close = useEffectEvent(onClose)
 
   useEffect(() => {
     if (!autoClose) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const timer = setTimeout(() => onCloseRef.current(), AUTO_CLOSE_MS)
+    const timer = setTimeout(() => close(), AUTO_CLOSE_MS)
     return () => clearTimeout(timer)
   }, [autoClose])
 

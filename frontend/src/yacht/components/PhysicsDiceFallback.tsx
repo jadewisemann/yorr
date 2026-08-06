@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useEffectEvent, useRef } from 'react'
 import type {
   PhysicsDiceIndex,
   PhysicsDiceRollRequest,
@@ -35,9 +35,9 @@ export function PhysicsDiceFallback({
   releaseRequestId,
   request,
 }: PhysicsDiceFallbackProps) {
-  const onRollCompleteRef = useRef(onRollComplete)
+  const rollComplete = useEffectEvent(onRollComplete)
   const completedRef = useRef(new Set<string>())
-  onRollCompleteRef.current = onRollComplete
+
   const displayedDice =
     request && releaseRequestId === request.requestId ? request.targetDice : (dice ?? INITIAL_DICE)
 
@@ -52,7 +52,7 @@ export function PhysicsDiceFallback({
     const frame = requestAnimationFrame(() => {
       if (completedRef.current.has(request.requestId)) return
       completedRef.current.add(request.requestId)
-      onRollCompleteRef.current(request.requestId, request.targetDice)
+      rollComplete(request.requestId, request.targetDice)
     })
     return () => cancelAnimationFrame(frame)
   }, [releaseRequestId, request])
