@@ -22,6 +22,16 @@
     @apply focus-visible:outline-3 focus-visible:outline-focus;
   }
 
+  /* 눌림. hover가 없는 터치에서 "손가락이 닿았다"를 알리는 유일한 채널이라 디자인 시스템
+     규칙 5가 누락을 금지한다. 값은 Button에서 승격했다 — 생 <button> 열몇 곳이 같은 결정을
+     각자 적고 있었다.
+     transition을 함께 넣지 않는 이유: 호출부의 transition-colors 같은 유틸리티가 레이어
+     순서로 이겨 transition-property를 통째로 덮어쓴다. scale까지 부드럽게 할 자리는 호출부가
+     자기 transition 목록에 scale을 넣는다(Button·AccountDialog의 행이 그렇다). */
+  .pressable {
+    @apply active:not-disabled:scale-[0.97];
+  }
+
   /* 점수표 한 행과 그 안의 라벨·점수 칸. 족보 12개 + 소계·보너스·합계가 같은 모양이다.
      열 너비는 인원수에 따라 달라지므로 style의 gridTemplateColumns가 따로 준다. */
   .score-row {
@@ -41,8 +51,9 @@
     @apply flex h-[4.125rem] min-w-[5.5rem] cursor-pointer flex-col items-start justify-between rounded-control border border-border bg-surface px-2.5 py-2 text-left text-content transition-[color,background-color,border-color,scale] active:not-disabled:scale-[0.97] focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55;
   }
 
-  /* 리액션 픽커 이모지 버튼 5종. */
+  /* 리액션 픽커 이모지 버튼 5종. hover 확대와 눌림이 겹치면 눌림이 이겨야 한다 —
+     선언 순서로 갈리므로 active를 뒤에 둔다. */
   .reaction-chip {
-    @apply grid size-11 cursor-pointer place-items-center rounded-card border-0 bg-transparent p-0 text-xl leading-none transition-transform hover:scale-115;
+    @apply grid size-11 cursor-pointer place-items-center rounded-card border-0 bg-transparent p-0 text-xl leading-none transition-transform hover:scale-115 active:scale-95;
   }
 }

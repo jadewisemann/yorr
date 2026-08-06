@@ -96,7 +96,7 @@ export function Modal({ children, className, onClose, open, role = 'dialog', tit
               </h2>
               <button
                 ref={closeRef}
-                className="grid size-tap cursor-pointer place-items-center rounded-full bg-transparent text-content focus-ring"
+                className="grid size-tap cursor-pointer place-items-center rounded-full bg-transparent text-content focus-ring pressable"
                 type="button"
                 aria-label="닫기"
                 onClick={onClose}

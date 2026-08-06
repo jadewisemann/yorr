@@ -65,7 +65,7 @@ export function WideBand({
           aria-controls={PANEL_ID}
           aria-expanded={open}
           className={cn(
-            'flex h-full flex-none cursor-pointer items-center gap-1.5 border-0 bg-transparent px-1 text-xs font-landing-bold transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+            'flex h-full flex-none cursor-pointer items-center gap-1.5 border-0 bg-transparent px-1 text-xs font-landing-bold transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable',
             open ? 'text-landing-accent-text' : 'text-landing-text-muted hover:text-landing-text',
           )}
           onClick={() => setOpen((previous) => !previous)}

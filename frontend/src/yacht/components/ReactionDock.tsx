@@ -135,7 +135,7 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
         aria-expanded={open}
         aria-label="리액션 보내기"
         className={cn(
-          'grid size-tap cursor-pointer place-items-center rounded-card border border-border bg-surface/90 text-lg shadow-raised transition-colors focus-ring',
+          'grid size-tap cursor-pointer place-items-center rounded-card border border-border bg-surface/90 text-lg shadow-raised transition-colors focus-ring pressable',
           open && 'border-brand bg-brand/15',
         )}
         onClick={() => (open ? close(false) : setOpen(true))}

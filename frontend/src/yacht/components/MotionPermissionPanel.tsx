@@ -87,7 +87,7 @@ function CloseButton({ autoClose = false, onClose }: { autoClose?: boolean; onCl
   return (
     <button
       aria-label="센서 안내 닫기"
-      className="relative grid size-tap shrink-0 cursor-pointer place-items-center rounded-full bg-transparent text-content focus-ring"
+      className="relative grid size-tap shrink-0 cursor-pointer place-items-center rounded-full bg-transparent text-content focus-ring pressable"
       onClick={onClose}
       type="button"
     >

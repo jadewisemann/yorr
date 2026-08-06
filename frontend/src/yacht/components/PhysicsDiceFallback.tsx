@@ -82,7 +82,7 @@ export function PhysicsDiceFallback({
           <button
             key={DIE_KEYS[index]}
             type="button"
-            className="cursor-pointer rounded-card focus-ring focus-visible:outline-offset-2 disabled:cursor-default"
+            className="cursor-pointer rounded-card focus-ring focus-visible:outline-offset-2 disabled:cursor-default pressable"
             disabled={!onHeldToggle || Boolean(request)}
             onClick={() => onHeldToggle?.(index as PhysicsDiceIndex)}
             aria-label={`${value} 주사위${held[index] ? ' KEEP 해제' : ' KEEP'}`}

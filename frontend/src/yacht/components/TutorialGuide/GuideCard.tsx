@@ -107,7 +107,7 @@ export function anchoredPlacement(anchor: SpotlightRect) {
 export function GuideTextButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
-      className="cursor-pointer border-0 bg-transparent p-1 text-xs font-semibold text-content-faint underline underline-offset-2 transition-colors hover:text-content focus-ring focus-visible:outline-offset-2"
+      className="cursor-pointer border-0 bg-transparent p-1 text-xs font-semibold text-content-faint underline underline-offset-2 transition-colors hover:text-content focus-ring focus-visible:outline-offset-2 pressable"
       onClick={onClick}
       type="button"
     >

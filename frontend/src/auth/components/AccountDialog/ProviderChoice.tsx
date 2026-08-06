@@ -70,7 +70,7 @@ export function ProviderChoice() {
         여기서만 재인증을 요청한다.
       */}
       <button
-        className="min-h-tap cursor-pointer justify-self-center rounded-full border-0 bg-transparent px-3 py-1 text-xs font-semibold text-content-muted underline-offset-2 hover:text-content hover:underline focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
+        className="min-h-tap cursor-pointer justify-self-center rounded-full border-0 bg-transparent px-3 py-1 text-xs font-semibold text-content-muted underline-offset-2 hover:text-content hover:underline focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable"
         onClick={() => globalThis.location.assign(kakaoLoginUrl({ forceLogin: true }))}
         type="button"
       >

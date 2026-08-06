@@ -154,7 +154,7 @@ function NeighborCard({
         shell,
         // 가운데 카드보다 뒤로 물러나 있어야 무엇이 선택된 카드인지 읽힌다. 다만 눌리는
         // 물건이므로 예전 장식 시절(0.34)만큼 어둡게 두지는 않는다.
-        'cursor-pointer p-0 opacity-65 transition-opacity duration-150 ease-out hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+        'cursor-pointer p-0 opacity-65 transition-opacity duration-150 ease-out hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable',
       )}
       onClick={onSelect}
       type="button"
@@ -192,7 +192,7 @@ function ArrowButton({
         // 원형 판을 걷었다 — 카드 안에 들어온 뒤로는 그 테두리가 카드 위에 뜬 별개
         // 위젯처럼 보였다. 꺾쇠만 남기면 카드에 얹힌 표식으로 읽힌다. 탭 타깃(44px)은
         // 투명한 히트 영역으로 그대로 지킨다.
-        'absolute top-1/2 z-1 grid size-tap aspect-square -translate-y-1/2 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-landing-text-muted transition-colors duration-150 ease-out hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+        'absolute top-1/2 z-1 grid size-tap aspect-square -translate-y-1/2 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-landing-text-muted transition-colors duration-150 ease-out hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable',
         // 카드 안쪽 가장자리에 붙는다 — 카드의 일부로 읽히고 띠와 함께 움직인다.
         isNext ? (wide ? 'right-2' : 'right-0.5') : wide ? 'left-2' : 'left-0.5',
       )}

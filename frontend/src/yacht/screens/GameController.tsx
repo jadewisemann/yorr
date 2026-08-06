@@ -81,7 +81,7 @@ export function GameControllerPad({ activePlayer, isMyTurn, roll }: GameControll
         <RollCounter rollsUsed={settledRollCount} />
         {motionOfferable && !motionPanelOpen && (
           <button
-            className="cursor-pointer rounded-full border border-border bg-surface/80 px-2.5 py-1 text-2xs font-bold tracking-[0.06em] text-content-muted uppercase focus-ring"
+            className="cursor-pointer rounded-full border border-border bg-surface/80 px-2.5 py-1 text-2xs font-bold tracking-[0.06em] text-content-muted uppercase focus-ring pressable"
             onClick={() => setMotionPanelOpen(true)}
             type="button"
           >

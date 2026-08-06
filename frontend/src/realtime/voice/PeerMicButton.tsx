@@ -31,7 +31,8 @@ export function PeerMicButton({ className, playerId, voice }: PeerMicButtonProps
       aria-label={muted ? '이 사람 소리 켜기' : '이 사람 소리 끄기'}
       aria-pressed={muted}
       className={cn(
-        'relative grid size-6 flex-none cursor-pointer place-items-center rounded-full border-0 bg-transparent p-0 text-xs leading-none transition-opacity focus-visible:outline-2 focus-visible:outline-focus',
+        // 눌림 비율이 pressable(0.97)보다 크다 — 24px 글리프에서 3%는 0.7px라 보이지 않는다.
+        'relative grid size-6 flex-none cursor-pointer place-items-center rounded-full border-0 bg-transparent p-0 text-xs leading-none transition-opacity focus-visible:outline-2 focus-visible:outline-focus active:scale-90',
         // 글리프는 작게 두고 누를 수 있는 영역만 넓힌다 — 24px 아이콘을 그대로 탭 타깃으로
         // 쓰면 모바일에서 못 누른다(권장 최소 44px). before는 레이아웃에 영향이 없다.
         'before:absolute before:-inset-2.5 before:content-[""]',

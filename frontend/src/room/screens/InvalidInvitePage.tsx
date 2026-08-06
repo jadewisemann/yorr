@@ -30,7 +30,7 @@ export function InvalidInvitePage({ initialCode }: InvalidInvitePageProps) {
       <header>
         <button
           aria-label="뒤로 가기"
-          className="grid size-11 cursor-pointer place-items-center rounded-card border border-border bg-surface text-content transition-colors hover:bg-surface-raised focus-ring"
+          className="grid size-11 cursor-pointer place-items-center rounded-card border border-border bg-surface text-content transition-colors hover:bg-surface-raised focus-ring pressable"
           onClick={() => void navigate({ to: '/' })}
           type="button"
         >

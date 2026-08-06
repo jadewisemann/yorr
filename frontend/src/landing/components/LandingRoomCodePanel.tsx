@@ -73,7 +73,7 @@ export function LandingRoomCodePanel({
           // 비활성 이유를 버튼에도 물린다 — 포커스가 여기 왔을 때 라벨만 읽히면
           // 무엇을 고쳐야 눌리는지 알 수 없다.
           aria-describedby="code-help"
-          className={`flex items-center justify-center border-0 font-bold whitespace-nowrap transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-3 ${
+          className={`flex items-center justify-center border-0 font-bold whitespace-nowrap transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-3 pressable ${
             narrow ? 'h-12 rounded-control px-3 text-sm' : 'h-14 rounded-card text-base'
           } ${
             ready
@@ -94,7 +94,7 @@ export function LandingRoomCodePanel({
 
       <button
         aria-label="코드 입력 닫기"
-        className="absolute top-0 right-0 grid size-tap cursor-pointer place-items-center rounded-control border border-landing-hairline-strong bg-transparent text-landing-text-muted transition-colors hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
+        className="absolute top-0 right-0 grid size-tap cursor-pointer place-items-center rounded-control border border-landing-hairline-strong bg-transparent text-landing-text-muted transition-colors hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable"
         onClick={onClose}
         type="button"
       >

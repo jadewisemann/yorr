@@ -92,7 +92,8 @@ export function Tooltip({
         // 보이는 ⓘ는 18px로 두고 히트 영역만 의사요소로 min-h-tap까지 넓힌다.
         // 버튼 자신의 상자는 그대로라 인접 텍스트를 밀지 않고 포커스 링도 글리프에 붙는다.
         className={cn(
-          'relative inline-flex cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-inherit before:absolute before:top-1/2 before:left-1/2 before:size-tap before:-translate-x-1/2 before:-translate-y-1/2 focus-ring focus-visible:outline-offset-2',
+          // 눌림 비율이 pressable(0.97)보다 크다 — 보이는 글리프가 18px이라 3%는 읽히지 않는다.
+          'relative inline-flex cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-inherit before:absolute before:top-1/2 before:left-1/2 before:size-tap before:-translate-x-1/2 before:-translate-y-1/2 focus-ring focus-visible:outline-offset-2 active:scale-90',
           // 딤 레이어는 이 트리거가 얹힌 밴드보다 아래에 깔리므로 z는 건드리지 않는다 —
           // 여기서는 "여기다"라고 말하는 링만 그린다.
           spotlight &&

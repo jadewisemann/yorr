@@ -9,7 +9,7 @@ import { IconSound } from '@/shared/components/Icon'
 import { selectSessionPhase, useAppStore } from '@/store'
 
 const codeEntry =
-  'flex min-h-tap shrink-0 cursor-pointer items-center gap-2 rounded-full border-0 bg-landing-accent pr-3 pl-4 text-sm font-landing-bold text-landing-accent-ink outline-white transition-colors duration-150 ease-out hover:bg-landing-accent/90 focus-visible:outline-3 focus-visible:outline-offset-2'
+  'flex min-h-tap shrink-0 cursor-pointer items-center gap-2 rounded-full border-0 bg-landing-accent pr-3 pl-4 text-sm font-landing-bold text-landing-accent-ink outline-white transition-colors duration-150 ease-out hover:bg-landing-accent/90 focus-visible:outline-3 focus-visible:outline-offset-2 pressable'
 
 export function CodeEntryRow({
   anchorRef,
@@ -55,7 +55,7 @@ export function SoundToggle({ muted, onToggle }: { muted: boolean; onToggle: () 
     <button
       aria-label={muted ? '소리 켜기' : '소리 끄기'}
       aria-pressed={!muted}
-      className="grid size-tap flex-none cursor-pointer place-items-center rounded-full border border-landing-hairline-strong bg-landing-well text-landing-text-muted transition-colors duration-150 ease-out hover:border-landing-accent/70 hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2"
+      className="grid size-tap flex-none cursor-pointer place-items-center rounded-full border border-landing-hairline-strong bg-landing-well text-landing-text-muted transition-colors duration-150 ease-out hover:border-landing-accent/70 hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable"
       onClick={onToggle}
       type="button"
     >
@@ -85,7 +85,7 @@ export function AccountControl({
       aria-expanded={open}
       aria-haspopup="dialog"
       className={cn(
-        'flex max-w-44 min-h-tap cursor-pointer items-center rounded-full border font-semibold transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2',
+        'flex max-w-44 min-h-tap cursor-pointer items-center rounded-full border font-semibold transition-colors duration-150 ease-out focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable',
         open
           ? 'border-landing-accent/60 bg-landing-accent-tint text-landing-accent-text'
           : 'border-landing-hairline-strong bg-landing-well text-landing-text hover:border-landing-accent/70',
@@ -160,14 +160,14 @@ export function ActiveRoomBanner() {
       </p>
       <div className="flex flex-none items-center gap-2">
         <button
-          className="min-h-tap cursor-pointer rounded-card border-0 bg-landing-accent px-4 py-2.5 text-sm font-landing-bold text-landing-accent-ink focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2"
+          className="min-h-tap cursor-pointer rounded-card border-0 bg-landing-accent px-4 py-2.5 text-sm font-landing-bold text-landing-accent-ink focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2 pressable"
           onClick={handleReturn}
           type="button"
         >
           {needsResume ? returnLabel : '돌아가기'}
         </button>
         <button
-          className="min-h-tap cursor-pointer rounded-full border-0 bg-transparent px-2.5 py-2 text-xs font-landing-bold text-landing-text-muted underline-offset-2 hover:underline focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2 disabled:opacity-60"
+          className="min-h-tap cursor-pointer rounded-full border-0 bg-transparent px-2.5 py-2 text-xs font-landing-bold text-landing-text-muted underline-offset-2 hover:underline focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2 disabled:opacity-60 pressable"
           disabled={isLeaving}
           onClick={() => void leave()}
           type="button"

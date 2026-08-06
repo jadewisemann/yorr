@@ -45,7 +45,8 @@ describe('GameChromeButton', () => {
     render(<GameChromeButton onClick={() => {}}>나가기</GameChromeButton>)
 
     const classes = classSet(screen.getByRole('button'))
-    expect(classes).toContain('active:not-disabled:scale-[0.97]')
+    // 눌림은 recipes.css의 pressable이 들고 있다 — Button이 값을 직접 적지 않는다.
+    expect(classes).toContain('pressable')
     expect(classes).toContain('focus-ring')
     expect(classes).toContain('min-h-tap')
     expect(classes).toContain('rounded-full')

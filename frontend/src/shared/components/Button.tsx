@@ -47,7 +47,7 @@ export function Button({
       className={cn(
         // 눌림은 뜬 것을 되돌리고(translate-y-0) 살짝 눌러 앉힌다 — 손가락이 닿은 순간
         // 화면이 반응했다는 걸 hover가 없는 터치에서도 알 수 있는 유일한 채널이다.
-        'inline-flex items-center justify-center gap-2 rounded-card border border-transparent font-bold transition-[color,background-color,border-color,opacity,translate,scale] duration-150 ease-snappy hover:not-disabled:-translate-y-px active:not-disabled:translate-y-0 active:not-disabled:scale-[0.97] focus-ring focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55',
+        'inline-flex items-center justify-center gap-2 rounded-card border border-transparent font-bold transition-[color,background-color,border-color,opacity,translate,scale] duration-150 ease-snappy hover:not-disabled:-translate-y-px active:not-disabled:translate-y-0 pressable focus-ring focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-55',
         variants[variant],
         sizes[size],
         className,

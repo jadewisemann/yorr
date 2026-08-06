@@ -19,7 +19,7 @@ export function HeaderButton({
     <button
       aria-label={label}
       {...(pressed === undefined ? {} : { 'aria-pressed': pressed })}
-      className="grid size-tap flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-content-muted transition-colors hover:text-content focus-ring"
+      className="grid size-tap flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-content-muted transition-colors hover:text-content focus-ring pressable"
       onClick={onClick}
       ref={ref}
       type="button"
