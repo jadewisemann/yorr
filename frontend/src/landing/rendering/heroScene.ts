@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { GameKey } from '@/games'
+import { dsColorReader } from '@/styles/tokenFallbacks'
 
 /**
  * 랜딩 히어로 3D 장면. 디자인 핸드오프의 `hero3d.js`(custom element)를 옮긴 것으로,
@@ -69,9 +70,10 @@ function pipTexture(pips: PipCount) {
   canvas.height = size
   const context = canvas.getContext('2d')
   if (!context) throw new Error('주사위 텍스처를 그릴 수 없습니다.')
-  context.fillStyle = '#f4f1e8'
+  const color = dsColorReader()
+  context.fillStyle = color('--ds-color-physics-die')
   context.fillRect(0, 0, size, size)
-  context.fillStyle = '#0b0b0c'
+  context.fillStyle = color('--ds-color-physics-pip')
   for (const [x, y] of PIP_LAYOUT[pips]) {
     context.beginPath()
     context.arc(x * size, y * size, size * 0.075, 0, Math.PI * 2)
