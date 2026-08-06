@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Popover } from '../Popover'
 
@@ -14,9 +14,22 @@ function setViewport(width: number, height: number) {
   Object.defineProperty(window, 'innerHeight', { configurable: true, value: height })
 }
 
+interface AnchorRect {
+  bottom: number
+  left: number
+  top: number
+  width: number
+}
+
 /** 원하는 위치에 있는 척하는 앵커. jsdom은 레이아웃을 계산하지 않는다. */
-function anchorAt(rect: { bottom: number; left: number; top: number; width: number }) {
+function anchorAt(rect: AnchorRect) {
   const element = document.createElement('button')
+  moveAnchor(element, rect)
+  document.body.append(element)
+  return { current: element }
+}
+
+function moveAnchor(element: HTMLElement, rect: AnchorRect) {
   element.getBoundingClientRect = () =>
     ({
       bottom: rect.bottom,
@@ -26,8 +39,6 @@ function anchorAt(rect: { bottom: number; left: number; top: number; width: numb
       top: rect.top,
       width: rect.width,
     }) as DOMRect
-  document.body.append(element)
-  return { current: element }
 }
 
 function renderAt(anchorRef: { current: HTMLElement }) {
@@ -65,5 +76,24 @@ describe('Popover 앵커 배치', () => {
     expect(panel.style.bottom).toBe('78px')
     const tail = panel.querySelector('span[aria-hidden="true"]') as HTMLElement
     expect(tail.className).toContain('-bottom-')
+  })
+
+  /**
+   * 예전엔 resize만 들어서, 앵커가 스크롤로 움직여도 팝오버가 제자리에 남았다.
+   * scroll은 버블하지 않으므로 캡처 단계로 받는다 — 어느 조상이 스크롤되든 잡힌다.
+   */
+  it('앵커가 스크롤로 움직이면 따라간다', () => {
+    setViewport(1024, 768)
+    const anchorRef = anchorAt({ bottom: 200, left: 480, top: 156, width: 44 })
+    const panel = renderAt(anchorRef)
+    expect(panel.style.top).toBe('210px')
+
+    // 스크롤 컨테이너가 40px 올라가 앵커도 그만큼 위로 갔다.
+    moveAnchor(anchorRef.current, { bottom: 160, left: 480, top: 116, width: 44 })
+    act(() => {
+      document.body.dispatchEvent(new Event('scroll', { bubbles: false }))
+    })
+
+    expect(panel.style.top).toBe('170px')
   })
 })

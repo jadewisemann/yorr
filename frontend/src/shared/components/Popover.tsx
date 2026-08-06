@@ -142,7 +142,18 @@ export function Popover({
     measure()
     // 화면 회전·주소창 접힘으로 뷰포트가 바뀌면 앵커도 함께 움직인다.
     window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
+    /*
+     * 스크롤로도 앵커가 움직인다. 예전엔 resize만 들어서 팝오버가 제자리에 남았다.
+     *
+     * capture로 document에 건다 — scroll은 버블하지 않으므로, 앵커를 품은 스크롤 컨테이너가
+     * 무엇이든(대기실 참가자 목록·랜딩 띠) 캡처 단계에서는 잡힌다. 어느 조상이 스크롤되는지
+     * 찾아 올라갈 필요가 없다. passive는 스크롤을 막지 않는다는 선언이다.
+     */
+    document.addEventListener('scroll', measure, { capture: true, passive: true })
+    return () => {
+      window.removeEventListener('resize', measure)
+      document.removeEventListener('scroll', measure, { capture: true })
+    }
   }, [anchorRef, open, width])
 
   useEffect(() => {
