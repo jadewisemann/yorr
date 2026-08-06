@@ -1,19 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
-import {
-  buildClientMessage,
-  type GameState,
-  type PlayerId,
-  type ServerMessage,
-} from '@/realtime/wsEvents'
+import { buildClientMessage, type GameState, type PlayerId } from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
-import {
-  type DiceIndex,
-  type DiceSet,
-  type HeldDice,
-  NO_HELD_DICE,
-  toggleHeldDie,
-} from '@/yacht/domain/dice'
+import { type DiceIndex, type DiceSet, NO_HELD_DICE, toggleHeldDie } from '@/yacht/domain/dice'
 import { isRecorded } from '@/yacht/domain/yachtCategoryView'
 import {
   createYachtGame,
@@ -25,36 +14,15 @@ import {
 } from '@/yacht/domain/yachtGame'
 import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
 import { useMotionRollInput } from '@/yacht/input/useMotionRollInput'
-import { animationSeedForRoll, type RollInputMode, rollAnimationMode } from './roll/animation'
-import { isCurrentDiceBroadcast, latestGameState, turnAwareErrorMessage } from './roll/messages'
+import type { RollInputMode } from './roll/animation'
+import { latestGameState } from './roll/messages'
 import { IDLE_ROLL_PRESENTATION, rollPresentationReducer } from './roll/presentation'
-import { createRemoteReleaseGate } from './roll/remoteReleaseGate'
+import { createRollTracking } from './roll/tracking'
 import { useRollBroadcast } from './roll/useBroadcast'
 import { useRollFeedback } from './roll/useFeedback'
+import { useRollIncoming } from './roll/useIncoming'
 
 const TAP_RELEASE_DELAY_MS = 600
-
-type DiceBroadcastMessage = Extract<ServerMessage, { type: 'game.yacht_dice.dice.broadcast' }>
-type DiceShakenMessage = Extract<ServerMessage, { type: 'game.yacht_dice.dice.shaken' }>
-type DiceThrownMessage = Extract<ServerMessage, { type: 'game.yacht_dice.dice.thrown' }>
-type DiceHoldChangedMessage = Extract<ServerMessage, { type: 'game.yacht_dice.dice.hold_changed' }>
-type ErrorMessage = Extract<ServerMessage, { type: 'error' }>
-interface PendingRollRequest {
-  inputMode: RollInputMode
-  msgId: string
-  requestId: string
-}
-
-function pendingInputModeFor(
-  message: DiceBroadcastMessage,
-  ownRoll: boolean,
-  forced: boolean,
-  pending: PendingRollRequest | null,
-) {
-  return ownRoll && !forced && pending?.msgId === message.msgId
-    ? (pending?.inputMode ?? null)
-    : null
-}
 
 interface UseGamePlayRollOptions {
   game: GameState | undefined
@@ -94,13 +62,10 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
   } = presentation
   const feedback = useRollFeedback()
 
-  const acceptedRollTurnRef = useRef<{ playerId: PlayerId; roundNumber: number } | null>(null)
+  const trackingRef = useRef(createRollTracking())
   const activePlayerRef = useRef(activePlayerId)
   const rollSequenceRef = useRef(0)
   const inputModeRef = useRef(rollInputMode)
-  const pendingRollRequestRef = useRef<PendingRollRequest | null>(null)
-  const queuedMotionReleaseRef = useRef(false)
-  const remoteReleaseRef = useRef(createRemoteReleaseGate())
   // 렌더 중에 ref를 쓰지 않는다 — 버려지는 렌더(동시성)에서 커밋되지 않은 값이 남는다.
   // layout effect는 페인트 전에 돌아서 이벤트·rAF가 읽는 시점에는 이미 최신이다.
   useLayoutEffect(() => {
@@ -127,15 +92,12 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
   useEffect(() => {
     if (activePlayerRef.current === activePlayerId) return
     activePlayerRef.current = activePlayerId
-    const acceptedRollTurn = acceptedRollTurnRef.current
-    acceptedRollTurnRef.current = null
+    const acceptedRollTurn = trackingRef.current.takeAcceptedTurn()
     const diceForThisTurnAlreadyArrived =
       acceptedRollTurn?.playerId === activePlayerId && acceptedRollTurn?.roundNumber === roundNumber
     if (!diceForThisTurnAlreadyArrived) resetLocalFor(roundNumber)
     present({ type: 'turnReset' })
-    pendingRollRequestRef.current = null
-    queuedMotionReleaseRef.current = false
-    remoteReleaseRef.current.reset()
+    trackingRef.current.reset()
   }, [activePlayerId, resetLocalFor, roundNumber])
 
   const dispatch = useCallback((action: YachtGameAction) => {
@@ -175,8 +137,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
       // 다음 제스처 이벤트가 같은 틱에 들어올 수 있어 ref는 여기서 바로 맞춘다
       // (렌더를 기다리는 layout effect보다 빠르다).
       inputModeRef.current = inputMode
-      queuedMotionReleaseRef.current = false
-      pendingRollRequestRef.current = { inputMode, msgId, requestId }
+      trackingRef.current.requested({ inputMode, msgId, requestId })
       try {
         realtimeClient.send(
           buildClientMessage(
@@ -190,7 +151,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
           ),
         )
       } catch {
-        pendingRollRequestRef.current = null
+        trackingRef.current.settle()
         present({ type: 'requestFailed' })
         showToast('주사위를 요청하지 못했어요. 연결 상태를 확인해 주세요.')
       }
@@ -198,151 +159,21 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
     [canRoll, local.held, local.rollCount, realtimeClient, roomId, roundNumber, showToast],
   )
 
-  const handleBroadcast = useCallback(
-    (message: DiceBroadcastMessage) => {
-      const currentGame = latestGameState(
-        renderedGameRef.current,
-        useAppStore.getState().roomSnapshot?.game,
-      )
-      if (!isCurrentDiceBroadcast(message, roomId, currentGame)) return
-      const ownRoll = message.payload.playerId === you
-      const forced = message.payload.auto === true
-      const pending = pendingRollRequestRef.current
-      const requestId = `roll-${message.payload.playerId}-${message.payload.roundNumber}-${message.payload.rollCount}`
-      const animationMode = rollAnimationMode({
-        forced,
-        ownRoll,
-        pendingInputMode: pendingInputModeFor(message, ownRoll, forced, pending),
-      })
-      const releaseNow = remoteReleaseRef.current.rollAccepted(
-        animationMode === 'remote'
-          ? {
-              requestId,
-              rollCount: message.payload.rollCount,
-              roundNumber: message.payload.roundNumber,
-            }
-          : null,
-      )
-      pendingRollRequestRef.current = null
-      present({ type: 'broadcastAccepted', mode: animationMode })
-      acceptedRollTurnRef.current = {
-        playerId: message.payload.playerId,
-        roundNumber: message.payload.roundNumber,
-      }
-      setLocal((state) =>
-        yachtGameReducer(
-          state.roundNumber === message.payload.roundNumber
-            ? state
-            : createYachtGame(state.seed, message.payload.roundNumber),
-          {
-            type: 'rollRequested',
-            forced,
-            held: message.payload.held as HeldDice,
-            requestId,
-            rollCount: message.payload.rollCount,
-            seed: animationSeedForRoll(
-              roomId,
-              message.payload.playerId,
-              message.payload.roundNumber,
-              message.payload.rollCount,
-              message.payload.dice,
-            ),
-            targetDice: message.payload.dice,
-          },
-        ),
-      )
-      if (ownRoll && forced) {
-        showToast(`시간이 지나 서버가 ${message.payload.rollCount}번째 주사위를 굴렸어요.`)
-      }
-      if (ownRoll && queuedMotionReleaseRef.current) {
-        queuedMotionReleaseRef.current = false
-        present({ type: 'released', requestId })
-        publishThrow(message.payload.rollCount)
-      }
-      if (releaseNow) present({ type: 'released', requestId: releaseNow })
-    },
-    [publishThrow, roomId, showToast, you],
-  )
-
-  const handleShaken = useCallback(
-    (message: DiceShakenMessage) => {
-      if (
-        message.roomId !== roomId ||
-        message.payload.roundNumber !== roundNumber ||
-        message.payload.playerId !== activePlayerId ||
-        message.payload.playerId === you ||
-        !remoteReleaseRef.current.rolling
-      ) {
-        return
-      }
-      present({ type: 'remoteShakeStarted' })
-      feedback.pulse(message.payload.direction, message.payload.strength, 'remote')
-    },
-    [activePlayerId, feedback.pulse, roomId, roundNumber, you],
-  )
-
-  const handleThrown = useCallback(
-    (message: DiceThrownMessage) => {
-      if (
-        message.roomId !== roomId ||
-        message.payload.roundNumber !== roundNumber ||
-        message.payload.playerId !== activePlayerId ||
-        message.payload.playerId === you
-      ) {
-        return
-      }
-      const releaseNow = remoteReleaseRef.current.throwObserved({
-        rollCount: message.payload.rollCount,
-        roundNumber: message.payload.roundNumber,
-      })
-      if (releaseNow) present({ type: 'released', requestId: releaseNow })
-    },
-    [activePlayerId, roomId, roundNumber, you],
-  )
-
-  const handleHeldChanged = useCallback(
-    (message: DiceHoldChangedMessage) => {
-      if (
-        message.roomId === roomId &&
-        message.payload.roundNumber === roundNumber &&
-        message.payload.playerId === activePlayerId &&
-        message.payload.playerId !== you
-      ) {
-        dispatch({ type: 'heldSynced', held: message.payload.held as HeldDice })
-      }
-    },
-    [activePlayerId, dispatch, roomId, roundNumber, you],
-  )
-
-  const handleError = useCallback(
-    (message: ErrorMessage) => {
-      const pending = pendingRollRequestRef.current
-      if (!pending || message.payload.refMsgId !== pending.msgId) return
-      pendingRollRequestRef.current = null
-      present({ type: 'requestFailed' })
-      showToast(turnAwareErrorMessage(message.payload))
-    },
-    [showToast],
-  )
-
-  useEffect(
-    () =>
-      realtimeClient.onMessage((message) => {
-        switch (message.type) {
-          case 'game.yacht_dice.dice.broadcast':
-            return handleBroadcast(message)
-          case 'game.yacht_dice.dice.shaken':
-            return handleShaken(message)
-          case 'game.yacht_dice.dice.thrown':
-            return handleThrown(message)
-          case 'game.yacht_dice.dice.hold_changed':
-            return handleHeldChanged(message)
-          case 'error':
-            return handleError(message)
-        }
-      }),
-    [handleBroadcast, handleError, handleHeldChanged, handleShaken, handleThrown, realtimeClient],
-  )
+  useRollIncoming({
+    activePlayerId,
+    currentGame: () =>
+      latestGameState(renderedGameRef.current, useAppStore.getState().roomSnapshot?.game),
+    dispatch,
+    feedback,
+    present,
+    publishThrow,
+    roomId,
+    roundNumber,
+    setLocal,
+    showToast,
+    tracking: trackingRef.current,
+    you,
+  })
 
   const handleGestureEvent = useCallback(
     (event: MotionGestureEvent) => {
@@ -359,9 +190,7 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
           const request = getPendingRoll(local)
           if (inputModeRef.current !== 'motion') return
           if (!request) {
-            if (pendingRollRequestRef.current?.inputMode === 'motion') {
-              queuedMotionReleaseRef.current = true
-            }
+            trackingRef.current.queueMotionRelease()
             return
           }
           feedback.thrown()
