@@ -149,7 +149,7 @@ export function PingPongController({
       <section className="mt-3 grid flex-none gap-2 text-center">
         {permission === 'unknown' && (
           <button
-            className="min-h-12 rounded-card border border-pp-accent/45 bg-pp-accent/12 px-5 font-bold text-pp-accent-text"
+            className="min-h-12 rounded-card border border-pp-accent/45 bg-pp-accent/12 px-5 font-bold text-pp-accent-text transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
             onClick={() => void requestPermission()}
             type="button"
           >
@@ -338,7 +338,7 @@ function PingPongPreparationController({
       <section className="mt-3 grid flex-none gap-2">
         {permission === 'unknown' && (
           <button
-            className="min-h-12 rounded-card border border-pp-accent/45 bg-pp-accent/12 px-5 font-bold text-pp-accent-text"
+            className="min-h-12 rounded-card border border-pp-accent/45 bg-pp-accent/12 px-5 font-bold text-pp-accent-text transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
             onClick={() => void requestPermission()}
             type="button"
           >
@@ -347,7 +347,7 @@ function PingPongPreparationController({
         )}
         <PreparationMotionStatus permission={permission} practiced={practiced} />
         <button
-          className="min-h-14 rounded-card bg-pp-danger px-5 text-lg font-black text-white disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35"
+          className="min-h-14 rounded-card bg-pp-danger px-5 text-lg font-black text-white disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35 transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
           disabled={!practiced || ready}
           onClick={onReady}
           type="button"

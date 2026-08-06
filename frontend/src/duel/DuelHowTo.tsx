@@ -66,7 +66,7 @@ function Step({
           모션 센서를 쓸 수 없어요. 게임에서는 화면을 눌러 뽑습니다.
         </p>
         <button
-          className="min-h-11 rounded-full border border-border bg-surface px-4 text-sm font-bold"
+          className="min-h-11 rounded-full border border-border bg-surface px-4 text-sm font-bold transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
           onClick={onPractice}
           type="button"
         >
@@ -90,7 +90,7 @@ function Step({
         폰을 세로로 쥐고 휘둘러 뽑습니다. 먼저 센서를 켜 주세요.
       </p>
       <button
-        className="min-h-11 rounded-full border border-brand/50 bg-brand/12 px-4 text-sm font-bold text-brand"
+        className="min-h-11 rounded-full border border-brand/50 bg-brand/12 px-4 text-sm font-bold text-brand transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
         onClick={onRequest}
         type="button"
       >
