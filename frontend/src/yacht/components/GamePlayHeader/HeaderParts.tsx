@@ -1,17 +1,6 @@
 import type { Ref } from 'react'
-import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
 import { cn } from '@/shared/cn'
 import type { ConnectionStatus } from '@/store'
-
-/** 시트를 열지 않고도 지금 상태가 읽히게 라벨에 소리·마이크를 함께 담는다. */
-export function audioLabel(soundMuted: boolean, voice: VoiceChat) {
-  const sound = soundMuted ? '소리 꺼짐' : '소리 켜짐'
-  if (voice.status === 'on') {
-    const peers = voice.peers.length
-    return `오디오 설정 · ${sound} · 마이크 켜짐${peers > 0 ? ` · ${peers}명 연결됨` : ''}`
-  }
-  return `오디오 설정 · ${sound} · 마이크 꺼짐`
-}
 
 export function HeaderButton({
   children,
