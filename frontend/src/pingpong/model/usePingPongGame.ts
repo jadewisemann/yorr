@@ -10,22 +10,13 @@ import { useSwing } from '@/shared/useSwing'
 import type { ActiveRoomSession } from '@/store'
 
 interface UsePingPongGameOptions {
-  /** 3D 코트를 띄우는 화면인가 = canvas 가 마운트되는가. */
   court: boolean
-  /** 대시보드는 조작하지 않고 양쪽을 함께 비춘다(split). */
   dashboard: boolean
   roomId: string
   session: ActiveRoomSession
   state: PingPongState | undefined
 }
 
-/**
- * 실시간 탁구 한 판의 수명주기 — 3D 장면, 프레임 루프, 입력(스페이스·탭·폰 스윙),
- * 타구·테이블 효과음, 스윙·준비 전송.
- *
- * 판정은 서버가 한다. 이 훅은 입력을 올리고 서버가 준 상태를 렌더러가 이해하는
- * `FrameState` 로 번역한다.
- */
 export function usePingPongGame({
   court,
   dashboard,
@@ -44,8 +35,6 @@ export function usePingPongGame({
   const [clock, setClock] = useState(Date.now())
   const [sendError, setSendError] = useState<string | null>(null)
 
-  // 렌더 중에 ref를 쓰지 않는다 — 버려지는 렌더(동시성)에서 커밋되지 않은 값이 남는다.
-  // layout effect는 페인트 전에 돌아서 이벤트·rAF가 읽는 시점에는 이미 최신이다.
   useLayoutEffect(() => {
     stateRef.current = state
     viewerRef.current = viewerFor(state, session.you)
@@ -116,9 +105,6 @@ export function usePingPongGame({
     return () => window.clearTimeout(timeoutId)
   }, [state?.ball, state?.phase])
 
-  // court를 보는 이유: canvas는 코트 화면에서만 마운트된다. 창을 좁혀 폰 컨트롤러로 바뀌면
-  // canvas가 사라지는데, 그때 이 effect가 다시 돌지 않으면 씬이 떨어져 나간 canvas에
-  // 계속 프레임을 그린다. dashboard는 split 화면(둘 다 비추기) 여부다.
   useEffect(() => {
     const canvas = canvasRef.current
     if (!court || !canvas) return

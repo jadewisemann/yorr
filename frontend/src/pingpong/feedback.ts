@@ -7,7 +7,6 @@ export type PingPongSituation =
 const EVENT_LABELS: Partial<
   Record<PingPongEventType, readonly [mine: string | null, opponent: string | null]>
 > = {
-  // 이모지는 아이콘이 아니라 카피 속 장식이다 — 나머지 라벨에는 없어 형제와 맞지 않는다.
   SMASH: ['스매시!', '상대 스매시!'],
   NICE: ['나이스!', '상대가 받아쳤어요'],
   OK: ['굿!', '리턴!'],
@@ -57,8 +56,6 @@ export function feedbackTextClass(type: PingPongEventType) {
   return 'text-white'
 }
 
-// 글로우도 토큰을 따라간다 — 색만 토큰이고 글로우가 리터럴이면 팔레트를 바꿨을 때
-// 글자와 그 뒤 번짐이 서로 다른 색이 된다. 알파는 color-mix로 얹는다.
 const glow = (token: string, blur: string, alpha: number) =>
   `0 0 ${blur} color-mix(in srgb, var(${token}) ${alpha}%, transparent)`
 

@@ -6,22 +6,16 @@ import { Modal } from '@/shared/components/Modal'
 interface PlayModeDialogProps {
   game: Game
   onClose: () => void
-  /** 탁구 전용 — 서버 없이 바로 붙는 로컬 AI 대전. */
   onAiMatch: () => void
-  /** 초대 링크로 친구를 부르는 기존 경로(닉네임 화면 → 방 생성). */
   onCreateRoom: () => void
-  /** 파티 모드 대시보드. 백엔드 모듈(gameCode)이 있는 게임만 열 수 있다. */
   onPartyMode: () => void
-  /** 빠른 대전. 비로그인 상태에서는 로그인 화면으로 보낸다. */
   onQuickMatch: () => void
   onSignIn: () => void
-  /** 연습 모드(야추 전용). 방을 만들지 않고 바로 들어간다. */
   onTutorial: () => void
   open: boolean
   signedIn: boolean
 }
 
-/** 플레이 뒤의 모드 선택. 기본 경로 하나를 크게 두고 나머지는 얇은 목록으로 내린 1A안. */
 export function PlayModeDialog({
   game,
   onClose,

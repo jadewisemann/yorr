@@ -1,25 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-/**
- * useSwing
- * -------------------------------------------------------------
- * 휴대폰을 "왕복으로 스윙"하는 동작을 DeviceMotion(가속도)으로 감지해
- * onSwing() 을 호출한다. 탁구의 라켓 휘두르기, 결투의 총 뽑기가 같은 신호를 쓴다 —
- * 게임을 모르는 기기 입력이라 도메인이 아니라 shared 에 둔다.
- *
- * - 스윙 = 순간 가속도 크기가 임계값을 넘는 스파이크. 쿨다운으로 왕복 중
- *   과도하게 여러 번 잡히지 않게 한다.
- * - iOS 13+ 는 requestPermission() 을 버튼 탭 안에서 호출해야 한다(HTTPS 필수).
- * - 연결/권한이 없으면 게임은 탭·클릭으로 진행한다 (이 훅과 무관하게 동작).
- */
-
 export type SwingPermission = 'unknown' | 'granted' | 'denied' | 'unsupported'
 
 const SWING_COOLDOWN_MS = 220 // 스윙 사이 최소 간격
 const DEFAULT_THRESHOLD = 14 // 스윙으로 볼 가속도 크기(m/s^2)
-/** 다음 스윙을 받기 전에 가속도가 여기까지 내려와야 한다 (한 번의 휘두름이 여러 번 잡히는 것 방지) */
 const RELEASE_RATIO = 0.45
-/** 중력 추정 저역통과 계수 — 작을수록 천천히 따라간다 */
 const GRAVITY_ALPHA = 0.08
 
 interface UseSwingOptions {
@@ -75,9 +60,7 @@ export function useSwing({
 
   const lastSwingAt = useRef(0)
   const listening = useRef(false)
-  /** 저역통과로 추정한 중력 벡터 */
   const grav = useRef({ x: 0, y: 0, z: 0 })
-  /** 스파이크가 한 번 내려갔는지 (히스테리시스) */
   const armed = useRef(true)
 
   const handleMotion = useCallback((e: DeviceMotionEvent) => {
@@ -85,14 +68,9 @@ export function useSwing({
     const sample = motionVector(e)
     if (!sample) return
 
-    // 중력 성분을 저역통과로 추정해 뺀다.
-    //  - accelerationIncludingGravity 로 폴백한 기기(안드로이드 일부)에서는 가만히 든 폰도
-    //    9.8 을 찍어서, 빼주지 않으면 임계값 14 가 실질 4 밖에 안 남는다 → 살짝만 움직여도 오감지.
-    //  - 이미 중력이 빠진 acceleration 이면 추정치가 0 근처라 빼도 그대로다.
     const mag = highPassMagnitude(sample, grav.current)
 
     const th = thresholdRef.current
-    // 한 번 임계값을 넘으면, 다시 충분히 잦아들기 전까지는 새 스윙으로 안 친다.
     if (!armed.current) {
       armed.current = mag < th * RELEASE_RATIO
       return
@@ -128,8 +106,6 @@ export function useSwing({
       setPermission('unsupported')
       return
     }
-    // Android 계열 브라우저는 별도 권한 API가 없으므로 마운트 즉시 센서를 연결한다.
-    // iOS는 사용자 제스처 안에서 requestPermission()을 호출해야 하므로 버튼 입력을 기다린다.
     if (typeof deviceMotion.requestPermission !== 'function') {
       startListening()
       setPermission('granted')
@@ -137,7 +113,6 @@ export function useSwing({
     return stopListening
   }, [startListening, stopListening])
 
-  /** 버튼 탭 안에서 호출 (iOS 권한 팝업) */
   const requestPermission = useCallback(async () => {
     const deviceMotion = window.DeviceMotionEvent as
       | (typeof DeviceMotionEvent & {

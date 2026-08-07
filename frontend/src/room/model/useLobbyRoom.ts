@@ -28,10 +28,6 @@ function schedulePhysicsDicePrefetch() {
   return () => window.clearTimeout(timeoutId)
 }
 
-/**
- * 지금 이 방의 상태 — 전부 읽기 전용 파생값이다. 화면을 옮기는 것(대기실을 벗어난 방,
- * 어긋난 세션)도 방의 상태에 딸린 일이라 여기서 한다.
- */
 export function useLobbyRoom(roomId: string) {
   const navigate = useNavigate()
   const roomSession = useAppStore((state) => state.roomSession)
@@ -45,8 +41,6 @@ export function useLobbyRoom(roomId: string) {
   const duoGame =
     isDuoGame(snapshot?.gameCode) || (matchingRoom && isDuoGame(roomSession?.gameCode))
   const minPlayers = duoGame ? 2 : 1
-  // 파티 모드 QR로 들어온 폰. 초대 패널을 세울 자리에 연결 안내가 대신 선다 —
-  // QR·링크는 큰 화면이 이미 띄우고 있어서 여기 또 있으면 자기 폰을 자기가 찍게 된다.
   const controller = matchingRoom && isPartyRoom(roomSession.roomCode)
 
   useEffect(() => {
@@ -84,7 +78,6 @@ export function useLobbyRoom(roomId: string) {
     gameCode: snapshot?.gameCode ?? roomSession?.gameCode ?? 'YACHT_DICE',
     isHost,
     minPlayers,
-    // 방이 어긋났거나 재개 사유가 있으면 위 effect가 화면을 옮긴다 — 그때까지 그릴 것이 없다.
     session: matchingRoom && !roomResumeReason ? roomSession : null,
     snapshot,
   }

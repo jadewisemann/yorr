@@ -65,8 +65,6 @@ describe('RealtimeSync', () => {
     expect(useAppStore.getState().connectionStatus).toBe('connected')
   })
 
-  // 서버에 sys.reconnect 라우팅이 없어(티켓 25) 재접속도 room.join으로 복귀해야 한다.
-  // sys.reconnect를 보내면 조용히 버려져 "연결됨인데 방에 없는" limbo가 된다.
   it('re-sends room.join with the saved session on reconnect', async () => {
     const client = createRealtimeFixture({ role: 'creator' })
     render(
@@ -212,7 +210,6 @@ describe('RealtimeSync', () => {
         scoreboard: { ...createEmptyScoreBoard(), total: 24 },
       }),
     )
-    // 서버 스냅샷에는 game이 없다. 갈아끼우면 상대 점수판까지 사라진다.
     client.emitMessage(
       serverMessage('state.sync', {
         snapshot: {
@@ -228,10 +225,6 @@ describe('RealtimeSync', () => {
     })
   })
 
-  /**
-   * game.over 핸들러가 없으면 서버가 종료를 알려도 화면이 게임에 머문다(QA 9번의 클라 쪽 절반).
-   * 순위는 서버 확정값을 그대로 저장해 결과 화면이 로컬 재계산에 의존하지 않게 한다.
-   */
   it('switches the room to finished and stores server rankings on game.over', () => {
     const client = createRealtimeFixture({ role: 'creator' })
     render(
@@ -304,7 +297,6 @@ describe('RealtimeSync', () => {
     expect(useAppStore.getState().roomSnapshot?.players).toContainEqual(participantPlayer)
   })
 
-  /** 대기실 복귀는 phase=waiting 스냅샷으로 전달된다 — 지난 게임 진행 상태는 함께 버려야 한다. */
   it('drops game state when the room goes back to the lobby', () => {
     const client = createRealtimeFixture({ role: 'creator' })
     render(
@@ -365,10 +357,6 @@ describe('RealtimeSync', () => {
     expect(localStorage.getItem('yorr.room-session')).toBeNull()
   })
 
-  /**
-   * 유예가 끝나 서버가 방을 닫은 뒤의 "이어서 하기". 세션을 정리하지 않으면 복귀 배너가
-   * 계속 뜨고, 누를 때마다 같은 실패를 반복한다(S15P11A406-136).
-   */
   it('clears the session when the server says the room is gone', async () => {
     const client = createRealtimeFixture({ role: 'creator' })
     render(
@@ -397,7 +385,6 @@ describe('RealtimeSync', () => {
     await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
   })
 
-  // 되돌릴 수 있는 실패로 세션을 버리면 사용자는 이유 없이 방에서 쫓겨난다.
   it('되돌릴 수 있는 오류로는 세션을 버리지 않는다', () => {
     const client = createRealtimeFixture({ role: 'creator' })
     render(
@@ -411,7 +398,6 @@ describe('RealtimeSync', () => {
     expect(useAppStore.getState().roomSession?.sessionToken).toBe(creatorSession.sessionToken)
   })
 
-  // 로컬 세션이 사라진 직후 도착한 늦은 room.joined도 죽지 않고 방 스냅샷을 그대로 반영해야 한다.
   it('로컬 세션이 없는 상태로 도착한 room.joined는 스냅샷만 갈아끼운다', () => {
     const client = createRealtimeFixture({ role: 'creator' })
     render(
@@ -465,7 +451,6 @@ describe('RealtimeSync', () => {
       held: [true, false, false, false, false],
     })
 
-    // 지난 라운드의 뒤늦은 broadcast는 이미 넘어간 턴을 덮어써서는 안 된다.
     client.emitMessage(
       serverMessage('game.yacht_dice.dice.broadcast', {
         playerId: creatorPlayer.playerId,
@@ -516,7 +501,6 @@ describe('RealtimeSync', () => {
     expect(useAppStore.getState().roomSnapshot?.game).toMatchObject({ rollCount: 2 })
   })
 
-  // 40분 유예가 끝나 이미 정리된 자리로 재접속을 시도하면 서버가 이 코드로 거절한다.
   it('유예가 끝난 자리로의 재접속은 세션을 정리한다', async () => {
     const client = createRealtimeFixture({ role: 'creator' })
     render(
@@ -565,7 +549,6 @@ describe('RealtimeSync', () => {
     expect(players.filter((player) => player.playerId === participantPlayer.playerId)).toHaveLength(
       1,
     )
-    // 재접속으로 다시 들어온 참가자는 뒤로 붙어도 명단에 반드시 남아야 한다.
     expect(players.at(-1)).toMatchObject({ playerId: participantPlayer.playerId })
   })
 
@@ -573,7 +556,6 @@ describe('RealtimeSync', () => {
     beforeEach(() => vi.useFakeTimers())
     afterEach(() => vi.useRealTimers())
 
-    // 서버는 heartbeat이 끊기면 나간 것으로 처리한다 — ping이 멈추면 게임 중 강제 퇴장이다.
     it('서버가 알려준 주기로 heartbeat을 계속 보낸다', () => {
       const client = createRealtimeFixture({ role: 'creator' })
       render(

@@ -15,7 +15,6 @@ interface LobbyRoomContentProps {
   startLoading: boolean
   startError: Error | null
   botLoading: boolean
-  /** 음성 채팅 상태. 참가자 카드 이름 오른쪽 끝에 그 사람 마이크가 선다. */
   voice: VoiceChat
   onStart: () => void
   onRemoveBot: (playerId: PlayerId) => void
@@ -39,7 +38,6 @@ export function LobbyRoomContent({
   if (!snapshot) return null
   return (
     <>
-      {/* min-h-28: 참가자 카드 한 장은 반드시 보인다(짧은 화면 대책 — main 주석 참고). */}
       <section
         className="grid min-h-28 flex-1 auto-rows-min gap-2.5 overflow-y-auto"
         aria-label={`참가자 ${snapshot.players.length}명`}

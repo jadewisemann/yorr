@@ -13,34 +13,6 @@ import { useWideLayout } from '@/shared/useWideLayout'
 import { useAppStore } from '@/store'
 import { PartyOpeningNotice } from './PartyOpeningNotice'
 
-/**
- * 파티 모드 대시보드 대기 화면 — 큰 화면이 게임판이 되고, 사람들은 QR을 찍어 폰으로 붙는다.
- *
- * <b>랜딩 팔레트를 문 앞에서 버린다.</b> `--ds-landing-*` 대신 게임 화면과 같은
- * `bg-canvas`/`border-border`/`text-content`를 쓰고, 프레임(`max-w-play`,
- * `grid-cols-[minmax(0,1fr)_28rem]`)과 네 개의 띠를 {@link GamePlay}에서 그대로 가져온다.
- * 시작 순간에 팔레트나 골격이 바뀌면 "이어지는 화면"이 될 수 없기 때문이다:
- *
- * <pre>
- *   헤더(게임·방 코드)     → GamePlayHeader
- *   인원 한 줄             → TurnStrip
- *   QR 블록                → GameDiceTray
- *   방장 안내 띠            → [굴리기] · 모두 해제
- *   참가자 열(28rem·border-l) → ScoreSheet
- * </pre>
- * <p>
- * <b>조작 버튼은 두지 않는다.</b> 대시보드는 방장이 아니다 — 방장은 처음 들어온 컨트롤러이고
- * (백엔드 {@code RoomValidationService}의 JOIN 규약), 게임 시작·봇 추가는 그 폰의 대기실에서
- * 한다. TV·모니터에 마우스를 기대하지 않는 것과 같은 이유다.
- *
- * 폭 분기도 랜딩 기준(760px)이 아니라 <b>게임 화면 기준(1024px)</b>을 쓴다 — 시작 전후가
- * 같은 지점에서 같은 모양으로 꺾여야 한다.
- */
-
-/**
- * 파티 대시보드가 받는 게임. 라우트가 `isPartyGameKey`로 걸러 주므로 여기 도달한 키는
- * 반드시 백엔드 게임 모듈(`gameCode`)을 갖고 있다 — 이 화면은 그걸 믿고 방을 연다.
- */
 export type PartyGameKey = GameKey
 
 export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
@@ -57,9 +29,6 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
   const players = roomSnapshot?.players ?? []
   const hostId = roomSnapshot?.hostId
 
-  // 진입 즉시 방을 연다. 대시보드는 이름을 짓지 않으므로 사이에 화면이 없다.
-  // 이미 대시보드 세션이 있으면(새로고침) 그것을 이어 쓴다 — 새 방을 열면 QR이 바뀌어
-  // 이미 찍고 들어온 사람들이 남의 방을 보게 된다.
   useEffect(() => {
     if (isDashboard || createParty.isLoading || createParty.error) return
     if (game.gameCode) void createParty.execute(game.gameCode)
@@ -67,7 +36,6 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
 
   useEffect(() => playLandingSoundtrack(gameKey), [gameKey])
 
-  // 게임이 시작되면 관전 뷰로 넘어간다. 이동은 phase가 시킨다(방 전체가 함께 움직인다).
   useEffect(() => {
     if (!isDashboard || !roomSession || !roomSnapshot || roomSnapshot.phase === 'waiting') return
     void navigate({
@@ -108,7 +76,6 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
               </span>
             </p>
           </div>
-          {/* 대시보드는 플레이어가 아니다 — '나가기'가 아니라 방을 닫는 것이다. */}
           <Button
             className="flex-none px-3.5 text-sm"
             onClick={() => void navigate({ to: '/' })}
@@ -119,15 +86,12 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
           </Button>
         </header>
 
-        {/* TurnStrip이 들어설 자리. 시작 전에는 인원 한 줄이 같은 높이를 지킨다. */}
         <p className="m-0 flex flex-none items-center gap-2 border-b border-border px-gutter py-2.5 text-xs text-content-muted">
           참가자 {players.length}명
           <span aria-hidden="true" className="h-3 w-px bg-border-strong" />
           최대 {capacity}명
         </p>
 
-        {/* GameDiceTray가 들어설 컨테이너. 같은 클래스라 시작 전후로 3D 트레이가 마운트되는
-            크기가 바뀌지 않는다(물리 월드·WebGL 컨텍스트 재생성 위험을 구조적으로 피한다). */}
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-gutter">
           <div className="flex min-w-0 items-center gap-8">
             <QrFallback>
@@ -151,14 +115,9 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
               </p>
             </div>
           </div>
-          {/* 링크 복사·공유 버튼은 두지 않는다 — TV·모니터에서 클립보드도 navigator.share도
-              쓸 데가 없다. QR과 큰 코드가 전달 수단 전부다. */}
           <p className="m-0 text-sm text-content-muted">폰으로 QR을 찍으면 바로 참여해요.</p>
         </div>
 
-        {/* [굴리기]가 들어설 띠. 대시보드에는 누를 것이 없다 — 방장(처음 들어온 폰)이 시작한다.
-            누를 수 없는 버튼을 회색으로 세워 두면 TV 앞 사람이 마우스를 찾아 헤매므로,
-            버튼을 아예 두지 않고 누가 눌러야 하는지만 알린다. */}
         <footer className="flex flex-none items-center justify-center border-t border-border px-gutter py-4">
           <p className="m-0 text-center text-sm text-content-muted" role="status">
             {connectionStatus !== 'connected'
@@ -170,7 +129,6 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
         </footer>
       </div>
 
-      {/* ScoreSheet가 들어설 열. 헤더 행 모양도 점수표와 같게 맞춘다. */}
       {wide && <ParticipantColumn capacity={capacity} hostId={hostId} players={players} />}
     </PlayBoard>
   )

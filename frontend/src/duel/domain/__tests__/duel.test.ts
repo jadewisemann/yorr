@@ -8,12 +8,6 @@ import {
 } from '@/duel/domain/duel'
 import { DUEL_FOUL, DUEL_MISS, type DuelRound, type DuelState } from '@/realtime/wsEvents'
 
-/**
- * 입력 소스별 페널티. (S15P11A406-207)
- *
- * 밸런스 값 자체는 실기기에서 바뀌므로 숫자를 하드코딩해 검사하지 않는다 — 검사하는 것은
- * <b>규칙</b>이다: 스윙은 기준이고, 손가락 입력에만 얹히며, 센티넬은 건드리지 않는다.
- */
 describe('drawPenaltyMs', () => {
   it('스윙이 기준이다 — 페널티가 없다', () => {
     expect(drawPenaltyMs(180, 'swing')).toBe(0)
@@ -29,23 +23,17 @@ describe('drawPenaltyMs', () => {
     expect(DRAW_PENALTY_MS.key).toBeGreaterThan(DRAW_PENALTY_MS.swing)
   })
 
-  /**
-   * 페널티는 전송을 그만큼 늦춰서 걸린다. 서버 유예(GRACE_MILLIS=700)를 넘기면 기다리는
-   * 동안 라운드가 끝나 뽑지 않은 것으로 기록되므로, 튜닝 폭이 여기 갇혀 있어야 한다.
-   */
   it('페널티가 서버 유예(700ms)를 넘지 않는다', () => {
     for (const penalty of Object.values(DRAW_PENALTY_MS)) {
       expect(penalty).toBeLessThan(700)
     }
   })
 
-  /** 부정출발(-1)에 100을 얹으면 99가 되어 가장 빠른 정상 기록으로 둔갑한다. */
   it('센티넬에는 페널티를 얹지 않는다', () => {
     expect(drawPenaltyMs(DUEL_FOUL, 'tap')).toBe(0)
     expect(drawPenaltyMs(DUEL_MISS, 'key')).toBe(0)
   })
 
-  /** 0ms는 센티넬이 아니라 "신호와 같은 프레임에 뽑았다"다 — 정상 기록이므로 얹는다. */
   it('0ms도 정상 기록이라 페널티가 얹힌다', () => {
     expect(drawPenaltyMs(0, 'tap')).toBe(DRAW_PENALTY_MS.tap)
   })
@@ -70,10 +58,6 @@ function resultState(round: Partial<DuelRound>): DuelState {
   }
 }
 
-/**
- * 폰이 읽는 한 줄. 큰 화면은 라운드를 이야기로 풀지만 폰은 <b>내게 무슨 일이 났는지</b>만
- * 한 단어로 안다 — 같은 라운드를 두 사람이 각자 자기 기준으로 다르게 읽어야 한다.
- */
 describe('drawOutcome', () => {
   it('쏜 쪽과 맞은 쪽이 같은 라운드를 다르게 읽는다', () => {
     const state = resultState({ hitId: RIVAL, shooterId: ME })
@@ -89,13 +73,11 @@ describe('drawOutcome', () => {
     expect(drawOutcome(state, ME).tone).toBe('win')
   })
 
-  /** 경고·무승부는 체력이 안 깎였다 — 이겼다고도 졌다고도 말하지 않는다. */
   it('체력이 안 깎인 라운드는 승패로 읽지 않는다', () => {
     expect(drawOutcome(resultState({ foulId: ME, kind: 'WARNING' }), ME).tone).toBe('warn')
     expect(drawOutcome(resultState({ kind: 'TIE' }), ME).tone).toBe('warn')
   })
 
-  /** 첫 라운드가 열리기 전에도 컨트롤러는 그려진다 — 빈 자리로 두면 문구가 undefined가 된다. */
   it('아직 판정이 없으면 대기로 읽는다', () => {
     const state = resultState({})
     state.lastRound = null
@@ -104,10 +86,6 @@ describe('drawOutcome', () => {
   })
 })
 
-/**
- * 착탄까지 남은 시간. 판정이 늦게 와도 <b>착탄 시각은 그대로여야 한다</b>는 게 규칙이고,
- * 그 보정이 빠지면 총알이 이미 지나간 자리에서 자세가 바뀐다.
- */
 describe('impactDelayMs', () => {
   it('내 총알이면 이미 날아간 만큼을 깎는다', () => {
     expect(impactDelayMs(300, 120)).toBe(180)
@@ -122,10 +100,6 @@ describe('impactDelayMs', () => {
   })
 })
 
-/**
- * 한 판의 결과. 무승부를 셋째 상태로 두지 않았던 동안 폰 화면은 양쪽 모두에게
- * 「쓰러졌다」를 붉게 띄웠고, 대시보드는 「무승부」에 승리 초록을 썼다.
- */
 describe('duelOutcome', () => {
   const base = { myHp: 2, opponentHp: 2, you: 'me' }
 

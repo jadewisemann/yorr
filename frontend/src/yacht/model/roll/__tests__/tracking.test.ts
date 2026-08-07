@@ -13,7 +13,6 @@ describe('createRollTracking', () => {
     expect(tracking.pending).toBeNull()
   })
 
-  /** 흔들어 굴리면 던지는 동작이 굴림 요청보다 빠를 수 있다. */
   it('미리 눌린 던짐은 모션 굴림일 때만 적어 둔다', () => {
     const tracking = createRollTracking()
 
@@ -34,7 +33,6 @@ describe('createRollTracking', () => {
     expect(tracking.takeQueuedMotionRelease()).toBe(false)
   })
 
-  /** 새 요청은 지난 요청에 눌린 던짐을 물려받지 않는다 — 물려받으면 굴리자마자 쏟아진다. */
   it('새 요청은 미리 눌린 던짐을 초기화한다', () => {
     const tracking = createRollTracking()
     tracking.requested(REQUEST)
@@ -53,7 +51,6 @@ describe('createRollTracking', () => {
     expect(tracking.takeAcceptedTurn()).toBeNull()
   })
 
-  /** 넷은 턴이 넘어가면 함께 버려진다 — 하나만 남으면 다음 턴이 지난 턴의 답을 받는다. */
   it('턴이 넘어가면 넷을 함께 버린다', () => {
     const tracking = createRollTracking()
     tracking.requested(REQUEST)

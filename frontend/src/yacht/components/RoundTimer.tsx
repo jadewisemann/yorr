@@ -4,18 +4,12 @@ import { formatCountdown, TIMER_WARNING_MS } from '@/yacht/model/useCountdown'
 
 interface RoundTimerProps {
   className?: string
-  /** 라운드 pill을 숨기고 타이머만 노출한다(점수표 탭처럼 좁은 헤더에서). */
   compact?: boolean
   remainingMs: number
   roundNumber: number
   totalRounds: number
 }
 
-/**
- * 원형 링 타이머(디자인 시스템 05) — conic-gradient가 남은 비율만큼 차 있다.
- * 임박(5초 이하 경고 구간)은 링·숫자가 레드로 바뀌고 은은한 글로우가 붙는다.
- * 점멸 대신 펄스 스케일만 쓰고, 모션 감소 설정에서는 색 전환만 남긴다.
- */
 export function RoundTimer({
   className,
   compact = false,
@@ -62,10 +56,6 @@ export function RoundTimer({
   )
 }
 
-/**
- * 서버 계약은 deadline만 주고 라운드 총 길이는 주지 않는다.
- * 이번 라운드에서 관측한 최댓값을 100%로 잡으면 바가 단조 감소하고 0에서 정확히 비어진다.
- */
 function useRoundRatio(roundNumber: number, remainingMs: number) {
   const durationRef = useRef({ roundNumber, durationMs: remainingMs })
 
@@ -76,13 +66,10 @@ function useRoundRatio(roundNumber: number, remainingMs: number) {
   }
 
   const { durationMs } = durationRef.current
-  // 라운드가 막 바뀐 프레임에는 새 deadline이 아직 안 반영돼 durationMs가 0이다.
-  // 그때 0%로 떨어뜨리면 바가 한 프레임 비었다가 차오른다 — 가득 찬 상태로 시작한다.
   if (durationMs <= 0) return 1
   return Math.min(1, remainingMs / durationMs)
 }
 
-/** 임박 안내는 라운드당 한 번만 읽는다. 매 tick 읽으면 스크린리더가 막힌다. */
 function useWarningNotice(roundNumber: number, warning: boolean) {
   const [notice, setNotice] = useState('')
   const announcedRoundRef = useRef<number | null>(null)

@@ -17,7 +17,6 @@ describe('InvalidInvitePage', () => {
     render(<InvalidInvitePage initialCode="BAD!" />)
 
     expect(screen.getByRole('textbox', { name: '초대 코드' })).toHaveValue('BAD!')
-    // 코드가 왜 거절됐는지 입력 옆에서 바로 읽힌다.
     expect(screen.getByRole('alert')).toBeVisible()
   })
 

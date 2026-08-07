@@ -9,7 +9,6 @@ interface Deferred<T> {
   signal: AbortSignal
 }
 
-/** 진행 중인 요청 구간을 테스트가 직접 제어할 수 있게 만든 task. */
 function createControllableTask<T>() {
   const pending: Deferred<T>[] = []
   const task = (signal: AbortSignal) => {
@@ -99,7 +98,6 @@ describe('useAsyncTask', () => {
     expect(await second).toBe('최신 결과')
     expect(result.current.data).toBe('최신 결과')
 
-    // 중단된 요청이 뒤늦게 실패해도 최신 성공 상태를 덮지 않는다.
     let third: Promise<string | undefined> | undefined
     await act(async () => {
       third = result.current.execute()

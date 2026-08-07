@@ -9,7 +9,6 @@ import type { SwingPermission } from '@/shared/useSwing'
 interface DuelControllerProps {
   error: string | null
   nickname: string
-  /** 화면을 눌러 뽑기. 스윙은 부모(DuelGame)의 useSwing이 같은 곳으로 보낸다. */
   onDraw: () => void
   onEnableMotion: () => void
   onLeave: () => void
@@ -34,8 +33,6 @@ export function DuelController({
   const fouls = state.fouls[playerId] ?? 0
   const myMs = state.reactions[playerId] ?? null
   const rival = state.playerOrder.find((id) => id !== playerId) ?? ''
-  // 뽑기는 신호 전에도 받는다 — 성급하게 당기는 것도 플레이의 일부이고, 부정출발 판정은
-  // 서버 몫이다. 눌러도 아무 일 없는 버튼으로 막으면 "안 눌린 것"과 구별되지 않는다.
   const live = signal === 'hold' || signal === 'draw'
 
   return (
@@ -50,9 +47,6 @@ export function DuelController({
         <GameChromeButton onClick={onLeave}>나가기</GameChromeButton>
       </header>
 
-      {/* 기록(ms)은 판정이 난 뒤에만, 그리고 <b>여기에만</b> 뜬다. 유예 중에 상대 기록이
-          보이면 승부가 김이 새고, 같은 숫자를 가운데 문구와 여기 둘 다 쓰면 좁은 화면에서
-          같은 것을 두 번 읽는다. */}
       <section
         aria-label="탄약과 경고"
         className="mt-4 grid flex-none grid-cols-2 gap-2 rounded-card border border-white/12 bg-white/6 p-3"
@@ -94,7 +88,6 @@ export function DuelController({
       </button>
 
       <section className="mt-3 grid flex-none gap-2 text-center">
-        {/* 경고는 신호를 기다리는 동안에만 세운다 — 판정 문구와 겹쳐 읽히면 둘 다 안 읽힌다. */}
         {live && fouls > 0 && (
           <p className="m-0 text-sm font-bold text-duel-gold" role="status">
             부정출발 경고 {fouls}/{MAX_FOULS} ·{' '}

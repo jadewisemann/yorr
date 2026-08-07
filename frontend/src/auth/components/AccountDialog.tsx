@@ -12,13 +12,6 @@ interface AccountDialogProps {
   session: AuthSession | null
 }
 
-/**
- * 계정 껍데기. 로그인 전에는 <b>로그인 수단 고르기</b>, 로그인 후에는 <b>내 계정 메뉴</b>다.
- * <p>
- * 헤더에 제공자 버튼(카카오)을 바로 두지 않는 이유가 둘 있다. 하나는 곧 구글이 붙기 때문에
- * 자리를 제공자 하나에 내줄 수 없어서고, 다른 하나는 어두운 랜딩 위에 브랜드 노란색을
- * 그대로 얹으면 화면에서 그것만 튀기 때문이다. 브랜드 색은 <b>고르는 자리 안에서만</b> 쓴다.
- */
 export function AccountDialog({ layout, onClose, onSignOut, open, session }: AccountDialogProps) {
   const label = session ? '내 계정' : '로그인'
   const panel = session ? (

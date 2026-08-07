@@ -1,7 +1,5 @@
-/** 모드 행의 아이콘 종류. 값은 PlayModeDialog 의 icon prop 과 짝이다. */
 export type ModeIconKind = 'quick' | 'ai' | 'party' | 'tutorial'
 
-/** 플레이 뒤의 모드 선택. 기본 경로 하나를 크게 두고 나머지는 얇은 목록으로 내린 1A안. */
 export function ModeIcon({ kind }: { kind: ModeIconKind }) {
   if (kind === 'quick') {
     return (

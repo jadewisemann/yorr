@@ -52,7 +52,6 @@ describe('레버리지 로컬 판', () => {
       doubledPoints += board.categories[leveraged] ?? 0
     }
 
-    // 전부 0점짜리 족보만 뽑혀 통과하는 헛검증이 아님을 확인한다.
     expect(doubledPoints).toBeGreaterThan(0)
   })
 

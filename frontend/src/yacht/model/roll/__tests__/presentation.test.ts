@@ -5,10 +5,6 @@ import {
   rollPresentationReducer as reduce,
 } from '@/yacht/model/roll/presentation'
 
-/**
- * 굴림 연출 상태. 예전엔 useState 넷이었고 여섯 자리에서 2~4개를 짝지어 세팅했다 —
- * 어떤 조합이 유효한지가 호출부에 흩어져 있어서, 여기서 전이 자체를 못 박는다.
- */
 describe('rollPresentationReducer', () => {
   const rolling: RollPresentation = {
     inputMode: 'motion',
@@ -34,7 +30,6 @@ describe('rollPresentationReducer', () => {
     })
   })
 
-  /** 실패가 앞선 굴림의 놓기까지 취소하면 그 주사위가 트레이 위에 뜬 채로 멈춘다. */
   it('실패는 놓기 신호를 건드리지 않는다 — 완료는 거둔다', () => {
     expect(reduce(rolling, { type: 'requestFailed' })).toMatchObject({
       inputMode: null,

@@ -17,9 +17,7 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
   const continueHere = () => {
     try {
       sessionStorage.setItem(dismissalKey, 'true')
-    } catch {
-      // Embedded browsers may block storage; local state still dismisses the gate.
-    }
+    } catch {}
     setDismissed(true)
   }
 
@@ -37,7 +35,6 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
   const externalUrl = getAndroidExternalUrl(userAgent)
 
   return (
-    // 디자인 14 — 좌측 정렬 풀스크린 안내. 무엇이 되고 무엇이 제한되는지 체크리스트로 보여준다.
     <Screen className="max-w-lg gap-6 pt-[max(2.5rem,env(safe-area-inset-top))]">
       <div className="grid gap-3">
         <h1 className="m-0 text-2xl font-bold tracking-[-0.02em]">외부 브라우저를 권장해요</h1>
@@ -83,7 +80,6 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
   )
 }
 
-/** 체크리스트 한 줄. 세 줄이 같은 배지를 쓰고 색과 아이콘만 갈린다. */
 const checklistTone = {
   ok: { Icon: IconCheck, badge: 'bg-positive/20 text-positive', row: undefined },
   warn: { Icon: IconWarning, badge: 'bg-warning/20 text-warning', row: 'text-content-muted' },

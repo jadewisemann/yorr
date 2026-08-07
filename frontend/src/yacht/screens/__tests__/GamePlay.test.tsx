@@ -20,10 +20,6 @@ import { animationSeedForRoll } from '@/yacht/model/roll/animation'
 import type { PhysicsDiceRollRequest, PhysicsDiceSet } from '@/yacht/rendering/physics-dice/types'
 import { GamePlay } from '@/yacht/screens/GamePlay'
 
-/**
- * 물리 렌더러는 rAF와 WebGL에 의존해 jsdom에서 굴림을 끝낼 수 없다.
- * 굴림 완료를 버튼으로 노출해 CTA 상태 전이만 결정적으로 검증한다.
- */
 vi.mock('@/yacht/components/PhysicsDiceScene', () => ({
   PhysicsDiceScene: ({
     motionFollow,
@@ -90,13 +86,11 @@ function renderGame(options: { client?: FakeRealtimeClient; snapshot?: RoomSnaps
   return {
     ...view,
     client,
-    /** 서버가 새 스냅샷을 내려준 상황 — GamePage가 prop을 갈아 끼우는 것과 같다. */
     rerenderWith: (next: RoomSnapshot) => view.rerender(tree(next)),
     user: userEvent.setup(),
   }
 }
 
-/** 요청은 나갔지만 서버 응답이 아직 없는 구간을 테스트가 직접 열어 둔다. */
 function withheldResponse(client: FakeRealtimeClient, type: ClientMessageType) {
   const send = client.send.bind(client)
   vi.spyOn(client, 'send').mockImplementation((message) => {
@@ -109,7 +103,6 @@ function withheldResponse(client: FakeRealtimeClient, type: ClientMessageType) {
   return client
 }
 
-/** 소켓이 죽은 상태 — 해당 타입 전송만 실패한다. */
 function brokenSend(client: FakeRealtimeClient, type: ClientMessageType) {
   const send = client.send.bind(client)
   vi.spyOn(client, 'send').mockImplementation((message) => {
@@ -170,8 +163,6 @@ describe('GamePlay', () => {
     expect(screen.getByRole('dialog', { name: '게임 도움말' })).toBeVisible()
   })
 
-  // 소리 버튼은 토글이 아니라 오디오 시트를 연다 — 마이크·배경음·효과음이 한 자리에 있고,
-  // 헤더에 버튼을 늘리지 않으려고 입구를 하나로 모았다. 음소거는 시트 안에서 한다.
   it('소리 버튼이 오디오 시트를 열고 그 안에서 음소거한다', async () => {
     const { user } = renderGame()
 
@@ -179,7 +170,6 @@ describe('GamePlay', () => {
     const sheet = screen.getByRole('dialog', { name: '오디오 설정' })
     expect(sheet).toBeVisible()
 
-    // 배경음·효과음은 각각 조절한다(전에는 전부 아니면 전무였다).
     expect(within(sheet).getByRole('slider', { name: '배경음 볼륨' })).toBeVisible()
     expect(within(sheet).getByRole('slider', { name: '효과음 볼륨' })).toBeVisible()
 
@@ -194,7 +184,6 @@ describe('GamePlay', () => {
     expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: '굴리기' }))
 
-    // 굴리는 동안에도 버튼은 같은 자리에 남고 라벨만 바뀐다.
     expect(screen.getByRole('button', { name: '굴리는 중' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
@@ -227,10 +216,6 @@ describe('GamePlay', () => {
     expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
   })
 
-  /**
-   * dice.roll은 흔들기 시작에 나가 주사위 눈을 미리 확정한다. 그래서 관전 화면이 브로드캐스트만
-   * 보고 사발을 쏟으면, 굴린 사람이 아직 흔드는 중인데 결과가 먼저 보인다(미래를 보는 화면).
-   */
   it('holds the spectator bowl until the roller throws', () => {
     vi.useFakeTimers()
     try {
@@ -248,12 +233,9 @@ describe('GamePlay', () => {
       })
       expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', requestId)
 
-      // 흔드는 동안에는 사발에 담겨 있어야 한다.
       act(() => vi.advanceTimersByTime(2_000))
       expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
 
-      // 아무리 오래 흔들어도 시간이 대신 쏟아주지 않는다 — 관전 화면은 굴리는 사람 화면을
-      // 그대로 따라가고, 쏟는 시점은 오직 dice.thrown이 정한다.
       act(() => vi.advanceTimersByTime(20_000))
       expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
 
@@ -301,11 +283,6 @@ describe('GamePlay', () => {
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', requestId)
   })
 
-  /**
-   * 폰으로 굴리면 사발은 기기 흔들림 펄스로만 흔들린다 — 손을 멈추면 주사위도 잦아든다.
-   * 관전 화면이 그 펄스를 받지 못하면 정해진 애니메이션으로 혼자 계속 흔들어, 굴린 사람이
-   * 멈춘 뒤에도 남의 화면에서만 사발이 움직인다.
-   */
   it('mirrors the roller shake pulses instead of running its own animation', () => {
     const { client } = renderObserver()
 
@@ -318,7 +295,6 @@ describe('GamePlay', () => {
         ),
       )
     })
-    // 아직 펄스가 없다 = 버튼으로 굴렸을 수도 있다. 그때는 기존 애니메이션이 돌아야 한다.
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-follow', 'off')
 
     act(() => {
@@ -422,7 +398,6 @@ describe('GamePlay', () => {
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-target', '6,6,6,6,6')
     expect(await screen.findByText(/시간이 지나 서버가 1번째 주사위를 굴렸어요/)).toBeVisible()
 
-    // 서버가 쓴 굴림 1회가 로컬 카운터에도 반영돼 남은 굴림이 2회로 줄어든다.
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
     expect(screen.getByText('2회 남음')).toBeVisible()
   })
@@ -493,7 +468,6 @@ describe('GamePlay', () => {
     })
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
 
-    // 관전자가 트레이를 탭해도 킵이 생기지 않는다 — 서버가 모르는 킵은 다음 굴림을 어긋나게 한다.
     await user.click(screen.getByRole('button', { name: '첫 주사위 킵' }))
     expect(screen.getByText('킵 레일 · 비어 있음')).toBeVisible()
   })
@@ -519,7 +493,6 @@ describe('GamePlay', () => {
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
     expect(screen.getByText('킵 레일 · 비어 있음')).toBeVisible()
 
-    // 턴 주인이 굴림 사이에 킵을 바꾸면 관전자 화면도 따라와야 한다.
     act(() => {
       client.emitMessage(
         serverMessage(
@@ -544,7 +517,6 @@ describe('GamePlay', () => {
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
     await user.click(screen.getByRole('button', { name: '첫 주사위 킵' }))
 
-    // 굴림 사이의 킵 변경이 서버로 나가야 상대 화면이 따라올 수 있다.
     const hold = client.sentMessages.filter(
       (message) => message.type === 'game.yacht_dice.dice.hold',
     )
@@ -555,7 +527,6 @@ describe('GamePlay', () => {
   it('keeps the fixed category order while previewing quick-strip scores', async () => {
     const { user } = renderGame()
 
-    // 굴리기 전에는 예상 점수가 없어 칩이 잠긴다.
     expect(screen.getByRole('button', { name: '초이스' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: '굴리기' }))
@@ -579,10 +550,8 @@ describe('GamePlay', () => {
     }
 
     expect(screen.getByText('굴림 소진')).toBeVisible()
-    // 패널이 열리면 토글이 "접기"로 바뀌고 전체 점수시트가 드러난다.
     const toggle = await screen.findByRole('button', { name: /접기/ })
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    // 시트 행(정확히 "초이스 20")이 드러난다 — 퀵 칩("초이스 20점 기록")과 구분.
     expect(screen.getByRole('button', { name: '초이스 20' })).toBeVisible()
   })
 
@@ -592,14 +561,11 @@ describe('GamePlay', () => {
     await user.click(screen.getByRole('button', { name: '굴리기' }))
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
 
-    // 퀵 칩은 peek 상태에서도 보인다 — 시트를 열 필요 없이 한 번에 기록한다.
     await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
 
     expect(await screen.findByText('점수가 반영됐습니다. 다음 턴을 기다립니다.')).toBeVisible()
   })
 
-  /** QA 7번. 내 차례가 시작될 때만 알리고, 렌더마다 다시 알리지 않는다.
-   *  하단 토스트는 시선 밖이라, 족보 이펙트와 같은 대형 콜아웃으로 알린다. */
   it('alerts once when my turn begins', async () => {
     const vibrate = vi.fn()
     vi.stubGlobal('navigator', Object.assign(globalThis.navigator, { vibrate }))
@@ -609,7 +575,6 @@ describe('GamePlay', () => {
     expect(await screen.findByText('내 차례!')).toBeVisible()
     expect(vibrate).toHaveBeenCalledTimes(1)
 
-    // 굴려서 리렌더가 여러 번 일어나도 알림은 늘지 않는다.
     await user.click(screen.getByRole('button', { name: '굴리기' }))
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
     expect(vibrate).toHaveBeenCalledTimes(1)
@@ -640,7 +605,6 @@ describe('GamePlay', () => {
     await user.click(screen.getByRole('button', { name: '에이스 0점 기록' }))
     await user.click(screen.getByRole('button', { name: '취소' }))
 
-    // 취소는 되돌릴 수 없는 선택을 실제로 막아야 한다 — 서버로 아무것도 나가지 않는다.
     expect(
       client.sentMessages.some((message) => message.type === 'game.yacht_dice.round.submit'),
     ).toBe(false)
@@ -679,13 +643,10 @@ describe('GamePlay', () => {
       )
     })
 
-    // 서버 코드는 그대로 노출하지 않고 지금 상황을 설명하는 문장으로 바꿔 준다.
     expect(await screen.findByText('지금은 내 차례가 아니에요.')).toBeVisible()
     expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeEnabled()
   })
 
-  /** QA FND-3: 제출 직후엔 activePlayerId가 아직 나라서, 내 이름을 "OO의 턴"으로 반복하는 대신
-   *  대기 중임을 분명히 말해야 한다. */
   it('shows a waiting label instead of repeating my own turn after I submit', async () => {
     const { user } = renderGame()
 
@@ -709,18 +670,12 @@ describe('GamePlay', () => {
     expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeEnabled()
   })
 
-  /** QA FND-9: 닉네임은 임의 입력이라 받침 유무를 알 수 없다 — "(으)로"와 같은 방식으로 이/가를 적는다. */
   it('writes the subject particle as (이)가 for arbitrary nicknames', () => {
     renderObserver()
 
     expect(screen.getByText('느긋한 주사위(이)가 굴리는 중')).toBeVisible()
   })
 
-  /**
-   * QA FND-5: 남의 턴을 구경하며 열어둔 점수시트가 턴이 넘어간 뒤에도 남아있으면 안 된다.
-   * round.start는 RealtimeSync(상위 컴포넌트)가 듣고 snapshot prop을 새로 내려주는 몫이라, 이
-   * 단위 테스트에선 그 결과를 직접 흉내내 새 snapshot으로 rerender한다.
-   */
   it('closes the record panel once the turn moves away from the player I was watching', async () => {
     const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
     if (!snapshot.game) throw new Error('playing snapshot is missing game state')
@@ -819,7 +774,6 @@ describe('GamePlay', () => {
     )
   })
 
-  /** QA FND-7: 라운드가 바뀌는 순간은 관전자에게도 알린다. 첫 렌더(중간 입장)는 전환이 아니다. */
   it('announces a new round to spectators, but not on first render', async () => {
     const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
     if (!snapshot.game) throw new Error('playing snapshot is missing game state')
@@ -828,7 +782,6 @@ describe('GamePlay', () => {
 
     expect(screen.queryByText(/라운드 \d+ 시작/)).not.toBeInTheDocument()
 
-    // round.start 반영은 RealtimeSync 몫이라 새 snapshot으로 rerender해 흉내낸다(위 테스트와 동일).
     const nextSnapshot = {
       ...snapshot,
       game: {
@@ -925,7 +878,6 @@ describe('GamePlay', () => {
     handoff.game.activePlayerId = participantPlayer.playerId
     rerenderWith(handoff)
 
-    // 남은 킵을 물려주면 다음 턴 주인의 첫 굴림이 서버와 어긋난다.
     expect(screen.getByText('킵 레일 · 비어 있음')).toBeVisible()
     expect(screen.getByText(`${participantPlayer.nickname}의 턴`)).toBeVisible()
   })
@@ -984,7 +936,6 @@ describe('GamePlay', () => {
   it('참가자가 셋이어도 내 열만 맨 앞으로 오고 나머지 명단 순서는 그대로다', () => {
     const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
     const thirdPlayer = { playerId: 'player-third', nickname: '세 번째', status: 'online' } as const
-    // 내가 명단 가운데 있어도 첫 열이어야 한다 — 내 점수를 찾느라 좌우로 훑지 않게.
     snapshot.players = [thirdPlayer, creatorPlayer, participantPlayer]
 
     renderGame({ snapshot })

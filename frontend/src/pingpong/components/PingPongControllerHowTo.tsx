@@ -3,26 +3,10 @@ import { usesTouchFallback } from '@/pingpong/components/PingPongController/Prep
 import { Button } from '@/shared/components/Button'
 import { useSwing } from '@/shared/useSwing'
 
-/**
- * 대기실 연결 시퀀스 마지막 단계에 꽂히는 탁구 사용법. (S15P11A406-206)
- *
- * 게임이 시작되기 <b>전</b>에 여기서 끝내야 하는 일이 두 개다:
- *
- * 1. <b>모션 권한.</b> iOS는 `DeviceMotionEvent.requestPermission()`을 사용자 탭 안에서만
- *    받는다. 게임이 시작된 뒤에 물으면 첫 서브가 오는 동안 권한 팝업을 읽게 된다 —
- *    대기실은 아무 일도 일어나지 않는 유일한 시간이라 여기가 그 자리다.
- * 2. <b>센서가 실제로 잡히는지.</b> 권한이 granted라도 기기가 값을 안 주는 경우가 있다.
- *    한 번 휘둘러 보게 해서 안 잡히면 그 자리에서 탭 조작으로 안내한다.
- *
- * 서버에는 아무것도 보내지 않는다. 이 시점의 방은 `waiting`이라 `game.ping_pong.swing`을
- * 받을 상대가 없다 — 연습 스윙은 게임이 시작된 뒤 워밍업(`PingPongPreparationController`)이
- * 맡고, 여기는 손이 기억할 동작과 권한까지만 준비한다.
- */
 type HowToStep = 'grip' | 'swing' | 'done'
 
 export function PingPongControllerHowTo() {
   const [step, setStep] = useState<HowToStep>('grip')
-  // 잡는 법을 읽는 동안의 스윙은 세지 않는다 — 폰을 고쳐 쥐는 동작도 임계값을 넘긴다.
   const { permission, requestPermission } = useSwing({
     enabled: step === 'swing',
     onSwing: () => setStep('done'),
@@ -38,7 +22,6 @@ export function PingPongControllerHowTo() {
           <p className="m-0 text-sm text-content-muted">
             화면이 위를 보게 세워 잡고, 손목만 꺾지 말고 팔로 짧게 휘두릅니다.
           </p>
-          {/* 권한 요청은 반드시 이 탭 안에서 부른다 — 단계 전환과 같은 핸들러여야 iOS가 받는다. */}
           <Button
             onClick={() => {
               setStep('swing')

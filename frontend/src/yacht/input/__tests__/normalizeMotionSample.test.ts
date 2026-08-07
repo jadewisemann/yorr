@@ -42,7 +42,6 @@ describe('MotionSampleNormalizer', () => {
 
     const moved = normalizer.push(gravityEvent(120, 5, -3, 9.8), 0)
 
-    // 중력 성분(z)은 상쇄되고 갑작스러운 좌우·전방 성분만 남는다.
     expect(moved?.horizontal).toBeGreaterThan(4)
     expect(moved?.forward).toBeGreaterThan(2)
   })
@@ -102,7 +101,6 @@ describe('MotionSampleNormalizer', () => {
     normalizer.push(gravityEvent(100, 0, 0, 9.8), 0)
     normalizer.reset()
 
-    // 리셋했으므로 같은 시각을 다시 써도 dt가 기본값으로 잡혀 통과한다.
     expect(normalizer.push(gravityEvent(100, 0, 0, 9.8), 0)).toMatchObject({ magnitude: 0 })
   })
 })
@@ -119,7 +117,6 @@ describe('화면 방향 자동 감지', () => {
       value: { angle: 90 },
     })
 
-    // 90도 회전에서는 y축이 좌우가 된다.
     expect(new MotionSampleNormalizer().push(event(100, 4, 7, 0))).toMatchObject({
       horizontal: 7,
       forward: 4,

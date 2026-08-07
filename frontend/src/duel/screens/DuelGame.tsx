@@ -9,17 +9,6 @@ import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import type { ActiveRoomSession } from '@/store'
 import { DuelController } from './DuelController'
 
-/**
- * 석양이 진다 — 1:1 반응속도 대결.
- *
- * 신호등이 초록으로 바뀌는 순간 먼저 뽑은 쪽이 쏜다. 1ms까지 같으면 TIE고, 3발 맞으면
- * 쓰러진다. 신호 전에 뽑으면 경고가 쌓이고 두 개가 차면 자기 발을 쏜다(규칙은 서버 소유).
- *
- * 이 화면은 판정을 하지 않는다. 뽑은 순간의 반응 시간만 서버에 올리고, 서버가 내려준
- * 상태를 무대(Arena)가 이해하는 "지금 이 화면"으로 번역한다. 진영 번호는 서버가 주지
- * 않으므로 여기서 <b>나를 항상 왼쪽</b>에 두고 좌우를 매긴다.
- */
-
 interface DuelGameProps {
   onLeaveRequest: () => void
   roomId: string
@@ -49,8 +38,6 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
     )
   }
 
-  // 대시보드는 플레이어가 아니다 — 명단에 없으므로 "나 / 상대" 매핑이 성립하지 않는다.
-  // 두 총잡이를 서버가 준 순서대로 세우고 닉네임으로 부른다.
   if (session.membershipRole === 'dashboard') {
     return (
       <DuelDashboard
@@ -69,8 +56,6 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
   const opponent = snapshot.players.find((player) => player.playerId === opponentId)
   const swinging = permission === 'granted'
 
-  // QR로 들어온 폰은 컨트롤러다 — 결투는 큰 화면에서 보고, 이 폰은 뽑는 일만 한다.
-  // 판별은 205와 같은 기준(내 localStorage에 적힌 파티 방 코드)을 쓴다.
   if (isPartyRoom(session.roomCode)) {
     return (
       <DuelController

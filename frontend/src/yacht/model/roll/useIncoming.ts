@@ -39,7 +39,6 @@ function pendingInputModeFor(
 
 interface UseRollIncomingOptions {
   activePlayerId: PlayerId | undefined
-  /** 지금 믿을 수 있는 게임 상태 — 렌더된 것과 스토어 것 중 앞선 쪽이다. */
   currentGame: () => GameState | undefined
   dispatch: (action: YachtGameAction) => void
   feedback: ReturnType<typeof useRollFeedback>
@@ -53,13 +52,6 @@ interface UseRollIncomingOptions {
   you: PlayerId
 }
 
-/**
- * 방에서 오는 굴림 메시지를 화면 상태로 옮긴다 — 굴림 확정, 남의 흔들기·던지기, 킵 동기화, 거절.
- *
- * <b>여기서는 아무것도 보내지 않는다.</b> 보내는 쪽은 `useBroadcast`고, 이 훅은 받은 것을
- * 해석해 `present`·`setLocal`로만 옮긴다. 방향을 갈라 둔 이유는 굴림 하나가 두 방향으로
- * 오가면서 순서가 뒤바뀔 수 있기 때문이다 — 그 짝맞춤은 `tracking`이 안다.
- */
 export function useRollIncoming({
   activePlayerId,
   currentGame,

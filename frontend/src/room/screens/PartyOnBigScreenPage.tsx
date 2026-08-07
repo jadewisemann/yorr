@@ -3,14 +3,6 @@ import { Button } from '@/shared/components/Button'
 import { Screen } from '@/shared/components/Screen'
 import type { PartyGameKey } from './PartyDashboardPage'
 
-/**
- * 좁은 화면으로 `/party`에 들어왔을 때. 랜딩에는 이 진입점이 아예 없으므로 여기 오는 경우는
- * 링크·북마크·기기 회전뿐이다.
- *
- * 대시보드를 폰에 억지로 그리지 않는다 — 폰의 대시보드는 덜 좋은 경험이 아니라 <b>틀린</b>
- * 경험이다(자기 화면을 자기가 들고 있으면 남이 볼 게임판이 아니다). 그래서 랜딩에도 비활성
- * 버튼조차 두지 않고, 여기서는 무엇을 하면 되는지만 알려준 뒤 정상 경로로 돌려보낸다.
- */
 export function PartyOnBigScreenPage({ gameKey }: { gameKey: PartyGameKey }) {
   const navigate = useNavigate()
 

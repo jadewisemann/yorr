@@ -27,14 +27,11 @@ export function CodeEntryRow({
       type="button"
     >
       초대 코드
-      {/* 글자 뒤에 입력 필드를 줄여 그린다 — 코드 칸 세 개를 그린 아이콘은 "무엇을
-          누르는가"를 말하지 못했다. 커서가 깜빡이는 빈 칸은 "여기에 쳐 넣는다"로 읽힌다. */}
       <InputGlyph />
     </button>
   )
 }
 
-/** 커서가 선 입력 칸. 누르면 코드를 타이핑하는 화면이 뜬다는 예고다. */
 export function InputGlyph() {
   return (
     <span
@@ -46,10 +43,6 @@ export function InputGlyph() {
   )
 }
 
-/**
- * 랜딩 BGM 음소거. 게임 화면 헤더의 소리 버튼과 같은 저장 설정(soundPreference)을 쓴다 —
- * 조용한 곳에서 한 번 끈 사람은 방을 옮겨도 계속 조용해야 한다.
- */
 export function SoundToggle({ muted, onToggle }: { muted: boolean; onToggle: () => void }) {
   return (
     <button
@@ -79,8 +72,6 @@ export function AccountControl({
 
   return (
     <button
-      // 로그인 상태에서는 닉네임을 그리지 않으므로 버튼에 보이는 글자가 없다 —
-      // 누구의 계정인지는 접근 가능한 이름이 대신 말한다.
       aria-label={session ? `내 계정, ${session.nickname}` : undefined}
       aria-expanded={open}
       aria-haspopup="dialog"
@@ -89,7 +80,6 @@ export function AccountControl({
         open
           ? 'border-landing-accent/60 bg-landing-accent-tint text-landing-accent-text'
           : 'border-landing-hairline-strong bg-landing-well text-landing-text hover:border-landing-accent/70',
-        // 아바타 하나뿐이면 가로 여백이 필요 없다 — 탭 타깃 크기의 원형으로 세운다.
         session
           ? 'size-tap justify-center px-0'
           : wide
@@ -104,11 +94,6 @@ export function AccountControl({
   )
 }
 
-/**
- * 참여 중인 방이 있을 때만 뜨는 복귀 배너. (S15P11A406-101)
- * 예전처럼 홈에서 방으로 강제 리다이렉트하면 세션이 있는 한 홈으로 돌아올 수도,
- * 세션을 정리할 수도 없다 — 돌아갈지 나갈지는 사용자가 고른다.
- */
 export function ActiveRoomBanner() {
   const navigate = useNavigate()
   const roomSession = useAppStore((state) => state.roomSession)
