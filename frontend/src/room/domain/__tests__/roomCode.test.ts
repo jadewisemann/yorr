@@ -32,7 +32,6 @@ describe('room code rules', () => {
   })
 
   it('refuses to invent a code from a link that has none', () => {
-    // 그냥 정규화하면 'HTTPSYORRAPP'가 되어 4~12자 규칙을 통과한다 — 없는 방으로 보내게 된다.
     expect(sanitizeRoomCodeInput('https://yorr.app/join')).toBe('')
     expect(isCompleteRoomCode(sanitizeRoomCodeInput('https://yorr.app/join'))).toBe(false)
   })

@@ -1,6 +1,5 @@
 import type { Player, PlayerId, ScoreBoard } from '@/realtime/wsEvents'
 
-/** 서버의 턴 순서를 우선하고, 아직 순서에 없는 플레이어는 명단 순서로 뒤에 붙인다. */
 export function toTurnStripPlayers(
   players: Player[],
   turnOrder: PlayerId[] | undefined,

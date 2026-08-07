@@ -4,19 +4,7 @@ import { TUTORIAL_RECORD_CATEGORY } from '@/yacht/model/useSpotlight'
 import { openHandLessons } from './openHandLessons'
 import type { GuideStep } from './types'
 
-/**
- * 각 단계에서 강조할 화면 조각. GamePlay가 붙여 둔 data-tutorial 표지를 찾는다 —
- * 좌표를 여기 적어 두면 레이아웃이 바뀔 때마다 조용히 어긋난다.
- *
- * 족보를 설명하는 동안에는 설명 중인 **그 칸**을 짚는다. 규칙만 읽어 주면 점수표에서 어느
- * 칸인지는 여전히 모르므로, 이름과 자리를 같은 순간에 붙여 준다.
- */
-/**
- * 굴림 뒤 "남길 것을 고르는" 단계의 문구. 첫 선택과 두 번째 선택이 같은 판단을 하므로 한
- * 곳에 둔다 — 두 번째는 이 고르기가 매 굴림마다 반복되는 규칙이라는 것을 덧붙인다.
- */
 export function keepLesson(ctx: LessonContext, again: boolean): Lesson {
-  // 6이 아닌 걸 킵했으면 그것부터 알려 준다 — 초심자는 잘못 눌렀다는 것 자체를 모른다.
   if (ctx.keptOther > 0) {
     return {
       title: '6이 아닌 주사위를 킵했어요',
@@ -42,11 +30,6 @@ export function keepLesson(ctx: LessonContext, again: boolean): Lesson {
   }
 }
 
-/**
- * 기록 단계. 대본이 만들어 준 것은 "6이 네 개"인데, 그건 식스(24점)이면서 동시에
- * 포커(26점)다 — 더 높은 쪽이자 이름이 있는 쪽을 짚어 준다. 초심자가 "같은 눈 네 개는
- * 이름이 붙는다"를 처음 알게 되는 자리고, 점수 비교까지 한 문장에 들어간다.
- */
 export function recordLesson(ctx: LessonContext): Lesson {
   const pokerScore = ctx.candidates[TUTORIAL_RECORD_CATEGORY] ?? 0
   const where = ctx.wide ? '표시된 포커 행' : '아래 기록 패널에서 표시된 포커'
@@ -56,11 +39,9 @@ export function recordLesson(ctx: LessonContext): Lesson {
   }
 }
 
-/** 족보 한 장. 마지막 장에서만 버튼 문구가 "다 봤어요"로 바뀐다. */
 export function handLesson(ctx: LessonContext): Lesson {
   const lessons = openHandLessons(ctx.candidates)
   const hand = lessons[ctx.handIndex]
-  // 남은 칸이 없으면(모두 기록된 판) 설명할 것이 없다 — 마무리 문구로 대신한다.
   if (!hand) return doneLesson()
 
   const category = hand.category
@@ -68,7 +49,6 @@ export function handLesson(ctx: LessonContext): Lesson {
     title: category === undefined ? (hand.name ?? '') : categoryLabel[category],
     body: hand.rule,
     hand: {
-      // 보너스는 짚을 칸이 없다 — 강조도 말풍선도 없이 가운데에서 읽는다.
       ...(category === undefined ? {} : { category, score: ctx.candidates[category] }),
       index: ctx.handIndex,
       total: lessons.length,
@@ -85,12 +65,6 @@ export function doneLesson(): Lesson {
   }
 }
 
-/**
- * 단계별 문구. 주사위 눈이 대본으로 고정돼 있으므로 "6 두 개를 킵하세요"처럼 화면에 실제로
- * 있는 것을 짚어 말할 수 있다 — 무작위였다면 "마음에 드는 걸 고르세요"밖에 못 한다.
- * 그래도 개수는 화면에서 세어 넣는다. 사용자가 안내와 다르게 킵하면 대본과 어긋나는데,
- * 그때 굳이 틀린 숫자를 우길 이유가 없다.
- */
 export function lessonFor(step: GuideStep, ctx: LessonContext): Lesson {
   switch (step) {
     case 'greet':
@@ -116,8 +90,6 @@ export function lessonFor(step: GuideStep, ctx: LessonContext): Lesson {
     case 'keepAgain':
       return keepLesson(ctx, true)
     case 'askLastRoll':
-      // 고르기를 끝낸 직후다. 여기서 곧바로 "센서를 켜라"로 넘어가면 방금 고른 결과를 볼
-      // 틈도 없이 다음 지시가 떨어진다 — 한 번 묻고 사용자가 넘길 때 움직인다.
       return ctx.motionNoticeVisible
         ? {
             title: '이제 마지막 한 번이 남았어요',

@@ -20,17 +20,11 @@ import { useAppStore } from '@/store'
 
 interface NicknamePageProps {
   gameKey?: GameKey | undefined
-  /** 빠른 대전으로 들어왔는지(`/join?...&mode=quick`). 방을 만들지 않고 대기열에 선다. */
   mode?: 'quick' | undefined
-  /** 파티 모드 QR로 들어왔는지(`/join?...&party=1`). 입장에 성공하면 그 방을 기억한다. */
   party?: boolean | undefined
   roomCode?: string | undefined
 }
 
-/**
- * 이 화면에 온 이유 셋. 갈리는 문구가 네 군데(칩·부제·CTA·진행 중)라 조건을 화면 곳곳에
- * 흩어두지 않고 한곳에 모은다. `join`의 칩만 방 코드를 품어 화면에서 직접 그린다.
- */
 const intents = {
   join: {
     chip: null,
@@ -57,13 +51,9 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
   const createRoom = useCreateRoom()
   const joinRoom = useJoinRoom()
   const startQuickMatch = useAppStore((state) => state.startQuickMatch)
-  // 이미 대기 중이면 다시 제출하지 않는다 — 백드롭이 이 화면을 덮고 있어도 Enter는 들어온다.
   const waitingForMatch = useAppStore((state) => state.quickMatch !== null)
   const authSession = useAppStore((state) => state.authSession)
   const [suggestion] = useState(generateNickname)
-  // 로그인했다면 그 계정의 닉네임에서 시작한다 — 로그인해 놓고 이름을 다시 짓게 하면
-  // 로그인한 값이 어디로 갔는지 알 수 없다. 그래도 이 판에서만 다르게 쓰고 싶을 수 있어
-  // 고칠 수 있게 둔다(프로필 닉네임은 바뀌지 않는다).
   const [nickname, setNickname] = useState(() => authSession?.nickname ?? readSavedNickname() ?? '')
   const [validationError, setValidationError] = useState<string | null>(null)
   const submittingRef = useRef(false)
@@ -72,8 +62,6 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
   const task = roomCode ? joinRoom : createRoom
   const selectedGame = gameByKey(gameKey)
   const userError = task.error ? toUserError(task.error) : null
-  // 빠른 대전은 대기열에 설 회원 세션이 있어야 한다. 게스트 토큰은 방에 들어갈 때만 발급되므로
-  // 지금은 로그인한 사람만 설 수 있다(랜딩 모달에서도 같은 이유로 로그인으로 보낸다).
   const signInRequired = quick && !authSession
 
   useEffect(() => playLandingSoundtrack(selectedGame.key), [selectedGame.key])
@@ -82,7 +70,6 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
     if (userError?.clearsSession) useAppStore.getState().reset()
   }, [userError])
 
-  /** 방을 만들거나 초대 코드로 들어간다. 성공하면 그 방의 대기실로 옮긴다. */
   const enterRoom = async (resolvedNickname: string) => {
     submittingRef.current = true
     try {
@@ -94,8 +81,6 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
           })
       if (!session) return
 
-      // 컨트롤러 여부는 입장에 성공한 뒤에 적는다 — 실패한 코드까지 기억하면 다음 방이
-      // 엉뚱하게 컨트롤러로 뜬다.
       if (party) savePartyRoom(session.roomCode)
       saveNickname(resolvedNickname)
       await navigate({
@@ -114,8 +99,6 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
     setValidationError(resolved.error)
     if (resolved.error) return
 
-    // 빠른 대전은 여기서 방을 만들지 않는다 — 대기열에 서고, 백드롭(QuickMatchOverlay)이
-    // 매칭·이동을 맡는다. 이 화면은 그 뒤에 백드롭에 덮인 채로 남는다.
     if (quick) {
       saveNickname(resolved.nickname)
       startQuickMatch({
@@ -129,8 +112,6 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
   }
 
   return (
-    // 디자인 02 — 카드 없이 풀스크린. 좌상단 뒤로가기·코드 칩, 좌측 정렬 헤드라인,
-    // 하단 고정 CTA. 배경엔 방 코드 워터마크가 아주 흐리게 깔린다.
     <Screen className="relative max-w-2xl overflow-hidden">
       <span
         aria-hidden="true"
@@ -179,8 +160,6 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
           helpText={
             <>
               비워두면 <span className="font-semibold text-content">{suggestion}</span>
-              {/* 실제 검증(nickname.ts getNicknameError)은 빈 값만 거부해 최소 1자를 허용한다 —
-                  안내 문구도 여기 맞춘다(QA FND-1). */}
               (으)로 입장해요 · 한글·영문·숫자 1~{NICKNAME_MAX_LENGTH}자
             </>
           }

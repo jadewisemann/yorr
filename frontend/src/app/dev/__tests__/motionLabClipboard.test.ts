@@ -28,7 +28,6 @@ describe('copyTextToClipboard', () => {
   })
 
   it('권한이 막혀 실패하면 예외를 던지지 않고 false로 알린다', async () => {
-    // 호출부는 false를 보고 텍스트영역 폴백을 띄운다 — 인앱 브라우저에서 유일한 복사 경로다.
     installClipboard(vi.fn(async () => Promise.reject(new Error('NotAllowedError'))))
 
     await expect(copyTextToClipboard('config')).resolves.toBe(false)

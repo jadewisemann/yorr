@@ -3,10 +3,6 @@ import { IconShake } from '@/shared/components/Icon'
 import { Tooltip } from '@/shared/components/Tooltip'
 import { RollCounter } from '@/yacht/components/RollCounter'
 
-/**
- * 트레이 위쪽 띠 — 남은 굴리기와 흔들기 입구. 밴드 자신은 클릭을 통과시키고, 실제로 눌러야
- * 하는 칩·툴팁 트리거만 pointer-events를 되살린다(트레이 탭 = 굴리기이므로).
- */
 export function TrayTopBand({
   coachOpen,
   onOpenMotionPanel,
@@ -20,7 +16,6 @@ export function TrayTopBand({
 }) {
   return (
     <div className="pointer-events-none absolute top-2.5 right-3 z-10 flex items-center gap-1.5">
-      {/* 흔들기 안내로 들어가는 조용한 입구. 알럿과 달리 아무것도 막지 않고 기다린다. */}
       {showMotionChip && (
         <button
           className="pointer-events-auto flex cursor-pointer items-center gap-1 rounded-full border border-border bg-surface/80 px-2 py-1 text-2xs font-bold tracking-[0.06em] text-content-muted uppercase transition-colors hover:text-content focus-ring focus-visible:outline-offset-2 pressable"
@@ -44,7 +39,6 @@ export function TrayTopBand({
   )
 }
 
-/** 트레이 아래쪽 띠 — 킵 레일 라벨(좌)과 안내문(가운데)을 같은 grid에 둔다. */
 export function TrayBottomBand({
   coachOpen,
   keptText,
@@ -58,8 +52,6 @@ export function TrayBottomBand({
 }) {
   return (
     <div className="pointer-events-none absolute inset-x-4 bottom-2.5 z-10 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
-      {/* 주사위를 탭할 때마다 숫자가 바뀐다 — tabular-nums가 없으면 라벨 폭이 흔들려
-          옆에 붙은 툴팁 트리거까지 함께 밀린다. */}
       <span className="flex items-center gap-1.5 text-2xs font-bold tracking-[0.13em] text-content-faint tabular-nums uppercase">
         킵 레일 · {keptText}
         <Tooltip
@@ -71,9 +63,6 @@ export function TrayBottomBand({
           spotlight={coachOpen}
         />
       </span>
-      {/* 안내문은 와이드에서만 — 모바일은 기록 패널이 안내를 겸한다.
-          빈 자리를 <span/>으로 메우지 않는다. 트랙 셋(1fr auto 1fr)과 gap은 grid가
-          이미 잡고 있어, 항목이 없어도 가운데 칸은 그대로 선다. */}
       {wide && (
         <p className="m-0 text-center text-sm/none whitespace-nowrap text-content-muted">
           {statusText}
@@ -83,13 +72,6 @@ export function TrayBottomBand({
   )
 }
 
-/**
- * 첫 진입 안내(S15P11A406-143). 주사위 판만 덮고 툴팁이 얹힌 상·하단 밴드는 남겨,
- * 링이 켜진 ⓘ 두 개가 어두운 배경 위에서 저절로 눈에 띄게 한다.
- *
- * z는 토큰(sticky 10 …) 아래의 5·6을 직접 쓴다 — 트레이 안에서 "밴드(z-10)보다 아래"만
- * 뜻하는 국소 값이라, 앱 전역 레이어 스케일에 새 단을 만들 일이 아니다.
- */
 export function TooltipCoachmark({ onDone }: { onDone: () => void }) {
   return (
     <>

@@ -46,7 +46,6 @@ describe('buildStage', () => {
     expect(view.right.name).toBe('상대')
   })
 
-  /** 파티 모드 큰 화면은 관전이다 — "나"라고 부를 사람이 없어 둘 다 닉네임으로 세운다. */
   it('관전 화면은 왼쪽도 닉네임으로 부른다', () => {
     const view = buildStage({
       impact: false,
@@ -99,7 +98,6 @@ describe('buildStage', () => {
     expect(view.ko).toBe(true)
   })
 
-  /** 부정출발은 상대에게 총알이 가지 않는다 — 상대는 총을 뽑지도 않았다. */
   it('부정출발 라운드에서는 성급했던 쪽만 총을 들고 있다', () => {
     const view = stage({
       fouls: { [ME]: 1, [RIVAL]: 0 },
@@ -128,7 +126,6 @@ describe('buildStage', () => {
     expect(view.left.hp).toBe(2)
   })
 
-  /** 서버 왕복(유예 최대 700ms)을 기다리면 총알이 뽑는 동작과 따로 노는 두 동작이 된다. */
   it('반응한 순간 총알이 서버 응답 없이 떠난다', () => {
     const signal = { phase: 'SIGNAL' as const, signalAt: 1_000 }
 
@@ -139,11 +136,9 @@ describe('buildStage', () => {
 
     expect(fired.leftShot).toBe('opponent')
     expect(fired.left.pose).toBe('draw')
-    // 내 총알만 떠난다 — 상대가 뽑았는지는 판정 전에 밝히지 않는다.
     expect(fired.rightShot).toBeNull()
   })
 
-  /** 신호 전에 당긴 총알은 상대가 아니라 자기 발밑에 박힌다. */
   it('신호 전에 당기면 총알이 발밑으로 간다', () => {
     const view = stage({}, false, 'ground')
 
@@ -175,7 +170,6 @@ describe('buildStage', () => {
     expect(stage(frozen, true).left.pose).toBe('hit')
   })
 
-  /** 진 쪽 총알을 그냥 지나가게 두면 "맞혔는데 아무 일도 없다"로 읽힌다. */
   it('느렸던 쪽 총알은 빗나가고 한마디가 붙는다', () => {
     const view = stage(
       {
@@ -191,12 +185,10 @@ describe('buildStage', () => {
     expect(view.winner).toBe(1)
     expect(view.leftMiss).toBe(false)
     expect(view.rightMiss).toBe(true)
-    // 말풍선은 총알이 스쳐 간 쪽(= 맞힌 쪽) 머리 위에 뜬다.
     expect(view.miss?.side).toBe(1)
     expect(view.miss?.taunt).toBeTruthy()
   })
 
-  /** 두 화면이 다른 말을 하면 안 된다 — 난수 대신 서버가 준 값에서 뽑는다. */
   it('같은 라운드는 몇 번을 다시 그려도 같은 한마디가 나온다', () => {
     const shot = {
       hp: { [ME]: 3, [RIVAL]: 2 },
@@ -243,7 +235,6 @@ describe('buildStage', () => {
     expect(view.right.ms).toBeNull()
   })
 
-  /** 판정 전에 상대 기록이 새면 승부가 김이 샌다. */
   it('상대가 먼저 뽑아도 판정 전에는 상대 기록을 밝히지 않는다', () => {
     const view = stage({ phase: 'SIGNAL', reactions: { [RIVAL]: 150 }, signalAt: 1_000 })
 
@@ -268,7 +259,6 @@ describe('buildStage', () => {
     expect(view.right.pose).toBe('draw')
     expect(view.left.hp).toBe(3)
     expect(view.right.hp).toBe(3)
-    // 1ms까지 같은 라운드만 총알이 공중에서 부딪힌다.
     expect(view.clash).toBe(true)
   })
 

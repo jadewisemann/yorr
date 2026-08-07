@@ -4,10 +4,6 @@ import { createRemoteReleaseGate } from '@/yacht/model/roll/remoteReleaseGate'
 const ROLL = { requestId: 'r1', rollCount: 2, roundNumber: 3 }
 const THROW = { rollCount: 2, roundNumber: 3 }
 
-/**
- * 이 파일이 검사하는 성질은 하나다 — **두 신호의 도착 순서와 무관하게 같은 결과**.
- * 실제 회선에서 `dice.thrown`과 `dice.broadcast`의 순서는 보장되지 않는다.
- */
 describe('createRemoteReleaseGate', () => {
   it('굴림이 먼저 오면 던짐을 기다렸다가 쏟는다', () => {
     const gate = createRemoteReleaseGate()
@@ -39,7 +35,6 @@ describe('createRemoteReleaseGate', () => {
     expect(gate.rolling).toBe(false)
   })
 
-  /** 흔들림 연출은 굴림이 진행 중일 때만 그린다 — 던진 뒤에는 그릴 것이 없다. */
   it('굴림이 서 있는 동안만 rolling이다', () => {
     const gate = createRemoteReleaseGate()
     expect(gate.rolling).toBe(false)

@@ -22,12 +22,6 @@ export function PingPongModePage() {
   )
 }
 
-/**
- * 헤더 오른쪽 한 칸 — 이 기기에서 <b>모션으로 치는 방법</b>을 안내한다.
- *
- * 큰 화면에는 흔들 센서가 없어 "폰 스윙 켜기"를 눌러도 아무 일이 없다. 그 자리에 폰을
- * 컨트롤러로 붙이는 길을 준다 — 이 화면에서 모션으로 칠 수 있는 유일한 수단이다.
- */
 function MotionControl({
   onPair,
   onRequestPermission,
@@ -106,8 +100,6 @@ function LocalPingPongGame({
   const wide = useWideLayout()
   const [pairing, setPairing] = useState(false)
 
-  // 폰이 보낸 스윙. 판정·AI·렌더는 전부 이 화면 안에서 그대로 돈다 — 폰은 입력만 대신한다.
-  // solo가 아니면 무시한다: duo는 한 폰에 두 사람이 붙는 모드라 어느 쪽인지 알 수 없다.
   usePeerInput((input) => {
     if (input.type === 'SWING' && mode === 'solo') swing(1, true)
   })
@@ -120,8 +112,6 @@ function LocalPingPongGame({
     <main className="relative flex h-svh w-full flex-col overflow-hidden bg-pp-canvas text-white">
       <header className="relative z-20 flex flex-none items-center justify-between gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
         <GameChromeButton className="gap-1.5" onClick={onExit}>
-          {/* 꺾쇠는 공용 아이콘이다 — 문자 `‹`는 폰트마다 폭·중심이 달라 글자와 어긋난다
-              (Icon.tsx 주석. 닉네임·초대 오류 화면의 뒤로 가기와 같은 그림이 된다). */}
           <IconBack className="size-4" />
           게임 선택
         </GameChromeButton>
@@ -176,8 +166,6 @@ function LocalPingPongGame({
         {glFailed && (
           <div className="absolute inset-0 z-20 grid place-items-center bg-pp-canvas/95 px-6 text-center">
             <div>
-              {/* 🧩였다. 퍼즐 조각은 "WebGL을 못 쓴다"와 아무 관계가 없고 이모지라 이
-                  화면에서 혼자 컬러로 떴다 — 오류 상태이므로 경고 아이콘이 맞는 말이다. */}
               <IconWarning className="mx-auto size-10 text-pp-gold" />
               <h2 className="mt-3 text-xl font-black">3D를 띄울 수 없어요</h2>
               <p className="text-sm text-game-content-muted">
@@ -189,14 +177,8 @@ function LocalPingPongGame({
 
         {hud.phase === 'over' && (
           <div className="absolute inset-0 z-20 grid place-items-center bg-black/65 px-5 backdrop-blur-sm">
-            {/* 여기 48px 🏆가 있었다. 둘이 틀렸다: 이모지는 Icon.tsx가 금지한 것이고
-                (모노톤 화면에서 혼자 플랫폼 색으로 뜬다), 무엇보다 아래 제목이 "패배"일
-                때도 트로피가 떴다. 트로피를 조건부로 바꾸는 대신 지운다 — 제목과 점수가
-                이미 결과를 말하고, 반은 거짓말하던 장식이 사라지면 남는 게 없다. */}
             <section className="grid w-full max-w-xs gap-4 rounded-sheet border border-white/15 bg-pp-surface p-6 text-center shadow-2xl">
               <h2 className="m-0 text-2xl font-black">
-                {/* 진 쪽 문구는 온라인 결과 화면(PingPongGame)과 같은 말을 쓴다 — 같은
-                    게임의 결과인데 한쪽은 "패배", 다른 쪽은 "좋은 경기였어요"였다. */}
                 {mode === 'solo'
                   ? hud.s1 > hud.s2
                     ? '승리!'

@@ -1,9 +1,6 @@
 import { useState } from 'react'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { isRoomHost } from '@/room/api/roomApi'
-// 경계 규칙 예외 — yacht가 room을 본다. 결과 화면이 "대기실로 돌아가기"를 직접
-// 호출하기 때문이다. 부모인 room/screens/GamePage가 onLeaveRequest처럼 콜백으로
-// 내려주면 사라지지만 컴포넌트 계약이 바뀌는 로직 변경이라 별도 티켓이다.
 import { useReturnToLobby } from '@/room/api/useGameApi'
 import { cn } from '@/shared/cn'
 import { BottomSheet } from '@/shared/components/BottomSheet'
@@ -16,13 +13,11 @@ import { UPPER_BONUS_POINTS } from '@/yacht/domain/scoring'
 import { PartyResultDashboard } from './PartyResultDashboard'
 
 interface GameResultProps {
-  /** 나가기는 GamePage의 RoomExitGuard가 확인을 받고 처리한다(GamePlay와 같은 경로). */
   onLeaveRequest: () => void
   session: ActiveRoomSession
   snapshot: RoomSnapshot
 }
 
-/** ⑦ 최종 결과. 결과 확인 3초 → 재대결 1탭이 목표다. */
 export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProps) {
   const returnToLobby = useReturnToLobby()
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -34,15 +29,11 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
   const myBoard = snapshot.game?.scores[session.you]
   const isHost = isRoomHost(snapshot, session.you)
 
-  // 대기실 복귀는 방 전체가 함께 움직인다(화면 전환이 phase 기준이라 혼자 옮겨갈 수 없다).
-  // 이동 자체는 서버의 state.sync를 받은 라우팅이 처리하므로 여기서 navigate하지 않는다.
   const handleReturnToLobby = async () => {
     if (!isHost) return
     await returnToLobby.execute()
   }
 
-  // 파티 모드 대시보드는 플레이어가 아니라 아래의 개인 결과(내 등수·내 점수)를 채울 값이 없다.
-  // 순위 계산은 여기서 한 것을 그대로 넘긴다 — 두 화면이 다른 등수를 보이면 안 된다.
   if (session.membershipRole === 'dashboard') {
     return (
       <PartyResultDashboard
@@ -56,16 +47,7 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
 
   return (
     <>
-      {/* 뷰포트 높이로 프레임을 고정하고, 인원이 많아져도 스크롤은 아래 랭킹 목록 안에서만
-          일어난다(QA FND-6, LobbyPage·GamePlay와 같은 패턴).
-
-          overflow-hidden이 아니라 overflow-x-hidden이다(세로는 auto로 계산된다). 320×568에서는
-          고정 요소만 약 500px이라 flex-1인 랭킹이 25px로 짜부라져 **이 화면의 본문인 순위가 한
-          줄도 안 보였다** — 목록 하한(min-h) + 프레임 안 스크롤로 둘 다 살린다. 가로는 그대로
-          감춘다(위쪽 레드 글로우가 26rem이라 320px에서 좌우로 삐져나온다).
-          문서 높이를 늘리는 min-h-svh는 쓰지 않는다 — 이유는 LobbyPage의 같은 주석에 있다. */}
       <main className="relative mx-auto flex h-svh w-full max-w-2xl flex-col overflow-x-hidden px-gutter pt-6 pb-[max(1.875rem,env(safe-area-inset-bottom))] text-content">
-        {/* 디자인 08 — 상단에서 은은하게 퍼지는 레드 글로우. 정보가 아니라 분위기다. */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-24 left-1/2 h-[21rem] w-[26rem] -translate-x-1/2 [background:radial-gradient(50%_55%_at_50%_30%,rgb(229_57_53_/_20%)_0%,transparent_72%)]"
@@ -119,10 +101,6 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
           </h2>
           <span className="text-xs text-content-muted">총점 기준</span>
         </div>
-        {/* min-h-0 + overflow-y-auto: 랭킹이 늘어나도 스크롤은 이 목록 안에서만 일어난다 —
-            내 점수 카드·하단 버튼은 항상 고정 위치에 남는다(QA FND-6).
-            min-h-28: 두 줄은 반드시 보인다. flex-1만으로는 짧은 화면에서 0에 가깝게 줄어드는데,
-            높이를 못 받은 목록은 "순위가 없다"로 읽힌다 — 이 하한이 프레임을 늘려 스크롤을 만든다. */}
         <ResultRanking
           className="relative min-h-28 flex-1 auto-rows-min content-start overflow-y-auto"
           players={ranked}

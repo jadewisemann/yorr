@@ -18,7 +18,6 @@ export function scoreCell(
   return { className: value === 0 ? 'text-danger' : 'text-content', content: value }
 }
 
-/** 플레이어 머리글자 칩. 헤더·트레이에서도 같은 표기를 쓰도록 내보낸다. */
 export function PlayerBadge({
   active = false,
   nickname,
@@ -44,7 +43,6 @@ export function PlayerBadge({
   )
 }
 
-/** 한글 닉네임은 앞 두 글자, 라틴은 단어 머리글자. 디자인의 아바타 표기 규칙. */
 export function initialsOf(nickname: string) {
   if (/[가-힣]/.test(nickname)) return nickname.slice(0, 2)
   const parts = nickname.split(/[\s'’-]+/).filter(Boolean)

@@ -1,7 +1,6 @@
 import type { PaddleTone, PlayerSlot } from '@/pingpong/components/PingPongController/types'
 import type { PingPongState } from '@/realtime/wsEvents'
 
-/** 대시보드·코트와 같은 P1(왼쪽·파랑)·P2(오른쪽·빨강) 순서로 두 슬롯을 만든다. */
 export function playerSlots(
   state: PingPongState,
   playerId: string,

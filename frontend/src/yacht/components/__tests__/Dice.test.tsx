@@ -13,14 +13,12 @@ describe('Dice', () => {
     }
   })
 
-  // 눈 배치는 그림이므로, 값은 접근 가능한 이름으로만 읽힌다.
   it('값을 접근 가능한 이름으로 읽어 준다', () => {
     render(<Dice value={4} />)
 
     expect(screen.getByRole('img', { name: '주사위 4' })).toBeVisible()
   })
 
-  // KEEP은 레드 보더로 표시되므로 색만으로 구분되지 않게 라벨을 함께 바꾼다.
   it('킵된 주사위는 이름에 킵됨을 덧붙인다', () => {
     render(<Dice held value={4} />)
 

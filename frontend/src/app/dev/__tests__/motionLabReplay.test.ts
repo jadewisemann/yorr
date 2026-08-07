@@ -8,20 +8,14 @@ import {
 } from '@/app/dev/motionLabReplay'
 import { MOTION_GESTURE_CONFIG } from '@/yacht/input/motionConfig'
 
-/**
- * 합성 녹화: 20ms 간격, 워밍업 침묵 → 좌우 흔들기 5회 → 전방 스냅.
- * 기본 config 기준으로 shakeStarted(4번째 피크)와 throwDetected가 나와야 하는 시나리오.
- */
 function buildThrowRecording() {
   const samples: MotionRecordingSample[] = []
   const push = (t: number, x: number, y: number) => {
     samples.push({ t, acc: [x, y, 0], accG: null, angle: 0 })
   }
 
-  // 워밍업·캘리브레이션 (0~380ms): 정지 상태
   for (let t = 0; t <= 380; t += 20) push(t, 0, 0)
 
-  // 흔들기: 240ms 주기 × 5, 피크 ±9 m/s² 4샘플 + 침묵 8샘플
   for (let cycle = 0; cycle < 5; cycle += 1) {
     const start = 400 + cycle * 240
     const sign = cycle % 2 === 0 ? 1 : -1
@@ -29,7 +23,6 @@ function buildThrowRecording() {
     for (let i = 4; i < 12; i += 1) push(start + i * 20, 0, 0)
   }
 
-  // 던지기: 전방(-y) 가속 램프 — 임펄스·저크·피크를 동시에 충족
   push(1_600, 0, 0)
   push(1_620, 0, -6)
   push(1_640, 0, -14)

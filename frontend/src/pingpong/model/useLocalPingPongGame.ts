@@ -21,7 +21,6 @@ import { createScene, type PingPongScene } from '@/pingpong/rendering/scene3d'
 import { useSwing } from '@/shared/useSwing'
 import { useAppStore } from '@/store'
 
-/** 화면이 실제로 그리는 값만 골라낸 스냅샷. 이것이 바뀔 때만 리렌더한다. */
 export interface HudState {
   countdown: number
   phase: LocalPingPongState['phase']
@@ -50,7 +49,6 @@ function sameHud(left: HudState, right: HudState) {
   )
 }
 
-/** duo에서는 화면 절반이 곧 플레이어다. solo는 언제나 1번. */
 function tapPlayer(event: ReactPointerEvent<HTMLDivElement>, mode: LocalPingPongMode): 1 | 2 {
   if (mode !== 'duo') return 1
   const bounds = event.currentTarget.getBoundingClientRect()
@@ -61,7 +59,6 @@ function createResultId() {
   return globalThis.crypto.randomUUID()
 }
 
-/** 피드백 문구가 화면에 머무는 시간. */
 const FEEDBACK_MS = 850
 
 interface UseLocalPingPongGameOptions {
@@ -69,14 +66,6 @@ interface UseLocalPingPongGameOptions {
   mode: LocalPingPongMode
 }
 
-/**
- * 로컬 탁구 한 판의 수명주기 전부 — 3D 장면, 프레임 루프, 입력(키보드·탭·폰 스윙),
- * 피드백 타이머, 결과 전송.
- *
- * 게임 상태를 state가 아니라 `gameRef`에 두는 이유: 프레임마다 바뀌는 값을 state로 들면
- * 60fps로 리렌더한다. 화면이 실제로 쓰는 값만 `HudState`로 뽑아, 그게 달라진 프레임에만
- * `setHud`를 부른다(`sameHud` 비교).
- */
 export function useLocalPingPongGame({ difficulty, mode }: UseLocalPingPongGameOptions) {
   const authSession = useAppStore((state) => state.authSession)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -191,9 +180,6 @@ export function useLocalPingPongGame({ difficulty, mode }: UseLocalPingPongGameO
     swing(tapPlayer(event, mode))
   }
 
-  // swing을 내보내는 이유: 폰 컨트롤러가 보낸 조작이 여기로 들어온다(`usePeerInput`).
-  // 원격 입력을 이 훅 안에서 구독하지 않는다 — 그러면 로컬 게임이 방·소켓을 알게 되고,
-  // 폰 없이 혼자 하는 대부분의 판까지 실시간 계층을 끌고 들어온다.
   return {
     canvasRef,
     feedback,

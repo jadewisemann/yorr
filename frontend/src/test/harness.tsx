@@ -23,7 +23,6 @@ interface MockApiErrorOptions {
   code: string
   path: string
   status?: number
-  /** 응답을 보류할 promise — 요청이 진행 중인 구간을 테스트가 직접 제어할 때 사용한다. */
   until?: Promise<unknown>
 }
 
@@ -41,7 +40,6 @@ export function renderAppHarness(options: AppHarnessOptions = {}) {
   const view = render(
     <InAppBrowserGate>
       <RealtimeSync client={realtimeClient}>
-        {/* App.tsx와 같은 트리를 유지한다 — 여기서 빠지면 통합 테스트에서만 마이크 버튼이 없다. */}
         <VoiceProvider>
           <RouterProvider router={router} />
         </VoiceProvider>
@@ -119,9 +117,7 @@ export function installUserAgentMock(userAgent: string) {
 function safely(action: () => void) {
   try {
     action()
-  } catch {
-    // Storage access is allowed to fail without breaking the current tab.
-  }
+  } catch {}
 }
 
 function defineNavigatorApi(name: 'clipboard' | 'share', value: unknown) {

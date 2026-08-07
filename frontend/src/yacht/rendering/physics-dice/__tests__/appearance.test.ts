@@ -19,7 +19,6 @@ const TOKENS = {
   '--ds-color-physics-slot': '#654321',
 } as const
 
-/** documentElement의 CSS 커스텀 프로퍼티를 흉내낸다 — jsdom은 변수를 계산해 주지 않는다. */
 function stubTokens(tokens: Record<string, string>) {
   return vi.spyOn(window, 'getComputedStyle').mockReturnValue({
     getPropertyValue: (name: string) => tokens[name] ?? '',

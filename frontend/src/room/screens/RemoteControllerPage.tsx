@@ -10,25 +10,9 @@ import { useSwing } from '@/shared/useSwing'
 import { vibrate } from '@/shared/vibrate'
 import { type ConnectionStatus, useAppStore } from '@/store'
 
-/**
- * 로컬 게임의 폰 컨트롤러 — 큰 화면에서 도는 AI 대전을 이 폰으로 조작한다. (S15P11A406-215)
- *
- * <b>파티 모드 컨트롤러와 다른 점</b>: 저쪽은 서버가 경기를 돌려서 폰이 점수·상대·판정을
- * 스냅샷으로 받는다. 여기는 경기가 큰 화면 브라우저 안에서만 돌아 서버가 그 존재를 모르므로,
- * 이 폰이 받을 상태가 <b>없다</b>. 그래서 점수도 랠리도 그리지 않는다 — 없는 것을 그리려면
- * 큰 화면이 상태를 되쏘아 줘야 하고, 그건 조작 지연만 늘린다. 눈은 큰 화면에 두고 폰은
- * 보지 않고 휘두르는 물건이다.
- *
- * 방에 들어가는 이유는 하나뿐이다: 서버 릴레이(`sendPeerInput`)가 <b>같은 방 멤버십</b>을
- * 요구하기 때문이다. 게임은 시작하지 않으므로 서버 입장에선 그냥 사람 둘이 앉은 대기실이고,
- * 마지막 사람이 나가면 30초 뒤 자동으로 닫힌다.
- */
-
-/** 눌렀을 때 손에 오는 짧은 확인. 큰 화면을 보고 있어 폰의 시각 반응은 눈에 안 들어온다. */
 const TAP_VIBRATION = 12
 
 interface RemoteControllerPageProps {
-  /** 큰 화면의 playerId. QR에 실려 온다 — 대시보드는 명단에 없어 폰이 찾아낼 방법이 없다. */
   hostPlayerId: PlayerId
   input: PeerInput['type']
   roomCode: string
@@ -43,8 +27,6 @@ export function RemoteControllerPage({ hostPlayerId, input, roomCode }: RemoteCo
   const [sentAt, setSentAt] = useState(0)
   const joined = roomSession?.roomId !== undefined
 
-  // 방에 붙는 것 말고는 할 일이 없으므로 닉네임을 묻지 않는다 — 이 이름을 볼 사람이 없다.
-  // 이미 세션이 있으면(새로고침) 그대로 쓴다. 다시 join하면 방에 유령이 하나 더 생긴다.
   useEffect(() => {
     if (joined || joinRoom.isLoading || joinRoom.error) return
     void joinRoom.execute(roomCode, { nickname: '컨트롤러' })
@@ -55,7 +37,6 @@ export function RemoteControllerPage({ hostPlayerId, input, roomCode }: RemoteCo
     if (!joined) return
     vibrate(TAP_VIBRATION)
     sendPeerInput(client, hostPlayerId, { type: input } as PeerInput)
-    // 눌린 것을 화면으로도 한 번 알린다 — 진동이 없는 기기(아이폰)에서는 이것만 남는다.
     setSentAt(Date.now())
   }
 
@@ -105,8 +86,6 @@ export function RemoteControllerPage({ hostPlayerId, input, roomCode }: RemoteCo
         }}
         type="button"
       >
-        {/* key가 바뀔 때마다 요소가 새로 붙어 애니메이션이 처음부터 다시 돈다 — 상태로
-            "지금 튀는 중"을 들면 되돌릴 렌더가 없어 튄 채로 굳는다. */}
         <span
           aria-hidden="true"
           className="animate-pp-feedback-pop absolute top-[20%] left-1/2 block h-[40%] aspect-square -translate-x-1/2 rotate-[-8deg] rounded-full border-[10px] border-pp-side-blue/45 bg-pp-side-blue shadow-[0_18px_45px_rgb(43_143_224_/_35%)]"
@@ -135,11 +114,6 @@ export function RemoteControllerPage({ hostPlayerId, input, roomCode }: RemoteCo
   )
 }
 
-/**
- * 소켓 상태를 사람 말로. 처음 붙는 중(`connecting`)과 <b>끊겼다 다시 붙는 중</b>
- * (`reconnecting`·`closed`)을 가른다 — 방금 QR을 찍고 들어온 사람에게 "연결이 불안정해요"는
- * 거짓말이고, 이 화면의 첫인상이 고장으로 남는다.
- */
 function connectionMessage(status: ConnectionStatus) {
   if (status === 'connected') return '점수와 공은 큰 화면에서 보세요'
   if (status === 'reconnecting' || status === 'closed') return '연결이 끊겼어요 · 다시 잇는 중'

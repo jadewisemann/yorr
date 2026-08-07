@@ -46,8 +46,6 @@ export function PingPongDesktopPlayer({
   return (
     <main className="relative h-svh w-full overflow-hidden bg-pp-canvas text-white">
       <canvas aria-label="3D 탁구 코트" className="absolute inset-0 size-full" ref={canvasRef} />
-      {/* 코트 전체가 스윙 버튼이다 — 캔버스 위에 투명하게 덮으므로 어디를 클릭해도 받아친다.
-          아래 버튼·오버레이는 z-10 이상이라 이 판에 먹히지 않는다. */}
       <button
         aria-label="화면을 클릭해 스윙"
         className="absolute inset-0 size-full cursor-pointer"

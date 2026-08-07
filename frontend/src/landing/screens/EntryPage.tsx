@@ -16,10 +16,6 @@ const wordmarkTag =
   'font-mono font-bold tracking-[0.24em] whitespace-nowrap text-landing-text-muted uppercase'
 const noticeBase = 'm-0 text-center text-xs/[1.5] font-semibold text-landing-accent-text'
 
-/**
- * narrow 화면 바닥 층. 복귀 배너·안내가 없으면 <b>상단 여백까지 지운다</b> — 비어 있는 층이
- * 12px를 물고 있으면 그만큼 히어로 카드가 못 자란다. 비었을 때 남는 건 바닥 여백뿐이다.
- */
 const narrowFooter = {
   filled:
     'flex flex-none flex-col gap-2.5 px-5 pt-[clamp(10px,1.6vh,16px)] pb-[max(14px,env(safe-area-inset-bottom))]',
@@ -27,13 +23,6 @@ const narrowFooter = {
 } as const
 
 interface EntryPageProps {
-  /**
-   * URL `?game=`이 들고 있는 게임. 진입 시 캐러셀의 시작 칸을 정한다 — 없으면 첫 게임이다.
-   * <p>
-   * 마운트 시점의 <b>초기값으로만</b> 읽는다. 선택이 바뀌면 아래 handleGameSelect가 URL을
-   * replace로 갱신하므로 이 화면이 떠 있는 동안 값이 밖에서 바뀔 일이 없고, 다른 화면에
-   * 갔다 뒤로가기로 돌아오면 이 화면이 새로 마운트돼 새 초기값을 읽는다.
-   */
   gameKey?: GameKey | undefined
 }
 
@@ -61,14 +50,8 @@ export function EntryPage({ gameKey }: EntryPageProps) {
     return (
       <>
         <main className="relative flex h-svh w-full flex-col overflow-hidden [background:var(--ds-landing-bg)]">
-          {/* 화면 맨 위 한 줄. 시세표처럼 이번 주 순위가 옆으로 흐른다 — 랜딩에 처음 온 사람이
-              "여기서 뭘 겨루는지"를 읽기 전에 이미 보고 있게 된다. */}
           <RankingTicker layout="wide" />
 
-          {/* 헤더 폭은 히어로 카드의 콘텐츠 영역(띠 폭의 69.4%)과 정확히 같다 — 화살표와
-              이웃 카드가 쓰는 바깥 띠까지 헤더가 차지하면 로고와 계정 버튼이 화면 양끝으로
-              벌어져 한 줄로 안 읽힌다. 안쪽 69.4%에 맞추면 워드마크 왼쪽 끝과 카드 왼쪽
-              모서리가 같은 세로선에 선다. */}
           <header className="mx-auto flex h-22 w-full max-w-landing flex-none justify-center">
             <div className="flex w-[69.4%] items-center justify-between gap-8">
               <div className="flex items-center gap-5">
@@ -78,11 +61,6 @@ export function EntryPage({ gameKey }: EntryPageProps) {
                   </span>
                   <span className={cn(wordmarkTag, 'text-2xs/none')}>Yorr Arcade</span>
                 </span>
-                {/* 1200 아래에서는 이 한 줄을 접는다. 워드마크·초대 코드·계정은 줄어들 수
-                    없고 이 카피만 줄바꿈 금지라, 760~1199에서 헤더 합계가 띠 폭(69.4%)을
-                    넘어 justify-between이 옆으로 밀렸다. 가치 제안은 히어로 카드가 이미
-                    말한다. sr-only로 접어 문서에는 h1을 남긴다 — hidden으로 지우면 이
-                    구간에서 페이지에 제목이 하나도 없다. */}
                 <span
                   aria-hidden="true"
                   className="hidden h-6.5 w-px bg-landing-hairline-strong desktop:block"
@@ -92,7 +70,6 @@ export function EntryPage({ gameKey }: EntryPageProps) {
                 </h1>
               </div>
               <span className="flex min-w-0 items-center gap-2.5">
-                {/* 게임 CTA와 다른 층 — 선택한 게임과 무관한 독립 진입 경로다. */}
                 <CodeEntryRow anchorRef={codeEntryRef} onOpen={() => setCodeOpen(true)} />
                 <span aria-hidden="true" className="h-6.5 w-px flex-none bg-landing-hairline" />
                 <SoundToggle muted={soundMuted} onToggle={toggleSound} />
@@ -106,18 +83,6 @@ export function EntryPage({ gameKey }: EntryPageProps) {
             </div>
           </header>
 
-          {/* 카드 폭은 띠 폭의 69.4%다. 그래서 폭 제한은 카드가 아니라 **띠**에 걸어야 한다 —
-              카드에만 걸면 이웃 카드(띠 폭의 -12.2%)만 뷰포트를 따라가 중앙 카드에서 떨어져
-              나가고, 아예 안 걸면 2560에서 카드가 1777×472(3.76:1) 레터박스가 된다.
-              화살표(left-11)도 띠 기준이라 같이 안쪽으로 들어와 헤더 좌측단과 축이 맞는다.
-              높이는 narrow와 같은 원칙 — 남는 만큼 먹되(flex-1) 위로는 상한에서 멈춘다.
-              고정 높이로 두면 가로로 돌린 폰(760x420 등)에서 크롬 합계가 뷰포트를 넘어
-              아래 내용이 잘린다.
-              상한 32rem: 예전 29.5rem은 CTA가 카드 밖에 있던 시절 값이다. CTA가 카피 묶음의
-              마지막 줄로 들어오면서 배지가 빠지고 버튼이 들어와 카드 하단 띠가 38px 두꺼워졌다
-              — 상한도 같은 38px만 올려 3D 영역을 종전 이상으로 지킨다(472 + 38 = 510). */}
-          {/* grow 가중치를 크게 줘서 아래 여백 블록보다 먼저 자란다 — 둘 다 flex-1이면
-              남는 높이를 반씩 나눠 데스크톱에서 카드가 절반으로 작아진다. */}
           <div className="relative mx-auto mt-[clamp(8px,3.5vh,32px)] max-h-[min(42rem,66vh,56vw)] min-h-40 w-full max-w-landing flex-[999_1_0%]">
             <LandingHeroCarousel
               activeIndex={activeIndex}
@@ -137,9 +102,6 @@ export function EntryPage({ gameKey }: EntryPageProps) {
             />
           </div>
 
-          {/* 진행 표시줄 아래 남는 공간. 복귀 배너·안내가 여기 들어앉고, 비어 있으면 그대로
-              화면 바닥 여백이 된다. 삭제한 CTA 층의 하단 여백(pb)을 이 층으로 옮겨,
-              짧은 화면(932×430)에서 배너가 뷰포트 바닥에 붙는 것을 막는다. */}
           <div className="flex min-h-fit flex-1 flex-col items-center gap-3 px-[max(2.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pt-[clamp(10px,2.2vh,22px)] pb-[clamp(20px,6vh,56px)]">
             <div className="flex w-full max-w-180 flex-col items-center gap-3">
               <ActiveRoomBanner />
@@ -161,8 +123,6 @@ export function EntryPage({ gameKey }: EntryPageProps) {
   return (
     <>
       <main className="relative flex h-svh w-full flex-col overflow-hidden [background:var(--ds-landing-bg)]">
-        {/* 노치 여백은 이 띠가 물고 간다 — 띠가 화면 맨 위 층이 됐으므로 아래 로고 줄은
-            고정 14px만 쓴다. 양쪽이 safe-area를 각각 물면 그만큼 히어로가 못 자란다. */}
         <div className="flex-none pt-[env(safe-area-inset-top)]">
           <RankingTicker layout="narrow" />
         </div>
@@ -185,16 +145,6 @@ export function EntryPage({ gameKey }: EntryPageProps) {
           </span>
         </div>
 
-        {/* 랜딩의 최상위 카피는 "무엇인지"여야 한다 — 고르라는 지시는 캐러셀·진행 표시줄·
-            스와이프 안내가 이미 하고 있다. 게임 5개(주사위·반응·드래그·타이밍)를 아우르는
-            공통분모는 링크 진입 · 계정 없이 바로 · 실시간 멀티다.
-            초대 코드는 이 카피의 오른쪽에 붙는다 — 게임 선택과 무관한 독립 경로라
-            게임 CTA(이제 히어로 카드 안에 있다)와 여전히 다른 층이고, 세로로 한 층을
-            따로 쓰지 않으므로 히어로가 그만큼 커진다. */}
-        {/* 360px 미만에서는 나란히 두지 않는다. 초대 코드 칩이 shrink-0 116px이라 320px에서
-            태그라인에 152px만 남고, 24px 글자로 4줄(120px)이 된다 — 한 층을 아끼려고 옆에
-            붙인 것인데 그 층보다 큰 높이를 태그라인에서 되돌려 받는다. 쌓으면 태그라인이
-            280px를 받아 2줄로 돌아오고 합계 높이도 오히려 줄어든다. */}
         <div className="flex flex-none items-center justify-between gap-3 px-5 pt-[clamp(10px,2vh,18px)] max-tiny:flex-col max-tiny:items-stretch max-tiny:gap-2.5">
           <h1 className="m-0 min-w-0 text-2xl/[1.25] font-bold tracking-[-0.02em] text-landing-text-strong">
             링크 하나로 모이면 바로 시작하는 파티 게임
@@ -202,10 +152,6 @@ export function EntryPage({ gameKey }: EntryPageProps) {
           <CodeEntryRow anchorRef={codeEntryRef} onOpen={() => setCodeOpen(true)} />
         </div>
 
-        {/* 히어로가 남는 높이를 전부 먹는다. 나머지를 고정 높이로 두고 히어로만 늘고 줄면
-            크롬 합계가 뷰포트를 넘을 수 없다 — h-svh + overflow-hidden에서 아래 내용이
-            잘려 접근 불가가 되는 것을 구조적으로 막는다(짧은 화면 하한은 min-h로 잡는다).
-            CTA가 카드 안으로 들어가면서 바닥 층이 비면 그 높이가 통째로 여기로 돌아온다. */}
         <div className="relative mt-[clamp(8px,1.6vh,16px)] max-h-[36rem] min-h-52 flex-1">
           <LandingHeroCarousel
             activeIndex={activeIndex}
@@ -240,32 +186,3 @@ export function EntryPage({ gameKey }: EntryPageProps) {
     </>
   )
 }
-
-/**
- * 헤더 오른쪽 자리. 로그인 전에는 '로그인', 로그인 후에는 내 계정 버튼이다. 실제 내용은
- * 팝오버·바텀시트가 맡는다.
- * <p>
- * 원래 여기 있던 '방 코드로 참가'는 하단 CTA의 '초대 코드로 참가'와 같은 일을 하고 있었다.
- * 중복을 지우고 그 자리를 계정으로 넘긴다 — 헤더는 "지금 나는 누구인가", 하단은 "무엇을
- * 할 것인가"로 역할이 갈린다.
- * <p>
- * 여기에 제공자 버튼(카카오)을 직접 두지 않는다. 곧 구글이 붙어 자리를 나눠야 하고,
- * 어두운 랜딩 위에 브랜드 노란색을 얹으면 화면에서 그것만 튄다. 제공자 선택과 브랜드 색은
- * {@link AccountDialog} 안으로 들어간다.
- */
-/**
- * 초대 코드 진입. 게임 선택과 무관한 **독립 경로**라 게임 CTA 묶음에 넣지 않는다 —
- * 거기 두면 primary 아래 secondary로 읽혀 "이 게임을 코드로 연다"가 되고, 준비 중인
- * 게임에서는 잠긴 버튼 아래 붙어 더 어긋난다.
- *
- * 알약 모양의 작은 채운 버튼이다. 층으로는 여전히 게임 CTA(히어로 카드 안)와 분리돼
- * 있고, 세로로 한 층을 따로 쓰지 않으므로 히어로가 그만큼 커진다. 레드로 채우되
- * <b>글로우는 주지 않는다</b> — 화면에서 빛나는 레드는 히어로 카드 안 플레이 CTA
- * 하나여야 하고, 이 버튼은 면적이 그 1/6이다.
- *
- * 보이는 글자는 "초대 코드"지만 접근 가능한 이름은 "초대 코드로 참가"다. 보이는 글자가
- * 그 이름에 포함되므로 WCAG 2.5.3 Label in Name을 만족한다.
- *
- * 데스크톱도 같은 모양을 쓴다. 예전에는 wide 헤더만 외곽선 사각형(compact) 변형이었는데,
- * 같은 일을 하는 버튼이 화면 폭에 따라 다른 물건으로 보였다.
- */

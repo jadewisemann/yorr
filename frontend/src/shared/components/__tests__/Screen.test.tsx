@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { ControllerScreen, PlayBoard, Screen } from '../Screen'
 
-/** 렌더된 class를 집합으로 본다 — 순서는 CSS에 영향이 없다. */
 function classSet(element: HTMLElement) {
   return new Set(element.className.split(/\s+/).filter(Boolean))
 }
@@ -27,12 +26,6 @@ describe('Screen', () => {
     )
   })
 
-  /**
-   * 이 단정이 이 파일의 존재 이유다. InAppBrowserGate·PartyOnBigScreenPage는 프레임 기본값보다
-   * 큰 상단 여백을 쓴다. cn.ts의 spacing 목록에 safe-top이 등록돼 있지 않으면 tailwind-merge가
-   * 두 class를 같은 충돌 그룹으로 보지 못해 **둘 다 살아남고** 승자를 빌드된 CSS 선언 순서가
-   * 정한다 — 화면은 조용히 기본값으로 그려지고 테스트는 통과한다.
-   */
   it('호출부의 pt override가 프레임 기본값을 이긴다', () => {
     render(<Screen className="pt-[max(2.5rem,env(safe-area-inset-top))]">본문</Screen>)
 

@@ -3,16 +3,6 @@ import { BULLET_TRACK_INSET, isClean, msLabel, type ShotTarget, slots } from '@/
 import type { ArenaPhase, Fighter } from '@/duel/domain/fighter'
 import { Gunslinger } from './Gunslinger'
 
-/**
- * 결투 무대 — 순수 표현 컴포넌트.
- *
- * 석양의 황야, 머리 위에 매달린 신호등, 좌우로 마주 선 두 총잡이. 규칙도 네트워크도 모른다.
- * 부모가 "지금 이 화면"만 넘겨주면 그린다("나"를 항상 왼쪽에 두는 배치도 부모 책임이다).
- *
- * 좌표 기준: 지평선 = 위에서 72%. 캐릭터는 지평선에 발을 딛는다(bottom 28%). 캐릭터 키는
- * --gs-h 하나로 관리하고 총알 높이도 여기서 파생시킨다.
- */
-
 interface ArenaProps {
   phase: ArenaPhase
   round: number
@@ -20,47 +10,28 @@ interface ArenaProps {
   maxFouls: number
   left: Fighter
   right: Fighter
-  /**
-   * 각 진영이 쏜 총알. 판정이 아니라 <b>방아쇠를 당긴 사실</b>이라, 내 총알은 반응한 순간에
-   * 들어오고 상대 총알은 판정으로 알게 된 순간에 들어온다.
-   */
   leftShot: ShotTarget | null
   rightShot: ShotTarget | null
-  /** 이 진영의 총알이 빗나갔는가 — 쐈지만 상대가 더 빨랐다. */
   leftMiss: boolean
   rightMiss: boolean
-  /** 총알이 스쳐 지나간 쪽(= 안 맞은 쪽)과 그가 내뱉는 한마디. 그 진영 머리 위에 뜬다. */
   miss: { side: 1 | 2; taunt: string } | null
-  /** 1ms까지 같아 총알이 공중에서 부딪히는 라운드. */
   clash: boolean
-  /** 이 화면의 사거리에서 나온 총알 비행 시간(ms). */
   flightMs: number
-  /** 총알이 목표에 닿기까지 남은 시간(ms). 이미 날아간 만큼은 깎여서 들어온다. */
   impactDelayMs: number
-  /** 결과에서 상대를 쏜 쪽 — 뷰 기준(1=왼쪽 · 2=오른쪽 · 0=아무도). */
   winner: 0 | 1 | 2
   tie: boolean
-  /** 부정출발한 쪽 — 뷰 기준. 0이 아니면 파울 라운드다. */
   foulSide: 0 | 1 | 2
-  /** 경고가 차서 자기 발을 쏜 라운드인가. */
   selfShot: boolean
-  /** 이번 라운드로 승부가 끝났는가 (K.O. 문구). */
   ko: boolean
-  /** 내 기록은 나왔고 상대를 기다리는 중. */
   pending: boolean
-  /** 대기 중 조작 안내. */
   hint: string
-  /** 신호 순간의 조작 라벨 (SPACE · 휘둘러! · TAP). */
   actLabel: string
-  /** 라운드마다 증가 — 연출 애니메이션을 처음부터 다시 재생시킨다. */
   fxKey: number
-  /** 위에 겹칠 것들 (탭 존, 오버레이 등). */
   children?: ReactNode
 }
 
 const LABEL_MONO = 'font-mono text-2xs tracking-[0.16em] uppercase'
 
-/** 국면별 하늘 — 신호가 뜨면 황야 전체가 초록으로 뒤집힌다. */
 function sky(phase: ArenaPhase): string {
   if (phase === 'signal')
     return 'linear-gradient(#02130d 0%, #0b3a25 32%, #17794a 60%, #35c06a 82%, #a7f3c4 100%)'
@@ -110,7 +81,6 @@ export function Arena({
   children,
 }: ArenaProps) {
   const settled = phase === 'result' && !pending
-  // 총성이 울린 순간 화면이 흔들린다. 총알이 떠난 쪽이 하나라도 있으면 울린다.
   const shots = leftShot !== null || rightShot !== null
 
   return (
@@ -126,7 +96,6 @@ export function Arena({
 
       <SignalLamp phase={phase} round={round} />
 
-      {/* 왼쪽 이름표는 나가기 버튼(높이 44 + 상단 12) 바로 아래에 선다 — 겹치면 이름이 잘린다. */}
       <div className="absolute" style={{ left: 12, top: 62 }}>
         <Plate align="left" fighter={left} maxFouls={maxFouls} maxHp={maxHp} />
       </div>
@@ -158,8 +127,6 @@ export function Arena({
         />
       </div>
 
-      {/* 총알 트랙 — 폭이 곧 사거리다. flightMs를 이 폭에서 뽑았으므로 총알은 정확히
-          이 구간을 그 시간에 건넌다. 두 진영의 출발 시각은 각자 방아쇠를 당긴 때다. */}
       {(leftShot === 'opponent' || rightShot === 'opponent') && (
         <div
           className="pointer-events-none absolute"
@@ -194,8 +161,6 @@ export function Arena({
       {leftShot === 'ground' && <FoulDust delayMs={flightMs} selfShot={selfShot} side={1} />}
       {rightShot === 'ground' && <FoulDust delayMs={flightMs} selfShot={selfShot} side={2} />}
       {settled && !tie && winner !== 0 && <ImpactFlash delayMs={impactDelayMs} winner={winner} />}
-      {/* 빗나간 총알이 스쳐 간 쪽이 머리 위로 한마디 던진다 — 가운데 설명문보다 이쪽이
-          띠껍다. 총알이 지나간 뒤에 떠야 인과가 맞으므로 착탄 시각에 맞춘다. */}
       {miss && <Taunt delayMs={impactDelayMs} side={miss.side} taunt={miss.taunt} />}
 
       <Headline
@@ -214,7 +179,6 @@ export function Arena({
         winner={winner}
       />
 
-      {/* 발밑 기록표 */}
       {phase === 'result' && (
         <>
           <TimeTag landMs={impactDelayMs} ms={left.ms} side="left" tie={tie} won={winner === 1} />
@@ -227,17 +191,12 @@ export function Arena({
   )
 }
 
-/**
- * 황야 — 하늘·태양·메사·땅·소품·비네트. 국면 색만 받고 나머지는 고정이라
- * 무대의 인물·연출과 섞이지 않게 따로 둔다.
- */
 function Wasteland({ phase }: { phase: ArenaPhase }) {
   const green = phase === 'signal'
   return (
     <>
       <div className="absolute inset-x-0 top-0" style={{ background: sky(phase), height: '72%' }} />
 
-      {/* 태양 후광 → 태양 (지평선에 반쯤 걸려 있다) */}
       <div
         className="absolute rounded-full"
         style={{
@@ -263,7 +222,6 @@ function Wasteland({ phase }: { phase: ArenaPhase }) {
         }}
       />
 
-      {/* 원경 메사(테이블 마운틴) 실루엣 */}
       <svg
         aria-hidden="true"
         className="absolute inset-x-0"
@@ -277,7 +235,6 @@ function Wasteland({ phase }: { phase: ArenaPhase }) {
           points="0,100 0,70 30,66 44,44 84,44 96,64 132,66 152,26 198,26 210,54 252,58 272,34 306,34 322,60 356,56 376,70 400,66 400,100"
         />
       </svg>
-      {/* 근경 능선 */}
       <svg
         aria-hidden="true"
         className="absolute inset-x-0"
@@ -291,7 +248,6 @@ function Wasteland({ phase }: { phase: ArenaPhase }) {
         />
       </svg>
 
-      {/* 지평선 열기 (모래 먼지가 빛을 먹는 느낌) */}
       <div
         className="absolute inset-x-0"
         style={{
@@ -308,7 +264,6 @@ function Wasteland({ phase }: { phase: ArenaPhase }) {
         className="absolute inset-x-0 bottom-0"
         style={{ background: ground(phase), height: '28%' }}
       />
-      {/* 모래 결 */}
       <div
         className="absolute inset-x-0 bottom-0 opacity-25"
         style={{
@@ -336,7 +291,6 @@ function Wasteland({ phase }: { phase: ArenaPhase }) {
       >
         <Fence green={green} />
       </div>
-      {/* 대기 국면의 정적을 재는 유일한 움직임 */}
       {phase === 'waiting' && (
         <div
           className="animate-duel-tumble absolute"
@@ -346,7 +300,6 @@ function Wasteland({ phase }: { phase: ArenaPhase }) {
         </div>
       )}
 
-      {/* 어둡게 조이는 비네트 */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -358,7 +311,6 @@ function Wasteland({ phase }: { phase: ArenaPhase }) {
   )
 }
 
-/** 부정출발 — 총알이 자기 발밑에 박히며 흙먼지가 인다. 상대에게는 가지 않는다. */
 function FoulDust({
   delayMs,
   selfShot,
@@ -377,7 +329,6 @@ function FoulDust({
         transform: `translateX(${side === 1 ? '-50%' : '50%'})`,
       }}
     >
-      {/* 경고 소진(자기 발)이면 더 붉고 크게 */}
       <div
         className="animate-duel-dust absolute"
         style={{
@@ -397,12 +348,6 @@ function FoulDust({
   )
 }
 
-/**
- * 비아냥 말풍선 — 총알이 스쳐 간 쪽 머리 위에 뜬다.
- *
- * 꼬리가 말하는 사람을 가리켜야 누가 던진 말인지 읽힌다. 왼쪽 총잡이는 꼬리를 왼쪽 아래,
- * 오른쪽 총잡이는 오른쪽 아래에 둔다.
- */
 function Taunt({ delayMs, side, taunt }: { delayMs: number; side: 1 | 2; taunt: string }) {
   const left = side === 1
   return (
@@ -411,7 +356,6 @@ function Taunt({ delayMs, side, taunt }: { delayMs: number; side: 1 | 2; taunt: 
       style={{
         [left ? 'left' : 'right']: '17%',
         animationDelay: `${delayMs}ms`,
-        // 모자 위로 살짝 띄운다 — 캐릭터 키(--gs-h)에 매여 있어 화면 크기와 무관하다.
         bottom: 'calc(28% + var(--gs-h) * 1.02)',
         transform: `translateX(${left ? '-50%' : '50%'})`,
       }}
@@ -427,7 +371,6 @@ function Taunt({ delayMs, side, taunt }: { delayMs: number; side: 1 | 2; taunt: 
       >
         {taunt}
       </span>
-      {/* 꼬리 — 말풍선과 같은 색·테두리로 삼각형을 세운다 */}
       <span
         className="absolute block"
         style={{
@@ -444,7 +387,6 @@ function Taunt({ delayMs, side, taunt }: { delayMs: number; side: 1 | 2; taunt: 
   )
 }
 
-/** 피격 섬광 — 총알이 닿는 순간 맞은 쪽에서 터진다. */
 function ImpactFlash({ delayMs, winner }: { delayMs: number; winner: 0 | 1 | 2 }) {
   return (
     <div
@@ -464,7 +406,6 @@ function ImpactFlash({ delayMs, winner }: { delayMs: number; winner: 0 | 1 | 2 }
   )
 }
 
-/** 신호등 — 빨강(대기) → 초록(뽑아!) */
 function SignalLamp({ phase, round }: { phase: ArenaPhase; round: number }) {
   const green = phase === 'signal'
   const dim = phase === 'result'
@@ -477,7 +418,6 @@ function SignalLamp({ phase, round }: { phase: ArenaPhase; round: number }) {
       }`}
       style={{ top: 0, transform: 'translateX(-50%)', transformOrigin: '50% 0%' }}
     >
-      {/* 매달린 줄 */}
       <div
         style={{
           background: 'linear-gradient(#8a6a4a, #4b3524)',
@@ -485,7 +425,6 @@ function SignalLamp({ phase, round }: { phase: ArenaPhase; round: number }) {
           width: 3,
         }}
       />
-      {/* 고리 */}
       <div
         style={{
           border: '2.5px solid #6b4f36',
@@ -513,7 +452,6 @@ function SignalLamp({ phase, round }: { phase: ArenaPhase; round: number }) {
           width: 'clamp(50px, 11vh, 76px)',
         }}
       >
-        {/* 철제 살 */}
         <div
           className="absolute inset-0 rounded-full"
           style={{
@@ -529,7 +467,6 @@ function SignalLamp({ phase, round }: { phase: ArenaPhase; round: number }) {
           }}
         />
       </div>
-      {/* 라운드 나무 간판 */}
       <div
         className={`mt-1.5 rounded-xs px-3 py-0.5 ${LABEL_MONO}`}
         style={{
@@ -546,7 +483,6 @@ function SignalLamp({ phase, round }: { phase: ArenaPhase; round: number }) {
   )
 }
 
-/** 이름표 + 체력(탄약) */
 function Plate({
   align,
   fighter,
@@ -578,7 +514,6 @@ function Plate({
         >
           {fighter.name}
         </span>
-        {/* 부정출발 경고 — 차면 자기 발을 쏜다 */}
         <span className="flex items-center gap-0.5">
           {slots('warn', maxFouls, fighter.fouls).map((slot) => (
             <Warn key={slot.id} lit={slot.filled} />
@@ -595,7 +530,6 @@ function Plate({
   )
 }
 
-/** 경고 한 칸 — 부정출발 누적 (작은 삼각형) */
 export function Warn({ lit }: { lit: boolean }) {
   return (
     <span
@@ -612,7 +546,6 @@ export function Warn({ lit }: { lit: boolean }) {
   )
 }
 
-/** 체력 한 칸 = 탄약 한 발 (맞으면 빈 탄피) */
 export function Shell({ live }: { live: boolean }) {
   return (
     <span
@@ -631,13 +564,6 @@ export function Shell({ live }: { live: boolean }) {
   )
 }
 
-/**
- * 총알 — 트랙 폭만큼(=사거리) 건너간다.
- *
- * 움직이는 층이 트랙과 같은 폭이라 translateX(100%)가 곧 사거리다. left를 애니메이션하면
- * 매 프레임 레이아웃이 다시 잡히므로 transform으로만 움직인다. 걸리는 시간은 부모가 재서
- * 넘겨준 flightMs다 — TIE는 가운데서 만나므로 절반 거리를 절반 시간에 간다.
- */
 function Bullet({
   clash = false,
   color,
@@ -649,7 +575,6 @@ function Bullet({
   color: string
   dir: 'r' | 'l'
   flightMs: number
-  /** 상대가 더 빨랐다 — 총알은 끝까지 가되 어깨 위로 빗나간다. */
   miss?: boolean
 }) {
   const away = dir === 'r' ? 1 : -1
@@ -658,14 +583,12 @@ function Bullet({
       className={clash ? 'animate-duel-bullet-clash' : 'animate-duel-bullet'}
       style={{
         animationDuration: `${clash ? Math.round(flightMs / 2) : flightMs}ms`,
-        // 빗나간 총알은 날아가며 위로 밀린다 — 표적을 지나 어깨 위로 빠진다.
         ['--duel-bullet-rise' as string]: miss ? '-26px' : '0px',
         ['--duel-bullet-to' as string]: `${away * (clash ? 50 : 100)}%`,
         inset: 0,
         position: 'absolute',
       }}
     >
-      {/* 예광탄 꼬리 + 탄두 — 진행 방향 끝이 탄두다 */}
       <div
         style={{
           [dir === 'r' ? 'left' : 'right']: 0,
@@ -685,7 +608,6 @@ function Bullet({
   )
 }
 
-/** TIE — 총알이 공중에서 부딪혀 튄다. 두 총알이 가운데 닿는 시각에 맞춘다. */
 function Clash({ delayMs }: { delayMs: number }) {
   return (
     <div
@@ -706,10 +628,6 @@ function Clash({ delayMs }: { delayMs: number }) {
 
 const WRAP = 'pointer-events-none absolute inset-x-0 flex flex-col items-center px-4 text-center'
 
-/**
- * 중앙 헤드라인 — 국면마다 다른 한마디를 같은 자리에 띄운다.
- * 이 화면에서 가장 크게 읽히는 글자라, 무엇을 띄울지 고르는 판단만 여기 모아 둔다.
- */
 function Headline({
   actLabel,
   foulSide,
@@ -729,7 +647,6 @@ function Headline({
   foulSide: 0 | 1 | 2
   hint: string
   ko: boolean
-  /** 총알이 닿는 순간까지 남은 시간 — 문구는 착탄에 맞춰 내려꽂힌다. */
   landMs: number
   left: Fighter
   maxFouls: number
@@ -758,7 +675,6 @@ function Headline({
   return <ShotLine ko={ko} landMs={landMs} shooter={winner === 1 ? left : right} />
 }
 
-/** 대기 — 아직 빨강이다. */
 function HoldLine({ hint }: { hint: string }) {
   return (
     <div className={WRAP} style={{ top: '31%' }}>
@@ -775,7 +691,6 @@ function HoldLine({ hint }: { hint: string }) {
   )
 }
 
-/** 신호 — 지금 뽑는다. */
 function DrawLine({ actLabel }: { actLabel: string }) {
   return (
     <div className={WRAP} style={{ top: '25%' }}>
@@ -801,7 +716,6 @@ function DrawLine({ actLabel }: { actLabel: string }) {
   )
 }
 
-/** 내 기록은 나왔고 상대를 기다린다. */
 function PendingLine({ ms }: { ms: number | null }) {
   return (
     <div className={WRAP} style={{ top: '28%' }}>
@@ -815,7 +729,6 @@ function PendingLine({ ms }: { ms: number | null }) {
   )
 }
 
-/** 부정출발 — 경고가 쌓였거나, 차서 자기 발을 쐈다. */
 function FoulLine({
   landMs,
   maxFouls,
@@ -860,7 +773,6 @@ function FoulLine({
   )
 }
 
-/** 1ms까지 똑같거나, 둘 다 놓쳤다. */
 function TieLine({ landMs, left, right }: { landMs: number; left: Fighter; right: Fighter }) {
   return (
     <div className={WRAP} style={{ top: '25%' }}>
@@ -888,7 +800,6 @@ function TieLine({ landMs, left, right }: { landMs: number; left: Fighter; right
   )
 }
 
-/** 정상 승부 — 먼저 뽑은 쪽이 맞혔다. 빗나간 총알 이야기는 말풍선이 대신 한다. */
 function ShotLine({ ko, landMs, shooter }: { ko: boolean; landMs: number; shooter: Fighter }) {
   return (
     <div className={WRAP} style={{ top: '24%' }}>
@@ -914,7 +825,6 @@ function ShotLine({ ko, landMs, shooter }: { ko: boolean; landMs: number; shoote
   )
 }
 
-/** 발밑 기록표 */
 function TimeTag({
   landMs,
   ms,

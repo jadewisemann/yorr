@@ -5,19 +5,6 @@ import { QrFallback } from '@/room/components/InvitePopover'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import { useAppStore } from '@/store'
 
-/**
- * 큰 화면에서 AI 대전을 하면서 폰을 컨트롤러로 붙이는 QR. (S15P11A406-215)
- *
- * <b>방을 왜 여는가.</b> 경기는 이 브라우저 안에서 다 돈다 — 서버는 이 판을 모른다. 방은
- * 오로지 폰이 보낸 스윙을 여기까지 배달받기 위한 것이다(`peerInput`의 릴레이가 같은 방
- * 멤버십을 요구한다). 그래서 게임을 시작하지 않고, 서버 입장에선 사람 둘이 앉은 대기실이다.
- *
- * <b>버튼을 눌러야 열린다.</b> AI 모드에 들어올 때마다 방을 열면 혼자 하는 대부분의 판이
- * 쓰지도 않을 방을 만든다. 빈 방은 30초 뒤 서버가 닫지만, 만들지 않는 편이 낫다.
- *
- * 대시보드 역할로 들어가므로 이름을 묻지 않는다. 그 대신 이쪽은 `RoomSnapshot.players`에
- * 없어서 폰이 주소를 찾을 수 없다 — 그래서 내 playerId를 QR에 실어 보낸다.
- */
 export function PhonePairing({ onClose }: { onClose: () => void }) {
   const createParty = useCreatePartyRoom()
   const roomSession = useAppStore((state) => state.roomSession)
@@ -70,10 +57,6 @@ export function PhonePairing({ onClose }: { onClose: () => void }) {
   )
 }
 
-/**
- * 폰이 찍고 갈 주소. `/join`이 아니라 `/controller`인 이유는 라우터 쪽 주석에 있다 —
- * 이 방은 서버 게임을 시작하지 않아서 대기실로 보내면 폰이 영원히 기다린다.
- */
 function controllerUrl(roomCode: string, hostPlayerId: string) {
   const origin = typeof window === 'undefined' ? 'https://yorr.invalid' : window.location.origin
   return `${origin}/controller?code=${encodeURIComponent(roomCode)}&to=${encodeURIComponent(hostPlayerId)}&input=SWING`

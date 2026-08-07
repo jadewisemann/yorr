@@ -19,17 +19,11 @@ interface ScoreMatrixPlayer {
 
 interface ScoreMatrixProps {
   className?: string
-  /** "나" 열은 항상 첫 번째이며 굵게 표시한다. */
   players: ScoreMatrixPlayer[]
 }
 
-/** 첫 열은 가로 스크롤에서도 붙어 있어야 어떤 족보인지 잃지 않는다. */
 const stickyLabel = 'sticky left-0 z-sticky px-3 py-2.5 text-left'
 
-/**
- * ⑥ 전체 플레이어 점수표. 미기입은 빈칸이 아니라 —,
- * 0점 확정은 0 + danger 색으로 구분한다.
- */
 export function ScoreMatrix({ className, players }: ScoreMatrixProps) {
   const renderRows = (categories: readonly YachtCategory[]) =>
     categories.map((category) => (
@@ -57,8 +51,6 @@ export function ScoreMatrix({ className, players }: ScoreMatrixProps) {
     ))
 
   return (
-    // 표 안에 포커스 가능한 요소가 없다. 스크롤 컨테이너 자체를 tab 대상으로 만들지 않으면
-    // 키보드만 쓰는 사용자는 4명째부터 가로로 밀린 열을 볼 방법이 없다(WCAG 2.1.1).
     <section
       aria-label="플레이어별 족보 점수"
       className={cn('overflow-auto', className)}
@@ -105,7 +97,6 @@ export function ScoreMatrix({ className, players }: ScoreMatrixProps) {
               보너스 /{UPPER_BONUS_THRESHOLD}
             </th>
             {players.map((player) => {
-              // 보너스 달성 강조(QA S15P11A406-102) — 달성 셀은 +35를 병기하고 brand로 띄운다.
               const achieved = (player.scoreboard?.upperBonus ?? 0) > 0
               return (
                 <td

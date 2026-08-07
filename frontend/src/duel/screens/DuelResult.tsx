@@ -11,28 +11,12 @@ import { Button } from '@/shared/components/Button'
 import { LOSE_VIBRATION, vibrate, WIN_VIBRATION } from '@/shared/vibrate'
 import type { ActiveRoomSession } from '@/store'
 
-/**
- * 석양이 진다 — 1:1 반응속도 대결.
- *
- * 신호등이 초록으로 바뀌는 순간 먼저 뽑은 쪽이 쏜다. 1ms까지 같으면 TIE고, 3발 맞으면
- * 쓰러진다. 신호 전에 뽑으면 경고가 쌓이고 두 개가 차면 자기 발을 쏜다(규칙은 서버 소유).
- *
- * 이 화면은 판정을 하지 않는다. 뽑은 순간의 반응 시간만 서버에 올리고, 서버가 내려준
- * 상태를 무대(Arena)가 이해하는 "지금 이 화면"으로 번역한다. 진영 번호는 서버가 주지
- * 않으므로 여기서 <b>나를 항상 왼쪽</b>에 두고 좌우를 매긴다.
- */
-
-/** 결투가 끝났다 — 살아남은 쪽이 총을 내려놓고 서 있다. */
 interface DuelResultProps {
   onLeaveRequest: () => void
   session: ActiveRoomSession
   snapshot: RoomSnapshot
 }
 
-/**
- * 결과 색. 무승부는 이기지도 지지도 않았으므로 승리 초록도 패배 빨강도 아닌 본문 아이보리다 —
- * 색만 보고 결과를 읽는 사람에게 중립이 「이겼다」로 읽히면 안 된다.
- */
 const OUTCOME_COLOR: Record<DuelOutcome, string> = {
   draw: 'var(--ds-duel-ink)',
   lost: 'var(--ds-duel-danger)',
@@ -60,19 +44,11 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: DuelResultProp
   })
   const won = outcome === 'won'
 
-  // 승패 진동은 여기서 울린다 — 결투가 FINISHED가 되는 렌더에서 `useDuelGame`은 이미
-  // 언마운트되므로 그쪽 effect는 돌지 못한다. 쓰러지는 순간의 진동(KO)은 아직 결투 화면이
-  // 살아 있을 때 오는 것이라 이것과 겹치지 않는다.
-  //
-  // 무승부는 울리지 않는다 — 이기지도 지지도 않았는데 승리 진동이 오면 손이 먼저 오해한다
-  // (제목 색을 중립으로 둔 것과 같은 이유다).
   useEffect(() => {
     if (dashboard || outcome === 'draw') return
     vibrate(outcome === 'won' ? WIN_VIBRATION : LOSE_VIBRATION)
   }, [dashboard, outcome])
 
-  // 대시보드는 승패의 당사자가 아니다 — "살아남았다"라고 말할 주체가 없다.
-  // (승패 계산이 이 분기보다 위로 올라온 이유는 위 훅이 조건부일 수 없어서다.)
   if (dashboard) {
     return <DuelDashboardResult onClose={onLeaveRequest} snapshot={snapshot} state={state} />
   }
@@ -94,7 +70,6 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: DuelResultProp
         className="m-0 font-mono text-2xs tracking-[0.3em] uppercase"
         style={{ color: 'var(--ds-duel-accent)' }}
       >
-        {/* 무승부에는 아무도 마지막까지 서 있지 않았다 — 눈썹 문구가 결과와 어긋나면 안 된다. */}
         {outcome === 'draw' ? 'Standoff' : 'Last man standing'}
       </p>
       <h1
@@ -135,12 +110,6 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: DuelResultProp
   )
 }
 
-/**
- * 파티 모드 큰 화면의 결과 — 누가 이겼는지 이름으로 말한다.
- *
- * 조작은 폰이 한다. 여기에는 "대기실로 돌아가기"를 두지 않는다 — 그건 방장(처음 들어온
- * 컨트롤러) 몫이고, TV 앞에서 누를 마우스를 기대하지 않는 것과 같은 이유다.
- */
 export function DuelDashboardResult({
   onClose,
   snapshot,
@@ -176,7 +145,6 @@ export function DuelDashboardResult({
       <h1
         className="m-0 font-black"
         style={{
-          // 승리 초록을 무승부에도 쓰고 있었다 — 글자만 「무승부」인데 색은 이겼다고 말했다.
           color: survivor ? 'var(--ds-duel-positive)' : 'var(--ds-duel-ink)',
           fontSize: 'clamp(2.25rem, 6vw, 4.5rem)',
         }}

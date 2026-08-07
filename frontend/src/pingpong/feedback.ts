@@ -7,7 +7,6 @@ export type PingPongSituation =
 const EVENT_LABELS: Partial<
   Record<PingPongEventType, readonly [mine: string | null, opponent: string | null]>
 > = {
-  // 이모지는 아이콘이 아니라 카피 속 장식이다 — 나머지 라벨에는 없어 형제와 맞지 않는다.
   SMASH: ['스매시!', '상대 스매시!'],
   NICE: ['나이스!', '상대가 받아쳤어요'],
   OK: ['굿!', '리턴!'],
@@ -23,19 +22,6 @@ export function playerEventLabel(type: PingPongEventType, mine: boolean) {
   return EVENT_LABELS[type]?.[mine ? 0 : 1] ?? null
 }
 
-/**
- * 판정이 손에 닿는 모양 — <b>라켓에 공이 닿은 순간</b>만 울린다.
- *
- * 실제 탁구가 그렇다. 손에 오는 것은 스윙이 아니라 충격이고, 헛치면 아무 느낌이 없다.
- * 그래서 휘두르는 순간에는 울리지 않는다 — 그러면 한 타에 두 번(스윙 + 판정) 떨린다.
- *
- * 잘 맞을수록 세게 친다. OUT·NET도 <b>맞긴 맞았으므로</b> 울린다 — 나간 것은 그 다음
- * 일이고, 그건 화면 글씨가 말한다.
- *
- * TOO_EARLY·TOO_LATE는 헛스윙이라 <b>없다</b>. 무음인 것이 곧 "안 맞았다"는 정보라서,
- * 폰을 보지 않아도 알 수 있다. SERVE·READY처럼 내가 한 일이 아닌 것도 마찬가지로 없다 —
- * 랠리 내내 떨면 정작 내 타구가 묻힌다.
- */
 const EVENT_VIBRATION: Partial<Record<PingPongEventType, VibratePattern>> = {
   SMASH: 45,
   NICE: 26,
@@ -82,8 +68,6 @@ export function feedbackTextClass(type: PingPongEventType) {
   return 'text-white'
 }
 
-// 글로우도 토큰을 따라간다 — 색만 토큰이고 글로우가 리터럴이면 팔레트를 바꿨을 때
-// 글자와 그 뒤 번짐이 서로 다른 색이 된다. 알파는 color-mix로 얹는다.
 const glow = (token: string, blur: string, alpha: number) =>
   `0 0 ${blur} color-mix(in srgb, var(${token}) ${alpha}%, transparent)`
 

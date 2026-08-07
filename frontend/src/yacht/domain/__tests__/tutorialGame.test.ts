@@ -8,7 +8,6 @@ import {
   TUTORIAL_ROOM_ID,
 } from '@/yacht/domain/tutorialGame'
 
-/** 연습 서버가 어떤 메시지든 돌려주면 그대로 모아 준다. */
 function sendAndCollect(
   client: ReturnType<typeof createTutorialClient>,
   message: Parameters<ReturnType<typeof createTutorialClient>['send']>[0],
@@ -20,7 +19,6 @@ function sendAndCollect(
   return received
 }
 
-/** 연습 서버가 돌려준 주사위만 뽑아낸다. */
 function rollAndRead(
   client: ReturnType<typeof createTutorialClient>,
   rollCount: 1 | 2 | 3,
@@ -57,7 +55,6 @@ describe('연습 모드 주사위', () => {
     const client = createTutorialClient()
 
     rollAndRead(client, 1, NONE) // [6, 6, 2, 3, 5]
-    // 세 번째 주사위(2)를 킵한 채로 다시 굴리면 그 자리만 그대로 남는다.
     const second = rollAndRead(client, 2, [false, false, true, false, false])
 
     expect(second[2]).toBe(2)
@@ -71,7 +68,6 @@ describe('연습 모드 주사위', () => {
     const second = rollAndRead(client, 2, [false, false, true, true, true])
     const sixes = (dice: readonly number[]) => dice.filter((value) => value === 6).length
 
-    // 6을 하나도 킵하지 않았는데도 대본이 6을 다시 깔아 준다.
     expect(sixes(second)).toBeGreaterThanOrEqual(2)
   })
 })
@@ -85,9 +81,7 @@ describe('연습판 초기 상태', () => {
     expect(snapshot.game?.activePlayerId).toBe(TUTORIAL_PLAYER_ID)
     expect(snapshot.game?.roundNumber).toBe(1)
     expect(snapshot.game?.rollCount).toBe(0)
-    // 배우는 중에 시간이 몰아붙이면 안 된다 — 마감은 한 시간 뒤다.
     expect(snapshot.game?.roundDeadline ?? 0).toBeGreaterThan(Date.now() + 30 * 60 * 1000)
-    // 12칸이 전부 비어 있어야 한다. 하나라도 채워져 있으면 연습이 중간부터 시작된다.
     const board = snapshot.game?.scores[TUTORIAL_PLAYER_ID]
     expect(Object.values(board?.categories ?? {}).every((score) => score === null)).toBe(true)
     expect(board?.total).toBe(0)
@@ -132,11 +126,9 @@ describe('연습 모드 킵·기록', () => {
     if (received[0]?.type !== 'game.yacht_dice.score.update')
       throw new Error('score.update가 아니다')
     const board = received[0].payload.scoreboard
-    // 6이 네 개 = 24점. 상단 소계·총점까지 같이 선다.
     expect(board.categories.sixes).toBe(24)
     expect(board.upperSubtotal).toBe(24)
     expect(board.total).toBe(24)
-    // 기록하지 않은 칸은 그대로 비어 있어야 한다.
     expect(board.categories.yacht).toBeNull()
   })
 

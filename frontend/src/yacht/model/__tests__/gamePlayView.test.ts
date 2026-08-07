@@ -35,7 +35,6 @@ describe('buildGamePlayView', () => {
     expect(view.candidates).toEqual({})
   })
 
-  /** 이미 기록한 족보는 후보에서 빠진다 — 다시 고를 수 없는 자리에 숫자를 띄우면 안 된다. */
   it('기록된 족보는 열린 목록에서 빠지고 후보 계산에서도 제외된다', () => {
     const view = build([1, 1, 1, 2, 3] as DiceSet)
 
@@ -57,7 +56,6 @@ describe('buildGamePlayView', () => {
     expect(doubled.candidates.threes).toBe((plain.candidates.threes ?? 0) * 2)
   })
 
-  /** 점수표는 내 열이 첫 번째, 턴 띠는 서버 턴 순서 — 두 정렬이 다르다. */
   it('점수표와 턴 띠가 서로 다른 순서를 쓴다', () => {
     const view = build(null, gameWith({ turnOrder: [RIVAL, ME] }))
 

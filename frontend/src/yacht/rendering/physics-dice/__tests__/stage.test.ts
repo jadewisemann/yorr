@@ -21,7 +21,6 @@ describe('createStage', () => {
 
     expect(container.children).toHaveLength(1)
     expect(container.firstElementChild).toBe(stage.renderer.domElement)
-    // touch-manipulation: 주사위를 탭할 때 브라우저 더블탭 확대가 끼어들면 안 된다.
     expect(stage.renderer.domElement.className).toContain('touch-manipulation')
     expect(stage.renderer.domElement.className).toContain('h-full')
     expect(stage.renderer.domElement.className).toContain('w-full')
@@ -34,12 +33,9 @@ describe('createStage', () => {
     camera.updateMatrixWorld(true)
 
     expect(camera.position.y).toBeGreaterThan(0)
-    // 킵 레일(+z)이 화면 아래, 롤링 존(-z)이 화면 위에 놓여야 한다.
     expect(new THREE.Vector3(0, 0, 1).project(camera).y).toBeLessThan(0)
     expect(new THREE.Vector3(0, 0, -1).project(camera).y).toBeGreaterThan(0)
-    // 월드 +x는 화면 오른쪽 — 결과 줄의 왼→오 순서가 인덱스 순서와 같아야 한다.
     expect(new THREE.Vector3(1, 0, 0).project(camera).x).toBeGreaterThan(0)
-    // 직교 투영이라 깊이가 달라도 화면 크기가 변하지 않는다.
     expect(new THREE.Vector3(1, 3, 0).project(camera).x).toBeCloseTo(
       new THREE.Vector3(1, 0, 0).project(camera).x,
       6,

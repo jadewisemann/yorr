@@ -8,8 +8,6 @@ import type { RealtimeClient } from '@/realtime/realtimeClient'
 import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
 import type { ActiveRoomSession } from '@/store'
 
-// jsdom에는 WebGL이 없어 실제 씬은 만들어지지 않는다. 여기서 보는 것은 "어느 화면이 떴는가"라
-// 씬은 조용한 대역으로 충분하다(3D 거동은 scene3d 자신의 테스트가 맡는다).
 vi.mock('@/pingpong/rendering/scene3d', () => ({
   createScene: () => ({ dispose: vi.fn(), render: vi.fn(), resize: vi.fn(), update: vi.fn() }),
 }))
@@ -62,7 +60,6 @@ const session = {
   you: 'player-1',
 } as unknown as ActiveRoomSession
 
-/** 넓은 화면 + 마우스. 기본(matchMedia 미일치)은 손에 쥔 기기다. */
 function useDesktopViewport() {
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: true,
@@ -101,7 +98,6 @@ describe('PingPongGame 기기별 화면', () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
-  // 빠른 대전은 파티방과 같은 participant다 — 기기를 보지 않으면 데스크톱에도 폰 컨트롤러가 떴다.
   it('폰에서는 라켓 컨트롤러가 뜬다', () => {
     renderGame()
 
@@ -128,7 +124,6 @@ describe('PingPongGame 기기별 화면', () => {
     expect(client.send).toHaveBeenCalledOnce()
   })
 
-  // 워밍업은 폰에만 있던 단계였다 — 데스크톱은 준비 완료를 누를 자리가 없어 경기가 시작되지 않았다.
   it('데스크톱 워밍업에서 준비 완료를 보낼 수 있다', async () => {
     useDesktopViewport()
     const user = userEvent.setup()

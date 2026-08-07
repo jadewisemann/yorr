@@ -22,9 +22,6 @@ export function PingPongResult({ onLeaveRequest, session, snapshot }: PingPongRe
   const opponentScore = opponent ? (state?.scores[opponent.playerId] ?? 0) : 0
   const won = myScore > opponentScore
 
-  // 승패 진동은 여기서 울린다 — 경기가 FINISHED가 되는 렌더에서 `usePingPongGame`은 이미
-  // 언마운트되므로 그쪽 effect는 돌지 못한다. 대시보드는 아무의 손도 아니라 조용하다.
-  // (점수 계산이 대시보드 분기보다 위로 올라온 이유도 이 훅이 조건부일 수 없어서다.)
   useEffect(() => {
     if (!dashboard) vibrate(won ? WIN_VIBRATION : LOSE_VIBRATION)
   }, [dashboard, won])
