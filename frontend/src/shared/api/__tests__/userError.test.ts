@@ -37,7 +37,6 @@ describe('toUserError', () => {
   })
 
   it('처리 문구가 정해지지 않은 서버 오류는 재시도 안내로 모은다', () => {
-    // 코드가 없는 응답과 매핑에 없는 코드 모두 원문을 노출하지 않는다.
     const withoutCode = toUserError(new ApiError(500, 'Internal Server Error'))
     const unknownCode = toUserError(new ApiError(409, 'weird', 'TEAPOT_OVERFLOW'))
 

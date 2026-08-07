@@ -254,7 +254,6 @@ describe('MotionInputController', () => {
     expect(availability.at(-1)).toBe('paused')
     expect(events.at(-1)).toMatchObject({ type: 'gestureCancelled', reason: 'background' })
 
-    // 백그라운드 동안 들어온 샘플은 무시한다.
     dispatchMotion(140, 9, -9)
     expect(availability.at(-1)).toBe('paused')
 

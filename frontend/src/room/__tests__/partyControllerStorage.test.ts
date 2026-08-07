@@ -16,7 +16,6 @@ describe('파티 컨트롤러 판별', () => {
     expect(isPartyRoom('A4F2')).toBe(false)
     savePartyRoom('A4F2')
     expect(isPartyRoom('A4F2')).toBe(true)
-    // 다음에 코드로 들어간 일반 방까지 컨트롤러로 뜨면 안 된다.
     expect(isPartyRoom('B7K1')).toBe(false)
     expect(isPartyRoom(undefined)).toBe(false)
   })

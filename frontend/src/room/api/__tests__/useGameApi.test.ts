@@ -34,7 +34,6 @@ describe('useGame', () => {
   })
 
   it('WS로 받아 둔 진행 상태는 REST 스냅샷으로 덮어쓰지 않는다', async () => {
-    // 진행 상태의 SSOT는 WS(state.sync·round.start)다. REST는 방 정보만 갱신해야 한다.
     const realtimeSnapshot = createPlayingRoomSnapshot(9_999)
     useAppStore.setState({ roomSnapshot: realtimeSnapshot })
 
@@ -44,8 +43,6 @@ describe('useGame', () => {
     expect(useAppStore.getState().roomSnapshot?.game).toEqual(realtimeSnapshot.game)
   })
 
-  // 응답이 날아오는 사이 game.over가 도착하면 REST의 playing이 finished를 덮어 결과 화면이
-  // 영영 뜨지 않았다. 라우트 분리로 GamePage가 한 청크 늦게 마운트되면서 실제로 재현됐다.
   it('REST 응답이 늦게 도착해도 이미 끝난 게임을 진행 중으로 되돌리지 않는다', async () => {
     const playing = createPlayingRoomSnapshot(9_999)
     const finished = {
@@ -60,7 +57,6 @@ describe('useGame', () => {
 
     const snapshot = useAppStore.getState().roomSnapshot
     expect(snapshot?.phase).toBe('finished')
-    // 종료 뒤의 명단은 현재 접속자가 아니라 결과 화면의 이름 원본이라 함께 지킨다.
     expect(snapshot?.players).toEqual(finished.players)
   })
 })
@@ -113,7 +109,6 @@ describe('useReturnToLobby', () => {
     })
 
     expect(result.current.isSuccess).toBe(true)
-    // 스스로 대기실로 옮기면 다른 참가자와 상태가 갈린다.
     expect(useAppStore.getState().roomSnapshot?.phase).toBe('playing')
   })
 })

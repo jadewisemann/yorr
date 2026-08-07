@@ -6,25 +6,20 @@ interface RollCounterProps {
   rollsUsed: number
 }
 
-/**
- * 남은 굴리기 배지 — 51 Worldwide Games의 "🎲 3 left"처럼 주사위 아이콘과 횟수를
- * 큼직한 칩 하나로 보여준다. 주사위 눈은 남은 횟수 그대로라 아이콘만 봐도 읽힌다.
- * 트레이 위에 떠 있으므로 반투명 raised 칩으로 배경과 분리한다.
- */
 export function RollCounter({ className, maxRolls = 3, rollsUsed }: RollCounterProps) {
   const remaining = Math.max(0, maxRolls - rollsUsed)
 
   return (
     <div
       className={cn(
-        'inline-flex flex-none items-center gap-2 rounded-card border border-white/14 bg-surface-raised/92 px-3 py-1.5',
+        'inline-flex flex-none items-center gap-2 rounded-card border border-border-raised bg-surface-raised/92 px-3 py-1.5',
         className,
       )}
     >
       <DieFace value={remaining} />
       <p
         className={cn(
-          'm-0 text-[15px] font-bold whitespace-nowrap tabular-nums',
+          'm-0 text-sm font-bold whitespace-nowrap tabular-nums',
           remaining > 0 ? 'text-content' : 'text-content-muted',
         )}
       >
@@ -34,7 +29,6 @@ export function RollCounter({ className, maxRolls = 3, rollsUsed }: RollCounterP
   )
 }
 
-/** 남은 횟수를 눈으로 보여주는 주사위. 0이면 빈 아웃라인만 남긴다. */
 function DieFace({ value }: { value: number }) {
   const pipsByValue: Record<number, Array<[number, number]>> = {
     1: [[8, 8]],

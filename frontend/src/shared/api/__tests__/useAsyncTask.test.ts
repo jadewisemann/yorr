@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { useAsyncQuery, useAsyncTask } from '@/shared/api/useAsyncTask'
+import { useAsyncTask, useFetchEffect } from '@/shared/api/useAsyncTask'
 
 interface Deferred<T> {
   promise: Promise<T>
@@ -9,7 +9,6 @@ interface Deferred<T> {
   signal: AbortSignal
 }
 
-/** 진행 중인 요청 구간을 테스트가 직접 제어할 수 있게 만든 task. */
 function createControllableTask<T>() {
   const pending: Deferred<T>[] = []
   const task = (signal: AbortSignal) => {
@@ -99,7 +98,6 @@ describe('useAsyncTask', () => {
     expect(await second).toBe('최신 결과')
     expect(result.current.data).toBe('최신 결과')
 
-    // 중단된 요청이 뒤늦게 실패해도 최신 성공 상태를 덮지 않는다.
     let third: Promise<string | undefined> | undefined
     await act(async () => {
       third = result.current.execute()
@@ -160,11 +158,11 @@ describe('useAsyncTask', () => {
   })
 })
 
-describe('useAsyncQuery', () => {
+describe('useFetchEffect', () => {
   it('queryKey가 있으면 즉시 조회하고, key가 바뀌면 다시 조회한다', async () => {
     const query = vi.fn(async () => 'A')
     const { result, rerender } = renderHook(
-      ({ key }: { key: string | null }) => useAsyncQuery(key, query),
+      ({ key }: { key: string | null }) => useFetchEffect(key, query),
       { initialProps: { key: 'game:1' as string | null } },
     )
 
@@ -179,7 +177,7 @@ describe('useAsyncQuery', () => {
   it('queryKey가 null이면 조회하지 않고 이전 결과를 비운다', async () => {
     const query = vi.fn(async () => 'A')
     const { result, rerender } = renderHook(
-      ({ key }: { key: string | null }) => useAsyncQuery(key, query),
+      ({ key }: { key: string | null }) => useFetchEffect(key, query),
       { initialProps: { key: 'game:1' as string | null } },
     )
     await waitFor(() => expect(result.current.data).toBe('A'))
@@ -193,7 +191,7 @@ describe('useAsyncQuery', () => {
 
   it('refetch로 같은 key를 다시 조회할 수 있다', async () => {
     const query = vi.fn(async () => 'A')
-    const { result } = renderHook(() => useAsyncQuery('game:1', query))
+    const { result } = renderHook(() => useFetchEffect('game:1', query))
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     await act(async () => {

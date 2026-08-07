@@ -6,6 +6,9 @@
   --color-surface-raised: var(--ds-color-surface-raised);
   --color-surface-overlay: var(--ds-color-surface-overlay);
   --color-border: var(--ds-color-border);
+  --color-border-raised: var(--ds-color-border-raised);
+  --color-border-strong: var(--ds-color-border-strong);
+  --color-surface-veil: var(--ds-color-surface-veil);
   --color-content: var(--ds-color-content);
   --color-content-muted: var(--ds-color-content-muted);
   --color-brand: var(--ds-color-brand);
@@ -50,6 +53,38 @@
   --color-landing-placeholder: var(--ds-landing-placeholder);
   --color-landing-disabled: var(--ds-landing-disabled);
 
+  /* 게임별 팔레트. 랜딩(--ds-landing-*)과 같은 이유로 네임스페이스를 나눈다 — 서부극
+     결투가 요트 로비처럼 생기면 안 되고, 반대로 그 세계관 색이 앱 전역 토큰을 오염시켜도
+     안 된다. 값 자체는 화면에 흩어져 있던 것을 옮겨 온 것이라 지금은 1:1이다.
+     다음 단계(시각 방향 잡기)에서 손볼 자리는 여기 한 곳이다. */
+  --color-pp-canvas: var(--ds-pp-canvas);
+  --color-pp-surface: var(--ds-pp-surface);
+  --color-pp-accent: var(--ds-pp-accent);
+  --color-pp-accent-text: var(--ds-pp-accent-text);
+  --color-pp-side-blue: var(--ds-pp-side-blue);
+  --color-pp-side-blue-text: var(--ds-pp-side-blue-text);
+  --color-pp-gold: var(--ds-pp-gold);
+  --color-pp-smash: var(--ds-pp-smash);
+  --color-pp-danger: var(--ds-pp-danger);
+  --color-pp-danger-text: var(--ds-pp-danger-text);
+  --color-pp-muted: var(--ds-pp-muted);
+  --color-pp-paddle-grip: var(--ds-pp-paddle-grip);
+
+  /* 게임 화면 텍스트 — 두 게임이 공유한다. 근거는 아래 원시값 선언에 있다. */
+  --color-game-content: var(--ds-game-content);
+  --color-game-content-muted: var(--ds-game-content-muted);
+  --color-game-content-faint: var(--ds-game-content-faint);
+  --color-game-separator: var(--ds-game-separator);
+
+  --color-duel-canvas: var(--ds-duel-canvas);
+  --color-duel-accent: var(--ds-duel-accent);
+  --color-duel-accent-soft: var(--ds-duel-accent-soft);
+  --color-duel-ink: var(--ds-duel-ink);
+  --color-duel-signal: var(--ds-duel-signal);
+  --color-duel-gold: var(--ds-duel-gold);
+  --color-duel-positive: var(--ds-duel-positive);
+  --color-duel-danger: var(--ds-duel-danger);
+
   --shadow-landing-panel: var(--ds-landing-shadow-panel);
   --shadow-landing-card: var(--ds-landing-shadow-card);
   --shadow-landing-card-quiet: var(--ds-landing-shadow-card-quiet);
@@ -59,6 +94,11 @@
   --shadow-landing-cta-sheet: var(--ds-landing-shadow-cta-sheet);
 
   --text-display: var(--ds-text-display);
+  /* Tailwind 기본 사다리(12/14/16/18/20/24/30…)에 없던 유일한 단. 점수판 라벨·배지처럼
+     xs(12px)보다 한 단 작아야 하는 자리가 실제로 많아서, 그동안 화면마다 9 · 10 · 10.5 ·
+     11px를 손으로 적어 쓰고 있었다(64곳). 그 넷을 여기로 모은다.
+     아래로 더 내려가는 단은 만들지 않는다 — 한글은 11px이 하한이다. */
+  --text-2xs: 0.6875rem;
   /* 디자인 시스템 최대 굵기는 700 — 800은 Pretendard에서 뭉개진다. */
   --font-weight-medium: 600;
   --font-weight-bold: 700;
@@ -79,16 +119,38 @@
      자리만 세로로 쌓는다. 360px 이상에서는 원래 배치가 그대로 유효하므로 하한 전용이다. */
   --breakpoint-tiny: 22.5rem;
 
+  /* 400px. 주사위 트레이의 좌상단 라벨과 우상단 띠(흔들기 · 남은 굴리기 · ⓘ)가 함께 서려면
+     트레이 안쪽으로 약 358px이 필요하다(라벨 120 + 띠 210 + 좌우 패딩 28). 거터가 양쪽
+     20px이므로 뷰포트로는 398px이 갈림길이다.
+     한때 이 자리를 tiny(360px)로 막아 뒀는데 실측하면 375px에서 12px 겹쳐 "굴림 1/3"의
+     횟수가 칩 밑에 깔린다 — 375·390·393(iPhone SE·14·Pixel)이 전부 이 구간이다.
+     tiny를 올리지 않고 단을 따로 두는 이유: tiny는 랜딩 태그라인이 두 줄로 접히는 지점이라
+     360px이 맞고, 여기와 같은 값일 이유가 없다. */
+  --breakpoint-tray: 25rem;
+
   --spacing-tap: var(--ds-size-tap);
   --spacing-content: var(--ds-size-content);
   --spacing-landing: var(--ds-size-landing);
   --spacing-play: var(--ds-size-play);
   --spacing-gutter: var(--ds-size-gutter);
+  /* 화면 위·아래 끝의 safe-area 여백. 25곳이 각자 max(하한, env(...))를 손으로 썼고
+     하한이 10종이었다 — 가장 많이 쓰인 두 하한만 이름을 준다(위 1rem 6곳, 아래 1.25rem 8곳).
+     나머지 하한은 그 화면만의 값이라 호출부에 임의값으로 남긴다.
+     위아래 하한이 다른 것은 의도다 — 아래는 홈 인디케이터 제스처 영역을 더 피한다. */
+  --spacing-safe-top: var(--ds-size-safe-top);
+  --spacing-safe-bottom: var(--ds-size-safe-bottom);
 
+  /* 라운드 사다리는 2 · 6 · 12 · 14 · 18 · 26 · 32px 일곱 단 + full이다.
+     control~sheet 네 단만 있던 시절에는 그 사이가 필요할 때마다 화면에서 raw px를 적었고
+     (6·7·9·11·16·20·22·24·30·32px), 심지어 control(12)·card(14)·panel(18)·sheet(26)과
+     **같은 값**을 raw px로 다시 타이핑한 자리도 있었다. 양 끝 두 단을 채워 그 자리를
+     없앤다 — chip은 배지·필·작은 칩, hero는 컨트롤러 화면을 가득 채우는 조작면이다. */
+  --radius-chip: 0.375rem;
   --radius-control: var(--ds-radius-control);
   --radius-card: var(--ds-radius-card);
   --radius-panel: var(--ds-radius-panel);
   --radius-sheet: var(--ds-radius-sheet);
+  --radius-hero: 2rem;
 
   --shadow-raised: var(--ds-shadow-raised);
   --shadow-overlay: var(--ds-shadow-overlay);
@@ -281,7 +343,14 @@
   /* raised보다 한 단 더 뜬 표면 — 캔버스 위에 겹쳐 떠 있는 토스트가 여기에 선다.
      장식용 고스트 텍스트(404)도 같은 밝기 단계를 쓴다. */
   --ds-color-surface-overlay: #202125;
+  /* 흰색 알파 hairline 사다리. 세 단이 값으로 구별된다 — 기본 경계, 떠 있는 표면의 경계,
+     강조·선택 경계. 랜딩 네임스페이스가 아래에서 같은 원시값을 참조한다(값을 두 번 적지 않는다). */
   --ds-color-border: rgb(255 255 255 / 10%);
+  --ds-color-border-raised: rgb(255 255 255 / 14%);
+  --ds-color-border-strong: rgb(255 255 255 / 18%);
+  /* 캔버스 위에 아주 옅게 깔리는 칩·배너 바닥. surface(#111214)는 불투명해서 뒤의
+     배경 그라디언트를 가리므로 이 자리에 못 쓴다. */
+  --ds-color-surface-veil: rgb(255 255 255 / 6%);
   --ds-color-content: #f7f7f5;
   --ds-color-content-muted: #a4a5aa;
   --ds-color-brand: #e53935;
@@ -309,16 +378,20 @@
   --ds-color-physics-rail: #0d0e10;
   --ds-color-physics-slot: rgb(255 255 255 / 14%);
 
-  /* 랜딩 히어로 전용 팔레트 — 본편과 같은 블랙 계열로 통일하되
-     반투명 패널·헤어라인은 랜딩에서만 쓰므로 네임스페이스를 유지한다. */
+  /* 랜딩 히어로 전용 팔레트 — 본편과 같은 블랙 계열로 통일하되 반투명 패널은 랜딩에서만
+     쓰므로 네임스페이스를 유지한다. 헤어라인은 예외다: 앱 쪽에서도 12곳이 같은 값을 쓰므로
+     위의 공유 사다리를 참조한다. */
   --ds-landing-panel: rgb(17 18 20 / 86%);
   --ds-landing-well: rgb(8 9 10 / 55%);
   --ds-landing-soft: rgb(255 255 255 / 7%);
   /* 코드 입력 필드 바닥. 팝오버·시트(#18191c)보다 한 단 낮게 가라앉힌다. */
   --ds-landing-field: #111214;
   --ds-landing-bar: rgb(255 255 255 / 22%);
-  --ds-landing-hairline: rgb(255 255 255 / 10%);
-  --ds-landing-hairline-strong: rgb(255 255 255 / 18%);
+  /* 헤어라인은 랜딩 팔레트가 아니라 앱과 공유하는 중성 사다리다 — 값을 다시 적지 않고
+     위의 원시값을 참조한다. 호출부의 landing-hairline* utility는 그대로 두되, 새 코드는
+     border/border-strong를 쓴다. */
+  --ds-landing-hairline: var(--ds-color-border);
+  --ds-landing-hairline-strong: var(--ds-color-border-strong);
   --ds-landing-accent: #e53935;
   --ds-landing-accent-ink: #ffffff;
   --ds-landing-accent-tint: rgb(229 57 53 / 16%);
@@ -333,9 +406,92 @@
   /* 코드 입력 예시("YORR64")를 그린다. 형식을 알려주는 실제 정보이므로 4.5:1을 맞춘다. */
   --ds-landing-placeholder: #8a8b92;
 
+  /* ── 탁구 팔레트 ─────────────────────────────────────────────────────────────
+     초록(내 쪽·성공) · 파랑(상대) · 금색(콤보) · 주황(스매시) · 빨강(실패)의 5색 신호계다.
+     tone-*와 tone-*-text가 갈리는 이유: 면으로 칠할 때 읽히는 채도와 어두운 캔버스 위에서
+     4.5:1을 넘는 텍스트 밝기가 다르다. */
+  /* pingpong/scene3d.ts의 setClearColor·FogExp2와 **같은 값을 양쪽에 적어둔 것**이다
+     (WebGL은 CSS 변수를 읽지 못한다). 한쪽만 고치면 캔버스 경계에 이음선이 보인다. */
+  --ds-pp-canvas: #070b12;
+  --ds-pp-surface: #0b111b;
+  --ds-pp-accent: #49e08a;
+  --ds-pp-accent-text: #8dffc0;
+  /* 파랑·빨강은 <b>자리</b>지 사람이 아니다. 코드가 넘기는 값도 tone="blue" · tone="red"로
+     첫째 자리 · 둘째 자리를 가리킬 뿐이라, AI 대전에서는 파란 쪽이 곧 나다.
+     빨간 쪽은 시스템 brand를 그대로 쓰므로 여기 없다(실패 판정과 색을 공유한다 —
+     둘 다 "이 쪽이 점수를 잃었다"는 같은 사건이라 같은 빨강으로 둔다). */
+  --ds-pp-side-blue: #2b8fe0;
+  --ds-pp-side-blue-text: #73bfff;
+  --ds-pp-gold: #ffd24a;
+  --ds-pp-smash: #ff7a4d;
+  /* 실패는 시스템 레드를 그대로 쓴다. 탁구만의 빨강(#e2513c · #ff8b7c)이 따로 있었지만
+     시스템 brand·brand-soft와의 RGB 거리가 25 · 10이라 나란히 놓아도 구분되지 않는다 —
+     구분되지 않는 색이 둘이면 그건 팔레트가 아니라 실수다. 초록·파랑·금색·주황은 이
+     화면의 네온 신호계라 그대로 둔다(시스템 색과 거리 37~75). */
+  --ds-pp-danger: var(--ds-color-brand);
+  --ds-pp-danger-text: var(--ds-color-brand-soft);
+  /* 이 팔레트에서 유일하게 한 번만 쓰이는 색(빗맞음 피드백). 늘어나면 시스템
+     content-muted로 합칠 자리다. */
+  --ds-pp-muted: #c7ced7;
+  /* 라켓 손잡이. UI 색이 아니라 그림 색이지만 클래스에 박혀 있어 같이 데려온다. */
+  --ds-pp-paddle-grip: #201a1a;
+
+  /* ── 결투 팔레트 ─────────────────────────────────────────────────────────────
+     석양·등불의 앰버 한 줄기 위에 승/패만 갈린다.
+
+     고친 것: signal·gold·positive·danger 넷은 Tailwind 기본 팔레트(amber-500 ·
+     amber-400 · green-300 · red-300)를 붙여넣은 값이었다. 앰버 둘은 색상환에서
+     accent(H35)와 어긋나 있었고(H38 · H43) 넷 다 채도 92~100%였다 — 같은 화면 안에서
+     서로 다른 노랑 넷이 경쟁하니 어느 것도 신호로 읽히지 않았다.
+
+     지금은 앰버가 accent-soft(L81) → accent(L77) → signal(L55) 한 줄기다. 색상은 H35로
+     묶고 밝기로만 갈라, 셋이 같은 등불의 세기 차이로 읽힌다.
+
+     노랑·초록·빨강은 시스템 토큰을 그대로 가리킨다. "주의 · 이김 · 짐"은 게임 세계관이
+     아니라 앱 전체가 같은 말로 해야 하는 것이다 — 결투에서만 다른 초록으로 이기면
+     그건 세계관이 아니라 버그로 보인다. */
+  --ds-duel-canvas: #0b0409;
+  --ds-duel-accent: #ffcf8a;
+  --ds-duel-accent-soft: #ffd9a0;
+  --ds-duel-ink: #f4e6d0;
+  --ds-duel-signal: #e09a3a;
+  --ds-duel-gold: var(--ds-color-warning);
+  --ds-duel-positive: var(--ds-color-positive);
+  --ds-duel-danger: var(--ds-color-brand-soft);
+
+  /* 게임 화면 텍스트 밝기. 결투·탁구가 content / content-muted / content-faint 사다리를
+     흰색 알파 11단(/30 /35 /40 /45 /50 /55 /60 /65 /70 /75 /85, 33곳)으로 다시 구현하고
+     있었다. 나란히 놓으면 /40과 /45는 구분되지 않는다 — 사다리가 아니라 그때그때 적은 값이다.
+
+     불투명 content-*를 그대로 쓰지 않는 이유: 두 게임의 캔버스가 앱 캔버스와 다르고(결투
+     #0b0409는 따뜻하고, 탁구는 살아 있는 3D 위에 글자가 얹힌다) 알파여야 배경이 비친다.
+     그래서 **색이 아니라 명암비를 앱 사다리에 맞췄다**(캔버스 위 실측):
+
+       content-muted 8.11:1  ↔  white/65  8.51:1
+       content-faint 5.28:1  ↔  white/50  5.33:1
+
+     separator는 점수 사이 ":" 글리프 전용이다(2xl 이상). 읽는 글이 아니라 자리 표시라
+     흐리게 두되, 예전 /30(2.53:1)은 24px 큰 글자 기준 3:1에도 못 미쳐 /35로 올렸다. */
+  --ds-game-content: rgb(255 255 255 / 85%);
+  --ds-game-content-muted: rgb(255 255 255 / 65%);
+  --ds-game-content-faint: rgb(255 255 255 / 50%);
+  --ds-game-separator: rgb(255 255 255 / 35%);
+
+  /* 필름 그레인 — 캔버스와 랜딩 배경 위에 얹는 <b>맨 위 배경 레이어</b>다.
+     이 화면들은 전부 큰 면적의 매끈한 radial-gradient라 넓은 디스플레이에서 계단(banding)이
+     보이고, 무엇보다 화면 전체가 진공처럼 평평하다. 회색 노이즈를 아주 얕게 깔면 그 두 개가
+     동시에 사라진다.
+     별도 오버레이 DOM을 만들지 않고 background 레이어로 두는 이유: 오버레이는 position·
+     z-index·pointer-events를 매 화면에서 다시 맞춰야 하고, 모달 위로 올라갈 위험이 있다.
+     배경 레이어에는 그 문제가 없다 — 표면(카드·시트)은 자기 배경으로 그레인을 덮는다.
+     saturate 0으로 무채색을 만든다. feTurbulence 원본은 컬러 노이즈라 그대로 쓰면
+     흑백 화면에 색점이 뜬다. */
+  --ds-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
+
   /* 화면 바닥 — 가운데 위에서 떨어지는 화이트 스포트라이트와 CTA 아래 레드 글로우.
      3D는 히어로 카드 안에서만 돌아가므로 배경은 순수 장식이다. */
   --ds-landing-bg:
+    var(--ds-noise),
     radial-gradient(40% 30% at 50% 78%, rgb(229 57 53 / 10%) 0%, rgb(229 57 53 / 0) 70%),
     radial-gradient(58% 52% at 50% 34%, rgb(255 255 255 / 9%) 0%, rgb(255 255 255 / 0) 66%), #08090a;
   /* 선택된 히어로 카드 바닥과 그 위에 겹치는 세 레이어(광택 · 스포트라이트 · 하단 스크림). */
@@ -375,9 +531,10 @@
   --ds-landing-ghost: radial-gradient(90% 70% at 50% 34%, #1c1d21 0%, #0d0e10 70%);
 
   --ds-landing-shadow-panel: inset 0 0 0 1px rgb(255 255 255 / 10%);
-  /* 카드 그림자에는 레드를 섞지 않는다 — "지금 플레이 가능"은 테두리 색과 PLAYABLE NOW
-     배지가 말한다. 글로우는 야외·저대비·색각 이상에서 가장 먼저 사라지는 채널이라
-     상태를 혼자 짊어지면 안 되고, 화면에서 유일하게 빛나는 레드는 CTA여야 한다. */
+  /* 카드 그림자에는 레드를 섞지 않는다 — "지금 플레이 가능"은 카드 테두리 색과 플레이어수
+     배지가 말한다(여기 적혀 있던 PLAYABLE NOW 배지는 걷혔다. LandingHeroCard 참고).
+     글로우는 야외·저대비·색각 이상에서 가장 먼저 사라지는 채널이라 상태를 혼자 짊어지면
+     안 되고, 화면에서 유일하게 빛나는 레드는 CTA여야 한다. */
   --ds-landing-shadow-card: 0 40px 80px rgb(0 0 0 / 72%);
   --ds-landing-shadow-card-quiet: 0 40px 80px rgb(0 0 0 / 70%);
   --ds-landing-shadow-card-inset:
@@ -424,6 +581,8 @@
   --ds-size-play: 80rem;
   /* 화면 좌우 거터 — 390px에서 20px, 320px에서 16px. */
   --ds-size-gutter: 1.25rem;
+  --ds-size-safe-top: max(1rem, env(safe-area-inset-top));
+  --ds-size-safe-bottom: max(1.25rem, env(safe-area-inset-bottom));
   /* S15P11A406-117 다크 시스템 — 컨트롤 12·카드 14·패널 18·시트 26px 라운드. */
   --ds-radius-control: 0.75rem;
   --ds-radius-card: 0.875rem;

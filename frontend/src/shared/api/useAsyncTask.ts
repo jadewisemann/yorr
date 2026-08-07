@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 export type AsyncStatus = 'idle' | 'loading' | 'success' | 'error'
 
@@ -26,18 +26,13 @@ export function useAsyncTask<TArgs extends unknown[], TData>(
   const taskRef = useRef(task)
   const onSuccessRef = useRef(options.onSuccess)
   const controllerRef = useRef<AbortController | null>(null)
-  const mountedRef = useRef(false)
 
-  taskRef.current = task
-  onSuccessRef.current = options.onSuccess
+  useLayoutEffect(() => {
+    taskRef.current = task
+    onSuccessRef.current = options.onSuccess
+  })
 
-  useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-      controllerRef.current?.abort()
-    }
-  }, [])
+  useEffect(() => () => controllerRef.current?.abort(), [])
 
   const execute = useCallback(async (...args: TArgs) => {
     controllerRef.current?.abort()
@@ -47,13 +42,13 @@ export function useAsyncTask<TArgs extends unknown[], TData>(
 
     try {
       const data = await taskRef.current(controller.signal, ...args)
-      if (controller.signal.aborted || !mountedRef.current) return undefined
+      if (controller.signal.aborted) return undefined
 
       setState({ data, error: null, status: 'success' })
       onSuccessRef.current?.(data)
       return data
     } catch (error) {
-      if (controller.signal.aborted || !mountedRef.current) return undefined
+      if (controller.signal.aborted) return undefined
 
       setState({ data: null, error: toError(error), status: 'error' })
       return undefined
@@ -77,22 +72,22 @@ export function useAsyncTask<TArgs extends unknown[], TData>(
   }
 }
 
-export function useAsyncQuery<TData>(
-  queryKey: string | null,
-  query: (signal: AbortSignal) => Promise<TData>,
+export function useFetchEffect<TData>(
+  key: string | null,
+  request: (signal: AbortSignal) => Promise<TData>,
   options: AsyncTaskOptions<TData> = {},
 ) {
-  const task = useAsyncTask<[], TData>(query, options)
+  const task = useAsyncTask<[], TData>(request, options)
   const { execute, reset } = task
 
   useEffect(() => {
-    if (queryKey === null) {
+    if (key === null) {
       reset()
       return
     }
 
     void execute()
-  }, [execute, queryKey, reset])
+  }, [execute, key, reset])
 
   return { ...task, refetch: execute }
 }

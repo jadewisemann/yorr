@@ -13,7 +13,6 @@ describe('ScoreRow', () => {
   it('exposes the selected state to assistive tech, not just the border', () => {
     render(<ScoreRow label="Fours" score={12} state="selected" onSelect={vi.fn()} />)
 
-    // 체크 표시는 aria-hidden SVG로 옮겼다 — 접근성 이름에는 '선택'이라는 낱말만 남는다.
     const row = screen.getByRole('button', { name: 'Fours 12 선택' })
     expect(row).toHaveAttribute('aria-pressed', 'true')
     expect(row).toBeEnabled()
@@ -30,7 +29,6 @@ describe('ScoreRow', () => {
     const user = userEvent.setup()
     render(<ScoreRow label="Yacht" score={0} state="zeroed" onSelect={onSelect} />)
 
-    // 0점 확정은 "지금 굴려서 0점"과 소리로도 구분돼야 한다.
     const row = screen.getByRole('button', { name: 'Yacht 0 · 0점으로 사용됨' })
     expect(row).toBeDisabled()
     await user.click(row)

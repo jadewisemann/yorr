@@ -81,7 +81,6 @@ function ParamRow({
   const inputId = `motion-param-${meta.key}`
   const defaultValue = MOTION_GESTURE_CONFIG[meta.key]
   const isDefault = value === defaultValue
-  // 숫자 입력은 타이핑 중 클램프가 끼어들지 않도록 blur/Enter에서만 반영한다.
   const [draft, setDraft] = useState(String(value))
   useEffect(() => setDraft(String(value)), [value])
 

@@ -17,7 +17,6 @@ describe('kakaoLoginUrl', () => {
     expect(kakaoLoginUrl()).toBe(`${API_BASE_URL}/auth/kakao/authorize`)
   })
 
-  // 카카오는 자체 로그인 세션을 브라우저에 들고 있어, forceLogin 없이는 계정을 바꿀 수 없다.
   it('forceLogin이면 계정 재선택을 위한 prompt=login을 붙인다', () => {
     expect(kakaoLoginUrl({ forceLogin: true })).toBe(
       `${API_BASE_URL}/auth/kakao/authorize?prompt=login`,
@@ -67,7 +66,6 @@ describe('verifySession', () => {
     await expect(verifySession('expired-token')).resolves.toBeNull()
   })
 
-  // 네트워크가 잠깐 흔들려 생긴 5xx까지 로그아웃으로 취급하면 안 된다 — 호출부가 재시도할 수 있어야 한다.
   it('401이 아닌 오류는 그대로 다시 던진다', async () => {
     mockApiServer.use(http.get('/api/v1/auth/me', () => HttpResponse.text('boom', { status: 500 })))
 

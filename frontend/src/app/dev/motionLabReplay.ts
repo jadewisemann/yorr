@@ -5,7 +5,6 @@ import { MotionSampleNormalizer } from '@/yacht/input/normalizeMotionSample'
 
 type Vec3 = [number, number, number]
 
-/** normalizer 입력을 그대로 보존한 원시 샘플. t는 첫 샘플 기준 경과 ms. */
 export interface MotionRecordingSample {
   t: number
   acc: Vec3 | null
@@ -72,10 +71,6 @@ export interface ReplayResult {
   sampleCount: number
 }
 
-/**
- * 녹화를 프로덕션 파이프라인(normalizer → recognizer)에 그대로 통과시킨다.
- * 이벤트의 at은 녹화 시작 기준 경과 ms — 라이브와 달리 결정적으로 재현된다.
- */
 export function replayRecording(
   recording: MotionRecording,
   config: MotionGestureConfig,
