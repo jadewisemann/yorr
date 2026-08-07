@@ -43,7 +43,9 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
       heartbeatTimer = setInterval(() => {
         try {
           client.send(buildClientMessage('sys.ping', { clientTs: Date.now() }))
-        } catch {}
+        } catch {
+          // The connection listener schedules recovery when the transport closes.
+        }
       }, intervalMs)
     }
 
@@ -101,6 +103,11 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
   return <RealtimeClientProvider client={client}>{children}</RealtimeClientProvider>
 }
 
+/**
+ * 재접속도 room.join으로 통일한다. 서버가 sessionToken으로 기존 정체성을 복원하며,
+ * sys.reconnect는 아직 서버에 라우팅이 없어 보내면 조용히 버려진다(티켓 25에서 이관).
+ * @returns 다시 참가를 보냈는지 — 실패 시(로컬 세션 없음) 재연결 횟수를 리셋하지 않는다.
+ */
 function rejoinRoom(client: RealtimeClient): boolean {
   const roomSession = useAppStore.getState().roomSession
   if (!roomSession) return false
@@ -126,6 +133,14 @@ function isRoomReadyMessage(message: ServerMessage) {
   )
 }
 
+/**
+ * 서버의 전체 스냅샷(state.sync · room.joined · sys.reconnected)에는 게임 진행 상태(game)가 실려
+ * 있지 않다. 그대로 갈아끼우면 score.update로 모아온 **모든 플레이어의 점수판**이 통째로 사라지고,
+ * game이 없는 동안 도착한 score.update는 아래 핸들러에서 그냥 버려진다.
+ * 대기방으로 되돌아가는 경우가 아니면 지금 들고 있는 진행 상태를 유지한다.
+ * 종료 뒤의 players는 현재 접속 명단이 아니라 결과 화면의 참가자 이름 원본이기도 하므로,
+ * finished 상태끼리 동기화할 때는 종료 시점 명단도 함께 보존한다.
+ */
 function keepGameState(snapshot: RoomSnapshot, current: RoomSnapshot | null): RoomSnapshot {
   if (snapshot.phase === 'waiting' || !current?.game) return snapshot
   if (snapshot.phase === 'finished' && current.phase === 'finished') {
@@ -192,6 +207,10 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
   }
 }
 
+/**
+ * 게임 모듈이 통째로 내려준 진행 상태. 자기 방의 게임에서 온 것만 받는다 — 방을 옮기는
+ * 순간 도착한 늦은 메시지가 다른 게임의 화면에 얹히면 그대로 크래시다.
+ */
 function applyModuleGameState(
   payload: Extract<ServerMessage, { type: 'game.ping_pong.state' | 'game.duel.state' }>['payload'],
   gameCode: GameCode,
@@ -199,6 +218,7 @@ function applyModuleGameState(
 ) {
   const snapshot = store.roomSnapshot
   if (snapshot?.gameCode !== gameCode) return
+  // RoomSnapshot.game은 아직 Yacht 타입이 SSOT라 게임별 계약 분리 전까지 이 경계에서만 변환한다.
   store.replaceRoomSnapshot({
     ...snapshot,
     game: payload as unknown as NonNullable<RoomSnapshot['game']>,
@@ -242,6 +262,8 @@ function applyPlayerLeft(
   store: Store,
 ) {
   if (!store.roomSnapshot) return
+  // 결과 순위에는 playerId만 오므로 종료 시점 players가 닉네임의 유일한 원본이다.
+  // 실제 재실행 명단은 대기실 state.sync에서 새로 받으므로 결과 화면에서는 보존한다.
   if (store.roomSnapshot.phase === 'finished') return
   store.replaceRoomSnapshot({
     ...store.roomSnapshot,
@@ -276,6 +298,11 @@ function applyScoreUpdate(
   })
 }
 
+/**
+ * round.start는 새 턴에만 오는 게 아니다 — 서버는 굴림마다 마감을 연장하며 같은 턴에도
+ * 다시 보낸다. 그래서 굴림 진행을 무조건 0으로 되돌리면 안 된다. 턴이 실제로 바뀌었을
+ * 때만 초기화하고, 같은 턴이면 지금까지의 진행을 그대로 들고 간다.
+ */
 function applyRoundStart(
   payload: Extract<ServerMessage, { type: 'game.yacht_dice.round.start' }>['payload'],
   store: Store,
@@ -301,6 +328,10 @@ function applyRoundStart(
   })
 }
 
+/**
+ * 굴림 진행의 권위값은 서버다. 스냅샷 갱신을 여기서 해두면 턴 중간에 마운트된 화면도
+ * (재접속 직후처럼) 서버와 같은 굴림 횟수에서 이어갈 수 있다.
+ */
 function applyDiceBroadcast(
   message: Extract<ServerMessage, { type: 'game.yacht_dice.dice.broadcast' }>,
   store: Store,
@@ -327,6 +358,10 @@ function applyDiceBroadcast(
   })
 }
 
+/**
+ * 게임 종료. 이 핸들러가 없으면 서버가 종료를 알려도 화면이 계속 게임에 머문다.
+ * 뒤따르는 state.sync도 phase를 finished로 바꾸지만, 순서에 의존하지 않도록 여기서도 바꾼다.
+ */
 function applyGameOver(payload: GameOverPayload, store: Store) {
   const snapshot = store.roomSnapshot
   if (!snapshot) return
@@ -349,9 +384,13 @@ function applyServerError(
   ) {
     store.endSession('expired')
   }
+  // 오프라인 자동 퇴장 뒤의 재접속 room.join은 이 코드로 거절된다(신규 참가는 REST에서
+  // 이미 막힌다). 세션을 끝내지 않으면 게임 화면이 갱신 없이 영원히 멈춘다.
   if (payload.code === 'GAME_ALREADY_STARTED') {
     store.endSession('removed')
   }
+  // 유예가 끝나 서버가 방을 닫은 뒤의 "이어서 하기". 저장된 세션은 이미 쓸 수 없으므로
+  // 정리해 홈으로 보낸다 — 안 그러면 배너가 계속 뜨고 누를 때마다 같은 실패를 반복한다.
   if (payload.code === 'ROOM_NOT_FOUND') {
     store.endSession('room_closed')
   }

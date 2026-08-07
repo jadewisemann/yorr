@@ -4,6 +4,7 @@ import { gameAt, games } from '@/games'
 import { LandingHeroCarousel } from '@/landing/components/LandingHeroCarousel'
 
 beforeEach(() => {
+  // jsdom에는 Pointer Events의 capture API가 없다 — 드래그 핸들러가 이걸 부르므로 스텁해 둔다.
   Element.prototype.setPointerCapture = vi.fn()
 })
 
@@ -25,6 +26,7 @@ describe('LandingHeroCarousel', () => {
     expect(onSelect).toHaveBeenCalledWith(1)
   })
 
+  // 목록이 순환하므로 화살표는 끝에서도 살아 있다 — 점 목록 방향키와 같은 규칙이다.
   it('양 끝에서 반대편으로 감싼다', () => {
     const onSelect = vi.fn()
     const { rerender } = render(
@@ -53,6 +55,8 @@ describe('LandingHeroCarousel', () => {
     expect(onSelect).toHaveBeenCalledWith(0)
   })
 
+  // wide는 카드 석 장이 한 화면에 함께 선다 — 보이는 카드를 눌렀는데 아무 일도
+  // 일어나지 않으면 안 된다.
   it('wide에서는 양옆 이웃 카드를 눌러 바로 그 게임으로 넘어간다', () => {
     const onSelect = vi.fn()
     render(
@@ -68,10 +72,15 @@ describe('LandingHeroCarousel', () => {
     fireEvent.click(screen.getByRole('button', { name: `${gameAt(1).name} 선택` }))
     expect(onSelect).toHaveBeenCalledWith(1)
 
+    // 목록이 순환하므로 첫 칸의 왼쪽 이웃은 마지막 게임이다.
     fireEvent.click(screen.getByRole('button', { name: `${gameAt(games.length - 1).name} 선택` }))
     expect(onSelect).toHaveBeenCalledWith(games.length - 1)
   })
 
+  /**
+   * narrow의 이웃 카드는 390px에서 35px만 내보인다 — 탭 타깃이 되지 못하고 포인터를 받으면
+   * 스와이프와 다툰다. 조작 대상이 아니라 장식으로 남아야 한다.
+   */
   it('narrow의 이웃 카드는 누를 수 있는 물건이 아니다', () => {
     render(
       <LandingHeroCarousel
@@ -86,6 +95,7 @@ describe('LandingHeroCarousel', () => {
     expect(screen.queryByRole('button', { name: /선택$/ })).not.toBeInTheDocument()
   })
 
+  // 스와이프는 발견 가능한 조작이 아니다 — 모바일에도 이동 버튼이 있어야 한다.
   it('좁은 레이아웃에도 화살표를 남긴다', () => {
     const onSelect = vi.fn()
     render(
@@ -137,6 +147,7 @@ describe('LandingHeroCarousel', () => {
     fireEvent.wheel(region, { deltaY: 40, timeStamp: 0 })
     expect(onSelect).toHaveBeenCalledWith(2)
 
+    // 쿨다운(340ms) 안의 두 번째 휠은 무시된다.
     fireEvent.wheel(region, { deltaY: 40, timeStamp: 100 })
     expect(onSelect).toHaveBeenCalledTimes(1)
   })
@@ -174,6 +185,9 @@ describe('LandingHeroCarousel', () => {
     )
     const region = screen.getByRole('region', { name: '게임 캐러셀' })
 
+    // buttons: 1 = 아직 누른 채로 움직이는 중. 카드 안 플레이 CTA가 생기면서 드래그는
+    // pointerdown이 아니라 8px을 넘긴 순간 시작되고, 그때까지 캡처를 걸지 않는다 —
+    // 캡처 없이 영역 밖에서 손을 떼면 pointerup이 안 오므로 buttons로 그 흔적을 정리한다.
     fireEvent.pointerDown(region, { buttons: 1, clientX: 200, pointerId: 1 })
     fireEvent.pointerMove(region, { buttons: 1, clientX: 100, pointerId: 1 })
     fireEvent.pointerUp(region, { pointerId: 1 })
@@ -200,6 +214,7 @@ describe('LandingHeroCarousel', () => {
     const region = screen.getByRole('region', { name: '게임 캐러셀' })
     const play = screen.getByRole('button', { name: /플레이$/ })
 
+    // 임계값(8px) 아래로 움직인 탭 — 캡처를 걸지 않으므로 click이 버튼에 그대로 닿는다.
     fireEvent.pointerDown(play, { buttons: 1, clientX: 200, pointerId: 1 })
     fireEvent.pointerMove(region, { buttons: 1, clientX: 204, pointerId: 1 })
     fireEvent.pointerUp(region, { pointerId: 1 })
@@ -207,6 +222,7 @@ describe('LandingHeroCarousel', () => {
     expect(onPlay).toHaveBeenCalledTimes(1)
     expect(onSelect).not.toHaveBeenCalled()
 
+    // CTA 위에서 시작한 스와이프는 칸을 넘기고, 뒤따르는 click은 삼킨다.
     fireEvent.pointerDown(play, { buttons: 1, clientX: 200, pointerId: 1 })
     fireEvent.pointerMove(region, { buttons: 1, clientX: 100, pointerId: 1 })
     fireEvent.pointerUp(region, { pointerId: 1 })

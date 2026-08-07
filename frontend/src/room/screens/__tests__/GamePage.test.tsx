@@ -32,6 +32,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
   useNavigate: () => mocks.navigate,
+  // RoomExitGuard의 이탈 차단은 라우터 통합 영역 — 화면 단위 테스트에선 항상 idle로 둔다.
   useBlocker: () => ({ status: 'idle' }),
 }))
 
@@ -179,14 +180,17 @@ describe('GamePage motion roll flow', () => {
     mocks.motionAvailability = 'permissionRequired'
     render(<GamePage roomId={creatorSession.roomId} />)
 
+    // 두 안내를 겹쳐 띄우지 않는다 — 센서 안내(z-30)가 코치마크의 닫기를 덮었다(186).
     expect(screen.queryByText('모션 센서를 사용해 볼까요?')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '알겠어요' }))
 
+    // 칩을 눌러야 열리던 때는 아무도 누르지 않았다(S15P11A406-182).
     expect(screen.getByText('모션 센서를 사용해 볼까요?')).toBeVisible()
   })
 
   it('브라우저와 관계없이 센서 시작 버튼에서 권한 요청을 시작한다', () => {
     mocks.motionAvailability = 'permissionRequired'
+    // 코치마크를 이미 본 사람(재방문)으로 둔다 — 센서 안내가 마운트와 함께 뜨는 경로다.
     hideTutorial()
     render(<GamePage roomId={creatorSession.roomId} />)
 
@@ -203,9 +207,11 @@ describe('GamePage motion roll flow', () => {
 
     render(<GamePage roomId={participantSession.roomId} />)
 
+    // 누가 진행 중인지는 하단 문구가 아니라 상단 진행 스트립·헤더가 알린다(QA 6·11번).
     const turnOrder = screen.getByRole('list', { name: '턴 순서' })
     expect(turnOrder).toHaveTextContent(String(playingRoomSnapshot.players[0]?.nickname))
     expect(screen.getByText(`${playingRoomSnapshot.players[0]?.nickname}의 턴`)).toBeVisible()
+    // 내 이름도 상단에서 찾을 수 있어야 한다 — 내 칩에는 "나" 태그가 붙는다.
     expect(turnOrder).toHaveTextContent(participantSession.nickname)
     expect(screen.queryByRole('button', { name: '굴리기' })).not.toBeInTheDocument()
   })
@@ -214,6 +220,8 @@ describe('GamePage motion roll flow', () => {
     render(<GamePage roomId={creatorSession.roomId} />)
 
     fireEvent.click(screen.getByRole('button', { name: '나가기' }))
+    // 진입 애니메이션을 motion이 그려 jsdom에서는 initial(opacity 0)에 멈춘다 —
+    // 열렸는지는 존재로 보고, 닫힘은 아래 not.toBeInTheDocument()가 확인한다.
     const dialog = screen.getByRole('alertdialog', { name: '방에서 나갈까요?' })
     expect(dialog).toBeInTheDocument()
 
@@ -224,6 +232,7 @@ describe('GamePage motion roll flow', () => {
     expect(screen.getByRole('button', { name: '굴리기' })).toBeVisible()
   })
 
+  // 방이 대기실로 되돌아가는 경로(재대결)는 스냅샷 phase로만 전달된다.
   it('방이 대기 상태로 돌아가면 게임 화면에 머무르지 않고 대기실로 옮긴다', async () => {
     render(<GamePage roomId={creatorSession.roomId} />)
     mocks.navigate.mockReset()

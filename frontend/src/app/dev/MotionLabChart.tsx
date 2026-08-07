@@ -5,8 +5,11 @@ interface MotionLabChartProps {
   bufferRef: RefObject<LabChartSample[]>
   field: 'horizontal' | 'forward'
   label: string
+  /** 굵은 기준선 (shakePeak / throwPeak) — 양 필드 모두 effective 값 기준 */
   threshold: number
+  /** 히스테리시스 해제선 (horizontal 전용) */
   releaseThreshold?: number
+  /** 임계선을 ±양쪽에 그릴지 (horizontal은 양방향 판정) */
   symmetric?: boolean
 }
 
@@ -66,6 +69,7 @@ function drawWave(
   context.stroke()
 }
 
+/** 최근 4초 파형을 rAF로 직접 그리는 스트립 차트. React 상태를 거치지 않아 50Hz에도 조용하다. */
 export function MotionLabChart({
   bufferRef,
   field,

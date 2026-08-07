@@ -54,6 +54,7 @@ describe('cubeAlignmentOffset', () => {
   it('바디 회전에 오프셋을 합성하면 표시 윗면이 목표값이 된다', () => {
     ALL_VALUES.forEach((target) => {
       ALL_VALUES.forEach((natural) => {
+        // 자연면이 위를 향하는 임의의 바디 자세 하나를 만든다 (정렬 후 y축 yaw).
         const bodyRotation = new THREE.Quaternion()
           .setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.7)
           .multiply(

@@ -23,6 +23,7 @@ describe('authSession', () => {
     expect(readAuthSession()).toEqual(session)
   })
 
+  /** 서버 세션이 30일 sliding이라 클라이언트도 같이 만료돼야 "로그인돼 보이는데 401"이 안 생긴다. */
   it('discards the session once it expires', () => {
     vi.useFakeTimers()
     saveAuthSession(session)
@@ -44,6 +45,7 @@ describe('authSession', () => {
     expect(localStorage.getItem('yorr.auth-session')).toBeNull()
   })
 
+  // 사파리 프라이빗 모드처럼 localStorage 접근 자체가 던지는 환경 — 로그인만 안 될 뿐 앱은 돌아야 한다.
   it('localStorage 접근 자체가 던지는 환경에서도 조용히 null을 돌려준다', () => {
     const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
     Object.defineProperty(globalThis, 'localStorage', {
@@ -60,6 +62,7 @@ describe('authSession', () => {
     }
   })
 
+  /** 방 세션과 저장 자리를 나눠 둔 이유 — 방을 나가도 로그인은 남아야 한다. */
   it('does not share storage with the room session', () => {
     saveAuthSession(session)
     localStorage.removeItem('yorr.room-session')

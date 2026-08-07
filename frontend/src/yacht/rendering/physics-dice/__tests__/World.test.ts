@@ -49,12 +49,34 @@ function rollRequest(overrides: Partial<PhysicsDiceRollRequest> = {}): PhysicsDi
   }
 }
 
+/**
+ * 주사위 물리 회귀 테스트(S15P11A406-129).
+ *
+ * 이 티켓은 같은 증상("천천히 떨어짐 · 겹침 · 바닥에 붙어 있음")으로 여러 번 돌아왔다.
+ * 최종 구조는 3단계다 — config.ts 상단 주석 참고:
+ *
+ * 1. 흔들기: 사발 입구를 보이지 않는 뚜껑으로 막고 수평·회전 자유도를 유지한다.
+ *    수직 킥은 매 펄스 한 주사위에만 적용해 함께 뜨지 않고 차례로 달그락거리게 한다.
+ * 2. 기울이는 초반: 사발 물리 바디를 치우고 주사위에 측면·상향 속도와 토크를 준다.
+ * 3. 비행·착지: 고정 스텝 + CCD로 관통을 막고, fan · randomZ로 퍼진 뒤
+ *    빠르게 안착한다. 모서리로 선 주사위만 예측 중 비스듬히 눌러 바닥에 붙인다.
+ *
+ * 그래서 이 테스트는 값이 아니라 **움직임의 성질**을 잠근다:
+ *
+ * - `bowlAlt` · `bowlSpin` — 사발 안에서 실제로 떠서 구르는지("바닥에 붙음"의 회귀 감시).
+ * - `bounces` · `spread`   — 던져진 뒤 튕기고 퍼지는지("미끄러져 처박힘"의 회귀 감시).
+ * - `turns`                — 비행 중 총 회전수. 줄면 주사위가 구르지 않고 미끄러진다.
+ * - `maxPen`               — 주사위끼리 실제 침투 깊이(narrow-phase). "겹침"의 실체.
+ *
+ * 현재 값은 전부 config에서 읽어 실제 런타임과 같은 조건으로 검증한다.
+ */
 const CONFIG = PHYSICS_DICE_CONFIG
 const SCENE = CONFIG.scene
 const NO_HELD: PhysicsHeldDice = [false, false, false, false, false]
 const SEEDS = Array.from({ length: 24 }, (_, i) => 7 + i * 9173)
 const RENDER_HZ = 60
 
+/** World의 shaking → pour → releaseFromBowl → checkSettled를 렌더러 없이 그대로 재현한다. */
 function simulate(seed: number) {
   const scene = new THREE.Scene()
   const world = new RAPIER.World({ x: 0, y: -CONFIG.defaults.gravity, z: 0 })
@@ -64,6 +86,7 @@ function simulate(seed: number) {
   const { entries } = createDiceInstances(scene, world)
   const random = createPhysicsDiceRandom(seed)
   const half = CONFIG.defaults.diceSize * SCENE.colliderHalfRatio * SCENE.bowlDiceScale
+  // World.frame은 렌더 프레임마다 checkSettled를 부른다 — 서브스텝마다가 아니다.
   const substepsPerFrame = Math.max(1, Math.round(CONFIG.defaults.simulationHz / RENDER_HZ))
 
   bowlBody.setTranslation(
@@ -105,6 +128,7 @@ function simulate(seed: number) {
     entry.body.wakeUp()
   })
 
+  // 흔들기 1.2초 — World.updateBowl과 같은 킥 로직(바닥 근처만 √(2gh) 높이 킥)
   let bowlAngvelSum = 0
   let bowlSamples = 0
   let bowlAltSum = 0
@@ -239,6 +263,7 @@ function simulate(seed: number) {
   const restY = CONFIG.defaults.diceSize * SCENE.bowlDiceScale * 0.5
   const startX = entries.map((e) => e.body.translation().x)
   const maxSteps = Math.round(30 * CONFIG.defaults.simulationHz)
+  // 튕김 계측: 트레이에 닿은 뒤 vy가 하강 → 상승으로 뒤집히는 횟수와 그 바운스의 최고 높이
   const wasFalling = entries.map(() => false)
   const bounceCount = entries.map(() => 0)
   let bounceApex = 0
@@ -256,6 +281,7 @@ function simulate(seed: number) {
       apex = Math.max(apex, p.y - restY)
       const v = entry.body.linvel()
       maxSpeed = Math.max(maxSpeed, Math.hypot(v.x, v.y, v.z))
+      // 낙하 중이던 주사위가 위로 튀어 오르면 바운스 1회
       if (entry.enteredTray && p.y < restY * 3 && wasFalling[i] && v.y > 0.6) {
         bounceCount[i] = (bounceCount[i] ?? 0) + 1
         bouncing[i] = true
@@ -276,6 +302,7 @@ function simulate(seed: number) {
         })
       }
     }
+    // 렌더 프레임 경계에서만 정착을 본다 — World.checkSettled와 같은 빈도
     if (step % substepsPerFrame === 0) {
       stableFrames = entries.every((e) => isBodySettled(e.body)) ? stableFrames + 1 : 0
       if (stableFrames >= SCENE.settlement.stableFrames) {
@@ -292,6 +319,7 @@ function simulate(seed: number) {
     return Math.abs(p.x) > SCENE.tray.entryApronMaxX || p.y < -1
   })
   const maxRestY = Math.max(...entries.map((e) => e.body.translation().y))
+  // 퍼짐: 최종 위치의 쌍별 XZ 거리 평균 — 뭉쳐서 멈추면 작아진다
   let spreadSum = 0
   let spreadPairs = 0
   for (let a = 0; a < entries.length; a += 1) {
@@ -366,6 +394,7 @@ function measure() {
   }
 }
 
+/** 측정을 한 번만 돌려 모든 테스트가 함께 쓴다(24시드 × 5주사위). */
 let current: ReturnType<typeof measure>
 
 beforeAll(async () => {
@@ -374,6 +403,8 @@ beforeAll(async () => {
 })
 
 it('쏟은 주사위가 트레이 안에서 안착한다', () => {
+  // 재생 속도(√(gravity/30))는 QA가 고른 제품 값이다 — 절대 시간이 아니라 속도에 비례한
+  // 상한으로 잠근다. 0.8배 실측: 평균 1813ms · 최악 2667ms.
   const speedup = Math.sqrt(CONFIG.defaults.gravity / 30)
   expect(current.hangs).toBe(0)
   expect(current.escaped).toBe(0)
@@ -383,8 +414,12 @@ it('쏟은 주사위가 트레이 안에서 안착한다', () => {
 
 it('주사위가 서로를 눈에 보이게 파고들지 않는다', () => {
   const width = CONFIG.defaults.diceSize * SCENE.colliderHalfRatio * SCENE.bowlDiceScale * 2
+  // 한 스텝 이동량이 몸통의 1/3을 넘으면 접촉이 이미 깊이 파고든 뒤에 발견된다 —
+  // gravity·throwForce를 올리면서 simulationHz를 안 올리면 여기서 걸린다.
   expect(current.stepW).toBeLessThan(0.34)
+  // 수정 전에는 몸통 폭의 57%(0.284)까지 파고들었다.
   expect(current.maxPen / width).toBeLessThan(0.25)
+  // 트레이 안전 보정 뒤에는 주사위 중심이 콜라이더 반높이 아래로 내려가지 않는다.
   expect(current.minY).toBeGreaterThanOrEqual(width / 2 - SCENE.safety.penetrationTolerance - 1e-6)
   expect(current.minBottomClearance).toBeGreaterThanOrEqual(
     -SCENE.safety.penetrationTolerance - 1e-6,
@@ -396,6 +431,7 @@ it('사발 안에서 주사위가 바닥에 붙지 않고 떠서 구른다', () 
     SCENE.bowl.colliderBottomY +
     SCENE.bowl.colliderBottomHalfHeight +
     CONFIG.defaults.diceSize * SCENE.colliderHalfRatio * SCENE.bowlDiceScale
+  // 모든 주사위를 함께 띄우지 않아도 평균적으로 바닥 위에서 충돌할 여유는 남긴다.
   expect(current.bowlAlt).toBeGreaterThan(bowlFloor + 0.06)
   expect(current.bowlAltMin).toBeGreaterThanOrEqual(
     bowlFloor - SCENE.safety.penetrationTolerance - 1e-6,
@@ -403,21 +439,28 @@ it('사발 안에서 주사위가 바닥에 붙지 않고 떠서 구른다', () 
   expect(current.bowlBottomClearanceMin).toBeGreaterThanOrEqual(
     -SCENE.safety.penetrationTolerance - 1e-6,
   )
+  // 뚜껑 아래에 머문다 — 사발 위로 튀어나오면 안 된다.
   expect(current.bowlAltMax).toBeLessThan(SCENE.bowl.colliderLidY + 0.3)
+  // 개별 충돌이 느껴질 회전 자유도는 남기되 전부 빠르게 도는 상태로 돌아가지는 않는다.
   expect(current.bowlSpin).toBeGreaterThan(1.8)
   expect(current.bowlSpin).toBeLessThan(3.5)
 })
 
 it('던져진 주사위가 과하게 튀지 않고 퍼진다', () => {
+  // 한 번가량 반발해 굴러가되 여러 번 통통 튀는 기존 동작으로 돌아가지 않는다.
   expect(current.bounces).toBeGreaterThan(0.5)
   expect(current.bounces).toBeLessThan(1.5)
+  // 다섯 개가 뭉치지 않고 퍼진다.
   expect(current.spread).toBeGreaterThan(1.3)
   expect(current.invalidTrajectories, current.invalidTrajectoryDetails.join(', ')).toBe(0)
+  // 충돌로 한두 번은 구르되, 기존처럼 공중에서 빠르게 회전하지 않는다.
   expect(current.turns).toBeGreaterThan(0.1)
   expect(current.turns).toBeLessThan(0.3)
 })
 
 it('정착하지 못한 굴림도 상한 안에서 끝난다', () => {
+  // checkSettled는 minRollDurationMs 뒤부터 정착을 보고, 끝내 성립하지 않으면
+  // maxRollDurationMs에서 강제로 정렬로 넘어간다(없으면 굴림이 영원히 끝나지 않는다).
   const worstRoll = SCENE.bowl.tiltDurationMs + SCENE.bowl.spillPushDurationMs + current.settleMax
   expect(SCENE.settlement.maxRollDurationMs).toBeGreaterThan(SCENE.settlement.minRollDurationMs)
   expect(SCENE.settlement.maxRollDurationMs).toBeGreaterThan(worstRoll)
@@ -450,10 +493,12 @@ describe('PhysicsDiceWorld', () => {
     return harness
   }
 
+  /** 프레임을 실제로 밟는다 — rAF·performance.now는 모두 가짜 시계에 묶여 있다. */
   function runFrames(count: number) {
     for (let frame = 0; frame < count; frame += 1) vi.advanceTimersByTime(FRAME_MS)
   }
 
+  /** 조건이 만족될 때까지(최대 frames) 프레임을 밟는다. */
   function runUntil(condition: () => boolean, frames = 900) {
     for (let frame = 0; frame < frames && !condition(); frame += 1) {
       vi.advanceTimersByTime(FRAME_MS)
@@ -471,6 +516,7 @@ describe('PhysicsDiceWorld', () => {
     const found = scene().children.find(
       (child): child is THREE.OrthographicCamera => child instanceof THREE.OrthographicCamera,
     )
+    // 카메라는 장면에 추가되지 않으므로 마지막 render 인자에서 꺼낸다.
     const rendered = renderer().renders.at(-1)?.camera
     if (rendered instanceof THREE.OrthographicCamera) return rendered
     if (found) return found
@@ -483,6 +529,7 @@ describe('PhysicsDiceWorld', () => {
     return rendered
   }
 
+  /** 장면에서 주사위 메시(그룹)를 인덱스 순으로 모은다 — World가 내부를 노출하지 않기 때문이다. */
   function diceMeshes() {
     return scene()
       .children.filter(
@@ -496,6 +543,10 @@ describe('PhysicsDiceWorld', () => {
     return diceMeshes().map((mesh) => topFaceFromQuaternion(mesh.quaternion))
   }
 
+  /**
+   * 킵 슬롯의 바 메시를 슬롯 순서(왼→오)로 모은다. 슬롯 그룹은 dieIndex가 없고 자식이 바
+   * 하나뿐이라, 사발(자식 3개 이상)과 주사위(dieIndex 있음)에서 이렇게 갈린다.
+   */
   function keepSlotBars() {
     return scene()
       .children.filter(
@@ -510,6 +561,7 @@ describe('PhysicsDiceWorld', () => {
   }
 
   function bowlGroup() {
+    // 사발은 카메라 밖 유일한 THREE.Group 중 dieIndex가 없는 것이다.
     const group = scene().children.find(
       (child): child is THREE.Group =>
         child instanceof THREE.Group &&
@@ -520,6 +572,7 @@ describe('PhysicsDiceWorld', () => {
     return group
   }
 
+  /** 월드 좌표를 캔버스 위 포인터 이벤트로 바꾼다. */
   function pointerEventAt(position: THREE.Vector3) {
     const ndc = position.clone().project(camera())
     return new MouseEvent('pointerup', {
@@ -533,15 +586,19 @@ describe('PhysicsDiceWorld', () => {
     FakeWebGLRenderer.reset()
     FakeResizeObserver.reset()
     vi.stubGlobal('ResizeObserver', FakeResizeObserver)
+    // 고DPI 기기를 가정한다 — 품질 프리셋의 상한이 실제로 걸리는지 보려면 1보다 커야 한다.
     vi.stubGlobal('devicePixelRatio', 3)
     vi.useFakeTimers()
   })
 
   afterEach(() => {
     created.forEach((world) => {
+      // 테스트가 이미 해제했을 수 있다 — destroy는 두 번 호출하면 Rapier 월드에서 던진다.
       try {
         world.destroy()
-      } catch {}
+      } catch {
+        /* 이미 해제된 월드 */
+      }
     })
     created.length = 0
     vi.useRealTimers()
@@ -564,6 +621,7 @@ describe('PhysicsDiceWorld', () => {
         expect(mesh.visible).toBe(true)
         expect(mesh.position.z).toBeCloseTo(SCENE.tray.resultRowZ, 5)
       })
+      // 가운데 주사위가 화면 중앙 — 결과 줄은 항상 중앙 정렬이다.
       expect(meshes[2]?.position.x).toBeCloseTo(0, 5)
     })
 
@@ -601,6 +659,7 @@ describe('PhysicsDiceWorld', () => {
       expect(renderer().disposeCount).toBe(1)
       expect(renderer().contextLossCount).toBe(1)
       expect(renderer().renders.length).toBe(rendered)
+      // 해제 시 "3D 조정 중" 오버레이가 남으면 화면이 영구히 가려진다.
       expect(callbacks.onResizeChange).toHaveBeenLastCalledWith(false)
     })
 
@@ -631,6 +690,7 @@ describe('PhysicsDiceWorld', () => {
       runFrames(2)
       const midway = diceMeshes()[2]?.position.clone() ?? new THREE.Vector3()
 
+      // 애니메이션 중간에는 출발점도, 목표점도 아니다.
       expect(midway.distanceTo(before)).toBeGreaterThan(0)
       expect(midway.x).toBeGreaterThan(keepSlotPosition(0).x)
 
@@ -725,6 +785,7 @@ describe('PhysicsDiceWorld', () => {
       const meshes = diceMeshes()
       expect(meshes[1]?.position.x).toBeCloseTo(keepSlotPosition(0).x, 4)
       expect(meshes[4]?.position.x).toBeCloseTo(keepSlotPosition(1).x, 4)
+      // 킵한 주사위 눈은 흔드는 동안에도 확정값 그대로다.
       expect(topFaceFromQuaternion(meshes[1]?.quaternion ?? new THREE.Quaternion())).toBe(2)
       expect(topFaceFromQuaternion(meshes[4]?.quaternion ?? new THREE.Quaternion())).toBe(5)
     })
@@ -766,6 +827,7 @@ describe('PhysicsDiceWorld', () => {
       expect(callbacks.onRollComplete).toHaveBeenCalledWith(request.requestId, [
         ...request.targetDice,
       ])
+      // 화면에 보이는 눈이 곧 결과다 — 여기가 어긋나면 점수와 그림이 다르게 보인다.
       expect(topFaces()).toEqual([...request.targetDice])
     })
 
@@ -784,8 +846,14 @@ describe('PhysicsDiceWorld', () => {
       })
     })
 
+    /*
+     * keepAll(마지막 굴림)에서 레일 바가 주사위보다 먼저 켜지면, 빈 레일에 테두리만 생기고
+     * 주사위가 나중에 도착한다 — 3차 QA에서 "보더가 먼저 생기고 킵된다"로 잡힌 증상이다.
+     * 바는 주사위가 앉은 뒤에 켜져야 한다.
+     */
     it('keepAll에서 레일 바는 주사위가 도착한 뒤에 켜진다', async () => {
       const { callbacks, world } = await boot()
+      // 두 개만 킵한 채 마지막 굴림 — 나머지 세 개가 레일로 날아온다.
       const held: PhysicsHeldDice = [true, true, false, false, false]
       world.syncCommittedDice([6, 6, 2, 3, 5], held)
       world.setKeepAll(true)
@@ -794,11 +862,13 @@ describe('PhysicsDiceWorld', () => {
       world.pour()
       runUntil(() => (callbacks.onPhaseChange as ReturnType<typeof vi.fn>).mock.calls.length >= 3)
 
+      // 정렬 중: 이미 킵된 슬롯(0)과 아직 비어 있는 슬롯(4)의 바 재질이 달라야 한다.
       const flying = keepSlotBars()
       expect(flying[0]?.material).not.toBe(flying[4]?.material)
 
       runUntil(() => (callbacks.onRollComplete as ReturnType<typeof vi.fn>).mock.calls.length > 0)
 
+      // 도착 뒤: 다섯 슬롯이 전부 같은 악센트 재질이다.
       const landed = keepSlotBars()
       expect(landed[4]?.material).toBe(landed[0]?.material)
     })
@@ -811,6 +881,7 @@ describe('PhysicsDiceWorld', () => {
       runFrames(30)
       world.pour()
       runUntil(() => (callbacks.onRollComplete as ReturnType<typeof vi.fn>).mock.calls.length > 0)
+      // 서버가 같은 값을 되돌려 주는 상황 — 보정 오프셋이 남아 있으면 여기서 눈이 튄다.
       world.syncCommittedDice(null, NONE_HELD)
       runFrames(2)
 
@@ -865,6 +936,7 @@ describe('PhysicsDiceWorld', () => {
       world.setMotionFollow(true)
       world.startRoll(rollRequest())
 
+      // followDecayMs를 훌쩍 넘겨 흔들림 에너지를 모두 소진시킨다.
       runFrames(120)
       const quiet = bowlGroup().position.clone()
 

@@ -66,6 +66,12 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         ]
       }
 
+      // 토큰으로 정체성을 가른다. 실서버가 sessionToken을 인증해 그 사람의 userId를 돌려주는
+      // 것과 같은 자리다 — room.joined의 you가 곧 클라이언트의 정체성이 된다(applyRoomJoined가
+      // roomSession.you를 이 값으로 덮는다).
+      //
+      // 파티 모드 대시보드를 따로 알아봐야 한다. 모르는 토큰을 creator로 떨어뜨리면 대시보드가
+      // 플레이어 정체성을 받아 자기 턴이 되고, 플레이어가 아니어야 할 화면에서 주사위가 눌린다.
       const joinedSession =
         message.payload.sessionToken === participantSession.sessionToken
           ? participantSession
@@ -73,6 +79,9 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
             ? dashboardSession
             : session
 
+      // 실서버처럼 mock이 기억하는 현재 방 상태(진행 phase·점수판)를 돌려준다 —
+      // 새로고침 후 재접속해도 게임이 대기 중으로 되돌아가지 않는다(QA 참고 항목).
+      // 저장된 마감 시각은 이미 지났을 수 있으니 지금 기준으로 새로 준다.
       const stored = loadMockRoomSnapshot()
       const snapshot = stored?.game
         ? {
@@ -119,6 +128,7 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         ),
       ]
     },
+    // 실서버와 같은 단순 릴레이 — 흔든 펄스를 그대로 되돌려준다.
     'game.yacht_dice.dice.shake': (message) => [
       serverMessage(
         'game.yacht_dice.dice.shaken',
@@ -131,6 +141,7 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         { roomId: MOCK_ROOM_ID, msgId: message.msgId },
       ),
     ],
+    // 실서버와 같은 단순 릴레이 — 상태를 건드리지 않고 "던졌다"만 되돌려준다.
     'game.yacht_dice.dice.throw': (message) => [
       serverMessage(
         'game.yacht_dice.dice.thrown',
@@ -159,6 +170,8 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         stored?.game?.scores[session.you] ?? playingRoomSnapshot.game?.scores[session.you]
       if (!scoreboard) return []
 
+      // 실서버처럼 제출된 주사위로 점수를 계산한다 — 정적 후보값을 돌려주면 클라이언트가
+      // 로컬로 계산해 보여준 값과 제출 결과가 어긋난다(QA 참고 항목).
       const categories = {
         ...scoreboard.categories,
         [message.payload.category]: scoreCategory(message.payload.dice, message.payload.category),
@@ -171,6 +184,7 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
         total: summary.total,
       }
 
+      // 진행 중이던 방 상태에 점수를 반영해 둔다 — 재접속(room.join) 때 그대로 복원된다.
       if (stored?.game) {
         saveMockRoomSnapshot({
           ...stored,
@@ -202,6 +216,7 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
   })
 }
 
+/** null(미기입)을 뺀 확정 점수만 남긴다 — 소계·보너스·총점 계산용. */
 function toRecordedScores(categories: ScoreBoard['categories']): CategoryScores {
   return Object.fromEntries(
     Object.entries(categories).filter(([, score]) => score !== null),

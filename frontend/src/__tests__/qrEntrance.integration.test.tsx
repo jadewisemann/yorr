@@ -26,6 +26,7 @@ describe('QR entrance integration', () => {
     await user.click(screen.getByRole('button', { name: '대기실 입장' }))
 
     expect(await screen.findByRole('heading', { name: '대기실' })).toBeVisible()
+    // QR은 초대 말풍선 안에 있다(S15P11A406-203) — 정규화된 코드가 초대 QR까지 이어지는지 본다.
     await user.click(screen.getByRole('button', { name: '초대' }))
     expect(await screen.findByRole('img', { name: '방 YORR64 초대 QR 코드' })).toBeVisible()
     expect(useAppStore.getState().roomSession?.roomCode).toBe('YORR64')
@@ -53,12 +54,14 @@ describe('QR entrance integration', () => {
     await user.type(codeInput, ' yorr64 ')
     await user.click(screen.getByRole('button', { name: '수정한 코드로 참가' }))
 
+    // 코드 칩이 "초대 코드"와 코드를 나눠 그리므로 두 조각을 각각 확인한다.
     expect(await screen.findByText('초대 코드')).toBeVisible()
     expect(screen.getAllByText('YORR64').length).toBeGreaterThan(0)
     expect(joinRoom).not.toHaveBeenCalled()
   })
 
   it('keeps the nickname after a room error and prevents duplicate submissions', async () => {
+    // 두 번째 클릭이 "첫 요청이 진행 중"인 동안 도달하도록 응답을 보류해 타이밍을 고정한다.
     let respondWithRoomFull!: () => void
     mockApiError({
       code: 'ROOM_FULL',
@@ -118,6 +121,7 @@ describe('QR entrance integration', () => {
       session: creatorSession,
     })
 
+    // 홈으로 강제 리다이렉트하던 시절과 달리, 이제 홈에서 복귀 배너로 선택을 받는다.
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
     expect(screen.queryByText('방 different-room')).not.toBeInTheDocument()
     expect(

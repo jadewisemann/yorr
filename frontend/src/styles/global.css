@@ -36,9 +36,6 @@
   html {
     min-width: 320px;
     background: var(--ds-color-canvas);
-    /* 앵커·scrollIntoView가 튀지 않게 한다. 아래 prefers-reduced-motion 블록이 이걸 auto로
-       되돌리므로 모션 감소 설정에서는 그대로 즉시 이동한다. */
-    scroll-behavior: smooth;
   }
 
   body {
@@ -47,9 +44,8 @@
     min-height: 100dvh;
     margin: 0;
     color: var(--ds-color-content);
-    /* 맨 위가 그레인이다 — 근거는 tokens.css의 --ds-noise 주석에 있다. */
     background:
-      var(--ds-noise), radial-gradient(90% 55% at 50% 10%, rgb(255 255 255 / 7%), transparent 68%),
+      radial-gradient(90% 55% at 50% 10%, rgb(255 255 255 / 7%), transparent 68%),
       var(--ds-color-canvas);
   }
 

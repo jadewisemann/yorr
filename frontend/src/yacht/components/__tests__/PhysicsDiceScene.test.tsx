@@ -189,6 +189,7 @@ describe('PhysicsDiceScene', () => {
     )
     expect(worlds[0]?.startRoll).toHaveBeenCalledWith(request)
 
+    // 같은 굴림이 새 객체로 다시 들어와도 사발을 두 번 흔들지 않는다.
     view.rerender(
       <PhysicsDiceScene
         dice={null}
@@ -216,6 +217,7 @@ describe('PhysicsDiceScene', () => {
     const world = worlds[0]
     if (!world) throw new Error('씬이 월드를 만들지 못했다')
 
+    // 순서가 뒤집히면 초기 배치가 한 번 잘못 눕고 나서 고쳐진다.
     await waitFor(() => expect(world.syncCommittedDice).toHaveBeenCalled())
     expect(world.setKeepAll).toHaveBeenCalledWith(false)
     expect(world.setKeepAll.mock.invocationCallOrder[0]).toBeLessThan(
@@ -267,6 +269,7 @@ describe('PhysicsDiceScene', () => {
     expect(onPhaseChange).toHaveBeenCalledWith('pouring')
   })
 
+  // 리사이즈 중에는 화면이 잠깐 비어 보인다 — 왜 멈춘 것처럼 보이는지 알려야 한다.
   it('엔진이 리사이즈 중이면 그 사실을 알린다', async () => {
     render(
       <PhysicsDiceScene
@@ -345,6 +348,7 @@ describe('PhysicsDiceScene', () => {
     expect(worlds[0]?.setMotionFollow).toHaveBeenLastCalledWith(true)
     expect(worlds[0]?.applyShakePulse).toHaveBeenCalledWith('left', 0.8)
 
+    // 같은 펄스가 다시 들어와도 흔들림을 두 번 주지 않는다.
     view.rerender(
       <PhysicsDiceScene
         dice={null}
@@ -359,6 +363,7 @@ describe('PhysicsDiceScene', () => {
     expect(worlds[0]?.applyShakePulse).toHaveBeenCalledOnce()
   })
 
+  // 모션 감소 설정은 3D 사발 자체가 문제이므로 엔진을 아예 띄우지 않는다.
   it('모션 감소 설정이면 3D 엔진 없이 2D 화면으로 간다', async () => {
     vi.stubGlobal(
       'matchMedia',
@@ -408,7 +413,9 @@ describe('PhysicsDiceScene', () => {
       await screen.findByText('3D 엔진을 사용할 수 없어 간단한 주사위 화면으로 전환했습니다.'),
     ).toBeVisible()
     expect(onError).toHaveBeenCalledWith(failure)
+    // 반쯤 만들어진 엔진을 남겨 두면 WebGL 컨텍스트가 새어 나간다.
     expect(worlds[0]?.destroy).toHaveBeenCalled()
+    // 2D 화면에서도 KEEP은 계속 눌러야 한다.
     expect(screen.getAllByRole('button')[0]).toBeEnabled()
   })
 })

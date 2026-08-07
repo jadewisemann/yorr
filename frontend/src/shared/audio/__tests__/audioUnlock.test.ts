@@ -27,6 +27,7 @@ it('제스처 안에서 요소를 재생했다 즉시 멈춰 잠금만 푼다', 
 
   primeAudio([audio])
 
+  // 소리가 새면 안 된다 — play 직후 동기로 멈추고 처음으로 되감는다.
   expect(audio.play).toHaveBeenCalledOnce()
   expect(audio.pause).toHaveBeenCalledOnce()
   expect(audio.currentTime).toBe(0)
@@ -37,6 +38,7 @@ it('이미 재생 중인 요소는 건드리지 않는다', () => {
 
   primeAudio([playing])
 
+  // 흐르고 있는 BGM을 잠금 해제한다고 끊으면 안 된다.
   expect(playing.play).not.toHaveBeenCalled()
   expect(playing.pause).not.toHaveBeenCalled()
 })

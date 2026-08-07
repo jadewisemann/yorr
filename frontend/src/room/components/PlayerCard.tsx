@@ -10,7 +10,12 @@ type PlayerCardProps = {
   current?: boolean
   subtitle?: string | undefined
   trailing?: ReactNode | undefined
+  /** 음성 채팅에서 지금 말하고 있는지. 통화를 끈 상태면 항상 false다. */
   speaking?: boolean
+  /**
+   * 이름표 오른쪽 끝에 붙는 슬롯. 지금은 그 사람의 마이크(PeerMicButton)가 온다.
+   * 이 컴포넌트는 봇 카드에도 쓰이므로 음성을 직접 알지 않고 슬롯만 내준다.
+   */
   nameEnd?: ReactNode
   className?: string
 }
@@ -24,7 +29,7 @@ const avatarTones = [
   'bg-brand text-on-brand',
   'bg-positive text-canvas',
   'bg-focus text-canvas',
-  'bg-warning text-canvas',
+  'bg-brand-strong text-on-brand',
 ] as const
 
 export function PlayerCard({
@@ -47,8 +52,10 @@ export function PlayerCard({
     <article
       className={cn(
         'grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-panel border border-border bg-surface-raised p-3',
-        active && 'border-border-strong',
+        active && 'border-white/18',
         status === 'offline' && 'opacity-60',
+        // 말하는 중 — TurnStrip과 같은 신호(초록 outline + 🎙)를 쓴다. border는 active가
+        // 이미 쓰고 있으므로 outline으로 두른다.
         speaking && 'outline-2 outline-positive outline-offset-1',
         className,
       )}
@@ -64,10 +71,11 @@ export function PlayerCard({
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate font-bold">{name}</span>
           {current && (
-            <span className="shrink-0 rounded-chip bg-content px-2 py-0.5 text-xs font-bold text-canvas">
+            <span className="shrink-0 rounded-[6px] bg-content px-2 py-0.5 text-xs font-bold text-canvas">
               나
             </span>
           )}
+          {/* 이름표 오른쪽 끝. ml-auto로 밀어 카드마다 같은 자리에 세운다. */}
           {nameEnd && <span className="ml-auto shrink-0">{nameEnd}</span>}
         </span>
         {status === 'offline' && !subtitle ? (

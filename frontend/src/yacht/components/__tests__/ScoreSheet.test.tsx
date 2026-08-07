@@ -3,8 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { createEmptyScoreBoard } from '@/mocks/fixtures'
 import type { ScoreBoard } from '@/realtime/wsEvents'
-import { ScoreSheet, type ScoreSheetPlayer } from '@/yacht/components/ScoreSheet'
-import { PlayerBadge } from '@/yacht/components/ScoreSheet/PlayerBadge'
+import { PlayerBadge, ScoreSheet, type ScoreSheetPlayer } from '@/yacht/components/ScoreSheet'
 import type { CategoryScores, YachtCategory } from '@/yacht/domain/scoring'
 
 function board(
@@ -49,6 +48,7 @@ function renderSheet(options?: {
 }
 
 describe('ScoreSheet', () => {
+  // 스크롤 영역에 포커스 요소가 없을 수 있어 컨테이너가 tab을 받아야 한다(WCAG 2.1.1).
   it('점수표 자체를 키보드로 스크롤할 수 있다', () => {
     renderSheet()
 
@@ -61,7 +61,9 @@ describe('ScoreSheet', () => {
   it('미기입 칸과 0점 확정을 구분해 보여 준다', () => {
     renderSheet()
 
+    // 요트는 내가 0점으로 확정했고, 상대는 아직 비어 있다.
     expect(screen.getAllByText('0')).toHaveLength(1)
+    // 두 사람 12족보 24칸 중 기록된 3칸을 뺀 나머지가 미기입 표시로 남는다.
     expect(screen.getAllByText('·')).toHaveLength(21)
   })
 
@@ -81,9 +83,11 @@ describe('ScoreSheet', () => {
     await user.click(row)
 
     expect(onPick).toHaveBeenCalledWith('twos')
+    // 이미 0점으로 확정한 요트는 다시 고를 수 없다.
     expect(screen.queryByRole('button', { name: /요트/ })).not.toBeInTheDocument()
   })
 
+  // 굴렸지만 그 족보 점수가 0이어도 "고를 수 있음"은 유지돼야 한다 — 포기 선택지다.
   it('점수가 0인 족보도 기록 대상으로 남는다', () => {
     renderSheet({ canPick: true, candidates: { twos: 6 } })
 
@@ -136,6 +140,7 @@ describe('ScoreSheet', () => {
     expect(screen.getByText('70')).toBeVisible()
     expect(screen.getByText('40')).toBeVisible()
     expect(screen.getByText('보너스 +35')).toBeVisible()
+    // 보너스를 못 받은 플레이어는 대시로 구분한다.
     expect(screen.getByText('+35')).toBeVisible()
     expect(screen.getByText('—')).toBeVisible()
     expect(screen.getByText('210')).toBeVisible()
