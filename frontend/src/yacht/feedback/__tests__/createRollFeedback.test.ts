@@ -19,6 +19,10 @@ const SHAKE = '/audio/game/bowl-shake.wav'
 const POUR = '/audio/game/bowl-pour.wav'
 const HIT = '/audio/game/dice-hit.mp3'
 
+/**
+ * 소리 요소는 모듈이 로드될 때 만들어진다(iOS 잠금 때문에 앱 시작에 만들어 둔다).
+ * 그래서 Audio를 먼저 갈아끼우고 모듈을 새로 불러와야 스텁이 잡힌다.
+ */
 async function loadFeedback() {
   vi.resetModules()
   const audio = stubAudio()
@@ -26,6 +30,7 @@ async function loadFeedback() {
   return { audio, createRollFeedback }
 }
 
+/** src로 찾는다 — 생성 순서에 기대면 소리를 하나 추가할 때마다 인덱스가 밀린다. */
 function stubAudio() {
   const created: HTMLAudioElement[] = []
   vi.stubGlobal(
@@ -33,6 +38,8 @@ function stubAudio() {
     vi.fn(function AudioMock(src?: string) {
       const audio = document.createElement('audio')
       if (src) audio.setAttribute('src', src)
+      // jsdom의 paused는 재생을 흉내내지 않는다. "이미 나고 있으면 다시 틀지 않는다"를
+      // 검사하려면 play/pause가 실제로 상태를 바꿔야 한다.
       let paused = true
       Object.defineProperty(audio, 'paused', { configurable: true, get: () => paused })
       audio.play = vi.fn(() => {
@@ -86,6 +93,7 @@ describe('createRollFeedback', () => {
     feedback.shakePulse('right', 1)
     expect(vibrate).toHaveBeenLastCalledWith(18)
 
+    // 세기는 1로 잘린다 — 센서 튐이 과한 진동으로 새지 않게.
     vi.spyOn(performance, 'now').mockReturnValue(1_400)
     feedback.shakePulse('right', 12)
     expect(vibrate).toHaveBeenLastCalledWith(18)
@@ -144,14 +152,21 @@ describe('createRollFeedback', () => {
     }).not.toThrow()
   })
 
+  /**
+   * 요소를 게임 화면에서 만들면 iOS에서는 그 화면을 만지기 전까지 잠겨 있다 — 관전자는
+   * 화면을 만질 일이 없어 방장의 1라운드 굴림 소리가 통째로 빠졌다. 앱이 뜰 때 만들어
+   * 두면 앞 화면에서 누른 첫 탭이 같이 풀어준다.
+   */
   it('소리 요소는 게임 화면 진입이 아니라 앱 시작에 만들어 첫 제스처로 잠금이 풀린다', async () => {
     const { audio } = await loadFeedback()
     const shake = audio(SHAKE)
 
+    // createRollFeedback을 부르기 전 — 모듈 로드만으로 이미 있다.
     expect(shake).toBeDefined()
 
     document.dispatchEvent(new Event('pointerdown'))
 
+    // 제스처 안에서 한 번 재생했다 즉시 멈춰 둔다(소리는 나지 않는다).
     expect(shake?.play).toHaveBeenCalledOnce()
     expect(shake?.pause).toHaveBeenCalledOnce()
   })
@@ -172,11 +187,13 @@ describe('createRollFeedback', () => {
     expect(secondDie?.play).toHaveBeenCalledOnce()
     expect(secondDie?.volume).toBeCloseTo(0.475)
 
+    // 사발을 엎는 순간 흔드는 소리가 멈추고 엎는 소리가 한 번 난다(loop 아님).
     feedback.phaseChanged('pouring')
     expect(shake?.pause).toHaveBeenCalledOnce()
     expect(pour?.loop).toBe(false)
     expect(pour?.play).toHaveBeenCalledOnce()
 
+    // 정렬·대기 단계에서는 엎는 소리가 다시 나지 않는다.
     feedback.phaseChanged('aligning')
     feedback.phaseChanged('idle')
     expect(pour?.play).toHaveBeenCalledOnce()
@@ -193,9 +210,11 @@ describe('createRollFeedback', () => {
     vi.advanceTimersByTime(200)
     expect(shake?.pause).not.toHaveBeenCalled()
 
+    // 손이 멈췄다 — 사발 안 주사위도 잦아드는 구간이라 소리도 멈춘다.
     vi.advanceTimersByTime(100)
     expect(shake?.pause).toHaveBeenCalledOnce()
 
+    // 다시 흔들면 되살아난다. 멈춘 자리에서 이어 재생하므로 덜그럭이 끊겨 들리지 않는다.
     feedback.shakePulse('right', 0.5)
     expect(shake?.play).toHaveBeenCalledTimes(2)
   })
@@ -213,9 +232,11 @@ describe('createRollFeedback', () => {
     vi.advanceTimersByTime(200)
     expect(shake?.pause).not.toHaveBeenCalled()
 
+    // 굴리는 사람이 손을 멈추면 중계도 끊긴다 — 관전 화면의 사발도 소리도 같이 멈춘다.
     vi.advanceTimersByTime(100)
     expect(shake?.pause).toHaveBeenCalledOnce()
 
+    // 남의 손놀림이라 내 폰이 울릴 이유는 없다.
     expect(vibrate).not.toHaveBeenCalled()
   })
 
@@ -225,6 +246,7 @@ describe('createRollFeedback', () => {
     const feedback = createRollFeedback()
     const shake = audio(SHAKE)
 
+    // 탭 굴림은 정해진 애니메이션으로 계속 흔들린다 — 멈출 근거가 없다.
     feedback.phaseChanged('shaking')
     vi.advanceTimersByTime(5_000)
 

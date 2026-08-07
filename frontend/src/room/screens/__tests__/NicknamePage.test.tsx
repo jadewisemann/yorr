@@ -87,6 +87,7 @@ describe('NicknamePage', () => {
     expect(navigate).toHaveBeenCalledWith({ to: '/' })
   })
 
+  // 다른 코드로 옮길 수 있는 실패(방 가득 참 등)는 막다른 길이 되면 안 된다.
   it('들어갈 수 없는 방이면 다른 코드로 옮길 길을 함께 준다', async () => {
     const user = userEvent.setup()
     mockApiError({ code: 'ROOM_FULL', path: '/api/v1/rooms', status: 409 })

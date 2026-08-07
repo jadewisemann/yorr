@@ -24,6 +24,7 @@ describe('createMockApiWorker', () => {
   })
 
   it('fallback 모드는 실서버 우선 catch-all을 mock handler보다 앞에 둔다', () => {
+    // 순서가 뒤집히면 mock이 먼저 응답해 fallback 모드가 무의미해진다.
     createMockApiWorker('fallback')
     const handlers = registeredHandlers()
 

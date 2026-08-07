@@ -67,6 +67,7 @@ export function createPlayingRoomSnapshot(roundDeadline: number): RoomSnapshot {
   }
 }
 
+/** 테스트용 고정 스냅샷. 실행 중인 mock 서버는 아래 handler에서 현재 시각 기준 deadline을 준다. */
 export const playingRoomSnapshot: RoomSnapshot = createPlayingRoomSnapshot(1_753_000_060_000)
 
 export const creatorSession = {
@@ -91,6 +92,10 @@ export const participantSession = {
   snapshot: waitingRoomSnapshot,
 } satisfies RoomSession
 
+/**
+ * 파티 모드 대시보드. 방을 열었지만 <b>플레이어가 아니다</b> — `you`가 참가자 목록에 없는 것이
+ * 이 픽스처의 요점이다. 실서버도 대시보드를 플레이어 명단에 넣지 않는다(백엔드 `RoomMode.PARTY`).
+ */
 export const dashboardSession = {
   gameId: null,
   roomId: MOCK_ROOM_ID,

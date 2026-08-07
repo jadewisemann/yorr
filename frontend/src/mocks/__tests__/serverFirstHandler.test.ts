@@ -4,6 +4,7 @@ import { createServerFirstHandler } from '@/mocks/serverFirstHandler'
 
 const ENDPOINT = new URL('/api/v1/rooms', window.location.origin).href
 
+/** fallback 뒤에 등록되는 mock handler 자리. 서버 응답을 못 쓸 때만 여기까지 온다. */
 const mockFallback = http.all('/api/v1/rooms', async ({ request }) => {
   const body = request.method === 'POST' ? await request.json() : null
   return HttpResponse.json({ from: 'mock', echo: body })

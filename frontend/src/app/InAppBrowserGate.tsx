@@ -2,7 +2,6 @@ import { type ReactNode, useState } from 'react'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
 import { IconCheck, IconWarning } from '@/shared/components/Icon'
-import { Screen } from '@/shared/components/Screen'
 
 const dismissalKey = 'yorr.in-app-browser-dismissed'
 
@@ -17,7 +16,9 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
   const continueHere = () => {
     try {
       sessionStorage.setItem(dismissalKey, 'true')
-    } catch {}
+    } catch {
+      // Embedded browsers may block storage; local state still dismisses the gate.
+    }
     setDismissed(true)
   }
 
@@ -35,10 +36,11 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
   const externalUrl = getAndroidExternalUrl(userAgent)
 
   return (
-    <Screen className="max-w-lg gap-6 pt-[max(2.5rem,env(safe-area-inset-top))]">
+    // 디자인 14 — 좌측 정렬 풀스크린 안내. 무엇이 되고 무엇이 제한되는지 체크리스트로 보여준다.
+    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-6 px-gutter pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] text-content">
       <div className="grid gap-3">
-        <h1 className="m-0 text-2xl font-bold tracking-[-0.02em]">외부 브라우저를 권장해요</h1>
-        <p className="m-0 text-sm leading-[1.6] text-content-muted">
+        <h1 className="m-0 text-[27px] font-bold tracking-[-0.02em]">외부 브라우저를 권장해요</h1>
+        <p className="m-0 text-[15px] leading-[1.6] text-content-muted">
           Chrome 또는 Safari에서 열면 흔들기 센서와 링크 공유가 안정적으로 동작해요. 인앱
           브라우저에서는 일부 기능이 제한될 수 있어요.
         </p>
@@ -76,10 +78,11 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
           그냥 진행
         </Button>
       </div>
-    </Screen>
+    </main>
   )
 }
 
+/** 체크리스트 한 줄. 세 줄이 같은 배지를 쓰고 색과 아이콘만 갈린다. */
 const checklistTone = {
   ok: { Icon: IconCheck, badge: 'bg-positive/20 text-positive', row: undefined },
   warn: { Icon: IconWarning, badge: 'bg-warning/20 text-warning', row: 'text-content-muted' },
@@ -98,7 +101,7 @@ function ChecklistItem({
     <li className={cn('flex items-center gap-2.5', row)}>
       <span
         aria-hidden="true"
-        className={cn('grid size-[18px] flex-none place-items-center rounded-chip', badge)}
+        className={cn('grid size-[18px] flex-none place-items-center rounded-[6px]', badge)}
       >
         <Icon className="size-3" />
       </span>

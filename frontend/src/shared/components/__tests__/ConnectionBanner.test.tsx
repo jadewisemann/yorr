@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner'
 
 describe('ConnectionBanner', () => {
+  // 영역과 문구가 같은 프레임에 들어오면 스크린리더가 변화를 놓친다 —
+  // 정상 연결에도 빈 live region을 남겨 두고 글만 바꿔야 한다.
   it('정상 연결에서는 문구 없이 빈 알림 영역만 남긴다', () => {
     const { rerender } = render(<ConnectionBanner status="connected" />)
 
@@ -32,6 +34,7 @@ describe('ConnectionBanner', () => {
     expect(region).toHaveTextContent('현재 주사위와 점수는 서버에 저장돼 있습니다.')
   })
 
+  // 연결이 끊기면 조작이 통째로 잠기므로 polite로 미룰 수 없다.
   it('연결이 끊기면 alert로 즉시 알린다', () => {
     render(<ConnectionBanner className="rounded-none" status="closed" />)
 
@@ -42,6 +45,7 @@ describe('ConnectionBanner', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  // 색상만으로 상태를 구분하지 않되, 그 표식이 문구를 두 번 읽게 하면 안 된다.
   it('상태 표식은 소리로 읽히지 않는다', () => {
     render(<ConnectionBanner status="reconnecting" />)
 

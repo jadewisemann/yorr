@@ -41,6 +41,7 @@ describe('useDialogBackground', () => {
   })
 
   it('겹쳐 열린 다이얼로그 중 마지막이 닫힐 때만 배경을 되살린다', () => {
+    // 시트 위 모달이 먼저 닫히면서 배경을 풀어버리면 남은 시트 뒤가 다시 스크롤된다.
     const { main, rerender } = renderWithBackground(
       <>
         <Dialog open />

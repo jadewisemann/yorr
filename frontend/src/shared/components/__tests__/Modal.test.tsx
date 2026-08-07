@@ -52,6 +52,7 @@ describe('Modal', () => {
     expect(onClose).toHaveBeenCalledTimes(3)
   })
 
+  // 부모가 매 렌더 새 onClose를 넘겨도 포커스 effect가 다시 돌면 사용자가 옮긴 포커스를 빼앗는다.
   it('부모가 새 onClose를 넘겨도 포커스를 다시 빼앗지 않는다', async () => {
     const { rerender, user } = renderModal()
     const confirm = screen.getByRole('button', { name: '확정' })
@@ -64,6 +65,7 @@ describe('Modal', () => {
     )
     expect(confirm).toHaveFocus()
 
+    // 새로 넘어온 핸들러가 Escape에 연결돼 있어야 한다.
     const latestClose = vi.fn()
     rerender(
       <Modal onClose={latestClose} open title="0점으로 확정할까요?">
@@ -107,6 +109,7 @@ describe('Modal', () => {
     expect(opener).toHaveFocus()
   })
 
+  // aria-modal만으로는 스크린리더가 뒤 화면으로 새어 나간다 — inert·스크롤 잠금이 함께 필요하다.
   it('열려 있는 동안 뒤 화면을 무력화하고 닫으면 되돌린다', () => {
     const background = document.createElement('main')
     document.body.append(background)

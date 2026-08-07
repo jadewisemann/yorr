@@ -26,6 +26,7 @@ describe('yachtGame reducer', () => {
 
     expect(rolling.phase).toBe('rolling')
     expect(rolling.dice).toBeNull()
+    // 굴림 횟수는 서버가 알려준 시점에 올라간다 — 착지를 기다리지 않는다.
     expect(rolling.rollCount).toBe(1)
     expect(getPendingRoll(rolling)?.targetDice).toEqual(serverDice)
     expect(
@@ -45,6 +46,10 @@ describe('yachtGame reducer', () => {
     expect(completed.rollCount).toBe(1)
   })
 
+  /**
+   * 마감 자동 굴림이 진행 중인 굴림을 교체하는 경로. 클라가 굴림 횟수를 직접 세면 교체로
+   * 버려지는 완료 콜백만큼 증가분이 사라져 다음 dice.roll이 서버에서 거부됐다(INVALID_ROLL).
+   */
   it('keeps the server roll count when a forced roll replaces an in-flight roll', () => {
     const afterFirst = finishRoll(createYachtGame(3), 'one')
     const rolling = yachtGameReducer(afterFirst, {
@@ -64,6 +69,7 @@ describe('yachtGame reducer', () => {
     })
     expect(forced.rollCount).toBe(3)
 
+    // 교체된 이전 굴림의 완료 콜백은 버려지지만 카운트는 서버 값 그대로 남는다.
     expect(
       yachtGameReducer(forced, { type: 'rollCompleted', requestId: 'two', dice: serverDice }),
     ).toBe(forced)
@@ -121,6 +127,7 @@ describe('yachtGame reducer', () => {
       }),
     ).toBe(state)
 
+    // 첫 굴림 전에는 주사위가 없으므로 held와 무관하게 굴릴 수 있어야 한다.
     const fresh = createYachtGame(7)
     expect(
       yachtGameReducer(fresh, {
@@ -261,6 +268,7 @@ describe('restoreYachtGame', () => {
     })
     expect(restored.held).toEqual([true, false, true, false, false])
 
+    // 복원 직후의 다음 굴림은 서버가 기대하는 3번째여야 한다.
     const rolling = yachtGameReducer(restored, {
       type: 'rollRequested',
       requestId: 'three',

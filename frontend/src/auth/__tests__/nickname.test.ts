@@ -38,6 +38,7 @@ describe('nickname rules', () => {
     expect(getNicknameError('ㅅ ㅂ 선장')).toBe(reason)
     expect(getNicknameError('f u c k')).toBe(reason)
     expect(getNicknameError('sh1t')).toBe(reason)
+    // 정상 닉네임은 통과해야 한다 — 필터가 세면 이름을 못 짓는다.
     expect(getNicknameError('시나몬 선장')).toBeNull()
   })
 
@@ -56,6 +57,7 @@ describe('nickname rules', () => {
   })
 
   it('길이는 코드 유닛이 아니라 글자 수로 센다', () => {
+    // 이모지 한 글자를 두 글자로 세면 12자 한도가 사람 기준과 어긋난다.
     expect(getNicknameError('가'.repeat(NICKNAME_MAX_LENGTH))).toBeNull()
     expect(getNicknameError('🎲'.repeat(NICKNAME_MAX_LENGTH))).toBe(
       '닉네임에는 문자, 숫자, 공백만 사용할 수 있어요.',
@@ -112,6 +114,7 @@ describe('nickname session storage', () => {
   })
 })
 
+/** 임베드 웹뷰·시크릿 모드처럼 sessionStorage 접근이 예외를 던지는 환경을 흉내낸다. */
 function blockSessionStorage() {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage')
   Object.defineProperty(globalThis, 'sessionStorage', {

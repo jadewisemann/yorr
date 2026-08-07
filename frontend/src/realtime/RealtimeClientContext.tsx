@@ -17,7 +17,3 @@ export function useRealtimeClient() {
   if (!client) throw new Error('Realtime client is not available')
   return client
 }
-
-export function useOptionalRealtimeClient() {
-  return useContext(RealtimeClientContext)
-}

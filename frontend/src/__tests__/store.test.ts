@@ -61,6 +61,7 @@ describe('replaceRoomSnapshot', () => {
     useAppStore.getState().replaceRoomSnapshot(null)
 
     expect(useAppStore.getState().roomSnapshot).toBeNull()
+    // 새로고침 복구를 위해 저장된 세션은 살아 있어야 한다.
     expect(readRoomSession()).not.toBeNull()
   })
 })
@@ -91,6 +92,7 @@ describe('endSession', () => {
       return state.appNotice
     })
 
+    // 스스로 나간 경우에만 안내를 띄우지 않는다.
     expect(notices[0]).toBeNull()
     expect(notices[1]).toContain('방이 종료되어')
     expect(notices[2]).toContain('만료됐어요')

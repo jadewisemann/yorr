@@ -23,6 +23,7 @@ export interface LabChartSample {
 export interface LabEvent {
   id: number
   event: MotionGestureEvent
+  /** 표시용 벽시계 시각 (ms epoch) */
   wallClock: number
 }
 
@@ -86,6 +87,11 @@ function appendChartSample(buffer: LabChartSample[], sample: LabChartSample) {
   while (buffer[0]?.at !== undefined && buffer[0].at < cutoff) buffer.shift()
 }
 
+/**
+ * MotionInputController와 같은 수명주기 규칙(권한·visibilitychange·silent 타이머)을 따르되,
+ * config를 실시간 교체할 수 있고 차트 링버퍼·이벤트 로그·원시 녹화를 함께 관리하는 Lab 전용 훅.
+ * 판정 자체는 프로덕션과 동일한 normalizer → recognizer 경로를 쓴다.
+ */
 export function useMotionLab() {
   const [config, setConfig] = useState(loadStoredConfig)
   const [availability, setAvailability] = useState<MotionAvailability>('unknown')
@@ -250,6 +256,7 @@ export function useMotionLab() {
     configRef.current = next
     setConfig(next)
     storeConfig(next)
+    // 재생성으로 즉시 적용 — 워밍업 캘리브레이션이 다시 돈다.
     recognizerRef.current = new MotionGestureRecognizer(next)
     normalizerRef.current.reset()
     setSnapshot(recognizerRef.current.getSnapshot())

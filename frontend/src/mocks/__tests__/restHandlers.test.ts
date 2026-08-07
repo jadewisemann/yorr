@@ -10,11 +10,16 @@ import { HttpRoomApiClient } from '@/room/api/roomApi'
 const client = new HttpRoomApiClient()
 
 describe('REST mock handlers', () => {
+  // startGame이 방 상태를 기억하므로, 테스트 순서에 따라 응답이 달라지지 않게 지운다.
   beforeEach(() => {
     clearMockRoomSnapshot()
     localStorage.clear()
   })
 
+  /**
+   * 로그인 세션을 함께 보내야 서버가 새 게스트를 만들지 않고 그 회원으로 입장시킨다.
+   * 이게 빠지면 로그인해도 방에 들어가는 순간 게스트가 되어 전적이 계정에 남지 않는다.
+   */
   it('로그인했으면 방 입장 요청에 세션 토큰을 싣는다', async () => {
     const bodies: unknown[] = []
     mockApiServer.use(

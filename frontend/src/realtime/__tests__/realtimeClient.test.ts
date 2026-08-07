@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WebSocketRealtimeClient } from '@/realtime/realtimeClient'
 import { buildClientMessage, type ServerMessage } from '@/realtime/wsEvents'
 
+/**
+ * 전역 WebSocket 대역. 실제 소켓 없이 open/close/error/message 프레임을
+ * 테스트가 직접 밀어 넣어 클라이언트의 계약(파싱·에러 승격·생명주기)만 검증한다.
+ */
 class FakeWebSocket {
   static readonly CONNECTING = 0
   static readonly OPEN = 1
@@ -33,6 +37,8 @@ class FakeWebSocket {
     this.readyState = FakeWebSocket.CLOSED
     this.emit('close', {})
   }
+
+  /* ----- 테스트 조작용 ----- */
 
   acceptConnection() {
     this.readyState = FakeWebSocket.OPEN
@@ -138,6 +144,7 @@ describe('연결 생명주기', () => {
     client.disconnect()
 
     expect(socket.closeCount).toBe(1)
+    // 참조를 버렸으니 다음 connect는 새 소켓을 연다.
     client.connect()
     expect(FakeWebSocket.instances).toHaveLength(2)
   })
@@ -232,6 +239,7 @@ describe('메시지 송신', () => {
     expect(() => client.send(message)).toThrow('WebSocket is not connected')
 
     client.connect()
+    // 아직 CONNECTING 상태라 보낼 수 없다.
     expect(() => client.send(message)).toThrow('WebSocket is not connected')
 
     lastSocket().acceptConnection()
