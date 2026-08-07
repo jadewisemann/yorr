@@ -40,7 +40,7 @@ function MotionControl({
   wide: boolean
 }) {
   const pill =
-    'min-h-11 rounded-full border border-pp-accent/40 bg-pp-accent/12 px-3 text-xs font-bold text-pp-accent-text transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]'
+    'min-h-11 rounded-full border border-pp-accent/40 bg-pp-accent/12 px-3 text-xs font-bold text-pp-accent-text transition-[scale] duration-150 focus-ring pressable'
 
   if (wide) {
     return (

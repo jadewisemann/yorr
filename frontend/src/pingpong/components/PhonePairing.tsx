@@ -34,7 +34,7 @@ export function PhonePairing({ onClose }: { onClose: () => void }) {
       <section className="grid w-full max-w-sm gap-4 rounded-sheet border border-white/15 bg-pp-surface p-6 text-center shadow-2xl">
         <div>
           <h2 className="m-0 text-xl font-black">폰을 컨트롤러로</h2>
-          <p className="mt-1.5 mb-0 text-sm text-white/55">
+          <p className="mt-1.5 mb-0 text-sm text-game-content-muted">
             폰으로 QR을 찍으면 이 화면을 보면서 폰을 휘둘러 받아칠 수 있어요.
           </p>
         </div>
@@ -50,17 +50,17 @@ export function PhonePairing({ onClose }: { onClose: () => void }) {
                 />
               </QrFallback>
             </div>
-            <p className="m-0 font-mono text-xs tracking-[0.18em] text-white/45">
+            <p className="m-0 font-mono text-xs tracking-[0.18em] text-game-content-faint">
               {roomSession.roomCode}
             </p>
           </>
         ) : (
-          <p className="m-0 py-10 text-sm text-white/55" role="status">
+          <p className="m-0 py-10 text-sm text-game-content-muted" role="status">
             {createParty.error ? '연결을 준비하지 못했어요' : '연결을 준비하는 중…'}
           </p>
         )}
 
-        <p className="m-0 text-xs text-white/40" role="status">
+        <p className="m-0 text-xs text-game-content-faint" role="status">
           {connectionStatus === 'connected' && paired ? '폰이 붙으면 바로 휘두를 수 있어요' : ' '}
         </p>
 

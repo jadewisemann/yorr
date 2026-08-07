@@ -143,7 +143,7 @@ export function PingPongController({
       <section className="mt-3 grid flex-none gap-2 text-center">
         {permission === 'unknown' && (
           <button
-            className="min-h-12 rounded-card border border-pp-accent/45 bg-pp-accent/12 px-5 font-bold text-pp-accent-text transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
+            className="min-h-12 rounded-card border border-pp-accent/45 bg-pp-accent/12 px-5 font-bold text-pp-accent-text transition-[scale] duration-150 focus-ring pressable"
             onClick={() => void requestPermission()}
             type="button"
           >

@@ -71,7 +71,7 @@ export function RemoteControllerPage({ hostPlayerId, input, roomCode }: RemoteCo
         <div className="grid flex-1 place-items-center text-center">
           <div>
             <h1 className="m-0 text-xl font-black">연결하지 못했어요</h1>
-            <p className="mt-2 text-sm text-white/55">
+            <p className="mt-2 text-sm text-game-content-muted">
               큰 화면의 QR을 다시 찍어 주세요. 방이 닫혔을 수 있어요.
             </p>
             <GameChromeButton className="mt-4" onClick={() => void navigate({ to: '/' })}>
@@ -87,7 +87,7 @@ export function RemoteControllerPage({ hostPlayerId, input, roomCode }: RemoteCo
     <ControllerScreen className="bg-pp-canvas">
       <header className="flex flex-none items-center justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
-          <span className="font-mono text-2xs tracking-[0.18em] text-white/40">
+          <span className="font-mono text-2xs tracking-[0.18em] text-game-content-faint">
             PHONE CONTROLLER
           </span>
           <strong className="truncate text-lg">{joined ? '연결됨' : '연결하는 중…'}</strong>
@@ -97,7 +97,7 @@ export function RemoteControllerPage({ hostPlayerId, input, roomCode }: RemoteCo
 
       <button
         aria-label={touchOnly ? '화면을 눌러 조작' : '휴대폰을 휘둘러 조작'}
-        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-white/12 bg-[radial-gradient(circle_at_50%_45%,rgb(43_143_224_/_22%),transparent_58%)] active:bg-white/8 disabled:opacity-40"
+        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-border-raised bg-[radial-gradient(circle_at_50%_45%,rgb(43_143_224_/_22%),transparent_58%)] active:bg-surface-veil disabled:opacity-40"
         disabled={!joined}
         onPointerDown={(event) => {
           event.preventDefault()
@@ -112,7 +112,7 @@ export function RemoteControllerPage({ hostPlayerId, input, roomCode }: RemoteCo
           className="animate-pp-feedback-pop absolute top-[20%] left-1/2 block h-[40%] aspect-square -translate-x-1/2 rotate-[-8deg] rounded-full border-[10px] border-pp-side-blue/45 bg-pp-side-blue shadow-[0_18px_45px_rgb(43_143_224_/_35%)]"
           key={sentAt}
         />
-        <span className="absolute inset-x-5 bottom-7 text-center text-base font-bold text-white/75">
+        <span className="absolute inset-x-5 bottom-7 text-center text-base font-bold text-game-content">
           {joined ? swingHint(touchOnly) : '큰 화면과 잇는 중이에요'}
         </span>
       </button>
@@ -120,14 +120,14 @@ export function RemoteControllerPage({ hostPlayerId, input, roomCode }: RemoteCo
       <section className="mt-3 grid flex-none gap-2 text-center">
         {permission === 'unknown' && (
           <button
-            className="min-h-12 rounded-card border border-pp-accent/45 bg-pp-accent/12 px-5 font-bold text-pp-accent-text transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
+            className="min-h-12 rounded-card border border-pp-accent/45 bg-pp-accent/12 px-5 font-bold text-pp-accent-text transition-[scale] duration-150 focus-ring pressable"
             onClick={() => void requestPermission()}
             type="button"
           >
             폰 스윙 켜기
           </button>
         )}
-        <p className="m-0 text-sm text-white/45" role="status">
+        <p className="m-0 text-sm text-game-content-faint" role="status">
           {connectionMessage(connectionStatus)}
         </p>
       </section>

@@ -103,7 +103,7 @@ export function DuelController({
         )}
         {permission === 'unknown' && (
           <button
-            className="min-h-12 rounded-card border border-duel-signal/50 bg-duel-signal/15 px-5 font-bold text-duel-accent-soft transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
+            className="min-h-12 rounded-card border border-duel-signal/50 bg-duel-signal/15 px-5 font-bold text-duel-accent-soft transition-[scale] duration-150 focus-ring pressable"
             onClick={onEnableMotion}
             type="button"
           >

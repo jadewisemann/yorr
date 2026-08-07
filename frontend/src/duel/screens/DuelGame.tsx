@@ -139,7 +139,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
       <section className="absolute inset-x-0 bottom-0 z-20 grid justify-items-center gap-2 px-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {permission === 'unknown' && (
           <button
-            className="min-h-11 rounded-full border border-duel-signal/50 bg-duel-signal/15 px-5 text-sm font-bold text-duel-accent-soft backdrop-blur-md transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
+            className="min-h-11 rounded-full border border-duel-signal/50 bg-duel-signal/15 px-5 text-sm font-bold text-duel-accent-soft backdrop-blur-md transition-[scale] duration-150 focus-ring pressable"
             onClick={(event) => {
               event.stopPropagation()
               void requestPermission()
