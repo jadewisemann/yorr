@@ -23,7 +23,6 @@ describe('createDiceInstances', () => {
       expect(scene.children).toContain(entry.mesh)
       expect(scene.children).toContain(entry.outline)
       expect(entry.enteredTray).toBe(false)
-      // 보정 없는 상태에서 시작한다 — 지난 굴림의 잔여 오프셋이 있으면 엉뚱한 면이 보인다.
       expect(entry.visualOffset.angleTo(new THREE.Quaternion())).toBe(0)
     })
     world.free()
@@ -55,7 +54,6 @@ describe('createDiceInstances', () => {
 
     expect(bodyGeometries).toEqual(new Set([geometries.body]))
     expect(dieMaterials).toEqual(new Set([materials.die]))
-    // 외곽선 재질만 주사위별로 따로 둔다 — 선택 상태를 개별로 페이드하기 때문이다.
     expect(new Set(entries.map((entry) => entry.outline.material)).size).toBe(5)
     world.free()
   })

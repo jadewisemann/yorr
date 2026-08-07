@@ -14,7 +14,6 @@ function world() {
   return created
 }
 
-/** 판 위에 굴러다니는 주사위 하나. */
 function die(physics: RAPIER.World, position: { x: number; y: number; z: number }) {
   const body = physics.createRigidBody(
     RAPIER.RigidBodyDesc.dynamic()
@@ -80,7 +79,6 @@ describe('createTray', () => {
   it('오른쪽은 열려 있고 진입 에이프런이 바닥을 이어 준다 — 사발에서 쏟는 통로다', () => {
     const physics = world()
     createTray(new THREE.Scene(), physics)
-    // 판 오른쪽 밖(에이프런 위)에 떨어뜨려도 바닥이 받쳐야 한다.
     const body = die(physics, { x: SCENE.tray.halfSize + 0.8, y: 2, z: -0.6 })
 
     simulate(physics, 300)
@@ -104,11 +102,9 @@ describe('createTray', () => {
 
     if (!rail || !railLine || !floor) throw new Error('바닥·레일·분리선 메시가 없습니다.')
     expect(rail.geometry.parameters.width).toBeGreaterThan(SCENE.camera.maxHalfHeight * 4)
-    // 분리선이 레일보다 위에 있어야 z-fighting 없이 보인다.
     expect(railLine.position.y).toBeGreaterThan(rail.position.y)
     expect(rail.position.y).toBeGreaterThan(floor.position.y)
     expect(railLine.position.z).toBeCloseTo(SCENE.tray.separatorZ + 0.025, 6)
-    // 모든 재질을 dispose 대상 목록에 실어야 누수가 없다.
     expect(trayMaterials).toContain(railMaterial)
     expect(trayMaterials).toContain(railLineMaterial)
   })
@@ -169,7 +165,6 @@ describe('createBowl', () => {
     simulate(physics, 400)
 
     expect(contained).toBeGreaterThan(SCENE.bowl.hoverY)
-    // 사발이 뒤집히면 주사위는 더 이상 사발 안 높이에 머물지 못한다.
     expect(body.translation().y).toBeLessThan(contained)
     physics.free()
   })
@@ -182,7 +177,6 @@ describe('createBowl', () => {
     expect(scene.children).toContain(bowlGroup)
     expect(bowlGroup.children).toContain(bowlInner)
     expect(bowlGroup.children.length).toBeGreaterThanOrEqual(3)
-    // 사발 껍데기는 그림자를 던지고 받아 무대 위에 놓인 것처럼 보인다.
     const shell = bowlGroup.children[0]
     expect(shell?.castShadow).toBe(true)
   })
@@ -203,7 +197,6 @@ describe('createKeepSlots', () => {
       const bar = slot.children[0]
       if (!(bar instanceof THREE.Mesh)) throw new Error('슬롯 바가 없습니다.')
       expect(bar.geometry).toBe(geometries.slotBar)
-      // 그룹이 눕기 때문에 로컬 -y가 화면 아래쪽이다 — 바는 주사위 아래에 깔린다.
       expect(bar.position.y).toBeLessThan(0)
     })
   })

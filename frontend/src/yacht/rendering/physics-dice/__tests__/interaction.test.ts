@@ -8,7 +8,6 @@ import { pickDie } from '@/yacht/rendering/physics-dice/interaction'
 const CANVAS_WIDTH = 800
 const CANVAS_HEIGHT = 600
 
-/** 무대와 같은 위에서 내려다보는 직교 카메라. */
 function topDownCamera() {
   const camera = new THREE.OrthographicCamera(-4.5, 4.5, 3, -3, 0.1, 30)
   camera.position.set(0, 10, 0.001)
@@ -24,7 +23,6 @@ function renderer() {
   return fake as unknown as THREE.WebGLRenderer
 }
 
-/** 월드 좌표를 그 지점을 가리키는 포인터 이벤트로 바꾼다 — 화면 좌표계 왕복을 그대로 검증한다. */
 function pointerAt(position: THREE.Vector3, camera: THREE.Camera) {
   const ndc = position.clone().project(camera)
   return {
@@ -41,7 +39,6 @@ describe('pickDie', () => {
   function scene() {
     const world = new RAPIER.World({ x: 0, y: -18, z: 0 })
     const { entries } = createDiceInstances(new THREE.Scene(), world)
-    // 결과 줄처럼 x축으로 늘어놓는다.
     entries.forEach((entry) => {
       entry.mesh.position.set((entry.index - 2) * 1.4, 0.5, 0)
       entry.mesh.updateMatrixWorld(true)
@@ -76,7 +73,6 @@ describe('pickDie', () => {
     const { entries, world } = scene()
     const target = entries[3]
     if (!target) throw new Error('주사위 4번이 없습니다.')
-    // 눈만 남기면 히트 대상이 자식 InstancedMesh뿐이다.
     const pips = target.mesh.children.filter((child) => child instanceof THREE.InstancedMesh)
     target.mesh.clear()
     for (const child of pips) target.mesh.add(child)

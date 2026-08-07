@@ -66,7 +66,6 @@ const GESTURE_LABEL: Record<MotionGestureState, string> = {
   cooldown: '쿨다운',
 }
 
-/** effectiveThresholds 키 ↔ config 키 대응. effective가 config보다 크면 노이즈 보정이 개입한 것. */
 const THRESHOLD_ROWS = [
   { key: 'shakePeak', configKey: 'shakePeakThreshold', label: '흔들기 피크' },
   { key: 'shakePeakRelease', configKey: 'shakePeakReleaseThreshold', label: '피크 해제' },
@@ -406,7 +405,6 @@ const VIBRATE_PATTERN: Partial<Record<string, number | number[]>> = {
   throwDetected: 200,
 }
 
-/** 최신 이벤트에 반응해 진동·화면 플래시를 낸다. iOS Safari는 vibrate 미지원. */
 function useFeedback(
   latestEventId: number | undefined,
   latestEventType: string | undefined,
@@ -439,9 +437,7 @@ function useWakeLock(enabled: boolean) {
         const lock = await navigator.wakeLock.request('screen')
         if (cancelled) await lock.release()
         else sentinel = lock
-      } catch {
-        // 배터리 세이버 등으로 거부될 수 있음 — 기능상 치명적이지 않다.
-      }
+      } catch {}
     }
     void acquire()
     const handleVisibility = () => {

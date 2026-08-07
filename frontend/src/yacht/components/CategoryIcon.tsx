@@ -1,15 +1,7 @@
 import type { YachtCategory } from '@/yacht/domain/scoring'
 
-/**
- * 점수시트 족보 행 앞에 붙는 소형 아이콘 (디자인 레퍼런스 S15P11A406-105 점수시트).
- * 상단 족보(에이스~식스)는 해당 눈의 주사위 면, 하단 족보는 테두리 없는 pip 패턴으로
- * 구분한다 — 같은 점 배치라도 테두리 유무가 "주사위 눈"과 "족보 모양"을 가른다.
- * 항상 장식이므로 aria-hidden 고정, 색은 currentColor를 따른다.
- */
-
 const GRID = [6, 10, 14] as const
 
-/** Dice.tsx와 같은 3×3 그리드 눈 배치 (1~9 위치 번호). */
 const facePips: Record<1 | 2 | 3 | 4 | 5 | 6, number[]> = {
   1: [5],
   2: [1, 9],
@@ -28,7 +20,6 @@ const faceByCategory: Partial<Record<YachtCategory, 1 | 2 | 3 | 4 | 5 | 6>> = {
   sixes: 6,
 }
 
-/** 하단 족보 pip 패턴 좌표 (20×20 viewBox). 초이스=X, 요트=오각형으로 서로 구분한다. */
 const patternPips: Partial<Record<YachtCategory, Array<[number, number]>>> = {
   choice: [
     [5, 5],

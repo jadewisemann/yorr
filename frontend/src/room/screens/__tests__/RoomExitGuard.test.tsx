@@ -6,10 +6,6 @@ import { mockApiServer } from '@/mocks/server'
 import { useAppStore } from '@/store'
 import { renderAppHarness, resetAppTestState } from '@/test/harness'
 
-/**
- * 이탈 가드는 라우터의 blocker와 맞물려야 의미가 있다 — 뒤로가기·주소 이동처럼
- * 화면의 버튼을 거치지 않는 경로가 실제 사고 지점이라 여기서는 진짜 라우터로 검증한다.
- */
 const lobbyPath = `/rooms/${creatorSession.roomId}/lobby`
 
 describe('RoomExitGuard', () => {

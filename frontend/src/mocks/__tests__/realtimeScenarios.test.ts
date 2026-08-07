@@ -15,7 +15,6 @@ import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
 import { buildClientMessage } from '@/realtime/wsEvents'
 
 describe('FakeRealtimeClient scenarios', () => {
-  // 기억된 방 상태가 테스트 사이로 새면 room.join 응답이 순서에 따라 달라진다.
   beforeEach(() => clearMockRoomSnapshot())
 
   it('방장과 참가자 세션을 독립 제공한다', () => {
@@ -45,13 +44,6 @@ describe('FakeRealtimeClient scenarios', () => {
     expect(participantMessages.mock.calls[0]?.[0].payload.you).toBe(participantSession.you)
   })
 
-  /**
-   * 파티 모드 대시보드는 <b>플레이어 정체성을 받아선 안 된다.</b>
-   *
-   * room.joined의 you가 곧 클라이언트의 정체성이 된다(RealtimeSync의 applyRoomJoined가
-   * roomSession.you를 이 값으로 덮는다). 모르는 토큰을 creator로 떨어뜨리던 시절엔 대시보드가
-   * player-creator를 받아 isMyTurn이 참이 되고, 플레이어가 아니어야 할 화면에서 주사위가 눌렸다.
-   */
   it('대시보드 토큰에는 대시보드 정체성을 돌려준다', () => {
     const dashboard = createRealtimeFixture()
     const messages = vi.fn()
@@ -144,7 +136,6 @@ describe('FakeRealtimeClient scenarios', () => {
       'game.yacht_dice.score.update',
       'game.yacht_dice.round.end',
     ])
-    // 정적 후보값이 아니라 제출된 주사위 [1,2,3,4,5]로 계산한 점수(choice = 합 15)다.
     expect(listener.mock.calls[1]?.[0].payload.scoreboard.categories.choice).toBe(15)
     expect(listener.mock.calls[1]?.[0].payload.scoreboard.total).toBe(15)
   })

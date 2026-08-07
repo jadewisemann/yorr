@@ -17,7 +17,6 @@ describe('useRealtimeClient', () => {
   })
 
   it('Provider 밖에서는 조용히 no-op이 되지 않고 즉시 실패한다', () => {
-    // 실시간 없이 렌더된 화면을 "연결된 것처럼" 보이게 두면 디버깅이 훨씬 비싸진다.
     expect(() => renderHook(() => useRealtimeClient())).toThrow('Realtime client is not available')
   })
 })
