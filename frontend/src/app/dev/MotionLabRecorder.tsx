@@ -26,6 +26,10 @@ interface ComparedReplay {
   withCurrent: ReplayResult
 }
 
+/**
+ * 원시 센서 스트림 녹화·리플레이 패널. 폰에서 한 번 녹화해 두면
+ * 데스크톱에서 config만 바꿔가며 판정 결과를 결정적으로 재현할 수 있다.
+ */
 export function MotionLabRecorder({
   canRecord,
   isRecording,

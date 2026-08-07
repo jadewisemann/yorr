@@ -38,6 +38,8 @@ describe('파티 방 생성', () => {
 })
 
 function respondToGame(body: unknown) {
+  // 일부러 형태가 어긋난 응답(배열·문자열 필드 등)까지 흘려보내 클라이언트 쪽 검증을 확인한다 —
+  // 그래서 body는 unknown이고, HttpResponse.json 쪽 타입에 맞추기 위해서만 캐스팅한다.
   mockApiServer.use(
     http.get('/api/v1/games/:gameId', () =>
       HttpResponse.json(body as Parameters<typeof HttpResponse.json>[0]),
@@ -110,6 +112,7 @@ describe('REST 스냅샷 → 프론트 스냅샷 변환', () => {
   })
 
   it('game 필드가 계약과 다르면 스냅샷은 살리고 진행 상태만 버린다', async () => {
+    // 진행 상태의 SSOT는 WS다 — REST의 선택 필드가 깨졌다고 방 정보까지 버릴 이유가 없다.
     for (const game of [
       null,
       { activePlayerId: '', roundNumber: 1, roundDeadline: 1, scores: {} },

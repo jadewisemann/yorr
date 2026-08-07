@@ -4,6 +4,10 @@ import { MOCK_ROOM_ID } from '@/mocks/fixtures'
 import { useAppStore } from '@/store'
 import { renderAppHarness } from '@/test/harness'
 
+/**
+ * 대기 → 매칭 → 방 세션·대기실 이동까지가 이 백드롭의 전부다. mock 서버는 두 번째 상태
+ * 조회에서 매칭을 잡아 주므로(restHandlers) 실제 polling이 한 바퀴 돈다.
+ */
 async function startQuickMatch() {
   const harness = renderAppHarness({ initialPath: '/join?game=yacht&mode=quick' })
   useAppStore.getState().signIn({
@@ -11,6 +15,7 @@ async function startQuickMatch() {
     nickname: '카카오회원',
     sessionToken: 'mock-member-token',
   })
+  // 닉네임은 비워 둔 채 제출한다 — 빈 값은 제안 이름으로 대체된다(resolveNickname).
   await harness.user.click(await screen.findByRole('button', { name: '상대 찾기' }))
   return harness
 }

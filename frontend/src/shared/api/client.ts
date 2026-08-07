@@ -1,3 +1,7 @@
+/**
+ * 상대경로(`/api/v1`)면 개발 서버 프록시가, 절대 URL이면 그 서버가 받는다.
+ * 전체 페이지 이동(소셜 로그인 리다이렉트)에도 같은 값을 써야 두 환경이 갈라지지 않는다.
+ */
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
 export interface ApiErrorPayload {

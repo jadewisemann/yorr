@@ -37,6 +37,7 @@ describe('HeroScene', () => {
     return { container, resizeTo, scene }
   }
 
+  /** 애니메이션 루프를 한 프레임 밟는다 — 실제 브라우저의 rAF 자리를 테스트가 대신한다. */
   function tick(ms = 40) {
     vi.advanceTimersByTime(ms)
     renderer().animationLoop?.()
@@ -54,6 +55,7 @@ describe('HeroScene', () => {
     return camera
   }
 
+  /** 장면에서 무대 그룹을 꺼낸다 — 장면의 유일한 Group이다. */
   function stage() {
     const group = renderedScene().children.find(
       (child): child is THREE.Group => child instanceof THREE.Group,
@@ -110,6 +112,7 @@ describe('HeroScene', () => {
     it('면마다 다른 눈 텍스처를 그려 주사위 6면을 만든다', () => {
       build()
 
+      // 1~6 눈을 각각 캔버스에 그린다 — 총 21개의 점.
       const drawnPips = canvasContext.calls.filter((call) => call === 'fill').length
       expect(drawnPips).toBe(21)
     })
@@ -136,6 +139,7 @@ describe('HeroScene', () => {
       build()
       tick(0)
 
+      // 120Hz 단말처럼 8ms마다 프레임이 와도 30fps 간격(33ms)이 차기 전에는 그리지 않는다.
       tick(8)
       tick(8)
       tick(8)
@@ -204,6 +208,7 @@ describe('HeroScene', () => {
 
       expect(renderer().animationLoop).toBeNull()
       expect(renderer().renders.length).toBeGreaterThan(0)
+      // 등장 애니메이션 없이 완성된 상태로 보여 준다.
       expect(stageObject().scale.x).toBeCloseTo(1, 6)
       expect(stageObject().position.y).toBeCloseTo(0, 6)
     })

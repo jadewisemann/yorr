@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { RecordPanel } from '@/yacht/components/RecordPanel'
 
 beforeAll(() => {
+  // jsdom에는 포인터 캡처가 없다. 드래그 계약을 검증하려면 자리만 채워 준다.
   Object.defineProperty(Element.prototype, 'setPointerCapture', {
     configurable: true,
     value: vi.fn(),
@@ -30,6 +31,7 @@ function renderPanel(open: boolean, onToggle = vi.fn()) {
   return { ...view, onToggle, user: userEvent.setup() }
 }
 
+/** 드래그 손잡이 = 토글 버튼을 품고 있는 touch-none 영역. */
 function handleOf() {
   const toggle = screen.getByRole('button', { name: /내 점수/ })
   const handle = toggle.parentElement
@@ -76,6 +78,7 @@ describe('RecordPanel', () => {
     expect(onToggle).toHaveBeenLastCalledWith(true)
   })
 
+  // 드래그를 모르는 사람도 막히지 않게, 접힌 패널은 아무 데나 눌러도 열린다.
   it('접힌 패널 아무 곳을 눌러도 열린다', async () => {
     const { onToggle, user } = renderPanel(false)
 
@@ -84,6 +87,7 @@ describe('RecordPanel', () => {
     expect(onToggle).toHaveBeenCalledWith(true)
   })
 
+  // 퀵 칩은 자기 동작이 우선이다 — 칩을 눌렀다고 시트가 열려 버리면 기록이 가려진다.
   it('접힌 상태에서 퀵 칩을 눌러도 시트를 열지 않는다', async () => {
     const { onToggle, user } = renderPanel(false)
 
@@ -98,6 +102,7 @@ describe('RecordPanel', () => {
     expect(onToggle).toHaveBeenCalledWith(false)
   })
 
+  // 시트 본문 탭은 기록 조작이다 — 여기서 닫히면 점수를 고를 수 없다.
   it('열린 상태에서 시트 본문 탭은 닫기로 새지 않는다', async () => {
     const { onToggle, user } = renderPanel(true)
 

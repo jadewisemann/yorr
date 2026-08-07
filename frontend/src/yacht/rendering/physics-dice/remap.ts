@@ -7,7 +7,13 @@ import { containDiceInTray, type TrayOccupant } from './safety'
 import type { PhysicsDiceIndex, PhysicsDiceSet, PhysicsDiceValue, PhysicsHeldDice } from './types'
 
 const SETTLEMENT = PHYSICS_DICE_CONFIG.scene.settlement
+/**
+ * 예측 시뮬은 한 프레임 안에서 동기로 끝까지 돌리므로 상한이 곧 최악의 프레임 지연이다.
+ * simulationHz가 480이므로 긴 상한은 메인 스레드를 오래 막는다. 제품의 강제 종료 시간까지만
+ * 계산하고, 그 시점의 마지막 자세까지 궤적에 포함해 예측과 화면 재생이 갈리지 않게 한다.
+ */
 const MAX_PREDICTION_SECONDS = Math.max(4, SETTLEMENT.maxRollDurationMs / 1000)
+/** 스텝이 아니라 시간으로 잡는다 — simulationHz를 바꿔도 "얼마나 가만히 있었나"가 같아야 한다. */
 const STABLE_SECONDS = 0.12
 const TRAJECTORY_FPS = 60
 const MAX_TRAJECTORY_ATTEMPTS = 3
@@ -35,6 +41,11 @@ export interface DiceTrajectoryPlan {
   settled: boolean
 }
 
+/**
+ * 목표면 법선을 자연 결과면 법선으로 보내는 큐브 대칭 회전.
+ * `mesh.quaternion = body.rotation × offset`으로 쓰면 물리가 자연면으로 멈출 때
+ * 화면에는 목표값이 위를 향한다. 축 정렬 법선 간이라 90° 또는 180° 회전이다.
+ */
 export function cubeAlignmentOffset(
   target: PhysicsDiceValue,
   natural: PhysicsDiceValue,
@@ -51,6 +62,11 @@ export function cubeAlignmentOffset(
   return new THREE.Quaternion().setFromUnitVectors(targetNormal, naturalNormal)
 }
 
+/**
+ * 현재 월드를 스냅샷 복제해 렌더링 없이 완주시키고 각 주사위의 자연 결과면을 읽는다.
+ * 쏟아짐 직후 호출해야 하며, 실제 화면은 별도 재시뮬레이션 대신 함께 만든 궤적을 재생한다.
+ */
+/** DieEntry의 부분 shape — 예측에 필요한 최소 단위. */
 export interface PredictableDie {
   body: RAPIER.RigidBody
   enteredTray: boolean
@@ -68,6 +84,11 @@ export function predictNaturalDice(
   )
 }
 
+/**
+ * 던지는 순간의 월드를 한 번만 끝까지 계산해 자연 착지 눈과 화면 재생용 궤적을 함께 만든다.
+ * 호출부는 이 궤적을 그대로 재생해야 한다 — 다시 실시간 물리를 돌리면 카오스적인 충돌 오차로
+ * 예측 눈과 실제 착지 눈이 갈릴 수 있다.
+ */
 export function planDiceTrajectory(
   world: RAPIER.World,
   entries: PredictableDie[],
@@ -322,6 +343,7 @@ function frameOverlapScore(
   held: PhysicsHeldDice,
   overlapThresholdSq: number,
 ) {
+  // 재시도는 시작 자세가 같으므로 사발을 막 벗어나는 공통 구간은 평가하지 않는다.
   if (frame.atSeconds < 0.15) return 0
   let score = 0
   for (let a = 0; a < entries.length; a += 1) {
@@ -377,6 +399,7 @@ function finalPoseIssueScore(
   return score
 }
 
+/** 물리적으로 멈췄는지. 예측 복제 시뮬과 실제 진행이 같은 기준을 쓰도록 여기서만 정의한다. */
 export function isBodySettled(body: RAPIER.RigidBody) {
   if (body.isSleeping()) return true
   const linear = body.linvel()

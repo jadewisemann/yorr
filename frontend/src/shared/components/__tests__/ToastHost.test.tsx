@@ -35,6 +35,7 @@ describe('useToast', () => {
     act(() => result.current.showToast('두 번째'))
     act(() => vi.advanceTimersByTime(2_000))
 
+    // 첫 토스트의 타이머(2_500ms)가 그대로였다면 이 시점에 이미 지워졌을 것이다.
     expect(result.current.message).toBe('두 번째')
   })
 })

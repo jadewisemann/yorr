@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InAppBrowserGate } from '@/app/InAppBrowserGate'
 import { installUserAgentMock } from '@/test/harness'
 
+/**
+ * 인앱 브라우저 안내는 "링크를 밖으로 옮길 수 있는가"가 유일한 목적이다.
+ * 복사 API가 없거나 막힌 인앱도 많아, 실패했을 때 주소를 직접 읽을 수 있어야 한다.
+ */
 describe('InAppBrowserGate', () => {
   let userAgent: ReturnType<typeof installUserAgentMock>
   const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
@@ -32,6 +36,7 @@ describe('InAppBrowserGate', () => {
 
   it('현재 주소를 복사해 주고 복사됐다는 사실을 알린다', async () => {
     const user = userEvent.setup()
+    // user-event가 setup에서 clipboard를 대체하므로 그 뒤에 우리 스텁을 얹는다.
     const writeText = vi.fn(async () => undefined)
     setClipboard(writeText)
     render(

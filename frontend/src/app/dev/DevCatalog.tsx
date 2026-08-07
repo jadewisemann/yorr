@@ -15,6 +15,7 @@ import { PhysicsDiceDemo } from './PhysicsDiceDemo'
 
 const sectionClassName = 'grid gap-4 rounded-panel border border-border bg-surface p-5'
 
+/** 굴리기 전 상태. 가이드는 이 신호들을 보고 인사 → 굴림 → 킵 → … 순으로 넘어간다. */
 const initialGuideSignals = {
   candidates: {} as CategoryScores,
   keptValues: [] as number[],
@@ -23,6 +24,7 @@ const initialGuideSignals = {
   submitted: false,
 }
 
+/** 대본 마지막 굴림 [6 6 6 6 2]의 후보 점수. 같은 눈 4개라 포커가 26점으로 식스보다 높다. */
 const LAST_ROLL_CANDIDATES: CategoryScores = {
   ones: 0,
   twos: 2,
@@ -38,11 +40,16 @@ const LAST_ROLL_CANDIDATES: CategoryScores = {
   yacht: 0,
 }
 
+/**
+ * 포커를 기록한 뒤의 후보 점수 — 기록한 칸은 빠진다(서버가 미기입 칸만 돌려준다).
+ * 족보 둘러보기가 "남은 11칸"을 도는지 확인하려면 이 상태여야 한다.
+ */
 const { fourOfAKind: _recorded, ...AFTER_RECORD_CANDIDATES } = LAST_ROLL_CANDIDATES
 
 export function DevCatalog() {
   const [modalOpen, setModalOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  // 마스코트 가이드는 실제 게임 신호(굴림·킵·기록)로 넘어간다 — 여기선 버튼으로 흉내 낸다.
   const [guideVisible, setGuideVisible] = useState(true)
   const [guideRun, setGuideRun] = useState(0)
   const [guideSignals, setGuideSignals] = useState(initialGuideSignals)
@@ -250,16 +257,19 @@ export function DevCatalog() {
             리셋
           </Button>
         </div>
-        <div className="relative h-80 overflow-hidden rounded-panel border border-white/8 [background:var(--ds-physics-tray)]">
+        <div className="relative h-80 overflow-hidden rounded-[1.375rem] border border-white/8 [background:var(--ds-physics-tray)]">
           {guideVisible && (
             <TutorialGuide
               key={guideRun}
               candidates={guideSignals.candidates}
               keptValues={guideSignals.keptValues}
+              // 센서가 있는 기기로 두고 본다 — 마지막 굴림 물음이 흔들기·버튼 두 갈래로
+              // 갈리는 쪽이 확인할 것이 많다. 센서 없는 기기는 물음이 한 갈래로 줄어든다.
               motionNoticeVisible
               onClose={() => setGuideVisible(false)}
               rollCount={guideSignals.rollCount}
               rolled={guideSignals.rolled}
+              // 이 하네스의 신호 버튼은 항상 "애니메이션이 끝난 뒤" 상태를 흉내 낸다.
               rolling={false}
               submitted={guideSignals.submitted}
               wide={false}

@@ -93,6 +93,10 @@ describe('MotionGestureRecognizer', () => {
     expect(events.some((event) => event.type === 'throwDetected')).toBe(false)
   })
 
+  /**
+   * iOS Safari는 가속도 부호 규약이 Chrome과 반대라 앞으로 스냅해도 forward가 음수로 들어온다.
+   * 부호를 보고 판정하면 아이폰에서는 아무리 세게 휘둘러도 던지기가 성립하지 않는다.
+   */
   it('전후 축이 음수로 들어와도(iOS 부호 규약) 던지기를 인식한다', () => {
     const recognizer = new MotionGestureRecognizer()
     const events = feed(recognizer, [

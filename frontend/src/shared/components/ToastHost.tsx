@@ -3,6 +3,7 @@ import { cn } from '@/shared/cn'
 
 const TOAST_DURATION_MS = 2_500
 
+/** 동시에 하나만 띄운다. 새 토스트가 오면 이전 것을 즉시 대체한다(와이어프레임 1d). */
 export function useToast() {
   const [message, setMessage] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)

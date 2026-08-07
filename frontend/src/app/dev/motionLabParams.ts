@@ -19,6 +19,7 @@ export const MOTION_PARAM_GROUPS: Record<MotionParamGroup, string> = {
   timing: '타이밍',
 }
 
+/** 슬라이더 순서 = 튜닝 빈도 순. 범위는 기본값이 중앙 근처에 오도록 잡았다. */
 export const MOTION_PARAM_METAS: readonly MotionParamMeta[] = [
   {
     key: 'shakePeakThreshold',
@@ -183,6 +184,7 @@ export function clampParamValue(meta: MotionParamMeta, value: number): number {
   return meta.step >= 1 ? Math.round(clamped) : clamped
 }
 
+/** 저장값·수동 입력값을 안전한 config로 정리한다. 모르는 키는 버리고 빠진 키는 기본값. */
 export function sanitizeConfig(raw: Partial<Record<string, unknown>>): MotionGestureConfig {
   const config = { ...MOTION_GESTURE_CONFIG }
   for (const meta of MOTION_PARAM_METAS) {
@@ -205,7 +207,9 @@ export function loadStoredConfig(): MotionGestureConfig {
 export function storeConfig(config: MotionGestureConfig) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
-  } catch {}
+  } catch {
+    // 저장 불가(사생활 모드 등)여도 페이지 동작에는 지장 없음
+  }
 }
 
 export function isDefaultValue(key: MotionParamKey, value: number) {
@@ -214,11 +218,13 @@ export function isDefaultValue(key: MotionParamKey, value: number) {
 
 const sortedKeys = Object.keys(MOTION_GESTURE_CONFIG).sort() as MotionParamKey[]
 
+/** 1200 → "1_200" — motionConfig.ts의 숫자 표기와 동일하게. */
 function formatTsNumber(value: number) {
   if (!Number.isInteger(value) || Math.abs(value) < 1_000) return String(value)
   return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, '_')
 }
 
+/** motionConfig.ts의 MOTION_GESTURE_CONFIG 선언 자리에 그대로 붙여넣을 수 있는 TS 리터럴. */
 export function formatConfigAsTs(config: MotionGestureConfig) {
   const lines = sortedKeys.map((key) => `  ${key}: ${formatTsNumber(config[key])},`)
   return [
@@ -234,6 +240,7 @@ export function formatConfigAsJson(config: MotionGestureConfig) {
   return JSON.stringify(ordered, null, 2)
 }
 
+/** 기본값과 다른 항목만 "키: 기본 → 현재" 형태로. 변경이 없으면 빈 문자열. */
 export function formatConfigDiff(config: MotionGestureConfig) {
   return sortedKeys
     .filter((key) => config[key] !== MOTION_GESTURE_CONFIG[key])

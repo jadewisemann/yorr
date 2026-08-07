@@ -21,6 +21,7 @@ export function Dice({ className, held = false, rolling = false, size = 'md', va
   return (
     <div
       className={cn(
+        // 아이보리 화이트 바디 + 딥 블랙 눈(디자인 시스템 06). 킵은 레드 보더·글로우로 구분한다.
         'grid aspect-square grid-cols-3 grid-rows-3 rounded-[18%] border border-black/15 bg-physics-die text-physics-pip shadow-raised',
         sizes[size],
         held && 'border-2 border-brand-strong ring-4 ring-brand/30',

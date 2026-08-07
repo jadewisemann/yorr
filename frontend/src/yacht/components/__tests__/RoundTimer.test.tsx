@@ -27,6 +27,7 @@ describe('RoundTimer', () => {
     const liveRegion = screen.getByText('10초 남았습니다')
     expect(liveRegion).toHaveAttribute('aria-live', 'assertive')
 
+    // 같은 라운드에서 매 tick 다시 읽으면 스크린리더가 막힌다.
     rerender(<RoundTimer remainingMs={8_000} roundNumber={3} totalRounds={12} />)
     expect(screen.getAllByText('10초 남았습니다')).toHaveLength(1)
   })

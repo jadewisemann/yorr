@@ -1,5 +1,4 @@
 import * as THREE from 'three'
-import { dsColorReader } from '@/styles/tokenFallbacks'
 import type { PhysicsDiceGeometries, PhysicsDiceMaterials } from './model'
 import type { DieEntry } from './runtimeTypes'
 
@@ -17,21 +16,25 @@ export interface AppearanceResources {
 }
 
 export function syncAppearance(resources: AppearanceResources) {
-  const color = dsColorReader()
-  resources.materials.die.color.set(color('--ds-color-physics-die'))
-  resources.materials.dark.color.set(color('--ds-color-physics-pip'))
-  resources.materials.red.color.set(color('--ds-color-physics-danger'))
-  resources.railMaterial.color.set(color('--ds-color-physics-rail'))
-  resources.railLineMaterial.color.set(color('--ds-color-physics-accent'))
-  resources.bowlInnerMaterial.color.set(color('--ds-color-physics-danger')).multiplyScalar(0.42)
+  const styles = getComputedStyle(document.documentElement)
+  const color = (name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback
+  resources.materials.die.color.set(color('--ds-color-physics-die', '#e7e9df'))
+  resources.materials.dark.color.set(color('--ds-color-physics-pip', '#171b18'))
+  resources.materials.red.color.set(color('--ds-color-physics-danger', '#ff523f'))
+  resources.railMaterial.color.set(color('--ds-color-physics-rail', '#1e2941'))
+  resources.railLineMaterial.color.set(color('--ds-color-physics-accent', '#c6f640'))
+  resources.bowlInnerMaterial.color
+    .set(color('--ds-color-physics-danger', '#ff523f'))
+    .multiplyScalar(0.42)
   resources.ambient.groundColor.set(0x1a1b1e)
   resources.entries.forEach((entry) => {
-    entry.outline.material.color.set(color('--ds-color-physics-accent'))
+    entry.outline.material.color.set(color('--ds-color-physics-accent', '#c6f640'))
   })
   const [occupied, empty] = resources.keepSlotMaterials
   if (occupied instanceof THREE.MeshBasicMaterial)
-    occupied.color.set(color('--ds-color-physics-accent'))
-  if (empty instanceof THREE.MeshBasicMaterial) empty.color.set(color('--ds-color-physics-slot'))
+    occupied.color.set(color('--ds-color-physics-accent', '#c6f640'))
+  if (empty instanceof THREE.MeshBasicMaterial)
+    empty.color.set(color('--ds-color-physics-slot', '#42516e'))
 }
 
 export function disposeAppearance(

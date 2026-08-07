@@ -14,6 +14,10 @@ import type {
 } from '@/yacht/rendering/physics-dice/types'
 import { GamePlay } from '@/yacht/screens/GamePlay'
 
+/**
+ * 센서 굴림은 "흔들기 → 던지기" 두 신호가 서버 왕복과 섞이는 구간이라 순서가 어긋나기 쉽다.
+ * 여기서는 센서 훅을 테스트가 직접 몰아 그 순서 계약과 촉각 피드백을 고정한다.
+ */
 const motion = vi.hoisted(() => ({
   availability: 'listening' as MotionAvailability,
   emit: null as ((event: MotionGestureEvent) => void) | null,
@@ -73,6 +77,7 @@ vi.mock('@/yacht/components/PhysicsDiceScene', () => ({
 
 const { snapshot: _snapshot, ...session } = creatorSession
 
+/** 굴림 요청은 나가지만 서버 브로드캐스트는 테스트가 원하는 시점에 직접 넣는다. */
 function withheldRoll(client: FakeRealtimeClient) {
   const send = client.send.bind(client)
   vi.spyOn(client, 'send').mockImplementation((message) => {
@@ -173,11 +178,13 @@ describe('GamePlay 센서 굴림', () => {
     const { client } = renderGame(withheldRoll(createRealtimeFixture()))
 
     act(() => motion.emit?.({ type: 'shakeStarted', at: 1_000 }))
+    // 아직 서버 주사위가 없어 놓을 대상이 없다 — 던지기를 예약해 둔다.
     act(() => motion.emit?.({ type: 'throwDetected', at: 1_200, confidence: 0.9 }))
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
 
     broadcastRoll(client, [6, 5, 4, 3, 2])
 
+    // 예약을 잃으면 던지는 동작을 한 번 더 해야 굴림이 끝난다.
     expect(screen.getByTestId('dice-scene')).toHaveAttribute(
       'data-release',
       'roll-player-creator-1-1',
@@ -190,6 +197,7 @@ describe('GamePlay 센서 굴림', () => {
     fireEvent.click(screen.getByRole('button', { name: '굴리기' }))
     act(() => motion.emit?.({ type: 'throwDetected', at: 1_200, confidence: 0.9 }))
 
+    // 탭 굴림은 정해진 연출 시간을 따른다 — 센서 신호가 끼어들면 두 연출이 겹친다.
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
   })
 
@@ -209,6 +217,11 @@ describe('GamePlay 센서 굴림', () => {
     motion.availability = 'denied'
     const { rerenderGame, user } = renderGame()
 
+    /*
+     * 첫 진입 코치마크가 떠 있는 동안에는 센서 안내를 띄우지 않는다 — z-30인 센서 안내가
+     * 코치마크(z-6)의 「알겠어요」를 덮어 코치마크를 닫을 수 없었다(S15P11A406-186).
+     * 코치마크를 닫으면 이어서 뜬다: 칩을 눌러야 열리던 때로 돌아가지 않는다(S15P11A406-182).
+     */
     expect(screen.queryByRole('region', { name: '센서 권한 안내' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '알겠어요' }))
 
@@ -219,6 +232,7 @@ describe('GamePlay 센서 굴림', () => {
     expect(screen.queryByRole('region', { name: '센서 권한 안내' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '굴리기' })).toBeEnabled()
 
+    // 닫은 뒤에도 칩으로 다시 부를 수 있다.
     await user.click(screen.getByRole('button', { name: /흔들기/ }))
     expect(screen.getByRole('region', { name: '센서 권한 안내' })).toBeVisible()
   })
@@ -235,6 +249,8 @@ describe('GamePlay 센서 굴림', () => {
   it('족보 연출은 스스로 사라져 다음 조작을 막지 않는다', () => {
     vi.useFakeTimers()
     const { client } = renderGame(withheldRoll(createRealtimeFixture()))
+    // 마운트 시 뜨는 "내 차례!" 콜아웃과 Date.now() 기반 리마운트 key가 같은 밀리초로
+    // 찍히지 않도록 살짝 시간을 흘려보낸다 — 안 그러면 두 콜아웃이 key 충돌을 일으킨다.
     act(() => vi.advanceTimersByTime(10))
 
     fireEvent.click(screen.getByRole('button', { name: '굴리기' }))
