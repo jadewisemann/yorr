@@ -50,8 +50,6 @@ export function resultCameraWidth() {
   return Math.max(SCENE.camera.resultHalfWidth, required)
 }
 
-/** 사발은 흔들던 자리(start)에서 기울어지는 동안 쏟는 위치(pour)까지 미끄러진다 —
- *  쏟으면서 오른쪽으로 빠져나가는 한 호흡의 동작이고, 퇴장 애니메이션이 그대로 이어받는다. */
 export function tiltedBowlPosition(progress: number, angle: number) {
   return {
     x:
@@ -68,27 +66,13 @@ export function tiltedBowlPosition(progress: number, angle: number) {
   }
 }
 
-/** 주사위 한 개가 앉을 자리. 킵 레일 슬롯이거나 결과 줄의 한 칸이다. */
 interface DicePlacement {
-  /** 킵 레일에 앉는지. keepAll이면 킵하지 않은 주사위도 레일로 가므로 항상 true다. */
   onKeepRail: boolean
   position: THREE.Vector3
   scale: number
   slotIndex: number
 }
 
-/**
- * 결과 줄과 킵 레일 중 각 주사위가 갈 자리를 한 번에 계산한다. 세 배치 경로(즉시 배치 ·
- * 킵 토글 전환 · 굴림 후 정렬)가 같은 규칙을 써야 하므로 규칙은 여기 한 곳에만 둔다.
- *
- * `keepAll`이면 킵 여부를 무시하고 다섯 개를 전부 킵 레일에 올린다 — 마지막 굴림 뒤에는
- * 더 굴릴 것이 없으니 남은 주사위도 확정된 것이고, 그 확정을 "레일에 올라간 자리"로 말한다.
- * (S15P11A406-94는 같은 자리에서 다섯 개를 결과 줄에 눕혔다 — 143 QA로 방향을 뒤집었다.)
- *
- * 이미 킵된 주사위는 자기 슬롯을 그대로 지키고 나머지가 뒤 슬롯을 채운다. 여기서 전부
- * 번호순으로 다시 세우면 사용자가 직접 킵해 둔 주사위까지 자리를 옮겨, "그대로 확정됐다"가
- * 아니라 재배치로 읽힌다.
- */
 function planDicePlacements(
   entries: DieEntry[],
   held: PhysicsHeldDice,
@@ -127,7 +111,6 @@ function planDicePlacements(
   )
 }
 
-/** planDicePlacements가 모든 주사위를 담으므로 조회 실패는 없다 — 타입만 좁힌다. */
 function placementOf(placements: Map<number, DicePlacement>, index: number): DicePlacement {
   const placement = placements.get(index)
   if (!placement) throw new Error(`주사위 ${index}의 배치를 계산하지 못했습니다`)
@@ -145,7 +128,6 @@ export function positionKeepSlots(
     slot.position.set(position.x, 0.018, position.z)
     const scale = keepSlotScale()
     slot.scale.set(scale, scale, 1)
-    // 킵된 주사위가 앉은 슬롯의 바만 악센트로 — "킵 = 위치"를 색으로 한 번 더 말한다.
     const bar = slot.children[0]
     if (bar instanceof THREE.Mesh && occupied && empty) {
       bar.material = index < heldCount ? occupied : empty
@@ -251,7 +233,6 @@ export function prepareAlignmentEntries(
       scale: targetScale,
       slotIndex,
     } = placementOf(placements, entry.index)
-    // 같은 눈의 수평 자세로만 정규화해 줄의 높이를 맞춘다.
     const targetQuaternion = quaternionForTopValue(settledDice[entry.index])
     entry.body.setBodyType(RAPIER.RigidBodyType.Fixed, true)
     entry.body.setTranslation(targetPosition, true)

@@ -14,7 +14,6 @@ interface LandingCodeDialogProps {
 
 const DIALOG_LABEL = '초대받은 방에 참가'
 
-/** 화면 폭과 관계없이 같은 팝업으로 여는 코드 입력. */
 export function LandingCodeDialog({
   anchorRef,
   code,
@@ -26,7 +25,6 @@ export function LandingCodeDialog({
 }: LandingCodeDialogProps) {
   const narrow = layout === 'narrow'
   return (
-    // 코드를 입력하러 열었으므로 입력란에서 시작한다.
     <Popover
       anchorRef={anchorRef}
       className={narrow ? 'p-4' : undefined}

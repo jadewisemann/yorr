@@ -23,7 +23,6 @@ vi.mock('@/yacht/rendering/physics-dice/loadWorld', () => ({ prefetchPhysicsDice
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
   useNavigate: () => navigate,
-  // RoomExitGuard의 이탈 차단은 라우터 통합 영역 — 화면 단위 테스트에선 항상 idle로 둔다.
   useBlocker: () => ({ status: 'idle' }),
 }))
 
@@ -42,16 +41,12 @@ describe('LobbyPage', () => {
       }),
     )
     vi.stubGlobal('cancelIdleCallback', vi.fn())
-    // 파티 방 표시는 localStorage에 남는다 — 지우지 않으면 앞 테스트가 뒤 테스트를 컨트롤러로 만든다.
     localStorage.clear()
     useAppStore.getState().reset()
     useAppStore.getState().setRoomSession(creatorSession)
     useAppStore.getState().setConnectionStatus('connected')
   })
 
-  // 파티 QR로 들어온 폰은 초대할 이유가 없다 — QR·링크는 큰 화면이 이미 띄우고 있고,
-  // 그 자리에는 "내가 컨트롤러다"라는 안내가 서야 한다(S15P11A406-205).
-  // 초대가 말풍선으로 바뀐 뒤로는(S15P11A406-203) 초대 입구인 버튼 자체가 없어야 한다.
   it('파티 컨트롤러에게는 초대 입구 대신 연결 안내를 보여준다', () => {
     savePartyRoom(creatorSession.roomCode)
 
@@ -119,7 +114,6 @@ describe('LobbyPage', () => {
     })
   })
 
-  // 서버는 1명부터 허용하는데 화면만 2명을 요구하던 버그(S15P11A406-91)를 고정한다.
   it('lets the host start alone', async () => {
     const user = userEvent.setup()
     useAppStore.getState().replaceRoomSnapshot({ ...waitingRoomSnapshot, players: [creatorPlayer] })
@@ -163,8 +157,6 @@ describe('LobbyPage', () => {
     expect(screen.queryByRole('button', { name: '봇 추가' })).not.toBeInTheDocument()
   })
 
-  // 초대 카드가 세로를 다 먹어 말풍선으로 옮겼다(S15P11A406-203) — QR·코드·복사는 대기실에
-  // 상주하지 않고 초대 버튼 뒤에 있다.
   it('초대 팝업을 열기 전에는 QR과 방 코드를 화면에 두지 않는다', async () => {
     const user = userEvent.setup()
     render(<LobbyPage roomId={creatorSession.roomId} />)

@@ -3,7 +3,6 @@ import { hideTutorial, isTutorialHidden } from '@/yacht/tutorialPreference'
 
 describe('tutorialPreference', () => {
   beforeEach(() => {
-    // jsdom 쿠키는 테스트 간에 남는다 — 만료로 지워 초기 상태를 보장한다.
     // biome-ignore lint/suspicious/noDocumentCookie: 구현이 document.cookie를 쓰므로 테스트도 같은 표면을 조작한다
     document.cookie = 'yorr.tutorial-hidden=; max-age=0; path=/'
   })

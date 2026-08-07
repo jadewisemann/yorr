@@ -5,11 +5,6 @@ import { AccountDialog } from '@/auth/components/AccountDialog'
 import { API_BASE_URL } from '@/shared/api/client'
 import { resetAppTestState } from '@/test/harness'
 
-/**
- * 제공자 버튼은 fetch가 아니라 전체 페이지 이동이라 jsdom에서 그대로 두면
- * "Not implemented: navigation"만 남고 어디로 보냈는지 검증할 수 없다. assign을 갈아
- * 목적지를 받아 본다.
- */
 function stubNavigation() {
   const assign = vi.fn()
   vi.stubGlobal('location', { ...globalThis.location, assign })
@@ -67,11 +62,9 @@ describe('닉네임 편집', () => {
     await user.clear(screen.getByLabelText('닉네임'))
     await user.click(screen.getByRole('button', { name: '저장' }))
 
-    // 문구가 방 입장 화면과 같다 — 검증이 getNicknameError 한 곳으로 모였다.
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '닉네임을 한 글자 이상 입력해 주세요.',
     )
-    // 편집 화면에 머문다 — 고칠 기회를 빼앗지 않는다.
     expect(screen.getByLabelText('닉네임')).toBeInTheDocument()
   })
 
@@ -80,7 +73,6 @@ describe('닉네임 편집', () => {
 
     await user.click(screen.getByRole('button', { name: '저장' }))
 
-    // MSW가 onUnhandledRequest: 'error'라, 요청이 나갔다면 이 테스트가 먼저 터진다.
     expect(await screen.findByRole('button', { name: '프로필 관리' })).toBeInTheDocument()
   })
 })

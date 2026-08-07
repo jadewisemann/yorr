@@ -59,7 +59,6 @@ export function containDiceInBowl(
   })
 }
 
-/** DieEntry의 부분 shape — 예측용 복제 월드의 바디에도 같은 보정을 적용하기 위한 최소 단위. */
 export interface TrayOccupant {
   body: RAPIER.RigidBody
   enteredTray: boolean
