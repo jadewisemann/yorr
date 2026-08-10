@@ -83,7 +83,6 @@ describe('PhysicsDiceFallback', () => {
     vi.restoreAllMocks()
   })
 
-  // 같은 굴림이 새 객체로 다시 들어오면 effect가 다시 돌아 프레임이 한 번 더 예약된다.
   it('같은 굴림이 새 객체로 들어와도 완료는 한 번만 알린다', () => {
     const onRollComplete = vi.fn()
     const frameCallbacks: FrameRequestCallback[] = []
@@ -193,7 +192,6 @@ describe('PhysicsDiceFallback', () => {
       />,
     )
 
-    // 이미 킵된 주사위는 해제 동작임을 이름으로 구분한다.
     const keep = screen.getByRole('button', { name: '1 주사위 KEEP' })
     const release = screen.getByRole('button', { name: '2 주사위 KEEP 해제' })
     expect(keep).toHaveAttribute('aria-pressed', 'false')
@@ -203,7 +201,6 @@ describe('PhysicsDiceFallback', () => {
     expect(onHeldToggle).toHaveBeenCalledWith(0)
   })
 
-  // 굴러가는 중에 KEEP을 바꾸면 서버 결과와 화면이 어긋난다.
   it('굴리는 중에는 KEEP을 바꿀 수 없다', () => {
     render(
       <PhysicsDiceFallback

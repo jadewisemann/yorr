@@ -14,7 +14,6 @@ describe('Button', () => {
     expect(onClick).toHaveBeenCalledTimes(1)
   })
 
-  // 스피너는 aria-hidden이라, 진행 중임을 알리는 유일한 신호가 aria-busy다.
   it('loading 동안 진행 상태를 알리고 중복 제출을 막는다', async () => {
     const onClick = vi.fn()
     const user = userEvent.setup()

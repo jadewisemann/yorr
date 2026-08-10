@@ -6,7 +6,6 @@ import { createInviteUrl, InvitePopover } from '@/room/components/InvitePopover'
 
 const { qrState } = vi.hoisted(() => ({ qrState: { fail: false } }))
 
-// QR 생성기가 터졌을 때의 대비 문구를 검증하려면 렌더에서 예외를 낼 수 있어야 한다.
 vi.mock('qrcode.react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('qrcode.react')>()
   return {
@@ -69,8 +68,6 @@ describe('InvitePopover', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('초대 링크를 복사했어요.')
   })
 
-  // 팝오버가 닫혀도 이 컴포넌트는 대기실에 살아 있다 — 지난 결과를 지우지 않으면 다시 열었을 때
-  // 방금 누른 결과처럼 읽힌다.
   it('닫으면 지난 복사 결과 문구를 지운다', async () => {
     const user = userEvent.setup()
     stubClipboard(vi.fn().mockResolvedValue(undefined))
@@ -89,7 +86,6 @@ describe('InvitePopover', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  // 자동 복사는 권한·브라우저 사정으로 흔히 막힌다 — 그때 직접 복사할 길을 안내해야 한다.
   it('복사가 막히면 직접 복사하도록 안내한다', async () => {
     const user = userEvent.setup()
     stubClipboard(vi.fn().mockRejectedValue(new Error('denied')))
@@ -124,7 +120,6 @@ describe('InvitePopover', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  // 공유 시트를 사용자가 스스로 닫은 것은 실패가 아니다 — 오류 문구를 띄우면 안 된다.
   it('사용자가 공유를 취소하면 아무 문구도 남기지 않는다', async () => {
     stubShare(vi.fn().mockRejectedValue(new DOMException('cancelled', 'AbortError')))
     const user = userEvent.setup()
@@ -147,7 +142,6 @@ describe('InvitePopover', () => {
     )
   })
 
-  // QR이 깨져도 방 코드·링크로 초대할 수 있어야 한다.
   it('QR 생성이 실패해도 방 코드와 링크는 남는다', () => {
     qrState.fail = true
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)

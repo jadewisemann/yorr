@@ -59,7 +59,6 @@ describe('킵 슬롯 배치', () => {
       expect(position.z).toBeCloseTo(SCENE.tray.slotZ, 6)
       expect(position.y).toBeGreaterThan(0)
     })
-    // 킵 레일은 롤링 존을 나누는 분리선 아래(+z)에 있어야 한다.
     expect(SCENE.tray.slotZ).toBeGreaterThan(SCENE.tray.separatorZ)
   })
 
@@ -71,7 +70,6 @@ describe('킵 슬롯 배치', () => {
 
   it('킵해도 주사위 크기가 그대로다 — 결과 줄과 킵 레일의 배율이 같다', () => {
     expect(keepSlotScale()).toBeCloseTo(resultDieScale(), 6)
-    // 사발 안에서만 작게 굴린다.
     expect(simulationDieScale()).toBeLessThan(resultDieScale())
   })
 
@@ -179,7 +177,6 @@ describe('lineUpDice', () => {
     const { entries, world } = setup()
     const held: PhysicsHeldDice = [false, false, true, false, false]
 
-    // heldOrder가 비어 있는(순서 추적 실패) 상황
     lineUpDice(entries, held, [], DICE)
 
     expect(entries[2]?.mesh.position.x).toBeCloseTo(keepSlotPosition(0).x, 6)
@@ -193,13 +190,11 @@ describe('lineUpDice', () => {
 
     lineUpDice(entries, held, heldOrder, DICE, true)
 
-    // 3·1은 킵한 순서 그대로 슬롯 0·1, 나머지는 번호순으로 뒤를 채운다.
     const expectedSlotOf = [2, 1, 3, 0, 4]
     entries.forEach((entry) => {
       const slot = expectedSlotOf[entry.index] ?? -1
       expect(entry.mesh.position.x).toBeCloseTo(keepSlotPosition(slot).x, 6)
       expect(entry.mesh.position.z).toBeCloseTo(SCENE.tray.slotZ, 6)
-      // 결과 줄로 새는 주사위가 하나라도 있으면 "전부 킵"이 아니다.
       expect(entry.mesh.position.z).not.toBeCloseTo(SCENE.tray.resultRowZ, 6)
       expect(entry.outline.material.opacity).toBeGreaterThan(0.5)
     })
@@ -216,7 +211,6 @@ describe('킵 전환 애니메이션', () => {
 
     const layout = prepareLayoutEntries(entries, held, [2], DICE)
 
-    // 준비 단계에서 바디는 이미 목표에 있다 — 물리와 화면이 따로 움직이는 구간이다.
     expect(entries[2]?.body.translation().x).toBeCloseTo(keepSlotPosition(0).x, 5)
     updateLayoutEntries(layout, 0)
     entries.forEach((entry, index) => {
@@ -280,7 +274,6 @@ describe('결과 정렬 애니메이션', () => {
     entries.forEach((entry) => {
       entry.mesh.position.set(0, 0.5, -1.8)
     })
-    // 킵된 주사위는 이미 슬롯 높이에 있으므로, 떠오르지 않는다면 y가 그대로여야 한다.
     entries[4]?.mesh.position.setY(keepSlotPosition(0).y)
 
     const alignment = prepareAlignmentEntries(entries, held, [4], DICE)

@@ -30,8 +30,6 @@ export interface RestHandlerOptions {
 export function createRestHandlers(options: RestHandlerOptions = {}) {
   const scenario = options.scenario ?? 'success'
   let nextBotNumber = 1
-  // mock에는 상대가 없으므로 조회 횟수로 대기 → 매칭 → 시작을 흉내낸다. 한 번은 WAITING을
-  // 돌려줘야 백드롭과 취소 버튼이 실제로 보인다.
   let quickMatchPolls = 0
 
   async function beforeResponse() {
@@ -48,8 +46,6 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
   }
 
   return [
-    // 로그인 코드 교환. mock에서는 카카오까지 갈 수 없으므로, 콜백이 넘긴 코드를 그대로
-    // 받아 고정 회원을 돌려준다 — 프론트의 교환·저장·표시 경로만 검증하기 위한 최소 구현이다.
     http.post('/api/v1/auth/session', async ({ request }) => {
       await beforeResponse()
       const body = (await request.json()) as { code?: string }
@@ -83,7 +79,6 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
     http.post('/api/v1/rooms', async ({ request }) => {
       await beforeResponse()
       const body = (await request.json()) as EnterRoomRequest
-      // ?party=true = 파티 모드 방 열기. 이 세션은 대시보드가 되고 플레이어 명단에 들어가지 않는다.
       const search = new URL(request.url).searchParams
       const party = search.get('party') === 'true'
       const requestedGameCode = mockGameCode(search.get('game_code'))
@@ -99,9 +94,6 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
         unavailable() ?? HttpResponse.json(toEnterRoomResponse(session, body.nickname, gameCode))
       )
     }),
-    // 빠른 대전. 실서버는 두 사용자를 짝지어 주지만 mock은 혼자이므로, 두 번째 조회에서
-    // 매칭이 잡히고 그다음 조회에서 게임이 시작된 것으로 둔다. 방은 기존 mock 방(YORR64)이라
-    // 매칭 이후 대기실·게임 화면이 그대로 이어진다.
     http.post('/api/v1/quick-matches', async ({ request }) => {
       await beforeResponse()
       const failure = quickMatchUnauthorized(request) ?? unavailable()
@@ -139,7 +131,6 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       if (params.gameId !== 'mock-game-id') {
         return HttpResponse.json({ code: 'GAME_NOT_FOUND' }, { status: 404 })
       }
-      // 진행 중이던 방 상태가 있으면 그걸 돌려준다 — 점수판이 기록과 같이 간다.
       const stored = loadMockRoomSnapshot()
       return (
         unavailable() ??
@@ -155,7 +146,6 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       }
       const failure = unavailable()
       if (failure) return failure
-      // 게임 시작을 방 상태로 기억한다 — 이후 WS room.join(재접속)이 이 상태를 돌려준다.
       const snapshot = createPlayingRoomSnapshot(Date.now() + MOCK_ROUND_DURATION_MS)
       saveMockRoomSnapshot(snapshot)
       return HttpResponse.json({
@@ -211,7 +201,6 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       }
       const failure = unavailable()
       if (failure) return failure
-      // 대기실 복귀 = 방이 다시 대기 상태다. 기억을 지우면 room.join 기본값(대기 중)과 같다.
       clearMockRoomSnapshot()
       return new HttpResponse(null, { status: 204 })
     }),
@@ -233,9 +222,6 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       clearMockRoomSnapshot()
       return new HttpResponse(null, { status: 204 })
     }),
-    // 주간 랭킹. 띠는 5명(BAND_COUNT)까지 세우고 나머지는 드롭다운이 받으므로, 그 둘이 갈리는
-    // 것을 보려면 5명보다 길어야 한다. 동점(2위 둘)을 섞어 순위 번호가 건너뛰는 것까지 mock에서
-    // 눈으로 확인한다.
     http.get('/api/v1/rankings/weekly', async ({ request }) => {
       await beforeResponse()
       const failure = unavailable()
@@ -248,8 +234,6 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
         entries: mockWeeklyRanking.slice(0, Math.max(0, limit)),
       })
     }),
-    // 내 순위. mock의 고정 회원은 상위 목록에 <b>일부러 넣지 않았다</b> — "10위 밖이면 내 줄을
-    // 따로 잇는다"가 이 화면의 미묘한 부분이라, mock에서 그 경로가 기본으로 보여야 한다.
     http.get('/api/v1/rankings/weekly/me', async ({ request }) => {
       await beforeResponse()
       if (!request.headers.get('Authorization')?.startsWith('Bearer ')) {
@@ -262,7 +246,6 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
   ]
 }
 
-/** mock의 "이번 주" 월요일. 값 자체는 화면 표기에 쓰이지 않지만 계약을 채운다. */
 const MOCK_WEEK_START = '2026-08-03'
 
 const mockWeeklyRanking = [
@@ -287,15 +270,12 @@ function toRestRoomSnapshot(snapshot: typeof waitingRoomSnapshot) {
       score: 0,
       kind: player.kind ?? 'HUMAN',
     })),
-    // 실서버는 round.start(WS)로 턴을 알리지만 mock WS는 서버 주도 push가 없다.
-    // REST 스냅샷에 game을 실어 mock 환경에서도 "내 턴"이 성립하게 한다.
     game: snapshot.game
       ? { ...snapshot.game, roundDeadline: Date.now() + MOCK_ROUND_DURATION_MS }
       : null,
   }
 }
 
-/** 대시보드는 닉네임을 보내지 않는다 — 실서버처럼 mock도 그때는 세션의 이름을 돌려준다. */
 function toEnterRoomResponse(
   session: RoomSession,
   nickname: string | undefined,
@@ -310,7 +290,6 @@ function toEnterRoomResponse(
   }
 }
 
-/** 빠른 대전은 회원 세션 전용이다 — 실서버처럼 헤더가 없으면 평문 401로 거절한다. */
 function quickMatchUnauthorized(request: Request) {
   const authorized =
     request.headers.get('Authorization')?.startsWith('Bearer ') &&

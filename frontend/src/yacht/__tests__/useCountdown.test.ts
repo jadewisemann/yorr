@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { formatCountdown, useCountdown } from '@/yacht/useCountdown'
+import { formatCountdown, useCountdown } from '@/yacht/model/useCountdown'
 
 describe('formatCountdown', () => {
   it('formats as minutes and zero-padded seconds', () => {
@@ -19,7 +19,6 @@ describe('formatCountdown', () => {
 })
 
 describe('useCountdown', () => {
-  // 남은 시간은 Date.now()로 계산한다. 타이머와 시계를 함께 움직여야 값이 바뀐다.
   let now = 0
 
   beforeEach(() => {

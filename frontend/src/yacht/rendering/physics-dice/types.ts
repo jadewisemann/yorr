@@ -13,7 +13,6 @@ export type PhysicsDiceIndex = 0 | 1 | 2 | 3 | 4
 export type PhysicsDiceQuality = 'eco' | 'balanced' | 'high'
 export type PhysicsDicePhase = 'idle' | 'shaking' | 'pouring' | 'aligning'
 
-/** 기기 흔들림 한 번(가속도 피크)을 씬으로 전달하는 값. id가 바뀔 때만 새 펄스로 처리한다. */
 export interface PhysicsDiceMotionPulse {
   id: number
   direction: 'left' | 'right'
