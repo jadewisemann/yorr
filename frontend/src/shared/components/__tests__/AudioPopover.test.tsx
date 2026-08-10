@@ -2,12 +2,6 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { AudioPopover } from '../AudioPopover'
 
-/**
- * 전체 음소거 중에 슬라이더가 "이만큼 들린다"로 읽히던 문제(50%에 손잡이가 있고 트랙이
- * 브랜드 색으로 차 있었다). 값을 0으로 덮어쓰지 않고 — 켰을 때 돌아갈 값이므로 —
- * 흐리게 + 조작 불가 + "음소거" 표기로 말한다.
- */
-
 function renderPopover(muted: boolean) {
   render(<AudioPopover muted={muted} onClose={vi.fn()} onToggleMute={vi.fn()} open={true} />)
 }
@@ -21,7 +15,6 @@ describe('AudioPopover', () => {
       expect(slider).toBeDisabled()
       expect(slider).toHaveAttribute('aria-valuetext', '음소거')
     }
-    // 퍼센트 표기가 남아 있으면 "지금 그 크기로 들린다"로 읽힌다.
     expect(screen.queryByText(/%$/)).not.toBeInTheDocument()
     expect(screen.getAllByText('음소거')).toHaveLength(2)
   })
