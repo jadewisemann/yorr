@@ -21,7 +21,6 @@ describe('MotionPermissionPanel', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  // denied·error·insecure는 되돌릴 수 없는 상태라, 닫지 못하면 주사위 화면을 영구히 가린다.
   it('lets the player dismiss a terminal notice', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
@@ -39,7 +38,6 @@ describe('MotionPermissionPanel', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  // 센서값을 서버로 보내지 않는다는 점은 권한을 누르기 전에 읽혀야 한다.
   it('권한을 요청하기 전에 센서 사용 범위를 밝힌다', () => {
     render(
       <MotionPermissionPanel
@@ -71,7 +69,6 @@ describe('MotionPermissionPanel', () => {
     expect(onRequestPermission).toHaveBeenCalledTimes(1)
   })
 
-  // 권한 창이 떠 있는 동안 다시 누르면 요청이 겹친다.
   it('권한 확인 중에는 다시 요청할 수 없다', async () => {
     const user = userEvent.setup()
     const onRequestPermission = vi.fn().mockResolvedValue(undefined)
@@ -91,7 +88,6 @@ describe('MotionPermissionPanel', () => {
     expect(onRequestPermission).not.toHaveBeenCalled()
   })
 
-  // 되돌릴 수 없는 상태에서 "다시 시도" 버튼을 남기면 눌러도 아무 일이 없다.
   it('되돌릴 수 없는 상태에서는 다음 할 일만 안내하고 요청 버튼을 감춘다', () => {
     const { rerender } = render(
       <MotionPermissionPanel

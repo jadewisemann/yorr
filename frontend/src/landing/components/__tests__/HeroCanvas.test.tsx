@@ -27,7 +27,6 @@ vi.mock('@/landing/rendering/heroScene', () => ({
   },
 }))
 
-/** WebGL을 지원하는 브라우저를 흉내낸다 — jsdom에는 WebGL 컨텍스트가 아예 없다. */
 function allowWebGL(context: unknown = {}) {
   vi.stubGlobal('WebGLRenderingContext', class {})
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
@@ -152,8 +151,6 @@ describe('HeroCanvas', () => {
       ] satisfies GameKey[])
     })
 
-    // inert는 입력만 막고 렌더링은 멈추지 않는다 — 시트가 덮은 동안 3D가 계속 돌면
-    // 코드를 입력하는 순간(키보드가 올라온 때) 보이지도 않는 씬이 열 예산을 먹는다.
     it('다이얼로그가 뒤 화면에 inert를 걸면 루프를 멈추고, 풀리면 다시 돈다', async () => {
       allowWebGL()
       const background = document.createElement('main')
@@ -176,13 +173,11 @@ describe('HeroCanvas', () => {
       allowWebGL()
       const view = render(<HeroCanvas game="yacht" />)
 
-      // 아직 동적 import가 해결되지 않은 시점에 탭이 바뀌는 상황.
       expect(scenes).toHaveLength(0)
       view.rerender(<HeroCanvas game="pingpong" />)
 
       await waitFor(() => expect(scenes).toHaveLength(1))
       expect(scenes[0]?.options.game).toBe('pingpong')
-      // 이미 최신 game으로 만들었으니 굳이 교체를 다시 요청하지 않는다.
       expect(scenes[0]?.setGame).not.toHaveBeenCalled()
     })
 

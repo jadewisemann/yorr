@@ -40,11 +40,6 @@ describe('useMotionRollInput', () => {
     expect(result.current.inputMode).toBe('tap')
   })
 
-  /**
-   * 파티 모드 대시보드(턴을 가질 수 없는 화면)에서 센서를 켜지 않기 위한 스위치다.
-   * 센서를 지원하는 기기에서도 권한을 묻지 않아야 하므로 DeviceMotionEvent를 심어 두고 본다 —
-   * 여기서 permissionRequired가 나오면 TV·모니터가 모션 권한을 묻는다는 뜻이다.
-   */
   it('enabled=false면 센서를 시작하지 않는다', () => {
     installDeviceMotionEvent()
 

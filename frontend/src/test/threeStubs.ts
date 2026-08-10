@@ -1,11 +1,6 @@
 import type * as THREE from 'three'
 import { vi } from 'vitest'
 
-/**
- * jsdom에는 WebGL 컨텍스트가 없어 `new THREE.WebGLRenderer()`가 만들어지지 않는다.
- * 이 대역은 렌더러가 "무엇을 요구받았는지"(픽셀 비율·크기·그림자·render 호출)만 기록해서
- * 장면 구성·카메라·물리 코드를 실제로 돌릴 수 있게 한다.
- */
 export class FakeWebGLRenderer {
   static instances: FakeWebGLRenderer[] = []
 
@@ -28,7 +23,6 @@ export class FakeWebGLRenderer {
   constructor(parameters: THREE.WebGLRendererParameters = {}) {
     this.parameters = parameters
     FakeWebGLRenderer.instances.push(this)
-    // pickDie가 포인터 좌표를 NDC로 바꿀 때 캔버스 사각형이 필요하다.
     this.domElement.getBoundingClientRect = () =>
       ({
         bottom: this.height,
@@ -69,7 +63,6 @@ export class FakeWebGLRenderer {
   }
 
   render(scene: unknown, camera: unknown) {
-    // 실제 WebGLRenderer가 렌더 직전에 하는 일 — 이걸 빼면 레이캐스팅이 옛 행렬을 본다.
     asObject3D(camera)?.updateMatrixWorld(true)
     asObject3D(scene)?.updateMatrixWorld(true)
     this.renders.push({ camera, scene })
@@ -91,13 +84,11 @@ function asObject3D(value: unknown): { updateMatrixWorld: (force?: boolean) => v
     : null
 }
 
-/** `vi.mock('three', threeWithFakeRenderer)` 형태로 쓴다 — WebGLRenderer만 대역으로 바꾼다. */
 export async function threeWithFakeRenderer(importOriginal: () => Promise<unknown>) {
   const actual = (await importOriginal()) as typeof THREE
   return { ...actual, WebGLRenderer: FakeWebGLRenderer }
 }
 
-/** ResizeObserver 대역 — jsdom에 없고, 테스트가 리사이즈 순간을 직접 지정해야 한다. */
 export class FakeResizeObserver {
   static instances: FakeResizeObserver[] = []
 
@@ -111,7 +102,6 @@ export class FakeResizeObserver {
     FakeResizeObserver.instances = []
   }
 
-  /** 관찰 중인 모든 observer에 리사이즈 통지를 보낸다. */
   static emitAll() {
     for (const observer of FakeResizeObserver.instances) observer.callback()
   }
@@ -127,7 +117,6 @@ export class FakeResizeObserver {
   }
 }
 
-/** clientWidth/clientHeight를 실제로 보고하는 컨테이너 — jsdom 기본값은 항상 0이다. */
 export function createSizedContainer(width: number, height: number) {
   const container = document.createElement('div')
   const size = { height, width }
@@ -143,7 +132,6 @@ export function createSizedContainer(width: number, height: number) {
   }
 }
 
-/** CanvasRenderingContext2D 대역 — jsdom은 getContext('2d')로 null을 준다. */
 export function stubCanvas2dContext() {
   const calls: string[] = []
   const context = {

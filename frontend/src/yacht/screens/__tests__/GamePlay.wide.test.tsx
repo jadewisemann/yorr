@@ -14,10 +14,6 @@ import type { MotionAvailability, MotionGestureState } from '@/yacht/input/motio
 import type { PhysicsDiceRollRequest, PhysicsDiceSet } from '@/yacht/rendering/physics-dice/types'
 import { GamePlay } from '@/yacht/screens/GamePlay'
 
-/**
- * 데스크톱 레이아웃(1024px 이상)에서만 존재하는 조작 — 키보드 단축키, '모두 해제',
- * 상시 점수 패널, 헤더 요약 — 의 사용자 관찰 가능한 결과를 고정한다.
- */
 const WIDE_QUERY = '(min-width: 1024px)'
 
 const motion = vi.hoisted(() => ({
@@ -104,12 +100,10 @@ describe('GamePlay 데스크톱 레이아웃', () => {
   it('점수표를 시트 대신 상시 패널로 두고 굴리기 CTA에 단축키를 병기한다', () => {
     renderWideGame()
 
-    // 표 자체가 섹션이다 — 헤더를 안으로 주입하므로 바깥에 감싸는 region이 따로 없다.
     const panel = screen.getByRole('region', { name: '플레이어별 점수표' })
     expect(panel).toBeVisible()
     expect(within(panel).getByRole('heading', { name: '점수표' })).toBeVisible()
     expect(screen.getByRole('button', { name: /^굴리기/ })).toHaveTextContent('Space')
-    // 시트를 여닫는 토글은 모바일 전용이다 — 넓은 화면엔 접을 것이 없다.
     expect(screen.queryByRole('button', { name: /접기|펼치기/ })).not.toBeInTheDocument()
   })
 
@@ -136,7 +130,6 @@ describe('GamePlay 데스크톱 레이아웃', () => {
     screen.getByRole('button', { name: /^굴리기/ }).focus()
     await user.keyboard('1')
 
-    // 버튼·입력에 포커스가 있으면 그 요소의 키 처리가 우선이다.
     expect(screen.getByText('킵 레일 · 비어 있음')).toBeVisible()
   })
 
@@ -185,7 +178,6 @@ describe('GamePlay 데스크톱 레이아웃', () => {
     renderWideGame(createPlayingRoomSnapshot(Date.now() + 30_000), 'reconnecting')
 
     expect(screen.getByText('재연결 중')).toBeVisible()
-    // 서버 상태와 어긋난 굴림이 가장 위험하다 — 재연결 중에는 CTA를 잠근다.
     expect(screen.getByRole('button', { name: /^굴리기/ })).toBeDisabled()
   })
 })

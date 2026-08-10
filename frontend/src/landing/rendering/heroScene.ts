@@ -1,16 +1,9 @@
 import * as THREE from 'three'
 import type { GameKey } from '@/games'
+import { dsColorReader } from '@/styles/tokenFallbacks'
 
-/**
- * 랜딩 히어로 3D 장면. 디자인 핸드오프의 `hero3d.js`(custom element)를 옮긴 것으로,
- * 장면 구성·조명·모션 값은 그대로 두고 React에서 다루기 쉬운 클래스 형태로만 바꿨다.
- *
- * 의도적으로 평평하게(flat) 보이도록 만든 장면이다 — 20mm 망원 화각, Lambert 재질,
- * 스페큘러 없음. "3D 렌더" 티가 나면 디자인 의도에서 벗어난다.
- */
 export type { GameKey }
 
-/** 히어로 장면 목표 프레임(30fps). 장식용 장면에 60/120Hz를 다 쓰지 않는다. */
 const MIN_FRAME_S = 1 / 30
 
 const IVORY = 0xf4f1e8
@@ -54,7 +47,6 @@ const PIP_LAYOUT: Record<PipCount, [number, number][]> = {
   ],
 }
 
-/** BoxGeometry의 면 순서(+x, -x, +y, -y, +z, -z)에 맞춘 눈 수. */
 const FACE_ORDER: PipCount[] = [1, 6, 2, 5, 3, 4]
 
 interface SpinBob {
@@ -69,9 +61,10 @@ function pipTexture(pips: PipCount) {
   canvas.height = size
   const context = canvas.getContext('2d')
   if (!context) throw new Error('주사위 텍스처를 그릴 수 없습니다.')
-  context.fillStyle = '#f4f1e8'
+  const color = dsColorReader()
+  context.fillStyle = color('--ds-color-physics-die')
   context.fillRect(0, 0, size, size)
-  context.fillStyle = '#0b0b0c'
+  context.fillStyle = color('--ds-color-physics-pip')
   for (const [x, y] of PIP_LAYOUT[pips]) {
     context.beginPath()
     context.arc(x * size, y * size, size * 0.075, 0, Math.PI * 2)
@@ -105,17 +98,14 @@ export class HeroScene {
   private readonly resizeObserver: ResizeObserver
 
   private object: THREE.Group | null = null
-  /** 오브젝트 교체 시 재생되는 rise-in 진행도 (0 → 1). */
   private entrance = 0
   private parallaxX = 0
   private parallaxY = 0
   private targetX = 0
   private targetY = 0
   private destroyed = false
-  /** 다이얼로그가 씬을 덮고 있는 동안 true. visibilitychange와 별개의 신호다. */
   private paused = false
   private sinceRender = 0
-  /** 크기별 주사위 지오메트리. 게임 교체 사이에 살아남는다 — destroy에서만 버린다. */
   private readonly dieGeometries = new Map<number, THREE.BoxGeometry>()
 
   constructor({ container, game, reducedMotion }: HeroSceneOptions) {
@@ -123,14 +113,10 @@ export class HeroScene {
     this.reducedMotion =
       reducedMotion ?? window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-    // 세로 화면(=대부분 모바일)에서는 MSAA를 끈다. 장면이 평평한 큰 면 위주라
-    // 셰이더단 앤티에일리어싱이 결정적이지 않은 반면, resolve 비용은 매 프레임 든다.
     const portrait = window.innerHeight > window.innerWidth
     this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: !portrait })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.shadowMap.enabled = true
-    // 접지 그림자는 opacity 0.12짜리 보조 요소다 — 512 + PCF면 육안상 차이가 없고
-    // 매 프레임 도는 depth pass 비용은 1024 + PCFSoft 대비 크게 줄어든다.
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     const canvas = this.renderer.domElement
     canvas.setAttribute('aria-hidden', 'true')
@@ -178,11 +164,6 @@ export class HeroScene {
     this.startLoop()
   }
 
-  /**
-   * 씬이 보이지 않는 동안 루프를 멈춘다. 다이얼로그가 화면을 덮어도 `inert`는 렌더링을
-   * 멈추지 않으므로, 스크림 뒤에서 그림자 depth pass까지 계속 도는 것을 막는다.
-   * 탭 전환(visibilitychange)과 신호가 둘이라 둘 다 반영해 다시 계산한다.
-   */
   setPaused(paused: boolean) {
     if (this.destroyed || this.reducedMotion || this.paused === paused) return
     this.paused = paused
@@ -195,7 +176,6 @@ export class HeroScene {
     this.object = this.build(game)
     this.object.scale.setScalar(0.001)
     this.stage.add(this.object)
-    // 모션 감소 설정에서는 등장 애니메이션 없이 완성된 프레임 한 장만 보여준다.
     this.entrance = this.reducedMotion ? 1 : 0
     if (this.reducedMotion) {
       this.applyEntrance()
@@ -229,7 +209,6 @@ export class HeroScene {
   }
 
   private startLoop() {
-    // 정적 프레임이면 애니메이션 루프를 돌릴 이유가 없다 — resize·게임 교체 때만 다시 그린다.
     if (this.reducedMotion) {
       this.renderFrame()
       return
@@ -242,13 +221,11 @@ export class HeroScene {
     this.syncLoop()
   }
 
-  /** 멈출 이유(탭 숨김 · 다이얼로그)가 하나라도 있으면 멈추고, 없으면 다시 돈다. */
   private syncLoop() {
     if (this.paused || document.hidden) {
       this.renderer.setAnimationLoop(null)
       return
     }
-    // 멈춰 있던 동안 쌓인 delta를 버려야 재개 첫 프레임이 튀지 않는다.
     this.clock.getDelta()
     this.sinceRender = 0
     this.renderer.setAnimationLoop(this.tick)
@@ -274,8 +251,6 @@ export class HeroScene {
   }
 
   private readonly tick = () => {
-    // 동작이 느린 sin 흔들림·회전뿐이라 30fps에서 60fps와 구분되지 않는다.
-    // 120Hz 단말에서 그대로 돌리면 장식용 장면이 게임에 쓸 열 예산을 먼저 태운다.
     this.sinceRender += this.clock.getDelta()
     if (this.sinceRender < MIN_FRAME_S) return
     const delta = Math.min(this.sinceRender, 0.05)
@@ -320,7 +295,6 @@ export class HeroScene {
     const shared = new Set<THREE.BufferGeometry>(this.dieGeometries.values())
     object.traverse((node) => {
       if (!(node instanceof THREE.Mesh)) return
-      // 주사위 지오메트리·재질은 장면 전체가 공유한다 — 게임을 바꿀 때 버리면 안 된다.
       if (!shared.has(node.geometry)) node.geometry.dispose()
       for (const material of materialsOf(node)) {
         if (!this.diceMaterials.includes(material as THREE.MeshLambertMaterial)) material.dispose()
@@ -330,8 +304,6 @@ export class HeroScene {
   }
 
   private die(size: number) {
-    // 평면 셰이딩 큐브라 세분할이 아무것도 사지 않는다(4×4×4 = 192삼각형 → 12삼각형).
-    // 같은 크기는 지오메트리를 공유해 게임을 바꿀 때마다 다시 업로드하지 않는다.
     let geometry = this.dieGeometries.get(size)
     if (!geometry) {
       geometry = new THREE.BoxGeometry(size, size, size)
@@ -402,7 +374,6 @@ export class HeroScene {
 
   private buildDuel() {
     const group = new THREE.Group()
-    // 6연발 실린더 — 총을 그리지 않고도 '석양이 진다'가 읽히게 하는 모티프다.
     const drum = new THREE.Group()
     const body = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 0.72, 48), lambert(SLATE))
     body.castShadow = true

@@ -47,8 +47,6 @@ const NO_HELD: PhysicsHeldDice = [false, false, false, false, false]
 const INITIAL_DICE: PhysicsDiceSet = [1, 2, 3, 4, 5]
 let rapierReady: Promise<typeof RAPIER> | undefined
 
-/** 이 폭 이하의 컨테이너 크기 변화는 "3D 조정 중" 멈춤 없이 즉시 반영한다.
- *  배너·힌트 같은 UI 등장이 만드는 수십 px 변화까지 매번 멈추면 게임이 자꾸 끊긴다. */
 const RESIZE_SETTLE_THRESHOLD_PX = 120
 
 export class PhysicsDiceWorld {
@@ -252,11 +250,6 @@ export class PhysicsDiceWorld {
     this.invalidate()
   }
 
-  /**
-   * 킵하지 않은 주사위까지 킵 레일에 함께 올릴지. 마지막 굴림이 시작되는 순간 켜고, 그 굴림의
-   * 정렬과 이후 idle 배치가 같은 규칙을 쓰게 한다 — 정렬 직후 다시 결과 줄로 내려가면 안 된다.
-   * 굴리는 중(idle이 아닐 때)에는 값만 갈아두고, 진행 중인 애니메이션은 건드리지 않는다.
-   */
   setKeepAll(enabled: boolean) {
     if (this.keepAll === enabled) return
     this.keepAll = enabled
@@ -269,10 +262,6 @@ export class PhysicsDiceWorld {
     this.motionFollow = enabled
   }
 
-  /**
-   * 실제 기기 흔들림 펄스 주입 — follow 모드에서 사발 진동 세기의 유일한 에너지원.
-   * 펄스가 끊기면 세기가 지수 감쇠해 사발과 주사위가 저절로 잦아든다.
-   */
   applyShakePulse(direction: 'left' | 'right', strength: number) {
     if (!this.motionFollow || !this.world || this.phase !== 'shaking') return
     const now = performance.now()
@@ -291,7 +280,6 @@ export class PhysicsDiceWorld {
     const active = this.entries.filter((entry) => !this.held[entry.index])
     const kickSlot = Math.floor(this.random.next() * active.length)
     active.forEach((entry, slot) => {
-      // 세게 흔들수록 높이 튀긴다 — 목표 높이에서 역산해 중력과 무관하게 같은 그림을 만든다.
       const liftSpeed = Math.sqrt(
         2 * CONFIG.defaults.gravity * SCENE.bowl.shakeKickHeight * (0.25 + 0.75 * clamped),
       )
@@ -312,8 +300,6 @@ export class PhysicsDiceWorld {
     if (this.phase !== 'shaking') return
     this.phase = 'pouring'
     this.pourStartedAt = performance.now()
-    // 기울이기가 끝나면 곧바로 퇴장한다 — 던져진 주사위 위에 사발이 머물러
-    // 시각적으로 겹치지 않게, 정렬 단계를 기다리지 않는다.
     this.bowlExitStartedAt = this.pourStartedAt + SCENE.bowl.tiltDurationMs
     this.callbacks.onPhaseChange('pouring')
     this.invalidate()
@@ -337,8 +323,6 @@ export class PhysicsDiceWorld {
     const width = Math.max(1, this.container.clientWidth)
     const height = Math.max(1, this.container.clientHeight)
     const aspect = width / height
-    // 가로를 다 담되 세로는 maxHalfHeight에서 멈춘다 — 세로로 긴 화면(모바일)에서
-    // 빈 바닥을 늘리는 대신 좌우 가장자리(그릇 진입로)를 잘라 주사위를 크게 보여준다.
     let vertical = Math.max(
       SCENE.camera.minHalfHeight,
       Math.min(this.cameraHorizontal / aspect, SCENE.camera.maxHalfHeight),
@@ -385,7 +369,6 @@ export class PhysicsDiceWorld {
     this.resize()
   }
 
-  /** 레일 바를 악센트로 칠할 슬롯 수. 마지막 굴림 뒤에는 다섯 슬롯이 전부 찬다. */
   private occupiedKeepSlots() {
     return this.keepAll ? this.keepSlots.length : this.heldOrder.length
   }
@@ -422,7 +405,6 @@ export class PhysicsDiceWorld {
 
   private updateBowl(time: number) {
     if (this.phase === 'shaking') {
-      // follow 모드는 기기 흔들림 펄스에서 감쇠 중인 세기(0~1)를 쓰고, tap 모드는 항상 1.
       const intensity = this.currentShakeIntensity(time) * SCENE.bowl.shakeStrength
       const elapsed = (time - this.shakeStartedAt) / 1000
       const x = SCENE.bowl.startX + Math.sin(elapsed * 15) * SCENE.bowl.shakeOffsetX * intensity
@@ -447,8 +429,6 @@ export class PhysicsDiceWorld {
           const centerX = x - position.x
           const centerZ = z - position.z
           const mass = CONFIG.defaults.mass
-          // 바닥 근처 주사위만 목표 높이 √(2gh)로 튀긴다 — 임펄스 상수는 중력을 올리면
-          // 홉이 죽지만, 높이로 지정하면 중력과 무관하게 같은 그림이 나온다.
           const kickRandom = this.random.next()
           const altitude = position.y - SCENE.bowl.hoverY
           const kickSpeed =
@@ -492,23 +472,16 @@ export class PhysicsDiceWorld {
       return
     }
     if (this.phase !== 'pouring') return
-    // 기울이는 동안 사발이 start→pour로 미끄러진다(tiltedBowlPosition이 보간) —
-    // 쏟으면서 오른쪽으로 빠져나가는 한 동작이고, 퇴장 애니메이션이 그대로 이어받는다.
     const elapsed = time - this.pourStartedAt
     const progress = Math.min(1, elapsed / SCENE.bowl.tiltDurationMs)
     const eased = progress < 0.5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2
     const angle =
       THREE.MathUtils.degToRad(SCENE.bowl.tiltDegrees) * SCENE.bowl.tiltDirection * eased
     const position = tiltedBowlPosition(eased, angle)
-    // 비주얼은 던진 뒤에도 기울이기를 끝까지 이어간다 — 사발이 뒤집히는 그림 위로
-    // 주사위가 터져 나온다. 기울이기가 끝나면 곧바로 퇴장 애니메이션이 이어받는다.
     this.bowlGroup.position.set(position.x, position.y, position.z)
     this.bowlGroup.rotation.set(0, 0, angle)
     if (progress >= 1) this.updateBowlExit(time)
     if (this.diceReleased) return
-    // 뒤집어지는 순간(releaseTiltProgress)에 주사위를 던지고 사발 바디를 치운다 —
-    // 이후 사발은 순수 비주얼이고 주사위와 물리적으로 상호작용하지 않는다.
-    // (릴리스 뒤 바디를 움직이지 않는 것은 예측 복제 시뮬과의 결정론 조건이기도 하다.)
     if (progress >= SCENE.bowl.releaseTiltProgress) {
       this.releaseFromBowl()
       return
@@ -544,7 +517,6 @@ export class PhysicsDiceWorld {
     })
   }
 
-  /** follow 모드에서 마지막 펄스 이후 지수 감쇠한 흔들림 세기(0~1). tap 모드는 항상 1. */
   private currentShakeIntensity(time: number) {
     if (!this.motionFollow) return 1
     if (this.shakeEnergy <= 0) return 0
@@ -614,11 +586,6 @@ export class PhysicsDiceWorld {
     this.startTrajectoryReplay()
   }
 
-  /**
-   * 쏟아짐 직후 물리를 한 번 끝까지 계산하고 그 궤적을 그대로 재생한다. 예측용 월드와
-   * 화면용 월드를 따로 굴리면 작은 충돌 오차가 다른 착지 면으로 증폭되므로 두 번째
-   * 시뮬레이션을 만들지 않는다.
-   */
   private startTrajectoryReplay() {
     const request = this.request
     if (!request) return
@@ -697,8 +664,6 @@ export class PhysicsDiceWorld {
     this.phase = 'aligning'
     this.callbacks.onPhaseChange('aligning')
     this.alignmentStartedAt = time
-    // bowlExitStartedAt은 pour()가 이미 잡았다 — 퇴장은 기울이기 직후 시작해서
-    // 대개 정렬 전에 끝나 있고, updateResultAlignment의 updateBowlExit은 no-op이 된다.
     this.settledDice = [...this.request.targetDice]
     this.alignmentEntries = prepareAlignmentEntries(
       this.entries,
@@ -707,14 +672,6 @@ export class PhysicsDiceWorld {
       this.settledDice,
       this.keepAll,
     )
-    /*
-     * 레일 바는 주사위가 가는 방향에 맞춰 움직인다.
-     *
-     * 떠나는 슬롯은 지금 끈다 — 주사위가 줄로 떠난 뒤 악센트 바만 남으면 안 된다.
-     * 반대로 **채워지는** 슬롯은 켜지 않는다. keepAll이 켜지는 마지막 굴림에서는 남은 주사위가
-     * 아직 날아오는 중인데, 여기서 다섯 칸을 다 켜면 빈 레일에 테두리만 먼저 생기고 주사위가
-     * 나중에 도착한다. 도착한 뒤에 켜는 것은 updateResultAlignment의 마무리가 맡는다.
-     */
     positionKeepSlots(
       this.keepSlots,
       Math.min(this.heldOrder.length, this.occupiedKeepSlots()),
@@ -737,9 +694,7 @@ export class PhysicsDiceWorld {
     const completed = this.request
     const completedDice = this.settledDice
     this.committedDice = [...completedDice]
-    // 주사위가 레일에 앉은 지금 채워진 슬롯을 켠다(startResultAlignment 주석 참고).
     positionKeepSlots(this.keepSlots, this.occupiedKeepSlots(), this.keepSlotMaterials)
-    // 궤적 종료 시 시각 위상을 body에 이미 베이크했다.
     this.entries.forEach((entry) => {
       entry.visualOffset.identity()
     })
@@ -778,7 +733,6 @@ export class PhysicsDiceWorld {
       Math.abs(height - this.appliedHeight),
     )
     if (delta === 0) return
-    // 소폭 변화는 즉시 카메라만 다시 맞춘다 — 오버레이·클록 리셋 없이 이어서 재생.
     if (delta <= RESIZE_SETTLE_THRESHOLD_PX && this.resizeTimer === null) {
       this.resize()
       return
