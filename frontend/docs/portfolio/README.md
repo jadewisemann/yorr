@@ -141,6 +141,7 @@
 | [architecture-and-design-system.md](./architecture-and-design-system.md) | 구조 재편·디자인 시스템·문서 체계 |
 | [product-features.md](./product-features.md) | 제품 기능 전체 |
 | [fact-sheet.md](./fact-sheet.md) | 본인 저작 커밋 50개 전체 원장 |
+| [guide-edition.md](./guide-edition.md) | IT 포트폴리오 가이드북 구성(프로필·이력·문제해결 사례)을 따른 판본 |
 | [index.md](./index.md) | LLM 주입용 인덱스 (이력서·면접 답변 생성용 메타 문서) |
 
 기술 디테일의 근거는 각 문서가 가리키는 [코드베이스 위키(llmwiki)](../llmwiki/index.md)와
