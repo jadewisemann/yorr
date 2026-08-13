@@ -170,12 +170,12 @@ Windows에서는 `./gradlew` 대신 `gradlew.bat`을 사용합니다. 일부 통
 │       └── test/          # 단위·통합 테스트
 ├── deploy/                # 운영용 Docker Compose 설정
 ├── Jenkinsfile            # 검증 및 배포 파이프라인
-└── CONTRIBUTING.md        # Git 브랜치·커밋·MR 규칙
+└── CONTRIBUTING.md        # Git 브랜치·커밋·PR 규칙
 ```
 
 ## 문서
 
-- [프론트엔드 문서 인덱스 (LLM 위키)](frontend/docs/index.md)
+- [프론트엔드 위키](frontend/docs/index.md)
 - [제품 기준·유저 플로우](frontend/docs/wiki/product.md)
 - [아키텍처와 기술 스택](frontend/docs/wiki/architecture.md)
 - [실시간 통신(WebSocket)](frontend/docs/wiki/realtime.md) · [REST API](frontend/docs/wiki/rest-api.md)
@@ -184,9 +184,9 @@ Windows에서는 `./gradlew` 대신 `gradlew.bat`을 사용합니다. 일부 통
 
 ## 협업 규칙
 
-Git 작업 규칙의 단일 기준은 [CONTRIBUTING.md](CONTRIBUTING.md)입니다. `main`과 `develop`에는
-직접 커밋하지 않으며, Jira 이슈 단위의 작업 브랜치에서 변경한 뒤 리뷰를 거쳐 `develop`으로
-Merge Request를 생성합니다.
+Git 작업 규칙의 단일 기준은 [CONTRIBUTING.md](CONTRIBUTING.md)입니다. `main`에는 직접
+커밋하지 않으며, 작업 브랜치에서 변경한 뒤 리뷰를 거쳐 `main`으로 Pull Request를
+생성합니다.
 
 ---
 
