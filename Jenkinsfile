@@ -17,7 +17,7 @@ pipeline {
     }
 
     triggers {
-        // GitLab 전용 webhook 연동을 사용할 수 없으므로 SCM polling
+        // webhook 연동 없이 SCM polling으로 변경 감지
         pollSCM('H/2 * * * *')
     }
 
