@@ -1,4 +1,4 @@
-# 🌱 YORR(요르) Git 협업 컨벤션 v1.1
+# 🌱 YORR(요르) Git 협업 컨벤션 v1.2
 
 > 대상: 팀 전원 (BE · FE · AI · Infra)
 > 저장소: GitHub (`github.com/jadewisemann/yorr`) · Jira 프로젝트: **S15P11A406**
@@ -11,23 +11,23 @@
 6명이 같은 코드를 **동시에** 만진다. 규칙이 없으면 `main`이 깨지고, 히스토리가 꼬이고, "누가 뭘 바꿨는지"가 사라진다.
 사실 **핵심 3개**만 지키면 나머지는 곁가지다:
 
-1. **`main` · `develop`엔 직접 push 안 한다 → 무조건 PR**
+1. **`main`엔 직접 push 안 한다 → 무조건 PR**
 2. **PR은 리뷰 1명 승인 후 병합**
 3. **브랜치 · 커밋 이름은 아래 형식대로**
 
 ---
 
-## 🌿 브랜치 전략 (3-tier)
+## 🌿 브랜치 전략 (main 단일 기준)
 
 | 브랜치 | 역할 | 직접 push | 흐름 |
 |---|---|---|---|
-| `main` | 🚀 배포용. 항상 동작하는 상태 | ❌ 금지 | `develop` → `main` (배포 시점) |
-| `develop` | 🔧 통합 기준. 모든 작업이 모이는 곳 | ❌ 금지 | 작업 브랜치 → `develop` |
-| `feature/*` | 🌱 새 기능 | ✅ 자유 | `develop`에서 분기 → `develop`으로 PR |
+| `main` | 🚀 기준 · 배포. 항상 동작하는 상태 | ❌ 금지 | 작업 브랜치 → `main` |
+| `feature/*` | 🌱 새 기능 | ✅ 자유 | `main`에서 분기 → `main`으로 PR |
 | `fix/*` | 🐛 버그 수정 | ✅ 자유 | 〃 |
 | `refactor/*` · `docs/*` · `chore/*` · `test/*` | ♻️ 브랜치 전체가 그 한 가지 작업일 때 (리팩터링 · 문서 · 설정/의존성 · 테스트) | ✅ 자유 | 〃 |
 
-> `main` · `develop`은 **Protected Branch**로 잠겨 있음(직접 push · force push 차단). 이미 설정돼 있으니 신경 쓸 필요 없음 — push 하려다 막히면 "아 PR 써야지" 하면 됨.
+> 별도 `develop` 통합 브랜치는 두지 않는다 — 작업 브랜치가 곧바로 `main`으로 합쳐진다.
+> `main`은 **Protected Branch**로 잠가둔다(직접 push · force push 차단). push 하려다 막히면 "아 PR 써야지" 하면 됨.
 >
 > 대부분의 작업은 `feature/*` · `fix/*`다. `refactor` · `docs` · `chore` · `test`는 **브랜치 전체가 순수하게 그 일만** 할 때만 쓴다(예: 리팩터링만 하는 브랜치). 포맷팅(`style`)은 보통 다른 작업에 딸려가므로 단독 브랜치를 거의 만들지 않는다.
 
@@ -94,15 +94,15 @@ chore: Spring Boot 4.1 의존성 추가
 
 ## 🔀 Pull Request (PR) 규칙
 
-> PR = 작업 브랜치를 `develop`에 합치기 전 **리뷰 요청**하는 절차.
+> PR = 작업 브랜치를 `main`에 합치기 전 **리뷰 요청**하는 절차.
 
-1. **`develop` ← `feature/*`** 방향으로 PR 생성.
+1. **`main` ← `feature/*`** 방향으로 PR 생성.
 2. **PR 제목**은 커밋과 같은 형식: `feat: WebSocket 연결 구현`
 3. **설명**에 뭘 했는지 + 관련 Jira 번호(예: `S15P11A406-22`).
 4. **리뷰어 1명 이상 지정 → 승인(Approve) 후 병합.** 승인 나면 **올린 사람이 직접 merge**(Developer 권한 있음 → 팀장 안 거쳐도 됨).
 5. 병합 방식: **커밋 개수 기준**
    - **1~2개 → Merge commit(`--no-ff`)**: 어떤 브랜치서 온 작업인지 히스토리에 남는다.
-   - **3개 이상 → Squash**: WIP 커밋이 쌓인 브랜치는 하나로 합쳐 `develop` 히스토리를 깔끔하게. Squash 커밋 제목은 커밋 컨벤션(`type: 제목`)대로.
+   - **3개 이상 → Squash**: WIP 커밋이 쌓인 브랜치는 하나로 합쳐 `main` 히스토리를 깔끔하게. Squash 커밋 제목은 커밋 컨벤션(`type: 제목`)대로.
 6. 병합 후 **feature 브랜치 삭제**(PR 화면의 Delete branch 버튼).
 7. **PR은 작게.** 기능 하나 = PR 하나. 거대한 PR은 리뷰가 불가능 → 쪼갤 것.
 
@@ -110,10 +110,10 @@ chore: Spring Boot 4.1 의존성 추가
 
 ## 🔁 rebase / merge 정책
 
-> 🍶 비유: **내 방(개인 feature 브랜치)** 가구는 맘대로 재배치(rebase)해도 된다. 하지만 **공용 거실(`develop` · `main`)** 가구는 절대 못 옮긴다 — 다른 사람 동선이 다 꼬인다.
+> 🍶 비유: **내 방(개인 feature 브랜치)** 가구는 맘대로 재배치(rebase)해도 된다. 하지만 **공용 거실(`main`)** 가구는 절대 못 옮긴다 — 다른 사람 동선이 다 꼬인다.
 
-- ✅ **개인 feature 브랜치**: `develop`이 앞서갔으면 `git rebase develop`로 최신화 OK (히스토리 깔끔).
-- ❌ **공유 브랜치(`develop` · `main`)**: rebase · force push **절대 금지**.
+- ✅ **개인 feature 브랜치**: `main`이 앞서갔으면 `git rebase main`으로 최신화 OK (히스토리 깔끔).
+- ❌ **공유 브랜치(`main`)**: rebase · force push **절대 금지**.
 - ⚠️ feature를 **남과 같이 쓰는 중**이면 rebase 대신 merge로. (rebase는 "나만 쓰는 브랜치"일 때만)
 
 ---
@@ -121,9 +121,9 @@ chore: Spring Boot 4.1 의존성 추가
 ## 📋 작업 한 사이클 (복붙용)
 
 ```bash
-# 1. develop 최신화
-git checkout develop
-git pull origin develop
+# 1. main 최신화
+git checkout main
+git pull origin main
 
 # 2. 작업 브랜치 분기 (Jira 번호 + 설명)
 git checkout -b feature/22-websocket-connection
@@ -135,11 +135,11 @@ git commit -m "feat: WebSocket 연결 핸들러 구현"
 # 4. 원격에 push
 git push -u origin feature/22-websocket-connection
 
-# 5. GitHub 웹에서 PR 생성 (develop ← feature) → 리뷰어 지정
+# 5. GitHub 웹에서 PR 생성 (main ← feature) → 리뷰어 지정
 
-# --- develop이 그새 바뀌어 충돌 나면: 내 브랜치에서 ---
+# --- main이 그새 바뀌어 충돌 나면: 내 브랜치에서 ---
 git checkout feature/22-websocket-connection
-git pull --rebase origin develop     # 개인 브랜치라 rebase OK
+git pull --rebase origin main        # 개인 브랜치라 rebase OK
 # 충돌 해결 후
 git add .
 git rebase --continue
@@ -152,9 +152,9 @@ git push --force-with-lease           # rebase했으니 강제 push (반드시 �
 
 ## 🚫 하지 말 것 (한눈에)
 
-- ❌ `main` · `develop`에 직접 push / force push
+- ❌ `main`에 직접 push / force push
 - ❌ 리뷰 없이 merge
-- ❌ 공유 브랜치(`develop` · `main`) rebase
+- ❌ 공유 브랜치(`main`) rebase
 - ❌ 한글 · 공백 브랜치명
 - ❌ 기능 여러 개를 묶은 거대 PR / 커밋
 

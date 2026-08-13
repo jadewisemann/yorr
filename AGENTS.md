@@ -8,11 +8,11 @@
 ## 저장소 정보
 - GitHub: `github.com/jadewisemann/yorr`
 - Jira 프로젝트 키: `S15P11A406`
-- 브랜치 전략: `main`(배포) ← `develop`(통합) ← `feature/*` · `fix/*`(작업)
+- 브랜치 전략: `main`(기준·배포) ← `feature/*` · `fix/*`(작업) — 별도 `develop` 없음
 
 ## 🚫 절대 규칙 (반드시 지킬 것)
-1. **`main` · `develop`에 직접 커밋/push 금지.** 항상 `feature/*` 또는 `fix/*` 브랜치에서 작업하고 PR로 병합한다. (원격은 Protected Branch로 잠겨 있음)
-2. **공유 브랜치(`main` · `develop`)는 rebase · force push 금지.** rebase는 "나만 쓰는 개인 브랜치"에서만.
+1. **`main`에 직접 커밋/push 금지.** 항상 `feature/*` 또는 `fix/*` 브랜치에서 작업하고 PR로 병합한다. (원격은 Protected Branch로 잠겨 있음)
+2. **공유 브랜치(`main`)는 rebase · force push 금지.** rebase는 "나만 쓰는 개인 브랜치"에서만.
 3. 사용자가 명시적으로 요청하지 않는 한 **push · PR 생성은 임의로 하지 않고 먼저 확인**받는다.
 
 ## 🌿 브랜치 이름
@@ -42,7 +42,7 @@
 (선택) 본문에 `Refs: S15P11A406-22`로 Jira 연동 가능.
 
 ## 🔀 Pull Request
-- 방향: `develop` ← `feature/*`
+- 방향: `main` ← `feature/*`
 - PR 제목도 커밋과 같은 형식: `feat: ...`
 - 설명에 작업 내용 + 관련 Jira 번호, 리뷰어 1명 이상 지정 후 승인 시 병합
 - 병합 방식: **커밋 1~2개 → Merge commit(`--no-ff`), 3개 이상 → Squash**(제목은 `type: 제목`). 병합 후 feature 브랜치 삭제
@@ -50,11 +50,11 @@
 
 ## 📋 작업 사이클
 ```bash
-git checkout develop && git pull origin develop      # 1. develop 최신화
+git checkout main && git pull origin main            # 1. main 최신화
 git checkout -b feature/22-websocket-connection      # 2. 작업 브랜치 분기
 # 3. 작업 → 커밋 (컨벤션대로)
 git push -u origin feature/22-websocket-connection   # 4. push
-# 5. GitHub에서 PR 생성 (develop ← feature) → 리뷰어 지정
+# 5. GitHub에서 PR 생성 (main ← feature) → 리뷰어 지정
 ```
 
 ---

@@ -184,9 +184,9 @@ Windows에서는 `./gradlew` 대신 `gradlew.bat`을 사용합니다. 일부 통
 
 ## 협업 규칙
 
-Git 작업 규칙의 단일 기준은 [CONTRIBUTING.md](CONTRIBUTING.md)입니다. `main`과 `develop`에는
-직접 커밋하지 않으며, Jira 이슈 단위의 작업 브랜치에서 변경한 뒤 리뷰를 거쳐 `develop`으로
-Pull Request를 생성합니다.
+Git 작업 규칙의 단일 기준은 [CONTRIBUTING.md](CONTRIBUTING.md)입니다. `main`에는 직접
+커밋하지 않으며, 작업 브랜치에서 변경한 뒤 리뷰를 거쳐 `main`으로 Pull Request를
+생성합니다.
 
 ---
 
