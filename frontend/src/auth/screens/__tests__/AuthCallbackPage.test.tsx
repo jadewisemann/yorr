@@ -41,12 +41,10 @@ describe('AuthCallbackPage', () => {
     await waitFor(() => {
       expect(useAppStore.getState().authSession?.nickname).toBe('카카오회원')
     })
-    // 새로고침해도 남아야 로그인이다.
     expect(localStorage.getItem('yorr.auth-session')).toContain('token-1')
     expect(navigate).toHaveBeenCalledWith({ to: '/', replace: true })
   })
 
-  /** 코드는 1회용이라 두 번 교환하면 방금 성공한 로그인이 실패로 덮인다. */
   it('exchanges the code only once even if the effect runs again', async () => {
     exchangeLoginCode.mockResolvedValue({
       userId: 'member-1',

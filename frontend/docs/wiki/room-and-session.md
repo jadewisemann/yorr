@@ -1,6 +1,6 @@
 # 방과 세션 — 수명주기·FSM·복구·빠른 대전·파티 모드
 
-> SSOT: [`../../src/room/sessionFsm.ts`](../../src/room/sessionFsm.ts),
+> SSOT: [`../../src/room/domain/sessionFsm.ts`](../../src/room/domain/sessionFsm.ts),
 > [`../../src/room/roomSessionStorage.ts`](../../src/room/roomSessionStorage.ts),
 > [`../../src/room/api/roomApi.ts`](../../src/room/api/roomApi.ts), [`../../src/store.ts`](../../src/store.ts)
 
@@ -8,9 +8,9 @@
 
 | 파일 | 책임 |
 |---|---|
-| `room/sessionFsm.ts` | 세션 수명 FSM — phase를 `(roomSession, roomSnapshot)`에서 **파생** |
+| `room/domain/sessionFsm.ts` | 세션 수명 FSM — phase를 `(roomSession, roomSnapshot)`에서 **파생** |
 | `room/roomSessionStorage.ts` | localStorage 영속화 — `{session, expiresAt}` 봉투 + 런타임 검증 |
-| `room/roomCode.ts` | 초대 코드 정규화·검증, 붙여넣은 초대 URL에서 `?code=` 추출 |
+| `room/domain/roomCode.ts` | 초대 코드 정규화·검증, 붙여넣은 초대 URL에서 `?code=` 추출 |
 | `room/partyControllerStorage.ts` | "이 방은 파티 모드다"의 폰 쪽 기억 (방 코드 단위) |
 | `room/connectSequence.ts` | 재연결·연결 단계 타이밍 상수 (실기기에서 함께 튜닝하는 값들) |
 | `room/api/roomApi.ts` | 방 REST 계약 + 응답→도메인 변환 + `isRoomHost` |

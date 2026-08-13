@@ -44,7 +44,6 @@ describe('sanitizeConfig', () => {
 })
 
 describe('storeConfig / loadStoredConfig', () => {
-  // vitest jsdom 환경에는 localStorage가 없어(Node 실험 전역과 충돌) 인메모리 스텁을 쓴다.
   beforeEach(() => {
     const data = new Map<string, string>()
     Object.defineProperty(window, 'localStorage', {

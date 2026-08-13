@@ -6,7 +6,7 @@
 |---|---|
 | 키워드 | WebSocket, 세션 FSM(파생 상태), heartbeat, 재접속 복구, server-authoritative, 스냅샷 병합, SSOT 계약 |
 | 핵심 커밋 | `7ceb700`(heartbeat 생존 판정, FE+BE) · `c0b556c`(sessionToken 재접속 복원, FE+BE) · `a6b6301`(복귀 확인 UX) · `5659ecf`(localStorage 40분 영속화) · `f53ca6a`(오프라인 턴 스킵·자동 퇴장, FE+BE) |
-| 코드 | `src/realtime/` · `src/app/RealtimeSync.tsx` · `src/room/sessionFsm.ts` — 상세는 [위키: realtime](../wiki/realtime.md) · [room-and-session](../wiki/room-and-session.md) |
+| 코드 | `src/realtime/` · `src/app/RealtimeSync.tsx` · `src/room/domain/sessionFsm.ts` — 상세는 [위키: realtime](../wiki/realtime.md) · [room-and-session](../wiki/room-and-session.md) |
 
 ## 문제
 

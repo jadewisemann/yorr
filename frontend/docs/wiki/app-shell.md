@@ -66,7 +66,7 @@ MSW 모드(`mocks/mswMode.ts`): `mock`(DEV 기본, 전부 mock) · `fallback`(�
 | 화면 | 용도 |
 |---|---|
 | `DevCatalog` | 공통 컴포넌트 카탈로그 (+`PhysicsDiceDemo`, `HandVoiceLab` 내장) |
-| `ControllerLab` | 파티 컨트롤러를 백엔드·대시보드·폰 없이 굴려보는 화면 — 연습 모드의 1인 가짜 서버(`yacht/tutorialGame`)를 꽂아 굴리기·킵·족보 연출이 전부 진짜로 돈다 |
+| `ControllerLab` | 파티 컨트롤러를 백엔드·대시보드·폰 없이 굴려보는 화면 — 연습 모드의 1인 가짜 서버(`yacht/domain/tutorialGame`)를 꽂아 굴리기·킵·족보 연출이 전부 진짜로 돈다 |
 | `MotionLab` | 센서 튜닝 콘솔 — 실시간 임계값·차트·이벤트 로그·**녹화/재생**(`motionLabReplay`: 녹화한 센서 스트림을 다른 설정으로 결정론적으로 재판정) |
 
 `MotionLab`만 DEV 게이트가 없다 — 센서 판정은 실기기에서만 튜닝할 수 있어 배포 환경에도

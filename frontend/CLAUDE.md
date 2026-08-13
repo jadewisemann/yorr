@@ -25,8 +25,33 @@
 | `mocks/` · `test/` · `styles/` | MSW, 테스트 하네스, 디자인 토큰 |
 | `games.ts` · `store.ts` · `main.tsx` | 게임 카탈로그, 앱 전역 상태, 엔트리 |
 
-도메인 안에서는 필요한 레이어 폴더만 만든다(`yacht/domain/` · `yacht/screens/` ·
-`yacht/rendering/physics-dice/` 등). 실제 파일 없이 미래를 위한 폴더를 만들지 않는다.
+도메인 안에서는 필요한 **세그먼트**만 만든다. 실제 파일 없이 미래를 위한 폴더를 만들지 않는다.
+
+| 세그먼트 | 책임 | 공개 |
+|---|---|---|
+| `screens/` | 라우트가 그리는 화면 | 공개 |
+| `components/` | 그 도메인 전용 컴포넌트 | 공개 |
+| `domain/` | 순수 규칙·타입 (React·DOM 모름) | 공개 |
+| `api/` | REST | 공개 |
+| `model/` | 상태·훅 | **비공개** |
+| `rendering/` | three.js·rapier | **비공개** |
+
+**비공개 세그먼트는 도메인 밖에서 import할 수 없다.** `biome.json`의
+`noRestrictedImports`가 막는다(duel·landing·pingpong·yacht). 밖에서 필요한 것이 있으면
+공개 입구를 만든다 — `yacht/prefetchPhysicsDice.ts`가 그 선례다.
+
+**배럴(`index.ts`)을 쓰지 않는다.** 측정 근거는 `.dev.md` 1.6에 있다 — 번들 비용은 +0.05%로
+무시할 만하지만 `check:cycles`가 배럴 경유 순환을 **못 잡는다**(직접 순환은 잡는다).
+
+**컴포넌트 조각의 자리**: 여러 부모가 쓰면 도메인 공용 `components/`, 한 부모만 쓰면
+`components/<부모>/` 폴더. 화면 상태가 다르면 별도 화면(`screens/`).
+
+**순수 모듈은 자기가 생산하는 타입을 소비자에게서 빌려오지 않는다.** `domain/`이 만드는
+타입은 `domain/`에 둔다(선례: `duel/domain/fighter.ts`, `pingpong/domain/frameState.ts`).
+
+**컴포넌트는 렌더링만 한다.** 훅 호출(`useState`·`useEffect`·`useRef`·`useMemo`·`useCallback`·
+`useReducer`)이 **6개를 넘으면 `model/`의 훅으로 분리**한다. 화면·컴포넌트 파일은 200줄을
+기준선으로 두고, 넘길 때는 이유를 남긴다.
 
 **테스트는 소스와 같은 폴더의 `__tests__/`** 에 둔다 — `yacht/domain/scoring.ts`의 테스트는
 `yacht/domain/__tests__/scoring.test.ts`다. 폴더를 열었을 때 소스만 보여야 읽힌다.

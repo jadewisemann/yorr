@@ -12,7 +12,6 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   useNavigate: () => mocks.navigate,
 }))
 
-// 연습 모드에는 센서가 없는 기기를 기본으로 둔다 — 흔들기 단계 분기는 TutorialGuide 테스트가 본다.
 vi.mock('@/yacht/input/useMotionRollInput', () => ({
   useMotionRollInput: (_onGestureEvent: (event: MotionGestureEvent) => void) => ({
     availability: 'unsupported',
@@ -41,7 +40,6 @@ describe('TutorialPage', () => {
   it('실전과 같은 플레이 화면 위에 연습 안내를 얹어 시작한다', () => {
     render(<TutorialPage />)
 
-    // 화면은 진짜 GamePlay다 — 연습용 화면을 따로 그리면 실전에서 한 번 더 낯설어진다.
     expect(screen.getByTestId('dice-scene')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '요트 다이스가 처음이신가요?' })).toBeVisible()
   })

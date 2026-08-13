@@ -1,7 +1,8 @@
 # 석양이 진다 (DUEL)
 
-> SSOT: [`../../src/duel/`](../../src/duel/) — `DuelGame.tsx`(진입점) · `stage.ts`(서버 상태 →
-> 무대 번역) · `duel.ts`(밸런스 상수) · `Arena.tsx`(순수 표현)
+> SSOT: [`../../src/duel/`](../../src/duel/) — `screens/DuelGame.tsx`(진입점) ·
+> `domain/stage.ts`(서버 상태 → 무대 번역) · `domain/duel.ts`(밸런스 상수) ·
+> `components/Arena.tsx`(순수 표현)
 
 1:1 반응속도 대결. 신호등이 초록이 되는 순간 먼저 뽑은 쪽이 쏜다. 3발 맞으면 쓰러지고,
 신호 전에 뽑으면 경고가 쌓여 두 개면 자기 발을 쏜다. **규칙·판정은 전부 서버 소유** —

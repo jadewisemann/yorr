@@ -30,9 +30,13 @@
 | [shared-ui.md](./wiki/shared-ui.md) | 프리미티브 컴포넌트·훅·REST 클라이언트 |
 | [design-system.md](./wiki/design-system.md) | 토큰 2계층·cn 병합·레시피·모션 경계 |
 | [testing.md](./wiki/testing.md) | 단위 하네스·mock 백엔드 2벌·2단 E2E·커버리지 래칫 |
+| [code-rationale.md](./wiki/code-rationale.md) | 코드에서 걷어낸 실측값·실패한 대안·함정 모음 — 값을 바꾸거나 "단순화"하기 전에 심볼을 먼저 찾아본다 |
 
-그 외: [portfolio/](./portfolio/index.md) — 프론트엔드 담당자의 포트폴리오 자료
-(코드베이스 문서가 아니다).
+그 외:
+
+- [portfolio/](./portfolio/index.md) — 프론트엔드 담당자의 포트폴리오 자료 (코드베이스 문서가 아니다)
+- [`../.dev.md`](../.dev.md) — S15P11A406-215 리팩터링의 확정 기준·측정 근거,
+  [`log/S15P11A406-215.md`](./log/S15P11A406-215.md) — 그 인계 문서 (남은 작업이 끝나면 정리한다)
 
 ## 단일 기준(SSOT) 원칙
 

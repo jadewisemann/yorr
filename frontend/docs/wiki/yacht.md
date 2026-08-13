@@ -2,19 +2,19 @@
 
 > SSOT: [`../../src/yacht/domain/scoring.ts`](../../src/yacht/domain/scoring.ts) (점수 규칙),
 > [`../../src/yacht/domain/yachtGame.ts`](../../src/yacht/domain/yachtGame.ts) (턴 리듀서),
-> [`../../src/yacht/screens/useGamePlayRoll.ts`](../../src/yacht/screens/useGamePlayRoll.ts) (턴 흐름 엔진)
+> [`../../src/yacht/model/useGamePlayRoll.ts`](../../src/yacht/model/useGamePlayRoll.ts) (턴 흐름 엔진)
 
 ## 레이어 구조
 
 | 폴더 | 책임 | 규칙 |
 |---|---|---|
-| `domain/` | 순수 규칙 — dice · scoring · specialHands · yachtGame · leverage | React·DOM·네트워크를 모른다 |
-| `screens/` | GamePlay 합성 루트, 턴 흐름 훅, 결과 화면 | |
-| `components/` | 게임판 UI 15개 (점수시트·타이머·리액션·튜토리얼 가이드…) | |
-| `rendering/physics-dice/` | 3D 주사위 — [dice-physics.md](./dice-physics.md) | `screens`·`realtime`·`store` import 금지 |
+| `domain/` | 순수 규칙 — dice · scoring · specialHands · yachtGame · leverage, 로컬 모드 가짜 서버(localGame · tutorialGame · leverageGame) | React·DOM·네트워크를 모른다 |
+| `screens/` | GamePlay 합성 루트, 결과 화면 | |
+| `model/` | 상태·훅 — useGamePlayRoll(턴 흐름 엔진) 등 | **비공개** 세그먼트 |
+| `components/` | 게임판 UI (점수시트·타이머·리액션·튜토리얼 가이드…) | |
+| `rendering/physics-dice/` | 3D 주사위 — [dice-physics.md](./dice-physics.md) | **비공개** — `screens`·`realtime`·`store` import 금지 |
 | `input/` | DeviceMotion 제스처 — [motion-input.md](./motion-input.md) | |
 | `feedback/` | 진동·효과음·족보 보이스 — [motion-input.md](./motion-input.md) | |
-| 루트 | `localGame` · `tutorialGame` · `leverageGame` — 로컬 모드 가짜 서버 | |
 
 ## 규칙 (12 카테고리)
 

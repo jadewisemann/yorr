@@ -21,7 +21,6 @@ vi.mock('@/auth/api/authApi', async (importOriginal) => ({
   renameProfile: (token: string, nickname: string) => renameProfile(token, nickname),
 }))
 
-/** jsdom은 미디어 쿼리를 평가하지 않는다. 어느 레이아웃을 검증할지 테스트가 직접 정한다. */
 function useLayout(wide: boolean) {
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
@@ -40,7 +39,6 @@ function useLayout(wide: boolean) {
   })
 }
 
-/** 코드 입력은 팝오버·바텀시트 안에 있다 — 배경에 같은 이름의 버튼이 있으므로 항상 좁혀 찾는다. */
 function codeDialog() {
   return within(screen.getByRole('dialog', { name: '초대받은 방에 참가' }))
 }
@@ -51,8 +49,6 @@ describe('EntryPage', () => {
     closeSession.mockClear()
     renameProfile.mockReset()
     useAppStore.getState().reset()
-    // reset은 로그인을 건드리지 않는다(방을 나가도 로그인은 남는 것이 규칙이다) — 로그인
-    // 상태를 켜는 테스트가 다음 테스트로 새지 않게 여기서 지운다.
     useAppStore.getState().signOut()
     useLayout(false)
   })
@@ -62,15 +58,9 @@ describe('EntryPage', () => {
     render(<EntryPage />)
 
     expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
-    // "지금 플레이 가능"은 눌리는 CTA가 말한다 — PLAYABLE NOW 배지는 같은 말의 중복이었다.
     expect(screen.getByRole('button', { name: '요트 다이스 플레이' })).toBeVisible()
   })
 
-  /**
-   * 선택이 화면 안 state에만 있던 시절에는 게임을 고르고 다른 화면에 갔다 돌아오면 무조건
-   * 첫 게임으로 리셋됐다. 이제 URL이 위치를 들고 있어, 뒤로가기로 돌아온 랜딩은 보던 카드에
-   * 그대로 선다(뒤로가기 자체는 라우터가 이 화면을 새 `?game=`으로 다시 마운트하는 일이다).
-   */
   it('쿼리스트링이 가리키는 게임에서 열리고, 카드를 넘기면 URL을 덮어쓴다', async () => {
     const user = userEvent.setup()
     render(<EntryPage gameKey="duel" />)
@@ -79,9 +69,6 @@ describe('EntryPage', () => {
 
     await user.click(screen.getByRole('tab', { name: /탁구/ }))
 
-    // replace여야 한다 — 카드를 넘길 때마다 히스토리가 쌓이면 뒤로가기가 랜딩 안에서
-    // 게임을 하나씩 되짚느라 직전 화면으로 나가지 못한다. viewTransition도 꺼야 한다 —
-    // 페이지 전체 전환 연출(항상 오른쪽 진입)이 캐러셀 슬라이드와 반대 방향으로 겹쳤다.
     expect(navigate).toHaveBeenCalledWith({
       to: '/',
       search: { game: 'pingpong' },
@@ -90,15 +77,12 @@ describe('EntryPage', () => {
     })
   })
 
-  /** 손으로 고친 `?game=`이나 사라진 게임 키가 와도 캐러셀이 빈 칸에 서면 안 된다. */
   it('모르는 게임 키로 들어오면 첫 게임으로 연다', () => {
     render(<EntryPage gameKey={'nope' as never} />)
 
     expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
   })
 
-  // 랜딩은 진입하자마자 BGM이 흐른다. 게임 화면과 같은 저장 설정을 써야, 조용한 곳에서
-  // 한 번 끈 사람이 대기실·게임으로 넘어가서 다시 소리를 듣지 않는다.
   it('랜딩에서 소리를 끄면 설정이 저장돼 다음 화면까지 이어진다', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)
@@ -116,8 +100,6 @@ describe('EntryPage', () => {
     expect(localStorage.getItem('yorr.sound-muted')).toBe('false')
   })
 
-  // 두 레이아웃 모두 확인한다 — 모드 선택 모달은 wide·narrow가 각자 그리는 층에 서므로
-  // 한쪽에만 붙여도 다른 쪽 테스트는 통과한다(실제로 그렇게 빠뜨렸다).
   it.each([
     ['narrow', false],
     ['wide', true],
@@ -126,7 +108,6 @@ describe('EntryPage', () => {
     useLayout(wide)
     render(<EntryPage />)
 
-    // 플레이는 이제 모드부터 고른다 — 방 만들기가 종전의 플레이 경로다.
     await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
     await user.click(screen.getByRole('button', { name: /방 만들기/ }))
 
@@ -136,7 +117,6 @@ describe('EntryPage', () => {
     })
   })
 
-  // 빠른 대전은 대기열에 설 회원 세션이 필요하다 — 비로그인은 로그인부터 받는다.
   it('빠른 대전은 로그인한 사람만 대기열로 보낸다', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)
@@ -186,7 +166,6 @@ describe('EntryPage', () => {
     expect(navigate).toHaveBeenCalledWith({ to: '/pingpong' })
   })
 
-  /** 모드 카드는 게임에 맞는 것만 선다 — 탁구에 파티 모드가 서면 방 만들기와 중복이다. */
   it('shows game-specific mode cards in the play dialog', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)
@@ -215,7 +194,6 @@ describe('EntryPage', () => {
     await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
     await user.click(screen.getByRole('button', { name: /튜토리얼/ }))
 
-    // 연습은 실전과 다른 화면이다 — /join을 거치지 않는다.
     expect(navigate).toHaveBeenCalledWith({ to: '/tutorial' })
   })
 
@@ -226,13 +204,10 @@ describe('EntryPage', () => {
     await user.click(screen.getByRole('tab', { name: /라이어스 다이스/ }))
 
     expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
-    // COMING SOON 배지도 마찬가지 — 못 누르는 회색 버튼이 같은 사실을 더 강하게 말한다.
     expect(screen.queryByRole('button', { name: /플레이$/ })).not.toBeInTheDocument()
     const locked = screen.getByRole('button', { name: '준비 중인 게임' })
     expect(locked).toBeDisabled()
 
-    // 코드 참가는 게임 선택과 무관한 독립 경로다 — 어떤 게임이 선택돼 있든 살아 있어야 하고,
-    // 게임 CTA와 같은 부모에 나란히 서면 "이 게임을 코드로 연다"로 읽힌다.
     const codeEntry = screen.getByRole('button', { name: '초대 코드로 참가' })
     expect(codeEntry).toBeEnabled()
     expect(codeEntry.parentElement).not.toBe(locked.parentElement)
@@ -265,21 +240,17 @@ describe('EntryPage', () => {
     expect(screen.getByRole('tab', { name: /탁구/ })).toHaveAttribute('aria-selected', 'true')
   })
 
-  // 목록이 순환하므로 화살표는 끝에서도 비활성이 되지 않는다 — 점 목록 방향키와 같은 규칙이다.
   it('wraps the carousel at both ends with the arrow buttons', async () => {
     const user = userEvent.setup()
     render(<EntryPage />)
 
-    // 첫 게임에서 이전 → 마지막으로 감싼다.
     await user.click(screen.getByRole('button', { name: '이전 게임' }))
     expect(screen.getByRole('heading', { name: '낚시' })).toBeVisible()
 
-    // 마지막에서 다음 → 다시 처음으로.
     await user.click(screen.getByRole('button', { name: '다음 게임' }))
     expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
   })
 
-  // 스와이프는 발견 가능한 조작이 아니다 — 모바일에도 명시적인 이동 버튼이 있어야 한다.
   it('keeps the carousel arrows on the narrow layout', () => {
     render(<EntryPage />)
 
@@ -350,11 +321,6 @@ describe('EntryPage', () => {
     expect(localStorage.getItem('yorr.room-session')).toBeNull()
   })
 
-  /**
-   * 헤더의 '방 코드로 참가'는 하단 CTA와 같은 일을 하고 있었다. 그 자리를 계정으로 넘기면서
-   * 코드 참가의 입구가 사라지지 않았는지도 함께 확인한다 — 좁은 화면에서는 헤더가 유일한
-   * 입구였다.
-   */
   it.each([
     ['narrow', false],
     ['wide', true],
@@ -365,15 +331,9 @@ describe('EntryPage', () => {
     expect(screen.getByRole('button', { name: '로그인' })).toBeVisible()
     expect(screen.getByRole('button', { name: '초대 코드로 참가' })).toBeVisible()
     expect(screen.queryByRole('button', { name: '방 코드로 참가' })).not.toBeInTheDocument()
-    // 제공자는 곧 늘어난다. 헤더가 카카오 하나에 자리를 내주면 구글을 붙일 데가 없다.
     expect(screen.queryByRole('button', { name: /카카오/ })).not.toBeInTheDocument()
   })
 
-  /**
-   * useDialogBackground가 배경 `<main>`에 inert를 건다. 다이얼로그가 그 안에 있으면 열리는
-   * 순간 자기 자신을 잠가 아무것도 눌리지 않는다 — 계정 다이얼로그를 헤더 안에 뒀다가 실제로
-   * 그렇게 됐다. jsdom은 inert를 구현하지 않아 클릭 테스트로는 잡히지 않으므로 위치를 본다.
-   */
   it.each([
     ['narrow', false],
     ['wide', true],
@@ -418,7 +378,6 @@ describe('EntryPage', () => {
     await user.click(screen.getByRole('button', { name: /카카오회원/ }))
     const menu = within(screen.getByRole('dialog', { name: '내 계정' }))
     expect(menu.getByRole('button', { name: '프로필 관리' })).toBeEnabled()
-    // 전적 화면은 아직 없다 — 자리만 보이고 눌리지 않아야 한다.
     expect(menu.getByRole('button', { name: /내 전적/ })).toBeDisabled()
 
     await user.click(menu.getByRole('button', { name: '로그아웃' }))
@@ -426,11 +385,9 @@ describe('EntryPage', () => {
     expect(useAppStore.getState().authSession).toBeNull()
     expect(localStorage.getItem('yorr.auth-session')).toBeNull()
     expect(screen.getByRole('button', { name: '로그인' })).toBeVisible()
-    // 로컬만 지우면 그 토큰은 남은 30일 동안 서버에서 유효한 채로 남는다.
     expect(closeSession).toHaveBeenCalledWith('token-1')
   })
 
-  /** 서버가 응답하지 않아도 로그아웃은 되어야 한다 — 로컬 정리가 서버 사정에 묶이면 안 된다. */
   it('signs out locally even when the server call fails', async () => {
     const user = userEvent.setup()
     closeSession.mockRejectedValueOnce(new Error('network down'))
@@ -449,10 +406,6 @@ describe('EntryPage', () => {
     expect(useAppStore.getState().authSession).toBeNull()
   })
 
-  /**
-   * 로그인 직후 이름이 "플레이어"로 들어오는 경우가 있어(동의항목 문제), 사용자가 스스로
-   * 고칠 수 있어야 한다. 별도 화면 없이 계정 메뉴 안에서 끝난다.
-   */
   it('renames the profile from the account menu', async () => {
     const user = userEvent.setup()
     renameProfile.mockResolvedValue({
@@ -475,7 +428,6 @@ describe('EntryPage', () => {
     await user.click(menu.getByRole('button', { name: '저장' }))
 
     await waitFor(() => expect(renameProfile).toHaveBeenCalledWith('token-1', '바꾼이름'))
-    // 서버가 돌려준 이름을 그대로 쓴다. 헤더까지 즉시 바뀌어야 바뀐 것이 보인다.
     await waitFor(() => {
       expect(useAppStore.getState().authSession?.nickname).toBe('바꾼이름')
     })
@@ -501,7 +453,6 @@ describe('EntryPage', () => {
     expect(useAppStore.getState().authSession?.nickname).toBe('원래이름')
   })
 
-  /** 로그아웃이 진행 중인 방까지 끊으면 안 된다 — 두 세션은 수명이 다르다. */
   it('keeps the room session when signing out', async () => {
     const user = userEvent.setup()
     useAppStore.getState().setRoomSession(creatorSession)

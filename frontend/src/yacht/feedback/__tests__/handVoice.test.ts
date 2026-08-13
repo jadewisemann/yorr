@@ -1,10 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createHandVoice } from '@/yacht/feedback/handVoice'
 
-/**
- * jsdom에는 Web Audio가 없어서 최소한만 흉내낸다. 검증 대상은 "어떤 말이 언제 나갔는가"와
- * "미리 디코딩해 두는가"라서, 노드 그래프는 연결 여부만 들고 있으면 충분하다.
- */
 function fakeWebAudio() {
   const started: string[] = []
   const stopped: string[] = []
@@ -39,7 +35,6 @@ function fakeWebAudio() {
       lastSource = new FakeBufferSource()
       return lastSource
     }
-    // 파일 경로를 그대로 태그로 실어 보내 어떤 음성이 재생됐는지 추적한다.
     decodeAudioData(data: ArrayBuffer) {
       const tag = new TextDecoder().decode(data)
       decoded.push(tag)
@@ -80,17 +75,14 @@ function fileName(src: string) {
   return src.slice(src.lastIndexOf('/') + 1)
 }
 
-/** 디코딩(fetch → decodeAudioData)이 끝나기를 기다린다. 그 전에는 play()가 조용히 넘어간다. */
 async function settlePreload() {
   for (let index = 0; index < 5; index += 1) await Promise.resolve()
 }
 
-/** resume() 뒤로 미뤄둔 start()가 실행되기를 기다린다. */
 async function settleResume() {
   for (let index = 0; index < 3; index += 1) await Promise.resolve()
 }
 
-/** 화면을 한 번 만져 context 잠금이 풀린 상태. 버튼으로 굴리면 늘 여기서 시작한다. */
 function unlockContext() {
   document.dispatchEvent(new Event('pointerdown'))
 }
@@ -120,8 +112,6 @@ describe('createHandVoice', () => {
   })
 
   it('제스처를 기다리지 않고 다섯 음성을 미리 디코딩한다', async () => {
-    // iOS Safari의 <audio>는 play()마다 파이프라인을 세워 0.6~0.8초 늦게 났다.
-    // 미리 디코딩해 두는 것이 그 지연을 없애는 핵심이라 여기서 못 박는다.
     const voice = createHandVoice()
     await settlePreload()
 
@@ -178,7 +168,6 @@ describe('createHandVoice', () => {
 
     document.dispatchEvent(new Event('pointerdown'))
 
-    // 굴림 완료는 탭보다 한참 뒤라 이 해제 없이는 iOS에서 첫 족보 음성이 막힌다.
     expect(audio.resumeCount).toBe(1)
     voice.dispose()
   })
@@ -195,8 +184,6 @@ describe('createHandVoice', () => {
   })
 
   it('흔들어 굴려 제스처가 없어도 resume이 끝나면 목소리가 나간다', async () => {
-    // 폰에서 흔들어 굴리면 게임 화면에서 탭이 한 번도 없어 context가 잠긴 채로 착지한다.
-    // 잠긴 상태에서 start()하면 타임라인이 멈춰 있어 목소리가 통째로 날아갔다.
     const voice = createHandVoice()
     await settlePreload()
 
@@ -228,7 +215,6 @@ describe('createHandVoice', () => {
     audio.lastSource?.onended?.()
     voice.play('fourOfAKind')
 
-    // 이미 끝난 소스라 stop 목록에 남지 않는다 — 재생 중인 것만 끊는다.
     expect(audio.stopped).toEqual([])
     expect(audio.started).toEqual(['yacht.wav', 'four-of-a-kind.wav'])
     voice.dispose()

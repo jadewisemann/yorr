@@ -1,14 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cn } from '@/shared/cn'
 
-/**
- * 디자인 시스템은 "외부 배치는 className으로 확장한다"(docs/wiki/design-system.md)를
- * 전제로 한다. 그 전제가 성립하려면 cn()이 프로젝트 토큰 class를 같은 충돌 그룹으로 알아야
- * 한다 — 모르면 양쪽이 다 살아남고 승자를 빌드된 CSS 선언 순서가 정한다.
- *
- * tailwind-merge는 기본 설정에서 Tailwind 기본 테마만 알기 때문에, @theme으로 추가한
- * tap·card·panel 같은 키는 등록해 주지 않으면 병합되지 않는다.
- */
 describe('cn() 토큰 병합', () => {
   it('호출자가 넘긴 class가 컴포넌트의 같은 그룹 class를 이긴다', () => {
     expect(cn('min-h-tap px-6 py-3', 'min-h-[3.625rem]')).toBe('px-6 py-3 min-h-[3.625rem]')
@@ -39,8 +31,6 @@ describe('cn() 토큰 병합', () => {
   })
 
   it('모션 토큰(duration·ease)을 병합한다', () => {
-    // duration은 이름 있는 토큰이 없다(Tailwind v4에 --duration-* 네임스페이스 없음).
-    // 원시값을 직접 참조하는 형태끼리 병합되는지만 본다.
     expect(cn('duration-(--ds-motion-base)', 'duration-150')).toBe('duration-150')
     expect(cn('ease-snappy', 'ease-linear')).toBe('ease-linear')
   })

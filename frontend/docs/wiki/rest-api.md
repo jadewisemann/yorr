@@ -1,7 +1,7 @@
 # REST API — 프론트가 실제로 호출하는 엔드포인트
 
 > 기준: `src/room/api/roomApi.ts` · `quickMatchApi.ts` · `src/auth/api/authApi.ts` ·
-> `src/shared/api/rankingApi.ts` · `src/pingpong/pingPongAiResultApi.ts`.
+> `src/shared/api/rankingApi.ts` · `src/pingpong/api/pingPongAiResultApi.ts`.
 > base `/api/v1`(`VITE_API_BASE_URL`로 재정의). 인증 호출은 `Authorization: Bearer` +
 > `X-User-Id`. 이 문서는 프론트 관찰 기준이다 — 백엔드 스냅샷을 두면 어긋난다.
 

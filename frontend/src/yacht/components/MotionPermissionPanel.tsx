@@ -1,8 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useEffectEvent } from 'react'
 import { Button } from '@/shared/components/Button'
 import { IconClose } from '@/shared/components/Icon'
 
-/** 자동으로 닫히기까지의 시간. 링이 한 바퀴 도는 시간과 같은 값이다. */
 const AUTO_CLOSE_MS = 3000
 
 type MotionPermissionPanelProps = {
@@ -54,40 +53,25 @@ export function MotionPermissionPanel({
       aria-label="센서 권한 안내"
     >
       <p className="m-0 text-sm text-content-muted">{message}</p>
-      {/* 되돌릴 수 없는 상태(denied·insecure·error)의 안내는 자동으로 닫지 않는다 —
-          읽는 데 시간이 걸리는 두세 줄짜리 설명이고, 사라지면 다시 부를 길이 없다. */}
       <CloseButton onClose={onClose} />
     </section>
   )
 }
 
-/**
- * 안내를 치우는 버튼. 이 패널은 주사위 화면 위를 덮으므로,
- * denied·error·insecure처럼 되돌릴 수 없는 상태에서 시야를 영구히 가리면 안 된다.
- * 모양·탭 크기는 Modal의 닫기 버튼과 맞춘다.
- * <p>
- * `autoClose`면 버튼을 두르는 링이 한 바퀴 도는 동안(3초) 남은 시간을 보여주고 스스로
- * 닫는다 — 권한 안내는 되돌릴 수 있는 상태(버튼을 다시 누르면 또 뜬다)라 시야를 오래
- * 가릴 이유가 없다. 링은 `conic-gradient` 각도만 움직이므로 레이아웃을 건드리지 않는다.
- * <p>
- * 자동 닫힘은 <b>motion-safe에서만</b> 돈다. 모션을 줄인 사용자에게 3초는 읽기에 짧을 수
- * 있고, 시간 제한 자체가 WCAG 2.2.1의 대상이다 — 링이 멈추면 닫기도 멈춘다.
- */
 function CloseButton({ autoClose = false, onClose }: { autoClose?: boolean; onClose: () => void }) {
-  const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  const close = useEffectEvent(onClose)
 
   useEffect(() => {
     if (!autoClose) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const timer = setTimeout(() => onCloseRef.current(), AUTO_CLOSE_MS)
+    const timer = setTimeout(() => close(), AUTO_CLOSE_MS)
     return () => clearTimeout(timer)
   }, [autoClose])
 
   return (
     <button
       aria-label="센서 안내 닫기"
-      className="relative grid size-tap shrink-0 cursor-pointer place-items-center rounded-full bg-transparent text-content focus-ring"
+      className="relative grid size-tap shrink-0 cursor-pointer place-items-center rounded-full bg-transparent text-content focus-ring pressable"
       onClick={onClose}
       type="button"
     >
@@ -97,7 +81,6 @@ function CloseButton({ autoClose = false, onClose }: { autoClose?: boolean; onCl
           className="pointer-events-none absolute inset-1 rounded-full [background:conic-gradient(var(--ds-color-brand-strong)_var(--sweep),transparent_0)] [mask:radial-gradient(farthest-side,transparent_calc(100%-2px),#000_calc(100%-2px))] motion-safe:animate-close-sweep"
         />
       )}
-      {/* 닫기는 공용 아이콘으로 — 같은 역할의 다른 버튼(모달·게임 헤더)과 같은 그림이어야 한다. */}
       <IconClose className="size-5" />
     </button>
   )

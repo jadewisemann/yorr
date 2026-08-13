@@ -67,7 +67,6 @@ describe('containDiceInBowl', () => {
 
     const velocity = entry.body.linvel()
     expect(velocity.x).toBeLessThan(0)
-    // 수직 성분은 그대로 — 사발 안에서 튀어 오르는 움직임은 살려 둔다.
     expect(velocity.y).toBeCloseTo(0.4, 5)
     world.free()
   })

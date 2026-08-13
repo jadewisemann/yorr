@@ -7,7 +7,6 @@ export type PingPongSituation =
 const EVENT_LABELS: Partial<
   Record<PingPongEventType, readonly [mine: string | null, opponent: string | null]>
 > = {
-  // 이모지는 아이콘이 아니라 카피 속 장식이다 — 나머지 라벨에는 없어 형제와 맞지 않는다.
   SMASH: ['스매시!', '상대 스매시!'],
   NICE: ['나이스!', '상대가 받아쳤어요'],
   OK: ['굿!', '리턴!'],
@@ -49,18 +48,32 @@ export function sharedEventLabel(type: PingPongEventType, actorName: string) {
 }
 
 export function feedbackTextClass(type: PingPongEventType) {
-  if (type === 'SMASH') return 'text-[#ff7a4d]'
-  if (type === 'NICE') return 'text-[#ffd24a]'
+  if (type === 'SMASH') return 'text-pp-smash'
+  if (type === 'NICE') return 'text-pp-gold'
   if (type === 'TOO_EARLY' || type === 'TOO_LATE' || type === 'OUT' || type === 'NET') {
-    return 'text-[#ff8b7c]'
+    return 'text-pp-danger-text'
   }
   return 'text-white'
 }
 
+const glow = (token: string, blur: string, alpha: number) =>
+  `0 0 ${blur} color-mix(in srgb, var(${token}) ${alpha}%, transparent)`
+
 export function comboStyle(count: number) {
-  if (count >= 8) return { color: '#ff7a4d', size: 'text-7xl', glow: '0 0 24px #ff7a4d99' }
-  if (count >= 5) return { color: '#ffd24a', size: 'text-6xl', glow: '0 0 20px #ffd24a8c' }
-  if (count >= 3) return { color: '#49e08a', size: 'text-5xl', glow: '0 0 16px #49e08a80' }
+  if (count >= 8)
+    return {
+      color: 'var(--ds-pp-smash)',
+      size: 'text-7xl',
+      glow: glow('--ds-pp-smash', '24px', 60),
+    }
+  if (count >= 5)
+    return { color: 'var(--ds-pp-gold)', size: 'text-6xl', glow: glow('--ds-pp-gold', '20px', 55) }
+  if (count >= 3)
+    return {
+      color: 'var(--ds-pp-accent)',
+      size: 'text-5xl',
+      glow: glow('--ds-pp-accent', '16px', 50),
+    }
   return { color: '#ffffff', size: 'text-5xl', glow: '0 2px 10px #00000080' }
 }
 

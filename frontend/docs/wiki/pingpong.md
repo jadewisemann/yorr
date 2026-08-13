@@ -1,7 +1,8 @@
 # 탁구 (PING_PONG)
 
-> SSOT: [`../../src/pingpong/`](../../src/pingpong/) — `PingPongGame.tsx`(온라인 진입점) ·
-> `court.ts`(판정 수치 SSOT) · `scene3d.ts`(Three.js 무대) · `localGame.ts`(AI 모드)
+> SSOT: [`../../src/pingpong/`](../../src/pingpong/) — `screens/PingPongGame.tsx`(온라인
+> 진입점) · `domain/court.ts`(판정 수치 SSOT) · `rendering/scene3d.ts`(Three.js 무대) ·
+> `domain/localGame.ts`(AI 모드)
 
 서버 권위 구조 — 화면은 판정하지 않고 입력만 올리고, 서버 상태를 연출로 번역한다.
 

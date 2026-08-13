@@ -17,10 +17,34 @@ Tailwind CSS v4, CSS-first `@theme`. 현재 **단일 다크 테마**(`:root` 고
 2. **semantic 토큰** `@theme inline` — 각 항목이 `--ds-*`를 alias해 utility를 생성한다.
    컴포넌트는 `bg-[#…]` 대신 `bg-canvas` `bg-brand` `min-h-tap`을 쓴다.
 
-네임스페이스: 핵심 UI(`canvas`/`surface`군/`content`군/`border`/`focus`/`scrim`) ·
+네임스페이스: 핵심 UI(`canvas`/`surface`군/`content`군/`border`군/`focus`/`scrim`) ·
 상태(`brand`군/`positive`/`warning`/`danger`) · 물리 주사위(`physics-*` — 단 3D 재질 색은
 utility 없이 `appearance.ts`가 원시값을 직접 읽는다) · 랜딩 전용(`landing-*` — 본편 색과
-섞지 않는다) · 카카오 브랜드.
+섞지 않는다) · **게임별 팔레트**(`pp-*` 탁구, `duel-*` 결투 — 게임마다 세계관이 다르므로
+네임스페이스를 나누되, "주의·이김·짐"처럼 세계관과 무관한 것은 시스템 토큰을 가리킨다.
+게임 전용 색을 새로 만들 때는 시스템 색과 RGB 거리가 충분한지 확인한다) · 카카오 브랜드.
+
+## 사다리(scale) — 크기는 정해진 단에서만
+
+눈대중 px는 "미묘하게 안 맞는" 느낌의 1순위 원인이다(실측: 글자 20종·라운드 28종까지
+벌어져 있었다, S15P11A406-214).
+
+- **글자**: Tailwind 기본 + `text-2xs`(11px) 한 단. 11px은 한글 하한 — 그 아래 단은 없다.
+- **라운드**: `xs 2 · chip 6 · control 12 · card 14 · panel 18 · sheet 26 · hero 32 · full`
+  7단+full. `rounded-2xl` 같은 Tailwind 기본 라운드 이름은 쓰지 않는다 — 토큰과 겹치거나
+  어긋난다.
+- **흰색 알파 헤어라인 3단**: `border`(10%) · `border-raised`(14%, 떠 있는 표면) ·
+  `border-strong`(18%, 강조·1px 구분선). 면으로 옅게 깔 때는 `surface-veil`(6%) —
+  `surface`는 불투명해서 뒤 그라디언트를 가린다. 눈대중 `white/NN` 금지, 사다리에 없는
+  단이 필요하면 이유를 주석에 적는다(선례: Button ghost `white/28`).
+- **safe-area**: `pt-safe-top` · `pb-safe-bottom` 두 토큰만 — 25곳이 각자 손으로 쓰던
+  산술을 하한 2종으로 수렴(위아래가 다른 것은 의도 — 아래는 홈 인디케이터를 더 피한다).
+
+## 화면 프레임
+
+화면에서 `min-h-dvh`·`h-svh` 껍데기를 새로 쓰지 않는다 — **`Screen`이 높이 정책과
+safe-area를 소유**하고, `PlayBoard`(게임판)·`ControllerScreen`(폰 컨트롤러)이 감싼다.
+확장은 props가 아니라 `className`으로.
 
 주의점(코드 주석 근거):
 
@@ -79,12 +103,19 @@ motion을 mock한다 — [testing.md](./testing.md).
 
 ## 컴포넌트 규칙
 
-1. 공통 `Button` 우선, 한 화면에 레드 Primary는 하나
+1. 공통 `Button` 우선, 한 화면에 레드 Primary는 하나. `Button`으로 표현할 수 없으면
+   **Button을 감싼 얇은 컴포넌트**를 만든다(선례: `GameChromeButton` — 게임 크롬 알약
+   버튼 7곳을 하나로). 감싸는 쪽에 스타일을 쌓지 말고 variant map에 추가한다.
 2. variant는 정적 class map — 동적 문자열 조립 금지
 3. 외부 배치는 `className`, 내부 구조·상태는 컴포넌트 소유
 4. 클릭 요소 최소 `min-h-tap`(44px)
-5. focus ring·disabled·loading·error·reconnect 상태 누락 금지
+5. focus ring·**pressed**·disabled·loading·error·reconnect 상태 누락 금지 — pressed는
+   hover가 없는 터치에서 "닿았다"를 알리는 유일한 채널. 값은 `recipes.css`의
+   `pressable`(scale 0.97) 한 곳에만 두고 `active:scale-*`를 직접 적지 않는다
+   (예외 2종 — 24px 이하 글리프, 눌림을 빼는 자리 — 는 그 자리에 이유를 적는다)
 6. 상태를 색 하나에 싣지 않는다 (모양·라벨·패턴 병행)
+7. 아이콘은 `shared/components/Icon.tsx`로 모은다 — 이모지·글리프 금지(예외: 이모지가
+   곧 콘텐츠인 리액션 픽커)
 
 공통 컴포넌트 목록과 각각의 설계 결정은 [shared-ui.md](./shared-ui.md),
 카탈로그는 `/__dev/components`.
