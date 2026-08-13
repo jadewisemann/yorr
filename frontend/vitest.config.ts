@@ -30,7 +30,7 @@ export default defineConfig({
         'src/test/**',
         // mock 인프라(MSW 핸들러·픽스처)는 제품 코드가 아니라 분모에서 뺀다.
         'src/mocks/**',
-        // 개발 전용 내부 도구 UI — 제품 코드가 아니라 분모에서 뺀다. 근거는 .dev.md 참고.
+        // 개발 전용 내부 도구 UI — 제품 코드가 아니라 분모에서 뺀다.
         // app/dev/** 로 뭉치지 않는다 — 같은 폴더의 motionLab*.ts 유틸은 테스트가 있고
         // 분모에 남아야 한다. UI만 빼는 것이 이 목록의 의도다.
         'src/app/dev/DevCatalog.tsx',

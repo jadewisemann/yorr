@@ -3,7 +3,7 @@ import { createRoom, enterRoomViaApi, uniqueNickname } from '../support/rooms'
 
 /**
  * 서버가 실제로 반환하는 참가 에러의 UX 를 검증한다.
- * 중복 닉네임은 서버가 허용(200)하는 것을 확인해 시나리오에서 제외했다 (.dev.md 측정 기록).
+ * 중복 닉네임은 서버가 허용(200)하는 것을 실측으로 확인해 시나리오에서 제외했다.
  */
 
 test('존재하지 않는 방 코드는 참가를 막고 코드 수정 경로를 준다', async ({ page }) => {

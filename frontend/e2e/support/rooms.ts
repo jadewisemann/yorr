@@ -8,7 +8,7 @@ import { type APIRequestContext, expect, type Page } from '@playwright/test'
 /**
  * 닉네임 규칙(문자·숫자·공백, 12자 이하) 안에서 테스트 간 충돌을 피한다.
  * prefix 는 ASCII 만 — 프론트는 한글을 허용하지만 서버는 400 invalid_nickname 으로
- * 거부한다 (계약 불일치, .dev.md 측정 기록 참고).
+ * 거부한다 (계약 불일치, 실서버 실측으로 확인).
  */
 export function uniqueNickname(prefix: string) {
   return `${prefix} ${Math.random().toString(36).slice(2, 6)}`.slice(0, 12)
