@@ -175,11 +175,11 @@ Windows에서는 `./gradlew` 대신 `gradlew.bat`을 사용합니다. 일부 통
 
 ## 문서
 
-- [현재 구현 기준](frontend/docs/current-baseline.md)
-- [아키텍처와 기술 스택](frontend/docs/engineering/architecture-and-stack.md)
-- [실시간 통신 및 REST API](frontend/docs/api/realtime-and-api.md)
-- [사용자 흐름](frontend/docs/product/user-flow.md)
-- [요트 다이스 규칙](frontend/docs/product/yacht-rules.md)
+- [프론트엔드 문서 인덱스 (LLM 위키)](frontend/docs/index.md)
+- [제품 기준·유저 플로우](frontend/docs/wiki/product.md)
+- [아키텍처와 기술 스택](frontend/docs/wiki/architecture.md)
+- [실시간 통신(WebSocket)](frontend/docs/wiki/realtime.md) · [REST API](frontend/docs/wiki/rest-api.md)
+- [요트 다이스 도메인](frontend/docs/wiki/yacht.md)
 - [백엔드 게임 세션 연동](backend/GAME_SESSION_INTEGRATION.md)
 
 ## 협업 규칙

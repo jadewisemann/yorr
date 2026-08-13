@@ -50,7 +50,7 @@
 **게임을 추가할 때** 손댈 곳은 세 군데다: `src/games.ts`에 항목 추가 → `src/<게임>/` 구현 →
 `room/screens/GamePage`에서 키로 화면 분기.
 
-자세한 설계 근거는 [`docs/engineering/architecture-and-stack.md`](docs/engineering/architecture-and-stack.md) 참고.
+자세한 설계 근거는 [`docs/wiki/architecture.md`](docs/wiki/architecture.md) 참고.
 
 ## 스타일·디자인 시스템
 
@@ -60,7 +60,7 @@
 - 공통 UI가 있으면 화면에서 같은 컴포넌트를 새로 만들지 않는다.
 - 애니메이션 구현체가 둘이다. **장식·상태 강조(반복·한 번 튐)는 CSS keyframes,
   진입·퇴장·제스처는 `motion`**(`src/shared/motion.ts`)이다. 경계와 이유는
-  [`docs/engineering/design-system.md`](docs/engineering/design-system.md)의 「모션」에 있다 —
+  [`docs/wiki/design-system.md`](docs/wiki/design-system.md)의 「모션」에 있다 —
   돌아가는 CSS 애니메이션을 motion으로 옮기지 않는다.
 - 디자인이 확정되지 않은 상태에서 pixel-perfect 작업을 임의로 확대하지 않는다.
 

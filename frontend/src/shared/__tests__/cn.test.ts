@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { cn } from '@/shared/cn'
 
 /**
- * 디자인 시스템은 "외부 배치는 className으로 확장한다"(docs/engineering/design-system.md)를
+ * 디자인 시스템은 "외부 배치는 className으로 확장한다"(docs/wiki/design-system.md)를
  * 전제로 한다. 그 전제가 성립하려면 cn()이 프로젝트 토큰 class를 같은 충돌 그룹으로 알아야
  * 한다 — 모르면 양쪽이 다 살아남고 승자를 빌드된 CSS 선언 순서가 정한다.
  *
