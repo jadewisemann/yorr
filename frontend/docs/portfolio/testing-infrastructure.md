@@ -6,7 +6,7 @@
 |---|---|
 | 키워드 | Playwright, routeWebSocket, MSW, 커버리지 래칫, flake 근본 원인 제거, 계약 테스트 |
 | 핵심 커밋 | `7d3c30c`(E2E 하네스 +11,474/102파일) · `19962d5`(커버리지 보강) · `9432e40`(타이밍 flake 제거) |
-| 코드 | `e2e/` · `src/test/` · `src/mocks/` · `vitest.config.ts` — 상세는 [위키: testing](../wiki/testing.md) |
+| 코드 | `e2e/` · `src/test/` · `src/mocks/` · `vitest.config.ts` — 상세는 [위키: testing](../llmwiki/testing.md) |
 
 ## 설계 — mock 백엔드가 두 벌인 이유
 

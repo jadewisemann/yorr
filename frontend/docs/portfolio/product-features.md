@@ -5,7 +5,7 @@
 ## 파티 모드 — 큰 화면 + 폰 컨트롤러 (`ebc4ee7`, FE+BE)
 
 TV/모니터가 게임판이 되고 폰들이 QR로 붙어 컨트롤러가 되는 모드.
-([room-and-session](../wiki/room-and-session.md))
+([room-and-session](../llmwiki/room-and-session.md))
 
 - 플레이어 명단에 오르지 않는 `dashboard` 역할을 서버까지 설계(통합 테스트 243라인 포함).
   방장은 "처음 들어온 컨트롤러"이고 나가면 **승계**된다 — 방장 판단을 저장 시점 라벨이
@@ -18,7 +18,7 @@ TV/모니터가 게임판이 되고 폰들이 QR로 붙어 컨트롤러가 되�
 
 ## 빠른 대전 (`110e6e6`, `70d04e6`)
 
-대기열 기반 온라인 매칭. ([room-and-session](../wiki/room-and-session.md))
+대기열 기반 온라인 매칭. ([room-and-session](../llmwiki/room-and-session.md))
 
 - 매칭 대기 백드롭을 **라우터 루트에 한 번만** 세운 설계 — 매칭 후 화면이 옮겨가도
   polling이 이어져야 게임이 시작된다(이 조회가 양쪽 소켓을 확인시킨다).
@@ -31,13 +31,13 @@ TV/모니터가 게임판이 되고 폰들이 QR로 붙어 컨트롤러가 되�
   `room/`이 게임을 모르게 유지하면서 게임마다 사용법을 꽂는 확장점. 타이밍 상수는
   실기기에서 함께 튜닝하는 값이라 한 파일에 모았다.
 - 탁구: 기기 판별을 방 종류가 아니라 `(min-width:1024px) and (pointer:fine)`으로 —
-  빠른 대전 유입이 방 종류로 갈리지 않는 실측 문제의 해법. ([pingpong](../wiki/pingpong.md))
+  빠른 대전 유입이 방 종류로 갈리지 않는 실측 문제의 해법. ([pingpong](../llmwiki/pingpong.md))
 - 석양: 사용법에서 게임과 **같은 임계값**으로 연습을 강제 — 첫 라운드를 날리는 문제 예방.
-  ([duel](../wiki/duel.md))
+  ([duel](../llmwiki/duel.md))
 
 ## 랜딩 (`51c91a7` → `f4254b4`, `2c4eea0`, `32102b7`)
 
-아케이드 캐러셀 랜딩을 구축했다가 **스스로 단순화**한 이력이 있다. ([landing](../wiki/landing.md))
+아케이드 캐러셀 랜딩을 구축했다가 **스스로 단순화**한 이력이 있다. ([landing](../llmwiki/landing.md))
 
 - 히어로 캐러셀: 드래그/휠/키보드, WebGL 컨텍스트 1개 유지, 진행 막대가 곧 tablist
   (키보드·스크린리더 진입점), 드래그와 CTA의 충돌을 8px 임계값+클릭 스왈로우로 해결.
@@ -48,7 +48,7 @@ TV/모니터가 게임판이 되고 폰들이 QR로 붙어 컨트롤러가 되�
 
 ## 튜토리얼 연습 모드 (`2d75769`, `b091daa`) · 레버리지 다이스 (`f407e10`)
 
-([yacht](../wiki/yacht.md))
+([yacht](../llmwiki/yacht.md))
 
 - **화면을 따로 만들지 않고 서버 자리만 갈아끼우는** 로컬 모드 구조 — 실제 게임
   화면(GamePlay)이 실서버 계약 그대로 응답하는 1인 가짜 서버 위에서 돈다. "연습에서 본
@@ -62,12 +62,12 @@ TV/모니터가 게임판이 되고 폰들이 QR로 붙어 컨트롤러가 되�
 
 - 이모지 리액션(파티 관전의 참여 수단), 주간 랭킹 티커(narrow는 CSS 시세표/wide는
   정적+드롭다운 — 3D와 프레임을 다투지 않는 선택), WebRTC 음성 채팅 UI(마이크
-  상태·말하는 중 링·상대별 음소거). ([voice](../wiki/voice.md) · [landing](../wiki/landing.md))
+  상태·말하는 중 링·상대별 음소거). ([voice](../llmwiki/voice.md) · [landing](../llmwiki/landing.md))
 
 ## UI 프리미티브 (`bf6c02c`, `0f28a2d` 외)
 
 - Popover 앵커 배치 엔진 — 뷰포트 클램프·조건부 플립("아래가 좁고 위가 더 넓을 때만")·
-  꼬리가 항상 앵커를 가리키는 클램프. ([shared-ui](../wiki/shared-ui.md))
+  꼬리가 항상 앵커를 가리키는 클램프. ([shared-ui](../llmwiki/shared-ui.md))
 - 모바일 초대 UI를 인라인 카드에서 말풍선으로 — 320×568에서 참가자 목록이 4px로
   짜부라지는 실측에서 출발한 재설계.
 

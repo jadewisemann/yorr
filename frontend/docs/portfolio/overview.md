@@ -8,7 +8,7 @@
 | 한 줄 소개 | 앱 설치 없이 모바일 브라우저에서 휴대폰을 흔들고·휘두르고·탭하며 즐기는 실시간 멀티플레이 게임 플랫폼 |
 | 팀 구성 | 6인 (SSAFY 팀 프로젝트, GitLab + Jira) — **프론트엔드는 정유진 단독** |
 | 게임 | 요트 다이스(1–6인, 흔들기) · 탁구(1–2인, 스윙) · 석양이 진다(2인, 반응속도) + 튜토리얼·레버리지·AI 대전 로컬 모드 |
-| 근거 문서 | [제품 기준](../wiki/product.md) · [아키텍처](../wiki/architecture.md) |
+| 근거 문서 | [제품 기준](../llmwiki/product.md) · [아키텍처](../llmwiki/architecture.md) |
 
 ## 이 제품이 어려운 이유 (= 담당한 문제 공간)
 
@@ -32,7 +32,7 @@
 - **백엔드 교차 수정 6건** — 프론트 증상에서 출발해 Java 서버의 판정·스케줄러·세션
   복구까지 직접 구현/수정 (+1,488라인). [cross-stack-debugging.md](./cross-stack-debugging.md)
 - **FE/BE 계약 설계** — WebSocket 와이어 계약(`wsEvents.ts`)을 FE/BE 공유 SSOT로 운용,
-  버전 히스토리(v0.1~v1.0)로 계약 변경을 관리. [realtime 위키](../wiki/realtime.md)
+  버전 히스토리(v0.1~v1.0)로 계약 변경을 관리. [realtime 위키](../llmwiki/realtime.md)
 
 ## 기여 규모 (git 근거, 이 미러 저장소 기준)
 

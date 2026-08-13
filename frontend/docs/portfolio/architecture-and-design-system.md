@@ -6,7 +6,7 @@
 |---|---|
 | 키워드 | 도메인 우선 구조, 단방향 의존, 파생 상태, 디자인 토큰, Tailwind v4, LLM/에이전트 친화 문서 |
 | 핵심 커밋 | `91b3363`(구조 재편 236파일) · `2532b0c`(다크 디자인 시스템) · `74d0a52`(정리) · `ed6a746`(레시피) · `4318dd9`(게임 흐름·물리 로딩) · `db1a6b6`(문서 위키화) |
-| 근거 위키 | [architecture](../wiki/architecture.md) · [design-system](../wiki/design-system.md) |
+| 근거 위키 | [architecture](../llmwiki/architecture.md) · [design-system](../llmwiki/design-system.md) |
 
 ## 1. 도메인 우선 구조 재편 (236파일, 하루 만에 무사고)
 
@@ -44,7 +44,7 @@
 
 ## 3. 문서를 에이전트 친화 위키로
 
-문서 체계도 설계 대상으로 다뤘다 (`db1a6b6` → 현재 `docs/wiki/` 17페이지):
+문서 체계도 설계 대상으로 다뤘다 (`db1a6b6` → 현재 `docs/llmwiki/` 17페이지):
 
 - **인덱스 하나에서 출발, 필요한 페이지만 여는** LLM/에이전트 우선 구조. "표에 없는
   문서는 없는 것과 같다."

@@ -5,17 +5,17 @@
 
   **휴대폰을 흔들고, 휘두르고, 탭하며 함께 즐기는 실시간 웹 게임 플랫폼**
 
-  [서비스 바로가기](https://yorr.site) · [프론트엔드 문서](frontend/docs/index.md) · [협업 가이드](CONTRIBUTING.md)
+  [서비스 바로가기](https://yorr.site) · [프론트엔드 문서](frontend/README.md) · [백엔드 문서](backend/GAME_SESSION_INTEGRATION.md) · [협업 가이드](CONTRIBUTING.md)
 </div>
 
-## 프로젝트 소개
+## 소개
 
-YORR는 별도 앱 설치 없이 모바일 브라우저에서 즐길 수 있는 멀티플레이 게임 서비스입니다.
-방을 만들거나 빠른 대전으로 상대를 찾고, 초대 코드·링크·QR로 친구를 초대할 수 있습니다.
-휴대폰의 모션 센서를 게임 조작에 활용하며, 센서를 사용할 수 없는 환경에서도 화면 조작으로
-끝까지 플레이할 수 있습니다.
+YORR는 별도 앱 설치 없이 모바일 브라우저에서 즐기는 멀티플레이 게임 서비스입니다.
+방을 만들거나 빠른 대전으로 상대를 찾고, 초대 코드·링크·QR로 친구를 초대합니다.
+휴대폰의 모션 센서가 게임 조작이 되고 — 주사위는 흔들어 굴리고, 탁구채는 폰을 휘둘러
+칩니다 — 센서를 쓸 수 없는 환경에서도 화면 탭만으로 끝까지 플레이할 수 있습니다.
 
-### 플레이 가능한 게임
+### 게임
 
 | 게임 | 인원 | 조작 | 설명 |
 |---|---:|---|---|
@@ -23,16 +23,15 @@ YORR는 별도 앱 설치 없이 모바일 브라우저에서 즐길 수 있는 
 | 탁구 | 1–2명 | 화면 탭 · 휴대폰 스윙 | 먼저 11점을 얻는 플레이어가 승리하는 빠른 랠리 게임입니다. |
 | 석양이 진다 | 2명 | 화면 탭 · 휴대폰 휘두르기 | 신호에 맞춰 먼저 공격하는 반응 속도 대결입니다. |
 
-라이어스 다이스와 낚시는 현재 준비 중입니다.
+라이어스 다이스와 낚시는 준비 중입니다.
 
-## 주요 기능
+### 주요 기능
 
 - 게스트 입장 및 카카오·구글 소셜 로그인
-- 방 생성, 초대 코드·링크·QR 참가, 빠른 대전
-- WebSocket 기반 실시간 방·게임 상태 동기화와 재접속 복구
-- 휴대폰 모션 센서 기반 조작과 탭 조작 대체 수단
-- 큰 화면과 여러 휴대폰을 연결하는 파티 모드
-- 탁구 전용 휴대폰 컨트롤러 페어링
+- 방 생성, 초대 코드·링크·QR 참가, 빠른 대전 매칭
+- WebSocket 기반 실시간 상태 동기화와 재접속 복구
+- 모션 센서 조작과 화면 탭 대체 수단
+- 큰 화면 + 휴대폰 컨트롤러를 연결하는 파티 모드
 - WebRTC 기반 방 음성 채팅
 - 주간 랭킹과 게임 결과 기록
 
@@ -45,10 +44,10 @@ YORR는 별도 앱 설치 없이 모바일 브라우저에서 즐길 수 있는 
 | Backend | Java 21, Spring Boot 4, Spring MVC, Spring WebSocket |
 | Data | MySQL 8, Redis 7, JPA, Flyway |
 | Realtime | WebSocket, WebRTC |
-| Test | Vitest, Testing Library, Playwright, JUnit, Testcontainers |
+| Test | Vitest, Testing Library, Playwright, MSW, JUnit, Testcontainers |
 | Infra | Docker Compose, Jenkins, Vercel, Prometheus |
 
-## 아키텍처
+## 시스템 아키텍처
 
 ```text
 Mobile / Desktop Browser
@@ -64,11 +63,31 @@ Mobile / Desktop Browser
                     계정·전적·랭킹   방·세션·게임 상태
 ```
 
-서버가 방과 게임 상태의 최종 권위자이며, 클라이언트는 WebSocket 이벤트와 재접속 스냅샷으로
-상태를 동기화합니다. 음성 데이터만 WebRTC로 참가자 사이에서 직접 전달하고, 연결을 위한
-시그널링은 기존 WebSocket을 사용합니다.
+서버가 방과 게임 상태의 최종 권위자이며, 클라이언트는 WebSocket 이벤트와 재접속
+스냅샷으로 상태를 동기화합니다. 음성 데이터만 WebRTC로 참가자 사이에서 직접 전달하고,
+연결을 위한 시그널링은 기존 WebSocket을 함께 사용합니다.
 
-## 로컬 실행
+프론트엔드 내부 구조는 [frontend/docs/architecture.md](frontend/docs/architecture.md)에서
+자세히 설명합니다.
+
+## 폴더 구조
+
+```text
+.
+├── frontend/              # React 모바일 웹 클라이언트
+│   ├── src/               # 도메인 중심 애플리케이션 코드
+│   ├── e2e/               # Playwright 브라우저 테스트
+│   └── docs/              # 아키텍처 문서 · 레퍼런스 위키(llmwiki)
+├── backend/               # Spring Boot API 및 실시간 게임 서버
+│   └── src/
+│       ├── main/          # 애플리케이션 코드와 DB 마이그레이션
+│       └── test/          # 단위·통합 테스트
+├── deploy/                # 운영용 Docker Compose 설정
+├── Jenkinsfile            # 검증 및 배포 파이프라인
+└── CONTRIBUTING.md        # Git 브랜치·커밋·PR 규칙
+```
+
+## 시작하기
 
 ### 준비 사항
 
@@ -83,8 +102,8 @@ cd backend
 cp .env.example .env
 ```
 
-`.env`의 `DB_PASSWORD`에 로컬 개발용 비밀번호를 설정한 뒤 실행합니다. 소셜 로그인 기능을
-개발하지 않는 경우 OAuth 관련 값은 비워 두어도 됩니다.
+`.env`의 `DB_PASSWORD`에 로컬 개발용 비밀번호를 설정한 뒤 실행합니다. 소셜 로그인
+기능을 개발하지 않는 경우 OAuth 관련 값은 비워 두어도 됩니다.
 
 ```bash
 # macOS / Linux
@@ -112,21 +131,9 @@ cp .env.example .env.local
 npm run dev
 ```
 
-기본 개발 모드는 MSW로 API를 모의하므로 백엔드 없이도 UI를 확인할 수 있습니다.
-`http://localhost:5173`에서 접속할 수 있습니다.
-
-로컬 백엔드와 연결하려면 `.env.local`에 아래 값을 설정하고 실서버 모드로 실행합니다.
-
-```dotenv
-VITE_API_BASE_URL=/api/v1
-VITE_WS_URL=/ws/v1/game
-VITE_ENABLE_MSW=false
-VITE_BACKEND_ORIGIN=http://localhost:8080
-```
-
-```bash
-npm run dev:real
-```
+기본 개발 모드는 MSW로 API를 모의하므로 **백엔드 없이도 UI를 확인할 수 있습니다.**
+`http://localhost:5173`에서 접속합니다. 로컬 백엔드와 연결하는 방법은
+[frontend/README.md](frontend/README.md)를 참고하세요.
 
 > Windows PowerShell에서는 `cp` 대신 `Copy-Item .env.example .env` 또는
 > `Copy-Item .env.example .env.local`을 사용할 수 있습니다.
@@ -137,14 +144,14 @@ npm run dev:real
 
 ```bash
 cd frontend
-npm run check
-npm run typecheck
-npm test
-npm run build
-npm run test:e2e
+npm run check        # lint + format
+npm run typecheck    # 타입 검사
+npm test             # 단위·컴포넌트 테스트
+npm run build        # 프로덕션 빌드
+npm run test:e2e     # E2E (mock 백엔드)
 ```
 
-실제 백엔드와 연결하는 E2E 테스트는 백엔드를 먼저 실행한 뒤 `npm run test:e2e:real`로 수행합니다.
+실제 백엔드와 연결하는 E2E는 백엔드를 먼저 실행한 뒤 `npm run test:e2e:real`로 수행합니다.
 
 ### Backend
 
@@ -153,34 +160,16 @@ cd backend
 ./gradlew test
 ```
 
-Windows에서는 `./gradlew` 대신 `gradlew.bat`을 사용합니다. 일부 통합 테스트는 Docker가
-실행 중이어야 합니다.
-
-## 디렉터리 구조
-
-```text
-.
-├── frontend/              # React 기반 모바일 웹 클라이언트
-│   ├── src/               # 도메인 중심 애플리케이션 코드
-│   ├── e2e/               # Playwright 브라우저 테스트
-│   └── docs/              # 제품·아키텍처·API 문서
-├── backend/               # Spring Boot API 및 실시간 게임 서버
-│   └── src/
-│       ├── main/          # 애플리케이션 코드와 DB 마이그레이션
-│       └── test/          # 단위·통합 테스트
-├── deploy/                # 운영용 Docker Compose 설정
-├── Jenkinsfile            # 검증 및 배포 파이프라인
-└── CONTRIBUTING.md        # Git 브랜치·커밋·PR 규칙
-```
+Windows에서는 `gradlew.bat`을 사용합니다. 일부 통합 테스트는 Docker가 실행 중이어야
+합니다.
 
 ## 문서
 
-- [프론트엔드 위키](frontend/docs/index.md)
-- [제품 기준·유저 플로우](frontend/docs/wiki/product.md)
-- [아키텍처와 기술 스택](frontend/docs/wiki/architecture.md)
-- [실시간 통신(WebSocket)](frontend/docs/wiki/realtime.md) · [REST API](frontend/docs/wiki/rest-api.md)
-- [요트 다이스 도메인](frontend/docs/wiki/yacht.md)
+- [프론트엔드 README](frontend/README.md) — 기술 스택·폴더 구조·시작하기
+- [프론트엔드 아키텍처](frontend/docs/architecture.md) — 구조·의존 방향·상태 설계와 그 이유
+- [레퍼런스 위키 (llmwiki)](frontend/docs/llmwiki/index.md) — 도메인별 동작 상세 (AI 에이전트 컨텍스트 겸용)
 - [백엔드 게임 세션 연동](backend/GAME_SESSION_INTEGRATION.md)
+- [협업 가이드](CONTRIBUTING.md) — Git 브랜치·커밋·PR 규칙
 
 ## 협업 규칙
 

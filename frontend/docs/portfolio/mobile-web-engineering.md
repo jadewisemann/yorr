@@ -6,7 +6,7 @@
 |---|---|
 | 키워드 | DeviceMotion, 제스처 인식 상태기계, 센서 캘리브레이션, iOS Safari 정책 우회, Web Audio, 입력 지연 보상, 접근성 |
 | 핵심 커밋 | `44b6f69`(모바일 강건성) · `4021f92`(입력 밸런스) · `445c4dd`·`13c770d`·`022f22f`(QA 수정) 외 다수 |
-| 코드 | `src/yacht/input/` · `src/shared/useSwing.ts` · `src/shared/audio/` — 상세는 [위키: motion-input](../wiki/motion-input.md) · [duel](../wiki/duel.md) |
+| 코드 | `src/yacht/input/` · `src/shared/useSwing.ts` · `src/shared/audio/` — 상세는 [위키: motion-input](../llmwiki/motion-input.md) · [duel](../llmwiki/duel.md) |
 
 ## 1. 모션 제스처 인식기를 직접 만들었다
 
