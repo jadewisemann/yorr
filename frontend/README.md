@@ -104,7 +104,7 @@ src/
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | 사람용 아키텍처 문서 — 구조·의존 방향·상태 설계와 그 이유 |
 | [`docs/llmwiki/`](docs/llmwiki/index.md) | 레퍼런스 위키 — 도메인별 동작 상세. AI 에이전트 컨텍스트 겸용 |
-| [`docs/portfolio/`](docs/portfolio/index.md) | 프론트엔드 담당자의 포트폴리오 자료 (코드베이스 문서 아님) |
+| [`docs/portfolio/`](docs/portfolio/README.md) | 프론트엔드 담당자의 포트폴리오 자료 (코드베이스 문서 아님) |
 | [`CLAUDE.md`](CLAUDE.md) · [`AGENTS.md`](AGENTS.md) | AI 에이전트 작업 지침 |
 
 문서와 코드가 다르면 **항상 코드가 이깁니다.**
