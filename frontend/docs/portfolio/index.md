@@ -1,13 +1,13 @@
 # 정유진 — YORR 프론트엔드 포트폴리오 위키
 
 > 기준일: 2026-08-13 · 근거: 이 저장소의 git 히스토리와
-> [코드베이스 위키](../index.md) (author `jadewisemann@gmail.com` · `Jade Wisemann`)
+> [코드베이스 위키](../llmwiki/index.md) (author `jadewisemann@gmail.com` · `Jade Wisemann`)
 
 이 디렉터리는 YORR(요르) 프로젝트의 **프론트엔드 단독 담당 정유진**의 작업을 정리한
 **LLM 위키**다. 1차 용도는 LLM에 맥락으로 주입해 이력서 불릿·자기소개서·면접 답변·
 포트폴리오 페이지를 생성시키는 것이다.
 
-이 위키는 [`frontend/docs/wiki/`](../wiki/)의 **코드베이스 위키를 근거 계층으로 쓴다** —
+이 위키는 [`frontend/docs/llmwiki/`](../llmwiki/)의 **코드베이스 위키를 근거 계층으로 쓴다** —
 여기 문서는 "무엇을 했고 왜 인상적인가"를, 코드베이스 위키는 "어떻게 동작하는가"를
 말한다. 기술 디테일 검증이 필요하면 각 문서가 가리키는 위키 페이지와 커밋 해시
 (`git show <hash>`)를 따라간다.
@@ -35,14 +35,14 @@
 
 | 문서 | 주제 | 근거 위키 페이지 |
 |---|---|---|
-| [overview.md](./overview.md) | 프로젝트·역할·기여 규모 | [product](../wiki/product.md) · [architecture](../wiki/architecture.md) |
-| [dice-physics.md](./dice-physics.md) | 3D 주사위 — 예측 시뮬 + 서버 권위 리맵 (대표작 1순위) | [dice-physics](../wiki/dice-physics.md) |
-| [realtime-and-recovery.md](./realtime-and-recovery.md) | 실시간 아키텍처·세션 FSM·재접속 복구 | [realtime](../wiki/realtime.md) · [room-and-session](../wiki/room-and-session.md) |
-| [mobile-web-engineering.md](./mobile-web-engineering.md) | 모션 센서 입력·iOS 지옥 극복·지연 보상 밸런스 | [motion-input](../wiki/motion-input.md) · [duel](../wiki/duel.md) |
-| [cross-stack-debugging.md](./cross-stack-debugging.md) | 백엔드까지 파고든 디버깅 3제 + 롤백 판단 | [pingpong](../wiki/pingpong.md) |
-| [testing-infrastructure.md](./testing-infrastructure.md) | 2단 E2E 하네스·커버리지 래칫·flake 박멸 | [testing](../wiki/testing.md) |
-| [architecture-and-design-system.md](./architecture-and-design-system.md) | 도메인 재편·디자인 시스템·문서 체계 | [architecture](../wiki/architecture.md) · [design-system](../wiki/design-system.md) |
-| [product-features.md](./product-features.md) | 파티 모드·빠른 대전·컨트롤러·랜딩 등 제품 기능 | [room-and-session](../wiki/room-and-session.md) · [landing](../wiki/landing.md) |
+| [overview.md](./overview.md) | 프로젝트·역할·기여 규모 | [product](../llmwiki/product.md) · [architecture](../llmwiki/architecture.md) |
+| [dice-physics.md](./dice-physics.md) | 3D 주사위 — 예측 시뮬 + 서버 권위 리맵 (대표작 1순위) | [dice-physics](../llmwiki/dice-physics.md) |
+| [realtime-and-recovery.md](./realtime-and-recovery.md) | 실시간 아키텍처·세션 FSM·재접속 복구 | [realtime](../llmwiki/realtime.md) · [room-and-session](../llmwiki/room-and-session.md) |
+| [mobile-web-engineering.md](./mobile-web-engineering.md) | 모션 센서 입력·iOS 지옥 극복·지연 보상 밸런스 | [motion-input](../llmwiki/motion-input.md) · [duel](../llmwiki/duel.md) |
+| [cross-stack-debugging.md](./cross-stack-debugging.md) | 백엔드까지 파고든 디버깅 3제 + 롤백 판단 | [pingpong](../llmwiki/pingpong.md) |
+| [testing-infrastructure.md](./testing-infrastructure.md) | 2단 E2E 하네스·커버리지 래칫·flake 박멸 | [testing](../llmwiki/testing.md) |
+| [architecture-and-design-system.md](./architecture-and-design-system.md) | 도메인 재편·디자인 시스템·문서 체계 | [architecture](../llmwiki/architecture.md) · [design-system](../llmwiki/design-system.md) |
+| [product-features.md](./product-features.md) | 파티 모드·빠른 대전·컨트롤러·랜딩 등 제품 기능 | [room-and-session](../llmwiki/room-and-session.md) · [landing](../llmwiki/landing.md) |
 | [fact-sheet.md](./fact-sheet.md) | 본인 저작 커밋 50개 전체 원장 | — |
 
 ## 정직성 원칙 (LLM 준수 사항)

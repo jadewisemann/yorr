@@ -8,9 +8,10 @@
 
 ## 문서 읽기 원칙
 
-`frontend/docs/`는 위키처럼 인덱스 구조로 되어 있다. [`docs/index.md`](docs/index.md) 하나만
-보고 표에서 필요한 파일만 골라 연다 — 읽는 방법과 문서 목록은 그 파일에만 적어두고 여기서
-반복하지 않는다. 문서와 코드가 충돌하면 코드가 이긴다.
+에이전트용 레퍼런스 위키는 `docs/llmwiki/`다. [`docs/llmwiki/index.md`](docs/llmwiki/index.md)
+하나만 보고 표에서 필요한 파일만 골라 연다 — 읽는 방법과 문서 목록은 그 파일에만 적어두고
+여기서 반복하지 않는다. (`README.md` · `docs/architecture.md`는 사람용 문서라 에이전트가
+읽을 필요 없다.) 문서와 코드가 충돌하면 코드가 이긴다.
 
 ## 디렉터리 구조 (src)
 
@@ -50,7 +51,7 @@
 **게임을 추가할 때** 손댈 곳은 세 군데다: `src/games.ts`에 항목 추가 → `src/<게임>/` 구현 →
 `room/screens/GamePage`에서 키로 화면 분기.
 
-자세한 설계 근거는 [`docs/wiki/architecture.md`](docs/wiki/architecture.md) 참고.
+자세한 설계 근거는 [`docs/llmwiki/architecture.md`](docs/llmwiki/architecture.md) 참고.
 
 ## 스타일·디자인 시스템
 
@@ -60,7 +61,7 @@
 - 공통 UI가 있으면 화면에서 같은 컴포넌트를 새로 만들지 않는다.
 - 애니메이션 구현체가 둘이다. **장식·상태 강조(반복·한 번 튐)는 CSS keyframes,
   진입·퇴장·제스처는 `motion`**(`src/shared/motion.ts`)이다. 경계와 이유는
-  [`docs/wiki/design-system.md`](docs/wiki/design-system.md)의 「모션」에 있다 —
+  [`docs/llmwiki/design-system.md`](docs/llmwiki/design-system.md)의 「모션」에 있다 —
   돌아가는 CSS 애니메이션을 motion으로 옮기지 않는다.
 - 디자인이 확정되지 않은 상태에서 pixel-perfect 작업을 임의로 확대하지 않는다.
 

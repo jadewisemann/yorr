@@ -6,7 +6,7 @@
 |---|---|
 | 키워드 | Three.js, Rapier(WASM), 결정론적 시뮬레이션, server-authoritative, 물리 닮음(dynamic similarity), 쿼터니언, 관전자 동기화 |
 | 핵심 커밋 | `a469353`(엔진 종합 수정) · `86f6e56`(서버 권위 동기화) · `416a22f`(예측·재생 안정화) · `4318dd9`(물리 로딩 구조) |
-| 코드 | `frontend/src/yacht/rendering/physics-dice/` — 동작 상세는 [위키: dice-physics](../wiki/dice-physics.md) |
+| 코드 | `frontend/src/yacht/rendering/physics-dice/` — 동작 상세는 [위키: dice-physics](../llmwiki/dice-physics.md) |
 | 규모 | 4개 커밋 합계 약 +5,200라인 (물리 단위 테스트 ~1,000라인 포함) |
 
 ## 문제
