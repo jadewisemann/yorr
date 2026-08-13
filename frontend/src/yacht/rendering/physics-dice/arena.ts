@@ -36,9 +36,6 @@ export function createTray(scene: THREE.Scene, world: RAPIER.World) {
       .setRestitution(0.2),
   )
 
-  // 디자인 Yacht Play 3D — 벽·질감 없는 평면 무대. 바닥은 그림자만 받고,
-  // 킵 레일은 분리선(악센트) 아래로 화면 끝까지 깔리는 플랫 밴드다.
-  // RAIL_SPAN은 카메라 최대 프러스텀보다 크게 잡아 어떤 종횡비에서도 가장자리가 안 보이게 한다.
   const RAIL_SPAN = 40
   const floorMaterial = new THREE.ShadowMaterial({ opacity: 0.3 })
   const railMaterial = new THREE.MeshBasicMaterial()
@@ -148,8 +145,6 @@ export function createBowl(scene: THREE.Scene, world: RAPIER.World) {
       bowlBody,
     )
   }
-  // 보이지 않는 뚜껑 — 사발 입구를 막아 흔들림 임펄스를 세게 줘도 주사위가 못 나온다.
-  // 메시 없이 콜라이더만 있으므로 화면에는 안 보인다(S15P11A406-129).
   world.createCollider(
     RAPIER.ColliderDesc.cylinder(SCENE.bowl.colliderLidHalfHeight, SCENE.bowl.colliderLidRadius)
       .setTranslation(0, SCENE.bowl.colliderLidY, 0)
@@ -162,16 +157,11 @@ export function createBowl(scene: THREE.Scene, world: RAPIER.World) {
   return { bowlBody, bowlGroup, bowlInner, bowlInnerMaterial, bowlMaterials }
 }
 
-/**
- * 킵 슬롯 — 카드 프레임·그림자 대신 주사위 발치에 깔리는 평면 막대 하나.
- * 점유된 슬롯은 악센트, 빈 슬롯은 muted 색으로 positionKeepSlots가 바꿔 끼운다.
- */
 export function createKeepSlots(scene: THREE.Scene, geometries: PhysicsDiceGeometries) {
   const slot = SCENE.keepSlots
   const occupied = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
   const empty = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
   const keepSlotMaterials: THREE.Material[] = [occupied, empty]
-  // 그룹이 rotateX(-90°)로 눕기 때문에 로컬 -y가 화면 아래(+z)다.
   const barOffset =
     PHYSICS_DICE_CONFIG.scene.baseDiceSize *
       (0.5 + slot.borderOffsetRatio + slot.borderWidthRatio) +

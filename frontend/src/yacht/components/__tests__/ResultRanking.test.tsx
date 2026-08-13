@@ -23,7 +23,6 @@ describe('ResultRanking', () => {
     expect(rows[2]).toHaveTextContent('3')
   })
 
-  // 색·테두리만으로 1위와 내 자리를 구분하면 흑백·저시력에서 읽히지 않는다.
   it('1위와 내 자리를 텍스트 라벨로도 구분한다', () => {
     render(<ResultRanking players={players} you="me" />)
 

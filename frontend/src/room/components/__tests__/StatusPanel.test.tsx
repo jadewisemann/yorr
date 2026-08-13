@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { StatusPanel } from '@/room/components/StatusPanel'
 
 describe('StatusPanel', () => {
-  // 오류만 alert다 — 나머지를 alert로 두면 로딩마다 스크린리더를 끊는다.
   it('오류만 즉시 알리고 나머지는 조용한 status로 둔다', () => {
     const { rerender } = render(<StatusPanel variant="error" />)
     expect(screen.getByRole('alert')).toHaveTextContent('문제가 발생했어요')

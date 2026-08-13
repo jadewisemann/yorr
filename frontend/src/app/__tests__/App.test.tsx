@@ -4,10 +4,6 @@ import { App } from '@/app/App'
 import { useAppStore } from '@/store'
 import { installUserAgentMock, resetAppTestState } from '@/test/harness'
 
-/**
- * 앱 부팅 배선 — 게이트 → 실시간 동기화 → 라우터 순서가 지켜져야 한다.
- * 순서가 바뀌면 인앱 안내 뒤에서 화면이 먼저 뜨거나, 방이 없는데 소켓을 붙잡는다.
- */
 describe('App', () => {
   afterEach(() => resetAppTestState())
 
