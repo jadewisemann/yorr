@@ -2,7 +2,7 @@
 
 React, Vite, TypeScript 기반의 YORR 모바일 웹 클라이언트다. 구조와 기술 선택의 기준은
 [`docs/engineering/architecture-and-stack.md`](docs/engineering/architecture-and-stack.md)를 따른다.
-문서 전체 인덱스는 [`docs/README.md`](docs/README.md), 에이전트 작업 지침은 [`CLAUDE.md`](CLAUDE.md)를 참고한다.
+문서 전체 인덱스는 [`docs/index.md`](docs/index.md), 에이전트 작업 지침은 [`CLAUDE.md`](CLAUDE.md)를 참고한다.
 
 ## 시작하기
 

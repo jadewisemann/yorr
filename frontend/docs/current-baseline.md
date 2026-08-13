@@ -33,7 +33,7 @@
 - 카카오 로그인은 전체 페이지 리다이렉트 방식이다: `GET /auth/kakao/authorize` →
   카카오 인증 → `/auth/callback?code=...` → `POST /auth/session`으로 code를 세션으로 교환.
 - 로그인 세션은 `localStorage`에 30일 슬라이딩 TTL로 저장하며, 방 세션(`sessionStorage`)과는
-  별도로 관리한다([`../src/authSession.ts`](../src/authSession.ts)).
+  별도로 관리한다([`../src/auth/authSession.ts`](../src/auth/authSession.ts)).
 - 닉네임은 프로필에서 변경할 수 있다(`PATCH /users/me`). 과거 게임 기록은 당시 닉네임을 그대로
   유지한다.
 - 로그인 여부와 무관하게 방 참가 시 표시 닉네임 정책은 아래 "닉네임 정책"을 따른다.
@@ -46,13 +46,13 @@
 - 모션: `motion`(구 Framer Motion)이 진입·퇴장·제스처를, CSS keyframes가 장식·상태 강조를
   맡는다. 경계는 [`engineering/design-system.md`](./engineering/design-system.md)의 「모션」이
   기준이다.
-- 3D 물리 주사위: Three.js + `@dimforge/rapier3d-compat`(`src/rendering/physics-dice/`).
+- 3D 물리 주사위: Three.js + `@dimforge/rapier3d-compat`(`src/yacht/rendering/physics-dice/`).
 - QR: `qrcode.react`로 클라이언트에서 직접 생성(외부 이미지 API 미사용).
 - 센서: `DeviceMotion`/`DeviceOrientation`으로 흔들기·던지기 제스처를 판정
-  (`src/input/`). 고빈도 원시 센서값은 전송하지 않고 판정된 게임 이벤트만 서버로 보낸다.
+  (`src/yacht/input/`). 고빈도 원시 센서값은 전송하지 않고 판정된 게임 이벤트만 서버로 보낸다.
 - Android: `navigator.vibrate` 진동 피드백. iOS: 센서 권한은 사용자 제스처 안에서
   `requestPermission()` 호출, 진동 미지원은 효과음·화면 흔들림·플래시로 대체
-  (`src/feedback/`).
+  (`src/yacht/feedback/`).
 - 자세한 디렉터리 구조·의존성 목록은
   [`engineering/architecture-and-stack.md`](./engineering/architecture-and-stack.md) 참고.
 

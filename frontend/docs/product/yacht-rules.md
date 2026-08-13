@@ -1,6 +1,6 @@
 # 요트다이스 규칙
 
-> 기준: [`../../src/domain/scoring.ts`](../../src/domain/scoring.ts). 규칙이 바뀌면 이 파일이
+> 기준: [`../../src/yacht/domain/scoring.ts`](../../src/yacht/domain/scoring.ts). 규칙이 바뀌면 이 파일이
 > 아니라 코드가 먼저 바뀐다 — 여기는 참고용 요약이다.
 
 정규 요트다이스 12개 카테고리를 사용한다. **3 of a kind는 카테고리로 두지 않는다.**

@@ -19,11 +19,11 @@
 
 ```text
 frontend/src/
-  cn.ts                        # clsx + tailwind-merge
+  shared/cn.ts                 # clsx + tailwind-merge
   styles/global.css            # Tailwind import, reset, 전역 접근성 정책
   styles/tokens.css            # semantic token과 animation token
-  components/*.tsx             # 재사용 공통 컴포넌트
-  app/DevCatalog.tsx           # 개발 전용 컴포넌트 카탈로그
+  shared/components/*.tsx      # 재사용 공통 컴포넌트 (아이콘은 Icon.tsx — 규약은 그 파일 주석이 SSOT)
+  app/dev/DevCatalog.tsx       # 개발 전용 컴포넌트 카탈로그
 ```
 
 개발 서버에서 `/__dev/components`로 카탈로그를 확인한다.
@@ -66,7 +66,7 @@ frontend/src/
   네임스페이스. 본편 화면 색과 섞어 쓰지 않는다.
 - **소셜 로그인**: `kakao`, `kakao-ink` — 카카오 브랜드 색은 제공자 규정상 그대로 사용한다.
 - **모션**: `ease-snappy`, 다양한 `animate-*`(턴 전환, 족보 콜아웃, 튜토리얼 가이드 등).
-  지속시간은 `--ds-motion-*` 원시값과 `src/motion.ts`가 함께 보관한다
+  지속시간은 `--ds-motion-*` 원시값과 `src/shared/motion.ts`가 함께 보관한다
 - **레이어**: `z-index-sticky`/`banner`/`sheet`/`modal`/`toast`
 
 새 semantic token을 추가할 때는 `--ds-*` 원시 값을 먼저 정의하고 `@theme inline`에서
@@ -76,7 +76,7 @@ frontend/src/
 
 애니메이션 구현체가 둘이다. **어느 쪽을 쓸지는 취향이 아니라 아래 경계로 정해진다.**
 
-| | CSS keyframes (`tokens.css`) | `motion` (`src/motion.ts`) |
+| | CSS keyframes (`tokens.css`) | `motion` (`src/shared/motion.ts`) |
 |---|---|---|
 | 담당 | **장식·상태 강조** — 요소가 이미 DOM에 있는 채로 반복하거나 한 번 튀는 것 | **진입·퇴장·제스처** — 요소가 나타나고 사라지는 것, 손가락을 따라가는 것 |
 | 예 | `animate-ring-pulse`, `animate-turn-pop`, `animate-callout-*`, `animate-guide-bob`, `animate-spin-slow` | 바텀시트 슬라이드업, 모달·팝오버 pop, 스크림 페이드, 시트 드래그 |
@@ -88,7 +88,7 @@ frontend/src/
 
 공통 규칙:
 
-- 지속시간·이징 값은 `src/motion.ts`의 `DURATION`·`EASE_*`와 `tokens.css`의
+- 지속시간·이징 값은 `src/shared/motion.ts`의 `DURATION`·`EASE_*`와 `tokens.css`의
   `--ds-motion-*`·`--ds-ease-snappy`가 **같은 값을 양쪽에 적어둔 것**이다. 한쪽만 고치지 않는다.
 - 기준(ui-skills `animation-systems`): 마이크로 120–200ms · UI 상태 180–260ms ·
   팝오버 220–320ms · 섹션 진입 400–800ms.
