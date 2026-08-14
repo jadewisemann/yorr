@@ -49,6 +49,67 @@ env.ts에 정식 편입한다(1.7에서 완료). **이름은 제안이 아니라
 프로토콜 버전 1, 하트비트 30s/타임아웃 90s, 방 TTL 40분, 빈 방 유예 30s/게임 중
 10분, 턴 25s+유예 1s, 오프라인 허용 2턴, 게스트 24h/회원 30d, 스위퍼 5분.
 
+## 부팅 배선 (`server.ts` / `main.ts`)
+
+`createServer`는 **조립만** 한다(DESIGN.md 「코드 구조」). 배선표가 여기 있는 이유는
+이 저장소에서 **배선 누락이 반복된 실패 모드**이기 때문이다: 타입이 맞고 빌드·단위
+테스트도 통과하는데 런타임에 조용히 아무 일도 일어나지 않는다. 실제로 겪은 다섯 번은
+① 봇 라우트가 브로드캐스터를 못 받아 404 ② 게임 모듈 레지스트리가 갈라져 훅 미실행
+③ 라운드 타이머가 다른 브로드캐스터를 받아 방송이 허공으로 ④ 퀵매치 presence가 다른
+레지스트리라 자동 시작이 영구 거짓 ⑤ 운영 라운드 저장소가 인메모리(재시작마다 진행 중
+게임 소실)다. 그래서 **`src/__tests__/serverWiring.test.ts`가 배선 자체를 회귀
+테스트로 고정한다** — 판정 기준은 "타입이 맞는가"가 아니라 "배선을 빼면 이 테스트가
+깨지는가"다.
+
+### 공유 인스턴스 (새로 만들면 조용히 깨진다)
+
+| 인스턴스 | 받는 쪽 |
+|---|---|
+| `RoomBroadcaster` | WS 게이트웨이 · 봇 REST · 라운드 타이머·해소기 · 게임 종료 · 야추·듀얼·탁구 모듈 |
+| `RoomSessionRegistry` | WS 게이트웨이 · 라운드 타이머(presence) · 게임 종료(markPhase) · 세 게임 모듈 · **퀵매치(자동 시작 조건)** |
+| `RealtimeRoomSnapshotService` | WS 게이트웨이 · 봇 REST · 게임 종료 · 재접속 스냅샷 · 세 게임 모듈 |
+| `GameModuleRegistry` | WS 게이트웨이(`handleGameMessage`·이탈 훅) · `GameLifecycleService`(REST 시작) |
+| `InMemoryRoundDeadlineScheduler` | 라운드 타이머 · 게임 종료(`cancelRoom`) · 듀얼·탁구(상태 `version` 키) |
+| `GameCompletionService`(2.7) | 라운드 타이머(`gameCompletion`) · 듀얼 · 탁구 — **전부 `force=true` 경로** |
+| `CachingWeeklyRankingRepository`(4.5) | 랭킹 서비스(읽기) · 전적 보관(4.4)의 `rankingCache`(evict) |
+
+- 라운드 상태 저장소는 **`RedisYachtDiceStateStore`**(3.1)다. `InMemoryRoundStateStore`는
+  2.4가 남긴 테스트 시드이며, 운영에 두면 재시작마다 진행 중 게임이 사라지는데 타입은
+  맞아서 아무 테스트도 깨지지 않는다.
+- 4.4의 포트 이름이 4.5의 구현과 다르다(`RankingCacheInvalidator.invalidateAll` ↔
+  `WeeklyRankingCacheEvictor.evictAll`) — 배선에 한 줄 어댑터가 있다.
+- MySQL을 타는 배선(4.3 프로필·4.4 전적 보관·4.5 랭킹)은 **풀이 lazy라 MySQL 없이도
+  조립·기동이 성공한다.** 전적 보관 실패는 2.7이 삼켜 `onArchiveFailure` 로그로 흘리므로
+  게임 종료는 그대로 진행된다.
+
+### 등록되는 REST 라우트 (`/api/v1`)
+
+방·게임(1.4) · 음성(1.7) · 조회(2.9 `scores`·`results`·`score-candidates`) ·
+프로필(4.3 `users/me`) · 퀵매치(3.5) · 랭킹(4.5) · 소셜 로그인(4.2). 헬스·메트릭은
+프리픽스 밖(`/actuator/*`)이다. **등록하지 않으면 404이고 컴파일·단위 테스트는 전부
+통과한다** — 라우트별 고유 오류 표면(503/401 `unauthorized`/401 `session_expired`/
+JSON `AUTH_FAILED`)이 곧 "배선됐는가"의 판정이다.
+
+### 기동 순서
+
+1. `main.ts`: env 로드 → MySQL 풀 생성 → `createServer(env, { mysql })`
+2. `main.ts`: `verifyMigrations`(**여기서만** MySQL 왕복 — 아래 배포 절 참고).
+   실패면 `server.close()` + exit 1.
+3. `server.listen()`:
+   `closeUnrecoverableGamesOnStartup`(재시작으로 이어갈 수 없는 PLAYING 방 폐쇄) →
+   `OrphanedRoundStateSweeper.start()`(5분 주기) → `app.listen(SERVER_PORT)`
+   - 스위퍼는 라운드 상태가 Redis에 사는 지금부터 실전에서 필요하다. 인메모리였을
+     때는 재시작이 상태를 함께 지워 고아가 생기지 않았다.
+
+### 종료 훅 (`server.close()`, SIGTERM·SIGINT)
+
+`heartbeat.stop()` → `closeScheduler.stop()`(빈 방 폐쇄 예약) →
+`sweeper.stop()` → `deadlineScheduler.stop()`(라운드·듀얼·탁구 마감 예약) →
+`gateway.close()` → `app.close()` → (주입받지 않았다면) Redis·MySQL 종료.
+**주입한 쪽이 닫는다**: `main.ts`가 넘긴 풀은 `main.ts`가 닫고, 통합 테스트가 넘긴
+Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 unref된 타이머가 남으면
+이미 닫힌 Redis를 두드리기 때문이다(테스트에서는 스위트 간 누수가 된다).
+
 ## 모니터링
 
 - `GET /actuator/health` → `{"status":"UP"}`. 경로 변경은 배포 검증·모니터링과

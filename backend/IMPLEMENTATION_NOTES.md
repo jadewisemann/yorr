@@ -12,6 +12,122 @@
 > 아직 하지 않았다. Phase 5의 문서 정리에 포함한다 — 그때까지 이 파일은
 > "휘발성 메모"가 아니라 사실상 티켓별 결정 기록이다.
 
+## 2026-08-14 - 배선 패스 2
+
+### 배선한 것 (server.ts / main.ts)
+
+`main.ts`는 **한 줄도 바뀌지 않았다** — 마이그레이션 확인·풀 소유·종료 훅이 이미 맞다.
+전부 `server.ts`다.
+
+- **(a) 운영 라운드 저장소**: `InMemoryRoundStateStore` → `new RedisYachtDiceStateStore(redis)`.
+- **(b) 게임 종료**: 경고 스텁 → `new GameCompletionService({completionStore: RedisGameCompletionStore,
+  deadlineScheduler, roomService: rooms, presence: registry, realtimeSnapshots: snapshots,
+  broadcaster, matchArchive}, {onFinished, onArchiveFailure})`. 라운드 타이머·듀얼·탁구가
+  같은 인스턴스를 받는다.
+- **(c) 전적 보관**: `noopMatchArchive` → `new MatchArchiveService(new MysqlMatchArchiveStore(mysql), …)`.
+- **(d) 게임 모듈 3개**: 야추(+`YachtTurnActionService`, `GameReconnectSnapshotService`) ·
+  듀얼(`DuelGameService` + `RedisDuelStateStore` + `RedisDuelScoreboard`) ·
+  탁구(`PingPongGameService` + `RedisPingPongStateStore` + `redisPingPongScoreWriter`).
+- **(e) 라우트 4개**: 조회(2.9) · 프로필(4.3) · 퀵매치(3.5) · 랭킹(4.5).
+- **(f) 스위퍼**: `listen()`에서 `start()`, `close()`에서 `stop()`(마감 스케줄러보다 먼저).
+- **(g) 랭킹 캐시 evict**: `CachingWeeklyRankingRepository` **한 인스턴스**를 랭킹 서비스와
+  보관 서비스가 공유.
+- **(h)** 별도 배선 불필요 — 아래 「발견 3」.
+
+`YorrServer`에 `games` · `completion` · `sweeper` · `rankings`를 추가로 노출했다.
+기존 `rounds`·`broadcaster`·`registry`와 같은 목적이다: 배선 회귀 테스트가 "같은
+인스턴스인가"를 **동작으로** 볼 수 있는 유일한 창이다.
+
+`ServerOptions.sweepScheduler`(테스트 전용 시임)를 추가했다 — 없으면 (f)의 회귀 테스트가
+5분 실시간 sleep이 된다. 2.8이 `SweepScheduler`를 정확히 이 목적으로 남겨 뒀다.
+
+### 발견 1 — 노트의 배선 서술과 실제 시그니처가 다른 곳 (4.2 웨이브와 같은 종류)
+
+1. **4.4 ↔ 4.5의 캐시 포트 이름이 다르다.** 4.4는 `RankingCacheInvalidator.invalidateAll()`,
+   4.5는 `WeeklyRankingCacheEvictor.evictAll()`. 구조적 만족이 **안 된다** — 배선에
+   한 줄 어댑터(`{ invalidateAll: () => rankingCache.evictAll() }`)가 필요하다.
+   두 티켓 노트 모두 "포트로 열어 뒀다"고만 적어 어댑터가 필요한 사실은 없었다.
+2. **3.1의 노트가 예고한 "2.8 `GameReconnectSnapshotService`·2.9 `GameScoreQueryService`
+   실제 배선"은 야추 모듈의 인자로 들어가는 것이 아니다.** 재접속 서비스가 조회 서비스를
+   `scoreboards` 포트로 받고(2.8), 야추 모듈은 재접속 서비스만 받는다. 조립 순서가
+   `queries → reconnectSnapshots → module`이다.
+3. **`DuelGameModule`·`PingPongGameModule`의 두 번째 인자는 세션 조회 포트다**
+   (`DuelSessionLookup`/`PingPongSocketMembership`) — 노트에는 "레지스트리"라고만 적혀
+   있어 `presence`(markPhase)와 같은 자리로 읽힐 수 있다. 실제로는 서비스 deps의
+   `presence`와 모듈의 두 번째 인자가 **둘 다** 같은 `RoomSessionRegistry`다.
+4. **`PingPongGameService`는 `rooms`(RoomService)를 직접 받는다**(`leave`·`cancelActiveGame`).
+   3.4 노트의 "협력자 7개" 목록에 `RoomValidationService`로 적혀 있어 이름이 다르다.
+5. 듀얼 시작 직후 phase는 `READY`가 아니라 **`WAITING`**(신호 대기)이다 — 테스트를 쓰다
+   실측으로 교정했다.
+
+### 발견 2 — 배선이 기존 테스트 두 개의 전제를 깨뜨렸다 (⚠ 오케스트레이터 조치 필요)
+
+`src/http/routes/__tests__/rooms.test.ts`의 2건이 **빨간불로 남아 있다**(내 소유 파일이
+아니라 손대지 않았다):
+
+- `POST /rooms/{code}/lobby — FINISHED에서만 되돌린다` → 409 기대, 404 수신
+- `GET /games/{id} — 인증 없이 조회하고, 없는 게임도 200이다` → phase PLAYING 기대, null 수신
+
+원인은 하나다. 두 테스트는 **WS 소켓 없이** `POST /rooms/{code}/games`를 부른다. 야추
+모듈이 등록된 지금은 그 호출이 `module.start` → `timers.start`까지 내려가고,
+턴 주인이 레지스트리에 없으면(=오프라인) `RoundTimerService`가 **즉시** 오프라인 턴을
+처리한다. 1인 방에서는 같은 사람이 연속으로 턴을 맞으므로 `MAX_OFFLINE_TURNS`(2)에
+바로 닿아 `removePlayer` → `rooms.leave` → **마지막 참가자 퇴장으로 방이 삭제**된다.
+
+- **티켓 코드 버그가 아니다.** Java와 같은 동작이고 2.5의 주석·docs가 명시한 계약이다
+  (오프라인 2턴 = 자동 퇴장). 실전 프론트는 `room.join` 뒤에 REST 시작을 부르므로
+  도달하지 않는다.
+- 같은 이유로 `src/__tests__/serverWiring.test.ts`의 기존 "점수 확정 서비스가 서버의
+  Redis에 붙어 있다"도 깨졌고, **소켓을 먼저 붙이는 것으로 고쳤다**(그 파일은 내 소유).
+  `rooms.test.ts`도 같은 한 줄(`joined(url, host)` 상당)이면 초록이 된다 —
+  다만 그 파일은 `app.inject`만 쓰고 `listen()`을 하지 않으므로, 소켓을 붙이려면
+  스위트가 리슨을 해야 한다. 대안 두 가지:
+  1. 그 두 테스트를 리슨 + 소켓 join 후 시작하도록 고친다(실전 흐름과 같아진다).
+  2. 게임 시작 REST를 부르지 않고 Redis phase를 직접 `PLAYING`으로 세팅한다
+     (그 테스트들이 보려는 것은 lobby 전이·게임→방 역매핑이지 모듈 훅이 아니다).
+
+### 발견 3 — (h) `timer.removePlayer`는 **모듈 등록만으로 연결됐다**
+
+웨이브 2가 "미연결(ws/handler.ts·game/lifecycle.ts가 필요, 소유 밖)"로 남긴 항목인데,
+읽어 보니 두 경로가 이미 모듈을 통해 부르고 있었다:
+
+- `ws/handler.ts:364` `handleRoomLeave` — phase playing이면 `this.game(roomId).removePlayer(...)`
+- `http/routes/rooms.ts:172` `DELETE /rooms/{code}/players/me` — PLAYING이면 `lifecycle.removePlayer(...)`
+- 소켓 close는 의도적으로 다르다: playing 중 끊김은 `markOffline`이고(재접속 대기),
+  이탈 확정은 오프라인 2턴 후 타이머가 스스로 한다.
+
+`this.game(roomId)`가 `games.byCode(...) ?? moduleless`이고 `moduleless.removePlayer`가
+빈 함수였기 때문에 **모듈이 없던 동안만** 미연결이었던 것이다. 야추 모듈 등록으로
+`module.removePlayer` → `timers.removePlayer`가 실제로 돈다. **티켓 코드 변경 없음.**
+회귀 테스트: 「WS room.leave가 게임 모듈을 통해 턴 순서에서 빼낸다」.
+
+### 발견 4 — 세 모듈이 다 등록돼 `moduleless` 대역은 이제 도달 불가다
+
+2.1·3.1 노트가 예고한 상태에 도달했다(`ws/handler.ts`의 `moduleless` + `handleGameMessage`의
+`INVALID_MESSAGE` 대역). 카탈로그 3게임 = 등록 모듈 3개이므로 `games.byCode`가 방의
+게임 코드에 대해 항상 모듈을 돌려준다. **지우는 것은 ws 소유 티켓의 일**이고, 지울 때
+`hasState=false`(빈 방 유예 30초)·재접속 fallback이 함께 사라지는 것을 확인해야 한다.
+
+### 발견 5 — MySQL 없이 MySQL 배선을 검증하는 방법
+
+이 환경에는 MySQL이 없고(4.1~4.5의 관찰과 동일) `MYSQL_TEST_URL` 게이트로 45건이
+skip된다. 그래서 (c)·(g)는 **풀 대역을 `ServerOptions.mysql`로 주입**해 질의 자체를
+관측했다: `INSERT INTO matches (`가 떠났는가(= noop 스텁이 아닌가), 주간 상위 목록
+질의가 두 번째 조회에서 **안** 떠났는가(= 캐시가 체인에 있는가), 종료 후 다시 떠났는가
+(= evict가 같은 인스턴스를 비웠는가). 스키마 검증은 하지 않는다(그건 저장소 테스트의 몫).
+`ServerOptions.mysql`이 이미 있었던 덕에 새 시임이 필요하지 않았다.
+
+### 남은 것 / 넘긴 것
+
+- **`main.ts` 변경 없음.**
+- 프론트 실물 검증(`e2e:real`)은 하지 않았다 — 세 게임 슬라이스의 완료 기준이므로
+  배선이 들어간 지금이 그것을 처음 돌릴 수 있는 시점이다.
+- `docs/design/game-modules.md`의 「게임 추가 시 손댈 곳」에 `+ 카탈로그 행`이 여전히
+  빠져 있다(2.1·3.4가 남긴 항목, 공유 절이라 손대지 않았다). 이제 여기에
+  `+ server.ts의 games.register` 한 줄도 필요하다.
+- `persistence.md` 「저장소 분리」의 "MySQL 쓰기는 전적 보관 한 곳"은 4.2·4.3 때문에
+  이미 사실과 다르다(4.3 노트의 지적 그대로, 공유 절이라 손대지 않았다).
+
 ## 2026-08-14 - Phase 3.4 (탁구)
 
 ### Java와 다르게 결정한 것

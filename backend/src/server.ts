@@ -11,12 +11,35 @@ import { SocialLoginService } from './auth/socialLoginService.js'
 import { OAuthStateStore } from './auth/stateStore.js'
 import { allowedOrigins, type Env } from './config/env.js'
 import { GameCatalog } from './game/catalog.js'
+import { GameCompletionService, RedisGameCompletionStore } from './game/completion/index.js'
+import {
+  DuelGameModule,
+  DuelGameService,
+  RedisDuelScoreboard,
+  RedisDuelStateStore,
+} from './game/duel/index.js'
 import { GameLifecycleService } from './game/lifecycle.js'
+import { MatchArchiveService, MysqlMatchArchiveStore } from './game/match/index.js'
 import { GameModuleRegistry } from './game/module.js'
 import {
-  type GameCompletionPort,
+  PingPongGameModule,
+  PingPongGameService,
+  RedisPingPongStateStore,
+  redisPingPongScoreWriter,
+} from './game/pingpong/index.js'
+import { GameScoreQueryService, RedisGameScoreQueryStore } from './game/query/index.js'
+import {
+  CachingWeeklyRankingRepository,
+  MysqlWeeklyRankingStore,
+  WeeklyRankingService,
+} from './game/ranking/index.js'
+import {
+  GameReconnectSnapshotService,
+  OrphanedRoundStateSweeper,
+  type SweepScheduler,
+} from './game/reconnect/index.js'
+import {
   InMemoryRoundDeadlineScheduler,
-  InMemoryRoundStateStore,
   type RoundDeadlineScheduler,
   type RoundStateStore,
   type RoundSubmissionResult,
@@ -29,23 +52,35 @@ import {
   ScoreConfirmationService,
   ScoreRoundSubmissionService,
 } from './game/score/index.js'
+import {
+  RedisYachtDiceStateStore,
+  YachtDiceGameModule,
+  YachtTurnActionService,
+} from './game/yacht/index.js'
 import { registerAuthRoutes } from './http/routes/auth.js'
+import { registerGameQueryRoutes } from './http/routes/gameQueries.js'
 import { registerGameRoutes } from './http/routes/games.js'
 import { registerHealthRoutes } from './http/routes/health.js'
+import { registerQuickMatchRoutes } from './http/routes/quickMatch.js'
+import { registerRankingRoutes } from './http/routes/ranking.js'
 import { registerRoomRoutes } from './http/routes/rooms.js'
+import { registerUserRoutes } from './http/routes/users.js'
 import { registerVoiceRoutes } from './http/routes/voice.js'
 import { closeMysqlPool, createMysqlPool } from './infra/mysql.js'
 import { createRedisClient } from './infra/redis.js'
 import { BotParticipantService } from './room/botService.js'
 import { InMemoryRoomCloseScheduler } from './room/closeScheduler.js'
+import { QuickMatchService } from './room/quickMatchService.js'
 import { RoomService } from './room/roomService.js'
 import { closeUnrecoverableGamesOnStartup } from './room/staleRoomCleaner.js'
+import { MysqlUserProfileStore, UserProfileService } from './user/profile.js'
 import { UserService } from './user/session.js'
 import { RoomBroadcaster } from './ws/broadcaster.js'
 import { attachGameSocketGateway, type GameSocketGateway } from './ws/gateway.js'
 import { GameSocketHandler } from './ws/handler.js'
 import { HeartbeatMonitor } from './ws/heartbeat.js'
 import { VoiceIceService, voiceIceOptions } from './ws/iceServers.js'
+import type { WsRoomSnapshot } from './ws/protocol.js'
 import { RoomSessionRegistry } from './ws/registry.js'
 import { RealtimeRoomSnapshotService } from './ws/snapshot.js'
 
@@ -62,6 +97,12 @@ export interface ServerOptions {
    */
   readonly mysql?: Pool
   readonly logger?: boolean
+  /**
+   * 고아 라운드 상태 스윕(2.8)의 주기 실행 시임 — **테스트 전용**이다. 운영은
+   * 생략해 실제 5분 타이머를 쓴다. 배선 회귀 테스트가 5분을 기다리지 않고
+   * "listen()이 실제로 주기를 걸었는가"를 확인하는 유일한 창이다.
+   */
+  readonly sweepScheduler?: SweepScheduler
 }
 
 /**
@@ -69,6 +110,11 @@ export interface ServerOptions {
  * 새로 만들면 브로드캐스터·레지스트리가 갈라져 방송이 허공으로 나간다.
  */
 export interface RoundWiring {
+  /**
+   * **운영은 Redis 어댑터(3.1)다.** `InMemoryRoundStateStore`는 2.4가 남긴 테스트
+   * 시드이며, 여기 두면 서버 재시작마다 진행 중 게임 상태가 사라진다(타입은 맞아서
+   * 아무 테스트도 깨지지 않는다).
+   */
   readonly states: RoundStateStore
   readonly synchronization: RoundSynchronizationService
   readonly scores: ScoreConfirmationService
@@ -85,6 +131,20 @@ export interface YorrServer {
   /** WS 게이트웨이·봇 REST·라운드 타이머가 공유하는 **그** 인스턴스. */
   broadcaster: RoomBroadcaster
   rounds: RoundWiring
+  /**
+   * 세 게임 모듈(3.1 야추·3.3 듀얼·3.4 탁구)이 등록된 **그** 레지스트리.
+   * WS 게이트웨이와 `GameLifecycleService`가 같은 것을 본다.
+   */
+  games: GameModuleRegistry
+  /**
+   * 게임 종료 단일 진입점(2.7). 라운드 타이머·듀얼·탁구가 **이 인스턴스**를 받는다 —
+   * 스텁이 남아 있으면 게임이 FINISHED가 되어도 `game.over`가 나가지 않는다.
+   */
+  completion: GameCompletionService
+  /** 고아 라운드 상태 스윕(2.8). `listen()`이 `start()`, `close()`가 `stop()`을 부른다. */
+  sweeper: OrphanedRoundStateSweeper
+  /** 주간 랭킹(4.5). 상위 목록 캐시는 4.4의 보관 서비스가 evict하는 **그** 인스턴스다. */
+  rankings: WeeklyRankingService
   listen(): Promise<void>
   close(): Promise<void>
 }
@@ -122,7 +182,11 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   // 여기서 `new RoomBroadcaster()`를 한 번만 더 쓰면 round.start·score.update가
   // 아무 소켓도 없는 브로드캐스터로 나가고, 빌드도 테스트도 통과한다(1.6 봇 라우트에서
   // 이미 한 번 겪은 함정이다).
-  const roundStates = new InMemoryRoundStateStore()
+  //
+  // ⚠️ 저장소는 **Redis 어댑터**다(3.1 `RedisYachtDiceStateStore`). 2.4의
+  // `InMemoryRoundStateStore`는 테스트 시드이고, 그것을 여기 두면 재시작마다 진행 중
+  // 게임이 사라지는데 **타입이 맞아서 아무 테스트도 깨지지 않는다**.
+  const roundStates = new RedisYachtDiceStateStore(redis)
   const roundSync = new RoundSynchronizationService(roundStates)
   const scores = new ScoreConfirmationService(new RedisScoreBoardStore(redis))
   const scoreSubmissions = new ScoreRoundSubmissionService<RoundSubmissionResult>(
@@ -146,24 +210,47 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
         app.log.warn({ roomId, reason, error }, '마감 처리를 점수 없이 강등했습니다'),
     },
   )
-  /**
-   * 2.7(GameCompletionService)이 아직 없다. 종료 판정을 할 사람이 없으므로 항상
-   * "종료되지 않았다"로 답한다 — 라운드는 계속 진행되고, 라운드 상한에 닿으면 타이머가
-   * `round_cap_reached_without_finish`로 멈춘다. **경고 로그가 이 자리의 유일한 흔적**이라
-   * 2.7 배선을 빠뜨린 채 게임을 돌리면 조용히 끝나지 않는 대신 로그로 드러난다.
-   */
-  const gameCompletion: GameCompletionPort = {
-    finishIfComplete: (roomId, force) => {
-      app.log.warn({ roomId, force }, '게임 종료 판정이 아직 배선되지 않았습니다(2.7)')
-      return false
+
+  // ── 주간 랭킹(4.5) + 전적 보관(4.4) ──────────────────────────────────────
+  // 조립 순서가 곧 의존 방향이다: MySQL 저장소 → 캐시 데코레이터 → 서비스.
+  // **캐시 인스턴스를 보관 서비스에 그대로 넘기는 것이 계약이다** — 새로 만들면
+  // evict가 아무도 읽지 않는 캐시를 비우고, 랭킹은 다음 재시작까지 낡은 채로 남는다.
+  // 이름이 다르므로(`evictAll` ↔ `invalidateAll`) 한 줄 어댑터가 필요하다.
+  const rankingCache = new CachingWeeklyRankingRepository(new MysqlWeeklyRankingStore(mysql))
+  const rankings = new WeeklyRankingService(rankingCache)
+  const matchArchive = new MatchArchiveService(new MysqlMatchArchiveStore(mysql), {
+    rankingCache: { invalidateAll: () => rankingCache.evictAll() },
+    onArchived: (event) => app.log.info(event, '전적을 저장했습니다'),
+    onDuplicate: (gameId) => app.log.info({ gameId }, '이미 저장된 판입니다'),
+  })
+
+  // ── 게임 종료(2.7) ───────────────────────────────────────────────────────
+  // 라운드 타이머·듀얼·탁구가 **이 인스턴스**를 종료 판정으로 받는다. 예전에는
+  // 항상 false를 돌려주는 경고 스텁이 있었고, 그 상태에서는 게임이 FINISHED가 돼도
+  // `game.over`·`state.sync`가 나가지 않아 클라이언트가 결과 화면으로 넘어가지 못했다.
+  // 보관 실패는 여기서 삼켜 `onArchiveFailure`로 흐른다 — MySQL이 없어도 게임은 끝난다.
+  const completion = new GameCompletionService(
+    {
+      completionStore: new RedisGameCompletionStore(redis),
+      deadlineScheduler,
+      roomService: rooms,
+      presence: registry,
+      realtimeSnapshots: snapshots,
+      broadcaster,
+      matchArchive,
     },
-  }
+    {
+      onFinished: (event) => app.log.info(event, '게임이 종료됐습니다'),
+      onArchiveFailure: (roomId, error) => app.log.error({ roomId, error }, '전적 보관 실패'),
+    },
+  )
+
   const roundTimer = new RoundTimerService(
     {
       timeoutResolver,
       deadlineScheduler,
       broadcaster,
-      gameCompletion,
+      gameCompletion: completion,
       synchronizationService: roundSync,
       presence: registry,
       roomService: rooms,
@@ -172,6 +259,89 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
       onWarning: (roomId, reason) => app.log.warn({ roomId, reason }, '라운드 진행 중단'),
     },
   )
+
+  // ── 조회(2.9) · 재접속 스냅샷(2.8) ───────────────────────────────────────
+  const gameQueries = new GameScoreQueryService(new RedisGameScoreQueryStore(redis))
+  const reconnectSnapshots = new GameReconnectSnapshotService<WsRoomSnapshot>({
+    realtimeSnapshots: snapshots,
+    roundStates: roundSync,
+    deadlines: roundTimer,
+    scoreboards: gameQueries,
+  })
+  // 스위퍼는 라운드 상태가 Redis에 살기 시작한 지금부터 실전에서 필요하다 —
+  // 인메모리 시절에는 재시작에 상태가 함께 사라져 고아가 생기지 않았다.
+  const sweeper = new OrphanedRoundStateSweeper(
+    { roundStates: roundSync, timers: roundTimer, rooms },
+    {
+      ...(options.sweepScheduler === undefined ? {} : { scheduler: options.sweepScheduler }),
+      onSwept: (roomId) => app.log.info({ roomId }, '방이 사라진 라운드 상태를 회수했습니다'),
+      onError: (error) => app.log.error({ error }, '고아 라운드 상태 스윕 실패'),
+    },
+  )
+
+  // ── 게임 모듈 3개(3.1·3.3·3.4) ──────────────────────────────────────────
+  // 브로드캐스터·레지스트리·스냅샷·마감 스케줄러·종료 서비스는 **전부 위에서 만든
+  // 그 인스턴스**다. 새로 만들면 방송이 허공으로 나가고 레지스트리 phase가 갈라지는데,
+  // 타입도 테스트도 통과한다.
+  games.register(
+    new YachtDiceGameModule({
+      rounds: roundSync,
+      timers: roundTimer,
+      actions: new YachtTurnActionService({
+        rounds: roundSync,
+        timers: roundTimer,
+        broadcaster,
+        submissions: scoreSubmissions,
+      }),
+      seats: registry,
+      realtimeSnapshots: snapshots,
+      reconnectSnapshots,
+      broadcaster,
+    }),
+  )
+  games.register(
+    new DuelGameModule(
+      new DuelGameService<WsRoomSnapshot>({
+        states: new RedisDuelStateStore(redis),
+        scheduler: deadlineScheduler,
+        broadcaster,
+        realtimeSnapshots: snapshots,
+        presence: registry,
+        completion,
+        scoreboard: new RedisDuelScoreboard(redis),
+      }),
+      registry,
+    ),
+  )
+  games.register(
+    new PingPongGameModule(
+      new PingPongGameService<WsRoomSnapshot>({
+        states: new RedisPingPongStateStore(redis),
+        scheduler: deadlineScheduler,
+        broadcaster,
+        snapshots,
+        presence: registry,
+        completion,
+        scoreWriter: redisPingPongScoreWriter(redis),
+        rooms,
+      }),
+      registry,
+    ),
+  )
+
+  // ── 회원 프로필(4.3) · 퀵매치(3.5) ──────────────────────────────────────
+  const profiles = new UserProfileService(new MysqlUserProfileStore(mysql), users)
+  // 퀵매치의 자동 시작 조건은 "전원의 WS 소켓이 살아 있는가"다 — WS 게이트웨이와
+  // **같은 레지스트리**여야 한다. 새로 만들면 그 조건이 영구히 거짓이 되어 자동
+  // 시작이 조용히 안 된다(타입체크는 통과한다).
+  const quickMatches = new QuickMatchService({
+    redis,
+    rooms,
+    users,
+    catalog,
+    presence: registry,
+    games: lifecycle,
+  })
 
   await app.register(cors, { origin: allowedOrigins(env) })
   await registerHealthRoutes(app)
@@ -190,6 +360,13 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
       })
       await registerGameRoutes(api, { rooms })
       await registerVoiceRoutes(api, { ice: new VoiceIceService(voiceIceOptions(env)) })
+      // 조회 REST(2.9). 등록 전에는 `/rooms/{id}/scores`·`/results`·
+      // `/games/{id}/score-candidates`가 조용히 404다.
+      await registerGameQueryRoutes(api, { users, queries: gameQueries })
+      // 프로필(4.3)·랭킹(4.5)·퀵매치(3.5)도 같다 — 배선이 곧 존재 여부다.
+      await registerUserRoutes(api, { users, profiles })
+      await registerQuickMatchRoutes(api, { users, catalog, matches: quickMatches })
+      await registerRankingRoutes(api, { users, rankings })
       // 소셜 로그인(4.2). 제공자 설정이 비어 있어도 **라우트는 등록한다** — 미설정은
       // 404가 아니라 호출 시점의 503이 계약이다(docs/design/auth.md).
       // 회원 저장소는 MySQL 하나로 조회·가입을 모두 만족한다(별도 트랜잭션 경계는
@@ -239,15 +416,24 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
       deadlines: deadlineScheduler,
       timer: roundTimer,
     },
+    games,
+    completion,
+    sweeper,
+    rankings,
     listen: async () => {
       // 부팅 시 정리: 마감 타이머가 하나도 없는 지금 PLAYING인 방은 이어갈 수 없다.
       const closed = await closeUnrecoverableGamesOnStartup(rooms)
       if (closed > 0) app.log.info({ closed }, '재시작으로 이어갈 수 없는 진행 중 방을 닫았습니다')
+      // 방이 사라진 뒤 남은 라운드 상태 키를 5분마다 회수한다(2.8). 상태가 Redis에
+      // 살기 시작한 뒤로는 실제로 고아가 생긴다 — 인메모리였을 때는 재시작이 청소했다.
+      sweeper.start()
       await app.listen({ port: env.SERVER_PORT, host: '0.0.0.0' })
     },
     close: async () => {
       heartbeat.stop()
       closeScheduler.stop()
+      // 스윕 주기를 먼저 끊는다 — 남아 있으면 닫힌 Redis로 SCAN을 던진다.
+      sweeper.stop()
       // 걸려 있는 라운드 마감 타이머를 전부 끊는다. 안 하면 unref된 타이머가 남아
       // 이미 닫힌 Redis로 마감 처리를 시도한다(테스트에서는 스위트 간 누수가 된다).
       deadlineScheduler.stop()

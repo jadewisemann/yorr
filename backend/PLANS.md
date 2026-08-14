@@ -148,17 +148,17 @@
 | 세션·게스트·회원 | `user/` | rooms-and-sessions.md | ✅ 세션·인증(1.2) + 프로필 REST(4.3) 이식 완료. 프로필의 MySQL 통합 6건은 `MYSQL_TEST_URL` 부재로 **미실행** |
 | 방·Lua·파티·폐쇄 수명 | `room/` | rooms-and-sessions.md | ✅ 키·Lua 9종·스냅샷·REST·폐쇄 스케줄러·StaleRoomCleaner 이식 완료(1.3·1.4·1.5) |
 | 봇 참가자 | `room/service/BotParticipantService` | rooms-and-sessions.md | ✅ ADD/REMOVE Lua·REST·supportsBots 게이트·`state.sync` 이식 완료(1.6) |
-| 퀵매치 | `room/service/QuickMatchService` | rooms-and-sessions.md | 🚧 큐·락(토큰 CAS 해제 Lua)·최장 대기 host·롤백, **WS 소켓 생존 조건 자동 시작**, 티켓 소비·FINISHED 자기 치유, REST 3종 이식 완료(3.5). `server.ts` 배선 필요 |
+| 퀵매치 | `room/service/QuickMatchService` | rooms-and-sessions.md | ✅ 큐·락(토큰 CAS 해제 Lua)·최장 대기 host·롤백, **WS 소켓 생존 조건 자동 시작**, 티켓 소비·FINISHED 자기 치유, REST 3종 이식·배선 완료(3.5) |
 | 게임 모듈 프레임워크 | `game/module/` | game-modules.md | ✅ 시그니처 Java 정렬·레지스트리 dispatch(접두사 검증·스트립·교차 네임스페이스 거부)·GameLifecycleService(start 실패 시 롤백) 이식 완료(2.1). 정원·minPlayers·supportsBots는 카탈로그가 유일한 출처 |
 | 라운드·타이머·타임아웃 | `game/round/` | game-modules.md | ✅ 도메인·마감 스케줄러·스토어 포트(2.2~2.4) + 타이머·타임아웃 해소·동기화 서비스(2.5) 이식 완료. 바깥 계층은 좁은 포트로 역전 — 점수·게임 종료는 2.6·2.7이 구현 |
-| 점수 확정·조회 | `game/service/`, `game/repository/` | game-modules.md | 🚧 점수 도메인·CONFIRM_SCORE Lua(반환 코드 10종)·확정 서비스·라운드 원자 결합(2.6) + 게임 종료·랭킹(2.7) + 조회 REST(2.9 — 12키 null 직렬화·읽기 재시도) 이식 완료. `server.ts` 배선 필요(조회 라우트 미등록) |
-| 재접속 스냅샷·스위퍼 | `game/round/application/` | reconnect.md | 🚧 재접속 스냅샷(rollCount·dice·held 동봉, scores는 Map→객체 정규화 — Java 그대로면 버그였다) + OrphanedRoundStateSweeper(5분, cancel→remove) 이식 완료(2.8). 스위퍼 기동 배선 필요 |
-| 야추 (+봇) | `game/yacht/` | games/yacht.md | 🚧 모듈(5메시지 라우팅·오류 매핑·roomId 검증·msgId 에코)·`RedisYachtDiceStateStore`·`YachtTurnActionService`·dice 릴레이 비대칭·`start`의 `markPhase('playing')` 이식 완료(3.1, 66건). **`server.ts` 배선과 프론트 e2e:real 미완**, 봇은 3.2 |
-| 석양이 진다 | `game/duel/` | games/duel.md | 🚧 DuelRules(판정·파울·캡)·상태 스토어(version 비증가 무시)·version 키 스케줄링·forfeit·점수=잔탄 이식 완료(3.3, `DuelRulesTest` 12종 전부). **`server.ts` 배선 필요** |
-| 탁구 (+AI 결과) | `game/pingpong/` | games/pingpong.md | 🚧 규칙(궤적·판정 창·judgedAt)·상태 스토어·서비스·모듈 이식 완료(3.4, `PingPongRulesTest` 7종 + 취소 순서). **`server.ts` 배선 필요**. AI 결과 REST는 4.6 |
+| 점수 확정·조회 | `game/service/`, `game/repository/` | game-modules.md | ✅ 점수 도메인·CONFIRM_SCORE Lua(반환 코드 10종)·확정 서비스·라운드 원자 결합(2.6) + 게임 종료·랭킹(2.7) + 조회 REST(2.9) 이식·배선 완료 |
+| 재접속 스냅샷·스위퍼 | `game/round/application/` | reconnect.md | ✅ 재접속 스냅샷(rollCount·dice·held 동봉, scores는 Map→객체 정규화 — Java 그대로면 버그였다) + OrphanedRoundStateSweeper(5분, cancel→remove, `listen()`에서 기동) 이식·배선 완료(2.8) |
+| 야추 (+봇) | `game/yacht/` | games/yacht.md | 🚧 모듈·`RedisYachtDiceStateStore`(운영 라운드 저장소)·`YachtTurnActionService`·dice 릴레이 비대칭·`start`의 `markPhase('playing')` 이식·배선 완료(3.1, 66건). **프론트 e2e:real 미검증**, 봇은 3.2 |
+| 석양이 진다 | `game/duel/` | games/duel.md | 🚧 DuelRules(판정·파울·캡)·상태 스토어(version 비증가 무시)·version 키 스케줄링·forfeit·점수=잔탄 이식·배선 완료(3.3, `DuelRulesTest` 12종 전부). **프론트 e2e:real 미검증** |
+| 탁구 (+AI 결과) | `game/pingpong/` | games/pingpong.md | 🚧 규칙(궤적·판정 창·judgedAt)·상태 스토어·서비스·모듈 이식·배선 완료(3.4, `PingPongRulesTest` 7종 + 취소 순서). **프론트 e2e:real 미검증**. AI 결과 REST는 4.6 |
 | 음성 시그널링·ICE | `handler/`(voice), `ws/voice/` | voice.md | ✅ voice.join/leave/signal 릴레이·명단·정리 순서·`GET /voice/ice`(coturn HMAC) 이식 완료(1.7) |
 | 소셜 로그인·프로필 | `auth/`, `user/` | auth.md | 🚧 소셜 로그인 이식 완료(4.2 — authorize/callback/session/me/logout, state·로그인 코드 1회용, kakao·google, 가입 경합 재조회). MySQL 통합 6건은 `MYSQL_TEST_URL` 부재로 **미실행**. 프로필은 4.3 |
-| 전적·주간 랭킹 | `game/match/`, `game/ranking/` | persistence.md | 🚧 MySQL 풀·Flyway 호환 러너(4.1) + 전적 보관(4.4 — 멱등·닉네임 우선순위·users로 회원 판정) + 주간 랭킹(4.5 — KST 경계·집계·캐시·REST) 이식 완료. **MySQL 집계·저장 통합 22건은 `MYSQL_TEST_URL`·docker 부재로 미실행 — SQL 문법조차 미검증**. `server.ts` 배선 필요 |
+| 전적·주간 랭킹 | `game/match/`, `game/ranking/` | persistence.md | 🚧 MySQL 풀·Flyway 호환 러너(4.1) + 전적 보관(4.4 — 멱등·닉네임 우선순위·users로 회원 판정) + 주간 랭킹(4.5 — KST 경계·집계·캐시·REST) 이식 완료. **MySQL 집계·저장 통합 22건은 `MYSQL_TEST_URL`·docker 부재로 미실행 — SQL 문법조차 미검증**. 배선 완료 |
 | 모니터링·배포 | `monitoring/`, Jenkinsfile | operations.md | ⬜ |
 | ~~GameAbortService~~ | `game/round/application/` | game-modules.md | 🗑 데드 코드 — 이식 안 함 |
 
