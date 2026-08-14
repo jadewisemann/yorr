@@ -1,0 +1,59 @@
+# 음성 채팅 (WebRTC 시그널링)
+
+> 상위 원칙은 [DESIGN.md](../../DESIGN.md). Java 원본:
+> `handler/GameWebSocketHandler`(voice.* 핸들러), `ws/RoomSessionRegistry`
+> (음성 명단), `ws/voice/`(ICE REST).
+
+## 서버의 역할 — 딱 두 가지
+
+P2P 풀 메시(SFU 없음). 서버는 ① 방별 음성 참가 명단을 관리하고 ② 시그널을
+지명된 상대에게 릴레이한다. **SDP/ICE 내용을 파싱하지 않는다**(`data`는 불투명
+JSON) — 브라우저 스펙이 바뀌어도 서버가 안 바뀌게.
+
+## WS 메시지
+
+모두 `room.join` 이후에만 유효(아니면 `NOT_IN_ROOM`).
+
+| 방향 | type | payload | 동작 |
+|---|---|---|---|
+| C→S | `voice.join` | (무시) | 명단 추가(멱등) → 방 **전체**에 `voice.peers` |
+| C→S | `voice.leave` | (무시) | 명단 제거 → `voice.peers`. 방 나가기가 아니다 |
+| C→S | `voice.signal` | `{to, data}` | 검증 후 상대에게만 릴레이 |
+| S→C | `voice.peers` | `{peers:[playerId]}` | **전체 명단 스냅샷**(델타 아님). 통화 미참가자 포함 방 전원에게 — 참가 전에도 누가 통화 중인지 UI에 그리기 위해 |
+| S→C | `voice.signaled` | `{from, data}` | **유니캐스트**, envelope roomId 포함. `from`은 서버가 레지스트리에서 채운다(클라이언트 주장 무시 — 스푸핑 방지) |
+
+`voice.signal` 규칙:
+
+- `to` 공백 / `data` null → `INVALID_MESSAGE`.
+- 대상 조회는 **방 스코프**(다른 방으로 시그널 불가).
+- 대상이 없거나 소켓이 닫혀 있으면 **조용히 버린다**(오류 없음 — 협상 중 이탈은
+  정상 경로다).
+- 명단 검증은 하지 않는다: 방 멤버면 누구에게든 릴레이된다(Java 동작 그대로).
+- `data` 모양(프론트 계약): `{kind:"description", description}` 또는
+  `{kind:"candidate", candidate}`. 서버는 모양을 강제하지 않는다.
+- **레이트 리밋을 붙인다면 voice.signal은 예외로** — ICE 후보가 폭발적으로
+  오가므로 일반 메시지 한도를 적용하면 통화 연결이 안 된다(프론트 문서 명시).
+
+암묵적 이탈: 소켓 종료·`room.leave` 처리 시 **레지스트리에서 세션을 지우기
+전에** 음성 명단을 정리하고 `voice.peers`를 재브로드캐스트한다(순서가 계약 —
+지운 뒤에는 방을 못 찾는다). `voice.leave` 없이 탭을 닫는 것이 정상 경로다.
+
+오퍼 방향(서버는 관여 안 함, 참고): playerId 사전순 작은 쪽이 오퍼를 만든다.
+`voice.mute` 이벤트·muted 플래그는 의도적으로 없다 — 발화 표시는 클라이언트
+파생.
+
+## ICE/TURN 자격 증명 (REST — 방에 브로드캐스트하지 않기 위해 별도 경로)
+
+`GET /api/v1/voice/ice` — `X-User-Id` 헤더 선택(없으면 "guest").
+
+```json
+{ "iceServers": [ { "urls": ["stun:..."], "username": "...", "credential": "..." } ],
+  "ttlSeconds": 600 }
+```
+
+- STUN은 항상 포함(기본 `stun:stun.l.google.com:19302`).
+- TURN은 `yorr.voice.turn.secret`·`turn.host` **둘 다** 설정된 경우에만: udp
+  3478 / tcp 3478 / turns tcp 5349 3개 URL, coturn REST 방식 자격 —
+  `username = (epoch초+ttl) + ":" + 식별자`,
+  `credential = base64(HMAC-SHA1(secret, username))`, TTL 기본 600초.
+- 단명 자격이므로 응답을 캐시하면 안 된다.

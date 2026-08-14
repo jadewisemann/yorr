@@ -1,33 +1,224 @@
-# 게임 모듈
+# 게임 프레임워크 (게임 무관 공통)
 
 > 상위 원칙은 [DESIGN.md](../../DESIGN.md). Java 원본: `game/module/`,
-> `game/round/`, 게임별 패키지(`game/yacht/`·`game/duel/`·`game/pingpong/`).
+> `game/round/`, `game/service/`, `game/repository/`, `game/domain/`.
+> 게임별 구현은 [games/yacht.md](games/yacht.md) · [games/duel.md](games/duel.md) ·
+> [games/pingpong.md](games/pingpong.md).
 
 ## GameModule
 
-게임 하나 = 모듈 하나(`src/game/module.ts`). 인터페이스는 Java `GameModule`과
-1:1 대응을 유지한다 — 수명주기(start/reset/pause/resume/removePlayer/close),
-상태 보유 여부(hasState), 메시지 라우팅(handles/handle).
+게임 하나 = 모듈 하나. Java `GameModule`과 1:1 대응을 유지한다.
 
-- `GameModuleRegistry`가 코드·메시지 타입으로 모듈을 찾는다. WS 게이트웨이는
-  `sys.*`·`room.*` 외의 메시지를 레지스트리로 넘긴다.
-- 게임별 상태는 Redis에 게임별 키로 둔다(예: duel·pingpong의 상태 스토어).
-  모듈 인메모리에는 권위 상태를 두지 않는다.
+| 멤버 | 의미 |
+|---|---|
+| `code` | 대문자 정규 코드(`YACHT_DICE`·`DUEL`·`PING_PONG`). 레지스트리 키이자 WS 네임스페이스(소문자화) |
+| `name` | 표시 이름 |
+| `minPlayers`(기본 1) / `maxPlayers`(기본 6) | 시작 최소 인원(Lua ARGV) / 방 생성 정원 |
+| `supportsBots`(기본 true) | 봇 REST 게이트. DUEL·PING_PONG은 false |
+| `start(roomCode, game)` | phase 전이 **후** 게임 상태 초기화. 실패 시 throw(롤백 유도) |
+| `reset(roomCode)` | 로비 복귀 정리 |
+| `reconnect(roomCode, playerId)` → 스냅샷 | 재접속 스냅샷 생성([reconnect.md](../reconnect.md)) |
+| `pause` / `resume` | 타이머만 중단/재개, 상태는 그대로 |
+| `removePlayer(roomCode, playerId)` | 게임 중 이탈 처리 |
+| `close(roomCode)` | 방 소멸 — 타이머+상태 폐기 |
+| `hasState(roomCode)` | 진행 중 게임 존재 여부(방 폐쇄 유예 선택에 쓰임) |
+| `handles(event)` / `handle(socket, envelope)` | **접두사가 벗겨진** 이벤트명으로 라우팅 |
 
-## 라운드 프레임워크 (게임 공통)
+주의: 현재 `src/game/module.ts` 스켈레톤은 이 시그니처와 다르다
+(`start(roomId)`에 game 인자 없음 등) — Phase 2에서 Java 시그니처에 맞춘다.
 
-- RoundState + 마감(deadline) 타이머. 마감 예약은 프로세스 재시작·유실에
-  대비한 복구 경로를 갖는다(Java `OrphanedRoundStateSweeper` 대응 — 예약이
-  사라져 방이 멈추는 레이스가 실제로 있었다).
-- 점수 확정 흐름: `round.submit` → 서버 재계산·검증 → Lua 원자 갱신 성공 시에만
-  제출 완료 → `score.update` broadcast → 전원 제출 시 `round.end`.
-  저장 실패 시 그 플레이어는 미제출로 남는다.
+### 레지스트리와 메시지 라우팅
+
+- 코드 정규화: `trim().toUpperCase()`. 미지의 코드 → `invalid_game_code`,
+  중복 등록은 기동 실패.
+- WS 디스패치 규칙: 방의 gameCode로 모듈을 찾고, 메시지 type이
+  `game.<code소문자>.` 접두사로 시작해야 하며(다른 게임 네임스페이스는 거부),
+  접두사를 벗긴 이벤트명으로 `handles` 확인 후 같은 envelope(타입만 교체)로
+  `handle` 호출. 어느 단계든 불통과면 게이트웨이가 `INVALID_MESSAGE`로 응답.
+- 아웃바운드 타입 조립: `game.<code소문자>.<event>` (`GameWsTypes`).
+  `game.over`·`state.sync`도 방의 게임 코드로 네임스페이스가 붙는다.
+
+### GameLifecycleService
+
+- `start(roomCode)`: 스냅샷 → 모듈 결정 → **Lua START**(phase/gameId 전이,
+  minPlayers 검증) → `module.start`. 모듈이 던지면 **ROLLBACK_START(gameId)** 후
+  재throw — 자기 게임만 되돌린다.
+- `returnToLobby`: Lua RETURN_TO_LOBBY가 성공했을 때만 `module.reset`.
+- pause/resume/close/removePlayer는 이 서비스를 거치지 않고 WS·방 계층이 모듈을
+  직접 부른다.
+
+## 라운드 프레임워크 (야추가 사용, duel·pingpong은 자체 상태기계)
+
+### RoundState (불변 도메인 객체)
+
+- 필드: roundNumber, totalRounds(기본 12), participantOrder, submissions,
+  activePlayerIndex, activeRollCount(최대 3), activeDice(첫 굴림 전 null),
+  activeHeld, finished.
+- 전이: `recordRoll`(rollCount는 정확히 +1 연속, 첫 굴림 전 hold 거부, held
+  위치는 이전 주사위 유지) · `recordHold`(전체 배열 교체 — 델타 아님) ·
+  `autoRoll`(서버 대리 굴림, activeHeld 재사용) · `submit`(**제출 dice가 서버
+  activeDice와 완전 일치해야 함** — 불일치는 INVALID_DICE) · `expire`(무득점
+  진행) · `withoutParticipant`(활성 플레이어는 직접 제거 불가 — 먼저 expire).
+- 마지막 참가자가 끝나면 `complete`: 라운드 < totalRounds면 다음 라운드,
+  아니면 `finished=true`(라운드 캡 안전망 — 진짜 종료 권위는 Redis Lua).
+- 검증 순서 계약: `GAME_ALREADY_FINISHED` → `ROUND_MISMATCH` →
+  `PLAYER_NOT_IN_ROUND` → `NOT_ACTIVE_PLAYER`.
+- WS 오류 매핑: PLAYER_NOT_IN_ROUND→`NOT_IN_ROOM`, NOT_ACTIVE_PLAYER·
+  ALREADY_SUBMITTED→`NOT_YOUR_TURN`, ROUND_NOT_INITIALIZED→`INTERNAL`,
+  나머지(ROUND_MISMATCH·INVALID_*·GAME_ALREADY_FINISHED)→`INVALID_MESSAGE`.
+
+### 저장소 포트
+
+- `RoundStateStore`: initialize(SETNX — 이중 초기화는 오류),
+  `submitAtomically(roomId, submission, beforeStateChange)` —
+  **beforeStateChange 콜백은 라운드 검증 후·상태 커밋 전**에 실행되고, 던지면
+  상태는 무변화(점수 저장 실패 시 미제출 유지의 근간), recordRoll/Hold,
+  autoRoll(턴이 지났으면 empty), expire(스테일이면 empty), removeParticipant,
+  roomIds(스위퍼용), remove.
+- 운영 어댑터는 Redis(야추 스토어, [games/yacht.md](games/yacht.md)) — 방 락
+  (SET NX 5초 TTL, 2초 스핀) + JSON 스냅샷 + **방 키의 PTTL 복사**. 인메모리
+  구현은 테스트 시드다.
+- 완료된 게임은 스테일 턴으로 취급한다 — 취소 직전에 발화한 타이머가 끝난
+  게임을 되살릴 수 없다.
+
+### 마감 스케줄러 (RoundDeadlineScheduler)
+
+- 인메모리, 방당 예약 1개, 세대(generation) 카운터로 재예약을 구분한다.
+- **슬롯 등록이 executor.schedule보다 먼저다.** 이 순서가 핵심 회귀 수정이다:
+  마감이 이미 지난 예약(delay=0)에서 워커가 슬롯 등록 전에 발화하면 "내 차례
+  아님"으로 조용히 건너뛰고 그 방은 영원히 멈춘다(탁구에서 실제 발생, 야추도
+  공유). **인라인 executor로 최악의 인터리빙을 재현하는 테스트를 반드시 함께
+  이식한다.**
+- `cancel(roomId, round)`는 라운드가 일치할 때만, `cancelRoom`은 무조건.
+
+### RoundTimerService (야추 턴 시계)
+
+- 상수: 턴 25초, 만료 유예 1초(마감 직전 출발한 제출 흡수 — 클라이언트에는
+  진짜 마감을 알리고 강제 진행은 +1초에 예약), 오프라인 허용 2턴.
+- `start`: 활성 플레이어가 오프라인이면(봇은 절대 오프라인 아님) 타이머 없이
+  오프라인 처리 — 1회차는 무득점 스킵, 2회차는 자동 퇴장. 온라인이면
+  `roomService.touch`(방 TTL 슬라이딩 — 6인 12라운드가 40분을 넘는다) → 마감
+  기억 → +1초에 강제 진행 예약 → `round.start{roundNumber, deadline,
+  activePlayerId, turnOrder}` 브로드캐스트 → 봇 오케스트레이터용 이벤트 발행.
+- `advanceTurn`이 "다음 턴 vs 종료"를 정하는 **유일한 합류점**(제출 경로와
+  타임아웃 경로 공용): ① 끝난 라운드 타이머 먼저 취소(늦으면 이중 진행) ②
+  점수 있으면 `score.update`(msgId 에코) ③ 라운드 완료면 `round.end` 후
+  `finishIfComplete(gameCompleted)` — true면 정지 ④ finished인데 전이 실패면
+  타이머 재무장 금지(경고만) ⑤ 아니면 다음 턴 start.
+- `removePlayer`(게임 중 이탈의 단일 경로, 멱등): 오프라인 카운터 정리 →
+  레지스트리 제거 → `roomService.leave` → `room.player_left` → 마지막
+  참가자였으면 상태 통째 폐기, 활성 플레이어였으면 expire 후 제거 → advanceTurn.
+
+### 타임아웃 해소 (RoundTimeoutResolver)
+
+1. 굴림이 남았으면 서버가 **autoRoll**(직전 held 유지)하고
+   `dice.broadcast{auto:true}` 후 같은 플레이어로 25초 재시작.
+2. 굴림 소진이면: 아직 비어 있는 카테고리 중 무작위 선택 → 서버 자신의
+   주사위로 정규 제출 파이프라인 통과 → `score.update` 브로드캐스트 → 턴 진행.
+3. 그 사이 플레이어가 제출했으면 STALE — 아무것도 안 한다.
+4. **점수 저장 경로의 RuntimeException은 삼키고 무득점 진행으로 강등** —
+   Redis 장애로 게임이 멈추면 안 된다.
+
+### 고아 상태 스위퍼 (OrphanedRoundStateSweeper)
+
+- 5분 고정 지연 스케줄. 라운드 상태가 있는 모든 방을 훑어 방 스냅샷의 phase가
+  null(방 소멸)이면 `cancelRoom` → 상태 제거(순서 중요 — 만료가 없는 방을
+  치지 않게).
+- 존재 이유: 상태는 TTL로 죽지만 인메모리 예약·카운터는 안 죽는다.
+- quirk: Redis 스토어의 `roomIds()`가 `room:*:game:YACHT_DICE:state` 패턴만
+  SCAN한다 — **스위퍼는 야추만 청소한다**(duel·pingpong 상태는 자체 스토어가
+  버전 체크로 방어).
+
+## 점수 확정 파이프라인 (야추)
+
+```text
+WS round.submit{roundNumber, dice, category}
+ → 모듈: 멤버십/roomId 검증, payload 파싱
+ → ScoreRoundSubmissionService.submit
+     → RoundStateStore.submitAtomically
+         (라운드 검증: 활성 플레이어·라운드 번호·dice == 서버 activeDice)
+         beforeStateChange 콜백 = ScoreConfirmationService.confirm
+             → 카테고리 파싱, 서버가 YachtScoreCalculator로 점수 재계산
+               (클라이언트 점수는 와이어에 존재하지도 않는다)
+             → CONFIRM_SCORE Lua (아래) — 실패 시 throw → 라운드 상태 무변화
+ → RoundTimerService.advanceTurn (score.update → round.end → 종료 판정/다음 턴)
+```
+
+### CONFIRM_SCORE Lua
+
+KEYS: game:{id} / room:{code} / :players / scoreboard:{p} / score-submissions:{p}
+/ :scores. 가드 사다리와 반환 코드(→ 예외 reason):
+
+| 코드 | 의미 | reason |
+|---|---|---|
+| 1·2·7·8 | game 키 없음 / game→room 불일치 / room 없음 / room의 gameId 불일치 | `GAME_NOT_FOUND` |
+| 9 | phase ≠ PLAYING | `GAME_NOT_ACTIVE` |
+| 3 | roster에 없음 | `PLAYER_NOT_IN_GAME` |
+| 5 | 같은 라운드·같은 시그니처 | **멱등 재시도 — 성공 취급**, 점수 이중 반영 없음 |
+| 4 | 같은 라운드·다른 시그니처 | `ROUND_ALREADY_SCORED` |
+| 6 | 카테고리 이미 사용 | `CATEGORY_ALREADY_USED` |
+| 0 | 성공 | — |
+
+- 시그니처 = `category:d1,d2,d3,d4,d5` — **주사위 순서에 민감**하다(재정렬된
+  재시도는 4로 거부; quirk이자 계약).
+- 집계는 스크립트 안에서: 상단 카테고리면 subtotal 가산, `보너스 = subtotal>=63
+  ? 35 : 0`, `total = total + score + 새보너스 - 이전보너스`(보너스 이중 지급
+  방지). 카테고리+메타 3필드+시그니처+방 누적 점수를 한 번에 기록, TTL 정렬.
+- game↔room **양방향** 매핑 검증이 "오래된 게임 매핑으로 현재 방 점수 변경"을
+  차단한다. 사전 room 코드 조회는 스크립트 밖이라 스테일이어도 가드 8이 잡는다.
+
+### 점수 도메인
+
+- `ScoreCategory` 12종(고정 순서): ones…sixes(상단) / choice, fourOfAKind,
+  fullHouse, smallStraight, largeStraight, yacht. fourOfAKind는 야추로도 충족,
+  fullHouse는 5장 동일로는 불충족(정확히 2+3), 스트레이트는 중복 제거 후 연속
+  4/5.
+- `YachtScoreCalculator`(순수·정적·유일한 채점 권위): 불충족 0 / 상단 해당 면
+  합 / choice·fourOfAKind·fullHouse 전체 합 / small 15 / large 30 / yacht 50.
+  상단 보너스 63→35.
+- `ScoreBoard`: categories는 **항상 12키 전부**(미기록 null), 집계 3필드.
+  null=미기록, 0=기록하고 희생 — 이 구분이 타임아웃 카테고리 선택과 종료
+  판정의 근간이다.
+
+## 게임 종료
+
+- `GameCompletionService.finishIfComplete(roomId, force)`:
+  ① Lua **FINISH_IF_COMPLETE** CAS — 실패면 **아무 부수효과 없음**(이 CAS가
+  `game.over` 정확히 1회의 구조적 보장; 8스레드 동시 호출 테스트 있음)
+  ② 스케줄러 cancelRoom ③ 레지스트리 FINISHED ④ 랭킹 계산 ⑤ 전적
+  보관(archive) — **실패해도 삼킨다**(종료를 막지 않음) ⑥ `game.<code>.game.over
+  {rankings}` → `game.<code>.state.sync{snapshot}` 순서 브로드캐스트(스냅샷이
+  없으면 클라이언트가 phase 전환을 못 한다).
+- Lua 판정: room 존재·PLAYING·gameId 일치 → force가 아니면 roster 전원의
+  scoreboard에 `_` 비접두 필드 12개 이상 → FINISHED. force=true는 라운드 캡
+  도달(타임아웃 구멍이 있어도 종료)과 duel·pingpong(자체 종료 판정)이 쓴다.
+- 랭킹: 총점 내림차순·playerId 오름차순, **동점 공동 순위 + 다음 순위 건너뜀**
+  (1,2,2,4). 점수는 서버가 확정한 Redis 값만.
+- `GameAbortService`(`room.closed{not_enough_players}` 발신)는 **호출자가 없는
+  데드 코드**다 — 게임 중 전원 이탈 시 실제로는 상태만 조용히 폐기된다.
+  이식하지 않고, 프론트가 `room.closed`를 처리한다는 사실만 기억해 둔다
+  (부활시키려면 별도 결정).
+
+## 조회 REST
+
+| 요청 | 응답 / 오류 |
+|---|---|
+| 🔑 `GET /api/v1/rooms/{roomId}/scores` | 200 `{playerId: ScoreBoard}` 맨 맵(12키+집계). PLAYING 또는 FINISHED 필요. 오류는 JSON `{code,message}`: 401 `AUTH_FAILED` · 404 `ROOM_NOT_FOUND` · 403 `NOT_IN_ROOM` · 409 `GAME_NOT_STARTED` · 500 `INTERNAL` |
+| 🔑 `GET /api/v1/rooms/{roomId}/results` | 200 `{rankings:[{rank,playerId,total}], isTie}` — isTie는 **1위 동점일 때만** true. FINISHED 필요(409 `GAME_NOT_FINISHED`) |
+| `POST /api/v1/games/{gameId}/score-candidates` | 200 `{candidates:{12키: 점수}}` — **인증 없음, gameId 미사용**(순수 계산기, quirk). 후보라서 불충족은 null이 아니라 0. 본문 검증 실패는 400(본문 없음) |
+
+- 조회 스토어는 락 없이 **읽기→검증→재시도(최대 2회)**로 스냅샷 일관성을
+  확보한다(gameId·phase·roster가 읽는 동안 변하면 재시도).
 
 ## 불변식
 
 - **점수·판정은 서버가 재계산한다.** 클라이언트가 보낸 계산 결과를 신뢰하지
   않는다(주사위 물리 결과 포함 — DESIGN.md 원칙 1·2).
 - **도메인 규칙은 전송 계층을 모른다.** 점수 계산·판정 로직은 WS·HTTP 타입을
-  import하지 않는다. (Java의 ScoreConfirmationService 분리와 동일)
+  import하지 않는다.
+- 점수 저장이 실패하면 그 플레이어는 **미제출로 남고 재시도할 수 있다** —
+  라운드 상태 커밋과 점수 확정이 원자적으로 묶여 있어야 한다.
+- 라운드 진행이 어떤 저장 실패에도 **멈추지 않는다** — 최악의 강등은 무득점
+  진행이지 정지가 아니다.
 - 게임 추가 시 손댈 곳: `game/<게임>/` 구현 + 레지스트리 등록. 게이트웨이·방
   로직은 건드리지 않는다.
