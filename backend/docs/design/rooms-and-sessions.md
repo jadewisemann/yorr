@@ -63,8 +63,8 @@
 | 🔑 `POST /rooms/{code}/games` (시작) | 200 `{gameId, snapshot}` | 401 · 404 `room_not_found` · 403 `host_only` · 409 `game_not_ready`(모든 시작 실패가 이 코드 하나로 뭉개진다 — quirk) |
 | 🔑 `POST /rooms/{code}/lobby` (로비 복귀) | 204 | 401 · 404 · 403 `host_only` · 409 `not_finished` |
 | `GET /games/{gameId}` | 200 스냅샷 (**인증 없음**, 없으면 전 필드 null 스냅샷으로 200) | — |
-| 🔑 `POST /rooms/{code}/bots` | 200 스냅샷 + `state.sync` 브로드캐스트 | 401 · 409 `bots_not_supported` · 403 `host_only` · 404 `room_not_found` · 409 `lobby_only` · 409 `room_full` · 409 `bot_operation_failed` |
-| 🔑 `DELETE /rooms/{code}/bots/{botId}` | 200 스냅샷 + `state.sync` | 위와 동일 + 404 `bot_not_found` |
+| 🔑 `POST /rooms/{code}/bots` | 200 스냅샷 + `state.sync` 브로드캐스트 | 401 · **400 `invalid_game_code`**(아래 quirk) · 409 `bots_not_supported` · 403 `host_only` · 404 `room_not_found` · 409 `lobby_only` · 409 `room_full` · 409 `bot_operation_failed` |
+| 🔑 `DELETE /rooms/{code}/bots/{botId}` | 200 스냅샷 + `state.sync` | 위와 동일 + **404** `bot_not_found` |
 | 🔑 `POST /quick-matches?game_code=` | 200 `{status, roomId, gameCode}` | 401 `unauthorized`(주의: 문자열이 다르다) · 400 `invalid_game_code`/`quick_match_not_supported` · 409 `already_in_room` |
 | 🔑 `GET /quick-matches` · `DELETE /quick-matches` | 200 동일 모양 | 401 `unauthorized` |
 
@@ -131,8 +131,8 @@ phase가 **대문자**고, 키가 `roomCode`며, 플레이어에 `score`가 있�
 | ROLLBACK_START | PLAYING이고 **gameId가 일치할 때만** LOBBY 복귀 + gameId 삭제 | 모듈 start 실패 시 자기 게임만 되돌린다 |
 | CANCEL_ACTIVE_GAME | PLAYING이면 LOBBY 복귀, gameId 삭제 | 준비 단계 이탈용(gameId 인자 없음) |
 | RETURN_TO_LOBBY | FINISHED일 때만 LOBBY 복귀 + gameId 삭제 + **`room:{code}:scores` 전원 0으로 리셋**(안 하면 다음 게임 랭킹이 이전 점수를 상속) | 0(409 `not_finished`) / 1. scoreboard는 남긴다(결과 조회용) |
-| BOT ADD | 존재 → LOBBY → host(2중 검증) → 정원 → botId 미중복 → roster+scores+bots 동시 기록, members+1 | 0/2/3/4/5/1 → 404/`lobby_only`/`host_only`/`room_full`/`bot_operation_failed`/성공 |
-| BOT REMOVE | **bots 해시에서 HDEL이 성공해야만** roster·scores 제거 — 사람을 이 API로 쫓아낼 수 없다 | 4 → `bot_not_found` |
+| BOT ADD | 존재 → LOBBY → host(2중 검증) → 정원 → botId 미중복 → roster+scores+bots 동시 기록, members+1, 자식 키 TTL 정렬 | 0/2/3/4/5/1 → `room_not_found`/`lobby_only`/`host_only`/`room_full`/`bot_operation_failed`/성공 |
+| BOT REMOVE | 존재 → LOBBY → host(2중 검증) → **bots 해시에서 HDEL이 성공해야만** roster·scores 제거, members-1 — 사람을 이 API로 쫓아낼 수 없다 | 0/2/3/4/1 → `room_not_found`/`lobby_only`/`host_only`/**`bot_not_found`**/성공 |
 | 락 해제(공용) | GET==token이면 DEL | 만료 후 재획득된 락을 이전 주인이 못 푼다 |
 
 CLOSE·TOUCH·게임 종료 판정은 키 이름을 스크립트 안에서 문자열 조립한다 —
@@ -203,10 +203,21 @@ WS 계층은 LOBBY를 `waiting`으로 매핑해 내보낸다.
 - 봇은 roster·scores의 정규 행이라 정원과 START의 minPlayers를 채운다.
   `room:{code}:bots` 해시가 "이 행은 봇" 마커이자 제거 권한의 근거다.
 - LOBBY에서만, host만 추가/제거 가능. `supportsBots`가 false인 게임(DUEL,
-  PING_PONG)은 Lua 진입 전에 409 `bots_not_supported`.
+  PING_PONG)은 Lua 진입 전에 409 `bots_not_supported`. 이 값의 정본은 게임
+  메타데이터(`game/catalog.ts` → Phase 2.1에서 `GameModule`)이며 방 쪽에 복제하지 않는다.
+- host 판정은 방 조작 API 공통 규약과 같은 **2중 검증**이다(`hostId` 일치 +
+  roster 존재). 검증은 전부 Lua 안에 있다 — 미리 읽고 판단하면 읽기와 쓰기
+  사이에 게임이 시작되는 경합이 생긴다.
 - host 승계에서 제외된다. WS 스냅샷에서 항상 `online`.
+- 성공하면 **응답(REST 스냅샷)과 별개로 방 전원에게 `state.sync`**(WS 스냅샷)를
+  쏜다. 실패하면 방송하지 않는다 — 조작한 사람만 새 명단을 알면 다른 화면이 어긋난다.
+- 오류 매핑이 방 API와 다르다(컨트롤러마다 다른 것이 그대로 계약):
+  `IllegalArgumentException` 갈래의 기본이 **400**이고 `room_not_found`만 404,
+  `IllegalStateException` 갈래의 기본은 409인데 `bot_not_found`만 404다.
 - quirk(계약): 존재하지 않는 방에 봇 추가 → 404가 아니라 **400
-  `invalid_game_code`**(레지스트리 조회가 존재 확인보다 먼저 실행됨).
+  `invalid_game_code`**(레지스트리 조회가 존재 확인보다 먼저 실행됨). 따라서
+  404 `room_not_found`는 "방은 사라졌는데 WS 레지스트리에 gameCode가 남아 있는"
+  좁은 창에서만 나온다.
 
 ## 불변식
 
