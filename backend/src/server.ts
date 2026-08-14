@@ -67,6 +67,7 @@ import { registerRoomRoutes } from './http/routes/rooms.js'
 import { registerUserRoutes } from './http/routes/users.js'
 import { registerVoiceRoutes } from './http/routes/voice.js'
 import { closeMysqlPool, createMysqlPool } from './infra/mysql.js'
+import { RealtimeGameMetrics } from './monitoring/index.js'
 import { createRedisClient } from './infra/redis.js'
 import { BotParticipantService } from './room/botService.js'
 import { InMemoryRoomCloseScheduler } from './room/closeScheduler.js'
@@ -344,7 +345,12 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   })
 
   await app.register(cors, { origin: allowedOrigins(env) })
-  await registerHealthRoutes(app)
+  // 게이지 수집은 WS 레지스트리의 인메모리 상태만 본다(스크레이프마다 Redis를
+  // 때리면 모니터링이 부하 원인이 된다). **위에서 만든 그** 레지스트리·모듈
+  // 레지스트리여야 한다 — 새로 만들면 게이지가 영구히 0인데 타입도 테스트도 통과한다.
+  await registerHealthRoutes(app, {
+    metrics: new RealtimeGameMetrics({ presence: registry, games }),
+  })
   await app.register(
     async (api) => {
       await registerRoomRoutes(api, {

@@ -119,9 +119,37 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
   - `yorr_game_participants_active{game="YACHT_DICE"|...}` (gauge): PLAYING
     방에서 **라이브 소켓**을 가진 플레이어 수(오프라인 좌석 제외). 태그 값은
     대문자 게임 코드(WS 네임스페이스와 달리 소문자화하지 않는다)
-- 그 외 액추에이터 엔드포인트는 노출하지 않는다(health·prometheus만).
-- Node 구현은 prom-client 등으로 같은 이름·태그를 재현한다. Java에는 메시지
-  레이트·지연·소켓 수 계측이 없다 — 추가는 자유지만 위 두 개는 유지.
+- 그 외 액추에이터 엔드포인트는 노출하지 않는다(health·prometheus만) —
+  `env`·`beans`·`metrics`처럼 방·세션 정보가 인증 없이 새는 표면을 늘리지 않는다.
+- Java에는 메시지 레이트·지연·소켓 수 계측이 없다 — 추가는 자유지만 위 두 개는 유지.
+
+### Node 구현 (5.3)
+
+- 두 라우트 모두 `http/routes/health.ts`(`registerHealthRoutes(app, { metrics })`).
+  게이지 수집기는 `monitoring/realtimeGameMetrics.ts`(`RealtimeGameMetrics` —
+  Java `monitoring/RealtimeGameMetrics` MeterBinder 자리), 텍스트 렌더러는
+  `monitoring/exposition.ts`.
+- **수집 출처는 WS 레지스트리의 인메모리 상태**다(`RoomSessionRegistry.activeRoomCount()`
+  ·`activeParticipantCount(code)`). Java도 같았고, **Redis 왕복은 없다** — 스크레이프
+  주기마다 SCAN을 던지면 모니터링이 부하 원인이 된다. 단일 인스턴스 전제(DESIGN.md 원칙 8)
+  라 phase·소켓이 인메모리에 있어 이 값이 곧 이 프로세스의 진실이다.
+  - 계열(태그 조합)은 `GameModuleRegistry.supportedCodes()`(= 카탈로그) 전체이며,
+    값이 0인 게임도 줄을 낸다(계열이 사라지면 대시보드가 끊긴다).
+  - 스크레이프 시점에 세는 **pull 게이지**다. 증감 카운터를 따로 들지 않는 이유는
+    offline 전이·소켓 교체·방 폐쇄 중 한 곳만 빠뜨려도 값이 조용히 어긋나기 때문이다.
+- 노출 형식은 Prometheus 텍스트 0.0.4(`# HELP`·`# TYPE` 포함), Content-Type
+  `text/plain; version=0.0.4; charset=utf-8`.
+- **의존성 0**이다 — `prom-client`를 쓰지 않는다. 노출 대상이 게이지 둘뿐이고
+  (histogram·summary 없음) 형식이 `name{tag="v"} value`라 렌더러가 40줄이다
+  ([ADR-0003](../adr/0003-node-fastify-stack.md)의 기조). 계약은 **이름·태그**이므로
+  스크레이퍼가 보는 것은 같다. 집계가 필요한 계측(지연 히스토그램 등)이 생기면 그때
+  별도 티켓으로 `prom-client`를 도입하고 `exposition.ts`를 대체한다.
+- `metrics` 배선이 없으면 `/actuator/prometheus`는 **404가 아니라 503**이다(auth
+  라우트의 미설정 503과 같은 규약). 스크레이프가 빈 본문으로 조용히 성공하는 것이
+  이 저장소의 상습 실패 모드(배선 누락)에서 최악이라서다.
+- 테스트: 값·형식은 `monitoring/__tests__/metrics.test.ts`(가짜 소켓으로 PLAYING·오프라인
+  전이·재접속을 만들어 숫자 변화를 고정), 경로 표면은
+  `http/routes/__tests__/metrics.test.ts`(health 응답·Content-Type·다른 액추에이터 경로 404).
 
 ## 배포 파이프라인 계약 (현재 = backend-java 기준, Phase 5에서 전환)
 

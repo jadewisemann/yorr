@@ -739,4 +739,24 @@ describeRedis('서버 배선', () => {
     const health = await instance.app.inject({ method: 'GET', url: '/actuator/health' })
     expect(health.json()).toEqual({ status: 'UP' })
   })
+
+  /**
+   * 메트릭 수집기가 **그** 레지스트리를 받았는지 본다. 새 `RoomSessionRegistry`를
+   * 넘기면 게이지가 영구히 0인데 타입도 단위 테스트도 통과한다 — 배선 누락 여섯 번째
+   * 자리다. 배선을 아예 빼면 `/actuator/prometheus`가 503이 되어 여기서 깨진다.
+   */
+  it('메트릭 게이지가 실제 방·소켓을 센다', async () => {
+    const instance = await build()
+    const url = await listen(instance)
+    const host = await enterRoom(instance, { nickname: '호스트' })
+    const client = await joined(url, host)
+    await startGame(instance, host)
+
+    const response = await instance.app.inject({ method: 'GET', url: '/actuator/prometheus' })
+    expect(response.statusCode).toBe(200)
+    expect(response.body).toContain('yorr_rooms_active 1')
+    expect(response.body).toContain('yorr_game_participants_active{game="YACHT_DICE"} 1')
+
+    client.socket.close()
+  })
 })
