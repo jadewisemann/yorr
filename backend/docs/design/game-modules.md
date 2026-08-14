@@ -148,6 +148,17 @@ recordRoll을 타므로 함께 막힌다) ③ 제출 기록은 이탈로 지워�
 - 마감 작업은 `() => void | Promise<void>`다(타임아웃 해소가 Redis를 탄다).
   거부는 `onError`로 흘려 예약기를 살려 둔다 — 방 폐쇄 스케줄러와 같은 규약.
 
+### RoundSynchronizationService (저장소 위의 얇은 응용 서비스)
+
+- 하는 일은 둘뿐이다: WS 페이로드를 도메인 인자로 옮기고, **서버 주사위를 굴린다**.
+  원자성·검증은 전부 `RoundStateStore`·`RoundState`가 갖는다.
+- **주사위의 유일한 출처가 이 서비스의 `DieRoller` 시임**이다(DESIGN.md 원칙 1).
+  `dice.roll`·`round.submit` 페이로드에 주사위를 만들 권한이 없고, 자동 굴림도
+  같은 시임을 지난다. 테스트는 상수 롤러(`() => 1`)로, 재현이 필요한 판은
+  `seededDieRoller(seed)`(mulberry32)로 고정한다 — Java에는 상수 공급자만 있었다.
+- `submit`의 `beforeStateChange` 기본값은 no-op이다. 점수와 묶인 실제 제출 경로는
+  2.6 `ScoreRoundSubmissionService`가 이 인자로 점수 확정을 끼워 넣는다.
+
 ### RoundTimerService (야추 턴 시계)
 
 - 상수: 턴 25초, 만료 유예 1초(마감 직전 출발한 제출 흡수 — 클라이언트에는
@@ -165,6 +176,27 @@ recordRoll을 타므로 함께 막힌다) ③ 제출 기록은 이탈로 지워�
 - `removePlayer`(게임 중 이탈의 단일 경로, 멱등): 오프라인 카운터 정리 →
   레지스트리 제거 → `roomService.leave` → `room.player_left` → 마지막
   참가자였으면 상태 통째 폐기, 활성 플레이어였으면 expire 후 제거 → advanceTurn.
+  `room.player_left`는 **게임 네임스페이스가 붙지 않는다**(방 이벤트).
+- **방송 순서가 계약이다**: `score.update` → `round.end` → `round.start`.
+  마감 경로로 들어온 점수는 해소기가 이미 방송했으므로 타이머에는 `score: null`로
+  전달된다 — 여기서 다시 쏘면 클라이언트가 중복 반영한다.
+- Node 이식: `roomService.touch`·`leave`·`getSnapshot`이 Redis라 **`start`·
+  `advanceTurn`·`removePlayer`가 전부 async다**(Java는 동기 `Instant` 반환).
+  마감 작업 시그니처가 이미 `() => void | Promise<void>`라 그대로 얹힌다.
+  `Instant` 자리는 epoch ms 숫자다.
+- **바깥 계층은 전부 좁은 포트로 뒤집었다**(`roundPorts.ts`): 브로드캐스터·
+  접속 명단(`RoundPresence`)·방 서비스·게임 종료(2.7)·점수 결합(2.6)·빈 족보
+  조회(2.6). Java가 구체 타입 6개를 직접 잡는 자리다. 이유는 둘: 라운드
+  프레임워크가 아직 없는 계층에 컴파일 의존을 만들지 않는 것, 그리고 "도메인은
+  전송 계층을 모른다"(아래 「불변식」). 실제 구현(`RoomBroadcaster`·
+  `RoomSessionRegistry`·`RoomService`·`ScoreRoundSubmissionService`·
+  `ScoreConfirmationService`)이 **어댑터 없이 구조적으로 만족**하며, 그 대입
+  가능성 자체를 테스트로 고정한다(`__tests__/roundPorts.contract.test.ts`).
+- 아웃바운드 타입은 주입된 `gameCode`(기본은 `catalog.ts`의 `YACHT_DICE`)와
+  `module.ts`의 `gameWsType`으로 조립한다 — Java `RoundTimerService`가 야추
+  네임스페이스를 **정적 import로 못박은** 자리다. 라운드 프레임워크가 게임 하나에
+  묶이지 않도록 주입으로 바꿨고, 조립 규칙 자체는 2.1의 헬퍼 하나만 쓴다
+  (사본을 두면 접두사 규칙이 두 곳에서 갈라진다).
 
 ### 타임아웃 해소 (RoundTimeoutResolver)
 
@@ -175,6 +207,23 @@ recordRoll을 타므로 함께 막힌다) ③ 제출 기록은 이탈로 지워�
 3. 그 사이 플레이어가 제출했으면 STALE — 아무것도 안 한다.
 4. **점수 저장 경로의 RuntimeException은 삼키고 무득점 진행으로 강등** —
    Redis 장애로 게임이 멈추면 안 된다.
+
+강등(무득점 진행)으로 빠지는 가지는 넷이다: 주사위 없음(상태 손상) · 게임을
+찾지 못함(`gameId` 없음) · 빈 족보 조회 실패 · 자동 기록 실패. 어느 쪽이든
+`expire`로 턴만 넘기고, 그 `expire`마저 스테일이면 STALE이다 — **라운드 진행은
+어떤 저장 실패에도 멈추지 않는다.** 관측은 `onDegraded(roomId, reason, error?)`
+훅으로 뺐다(Java `log.warn` 자리).
+
+- 결과 타입은 Java의 `record(kind, advanced, rolled)`(둘 중 하나만 채우고 나머지는
+  null) 대신 **판별 유니온**이다. Java가 정적 팩터리 3개로 지키던 "kind를 보고
+  꺼내라"는 규약이 타입으로 강제된다.
+- 카테고리 선택은 `CategoryPicker(bound) → index` 시임이다(Java `IntUnaryOperator`).
+  `Math.floorMod` 접기까지 그대로 옮겨 음수 인덱스도 범위 안으로 들어온다.
+- 남은 족보는 **api key 문자열**로 주고받는다(`OpenCategoriesPort`) — `RoundSubmission`이
+  카테고리를 문자열로 드는 것과 같은 경계다(라운드 → 점수 도메인 의존 금지).
+- 완료된 게임(`finished`)은 STALE로 즉시 접는다. Java는 여기서 한 번 더 제출을
+  시도했다가 `GAME_ALREADY_FINISHED`로 튕겨 같은 결론에 도달했다(부수효과는
+  양쪽 다 없다 — 라운드 검증이 점수 확정보다 먼저라 점수는 기록되지 않는다).
 
 ### 고아 상태 스위퍼 (OrphanedRoundStateSweeper)
 
@@ -192,9 +241,10 @@ recordRoll을 타므로 함께 막힌다) ③ 제출 기록은 이탈로 지워�
 WS round.submit{roundNumber, dice, category}
  → 모듈: 멤버십/roomId 검증, payload 파싱
  → ScoreRoundSubmissionService.submit
-     → RoundStateStore.submitAtomically
+     → RoundSynchronizationService.submit → RoundStateStore.submitAtomically
          (라운드 검증: 활성 플레이어·라운드 번호·dice == 서버 activeDice)
          beforeStateChange 콜백 = ScoreConfirmationService.confirm
+             → 방 스냅샷에서 현재 gameId 조회(없으면 GAME_NOT_FOUND, 확정 시도 안 함)
              → 카테고리 파싱, 서버가 YachtScoreCalculator로 점수 재계산
                (클라이언트 점수는 와이어에 존재하지도 않는다)
              → CONFIRM_SCORE Lua (아래) — 실패 시 throw → 라운드 상태 무변화
@@ -204,17 +254,25 @@ WS round.submit{roundNumber, dice, category}
 ### CONFIRM_SCORE Lua
 
 KEYS: game:{id} / room:{code} / :players / scoreboard:{p} / score-submissions:{p}
-/ :scores. 가드 사다리와 반환 코드(→ 예외 reason):
+/ :scores. ARGV: roomCode, gameId, playerId, roundNumber, category, score,
+상단이면 `'1'`, requestSignature.
+
+반환 코드 **10종**이 이 스크립트의 계약이다(가드 사다리 순서대로):
 
 | 코드 | 의미 | reason |
 |---|---|---|
-| 1·2·7·8 | game 키 없음 / game→room 불일치 / room 없음 / room의 gameId 불일치 | `GAME_NOT_FOUND` |
+| 1 | `game:{id}`에 roomCode 없음 | `GAME_NOT_FOUND` |
+| 2 | game→room 매핑이 인자와 불일치 | `GAME_NOT_FOUND` |
+| 7 | room 키 없음 | `GAME_NOT_FOUND` |
+| 8 | room의 gameId가 인자와 불일치 | `GAME_NOT_FOUND` |
 | 9 | phase ≠ PLAYING | `GAME_NOT_ACTIVE` |
 | 3 | roster에 없음 | `PLAYER_NOT_IN_GAME` |
 | 5 | 같은 라운드·같은 시그니처 | **멱등 재시도 — 성공 취급**, 점수 이중 반영 없음 |
 | 4 | 같은 라운드·다른 시그니처 | `ROUND_ALREADY_SCORED` |
 | 6 | 카테고리 이미 사용 | `CATEGORY_ALREADY_USED` |
 | 0 | 성공 | — |
+
+그 밖의 값은 계약 위반이라 `STORE_FAILURE`로 던진다(조용히 성공 처리하지 않는다).
 
 - 시그니처 = `category:d1,d2,d3,d4,d5` — **주사위 순서에 민감**하다(재정렬된
   재시도는 4로 거부; quirk이자 계약).
@@ -236,6 +294,30 @@ KEYS: game:{id} / room:{code} / :players / scoreboard:{p} / score-submissions:{p
 - `ScoreBoard`: categories는 **항상 12키 전부**(미기록 null), 집계 3필드.
   null=미기록, 0=기록하고 희생 — 이 구분이 타임아웃 카테고리 선택과 종료
   판정의 근간이다.
+- 점수판 해시의 집계 필드는 `_` 접두(`_upperSubtotal`·`_upperBonus`·`_total`)다.
+  게임 종료 판정이 "`_` 비접두 필드 12개"로 완료를 세므로, 접두 없는 메타 필드를
+  추가하면 종료가 영원히 성립하지 않는다.
+
+### 구현 (`src/game/score/`)
+
+| 파일 | 역할 |
+|---|---|
+| `scoreCategory.ts` | 12종 목록·상단 판정·족보 충족 판정 |
+| `yachtScoreCalculator.ts` | 점수·상단 소계·보너스 (순수 함수) |
+| `scoreBoard.ts` | 12키 정규화·동결, 빈 칸 열거 |
+| `scripts.ts` | **CONFIRM_SCORE Lua** + 반환 코드 상수 |
+| `scoreBoardStore.ts` · `scoreBoardMapper.ts` | 포트 + Redis 어댑터, 해시↔점수판 |
+| `scoreConfirmationService.ts` | 서버 재계산 + 시그니처 |
+| `scoreRoundSubmissionService.ts` | 라운드 제출과 점수 확정의 원자 결합 |
+
+- Java enum(`ACES`…)의 상수 이름은 **옮기지 않았다** — 와이어·Redis 필드·조회
+  응답 키가 전부 apiKey라 `'ones' | … | 'yacht'` 유니온 자체를 식별자로 쓴다.
+- 라운드(2.5)와 점수(2.6)는 서로의 구체 타입을 import하지 않는다. 이어 붙는
+  지점은 양쪽이 각자 선언한 좁은 포트뿐이고(`round/roundPorts.ts`의
+  `ScoreRoundSubmissionPort`·`OpenCategoriesPort` ↔ `score/`의 `RoundSubmitPort`),
+  그 대입 가능성은 `score/__tests__/scorePorts.contract.test.ts`가 고정한다.
+- `ScoreCategory` 목록과 라운드의 `SUBMITTABLE_CATEGORIES`가 갈라지면 "제출은
+  되는데 채점할 수 없는" 카테고리가 생긴다 — 두 목록의 동일성도 테스트가 지킨다.
 
 ## 게임 종료
 
