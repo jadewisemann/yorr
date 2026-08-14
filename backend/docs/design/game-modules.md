@@ -322,17 +322,54 @@ KEYS: game:{id} / room:{code} / :players / scoreboard:{p} / score-submissions:{p
 ## 게임 종료
 
 - `GameCompletionService.finishIfComplete(roomId, force)`:
-  ① Lua **FINISH_IF_COMPLETE** CAS — 실패면 **아무 부수효과 없음**(이 CAS가
-  `game.over` 정확히 1회의 구조적 보장; 8스레드 동시 호출 테스트 있음)
-  ② 스케줄러 cancelRoom ③ 레지스트리 FINISHED ④ 랭킹 계산 ⑤ 전적
-  보관(archive) — **실패해도 삼킨다**(종료를 막지 않음) ⑥ `game.<code>.game.over
+  ① 방 스냅샷 조회 — 방이 없거나 `gameId`가 비면 저장소를 부르지도 않고 false
+  ② Lua **FINISH_IF_COMPLETE** CAS — 실패면 **아무 부수효과 없음**(이 CAS가
+  `game.over` 정확히 1회의 구조적 보장; 동시 8건 호출 테스트 있음)
+  ③ 스케줄러 cancelRoom ④ 레지스트리 FINISHED ⑤ 랭킹 계산 ⑥ 전적
+  보관(archive) — **실패해도 삼킨다**(종료를 막지 않음) ⑦ `game.<code>.game.over
   {rankings}` → `game.<code>.state.sync{snapshot}` 순서 브로드캐스트(스냅샷이
   없으면 클라이언트가 phase 전환을 못 한다).
-- Lua 판정: room 존재·PLAYING·gameId 일치 → force가 아니면 roster 전원의
-  scoreboard에 `_` 비접두 필드 12개 이상 → FINISHED. force=true는 라운드 캡
-  도달(타임아웃 구멍이 있어도 종료)과 duel·pingpong(자체 종료 판정)이 쓴다.
+  - ③을 ②보다 먼저 하면 **진행 중인 게임의 타이머가 멈춘다** — 취소는 반드시
+    전이가 성사된 뒤다. 네임스페이스는 방 스냅샷의 `gameCode`를 쓴다.
+
+### FINISH_IF_COMPLETE Lua
+
+KEYS: 1 `room:{roomCode}` · 2 `room:{roomCode}:players` /
+ARGV: 1 gameId · 2 force(`'1'`이면 완료 검사 생략) · 3 필요한 기록 칸 수(12)
+
+| 코드 | 의미 |
+|---|---|
+| 0 | 전이 없음 — 방 없음 / phase≠PLAYING(이미 누가 끝냈다) / gameId 불일치(스테일) / roster가 빈 방 / 누군가 점수판이 덜 찼다 |
+| 1 | **이 호출이** PLAYING → FINISHED로 바꿨다. 방송할 자격은 이 호출에만 있다 |
+
+- 0이 사유를 나누지 않는 것이 계약이다 — 모든 0에서 호출자가 할 일(방송 안 함)이
+  같다. 사유를 나누면 "왜 안 끝났나"를 호출자가 해석하려 든다.
+- 완료는 **`_` 비접두 필드 12개 이상**으로 센다(점수판 집계 3필드가 `_` 접두인 것과
+  짝이다). 점수판 키(`game:{gameId}:scoreboard:{playerId}`)는 참가자 수가 가변이라
+  스크립트 안에서 조립한다 — 단일 Redis 노드 전제.
+- force=true는 라운드 캡 도달(타임아웃 구멍이 있어도 종료)과 duel·pingpong(자체
+  종료 판정)이 쓴다.
 - 랭킹: 총점 내림차순·playerId 오름차순, **동점 공동 순위 + 다음 순위 건너뜀**
-  (1,2,2,4). 점수는 서버가 확정한 Redis 값만.
+  (1,2,2,4). 점수는 `room:{roomCode}:scores`(서버가 확정한 값)만 읽는다. 빈 방이면
+  빈 순위이지 예외가 아니다 — 종료 방송 자체가 막히면 안 된다.
+
+### 구현 (`src/game/completion/`)
+
+| 파일 | 역할 |
+|---|---|
+| `scripts.ts` | **FINISH_IF_COMPLETE Lua** + 반환 코드 상수 |
+| `completionStore.ts` | 포트 + Redis 어댑터(전이 CAS, 총점 읽기) |
+| `gameResultCalculator.ts` | `rankTotals`(방송용) · `calculateGameResult`(2.9 `/results`용: 승자·동점 표시) |
+| `completionPorts.ts` | 바깥 계층(브로드캐스터·레지스트리·방·스냅샷·스케줄러·전적)의 좁은 포트 + **전적 보관 no-op 스텁** |
+| `gameCompletionService.ts` | 종료 단일 진입점(위 순서의 권위) |
+
+- 2.5와 같은 이유로 협력자를 전부 좁은 포트로 뒤집었다. 서비스는
+  `round/roundPorts.ts`의 `GameCompletionPort`를 구조적으로 만족하므로 타이머에
+  어댑터 없이 꽂힌다 — 그 대입 가능성은 `__tests__/completionPorts.contract.test.ts`가
+  양방향으로 고정한다.
+- 전적 보관은 **`noopMatchArchive` 스텁**이다. 4.4가 이 상수를 실제
+  `MatchArchiveService`로 바꾸는 것 말고 다른 변경은 필요 없어야 한다(호출 지점과
+  오류 삼킴은 이미 서비스 안에 있다).
 - `GameAbortService`(`room.closed{not_enough_players}` 발신)는 **호출자가 없는
   데드 코드**다 — 게임 중 전원 이탈 시 실제로는 상태만 조용히 폐기된다.
   이식하지 않고, 프론트가 `room.closed`를 처리한다는 사실만 기억해 둔다
@@ -348,6 +385,63 @@ KEYS: game:{id} / room:{code} / :players / scoreboard:{p} / score-submissions:{p
 
 - 조회 스토어는 락 없이 **읽기→검증→재시도(최대 2회)**로 스냅샷 일관성을
   확보한다(gameId·phase·roster가 읽는 동안 변하면 재시도).
+
+### 응답 스키마
+
+```
+GET /rooms/{roomId}/scores   → { "<playerId>": ScoreBoardResponse, … }   // playerId 오름차순
+ScoreBoardResponse           = { categories: {12키: number|null}, upperSubtotal, upperBonus, total }
+GET /rooms/{roomId}/results  → { rankings: [{ rank, playerId, total }], isTie }
+POST /games/{gameId}/score-candidates  { dice:[5개] } → { candidates: {12키: number} }
+```
+
+- **12키는 생략하지 않는다.** 빈 칸은 키를 빼는 것이 아니라 `null`로 싣는다 —
+  프론트가 12키를 전제하고, `null`(미기록)과 `0`(기록하고 희생)이 다른 뜻이다.
+  같은 이유로 도메인이 `undefined`를 쓰지 않는다(JSON에서 키가 사라진다).
+- 키 순서는 `SCORE_CATEGORIES`(ones…yacht) 그대로다. 응답 필드 이름은 Java
+  `GameRankingResponse`를 따라 **`total`** 이다(도메인의 `finalScore`가 아니다).
+- 점수 출처가 종료 방송과 다르다: `/results`는 **점수판 해시의 `_total`**,
+  `game.over`는 `room:{roomCode}:scores` ZSET이다(Java와 같은 비대칭). 순위
+  규칙이 갈라지지 않도록 계산기는 `game/completion`의 `calculateGameResult` 하나를
+  공유한다.
+
+### 오류 계약
+
+- 조회 REST의 오류 본문은 **JSON `{code,message}`** 다 — 방·봇 REST의
+  plain-text 소문자 코드(`room_not_found` …)와 **다르다. 섞지 않는다**
+  (`http/errorResponse.ts`의 `sendCode`·`sendDomainError`를 쓰지 않는다).
+- 이유 코드 → 상태: `ROOM_NOT_FOUND`→404 · `PLAYER_NOT_IN_ROOM`→403 **`NOT_IN_ROOM`**
+  (이름이 바뀐다) · `GAME_NOT_STARTED`/`GAME_NOT_FINISHED`→409 ·
+  `STORE_FAILURE`→500 **`INTERNAL`**. 인증 실패는 401 `AUTH_FAILED`
+  (방 REST의 `invalid_guest_session`이 아니다).
+- 빈 식별자의 이유가 갈린다: 빈 `roomId`는 404, 빈 `requesterId`는 403이다.
+- `score-candidates`의 본문 검증 실패는 **400 + 빈 본문**이다. 프레임워크가
+  만드는 4xx(깨진 JSON·Content-Type)도 같은 모양으로 나가도록 라우트를
+  캡슐화된 하위 스코프에 두고 오류 핸들러를 건다 — Fastify 기본 본문
+  (`{statusCode,error,message}`)이 계약처럼 굳지 않게 하기 위해서다.
+
+### 재시도 규약
+
+- 한 번의 읽기 순서 = 오류 우선순위다: 방 해시 → `gameId` 존재 → `phase` 파싱 →
+  게임→방 역매핑 → 참가 여부 → 플레이어별 점수판. 알 수 없는 `phase`는
+  500이다(조용히 넘기지 않는다 — Java `RoomPhase.valueOf`).
+- 재검증이 보는 것은 `gameId` · `phase` · 게임→방 역매핑 · roster 넷뿐이다.
+  **점수 값은 보지 않는다** — 확정 점수는 늘기만 하므로 값 변화는 일관성 위반이
+  아니다. 넷 중 하나라도 변하면 통째로 다시 읽고, 2회 모두 실패하면 500이다.
+
+### 구현 (`src/game/query/`)
+
+| 파일 | 역할 |
+|---|---|
+| `gameScoreQueryStore.ts` | 포트 + Redis 어댑터(읽기→검증→재시도). 점수판 매핑은 `score/scoreBoardFromHash` 재사용 |
+| `gameScoreQueryService.ts` | phase 게이트 둘(점수판=PLAYING·FINISHED, 결과=FINISHED) |
+| `scoreCandidateService.ts` | 무인증 순수 계산기(`score/calculateScore` 재사용) |
+| `queryErrors.ts` | 이유 코드 + 예외. `errors.ts`의 `DomainError`를 **상속하지 않는다** |
+| `../../http/routes/gameQueries.ts` | 이유 코드 → HTTP 상태·JSON 오류 봉투 |
+
+- 스토어는 `hget`·`hgetall` 둘만 쓰는 좁은 포트(`ReadOnlyRedis`)를 받는다.
+  ioredis `Redis`가 구조적으로 만족하고, 테스트는 진짜 Redis에 위임하면서
+  읽기 사이에 실제 쓰기를 끼워 넣어 **재시도 경합을 모킹 없이 재현**한다.
 
 ## 불변식
 
