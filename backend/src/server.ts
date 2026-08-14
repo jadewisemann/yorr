@@ -8,7 +8,9 @@ import { GameModuleRegistry } from './game/module.js'
 import { registerGameRoutes } from './http/routes/games.js'
 import { registerHealthRoutes } from './http/routes/health.js'
 import { registerRoomRoutes } from './http/routes/rooms.js'
+import { registerVoiceRoutes } from './http/routes/voice.js'
 import { createRedisClient } from './infra/redis.js'
+import { BotParticipantService } from './room/botService.js'
 import { InMemoryRoomCloseScheduler } from './room/closeScheduler.js'
 import { RoomService } from './room/roomService.js'
 import { closeUnrecoverableGamesOnStartup } from './room/staleRoomCleaner.js'
@@ -17,6 +19,7 @@ import { RoomBroadcaster } from './ws/broadcaster.js'
 import { attachGameSocketGateway, type GameSocketGateway } from './ws/gateway.js'
 import { GameSocketHandler } from './ws/handler.js'
 import { HeartbeatMonitor } from './ws/heartbeat.js'
+import { VoiceIceService, voiceIceOptions } from './ws/iceServers.js'
 import { RoomSessionRegistry } from './ws/registry.js'
 import { RealtimeRoomSnapshotService } from './ws/snapshot.js'
 
@@ -61,8 +64,19 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   await registerHealthRoutes(app)
   await app.register(
     async (api) => {
-      await registerRoomRoutes(api, { users, rooms, catalog, lifecycle })
+      await registerRoomRoutes(api, {
+        users,
+        rooms,
+        catalog,
+        lifecycle,
+        // 봇 API는 WS 게이트웨이와 **같은** 브로드캐스터·스냅샷 인스턴스를 받아야
+        // state.sync가 실제 소켓으로 나간다(rooms.ts의 RoomRouteDependencies 참고).
+        bots: new BotParticipantService(redis, rooms),
+        broadcaster,
+        snapshots,
+      })
       await registerGameRoutes(api, { rooms })
+      await registerVoiceRoutes(api, { ice: new VoiceIceService(voiceIceOptions(env)) })
     },
     { prefix: API_PREFIX },
   )
