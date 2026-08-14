@@ -6,10 +6,16 @@
 
 ## 환경변수 (backend-java와 이름 동일 유지)
 
+기본값은 `config/env.ts`(zod 스킴)가 정본이다. **필수 변수는 하나도 없다** —
+전부 기본값이 있어 빈 환경에서도 부팅된다(운영에서 빠뜨리면 로컬 기본값으로 뜨는
+것이 그 대가다).
+
 | 변수 | 기본값 | 용도 |
 |---|---|---|
-| `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | 없음(필수) | MySQL. ⚠️ **Java는 `DB_URL` 하나(JDBC URL)를 읽는다**(`application.yaml: url: ${DB_URL}`). 현재 `config/env.ts`는 `DB_HOST`/`DB_PORT`/`DB_NAME`으로 쪼개 놓아 **운영 `.env`가 그대로 재사용되지 않는다** — 4.2 배선에서 `DB_URL` 파싱(`jdbc:` 접두 제거)으로 정렬한다 |
-| `REDIS_HOST` / `REDIS_PORT` | 없음(필수) | Redis |
+| `DB_URL` | `""` = 미사용 | MySQL 좌표. **Java가 읽는 것은 이것 하나(JDBC URL)다**(`application.yaml: url: ${DB_URL}`). 값이 있으면 `jdbc:` 접두를 벗겨 파싱해 아래 `DB_HOST`·`DB_PORT`·`DB_NAME`을 **덮어쓴다** — 운영 `.env`가 그대로 재사용된다(4.2에서 정렬 완료). 쿼리 파라미터(`serverTimezone` 등)는 일부러 버린다 |
+| `DB_HOST` / `DB_PORT` / `DB_NAME` | `localhost` / `3306` / `yorr` | `DB_URL`이 없을 때 쓰는 쪼갠 좌표. Node·로컬 `.env.example` 전용이며 Java에는 대응이 없다 |
+| `DB_USERNAME` / `DB_PASSWORD` | `yorr` / `""` | MySQL 자격. **URL 안의 userinfo보다 이쪽이 이긴다**(Java의 JDBC 프로퍼티와 같은 결론) |
+| `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | Redis |
 | `REDIS_PASSWORD` | `""` | Redis |
 | `SERVER_PORT` | `8080` | 리슨 포트 |
 | `CORS_ALLOWED_ORIGINS` | `https://yorr.site` | REST·WS 공용 허용 출처(콤마 목록). 기본값이 운영 전용인 것이 fail-safe 설계다 |
@@ -74,6 +80,14 @@ Jenkins(`pollSCM`, main·develop 분기만):
 - 배포 검증이 **HTTP 헬스체크가 아니라** `sleep 15` + 컨테이너 Running 확인
   뿐이다. Node 프로세스는 기동 실패 시 즉시 종료(exit≠0)해야 이 검증에
   걸린다 — 설정 오류를 안고 뜨는 것 금지(env.ts의 fail-fast 근거).
+- 그래서 **기동 시 마이그레이션 확인이 `main.ts`에 있다**: `verifyMigrations`가
+  밀린 마이그레이션·실패 이력 행을 발견하면 로그를 남기고 exit 1로 죽는다
+  (읽기 전용 — Node는 스키마를 바꾸지 않는다, [ADR-0005](../adr/0005-flyway-compatible-migration-runner.md)).
+  체크섬 불일치와 "이력에는 있는데 파일이 없는 것"은 경고만 남기고 기동한다.
+  - **`createServer()`·`listen()`에는 넣지 않는다.** 그 두 경로는 통합 테스트가
+    실제로 부르며(`ws/__tests__/gateway.test.ts`), MySQL 없는 개발·CI 환경에서
+    WS 테스트 전부가 깨진다. 풀은 `main.ts`가 만들어 `createServer(env, { mysql })`로
+    주입하고, 주입한 쪽(`main.ts`)이 닫는다.
 
 Node 백엔드가 슬롯에 들어가기 위한 조건 요약: env 파일만으로 완전 설정,
 `SERVER_PORT`(프록시가 기대하는 포트) 리슨, 기동 15초 내 안정, `/api/v1/*` +
