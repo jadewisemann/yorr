@@ -5,7 +5,7 @@
 
   **휴대폰을 흔들고, 휘두르고, 탭하며 함께 즐기는 실시간 웹 게임 플랫폼**
 
-  [서비스 바로가기](https://yorr.site) · [프론트엔드 문서](frontend/README.md) · [백엔드 문서](backend/GAME_SESSION_INTEGRATION.md) · [협업 가이드](CONTRIBUTING.md)
+  [서비스 바로가기](https://yorr.site) · [프론트엔드 문서](frontend/README.md) · [백엔드 문서](backend-java/GAME_SESSION_INTEGRATION.md) · [협업 가이드](CONTRIBUTING.md)
 </div>
 
 ## 소개
@@ -41,7 +41,7 @@ YORR는 별도 앱 설치 없이 모바일 브라우저에서 즐기는 멀티�
 |---|---|
 | Frontend | React 19, TypeScript, Vite, TanStack Router, Zustand |
 | UI · 그래픽 | Tailwind CSS 4, Motion, Three.js, Rapier |
-| Backend | Java 21, Spring Boot 4, Spring MVC, Spring WebSocket |
+| Backend | Java 21, Spring Boot 4, Spring MVC, Spring WebSocket (Node.js + TypeScript로 마이그레이션 진행 중 — [backend/PLANS.md](backend/PLANS.md)) |
 | Data | MySQL 8, Redis 7, JPA, Flyway |
 | Realtime | WebSocket, WebRTC |
 | Test | Vitest, Testing Library, Playwright, MSW, JUnit, Testcontainers |
@@ -78,7 +78,12 @@ Mobile / Desktop Browser
 │   ├── src/               # 도메인 중심 애플리케이션 코드
 │   ├── e2e/               # Playwright 브라우저 테스트
 │   └── docs/              # 아키텍처 문서 · 레퍼런스 위키(llmwiki)
-├── backend/               # Spring Boot API 및 실시간 게임 서버
+├── backend/               # Node.js + TypeScript 백엔드 (마이그레이션 진행 중)
+│   ├── src/               # 애플리케이션 코드
+│   ├── docs/              # 설계 문서(design) · 의사결정 기록(adr)
+│   ├── DESIGN.md          # 시스템 설계 정본(source of truth)
+│   └── PLANS.md           # Java → JS 마이그레이션 계획
+├── backend-java/          # 기존 Spring Boot API 및 실시간 게임 서버 (운영 중)
 │   └── src/
 │       ├── main/          # 애플리케이션 코드와 DB 마이그레이션
 │       └── test/          # 단위·통합 테스트
@@ -97,8 +102,11 @@ Mobile / Desktop Browser
 
 ### 1. 백엔드 실행
 
+현재 운영 백엔드는 `backend-java/`의 Spring Boot 서버입니다. (`backend/`의 Node.js
+서버는 마이그레이션 진행 중으로, 실행 방법은 [backend/README.md](backend/README.md) 참고)
+
 ```bash
-cd backend
+cd backend-java
 cp .env.example .env
 ```
 
@@ -153,10 +161,10 @@ npm run test:e2e     # E2E (mock 백엔드)
 
 실제 백엔드와 연결하는 E2E는 백엔드를 먼저 실행한 뒤 `npm run test:e2e:real`로 수행합니다.
 
-### Backend
+### Backend (Java)
 
 ```bash
-cd backend
+cd backend-java
 ./gradlew test
 ```
 
@@ -168,7 +176,8 @@ Windows에서는 `gradlew.bat`을 사용합니다. 일부 통합 테스트는 Do
 - [프론트엔드 README](frontend/README.md) — 기술 스택·폴더 구조·시작하기
 - [프론트엔드 아키텍처](frontend/docs/architecture.md) — 구조·의존 방향·상태 설계와 그 이유
 - [레퍼런스 위키 (llmwiki)](frontend/docs/llmwiki/index.md) — 도메인별 동작 상세 (AI 에이전트 컨텍스트 겸용)
-- [백엔드 게임 세션 연동](backend/GAME_SESSION_INTEGRATION.md)
+- [백엔드 게임 세션 연동](backend-java/GAME_SESSION_INTEGRATION.md)
+- [백엔드 JS 마이그레이션 계획](backend/PLANS.md) — 마이그레이션 단계·워크플로우
 - [협업 가이드](CONTRIBUTING.md) — Git 브랜치·커밋·PR 규칙
 
 ## 협업 규칙

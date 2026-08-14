@@ -107,7 +107,7 @@ pipeline {
                         currentBuild.number == 1 ||
                         params.FORCE_DEPLOY_ALL
                     }
-                    changeset 'backend/**'
+                    changeset 'backend-java/**'
                     changeset 'deploy/**'
                     changeset 'Jenkinsfile'
                 }
@@ -146,14 +146,14 @@ pipeline {
                         currentBuild.number == 1 ||
                         params.FORCE_DEPLOY_ALL
                     }
-                    changeset 'backend/**'
+                    changeset 'backend-java/**'
                     changeset 'deploy/**'
                     changeset 'Jenkinsfile'
                 }
             }
 
             steps {
-                dir('backend') {
+                dir('backend-java') {
                     sh '''
                         set -eu
 
@@ -194,7 +194,7 @@ pipeline {
                         currentBuild.number == 1 ||
                         params.FORCE_DEPLOY_ALL
                     }
-                    changeset 'backend/**'
+                    changeset 'backend-java/**'
                     changeset 'deploy/**'
                     changeset 'Jenkinsfile'
                 }
@@ -207,7 +207,7 @@ pipeline {
                     docker build \
                         --tag "$BACKEND_IMAGE" \
                         --label "yorr.environment=$DEPLOY_ENV" \
-                        backend
+                        backend-java
 
                     docker image inspect \
                         "$BACKEND_IMAGE" > /dev/null
@@ -222,7 +222,7 @@ pipeline {
                         currentBuild.number == 1 ||
                         params.FORCE_DEPLOY_ALL
                     }
-                    changeset 'backend/**'
+                    changeset 'backend-java/**'
                     changeset 'deploy/**'
                     changeset 'Jenkinsfile'
                 }
@@ -262,7 +262,7 @@ pipeline {
                         currentBuild.number == 1 ||
                         params.FORCE_DEPLOY_ALL
                     }
-                    changeset 'backend/**'
+                    changeset 'backend-java/**'
                     changeset 'deploy/**'
                     changeset 'Jenkinsfile'
                 }
