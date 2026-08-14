@@ -179,23 +179,55 @@ WS 계층은 LOBBY를 `waiting`으로 매핑해 내보낸다.
 
 ## 퀵매치
 
+구현: `room/quickMatchService.ts` + `http/routes/quickMatch.ts`(3.5).
+
 - 매칭 인원 = `max(2, minPlayers)`(maxPlayers 초과면 `quick_match_not_supported`).
-  현재 세 게임 모두 2인 매칭.
+  현재 세 게임 모두 2인 매칭. 이 값의 출처는 게임 메타데이터 하나뿐이므로
+  **새 게임이 늘어도 퀵매치 코드는 바뀌지 않는다**.
 - enter: 멱등(티켓 있으면 현재 상태 반환), `user:{id}`에 roomId 있으면
-  `already_in_room`. ZSET에 enqueue 후 매칭 시도.
-- 매칭(게임코드별 5초 락): 5분 지난 대기자를 점수 윈도로 청소 → 가장 오래
-  기다린 N명 선택 → 세션 만료자 발견 시 그 사람을 퇴출하고 **전체 중단** →
-  최장 대기자를 host로 방 생성(capacity=N), 전원 join+assignRoom — 도중 예외면
-  방을 close로 롤백 → 티켓을 MATCHED+roomId로 갱신(TTL 40분), 방에
-  `room:{id}:quick-match="1"` 마커.
-- **자동 시작은 폴링이 굴린다**: `GET /quick-matches`(프론트가 1초 폴링)마다
-  마커가 있으면 — LOBBY이고 인원=정원이고 **전원의 WS 소켓이 살아 있을 때만**
-  `games.start` 후 마커 삭제. 소켓 조건이 "매칭됐는데 아직 접속 안 한 사람이
-  게임에 끌려 들어가는" 레이스를 막는다.
-- status는 PLAYING을 한 번 보고하면 티켓을 지운다(다음 폴은 NOT_QUEUED).
-  티켓의 방이 사라졌거나 FINISHED면 자동으로 leave+정리 후 NOT_QUEUED.
+  `already_in_room`. ZSET에 enqueue 후 매칭 시도 → 그 결과를 `status()`로 읽어
+  응답하므로 **짝이 맞는 순간 같은 호출에서 MATCHED가 나간다**.
+
+### 큐·락 규약
+
+| 키 | 규약 |
+|---|---|
+| `quick-match:queue:{gameCode}` | ZSET, score = enqueue ms. **오름차순 = 오래 기다린 순**이고 그 첫 항목이 host다. TTL 없음 — 매칭 시도마다 `ZREMRANGEBYSCORE 0 (now-5분)`으로 청소한다 |
+| `quick-match:user:{userId}` | 티켓 HASH(status·gameCode·roomId). 대기 5분 → 매칭 후 방과 같은 40분. **`UserService.clearRoom`이 이 키를 함께 지운다** — 방을 떠나면 티켓도 사라진다는 뜻이고, 이 규약 때문에 키 이름을 바꿀 수 없다 |
+| `quick-match:lock:{gameCode}` | `SET NX EX 5` 토큰. 해제는 **토큰 비교 후 삭제하는 Lua**(`yorrQuickMatchUnlock`) — 그냥 DEL하면 TTL로 이미 풀린 뒤 남이 잡은 락을 지운다. 락을 못 잡은 호출은 **조용히 돌아간다**(잡은 쪽이 내 큐 항목까지 함께 본다) |
+| `room:{code}:quick-match` | 자동 시작 마커 `"1"`, 방과 같은 40분 |
+
+- 매칭 순서가 계약이다: 만료 대기자 청소 → 최장 대기 N명 → 세션 확인(만료자
+  발견 시 그 사람만 퇴출하고 **이번 판 전체 중단**) → 최장 대기자를 host로 방
+  생성(capacity=**N**, maxPlayers가 아니다) → 전원 join+assignRoom(도중 예외면
+  방을 close로 롤백하고 재throw) → 큐에서 제거 → 티켓 MATCHED → 마커 설치.
+
+### 자동 시작 조건 (전원 소켓 라이브)
+
+- **폴링이 굴린다**: `GET /quick-matches`(프론트가 1초 폴링)는 조회처럼 보이지만
+  마커가 붙은 방에 대해 상태를 바꾼다. 조건은 셋 다 만족할 때뿐이다 —
+  phase=LOBBY · 인원=정원 · **명단 전원의 WS 소켓이 실제로 열려 있음**.
+- 판정 근거는 **Redis 멤버십이 아니라 WS 레지스트리의 소켓 생존**이다
+  (`RoomSessionRegistry.find(roomId, playerId)?.socket?.readyState === OPEN`).
+  매칭은 방 명단을 먼저 채우므로 멤버십으로 판정하면 "매칭됐는데 아직 접속하지
+  않은 사람"이 게임에 끌려 들어간다. 레지스트리의 `status`(online/offline)로도
+  판정하지 않는다 — **닫히는 중(CLOSING)인 소켓은 아직 online**이라 조건이 헐거워진다.
+- 시작에 성공하거나 방이 이미 PLAYING이면 마커를 지운다. 두 폴이 동시에 시작을
+  시도해 진 쪽이 `game_not_ready`를 받으면, 방이 실제로 PLAYING인 경우에만 그
+  실패를 삼킨다(아니면 그대로 올린다).
+
+### 자기 치유
+
+- status는 PLAYING을 **한 번 보고하면 티켓을 소비**한다(다음 폴은 NOT_QUEUED).
+  프론트가 그 한 번을 보고 게임 화면으로 넘어간다.
+- 티켓이 물고 있는 방이 **사라졌거나 FINISHED**면 그 자리에서 정리하고
+  NOT_QUEUED로 답한다: FINISHED면 `leave`로 좌석을 빼고(안 빼면 다음 매칭의 정원을
+  갉아먹는다), 방이 이미 없으면 뺄 좌석이 없으므로 세션·티켓만 정리한다
+  (`clearRoom`). 정리 후에도 **gameCode는 실어 보낸다** — 프론트가 직전에 기다린
+  게임으로 화면을 되돌린다.
+- 그래서 끝난 판의 티켓이 새 퀵매치를 막지 않는다(`enter`가 먼저 이 경로를 탄다).
 - 알려진 한계(코드에 명시): 매칭+방 생성이 한 Lua가 아니라 중간 크래시 시 방이
-  고아가 될 수 있다.
+  고아가 될 수 있다. 락이 5초 TTL이라 큐 자체는 막히지 않는다.
 
 ## 봇 (roster 관점)
 
