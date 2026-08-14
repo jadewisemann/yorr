@@ -6,6 +6,49 @@
 >
 > 형식: `## YYYY-MM-DD - 주제` 아래에 불릿. 최신이 위.
 
+## 2026-08-14 - Phase 1.5 (WS 코어)
+
+- **세션 식별자를 만들지 않았다.** Java는 `WebSocketSession.getId()` 문자열로
+  레지스트리·팬아웃·하트비트의 키를 잡는데, Node에서는 **소켓 객체 참조 자체**를
+  키로 썼다(`Map<ClientSocket, …>`). id를 발급하면 그 id의 수명을 소켓 수명과
+  따로 관리해야 하고, 교체된 옛 소켓의 close가 늦게 도착하는 경로에서 정확히 그
+  두 수명이 어긋난다. `ClientSocket`(send/close/readyState)은 `ws`의 WebSocket이
+  그대로 만족하고 테스트는 전송 기록만 남기는 가짜를 넣는다 — Java 테스트의
+  `mock(WebSocketSession)` 자리다.
+- **핸들러를 `ws`에서 떼어냈다**(`ws/handler.ts` = 프로토콜, `ws/gateway.ts` =
+  배선). Java 테스트가 `handleTextMessage`를 직접 부르던 것과 같은 구조이며,
+  덕분에 26개 프로토콜 테스트가 소켓을 열지 않고 돈다. 실제 소켓 위 검증은
+  `ws/__tests__/gateway.test.ts`(인프로세스 서버 + 진짜 `ws` 클라이언트)가 맡는다.
+- **소켓별 메시지 직렬화가 필요했다**(gateway). Java는 세션당 한 스레드라 공짜로
+  얻던 순서 보장이 async 핸들러에서는 깨진다 — `room.join`이 Redis를 기다리는
+  사이 다음 메시지가 먼저 처리되면 순서 계약이 무너진다. realtime.md에 기록.
+- **Phase 1에는 게임 모듈이 하나도 없다.** 핸들러가 `module.pause/hasState/
+  reconnect/resume/close/removePlayer`를 부르는 자리에 대기실 전용 대역
+  (`lobbyOnly`)을 뒀다: `hasState=false`(→30초 유예), `reconnect`는 실시간 병합
+  스냅샷. 시그니처는 `RoomGameHooks = Pick<GameModule, …>`라 2.1의 진짜 모듈이
+  그대로 들어온다. Java의 `gameModules.require()`처럼 던지게 두면 Phase 1에서
+  방이 아예 안 돌아간다.
+- **registry의 phase는 Java에서도 게임 모듈이 옮긴다**(`YachtDiceGameModule.start`
+  → `markPhase(PLAYING)`). 모듈이 없는 Phase 1에서는 `room.join`이 Redis phase를
+  읽어 표시할 때만 갱신되므로, REST로 게임을 시작해도 **이미 붙어 있는 소켓들의
+  레지스트리 phase는 waiting에 머문다**(끊기면 offline이 아니라 player_left가
+  된다). Phase 2.1에서 모듈이 붙으면 저절로 해소된다 — 지금 별도 경로를 만들면
+  2.1에서 두 곳이 phase를 옮기게 된다.
+- 하트비트 CAS를 `Map`으로 옮겼다: Java의 2-인자 `remove(key, value)` 자리에
+  "지우기 전에 값이 그대로인지 확인"을 둔다. 항목을 먼저 지우고 콜백을 부르므로
+  같은 세션에 두 번 실행되지 않는다(멱등 — 테스트로 고정).
+- `RoomValidationServiceTest` 때와 같은 판단: Java `RoomSessionRegistryTest`는
+  `snapshot().players()` 순서를 보지 않는다(ConcurrentHashMap). 우리 스냅샷도
+  **레지스트리 경로는 순서를 보장하지 않고**, 실시간 병합 스냅샷만 playerId
+  오름차순이다(그쪽만 프론트가 순서에 기댄다).
+- WS 핸드셰이크 origin 검사가 Phase 0 스켈레톤에 없었다 — DESIGN.md 「운영 계약」이
+  REST와 같은 목록을 쓰라고 못박고 있어 이번에 붙였다(없으면 REST만 막히고 WS는
+  열린 상태). 메시지 크기 상한(64KB)도 realtime.md의 미해결 항목이라 함께 정했다.
+- `room.join`의 `registerGame`은 Java와 같이 **던진다**(`invalid_game_code`·
+  `room_game_mismatch`). Java에서는 그 예외가 Spring 밖으로 나가 응답 없이 로그만
+  남는데, 우리 쪽은 게이트웨이가 잡아 로그를 남기고 소켓을 살려 둔다. 방에
+  gameCode가 없는 상태는 우리가 만들 수 없으므로 응답 계약에는 영향이 없다.
+
 ## 2026-08-14 - Phase 1.4 (방 REST)
 
 - **헤더 누락은 401로 처리한다**(Java는 Spring `@RequestHeader` 필수 검증에

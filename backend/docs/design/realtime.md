@@ -9,9 +9,16 @@
 
 - 경로 `/ws/v1/game`, raw WebSocket(SockJS 없음), 핸드셰이크 인증 없음.
 - 허용 출처는 REST CORS와 **같은** `CORS_ALLOWED_ORIGINS` 목록(정확 일치, 패턴 아님).
-- Java는 메시지 크기 제한·유휴 타임아웃을 따로 설정하지 않았다(서블릿 컨테이너
-  기본값에 의존 — Tomcat 텍스트 버퍼 8KB). Node에서는 명시적 한도를 정해야 하며,
-  `voice.signal`의 SDP payload가 가장 큰 메시지임을 감안한다(수 KB 수준).
+  Origin 헤더가 **없으면 통과**시키고(브라우저가 아닌 클라이언트), 있으면 목록에
+  정확히 있어야 한다 — 아니면 핸드셰이크를 403으로 거절한다(Spring
+  `OriginHandshakeInterceptor`와 같은 규칙).
+- 인바운드 메시지 상한 **64KB**. Java는 서블릿 컨테이너 기본값(Tomcat 텍스트 버퍼
+  8KB)에 기대고 아무것도 정하지 않았지만 `ws`의 기본값은 100MB다. 가장 큰 메시지는
+  `voice.signal`의 SDP(수 KB)이므로 그 위로 넉넉히 잡았다. 초과 프레임은 close
+  1009로 끊긴다.
+- **소켓 하나의 메시지는 직렬로 처리한다.** 아래 `room.join`의 처리 순서가 계약인데
+  Redis 호출을 기다리는 사이 다음 메시지가 끼어들면 그 순서가 깨진다. Java는
+  세션당 한 스레드라 자연히 보장되던 성질이다.
 
 ## Envelope
 

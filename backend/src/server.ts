@@ -4,13 +4,21 @@ import type { Redis } from 'ioredis'
 import { allowedOrigins, type Env } from './config/env.js'
 import { GameCatalog } from './game/catalog.js'
 import { GameLifecycleService } from './game/lifecycle.js'
+import { GameModuleRegistry } from './game/module.js'
 import { registerGameRoutes } from './http/routes/games.js'
 import { registerHealthRoutes } from './http/routes/health.js'
 import { registerRoomRoutes } from './http/routes/rooms.js'
 import { createRedisClient } from './infra/redis.js'
+import { InMemoryRoomCloseScheduler } from './room/closeScheduler.js'
 import { RoomService } from './room/roomService.js'
+import { closeUnrecoverableGamesOnStartup } from './room/staleRoomCleaner.js'
 import { UserService } from './user/session.js'
+import { RoomBroadcaster } from './ws/broadcaster.js'
 import { attachGameSocketGateway, type GameSocketGateway } from './ws/gateway.js'
+import { GameSocketHandler } from './ws/handler.js'
+import { HeartbeatMonitor } from './ws/heartbeat.js'
+import { RoomSessionRegistry } from './ws/registry.js'
+import { RealtimeRoomSnapshotService } from './ws/snapshot.js'
 
 /** REST base. WebSocket은 `/ws/v1/game`(gateway.ts) — 둘 다 계약이다. */
 const API_PREFIX = '/api/v1'
@@ -24,6 +32,7 @@ export interface ServerOptions {
 export interface YorrServer {
   app: FastifyInstance
   gateway: GameSocketGateway
+  registry: RoomSessionRegistry
   listen(): Promise<void>
   close(): Promise<void>
 }
@@ -36,8 +45,17 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   const rooms = new RoomService(redis)
   const catalog = new GameCatalog()
   const lifecycle = new GameLifecycleService(rooms, catalog)
+  const games = new GameModuleRegistry()
 
   const app = fastify({ logger: options.logger ?? true })
+
+  const registry = new RoomSessionRegistry()
+  const broadcaster = new RoomBroadcaster()
+  const snapshots = new RealtimeRoomSnapshotService(rooms, registry)
+  const heartbeat = new HeartbeatMonitor()
+  const closeScheduler = new InMemoryRoomCloseScheduler((error, roomId) =>
+    app.log.error({ error, roomId }, '빈 방 폐쇄 실패'),
+  )
 
   await app.register(cors, { origin: allowedOrigins(env) })
   await registerHealthRoutes(app)
@@ -50,15 +68,35 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   )
 
   await app.ready()
-  const gateway = attachGameSocketGateway(app.server)
+  const gateway = attachGameSocketGateway(
+    app.server,
+    new GameSocketHandler({
+      registry,
+      broadcaster,
+      snapshots,
+      heartbeat,
+      users,
+      rooms,
+      closeScheduler,
+      games,
+      logger: app.log,
+    }),
+    { logger: app.log, allowedOrigins: allowedOrigins(env) },
+  )
 
   return {
     app,
     gateway,
+    registry,
     listen: async () => {
+      // 부팅 시 정리: 마감 타이머가 하나도 없는 지금 PLAYING인 방은 이어갈 수 없다.
+      const closed = await closeUnrecoverableGamesOnStartup(rooms)
+      if (closed > 0) app.log.info({ closed }, '재시작으로 이어갈 수 없는 진행 중 방을 닫았습니다')
       await app.listen({ port: env.SERVER_PORT, host: '0.0.0.0' })
     },
     close: async () => {
+      heartbeat.stop()
+      closeScheduler.stop()
       await gateway.close()
       await app.close()
       if (ownsRedis) redis.disconnect()

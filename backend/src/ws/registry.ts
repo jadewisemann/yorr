@@ -1,43 +1,188 @@
-import type { WebSocket } from 'ws'
-import type { OutboundEnvelope } from './envelope.js'
+import type { PlayerStatus, WsPlayer, WsRoomPhase, WsRoomSnapshot } from './protocol.js'
+import type { ClientSocket } from './socket.js'
 
-// 연결 관리는 인메모리 — 방 멤버십·점수·phase의 권위는 Redis에 있고(docs/design/realtime.md),
-// 이 레지스트리는 "지금 이 프로세스에 붙어 있는 소켓"만 안다.
-export class RoomSocketRegistry {
-  private readonly rooms = new Map<string, Set<WebSocket>>()
+/**
+ * 방 멤버십(누가·어느 방에·어떤 정체성/상태로)의 인메모리 저장소 —
+ * backend-java `ws/RoomSessionRegistry`.
+ *
+ * 역할 분담: "봉투를 방 전원에게 쏘는 팬아웃"은 `RoomBroadcaster`, "그 방에 지금
+ * 누가 있는지"는 여기다. 둘 다 인메모리이고 **상태의 권위는 Redis**에 있다
+ * (docs/design/realtime.md 「구독·브로드캐스트 모델」).
+ */
+export interface RoomMember {
+  readonly playerId: string
+  readonly roomId: string
+  readonly nickname: string
+  readonly host: boolean
+  readonly status: PlayerStatus
+  /** 오프라인 좌석은 소켓이 없다 — 자리는 남기고 연결만 없는 상태. */
+  readonly socket: ClientSocket | null
+}
 
-  subscribe(roomId: string, socket: WebSocket): void {
-    let sockets = this.rooms.get(roomId)
-    if (!sockets) {
-      sockets = new Set()
-      this.rooms.set(roomId, sockets)
+export const toWsPlayer = (member: RoomMember): WsPlayer => ({
+  playerId: member.playerId,
+  nickname: member.nickname,
+  status: member.status,
+  isHost: member.host,
+  kind: 'HUMAN',
+})
+
+export class RoomSessionRegistry {
+  // roomId → (playerId → Member)
+  private readonly rooms = new Map<string, Map<string, RoomMember>>()
+  // socket → Member : 소켓이 끊길 때 "소켓만으로" 누구였는지 역추적한다.
+  private readonly bySocket = new Map<ClientSocket, RoomMember>()
+  private readonly phases = new Map<string, WsRoomPhase>()
+  private readonly gameCodes = new Map<string, string>()
+
+  /** 방에 적힌 게임을 기록한다. 같은 방에 다른 게임이 들어오면 상태가 섞이므로 던진다. */
+  registerGame(roomId: string, gameCode: string | null | undefined): void {
+    if (!gameCode || gameCode.trim().length === 0) throw new Error('invalid_game_code')
+    const current = this.gameCodes.get(roomId)
+    if (current !== undefined && current !== gameCode) throw new Error('room_game_mismatch')
+    this.gameCodes.set(roomId, gameCode)
+  }
+
+  /**
+   * 방 입장. 그 방의 첫 입장자가 host가 되고, **같은 playerId의 재입장은 자리와
+   * host를 유지한 채 소켓만 교체**한다(재접속 경로).
+   */
+  join(roomId: string, socket: ClientSocket, playerId: string, nickname: string): RoomMember {
+    let members = this.rooms.get(roomId)
+    if (!members) {
+      members = new Map()
+      this.rooms.set(roomId, members)
     }
-    sockets.add(socket)
+    const existing = members.get(playerId)
+    const member: RoomMember = {
+      playerId,
+      roomId,
+      nickname,
+      host: existing ? existing.host : members.size === 0,
+      status: 'online',
+      socket,
+    }
+    members.set(playerId, member)
+    if (existing?.socket && this.bySocket.get(existing.socket) === existing) {
+      this.bySocket.delete(existing.socket)
+    }
+    this.bySocket.set(socket, member)
+    return member
   }
 
-  unsubscribe(roomId: string, socket: WebSocket): void {
-    const sockets = this.rooms.get(roomId)
-    if (!sockets) return
-    sockets.delete(socket)
-    if (sockets.size === 0) this.rooms.delete(roomId)
+  /** 방 안에서 이 playerId가 차지한 자리. 재접속·중복 세션 판정에 쓴다. */
+  find(roomId: string, playerId: string): RoomMember | null {
+    return this.rooms.get(roomId)?.get(playerId) ?? null
   }
 
-  unsubscribeAll(socket: WebSocket): void {
-    for (const roomId of this.rooms.keys()) {
-      this.unsubscribe(roomId, socket)
+  of(socket: ClientSocket): RoomMember | null {
+    return this.bySocket.get(socket) ?? null
+  }
+
+  /** 대기실에서의 소켓 종료·명시 퇴장. @returns 빠진 멤버(원래 없었으면 null). */
+  remove(socket: ClientSocket): RoomMember | null {
+    const member = this.bySocket.get(socket)
+    if (!member) return null
+    this.bySocket.delete(socket)
+    const members = this.rooms.get(member.roomId)
+    if (members) {
+      members.delete(member.playerId)
+      if (members.size === 0) this.forgetRoom(member.roomId)
+    }
+    return member
+  }
+
+  /**
+   * 게임 중 비명시 종료를 명단 이탈이 아닌 offline 전이로 기록한다.
+   * 이미 새 소켓으로 교체된 뒤 옛 소켓의 close가 도착하면 현재 멤버를 건드리지 않는다.
+   */
+  markOffline(socket: ClientSocket): RoomMember | null {
+    const member = this.bySocket.get(socket)
+    if (!member) return null
+    this.bySocket.delete(socket)
+    const members = this.rooms.get(member.roomId)
+    if (!members || members.get(member.playerId) !== member) return null
+    const offline: RoomMember = { ...member, status: 'offline', socket: null }
+    members.set(member.playerId, offline)
+    return offline
+  }
+
+  /**
+   * playerId로 좌석을 뺀다. 오프라인 멤버는 소켓이 없어 {@link remove}로 지울 수
+   * 없으므로 게임 중 이탈(명시 퇴장·오프라인 자동 퇴장)은 이 경로를 쓴다.
+   */
+  removePlayer(roomId: string, playerId: string): RoomMember | null {
+    const members = this.rooms.get(roomId)
+    const member = members?.get(playerId)
+    if (!members || !member) return null
+    members.delete(playerId)
+    if (member.socket && this.bySocket.get(member.socket) === member) {
+      this.bySocket.delete(member.socket)
+    }
+    if (members.size === 0) this.forgetRoom(roomId)
+    return member
+  }
+
+  /** 게임 시작처럼 **REST가 상태를 바꾸는** 경로에서 알려 준다. 기본은 `waiting`. */
+  markPhase(roomId: string, phase: WsRoomPhase): void {
+    this.phases.set(roomId, phase)
+  }
+
+  phaseOf(roomId: string): WsRoomPhase {
+    return this.phases.get(roomId) ?? 'waiting'
+  }
+
+  gameCodeOf(roomId: string): string | null {
+    return this.gameCodes.get(roomId) ?? null
+  }
+
+  /** 현재 게임을 진행 중인 방의 수(`yorr_rooms_active`). */
+  activeRoomCount(): number {
+    let count = 0
+    for (const phase of this.phases.values()) if (phase === 'playing') count += 1
+    return count
+  }
+
+  /** 그 게임을 플레이 중이며 소켓이 살아 있는 참가자 수(`yorr_game_participants_active`). */
+  activeParticipantCount(gameCode: string | null | undefined): number {
+    if (!gameCode || gameCode.trim().length === 0) return 0
+    const wanted = gameCode.toUpperCase()
+    const players = new Set<string>()
+    for (const member of this.bySocket.values()) {
+      if (this.phaseOf(member.roomId) !== 'playing') continue
+      if (this.gameCodeOf(member.roomId)?.toUpperCase() !== wanted) continue
+      players.add(member.playerId)
+    }
+    return players.size
+  }
+
+  /**
+   * 인메모리 명단만으로 만드는 스냅샷. 게임 진행 상태(`game`)와 Redis 참가자(봇 포함)는
+   * 모르므로 실시간 병합은 `RealtimeRoomSnapshotService`가 한다.
+   */
+  snapshot(roomId: string): WsRoomSnapshot {
+    const members = this.rooms.get(roomId)
+    const players: WsPlayer[] = []
+    let hostId: string | undefined
+    if (members) {
+      for (const member of members.values()) {
+        players.push(toWsPlayer(member))
+        if (member.host) hostId = member.playerId
+      }
+    }
+    return {
+      roomId,
+      gameCode: this.gameCodes.get(roomId),
+      phase: this.phaseOf(roomId),
+      hostId,
+      players,
     }
   }
 
-  broadcast(roomId: string, message: OutboundEnvelope): void {
-    const sockets = this.rooms.get(roomId)
-    if (!sockets) return
-    const data = JSON.stringify(message)
-    for (const socket of sockets) {
-      if (socket.readyState === socket.OPEN) socket.send(data)
-    }
-  }
-
-  size(roomId: string): number {
-    return this.rooms.get(roomId)?.size ?? 0
+  /** 방이 비면 phase·gameCode도 함께 버린다 — 방 코드는 재사용되기 때문이다. */
+  private forgetRoom(roomId: string): void {
+    this.rooms.delete(roomId)
+    this.gameCodes.delete(roomId)
+    this.phases.delete(roomId)
   }
 }
