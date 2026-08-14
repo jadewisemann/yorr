@@ -6,6 +6,26 @@
 >
 > 형식: `## YYYY-MM-DD - 주제` 아래에 불릿. 최신이 위.
 
+## 2026-08-14 - Phase 1.1·1.2 (Redis 배선 · 세션)
+
+- **테스트 하네스는 redis-server spawn으로 결정**(ADR-0004). 파일마다 유닉스
+  소켓 인스턴스 하나 — vitest 병렬 실행과 `FLUSHALL`이 양립한다. `--port 0`은
+  TCP를 안 열겠다는 뜻이라 포트 충돌이 원천적으로 없다.
+- Java `hash()`는 SHA-256을 **표준 Base64**(패딩 있음)로 인코딩하는데 토큰
+  자체는 base64url 무패딩이다. 키 이름(`user:token:{hash}`)에 `+`·`/`·`=`가
+  들어가지만 Redis 키에는 문제가 없다 — 그대로 옮겼다(다르게 인코딩하면 기존
+  세션이 전부 무효가 된다).
+- `authenticateCredentials`는 성공할 때만 두 키의 TTL을 민다. 실패 경로에서
+  TTL을 건드리지 않는 것이 계약이라 테스트로 고정했다(60초로 줄여 둔 뒤 인증
+  → 다시 늘어나는지).
+- Java의 `IllegalArgumentException(코드문자열)` 관용은 `DomainError`(src/errors.ts)로
+  옮겼다. `SessionAuthenticationError`가 그 하위 타입인 것이 1.4에서
+  "컨트롤러의 일괄 catch → 401" 경로를 재현하는 근거가 된다 — 상속 관계를
+  깨면 오류 계약이 조용히 바뀐다.
+- `UserService.assignRoom`은 hset 후 타입에 맞는 TTL을 **다시** 건다. 이 한 줄이
+  없으면 회원이 방에 들어가는 순간 24시간짜리로 강등된다(Java 주석에 명시).
+  회귀 테스트를 함께 이식했다.
+
 ## 2026-08-14 - 설계 문서 상세화 (backend-java 전수 분석)
 
 - **GAME_SESSION_INTEGRATION.md는 명세가 아니다.** 실제 계약과 프로토콜이

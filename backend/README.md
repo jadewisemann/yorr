@@ -39,3 +39,8 @@ npm run typecheck    # tsc
 npm test             # vitest
 npm run build        # 프로덕션 빌드 (dist/)
 ```
+
+Redis 통합 테스트는 `redis-server` 바이너리를 찾아 테스트 파일마다 하나씩
+띄운다([ADR-0004](docs/adr/0004-redis-integration-test-harness.md)). 바이너리가
+없으면 해당 스위트만 건너뛴다 — 이미 띄워 둔 Redis를 쓰려면 `REDIS_TEST_URL`,
+건너뛰기를 실패로 만들려면 `REDIS_TEST_REQUIRED=1`.
