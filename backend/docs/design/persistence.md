@@ -82,6 +82,63 @@ backend-java의 Flyway로 넣고 같은 파일을 `backend/db/migration/`에 복
   `success = 0`으로 이력에 남고, 복구는 사람이 스키마를 확인하고 그 행을 지우는
   것이다.
 
+## 프로필 (users) — dual-write 불변식
+
+닉네임은 **두 곳**에 산다. 어느 쪽이 정본인지가 이 절의 전부다.
+
+| 저장소 | 값 | 역할 | 수명 |
+|---|---|---|---|
+| MySQL `users.nickname` | **정본** | 영구 프로필 | 계정 수명 |
+| Redis `user:{id}.nickname` | 사본 | 인증·화면·방 명단이 실제로 읽는 값 | 세션 TTL(회원 30일 슬라이딩) |
+| MySQL `match_participants.display_nickname` | 스냅샷 | 그 판에 보였던 이름 | 영구, **불변** |
+
+- **개명은 두 곳을 함께 쓴다(dual-write).** DB만 고치면 다시 로그인하기 전까지
+  방 명단에 옛 이름이 남고, 세션만 고치면 세션이 만료되는 순간 되돌아간다.
+- **쓰기 순서는 DB → 세션이다.** 뒤집으면(=Java의 순서, `renameSession`이
+  `@Transactional` 커밋 전에 불린다) DB 커밋이 실패했을 때 세션에만 새 이름이
+  남아 영구히 갈라진다. 이 순서에서 최악은 "DB는 새 이름·세션은 옛 이름"이고
+  그건 다음 로그인이 저절로 맞춘다. **Java와 의도적으로 다른 유일한 지점**이다.
+- **세션이 없어도 개명은 성공한다.** `renameSession`은 `user:{id}`가 있을 때만
+  쓴다(죽은 세션을 되살리지 않는다 — 세션 계약은 rooms-and-sessions.md).
+- **닉네임 규칙은 `user/session.ts`의 `normalizeNickname` 한 곳뿐이다**(trim 후
+  1~20자, 문자 종류 제약 없음). 게스트 생성·방 입장·프로필 개명이 같은 함수를
+  부른다 — 규칙을 복제하면 조용히 갈라진다.
+- **지난 판의 기록은 소급되지 않는다.** `display_nickname`은 그때 화면에 보였던
+  이름이라 개명이 과거 전적까지 바꾸면 안 된다. 반대로 주간 랭킹의 닉네임은
+  **현재 프로필 이름**이다(아래 랭킹 절) — 둘의 차이가 계약이다.
+
+### member_only 게이트
+
+프로필 REST는 Bearer 토큰만으로 인증하고(`X-User-Id` 없음) **회원인지까지** 본다.
+
+- 게스트 토큰: 인증은 성공하지만 `users` 행 자체가 없다 → **403 `member_only`**.
+  401(재로그인하면 풀린다)과 구분되는 상태다 — 게스트는 다시 로그인해도
+  프로필이 생기지 않는다.
+- 세션 실패: **401 `session_expired`**(방 REST의 `invalid_guest_session`이
+  아니다 — API마다 401 본문이 다른 것이 계약이다).
+- 회원 행이 사라진 세션: `PATCH`는 **404 `user_not_found`**, `GET`은 잡지 않아
+  **500**이다. 이 비대칭은 Java 컨트롤러 그대로이며 재현한다(quirk).
+- 규칙 위반과 부재의 우선순위: 정규화가 조회보다 **먼저**라, 없는 회원 + 잘못된
+  이름이면 `invalid_nickname`(400)이 이긴다.
+
+요청·응답 모양은 [auth.md](auth.md)의 「프로필 REST」가 정본이다.
+
+### 구현 위치 (Node)
+
+| 파일 | 대응 Java |
+|---|---|
+| `user/profile.ts` — `UserProfileService`·`UserProfileRepository`·`MysqlUserProfileStore`·`UserNotFoundError` | `user/application/UserProfileService` + `user/repository/UserRepository` + `user/domain/User.rename` |
+| `http/routes/users.ts` — `registerUserRoutes` | `user/controller/UserProfileController` |
+
+- 세션 쪽은 좁은 포트(`SessionNicknameWriter`)로만 잡는다. `UserService`가
+  구조적으로 이를 만족하므로 배선은 그대로이고, MySQL 없는 환경에서도 라우트
+  계약을 시험할 수 있다.
+- 이식된 테스트(4.3): `user/__tests__/profile.test.ts`가 Java
+  `UserProfileServiceIntegrationTest` 4종을 **두 벌** 돌린다 — 인메모리 저장소 +
+  진짜 Redis(항상), 실 MySQL + 진짜 Redis(`MYSQL_TEST_URL`이 있을 때만).
+  `http/routes/__tests__/users.test.ts`가 401·403·400·404·500 표면과 dual-write를
+  고정한다.
+
 ## 전적 보관 (MatchArchiveService)
 
 - 호출 시점: ① 게임 종료(`GameCompletionService` — **실패해도 삼킨다**, 종료를
