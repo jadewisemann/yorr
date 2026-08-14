@@ -149,25 +149,78 @@ duel과 동일 패턴: `RedisPingPongStateStore` SETNX init
 ## AI 결과 (REST — 멀티플레이 파이프라인과 무관)
 
 로컬 싱글플레이(온디바이스 AI) 결과를 클라이언트가 직접 보고한다.
+이식 완료(4.6): `game/pingpong/aiResultService.ts` + `http/routes/pingPongAi.ts`.
 
-- `POST /api/v1/games/ping-pong/ai-results`
-  본문 `{resultId(UUID), humanScore, aiScore}`. `Authorization` 선택 —
-  없으면 게스트로 보관(임의 UUID, 닉네임 "게스트"), 있는데 형식이 틀리면 401
-  `session_expired`.
-- 검증: resultId는 UUID(`invalid_result_id`), 점수는 **11점·2점차 종료 조건
-  재검증**(`invalid_final_score`) — 불가능한 스코어라인 차단.
-- 성공 204(본문 없음). `MatchArchiveService.archive(gameId=resultId,
-  gameCode=PING_PONG, roomCode="LOCAL_AI")`로 저장 — AI는
-  `playerId="ping-pong-ai"`, 닉네임 "AI". gameId 유니크 제약이 중복 보고를
-  막는다. **MySQL 의존이므로 Phase 4에서 이식**한다.
+`POST /api/v1/games/ping-pong/ai-results` · 본문 `{resultId(UUID), humanScore, aiScore}`
+· 성공 **204**(본문 없음).
 
-**4.6이 3.4에서 쓸 표면은 `WIN_SCORE` 하나다**(`game/pingpong/index.ts`에서
-export). Java `PingPongAiResultService`도 `PingPongRules.WIN_SCORE` +
-`PingPongGameModule.CODE`만 참조하며, 코드는 `game/catalog.ts`의 `PING_PONG`을
-쓰면 되므로 AI 결과 경로는 게임 상태·스토어·모듈을 전혀 건드리지 않는다.
-점수 재검증(`max >= WIN_SCORE && |차| >= 2 && 둘 다 음수 아님`)은 Java와 같이
-**4.6 쪽 서비스에 둔다** — 멀티플레이 판정과 입력·오류 코드가 다르므로 규칙
-모듈에 미리 넣지 않았다.
+서버가 이 판의 랠리를 하나도 보지 못했으므로, DESIGN.md 원칙 1(서버 권위)을 지키는
+수단은 **보고된 점수를 규칙으로 다시 확인하는 것** 하나뿐이다. 그래서 이 경로는
+게임 상태·스토어·모듈·완료 서비스를 전혀 건드리지 않고 3.4에서 `WIN_SCORE`만
+가져온다(`game/pingpong/index.ts`).
+
+### 점수 재검증 — 그리고 그 한계
+
+`invalid_final_score`의 조건은 세 가지다: 음수 없음 · 이긴 쪽이 `WIN_SCORE`(11) 이상 ·
+**2점차 이상**. `10:7`·`11:10`·`-1:11`이 여기서 걸린다.
+
+⚠️ **이 검증은 "끝날 수 있는 스코어라인"만 본다.** `50:3`·`12:9`처럼 11점에서 이미
+끝났어야 하는 값은 통과한다(듀스가 12:10·13:11…로 올라가므로 상한을 못박을 수 없다).
+Java와 같은 구멍이며 조용히 조이지 않았다 — 와이어 계약 동결(ADR-0002)이고, 조이려면
+프론트가 실제로 보내는 값의 실측이 먼저다. 대신 이 경로로 부풀린 점수가 주간 랭킹에
+오르지는 않는다: 랭킹 질의는 게임 코드로 필터한다(`game/ranking/`).
+
+### 게스트 / 회원 분기
+
+`Authorization`이 **선택인 유일한 REST**다. 로그인 없이 할 수 있는 싱글플레이라
+헤더가 없다는 것은 오류가 아니라 "게스트다"라는 뜻이다. 반대로 헤더가 **있는데 모양이
+틀리면 401**이다 — 토큰을 들고 왔다는 것은 자기 전적으로 남기려는 의도이고, 조용히
+게스트로 떨어뜨리면 그 기록은 주인을 잃는다. 빈 문자열·공백 헤더는 "안 보낸 것"이다.
+
+- 세션 없음 → `playerId`를 **임의 UUID**로, 닉네임 `"게스트"`로 보관한다.
+- 세션 있음 → 그 세션의 `userId`·닉네임으로 보관한다. **회원/게스트 세션을 가르지
+  않는다** — 회원 판정은 4.4가 `users` 테이블 존재 여부로 한다(`matchArchiveStore.ts`).
+  세션 타입으로 가르면 세션이 만료된 회원의 전적이 주인을 잃는다.
+- 그 결과 **게스트의 전적은 남지 않는다**: 임의 UUID도 게스트 userId도 `users`에 없어
+  `match_participants.user_id`가 NULL이 되고, 주간 랭킹 질의(`JOIN users` /
+  `user_id IS NOT NULL`)가 그 행을 통째로 뺀다. AI(`playerId="ping-pong-ai"`,
+  닉네임 `"AI"`)도 같은 이유로 언제나 NULL이다.
+
+보관은 `MatchArchiveService.archiveParticipants({gameId: resultId, gameCode: PING_PONG,
+roomCode: "LOCAL_AI"})`. `resultId`는 **클라이언트가 만드는 UUID**이고 그대로
+`matches.game_id`가 되므로, 그 컬럼의 UNIQUE 제약이 재전송·새로고침에 대한 멱등의
+전부다. 이미 보고된 판이면 보관은 false를 돌려주지만 **응답은 그래도 204**다(실패가
+아니다).
+
+### 오류 계약 (plain-text — 프로필·auth·랭킹과 같은 결)
+
+| 상황 | 응답 |
+|---|---|
+| `resultId`가 UUID가 아님·없음 | 400 `invalid_result_id` |
+| 규칙으로 끝날 수 없는 점수 | 400 `invalid_final_score` |
+| 본문 없음 | 400 `invalid_ai_result` |
+| 읽을 수 없는 본문(깨진 JSON·점수가 숫자 아님) | 400 + **빈 본문** |
+| `Authorization` 형식 위반 · 죽은 토큰 | 401 `session_expired` |
+
+- 본문은 **JSON이 아니라 문자열 코드**다(조회 REST(2.9)의 `{code,message}`가 아니다).
+  401 문자열은 퀵매치의 `unauthorized`도 방 REST의 `invalid_guest_session`도 아닌
+  **`session_expired`** 다 — Java가 그 리터럴을 쓰고 프론트가 본문을 텍스트로 읽어
+  대문자 코드로 매핑한다. 라우트마다 다른 이 문자열들이 계약이므로 섞지 않는다.
+- 검증 **순서**가 계약이다: resultId 먼저, 점수 나중. 둘 다 틀리면 `invalid_result_id`.
+- 읽을 수 없는 본문의 400이 빈 본문인 이유는 `gameQueries.ts`의 score-candidates와
+  같다 — Spring이 만드는 `{timestamp,status,...}`는 프레임워크 흔적이라 계약이 아니다.
+- Java는 `@RequestBody(required = false)`라 **본문 없는 POST도 핸들러까지 들어온다**.
+  Fastify 기본 JSON 파서는 그 전에 400을 던지므로, 라우트가 **자기 하위 스코프에서만**
+  파서와 오류 핸들러를 갈아 끼운다(캡슐화 — 같은 `/api/v1`의 방·퀵매치 REST에는 영향이
+  없고, 테스트가 그 격리를 못박는다).
+
+### 이식한 테스트
+
+| 파일 | 덮는 것 | MySQL |
+|---|---|---|
+| `game/pingpong/__tests__/aiResultService.test.ts` | Java `PingPongAiResultServiceTest` 전부 + 보관 인자·순위·UUID 정규화·본문 바인딩 | 불필요 |
+| `http/routes/__tests__/pingPongAi.test.ts` | Java `PingPongAiResultControllerTest` 전부 + 오류 표면·파서 캡슐화(세션은 진짜 Redis) | 불필요 |
+| `game/pingpong/__tests__/aiResultArchive.test.ts` | `game_id` UNIQUE로 중복 보고 차단 · 게스트 행의 `user_id` NULL | **필요**(`MYSQL_TEST_URL` 없으면 skip) |
 
 ## 이식할 대표 테스트
 

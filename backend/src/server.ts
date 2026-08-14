@@ -22,6 +22,7 @@ import { GameLifecycleService } from './game/lifecycle.js'
 import { MatchArchiveService, MysqlMatchArchiveStore } from './game/match/index.js'
 import { GameModuleRegistry } from './game/module.js'
 import {
+  PingPongAiResultService,
   PingPongGameModule,
   PingPongGameService,
   RedisPingPongStateStore,
@@ -61,14 +62,15 @@ import { registerAuthRoutes } from './http/routes/auth.js'
 import { registerGameQueryRoutes } from './http/routes/gameQueries.js'
 import { registerGameRoutes } from './http/routes/games.js'
 import { registerHealthRoutes } from './http/routes/health.js'
+import { registerPingPongAiRoutes } from './http/routes/pingPongAi.js'
 import { registerQuickMatchRoutes } from './http/routes/quickMatch.js'
 import { registerRankingRoutes } from './http/routes/ranking.js'
 import { registerRoomRoutes } from './http/routes/rooms.js'
 import { registerUserRoutes } from './http/routes/users.js'
 import { registerVoiceRoutes } from './http/routes/voice.js'
 import { closeMysqlPool, createMysqlPool } from './infra/mysql.js'
-import { RealtimeGameMetrics } from './monitoring/index.js'
 import { createRedisClient } from './infra/redis.js'
+import { RealtimeGameMetrics } from './monitoring/index.js'
 import { BotParticipantService } from './room/botService.js'
 import { InMemoryRoomCloseScheduler } from './room/closeScheduler.js'
 import { QuickMatchService } from './room/quickMatchService.js'
@@ -373,6 +375,12 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
       await registerUserRoutes(api, { users, profiles })
       await registerQuickMatchRoutes(api, { users, catalog, matches: quickMatches })
       await registerRankingRoutes(api, { users, rankings })
+      // 로컬 AI 탁구 결과(4.6). **위에서 만든 그 `matchArchive`**를 넘긴다 — 새로
+      // 만들면 주간 랭킹 캐시 evict(4.5)가 아무도 읽지 않는 캐시를 비운다.
+      await registerPingPongAiRoutes(api, {
+        users,
+        results: new PingPongAiResultService(matchArchive),
+      })
       // 소셜 로그인(4.2). 제공자 설정이 비어 있어도 **라우트는 등록한다** — 미설정은
       // 404가 아니라 호출 시점의 503이 계약이다(docs/design/auth.md).
       // 회원 저장소는 MySQL 하나로 조회·가입을 모두 만족한다(별도 트랜잭션 경계는
