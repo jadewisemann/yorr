@@ -1,9 +1,9 @@
-# PLANS — Java → JS 백엔드 마이그레이션
+# PLANS — Java → JS 백엔드 마이그레이션 구현 계획
 
 > 진행 중 변경의 계획서. "시스템이 어떻게 동작하는가"는 [DESIGN.md](DESIGN.md),
 > "왜 이 마이그레이션인가"는 [ADR-0001](docs/adr/0001-backend-js-migration.md),
 > "왜 이 방식인가"는 [ADR-0002](docs/adr/0002-strangler-wire-contract.md) 참고.
-> 각 단계가 끝날 때마다 체크리스트와 상태 표를 갱신한다.
+> 각 티켓이 끝날 때마다 체크리스트와 상태 표를 갱신한다.
 
 ## 목표
 
@@ -12,95 +12,147 @@
 
 ## 원칙
 
-- **프론트엔드 무변경.** REST·WebSocket 와이어 계약을 동결한다. 마이그레이션이
-  끝날 때까지 `frontend/`의 프로덕션 코드는 한 줄도 바뀌지 않아야 한다.
-- **backend-java 동결.** 참조 구현으로만 읽는다. 이식 순서와 무관한 운영
-  hotfix는 별도 브랜치에서 처리한다.
-- **수직 슬라이스.** 레이어 전체를 한 번에 옮기지 않는다. 기능(게임) 단위로
-  REST + WS + 상태 + 테스트를 끝까지 옮기고 실제 프론트로 검증한다.
+- **프론트엔드 무변경.** REST·WebSocket 와이어 계약을 동결한다. 계약의 정본은
+  `frontend/src/realtime/wsEvents.ts` + `frontend/src/room/api/*.ts` +
+  backend-java 코드·테스트다. ⚠️ `backend-java/GAME_SESSION_INTEGRATION.md`는
+  낡았다 — 명세로 쓰지 않는다.
+- **backend-java 동결.** 참조 구현으로만 읽는다. 운영 hotfix는 별도 브랜치.
+- **수직 슬라이스.** 기능 단위로 REST + WS + 상태 + 테스트를 끝까지 옮기고
+  실제 프론트로 검증한다.
 - **테스트가 명세다.** backend-java의 테스트 케이스를 vitest로 함께 이식한다.
-  통과하는 테스트 없이 "이식 완료"라고 하지 않는다.
-- **동작 차이는 기록 후 결정.** Java 쪽 버그를 발견해도 조용히 고치지 않는다 —
-  IMPLEMENTATION_NOTES.md에 기록하고 그대로 이식할지 고칠지 명시적으로 정한다.
+  통과하는 테스트 없이 "이식 완료"라고 하지 않는다. 각 설계 문서 끝의 "이식할
+  대표 테스트" 목록이 최소선이다.
+- **동작 차이는 기록 후 결정.** Java 쪽 버그·quirk도 조용히 고치지 않는다 —
+  설계 문서의 "알려진 틈"과 IMPLEMENTATION_NOTES.md에 기록하고 재현/수정
+  여부를 명시적으로 정한다. 지금까지 결정된 것: `type` 누락 envelope의 NPE는
+  재현하지 않음(INVALID_MESSAGE로 처리), 나머지 quirk는 기본 재현.
 
 ## 단계
 
-### Phase 0 — 백본 ✅ (이 PR)
+의존 순서: P1 → P2 → P3. P4는 P1 이후 언제든 병행 가능(MySQL·auth는 게임과
+독립). P1 내부의 1.6(음성)·1.7(퀵매치 골격 제외)도 병행 가능.
+
+### Phase 0 — 백본 ✅
 
 - [x] `backend` → `backend-java` 이동, 파이프라인·문서 경로 갱신
 - [x] Node 22 + TS + Fastify + ws + Biome + Vitest 백본
-- [x] envelope 파싱, `sys.connected`/`sys.ping`/`sys.pong`, 방 구독 레지스트리
-- [x] `GET /actuator/health`, CORS, 환경변수 스킴(backend-java와 동일 이름)
+- [x] envelope 파싱, `sys.connected`/`sys.ping`/`sys.pong`, 구독 레지스트리 골격
+- [x] `GET /actuator/health`, CORS, 환경변수 스킴
 - [x] GameModule 인터페이스·레지스트리 스켈레톤
-- [x] 문서 체계: DESIGN.md · AGENTS.md · docs/design · docs/adr · 본 문서
+- [x] 문서 체계 도입 및 **backend-java 전수 분석으로 설계 문서 상세화**(이 PR)
 
 ### Phase 1 — 플랫폼 코어
 
-프론트가 로비까지 실제로 동작하는 최소 서버.
+프론트가 로비까지 실제로 동작하는 최소 서버. 근거 문서:
+[rooms-and-sessions.md](docs/design/rooms-and-sessions.md) ·
+[realtime.md](docs/design/realtime.md) · [voice.md](docs/design/voice.md).
 
-- [ ] Redis 연결 배선 및 키 스킴 구현 (rooms-and-sessions.md)
-- [ ] 게스트 사용자: `POST /api/v1/users/guests`, 세션 토큰 검증, 24h TTL
-- [ ] 방 REST: 생성 / 참가 / 나가기 / 조회(`/lobby` 포함) / 게임 시작(host 검증)
-- [ ] 정원·중복 참가 처리 — Redis Lua 원자성 (Java `RoomService` Lua 포팅)
-- [ ] WS `room.subscribe` 인증 → `room.snapshot` 응답, REST 변경 후 방 전체 broadcast
-- [ ] `reaction.send`, `room.ready`
-- [ ] 오류 계약: 401 `invalid_guest_session` · 403 `host_only` · 409 `room_full` 등
-- **완료 기준**: 프론트 `dev:real`로 방 생성 → 초대 참가 → 로비 표시까지 동작
+| # | 티켓 | Java 참조 | 이식할 테스트 |
+|---|---|---|---|
+| 1.1 | Redis 배선: ioredis 연결, `defineCommand` Lua 등록 체계, 통합 테스트 하네스(로컬 redis — Testcontainers 대응 방식 결정) | `RedisConfig` 상당 | — |
+| 1.2 | 세션·사용자: `user:{id}` 해시, 토큰 해시·역인덱스, 게스트/회원 TTL 슬라이딩, authenticate 2경로, closeSession, assignRoom/clearRoom, 닉네임 정규화 | `user/service/UserService` | `UserServiceSessionIntegrationTest`(로그아웃 양경로 차단, 재로그인 무효화, TTL 차등), `UserServiceTest` |
+| 1.3 | 방 도메인: 키 스킴 + Lua 9종(CREATE/JOIN/LEAVE/CLOSE/TOUCH/START/ROLLBACK/CANCEL/RETURN_TO_LOBBY) + 방 코드 생성 + 스냅샷 조회(REST 모양) + 게임 메타데이터 스텁 레지스트리(YACHT_DICE 1..6·bots / DUEL·PING_PONG 2..2·no bots — 정원·minPlayers·supportsBots만) | `room/service/RoomCreateService`·`RoomValidationService`, `RoomRedisKeys` | `RoomValidationServiceTest`, `RoomCloseIntegrationTest`, `PartyRoomIntegrationTest`(host 승계·파티 생존·봇 승계 제외) |
+| 1.4 | 방 REST: `POST /rooms`(생성·참가·게스트·파티, snake_case 응답), leave, start, lobby 복귀, `GET /games/{id}` + **plain-text 오류 계약**(401 문자열 3종 포함) | `room/controller/RoomController`·`RoomValidationController`·`GameController` | `RoomValidationControllerTest` |
+| 1.5 | WS 코어: room.join(인증·재접속 분기·순서 계약)/joined/player_joined/leave/ready/reaction, 레지스트리·브로드캐스터(1회 직렬화), 하트비트 모니터(90s·CAS), presence, phase별 끊김 처리, 방 폐쇄 스케줄러(30s/10m 유예), StaleRoomCleaner, 실시간 병합 스냅샷 | `handler/GameWebSocketHandler`, `ws/*`, `room/infrastructure/InMemoryRoomCloseScheduler`, `room/initializer/StaleRoomCleaner` | `GameWebSocketHandlerTest`(유예·재접속·세션만료 구분·유령 방 거부 등), `HeartbeatMonitorTest`(90s 경계·멱등), `RoomSessionRegistryTest`, `RealtimeRoomSnapshotServiceTest` |
+| 1.6 | 봇 REST: ADD/REMOVE Lua + `state.sync` 브로드캐스트 + supportsBots 게이트 | `room/service/BotParticipantService`, `RoomBotController` | `BotParticipantServiceTest`, `RoomBotControllerTest`, `PartyRoomIntegrationTest`의 봇 승계 케이스 |
+| 1.7 | 음성: voice.join/leave/signal 릴레이, 명단 관리(끊김 시 정리 순서), `GET /voice/ice`(coturn HMAC) | `GameWebSocketHandler` voice 절, `ws/voice/*` | `RoomSessionRegistryVoiceTest`, `GameWebSocketHandlerTest` voice 케이스(from 스푸핑 차단, 부재 상대 무음 드롭) |
+
+- **완료 기준**: 프론트 `dev:real`로 방 생성 → 초대 참가 → 로비 표시·리액션·
+  음성 명단까지 동작. `e2e:real`의 로비 스위트(방 생성+스냅샷, 게스트 join
+  브로드캐스트, 미존재 코드 ROOM_NOT_FOUND, 6석 ROOM_FULL) 통과.
+- 주의: WS 프로토콜은 room.subscribe가 아니라 **room.join**이다. Phase 0
+  스켈레톤의 registry/게이트웨이를 이 계약에 맞춰 손본다.
 
 ### Phase 2 — 게임 프레임워크
 
-게임과 무관한 진행 공통 기반.
+게임과 무관한 진행 공통 기반. 근거 문서: [game-modules.md](docs/design/game-modules.md) ·
+[reconnect.md](docs/design/reconnect.md).
 
-- [ ] GameLifecycleService 대응: start/reset/pause/resume/close
-- [ ] 라운드 상태·타이머: RoundState, 마감 스케줄러, 타임아웃 해소, 유실 예약 복구
-      (Java `fix: 마감 지난 예약이 유실돼 방이 멈추던 레이스` 케이스를 테스트로 이식)
-- [ ] 점수 확정: 서버 재계산 + Lua 원자 갱신 (`round.submit` → `score.update` → `round.end`)
-- [ ] 재접속 스냅샷: `GameReconnectSnapshotService` 대응 (reconnect.md 불변식)
-- [ ] 게임 종료·결과 집계, 방 phase 전이
-- **완료 기준**: 프레임워크 단위 테스트 + 야추 없이도 라운드 사이클이 통합 테스트로 검증됨
+| # | 티켓 | Java 참조 | 이식할 테스트 |
+|---|---|---|---|
+| 2.1 | GameModule 인터페이스를 Java 시그니처에 정렬(start(roomCode, game)·reconnect→스냅샷 등), 레지스트리 dispatch(접두사 검증·스트립), GameLifecycleService(start→롤백, returnToLobby) | `game/module/*` | `GameModuleRegistryTest`(정규화·교차 네임스페이스 거부), `GameLifecycleServiceTest`(실패 시 롤백) |
+| 2.2 | RoundState 도메인 + RoundSubmission(+Result·Completion) — 불변 전이 전부 | `game/round/domain/*` | `RoundStateTest`(라운드 캡, 종료 후 전면 거부, withoutParticipant 규칙), `RoundSubmissionTest` |
+| 2.3 | 마감 스케줄러: 세대 카운터, **슬롯 선등록**(레이스 회귀 — 인라인 executor 테스트 필수), cancel/cancelRoom | `round/infrastructure/InMemoryRoundDeadlineScheduler` | `InMemoryRoundDeadlineSchedulerTest` 3종 전부 |
+| 2.4 | RoundStateStore 포트 + 인메모리 구현(테스트 시드, beforeStateChange 시맨틱) | `round/application/port/*`, `round/infrastructure/InMemoryRoundStateStore` | (2.5~2.7 테스트가 사용) |
+| 2.5 | RoundTimerService: 25s+1s 유예, touch 연동, advanceTurn 합류점, 오프라인 스킵·2턴 퇴장, removePlayer 경로 / RoundTimeoutResolver: autoRoll→카테고리 자동 기록→무득점 강등 / RoundSynchronizationService(서버 RNG 시드 시임) | `round/application/*` | `RoundTimerServiceTest`(브로드캐스트 순서, 캡 도달 시 비재무장), `RoundTimeoutResolverTest` 5종, `RoundSynchronizationServiceTest` |
+| 2.6 | 점수 파이프라인: ScoreCategory/YachtScoreCalculator/ScoreBoard 도메인, ScoreConfirmationService(서버 재계산·시그니처), **CONFIRM_SCORE Lua**(반환 코드 10종), ScoreRoundSubmissionService(원자 결합) | `game/domain/*`, `game/service/Score*`, `game/repository/RedisScoreBoardStore·Mapper` | `YachtScoreCalculatorTest`, `ScoreCategoryTest`, `ScoreBoardTest`(null vs 0), `ScoreConfirmationServiceTest`, `ScoreRoundSubmissionServiceTest`, `RedisScoreBoardStoreIntegrationTest`(멱등 재시도·동시 16건·보너스 63·스테일 매핑 차단) |
+| 2.7 | 게임 종료: FINISH_IF_COMPLETE Lua(`_` 규약·force), GameCompletionService(CAS 실패 시 무부수효과, game.over→state.sync 순서, 랭킹 1,2,2,4), 전적 보관은 no-op 스텁 | `game/repository/*CompletionStore*`, `round/application/GameCompletionService`, `game/domain/GameResultCalculator` | `RedisGameCompletionStoreIntegrationTest`(동시 8건 1승·메타 필드 비산입·로비 복귀 후 재게임), `GameCompletionServiceTest`, `GameResultCalculatorTest` |
+| 2.8 | 재접속 스냅샷(GameReconnectSnapshotService — rollCount·dice·held 동봉) + OrphanedRoundStateSweeper(5분, cancel→remove 순서) | `round/application/GameReconnectSnapshotService`·`OrphanedRoundStateSweeper` | `GameReconnectSnapshotServiceTest`, `OrphanedRoundStateSweeperTest` |
+| 2.9 | 조회 REST: `/rooms/{id}/scores`·`/results`(JSON 오류 계약, 읽기 재시도 스토어), `/games/{id}/score-candidates`(무인증 계산기) | `game/controller/*`, `game/service/GameScoreQueryService`·`ScoreCandidateService`, `game/repository/RedisGameScoreQueryStore` | `GameScoreQueryControllerTest`(12키 null 직렬화), `ScoreCandidateControllerTest`, `RedisGameScoreQueryStoreTest`(재시도) |
+
+- **완료 기준**: 프레임워크 단위 테스트 전부 + 야추 모듈 없이 인메모리
+  스토어로 라운드 사이클(시작→제출→타임아웃→종료)이 통합 테스트로 검증됨.
+- `GameAbortService`는 데드 코드 — 이식하지 않는다(결정 기록:
+  game-modules.md).
 
 ### Phase 3 — 게임 모듈
 
-기준 게임(야추)부터. 게임 하나 끝날 때마다 프론트 E2E로 검증.
+기준 게임(야추)부터. 게임 하나 끝날 때마다 프론트 E2E로 검증. 근거 문서:
+[games/yacht.md](docs/design/games/yacht.md) · [games/duel.md](docs/design/games/duel.md) ·
+[games/pingpong.md](docs/design/games/pingpong.md).
 
-- [ ] `game/yacht/` — 점수 계산(YachtScoreCalculator), 주사위 굴림·킵, 족보 후보
-- [ ] `game/duel/` — 석양이 진다 (DuelRules, 신호·판정)
-- [ ] `game/pingpong/` — 탁구 (스윙 판정·업링크 지연 보상, AI 결과 처리)
-- [ ] 봇 지원(supportsBots) 동작 확인
-- **완료 기준**: 게임별로 frontend `npm run test:e2e:real` 통과
+| # | 티켓 | Java 참조 | 이식할 테스트 |
+|---|---|---|---|
+| 3.1 | `game/yacht/`: 모듈(5메시지 라우팅·오류 매핑·roomId 검증), RedisYachtDiceStateStore(락·SETNX·TTL 복사·스냅샷 직렬화), YachtTurnActionService, dice 릴레이(shake 무음/throw 오류 비대칭), msgId 에코 규약 | `game/yacht/*` (봇 제외) | `YachtTurnActionServiceTest`, `RedisYachtDiceStateStoreIntegrationTest`(동시 1건), `GameWebSocketHandlerTest`의 dice·submit 케이스 |
+| 3.2 | 야추 봇: 오케스트레이터(세대 가드·지연 4종), 코디네이터(TurnVersion·킵 재사용), Expectimax(정확 확률·메모·1초 예산), Local 폴백 | `game/yacht/Bot*`·`*Policy`·`*Strategy`, `ScorecardValueEvaluator` | `BotTurnOrchestratorTest`, `YachtBotTurnCoordinatorTest` 8종, `ExpectimaxYachtBotPolicyTest`(1초 예산 포함), `LocalYachtBotStrategyTest`, `ScorecardValueEvaluatorTest`, `YachtBotGameCompletionTest`(2봇 완주) |
+| 3.3 | `game/duel/`: DuelRules(판정·파울·캡), 상태 스토어(version 비증가 무시), 스케줄링(version 키), forfeit, 점수=잔탄 | `game/duel/*` | `DuelRulesTest` 12종 전부 |
+| 3.4 | `game/pingpong/`: PingPongRules(궤적·판정 창·judgedAt 120ms), 준비 게이트, 서브 로테이션, PREPARING 이탈 취소 시퀀스 | `game/pingpong/*` (AI REST 제외) | `PingPongRulesTest` 7종, `PingPongGameServiceTest`(취소 순서) |
+| 3.5 | 퀵매치: 큐·락·매칭(최장 대기 host·롤백), **전원 소켓 라이브 조건 자동 시작**, 상태 폴링 자기 치유 | `room/service/QuickMatchService`, `QuickMatchController` | `QuickMatchServiceIntegrationTest` 8종(소켓 조건·티켓 소비·FINISHED 자기 치유 포함) |
 
-### Phase 4 — 계정·기록
+- **완료 기준**: 게임별로 frontend `npm run test:e2e:real` 통과. 야추는 봇
+  포함 완주, duel·pingpong은 2인 실플레이 + 재접속 시나리오.
 
-- [ ] 소셜 로그인: 카카오·구글 OAuth, 로그인 코드 교환, 상태 저장소
-- [ ] MySQL 배선: 기존 Flyway 스키마(V1·V2) 그대로 사용, 마이그레이션 도구 결정(ADR)
-- [ ] 전적 보관(MatchArchiveService), 주간 랭킹(WeeklyRankingService)
-- [ ] 게임 결과 조회 REST (`/api/v1/games/...`, 랭킹 API)
-- **완료 기준**: 소셜 로그인 → 게임 → 전적·랭킹 조회가 실 DB로 동작
+### Phase 4 — 계정·기록 (P1 이후 병행 가능)
+
+근거 문서: [auth.md](docs/design/auth.md) · [persistence.md](docs/design/persistence.md).
+
+| # | 티켓 | Java 참조 | 이식할 테스트 |
+|---|---|---|---|
+| 4.1 | MySQL 배선 + 마이그레이션 도구 ADR(기준: Flyway 이력 테이블 호환, V1·V2를 적용됨으로 인식). 전환기 스키마 동결 | `application.yaml` flyway 절, `db/migration/*` | — |
+| 4.2 | 소셜 로그인: authorize/callback/session/me/logout, state·로그인 코드 스토어(1회용 시맨틱), kakao·google 클라이언트(타임아웃·인코딩·오류 일반화), 가입 경합 처리(트랜잭션 분리) | `auth/*` | `SocialLoginServiceTest`(경합 승자 재조회 포함), `KakaoOAuthClientTest`, `GoogleOAuthClientTest` |
+| 4.3 | 프로필: GET/PATCH `/users/me`(member_only, DB+세션 dual-write) | `user/application/UserProfileService`, `UserProfileController` | `UserProfileServiceIntegrationTest` 4종 |
+| 4.4 | 전적 보관: MatchArchiveService(UTC 시계·멱등·닉네임 우선순위·users로 회원 판정) + 2.7의 스텁 교체 | `game/match/*` | `MatchArchiveServiceIntegrationTest` 4종 |
+| 4.5 | 주간 랭킹: KST 월요일 경계→UTC 변환, 회원 최고점 집계, 내 순위, 캐시(키 규약·전체 evict), REST(무인증 목록/204/member_only) | `game/ranking/*`, `CacheConfig` | `WeeklyRankingServiceTest`(경계 초 단위), `WeeklyRankingQueryIntegrationTest`(게스트 제외·캐시 3종·동율), `RankingControllerTest` |
+| 4.6 | 탁구 AI 결과 REST(점수 재검증·UUID·게스트/회원 분기) | `game/pingpong/PingPongAiResult*` | `PingPongAiResultServiceTest`, `PingPongAiResultControllerTest` |
+
+- **완료 기준**: 소셜 로그인 → 게임 → 전적·랭킹 조회가 실 DB로 동작.
 
 ### Phase 5 — 운영 전환
 
-- [ ] Dockerfile · compose 통합, `.env` 재사용 확인
-- [ ] Jenkinsfile: backend(Node) 빌드·배포 스테이지 추가
-- [ ] 모니터링: `/actuator/health` 유지 확인, Prometheus 메트릭 노출 방식 결정(ADR)
-- [ ] 부하·재접속 시나리오 검증, 트래픽 전환
-- [ ] backend-java 제거 (별도 PR)
-- **완료 기준**: 운영 도메인이 Node 백엔드를 서빙하고 한 주간 무회귀
+근거 문서: [operations.md](docs/design/operations.md).
+
+- [ ] Dockerfile(멀티스테이지: `npm run build` → dist 실행) · compose 통합,
+      `.env.{main|dev}` 재사용 확인, 기동 실패 시 exit≠0 (sleep 15 검증 통과 조건)
+- [ ] Jenkinsfile: changeset `backend-java/**` → `backend/**` 전환(5곳),
+      빌드 스테이지 교체(gradle → npm ci/check/typecheck/test/build)
+- [ ] 모니터링: `/actuator/health` 유지, `/actuator/prometheus`에
+      `yorr_rooms_active`·`yorr_game_participants_active{game}` 동일 노출
+- [ ] 부하·재접속 시나리오 검증(하트비트 타임아웃, 유예 close, 소켓 교체,
+      StaleRoomCleaner 부팅 동작), 트래픽 전환
+- [ ] backend-java 제거 + GAME_SESSION_INTEGRATION.md 등 낡은 문서 정리 (별도 PR)
+- **완료 기준**: 운영 도메인이 Node 백엔드를 서빙하고 한 주간 무회귀.
 
 ## 상태 표
 
-| 하위 시스템 | Java 위치 | 상태 |
-|---|---|---|
-| WS 게이트웨이·envelope | `ws/`, `handler/` | 🚧 스켈레톤 (Phase 0) |
-| 방·게스트 세션 | `room/`, `user/` | ⬜ Java에만 있음 |
-| 라운드·점수 확정 | `game/round/`, `game/domain/` | ⬜ Java에만 있음 |
-| 재접속 스냅샷 | `game/round/application/` | ⬜ Java에만 있음 |
-| 야추 | `game/yacht/` | ⬜ Java에만 있음 |
-| 석양이 진다 | `game/duel/` | ⬜ Java에만 있음 |
-| 탁구 | `game/pingpong/` | ⬜ Java에만 있음 |
-| 소셜 로그인 | `auth/` | ⬜ Java에만 있음 |
-| 전적·주간 랭킹 | `game/match/`, `game/ranking/` | ⬜ Java에만 있음 |
-| 음성 시그널링 | `ws/voice/` | ⬜ Java에만 있음 |
-| 모니터링 | `monitoring/` | ⬜ Java에만 있음 |
+| 하위 시스템 | Java 위치 | 설계 문서 | 상태 |
+|---|---|---|---|
+| WS 게이트웨이·envelope·하트비트 | `handler/`, `ws/` | realtime.md | 🚧 스켈레톤 (P0; room.join 계약 반영 필요) |
+| 세션·게스트·회원 | `user/` | rooms-and-sessions.md | ⬜ Java에만 있음 |
+| 방·Lua·파티·폐쇄 수명 | `room/` | rooms-and-sessions.md | ⬜ |
+| 봇 참가자 | `room/service/BotParticipantService` | rooms-and-sessions.md | ⬜ |
+| 퀵매치 | `room/service/QuickMatchService` | rooms-and-sessions.md | ⬜ |
+| 게임 모듈 프레임워크 | `game/module/` | game-modules.md | 🚧 스켈레톤 (P0; 시그니처 정렬 필요) |
+| 라운드·타이머·타임아웃 | `game/round/` | game-modules.md | ⬜ |
+| 점수 확정·조회 | `game/service/`, `game/repository/` | game-modules.md | ⬜ |
+| 재접속 스냅샷·스위퍼 | `game/round/application/` | reconnect.md | ⬜ |
+| 야추 (+봇) | `game/yacht/` | games/yacht.md | ⬜ |
+| 석양이 진다 | `game/duel/` | games/duel.md | ⬜ |
+| 탁구 (+AI 결과) | `game/pingpong/` | games/pingpong.md | ⬜ |
+| 음성 시그널링·ICE | `handler/`(voice), `ws/voice/` | voice.md | ⬜ |
+| 소셜 로그인·프로필 | `auth/`, `user/` | auth.md | ⬜ |
+| 전적·주간 랭킹 | `game/match/`, `game/ranking/` | persistence.md | ⬜ |
+| 모니터링·배포 | `monitoring/`, Jenkinsfile | operations.md | ⬜ |
+| ~~GameAbortService~~ | `game/round/application/` | game-modules.md | 🗑 데드 코드 — 이식 안 함 |
 
 ⬜ Java에만 있음 · 🚧 이식 중 · ✅ 이식 완료(테스트 포함) · 🗑 이식 불필요(사유 기록)
 
@@ -110,23 +162,32 @@
 사이클을 따른다. 요약:
 
 ```text
-1. DESIGN.md + 해당 docs/design/*.md 읽기
+1. DESIGN.md + 해당 docs/design/*.md 읽기 (티켓 표의 "근거 문서")
 2. backend-java 대응 구현과 테스트 읽기 (테스트 = 동작 명세)
-3. 구현 + backend-java 테스트를 vitest로 이식
-4. 발견사항 → IMPLEMENTATION_NOTES.md
+3. 구현 + 티켓 표의 "이식할 테스트"를 vitest로 이식
+4. 발견사항 → IMPLEMENTATION_NOTES.md (설계 문서와 다르면 문서를 고친다)
 5. diff를 DESIGN.md와 대조, 필요 시 문서 갱신·ADR 추가
 6. 이 문서의 체크리스트·상태 표 갱신
 ```
 
 ## 리스크
 
-- **Lua 스크립트 포팅.** 원자성 시맨틱이 계약이다 — 스크립트는 가능한 한 그대로
-  옮기고, 동시성 테스트를 함께 이식한다.
-- **타이머·스케줄러 차이.** Spring TaskScheduler → Node 타이머 + Redis 기반
-  복구. 프로세스 재시작 시 마감 예약 유실 문제는 Java에서 이미 겪었다
-  (`OrphanedRoundStateSweeper`) — 같은 방어를 처음부터 설계에 넣는다.
-- **단일 프로세스 제약.** WS 구독이 인메모리이므로 현재 구조는 단일 인스턴스
-  전제다(Java와 동일). 수평 확장은 이 마이그레이션의 범위가 아니다 — 필요해지면
-  별도 ADR.
-- **동작 미기록 영역.** GAME_SESSION_INTEGRATION.md가 다루지 않는 세부 동작은
-  Java 코드·테스트가 유일한 명세다. 이식하며 발견하는 대로 docs/design에 기록한다.
+- **Lua 스크립트 포팅.** 원자성 시맨틱과 반환 코드가 계약이다 — 스크립트는
+  가능한 한 그대로 옮기고(ioredis `defineCommand`), 동시성 통합 테스트
+  (동시 제출 16건·완료 8건·동일 변이 2건 등)를 함께 이식한다. 키 이름을
+  스크립트 안에서 조립하는 부분은 단일 Redis 노드 전제 — 그대로 유지.
+- **타이머·스케줄러.** 마감 슬롯 선등록 레이스(과거 실사고), 세대 가드, 25s+1s
+  유예, 발화-취소 경합은 전부 테스트로 고정돼 있다 — 테스트부터 이식한다.
+  프로세스 재시작 시 마감 유실은 StaleRoomCleaner가 임시 방어다(타이머 복구는
+  범위 밖, 만들면 Cleaner 삭제).
+- **통합 테스트 인프라.** Java는 Testcontainers(redis 7.4, mysql 8.0)다. Node
+  쪽 대응(테스트 전용 compose vs testcontainers-node)을 Phase 1.1에서 정하고
+  ADR로 남긴다. Redis 의존 계약(Lua·TTL·동시성)은 모킹으로 검증할 수 없다.
+- **단일 프로세스 제약.** WS 구독·타이머·폐쇄 예약·랭킹 캐시가 인메모리다
+  (Java와 동일). 수평 확장은 범위 밖 — 필요해지면 별도 ADR.
+- **오류 표면의 비일관성이 계약이다.** plain-text 코드 문자열, API마다 다른
+  401 본문, START 실패 사유 뭉개짐 등을 "개선"하고 싶은 유혹을 참는다 —
+  프론트가 문자열 단위로 매핑한다. 계약 정리는 마이그레이션 완료 후.
+- **배포된 dev 서버 ≠ 저장소의 backend-java.** 프론트 e2e 기록(한글 닉네임
+  거부 등)에 저장소 코드와 안 맞는 동작이 있다 — 명세는 **이 저장소의**
+  backend-java다. e2e:real로 검증할 때 대상 서버 버전에 주의.
