@@ -1,6 +1,6 @@
 /**
- * 라운드 프레임워크의 공개 표면. 2.5(RoundTimerService·RoundTimeoutResolver)
- * 이후의 상위 계층은 여기만 import한다.
+ * 라운드 프레임워크의 공개 표면. 게임 모듈(3.1)·점수(2.6)·게임 종료(2.7)·
+ * 재접속 스냅샷(2.8)은 여기만 import한다.
  */
 export {
   type DeadlineExecutor,
@@ -15,6 +15,21 @@ export {
   RoundSynchronizationError,
   type RoundSyncReason,
 } from './roundErrors.js'
+export type {
+  ConfirmedScore,
+  DiceHoldPayload,
+  DiceRollPayload,
+  GameCompletionPort,
+  OpenCategoriesPort,
+  RoundBroadcaster,
+  RoundOutboundEnvelope,
+  RoundPresence,
+  RoundRoomService,
+  RoundRoomSnapshot,
+  RoundSubmitPayload,
+  ScoreRoundSubmissionOutcome,
+  ScoreRoundSubmissionPort,
+} from './roundPorts.js'
 export {
   DEFAULT_TOTAL_ROUNDS,
   MAX_ROLL_COUNT,
@@ -30,3 +45,31 @@ export {
   SUBMITTABLE_CATEGORIES,
   type SubmittableCategory,
 } from './roundSubmission.js'
+export {
+  type DieRoller,
+  RoundSynchronizationService,
+  type RoundSynchronizationServiceOptions,
+  randomDieRoller,
+  seededDieRoller,
+} from './roundSynchronizationService.js'
+export {
+  advancedResolution,
+  autoRolledResolution,
+  type CategoryPicker,
+  type RoundTimeoutResolution,
+  RoundTimeoutResolver,
+  type RoundTimeoutResolverDeps,
+  type RoundTimeoutResolverOptions,
+  type RoundTimeoutResolverPort,
+  staleResolution,
+} from './roundTimeoutResolver.js'
+export {
+  EXPIRY_GRACE_MS,
+  MAX_OFFLINE_TURNS,
+  ROUND_DURATION_MS,
+  type RoundStartedEvent,
+  RoundTimerService,
+  type RoundTimerServiceDeps,
+  type RoundTimerServiceOptions,
+  type TurnAdvanceInput,
+} from './roundTimerService.js'

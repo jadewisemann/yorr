@@ -1,0 +1,664 @@
+import { beforeEach, describe, expect, it } from 'vitest'
+import type { GameStartResult } from '../../../room/roomService.js'
+import type { RoomSnapshot } from '../../../room/snapshot.js'
+import { RoomBroadcaster } from '../../../ws/broadcaster.js'
+import type { InboundEnvelope } from '../../../ws/envelope.js'
+import { RoomSessionRegistry } from '../../../ws/registry.js'
+import { GameCatalog } from '../../catalog.js'
+import { GameModuleRegistry } from '../../module.js'
+import {
+  InMemoryRoundStateStore,
+  type RoundSubmissionResult,
+  RoundSynchronizationService,
+  seededDieRoller,
+} from '../../round/index.js'
+import { ScoreConfirmationService, ScoreRoundSubmissionService } from '../../score/index.js'
+import { YachtDiceGameModule } from '../yachtDiceGameModule.js'
+import { YachtTurnActionService } from '../yachtTurnActionService.js'
+import {
+  FakeRealtimeSnapshots,
+  FakeReconnectSnapshots,
+  FakeRoundTimer,
+  FakeScoreBoardStore,
+  FakeSocket,
+  NO_HELD,
+} from './testDoubles.js'
+
+/**
+ * backend-java `GameWebSocketHandlerTest`의 **dice·submit 케이스** 이식.
+ *
+ * Java에서는 이 케이스들이 WS 핸들러 테스트에 있었지만, 우리 구조에서는 핸들러가
+ * `registry.dispatch`로 넘긴 뒤 응답을 **모듈이 직접** 만든다(2.1의 결정). 그래서
+ * 검증 대상도 모듈이다 — 게이트웨이·핸들러 경로는 1.5의 스위트가 이미 덮는다.
+ *
+ * 브로드캐스터·레지스트리는 **진짜**를 쓴다: Java 테스트가 확인한 것의 절반이
+ * "같은 프레임이 방 전원에게 한 번 직렬화되어 나가는가"와 정확한 JSON 문자열이라,
+ * 대역으로 바꾸면 그 계약이 테스트에서 사라진다.
+ */
+describe('YachtDiceGameModule', () => {
+  const ROOM = 'room-a'
+  const OTHER_ROOM = 'room-b'
+  const TS = 1_700_000_000_000
+
+  let registry: RoomSessionRegistry
+  let broadcaster: RoomBroadcaster
+  let rounds: RoundSynchronizationService
+  let timers: FakeRoundTimer
+  let scoreBoards: FakeScoreBoardStore
+  let realtimeSnapshots: FakeRealtimeSnapshots
+  let reconnectSnapshots: FakeReconnectSnapshots
+  let module: YachtDiceGameModule
+  let playerA: FakeSocket
+  let playerB: FakeSocket
+
+  beforeEach(() => {
+    registry = new RoomSessionRegistry()
+    broadcaster = new RoomBroadcaster()
+    rounds = new RoundSynchronizationService(new InMemoryRoundStateStore(), {
+      dieRoller: seededDieRoller(31337),
+    })
+    timers = new FakeRoundTimer()
+    scoreBoards = new FakeScoreBoardStore()
+    realtimeSnapshots = new FakeRealtimeSnapshots()
+    reconnectSnapshots = new FakeReconnectSnapshots()
+    const submissions = new ScoreRoundSubmissionService<RoundSubmissionResult>(
+      rounds,
+      new ScoreConfirmationService(scoreBoards),
+      { getSnapshot: async () => ({ gameId: 'game-a' }) },
+    )
+    const actions = new YachtTurnActionService(
+      { rounds, timers, broadcaster, submissions },
+      { now: () => TS },
+    )
+    module = new YachtDiceGameModule(
+      {
+        rounds,
+        timers,
+        actions,
+        seats: registry,
+        realtimeSnapshots,
+        reconnectSnapshots,
+        broadcaster,
+      },
+      { now: () => TS },
+    )
+    playerA = new FakeSocket()
+    playerB = new FakeSocket()
+  })
+
+  /* ------------------------------------------------------------------ 준비 */
+
+  const seat = (socket: FakeSocket, playerId: string, roomId = ROOM): void => {
+    registry.join(roomId, socket, playerId, playerId.toUpperCase())
+    broadcaster.register(roomId, socket)
+  }
+
+  const envelope = (
+    type: string,
+    payload: unknown,
+    msgId: string,
+    roomId: string | undefined = ROOM,
+  ): InboundEnvelope => ({ type, ts: TS, payload, roomId, msgId })
+
+  const rollEnvelope = (rollCount: number, msgId: string, held = NO_HELD): InboundEnvelope =>
+    envelope('dice.roll', { roundNumber: 1, rollCount, held }, msgId)
+
+  const holdEnvelope = (held: readonly boolean[], msgId: string): InboundEnvelope =>
+    envelope('dice.hold', { roundNumber: 1, held }, msgId)
+
+  const submitEnvelope = async (msgId: string, roomId?: string): Promise<InboundEnvelope> => {
+    const state = await rounds.findByRoomId(ROOM)
+    const dice = state?.activeDice ?? [1, 2, 3, 4, 5]
+    return envelope(
+      'round.submit',
+      { roundNumber: 1, dice: [...dice], category: 'choice' },
+      msgId,
+      roomId,
+    )
+  }
+
+  const errorOf = (socket: FakeSocket): { code: string; message: string; refMsgId?: string } =>
+    socket.last().payload as { code: string; message: string; refMsgId?: string }
+
+  /* ------------------------------------------------------------- dice.roll */
+
+  it('서버가 만든 주사위를 방 전원에게 같은 프레임으로 방송한다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a', 'player-b'])
+    seat(playerA, 'player-a')
+    seat(playerB, 'player-b')
+
+    await module.handle(playerA, rollEnvelope(1, 'roll-one'))
+
+    expect(playerA.frames).toHaveLength(1)
+    expect(playerB.frames).toHaveLength(1)
+    // 팬아웃은 한 번만 직렬화한다 — 두 소켓이 글자 단위로 같은 프레임을 받는다.
+    expect(playerA.frames[0]).toBe(playerB.frames[0])
+    const frame = playerA.frames[0] ?? ''
+    expect(frame).toContain('"type":"game.yacht_dice.dice.broadcast"')
+    expect(frame).toContain('"playerId":"player-a"')
+    expect(frame).toContain('"roundNumber":1')
+    expect(frame).toContain('"rollCount":1')
+    expect(frame).toContain('"dice":[')
+    expect(frame).toContain('"held":[false,false,false,false,false]')
+    // 플레이어가 직접 굴린 결과다 — 마감 자동 굴림과 구분된다.
+    expect(frame).toContain('"auto":false')
+    expect(frame).toContain('"msgId":"roll-one"')
+  })
+
+  it('받아들인 굴림마다 현재 플레이어의 타이머를 다시 건다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a', 'player-b'])
+    seat(playerA, 'player-a')
+
+    await module.handle(playerA, rollEnvelope(1, 'roll-one'))
+    await module.handle(playerA, rollEnvelope(2, 'roll-two'))
+
+    expect(timers.started).toHaveLength(2)
+    expect(timers.started.every((call) => call.roomId === ROOM)).toBe(true)
+    expect(timers.started.every((call) => call.state.activePlayerId === 'player-a')).toBe(true)
+    expect((await rounds.findByRoomId(ROOM))?.activeRollCount).toBe(2)
+  })
+
+  it('턴 주인이 아닌 굴림은 NOT_YOUR_TURN이고 상태를 전혀 건드리지 못한다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a', 'player-b'])
+    seat(playerB, 'player-b')
+
+    await module.handle(playerB, rollEnvelope(1, 'out-of-turn-roll'))
+
+    expect(errorOf(playerB)).toMatchObject({
+      code: 'NOT_YOUR_TURN',
+      refMsgId: 'out-of-turn-roll',
+    })
+    expect(playerB.last().type).toBe('error')
+    const state = await rounds.findByRoomId(ROOM)
+    expect(state?.activeRollCount).toBe(0)
+    expect(state?.activeDice).toBeNull()
+    expect(timers.started).toHaveLength(0)
+  })
+
+  it('첫 굴림 전 held를 보내면 INVALID_MESSAGE다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'])
+    seat(playerA, 'player-a')
+
+    await module.handle(playerA, rollEnvelope(1, 'early-held', [true, false, false, false, false]))
+
+    expect(errorOf(playerA)).toMatchObject({ code: 'INVALID_MESSAGE', refMsgId: 'early-held' })
+  })
+
+  it('rollCount가 연속하지 않으면 INVALID_MESSAGE다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'])
+    seat(playerA, 'player-a')
+
+    await module.handle(playerA, rollEnvelope(2, 'skipped-roll'))
+
+    expect(errorOf(playerA)).toMatchObject({ code: 'INVALID_MESSAGE', refMsgId: 'skipped-roll' })
+    expect((await rounds.findByRoomId(ROOM))?.activeRollCount).toBe(0)
+  })
+
+  it('라운드 상태가 없으면 ROUND_NOT_INITIALIZED → INTERNAL이다', async () => {
+    seat(playerA, 'player-a')
+
+    await module.handle(playerA, rollEnvelope(1, 'no-round'))
+
+    expect(errorOf(playerA)).toMatchObject({ code: 'INTERNAL', refMsgId: 'no-round' })
+  })
+
+  /* ------------------------------------------------------------- dice.hold */
+
+  it('굴림 사이의 KEEP 변경을 방 전원에게 알리고 타이머는 다시 걸지 않는다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a', 'player-b'])
+    seat(playerA, 'player-a')
+    seat(playerB, 'player-b')
+    await module.handle(playerA, rollEnvelope(1, 'roll-one'))
+    playerA.reset()
+    playerB.reset()
+
+    await module.handle(playerA, holdEnvelope([true, true, false, false, false], 'hold-one'))
+
+    const frame = playerB.frames[0] ?? ''
+    expect(frame).toContain('"type":"game.yacht_dice.dice.hold_changed"')
+    expect(frame).toContain('"playerId":"player-a"')
+    expect(frame).toContain('"held":[true,true,false,false,false]')
+    expect(frame).toContain('"msgId":"hold-one"')
+    // KEEP 변경은 마감 타이머를 다시 걸지 않는다 — 토글로 턴을 무한히 늘릴 수 없어야 한다.
+    expect(timers.started).toHaveLength(1)
+    expect((await rounds.findByRoomId(ROOM))?.activeHeld).toEqual([true, true, false, false, false])
+  })
+
+  it('턴 주인이 아닌 KEEP 변경은 NOT_YOUR_TURN이다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a', 'player-b'])
+    seat(playerA, 'player-a')
+    seat(playerB, 'player-b')
+    await module.handle(playerA, rollEnvelope(1, 'roll-one'))
+    playerB.reset()
+
+    await module.handle(playerB, holdEnvelope([true, false, false, false, false], 'steal-hold'))
+
+    expect(errorOf(playerB)).toMatchObject({ code: 'NOT_YOUR_TURN', refMsgId: 'steal-hold' })
+    expect((await rounds.findByRoomId(ROOM))?.activeHeld).toEqual(NO_HELD)
+  })
+
+  it('첫 굴림 전 KEEP 변경은 INVALID_MESSAGE다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'])
+    seat(playerA, 'player-a')
+
+    await module.handle(playerA, holdEnvelope([true, false, false, false, false], 'early-hold'))
+
+    expect(errorOf(playerA)).toMatchObject({ code: 'INVALID_MESSAGE', refMsgId: 'early-hold' })
+  })
+
+  /* ------------------------------------------- dice.shake / dice.throw 비대칭 */
+
+  it('shake는 턴 주인의 펄스를 그대로 릴레이한다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a', 'player-b'])
+    seat(playerA, 'player-a')
+    seat(playerB, 'player-b')
+
+    await module.handle(
+      playerA,
+      envelope('dice.shake', { roundNumber: 1, direction: 'left', strength: 0.75 }, 'shake-a'),
+    )
+
+    const frame = playerB.frames[0] ?? ''
+    expect(frame).toContain('"type":"game.yacht_dice.dice.shaken"')
+    expect(frame).toContain('"direction":"left"')
+    expect(frame).toContain('"strength":0.75')
+    expect(frame).toContain('"msgId":"shake-a"')
+  })
+
+  it('턴 주인이 아닌 shake는 조용히 버린다 — 오류를 돌려주지 않는다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a', 'player-b'])
+    seat(playerA, 'player-a')
+    seat(playerB, 'player-b')
+
+    await module.handle(
+      playerB,
+      envelope('dice.shake', { roundNumber: 1, direction: 'right', strength: 1 }, 'shake-b'),
+    )
+
+    // 고빈도 메시지라 턴 교대 순간의 잔여 펄스에 오류를 쏟지 않는 것이 계약이다.
+    expect(playerB.frames).toHaveLength(0)
+    expect(playerA.frames).toHaveLength(0)
+  })
+
+  it('라운드가 시작되지 않았으면 shake도 무음이다', async () => {
+    seat(playerA, 'player-a')
+
+    await module.handle(
+      playerA,
+      envelope('dice.shake', { roundNumber: 1, direction: 'left', strength: 1 }, 'shake-early'),
+    )
+
+    expect(playerA.frames).toHaveLength(0)
+  })
+
+  it('payload 검증이 활성 판정보다 먼저다 — 남의 턴의 깨진 shake는 INVALID_MESSAGE', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a', 'player-b'])
+    seat(playerB, 'player-b')
+
+    await module.handle(
+      playerB,
+      envelope('dice.shake', { roundNumber: 1, direction: 'left', strength: 'hard' }, 'bad-shake'),
+    )
+
+    expect(errorOf(playerB)).toMatchObject({ code: 'INVALID_MESSAGE', refMsgId: 'bad-shake' })
+  })
+
+  it('throw는 턴 주인의 신호만 릴레이하고 남의 것은 NOT_YOUR_TURN이다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a', 'player-b'])
+    seat(playerA, 'player-a')
+    seat(playerB, 'player-b')
+
+    await module.handle(
+      playerA,
+      envelope('dice.throw', { roundNumber: 1, rollCount: 1 }, 'throw-a'),
+    )
+    const relayed = playerB.frames[0] ?? ''
+    expect(relayed).toContain('"type":"game.yacht_dice.dice.thrown"')
+    expect(relayed).toContain('"rollCount":1')
+    playerB.reset()
+
+    await module.handle(
+      playerB,
+      envelope('dice.throw', { roundNumber: 1, rollCount: 1 }, 'throw-b'),
+    )
+
+    // 남의 사발을 대신 엎는 신호이므로 shake와 달리 오류를 돌려준다.
+    expect(errorOf(playerB)).toMatchObject({ code: 'NOT_YOUR_TURN', refMsgId: 'throw-b' })
+  })
+
+  /* ----------------------------------------------------------- round.submit */
+
+  it('제출 결과와 요청 msgId를 그대로 공유 턴 진행 경로에 넘긴다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a', 'player-b'])
+    seat(playerA, 'player-a')
+    seat(playerB, 'player-b')
+    await module.handle(playerA, rollEnvelope(1, 'roll-a'))
+
+    await module.handle(playerA, await submitEnvelope('player-a-message'))
+
+    const first = timers.advanced.at(-1)
+    expect(first?.msgId).toBe('player-a-message')
+    expect(first?.result.score?.playerId).toBe('player-a')
+    expect(first?.result.round.completedRound).toBeNull()
+    expect(first?.result.round.state.activePlayerId).toBe('player-b')
+
+    await module.handle(playerB, rollEnvelope(1, 'roll-b'))
+    await module.handle(playerB, await submitEnvelope('player-b-message'))
+
+    const last = timers.advanced.at(-1)
+    expect(last?.msgId).toBe('player-b-message')
+    expect(last?.result.round.completedRound?.roundNumber).toBe(1)
+    expect(last?.result.round.state.roundNumber).toBe(2)
+  })
+
+  it('점수 저장 실패는 INTERNAL이고 제출로 표시되지 않으며 턴도 진행되지 않는다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'])
+    seat(playerA, 'player-a')
+    await module.handle(playerA, rollEnvelope(1, 'roll-a'))
+    const submit = await submitEnvelope('failed-score-message')
+    scoreBoards.failWith('STORE_FAILURE')
+    playerA.reset()
+
+    await module.handle(playerA, submit)
+
+    expect(playerA.last().type).toBe('error')
+    expect(errorOf(playerA)).toMatchObject({
+      code: 'INTERNAL',
+      refMsgId: 'failed-score-message',
+    })
+    const state = await rounds.findByRoomId(ROOM)
+    expect(state?.roundNumber).toBe(1)
+    expect(state?.submittedPlayerIds).toEqual([])
+    expect(timers.advanced).toHaveLength(0)
+  })
+
+  it('턴 주인이 아닌 제출은 NOT_YOUR_TURN이고 점수 확정을 시도하지 않는다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a', 'player-b'])
+    seat(playerB, 'player-b')
+
+    await module.handle(playerB, await submitEnvelope('out-of-turn-message'))
+
+    expect(errorOf(playerB)).toMatchObject({
+      code: 'NOT_YOUR_TURN',
+      refMsgId: 'out-of-turn-message',
+    })
+    expect(scoreBoards.confirmed).toHaveLength(0)
+    expect((await rounds.findByRoomId(ROOM))?.activePlayerId).toBe('player-a')
+  })
+
+  it('서버 주사위와 다른 dice를 제출하면 INVALID_MESSAGE다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'])
+    seat(playerA, 'player-a')
+    await module.handle(playerA, rollEnvelope(1, 'roll-a'))
+    playerA.reset()
+
+    await module.handle(
+      playerA,
+      envelope('round.submit', { roundNumber: 1, dice: [6, 6, 6, 6, 6], category: 'yacht' }, 'lie'),
+    )
+
+    expect(errorOf(playerA)).toMatchObject({ code: 'INVALID_MESSAGE', refMsgId: 'lie' })
+    expect(scoreBoards.confirmed).toHaveLength(0)
+  })
+
+  it('모르는 카테고리는 INVALID_MESSAGE다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'])
+    seat(playerA, 'player-a')
+    await module.handle(playerA, rollEnvelope(1, 'roll-a'))
+    const state = await rounds.findByRoomId(ROOM)
+    playerA.reset()
+
+    await module.handle(
+      playerA,
+      envelope(
+        'round.submit',
+        { roundNumber: 1, dice: [...(state?.activeDice ?? [])], category: 'jackpot' },
+        'bad-category',
+      ),
+    )
+
+    expect(errorOf(playerA)).toMatchObject({
+      code: 'INVALID_MESSAGE',
+      refMsgId: 'bad-category',
+    })
+  })
+
+  /* -------------------------------------------------------------- roomId 검증 */
+
+  it('세션의 방이 아닌 roomId로 온 제출은 NOT_IN_ROOM이다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'])
+    registry.join(OTHER_ROOM, playerA, 'player-a', 'Player A')
+    broadcaster.register(OTHER_ROOM, playerA)
+
+    await module.handle(playerA, await submitEnvelope('wrong-room-message'))
+
+    expect(errorOf(playerA)).toMatchObject({
+      code: 'NOT_IN_ROOM',
+      refMsgId: 'wrong-room-message',
+    })
+  })
+
+  it('roomId가 없으면 NOT_IN_ROOM이다', async () => {
+    seat(playerA, 'player-a')
+
+    // roomId 필드 자체가 없는 봉투 — 기본값을 채우지 않도록 직접 만든다.
+    await module.handle(playerA, { type: 'dice.roll', ts: TS, payload: {}, msgId: 'no-room' })
+
+    expect(errorOf(playerA)).toMatchObject({ code: 'NOT_IN_ROOM', refMsgId: 'no-room' })
+  })
+
+  it('방에 앉지 않은 소켓은 NOT_IN_ROOM이다', async () => {
+    const stranger = new FakeSocket()
+
+    await module.handle(stranger, rollEnvelope(1, 'stranger-roll'))
+
+    expect(errorOf(stranger)).toMatchObject({ code: 'NOT_IN_ROOM', refMsgId: 'stranger-roll' })
+  })
+
+  /* --------------------------------------------------------------- 라우팅 */
+
+  it('5메시지만 받는다', () => {
+    for (const event of ['dice.roll', 'dice.hold', 'dice.shake', 'dice.throw', 'round.submit']) {
+      expect(module.handles(event)).toBe(true)
+    }
+    for (const event of ['dice.broadcast', 'round.start', 'state.sync', 'room.join', '']) {
+      expect(module.handles(event)).toBe(false)
+    }
+  })
+
+  it('레지스트리 dispatch가 접두사를 벗겨 이 모듈로 넘긴다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'])
+    seat(playerA, 'player-a')
+    const games = new GameModuleRegistry(new GameCatalog())
+    games.register(module)
+
+    const handled = await games.dispatch('YACHT_DICE', playerA, {
+      type: 'game.yacht_dice.dice.roll',
+      ts: TS,
+      payload: { roundNumber: 1, rollCount: 1, held: NO_HELD },
+      roomId: ROOM,
+      msgId: 'dispatched',
+    })
+
+    expect(handled).toBe(true)
+    expect(playerA.last().type).toBe('game.yacht_dice.dice.broadcast')
+    // 다른 게임 네임스페이스는 이 모듈에 닿지 않는다.
+    expect(
+      await games.dispatch('YACHT_DICE', playerA, {
+        type: 'game.duel.dice.roll',
+        ts: TS,
+        payload: {},
+        roomId: ROOM,
+        msgId: 'cross',
+      }),
+    ).toBe(false)
+  })
+
+  /* ------------------------------------------------------------- 수명주기 */
+
+  const startResult = (hostId: string, ...playerIds: string[]): GameStartResult => {
+    const snapshot: RoomSnapshot = {
+      roomCode: ROOM,
+      gameCode: 'YACHT_DICE',
+      gameId: 'game-a',
+      hostId,
+      phase: 'PLAYING',
+      capacity: 6,
+      players: playerIds.map((playerId) => ({
+        playerId,
+        nickname: playerId,
+        score: 0,
+        kind: 'HUMAN' as const,
+      })),
+    }
+    return { gameId: 'game-a', snapshot }
+  }
+
+  it('start는 host 우선 순서로 초기화하고 phase를 playing으로 옮긴 뒤 state.sync를 쏜다', async () => {
+    seat(playerA, 'player-a')
+    seat(playerB, 'player-b')
+
+    await module.start(ROOM, startResult('player-b', 'player-a', 'player-b', 'player-c'))
+
+    const state = await rounds.findByRoomId(ROOM)
+    // host가 맨 앞, 나머지는 Redis 명단 순서 유지(안정 정렬).
+    expect(state?.participantOrder).toEqual(['player-b', 'player-a', 'player-c'])
+    expect(state?.roundNumber).toBe(1)
+    // ⚠️ 이 한 줄이 없으면 끊긴 플레이어가 offline이 아니라 player_left가 된다.
+    expect(registry.phaseOf(ROOM)).toBe('playing')
+    expect(playerA.last().type).toBe('game.yacht_dice.state.sync')
+    expect(realtimeSnapshots.calls).toEqual([ROOM])
+    expect(timers.started).toHaveLength(1)
+    expect(timers.started[0]?.state.activePlayerId).toBe('player-b')
+  })
+
+  it('start는 잔여 상태를 먼저 지운다 — 재시작이 SETNX에 막히지 않는다', async () => {
+    await rounds.initialize(ROOM, 1, ['old-player'])
+
+    await module.start(ROOM, startResult('player-a', 'player-a'))
+
+    expect((await rounds.findByRoomId(ROOM))?.participantOrder).toEqual(['player-a'])
+  })
+
+  it('start가 실패하면 스스로 reset하고 예외를 올린다', async () => {
+    seat(playerA, 'player-a')
+    registry.markPhase(ROOM, 'playing')
+    const failure = new Error('boom')
+    timers.start = async () => {
+      throw failure
+    }
+
+    await expect(module.start(ROOM, startResult('player-a', 'player-a'))).rejects.toBe(failure)
+
+    // reset이 돌았다: 상태 삭제 + phase 되돌림 + state.sync.
+    expect(await rounds.findByRoomId(ROOM)).toBeUndefined()
+    expect(registry.phaseOf(ROOM)).toBe('waiting')
+    expect(timers.cancelledRooms).toContain(ROOM)
+    expect(playerA.last().type).toBe('game.yacht_dice.state.sync')
+  })
+
+  it('reset은 타이머·상태를 버리고 phase를 waiting으로 되돌린다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'])
+    seat(playerA, 'player-a')
+    registry.markPhase(ROOM, 'playing')
+
+    await module.reset(ROOM)
+
+    expect(timers.cancelledRooms).toEqual([ROOM])
+    expect(await rounds.findByRoomId(ROOM)).toBeUndefined()
+    expect(registry.phaseOf(ROOM)).toBe('waiting')
+    expect(playerA.last().type).toBe('game.yacht_dice.state.sync')
+  })
+
+  it('reconnect는 스냅샷을 만든 뒤에 오프라인 결석을 리셋한다', async () => {
+    const order: string[] = []
+    const orderedTimers = new FakeRoundTimer()
+    orderedTimers.clearOfflineMisses = (roomId, playerId) => {
+      order.push('clear')
+      FakeRoundTimer.prototype.clearOfflineMisses.call(orderedTimers, roomId, playerId)
+    }
+    const orderedSnapshots = new FakeReconnectSnapshots()
+    const original = orderedSnapshots.snapshot.bind(orderedSnapshots)
+    orderedSnapshots.snapshot = async (roomId, playerId) => {
+      order.push('snapshot')
+      return original(roomId, playerId)
+    }
+    const scoped = new YachtDiceGameModule({
+      rounds,
+      timers: orderedTimers,
+      actions: new YachtTurnActionService({
+        rounds,
+        timers: orderedTimers,
+        broadcaster,
+        submissions: {
+          submit: async () => {
+            throw new Error('unused')
+          },
+        },
+      }),
+      seats: registry,
+      realtimeSnapshots,
+      reconnectSnapshots: orderedSnapshots,
+      broadcaster,
+    })
+
+    const snapshot = await scoped.reconnect(ROOM, 'player-a')
+
+    expect(snapshot.game).toEqual({ roundNumber: 1 })
+    expect(order).toEqual(['snapshot', 'clear'])
+    expect(orderedTimers.clearedMisses).toEqual([{ roomId: ROOM, playerId: 'player-a' }])
+  })
+
+  it('스냅샷 조립이 실패하면 오프라인 결석은 남는다', async () => {
+    reconnectSnapshots.failure = new Error('snapshot failed')
+
+    await expect(module.reconnect(ROOM, 'player-a')).rejects.toThrow('snapshot failed')
+
+    expect(timers.clearedMisses).toEqual([])
+  })
+
+  it('resume은 미완료 상태가 있을 때만 타이머를 재무장한다', async () => {
+    await module.resume(ROOM)
+    expect(timers.started).toHaveLength(0)
+
+    await rounds.initialize(ROOM, 1, ['player-a'], 1)
+    await module.resume(ROOM)
+    expect(timers.started).toHaveLength(1)
+
+    // 마지막 라운드를 만료시켜 finished로 만든다.
+    await rounds.expire(ROOM, 1, 'player-a')
+    expect((await rounds.findByRoomId(ROOM))?.finished).toBe(true)
+    await module.resume(ROOM)
+    expect(timers.started).toHaveLength(1)
+  })
+
+  it('pause는 타이머만 끊고 상태는 남긴다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'])
+
+    await module.pause(ROOM)
+
+    expect(timers.cancelledRooms).toEqual([ROOM])
+    expect(await rounds.findByRoomId(ROOM)).toBeDefined()
+  })
+
+  it('close는 타이머와 상태를 함께 버린다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'])
+
+    await module.close(ROOM)
+
+    expect(timers.cancelledRooms).toEqual([ROOM])
+    expect(await rounds.findByRoomId(ROOM)).toBeUndefined()
+  })
+
+  it('hasState가 빈 방 유예 선택의 근거다', async () => {
+    expect(await module.hasState(ROOM)).toBe(false)
+    await rounds.initialize(ROOM, 1, ['player-a'])
+    expect(await module.hasState(ROOM)).toBe(true)
+  })
+
+  it('removePlayer는 타이머의 단일 이탈 경로로 넘긴다', async () => {
+    await module.removePlayer(ROOM, 'player-a')
+
+    expect(timers.removed).toEqual([{ roomId: ROOM, playerId: 'player-a' }])
+  })
+})

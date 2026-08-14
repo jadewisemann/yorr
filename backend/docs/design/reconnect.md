@@ -1,8 +1,9 @@
 # 재접속
 
 > 상위 원칙은 [DESIGN.md](../../DESIGN.md). Java 원본:
-> `game/round/application/GameReconnectSnapshotService`,
+> `game/round/application/GameReconnectSnapshotService`·`OrphanedRoundStateSweeper`,
 > `handler/GameWebSocketHandler`(재접속 분기), `ws/RoomSessionRegistry`.
+> 구현: `src/game/reconnect/`(공개 표면은 `src/game/reconnect/index.ts`).
 
 ## 불변식
 
@@ -46,6 +47,51 @@ server
 - 야추 reconnect는 오프라인 미스 카운터도 리셋한다 — 짧은 끊김이 자동 퇴장
   (2턴)으로 적립되지 않게.
 
+### 야추 스냅샷 필드 계약 (`snapshot.game`)
+
+정본은 프론트 `GameState`(`frontend/src/realtime/wsEvents.ts`)이고, 서버는
+`GameReconnectSnapshotService`가 다음 순서로 조립한다:
+**방 스냅샷 → 라운드 상태 → 활성 마감 → 점수판.**
+
+| 필드 | 출처 | 없을 때 |
+|---|---|---|
+| `roundNumber`·`activePlayerId`·`turnOrder` | `RoundState` | 라운드 상태 없음 → 실패 |
+| `roundDeadline` (epoch ms) | `RoundTimerService.currentDeadline` | 활성 마감 없음 → 실패 |
+| `scores` (playerId → ScoreBoard) | 점수 조회(`GameScoreQueryService`) | 빈 객체 |
+| `rollCount` | `RoundState.activeRollCount` | 첫 굴림 전이면 `0` |
+| `dice`·`held` | `RoundState.activeDice`/`activeHeld` | **키 자체를 생략**(null로 싣지 않는다) |
+
+- `dice`·`held`는 값이 없을 때 **키가 빠져야 한다**(Java `@JsonInclude(NON_NULL)`
+  자리). 구현은 null 대신 `undefined`를 넣어 `JSON.stringify`가 지우게 한다.
+- `scores`는 **평범한 객체**로 나가야 한다. 조회 계층은 playerId 오름차순을
+  보존하려고 `ReadonlyMap`을 돌려주는데 `JSON.stringify(new Map())`은 `{}`다 —
+  스냅샷 조립이 삽입 순서를 지킨 채 객체로 옮긴다(REST `/rooms/{id}/scores`가
+  같은 이유로 같은 변환을 한다).
+- 실패는 `ReconnectSnapshotError`다: 라운드 상태 없음 → `ROUND_NOT_INITIALIZED`,
+  활성 마감 없음 → `DEADLINE_NOT_FOUND`. **둘 다 WS `INTERNAL`로 매핑**하며 그
+  매핑은 게임 모듈이 한다(라운드의 `RoundSynchronizationError`와 같은 경계).
+- 오프라인 미스 리셋은 **스냅샷 조립 뒤**다(Java `YachtDiceGameModule.reconnect`
+  순서 그대로) — 조립이 실패하면 카운터는 남는다.
+
+## 고아 라운드 상태 스위퍼
+
+라운드 상태는 Redis TTL로 사라지지만 거기 딸린 **인메모리 자원**(마감 타이머
+예약·오프라인 결석 카운트)은 TTL이 청소하지 않는다. 그것을 회수하는 경로는 빈 방
+유예 타이머 하나뿐이고 그 예약은 프로세스 재시작에 사라진다 —
+`OrphanedRoundStateSweeper`가 정확성을 받치고, 유예 타이머는 "빠른 회수"
+최적화로 남는다. (keyspace notification은 at-most-once라 근거로 쓰지 않는다.)
+
+- **주기 5분**(`SWEEP_INTERVAL_MS`). 이 값이 회수 지연의 상한이며 방 TTL(40분)보다
+  충분히 짧으면 된다. 첫 실행도 5분 뒤다(Java `initialDelay = fixedDelay`).
+- 판정: 라운드 상태를 가진 방마다 `RoomService.getSnapshot(roomId).phase`가
+  **null이면 방이 사라진 것**이다(`roomNotFound` 스냅샷).
+- ⚠️ **순서 불변식 — `timers.cancelRoom(roomId)` → `rounds.remove(roomId)`.**
+  뒤집으면 상태를 지운 뒤 남은 마감이 발화해 방 없는 상태로 라운드가 되살아난다.
+  타이머를 먼저 끊는 것이 계약이고 테스트가 순서 자체를 고정한다.
+- 순회 목록은 **복사본**이어야 한다(`roomIds()`) — 도는 중에 `remove`를 부른다.
+- 한 주기가 던져도 예약은 살아남고 다음 주기에 재시도한다(Spring `@Scheduled`와
+  같은 결과). 주기 실행은 주입 가능한 시임이라 테스트가 실시간 sleep에 기대지 않는다.
+
 ## 소켓 끊김과 멤버십 (재접속의 전제)
 
 - 끊김(1006 포함)은 방 나가기가 아니다. PLAYING 중 끊김은 좌석을 유지한 채
@@ -77,3 +123,7 @@ server
   재접속하면 활성 마감이 없어 야추 스냅샷 생성이 `INTERNAL`로 실패할 수 있다
   (최초 join 분기의 resume가 실행되는 "유예 취소" 경로에서만 재개된다).
   Java와 동일하게 두되, 이식 중 실측으로 재현 조건을 확인하고 고칠지 결정한다.
+  → 2.8에서 **재현 조건은 확인했다**(`pause`가 `cancelRoom`으로
+  `activeDeadlines`를 지우므로 `currentDeadline`이 undefined가 되고 스냅샷이
+  `DEADLINE_NOT_FOUND`로 실패한다). 고치는 것은 3.1의 결정 — 이유 코드를
+  분리해 뒀으므로 그때 이 가지를 골라낼 수 있다.

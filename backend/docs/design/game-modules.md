@@ -7,45 +7,65 @@
 
 ## GameModule
 
-게임 하나 = 모듈 하나. Java `GameModule`과 1:1 대응을 유지한다.
+게임 하나 = 모듈 하나(`src/game/module.ts`). Java `GameModule`과 동작은 1:1이고,
+**메타데이터만 모듈에서 뺐다**(아래 표 주 참고). 훅은 전부 async다.
 
 | 멤버 | 의미 |
 |---|---|
 | `code` | 대문자 정규 코드(`YACHT_DICE`·`DUEL`·`PING_PONG`). 레지스트리 키이자 WS 네임스페이스(소문자화) |
-| `name` | 표시 이름 |
-| `minPlayers`(기본 1) / `maxPlayers`(기본 6) | 시작 최소 인원(Lua ARGV) / 방 생성 정원 |
-| `supportsBots`(기본 true) | 봇 REST 게이트. DUEL·PING_PONG은 false |
-| `start(roomCode, game)` | phase 전이 **후** 게임 상태 초기화. 실패 시 throw(롤백 유도) |
+| `start(roomCode, game)` | phase 전이 **후** 게임 상태 초기화. `game`은 START 결과(`{gameId, snapshot}`). 실패 시 throw(롤백 유도) |
 | `reset(roomCode)` | 로비 복귀 정리 |
-| `reconnect(roomCode, playerId)` → 스냅샷 | 재접속 스냅샷 생성([reconnect.md](../reconnect.md)) |
+| `reconnect(roomCode, playerId)` → `WsRoomSnapshot` | 재접속 스냅샷 생성([reconnect.md](../reconnect.md)). 게임 상태는 `game` 필드 |
 | `pause` / `resume` | 타이머만 중단/재개, 상태는 그대로 |
 | `removePlayer(roomCode, playerId)` | 게임 중 이탈 처리 |
 | `close(roomCode)` | 방 소멸 — 타이머+상태 폐기 |
 | `hasState(roomCode)` | 진행 중 게임 존재 여부(방 폐쇄 유예 선택에 쓰임) |
-| `handles(event)` / `handle(socket, envelope)` | **접두사가 벗겨진** 이벤트명으로 라우팅 |
+| `handles(event)` / `handle(socket, envelope)` | **접두사가 벗겨진** 이벤트명으로 라우팅. socket은 `ClientSocket` |
 
-주의: 현재 `src/game/module.ts` 스켈레톤은 이 시그니처와 다르다
-(`start(roomId)`에 game 인자 없음 등) — Phase 2에서 Java 시그니처에 맞춘다.
+**`name`·`minPlayers`·`maxPlayers`·`supportsBots`는 모듈에 없다.** Java는 모듈이
+세 값을 직접 들고 있지만(기본 1 / 6 / true), 우리는 `game/catalog.ts`의
+`GAME_CATALOG`가 유일한 출처이고 레지스트리가 그 표를 흡수해
+`registry.require(code)`로 돌려준다 — 모듈이 다시 선언하면 방 생성 정원(REST)과
+시작 인원(Lua ARGV)이 두 곳으로 갈라진다. 게임 슬라이스는 카탈로그 행만 채운다.
+
+`RoomGameHooks`(WS 코어가 쓰는 부분집합)는 이 인터페이스의 `Pick`이라 모듈이
+그대로 들어간다.
 
 ### 레지스트리와 메시지 라우팅
 
 - 코드 정규화: `trim().toUpperCase()`. 미지의 코드 → `invalid_game_code`,
-  중복 등록은 기동 실패.
-- WS 디스패치 규칙: 방의 gameCode로 모듈을 찾고, 메시지 type이
+  중복 등록·카탈로그에 없는 코드 등록은 기동 실패.
+- **코드 조회와 모듈 조회는 다르다**: `require(code)` → 카탈로그 메타데이터
+  (모르는 코드는 throw), `byCode(code)` → 등록된 모듈 또는 `undefined`
+  (**던지지 않는다**). 카탈로그에는 세 게임이 다 있지만 모듈은 게임 슬라이스가
+  하나씩 채우므로 "코드는 유효한데 모듈은 아직 없다"가 정상 상태다.
+- WS 디스패치 규칙(`registry.dispatch`): 방의 gameCode로 모듈을 찾고, 메시지 type이
   `game.<code소문자>.` 접두사로 시작해야 하며(다른 게임 네임스페이스는 거부),
   접두사를 벗긴 이벤트명으로 `handles` 확인 후 같은 envelope(타입만 교체)로
-  `handle` 호출. 어느 단계든 불통과면 게이트웨이가 `INVALID_MESSAGE`로 응답.
-- 아웃바운드 타입 조립: `game.<code소문자>.<event>` (`GameWsTypes`).
-  `game.over`·`state.sync`도 방의 게임 코드로 네임스페이스가 붙는다.
+  `handle` 호출. 어느 단계든 불통과면 `false`를 돌려주고 게이트웨이가
+  `INVALID_MESSAGE`로 응답한다 — **모듈이 없는 게임 코드도 여기서 `false`다**
+  (Java는 `require()`가 던져 응답이 아예 나가지 않는다).
+- 모듈이 `handle`에서 던지면 잡지 않는다 — 게이트웨이가 로그만 남기고 소켓을
+  살려 둔다(Java에서 예외가 `handleTextMessage` 밖으로 나가는 것과 같은 결과).
+  **응답은 모듈이 스스로 보낸다.**
+- 아웃바운드 타입 조립: `game.<code소문자>.<event>` (`gameWsType`, Java
+  `GameWsTypes`). `game.over`·`state.sync`도 방의 게임 코드로 네임스페이스가 붙는다.
+  코드·이벤트가 비면 `invalid_game_event_type`.
 
 ### GameLifecycleService
 
-- `start(roomCode)`: 스냅샷 → 모듈 결정 → **Lua START**(phase/gameId 전이,
-  minPlayers 검증) → `module.start`. 모듈이 던지면 **ROLLBACK_START(gameId)** 후
-  재throw — 자기 게임만 되돌린다.
-- `returnToLobby`: Lua RETURN_TO_LOBBY가 성공했을 때만 `module.reset`.
-- pause/resume/close/removePlayer는 이 서비스를 거치지 않고 WS·방 계층이 모듈을
-  직접 부른다.
+- `start(roomCode)`: 스냅샷 → 게임 결정(카탈로그 metadata + 모듈) → **Lua START**
+  (phase/gameId 전이, minPlayers 검증) → `module.start`. 모듈이 던지면
+  **ROLLBACK_START(gameId)** 후 재throw — 자기 게임만 되돌린다.
+- 모듈이 없는 게임은 START까지만 하고 그대로 성공한다(되돌릴 상태가 없다).
+- 배선: 생성자의 세 번째 인자가 레지스트리이며 **WS 게이트웨이와 같은 인스턴스**를
+  넘겨야 한다. 기본값은 빈 레지스트리(= 모듈 훅 없음)다.
+- `returnToLobby`: Lua RETURN_TO_LOBBY가 성공했을 때만 `module.reset`
+  (RETURN_TO_LOBBY는 **FINISHED에서만** 통과한다).
+- `removePlayer(roomCode, gameCode, playerId)`: REST 퇴장(`DELETE
+  /rooms/{code}/players/me`)의 게임 중 경로. 게임 코드를 먼저 검증하고 모듈에 위임한다.
+- pause/resume/close와 WS `room.leave`의 이탈은 이 서비스를 거치지 않고 WS 계층이
+  모듈을 직접 부른다.
 
 ## 라운드 프레임워크 (야추가 사용, duel·pingpong은 자체 상태기계)
 
@@ -128,6 +148,17 @@ recordRoll을 타므로 함께 막힌다) ③ 제출 기록은 이탈로 지워�
 - 마감 작업은 `() => void | Promise<void>`다(타임아웃 해소가 Redis를 탄다).
   거부는 `onError`로 흘려 예약기를 살려 둔다 — 방 폐쇄 스케줄러와 같은 규약.
 
+### RoundSynchronizationService (저장소 위의 얇은 응용 서비스)
+
+- 하는 일은 둘뿐이다: WS 페이로드를 도메인 인자로 옮기고, **서버 주사위를 굴린다**.
+  원자성·검증은 전부 `RoundStateStore`·`RoundState`가 갖는다.
+- **주사위의 유일한 출처가 이 서비스의 `DieRoller` 시임**이다(DESIGN.md 원칙 1).
+  `dice.roll`·`round.submit` 페이로드에 주사위를 만들 권한이 없고, 자동 굴림도
+  같은 시임을 지난다. 테스트는 상수 롤러(`() => 1`)로, 재현이 필요한 판은
+  `seededDieRoller(seed)`(mulberry32)로 고정한다 — Java에는 상수 공급자만 있었다.
+- `submit`의 `beforeStateChange` 기본값은 no-op이다. 점수와 묶인 실제 제출 경로는
+  2.6 `ScoreRoundSubmissionService`가 이 인자로 점수 확정을 끼워 넣는다.
+
 ### RoundTimerService (야추 턴 시계)
 
 - 상수: 턴 25초, 만료 유예 1초(마감 직전 출발한 제출 흡수 — 클라이언트에는
@@ -145,6 +176,27 @@ recordRoll을 타므로 함께 막힌다) ③ 제출 기록은 이탈로 지워�
 - `removePlayer`(게임 중 이탈의 단일 경로, 멱등): 오프라인 카운터 정리 →
   레지스트리 제거 → `roomService.leave` → `room.player_left` → 마지막
   참가자였으면 상태 통째 폐기, 활성 플레이어였으면 expire 후 제거 → advanceTurn.
+  `room.player_left`는 **게임 네임스페이스가 붙지 않는다**(방 이벤트).
+- **방송 순서가 계약이다**: `score.update` → `round.end` → `round.start`.
+  마감 경로로 들어온 점수는 해소기가 이미 방송했으므로 타이머에는 `score: null`로
+  전달된다 — 여기서 다시 쏘면 클라이언트가 중복 반영한다.
+- Node 이식: `roomService.touch`·`leave`·`getSnapshot`이 Redis라 **`start`·
+  `advanceTurn`·`removePlayer`가 전부 async다**(Java는 동기 `Instant` 반환).
+  마감 작업 시그니처가 이미 `() => void | Promise<void>`라 그대로 얹힌다.
+  `Instant` 자리는 epoch ms 숫자다.
+- **바깥 계층은 전부 좁은 포트로 뒤집었다**(`roundPorts.ts`): 브로드캐스터·
+  접속 명단(`RoundPresence`)·방 서비스·게임 종료(2.7)·점수 결합(2.6)·빈 족보
+  조회(2.6). Java가 구체 타입 6개를 직접 잡는 자리다. 이유는 둘: 라운드
+  프레임워크가 아직 없는 계층에 컴파일 의존을 만들지 않는 것, 그리고 "도메인은
+  전송 계층을 모른다"(아래 「불변식」). 실제 구현(`RoomBroadcaster`·
+  `RoomSessionRegistry`·`RoomService`·`ScoreRoundSubmissionService`·
+  `ScoreConfirmationService`)이 **어댑터 없이 구조적으로 만족**하며, 그 대입
+  가능성 자체를 테스트로 고정한다(`__tests__/roundPorts.contract.test.ts`).
+- 아웃바운드 타입은 주입된 `gameCode`(기본은 `catalog.ts`의 `YACHT_DICE`)와
+  `module.ts`의 `gameWsType`으로 조립한다 — Java `RoundTimerService`가 야추
+  네임스페이스를 **정적 import로 못박은** 자리다. 라운드 프레임워크가 게임 하나에
+  묶이지 않도록 주입으로 바꿨고, 조립 규칙 자체는 2.1의 헬퍼 하나만 쓴다
+  (사본을 두면 접두사 규칙이 두 곳에서 갈라진다).
 
 ### 타임아웃 해소 (RoundTimeoutResolver)
 
@@ -155,6 +207,23 @@ recordRoll을 타므로 함께 막힌다) ③ 제출 기록은 이탈로 지워�
 3. 그 사이 플레이어가 제출했으면 STALE — 아무것도 안 한다.
 4. **점수 저장 경로의 RuntimeException은 삼키고 무득점 진행으로 강등** —
    Redis 장애로 게임이 멈추면 안 된다.
+
+강등(무득점 진행)으로 빠지는 가지는 넷이다: 주사위 없음(상태 손상) · 게임을
+찾지 못함(`gameId` 없음) · 빈 족보 조회 실패 · 자동 기록 실패. 어느 쪽이든
+`expire`로 턴만 넘기고, 그 `expire`마저 스테일이면 STALE이다 — **라운드 진행은
+어떤 저장 실패에도 멈추지 않는다.** 관측은 `onDegraded(roomId, reason, error?)`
+훅으로 뺐다(Java `log.warn` 자리).
+
+- 결과 타입은 Java의 `record(kind, advanced, rolled)`(둘 중 하나만 채우고 나머지는
+  null) 대신 **판별 유니온**이다. Java가 정적 팩터리 3개로 지키던 "kind를 보고
+  꺼내라"는 규약이 타입으로 강제된다.
+- 카테고리 선택은 `CategoryPicker(bound) → index` 시임이다(Java `IntUnaryOperator`).
+  `Math.floorMod` 접기까지 그대로 옮겨 음수 인덱스도 범위 안으로 들어온다.
+- 남은 족보는 **api key 문자열**로 주고받는다(`OpenCategoriesPort`) — `RoundSubmission`이
+  카테고리를 문자열로 드는 것과 같은 경계다(라운드 → 점수 도메인 의존 금지).
+- 완료된 게임(`finished`)은 STALE로 즉시 접는다. Java는 여기서 한 번 더 제출을
+  시도했다가 `GAME_ALREADY_FINISHED`로 튕겨 같은 결론에 도달했다(부수효과는
+  양쪽 다 없다 — 라운드 검증이 점수 확정보다 먼저라 점수는 기록되지 않는다).
 
 ### 고아 상태 스위퍼 (OrphanedRoundStateSweeper)
 
@@ -172,9 +241,10 @@ recordRoll을 타므로 함께 막힌다) ③ 제출 기록은 이탈로 지워�
 WS round.submit{roundNumber, dice, category}
  → 모듈: 멤버십/roomId 검증, payload 파싱
  → ScoreRoundSubmissionService.submit
-     → RoundStateStore.submitAtomically
+     → RoundSynchronizationService.submit → RoundStateStore.submitAtomically
          (라운드 검증: 활성 플레이어·라운드 번호·dice == 서버 activeDice)
          beforeStateChange 콜백 = ScoreConfirmationService.confirm
+             → 방 스냅샷에서 현재 gameId 조회(없으면 GAME_NOT_FOUND, 확정 시도 안 함)
              → 카테고리 파싱, 서버가 YachtScoreCalculator로 점수 재계산
                (클라이언트 점수는 와이어에 존재하지도 않는다)
              → CONFIRM_SCORE Lua (아래) — 실패 시 throw → 라운드 상태 무변화
@@ -184,17 +254,25 @@ WS round.submit{roundNumber, dice, category}
 ### CONFIRM_SCORE Lua
 
 KEYS: game:{id} / room:{code} / :players / scoreboard:{p} / score-submissions:{p}
-/ :scores. 가드 사다리와 반환 코드(→ 예외 reason):
+/ :scores. ARGV: roomCode, gameId, playerId, roundNumber, category, score,
+상단이면 `'1'`, requestSignature.
+
+반환 코드 **10종**이 이 스크립트의 계약이다(가드 사다리 순서대로):
 
 | 코드 | 의미 | reason |
 |---|---|---|
-| 1·2·7·8 | game 키 없음 / game→room 불일치 / room 없음 / room의 gameId 불일치 | `GAME_NOT_FOUND` |
+| 1 | `game:{id}`에 roomCode 없음 | `GAME_NOT_FOUND` |
+| 2 | game→room 매핑이 인자와 불일치 | `GAME_NOT_FOUND` |
+| 7 | room 키 없음 | `GAME_NOT_FOUND` |
+| 8 | room의 gameId가 인자와 불일치 | `GAME_NOT_FOUND` |
 | 9 | phase ≠ PLAYING | `GAME_NOT_ACTIVE` |
 | 3 | roster에 없음 | `PLAYER_NOT_IN_GAME` |
 | 5 | 같은 라운드·같은 시그니처 | **멱등 재시도 — 성공 취급**, 점수 이중 반영 없음 |
 | 4 | 같은 라운드·다른 시그니처 | `ROUND_ALREADY_SCORED` |
 | 6 | 카테고리 이미 사용 | `CATEGORY_ALREADY_USED` |
 | 0 | 성공 | — |
+
+그 밖의 값은 계약 위반이라 `STORE_FAILURE`로 던진다(조용히 성공 처리하지 않는다).
 
 - 시그니처 = `category:d1,d2,d3,d4,d5` — **주사위 순서에 민감**하다(재정렬된
   재시도는 4로 거부; quirk이자 계약).
@@ -216,21 +294,82 @@ KEYS: game:{id} / room:{code} / :players / scoreboard:{p} / score-submissions:{p
 - `ScoreBoard`: categories는 **항상 12키 전부**(미기록 null), 집계 3필드.
   null=미기록, 0=기록하고 희생 — 이 구분이 타임아웃 카테고리 선택과 종료
   판정의 근간이다.
+- 점수판 해시의 집계 필드는 `_` 접두(`_upperSubtotal`·`_upperBonus`·`_total`)다.
+  게임 종료 판정이 "`_` 비접두 필드 12개"로 완료를 세므로, 접두 없는 메타 필드를
+  추가하면 종료가 영원히 성립하지 않는다.
+
+### 구현 (`src/game/score/`)
+
+| 파일 | 역할 |
+|---|---|
+| `scoreCategory.ts` | 12종 목록·상단 판정·족보 충족 판정 |
+| `yachtScoreCalculator.ts` | 점수·상단 소계·보너스 (순수 함수) |
+| `scoreBoard.ts` | 12키 정규화·동결, 빈 칸 열거 |
+| `scripts.ts` | **CONFIRM_SCORE Lua** + 반환 코드 상수 |
+| `scoreBoardStore.ts` · `scoreBoardMapper.ts` | 포트 + Redis 어댑터, 해시↔점수판 |
+| `scoreConfirmationService.ts` | 서버 재계산 + 시그니처 |
+| `scoreRoundSubmissionService.ts` | 라운드 제출과 점수 확정의 원자 결합 |
+
+- Java enum(`ACES`…)의 상수 이름은 **옮기지 않았다** — 와이어·Redis 필드·조회
+  응답 키가 전부 apiKey라 `'ones' | … | 'yacht'` 유니온 자체를 식별자로 쓴다.
+- 라운드(2.5)와 점수(2.6)는 서로의 구체 타입을 import하지 않는다. 이어 붙는
+  지점은 양쪽이 각자 선언한 좁은 포트뿐이고(`round/roundPorts.ts`의
+  `ScoreRoundSubmissionPort`·`OpenCategoriesPort` ↔ `score/`의 `RoundSubmitPort`),
+  그 대입 가능성은 `score/__tests__/scorePorts.contract.test.ts`가 고정한다.
+- `ScoreCategory` 목록과 라운드의 `SUBMITTABLE_CATEGORIES`가 갈라지면 "제출은
+  되는데 채점할 수 없는" 카테고리가 생긴다 — 두 목록의 동일성도 테스트가 지킨다.
 
 ## 게임 종료
 
 - `GameCompletionService.finishIfComplete(roomId, force)`:
-  ① Lua **FINISH_IF_COMPLETE** CAS — 실패면 **아무 부수효과 없음**(이 CAS가
-  `game.over` 정확히 1회의 구조적 보장; 8스레드 동시 호출 테스트 있음)
-  ② 스케줄러 cancelRoom ③ 레지스트리 FINISHED ④ 랭킹 계산 ⑤ 전적
-  보관(archive) — **실패해도 삼킨다**(종료를 막지 않음) ⑥ `game.<code>.game.over
+  ① 방 스냅샷 조회 — 방이 없거나 `gameId`가 비면 저장소를 부르지도 않고 false
+  ② Lua **FINISH_IF_COMPLETE** CAS — 실패면 **아무 부수효과 없음**(이 CAS가
+  `game.over` 정확히 1회의 구조적 보장; 동시 8건 호출 테스트 있음)
+  ③ 스케줄러 cancelRoom ④ 레지스트리 FINISHED ⑤ 랭킹 계산 ⑥ 전적
+  보관(archive) — **실패해도 삼킨다**(종료를 막지 않음) ⑦ `game.<code>.game.over
   {rankings}` → `game.<code>.state.sync{snapshot}` 순서 브로드캐스트(스냅샷이
   없으면 클라이언트가 phase 전환을 못 한다).
-- Lua 판정: room 존재·PLAYING·gameId 일치 → force가 아니면 roster 전원의
-  scoreboard에 `_` 비접두 필드 12개 이상 → FINISHED. force=true는 라운드 캡
-  도달(타임아웃 구멍이 있어도 종료)과 duel·pingpong(자체 종료 판정)이 쓴다.
+  - ③을 ②보다 먼저 하면 **진행 중인 게임의 타이머가 멈춘다** — 취소는 반드시
+    전이가 성사된 뒤다. 네임스페이스는 방 스냅샷의 `gameCode`를 쓴다.
+
+### FINISH_IF_COMPLETE Lua
+
+KEYS: 1 `room:{roomCode}` · 2 `room:{roomCode}:players` /
+ARGV: 1 gameId · 2 force(`'1'`이면 완료 검사 생략) · 3 필요한 기록 칸 수(12)
+
+| 코드 | 의미 |
+|---|---|
+| 0 | 전이 없음 — 방 없음 / phase≠PLAYING(이미 누가 끝냈다) / gameId 불일치(스테일) / roster가 빈 방 / 누군가 점수판이 덜 찼다 |
+| 1 | **이 호출이** PLAYING → FINISHED로 바꿨다. 방송할 자격은 이 호출에만 있다 |
+
+- 0이 사유를 나누지 않는 것이 계약이다 — 모든 0에서 호출자가 할 일(방송 안 함)이
+  같다. 사유를 나누면 "왜 안 끝났나"를 호출자가 해석하려 든다.
+- 완료는 **`_` 비접두 필드 12개 이상**으로 센다(점수판 집계 3필드가 `_` 접두인 것과
+  짝이다). 점수판 키(`game:{gameId}:scoreboard:{playerId}`)는 참가자 수가 가변이라
+  스크립트 안에서 조립한다 — 단일 Redis 노드 전제.
+- force=true는 라운드 캡 도달(타임아웃 구멍이 있어도 종료)과 duel·pingpong(자체
+  종료 판정)이 쓴다.
 - 랭킹: 총점 내림차순·playerId 오름차순, **동점 공동 순위 + 다음 순위 건너뜀**
-  (1,2,2,4). 점수는 서버가 확정한 Redis 값만.
+  (1,2,2,4). 점수는 `room:{roomCode}:scores`(서버가 확정한 값)만 읽는다. 빈 방이면
+  빈 순위이지 예외가 아니다 — 종료 방송 자체가 막히면 안 된다.
+
+### 구현 (`src/game/completion/`)
+
+| 파일 | 역할 |
+|---|---|
+| `scripts.ts` | **FINISH_IF_COMPLETE Lua** + 반환 코드 상수 |
+| `completionStore.ts` | 포트 + Redis 어댑터(전이 CAS, 총점 읽기) |
+| `gameResultCalculator.ts` | `rankTotals`(방송용) · `calculateGameResult`(2.9 `/results`용: 승자·동점 표시) |
+| `completionPorts.ts` | 바깥 계층(브로드캐스터·레지스트리·방·스냅샷·스케줄러·전적)의 좁은 포트 + **전적 보관 no-op 스텁** |
+| `gameCompletionService.ts` | 종료 단일 진입점(위 순서의 권위) |
+
+- 2.5와 같은 이유로 협력자를 전부 좁은 포트로 뒤집었다. 서비스는
+  `round/roundPorts.ts`의 `GameCompletionPort`를 구조적으로 만족하므로 타이머에
+  어댑터 없이 꽂힌다 — 그 대입 가능성은 `__tests__/completionPorts.contract.test.ts`가
+  양방향으로 고정한다.
+- 전적 보관은 **`noopMatchArchive` 스텁**이다. 4.4가 이 상수를 실제
+  `MatchArchiveService`로 바꾸는 것 말고 다른 변경은 필요 없어야 한다(호출 지점과
+  오류 삼킴은 이미 서비스 안에 있다).
 - `GameAbortService`(`room.closed{not_enough_players}` 발신)는 **호출자가 없는
   데드 코드**다 — 게임 중 전원 이탈 시 실제로는 상태만 조용히 폐기된다.
   이식하지 않고, 프론트가 `room.closed`를 처리한다는 사실만 기억해 둔다
@@ -246,6 +385,63 @@ KEYS: game:{id} / room:{code} / :players / scoreboard:{p} / score-submissions:{p
 
 - 조회 스토어는 락 없이 **읽기→검증→재시도(최대 2회)**로 스냅샷 일관성을
   확보한다(gameId·phase·roster가 읽는 동안 변하면 재시도).
+
+### 응답 스키마
+
+```
+GET /rooms/{roomId}/scores   → { "<playerId>": ScoreBoardResponse, … }   // playerId 오름차순
+ScoreBoardResponse           = { categories: {12키: number|null}, upperSubtotal, upperBonus, total }
+GET /rooms/{roomId}/results  → { rankings: [{ rank, playerId, total }], isTie }
+POST /games/{gameId}/score-candidates  { dice:[5개] } → { candidates: {12키: number} }
+```
+
+- **12키는 생략하지 않는다.** 빈 칸은 키를 빼는 것이 아니라 `null`로 싣는다 —
+  프론트가 12키를 전제하고, `null`(미기록)과 `0`(기록하고 희생)이 다른 뜻이다.
+  같은 이유로 도메인이 `undefined`를 쓰지 않는다(JSON에서 키가 사라진다).
+- 키 순서는 `SCORE_CATEGORIES`(ones…yacht) 그대로다. 응답 필드 이름은 Java
+  `GameRankingResponse`를 따라 **`total`** 이다(도메인의 `finalScore`가 아니다).
+- 점수 출처가 종료 방송과 다르다: `/results`는 **점수판 해시의 `_total`**,
+  `game.over`는 `room:{roomCode}:scores` ZSET이다(Java와 같은 비대칭). 순위
+  규칙이 갈라지지 않도록 계산기는 `game/completion`의 `calculateGameResult` 하나를
+  공유한다.
+
+### 오류 계약
+
+- 조회 REST의 오류 본문은 **JSON `{code,message}`** 다 — 방·봇 REST의
+  plain-text 소문자 코드(`room_not_found` …)와 **다르다. 섞지 않는다**
+  (`http/errorResponse.ts`의 `sendCode`·`sendDomainError`를 쓰지 않는다).
+- 이유 코드 → 상태: `ROOM_NOT_FOUND`→404 · `PLAYER_NOT_IN_ROOM`→403 **`NOT_IN_ROOM`**
+  (이름이 바뀐다) · `GAME_NOT_STARTED`/`GAME_NOT_FINISHED`→409 ·
+  `STORE_FAILURE`→500 **`INTERNAL`**. 인증 실패는 401 `AUTH_FAILED`
+  (방 REST의 `invalid_guest_session`이 아니다).
+- 빈 식별자의 이유가 갈린다: 빈 `roomId`는 404, 빈 `requesterId`는 403이다.
+- `score-candidates`의 본문 검증 실패는 **400 + 빈 본문**이다. 프레임워크가
+  만드는 4xx(깨진 JSON·Content-Type)도 같은 모양으로 나가도록 라우트를
+  캡슐화된 하위 스코프에 두고 오류 핸들러를 건다 — Fastify 기본 본문
+  (`{statusCode,error,message}`)이 계약처럼 굳지 않게 하기 위해서다.
+
+### 재시도 규약
+
+- 한 번의 읽기 순서 = 오류 우선순위다: 방 해시 → `gameId` 존재 → `phase` 파싱 →
+  게임→방 역매핑 → 참가 여부 → 플레이어별 점수판. 알 수 없는 `phase`는
+  500이다(조용히 넘기지 않는다 — Java `RoomPhase.valueOf`).
+- 재검증이 보는 것은 `gameId` · `phase` · 게임→방 역매핑 · roster 넷뿐이다.
+  **점수 값은 보지 않는다** — 확정 점수는 늘기만 하므로 값 변화는 일관성 위반이
+  아니다. 넷 중 하나라도 변하면 통째로 다시 읽고, 2회 모두 실패하면 500이다.
+
+### 구현 (`src/game/query/`)
+
+| 파일 | 역할 |
+|---|---|
+| `gameScoreQueryStore.ts` | 포트 + Redis 어댑터(읽기→검증→재시도). 점수판 매핑은 `score/scoreBoardFromHash` 재사용 |
+| `gameScoreQueryService.ts` | phase 게이트 둘(점수판=PLAYING·FINISHED, 결과=FINISHED) |
+| `scoreCandidateService.ts` | 무인증 순수 계산기(`score/calculateScore` 재사용) |
+| `queryErrors.ts` | 이유 코드 + 예외. `errors.ts`의 `DomainError`를 **상속하지 않는다** |
+| `../../http/routes/gameQueries.ts` | 이유 코드 → HTTP 상태·JSON 오류 봉투 |
+
+- 스토어는 `hget`·`hgetall` 둘만 쓰는 좁은 포트(`ReadOnlyRedis`)를 받는다.
+  ioredis `Redis`가 구조적으로 만족하고, 테스트는 진짜 Redis에 위임하면서
+  읽기 사이에 실제 쓰기를 끼워 넣어 **재시도 경합을 모킹 없이 재현**한다.
 
 ## 불변식
 

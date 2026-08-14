@@ -6,6 +6,7 @@ import { playersKey, roomKey } from '../../../room/keys.js'
 import { RoomService } from '../../../room/roomService.js'
 import { createServer, type YorrServer } from '../../../server.js'
 import { UserService } from '../../../user/session.js'
+import { SOCKET_OPEN } from '../../../ws/socket.js'
 
 interface EnterRoomResponse {
   id: string
@@ -36,6 +37,27 @@ const authHeaders = (userId: string, token: string): Record<string, string> => (
   'X-User-Id': userId,
   Authorization: `Bearer ${token}`,
 })
+
+/**
+ * REST로 게임을 시작하기 전에 그 사람의 자리를 WS 레지스트리에 올린다.
+ *
+ * 실전 프론트는 `room.join`(WS)을 먼저 하고 **그다음** REST로 게임을 시작한다.
+ * 레지스트리에 없으면 라운드 타이머가 첫 턴 주인을 오프라인으로 판정하고, 1인
+ * 방에서는 `MAX_OFFLINE_TURNS`(2)에 즉시 닿아 그 사람이 자동 퇴장하고 마지막
+ * 참가자 퇴장으로 방까지 지워진다(2.5의 계약이며 Java와 같다). 게임 모듈이
+ * 배선되기 전에는 `POST /games`가 phase만 옮겼기 때문에 이 자리가 필요 없었다.
+ *
+ * `ws`의 WebSocket 대신 전송을 버리는 가짜를 넣는다 — 이 스위트는 `app.inject()`로
+ * 돌고 실제 소켓을 열지 않는다(소켓 위 검증은 `ws/__tests__/gateway.test.ts`).
+ */
+const attachPresence = (server: YorrServer, roomCode: string, user: EnterRoomResponse): void => {
+  server.registry.join(
+    roomCode,
+    { readyState: SOCKET_OPEN, send: () => {}, close: () => {} },
+    user.id,
+    user.nickname,
+  )
+}
 
 describeRedis('방 REST', () => {
   const redis = useRedis()
@@ -240,6 +262,7 @@ describeRedis('방 REST', () => {
   it('POST /rooms/{code}/lobby — FINISHED에서만 되돌린다', async () => {
     const host = await enterRoom(server, { nickname: '호스트' })
     const roomCode = host.json.room_id
+    attachPresence(server, roomCode, host.json)
     await server.app.inject({
       method: 'POST',
       url: `/api/v1/rooms/${roomCode}/games`,
@@ -286,6 +309,7 @@ describeRedis('방 REST', () => {
 
   it('GET /games/{id} — 인증 없이 조회하고, 없는 게임도 200이다', async () => {
     const host = await enterRoom(server, { nickname: '호스트' })
+    attachPresence(server, host.json.room_id, host.json)
     const started = await server.app.inject({
       method: 'POST',
       url: `/api/v1/rooms/${host.json.room_id}/games`,
