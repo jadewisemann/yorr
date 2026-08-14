@@ -47,8 +47,11 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   const users = new UserService(redis)
   const rooms = new RoomService(redis)
   const catalog = new GameCatalog()
-  const lifecycle = new GameLifecycleService(rooms, catalog)
-  const games = new GameModuleRegistry()
+  // 레지스트리·생명주기·WS 게이트웨이가 **같은** 카탈로그와 **같은** 레지스트리를
+  // 봐야 한다. 새로 만들면 REST로 시작한 게임의 모듈 훅이 조용히 돌지 않는다
+  // (빌드는 통과한다 — 기본값이 빈 레지스트리다).
+  const games = new GameModuleRegistry(catalog)
+  const lifecycle = new GameLifecycleService(rooms, catalog, games)
 
   const app = fastify({ logger: options.logger ?? true })
 

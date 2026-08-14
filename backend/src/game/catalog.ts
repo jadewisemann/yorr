@@ -1,11 +1,12 @@
 import { DomainError } from '../errors.js'
 
 /**
- * 게임 메타데이터 — 방 정원·시작 인원·봇 지원 여부.
+ * 게임 메타데이터 — 방 정원·시작 인원·봇 지원 여부. **이 표가 세 값의 유일한 출처다.**
  *
  * backend-java에서는 `GameModule` 구현체가 이 값을 들고 있고 `GameModuleRegistry`가
- * 코드로 찾아 준다. 방(Phase 1)은 게임 로직 없이 **이 세 값만** 필요하므로 먼저
- * 메타데이터만 옮긴다 — Phase 2.1에서 실제 모듈 레지스트리가 이 표를 흡수한다.
+ * 코드로 찾아 준다. 우리는 반대로 **모듈이 이 값을 선언하지 않고**(game/module.ts)
+ * 레지스트리가 이 카탈로그를 흡수해 `require(code)`로 돌려준다 — 게임 슬라이스가
+ * 모듈에서 정원을 다시 적으면 방 정원과 조용히 어긋나기 때문이다(2.1).
  *
  * `minPlayers`·`maxPlayers`·`supportsBots`는 Java `GameModule`의 기본값
  * (1 / 6 / true)을 야추가 그대로 쓰고, duel·pingpong이 덮어쓴 값이다.
@@ -28,7 +29,11 @@ export const GAME_CATALOG: readonly GameMetadata[] = [
   { code: PING_PONG, name: 'Ping Pong', minPlayers: 2, maxPlayers: 2, supportsBots: false },
 ]
 
-const normalize = (code: string | null | undefined): string => (code ?? '').trim().toUpperCase()
+/** Java `GameModuleRegistry.normalize` — 레지스트리도 같은 규칙을 써야 한다. */
+export const normalizeGameCode = (code: string | null | undefined): string =>
+  (code ?? '').trim().toUpperCase()
+
+const normalize = normalizeGameCode
 
 export class GameCatalog {
   private readonly byCode: Map<string, GameMetadata>

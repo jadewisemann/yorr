@@ -7,45 +7,65 @@
 
 ## GameModule
 
-게임 하나 = 모듈 하나. Java `GameModule`과 1:1 대응을 유지한다.
+게임 하나 = 모듈 하나(`src/game/module.ts`). Java `GameModule`과 동작은 1:1이고,
+**메타데이터만 모듈에서 뺐다**(아래 표 주 참고). 훅은 전부 async다.
 
 | 멤버 | 의미 |
 |---|---|
 | `code` | 대문자 정규 코드(`YACHT_DICE`·`DUEL`·`PING_PONG`). 레지스트리 키이자 WS 네임스페이스(소문자화) |
-| `name` | 표시 이름 |
-| `minPlayers`(기본 1) / `maxPlayers`(기본 6) | 시작 최소 인원(Lua ARGV) / 방 생성 정원 |
-| `supportsBots`(기본 true) | 봇 REST 게이트. DUEL·PING_PONG은 false |
-| `start(roomCode, game)` | phase 전이 **후** 게임 상태 초기화. 실패 시 throw(롤백 유도) |
+| `start(roomCode, game)` | phase 전이 **후** 게임 상태 초기화. `game`은 START 결과(`{gameId, snapshot}`). 실패 시 throw(롤백 유도) |
 | `reset(roomCode)` | 로비 복귀 정리 |
-| `reconnect(roomCode, playerId)` → 스냅샷 | 재접속 스냅샷 생성([reconnect.md](../reconnect.md)) |
+| `reconnect(roomCode, playerId)` → `WsRoomSnapshot` | 재접속 스냅샷 생성([reconnect.md](../reconnect.md)). 게임 상태는 `game` 필드 |
 | `pause` / `resume` | 타이머만 중단/재개, 상태는 그대로 |
 | `removePlayer(roomCode, playerId)` | 게임 중 이탈 처리 |
 | `close(roomCode)` | 방 소멸 — 타이머+상태 폐기 |
 | `hasState(roomCode)` | 진행 중 게임 존재 여부(방 폐쇄 유예 선택에 쓰임) |
-| `handles(event)` / `handle(socket, envelope)` | **접두사가 벗겨진** 이벤트명으로 라우팅 |
+| `handles(event)` / `handle(socket, envelope)` | **접두사가 벗겨진** 이벤트명으로 라우팅. socket은 `ClientSocket` |
 
-주의: 현재 `src/game/module.ts` 스켈레톤은 이 시그니처와 다르다
-(`start(roomId)`에 game 인자 없음 등) — Phase 2에서 Java 시그니처에 맞춘다.
+**`name`·`minPlayers`·`maxPlayers`·`supportsBots`는 모듈에 없다.** Java는 모듈이
+세 값을 직접 들고 있지만(기본 1 / 6 / true), 우리는 `game/catalog.ts`의
+`GAME_CATALOG`가 유일한 출처이고 레지스트리가 그 표를 흡수해
+`registry.require(code)`로 돌려준다 — 모듈이 다시 선언하면 방 생성 정원(REST)과
+시작 인원(Lua ARGV)이 두 곳으로 갈라진다. 게임 슬라이스는 카탈로그 행만 채운다.
+
+`RoomGameHooks`(WS 코어가 쓰는 부분집합)는 이 인터페이스의 `Pick`이라 모듈이
+그대로 들어간다.
 
 ### 레지스트리와 메시지 라우팅
 
 - 코드 정규화: `trim().toUpperCase()`. 미지의 코드 → `invalid_game_code`,
-  중복 등록은 기동 실패.
-- WS 디스패치 규칙: 방의 gameCode로 모듈을 찾고, 메시지 type이
+  중복 등록·카탈로그에 없는 코드 등록은 기동 실패.
+- **코드 조회와 모듈 조회는 다르다**: `require(code)` → 카탈로그 메타데이터
+  (모르는 코드는 throw), `byCode(code)` → 등록된 모듈 또는 `undefined`
+  (**던지지 않는다**). 카탈로그에는 세 게임이 다 있지만 모듈은 게임 슬라이스가
+  하나씩 채우므로 "코드는 유효한데 모듈은 아직 없다"가 정상 상태다.
+- WS 디스패치 규칙(`registry.dispatch`): 방의 gameCode로 모듈을 찾고, 메시지 type이
   `game.<code소문자>.` 접두사로 시작해야 하며(다른 게임 네임스페이스는 거부),
   접두사를 벗긴 이벤트명으로 `handles` 확인 후 같은 envelope(타입만 교체)로
-  `handle` 호출. 어느 단계든 불통과면 게이트웨이가 `INVALID_MESSAGE`로 응답.
-- 아웃바운드 타입 조립: `game.<code소문자>.<event>` (`GameWsTypes`).
-  `game.over`·`state.sync`도 방의 게임 코드로 네임스페이스가 붙는다.
+  `handle` 호출. 어느 단계든 불통과면 `false`를 돌려주고 게이트웨이가
+  `INVALID_MESSAGE`로 응답한다 — **모듈이 없는 게임 코드도 여기서 `false`다**
+  (Java는 `require()`가 던져 응답이 아예 나가지 않는다).
+- 모듈이 `handle`에서 던지면 잡지 않는다 — 게이트웨이가 로그만 남기고 소켓을
+  살려 둔다(Java에서 예외가 `handleTextMessage` 밖으로 나가는 것과 같은 결과).
+  **응답은 모듈이 스스로 보낸다.**
+- 아웃바운드 타입 조립: `game.<code소문자>.<event>` (`gameWsType`, Java
+  `GameWsTypes`). `game.over`·`state.sync`도 방의 게임 코드로 네임스페이스가 붙는다.
+  코드·이벤트가 비면 `invalid_game_event_type`.
 
 ### GameLifecycleService
 
-- `start(roomCode)`: 스냅샷 → 모듈 결정 → **Lua START**(phase/gameId 전이,
-  minPlayers 검증) → `module.start`. 모듈이 던지면 **ROLLBACK_START(gameId)** 후
-  재throw — 자기 게임만 되돌린다.
-- `returnToLobby`: Lua RETURN_TO_LOBBY가 성공했을 때만 `module.reset`.
-- pause/resume/close/removePlayer는 이 서비스를 거치지 않고 WS·방 계층이 모듈을
-  직접 부른다.
+- `start(roomCode)`: 스냅샷 → 게임 결정(카탈로그 metadata + 모듈) → **Lua START**
+  (phase/gameId 전이, minPlayers 검증) → `module.start`. 모듈이 던지면
+  **ROLLBACK_START(gameId)** 후 재throw — 자기 게임만 되돌린다.
+- 모듈이 없는 게임은 START까지만 하고 그대로 성공한다(되돌릴 상태가 없다).
+- 배선: 생성자의 세 번째 인자가 레지스트리이며 **WS 게이트웨이와 같은 인스턴스**를
+  넘겨야 한다. 기본값은 빈 레지스트리(= 모듈 훅 없음)다.
+- `returnToLobby`: Lua RETURN_TO_LOBBY가 성공했을 때만 `module.reset`
+  (RETURN_TO_LOBBY는 **FINISHED에서만** 통과한다).
+- `removePlayer(roomCode, gameCode, playerId)`: REST 퇴장(`DELETE
+  /rooms/{code}/players/me`)의 게임 중 경로. 게임 코드를 먼저 검증하고 모듈에 위임한다.
+- pause/resume/close와 WS `room.leave`의 이탈은 이 서비스를 거치지 않고 WS 계층이
+  모듈을 직접 부른다.
 
 ## 라운드 프레임워크 (야추가 사용, duel·pingpong은 자체 상태기계)
 

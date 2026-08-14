@@ -84,12 +84,14 @@ export class GameSocketHandler {
   private readonly log: WsLogger
 
   /**
-   * 등록된 게임 모듈이 없을 때 쓰는 대역 — Phase 1에는 모듈이 하나도 없다.
-   * 게임 상태가 없으므로 `hasState`는 false(=30초 유예)이고, 재접속 스냅샷은
-   * 실시간 병합 방 스냅샷 그대로다(reconnect.md의 "PLAYING이 아니면" 경우와 같다).
-   * Phase 2.1에서 레지스트리가 채워지면 이 대역은 사라진다.
+   * 방에 붙은 게임의 **모듈이 아직 없을 때** 쓰는 대역(게임 슬라이스 3.x가 하나씩
+   * 채운다). 게임 상태가 없으므로 `hasState`는 false(=30초 유예)이고, 재접속
+   * 스냅샷은 실시간 병합 방 스냅샷 그대로다(reconnect.md의 "PLAYING이 아니면"
+   * 경우와 같다). Java는 여기서 `gameModules.require()`가 던지지만, 그러면 모듈이
+   * 없는 게임의 방은 대기실조차 돌지 않는다 — 세 게임의 모듈이 모두 등록될 때까지
+   * 이 대역이 남는다.
    */
-  private readonly lobbyOnly: RoomGameHooks
+  private readonly moduleless: RoomGameHooks
 
   /** 음성 명단·시그널 릴레이(docs/design/voice.md). 상태는 레지스트리가 들고 있다. */
   private readonly voice: VoiceChannel
@@ -101,7 +103,7 @@ export class GameSocketHandler {
       broadcaster: deps.broadcaster,
       send: (socket, message) => this.send(socket, message),
     })
-    this.lobbyOnly = {
+    this.moduleless = {
       pause: async () => {},
       resume: async () => {},
       close: async () => {},
@@ -503,10 +505,14 @@ export class GameSocketHandler {
    * 게임 네임스페이스 메시지. 방에 없으면 `AUTH_REQUIRED`, 방의 게임이 처리하지
    * 못하는 타입이면 `INVALID_MESSAGE`다.
    *
-   * Phase 1에는 등록된 모듈이 없어 항상 후자로 떨어진다 — 접두사 검증·스트립을
-   * 포함한 dispatch는 Phase 2.1에서 붙는다.
+   * 라우팅 판정은 전부 레지스트리의 `dispatch`에 있다 — 접두사(`game.<code>.`)
+   * 검증·스트립·교차 네임스페이스 거부. 모듈이 없는 게임의 방도 여기서
+   * `INVALID_MESSAGE`로 떨어진다(Java는 `require()`가 던져 응답이 아예 없다).
+   *
+   * 모듈이 던지면 잡지 않는다 — 게이트웨이가 로그만 남기고 소켓을 살려 두는 것이
+   * Java(`handleTextMessage` 밖으로 나가는 예외)와 같은 결과다.
    */
-  private handleGameMessage(socket: ClientSocket, message: InboundEnvelope): void {
+  private async handleGameMessage(socket: ClientSocket, message: InboundEnvelope): Promise<void> {
     const member = this.deps.registry.of(socket)
     if (!member) {
       this.sendError(
@@ -517,6 +523,12 @@ export class GameSocketHandler {
       )
       return
     }
+    const gameCode = this.deps.registry.gameCodeOf(member.roomId)
+    if (await this.deps.games.dispatch(gameCode, socket, message)) return
+    this.log.warn(
+      { roomId: member.roomId, gameCode, type: message.type },
+      '지원하지 않는 게임 메시지',
+    )
     this.sendError(
       socket,
       'INVALID_MESSAGE',
@@ -592,10 +604,9 @@ export class GameSocketHandler {
     )
   }
 
-  /** 방에 붙은 게임 모듈. 없으면 대기실 전용 대역(Phase 1). */
+  /** 방에 붙은 게임 모듈. 아직 이식되지 않은 게임이면 모듈 없는 방용 대역. */
   private game(roomId: string): RoomGameHooks {
-    const code = this.deps.registry.gameCodeOf(roomId)
-    return (code ? this.deps.games.byCode(code) : undefined) ?? this.lobbyOnly
+    return this.deps.games.byCode(this.deps.registry.gameCodeOf(roomId)) ?? this.moduleless
   }
 
   private send(socket: ClientSocket, message: ReturnType<typeof envelope>): void {
