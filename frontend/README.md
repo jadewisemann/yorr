@@ -4,6 +4,7 @@ React 기반의 YORR 모바일 웹 클라이언트입니다. 휴대폰을 흔들
 실시간 멀티플레이 게임을 앱 설치 없이 모바일 브라우저에서 바로 플레이할 수 있게 합니다.
 
 - 구조와 설계가 궁금하면 → [`docs/architecture.md`](docs/architecture.md)
+- 설계 정본(불변식·문서 지도)이 필요하면 → [`DESIGN.md`](DESIGN.md)
 - 특정 기능의 동작 상세가 궁금하면 → [`docs/llmwiki/`](docs/llmwiki/index.md) (레퍼런스 위키)
 - AI 에이전트로 작업한다면 → [`CLAUDE.md`](CLAUDE.md)
 
@@ -102,9 +103,13 @@ src/
 
 | 문서 | 내용 |
 |---|---|
+| [`DESIGN.md`](DESIGN.md) | 설계 정본 — 핵심 불변식·코드 구조·하위 시스템 문서 지도 |
 | [`docs/architecture.md`](docs/architecture.md) | 사람용 아키텍처 문서 — 구조·의존 방향·상태 설계와 그 이유 |
 | [`docs/llmwiki/`](docs/llmwiki/index.md) | 레퍼런스 위키 — 도메인별 동작 상세. AI 에이전트 컨텍스트 겸용 |
+| [`PLANS.md`](PLANS.md) | 진행 중 변경 계획 — 와이어 계약 동결·이관 티켓 |
 | [`docs/portfolio/`](docs/portfolio/README.md) | 프론트엔드 담당자의 포트폴리오 자료 (코드베이스 문서 아님) |
 | [`CLAUDE.md`](CLAUDE.md) · [`AGENTS.md`](AGENTS.md) | AI 에이전트 작업 지침 |
 
-문서와 코드가 다르면 **항상 코드가 이깁니다.**
+설계 문서([`DESIGN.md`](DESIGN.md))와 코드가 다르면 어느 쪽이 틀렸는지 판정합니다 —
+절차는 [`AGENTS.md`](AGENTS.md). 단, 와이어 계약 등 일부 파일은 코드가 정본입니다
+(DESIGN.md의 「코드가 정본인 것들」).

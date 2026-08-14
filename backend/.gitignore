@@ -1,58 +1,9 @@
-HELP.md
-.gradle
-build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
-
-# 개인 로컬 실행용 (DB/Redis 없이 WebSocket만 띄우기)
-application-local.yaml
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-
-### VS Code ###
-.vscode/
-
-### env ###
+node_modules/
+dist/
+coverage/
 .env
-
-### Logs and runtime files ###
-*.log
+.env.*
+!.env.example
+*.tsbuildinfo
 logs/
-*.pid
-hs_err_pid*
-replay_pid*
-
-### OS ###
-.DS_Store
-Thumbs.db
-desktop.ini
-
-### agents ###
-.agents
+*.log
