@@ -6,6 +6,282 @@
 >
 > 형식: `## YYYY-MM-DD - 주제` 아래에 불릿. 최신이 위.
 
+## 2026-08-14 - Phase 2.1 (게임 모듈 프레임워크)
+
+- **모듈 부재를 오류가 아닌 정상 상태로 정의했다.** Java `GameModuleRegistry.require()`는
+  등록되지 않은 코드에 `invalid_game_code`를 던지고 WS 핸들러가 그걸 그대로 타지만,
+  우리 카탈로그에는 세 게임이 다 있고 **모듈은 게임 슬라이스(3.1 야추, 3.x duel·pingpong)가
+  하나씩 채운다.** 그대로 던지게 두면 모듈 없는 게임의 방은 대기실조차 돌지 않는다.
+  - 그래서 조회를 둘로 쪼갰다: `require(code)` = 카탈로그 메타데이터(모르는 코드는 throw),
+    `byCode(code)` = 등록된 모듈 또는 `undefined`(**던지지 않음**).
+  - `dispatch`는 모듈이 없으면 `false` → 게이트웨이가 `INVALID_MESSAGE`로 응답한다.
+    Java는 예외가 Spring 밖으로 나가 **응답이 아예 없다** — 우리 쪽이 프론트에 더 안전하고,
+    "모르는 이벤트"와 같은 응답이라 계약도 넓어지지 않는다.
+  - WS 핸들러의 `lobbyOnly` 대역은 **없어지지 않았다.** 이름만 `moduleless`로 바꾸고
+    "Phase 1에는 모듈이 없다" → "이 게임의 모듈이 아직 없다"로 의미를 재정의했다.
+    `hasState=false`(30초 유예) + 실시간 병합 스냅샷 재접속은 그대로다.
+    **세 게임의 모듈이 모두 등록되면 이 대역은 도달 불가가 된다** — 그때 지운다.
+- **메타데이터를 모듈에서 뺐다(Java와 의도적으로 다름).** Java `GameModule`은
+  `name`/`minPlayers`/`maxPlayers`/`supportsBots`를 default 메서드로 들고 있는데,
+  1.3이 이미 같은 값을 `GAME_CATALOG`로 옮겨 놨다(REST 방 생성 정원·봇 게이트가 그걸 쓴다).
+  둘을 다 두면 3.1이 모듈에 정원을 다시 적는 순간 조용히 갈라진다. **레지스트리가
+  카탈로그를 흡수**(생성자 주입, `require`/`canonicalCode`/`supportedCodes` 위임)하고
+  모듈은 `code` + 동작만 선언한다. `register()`는 카탈로그에 없는 코드를 기동 실패로 막는다.
+- **`GameLifecycleService` 생성자에 세 번째 인자(레지스트리)를 옵셔널로 붙였다.**
+  `(rooms, catalog)`만으로도 지금과 똑같이 돌아가서 `server.ts`(오케스트레이터 소유)를
+  건드리지 않고 컴파일이 유지된다. **배선이 안 되면 REST로 시작한 게임의 모듈 훅이
+  하나도 돌지 않는다** — 아래 「오케스트레이터 조치」 참고.
+- **롤백 실패는 Java 그대로 원인 예외를 대체한다.** `module.start` 실패 → `rollbackStart`
+  가 또 던지면(Redis 장애) 그 예외가 올라가고 진짜 원인은 사라진다. 삼키고 원인을
+  올리는 쪽이 진단에는 낫지만 REST 상태 코드(500)는 어느 쪽이든 같아서 **재현하기로**
+  했다(조용한 개선 금지).
+- **`handle` 예외는 잡지 않는다.** 게이트웨이(`ws/gateway.ts`)의 직렬화 큐가 이미
+  잡아 로그를 남기고 소켓을 살려 두므로 Java(`handleTextMessage` 밖으로 나가는 예외)와
+  결과가 같다. 모듈이 자기 오류 응답을 직접 보내는 것이 계약이다 — 3.1이 지켜야 한다.
+- **`handle(socket, ...)`의 socket 타입은 `ws`의 `WebSocket`이 아니라 `ClientSocket`이다**
+  (Phase 0 스켈레톤은 `ws` WebSocket을 직접 썼다). 1.5가 핸들러를 `ws`에서 떼어낸 결정과
+  같은 이유이고, 이 덕분에 모듈 테스트도 소켓을 열지 않고 돈다.
+- **`reconnect`의 반환 타입을 `unknown` → `WsRoomSnapshot`으로 좁혔다.** 1.5의 대역이
+  이미 실시간 병합 스냅샷을 돌려주고 있었고, 게임 상태는 그 안의 `game` 필드다.
+- `gameWsType`(Java `GameWsTypes.type`)을 `game/module.ts`로 올렸다 — 2.5가
+  `round/roundPorts.ts`에 임시 사본을 두면서 "2.1이 올리면 그쪽으로 승격하고 여기서
+  지운다"고 적어 뒀다. 우리 것은 `DomainError('invalid_game_event_type')`을 던지고
+  2.5 사본은 평범한 `Error`다 — **중복 제거는 후속 작업**(아래).
+- 테스트에서 발견: `RETURN_TO_LOBBY` Lua는 **FINISHED에서만** 통과한다(PLAYING에서
+  부르면 no-op). 라이프사이클 테스트가 phase를 직접 FINISHED로 심는 이유이고,
+  게임 종료(2.7)가 붙기 전까지 `returnToLobby`는 REST로 도달 가능한 경로가 아니다.
+- **1.5가 남긴 registry phase 구멍은 아직 열려 있다.** Java는
+  `YachtDiceGameModule.start`가 `registry.markPhase(PLAYING)`을 부른다 —
+  그건 모듈 안이므로 **3.1이 채워야 한다**(2.1에서 별도 경로를 만들면 phase를 두 곳이
+  옮기게 된다). 그때까지 REST로 시작한 게임은 이미 붙어 있는 소켓의 레지스트리 phase가
+  waiting에 머물고, 끊기면 offline이 아니라 player_left가 된다.
+- 문서: `docs/design/game-modules.md`의 「GameModule」·「레지스트리와 메시지 라우팅」·
+  「GameLifecycleService」 세 절만 고쳤다. 맨 아래 「불변식」의
+  "게임 추가 시 손댈 곳: `game/<게임>/` 구현 + 레지스트리 등록"은 이제
+  **"+ 카탈로그 행 추가"** 가 빠져 있다 — 공유 절이라 손대지 않았으니 오케스트레이터가
+  한 줄 보태 주면 좋겠다.
+
+# Phase 2.5 작업 노트
+
+## 2026-08-14 - Phase 2.5 (라운드 타이머·타임아웃)
+
+- **Java가 구체 타입으로 잡던 협력자 6개를 전부 좁은 포트로 뒤집었다**
+  (`round/roundPorts.ts`): `RoundBroadcaster`·`RoundPresence`·`RoundRoomService`·
+  `GameCompletionPort`(2.7)·`ScoreRoundSubmissionPort`(2.6)·`OpenCategoriesPort`(2.6).
+  이유는 둘이다: ① 2.1이 `game/module.ts`·`lifecycle.ts`를, 2.6·2.7이 점수·종료를
+  **동시에** 고치고 있어 구체 import는 그대로 병합 충돌이자 컴파일 파손이고,
+  ② game-modules.md의 "도메인 규칙은 전송 계층을 모른다"를 Java는 이미 어기고 있다
+  (`RoundTimerService`가 `ws.RoomBroadcaster`·`RoomSessionRegistry`를 직접 잡는다).
+  - 대가: 어댑터가 없으니 시그니처가 어긋나도 **배선하는 순간(server.ts)에야** 터진다.
+    그래서 `__tests__/roundPorts.contract.test.ts`가 진짜 `RoomBroadcaster`·
+    `RoomSessionRegistry`를 포트에 대입하고 실제로 호출까지 해 본다. `RoomService`는
+    Redis 없이 만들 수 없어 타입 수준 조건부(`extends`)로만 확인한다.
+- **2.6과의 이음매를 실측으로 확인했다**(임시 파일 + `tsc --noEmit`, 커밋 안 함):
+  `RoundSynchronizationService` → 2.6 `RoundSubmitPort<RoundSubmissionResult>`,
+  2.6 `ScoreRoundSubmissionService` → 내 `ScoreRoundSubmissionPort`,
+  2.6 `ScoreConfirmationService` → 내 `OpenCategoriesPort`. **셋 다 어댑터 없이 대입
+  가능**하다. 우연이 아니라 양쪽이 같은 Java 시그니처를 봤기 때문인데, 지금은 서로
+  import하지 않으므로 **한쪽이 이름을 바꾸면 조용히 어긋난다** — 2.6이 머지된 뒤
+  배선 티켓에서 이 대입을 진짜 테스트로 고정해야 한다(오케스트레이터 조치 항목).
+- **전 경로가 async가 됐다**(`start`·`advanceTurn`·`removePlayer`). Java `start`는
+  `Instant`를 그냥 돌려줬지만 `roomService.getSnapshot`(오프라인·봇 판정) ·`touch`·
+  `leave`가 전부 Redis다. 2.3이 마감 작업을 `() => void | Promise<void>`로 넓혀 둔
+  덕에 스케줄러 쪽은 손대지 않았다. `Instant` 자리는 epoch ms 숫자로 통일했다.
+- **`RoundTimeoutResolution`을 판별 유니온으로 바꿨다.** Java는
+  `record(kind, advanced, rolled)`로 **둘 중 하나만 채우고 나머지는 null**이라
+  kind를 보지 않고 꺼내면 NPE다. 정적 팩터리 3개가 그 규약을 런타임으로 지키던 것을
+  타입으로 올렸다 — 동작은 같고, 잘못된 접근이 컴파일에서 막힌다.
+- **타이머가 해소기를 `RoundTimeoutResolverPort`로 잡는다.** TS에서 private 필드를
+  가진 클래스는 명목 타입이라 Java 테스트의 `mock(RoundTimeoutResolver.class)` 자리에
+  구조적 스텁을 넣을 수 없다. 포트를 하나 두는 것이 테스트 전용 서브클래스보다 싸다.
+- **재현하기로 한 quirk**: ① 마감 유예 1초 뒤에야 강제 진행하지만 클라이언트에는
+  진짜 마감(+0초)을 알린다 ② 오프라인 스킵된 턴은 `roomService.touch`를 하지 않는다
+  (그 턴은 진행이 아니므로 방 TTL도 밀지 않는다 — Java와 같음) ③ `room.player_left`만
+  게임 네임스페이스가 붙지 않는다 ④ 카테고리 선택의 `Math.floorMod` 접기.
+- **재현하지 않기로 한 것 2개(둘 다 관측 동작 동일)**:
+  - 해소기의 STALE 판정에 `finished`를 추가했다. Java는 종료된 게임에서 한 번 더
+    자동 제출을 시도했다가 `GAME_ALREADY_FINISHED`로 튕겨 같은 STALE에 도달한다.
+    부수효과는 양쪽 다 없다(라운드 검증이 `beforeStateChange`보다 먼저라 점수는
+    기록되지 않는다). 스토어의 `isStaleTurn`이 이미 `finished`를 스테일로 보므로
+    해소기만 다르게 두는 것이 오히려 불일치다.
+  - `score.update` 방송 전에 `result.score !== null`을 확인한다. Java는 무조건
+    `result.score().playerId()`를 부르므로 점수가 null이면 NPE인데, 그 경로는
+    `ScoreRoundSubmissionService`가 성공했을 때만 도달하므로 실제로는 안 난다.
+- **`log.warn`을 훅으로 뺐다**(`onDegraded`·`onWarning`). 강등 경로 4가지(주사위 없음·
+  게임 못 찾음·족보 조회 실패·자동 기록 실패)와 "라운드 상한인데 종료 전이 실패"는
+  조용히 지나가면 안 되는데, 로거를 주입하면 라운드 도메인이 로깅 설정에 묶인다.
+  훅이면 테스트가 그 가지를 도달했는지 직접 검증할 수 있다(실제로 검증한다).
+- **`seededDieRoller`(mulberry32)를 추가했다** — Java에는 없다. Java 테스트는
+  `() -> 1`·`() -> 6` 상수 공급자만 써서 "다섯 개가 전부 같은 값"인 판만 만든다.
+  킵 유지·족보 계산처럼 주사위 분포에 기대는 회귀는 그 시임으로는 못 잡는다.
+- ⚠️ **Java에 없어서 새로 쓴 테스트 8개가 오프라인·이탈 경로를 처음으로 덮는다**
+  (Java `RoundTimerServiceTest`는 `mock(RoundSynchronizationService)`를 넣어 그 경로를
+  아예 실행하지 않는다): 오프라인 1턴 스킵, 2턴 자동 퇴장(전 체인), 재접속 카운터
+  리셋, 봇은 오프라인 아님, 활성 플레이어 이탈, 멱등 재이탈, 마지막 참가자 이탈.
+- **2.1 머지 후 정리 완료(`248bb3b`)**: 작업 중 `roundPorts.ts`에 임시로 두었던
+  `gameWsType`·`YACHT_DICE_CODE` 사본을 지우고 `game/module.ts`의 `gameWsType`과
+  `game/catalog.ts`의 `YACHT_DICE`를 import한다. 사본을 남기면 WS 접두사 규칙이 두
+  곳에서 갈라지고(2.1 쪽은 `DomainError`, 사본은 평범한 `Error`를 던졌다) 게임이
+  늘어날 때 조용히 어긋난다. 배럴(`round/index.ts`)에서도 두 이름의 재수출을 뺐다 —
+  이제 그 둘의 소유자는 `game/`이다.
+- **미해결 — `RoundStartedEvent`의 수신자가 아직 없다.** Java는 Spring
+  `ApplicationEventPublisher`로 봇 오케스트레이터(3.2)에 턴 시작을 알린다. 지금은
+  `onRoundStarted` 콜백 하나라 구독자가 여럿이 되면 리스너 목록이 필요하다 —
+  3.2가 붙을 때 결정한다(그때까지 하나로 충분).
+
+# notes — Phase 2.6
+
+## 2026-08-14 - Phase 2.6 (점수 파이프라인)
+
+- **CONFIRM_SCORE Lua 반환 코드 10종이 이 티켓의 진짜 계약이다.** Java 텍스트를
+  그대로 옮겼고 가드 사다리 순서도 바꾸지 않았다(`src/game/score/scripts.ts`,
+  상수는 `CONFIRM_SCORE_CODE`):
+
+  | 코드 | 스크립트가 본 것 | reason | 부수효과 |
+  |---|---|---|---|
+  | 0 | 전 가드 통과 | — | 카테고리·메타 3필드·시그니처·방 누적 총점 기록 + TTL 정렬 |
+  | 1 | `game:{id}`에 `roomCode` 필드 없음 | `GAME_NOT_FOUND` | 없음 |
+  | 2 | `game:{id}.roomCode` ≠ 인자 roomCode | `GAME_NOT_FOUND` | 없음 |
+  | 3 | `room:{code}:players`에 playerId 없음 | `PLAYER_NOT_IN_GAME` | 없음 |
+  | 4 | 같은 라운드에 **다른** 시그니처가 이미 있음 | `ROUND_ALREADY_SCORED` | 없음 |
+  | 5 | 같은 라운드에 **같은** 시그니처가 이미 있음 | (성공 취급) | 없음 — 멱등 재시도 |
+  | 6 | 점수판에 그 카테고리 필드가 이미 있음 | `CATEGORY_ALREADY_USED` | 없음 |
+  | 7 | `room:{code}` 키 없음 | `GAME_NOT_FOUND` | 없음 |
+  | 8 | `room:{code}.gameId` ≠ 인자 gameId | `GAME_NOT_FOUND` | 없음 |
+  | 9 | `room:{code}.phase` ≠ `PLAYING` | `GAME_NOT_ACTIVE` | 없음 |
+
+  - 1·2·7·8이 **game↔room 양방향 매핑 검증**이다. 이게 "오래된 gameId로 현재 방
+    점수를 바꾸는" 경로를 막는다. 실패는 전부 `GAME_NOT_FOUND` 하나로 뭉개진다 —
+    호출자가 네 경우를 구분하지 않는 것이 계약이라 그대로 뒀다.
+  - 4·5는 **라운드 단위 멱등**, 6은 **게임 단위 중복 방지**로 층이 다르다.
+  - 그 밖의 값(스크립트가 바뀌었거나 등록이 어긋난 경우)은 `STORE_FAILURE`로
+    던진다. 모르는 코드를 성공으로 넘기지 않는다.
+  - `runLuaNumber`가 숫자가 아닌 반환을 던지므로 "반환 코드가 계약"이 타입 수준에서도
+    지켜진다.
+- **`ScoreCategory` enum의 상수 이름은 옮기지 않았다.** Java는 `ACES`(상수) /
+  `ones`(apiKey) 두 이름 체계를 들지만, 와이어·Redis 해시 필드·조회 REST 응답 키가
+  전부 apiKey다. 상수 이름은 어디에도 노출되지 않으므로 TS에서는
+  `'ones' | … | 'yacht'` 유니온 자체를 식별자로 썼다. `ordinal()` 기반 상단 판정도
+  별도 목록(`UPPER_CATEGORIES`)으로 바꿨다 — 순서 의존을 하나 없앤 셈.
+- **라운드(2.5)와 점수(2.6)는 서로의 구체 타입을 import하지 않는다.** 양쪽이 각자
+  좁은 포트를 선언하고 구조적 타이핑으로 만난다:
+  `round/roundPorts.ts`의 `ScoreRoundSubmissionPort<R>`·`OpenCategoriesPort` ↔
+  `score/scoreRoundSubmissionService.ts`의 `RoundSubmitPort<R>`·`CurrentGameLookup`.
+  실제로 `RoundSynchronizationService`(2.5)가 `RoundSubmitPort`를,
+  `ScoreRoundSubmissionService`(2.6)가 `ScoreRoundSubmissionPort`를,
+  `ScoreConfirmationService`가 `OpenCategoriesPort`를 **어댑터 없이** 만족한다.
+  `score/__tests__/scorePorts.contract.test.ts`가 그 대입 가능성을 컴파일 시점에
+  고정한다 — 어느 한쪽이 시그니처를 바꾸면 런타임 배선이 아니라 이 파일이 먼저 깨진다.
+- **카테고리 목록 중복은 그대로 뒀다(2.2~2.4의 결정 유지).** `RoundSubmission`이
+  `SUBMITTABLE_CATEGORIES` 12개를 따로 들고 있는 것은 라운드 → 점수 의존을 만들지
+  않으려는 Java의 경계다. 대신 두 목록이 **순서·철자까지 같은지** 검사하는 테스트를
+  점수 쪽에 뒀다(`scoreCategory.test.ts`). 갈라지면 "제출은 되는데 채점할 수 없는"
+  카테고리가 생긴다.
+- **`null` vs `0`을 `Record<ScoreCategory, number | null>`로 표현했다.**
+  `undefined`를 쓰면 `JSON.stringify`에서 키가 사라져 12키 계약(2.9의 조회 응답)이
+  깨진다. `createScoreBoard`가 12키를 선언 순서로 채우고 `Object.freeze`한다 —
+  Java의 `Collections.unmodifiableMap` 자리(프로즌 객체 대입은 strict 모드에서 throw).
+- **재현하기로 한 Java quirk**
+  - 요청 시그니처 `category:d1,…,d5`가 **주사위 순서에 민감**하다. 재정렬된 재시도는
+    멱등(5)이 아니라 `ROUND_ALREADY_SCORED`(4)로 거부된다. 회귀 테스트를 하나 추가했다.
+  - `fullHouse`는 5개 동일로 불충족(정확히 2+3), `fourOfAKind`는 야추로도 충족.
+  - `calculateUpperSubtotal`에서 **키가 없으면 0, 값이 null이면 예외**. 손상된 값을
+    조용히 0으로 세지 않는다는 Java의 선택 그대로.
+  - 스크립트 앞의 `HGET game:{id} roomCode`(KEYS 조립용 사전 조회)는 스테일일 수
+    있지만 스크립트 안의 양방향 매핑 검증(가드 2·8)이 잡는다 — Java와 같은 구조.
+- **고치지 않은 것**: 반환 코드 4와 6의 순서(라운드 충돌이 카테고리 충돌보다 먼저
+  걸린다). 같은 라운드에 이미 쓴 카테고리를 다시 보내면 `CATEGORY_ALREADY_USED`가
+  아니라 `ROUND_ALREADY_SCORED`가 나온다. 계약이라 그대로 뒀다.
+- **동시성 테스트의 성격 차이**: Java는 16스레드 + CountDownLatch, 우리는 한 커넥션에
+  `Promise.all` 16건. 노드가 단일 스레드라 "동시 실행"의 모양은 다르지만, 검증 대상은
+  같다 — 16번의 EVAL이 Redis에서 직렬 실행될 때 첫 건만 0, 나머지는 5(멱등)를 받아
+  점수가 한 번만 반영되는가. 실제로 `hlen(score-submissions) == 1`, 방 누적 총점 15로
+  고정된다.
+- **`room/keys.ts`를 import해 키를 조립한다**(복사하지 않았다). 키 스킴은 운영 Redis에
+  이미 그 이름으로 데이터가 있는 계약이라, 두 벌을 두면 갈라졌을 때 조용히 다른 키를
+  쓰게 된다.
+- **이식하지 않기로 한 것**
+  - Java `ScoreConfirmationCommand`/`ScoreConfirmationResult` record → TS는 평범한
+    interface다. 방어적 복사(`List.copyOf`)는 넘기지 않았다 — 확정 경로에서 dice를
+    붙잡아 두는 곳이 없고(시그니처 문자열로 즉시 소비), `readonly number[]`가
+    호출부 실수를 컴파일에서 잡는다. 대신 **점수판은 실제로 얼린다**(2.9의 응답이
+    이 객체를 그대로 싣는다).
+  - `ScoreBoardStore`의 동기 시그니처 → 전부 async. Redis 호출이 뒤에 있고
+    `beforeStateChange`가 이미 async 계약이다(2.4의 결정).
+- 남은 자리: `GAME_NOT_ACTIVE`·`PLAYER_NOT_IN_GAME` 등 이유 코드 → WS 오류 코드
+  매핑은 **3.1(야추 모듈)**의 몫이다. 2.6은 이유 코드까지만 만든다.
+- 2.7·2.9가 쓸 것: `scoreBoardFromHash`(같은 해시를 읽는 조회 스토어와 공유),
+  `_` 접두 메타 필드 상수(`UPPER_SUBTOTAL_FIELD`·`UPPER_BONUS_FIELD`·`TOTAL_FIELD`),
+  `SCORE_CATEGORIES`(12키 직렬화 순서), `calculateScore`(2.9의 무인증 후보 계산기 —
+  후보는 불충족을 null이 아니라 0으로 내보낸다는 점만 그쪽에서 처리하면 된다).
+
+# notes — Phase 4.2 (소셜 로그인)
+
+## 2026-08-14 - Phase 4.2 (소셜 로그인)
+
+- **환경변수 이름은 문서가 아니라 `application.yaml`에서 확인했다.** `yorr.auth.*`가
+  실제로 읽는 이름은 `AUTH_FRONTEND_REDIRECT_URI` · `KAKAO_CLIENT_ID` ·
+  `KAKAO_CLIENT_SECRET` · `KAKAO_REDIRECT_URI` · `GOOGLE_CLIENT_ID` ·
+  `GOOGLE_CLIENT_SECRET` · `GOOGLE_REDIRECT_URI`이고 기본값까지 그대로 옮겼다
+  (`backend-java/.env.example`과도 일치). operations.md 표와 어긋나는 것은 없었다.
+- **`DB_URL` 정렬: 파싱해서 기존 분해 변수를 덮어쓰는 쪽으로 갔다.** Java는
+  `url: ${DB_URL}` 하나(JDBC URL)만 읽는데 `config/env.ts`는 `DB_HOST`/`DB_PORT`/
+  `DB_NAME`으로 쪼개져 있었다. 셋을 지우면 `infra/mysql.ts`(4.1 소유)를 고쳐야 하고,
+  DB_URL을 무시하면 운영 `.env`가 조용히 localhost로 붙는다. 그래서 zod
+  `.transform()`에서 **DB_URL이 있으면 파싱해 세 값을 덮어쓴다** — `infra/mysql.ts`는
+  한 줄도 바뀌지 않고 운영 `.env`가 그대로 먹는다. 우선순위는 DB_URL > 분해 변수
+  (운영 파일에 적힌 쪽이 이긴다). 읽을 수 없는 DB_URL은 기본값으로 흘리지 않고
+  **기동을 막는다** — 엉뚱한 DB에 조용히 붙는 것이 가장 나쁘다.
+- **JDBC URL의 쿼리 파라미터는 일부러 버린다.** 운영 값에
+  `serverTimezone=Asia/Seoul`이 들어 있는데, 그걸 mysql2로 옮기면 4.1이
+  `timezone: 'Z'`로 막아 둔 9시간 어긋남이 그대로 되살아난다(persistence.md의
+  `finished_at` 계약). `useSSL`·`characterEncoding`도 mysql2에서는 이름이 달라
+  옮기지 않았다. userinfo(`user:pass@`)도 무시한다 — JDBC에서도 프로퍼티가 URL을
+  이기므로 Java와 같은 결론이다.
+- **Java `URLEncoder`와 `encodeURIComponent`는 다르다.** 공백(`+` vs `%20`)과
+  `!'()~`가 갈린다. `GoogleOAuthClientTest`가 `scope=openid+profile+email`을
+  문자열로 고정하고 있어 그대로면 테스트가 깨지고, 무엇보다 인코딩 모양이 계약이라
+  `formUrlEncode`를 따로 만들었다(`auth/oauthHttp.ts`).
+- **타임아웃은 Java와 값이 다르다(의도적).** Java는 connect 3s + read 5s인데
+  Node `fetch`에는 그 구분이 없다. 최악값인 **8초를 통짜 예산**으로 잡았다. 더
+  짧게 잡으면 Java에서 성공하던 느린 로그인이 여기서만 실패한다. 참고로 Java가
+  단 이유(톰캣 스레드 고갈)는 Node에 그대로 적용되지 않지만, 안 걸면 로그인 요청이
+  영영 매달리므로 예산 자체는 필요하다.
+- **제공자 오류 본문은 읽지도 않는다.** 응답 본문을 파싱해 오류에 담으면 언젠가
+  응답으로 새 나갈 위험이 생긴다 — 상태 코드만 담고 `provider_error`로 뭉갠다.
+  테스트로 "본문의 비밀 문자열이 오류 체인에 없다"를 고정했다.
+- **경합 재조회를 이식하려면 오류 갈래가 필요했다.** Java는
+  `DataIntegrityViolationException`(유니크뿐 아니라 길이·FK 위반 포함)을 잡는데,
+  `SocialLoginServiceTest`의 마지막 케이스가 "nickname too long"으로 **같은 갈래인데
+  경합이 아닌** 경우를 고정한다. 그래서 mysql2 errno(1062·1406·1452 …)를 저장소에서
+  `DataIntegrityViolationError`로 승격하고, 서비스는 그 타입만 보고 재조회한다.
+  덕분에 서비스 테스트가 MySQL 없이 돈다.
+- **트랜잭션 경계 분리는 Node에서 "다른 커넥션의 트랜잭션"이 된다.** Java가
+  registrar를 별도 빈으로 뺀 이유(프록시 경계)는 Node에 없지만, 재조회가 의미를
+  가지려면 **가입 트랜잭션이 먼저 끝나 있어야** 한다는 사실은 같다. 그래서 등록·
+  채택은 `pool.getConnection()` → `beginTransaction/commit`으로 자기 트랜잭션을
+  열고 닫는다(조회는 풀에서 바로).
+- **`adoptProviderProfile`은 트랜잭션 안에서 플레이스홀더인지 다시 본다.**
+  서비스가 이미 판정했지만 그 사이 사용자가 직접 개명했을 수 있다(4.3의 PATCH).
+  `SELECT ... FOR UPDATE` 후 재확인한다 — Java의 `@Transactional` + dirty checking과
+  같은 효과를 명시적으로 쓴 것.
+- **quirk 그대로 이식: authorize는 설정 확인 전에 state를 발급한다.** Java의 인자
+  평가 순서(`authorizeUrl(stateStore.issue(), ...)`)가 그렇다. 미설정 제공자를 부르면
+  쓰이지 않는 state 키가 하나 남지만 5분 TTL이라 사라진다. 응답(503)은 동일하므로
+  "조용히 개선"하지 않고 그대로 뒀다.
+- ⚠️ **MySQL이 이 환경에 없다(4.1의 관찰과 동일 — `mysqld`·`mysql` 바이너리 없음,
+  docker 소켓 없음).** `auth/__tests__/socialAccountStore.test.ts`의 6건은
+  `MYSQL_TEST_URL`이 없어 **skip**됐고 한 번도 실행되지 않았다. `MYSQL_TEST_URL`이
+  있는 환경에서 첫 실행이 필요하다. 나머지 56건(순수 로직·Redis·REST)은 실행돼
+  통과했다.
+- **회원 세션 발급은 `user/session.ts`의 `openMemberSession`을 그대로 썼다**(읽기
+  전용 계약). 재로그인이 tokenHash를 덮어써 이전 토큰이 죽는 것을 REST 테스트로
+  확인했다 — auth.md의 "계정당 라이브 세션 1개"가 실제로 성립한다.
+- **`server.ts` 배선은 하지 않았다**(오케스트레이터 소유). auth 라우트 등록 +
+  MySQL 풀 + `verifyMigrations` 호출 위치는 보고에 코드 조각으로 적었다.
+  persistence.md가 "`verifyMigrations`는 서버 기동(4.2에서 배선)"이라고 적어 둔
+  항목이 아직 열려 있다.
+
 ## 2026-08-14 - Phase 4.1 (MySQL 배선)
 
 - **스키마 동결은 관례가 아니라 기계적 제약이다.** Spring Boot의 Flyway는
