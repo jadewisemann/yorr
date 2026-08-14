@@ -9,6 +9,36 @@
  * 3.2(봇)와 배선이 야추 배럴 하나만 보고도 쓸 수 있게 하려는 것이다.
  */
 export { createYachtDiceState, type YachtDiceState } from '../reconnect/index.js'
+/**
+ * 봇 스택(3.2)은 `bot/`이 소유한다 — 배선이 배럴 하나만 보고 조립할 수 있게
+ * 재수출한다. 내부 파일 경로는 여전히 비공개다.
+ */
+export {
+  BotDecisionError,
+  BotSearchBudgetError,
+  BotTurnOrchestrator,
+  type BotTurnOrchestratorDeps,
+  type BotTurnOrchestratorOptions,
+  type BotTurnStep,
+  DEFAULT_SEARCH_BUDGET_MS,
+  ExpectimaxYachtBotPolicy,
+  type ExpectimaxYachtBotPolicyOptions,
+  HOLD_SELECTION_DELAY_MS,
+  LocalYachtBotStrategy,
+  ROLL_RESULT_DELAY_MS,
+  ScorecardValueEvaluator,
+  THROW_DELAY_MS,
+  TURN_START_DELAY_MS,
+  type YachtBotActions,
+  type YachtBotFallbackStrategy,
+  type YachtBotPolicy,
+  type YachtBotRoomService,
+  type YachtBotRoundLookup,
+  type YachtBotScoreLookup,
+  YachtBotTurnCoordinator,
+  type YachtBotTurnCoordinatorDeps,
+  type YachtBotTurnCoordinatorOptions,
+} from './bot/index.js'
 export {
   type DiceShakeRequest,
   type DiceThrowRequest,

@@ -6,7 +6,8 @@
 > 있고, 여기는 야추 고유 부분만 다룬다.
 >
 > 이식 상태: 모듈·상태 스토어·행동 서비스는 **3.1에서 이식 완료**(`src/game/yacht/`).
-> 봇 스택은 3.2가 채운다 — 이 문서의 「봇 스택」·「채점 vs 봇 평가」는 아직 Java만의 것이다.
+> 봇 스택도 **3.2에서 이식 완료**(`src/game/yacht/bot/`) — 배선만 오케스트레이터의 몫으로 남아 있다
+> (「봇 배선」 참고).
 
 ## 구현 파일 (`src/game/yacht/`)
 
@@ -177,33 +178,119 @@ POST /rooms/{code}/games ─ GameLifecycleService ─ START Lua(phase PLAYING·g
 - `ScorecardValueEvaluator` = **봇의 휴리스틱 가치 함수**(부동소수, 비영속):
   즉시 점수 + 상단 보너스 확보 가중(+35, 확보 프리미엄 4.0) + 남은 칸 기대값
   0.70 할인 + 보너스 도달 확률의 로지스틱 추정. 채점에 절대 쓰지 않는다.
+- 기준 기대값(ones 2.0 … choice 20.0 … yacht 3.0)은 **경험적 상수**다. 튜닝 대상이므로
+  테스트는 절대값을 단정하지 않고 "두 선택 중 어느 쪽이 큰가"만 고정한다.
 
-## 봇 스택
+## 봇 스택 (`src/game/yacht/bot/`)
+
+| 파일 | 책임 | Java 대응 |
+|---|---|---|
+| `botTurnOrchestrator.ts` | 연출 시계 — 지연 4종 + 방별 세대 가드 + `dice.thrown` | `BotTurnOrchestrator` |
+| `yachtBotTurnCoordinator.ts` | 한 스텝 원자 실행 — TurnVersion·킵 재사용·폴백 전환 | `YachtBotTurnCoordinator` |
+| `expectimaxYachtBotPolicy.ts` | 주 정책(정확 확률·메모·CPU 예산) | `ExpectimaxYachtBotPolicy` |
+| `localYachtBotStrategy.ts` | 폴백 정책(탐색 없음) | `LocalYachtBotStrategy` |
+| `scorecardValueEvaluator.ts` | 봇의 가치 함수 | `ScorecardValueEvaluator` |
+| `botPorts.ts` | 행동·라운드 조회·방·점수·정책의 좁은 포트 | (Java는 구체 타입 직접 주입) |
+| `botErrors.ts` | `BotDecisionError`·`BotSearchBudgetError` | (Java는 표준 런타임 예외) |
 
 ```text
-round.start 브로드캐스트 → RoundStartedEvent
- → BotTurnOrchestrator (2스레드 데몬 풀, 방별 세대 카운터)
+round.start 브로드캐스트 → RoundStartedEvent (RoundTimerService의 onRoundStarted 훅)
+ → BotTurnOrchestrator (방별 세대 카운터, setTimeout 시임)
      지연: 턴 시작 1200ms / 굴림 관찰 6500ms / 킵 선택 후 1500ms / 던지기 연출 600ms
  → YachtBotTurnCoordinator.executeIfCurrent (한 스텝 원자 실행)
      TurnVersion(라운드·활성자·rollCount·dice·held) 불일치 → 무시(스테일)
+     활성자가 봇이 아니거나 gameId가 없으면 → 무시
      rollCount==0 → 즉시 1굴림(held 전부 false)
      정책 결정: ExpectimaxYachtBotPolicy → 실패 시 LocalYachtBotStrategy 폴백
      SCORE 또는 3굴림 소진 → 정규 제출 경로(사람과 동일 파이프라인)
      HOLD → 킵 마스크 조정(dice.hold 발신) 후 관찰 재진입, 또는 즉시 다음 굴림
 ```
 
+- 봇의 **유일한 행동 진입점은 `YachtTurnActionService`**다(사람과 같은 경계). 세 호출
+  모두 `msgId: null`을 넘겨 에코를 끈다 — 그래서 봇의 `dice.broadcast`·`score.update`에는
+  `msgId`가 없고 프론트가 "내 굴림"으로 오인하지 않는다. 그 서비스가 `dice.shaken`을
+  내지 않으므로 "봇은 shake를 안 낸다"는 **구조적으로** 성립한다.
 - 킵 조정은 **면(face) 개수 기준으로 기존 킵을 재사용**한다 — 같은 면이 이미
   킵돼 있으면 풀었다 다시 잡지 않는다(불필요한 hold 이벤트 방지).
-- 봇은 `dice.thrown`은 내지만 `dice.shaken`은 안 낸다.
+- 봇은 `dice.thrown`은 내지만 `dice.shaken`은 안 낸다. `dice.thrown`은 **오케스트레이터가
+  직접** 방송한다(행동 서비스 밖) — 굴림이 성사된 스텝에만, 600ms 뒤에.
+- 세대 가드의 함정: 굴림은 `actions.roll` → `timers.start` → `onRoundStarted`로 이어져
+  **세대를 올린다.** 그래서 `dice.thrown` 예약은 자기 세대가 아니라 **그때의 최신
+  세대**로 걸어야 한다(자기 세대로 걸면 항상 스테일로 버려진다). 반대로 `hold`는 타이머를
+  다시 걸지 않으므로 세대가 그대로다 — "관찰 후 재진입"이 자기 세대로 성립하는 이유다.
 - Expectimax: 남은 리롤 수(0..2)가 깊이, 확률 노드는 다항 분포 **정확 계산**
   (샘플링 아님), (리롤 수, 면 카운트 base-6 인코딩) 메모이제이션, "다섯 개 다
-  킵"은 SCORE로 표현. 조기 확정 마진 0.15. **2리롤 전체 탐색 < 1초**가 상시
-  성능 계약(테스트로 고정).
+  킵"은 SCORE로 표현. 조기 확정 마진 0.15. 킵 후보의 **열거 순서가 계약**이다
+  (기대값이 완전히 같은 두 킵의 승자를 그 순서가 정한다).
 - Local 폴백: 4연속 창(1-4/2-5/3-6)에서 3면 이상이면 스트레이트 킵, 아니면
   최빈 면(전부 단독이면 5 이상만), 카테고리는 점수 최대 + 고정 선호 타이브레이크.
+  폴백이 "다섯 개 다 킵"을 말하면 그것은 리롤이 아니라 **제출**로 해석한다.
 - 실패 격리: 봇 태스크의 예외는 삼킨다 — 라운드 타이머가 폴백이다. 봇 턴은
   타이머 관점에서 절대 오프라인이 아니다.
 - 종료까지 사람과 같은 경로를 탄다(2봇 12라운드 완주 통합 테스트 존재).
+
+### CPU 예산과 이벤트 루프 (Java와 다른 결정)
+
+Java는 이 탐색을 **2스레드 데몬 풀**에서 돌렸다. Node는 단일 스레드라 탐색이 도는 동안
+**관계없는 다른 방들의 WS 메시지·하트비트·라운드 마감이 그 뒤에 줄을 선다.** 그대로
+인라인 이식하면 실전 지연이 되는지 판정해야 했다.
+
+**측정 먼저.** 이식한 정책의 `decide` 실측(Xeon 2.10GHz, Node 22):
+
+| 굴림 번호 | 남은 리롤 | decide 1회 |
+|---|---|---|
+| 1 | 2 (전체 탐색) | **14–16ms** |
+| 2 | 1 | 3.5ms |
+| 3 | 0 (12칸 평가만) | 0.02ms |
+
+2봇 12라운드 완주 통합 테스트 전체가 0.7초다(탐색 ~50회 포함). Java 테스트가 성능
+계약으로 고정한 1초는 **실측의 60배 여유**인 상한이었다.
+
+**결정: 인라인 유지 + 예산을 런타임 불변식으로 승격.** 근거:
+
+- 이벤트 루프를 끊지 않고 점유하는 최대 단위는 **decide 하나(≈15ms, ARM Ampere A1
+  기준 3배 느려도 50ms)**다. 라운드 마감 25s+1s·하트비트 90s에 비해 무해하다.
+- **방 사이의 양보 지점은 이미 있다.** 오케스트레이터가 모든 스텝을 `setTimeout`으로
+  예약하므로, 20개 방의 봇 턴이 같은 ms에 겹쳐도 20개의 **별개 매크로태스크**가 되어
+  그 사이에 소켓 I/O가 처리된다. 즉 최악이 "600ms 블록"이 아니라 "15ms 블록 20개"다.
+- 부하 산정: 봇 턴 하나가 최소 1.2+6.5+1.5초의 지연을 쓰므로 방 하나가 만드는 무거운
+  탐색은 **8초에 1회** 정도다. 20개 방이 전부 봇이어도 ≈2.5회/초 × 15ms ≈ **한 코어의 4%**
+  (Ampere A1에서 ~12%).
+
+**기각한 대안과 대가:**
+
+- `worker_threads` 풀: 블록을 완전히 없애지만 ① 워커 엔트리 파일이 `src/`(vitest·tsx)와
+  `dist/`(빌드) 두 경로에서 해석돼야 하고 ② 풀 수명·오류 전파·테스트 대역이 붙는다.
+  15ms를 없애려고 이 복잡도를 사는 것은 지금 근거가 없다. 다만 `YachtBotPolicy` 포트의
+  반환을 `BotDecision | Promise<BotDecision>`으로 넓혀 뒀다 — **코디네이터를 고치지 않고**
+  구현만 교체할 수 있다.
+- `setImmediate` 양보: 비용 분포가 고르지 않아(첫 킵 후보 하나가 메모의 대부분을 채운다)
+  잘게 쪼개려면 재귀를 명시적 작업 큐로 바꿔야 하고, 그러면 **총 CPU가 늘어난다**.
+  1초 예산의 의미도 벽시계로 바뀐다.
+
+**예산 강제(Java에 없는 추가분).** `ExpectimaxYachtBotPolicy`는 메모 미스마다 경과
+시간을 보고 `budgetMs`(기본 1000)를 넘기면 `BotSearchBudgetError`로 **스스로 중단**한다.
+코디네이터가 그것을 잡아 `LocalYachtBotStrategy`(마이크로초급)로 내려가므로, 병리적
+상황에서도 이벤트 루프 점유가 상한을 갖는다. 예산은 **주입 가능**하다 — 테스트가 실시간
+1초를 기다리지 않고 초과 경로를 재현할 수 있어야 하고(시계를 주입한다), 운영에서 코어가
+느려지면 값을 내릴 수 있어야 한다.
+
+**재검토 조건**: 봇 결정 p99가 150ms를 넘거나, 동시 진행 방이 30개를 넘거나, 배포
+대상 코어가 더 느려지면 worker 안으로 옮긴다.
+
+### 봇 배선
+
+야추 봇은 `server.ts`에서 조립하고, **3.1이 만든 인스턴스를 그대로 받는다**:
+
+- `actions`는 야추 모듈이 받는 **그** `YachtTurnActionService`여야 한다. 새로 만들면
+  봇의 굴림이 다른 브로드캐스터·타이머를 타고 나가는데 **타입도 테스트도 통과한다**.
+- `rounds`·`rooms`·`scores`·`broadcaster`도 전부 위에서 만든 그것.
+- 순환이 하나 있다: 봇 → 행동 서비스 → 타이머 → (`onRoundStarted`) → 봇. Java는
+  `ApplicationEventPublisher`가 끊었고, 우리는 **늦은 바인딩 한 칸**으로 끊는다
+  (`let yachtBots: BotTurnOrchestrator | null = null` → 타이머 옵션에서
+  `yachtBots?.onRoundStarted(event)`).
+- `close()`에서 `yachtBots.stop()`을 부른다. 지연 예약은 `unref`돼 프로세스를 잡지 않지만
+  테스트에서는 스위트 간 누수가 된다(2.3의 `deadlineScheduler.stop()`과 같은 이유).
 
 ## 배선 (단일 인스턴스 공유가 계약)
 
@@ -233,10 +320,23 @@ Java에 없어서 새로 쓴 것: rollCount 불연속 거부, 라운드 미초�
 `reconnect`의 스냅샷 → 카운터 리셋 순서(실패 시 카운터 유지 포함),
 락 대기 초과 시 **남의 락을 풀지 않는지**, 방 키 TTL 없으면 상태 키도 무기한.
 
-## 남은 이식 대표 테스트 (3.2 봇)
+## 이식된 테스트 (3.2 봇)
 
-- 봇: 스테일 세대 무시, 이미 킵된 중복 면 재사용, 3굴림 후 최선 카테고리 제출,
-  야추 완성 즉시 제출, Expectimax 1초 예산, 2봇 완주
+| Java | Node | 비고 |
+|---|---|---|
+| `BotTurnOrchestratorTest` 3종 | `bot/__tests__/botTurnOrchestrator.test.ts` | + 지연 4종 값, 최신 세대 예약, 오류 격리, `stop()` |
+| `YachtBotTurnCoordinatorTest` 9종 | `bot/__tests__/yachtBotTurnCoordinator.test.ts` | + held만 바뀐 스테일, gameId 없는 방, 폴백의 전체 킵 해석, 굴림 직전 턴 교대 |
+| `ExpectimaxYachtBotPolicyTest` 11종 | `bot/__tests__/expectimaxYachtBotPolicy.test.ts` | + 예산 초과 중단(시계 주입), 리롤 없는 결정은 예산 무관, 입력 검증 |
+| `LocalYachtBotStrategyTest` 4종 | `bot/__tests__/localYachtBotStrategy.test.ts` | + 창이 2면 이하일 때, 최빈 동률, 결정론적 타이브레이크 |
+| `ScorecardValueEvaluatorTest` 2종 | `bot/__tests__/scorecardValueEvaluator.test.ts` | + 채워진 칸 평가 시 예외 |
+| `YachtBotGameCompletionTest` | `bot/__tests__/yachtBotGameCompletion.test.ts` | 서버 RNG를 시드로 고정(2.5의 시임) — 실패가 재현 가능해야 한다 |
+| — | `bot/__tests__/botPorts.contract.test.ts` | 좁은 포트 ↔ 실제 구현 대입 고정(3.1과 같은 이유) |
+
+- 오케스트레이터 테스트는 **실시간 sleep도 가짜 타이머도 쓰지 않는다.** 지연 값은
+  `DeadlineExecutor`(2.3의 시임)에 기록된 `delayMs`로 검증하고, 발화 순서는 테스트가
+  직접 정한다(Java의 `ArgumentCaptor<Runnable>` 자리).
+- 완주 테스트는 오케스트레이터를 쓰지 않는다 — 지연 4종을 실시간으로 기다리면 12라운드가
+  몇 분이다. Java 테스트와 같이 코디네이터를 루프에서 직접 돌린다.
 - 타임아웃 계열은 2.5(`roundTimeoutResolver.test.ts`·`roundTimerService.test.ts`)가
   이미 덮었다: 마지막 held 유지 autoRoll, 굴림 소진 시 빈 카테고리 무작위 기록,
   유예 중 제출 시 STALE, 저장 실패에도 턴 진행.

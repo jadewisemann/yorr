@@ -54,7 +54,12 @@ import {
   ScoreRoundSubmissionService,
 } from './game/score/index.js'
 import {
+  BotTurnOrchestrator,
+  ExpectimaxYachtBotPolicy,
+  LocalYachtBotStrategy,
   RedisYachtDiceStateStore,
+  ScorecardValueEvaluator,
+  YachtBotTurnCoordinator,
   YachtDiceGameModule,
   YachtTurnActionService,
 } from './game/yacht/index.js'
@@ -248,6 +253,9 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     },
   )
 
+  // 봇 오케스트레이터(3.2)와 타이머는 순환한다(봇 → 행동 서비스 → 타이머 → 봇).
+  // Java는 `ApplicationEventPublisher`로 끊고, 우리는 늦은 바인딩으로 끊는다.
+  let yachtBots: BotTurnOrchestrator | null = null
   const roundTimer = new RoundTimerService(
     {
       timeoutResolver,
@@ -260,6 +268,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     },
     {
       onWarning: (roomId, reason) => app.log.warn({ roomId, reason }, '라운드 진행 중단'),
+      onRoundStarted: (event) => yachtBots?.onRoundStarted(event),
     },
   )
 
@@ -286,16 +295,48 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   // 브로드캐스터·레지스트리·스냅샷·마감 스케줄러·종료 서비스는 **전부 위에서 만든
   // 그 인스턴스**다. 새로 만들면 방송이 허공으로 나가고 레지스트리 phase가 갈라지는데,
   // 타입도 테스트도 통과한다.
+  // 봇과 사람이 **같은** 행동 서비스를 지나야 한다(3.1이 그 경계로 만들었다) —
+  // 봇만 별도 인스턴스를 쓰면 방송·검증 경로가 갈라진다.
+  const yachtActions = new YachtTurnActionService({
+    rounds: roundSync,
+    timers: roundTimer,
+    broadcaster,
+    submissions: scoreSubmissions,
+  })
+  yachtBots = new BotTurnOrchestrator(
+    {
+      coordinator: new YachtBotTurnCoordinator(
+        {
+          rounds: roundSync,
+          actions: yachtActions,
+          policy: new ExpectimaxYachtBotPolicy(new ScorecardValueEvaluator()),
+          strategy: new LocalYachtBotStrategy(),
+          rooms,
+          scores,
+        },
+        {
+          onPolicyFallback: (roomId, state, error) =>
+            app.log.warn(
+              { roomId, round: state.roundNumber, player: state.activePlayerId, error },
+              'Expectimax 탐색 실패 — 폴백 정책으로 전환',
+            ),
+        },
+      ),
+      broadcaster,
+    },
+    {
+      onError: (error, event) =>
+        app.log.warn(
+          { error, roomId: event.roomId, round: event.state.roundNumber },
+          'AI 봇 행동 실패 — 라운드 타이머 폴백으로 진행',
+        ),
+    },
+  )
   games.register(
     new YachtDiceGameModule({
       rounds: roundSync,
       timers: roundTimer,
-      actions: new YachtTurnActionService({
-        rounds: roundSync,
-        timers: roundTimer,
-        broadcaster,
-        submissions: scoreSubmissions,
-      }),
+      actions: yachtActions,
       seats: registry,
       realtimeSnapshots: snapshots,
       reconnectSnapshots,
@@ -451,6 +492,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
       // 걸려 있는 라운드 마감 타이머를 전부 끊는다. 안 하면 unref된 타이머가 남아
       // 이미 닫힌 Redis로 마감 처리를 시도한다(테스트에서는 스위트 간 누수가 된다).
       deadlineScheduler.stop()
+      yachtBots?.stop()
       await gateway.close()
       await app.close()
       if (ownsRedis) redis.disconnect()
