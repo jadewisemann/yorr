@@ -6,6 +6,27 @@
 >
 > 형식: `## YYYY-MM-DD - 주제` 아래에 불릿. 최신이 위.
 
+## 2026-08-14 - Phase 1.3 (방 도메인)
+
+- **`RoomCreateService` + `RoomValidationService` → `RoomService` 하나로 합쳤다.**
+  둘 다 같은 키 가족을 다루는 얇은 Lua 래퍼였고, Java의 분리는 도메인 경계가
+  아니라 파일이 커진 결과로 보인다. 대신 스크립트는 `room/scripts.ts`로 따로
+  뺐다 — 계약(반환 코드)이 코드보다 오래 산다.
+- `join`은 Java의 `JoinResult(userId, sessionToken, snapshot)` 대신 **스냅샷만**
+  돌려준다. 앞의 둘은 호출부(1.4의 `POST /rooms`)가 이미 쥐고 있는 값을 되돌려
+  받는 것뿐이었다.
+- **`RoomValidationServiceTest`는 스크립트 텍스트를 문자열로 대조하는 테스트**다
+  (`assertThat(START.getScriptAsString()).contains("HLEN")`). 그대로 옮기면 Lua를
+  포맷만 바꿔도 깨지고 동작은 보증하지 않는다 — 같은 불변식(최소 인원, 자기
+  게임만 롤백, 취소 시 게임 키 삭제)을 **실제 Redis 동작 테스트로** 옮겼다.
+- `parsePhase`는 알 수 없는 값에 던진다(Java `RoomPhase.valueOf`와 같음). 방
+  해시가 있는데 phase가 없는 상태는 우리가 만들지 않으므로 조용히 넘기지 않는다.
+- 봇 승계 제외 규칙(LEAVE)은 1.6을 기다리지 않고 검증했다 — `bots` 해시를 직접
+  심으면 되고, 그 규칙 자체는 LEAVE Lua의 계약이라 여기 속한다.
+- 게임 메타데이터는 `game/catalog.ts`(정원·minPlayers·supportsBots)로 먼저 옮겼다.
+  Phase 2.1에서 실제 `GameModule` 레지스트리가 이 표를 흡수한다 — 두 곳이
+  값을 따로 들고 있으면 정원이 어긋난다.
+
 ## 2026-08-14 - Phase 1.1·1.2 (Redis 배선 · 세션)
 
 - **테스트 하네스는 redis-server spawn으로 결정**(ADR-0004). 파일마다 유닉스
