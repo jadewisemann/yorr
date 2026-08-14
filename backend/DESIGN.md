@@ -98,10 +98,13 @@ Mobile / Desktop Browser
 | `user/` | 세션·게스트·프로필 | `user/` |
 | `auth/` | 소셜 로그인(OAuth), 로그인 코드·state 스토어 | `auth/` |
 | `game/` | GameModule 인터페이스·레지스트리, 라운드 프레임워크, 점수 파이프라인, `game/yacht/` 등 게임별 모듈 | `game/` |
-| `infra/` | Redis·MySQL 클라이언트 팩토리. 도메인 로직 금지 | Spring Data 설정 |
+| `infra/` | Redis·MySQL 클라이언트 팩토리, Lua 스크립트 등록·호출 체계. 도메인 로직 금지 | Spring Data 설정, `DefaultRedisScript` |
+| `errors.ts` | 도메인 오류의 공통 뿌리 `DomainError` — 메시지 자리에 **문자열 오류 코드**가 들어간다 | `IllegalArgumentException("room_full")` 관용 |
 | `main.ts` / `server.ts` | 부팅·조립. 조립 순서 외의 로직 금지 | `YorrApplication` |
 
-- 테스트는 소스와 같은 폴더의 `__tests__/`에 둔다.
+- 테스트는 소스와 같은 폴더의 `__tests__/`에 둔다. 여러 스위트가 함께 쓰는
+  테스트 하네스(Redis 통합 테스트용 서버 등)만 `src/` 밖 `test/`에 둔다 —
+  빌드 산출물에 들어가지 않게 하기 위해서다([ADR-0004](docs/adr/0004-redis-integration-test-harness.md)).
 - 도메인 규칙(점수 계산·판정)은 전송 계층(HTTP·WS)을 몰라야 한다 —
   backend-java의 `ScoreConfirmationService` / `DuelRules` / `PingPongRules` 분리와
   같은 원칙.
@@ -119,6 +122,10 @@ backend-java의 오류 표면은 세 가지 형식이 섞여 있고, **이 모�
 
 상세 표는 각 하위 시스템 문서에 있다. 새 오류를 추가하거나 형식을 통일하는 일은
 마이그레이션 범위 밖이다(계약 동결).
+
+구현: 도메인은 `errors.ts`의 `DomainError`(Java `IllegalArgumentException` 자리,
+400/404) · `ConflictError`(`IllegalStateException` 자리, 409)로 코드 문자열을
+던지고, `http/errorResponse.ts`가 상태 코드와 plain-text 본문으로 옮긴다.
 
 ## 운영 계약 (변경 시 배포 파이프라인과 함께)
 

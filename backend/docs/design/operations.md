@@ -27,6 +27,13 @@ env.ts에 정식 편입한다:
 | `VOICE_STUN_URL` (`yorr.voice.stun-url`) | `stun:stun.l.google.com:19302` | STUN |
 | `VOICE_TURN_TTL_SECONDS` (`yorr.voice.turn.ttl-seconds`) | `600` | 자격 TTL |
 
+테스트 전용 변수(런타임은 읽지 않는다 — [ADR-0004](../adr/0004-redis-integration-test-harness.md)):
+
+| 변수 | 기본값 | 용도 |
+|---|---|---|
+| `REDIS_TEST_URL` | 없음 = 테스트가 `redis-server`를 직접 띄운다 | 이미 떠 있는 Redis로 통합 테스트를 돌린다 |
+| `REDIS_TEST_REQUIRED` | 없음 | `1`이면 Redis가 없을 때 건너뛰지 않고 실패한다. **파이프라인에 `npm test`를 넣을 때 켠다**(Phase 5) |
+
 프로퍼티처럼 동작하는 하드코딩 상수(설정 아님 — 바꾸면 계약 변경):
 프로토콜 버전 1, 하트비트 30s/타임아웃 90s, 방 TTL 40분, 빈 방 유예 30s/게임 중
 10분, 턴 25s+유예 1s, 오프라인 허용 2턴, 게스트 24h/회원 30d, 스위퍼 5분.

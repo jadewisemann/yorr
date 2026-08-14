@@ -49,10 +49,10 @@
 
 | # | 티켓 | Java 참조 | 이식할 테스트 |
 |---|---|---|---|
-| 1.1 | Redis 배선: ioredis 연결, `defineCommand` Lua 등록 체계, 통합 테스트 하네스(로컬 redis — Testcontainers 대응 방식 결정) | `RedisConfig` 상당 | — |
-| 1.2 | 세션·사용자: `user:{id}` 해시, 토큰 해시·역인덱스, 게스트/회원 TTL 슬라이딩, authenticate 2경로, closeSession, assignRoom/clearRoom, 닉네임 정규화 | `user/service/UserService` | `UserServiceSessionIntegrationTest`(로그아웃 양경로 차단, 재로그인 무효화, TTL 차등), `UserServiceTest` |
-| 1.3 | 방 도메인: 키 스킴 + Lua 9종(CREATE/JOIN/LEAVE/CLOSE/TOUCH/START/ROLLBACK/CANCEL/RETURN_TO_LOBBY) + 방 코드 생성 + 스냅샷 조회(REST 모양) + 게임 메타데이터 스텁 레지스트리(YACHT_DICE 1..6·bots / DUEL·PING_PONG 2..2·no bots — 정원·minPlayers·supportsBots만) | `room/service/RoomCreateService`·`RoomValidationService`, `RoomRedisKeys` | `RoomValidationServiceTest`, `RoomCloseIntegrationTest`, `PartyRoomIntegrationTest`(host 승계·파티 생존·봇 승계 제외) |
-| 1.4 | 방 REST: `POST /rooms`(생성·참가·게스트·파티, snake_case 응답), leave, start, lobby 복귀, `GET /games/{id}` + **plain-text 오류 계약**(401 문자열 3종 포함) | `room/controller/RoomController`·`RoomValidationController`·`GameController` | `RoomValidationControllerTest` |
+| 1.1 ✅ | Redis 배선: ioredis 연결, `defineCommand` Lua 등록 체계(`infra/lua.ts`), 통합 테스트 하네스([ADR-0004](docs/adr/0004-redis-integration-test-harness.md) — 로컬 `redis-server` spawn) | `RedisConfig` 상당 | — |
+| 1.2 ✅ | 세션·사용자: `user:{id}` 해시, 토큰 해시·역인덱스, 게스트/회원 TTL 슬라이딩, authenticate 2경로, closeSession, assignRoom/clearRoom, 닉네임 정규화 | `user/service/UserService` | `UserServiceSessionIntegrationTest`(로그아웃 양경로 차단, 재로그인 무효화, TTL 차등), `UserServiceTest` |
+| 1.3 ✅ | 방 도메인: 키 스킴 + Lua 9종(CREATE/JOIN/LEAVE/CLOSE/TOUCH/START/ROLLBACK/CANCEL/RETURN_TO_LOBBY) + 방 코드 생성 + 스냅샷 조회(REST 모양) + 게임 메타데이터 스텁 레지스트리(YACHT_DICE 1..6·bots / DUEL·PING_PONG 2..2·no bots — 정원·minPlayers·supportsBots만) | `room/service/RoomCreateService`·`RoomValidationService`, `RoomRedisKeys` | `RoomValidationServiceTest`, `RoomCloseIntegrationTest`, `PartyRoomIntegrationTest`(host 승계·파티 생존·봇 승계 제외) |
+| 1.4 ✅ | 방 REST: `POST /rooms`(생성·참가·게스트·파티, snake_case 응답), leave, start, lobby 복귀, `GET /games/{id}` + **plain-text 오류 계약**(401 문자열 3종 포함) | `room/controller/RoomController`·`RoomValidationController`·`GameController` | `RoomValidationControllerTest` |
 | 1.5 | WS 코어: room.join(인증·재접속 분기·순서 계약)/joined/player_joined/leave/ready/reaction, 레지스트리·브로드캐스터(1회 직렬화), 하트비트 모니터(90s·CAS), presence, phase별 끊김 처리, 방 폐쇄 스케줄러(30s/10m 유예), StaleRoomCleaner, 실시간 병합 스냅샷 | `handler/GameWebSocketHandler`, `ws/*`, `room/infrastructure/InMemoryRoomCloseScheduler`, `room/initializer/StaleRoomCleaner` | `GameWebSocketHandlerTest`(유예·재접속·세션만료 구분·유령 방 거부 등), `HeartbeatMonitorTest`(90s 경계·멱등), `RoomSessionRegistryTest`, `RealtimeRoomSnapshotServiceTest` |
 | 1.6 | 봇 REST: ADD/REMOVE Lua + `state.sync` 브로드캐스트 + supportsBots 게이트 | `room/service/BotParticipantService`, `RoomBotController` | `BotParticipantServiceTest`, `RoomBotControllerTest`, `PartyRoomIntegrationTest`의 봇 승계 케이스 |
 | 1.7 | 음성: voice.join/leave/signal 릴레이, 명단 관리(끊김 시 정리 순서), `GET /voice/ice`(coturn HMAC) | `GameWebSocketHandler` voice 절, `ws/voice/*` | `RoomSessionRegistryVoiceTest`, `GameWebSocketHandlerTest` voice 케이스(from 스푸핑 차단, 부재 상대 무음 드롭) |
@@ -124,7 +124,9 @@
 - [ ] Dockerfile(멀티스테이지: `npm run build` → dist 실행) · compose 통합,
       `.env.{main|dev}` 재사용 확인, 기동 실패 시 exit≠0 (sleep 15 검증 통과 조건)
 - [ ] Jenkinsfile: changeset `backend-java/**` → `backend/**` 전환(5곳),
-      빌드 스테이지 교체(gradle → npm ci/check/typecheck/test/build)
+      빌드 스테이지 교체(gradle → npm ci/check/typecheck/test/build).
+      테스트 스테이지에는 `redis-server`와 `REDIS_TEST_REQUIRED=1`이 필요하다
+      ([ADR-0004](docs/adr/0004-redis-integration-test-harness.md))
 - [ ] 모니터링: `/actuator/health` 유지, `/actuator/prometheus`에
       `yorr_rooms_active`·`yorr_game_participants_active{game}` 동일 노출
 - [ ] 부하·재접속 시나리오 검증(하트비트 타임아웃, 유예 close, 소켓 교체,
@@ -137,11 +139,11 @@
 | 하위 시스템 | Java 위치 | 설계 문서 | 상태 |
 |---|---|---|---|
 | WS 게이트웨이·envelope·하트비트 | `handler/`, `ws/` | realtime.md | 🚧 스켈레톤 (P0; room.join 계약 반영 필요) |
-| 세션·게스트·회원 | `user/` | rooms-and-sessions.md | ⬜ Java에만 있음 |
-| 방·Lua·파티·폐쇄 수명 | `room/` | rooms-and-sessions.md | ⬜ |
+| 세션·게스트·회원 | `user/` | rooms-and-sessions.md | 🚧 세션·인증 이식 완료(1.2), 프로필은 4.3 |
+| 방·Lua·파티·폐쇄 수명 | `room/` | rooms-and-sessions.md | 🚧 키·Lua 9종·스냅샷·REST 이식 완료(1.3·1.4), 폐쇄 스케줄러/StaleRoomCleaner는 1.5 |
 | 봇 참가자 | `room/service/BotParticipantService` | rooms-and-sessions.md | ⬜ |
 | 퀵매치 | `room/service/QuickMatchService` | rooms-and-sessions.md | ⬜ |
-| 게임 모듈 프레임워크 | `game/module/` | game-modules.md | 🚧 스켈레톤 (P0; 시그니처 정렬 필요) |
+| 게임 모듈 프레임워크 | `game/module/` | game-modules.md | 🚧 스켈레톤 + 메타데이터 카탈로그(1.3); 시그니처 정렬은 2.1 |
 | 라운드·타이머·타임아웃 | `game/round/` | game-modules.md | ⬜ |
 | 점수 확정·조회 | `game/service/`, `game/repository/` | game-modules.md | ⬜ |
 | 재접속 스냅샷·스위퍼 | `game/round/application/` | reconnect.md | ⬜ |
