@@ -1,0 +1,30 @@
+# 빌드 컨텍스트 최소화 — ADR-0006.
+#
+# **거부 목록이 아니라 허용 목록**이다. 이유는 크기가 아니라 사고 방지다:
+# `.env`(운영 시크릿)·`.env.main` 같은 파일이 컨텍스트에 들어가면 이미지 레이어에
+# 남을 수 있는데, 거부 목록은 새 파일이 생길 때마다 빠뜨리는 쪽으로 실패한다.
+# 허용 목록은 빠뜨리면 `COPY`가 즉시 실패해 시끄럽게 드러난다.
+#
+# Dockerfile이 실제로 쓰는 것: package.json · package-lock.json · tsconfig{,.build}.json
+# · src/ · db/ (마이그레이션 SQL — 기동 시 verifyMigrations가 읽는다).
+*
+
+!Dockerfile
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.build.json
+!src
+!db
+
+# node_modules는 `!src` 같은 허용 규칙 아래로 새어 들어올 수 없지만, 실수로
+# 허용 목록을 넓혔을 때의 안전망으로 남긴다(호스트의 x86 바이너리가 arm64
+# 이미지에 섞여 들어가는 것이 가장 찾기 어려운 실패다).
+node_modules
+**/node_modules
+dist
+coverage
+*.tsbuildinfo
+*.log
+.env
+.env.*
