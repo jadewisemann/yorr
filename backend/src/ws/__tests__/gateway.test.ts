@@ -42,10 +42,10 @@ describeRedis('WebSocket 게이트웨이', () => {
       socket,
       received,
       send: (message: unknown) => socket.send(JSON.stringify(message)),
-      await: async (type: string) => {
+      await: async (type: string, nth = 1) => {
         for (let attempt = 0; attempt < 100; attempt += 1) {
-          const found = received.find((message) => message.type === type)
-          if (found) return found
+          const matched = received.filter((message) => message.type === type)
+          if (matched.length >= nth) return matched[nth - 1] as OutboundEnvelope
           await new Promise((resolve) => setTimeout(resolve, 20))
         }
         throw new Error(`${type}을(를) 받지 못했다: ${received.map((m) => m.type).join(',')}`)
@@ -57,7 +57,8 @@ describeRedis('WebSocket 게이트웨이', () => {
     socket: WebSocket
     received: OutboundEnvelope[]
     send(message: unknown): void
-    await(type: string): Promise<OutboundEnvelope>
+    /** `nth`번째로 도착한 그 타입의 메시지. 같은 타입이 여러 번 오는 흐름(voice.peers)에 쓴다. */
+    await(type: string, nth?: number): Promise<OutboundEnvelope>
   }
 
   const enterRoom = async (
@@ -108,6 +109,59 @@ describeRedis('WebSocket 게이트웨이', () => {
     })
     hostClient.socket.close()
     guestClient.socket.close()
+  })
+
+  /** 음성은 방 전체 방송(voice.peers)과 유니캐스트(voice.signaled)가 섞인 유일한 흐름이다. */
+  it('voice.join은 방 전원에게, voice.signal은 지목한 상대에게만 간다', async () => {
+    const url = await start()
+    const host = await enterRoom({ nickname: '호스트' })
+    const guest = await enterRoom({ nickname: '참가자', room_id: host.room_id })
+
+    const hostClient = await connect(url)
+    hostClient.send({
+      type: 'room.join',
+      ts: Date.now(),
+      payload: { roomId: host.room_id, sessionToken: host.token },
+    })
+    await hostClient.await('room.joined')
+    const guestClient = await connect(url)
+    guestClient.send({
+      type: 'room.join',
+      ts: Date.now(),
+      payload: { roomId: host.room_id, sessionToken: guest.token },
+    })
+    await guestClient.await('room.joined')
+
+    guestClient.send({ type: 'voice.join', ts: Date.now(), payload: {} })
+
+    // 통화에 참여하지 않은 호스트도 명단을 받는다.
+    expect(await hostClient.await('voice.peers')).toMatchObject({
+      roomId: host.room_id,
+      payload: { peers: [guest.id] },
+    })
+    await guestClient.await('voice.peers')
+
+    guestClient.send({
+      type: 'voice.signal',
+      ts: Date.now(),
+      payload: {
+        to: host.id,
+        from: '사칭',
+        data: { kind: 'description', description: { type: 'offer', sdp: 'v=0' } },
+      },
+    })
+
+    expect(await hostClient.await('voice.signaled')).toMatchObject({
+      roomId: host.room_id,
+      payload: { from: guest.id, data: { kind: 'description' } },
+    })
+    expect(guestClient.received.map((message) => message.type)).not.toContain('voice.signaled')
+
+    // 탭을 닫으면 voice.leave 없이 끊긴다 — 남은 사람이 빈 명단을 받아야 한다.
+    guestClient.socket.close()
+    const peers = await hostClient.await('voice.peers', 2)
+    expect(peers).toMatchObject({ payload: { peers: [] } })
+    hostClient.socket.close()
   })
 
   it('없는 방에 join하면 ROOM_NOT_FOUND를 받고 연결은 유지된다', async () => {

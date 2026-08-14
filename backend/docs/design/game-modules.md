@@ -67,6 +67,22 @@
   ALREADY_SUBMITTED→`NOT_YOUR_TURN`, ROUND_NOT_INITIALIZED→`INTERNAL`,
   나머지(ROUND_MISMATCH·INVALID_*·GAME_ALREADY_FINISHED)→`INVALID_MESSAGE`.
 
+전이표(모든 전이는 새 인스턴스를 돌려주고, 실패는 `RoundSynchronizationError`):
+
+| 전이 | 선행 조건 | 결과 | 위반 시 reason |
+|---|---|---|---|
+| `recordRoll(p, r, n, held, dice)` | 활성 플레이어·라운드 일치, `n == activeRollCount+1` (1..3), held 5칸, dice 5개 1~6, **첫 굴림 전 held 전부 false** | activeRollCount=n, held 위치는 이전 dice 유지 | `INVALID_ROLL` · `INVALID_DICE` |
+| `recordHold(p, r, held)` | 활성 플레이어·라운드 일치, **activeDice ≠ null** | activeHeld 전체 교체(rollCount·dice 불변) | `INVALID_ROLL` |
+| `autoRoll(dice)` | `hasRollsLeft` | `recordRoll(활성, activeRollCount+1, activeHeld ?? 전부 false)` | `INVALID_ROLL` |
+| `submit(submission)` | 활성 플레이어·라운드 일치, activeDice ≠ null, **dice 완전 일치**, 미제출 | 다음 참가자 / 라운드 완료 | `INVALID_DICE` · `ALREADY_SUBMITTED` |
+| `expire()` | `finished == false` | 무득점으로 같은 진행 경로(advance) | `GAME_ALREADY_FINISHED` |
+| `withoutParticipant(p)` | p가 참가자이고 **활성이 아님** | 순서에서 제거, `removedIndex < activeIndex`면 인덱스 −1. finished거나 비참가자면 **자기 자신 반환** | `INVALID_PLAYER` |
+| advance(마지막 참가자) | — | round < totalRounds → 다음 라운드(제출 비움) / 아니면 finished=true, roundNumber 유지 | — |
+
+불변식: ① 턴이 넘어가면 activeRollCount=0·activeDice·activeHeld=null ②
+`finished`는 터미널 — recordRoll·recordHold·submit·expire 전부 거부(`autoRoll`은
+recordRoll을 타므로 함께 막힌다) ③ 제출 기록은 이탈로 지워지지 않는다.
+
 ### 저장소 포트
 
 - `RoundStateStore`: initialize(SETNX — 이중 초기화는 오류),
@@ -80,6 +96,15 @@
   구현은 테스트 시드다.
 - 완료된 게임은 스테일 턴으로 취급한다 — 취소 직전에 발화한 타이머가 끝난
   게임을 되살릴 수 없다.
+- **포트는 전부 async다.** Java는 `ConcurrentHashMap.compute` 안에서 동기로
+  원자성을 얻지만 여기서는 `beforeStateChange`가 Redis Lua(점수 확정)라 동기일
+  수 없다. Node가 단일 스레드라도 콜백을 await하는 순간 같은 방의 다른 제출이
+  끼어들 수 있으므로, **인메모리 구현은 방 단위 프라미스 락으로 "검증 → 콜백 →
+  커밋" 구간을 직렬화**한다(Redis 어댑터는 방 락이 같은 역할). 이 직렬화가
+  "두 개의 마지막 제출이 라운드를 두 번 완료하지 못한다"는 포트 계약이다.
+- 빈 결과의 의미는 `Optional.empty` 자리의 `undefined`다 —
+  autoRoll/expire/removeParticipant의 "이미 지난 턴·없는 방"과, 없는 방의
+  `findByRoomId`가 같은 값을 쓴다(오류가 아니다).
 
 ### 마감 스케줄러 (RoundDeadlineScheduler)
 
@@ -90,6 +115,18 @@
   공유). **인라인 executor로 최악의 인터리빙을 재현하는 테스트를 반드시 함께
   이식한다.**
 - `cancel(roomId, round)`는 라운드가 일치할 때만, `cancelRoom`은 무조건.
+- Node 이식: Java `ScheduledExecutorService` 자리에 **`DeadlineExecutor` 시임**
+  (`schedule(task, delayMs) → {cancel()}`)을 두고 기본 구현이 `setTimeout`+
+  `unref`다. 세대 카운터는 `AtomicLong` 대신 평범한 숫자(단일 스레드).
+  `unref` 때문에 예약만 남은 프로세스는 종료를 막지 않으며, `stop()`이
+  `@PreDestroy`의 `shutdownNow()` 자리다.
+- Node의 `setTimeout`은 스레드가 없어 **슬롯 선등록 레이스가 실제로는 생기지
+  않는다.** 그래도 순서를 유지한다 — executor가 주입 가능한 시임인 이상
+  (테스트의 인라인 executor, 향후 다른 어댑터) 순서 자체가 계약이고, 회귀
+  테스트는 그 인라인 executor로 최악의 인터리빙을 결정적으로 재현한다
+  (가짜 타이머로는 "schedule()이 반환하기 전 실행"을 만들 수 없다).
+- 마감 작업은 `() => void | Promise<void>`다(타임아웃 해소가 Redis를 탄다).
+  거부는 `onError`로 흘려 예약기를 살려 둔다 — 방 폐쇄 스케줄러와 같은 규약.
 
 ### RoundTimerService (야추 턴 시계)
 

@@ -1,11 +1,16 @@
 import type { FastifyInstance, FastifyReply } from 'fastify'
-import { ConflictError } from '../../errors.js'
+import { ConflictError, DomainError } from '../../errors.js'
 import type { GameCatalog } from '../../game/catalog.js'
 import type { GameLifecycleService } from '../../game/lifecycle.js'
+import type { BotParticipantService } from '../../room/botService.js'
+import { ForbiddenError } from '../../room/botService.js'
 import type { RoomService } from '../../room/roomService.js'
 import type { RoomMode, RoomSnapshot } from '../../room/snapshot.js'
 import { SessionAuthenticationError } from '../../user/errors.js'
 import { normalizeNickname, type UserIdentity, type UserService } from '../../user/session.js'
+import type { RoomBroadcaster } from '../../ws/broadcaster.js'
+import { envelope } from '../../ws/envelope.js'
+import type { RealtimeRoomSnapshotService } from '../../ws/snapshot.js'
 import { sendCode, sendDomainError } from '../errorResponse.js'
 
 /** 대시보드 표시 이름. 참가자 목록에 오르지 않으므로 화면에 나오지 않는다(로그·관리용). */
@@ -16,6 +21,14 @@ export interface RoomRouteDependencies {
   readonly rooms: RoomService
   readonly catalog: GameCatalog
   readonly lifecycle: GameLifecycleService
+  /**
+   * 봇 API(`/rooms/{code}/bots`)는 이 셋이 **모두** 있어야 등록된다 — 변경 결과를
+   * 방 전원에게 알리려면 WS 게이트웨이가 쓰는 것과 **같은 인스턴스**의
+   * 브로드캐스터·스냅샷 서비스여야 하기 때문이다(새로 만들면 방송이 허공으로 간다).
+   */
+  readonly bots?: BotParticipantService
+  readonly broadcaster?: RoomBroadcaster
+  readonly snapshots?: RealtimeRoomSnapshotService
 }
 
 interface EnterRoomBody {
@@ -193,6 +206,8 @@ export const registerRoomRoutes = async (
     return reply.code(204).send()
   })
 
+  await registerBotRoutes(app, deps, authenticated)
+
   /** 인증 실패는 401 + 본문 `invalid_guest_session`(방·봇 API의 문자열). */
   async function authenticated(
     headers: Record<string, string | string[] | undefined>,
@@ -209,6 +224,93 @@ export const registerRoomRoutes = async (
       return null
     }
   }
+}
+
+type Authenticator = (
+  headers: Record<string, string | string[] | undefined>,
+  reply: FastifyReply,
+) => Promise<UserIdentity | null>
+
+/**
+ * 대기실 봇 API — backend-java `RoomBotController`.
+ *
+ * 응답은 방 REST 스냅샷이고, 성공 시 방 전원에게 `state.sync`를 쏜다(변경한
+ * 사람만 스냅샷을 받으면 다른 화면의 명단이 어긋난다).
+ *
+ * 의존성이 없으면 라우트를 등록하지 않는다 — 프로세스 조립(server.ts)이 봇
+ * 서비스와 WS 인스턴스를 넘겨줘야 살아난다.
+ */
+const registerBotRoutes = async (
+  app: FastifyInstance,
+  deps: RoomRouteDependencies,
+  authenticated: Authenticator,
+): Promise<void> => {
+  const { bots, broadcaster, snapshots, catalog } = deps
+  if (!bots || !broadcaster || !snapshots) {
+    app.log.warn('봇 의존성이 없어 /rooms/{code}/bots 라우트를 등록하지 않았습니다')
+    return
+  }
+
+  const mutate = async (
+    roomCode: string,
+    request: { headers: Record<string, string | string[] | undefined> },
+    reply: FastifyReply,
+    operation: (requester: UserIdentity) => Promise<RoomSnapshot>,
+  ): Promise<FastifyReply> => {
+    const requester = await authenticated(request.headers, reply)
+    if (!requester) return reply
+    try {
+      // 게임 조회가 방 존재 확인보다 **먼저**다 — 없는 방에 봇을 붙이면 404가 아니라
+      // 400 `invalid_game_code`가 나가는 quirk가 여기서 나온다(계약 동결).
+      const gameCode = (await snapshots.snapshot(roomCode)).gameCode
+      if (!catalog.require(gameCode).supportsBots) {
+        return sendCode(reply, 409, 'bots_not_supported')
+      }
+      const snapshot = await operation(requester)
+      broadcaster.broadcast(
+        roomCode,
+        envelope(
+          'state.sync',
+          { snapshot: await snapshots.snapshot(roomCode) },
+          { roomId: roomCode },
+        ),
+      )
+      return reply.send(snapshot)
+    } catch (error) {
+      return sendBotError(reply, error)
+    }
+  }
+
+  app.post<{ Params: { roomCode: string } }>('/rooms/:roomCode/bots', async (request, reply) => {
+    const { roomCode } = request.params
+    return mutate(roomCode, request, reply, (requester) => bots.add(roomCode, requester.userId))
+  })
+
+  app.delete<{ Params: { roomCode: string; botId: string } }>(
+    '/rooms/:roomCode/bots/:botId',
+    async (request, reply) => {
+      const { roomCode, botId } = request.params
+      return mutate(roomCode, request, reply, (requester) =>
+        bots.remove(roomCode, requester.userId, botId),
+      )
+    },
+  )
+}
+
+/**
+ * 봇 API의 오류 매핑 — **방 API와 다르다**. 여기서는 `room_not_found`만 404이고
+ * 나머지 `DomainError`는 400(`invalid_game_code`), `bot_not_found`만 409가 아닌
+ * 404다. Java 컨트롤러별로 다른 이 비일관성이 그대로 계약이다(DESIGN.md 「오류 계약」).
+ */
+const sendBotError = (reply: FastifyReply, error: unknown): FastifyReply => {
+  if (error instanceof ForbiddenError) return sendCode(reply, 403, error.code)
+  if (error instanceof DomainError) {
+    return sendCode(reply, error.code === 'room_not_found' ? 404 : 400, error.code)
+  }
+  if (error instanceof ConflictError) {
+    return sendCode(reply, error.code === 'bot_not_found' ? 404 : 409, error.code)
+  }
+  throw error
 }
 
 /** 시작 실패만 409로 내린다 — 그 외(모르는 게임 코드 등)는 Java와 같이 500으로 나간다. */

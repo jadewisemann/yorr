@@ -240,6 +240,67 @@ return 1
 `,
 }
 
+/**
+ * KEYS: room, players, scores, bots / ARGV: requesterId, botId, nickname, 'BOT'
+ * → 0 방 없음 · 2 대기실 아님 · 3 호스트 아님 · 4 정원 · 5 botId 중복 · 1 추가
+ *
+ * 호스트 판정이 **hostId 일치 + 명단 존재**의 두 조건인 것은 방 조작 API 공통
+ * 규약이다 — 방을 떠난 옛 호스트가 남의 방에 봇을 붙이지 못한다. 파티 방도
+ * 같다: 방장은 처음 들어온 컨트롤러라 hostId는 항상 명단 안을 가리킨다.
+ *
+ * 검증을 전부 통과한 뒤에야 세 키(players·scores·bots)를 함께 쓴다 — 봇 행은
+ * 사람 행과 같은 정규 행이고, `bots` 해시만이 "이 행은 봇"의 유일한 근거다.
+ */
+export const BOT_ADD: LuaScript = {
+  name: 'yorrRoomBotAdd',
+  numberOfKeys: 4,
+  lua: `
+if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
+if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 2 end
+if redis.call('HGET', KEYS[1], 'hostId') ~= ARGV[1] then return 3 end
+if redis.call('HEXISTS', KEYS[2], ARGV[1]) == 0 then return 3 end
+if redis.call('HLEN', KEYS[2]) >= tonumber(redis.call('HGET', KEYS[1], 'capacity')) then return 4 end
+if redis.call('HEXISTS', KEYS[2], ARGV[2]) == 1 then return 5 end
+redis.call('HSET', KEYS[2], ARGV[2], ARGV[3])
+redis.call('HSET', KEYS[3], ARGV[2], '0')
+redis.call('HSET', KEYS[4], ARGV[2], ARGV[4])
+redis.call('HINCRBY', KEYS[1], 'members', 1)
+local ttl = redis.call('PTTL', KEYS[1])
+if ttl > 0 then
+    redis.call('PEXPIRE', KEYS[2], ttl)
+    redis.call('PEXPIRE', KEYS[3], ttl)
+    redis.call('PEXPIRE', KEYS[4], ttl)
+end
+return 1
+`,
+}
+
+/**
+ * KEYS: room, players, scores, bots / ARGV: requesterId, botId
+ * → 0 방 없음 · 2 대기실 아님 · 3 호스트 아님 · 4 봇 없음 · 1 삭제
+ *
+ * **bots 해시에서 HDEL이 성공해야만** 명단·점수를 지운다 — 이 API로 사람을
+ * 쫓아낼 수 없게 하는 조건이다(권한 검사가 아니라 대상 검사).
+ */
+export const BOT_REMOVE: LuaScript = {
+  name: 'yorrRoomBotRemove',
+  numberOfKeys: 4,
+  lua: `
+if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
+if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 2 end
+if redis.call('HGET', KEYS[1], 'hostId') ~= ARGV[1] then return 3 end
+if redis.call('HEXISTS', KEYS[2], ARGV[1]) == 0 then return 3 end
+if redis.call('HDEL', KEYS[4], ARGV[2]) == 0 then return 4 end
+redis.call('HDEL', KEYS[2], ARGV[2])
+redis.call('HDEL', KEYS[3], ARGV[2])
+redis.call('HINCRBY', KEYS[1], 'members', -1)
+return 1
+`,
+}
+
+/** 봇 참가자 스크립트 — `BotParticipantService`가 등록한다(Java도 봇만 따로 들고 있다). */
+export const BOT_SCRIPTS: readonly LuaScript[] = [BOT_ADD, BOT_REMOVE]
+
 export const ROOM_SCRIPTS: readonly LuaScript[] = [
   CREATE,
   JOIN,
@@ -250,4 +311,5 @@ export const ROOM_SCRIPTS: readonly LuaScript[] = [
   ROLLBACK_START,
   CANCEL_ACTIVE_GAME,
   RETURN_TO_LOBBY,
+  ...BOT_SCRIPTS,
 ]

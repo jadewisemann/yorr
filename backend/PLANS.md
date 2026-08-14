@@ -54,8 +54,8 @@
 | 1.3 ✅ | 방 도메인: 키 스킴 + Lua 9종(CREATE/JOIN/LEAVE/CLOSE/TOUCH/START/ROLLBACK/CANCEL/RETURN_TO_LOBBY) + 방 코드 생성 + 스냅샷 조회(REST 모양) + 게임 메타데이터 스텁 레지스트리(YACHT_DICE 1..6·bots / DUEL·PING_PONG 2..2·no bots — 정원·minPlayers·supportsBots만) | `room/service/RoomCreateService`·`RoomValidationService`, `RoomRedisKeys` | `RoomValidationServiceTest`, `RoomCloseIntegrationTest`, `PartyRoomIntegrationTest`(host 승계·파티 생존·봇 승계 제외) |
 | 1.4 ✅ | 방 REST: `POST /rooms`(생성·참가·게스트·파티, snake_case 응답), leave, start, lobby 복귀, `GET /games/{id}` + **plain-text 오류 계약**(401 문자열 3종 포함) | `room/controller/RoomController`·`RoomValidationController`·`GameController` | `RoomValidationControllerTest` |
 | 1.5 ✅ | WS 코어: room.join(인증·재접속 분기·순서 계약)/joined/player_joined/leave/ready/reaction, 레지스트리·브로드캐스터(1회 직렬화), 하트비트 모니터(90s·CAS), presence, phase별 끊김 처리, 방 폐쇄 스케줄러(30s/10m 유예), StaleRoomCleaner, 실시간 병합 스냅샷 + 핸드셰이크 origin 검사·메시지 64KB 상한·소켓별 직렬 처리 | `handler/GameWebSocketHandler`, `ws/*`, `room/infrastructure/InMemoryRoomCloseScheduler`, `room/initializer/StaleRoomCleaner` | `GameWebSocketHandlerTest`(유예·재접속·세션만료 구분·유령 방 거부 등), `HeartbeatMonitorTest`(90s 경계·멱등), `RoomSessionRegistryTest`, `RealtimeRoomSnapshotServiceTest` |
-| 1.6 | 봇 REST: ADD/REMOVE Lua + `state.sync` 브로드캐스트 + supportsBots 게이트 | `room/service/BotParticipantService`, `RoomBotController` | `BotParticipantServiceTest`, `RoomBotControllerTest`, `PartyRoomIntegrationTest`의 봇 승계 케이스 |
-| 1.7 | 음성: voice.join/leave/signal 릴레이, 명단 관리(끊김 시 정리 순서), `GET /voice/ice`(coturn HMAC) | `GameWebSocketHandler` voice 절, `ws/voice/*` | `RoomSessionRegistryVoiceTest`, `GameWebSocketHandlerTest` voice 케이스(from 스푸핑 차단, 부재 상대 무음 드롭) |
+| 1.6 ✅ | 봇 REST: ADD/REMOVE Lua + `state.sync` 브로드캐스트 + supportsBots 게이트 | `room/service/BotParticipantService`, `RoomBotController` | `BotParticipantServiceTest`, `RoomBotControllerTest`, `PartyRoomIntegrationTest`의 봇 승계 케이스 |
+| 1.7 ✅ | 음성: voice.join/leave/signal 릴레이, 명단 관리(끊김 시 정리 순서), `GET /voice/ice`(coturn HMAC) | `GameWebSocketHandler` voice 절, `ws/voice/*` | `RoomSessionRegistryVoiceTest`, `GameWebSocketHandlerTest` voice 케이스(from 스푸핑 차단, 부재 상대 무음 드롭) |
 
 - **완료 기준**: 프론트 `dev:real`로 방 생성 → 초대 참가 → 로비 표시·리액션·
   음성 명단까지 동작. `e2e:real`의 로비 스위트(방 생성+스냅샷, 게스트 join
@@ -63,6 +63,9 @@
   - 1.5에서 그중 로비 스위트를 **인프로세스로 좁혀** 옮겼다
     (`ws/__tests__/gateway.test.ts` — 진짜 소켓 + REST). 프론트 실물 검증은
     1.6·1.7까지 끝난 뒤 한 번에 한다(리액션·봇·음성 명단이 같은 화면이다).
+  - **1.7까지 끝났으므로 이 실물 검증이 지금 밀린 항목이다.** 인프로세스
+    테스트(266건)는 전부 통과하지만 프론트 `dev:real`·`e2e:real`은 아직 돌리지
+    않았다 — Phase 2 진행과 병행해 Phase 1 슬라이스를 닫는다.
 - 주의: WS 프로토콜은 room.subscribe가 아니라 **room.join**이다. Phase 0
   스켈레톤의 registry/게이트웨이를 이 계약에 맞춰 손봤다(1.5 완료).
 
@@ -74,9 +77,9 @@
 | # | 티켓 | Java 참조 | 이식할 테스트 |
 |---|---|---|---|
 | 2.1 | GameModule 인터페이스를 Java 시그니처에 정렬(start(roomCode, game)·reconnect→스냅샷 등), 레지스트리 dispatch(접두사 검증·스트립), GameLifecycleService(start→롤백, returnToLobby) | `game/module/*` | `GameModuleRegistryTest`(정규화·교차 네임스페이스 거부), `GameLifecycleServiceTest`(실패 시 롤백) |
-| 2.2 | RoundState 도메인 + RoundSubmission(+Result·Completion) — 불변 전이 전부 | `game/round/domain/*` | `RoundStateTest`(라운드 캡, 종료 후 전면 거부, withoutParticipant 규칙), `RoundSubmissionTest` |
-| 2.3 | 마감 스케줄러: 세대 카운터, **슬롯 선등록**(레이스 회귀 — 인라인 executor 테스트 필수), cancel/cancelRoom | `round/infrastructure/InMemoryRoundDeadlineScheduler` | `InMemoryRoundDeadlineSchedulerTest` 3종 전부 |
-| 2.4 | RoundStateStore 포트 + 인메모리 구현(테스트 시드, beforeStateChange 시맨틱) | `round/application/port/*`, `round/infrastructure/InMemoryRoundStateStore` | (2.5~2.7 테스트가 사용) |
+| 2.2 ✅ | RoundState 도메인 + RoundSubmission(+Result·Completion) — 불변 전이 전부 | `game/round/domain/*` | `RoundStateTest`(라운드 캡, 종료 후 전면 거부, withoutParticipant 규칙), `RoundSubmissionTest` |
+| 2.3 ✅ | 마감 스케줄러: 세대 카운터, **슬롯 선등록**(레이스 회귀 — 인라인 executor 테스트 필수), cancel/cancelRoom | `round/infrastructure/InMemoryRoundDeadlineScheduler` | `InMemoryRoundDeadlineSchedulerTest` 3종 전부 |
+| 2.4 ✅ | RoundStateStore 포트 + 인메모리 구현(테스트 시드, beforeStateChange 시맨틱) | `round/application/port/*`, `round/infrastructure/InMemoryRoundStateStore` | (2.5~2.7 테스트가 사용) |
 | 2.5 | RoundTimerService: 25s+1s 유예, touch 연동, advanceTurn 합류점, 오프라인 스킵·2턴 퇴장, removePlayer 경로 / RoundTimeoutResolver: autoRoll→카테고리 자동 기록→무득점 강등 / RoundSynchronizationService(서버 RNG 시드 시임) | `round/application/*` | `RoundTimerServiceTest`(브로드캐스트 순서, 캡 도달 시 비재무장), `RoundTimeoutResolverTest` 5종, `RoundSynchronizationServiceTest` |
 | 2.6 | 점수 파이프라인: ScoreCategory/YachtScoreCalculator/ScoreBoard 도메인, ScoreConfirmationService(서버 재계산·시그니처), **CONFIRM_SCORE Lua**(반환 코드 10종), ScoreRoundSubmissionService(원자 결합) | `game/domain/*`, `game/service/Score*`, `game/repository/RedisScoreBoardStore·Mapper` | `YachtScoreCalculatorTest`, `ScoreCategoryTest`, `ScoreBoardTest`(null vs 0), `ScoreConfirmationServiceTest`, `ScoreRoundSubmissionServiceTest`, `RedisScoreBoardStoreIntegrationTest`(멱등 재시도·동시 16건·보너스 63·스테일 매핑 차단) |
 | 2.7 | 게임 종료: FINISH_IF_COMPLETE Lua(`_` 규약·force), GameCompletionService(CAS 실패 시 무부수효과, game.over→state.sync 순서, 랭킹 1,2,2,4), 전적 보관은 no-op 스텁 | `game/repository/*CompletionStore*`, `round/application/GameCompletionService`, `game/domain/GameResultCalculator` | `RedisGameCompletionStoreIntegrationTest`(동시 8건 1승·메타 필드 비산입·로비 복귀 후 재게임), `GameCompletionServiceTest`, `GameResultCalculatorTest` |
@@ -111,7 +114,7 @@
 
 | # | 티켓 | Java 참조 | 이식할 테스트 |
 |---|---|---|---|
-| 4.1 | MySQL 배선 + 마이그레이션 도구 ADR(기준: Flyway 이력 테이블 호환, V1·V2를 적용됨으로 인식). 전환기 스키마 동결 | `application.yaml` flyway 절, `db/migration/*` | — |
+| 4.1 ✅ | MySQL 배선 + 마이그레이션 도구 ADR(기준: Flyway 이력 테이블 호환, V1·V2를 적용됨으로 인식). 전환기 스키마 동결 | `application.yaml` flyway 절, `db/migration/*` | — |
 | 4.2 | 소셜 로그인: authorize/callback/session/me/logout, state·로그인 코드 스토어(1회용 시맨틱), kakao·google 클라이언트(타임아웃·인코딩·오류 일반화), 가입 경합 처리(트랜잭션 분리) | `auth/*` | `SocialLoginServiceTest`(경합 승자 재조회 포함), `KakaoOAuthClientTest`, `GoogleOAuthClientTest` |
 | 4.3 | 프로필: GET/PATCH `/users/me`(member_only, DB+세션 dual-write) | `user/application/UserProfileService`, `UserProfileController` | `UserProfileServiceIntegrationTest` 4종 |
 | 4.4 | 전적 보관: MatchArchiveService(UTC 시계·멱등·닉네임 우선순위·users로 회원 판정) + 2.7의 스텁 교체 | `game/match/*` | `MatchArchiveServiceIntegrationTest` 4종 |
@@ -144,18 +147,18 @@
 | WS 게이트웨이·envelope·하트비트 | `handler/`, `ws/` | realtime.md | 🚧 코어 이식 완료(1.5 — room.join·구독·하트비트·presence·끊김 처리). 음성은 1.7, 게임 dispatch는 2.1 |
 | 세션·게스트·회원 | `user/` | rooms-and-sessions.md | 🚧 세션·인증 이식 완료(1.2), 프로필은 4.3 |
 | 방·Lua·파티·폐쇄 수명 | `room/` | rooms-and-sessions.md | 🚧 키·Lua 9종·스냅샷·REST·폐쇄 스케줄러·StaleRoomCleaner 이식 완료(1.3·1.4·1.5) |
-| 봇 참가자 | `room/service/BotParticipantService` | rooms-and-sessions.md | ⬜ |
+| 봇 참가자 | `room/service/BotParticipantService` | rooms-and-sessions.md | ✅ ADD/REMOVE Lua·REST·supportsBots 게이트·`state.sync` 이식 완료(1.6) |
 | 퀵매치 | `room/service/QuickMatchService` | rooms-and-sessions.md | ⬜ |
 | 게임 모듈 프레임워크 | `game/module/` | game-modules.md | 🚧 스켈레톤 + 메타데이터 카탈로그(1.3) + WS가 쓰는 훅 부분집합 `RoomGameHooks`(1.5, 모듈 없으면 대기실 대역); 시그니처 정렬·dispatch는 2.1 |
-| 라운드·타이머·타임아웃 | `game/round/` | game-modules.md | ⬜ |
+| 라운드·타이머·타임아웃 | `game/round/` | game-modules.md | 🚧 도메인·마감 스케줄러·상태 스토어 포트 이식 완료(2.2·2.3·2.4). 타이머·타임아웃 해소는 2.5 |
 | 점수 확정·조회 | `game/service/`, `game/repository/` | game-modules.md | ⬜ |
 | 재접속 스냅샷·스위퍼 | `game/round/application/` | reconnect.md | ⬜ |
 | 야추 (+봇) | `game/yacht/` | games/yacht.md | ⬜ |
 | 석양이 진다 | `game/duel/` | games/duel.md | ⬜ |
 | 탁구 (+AI 결과) | `game/pingpong/` | games/pingpong.md | ⬜ |
-| 음성 시그널링·ICE | `handler/`(voice), `ws/voice/` | voice.md | ⬜ |
+| 음성 시그널링·ICE | `handler/`(voice), `ws/voice/` | voice.md | ✅ voice.join/leave/signal 릴레이·명단·정리 순서·`GET /voice/ice`(coturn HMAC) 이식 완료(1.7) |
 | 소셜 로그인·프로필 | `auth/`, `user/` | auth.md | ⬜ |
-| 전적·주간 랭킹 | `game/match/`, `game/ranking/` | persistence.md | ⬜ |
+| 전적·주간 랭킹 | `game/match/`, `game/ranking/` | persistence.md | 🚧 MySQL 풀·Flyway 호환 마이그레이션 러너 배선 완료(4.1). 전적·랭킹 자체는 4.4·4.5 |
 | 모니터링·배포 | `monitoring/`, Jenkinsfile | operations.md | ⬜ |
 | ~~GameAbortService~~ | `game/round/application/` | game-modules.md | 🗑 데드 코드 — 이식 안 함 |
 

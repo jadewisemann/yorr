@@ -8,7 +8,7 @@
 
 | 변수 | 기본값 | 용도 |
 |---|---|---|
-| `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | 없음(필수) | MySQL |
+| `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | 없음(필수) | MySQL. ⚠️ **Java는 `DB_URL` 하나(JDBC URL)를 읽는다**(`application.yaml: url: ${DB_URL}`). 현재 `config/env.ts`는 `DB_HOST`/`DB_PORT`/`DB_NAME`으로 쪼개 놓아 **운영 `.env`가 그대로 재사용되지 않는다** — 4.2 배선에서 `DB_URL` 파싱(`jdbc:` 접두 제거)으로 정렬한다 |
 | `REDIS_HOST` / `REDIS_PORT` | 없음(필수) | Redis |
 | `REDIS_PASSWORD` | `""` | Redis |
 | `SERVER_PORT` | `8080` | 리슨 포트 |
@@ -18,14 +18,17 @@
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 구글 OAuth |
 
 Java에서 `@Value`로만 존재해 yaml에 없는 것(환경으로만 주입) — Node에서는
-env.ts에 정식 편입한다:
+env.ts에 정식 편입한다(1.7에서 완료). **이름은 제안이 아니라 Java가 실제로 읽는
+것을 그대로 쓴다**: Spring relaxed binding이 `yorr.voice.turn.secret`을 읽는
+환경변수 이름은 `YORR_VOICE_TURN_SECRET`이다(`.`·`-` → `_`, 대문자). 다른
+이름을 쓰면 운영 `.env`가 재사용되지 않는다.
 
-| 변수(제안: Java 프로퍼티 대응) | 기본값 | 용도 |
+| 변수 (Java 프로퍼티) | 기본값 | 용도 |
 |---|---|---|
-| `VOICE_TURN_SECRET` (`yorr.voice.turn.secret`) | `""` = TURN 미제공 | coturn 공유 시크릿 |
-| `VOICE_TURN_HOST` (`yorr.voice.turn.host`) | `""` = TURN 미제공 | TURN 호스트 |
-| `VOICE_STUN_URL` (`yorr.voice.stun-url`) | `stun:stun.l.google.com:19302` | STUN |
-| `VOICE_TURN_TTL_SECONDS` (`yorr.voice.turn.ttl-seconds`) | `600` | 자격 TTL |
+| `YORR_VOICE_TURN_SECRET` (`yorr.voice.turn.secret`) | `""` = TURN 미제공 | coturn 공유 시크릿 |
+| `YORR_VOICE_TURN_HOST` (`yorr.voice.turn.host`) | `""` = TURN 미제공 | TURN 호스트 |
+| `YORR_VOICE_STUN_URL` (`yorr.voice.stun-url`) | `stun:stun.l.google.com:19302` | STUN |
+| `YORR_VOICE_TURN_TTL_SECONDS` (`yorr.voice.turn.ttl-seconds`) | `600` | 자격 TTL |
 
 테스트 전용 변수(런타임은 읽지 않는다 — [ADR-0004](../adr/0004-redis-integration-test-harness.md)):
 
@@ -33,6 +36,8 @@ env.ts에 정식 편입한다:
 |---|---|---|
 | `REDIS_TEST_URL` | 없음 = 테스트가 `redis-server`를 직접 띄운다 | 이미 떠 있는 Redis로 통합 테스트를 돌린다 |
 | `REDIS_TEST_REQUIRED` | 없음 | `1`이면 Redis가 없을 때 건너뛰지 않고 실패한다. **파이프라인에 `npm test`를 넣을 때 켠다**(Phase 5) |
+| `MYSQL_TEST_URL` | 없음 = 마이그레이션 통합 테스트를 건너뛴다 | 이미 떠 있는 MySQL로 마이그레이션 러너 통합 테스트를 돌린다([ADR-0005](../adr/0005-flyway-compatible-migration-runner.md)) |
+| `MYSQL_TEST_REQUIRED` | 없음 | `1`이면 MySQL이 없을 때 건너뛰지 않고 실패한다. **파이프라인에 mysql 서비스와 함께 켠다**(Phase 5) |
 
 프로퍼티처럼 동작하는 하드코딩 상수(설정 아님 — 바꾸면 계약 변경):
 프로토콜 버전 1, 하트비트 30s/타임아웃 90s, 방 TTL 40분, 빈 방 유예 30s/게임 중
