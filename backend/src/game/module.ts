@@ -24,6 +24,16 @@ export interface GameModule {
   handle(socket: WebSocket, message: InboundEnvelope): Promise<void>
 }
 
+/**
+ * WS 코어가 게임 모듈에 요구하는 부분집합 — backend-java `GameWebSocketHandler`가
+ * `GameModule`에서 실제로 쓰는 훅들이다. 시그니처가 이미 같으므로 Phase 2.1에서
+ * 진짜 모듈이 이 자리를 그대로 채운다.
+ */
+export type RoomGameHooks = Pick<
+  GameModule,
+  'pause' | 'resume' | 'close' | 'hasState' | 'removePlayer' | 'reconnect'
+>
+
 export class GameModuleRegistry {
   private readonly modules = new Map<string, GameModule>()
 
