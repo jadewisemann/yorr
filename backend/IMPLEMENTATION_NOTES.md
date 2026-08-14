@@ -6,6 +6,405 @@
 >
 > 형식: `## YYYY-MM-DD - 주제` 아래에 불릿. 최신이 위.
 >
+## 2026-08-14 - Phase 3.2 (야추 봇)
+
+> `backend/IMPLEMENTATION_NOTES.md`에 그대로 붙일 항목들. 그 파일은 이 티켓의 소유가
+> 아니므로(병렬 작업) 오케스트레이터가 합칠 때 3.1 절 뒤에 넣으면 된다.
+
+### CPU와 이벤트 루프 — 측정하고 인라인으로 결정했다
+
+- **Java는 2스레드 데몬 풀이라 이 문제가 없었다.** Node는 단일 스레드라 Expectimax가 도는
+  동안 다른 방의 WS·하트비트·마감이 줄을 선다. "1초 예산"을 그대로 믿고 worker로 뺄지
+  판단하기 전에 **실측했다**(Xeon 2.10GHz, Node 22):
+  - `rollCount=1`(리롤 2, 전체 탐색) **14–16ms**
+  - `rollCount=2`(리롤 1) 3.5ms
+  - `rollCount=3`(탐색 없음, 12칸 평가) 0.02ms
+  - 2봇 12라운드 완주 통합 테스트 전체 0.7초(탐색 ~50회 포함)
+  → Java 테스트의 1초는 **실측의 60배 여유인 상한**이었고, "턴당 1초 CPU를 쓴다"는 전제가
+  사실이 아니었다. 이 측정이 없으면 worker 풀을 만들 근거가 있는 것처럼 보인다.
+- **결정: 인라인 + 예산을 런타임 불변식으로 승격.** 결정적 근거는 두 번째 것이다:
+  1. 끊기지 않는 최대 점유가 decide 하나(≈15ms, Ampere A1이 3배 느려도 50ms)다.
+  2. **방 사이의 양보 지점이 이미 있다.** 오케스트레이터가 모든 스텝을 `setTimeout`으로
+     예약하므로 20개 방의 봇 턴이 같은 ms에 겹쳐도 20개의 **별개 매크로태스크**가 되고
+     그 사이에 소켓 I/O가 처리된다. 최악이 "600ms 블록"이 아니라 "15ms 블록 20개"다.
+     → decide **안**을 쪼갤 이득이 작다는 뜻이다.
+  3. 부하: 봇 턴 하나가 1.2+6.5+1.5초의 지연을 쓰므로 방 하나의 무거운 탐색은 8초에 1회.
+     20방 전부 봇이어도 ≈2.5회/초 × 15ms ≈ 한 코어의 4%(A1에서 ~12%).
+- **기각한 대안의 대가**:
+  - `worker_threads`: 워커 엔트리 파일이 `src/`(vitest·tsx)와 `dist/`(빌드) 두 경로에서
+    해석돼야 하고, 풀 수명·오류 전파·테스트 대역이 붙는다. 15ms를 없애려고 살 복잡도가 아니다.
+    **대비만 해 뒀다**: `YachtBotPolicy` 포트의 반환이 `BotDecision | Promise<BotDecision>`이라
+    코디네이터를 고치지 않고 구현만 바꿀 수 있다.
+  - `setImmediate` 양보: 비용 분포가 고르지 않다(첫 킵 후보 하나가 메모의 대부분을 채운다).
+    잘게 쪼개려면 깊이 2 재귀를 명시적 작업 큐로 바꿔야 하고 **총 CPU가 늘어난다**. 1초 예산의
+    의미도 벽시계로 바뀐다.
+- **예산 강제는 Java에 없는 추가분이다.** Java의 1초는 테스트 단정뿐이고 런타임에는 무제한이다.
+  우리는 메모 미스마다 경과 시간을 보고 넘기면 `BotSearchBudgetError`로 중단 →
+  코디네이터가 `LocalYachtBotStrategy`(마이크로초급)로 폴백한다. **예산을 주입 가능**하게 둔
+  이유가 둘이다: ① 테스트가 실시간 1초를 기다리지 않고 초과 경로를 재현한다(시계 주입)
+  ② 운영 코어가 느려지면 값을 내려 점유 상한을 줄인다.
+- **재검토 조건을 문서에 박았다**: 봇 결정 p99 > 150ms, 동시 진행 방 > 30개, 또는 배포 코어
+  변경. 그때 worker로 옮긴다.
+
+### 성능 — Java를 그대로 옮기면 2배 느렸다(수정함)
+
+- Java `bestHold`는 `add(pattern, outcome)`으로 **결과마다 int[6]을 새로 만든다**. Node에서
+  그대로 하면 decide 한 번에 ~176k 배열 할당이 생겨 27–37ms였다.
+- base-6 인코딩은 **자리올림이 없다**(면당 개수 ≤ 5 < 6) → `encode(a+b) === encode(a)+encode(b)`.
+  결과 테이블에 `encoded`를 미리 넣어 두고 메모 키를 덧셈으로 만들면, **메모 적중 경로에서
+  배열을 아예 만들지 않는다**. 14–16ms로 떨어졌다(2.1배). 계산 결과는 완전히 동일하다
+  (11종 정책 테스트가 Java와 같은 킵·카테고리를 그대로 통과한다).
+
+### 발견 — Java 폴백 전략에 도달 불가 분기가 있다
+
+- `LocalYachtBotStrategy.keepMostFrequentOrHigh`의 "최빈이 단독이면 5·6만 남긴다" 분기는
+  `chooseHeld` 경로로 **도달할 수 없다**: 최빈이 단독이려면 5개가 전부 다른 면이어야 하고,
+  6면 중 5면을 고르면 어떤 면이 빠져도 4연속 창(1-4/2-5/3-6) 하나에는 반드시 3면 이상이
+  들어가 스트레이트 분기가 먼저 성립한다.
+- **그대로 옮겼다**(동작 차이를 만들지 않는다). 대신 도달 불가를 증명하는 테스트를 넣어
+  두었다(6가지 결측 면 전부) — 누가 스트레이트 임계값을 4로 올리면 그 분기가 살아나므로,
+  그때 이 노트를 다시 읽으면 된다.
+
+### Java와 달라진 곳
+
+- **`ScorecardValueEvaluator.remainingPotential(board)`는 옮기지 않았다.** Java에서
+  package-private이고 **아무도 부르지 않는다**(테스트도). 죽은 표면을 새 코드에 만들지 않았다.
+- **`ScoreChoice`/`HoldChoice`를 record 그대로 두고 비교를 순수 함수로 뺐다**(`isBetterScore`·
+  `isBetterHold`). Java의 `isBetterThan` 메서드와 1:1이고, biome의
+  `noExcessiveCognitiveComplexity`(warn, 15)도 이 분리로 넘겼다.
+- **`BotTurnStep.state`가 null이 아닌 실제 `RoundState`다.** Java 테스트는 Mockito가
+  `actions.roll`에 null을 돌려주게 두고 `acted=true`만 봤는데, 그 값이 오케스트레이터의
+  `isRollStep`(=`dice.thrown`을 쏠지) 입력이라 null로 두면 그 계약이 테스트에서 사라진다.
+  대역이 실제 상태를 돌려주게 했다.
+- **오케스트레이터의 타이머 시임은 2.3의 `DeadlineExecutor`를 재사용한다.** Java는
+  `ScheduledExecutorService`다. 요구되는 성질이 "지연 후 1회 실행 + 취소"로 동일한데
+  시임을 두 종류로 만들면 테스트 대역도 두 벌이 된다.
+- **`stop()`으로 남은 예약을 취소한다.** Java `@PreDestroy`는 `executor.shutdownNow()`뿐이다.
+  우리 예약은 `unref`돼 프로세스를 잡지 않지만, 취소가 없으면 vitest 스위트 간에 누수된다
+  (2.3에서 같은 이유로 `stop()`을 만들었다).
+- **`BotDecisionError`를 `CodedError` 계열에 넣지 않았다.** `errors.ts`의 코드 문자열은
+  REST·WS 본문에 그대로 실리는 계약인데 봇 오류는 응답이 되는 경로가 없다(코디네이터가
+  폴백하고 오케스트레이터가 삼킨다). 그 계열에 끼면 계약 표면이 넓어진다.
+
+### 숨은 계약 — 세대 가드의 방향
+
+- 굴림은 `actions.roll` → `timers.start` → `onRoundStarted`로 이어져 **자기 실행 도중에
+  세대를 올린다.** 그래서 `dice.thrown` 예약은 **그때의 최신 세대**로 걸어야 한다(Java도
+  `roomGenerations.get`을 다시 읽는다). 자기 세대로 걸면 thrown이 **항상** 스테일로 버려져
+  프론트의 원격 주사위가 공중에 떠 있게 된다 — 회귀 테스트를 넣었다.
+- 반대로 `hold`는 타이머를 다시 걸지 않아 세대가 그대로다. "관찰 후 재진입"이 자기 세대로
+  성립하는 것이 그 때문이고, 만약 `hold`가 타이머를 연장하게 바뀌면 이 재진입이 죽는다
+  (`YachtTurnActionService.hold`가 타이머를 안 건드리는 것이 여기서도 계약이다).
+- Node에서 이 재진입은 `await coordinator.executeIfCurrent(event)` **안에서** 동기적으로
+  일어난다(roll → start → onRoundStarted가 모두 같은 마이크로태스크 체인). Java의 동기
+  호출과 관측 순서가 같아 세대 비교 결과도 같다.
+
+### 미해결
+
+- **`server.ts` 배선은 오케스트레이터의 몫이다.** 조각은 실측 검증했다(server.ts에 임시로
+  넣어 `tsc --noEmit` + `biome check` + 전체 951건 통과 확인 후 **되돌렸다**). 조각은 3.2
+  보고서와 `docs/design/games/yacht.md` 「봇 배선」에 있다.
+- **`roomGenerations` 맵은 Java와 같이 정리되지 않는다** — 한 번이라도 봇 턴이 돈 roomId가
+  영구히 남는다(엔트리당 수십 바이트). Java도 같고 실사용 규모에서 무해하지만, 방 코드가
+  무한히 늘어나는 설계로 바뀌면 `cancelRoom`이 필요하다. 지금 만들면 호출자가 없는 죽은
+  표면이라 넣지 않았다.
+- **프론트 실물 검증(`e2e:real` 봇 포함 완주)은 못 했다.** 배선이 안 됐으므로 3.1과 같은
+  상태다. 지연 4종(1.2/6.5/1.5/0.6초)이 사람 눈에 맞는지는 인프로세스 테스트로 확인할 수
+  없는 종류다.
+
+## 2026-08-14 - Phase 4.6 (탁구 AI 결과)
+
+### Java와 다르게 결정한 것
+
+- **보관 서비스를 좁은 포트로 받았다**(`PingPongAiResultArchive` =
+  `archiveParticipants(input)` 하나). Java는 `MatchArchiveService`를 구체 타입으로
+  잡는다. 3.4가 협력자 7개를 전부 포트로 뒤집은 것과 같은 이유이고, 4.4의
+  `MatchArchiveService`가 **어댑터 없이 구조적으로 만족한다**(테스트에서
+  `const port: PingPongAiResultArchive = new MatchArchiveService(store)`로 고정,
+  포트 변수를 통해 실제 호출까지 한다).
+- **`UserIdentity`를 import하지 않고 `PingPongAiPlayer{userId,nickname}`로 받았다.**
+  Java 서비스는 `UserIdentity`를 직접 받는다. `src/game/**`의 **프로덕션 코드는 아직
+  `user/`를 import한 적이 없다**(테스트 한 곳뿐) — 그 경계를 새로 뚫지 않았다.
+  `UserIdentity`가 구조적으로 만족하므로 라우트는 그대로 넘긴다.
+- **본문 바인딩을 명시 함수로 뺐다**(`bindPingPongAiResult`). Spring/Jackson이 하던
+  일이라 Node에는 대응물이 없다. Jackson record 바인딩의 관용을 재현했다:
+  필드 없음/null → primitive **0**, 정수 문자열 `"11"` 허용, 소수 절단
+  (`ACCEPT_FLOAT_AS_INT` 기본 on). 3.4가 swing payload를 `nullish()`로 열어 둔 것과
+  같은 판단이다. 반환은 `{ok:true, request}` / `{ok:false}` 두 갈래 —
+  `ok:false`는 도메인 오류가 아니라 "읽을 수 없는 본문"이므로 코드 문자열이 없다.
+- **UUID 검증을 정규식으로 했다.** Java는 `UUID.fromString`의 `RuntimeException`
+  (null이면 NPE 포함)을 통째로 잡는다. `node:crypto`에 파서가 없고, `randomUUID` 형식
+  검증만 필요하므로 8-4-4-4-12 hex 정규식 + `toLowerCase()`로 같은 갈래를 만들었다
+  (Java `UUID.fromString(x).toString()`도 소문자로 정규화한다 — 테스트로 고정).
+  ⚠️ Java `UUID.fromString`은 `"1-1-1-1-1"` 같은 느슨한 형태도 받는다(자릿수를 안
+  센다). 우리 정규식은 거절한다 — **더 엄격한 유일한 지점**이고, 프론트는
+  `crypto.randomUUID()` 결과만 보내므로 실전 차이가 없다.
+
+### 재현하기로 한 quirk
+
+- **점수 재검증의 구멍**: `50:3`·`12:9`처럼 11점에서 이미 끝났어야 하는 스코어라인이
+  통과한다(`max >= 11 && |차| >= 2`만 본다). 듀스가 12:10·13:11…로 올라가 상한을
+  못박을 수 없는 것이 원인이고, 정확한 조건은 "이긴 점수가 정확히 11이거나, 11 초과면
+  2점차 정확히"다. **조이지 않았다** — 와이어 계약 동결(ADR-0002)이고 프론트가 실제로
+  보내는 값의 실측이 먼저다. 테스트로 이 허용을 명시했다(「Java와 같은 재검증의 한계」).
+- **게스트 보고도 `matches` 행을 만든다.** "게스트는 전적을 남기지 않는다"는 4.4와 같은
+  뜻으로 읽었다: 행은 쓰이지만 `user_id`가 NULL이라 **주간 랭킹·회원 전적에 오르지
+  않는다**(랭킹 질의의 `JOIN users` / `IS NOT NULL`이 빼낸다). 보관 자체를 건너뛰지
+  않은 이유 ① Java `archiveGuest`가 명시적으로 저장한다 ② 건너뛰면 `game_id` UNIQUE로
+  얻는 멱등이 게스트 경로에서 사라진다 ③ 4.4가 `archiveParticipants`를 "탁구 AI 자리"로
+  남겼다.
+- **라우트가 회원/게스트 세션을 가르지 않는다**(Java `기존_게스트_세션도…` 테스트).
+  회원 판정은 4.4가 `users` 테이블로 한다 — 타입으로 가르면 세션이 만료된 회원의
+  전적이 주인을 잃는다.
+- **중복 보고도 204다.** 보관이 false(이미 있는 `game_id`)를 돌려줘도 실패가 아니다.
+- **`Authorization` 형식 위반은 401, 공백은 게스트.** Java `bearerToken`의 갈래
+  (`isBlank` → null, 접두사 위반·`"Bearer "` 딱 7자 → 예외)를 그대로 옮겼다.
+
+### 발견 / 함정
+
+- ⚠️ **`SessionAuthenticationError`가 `DomainError`의 하위 타입**이므로 오류 매핑에서
+  먼저 잡아야 한다. 순서를 뒤집으면 401이 조용히 400 `invalid_guest_session`으로
+  바뀐다(`quickMatch.ts`가 같은 함정을 주석으로 남겨 뒀다). 401 본문이
+  `invalid_guest_session`으로 새지 않는지 보는 테스트를 따로 뒀다.
+- **Fastify 기본 JSON 파서가 Java의 `@RequestBody(required = false)`를 막는다.**
+  본문 없는 POST가 `FST_ERR_CTP_EMPTY_JSON_BODY`(400 + 프레임워크 JSON)로 핸들러
+  이전에 끝나므로 `invalid_ai_result`에 도달할 수 없다. **캡슐화된 하위 스코프**에서
+  `removeContentTypeParser(['application/json'])` + `addContentTypeParser('*')`로
+  바꿨다(`gameQueries.ts`의 score-candidates 오류 핸들러와 같은 관용).
+  - **실측으로 확인한 것: 이 교체는 부모·형제 스코프로 새지 않는다.** 같은 `/api/v1`
+    안의 다른 라우트는 기본 파서를 그대로 쓴다(라우트 테스트가 못박는다 —
+    `POST /rooms`에 빈 본문을 보내면 여전히 `FST_ERR_CTP_EMPTY_JSON_BODY`다).
+  - Fastify 5는 **`text/plain` 기본 파서를 가지고 있다**(415가 아니다). 조사 중
+    `*` 파서가 누출된 것처럼 보였던 것이 이것이었다 — 통제 실험으로 갈랐다.
+- **경로 충돌을 실측으로 확인했다.** 이 경로는 `POST /games/ping-pong/ai-results`이고
+  2.9에 **같은 세그먼트 수의 파라메트릭 POST**가 있다(`/games/:gameId/score-candidates`).
+  둘을 같은 앱에 등록한 임시 테스트로 확인: 내 라우트 204,
+  `/games/ping-pong/score-candidates` 200(find-my-way가 정적 `ping-pong` 분기에서
+  **백트래킹**해 파라메트릭으로 내려간다), `/games/abc/score-candidates` 200,
+  `GET /games/ping-pong` 200. **충돌 없음** — 등록 순서도 무관하다.
+- 이 라우트는 `game/pingpong/index.ts` 배럴을 통해 서비스를 가져온다 — 3.4가 배럴
+  주석에 예고한 대로 내부 파일 경로에 의존하지 않는다.
+- **오류 표면 확인 결과**: 방 REST(기본 404) 아님, 퀵매치(`unauthorized`) 아님,
+  조회 REST(JSON) 아님. Java `PingPongAiResultController`가
+  `ResponseEntity.status(401).body("session_expired")` + `badRequest().body(message)`
+  이므로 **프로필·auth·랭킹과 같은 plain-text 결**이고 401 문자열은 `session_expired`다.
+  프론트 `shared/api/client.ts`가 JSON 아닌 본문을 텍스트로 읽어 대문자 코드로
+  매핑하는 것과 맞는다(`INVALID_FINAL_SCORE` 등).
+
+### 테스트 — MySQL 게이트
+
+- **MySQL은 이 환경에 없다**(4.1~4.5의 관찰과 동일). `aiResultArchive.test.ts`의
+  **3건이 `MYSQL_TEST_URL` 부재로 skip**됐고 한 번도 실행되지 않았다. 실행되면 볼 것:
+  `game_id` UNIQUE로 중복 보고 차단 · 게스트/AI 행의 `user_id` NULL · 회원 행의
+  `user_id` 채움. `MYSQL_TEST_REQUIRED=1`이면 skip 대신 **실패**하는 것은 확인했다.
+- **티켓의 핵심은 게이트 밖에 있다**: 점수 재검증·UUID·게스트/회원 분기·REST 표면은
+  MySQL 없이 62건이 실제로 돌아 통과한다(서비스 36 + 라우트 26). 4.5가 "핵심은 게이트
+  밖으로"라고 남긴 것과 같은 방침이다.
+- 라우트 테스트의 세션은 **진짜 Redis**다(`describeRedis`) — "헤더 없음 = 게스트,
+  형식 위반 = 401, 게스트 세션도 자기 userId"가 세션 스토어를 지나는 판정이라
+  모킹하면 테스트가 계약을 스스로 정의해 버린다.
+
+### 오케스트레이터 조치 필요
+
+- `server.ts`에 라우트를 배선해야 한다(보고에 조각 있음). **배선 전에는
+  `POST /api/v1/games/ping-pong/ai-results`가 조용히 404**이고 프론트
+  `savePingPongAiResult`가 그대로 실패한다. 이미 만들어져 있는 `matchArchive`
+  인스턴스를 재사용해야 한다(랭킹 캐시 evict가 그 인스턴스에 붙어 있다).
+- `npx tsc --noEmit`에 **내 파일 밖의 기존 오류 3건**이 있다(4.6 이전 상태):
+  `game/yacht/bot/expectimaxYachtBotPolicy.ts(147,27)`·`(202,15)` TS2532,
+  `server.ts(70,10)` TS6133 `RealtimeGameMetrics` 미사용. 소유 밖이라 손대지 않았다.
+
+## 2026-08-14 - Phase 5 (배포 전환)
+
+Jenkins → GitHub Actions + GHCR, OCI Ampere A1(ARM64) 단일 호스트로의 전환.
+결정은 [ADR-0006](../../../home/user/yorr/backend/docs/adr/0006-github-actions-ghcr-arm64-single-host.md)
+(`backend/docs/adr/0006-github-actions-ghcr-arm64-single-host.md`), 운영 절차는
+`backend/docs/design/operations.md`의 「배포 파이프라인」 절에 있다. 여기 남기는 것은
+그 문서에 넣기엔 세부적이지만 다음 사람이 다시 파헤치지 않아야 하는 발견들이다.
+
+### 코드 변경이 필요한 발견 (src/** 읽기 전용이라 구현하지 않았다)
+
+1. **`runMigrations`에 진입점이 없다 — 빈 MySQL에서는 backend가 절대 뜨지 못한다.**
+   `main.ts`의 `verifyMigrations`는 읽기 전용이고 pending이 있으면 exit 1이다
+   (ADR-0005의 의도된 설계). 새 호스트의 MySQL은 비어 있으므로 V1·V2가 pending →
+   무한 재시작 루프. 스키마를 세우는 코드는 있는데(`runMigrations`) npm 스크립트도
+   CLI도 없고 테스트만 부른다.
+   - 임시 방편: `deploy/compose.yaml`에 `migrate` 서비스(`profiles: ["bootstrap"]`)를
+     두어 이미지 안의 `dist`로 `runMigrations`를 부른다
+     (`node --input-type=module -e "await import('/app/dist/...')"`).
+     이 방식이 실제로 동작하는 것은 확인했다(모듈 해석 + `discoverMigrations()`가
+     dist에서 `db/migration/`을 찾는 것까지).
+   - **제대로 된 해결: `package.json`에 `"migrate": "node dist/infra/migrations/cli.js"`
+     류의 스크립트 + 작은 CLI.** 별도 티켓.
+
+2. **`main.ts`의 SIGTERM 핸들러 등록이 늦다.** `createServer` → `verifyMigrations`를
+   await한 **뒤에** `process.on('SIGTERM')`을 등록한다. 컨테이너에서 node가 PID 1이면
+   핸들러 등록 전 SIGTERM은 **기본 동작이 없어 무시**되고 `docker stop`이 10초 뒤
+   SIGKILL한다. 실측으로 확인했다(아래 「검증」). 기동 수 초에만 해당하므로 치명적이지
+   않지만, 핸들러 등록을 `createServer` 호출 **전으로** 올리면 공짜로 사라진다.
+
+3. **`npm run check`가 현재 `main`에서 실패한다.** CI에 `npm run check`를 넣으면 첫날부터
+   빨간불이다. 원인은 두 가지가 섞여 있다:
+   - `biome.json`의 `$schema`가 `2.5.5`인데 lockfile이 설치하는 것은 **2.5.8**이다
+     → 버전 불일치 진단(`biome migrate`로 해결).
+   - 2.5.8의 규칙·포맷터로 재검사하면 커밋된 파일에서 **6 errors + 1 warning**:
+     `src/game/round/index.ts`(`useExportType` 2건) ·
+     `src/auth/__tests__/kakaoClient.test.ts` · `src/auth/__tests__/stores.test.ts` ·
+     `src/game/round/__tests__/roundTimerService.test.ts`(포맷).
+     대부분 `npm run format`으로 자동 수정된다.
+   - `biome.json`·`src/**`는 이 작업의 소유 범위 밖이라 손대지 않았다.
+
+4. **MySQL 통합 테스트 45건은 여전히 한 번도 실행되지 않았다.** 이 환경에 MySQL이
+   없어서다(`which mysqld` 없음). CI에 mysql:8.0 service + `MYSQL_TEST_URL`·
+   `MYSQL_TEST_REQUIRED=1`을 붙였으니 **GitHub Actions에서 처음 돈다.** SQL 문법·컬럼
+   이름 수준의 실패가 거기서 처음 드러날 수 있다 — 그게 그 자리를 만든 목적이다.
+
+### 크로스 빌드: 왜 QEMU도 ARM 러너도 필요 없는가
+
+x86 러너에서 `--platform linux/arm64` 이미지를 만들면서 에뮬레이션을 쓰지 않는다.
+컴파일·의존성 설치를 전부 `--platform=$BUILDPLATFORM` 스테이지에 두고, arm64 스테이지에는
+`RUN`이 한 줄도 없기 때문이다(COPY·ENV·USER·EXPOSE·HEALTHCHECK·CMD뿐).
+
+이게 성립하는 근거를 실제로 확인한 방법과 결과:
+
+```
+# 런타임 트리(73개)에 아키텍처 게이트·install 스크립트가 있는 패키지가 있는가
+npm ls --omit=dev --all --json  ∩  package-lock.json의 cpu/os/hasInstallScript
+→ GATED ∩ PROD: []          INSTALLSCRIPT ∩ PROD: []
+```
+
+- 락파일 전체에서 아키텍처 게이트가 걸린 패키지는 80개지만 **전부 devDependencies
+  경유**다: `@biomejs/cli-*` · `@esbuild/*` · `@rolldown/binding-*` ·
+  `lightningcss-*` · `@typescript/typescript-*`.
+- `ws`의 `bufferutil`·`utf-8-validate`는 `npm ls`에 이름이 보이지만 **optional
+  peerDependency**이고 락파일의 `packages`에 항목이 없다(`node_modules/`에도 없다).
+  즉 설치되지 않으므로 네이티브 빌드가 일어나지 않는다. — `npm ls` 출력만 보고
+  "네이티브 의존성이 있다"고 결론 내리면 틀린다.
+- 반대 방향의 발견이 더 중요하다: **`typescript@7`은 Go로 짠 네이티브 컴파일러다**
+  (`@typescript/typescript-linux-x64` / `-linux-arm64`). 즉 **빌드 도구가 아키텍처에
+  민감하다.** 컴파일 스테이지를 러너 네이티브 아키텍처에 두는 것은 속도 문제가
+  아니라 정확성 문제다. (그리고 `@typescript/*`에는 `-musl` 변종이 없다 — 정적
+  링크로 보이지만 확인할 수 없었고, 그래서 베이스를 alpine이 아니라
+  `bookworm-slim`으로 잡았다.)
+- 이 전제를 Dockerfile의 `prod-deps` 스테이지가 매 빌드마다 검사한다
+  (`find node_modules -name '*.node'` → 있으면 빌드 실패). 나중에 누가 네이티브
+  의존성을 들여와도 "arm64 호스트에서만 죽는 이미지"가 조용히 배포되지 않는다.
+
+### 검증한 것 (실측)
+
+| 확인한 것 | 방법 | 결과 |
+|---|---|---|
+| `npm run build`가 `dist/main.js`를 만든다 | 로컬 `npm run build` | ✅ exit 0 |
+| dist에서 `db/migration/` 해석 | `discoverMigrations()`를 dist 경유로 호출 | ✅ `V1__…`, `V2__…` |
+| `migrate` 서비스의 eval 방식 | `node --input-type=module -e "await import('<abs>/dist/…')"` | ✅ 모듈 해석 OK |
+| **기동 실패 = exit≠0** | MySQL 없이 `node dist/main.js` | ✅ `ECONNREFUSED` 로그 + **exit 1** |
+| PID 1 + SIGTERM 핸들러 | `unshare -rpf --mount-proc node` | ✅ 핸들러 발화, exit 0 |
+| PID 1 + 핸들러 없음 | 같은 방법 | ⚠️ **SIGTERM 무시**(대조군 비-PID1은 143) → 발견 2 |
+| `npm start`가 신호를 삼키는가 | npm에 SIGTERM → 자식 관찰 | ⚠️ **npm은 143으로 죽고 자식 node는 살아남는다.** 종료 훅 미실행 → `CMD ["node","dist/main.js"]`의 근거 |
+| compose 문법·필수 변수 | `docker compose config --quiet` | ✅ exit 0 / 변수 누락 시 exit 1 + 한글 메시지 |
+| 워크플로 YAML 파싱 | `yaml.safe_load` | ✅ jobs 3개 |
+
+### 검증하지 못한 것
+
+- **이미지를 실제로 빌드하지 못했다.** 이 환경에 Docker **클라이언트는 있지만
+  데몬이 없다**(`/var/run/docker.sock` 없음). Dockerfile은 문법·구조·전제 검증만
+  했다. 첫 `docker buildx build`는 GitHub Actions의 `image` 잡이 처음 돌 때다.
+- 워크플로를 실제로 실행하지 못했다(YAML 파싱과 `compose` 잡의 셸 명령만 로컬에서
+  똑같이 돌려 봤다).
+- `caddy reverse-proxy --from <host> --to backend:8080`의 자동 HTTPS·WS Upgrade는
+  Caddy의 문서화된 동작이지만 실제로 띄워 보지 못했다.
+- mysql:8.0 이미지의 셸에 `date -d` 같은 GNU 확장이 있는지 확인할 수 없었다 —
+  그래서 백업 루프를 cron 앵커 대신 "기동 직후 1회 + `sleep 86400`"으로 만들었다.
+  확인 없이 쓴 기능이 조용히 실패하면 "백업이 없는데 있다고 믿는" 최악의 상태가 된다.
+- linux/arm64에서의 실제 기동. 이건 OCI 호스트에서만 확인된다.
+
+### 오케스트레이터가 알아야 할 부작용
+
+- **`deploy/compose.yaml`을 다시 쓰면서 Jenkins의 backend-java 배포 경로가 깨졌다.**
+  그 Jenkinsfile은 `docker compose -f deploy/compose.yaml up backend`로 Java를
+  배포했는데, 새 파일은 외부 `app-network`를 전제하지 않고 `PUBLIC_HOST`를 요구한다.
+  → Jenkinsfile의 백엔드 스테이지 5개를 `DEPLOY_LEGACY_BACKEND`(기본 false)로 잠그고
+  트리거에서 `deploy/**`·`Jenkinsfile`을 뺐다. backend-java는 동결이라 배포할 변경이
+  없고, **이미 떠 있는 컨테이너는 그대로 돈다** — 진짜 롤백은 재배포가 아니라
+  "프론트·DNS를 새 호스트로 옮기지 않는 것"이다.
+- **프론트 Vercel 배포가 아직 Jenkinsfile에 있다.** Jenkinsfile을 지우는 티켓은
+  그것을 먼저 옮겨야 한다(GitHub Actions 또는 Vercel Git 연동).
+- **데이터 이관이 배포보다 앞선다.** 새 호스트의 MySQL은 비어 있고, 실사용자 계정·
+  전적·주간 랭킹은 구 호스트에 있다. 구 덤프를 복원하면 `flyway_schema_history`가
+  함께 와서 `verifyMigrations`가 그대로 통과한다(V1·V2가 바이트 단위로 같은 파일이라
+  체크섬이 맞는다). **빈 DB로 시작하면 데이터 유실이다.**
+- `backend/dist/`를 로컬에서 빌드해 두었다(gitignore 대상). 남아 있어도 무해하다.
+
+### 남긴 판단 근거 요약 (문서에 없는 것)
+
+- Redis AOF를 켠 이유: 방은 TTL로 사라져도 **세션은 그렇지 않다**(게스트 24h ·
+  회원 30d). 영속화를 끄면 Redis 재시작이 전원 로그아웃이다.
+  `maxmemory-policy`는 기본값 `noeviction`을 명시적으로 박았다 — LRU로 바꾸면
+  한가한 방의 세션·점수판이 조용히 사라지고, 증상이 "가끔 session_expired"라서
+  원인을 찾기 어렵다.
+- `REDIS_HOST`·`DB_HOST`·`DB_PORT`·`DB_URL`을 compose가 `env_file`보다 우선해
+  덮어쓴다. "설정은 전부 env_file"에서 벗어나는 유일한 지점이고, 구 호스트의
+  `.env`(그 `DB_URL`은 `localhost`)를 그대로 가져와도 동작하게 하려는 것이다.
+- `deploy/.env` 하나가 compose 보간과 `env_file`을 겸한다 → `MYSQL_ROOT_PASSWORD`가
+  backend 컨테이너 환경에도 보인다. 파일을 쪼개면 `DB_PASSWORD`가 두 곳에 중복돼
+  **어긋날 때 MySQL 사용자와 앱이 다른 비밀번호를 쓰는 조용한 실패**가 생기는데,
+  같은 호스트에서 그 파일을 읽을 수 있는 사람이 컨테이너 환경도 읽을 수 있으므로
+  중복 쪽 위험이 더 크다고 판단했다. `BACKEND_ENV_FILE`로 쪼갤 수는 있다.
+- `.dockerignore`를 허용 목록(`*` + `!…`)으로 쓴 이유: 거부 목록은 새 파일이 생길 때
+  **빠뜨리는 쪽으로** 실패한다(`.env`가 컨텍스트에 들어가는 사고). 허용 목록은
+  빠뜨리면 `COPY`가 즉시 실패해 시끄럽게 드러난다.
+
+## 2026-08-14 - Phase 5 (모니터링)
+
+### 이미 있던 것
+- `src/ws/registry.ts`에 `activeRoomCount()`·`activeParticipantCount(code)`가 **이미 이식돼
+  있었다**(docstring에 메트릭 이름까지 적혀 있음). Java `RoomSessionRegistry`의 같은 두
+  메서드 대응이며 테스트도 `ws/__tests__/registry.test.ts:132-139`에 있다. 그래서 이 티켓은
+  "카운터 구현"이 아니라 **노출 표면(exposition + 라우트)** 만 추가하면 되는 작업이었다.
+- 다만 `activeParticipantCount`는 `bySocket` 맵을 돈다 — `markOffline`/`remove`가 지운
+  소켓은 빠지지만 **`readyState`가 CLOSING인 소켓(아직 close 이벤트 전)은 여전히 포함**된다.
+  Java도 같다(`bySession` 순회, 세션 open 여부 미확인)이므로 그대로 뒀다. 오차는 소켓
+  close 전파까지의 수백 ms 창이며, 게이지 용도로는 무해하다. 레지스트리는 이 티켓 소유가
+  아니라 손대지 않았다.
+
+### 의존성 판단 — prom-client 안 씀 (의존성 0)
+- 노출 대상이 게이지 2개(태그 1종, 계열 4개)뿐이고 histogram/summary/exemplar가 없다.
+  텍스트 형식은 `# HELP`/`# TYPE` 2줄 + `name{tag="v"} value`가 전부라 렌더러가 40줄이다
+  (`src/monitoring/exposition.ts`).
+- ADR-0003의 기조(ORM·NestJS를 "이 규모에 과하다"로 뺀 것)와 일치. 계약은 이름·태그이므로
+  렌더러 구현이 무엇이든 스크레이퍼가 보는 바이트는 같다.
+- 판단 기준을 문서에 남겼다: **집계가 필요한 계측(지연 히스토그램·레이트)이 생기면** 그때
+  `prom-client`를 별도 티켓으로 도입하고 `exposition.ts`를 대체한다. 지금 넣으면 default
+  메트릭(process_*·nodejs_*)까지 함께 나와 Java와 노출 표면이 달라진다는 부작용도 있다.
+
+### 미설정 시 404가 아니라 503
+`registerHealthRoutes(app, deps)`의 `metrics`를 **선택**으로 뒀다(server.ts가 이 티켓
+소유가 아니라 필수로 만들면 다른 에이전트의 typecheck를 깬다). 대신 배선이 없으면
+`/actuator/prometheus`가 503 + `metrics_unavailable`을 낸다 — 200/빈 본문으로 조용히
+성공하는 것이 이 저장소의 상습 실패(배선 누락)에서 최악이라서다. auth 라우트의 "미설정은
+404가 아니라 503" 규약과 같은 결론.
+
+### server.ts 배선 (오케스트레이터 몫)
+`await registerHealthRoutes(app)` → 아래로 교체. `registry`·`games`는 이미 위에서 만든
+그 인스턴스여야 한다(새로 만들면 게이지가 영구히 0인데 타입·테스트는 통과한다).
+
+```ts
+import { RealtimeGameMetrics } from './monitoring/index.js'
+// ...
+await registerHealthRoutes(app, {
+  metrics: new RealtimeGameMetrics({ presence: registry, games }),
+})
+```
+
+`serverWiring.test.ts`에 회귀 고정이 필요하면: PLAYING 방 + 소켓 하나를 만든 뒤
+`GET /actuator/prometheus`가 `yorr_rooms_active 1`을 포함하는지 보면 된다(배선을 빼면
+503이 되어 깨진다).
+
+### 남은 것
+- Phase 5의 Dockerfile·Jenkinsfile·부하 검증은 다른 에이전트/티켓.
+- `docs/design/operations.md` 「모니터링」에 Node 구현 절(5.3)을 추가했다. PLANS.md는
+  소유 밖이라 수정하지 않았고 갱신안만 보고했다.
+
 > ⚠️ **승격 부채**: 마이그레이션이 티켓 20개를 한꺼번에 지나오면서 이 파일이
 > 1,300줄을 넘었다. 각 티켓의 설계 문서(`docs/design/*.md`)는 그때그때 갱신됐지만,
 > 여기 남은 항목 중 **영구 지식으로 승격하고 지워야 할 것**을 걸러내는 작업은

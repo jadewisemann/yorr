@@ -100,7 +100,7 @@
 | # | 티켓 | Java 참조 | 이식할 테스트 |
 |---|---|---|---|
 | 3.1 ✅ | `game/yacht/`: 모듈(5메시지 라우팅·오류 매핑·roomId 검증), RedisYachtDiceStateStore(락·SETNX·TTL 복사·스냅샷 직렬화), YachtTurnActionService, dice 릴레이(shake 무음/throw 오류 비대칭), msgId 에코 규약 | `game/yacht/*` (봇 제외) | `YachtTurnActionServiceTest`, `RedisYachtDiceStateStoreIntegrationTest`(동시 1건), `GameWebSocketHandlerTest`의 dice·submit 케이스 |
-| 3.2 | 야추 봇: 오케스트레이터(세대 가드·지연 4종), 코디네이터(TurnVersion·킵 재사용), Expectimax(정확 확률·메모·1초 예산), Local 폴백 | `game/yacht/Bot*`·`*Policy`·`*Strategy`, `ScorecardValueEvaluator` | `BotTurnOrchestratorTest`, `YachtBotTurnCoordinatorTest` 8종, `ExpectimaxYachtBotPolicyTest`(1초 예산 포함), `LocalYachtBotStrategyTest`, `ScorecardValueEvaluatorTest`, `YachtBotGameCompletionTest`(2봇 완주) |
+| 3.2 ✅ | 야추 봇: 오케스트레이터(세대 가드·지연 4종), 코디네이터(TurnVersion·킵 재사용), Expectimax(정확 확률·메모·1초 예산), Local 폴백 | `game/yacht/Bot*`·`*Policy`·`*Strategy`, `ScorecardValueEvaluator` | `BotTurnOrchestratorTest`, `YachtBotTurnCoordinatorTest` 8종, `ExpectimaxYachtBotPolicyTest`(1초 예산 포함), `LocalYachtBotStrategyTest`, `ScorecardValueEvaluatorTest`, `YachtBotGameCompletionTest`(2봇 완주) |
 | 3.3 ✅ | `game/duel/`: DuelRules(판정·파울·캡), 상태 스토어(version 비증가 무시), 스케줄링(version 키), forfeit, 점수=잔탄 | `game/duel/*` | `DuelRulesTest` 12종 전부 |
 | 3.4 ✅ | `game/pingpong/`: PingPongRules(궤적·판정 창·judgedAt 120ms), 준비 게이트, 서브 로테이션, PREPARING 이탈 취소 시퀀스 | `game/pingpong/*` (AI REST 제외) | `PingPongRulesTest` 7종, `PingPongGameServiceTest`(취소 순서) |
 | 3.5 ✅ | 퀵매치: 큐·락·매칭(최장 대기 host·롤백), **전원 소켓 라이브 조건 자동 시작**, 상태 폴링 자기 치유 | `room/service/QuickMatchService`, `QuickMatchController` | `QuickMatchServiceIntegrationTest` 8종(소켓 조건·티켓 소비·FINISHED 자기 치유 포함) |
@@ -119,25 +119,62 @@
 | 4.3 ✅ | 프로필: GET/PATCH `/users/me`(member_only, DB+세션 dual-write) | `user/application/UserProfileService`, `UserProfileController` | `UserProfileServiceIntegrationTest` 4종 |
 | 4.4 ✅ | 전적 보관: MatchArchiveService(UTC 시계·멱등·닉네임 우선순위·users로 회원 판정) + 2.7의 스텁 교체 | `game/match/*` | `MatchArchiveServiceIntegrationTest` 4종 |
 | 4.5 ✅ | 주간 랭킹: KST 월요일 경계→UTC 변환, 회원 최고점 집계, 내 순위, 캐시(키 규약·전체 evict), REST(무인증 목록/204/member_only) | `game/ranking/*`, `CacheConfig` | `WeeklyRankingServiceTest`(경계 초 단위), `WeeklyRankingQueryIntegrationTest`(게스트 제외·캐시 3종·동율), `RankingControllerTest` |
-| 4.6 | 탁구 AI 결과 REST(점수 재검증·UUID·게스트/회원 분기) | `game/pingpong/PingPongAiResult*` | `PingPongAiResultServiceTest`, `PingPongAiResultControllerTest` |
+| 4.6 ✅ | 탁구 AI 결과 REST(점수 재검증·UUID·게스트/회원 분기) | `game/pingpong/PingPongAiResult*` | `PingPongAiResultServiceTest`, `PingPongAiResultControllerTest` |
 
 - **완료 기준**: 소셜 로그인 → 게임 → 전적·랭킹 조회가 실 DB로 동작.
 
 ### Phase 5 — 운영 전환
 
-근거 문서: [operations.md](docs/design/operations.md).
+근거 문서: [operations.md](docs/design/operations.md) ·
+[ADR-0006](docs/adr/0006-github-actions-ghcr-arm64-single-host.md).
 
-- [ ] Dockerfile(멀티스테이지: `npm run build` → dist 실행) · compose 통합,
-      `.env.{main|dev}` 재사용 확인, 기동 실패 시 exit≠0 (sleep 15 검증 통과 조건)
-- [ ] Jenkinsfile: changeset `backend-java/**` → `backend/**` 전환(5곳),
-      빌드 스테이지 교체(gradle → npm ci/check/typecheck/test/build).
-      테스트 스테이지에는 `redis-server`와 `REDIS_TEST_REQUIRED=1`이 필요하다
-      ([ADR-0004](docs/adr/0004-redis-integration-test-harness.md))
-- [ ] 모니터링: `/actuator/health` 유지, `/actuator/prometheus`에
+호스트가 SSAFY EC2 → **Oracle Cloud Always Free(Ampere A1, 2 OCPU/12GB, ARM64)** 로
+바뀌었다. coturn/TURN은 배포하지 않기로 정했다(음성은 STUN만 — `YORR_VOICE_TURN_SECRET`이
+비면 코드가 자동으로 STUN-only다). 그래서 열 포트는 80·443뿐이다.
+
+- [x] **5.1 배포 전환**: `backend/Dockerfile`(4스테이지 크로스 빌드, linux/arm64,
+      non-root, `CMD ["node","dist/main.js"]`) · `.dockerignore` ·
+      `deploy/compose.yaml`(backend·caddy·redis·mysql·mysql-backup·migrate,
+      MySQL 볼륨 + 일일 덤프). 기동 실패 시 exit≠0 · PID 1 SIGTERM 발화 ·
+      크로스 빌드 전제(런타임 의존성에 네이티브 게이트 0) 실측 확인.
+      ⚠️ **이미지를 실제로 빌드하지 못했다**(작업 환경에 Docker 데몬 없음) —
+      첫 `docker buildx build`는 GHA의 `image` 잡이다. Caddy TLS·WS Upgrade·
+      arm64 실기동도 미검증.
+- [x] **5.2 CI: Jenkins → GitHub Actions**(`.github/workflows/backend.yml`).
+      `redis-server` + `REDIS_TEST_REQUIRED=1`([ADR-0004](docs/adr/0004-redis-integration-test-harness.md)),
+      mysql:8.0 service + `MYSQL_TEST_REQUIRED=1`([ADR-0005](docs/adr/0005-flyway-compatible-migration-runner.md)).
+      `Jenkinsfile`은 프론트 Vercel 배포가 아직 거기 있어 존치하고 백엔드 스테이지
+      5개를 `DEPLOY_LEGACY_BACKEND`(기본 false)로 잠갔다 — compose 재작성이 Java
+      배포 경로를 깼기 때문이다. **진짜 롤백 수단은 프론트·DNS를 옮기지 않는 것**이다.
+- [x] **5.3 모니터링**: `/actuator/health` 유지, `/actuator/prometheus`에
       `yorr_rooms_active`·`yorr_game_participants_active{game}` 동일 노출
+      (`monitoring/` + `http/routes/health.ts`, **의존성 0**의 자체 렌더러).
+      배선 누락 시 404가 아니라 503이다.
+- [ ] **머지 전 선행 차단 항목** — 배포하려면 먼저:
+      - [ ] `package.json`에 `migrate` 스크립트 + 마이그레이션 CLI.
+            **`runMigrations`에 진입점이 없어 빈 MySQL에서는 backend가 뜨지 못한다**
+            (compose의 `migrate` 서비스는 임시 우회다)
+      - [ ] **구 호스트 MySQL 덤프 → 새 호스트 복원.** 실사용자 계정·전적·랭킹이
+            구 호스트에 있다. 덤프를 복원하면 `flyway_schema_history`가 함께 와서
+            `verifyMigrations`가 통과한다(V1·V2 바이트 동일).
+            **빈 DB로 시작 = 데이터 유실**
+      - [ ] OCI 호스트 준비: Security List/NSG에 80·443 ingress ·
+            `PUBLIC_HOST` A/AAAA 레코드 · `deploy/.env`(600) 배치 · GHCR 인증 ·
+            `${BACKUP_DIR}`를 호스트 밖으로 주기 복사
+- [ ] **MySQL 통합 48건 첫 실행 결과 확인.** 작업 환경에 MySQL 바이너리도 docker
+      데몬도 없어 한 번도 실행되지 않았다 — GHA에서 처음 돈다. **주간 랭킹 집계는
+      SQL 문법과 `ONLY_FULL_GROUP_BY` 호환성조차 미검증**이다.
+- [ ] **프론트 `e2e:real` 통과.** Phase 3의 완료 기준이며 배선이 방금 들어갔으므로
+      3.1·3.3·3.4·3.5는 아직 닫히지 않았다.
 - [ ] 부하·재접속 시나리오 검증(하트비트 타임아웃, 유예 close, 소켓 교체,
-      StaleRoomCleaner 부팅 동작), 트래픽 전환
-- [ ] backend-java 제거 + GAME_SESSION_INTEGRATION.md 등 낡은 문서 정리 (별도 PR)
+      StaleRoomCleaner 부팅 동작). 상시 50명 규모에서 봇 Expectimax의 이벤트 루프
+      점유를 함께 본다(3.2 실측 기준 decide 1회 14~16ms — 재검토 조건은
+      [games/yacht.md](docs/design/games/yacht.md)).
+- [ ] 트래픽 전환. **무중단 롤링은 원리적으로 불가능하다**(DESIGN 원칙 8 — WS 구독·
+      타이머가 인메모리라 2대로 늘릴 수 없고, 재시작이 진행 중 게임을 끊는다).
+      남는 완화책은 시각 선택뿐이라 배포를 자동으로 걸지 않았다.
+- [ ] backend-java 제거 + 프론트 Vercel 배포 이전 + `Jenkinsfile` 삭제
+      + GAME_SESSION_INTEGRATION.md 등 낡은 문서 정리 (별도 PR)
 - **완료 기준**: 운영 도메인이 Node 백엔드를 서빙하고 한 주간 무회귀.
 
 ## 상태 표
@@ -153,13 +190,13 @@
 | 라운드·타이머·타임아웃 | `game/round/` | game-modules.md | ✅ 도메인·마감 스케줄러·스토어 포트(2.2~2.4) + 타이머·타임아웃 해소·동기화 서비스(2.5) 이식 완료. 바깥 계층은 좁은 포트로 역전 — 점수·게임 종료는 2.6·2.7이 구현 |
 | 점수 확정·조회 | `game/service/`, `game/repository/` | game-modules.md | ✅ 점수 도메인·CONFIRM_SCORE Lua(반환 코드 10종)·확정 서비스·라운드 원자 결합(2.6) + 게임 종료·랭킹(2.7) + 조회 REST(2.9) 이식·배선 완료 |
 | 재접속 스냅샷·스위퍼 | `game/round/application/` | reconnect.md | ✅ 재접속 스냅샷(rollCount·dice·held 동봉, scores는 Map→객체 정규화 — Java 그대로면 버그였다) + OrphanedRoundStateSweeper(5분, cancel→remove, `listen()`에서 기동) 이식·배선 완료(2.8) |
-| 야추 (+봇) | `game/yacht/` | games/yacht.md | 🚧 모듈·`RedisYachtDiceStateStore`(운영 라운드 저장소)·`YachtTurnActionService`·dice 릴레이 비대칭·`start`의 `markPhase('playing')` 이식·배선 완료(3.1, 66건). **프론트 e2e:real 미검증**, 봇은 3.2 |
+| 야추 (+봇) | `game/yacht/` | games/yacht.md | 🚧 모듈·`RedisYachtDiceStateStore`(운영 라운드 저장소)·`YachtTurnActionService`·dice 릴레이 비대칭·`markPhase('playing')`(3.1) + 봇 스택(3.2 — 지연 4종·세대 가드·TurnVersion·Expectimax **예산 강제**·Local 폴백·2봇 완주) 이식·배선 완료, 총 120건. **프론트 e2e:real 미검증** |
 | 석양이 진다 | `game/duel/` | games/duel.md | 🚧 DuelRules(판정·파울·캡)·상태 스토어(version 비증가 무시)·version 키 스케줄링·forfeit·점수=잔탄 이식·배선 완료(3.3, `DuelRulesTest` 12종 전부). **프론트 e2e:real 미검증** |
-| 탁구 (+AI 결과) | `game/pingpong/` | games/pingpong.md | 🚧 규칙(궤적·판정 창·judgedAt)·상태 스토어·서비스·모듈 이식·배선 완료(3.4, `PingPongRulesTest` 7종 + 취소 순서). **프론트 e2e:real 미검증**. AI 결과 REST는 4.6 |
+| 탁구 (+AI 결과) | `game/pingpong/` | games/pingpong.md | 🚧 규칙(궤적·판정 창·judgedAt)·상태 스토어·서비스·모듈(3.4) + AI 결과 REST(4.6 — 점수 재검증의 구멍까지 재현, 게스트는 `user_id` NULL) 이식·배선 완료. **프론트 e2e:real 미검증** · 실 MySQL 3건 미실행 |
 | 음성 시그널링·ICE | `handler/`(voice), `ws/voice/` | voice.md | ✅ voice.join/leave/signal 릴레이·명단·정리 순서·`GET /voice/ice`(coturn HMAC) 이식 완료(1.7) |
 | 소셜 로그인·프로필 | `auth/`, `user/` | auth.md | 🚧 소셜 로그인 이식 완료(4.2 — authorize/callback/session/me/logout, state·로그인 코드 1회용, kakao·google, 가입 경합 재조회). MySQL 통합 6건은 `MYSQL_TEST_URL` 부재로 **미실행**. 프로필은 4.3 |
 | 전적·주간 랭킹 | `game/match/`, `game/ranking/` | persistence.md | 🚧 MySQL 풀·Flyway 호환 러너(4.1) + 전적 보관(4.4 — 멱등·닉네임 우선순위·users로 회원 판정) + 주간 랭킹(4.5 — KST 경계·집계·캐시·REST) 이식 완료. **MySQL 집계·저장 통합 22건은 `MYSQL_TEST_URL`·docker 부재로 미실행 — SQL 문법조차 미검증**. 배선 완료 |
-| 모니터링·배포 | `monitoring/`, Jenkinsfile | operations.md | ⬜ |
+| 모니터링·배포 | `monitoring/`, Jenkinsfile | operations.md | 🚧 게이지 2종 이식·배선 완료(5.3 — `prom-client` 없이 텍스트 노출, 16건) + 배포 전환(5.1 — Dockerfile arm64 크로스 빌드·compose 전체 스택·GHA+GHCR, [ADR-0006](docs/adr/0006-github-actions-ghcr-arm64-single-host.md)). **이미지 실빌드·arm64 실기동·MySQL 통합 48건 미검증** |
 | ~~GameAbortService~~ | `game/round/application/` | game-modules.md | 🗑 데드 코드 — 이식 안 함 |
 
 ⬜ Java에만 있음 · 🚧 이식 중 · ✅ 이식 완료(테스트 포함) · 🗑 이식 불필요(사유 기록)
