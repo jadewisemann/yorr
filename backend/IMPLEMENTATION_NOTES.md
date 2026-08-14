@@ -6,6 +6,25 @@
 >
 > 형식: `## YYYY-MM-DD - 주제` 아래에 불릿. 최신이 위.
 
+## 2026-08-14 - Phase 1.4 (방 REST)
+
+- **헤더 누락은 401로 처리한다**(Java는 Spring `@RequestHeader` 필수 검증에
+  걸려 400 + Spring 오류 JSON). 프론트는 두 헤더를 항상 같이 보내므로 실제
+  클라이언트에는 차이가 없고, Spring 기본 오류 본문을 흉내 내는 것은 계약이
+  아니라 프레임워크 흔적이다 — 재현하지 않기로 결정.
+- `GameLifecycleService`를 Phase 2.1보다 먼저 얇게 만들었다. 지금은 카탈로그의
+  minPlayers만 읽고 phase를 옮긴다. 모듈 훅(start/reset/removePlayer)이 붙는
+  자리를 주석으로 고정해 뒀고 **라우트는 2.1에서 바뀌지 않는다**.
+- `POST /rooms`는 `catch (IllegalStateException)`이 아니라 실패 종류로 상태
+  코드가 갈린다: `invalid_nickname`·`invalid_game_code`만 400, 나머지
+  `DomainError`는 404, `ConflictError`는 409. `errorResponse.ts` 한 곳에 모았다.
+- `POST /rooms/{code}/games`는 **ConflictError만** 409로 내린다. 방에 모르는
+  gameCode가 적혀 있으면 Java와 같이 500으로 나간다(카탈로그 조회가 던진다) —
+  우리가 만들 수 없는 상태라 그대로 뒀다.
+- `createServer(env, { redis, logger })`로 Redis를 주입할 수 있게 했다. REST
+  통합 테스트가 하네스 Redis 위에서 `app.inject()`로 도는 근거다(모킹 없이
+  Lua·TTL까지 같은 경로로 검증된다).
+
 ## 2026-08-14 - Phase 1.3 (방 도메인)
 
 - **`RoomCreateService` + `RoomValidationService` → `RoomService` 하나로 합쳤다.**

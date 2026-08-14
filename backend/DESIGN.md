@@ -123,6 +123,10 @@ backend-java의 오류 표면은 세 가지 형식이 섞여 있고, **이 모�
 상세 표는 각 하위 시스템 문서에 있다. 새 오류를 추가하거나 형식을 통일하는 일은
 마이그레이션 범위 밖이다(계약 동결).
 
+구현: 도메인은 `errors.ts`의 `DomainError`(Java `IllegalArgumentException` 자리,
+400/404) · `ConflictError`(`IllegalStateException` 자리, 409)로 코드 문자열을
+던지고, `http/errorResponse.ts`가 상태 코드와 plain-text 본문으로 옮긴다.
+
 ## 운영 계약 (변경 시 배포 파이프라인과 함께)
 
 - 헬스체크: `GET /actuator/health` → `{"status":"UP"}` (Spring Actuator 경로 유지)
