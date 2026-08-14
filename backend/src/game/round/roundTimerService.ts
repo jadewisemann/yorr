@@ -259,11 +259,7 @@ export class RoundTimerService {
     }
     if (state.activePlayerId === playerId) {
       // 진행 중인 자기 턴은 만료 경로로 넘겨 라운드 완료·게임 종료 판정을 한 곳에 유지한다.
-      const expired = await this.synchronizationService.expire(
-        roomId,
-        state.roundNumber,
-        playerId,
-      )
+      const expired = await this.synchronizationService.expire(roomId, state.roundNumber, playerId)
       const updated = await this.synchronizationService.removeParticipant(roomId, playerId)
       if (expired !== undefined && updated !== undefined) {
         await this.advanceTurn(roomId, {

@@ -82,7 +82,11 @@ export const registerAuthRoutes = async (
       try {
         // Java와 같은 순서다: state를 먼저 발급하고 URL을 만든다. 미설정 제공자에서는
         // 쓰이지 않는 state가 하나 남지만 5분 뒤 사라진다(동작 계약은 503 그대로).
-        const url = route.authorizeUrl(deps, await deps.state.issue(), prompt === route.reauthPrompt)
+        const url = route.authorizeUrl(
+          deps,
+          await deps.state.issue(),
+          prompt === route.reauthPrompt,
+        )
         return redirect(reply, url)
       } catch (error) {
         if (!(error instanceof SocialLoginError)) throw error

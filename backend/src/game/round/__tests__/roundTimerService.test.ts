@@ -14,8 +14,8 @@ import {
 import {
   EXPIRY_GRACE_MS,
   ROUND_DURATION_MS,
-  RoundTimerService,
   type RoundStartedEvent,
+  RoundTimerService,
 } from '../roundTimerService.js'
 import {
   FakeGameCompletion,
@@ -265,7 +265,10 @@ describe('RoundTimerService', () => {
     const expired = await synchronizationService.expire('room-a', 1, 'player-b')
     broadcaster.reset()
 
-    await timerService.advanceTurn('room-a', { score: null, round: expired as RoundSubmissionResult })
+    await timerService.advanceTurn('room-a', {
+      score: null,
+      round: expired as RoundSubmissionResult,
+    })
 
     expect(broadcaster.typesFor('room-a')).toEqual([
       'game.yacht_dice.round.end',

@@ -23,9 +23,7 @@ interface Call {
   readonly init: RequestInit | undefined
 }
 
-const stubFetch = (
-  responses: Response[],
-): { fetch: FetchLike; calls: Call[] } => {
+const stubFetch = (responses: Response[]): { fetch: FetchLike; calls: Call[] } => {
   const calls: Call[] = []
   const queue = [...responses]
   return {
@@ -121,7 +119,8 @@ describe('KakaoOAuthClient', () => {
     expect(form.get('client_secret')).toBe('secret')
     // 토큰은 프로필 조회에만 쓰고 저장하지 않는다.
     expect(calls[1]?.url).toBe('https://kapi.kakao.com/v2/user/me')
-    expect((calls[1]?.init?.headers as Record<string, string>).authorization).toBe('Bearer access-1')
+    const profileHeaders = calls[1]?.init?.headers as Record<string, string> | undefined
+    expect(profileHeaders?.authorization).toBe('Bearer access-1')
   })
 
   /** secret을 "사용 안 함"으로 둔 앱에 secret을 보내면 카카오가 거절한다. */

@@ -218,9 +218,7 @@ interface ConfirmationCommand {
  * `beforeStateChange` 안에서 점수를 확정하고, 확정이 던지면 그 예외가 그대로 올라와
  * 라운드 상태는 무변화로 남는다(제출자가 미제출로 남아 재시도할 수 있다).
  */
-class FakeScoreRoundSubmissionService
-  implements ScoreRoundSubmissionPort<RoundSubmissionResult>
-{
+class FakeScoreRoundSubmissionService implements ScoreRoundSubmissionPort<RoundSubmissionResult> {
   readonly confirmed: ConfirmationCommand[] = []
   failure: Error | null = null
 

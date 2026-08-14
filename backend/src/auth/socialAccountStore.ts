@@ -135,12 +135,10 @@ export class MysqlSocialAccountStore implements SocialAccountRepository, SocialA
             ? profileImageUrl
             : current.profileImageUrl,
       }
-      await conn.query('UPDATE users SET nickname = ?, profile_image_url = ?, updated_at = ? WHERE id = ?', [
-        adopted.nickname,
-        adopted.profileImageUrl,
-        this.now(),
-        adopted.id,
-      ])
+      await conn.query(
+        'UPDATE users SET nickname = ?, profile_image_url = ?, updated_at = ? WHERE id = ?',
+        [adopted.nickname, adopted.profileImageUrl, this.now(), adopted.id],
+      )
       return adopted
     })
   }

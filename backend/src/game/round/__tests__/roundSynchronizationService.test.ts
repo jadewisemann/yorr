@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { isRoundSyncError } from '../roundErrors.js'
 import { InMemoryRoundStateStore } from '../roundStateStore.js'
-import {
-  RoundSynchronizationService,
-  seededDieRoller,
-} from '../roundSynchronizationService.js'
+import { RoundSynchronizationService, seededDieRoller } from '../roundSynchronizationService.js'
 
 /**
  * backend-java `RoundSynchronizationServiceTest`의 이식.

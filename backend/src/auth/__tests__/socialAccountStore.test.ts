@@ -70,7 +70,11 @@ describeMysql('MysqlSocialAccountStore (실 MySQL)', () => {
     const adopted = await accounts.adoptProviderProfile(placeholder.id, '진짜닉', 'https://img')
     const untouched = await accounts.adoptProviderProfile(named.id, '제공자이름', 'https://img')
 
-    expect(adopted).toEqual({ id: placeholder.id, nickname: '진짜닉', profileImageUrl: 'https://img' })
+    expect(adopted).toEqual({
+      id: placeholder.id,
+      nickname: '진짜닉',
+      profileImageUrl: 'https://img',
+    })
     expect(untouched.nickname).toBe('내가정한이름')
     expect(untouched.profileImageUrl).toBeNull()
   })
@@ -83,10 +87,9 @@ describeMysql('MysqlSocialAccountStore (실 MySQL)', () => {
 
     const user = await accounts.register('KAKAO', 'utc-1', '시계', null)
 
-    const [rows] = await pool.query<RowDataPacket[]>(
-      'SELECT created_at FROM users WHERE id = ?',
-      [user.id],
-    )
+    const [rows] = await pool.query<RowDataPacket[]>('SELECT created_at FROM users WHERE id = ?', [
+      user.id,
+    ])
     expect(new Date(String(rows[0]?.created_at)).toISOString()).toBe('2026-08-14T01:02:03.000Z')
   })
 })

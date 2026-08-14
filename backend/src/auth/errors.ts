@@ -15,11 +15,7 @@ export class SocialLoginError extends Error {
    *   **클라이언트로 나가지 않는다** — 제공자 응답 본문에 클라이언트 키가 섞여
    *   나올 수 있어서 일반화한 `reason`만 내보낸다.
    */
-  constructor(
-    reason: SocialLoginReason,
-    detail: string = reason,
-    options?: { cause?: unknown },
-  ) {
+  constructor(reason: SocialLoginReason, detail: string = reason, options?: { cause?: unknown }) {
     super(detail, options)
     this.name = 'SocialLoginError'
     this.reason = reason

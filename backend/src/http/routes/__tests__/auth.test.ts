@@ -178,7 +178,9 @@ describeRedis('소셜 로그인 REST', () => {
 
   it('prompt는 제공자별 문자열이 정확히 맞을 때만 전달된다', async () => {
     const kakao = await app.inject({ url: '/api/v1/auth/kakao/authorize?prompt=login' })
-    const kakaoOther = await app.inject({ url: '/api/v1/auth/kakao/authorize?prompt=select_account' })
+    const kakaoOther = await app.inject({
+      url: '/api/v1/auth/kakao/authorize?prompt=select_account',
+    })
     const google = await app.inject({ url: '/api/v1/auth/google/authorize?prompt=select_account' })
 
     expect(String(kakao.headers.location)).toContain('prompt=login')

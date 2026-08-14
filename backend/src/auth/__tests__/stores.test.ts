@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { useRedis, describeRedis } from '../../../test/redisHarness.js'
+import { describeRedis, useRedis } from '../../../test/redisHarness.js'
 import { LOGIN_CODE_TTL_SECONDS, LoginCodeStore } from '../loginCodeStore.js'
 import { OAUTH_STATE_TTL_SECONDS, OAuthStateStore } from '../stateStore.js'
 

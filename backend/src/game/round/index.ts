@@ -15,6 +15,21 @@ export {
   RoundSynchronizationError,
   type RoundSyncReason,
 } from './roundErrors.js'
+export type {
+  ConfirmedScore,
+  DiceHoldPayload,
+  DiceRollPayload,
+  GameCompletionPort,
+  OpenCategoriesPort,
+  RoundBroadcaster,
+  RoundOutboundEnvelope,
+  RoundPresence,
+  RoundRoomService,
+  RoundRoomSnapshot,
+  RoundSubmitPayload,
+  ScoreRoundSubmissionOutcome,
+  ScoreRoundSubmissionPort,
+} from './roundPorts.js'
 export {
   DEFAULT_TOTAL_ROUNDS,
   MAX_ROLL_COUNT,
@@ -31,36 +46,21 @@ export {
   type SubmittableCategory,
 } from './roundSubmission.js'
 export {
-  type ConfirmedScore,
-  type DiceHoldPayload,
-  type DiceRollPayload,
-  type GameCompletionPort,
-  type OpenCategoriesPort,
-  type RoundBroadcaster,
-  type RoundOutboundEnvelope,
-  type RoundPresence,
-  type RoundRoomService,
-  type RoundRoomSnapshot,
-  type RoundSubmitPayload,
-  type ScoreRoundSubmissionOutcome,
-  type ScoreRoundSubmissionPort,
-} from './roundPorts.js'
-export {
   type DieRoller,
-  randomDieRoller,
   RoundSynchronizationService,
   type RoundSynchronizationServiceOptions,
+  randomDieRoller,
   seededDieRoller,
 } from './roundSynchronizationService.js'
 export {
   advancedResolution,
   autoRolledResolution,
   type CategoryPicker,
+  type RoundTimeoutResolution,
   RoundTimeoutResolver,
   type RoundTimeoutResolverDeps,
   type RoundTimeoutResolverOptions,
   type RoundTimeoutResolverPort,
-  type RoundTimeoutResolution,
   staleResolution,
 } from './roundTimeoutResolver.js'
 export {

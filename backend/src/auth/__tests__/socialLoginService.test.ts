@@ -22,7 +22,9 @@ const member = (nickname: string, id = `user-${nickname}`): MemberUser => ({
 })
 
 /** 호출마다 다른 결과를 주는 조회 — 경합 재조회(없음 → 있음)를 흉내 낸다. */
-const repository = (...results: (MemberUser | undefined)[]): SocialAccountRepository & {
+const repository = (
+  ...results: (MemberUser | undefined)[]
+): SocialAccountRepository & {
   calls: number
 } => {
   const queue = [...results]
@@ -80,7 +82,11 @@ describe('SocialLoginService', () => {
    */
   it('임시 이름으로 가입된 회원은 진짜 이름을 받으면 갱신한다', async () => {
     const placeholder = member(PLACEHOLDER_NICKNAME, 'user-1')
-    const renamed: MemberUser = { id: 'user-1', nickname: '진짜닉네임', profileImageUrl: 'https://img' }
+    const renamed: MemberUser = {
+      id: 'user-1',
+      nickname: '진짜닉네임',
+      profileImageUrl: 'https://img',
+    }
     const registry = registrar({ adoptProviderProfile: async () => renamed })
     const service = new SocialLoginService(repository(placeholder), registry)
 
@@ -145,7 +151,9 @@ describe('SocialLoginService', () => {
     const accounts = repository(undefined, winner)
     const registry = registrar({
       register: async () => {
-        throw new DataIntegrityViolationError('Duplicate entry for key uk_social_accounts_provider_user')
+        throw new DataIntegrityViolationError(
+          'Duplicate entry for key uk_social_accounts_provider_user',
+        )
       },
     })
     const service = new SocialLoginService(accounts, registry)
@@ -166,9 +174,9 @@ describe('SocialLoginService', () => {
     })
     const service = new SocialLoginService(repository(undefined), registry)
 
-    await expect(
-      service.loginOrRegister(KAKAO, PROVIDER_USER_ID, '카카오닉', null),
-    ).rejects.toBe(failure)
+    await expect(service.loginOrRegister(KAKAO, PROVIDER_USER_ID, '카카오닉', null)).rejects.toBe(
+      failure,
+    )
   })
 
   /** 제약 위반이 아닌 실패(커넥션 끊김 등)는 재조회로 덮지 않는다. */

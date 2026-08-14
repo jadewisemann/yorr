@@ -139,6 +139,8 @@ describe('GoogleOAuthClient', () => {
 
     expect((caught as SocialLoginError).reason).toBe('provider_error')
     expect((caught as SocialLoginError).message).toBe('google_user_fetch_failed')
-    expect(`${(caught as Error).message} ${String((caught as Error).cause)}`).not.toContain('leaked')
+    expect(`${(caught as Error).message} ${String((caught as Error).cause)}`).not.toContain(
+      'leaked',
+    )
   })
 })
