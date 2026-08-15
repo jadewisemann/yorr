@@ -102,6 +102,13 @@ Mobile / Desktop Browser
 | `errors.ts` | 도메인 오류의 공통 뿌리 `DomainError` — 메시지 자리에 **문자열 오류 코드**가 들어간다 | `IllegalArgumentException("room_full")` 관용 |
 | `main.ts` / `server.ts` | 부팅·조립. 조립 순서 외의 로직 금지 | `YorrApplication` |
 
+- **배럴(`index.ts`)에는 바깥이 실제로 쓰는 것만 둔다.** 폴더 안의 파일들은 서로를
+  직접 import하고, 배럴은 그 폴더의 공개 표면 하나만 선언한다. "혹시 필요할까 봐"
+  재수출하면 내부 구현이 공개 API가 되어 리팩터링이 막힌다. 폴더 밖에서 쓰이지
+  않게 된 export는 배럴에서 빼고, 파일 안에서만 쓰이면 `export`도 뗀다.
+  - 예외: `infra/migrations/index.ts`의 `runMigrations`. 소스에서 import하는 곳이
+    없어도 `deploy/compose.yaml`의 `migrate` 서비스가 빌드 산출물을 동적 import하는
+    **외부 계약**이다.
 - 테스트는 소스와 같은 폴더의 `__tests__/`에 둔다. 여러 스위트가 함께 쓰는
   테스트 하네스(Redis 통합 테스트용 서버 등)만 `src/` 밖 `test/`에 둔다 —
   빌드 산출물에 들어가지 않게 하기 위해서다([ADR-0004](docs/adr/0004-redis-integration-test-harness.md)).

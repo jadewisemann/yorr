@@ -63,9 +63,12 @@
   - 1.5에서 그중 로비 스위트를 **인프로세스로 좁혀** 옮겼다
     (`ws/__tests__/gateway.test.ts` — 진짜 소켓 + REST). 프론트 실물 검증은
     1.6·1.7까지 끝난 뒤 한 번에 한다(리액션·봇·음성 명단이 같은 화면이다).
-  - **1.7까지 끝났으므로 이 실물 검증이 지금 밀린 항목이다.** 인프로세스
-    테스트(266건)는 전부 통과하지만 프론트 `dev:real`·`e2e:real`은 아직 돌리지
-    않았다 — Phase 2 진행과 병행해 Phase 1 슬라이스를 닫는다.
+  - **실물 검증 완료(2026-08-15).** 실 MySQL 8.0·Redis 위에 Node 백엔드를 띄우고
+    프론트 프로덕션 빌드로 `e2e:real` 4개 스펙 15건(chromium 3개 프로젝트)이
+    통과했다 — 방 생성+스냅샷, 게스트 join 브로드캐스트, 미존재 코드
+    ROOM_NOT_FOUND, 6석 ROOM_FULL, 게임 시작 전환까지. 그 과정에서 스펙의 낡은
+    로케이터 3건을 현재 UI 계약(초대 말풍선·참가자 region)에 맞춰 고쳤다.
+    리액션·음성 명단은 이 스위트가 덮지 않는다.
 - 주의: WS 프로토콜은 room.subscribe가 아니라 **room.join**이다. Phase 0
   스켈레톤의 registry/게이트웨이를 이 계약에 맞춰 손봤다(1.5 완료).
 
@@ -150,10 +153,7 @@
       `yorr_rooms_active`·`yorr_game_participants_active{game}` 동일 노출
       (`monitoring/` + `http/routes/health.ts`, **의존성 0**의 자체 렌더러).
       배선 누락 시 404가 아니라 503이다.
-- [ ] **머지 전 선행 차단 항목** — 배포하려면 먼저:
-      - [ ] `package.json`에 `migrate` 스크립트 + 마이그레이션 CLI.
-            **`runMigrations`에 진입점이 없어 빈 MySQL에서는 backend가 뜨지 못한다**
-            (compose의 `migrate` 서비스는 임시 우회다)
+- [ ] **배포 전 사람이 해야 하는 것** (operations.md 「운영자가 손으로 하는 일」):
       - [ ] **구 호스트 MySQL 덤프 → 새 호스트 복원.** 실사용자 계정·전적·랭킹이
             구 호스트에 있다. 덤프를 복원하면 `flyway_schema_history`가 함께 와서
             `verifyMigrations`가 통과한다(V1·V2 바이트 동일).
@@ -161,11 +161,25 @@
       - [ ] OCI 호스트 준비: Security List/NSG에 80·443 ingress ·
             `PUBLIC_HOST` A/AAAA 레코드 · `deploy/.env`(600) 배치 · GHCR 인증 ·
             `${BACKUP_DIR}`를 호스트 밖으로 주기 복사
-- [ ] **MySQL 통합 48건 첫 실행 결과 확인.** 작업 환경에 MySQL 바이너리도 docker
-      데몬도 없어 한 번도 실행되지 않았다 — GHA에서 처음 돈다. **주간 랭킹 집계는
-      SQL 문법과 `ONLY_FULL_GROUP_BY` 호환성조차 미검증**이다.
-- [ ] **프론트 `e2e:real` 통과.** Phase 3의 완료 기준이며 배선이 방금 들어갔으므로
-      3.1·3.3·3.4·3.5는 아직 닫히지 않았다.
+      - [ ] 프론트(Vercel)의 `VITE_API_BASE_URL`·`VITE_WS_URL` 전환 +
+            `CORS_ALLOWED_ORIGINS` 확인
+- [x] **MySQL 통합 첫 실행 완료.** GHA `verify` 잡(mysql:8.0 서비스 +
+      `MYSQL_TEST_REQUIRED=1`)이 초록이고, 로컬 MySQL 8.0.46에서도 전체 999건이
+      통과했다. 주간 랭킹 집계의 SQL 문법과 `ONLY_FULL_GROUP_BY` 호환성이 여기서
+      처음 실증됐다.
+- [x] **arm64 이미지 빌드·GHCR 푸시 완료** — `ghcr.io/jadewisemann/yorr-backend:main`
+      + `sha-<커밋>`. **다만 arm64 실기동·Caddy TLS·WS Upgrade는 여전히 미검증**이다
+      (이미지를 만든 것과 ARM 호스트에서 뜨는 것은 다르다).
+- [ ] **프론트 `e2e:real`** — 부분 통과. 실 MySQL·Redis 위의 Node 백엔드를 상대로
+      `e2e/real`의 4개 스펙(방 생성·초대 참가·참가 오류 2종·게임 시작)이 통과했고,
+      그 과정에서 낡은 로케이터 3건을 고쳤다. **Phase 3의 완료 기준은 아직이다**:
+      야추 봇 포함 완주 · duel·pingpong 2인 실플레이 · 재접속 시나리오를 덮는
+      스펙이 없다. webkit(`mobile-safari`)도 실행 환경 제약으로 못 돌렸다.
+- [ ] `package.json`에 `migrate` 스크립트 + CLI 진입점. **배포 차단은 아니다** —
+      정상 경로는 덤프 복원이고 그러면 `migrate`가 필요 없다(operations.md
+      「부트스트랩」). 지금은 compose의 `migrate` 서비스가 `node -e`로 `dist`를
+      직접 import하는데, 진짜 빈 DB에서만 쓰는 그 경로가 15줄 인라인이라 실패 시
+      디버깅이 어렵다.
 - [ ] 부하·재접속 시나리오 검증(하트비트 타임아웃, 유예 close, 소켓 교체,
       StaleRoomCleaner 부팅 동작). 상시 50명 규모에서 봇 Expectimax의 이벤트 루프
       점유를 함께 본다(3.2 실측 기준 decide 1회 14~16ms — 재검토 조건은
@@ -173,7 +187,14 @@
 - [ ] 트래픽 전환. **무중단 롤링은 원리적으로 불가능하다**(DESIGN 원칙 8 — WS 구독·
       타이머가 인메모리라 2대로 늘릴 수 없고, 재시작이 진행 중 게임을 끊는다).
       남는 완화책은 시각 선택뿐이라 배포를 자동으로 걸지 않았다.
+- [x] **이식 비계 제거(2026-08-15).** 배럴 12개를 실사용 공개 표면으로 줄이고
+      죽은 export 60여 개를 걷어냈으며(−561줄), Java 인용 주석과 티켓 번호를
+      전부 제거해 코드가 자기 언어로 말하게 했다. 배럴 규칙은 DESIGN.md
+      「코드 구조」로 승격했고 `IMPLEMENTATION_NOTES.md`(1839줄)는 영구 지식을
+      승격한 뒤 비웠다. `infra/migrations`의 Flyway 상호운용 주석은 살아 있는
+      계약이라 남겼다.
 - [ ] backend-java 제거 + 프론트 Vercel 배포 이전 + `Jenkinsfile` 삭제
+      + `frontend/e2e/support/checkBackend.ts`의 구 dev 서버 기본값 정리
       + GAME_SESSION_INTEGRATION.md 등 낡은 문서 정리 (별도 PR)
 - **완료 기준**: 운영 도메인이 Node 백엔드를 서빙하고 한 주간 무회귀.
 
@@ -196,7 +217,7 @@
 | 음성 시그널링·ICE | `handler/`(voice), `ws/voice/` | voice.md | ✅ voice.join/leave/signal 릴레이·명단·정리 순서·`GET /voice/ice`(coturn HMAC) 이식 완료(1.7) |
 | 소셜 로그인·프로필 | `auth/`, `user/` | auth.md | 🚧 소셜 로그인 이식 완료(4.2 — authorize/callback/session/me/logout, state·로그인 코드 1회용, kakao·google, 가입 경합 재조회). MySQL 통합 6건은 `MYSQL_TEST_URL` 부재로 **미실행**. 프로필은 4.3 |
 | 전적·주간 랭킹 | `game/match/`, `game/ranking/` | persistence.md | 🚧 MySQL 풀·Flyway 호환 러너(4.1) + 전적 보관(4.4 — 멱등·닉네임 우선순위·users로 회원 판정) + 주간 랭킹(4.5 — KST 경계·집계·캐시·REST) 이식 완료. **MySQL 집계·저장 통합 22건은 `MYSQL_TEST_URL`·docker 부재로 미실행 — SQL 문법조차 미검증**. 배선 완료 |
-| 모니터링·배포 | `monitoring/`, Jenkinsfile | operations.md | 🚧 게이지 2종 이식·배선 완료(5.3 — `prom-client` 없이 텍스트 노출, 16건) + 배포 전환(5.1 — Dockerfile arm64 크로스 빌드·compose 전체 스택·GHA+GHCR, [ADR-0006](docs/adr/0006-github-actions-ghcr-arm64-single-host.md)). **이미지 실빌드·arm64 실기동·MySQL 통합 48건 미검증** |
+| 모니터링·배포 | `monitoring/`, Jenkinsfile | operations.md | 🚧 게이지 2종 이식·배선 완료(5.3 — `prom-client` 없이 텍스트 노출, 16건) + 배포 전환(5.1 — Dockerfile arm64 크로스 빌드·compose 전체 스택·GHA+GHCR, [ADR-0006](docs/adr/0006-github-actions-ghcr-arm64-single-host.md)). arm64 이미지 빌드·GHCR 푸시와 MySQL 통합 실행은 확인됐고, **arm64 실기동·Caddy TLS·WS Upgrade는 미검증** |
 | ~~GameAbortService~~ | `game/round/application/` | game-modules.md | 🗑 데드 코드 — 이식 안 함 |
 
 ⬜ Java에만 있음 · 🚧 이식 중 · ✅ 이식 완료(테스트 포함) · 🗑 이식 불필요(사유 기록)
