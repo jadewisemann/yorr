@@ -1,6 +1,5 @@
 /**
- * 라운드 동기화 실패의 이유 코드 — backend-java
- * `RoundSynchronizationException.Reason` enum과 이름까지 1:1이다.
+ * 라운드 동기화 실패의 이유 코드.
  *
  * 이 값들은 **와이어 코드가 아니다.** WS 오류 코드로의 매핑은 게임 모듈이
  * 한다(docs/design/game-modules.md 「RoundState」):
@@ -23,8 +22,6 @@ export type RoundSyncReason =
   | 'GAME_ALREADY_FINISHED'
 
 /**
- * Java `RoundSynchronizationException`(unchecked) 자리.
- *
  * `errors.ts`의 `DomainError`/`ConflictError`를 **상속하지 않는다** — 저쪽은
  * REST의 소문자 문자열 코드 계약(400/404/409)이고, 이쪽은 게임 모듈이 WS 코드로
  * 옮기는 도메인 이유 코드다. 두 계층을 섞으면 라운드 오류가 REST 상태 코드

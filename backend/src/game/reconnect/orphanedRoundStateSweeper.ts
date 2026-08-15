@@ -11,20 +11,20 @@ import type {
  */
 export const SWEEP_INTERVAL_MS = 5 * 60 * 1000
 
-/** 주기 실행 핸들. Java `ScheduledFuture` 자리. */
+/** 주기 실행 핸들. */
 export interface SweepSchedule {
   stop(): void
 }
 
 /**
- * 주기 실행 주입 시임 — Java의 `@Scheduled(fixedDelay=…, initialDelay=…)` 자리다.
+ * 주기 실행 주입 시임.
  *
  * 이게 없으면 스윕 테스트가 실시간 sleep(5분!)에 기대야 한다. 시임을 두면
  * 테스트가 `sweep()`을 직접 부르거나 가짜 스케줄러의 작업을 직접 발화시켜
- * 결정적으로 검증한다(2.3 `DeadlineExecutor`와 같은 이유·같은 모양).
+ * 결정적으로 검증한다(`DeadlineExecutor`와 같은 이유·같은 모양).
  */
 export interface SweepScheduler {
-  /** @param task 첫 실행은 `intervalMs` **뒤**다(Java의 initialDelay = 주기). */
+  /** @param task 첫 실행은 `intervalMs` **뒤**다(initialDelay = 주기). */
   every(intervalMs: number, task: () => void): SweepSchedule
 }
 
@@ -46,15 +46,14 @@ export interface OrphanedRoundStateSweeperDeps {
 export interface OrphanedRoundStateSweeperOptions {
   readonly intervalMs?: number
   readonly scheduler?: SweepScheduler
-  /** 회수 관측 훅(Java `log.info`). */
+  /** 회수 관측 훅. */
   readonly onSwept?: (roomId: string) => void
-  /** 주기 실행이 던졌을 때(Java: Spring이 로그만 남기고 다음 주기에 재시도). */
+  /** 주기 실행이 던졌을 때 — 로그만 남기고 다음 주기에 재시도한다. */
   readonly onError?: (error: unknown) => void
 }
 
 /**
- * 방이 사라졌는데도 남아 있는 라운드 상태를 주기적으로 걷어낸다 — backend-java
- * `OrphanedRoundStateSweeper`.
+ * 방이 사라졌는데도 남아 있는 라운드 상태를 주기적으로 걷어낸다.
  *
  * **왜 필요한가:** 라운드 상태는 Redis에 있어 TTL로 스스로 사라지지만, 거기 딸린
  * 인메모리 자원(마감 타이머 예약 · 오프라인 결석 카운트)은 TTL이 청소해주지 않는다.

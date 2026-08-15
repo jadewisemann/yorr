@@ -10,16 +10,16 @@ import { BotDecisionError, BotSearchBudgetError } from './botErrors.js'
 import type { ScorecardValueEvaluator } from './scorecardValueEvaluator.js'
 
 /**
- * 야추 봇의 주 정책 — backend-java `ExpectimaxYachtBotPolicy`.
+ * 야추 봇의 주 정책.
  *
  * 남은 리롤 수(0..2)가 깊이인 expectimax다. 확률 노드는 **다항 분포 정확 계산**이고
  * 샘플링이 아니다(같은 상태에서 같은 답이 나오는 것이 재현·테스트의 전제다).
  * "다섯 개 다 킵"은 킵 후보에서 빼고 SCORE로 표현한다 — 그래야 "리롤 없음"이 두 갈래로
  * 갈라지지 않는다.
  *
- * ## CPU 예산 (Java와 다른 부분)
+ * ## CPU 예산
  *
- * Java는 이 탐색을 2스레드 데몬 풀에서 돌렸다. Node는 단일 스레드라 탐색이 도는
+ * Node는 단일 스레드라 탐색이 도는
  * 동안 **관계없는 다른 방들의 WS 메시지·하트비트·라운드 마감이 그 뒤에 줄을 선다.**
  * 그래서 1초를 테스트 단정이 아니라 **런타임 불변식**으로 승격시켰다: 예산을 넘기면
  * {@link BotSearchBudgetError}로 스스로 중단하고 코디네이터가
@@ -35,12 +35,12 @@ const EARLY_SCORE_MARGIN = 0.15
 const ENCODE_BASE = DICE_COUNT + 1
 const ENCODE_SPACE = ENCODE_BASE ** FACE_COUNT
 
-/** 턴당 CPU 예산 기본값. Java 테스트가 성능 계약으로 고정한 그 1초다. */
+/** 턴당 CPU 예산 기본값 — 성능 계약으로 고정된 1초. */
 const DEFAULT_SEARCH_BUDGET_MS = 1_000
 
 type BotAction = 'HOLD' | 'SCORE'
 
-/** Java `BotDecision` record 자리. `SCORE`면 `held`가 비고 `category`가 찬다. */
+/** 봇의 한 수. `SCORE`면 `held`가 비고 `category`가 찬다. */
 export interface BotDecision {
   readonly action: BotAction
   readonly held: readonly boolean[]
@@ -124,7 +124,7 @@ const collectOutcomes = (
 
 /**
  * 리롤 개수(0..5)별 결과 분포. 모듈 로드 시 한 번만 만든다 —
- * 총 1+6+21+56+126+252 = 462개로, 방마다 다시 만들 이유가 없다(Java의 static도 같다).
+ * 총 1+6+21+56+126+252 = 462개로, 방마다 다시 만들 이유가 없다.
  */
 const OUTCOMES_BY_DICE_COUNT: readonly (readonly DiceOutcome[])[] = (() => {
   const table: DiceOutcome[][] = []
@@ -226,21 +226,21 @@ export interface ExpectimaxYachtBotPolicyOptions {
   readonly now?: () => number
 }
 
-/** Java `ScoreChoice` record. `ordinal`은 `SCORE_CATEGORIES`의 인덱스 = enum ordinal. */
+/** 기록 후보. `ordinal`은 `SCORE_CATEGORIES`의 인덱스다. */
 interface ScoreChoice {
   readonly category: ScoreCategory
   readonly utility: number
   readonly ordinal: number
 }
 
-/** Java `HoldChoice` record. */
+/** 킵 후보. */
 interface HoldChoice {
   readonly heldCounts: readonly number[]
   readonly expectedUtility: number
   readonly kept: number
 }
 
-/** 동점이면 **뒤쪽(하단) 칸**이 이긴다(Java `ordinal() > other.ordinal()`). */
+/** 동점이면 **뒤쪽(하단) 칸**이 이긴다 — 카테고리 순서가 곧 우선순위다. */
 const isBetterScore = (candidate: ScoreChoice, best: ScoreChoice): boolean =>
   candidate.utility > best.utility ||
   (candidate.utility === best.utility && candidate.ordinal > best.ordinal)

@@ -1,8 +1,7 @@
 import type { LuaScript } from '../../infra/lua.js'
 
 /**
- * 게임 종료 전이 Lua — backend-java `RedisGameCompletionStore.FINISH_IF_COMPLETE`에서
- * **텍스트 그대로** 옮겼다. 판정과 전이가 한 연산이어야 `game.over`가 정확히 한 번
+ * 게임 종료 전이 Lua. 판정과 전이가 한 연산이어야 `game.over`가 정확히 한 번
  * 나간다(docs/design/game-modules.md 「게임 종료」).
  *
  * KEYS
@@ -19,8 +18,8 @@ import type { LuaScript } from '../../infra/lua.js'
  * | 0 | 전이하지 않았다 — 방 없음 / phase≠PLAYING(이미 누가 끝냈다) / gameId 불일치(스테일) / roster 빈 방 / 누군가 점수판이 덜 찼다 |
  * | 1 | **이 호출이** PLAYING → FINISHED로 바꿨다. 방송할 자격은 이 호출에만 있다 |
  *
- * - 0이 "실패"가 아니라 "내가 한 게 아니다"까지 포함한다. 사유를 나누지 않는 것이
- *   Java의 계약이다 — 호출자가 할 일(방송 안 함)이 모든 0에서 같기 때문이다.
+ * - 0이 "실패"가 아니라 "내가 한 게 아니다"까지 포함한다. 사유를 나누지 않는다 —
+ *   호출자가 할 일(방송 안 함)이 모든 0에서 같기 때문이다.
  * - 점수판 키는 **스크립트 안에서 조립한다**(참가자 수가 가변이라 KEYS로 못 넘긴다).
  *   `room/keys.ts`의 `gameScoreboardKey`와 같은 이름이어야 하고, 단일 Redis 노드
  *   전제다. 클러스터로 가면 참가자별 조회를 애플리케이션으로 올려야 한다.

@@ -4,11 +4,11 @@ import type { GameCatalog } from './catalog.js'
 import { GameModuleRegistry } from './module.js'
 
 /**
- * 방 phase 전이와 게임 모듈 초기화를 잇는 자리 — backend-java `GameLifecycleService`.
+ * 방 phase 전이와 게임 모듈 초기화를 잇는 자리.
  *
  * 게임 코드 검증(`invalid_game_code`)과 시작 인원은 카탈로그가, 실제 상태
  * 초기화·정리는 모듈이 맡는다. **모듈이 아직 없는 게임도 정상 경로다** —
- * 그 방은 phase만 옮겨지고 게임 상태가 없는 채로 돌아간다(3.x가 하나씩 채운다).
+ * 그 방은 phase만 옮겨지고 게임 상태가 없는 채로 돌아간다.
  *
  * pause/resume/close는 이 서비스를 거치지 않는다 — WS 계층이 모듈을 직접 부른다.
  */
@@ -41,7 +41,7 @@ export class GameLifecycleService {
       await module.start(roomCode, game)
       return game
     } catch (error) {
-      // Java와 같이 롤백 실패는 감추지 않는다 — 그 예외가 원인 예외를 대신 올라간다.
+      // 롤백 실패는 감추지 않는다 — 그 예외가 원인 예외를 대신 올라간다.
       await this.rooms.rollbackStart(roomCode, game.gameId)
       throw error
     }
@@ -50,7 +50,7 @@ export class GameLifecycleService {
   /** @returns 실제로 대기실로 되돌렸는지. 저장소 전이가 권위다 — 막히면 아무것도 건드리지 않는다. */
   async returnToLobby(roomCode: string, room: RoomSnapshot): Promise<boolean> {
     if (!(await this.rooms.returnToLobby(roomCode))) return false
-    // 모르는 게임 코드면 여기서 던진다(Java의 modules.require(...).reset(roomCode)와 같은 지점).
+    // 모르는 게임 코드면 여기서 던진다 — 모듈 유무와 무관한 검증 지점.
     this.catalog.require(room.gameCode)
     await this.modules.byCode(room.gameCode)?.reset(roomCode)
     return true

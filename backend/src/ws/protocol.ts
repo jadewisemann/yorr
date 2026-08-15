@@ -1,8 +1,7 @@
 import type { ParticipantKind, RoomPhase } from '../room/snapshot.js'
 
 /**
- * WebSocket 와이어 상수·타입. 정본은 `frontend/src/realtime/wsEvents.ts`이며
- * backend-java `ws/WsProtocol` + `ws/dto/*`가 같은 값을 들고 있다
+ * WebSocket 와이어 상수·타입. 정본은 `frontend/src/realtime/wsEvents.ts`다
  * (docs/design/realtime.md).
  */
 export const WS_PROTOCOL_VERSION = 1
@@ -16,14 +15,13 @@ const HEARTBEAT_TIMEOUT_MULTIPLIER = 3
 export const HEARTBEAT_TIMEOUT_MS = HEARTBEAT_INTERVAL_MS * HEARTBEAT_TIMEOUT_MULTIPLIER
 
 /**
- * 서버가 소켓을 닫을 때 쓰는 유일한 close code(Java `CloseStatus.POLICY_VIOLATION`).
+ * 서버가 소켓을 닫을 때 쓰는 유일한 close code(policy violation).
  * 하트비트 타임아웃과 소켓 교체 두 경우뿐이다.
  */
 export const WS_CLOSE_POLICY_VIOLATION = 1008
 
 /**
- * 인바운드 메시지 크기 상한. Java는 서블릿 컨테이너 기본값(Tomcat 텍스트 버퍼 8KB)에
- * 기대고 아무것도 정하지 않았지만, `ws`의 기본값은 100MB라 그대로 두면 소켓 하나가
+ * 인바운드 메시지 크기 상한. `ws`의 기본값은 100MB라 그대로 두면 소켓 하나가
  * 힙을 먹을 수 있다. 가장 큰 메시지는 `voice.signal`의 SDP(수 KB)이므로 넉넉히 64KB.
  * 초과 프레임은 `ws`가 close 1009로 끊는다.
  */
@@ -35,7 +33,7 @@ export type WsRoomPhase = 'waiting' | 'playing' | 'finished'
 export type PlayerStatus = 'online' | 'away' | 'offline'
 
 /**
- * `error` 봉투의 code. Java enum 이름이 그대로 와이어 문자열이다.
+ * `error` 봉투의 code — 이 문자열이 그대로 와이어에 실린다.
  * `AUTH_FAILED`·`ROOM_FULL`·`ALREADY_IN_ROOM`·`RATE_LIMITED`는 선언만 있고
  * 전송된 적이 없다(정원은 REST가 판정한다) — 계약 목록이라 그대로 둔다.
  */
@@ -68,7 +66,7 @@ export interface WsPlayer {
 /**
  * `room.joined`·`state.sync`·`sys.reconnected`가 싣는 방 스냅샷.
  *
- * null인 필드는 **JSON에서 생략**된다(Java `@JsonInclude(NON_NULL)`) —
+ * null인 필드는 **JSON에서 생략**된다(와이어 계약) —
  * `JSON.stringify`가 `undefined` 속성을 지우므로 undefined로 두면 같은 결과다.
  */
 export interface WsRoomSnapshot {

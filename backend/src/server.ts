@@ -106,7 +106,7 @@ export interface ServerOptions {
   readonly mysql?: Pool
   readonly logger?: boolean
   /**
-   * 고아 라운드 상태 스윕(2.8)의 주기 실행 시임 — **테스트 전용**이다. 운영은
+   * 고아 라운드 상태 스윕의 주기 실행 시임 — **테스트 전용**이다. 운영은
    * 생략해 실제 5분 타이머를 쓴다. 배선 회귀 테스트가 5분을 기다리지 않고
    * "listen()이 실제로 주기를 걸었는가"를 확인하는 유일한 창이다.
    */
@@ -114,13 +114,12 @@ export interface ServerOptions {
 }
 
 /**
- * 라운드 진행 배선(2.5·2.6). 3.1(야추 모듈)이 여기 있는 것을 그대로 받아 쓴다 —
+ * 라운드 진행 배선. 야추 모듈이 여기 있는 것을 그대로 받아 쓴다 —
  * 새로 만들면 브로드캐스터·레지스트리가 갈라져 방송이 허공으로 나간다.
  */
 interface RoundWiring {
   /**
-   * **운영은 Redis 어댑터(3.1)다.** `InMemoryRoundStateStore`는 2.4가 남긴 테스트
-   * 시드이며, 여기 두면 서버 재시작마다 진행 중 게임 상태가 사라진다(타입은 맞아서
+   * **운영은 Redis 어댑터다.** `InMemoryRoundStateStore`는 테스트 시드이며, 여기 두면 서버 재시작마다 진행 중 게임 상태가 사라진다(타입은 맞아서
    * 아무 테스트도 깨지지 않는다).
    */
   readonly states: RoundStateStore
@@ -140,18 +139,18 @@ export interface YorrServer {
   broadcaster: RoomBroadcaster
   rounds: RoundWiring
   /**
-   * 세 게임 모듈(3.1 야추·3.3 듀얼·3.4 탁구)이 등록된 **그** 레지스트리.
+   * 세 게임 모듈(야추·듀얼·탁구)이 등록된 **그** 레지스트리.
    * WS 게이트웨이와 `GameLifecycleService`가 같은 것을 본다.
    */
   games: GameModuleRegistry
   /**
-   * 게임 종료 단일 진입점(2.7). 라운드 타이머·듀얼·탁구가 **이 인스턴스**를 받는다 —
+   * 게임 종료 단일 진입점. 라운드 타이머·듀얼·탁구가 **이 인스턴스**를 받는다 —
    * 스텁이 남아 있으면 게임이 FINISHED가 되어도 `game.over`가 나가지 않는다.
    */
   completion: GameCompletionService
-  /** 고아 라운드 상태 스윕(2.8). `listen()`이 `start()`, `close()`가 `stop()`을 부른다. */
+  /** 고아 라운드 상태 스윕. `listen()`이 `start()`, `close()`가 `stop()`을 부른다. */
   sweeper: OrphanedRoundStateSweeper
-  /** 주간 랭킹(4.5). 상위 목록 캐시는 4.4의 보관 서비스가 evict하는 **그** 인스턴스다. */
+  /** 주간 랭킹. 상위 목록 캐시는 전적 보관 서비스가 evict하는 **그** 인스턴스다. */
   rankings: WeeklyRankingService
   listen(): Promise<void>
   close(): Promise<void>
@@ -184,14 +183,14 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     app.log.error({ error, roomId }, '빈 방 폐쇄 실패'),
   )
 
-  // ── 라운드 진행(2.5) + 점수 확정(2.6) ────────────────────────────────────
+  // ── 라운드 진행 + 점수 확정 ─────────────────────────────────────────────
   // 조립 순서가 곧 의존 방향이다: 상태 저장소 → 동기화 서비스 → 타임아웃 해소기 →
   // 타이머. 타이머·해소기에는 **위에서 만든 그 브로드캐스터·레지스트리**를 넘긴다 —
   // 여기서 `new RoomBroadcaster()`를 한 번만 더 쓰면 round.start·score.update가
-  // 아무 소켓도 없는 브로드캐스터로 나가고, 빌드도 테스트도 통과한다(1.6 봇 라우트에서
+  // 아무 소켓도 없는 브로드캐스터로 나가고, 빌드도 테스트도 통과한다(봇 REST 배선에서
   // 이미 한 번 겪은 함정이다).
   //
-  // ⚠️ 저장소는 **Redis 어댑터**다(3.1 `RedisYachtDiceStateStore`). 2.4의
+  // ⚠️ 저장소는 **Redis 어댑터**(`RedisYachtDiceStateStore`)다.
   // `InMemoryRoundStateStore`는 테스트 시드이고, 그것을 여기 두면 재시작마다 진행 중
   // 게임이 사라지는데 **타입이 맞아서 아무 테스트도 깨지지 않는다**.
   const roundStates = new RedisYachtDiceStateStore(redis)
@@ -219,7 +218,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     },
   )
 
-  // ── 주간 랭킹(4.5) + 전적 보관(4.4) ──────────────────────────────────────
+  // ── 주간 랭킹 + 전적 보관 ───────────────────────────────────────────────
   // 조립 순서가 곧 의존 방향이다: MySQL 저장소 → 캐시 데코레이터 → 서비스.
   // **캐시 인스턴스를 보관 서비스에 그대로 넘기는 것이 계약이다** — 새로 만들면
   // evict가 아무도 읽지 않는 캐시를 비우고, 랭킹은 다음 재시작까지 낡은 채로 남는다.
@@ -232,10 +231,10 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     onDuplicate: (gameId) => app.log.info({ gameId }, '이미 저장된 판입니다'),
   })
 
-  // ── 게임 종료(2.7) ───────────────────────────────────────────────────────
-  // 라운드 타이머·듀얼·탁구가 **이 인스턴스**를 종료 판정으로 받는다. 예전에는
-  // 항상 false를 돌려주는 경고 스텁이 있었고, 그 상태에서는 게임이 FINISHED가 돼도
-  // `game.over`·`state.sync`가 나가지 않아 클라이언트가 결과 화면으로 넘어가지 못했다.
+  // ── 게임 종료 ────────────────────────────────────────────────────────────
+  // 라운드 타이머·듀얼·탁구가 **이 인스턴스**를 종료 판정으로 받는다. 다른 것을
+  // 넘기면 게임이 FINISHED가 돼도 `game.over`·`state.sync`가 나가지 않아
+  // 클라이언트가 결과 화면으로 넘어가지 못한다.
   // 보관 실패는 여기서 삼켜 `onArchiveFailure`로 흐른다 — MySQL이 없어도 게임은 끝난다.
   const completion = new GameCompletionService(
     {
@@ -253,8 +252,8 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     },
   )
 
-  // 봇 오케스트레이터(3.2)와 타이머는 순환한다(봇 → 행동 서비스 → 타이머 → 봇).
-  // Java는 `ApplicationEventPublisher`로 끊고, 우리는 늦은 바인딩으로 끊는다.
+  // 봇 오케스트레이터와 타이머는 순환한다(봇 → 행동 서비스 → 타이머 → 봇) —
+  // 늦은 바인딩으로 순환을 끊는다.
   let yachtBots: BotTurnOrchestrator | null = null
   const roundTimer = new RoundTimerService(
     {
@@ -272,7 +271,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     },
   )
 
-  // ── 조회(2.9) · 재접속 스냅샷(2.8) ───────────────────────────────────────
+  // ── 조회 · 재접속 스냅샷 ─────────────────────────────────────────────────
   const gameQueries = new GameScoreQueryService(new RedisGameScoreQueryStore(redis))
   const reconnectSnapshots = new GameReconnectSnapshotService<WsRoomSnapshot>({
     realtimeSnapshots: snapshots,
@@ -280,8 +279,8 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     deadlines: roundTimer,
     scoreboards: gameQueries,
   })
-  // 스위퍼는 라운드 상태가 Redis에 살기 시작한 지금부터 실전에서 필요하다 —
-  // 인메모리 시절에는 재시작에 상태가 함께 사라져 고아가 생기지 않았다.
+  // 라운드 상태는 Redis에 살므로 방이 먼저 사라지면 상태 키가 고아로 남는다 —
+  // 스위퍼가 주기적으로 회수한다.
   const sweeper = new OrphanedRoundStateSweeper(
     { roundStates: roundSync, timers: roundTimer, rooms },
     {
@@ -291,11 +290,11 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     },
   )
 
-  // ── 게임 모듈 3개(3.1·3.3·3.4) ──────────────────────────────────────────
+  // ── 게임 모듈 3개 ────────────────────────────────────────────────────────
   // 브로드캐스터·레지스트리·스냅샷·마감 스케줄러·종료 서비스는 **전부 위에서 만든
   // 그 인스턴스**다. 새로 만들면 방송이 허공으로 나가고 레지스트리 phase가 갈라지는데,
   // 타입도 테스트도 통과한다.
-  // 봇과 사람이 **같은** 행동 서비스를 지나야 한다(3.1이 그 경계로 만들었다) —
+  // 봇과 사람이 **같은** 행동 서비스를 지나야 한다 — 행동 서비스가 그 경계다.
   // 봇만 별도 인스턴스를 쓰면 방송·검증 경로가 갈라진다.
   const yachtActions = new YachtTurnActionService({
     rounds: roundSync,
@@ -373,7 +372,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     ),
   )
 
-  // ── 회원 프로필(4.3) · 퀵매치(3.5) ──────────────────────────────────────
+  // ── 회원 프로필 · 퀵매치 ─────────────────────────────────────────────────
   const profiles = new UserProfileService(new MysqlUserProfileStore(mysql), users)
   // 퀵매치의 자동 시작 조건은 "전원의 WS 소켓이 살아 있는가"다 — WS 게이트웨이와
   // **같은 레지스트리**여야 한다. 새로 만들면 그 조건이 영구히 거짓이 되어 자동
@@ -409,20 +408,20 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
       })
       await registerGameRoutes(api, { rooms })
       await registerVoiceRoutes(api, { ice: new VoiceIceService(voiceIceOptions(env)) })
-      // 조회 REST(2.9). 등록 전에는 `/rooms/{id}/scores`·`/results`·
+      // 조회 REST. 등록 전에는 `/rooms/{id}/scores`·`/results`·
       // `/games/{id}/score-candidates`가 조용히 404다.
       await registerGameQueryRoutes(api, { users, queries: gameQueries })
-      // 프로필(4.3)·랭킹(4.5)·퀵매치(3.5)도 같다 — 배선이 곧 존재 여부다.
+      // 프로필·랭킹·퀵매치도 같다 — 배선이 곧 존재 여부다.
       await registerUserRoutes(api, { users, profiles })
       await registerQuickMatchRoutes(api, { users, catalog, matches: quickMatches })
       await registerRankingRoutes(api, { users, rankings })
-      // 로컬 AI 탁구 결과(4.6). **위에서 만든 그 `matchArchive`**를 넘긴다 — 새로
-      // 만들면 주간 랭킹 캐시 evict(4.5)가 아무도 읽지 않는 캐시를 비운다.
+      // 로컬 AI 탁구 결과. **위에서 만든 그 `matchArchive`**를 넘긴다 — 새로
+      // 만들면 주간 랭킹 캐시 evict가 아무도 읽지 않는 캐시를 비운다.
       await registerPingPongAiRoutes(api, {
         users,
         results: new PingPongAiResultService(matchArchive),
       })
-      // 소셜 로그인(4.2). 제공자 설정이 비어 있어도 **라우트는 등록한다** — 미설정은
+      // 소셜 로그인. 제공자 설정이 비어 있어도 **라우트는 등록한다** — 미설정은
       // 404가 아니라 호출 시점의 503이 계약이다(docs/design/auth.md).
       // 회원 저장소는 MySQL 하나로 조회·가입을 모두 만족한다(별도 트랜잭션 경계는
       // 저장소 안에 있다).
@@ -479,8 +478,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
       // 부팅 시 정리: 마감 타이머가 하나도 없는 지금 PLAYING인 방은 이어갈 수 없다.
       const closed = await closeUnrecoverableGamesOnStartup(rooms)
       if (closed > 0) app.log.info({ closed }, '재시작으로 이어갈 수 없는 진행 중 방을 닫았습니다')
-      // 방이 사라진 뒤 남은 라운드 상태 키를 5분마다 회수한다(2.8). 상태가 Redis에
-      // 살기 시작한 뒤로는 실제로 고아가 생긴다 — 인메모리였을 때는 재시작이 청소했다.
+      // 방이 사라진 뒤 남은 라운드 상태 키를 5분마다 회수한다.
       sweeper.start()
       await app.listen({ port: env.SERVER_PORT, host: '0.0.0.0' })
     },

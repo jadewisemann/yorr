@@ -6,12 +6,11 @@ import type { ClientSocket } from '../ws/socket.js'
 import { GameCatalog, type GameMetadata, normalizeGameCode } from './catalog.js'
 
 /**
- * 게임 하나 = 모듈 하나 — backend-java `game/module/GameModule`.
+ * 게임 하나 = 모듈 하나.
  *
- * **정원·시작 인원·봇 지원 여부는 여기 없다.** Java는 모듈이 세 값을 직접 들고
- * 있지만 우리는 1.3에서 옮긴 `GAME_CATALOG`가 유일한 출처이고 레지스트리가 그
- * 표를 흡수한다(`registry.require(code)`) — 모듈이 다시 선언하면 방 정원이 두
- * 곳으로 갈라진다. 모듈이 채우는 것은 **코드와 동작**뿐이다.
+ * **정원·시작 인원·봇 지원 여부는 여기 없다.** `GAME_CATALOG`가 유일한 출처이고
+ * 레지스트리가 그 표를 흡수한다(`registry.require(code)`) — 모듈이 다시 선언하면
+ * 방 정원이 두 곳으로 갈라진다. 모듈이 채우는 것은 **코드와 동작**뿐이다.
  */
 export interface GameModule {
   /** 대문자 정규 코드. 레지스트리 키이자 WS 네임스페이스(소문자화)다. */
@@ -48,8 +47,7 @@ export interface GameModule {
 }
 
 /**
- * WS 코어가 게임 모듈에 요구하는 부분집합 — backend-java `GameWebSocketHandler`가
- * `GameModule`에서 실제로 쓰는 훅들이다. 모듈이 없는 방(아직 이식되지 않은 게임)은
+ * WS 코어가 게임 모듈에서 실제로 쓰는 훅들의 부분집합. 모듈이 없는 방(아직 이식되지 않은 게임)은
  * 핸들러의 대역이 이 모양을 대신 채운다.
  */
 export type RoomGameHooks = Pick<
@@ -58,8 +56,7 @@ export type RoomGameHooks = Pick<
 >
 
 /**
- * 게임 모듈이 소유한 이벤트의 **공개 WS 타입**을 조립한다 —
- * backend-java `GameWsTypes.type`. `game.over`·`state.sync`도 방의 게임 코드로
+ * 게임 모듈이 소유한 이벤트의 **공개 WS 타입**을 조립한다. `game.over`·`state.sync`도 방의 게임 코드로
  * 네임스페이스가 붙는다.
  */
 export const gameWsType = (
@@ -71,13 +68,11 @@ export const gameWsType = (
 }
 
 /**
- * 등록된 게임 모듈 + 메타데이터 카탈로그 — backend-java `GameModuleRegistry`.
+ * 등록된 게임 모듈 + 메타데이터 카탈로그. 부팅 배선이 `register`를 부른다.
+ * 코드 정규화(`trim().toUpperCase()`)·중복 거부·교차 네임스페이스 거부를 여기서
+ * 강제한다.
  *
- * Java는 Spring이 모아 준 `List<GameModule>`로 조립되지만 여기서는 부팅 배선이
- * `register`를 부른다. 코드 정규화(`trim().toUpperCase()`)·중복 거부·교차
- * 네임스페이스 거부는 Java와 같다.
- *
- * **모듈이 없는 게임 코드를 정상으로 취급한다**는 점만 다르다: 카탈로그에는
+ * **모듈이 없는 게임 코드는 정상이다**: 카탈로그에는
  * 세 게임이 다 있지만 모듈은 게임별 슬라이스(3.x)가 하나씩 채운다. 그래서
  * 코드 조회(`require`)와 모듈 조회(`byCode`)를 분리했다.
  */
@@ -93,7 +88,7 @@ export class GameModuleRegistry {
     this.modules.set(code, module)
   }
 
-  /** 게임 메타데이터. 모르는 코드는 `invalid_game_code`(Java `require`와 같은 자리). */
+  /** 게임 메타데이터. 모르는 코드는 `invalid_game_code`. */
   require(code: string | null | undefined): GameMetadata {
     return this.catalog.require(code)
   }

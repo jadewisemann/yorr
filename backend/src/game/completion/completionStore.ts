@@ -7,13 +7,13 @@ import { COMPLETION_SCRIPTS, FINISH_IF_COMPLETE, FINISH_IF_COMPLETE_CODE } from 
 /**
  * 요트 정규룰 족보 수. 이만큼 기록되면 그 플레이어의 점수판은 꽉 찬 것이다.
  *
- * Java는 12를 리터럴로 박아 뒀지만 여기서는 점수 도메인의 목록 길이를 쓴다 —
+ * 리터럴 12 대신 점수 도메인의 목록 길이를 쓴다 —
  * 두 목록이 갈라지면 "제출은 되는데 게임이 안 끝나는" 상태가 되기 때문이다.
  */
 const REQUIRED_CATEGORIES = SCORE_CATEGORIES.length
 
 /**
- * 게임 종료 전이의 권위 — backend-java `GameCompletionStore`.
+ * 게임 종료 전이의 권위.
  *
  * "끝났는지 판정"과 "phase를 FINISHED로 바꾸기"를 **한 원자 연산**으로 묶는다.
  * 판정을 서버 메모리가 아니라 저장소에서 하는 이유:
@@ -57,7 +57,7 @@ export class RedisGameCompletionStore implements GameCompletionStore {
     return result === FINISH_IF_COMPLETE_CODE.FINISHED_BY_THIS_CALL
   }
 
-  /** 값이 숫자가 아니면 0으로 본다(Java `NumberFormatException` → 0과 같다). */
+  /** 값이 숫자가 아니면 0으로 본다. */
   async readTotals(roomCode: string): Promise<Map<string, number>> {
     const stored = await this.redis.hgetall(scoresKey(roomCode))
     const totals = new Map<string, number>()

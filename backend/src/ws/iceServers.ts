@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto'
 import type { Env } from '../config/env.js'
 
 /**
- * WebRTC ICE 서버 목록 발급 — backend-java `ws/voice/VoiceIceService`.
+ * WebRTC ICE 서버 목록 발급.
  * 브라우저의 `RTCConfiguration.iceServers`로 그대로 간다.
  *
  * **TURN 자격을 REST로 발급하는 이유**: 고정 ID/비밀번호를 쓰면 프론트 JS에 그대로 노출돼

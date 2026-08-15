@@ -28,7 +28,7 @@ import {
 } from './pingPongState.js'
 
 /**
- * 탁구 한 판의 진행 — backend-java `game/pingpong/PingPongGameService`.
+ * 탁구 한 판의 진행.
  *
  * 규칙은 `pingPongRules.ts`(순수)가, 원자성·TTL은 스토어가, 바깥 계층은 전부
  * `pingPongPorts.ts`의 좁은 포트가 맡는다. 이 클래스가 갖는 것은 **순서**다:
@@ -61,7 +61,7 @@ export interface PingPongGameServiceOptions {
   /** 주입 가능한 시계. 판정 시각이 계약이라 테스트는 실시간 sleep을 쓰지 않는다. */
   readonly now?: () => number
   /**
-   * 좌우 목표점 — Java `ThreadLocalRandom.nextDouble(0.15, 0.85)`.
+   * 좌우 목표점 — [0.15, 0.85) 균등 난수.
    * **공이 어디로 갈지는 서버만 정한다**(DESIGN.md 원칙 1).
    */
   readonly randomTarget?: () => number
@@ -157,7 +157,7 @@ export class PingPongGameService<S extends object> {
   }
 
   /**
-   * 게임 중 이탈. **순서가 계약이다**(Java `PingPongGameServiceTest`가 고정한다):
+   * 게임 중 이탈. **순서가 계약이다**(테스트가 고정한다):
    *
    * 1. 이탈 전 phase를 먼저 읽는다 — 상태를 지운 뒤에는 PREPARING이었는지 알 수 없다
    * 2. 좌석 제거(WS 명단) → 방 이탈(Redis)

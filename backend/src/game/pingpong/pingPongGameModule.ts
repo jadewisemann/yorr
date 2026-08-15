@@ -10,7 +10,7 @@ import type { PingPongGameService, PingPongGameStart } from './pingPongGameServi
 import type { PingPongSwingPayload } from './pingPongState.js'
 
 /**
- * 탁구 게임 모듈 — backend-java `game/pingpong/PingPongGameModule`.
+ * 탁구 게임 모듈.
  *
  * 하는 일은 라우팅과 오류 응답뿐이다: 멤버십·roomId 검증 → payload 파싱 →
  * 서비스 호출. 정원·봇 지원 여부는 여기 없다 — `game/catalog.ts`가 유일한
@@ -95,10 +95,10 @@ export class PingPongGameModule implements GameModule {
       }
       await this.games.swing(message.roomId, member.playerId, parseSwing(message.payload))
     } catch (error) {
-      // Java의 갈래 그대로: IllegalArgumentException(=DomainError)만 자기 코드를 싣고,
-      // 그 밖은 전부 `invalid swing payload`로 뭉개진다 — payload 파싱 실패는 물론
-      // `game_state_busy`(락 경합) 같은 IllegalStateException도 여기로 온다.
-      // 예외를 다시 던지지 않는 것도 Java와 같다(응답을 보냈으면 소켓은 살아 있다).
+      // 오류 갈래가 계약이다: `DomainError`만 자기 코드를 싣고, 그 밖은 전부
+      // `invalid swing payload`로 뭉개진다 — payload 파싱 실패는 물론
+      // `game_state_busy`(락 경합) 같은 상태 오류도 여기로 온다.
+      // 예외를 다시 던지지 않는다(응답을 보냈으면 소켓은 살아 있다).
       const reason = error instanceof DomainError ? error.code : 'invalid swing payload'
       this.sendError(socket, 'INVALID_MESSAGE', reason, message)
     }
@@ -126,8 +126,8 @@ export class PingPongGameModule implements GameModule {
 }
 
 /**
- * `null`·비객체 payload는 Java에서 `treeToValue`가 null을 돌려주고 서비스가
- * `invalid_ping_pong_swing`으로 튕긴다 — 같은 결과가 되도록 null을 그대로 넘긴다.
+ * `null`·비객체 payload는 서비스가 `invalid_ping_pong_swing`으로 튕기는 것이
+ * 계약이다 — 여기서 거르지 않고 null을 그대로 넘긴다.
  */
 const parseSwing = (payload: unknown): PingPongSwingPayload | null => {
   const parsed = swingPayloadSchema.parse(payload)

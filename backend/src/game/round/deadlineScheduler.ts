@@ -1,6 +1,6 @@
 /**
  * 라운드 마감 예약. 방 하나당 예약은 **하나**이고, 다시 예약하면 세대가 바뀌어
- * 앞의 예약은 무효가 된다 — backend-java `RoundDeadlineScheduler` 포트.
+ * 앞의 예약은 무효가 된다.
  */
 export interface RoundDeadlineScheduler {
   /** @param deadline 마감 시각(Date 또는 epoch ms). 이미 지났으면 지연 0으로 발화한다. */
@@ -18,13 +18,13 @@ export interface RoundDeadlineScheduler {
   cancelRoom(roomId: string): void
 }
 
-/** 예약 하나의 핸들. Java `ScheduledFuture` 자리. */
+/** 예약 하나의 핸들. */
 export interface ScheduledTimeout {
   cancel(): void
 }
 
 /**
- * 타이머 주입 시임 — Java의 `ScheduledExecutorService` 생성자 인자 자리다.
+ * 타이머 주입 시임.
  *
  * 이게 없으면 "슬롯 선등록" 규칙(아래 schedule 주석)을 검증할 수 없다: 그
  * 회귀 테스트는 **schedule()이 반환하기 전에** 작업이 실행되는 인터리빙을
@@ -62,11 +62,10 @@ export interface RoundDeadlineSchedulerOptions {
 }
 
 /**
- * 단일 인스턴스 전제 어댑터(Java `InMemoryRoundDeadlineScheduler`).
+ * 단일 인스턴스 전제 어댑터.
  *
- * 세대 카운터는 Java의 `AtomicLong`이지만 Node는 단일 스레드라 평범한 숫자로
- * 충분하다. 맵도 `ConcurrentHashMap` 대신 `Map` — 전이가 모두 동기라 사이에
- * 다른 콜백이 끼어들 수 없다.
+ * Node는 단일 스레드라 세대 카운터는 평범한 숫자, 맵은 평범한 `Map`으로 충분하다
+ * — 전이가 모두 동기라 사이에 다른 콜백이 끼어들 수 없다.
  */
 export class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
   private readonly scheduledRounds = new Map<string, ScheduledRound>()
@@ -102,7 +101,7 @@ export class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
     //
     // Node의 setTimeout은 스레드가 없어 이 인터리빙이 실제로 생기지 않지만,
     // executor가 주입 가능한 시임인 이상(인라인 executor·향후 다른 어댑터)
-    // 순서 자체가 계약이다. Java의 회귀 수정을 그대로 유지한다.
+    // 순서 자체가 계약이다(실제 레이스로 한 번 깨졌던 규칙이다).
     const previous = this.scheduledRounds.get(roomId)
     this.scheduledRounds.set(roomId, { roundNumber, generation, timeout: null })
     cancelQuietly(previous)
@@ -111,7 +110,7 @@ export class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
       () => this.runIfCurrent(roomId, roundNumber, generation, timeoutAction),
       delayMs,
     )
-    // 이미 실행돼 슬롯이 비었거나 다른 세대로 바뀌었으면 붙일 곳이 없다(Java의
+    // 이미 실행돼 슬롯이 비었거나 다른 세대로 바뀌었으면 붙일 곳이 없다(앞선
     // computeIfPresent no-op 자리). 그 핸들은 버려도 runIfCurrent가 세대로 막는다.
     const slot = this.scheduledRounds.get(roomId)
     if (slot !== undefined && slot.generation === generation) slot.timeout = timeout
@@ -131,7 +130,7 @@ export class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
     cancelQuietly(scheduled)
   }
 
-  /** 프로세스 종료 정리 — Java `@PreDestroy executor.shutdownNow()` 자리. */
+  /** 프로세스 종료 정리 — 걸린 예약을 전부 끊는다. */
   stop(): void {
     for (const scheduled of this.scheduledRounds.values()) cancelQuietly(scheduled)
     this.scheduledRounds.clear()

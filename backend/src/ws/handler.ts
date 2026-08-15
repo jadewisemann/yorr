@@ -75,7 +75,7 @@ const isReaction = (value: unknown): value is ReactionType =>
   REACTION_TYPES.includes(value as ReactionType)
 
 /**
- * WebSocket 게이트웨이 — backend-java `handler/GameWebSocketHandler`.
+ * WebSocket 게이트웨이.
  *
  * 소켓 수명(연결·메시지·종료)에서 하는 일은 인증·구독·브로드캐스트뿐이다.
  * **방 멤버십의 권위는 Redis**이고 REST가 그것을 바꾼다(DESIGN.md 원칙 3).
@@ -87,9 +87,8 @@ export class GameSocketHandler {
    * 방에 붙은 게임의 **모듈이 아직 없을 때** 쓰는 대역(게임 슬라이스 3.x가 하나씩
    * 채운다). 게임 상태가 없으므로 `hasState`는 false(=30초 유예)이고, 재접속
    * 스냅샷은 실시간 병합 방 스냅샷 그대로다(reconnect.md의 "PLAYING이 아니면"
-   * 경우와 같다). Java는 여기서 `gameModules.require()`가 던지지만, 그러면 모듈이
-   * 없는 게임의 방은 대기실조차 돌지 않는다 — 세 게임의 모듈이 모두 등록될 때까지
-   * 이 대역이 남는다.
+   * 경우와 같다). 여기서 `gameModules.require()`가 던지게 하면 모듈이 없는 게임의
+   * 방은 대기실조차 돌지 않으므로, 그 대신 이 대역이 스냅샷을 만든다.
    */
   private readonly moduleless: RoomGameHooks
 
@@ -468,7 +467,7 @@ export class GameSocketHandler {
   }
 
   /**
-   * `voice.signal` → 지목된 상대에게만 릴레이. 검사 순서는 Java 그대로다
+   * `voice.signal` → 지목된 상대에게만 릴레이. 검사 순서가 계약이다
    * (payload 검증 → 멤버십) — 방 밖에서 깨진 payload를 보내면 `NOT_IN_ROOM`이 아니라
    * `INVALID_MESSAGE`가 나간다.
    */
@@ -507,10 +506,9 @@ export class GameSocketHandler {
    *
    * 라우팅 판정은 전부 레지스트리의 `dispatch`에 있다 — 접두사(`game.<code>.`)
    * 검증·스트립·교차 네임스페이스 거부. 모듈이 없는 게임의 방도 여기서
-   * `INVALID_MESSAGE`로 떨어진다(Java는 `require()`가 던져 응답이 아예 없다).
+   * `INVALID_MESSAGE`로 떨어진다.
    *
-   * 모듈이 던지면 잡지 않는다 — 게이트웨이가 로그만 남기고 소켓을 살려 두는 것이
-   * Java(`handleTextMessage` 밖으로 나가는 예외)와 같은 결과다.
+   * 모듈이 던지면 잡지 않는다 — 게이트웨이가 로그만 남기고 소켓을 살려 둔다.
    */
   private async handleGameMessage(socket: ClientSocket, message: InboundEnvelope): Promise<void> {
     const member = this.deps.registry.of(socket)

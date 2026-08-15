@@ -53,7 +53,7 @@ interface Entrant {
 
 const isBlank = (value: string | undefined | null): boolean => (value ?? '').trim().length === 0
 
-/** 헤더는 중복되면 배열로 온다 — Java(@RequestHeader String)와 같이 첫 값만 본다. */
+/** 헤더는 중복되면 배열로 온다 — 첫 값만 본다(계약). */
 const header = (
   headers: Record<string, string | string[] | undefined>,
   name: string,
@@ -232,7 +232,7 @@ type Authenticator = (
 ) => Promise<UserIdentity | null>
 
 /**
- * 대기실 봇 API — backend-java `RoomBotController`.
+ * 대기실 봇 API.
  *
  * 응답은 방 REST 스냅샷이고, 성공 시 방 전원에게 `state.sync`를 쏜다(변경한
  * 사람만 스냅샷을 받으면 다른 화면의 명단이 어긋난다).
@@ -300,7 +300,7 @@ const registerBotRoutes = async (
 /**
  * 봇 API의 오류 매핑 — **방 API와 다르다**. 여기서는 `room_not_found`만 404이고
  * 나머지 `DomainError`는 400(`invalid_game_code`), `bot_not_found`만 409가 아닌
- * 404다. Java 컨트롤러별로 다른 이 비일관성이 그대로 계약이다(DESIGN.md 「오류 계약」).
+ * 404다. 라우트별로 다른 이 비일관성이 그대로 계약이다(DESIGN.md 「오류 계약」).
  */
 const sendBotError = (reply: FastifyReply, error: unknown): FastifyReply => {
   if (error instanceof ForbiddenError) return sendCode(reply, 403, error.code)
@@ -313,7 +313,7 @@ const sendBotError = (reply: FastifyReply, error: unknown): FastifyReply => {
   throw error
 }
 
-/** 시작 실패만 409로 내린다 — 그 외(모르는 게임 코드 등)는 Java와 같이 500으로 나간다. */
+/** 시작 실패만 409로 내린다 — 그 외(모르는 게임 코드 등)는 500으로 나간다(계약). */
 const sendConflictOnly = (reply: FastifyReply, error: unknown): FastifyReply => {
   if (error instanceof ConflictError) return sendCode(reply, 409, error.code)
   throw error

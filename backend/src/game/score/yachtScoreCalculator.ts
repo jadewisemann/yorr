@@ -8,8 +8,7 @@ import {
 import { ScoreDomainError } from './scoreErrors.js'
 
 /**
- * 야추 채점의 **유일한 권위** — 순수 함수 묶음이다(backend-java
- * `YachtScoreCalculator`, static 전용 final class).
+ * 야추 채점의 **유일한 권위** — 순수 함수 묶음이다.
  *
  * 클라이언트가 보낸 점수는 와이어에 존재하지도 않는다. `round.submit`은
  * {roundNumber, dice, category}만 싣고 점수는 서버가 여기서 다시 만든다
@@ -55,7 +54,7 @@ export const calculateScore = (category: ScoreCategory, dice: readonly number[])
 /**
  * 상단 소계. **기록하지 않은 칸(키 없음)은 0으로 세고, 값이 null이거나 음수면
  * 던진다** — 미기록(null)과 무득점(0)의 구분을 계산기까지 끌고 가지 않되,
- * 손상된 값은 조용히 넘기지 않는다는 Java의 선택을 그대로 옮겼다.
+ * 손상된 값은 조용히 넘기지 않는다.
  */
 export const calculateUpperSubtotal = (
   scores: ReadonlyMap<ScoreCategory, number | null | undefined>,

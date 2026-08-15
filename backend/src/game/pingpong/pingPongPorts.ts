@@ -1,13 +1,9 @@
 import type { PingPongPlayerNumbers, PingPongState } from './pingPongState.js'
 
 /**
- * 탁구 게임 서비스(3.4)가 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은
- * 포트로만 표현한다. 2.5(`round/roundPorts.ts`)·2.7(`completion/completionPorts.ts`)와
- * 같은 방식이고 같은 이유다:
- *
- * Java `PingPongGameService`는 `RoundDeadlineScheduler`·`RoomBroadcaster`·
- * `RealtimeRoomSnapshotService`·`RoomSessionRegistry`·`GameCompletionService`·
- * `StringRedisTemplate`·`RoomValidationService` 일곱을 구체 타입으로 잡는다.
+ * 탁구 게임 서비스가 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은 포트로만
+ * 표현한다. `round/roundPorts.ts`·`completion/completionPorts.ts`와 같은 방식이고
+ * 같은 이유다.
  * 그대로 옮기면 ① 병렬로 고쳐지는 계층(ws·room·2.7)에 컴파일이 묶이고
  * ② game-modules.md의 "도메인 규칙은 전송 계층을 모른다"를 깬다.
  *
@@ -65,7 +61,7 @@ export interface PingPongDeadlineScheduler {
  * 실시간 병합 방 스냅샷 — `ws/RealtimeRoomSnapshotService`가 그대로 만족한다.
  *
  * 스냅샷의 **모양은 프레임워크(ws) 소유**이고 탁구는 거기에 `game` 하나를 얹을
- * 뿐이라 타입을 제네릭으로 받는다(2.8 `reconnectPorts.ts`의 `PhasedRoomSnapshot`과
+ * 뿐이라 타입을 제네릭으로 받는다(`reconnectPorts.ts`의 `PhasedRoomSnapshot`과
  * 같은 경계). 내용은 해석하지 않는다.
  */
 export interface PingPongSnapshotService<S extends object> {
@@ -73,7 +69,7 @@ export interface PingPongSnapshotService<S extends object> {
 }
 
 /**
- * 게임 종료 판정(2.7 `GameCompletionService.finishIfComplete`). 탁구는 자체
+ * 게임 종료 판정(`GameCompletionService.finishIfComplete`의 자리). 탁구는 자체
  * 종료 판정을 갖고 있으므로 **항상 `force=true`** 로 부른다.
  */
 export interface PingPongCompletionPort {

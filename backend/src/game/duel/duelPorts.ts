@@ -1,11 +1,9 @@
 /**
- * 결투 진행(3.3)이 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은 포트로만
- * 표현한다. 2.5(`round/roundPorts.ts`)·2.7(`completion/completionPorts.ts`)과 같은
- * 방식이고 같은 이유다.
- *
- * Java `DuelGameService`는 `RoomBroadcaster`·`RoomSessionRegistry`·
- * `RealtimeRoomSnapshotService`·`RoundDeadlineScheduler`·`GameCompletionService`·
- * `StringRedisTemplate`을 구체 타입으로 잡는데, 그대로 옮기면
+ * 결투 진행이 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은 포트로만
+ * 표현한다. `round/roundPorts.ts`·`completion/completionPorts.ts`와 같은
+ * 방식이고 같은 이유다: 구체 타입(`RoomBroadcaster`·`RoomSessionRegistry`·
+ * `RealtimeRoomSnapshotService`·`RoundDeadlineScheduler`·`GameCompletionService`)을
+ * 직접 잡으면
  * ① 병렬로 고쳐지는 파일(ws·room)에 컴파일이 묶이고
  * ② game-modules.md의 "도메인 규칙은 전송 계층을 모른다"를 깬다.
  *
@@ -37,8 +35,7 @@ export type DuelMarkablePhase = 'playing' | 'waiting'
 /**
  * `RoomSessionRegistry`의 부분집합.
  *
- * `start`에서 `markPhase('playing')`을 부르는 것이 **모듈의 계약**이다(Java
- * `YachtDiceGameModule`·`DuelGameService`가 하는 일). 빠뜨리면 진행 중 방의
+ * `start`에서 `markPhase('playing')`을 부르는 것이 **모듈의 계약**이다. 빠뜨리면 진행 중 방의
  * 레지스트리 phase가 waiting에 머물러, 끊긴 플레이어가 offline 전이가 아니라
  * `room.player_left`가 된다(IMPLEMENTATION_NOTES 2.1의 「registry phase 구멍」).
  */
@@ -73,7 +70,7 @@ export interface DuelDeadlineScheduler {
 }
 
 /**
- * 게임 종료 판정(2.7 `GameCompletionService.finishIfComplete`). 결투는 항상
+ * 게임 종료 판정(`GameCompletionService.finishIfComplete`의 자리). 결투는 항상
  * `force=true`로 부른다 — 점수판 12칸 완료 검사는 야추의 것이라 결투에는 영원히
  * 성립하지 않는다.
  */
@@ -85,15 +82,14 @@ export interface DuelCompletionPort {
  * 실시간 병합 방 스냅샷. `ws/RealtimeRoomSnapshotService`가 그대로 만족한다.
  *
  * 스냅샷의 **모양은 프레임워크(ws) 소유**이고 결투는 거기에 `game` 하나를 얹을
- * 뿐이라 타입 자체를 제네릭으로 받는다(2.8 `RealtimeRoomSnapshotPort`와 같은 경계).
+ * 뿐이라 타입 자체를 제네릭으로 받는다(`RealtimeRoomSnapshotPort`와 같은 경계).
  */
 export interface DuelRoomSnapshotPort<S> {
   snapshot(roomId: string): Promise<S>
 }
 
 /**
- * 종료 시 점수판 기록. Java는 `StringRedisTemplate`으로 roster 해시를 확인하고
- * 점수 해시에 직접 쓴다 — 그 두 동작만 포트로 남긴다.
+ * 종료 시 점수판 기록 — roster 확인과 점수 쓰기, 두 동작만 포트로 남긴다.
  *
  * **방을 떠난 플레이어의 점수 항목은 되살리지 않는다**(roster에 없으면 건너뛴다).
  * 이 규칙을 어기면 이미 지워진 참가자가 순위표에 부활한다.

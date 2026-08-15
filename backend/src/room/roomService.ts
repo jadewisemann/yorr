@@ -60,9 +60,7 @@ const parsePhase = (value: string | undefined): RoomPhase => {
 }
 
 /**
- * 방 도메인의 Redis 접근 지점. backend-java의 `RoomCreateService` +
- * `RoomValidationService`를 하나로 합쳤다(둘 다 같은 키 가족을 다루는 얇은 Lua
- * 래퍼였다 — IMPLEMENTATION_NOTES.md 참고).
+ * 방 도메인의 Redis 접근 지점 — 방 생성·검증이 같은 키 가족을 다루므로 한 클래스다.
  *
  * **REST가 방 상태의 유일한 변경 경로다.** WS는 여기를 통해 멤버십을 바꾸지
  * 않는다(예외는 게임 모듈의 퇴장 경로 — docs/design/rooms-and-sessions.md).
@@ -118,8 +116,7 @@ export class RoomService {
   /**
    * 방에 들어간다. 같은 사람의 재참가는 인원을 늘리지 않는다(중복 반환 4 = 성공 취급).
    *
-   * Java는 `JoinResult(userId, sessionToken, snapshot)`을 돌려주지만 앞의 둘은
-   * 호출부가 이미 쥐고 있는 값이라 스냅샷만 돌려준다.
+   * userId·sessionToken은 호출부가 이미 쥐고 있는 값이라 스냅샷만 돌려준다.
    */
   async join(roomCode: string, user: UserIdentity): Promise<RoomSnapshot> {
     const result = await runLuaNumber(this.redis, JOIN, roomKeyFamily(roomCode), [

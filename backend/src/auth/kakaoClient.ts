@@ -8,8 +8,7 @@ const TOKEN_URI = 'https://kauth.kakao.com/oauth/token'
 const USER_INFO_URI = 'https://kapi.kakao.com/v2/user/me'
 
 /**
- * 카카오 OAuth — backend-java `auth/infrastructure/KakaoOAuthClient`.
- * 인가 코드를 토큰으로 바꾸고 프로필을 읽어오는 두 가지 일만 한다.
+ * 카카오 OAuth. 인가 코드를 토큰으로 바꾸고 프로필을 읽어오는 두 가지 일만 한다.
  */
 export class KakaoOAuthClient {
   constructor(

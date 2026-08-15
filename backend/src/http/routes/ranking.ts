@@ -9,7 +9,7 @@ import type { UserIdentity, UserService } from '../../user/session.js'
 import { sendCode } from '../errorResponse.js'
 
 /**
- * 랭킹 조회 REST — backend-java `game/ranking/controller/RankingController`.
+ * 랭킹 조회 REST.
  *
  * | 요청 | 응답 |
  * |---|---|
@@ -22,8 +22,7 @@ import { sendCode } from '../errorResponse.js'
  * (`frontend/src/landing/components/RankingTicker.tsx`).
  *
  * 오류 본문은 **plain-text 소문자 코드**다(프로필·auth REST와 같은 결). 조회
- * REST(2.9 `gameQueries.ts`)의 JSON `{code,message}`가 아니다 — Java에서
- * `ResponseEntity.body("session_expired")`가 `StringHttpMessageConverter`를 타
+ * REST(`gameQueries.ts`)의 JSON `{code,message}`가 아니다 — 본문이
  * `text/plain`으로 나가고, 프론트 `shared/api/client.ts`가 JSON이 아닌 본문을
  * 텍스트로 읽어 코드로 매핑한다(`src/mocks/restHandlers.ts`가 같은 모양으로
  * 흉내내고 있다). 컨트롤러마다 오류 표면이 다른 것이 계약이므로 섞지 않는다.
@@ -34,12 +33,11 @@ export interface RankingRouteDependencies {
 }
 
 /**
- * Java는 `@RequestParam(defaultValue = "100") int limit`이다 — 없으면 상한,
- * 숫자가 아니면 Spring의 타입 변환이 **400**을 만든다. 그 400의 본문은 Spring이
- * 만든 프레임워크 흔적이라 계약이 아니므로 **빈 본문**으로 맞춘다
+ * `limit`은 없으면 상한(100)이고, 숫자가 아니면 **400**이다. 그 400의 본문은
+ * 프레임워크 흔적이라 계약이 아니므로 **빈 본문**으로 맞춘다
  * (`gameQueries.ts`의 score-candidates 400과 같은 판단).
  *
- * 범위 클램프([1,100])는 여기서 하지 않는다 — 서비스가 한다. Java도 그렇고,
+ * 범위 클램프([1,100])는 여기서 하지 않는다 — 서비스가 한다.
  * `limit=0`·`limit=1000`은 오류가 아니라 잘리는 값이다.
  *
  * @returns 정수면 그 값, `undefined`면 400을 보내야 한다
@@ -77,7 +75,7 @@ export const registerRankingRoutes = async (
  * 세션을 확인하고 **회원인지**까지 본다. 게스트 토큰은 401이 아니라 **403**이다 —
  * 인증은 됐지만 오를 자리 자체가 없는 상태라 다시 로그인해도 달라지지 않는다.
  *
- * `routes/users.ts`(4.3)에 같은 모양의 함수가 있다. 공통화하지 않은 것은 그 파일이
+ * `routes/users.ts`에 같은 모양의 함수가 있다. 공통화하지 않은 것은 그 파일이
  * 다른 슬라이스의 것이고, 두 라우트가 우연히 같은 게이트를 쓸 뿐 같은 이유로
  * 움직이지 않기 때문이다 — 프로필은 "고칠 프로필이 없다", 랭킹은 "오를 자리가
  * 없다"다. 세 번째 사용처가 생기면 그때 `http/`로 올린다.

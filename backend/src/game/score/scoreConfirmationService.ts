@@ -4,7 +4,7 @@ import { type ScoreCategory, scoreCategoryOf } from './scoreCategory.js'
 import { ScoreConfirmationError, ScoreDomainError } from './scoreErrors.js'
 import { calculateScore } from './yachtScoreCalculator.js'
 
-/** Java `ScoreConfirmationCommand` record 자리. `category`는 아직 검증 전 문자열이다. */
+/** 점수 확정 요청. `category`는 아직 검증 전 문자열이다. */
 export interface ScoreConfirmationCommand {
   readonly gameId: string
   readonly playerId: string
@@ -14,7 +14,7 @@ export interface ScoreConfirmationCommand {
   readonly dice: readonly number[]
 }
 
-/** Java `ScoreConfirmationResult` record 자리. `score`는 **서버가 재계산한** 값이다. */
+/** 점수 확정 결과. `score`는 **서버가 재계산한** 값이다. */
 export interface ScoreConfirmationResult {
   readonly gameId: string
   readonly playerId: string
@@ -29,7 +29,7 @@ export interface ScoreConfirmationResult {
  *
  * **주사위 순서에 민감**하다: 같은 라운드에 같은 카테고리·같은 주사위 조합이라도
  * 순서가 다르면 다른 시그니처가 되어 `ROUND_ALREADY_SCORED`로 거부된다.
- * Java와 같은 quirk이고, 그대로 옮긴다(계약).
+ * quirk이지만 동결된 계약이다.
  */
 const requestSignatureOf = (category: ScoreCategory, dice: readonly number[]): string =>
   `${category}:${dice.join(',')}`
@@ -53,7 +53,7 @@ const validateCommand = (command: ScoreConfirmationCommand): void => {
 }
 
 /**
- * 점수 확정 — **서버 재계산 + 시그니처**(backend-java `ScoreConfirmationService`).
+ * 점수 확정 — **서버 재계산 + 시그니처**.
  *
  * 이 서비스가 지키는 두 가지:
  * 1. 점수는 서버가 만든다. 클라이언트 점수는 와이어에 존재하지도 않으므로

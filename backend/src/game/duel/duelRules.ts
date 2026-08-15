@@ -2,7 +2,7 @@ import { DomainError } from '../../errors.js'
 import type { DuelPlayerNumbers, DuelRound, DuelState } from './duelState.js'
 
 /**
- * 석양이 진다 — 결투 규칙(backend-java `game/duel/DuelRules`). **순수 함수라
+ * 석양이 진다 — 결투 규칙. **순수 함수라
  * 네트워크·Redis·연출을 전혀 모른다**(DESIGN.md 「코드 구조」의 도메인/전송 분리).
  *
  * 한 라운드 = 신호등 빨강 → (랜덤 대기) → 초록 → 더 빨리 뽑은 쪽이 쏜다 →

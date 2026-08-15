@@ -10,11 +10,11 @@ import type { DuelGameService } from './duelGameService.js'
 import type { DuelSessionLookup } from './duelPorts.js'
 
 /**
- * 결투의 WS 표면 — backend-java `DuelGameModule`.
+ * 결투의 WS 표면.
  *
  * 인바운드는 **`draw` 하나뿐**이다(ready 메시지는 없다 — 게임 시작 즉시 결투가
  * 시작된다). 정원·시작 인원·봇 지원 여부는 `GAME_CATALOG`가 유일한 출처이므로 여기
- * 없다(2.1의 결정 — `game/module.ts` 주석 참고).
+ * 없다(`game/module.ts` 주석 참고).
  */
 const drawPayloadSchema = z.object({
   inputSeq: z.number().int(),
@@ -69,11 +69,11 @@ export class DuelGameModule implements GameModule {
    * `game.duel.draw`. 소켓의 현재 방과 봉투의 roomId가 **일치해야** 한다 — 다른
    * 방의 결투에 총을 뽑을 수 없다.
    *
-   * 오류 응답은 모듈이 직접 보낸다(2.1의 계약). 두 갈래뿐이다:
+   * 오류 응답은 모듈이 직접 보낸다. 두 갈래뿐이다:
    * - 멤버십 불일치 → `NOT_IN_ROOM`
    * - payload 형식 위반·도메인 거부 → `INVALID_MESSAGE`. 도메인 오류는 **코드 문자열
-   *   그대로**(`invalid_duel_draw`) 나가고, 그 밖의 실패(락 경합 등)는 Java와 같이
-   *   `invalid draw payload`로 뭉개진다.
+   *   그대로**(`invalid_duel_draw`) 나가고, 그 밖의 실패(락 경합 등)는
+   *   `invalid draw payload`로 뭉개진다(계약).
    */
   async handle(socket: ClientSocket, message: InboundEnvelope): Promise<void> {
     const member = this.sessions.of(socket)

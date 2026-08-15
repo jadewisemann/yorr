@@ -5,7 +5,7 @@ import type {
 import { ScoreConfirmationError } from './scoreErrors.js'
 
 /**
- * `round.submit`의 payload 모양(Java `RoundSubmitPayload`). WS 계층의 타입을
+ * `round.submit`의 payload 모양. WS 계층의 타입을
  * import하지 않으려고 **구조적으로만** 요구한다 — 도메인은 전송 계층을 모른다.
  */
 export interface RoundSubmitPayloadLike {
@@ -15,7 +15,7 @@ export interface RoundSubmitPayloadLike {
 }
 
 /**
- * 라운드 제출 포트 — Java `RoundSynchronizationService.submit(roomId, playerId,
+ * 라운드 제출 포트 — `RoundSynchronizationService.submit(roomId, playerId,
  * payload, beforeStateChange)` 자리다.
  *
  * **구체 타입을 import하지 않는다.** 2.5가 이 시그니처의 서비스를 들고 오고,
@@ -42,7 +42,7 @@ export interface CurrentGameLookup {
   getSnapshot(roomId: string): Promise<{ readonly gameId: string | null }>
 }
 
-/** Java `ScoreRoundSubmissionResult` record 자리. */
+/** 제출+확정의 결합 결과. */
 export interface ScoreRoundSubmissionResult<TRoundResult> {
   /** 확정된 점수. 콜백이 돌지 않는 경로는 없으므로 성공 시 항상 채워진다. */
   readonly score: ScoreConfirmationResult | null
@@ -50,7 +50,7 @@ export interface ScoreRoundSubmissionResult<TRoundResult> {
 }
 
 /**
- * 라운드 제출과 점수 확정의 **원자 결합**(backend-java `ScoreRoundSubmissionService`).
+ * 라운드 제출과 점수 확정의 **원자 결합**.
  *
  * 순서가 계약이다: 라운드 검증 → **점수 확정(Redis Lua)** → 라운드 상태 커밋.
  * 점수 확정이 던지면 커밋은 일어나지 않는다. 반대 순서였다면 "제출은 됐는데
@@ -76,7 +76,7 @@ export class ScoreRoundSubmissionService<TRoundResult> {
     playerId: string,
     payload: RoundSubmitPayloadLike,
   ): Promise<ScoreRoundSubmissionResult<TRoundResult>> {
-    // Java의 AtomicReference 자리 — 콜백 안에서 채운 값을 밖으로 들고 나온다.
+    // 콜백 안에서 채운 값을 밖으로 들고 나온다.
     const holder: { value: ScoreConfirmationResult | null } = { value: null }
     const round = await this.rounds.submit(roomId, playerId, payload, async () => {
       holder.value = await this.confirmScore(roomId, playerId, payload)

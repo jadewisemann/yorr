@@ -1,5 +1,5 @@
 /**
- * 소셜 로그인 실패 — backend-java `auth/SocialLoginException`.
+ * 소셜 로그인 실패.
  *
  * 사유를 하나로 뭉개지 않는 것이 계약이다. 콜백은 이 값을 소문자 그대로
  * `?error=`에 실어 프론트로 보내고, 프론트(`auth/api/authApi.ts`의
@@ -23,11 +23,11 @@ export class SocialLoginError extends Error {
 }
 
 /**
- * DB 제약 위반 — Java `DataIntegrityViolationException` 자리.
+ * DB 제약 위반.
  *
  * 가입 경합에서 **실패가 아니라 신호**로 쓰인다(`socialLoginService.ts` 참고).
- * 유니크 위반만이 아니라 길이·NOT NULL·FK 위반도 같은 갈래인 것이 Java와
- * 같다 — 재조회로 풀리지 않으면 원래 오류를 그대로 다시 던진다.
+ * 유니크 위반만이 아니라 길이·NOT NULL·FK 위반도 같은 갈래다 —
+ * 재조회로 풀리지 않으면 원래 오류를 그대로 다시 던진다.
  */
 export class DataIntegrityViolationError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {

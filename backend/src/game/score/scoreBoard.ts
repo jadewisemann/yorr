@@ -11,7 +11,7 @@ import { ScoreDomainError } from './scoreErrors.js'
  */
 type ScoreBoardCategories = Readonly<Record<ScoreCategory, number | null>>
 
-/** Java `ScoreBoard` record 자리. 생성 시점에 정규화·검증하고 얼린다. */
+/** 점수판 — 생성 시점에 정규화·검증하고 얼린다. */
 export interface ScoreBoard {
   readonly categories: ScoreBoardCategories
   readonly upperSubtotal: number
@@ -20,7 +20,7 @@ export interface ScoreBoard {
 }
 
 /**
- * 부분 맵을 받아 12키를 채운 점수판을 만든다(Java record의 compact constructor).
+ * 부분 맵을 받아 12키를 채운 점수판을 만든다 — 생성이 곧 검증 지점이다.
  * 입력은 방어적으로 복사하고 결과는 동결한다 — 호출부가 넘긴 맵을 나중에 바꿔도
  * 점수판은 변하지 않고, 점수판을 통해 상태를 되고칠 수도 없다.
  */

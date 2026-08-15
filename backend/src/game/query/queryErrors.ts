@@ -1,6 +1,6 @@
 /**
- * 조회 도메인의 **인자 검증 실패** — Java `IllegalArgumentException` 자리
- * (`GameResultCalculator.validate`·`GameScoreSnapshot` compact constructor).
+ * 조회 도메인의 **인자 검증 실패**
+ * (`GameResultCalculator.validate`·`GameScoreSnapshot` 생성 검증).
  *
  * `errors.ts`의 `DomainError`를 상속하지 **않는다**. 저쪽은 방 REST의 plain-text
  * 소문자 코드 계약(`room_not_found` …)이고 조회 REST는 JSON `{code,message}`라
@@ -15,8 +15,7 @@ export class GameQueryDomainError extends Error {
 }
 
 /**
- * 조회 실패의 이유 코드 — backend-java `GameScoreQueryException.Reason` enum과
- * 이름까지 1:1이다.
+ * 조회 실패의 이유 코드.
  *
  * **와이어 코드가 아니다.** HTTP 상태·응답 `code`로의 매핑은 라우트가 한다
  * (`http/routes/gameQueries.ts`, docs/design/game-modules.md 「조회 REST」):
@@ -30,7 +29,7 @@ export type GameScoreQueryReason =
   | 'GAME_NOT_FINISHED'
   | 'STORE_FAILURE'
 
-/** Java `GameScoreQueryException`(unchecked) 자리. */
+/** 조회 실패 — 이유 코드를 실어 던진다. */
 export class GameScoreQueryError extends Error {
   readonly reason: GameScoreQueryReason
 

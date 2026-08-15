@@ -6,7 +6,7 @@ export interface VoiceRouteDependencies {
 }
 
 /**
- * 음성 통화를 시작할 때 필요한 ICE 서버 목록 — backend-java `ws/voice/VoiceIceController`.
+ * 음성 통화를 시작할 때 필요한 ICE 서버 목록.
  *
  * WebSocket이 아니라 REST인 이유: TURN 자격은 **시간제한 토큰**이라 방 전체에
  * 브로드캐스트하면 안 된다. `voice.peers`에 실으면 방에 있는 모두가 남의 자격을 갖는다.

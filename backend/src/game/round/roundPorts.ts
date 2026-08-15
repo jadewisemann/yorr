@@ -1,11 +1,10 @@
 /**
- * 라운드 진행 서비스(2.5)가 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은
+ * 라운드 진행 서비스가 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은
  * 포트로만 표현한다.
  *
- * 왜 포트인가: Java `RoundTimerService`는 `RoomService`·`RoomBroadcaster`·
- * `RoomSessionRegistry`·`GameCompletionService`·`ScoreRoundSubmissionService`를
- * 구체 타입으로 직접 잡는다. 우리 쪽에서 같은 짓을 하면 라운드 프레임워크가
- * ① 아직 없는 계층(점수 2.6·게임 종료 2.7)에 컴파일 의존을 만들고
+ * 왜 포트인가: 구체 타입(`RoomService`·`RoomBroadcaster`·`RoomSessionRegistry`·
+ * `GameCompletionService`·`ScoreRoundSubmissionService`)을 직접 잡으면 라운드
+ * 프레임워크가 ① 위 계층(점수·게임 종료·방·전송)에 컴파일 의존을 만들고
  * ② `docs/design/game-modules.md`의 "도메인 규칙은 전송 계층을 모른다"를 깬다.
  * 여기 선언된 인터페이스는 실제 클래스(`RoomBroadcaster`·`RoomSessionRegistry`·
  * `RoomService`)가 **구조적으로 이미 만족**하므로 어댑터 코드가 필요 없다
@@ -54,7 +53,7 @@ export interface RoundRoomService {
 }
 
 /**
- * 게임 종료 판정(2.7 `GameCompletionService.finishIfComplete`).
+ * 게임 종료 판정(`GameCompletionService.finishIfComplete`의 자리).
  *
  * @returns 종료 전이가 성사됐으면 true — 그때 타이머는 다음 턴을 걸지 않는다.
  */
@@ -62,7 +61,7 @@ export interface GameCompletionPort {
   finishIfComplete(roomId: string, force: boolean): Promise<boolean> | boolean
 }
 
-/** 점수 확정 결과 중 라운드가 방송에 쓰는 부분만(2.6 `ScoreConfirmationResult`). */
+/** 점수 확정 결과 중 라운드가 방송에 쓰는 부분만(`ScoreConfirmationResult`의 부분집합). */
 export interface ConfirmedScore {
   readonly playerId: string
   /** 12칸 + 집계가 든 점수판. 라운드는 내용을 해석하지 않고 그대로 싣는다. */
@@ -90,8 +89,7 @@ export interface DiceHoldPayload {
 }
 
 /**
- * 점수 확정 + 라운드 전이를 한 덩어리로 처리한 결과(2.6
- * `ScoreRoundSubmissionResult`). 타임아웃 경로로 들어오면 점수 방송을
+ * 점수 확정 + 라운드 전이를 한 덩어리로 처리한 결과(`ScoreRoundSubmissionResult`의 자리). 타임아웃 경로로 들어오면 점수 방송을
  * `RoundTimeoutResolver`가 이미 했으므로 타이머에는 `score: null`로 전달된다.
  */
 export interface ScoreRoundSubmissionOutcome<R> {

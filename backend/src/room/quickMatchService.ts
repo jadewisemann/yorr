@@ -9,7 +9,7 @@ import type { RoomService } from './roomService.js'
 import { ROOM_TTL_SECONDS } from './roomService.js'
 
 /**
- * 퀵매치 — backend-java `room/service/QuickMatchService`.
+ * 퀵매치.
  *
  * 세 개의 짧은 REST 호출(enter/status/cancel)이 전부이고 **자동 시작은 폴링이
  * 굴린다**: 프론트가 1초마다 `GET /quick-matches`를 두드리고, 그 호출이
@@ -17,7 +17,7 @@ import { ROOM_TTL_SECONDS } from './roomService.js'
  * (docs/design/rooms-and-sessions.md 「퀵매치」).
  *
  * 원자성은 **게임 코드별 락 하나**로만 확보한다(DESIGN.md 원칙 7의 예외가 아니라
- * 한계다 — Java 주석에 그대로 적혀 있다): 매칭과 방 생성이 한 Lua가 아니므로
+ * 한계다): 매칭과 방 생성이 한 Lua가 아니므로
  * 그 사이에 프로세스가 죽으면 방이 고아로 남을 수 있다. 락은 5초 TTL이라
  * 크래시가 큐를 영구히 막지는 않는다.
  */
@@ -55,8 +55,8 @@ const userKey = (userId: string): string => `user:${userId}`
 /**
  * KEYS: lock / ARGV: token → 지운 개수(내 토큰이 아니면 0).
  *
- * 락을 그냥 DEL하면 TTL로 이미 풀린 뒤 남이 잡은 락을 지운다. Java의 `UNLOCK`
- * 스크립트를 텍스트 그대로 옮겼다.
+ * 락을 그냥 DEL하면 TTL로 이미 풀린 뒤 남이 잡은 락을 지운다 — 토큰을 비교해
+ * 자기 락일 때만 푼다.
  */
 const QUICK_MATCH_UNLOCK: LuaScript = {
   name: 'yorrQuickMatchUnlock',
@@ -87,7 +87,7 @@ export interface QuickMatchResponse {
  *
  * Redis 멤버십이 아니라 이쪽을 보는 것이 계약이다: 매칭은 방 명단을 먼저 채우므로
  * 멤버십으로 판정하면 "매칭됐는데 아직 접속하지 않은 사람"이 게임에 끌려 들어간다.
- * `status`가 아니라 소켓 객체를 보는 것도 Java(`session.isOpen()`)와 같다 —
+ * `status`가 아니라 소켓 객체를 보는 것이 중요하다 —
  * 닫히는 중(CLOSING)인 소켓은 아직 명단에서 online이다.
  */
 export interface QuickMatchPresence {

@@ -15,7 +15,7 @@ const NO_HELD: readonly boolean[] = Object.freeze([false, false, false, false, f
 const FACE_COUNT = 6
 
 /**
- * 봇 턴 한 **스텝**의 결과 — Java `YachtBotTurnCoordinator.BotTurnStep` record.
+ * 봇 턴 한 **스텝**의 결과.
  *
  * `state`는 그 스텝이 만든 상태다(무시된 스텝은 null). 오케스트레이터는 이것만 보고
  * ① `dice.thrown` 연출을 예약할지 ② 같은 턴을 이어갈지 판단한다.
@@ -52,12 +52,12 @@ export interface YachtBotTurnCoordinatorDeps {
 }
 
 export interface YachtBotTurnCoordinatorOptions {
-  /** Java `log.warn` 자리 — Expectimax 실패로 폴백했을 때의 관측 훅. */
+  /** Expectimax 실패로 폴백했을 때의 관측 훅. */
   readonly onPolicyFallback?: (roomId: string, state: RoundState, error: unknown) => void
 }
 
 /**
- * 봇 턴의 **한 스텝을 원자적으로** 실행한다 — backend-java `YachtBotTurnCoordinator`.
+ * 봇 턴의 **한 스텝을 원자적으로** 실행한다.
  *
  * 두 가지가 이 클래스의 전부다:
  *
@@ -86,7 +86,7 @@ export class YachtBotTurnCoordinator {
     this.onPolicyFallback = options.onPolicyFallback ?? (() => {})
   }
 
-  /** `executeIfCurrent`의 boolean 축약 — Java와 같이 통합 테스트가 쓴다. */
+  /** `executeIfCurrent`의 boolean 축약 — 통합 테스트가 쓴다. */
   async playIfCurrent(event: RoundStartedEvent): Promise<boolean> {
     return (await this.executeIfCurrent(event)).acted
   }
@@ -149,7 +149,7 @@ export class YachtBotTurnCoordinator {
       { roundNumber: state.roundNumber, dice: [...dice], category },
       null,
     )
-    // 제출은 턴을 넘기므로 이 스텝이 만든 "봇의 상태"는 없다. Java도 제출 **전**
+    // 제출은 턴을 넘기므로 이 스텝이 만든 "봇의 상태"는 없다. 제출 **전**
     // 상태를 그대로 돌려준다 — 오케스트레이터의 isRollStep이 rollCount+1을 요구하므로
     // 이 값으로는 `dice.thrown`이 예약되지 않는다.
     return completedStep(state)
@@ -275,7 +275,7 @@ const claimQuota = (
 }
 
 /**
- * Java `TurnVersion.matches` — 예약 시점의 상태와 지금 상태가 **같은 턴의 같은 순간**인지.
+ * 예약 시점의 상태와 지금 상태가 **같은 턴의 같은 순간**인지(TurnVersion).
  *
  * dice·held까지 보는 이유: rollCount가 같아도 사람이 킵을 바꿨거나(hold) 마감
  * 자동 굴림이 끼어들었으면 봇의 결정 근거가 이미 낡았다.

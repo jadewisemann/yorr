@@ -10,13 +10,13 @@ import { yachtWsType } from '../yachtWsTypes.js'
 import type { BotTurnStep, YachtBotTurnCoordinator } from './yachtBotTurnCoordinator.js'
 
 /**
- * 봇의 **연출 시계** — backend-java `BotTurnOrchestrator`.
+ * 봇의 **연출 시계**.
  *
  * 라운드 타이머가 `round.start`를 방송할 때마다(같은 턴의 굴림마다 재전송된다) 이
  * 오케스트레이터가 깨어나, 활성자가 봇이면 지연을 두고 한 스텝을 실행한다. 지연이
  * 없으면 봇의 12라운드가 몇십 ms에 끝나 사람은 아무것도 못 본다.
  *
- * ## 지연 4종 (Java와 같은 값)
+ * ## 지연 4종
  *
  * | 지연 | 값 | 무엇을 기다리는가 |
  * |---|---|---|
@@ -34,7 +34,7 @@ import type { BotTurnStep, YachtBotTurnCoordinator } from './yachtBotTurnCoordin
  *
  * 주의: 봇이 굴리면 `YachtTurnActionService.roll` → `timers.start` → `onRoundStarted`로
  * 이 클래스가 **자기 안에서 다시 호출**되어 세대가 올라간다. 그래서 `dice.thrown`
- * 예약은 자기 세대가 아니라 **그때의 최신 세대**로 건다(Java와 같다).
+ * 예약은 자기 세대가 아니라 **그때의 최신 세대**로 건다.
  */
 
 export const TURN_START_DELAY_MS = 1_200
@@ -49,9 +49,9 @@ export interface BotTurnOrchestratorDeps {
 
 export interface BotTurnOrchestratorOptions {
   /**
-   * 타이머 시임 — Java의 `ScheduledExecutorService` 생성자 인자 자리다. 2.3이 같은
-   * 이유로 둔 `DeadlineExecutor`를 그대로 재사용한다(요구되는 성질이 "지연 후 1회
-   * 실행 + 취소"로 동일하고, 타이머 시임이 두 종류로 갈라지면 테스트 대역도 갈라진다).
+   * 타이머 시임. 마감 스케줄러의 `DeadlineExecutor`를 그대로 재사용한다 — 요구되는
+   * 성질이 "지연 후 1회 실행 + 취소"로 동일하고, 타이머 시임이 두 종류로 갈라지면
+   * 테스트 대역도 갈라진다.
    */
   readonly executor?: DeadlineExecutor
   readonly turnStartDelayMs?: number
@@ -59,7 +59,7 @@ export interface BotTurnOrchestratorOptions {
   readonly holdSelectionDelayMs?: number
   readonly throwDelayMs?: number
   readonly now?: () => number
-  /** Java `log.warn` 자리. 봇 스텝의 예외는 여기로만 새어 나간다. */
+  /** 봇 스텝의 예외는 여기로만 새어 나간다. */
   readonly onError?: (error: unknown, event: RoundStartedEvent) => void
 }
 
@@ -75,8 +75,7 @@ export class BotTurnOrchestrator {
   private readonly onError: (error: unknown, event: RoundStartedEvent) => void
 
   /**
-   * roomId → 최신 세대. Java `ConcurrentHashMap`이지만 Node는 단일 스레드라
-   * 평범한 `Map`으로 충분하다(2.3이 세대 카운터에서 내린 같은 판단).
+   * roomId → 최신 세대. Node는 단일 스레드라 평범한 `Map`으로 충분하다.
    */
   private readonly roomGenerations = new Map<string, number>()
   private readonly pending = new Set<ScheduledTimeout>()
@@ -94,7 +93,7 @@ export class BotTurnOrchestrator {
     this.onError = options.onError ?? (() => {})
   }
 
-  /** `RoundTimerService`의 `onRoundStarted` 훅에 그대로 꽂는다(Java의 `@EventListener`). */
+  /** `RoundTimerService`의 `onRoundStarted` 훅에 그대로 꽂는다. */
   onRoundStarted(event: RoundStartedEvent): void {
     this.sequence += 1
     const generation = this.sequence
@@ -102,7 +101,7 @@ export class BotTurnOrchestrator {
     this.schedule(event, generation, this.delayFor(event.state))
   }
 
-  /** 프로세스 종료·테스트 정리 — Java `@PreDestroy executor.shutdownNow()` 자리. */
+  /** 프로세스 종료·테스트 정리 — 걸린 예약을 전부 끊는다. */
   stop(): void {
     for (const timeout of this.pending) timeout.cancel()
     this.pending.clear()

@@ -11,7 +11,7 @@ import type {
 } from './pingPongState.js'
 
 /**
- * 탁구 규칙 — backend-java `game/pingpong/PingPongRules`. **순수 함수만** 있다:
+ * 탁구 규칙. **순수 함수만** 있다:
  * Redis·WS·시계·난수를 모르고, 시각과 좌우 목표점은 인자로 받는다.
  *
  * 궤적은 1차원 해석 모델이다(틱 없음). `pos`는 0→1로 `playerOrder[0]` 쪽을
@@ -154,7 +154,7 @@ export const serveReceiver = (
  * 알려진 구멍: 클라 시계가 서버보다 뒤져 있으면 그만큼 공짜 되감기를 얻는다
  * (최대 120ms). 시계에서 완전히 벗어나려면 `clientTs` 대신 "이 공 상태를 받은 뒤
  * 흐른 ms"를 보내고 `launchedAt`에 더해야 한다 — 그때 이 함수는 사라진다.
- * 와이어 계약 동결이므로 지금은 Java 그대로 이식한다.
+ * 와이어 계약 동결이므로 지금은 이 모양을 유지한다.
  */
 export const judgedAt = (now: number, clientTs: number): number =>
   Math.max(now - MAX_ROLLBACK_MILLIS, Math.min(now, clientTs))

@@ -1,9 +1,8 @@
 /**
  * WS 코어가 소켓에 요구하는 최소 표면. `ws`의 `WebSocket`이 그대로 만족하며,
- * 테스트는 전송 기록만 남기는 가짜 소켓을 넣는다(Java의 `mock(WebSocketSession)` 자리).
+ * 테스트는 전송 기록만 남기는 가짜 소켓을 넣는다.
  *
- * Java는 세션을 `getId()` 문자열로 식별했지만 여기서는 **객체 참조 자체가 식별자**다 —
- * 별도 id를 발급하면 그 id의 수명과 소켓의 수명을 따로 관리해야 한다.
+ * 소켓은 **객체 참조 자체가 식별자**다 — 별도 id를 발급하면 그 id의 수명과 소켓의 수명을 따로 관리해야 한다.
  */
 export interface ClientSocket {
   readonly readyState: number

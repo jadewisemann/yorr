@@ -1,16 +1,14 @@
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 
 /**
- * 주간 집계 질의 — backend-java `game/match/repository/MatchParticipantRepository`의
- * 집계 메서드 3개.
+ * 주간 집계 질의 — 집계 메서드 3개.
  *
- * 읽는 테이블은 `matches`·`match_participants`(전적 보관 4.4가 쓰는 것)와 `users`다.
+ * 읽는 테이블은 `matches`·`match_participants`(전적 보관이 쓰는 것)와 `users`다.
  * **집계의 권위는 MySQL 하나**다 — 별도 순위 자료구조(Redis ZSET 등)를 두지 않는다.
  * 두 곳이 각자 세면 어긋난 뒤 스스로 복구하지 못한다(persistence.md 「주간 랭킹」).
  *
- * Java에서는 이 인터페이스가 전적 패키지(`game/match`)에 있었다. 여기서는 랭킹
- * 모듈에 두는데, 읽는 쪽이 소유해야 4.4(쓰기)와 4.5(읽기)가 서로의 파일을 건드리지
- * 않고 같은 테이블을 나눠 쓸 수 있다. 스키마 계약은 Flyway V2 하나뿐이므로
+ * 이 인터페이스는 랭킹 모듈에 두는데, 읽는 쪽이 소유해야 전적 보관(쓰기)과
+ * 랭킹(읽기)이 서로의 파일을 건드리지 않고 같은 테이블을 나눠 쓸 수 있다. 스키마 계약은 Flyway V2 하나뿐이므로
  * 인터페이스가 어디 있든 결합은 같다.
  */
 
@@ -84,7 +82,7 @@ interface CountRow extends RowDataPacket {
  * 풀을 닫지 않고, 행 → 도메인 변환을 이 파일 안에서 끝낸다.
  *
  * 시각 파라미터는 `Date`로 넘긴다. 풀의 `timezone: 'Z'`가 UTC 벽시계로 적어 주므로
- * `finished_at DATETIME(6)`과 같은 기준으로 비교된다(4.1의 결정 — 이걸 놓치면
+ * `finished_at DATETIME(6)`과 같은 기준으로 비교된다(이걸 놓치면
  * 개발 KST / 운영 UTC가 9시간 어긋난다).
  */
 export class MysqlWeeklyRankingStore implements WeeklyRankingRepository {
@@ -98,7 +96,7 @@ export class MysqlWeeklyRankingStore implements WeeklyRankingRepository {
   ): Promise<readonly WeeklyBest[]> {
     // `JOIN users`가 게스트 행(user_id NULL)을 빼는데도 `IS NOT NULL`을 명시하는
     // 이유는 "회원만 센다"가 이 질의의 **의도**이고, 조인 방식이 바뀌어도 그 의도가
-    // 남아야 하기 때문이다(Java 주석과 같은 판단).
+    // 남아야 하기 때문이다.
     //
     // 정렬에 user_id를 덧붙인 건 동점자 순서를 고정하기 위함이다 — 없으면 같은
     // 요청이 호출마다 다른 순서를 낼 수 있다.
@@ -129,8 +127,7 @@ export class MysqlWeeklyRankingStore implements WeeklyRankingRepository {
     from: Date,
     to: Date,
   ): Promise<number | undefined> {
-    // 여기서는 users를 조인하지 않는다 — user_id 컬럼만으로 판정된다(Java의
-    // `p.user.id = :userId`도 조인을 만들지 않는다). 탈퇴로 users 행이 사라진
+    // 여기서는 users를 조인하지 않는다 — user_id 컬럼만으로 판정된다. 탈퇴로 users 행이 사라진
     // 회원까지 잡히지만, 그런 세션은 인증 단계를 통과하지 못하므로 도달할 수 없다.
     const [rows] = await this.pool.query<BestScoreRow[]>(
       `SELECT MAX(p.total_score) AS bestScore

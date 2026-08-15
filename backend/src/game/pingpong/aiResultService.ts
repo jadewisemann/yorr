@@ -5,7 +5,7 @@ import type { MatchArchiveInput } from '../match/index.js'
 import { WIN_SCORE } from './pingPongRules.js'
 
 /**
- * 로컬 AI 탁구 결과 보관 — backend-java `game/pingpong/PingPongAiResultService`.
+ * 로컬 AI 탁구 결과 보관.
  *
  * **멀티플레이 파이프라인과 완전히 분리된 경로다**(docs/design/games/pingpong.md).
  * 온디바이스 AI와의 싱글플레이는 서버가 판을 진행하지 않으므로 Redis 상태·스토어·
@@ -24,12 +24,12 @@ export const LOCAL_AI_ROOM_CODE = 'LOCAL_AI'
 /** AI 참가자의 `player_id`. users 테이블에 없으므로 `user_id`는 항상 NULL이 된다. */
 export const AI_PLAYER_ID = 'ping-pong-ai'
 export const AI_NICKNAME = 'AI'
-/** 비로그인 보고자의 표시 이름(Java와 같은 문자열). */
+/** 비로그인 보고자의 표시 이름. */
 export const GUEST_NICKNAME = '게스트'
 
 /**
  * 결과를 남길 사람. `user/session.ts`의 `UserIdentity`가 **구조적으로 만족한다** —
- * 좁은 포트로 받아 `game/`이 `user/`를 import하지 않는다(3.4의 포트 방침과 같은 결).
+ * 좁은 포트로 받아 `game/`이 `user/`를 import하지 않는다.
  */
 export interface PingPongAiPlayer {
   readonly userId: string
@@ -45,9 +45,8 @@ export interface PingPongAiResultArchive {
 }
 
 /**
- * 바인딩이 끝난 요청 본문. Java `PingPongAiResultRequest` record에 해당한다 —
- * 점수는 `int` primitive이므로 **빠지면 0**이고(그 값은 점수 재검증에서 걸린다),
- * `resultId`는 `String`이라 null일 수 있다.
+ * 바인딩이 끝난 요청 본문. 계약상 점수는 **빠지면 0**이고(그 값은 점수 재검증에서
+ * 걸린다), `resultId`는 null일 수 있다.
  */
 export interface PingPongAiResultRequest {
   readonly resultId: string | null | undefined
@@ -68,9 +67,9 @@ export type PingPongAiResultBinding =
 /**
  * 원시 JSON → {@link PingPongAiResultRequest}. Jackson의 record 바인딩을 흉내낸다:
  *
- * - 필드가 없거나 null이면 primitive 기본값 **0**(3.4가 swing payload에서 쓴 관용과 같다).
- * - 정수 문자열(`"11"`)은 받는다 — Jackson의 String→int 강제 변환.
- * - 소수는 **버린다**(`11.9 → 11`) — Jackson `ACCEPT_FLOAT_AS_INT`가 기본 on이다.
+ * - 필드가 없거나 null이면 **0**(swing payload와 같은 관용).
+ * - 정수 문자열(`"11"`)은 받는다(계약).
+ * - 소수는 **버린다**(`11.9 → 11`)(계약).
  * - `resultId`가 문자열이 아니면 없는 것으로 본다 → `invalid_result_id`로 떨어진다.
  */
 export const bindPingPongAiResult = (body: unknown): PingPongAiResultBinding => {
@@ -121,7 +120,7 @@ export class PingPongAiResultService {
 
   /**
    * 검증 순서가 계약이다: **resultId 먼저, 점수 나중**. 둘 다 틀린 요청은
-   * `invalid_result_id`를 받는다(Java와 같다).
+   * `invalid_result_id`를 받는다.
    *
    * @returns 실제로 저장했는지. 이미 보고된 `resultId`면 false다 — 실패가 아니라
    *   멱등이므로 REST는 그래도 204를 돌려준다(`game_id` UNIQUE가 중복을 막는다).
@@ -159,15 +158,15 @@ export class PingPongAiResultService {
  * `matches.game_id`가 되고 그 컬럼의 UNIQUE 제약이 재전송·새로고침으로 같은 판이
  * 두 번 쌓이는 것을 막는 유일한 장치다 — 그래서 모양을 여기서 못박는다.
  *
- * Java는 `UUID.fromString`의 `RuntimeException`(null이면 NPE 포함)을 통째로 잡아
- * `invalid_result_id`로 바꾼다. 같은 갈래를 정규식으로 만든다.
+ * 형식이 UUID가 아니면(null 포함) 전부 `invalid_result_id`다 — 정규식 하나로 같은
+ * 갈래를 만든다.
  */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const normalizeResultId = (resultId: string | null | undefined): string => {
   const value = resultId ?? ''
   if (!UUID_PATTERN.test(value)) throw new DomainError('invalid_result_id')
-  // Java `UUID.fromString(...).toString()`은 **소문자로 정규화**한다.
+  // UUID는 **소문자로 정규화**해 저장한다(중복 판정 키).
   return value.toLowerCase()
 }
 
@@ -177,7 +176,7 @@ const normalizeResultId = (resultId: string | null | undefined): string => {
  * "탁구 규칙으로 **끝날 수 있는** 스코어라인인가"만 본다: 음수 없음 ·
  * 이긴 쪽이 {@link WIN_SCORE} 이상 · 2점차 이상.
  *
- * ### 재검증의 한계 (Java와 같은 구멍 — 그대로 이식했다)
+ * ### 재검증의 한계 (알려진 구멍 — 계약 동결로 유지)
  *
  * `11:0`처럼 실제로 가능한 값과 `50:3`·`12:9`처럼 **11점에서 이미 끝났어야 하는**
  * 값을 구분하지 못한다(듀스는 12:10·13:11…로 올라가므로 상한을 못박을 수 없고,

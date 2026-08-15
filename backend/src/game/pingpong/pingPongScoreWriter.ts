@@ -4,8 +4,7 @@ import type { PingPongScoreWriter } from './pingPongPorts.js'
 import type { PingPongPlayerNumbers } from './pingPongState.js'
 
 /**
- * 종료 시 최종 점수를 방 점수 해시에 남기는 Redis 어댑터 — Java
- * `PingPongGameService.changed`가 `StringRedisTemplate`으로 직접 하던 일이다.
+ * 종료 시 최종 점수를 방 점수 해시에 남기는 Redis 어댑터.
  *
  * **roster에 있는 사람만 쓴다.** 몰수한 플레이어는 이 시점에 이미 방에서
  * 빠졌으므로(`removePlayer` → `rooms.leave`가 먼저 돈다) 걸러내지 않으면 LEAVE가

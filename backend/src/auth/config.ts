@@ -1,7 +1,7 @@
 import type { Env } from '../config/env.js'
 
 /**
- * 소셜 로그인 설정 — backend-java `auth/config/AuthProperties`.
+ * 소셜 로그인 설정.
  *
  * 값이 없어도 서버는 뜬다(로그인을 건드리지 않는 팀원의 로컬 부팅을 막지 않는다).
  * 대신 로그인 엔드포인트를 **실제로 호출하는 시점**에 `not_configured`로 거절한다.

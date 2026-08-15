@@ -2,8 +2,7 @@ import type { PlayerStatus, WsPlayer, WsRoomPhase, WsRoomSnapshot } from './prot
 import type { ClientSocket } from './socket.js'
 
 /**
- * 방 멤버십(누가·어느 방에·어떤 정체성/상태로)의 인메모리 저장소 —
- * backend-java `ws/RoomSessionRegistry`.
+ * 방 멤버십(누가·어느 방에·어떤 정체성/상태로)의 인메모리 저장소.
  *
  * 역할 분담: "봉투를 방 전원에게 쏘는 팬아웃"은 `RoomBroadcaster`, "그 방에 지금
  * 누가 있는지"는 여기다. 둘 다 인메모리이고 **상태의 권위는 Redis**에 있다

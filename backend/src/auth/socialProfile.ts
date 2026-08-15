@@ -3,7 +3,7 @@ export type SocialProvider = 'KAKAO' | 'GOOGLE'
 
 /**
  * 제공자가 닉네임을 주지 않았을 때 쓰는 임시 이름(동의항목이 꺼져 있거나 거절한
- * 경우) — backend-java `user/domain/User.PLACEHOLDER_NICKNAME`.
+ * 경우).
  *
  * "이 이름은 사용자가 고른 것이 아니다"라는 표시이기도 하다. 나중에 진짜 이름을
  * 받았을 때 덮어써도 되는지 판단하는 근거가 된다(`socialLoginService.ts`).

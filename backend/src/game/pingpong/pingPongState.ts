@@ -1,5 +1,5 @@
 /**
- * 탁구 한 판의 전체 상태 — backend-java `game/pingpong/PingPongState`.
+ * 탁구 한 판의 전체 상태.
  *
  * 방마다 하나씩 Redis에 직렬화되어 살아 있고, **그대로 WebSocket으로도 나간다**
  * (`game.ping_pong.state`의 payload는 래핑 없이 이 객체다). 화면은 이 값과
@@ -11,7 +11,7 @@
  * 판정을 상태에 반영하는 경로는 존재하지 않는다.
  *
  * 와이어 정본은 `frontend/src/realtime/wsEvents.ts`의 `PingPongState`다.
- * null 취급은 Java `@JsonInclude(NON_NULL)`을 그대로 따른다 — `fault`·
+ * null 취급이 계약이다(null 필드는 와이어에서 생략) — `fault`·
  * `serveReceiverId`·`lastEvent`가 없으면 **필드 자체가 생략**되므로
  * `undefined`로 둔다(`JSON.stringify`가 지운다).
  */
@@ -68,7 +68,7 @@ export interface PingPongBall {
   readonly smash: boolean
   /** 폴트가 붙은 공은 상대가 받을 수 없다 — 마감 시 친 쪽이 실점한다. */
   readonly fault?: PingPongFault | undefined
-  /** 폴트 연출의 시작 진행률(0~1). 폴트가 없어도 채워진다(Java와 같음). */
+  /** 폴트 연출의 시작 진행률(0~1). 폴트가 없어도 채워진다(계약). */
   readonly faultFrom: number
   /** 좌우 위치의 시작점. 진행률 0.5가 네트 통과 지점이다. */
   readonly x0: number
@@ -88,7 +88,7 @@ export interface PingPongEvent {
   readonly at: number
 }
 
-/** playerId → 값. Java `Map<String, Integer>`·`Map<String, Long>` 자리. */
+/** playerId → 값(JSON 객체로 직렬화된다). */
 export type PingPongPlayerNumbers = Readonly<Record<string, number>>
 
 export interface PingPongState {
@@ -103,7 +103,7 @@ export interface PingPongState {
   /** LinkedHashSet 자리 — 순서 있는 중복 없는 목록이다. */
   readonly readyPlayerIds: readonly string[]
   readonly ball: PingPongBall
-  /** 폴트 없는 리턴에만 +1. 득점해도 리셋되지 않는다(Java와 같음). */
+  /** 폴트 없는 리턴에만 +1. 득점해도 리셋되지 않는다(계약). */
   readonly rally: number
   /** **서브권이 아니라 리시버**를 저장한다(서브 로테이션 계산의 근간). */
   readonly serveReceiverId?: string | undefined

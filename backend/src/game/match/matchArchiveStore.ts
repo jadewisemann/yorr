@@ -1,18 +1,16 @@
 import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 
 /**
- * 전적의 **쓰기 표면** — backend-java `game/match/repository/MatchRepository` +
- * `user/repository/UserRepository.findById`가 하던 일만 남긴 좁은 포트.
+ * 전적의 **쓰기 표면** — 좁은 포트.
  *
- * 저장소를 포트로 뒤집은 이유는 4.3(`user/profile.ts`)과 같다: 보관의 판정 로직
+ * 저장소를 포트로 뒤집은 이유는 `user/profile.ts`와 같다: 보관의 판정 로직
  * (멱등·닉네임 우선순위·회원/게스트 분기)은 MySQL 없이도 시험할 수 있어야 한다.
- * 이 환경에는 MySQL이 없고(4.1·4.2의 관찰), 그 로직이 실제로 틀리는 자리다.
  */
 export interface MatchArchiveStore {
   /**
    * `users`에 있는 playerId만 골라 **현재 프로필 닉네임과 함께** 돌려준다.
    *
-   * 회원 판정을 Redis 세션이 아니라 이 테이블로 하는 것이 계약이다(Java 주석) —
+   * 회원 판정을 Redis 세션이 아니라 이 테이블로 하는 것이 계약이다 —
    * 판이 끝나는 시점에 세션이 만료됐다는 이유로 회원의 전적을 게스트로 남기면 그
    * 기록은 영영 주인을 잃는다. 닉네임까지 함께 읽는 이유는 방에서 이름을 찾지
    * 못한 참가자(게임 중 나간 사람)의 대체 이름이 프로필 이름이기 때문이다.
@@ -45,7 +43,7 @@ export interface MatchRecord {
   readonly gameId: string
   readonly gameCode: string
   readonly roomCode: string
-  /** UTC 벽시계로 저장된다 — 풀의 `timezone: 'Z'`가 그것을 보장한다(4.1). */
+  /** UTC 벽시계로 저장된다 — 풀의 `timezone: 'Z'`가 그것을 보장한다. */
   readonly finishedAt: Date
   readonly participants: readonly MatchParticipantRow[]
 }
@@ -77,7 +75,7 @@ export class MysqlMatchArchiveStore implements MatchArchiveStore {
     const conn = await this.pool.getConnection()
     try {
       await conn.beginTransaction()
-      // 빠른 경로(Java `existsByGameId`). 동시 호출에서는 이것이 깨지므로 최종
+      // 빠른 경로. 동시 호출에서는 이것이 깨지므로 최종
       // 방어선은 `uk_matches_game` 유니크 제약이다 — 아래 catch가 그 자리다.
       const [existing] = await conn.query<RowDataPacket[]>(
         'SELECT id FROM matches WHERE game_id = ?',
@@ -141,12 +139,11 @@ export class MysqlMatchArchiveStore implements MatchArchiveStore {
 /**
  * `game_id` 유니크 위반만 "이미 보관됨"으로 읽는다.
  *
- * **Java와 의도적으로 다르다.** Java는 `DataIntegrityViolationException`을 통째로
- * 잡아 false로 뭉갠다 — 그 갈래에는 FK 위반(참가자의 회원이 그 사이 사라짐)·길이
- * 위반도 들어 있다. 뭉개면 저장되지 않은 판이 "이미 저장됨"으로 조용히 사라진다.
- * 여기서는 1062만 false이고 나머지는 던진다 — 종료 경로가 그것을 삼켜
- * `onArchiveFailure`로 흘리므로(2.7) 게임은 그대로 끝나고 사실은 드러난다.
- * 4.2의 errno 승격(`auth/errors.ts`)과 같은 결이지만, 정책이 다르므로 공유하지 않는다.
+ * 제약 위반을 통째로 "이미 보관됨"으로 뭉개면 FK 위반(참가자의 회원이 그 사이
+ * 사라짐)·길이 위반까지 삼켜져 저장되지 않은 판이 조용히 사라진다. 그래서
+ * 1062(unique 위반)만 false이고 나머지는 던진다 — 종료 경로가 그것을 삼켜
+ * `onArchiveFailure`로 흘리므로 게임은 그대로 끝나고 사실은 드러난다.
+ * `auth/errors.ts`의 errno 승격과 같은 결이지만, 정책이 다르므로 공유하지 않는다.
  */
 const isDuplicateEntry = (error: unknown): boolean =>
   typeof error === 'object' &&

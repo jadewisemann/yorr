@@ -5,7 +5,7 @@ import type { RoomMember, RoomSessionRegistry } from './registry.js'
 import { type ClientSocket, isOpen } from './socket.js'
 
 /**
- * 음성 채팅(voice.*) 시그널링 릴레이 — backend-java `GameWebSocketHandler`의 voice 절.
+ * 음성 채팅(voice.*) 시그널링 릴레이.
  *
  * WebRTC 풀메시라 오디오는 브라우저끼리 직접 흐른다. 서버가 하는 일은 둘뿐이다
  * (docs/design/voice.md):
@@ -54,7 +54,7 @@ export class VoiceChannel {
    * 닫혀 있으면 **조용히 버린다** — 협상 중 이탈은 정상 경로이고, 오류로 만들면 누가 나갈
    * 때마다 남은 쪽에 잡음이 쌓인다.
    *
-   * 명단(voiceMembers) 검증은 하지 않는다: 방 멤버면 누구에게든 릴레이된다(Java 동작 그대로).
+   * 명단(voiceMembers) 검증은 하지 않는다: 방 멤버면 누구에게든 릴레이된다(계약).
    */
   signal(me: RoomMember, to: string, data: unknown): void {
     const target = this.deps.registry.find(me.roomId, to)

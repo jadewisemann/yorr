@@ -29,7 +29,7 @@ export const EXPIRY_GRACE_MS = 1_000
 /** 오프라인 상태로 자기 턴을 이 횟수째 맞으면 스킵 대신 자동 퇴장시킨다. */
 const MAX_OFFLINE_TURNS = 2
 
-/** 봇 오케스트레이터(3.2)가 구독하는 턴 시작 알림 — Java `RoundStartedEvent`. */
+/** 봇 오케스트레이터가 구독하는 턴 시작 알림. */
 export interface RoundStartedEvent {
   readonly roomId: string
   readonly state: RoundState
@@ -51,25 +51,24 @@ export interface RoundTimerServiceDeps {
 export interface RoundTimerServiceOptions {
   readonly now?: () => number
   readonly gameCode?: string
-  /** Java `ApplicationEventPublisher.publishEvent(RoundStartedEvent)` 자리. */
+  /** 턴 시작마다 불린다 — 봇 오케스트레이터가 여기 꽂힌다. */
   readonly onRoundStarted?: (event: RoundStartedEvent) => void
-  /** 종료 전이 실패처럼 "진행은 멈추지만 예외는 아닌" 상황의 관측 훅(Java `log.warn`). */
+  /** 종료 전이 실패처럼 "진행은 멈추지만 예외는 아닌" 상황의 관측 훅. */
   readonly onWarning?: (roomId: string, reason: string) => void
 }
 
 interface ActiveDeadline {
   readonly roundNumber: number
-  /** epoch ms. Java는 `Instant`. */
+  /** epoch ms. */
   readonly deadline: number
 }
 
 /**
- * 야추 턴 시계 — backend-java `RoundTimerService`.
+ * 야추 턴 시계.
  *
- * **Node 이식에서 가장 큰 차이: 전 경로가 async다.** Java는 `roomService`가 동기라
- * `start`가 `Instant`를 그냥 돌려줬지만, 우리 `RoomService.getSnapshot`·`touch`·
- * `leave`는 Redis라 Promise다. 마감 스케줄러의 작업 시그니처가 이미
- * `() => void | Promise<void>`라 그대로 얹힌다(2.3에서 그 이유로 넓혀 뒀다).
+ * 전 경로가 async다 — `RoomService.getSnapshot`·`touch`·`leave`가 Redis 왕복이라
+ * Promise이고, 마감 스케줄러의 작업 시그니처가 `() => void | Promise<void>`라
+ * 그대로 얹힌다.
  *
  * 방송 순서가 계약이다(`__tests__/roundTimerService.test.ts`가 고정):
  * `score.update` → `round.end` → `round.start`.
@@ -170,7 +169,7 @@ export class RoundTimerService {
     if (misses.size === 0) this.offlineMisses.delete(roomId)
   }
 
-  /** 재접속 스냅샷(2.8)이 현재 턴의 서버 마감 시각을 그대로 복원할 때 쓴다. */
+  /** 재접속 스냅샷이 현재 턴의 서버 마감 시각을 그대로 복원할 때 쓴다. */
   currentDeadline(roomId: string): number | undefined {
     return this.activeDeadlines.get(roomId)?.deadline
   }
@@ -239,7 +238,7 @@ export class RoundTimerService {
     await this.roomService.leave(roomId, playerId)
     if (removed !== null) {
       this.broadcaster.broadcast(roomId, {
-        // 방 이벤트는 게임 네임스페이스가 붙지 않는다(Java `WsEnvelope.of("room.player_left")`).
+        // 방 이벤트는 게임 네임스페이스가 붙지 않는다(와이어 계약).
         type: 'room.player_left',
         ts: this.now(),
         payload: { playerId },
@@ -334,7 +333,7 @@ export class RoundTimerService {
       ts: this.now(),
       payload: { playerId: score.playerId, scoreboard: score.scoreboard },
       roomId,
-      // null이면 필드를 생략한다(Java `@JsonInclude(NON_NULL)`).
+      // null이면 필드를 생략한다 — 와이어에 null 필드를 싣지 않는 계약.
       msgId: requestMsgId ?? undefined,
     })
   }

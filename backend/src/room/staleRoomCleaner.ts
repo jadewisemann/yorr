@@ -1,8 +1,7 @@
 import type { RoomService } from './roomService.js'
 
 /**
- * 재시작으로 **이어갈 수 없게 된 방만** 정리한다 — backend-java
- * `room/initializer/StaleRoomCleaner`.
+ * 재시작으로 **이어갈 수 없게 된 방만** 정리한다.
  *
  * 라운드 상태 자체는 Redis에 있어 재시작을 견디지만 **마감 타이머는 인메모리**라
  * 프로세스와 함께 증발하고, 부팅 때 다시 걸어주는 경로가 없다. 방을 열어두면

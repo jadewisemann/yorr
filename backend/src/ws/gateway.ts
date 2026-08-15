@@ -34,7 +34,7 @@ const originAllowed = (origin: string | undefined, allowed: readonly string[]): 
  *
  * **소켓별로 메시지를 직렬 처리한다.** `room.join`의 처리 순서가 계약인데
  * (docs/design/realtime.md) 핸들러가 Redis를 await하는 사이 다음 메시지가
- * 끼어들면 그 순서가 깨진다. Java는 세션당 한 스레드라 자연히 보장되던 것이다.
+ * 끼어들면 그 순서가 깨진다.
  */
 export const attachGameSocketGateway = (
   server: HttpServer,

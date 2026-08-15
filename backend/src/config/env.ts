@@ -5,11 +5,11 @@ import { z } from 'zod'
  *
  * - `jdbc:` 접두는 URL 표준 스킴이 아니라 벗겨 내야 `URL`이 읽는다.
  * - **쿼리 파라미터는 일부러 무시한다.** 운영 값에 `serverTimezone=Asia/Seoul`이
- *   들어 있는데, 그것을 따르면 4.1이 `timezone: 'Z'`로 막아 둔 9시간 어긋남이
+ *   들어 있는데, 그것을 따르면 `timezone: 'Z'`로 막아 둔 9시간 어긋남이
  *   그대로 되살아난다(persistence.md의 `finished_at` 계약). SSL·인코딩 옵션도
  *   mysql2에서는 이름이 다르므로 옮기지 않는다.
- * - userinfo(`user:pass@`)도 무시한다 — Java도 JDBC 프로퍼티(`DB_USERNAME`·
- *   `DB_PASSWORD`)가 URL 안의 값을 이기므로 같은 결론이다.
+ * - userinfo(`user:pass@`)도 무시한다 — `DB_USERNAME`·`DB_PASSWORD`가 URL 안의
+ *   값을 이기는 것이 계약이다.
  */
 const parseJdbcMysqlUrl = (
   value: string,
@@ -32,8 +32,8 @@ const parseJdbcMysqlUrl = (
   }
 }
 
-// backend-java의 application.yaml과 같은 환경변수 이름을 유지한다 —
-// 운영 전환 시 .env 파일을 그대로 재사용하기 위해서다.
+// 환경변수 이름은 구 스택과 같게 유지한다 — 운영 `.env` 파일을 그대로
+// 재사용하기 위해서다(docs/design/operations.md 「환경변수」).
 const envSchema = z
   .object({
     SERVER_PORT: z.coerce.number().int().positive().default(8080),
@@ -42,8 +42,8 @@ const envSchema = z
     REDIS_PORT: z.coerce.number().int().positive().default(6379),
     REDIS_PASSWORD: z.string().default(''),
     /**
-     * **운영 `.env`가 실제로 담고 있는 MySQL 좌표**다. Java는
-     * `application.yaml`의 `url: ${DB_URL}` 하나로 JDBC URL을 받는다
+     * **운영 `.env`가 실제로 담고 있는 MySQL 좌표**다. 구 스택이 JDBC URL 하나로
+     * 받던 값이라 그 형식 그대로 들어온다
      * (예: `jdbc:mysql://localhost:3306/yorr?useSSL=false&...`).
      *
      * 값이 있으면 아래 `DB_HOST`·`DB_PORT`·`DB_NAME`을 **덮어쓴다** — 쪼개진
@@ -57,16 +57,15 @@ const envSchema = z
     DB_NAME: z.string().default('yorr'),
     DB_USERNAME: z.string().default('yorr'),
     DB_PASSWORD: z.string().default(''),
-    // 음성(coturn ICE 자격). Java에는 yaml 항목이 없고 `@Value("${yorr.voice.*}")`로만
-    // 존재하는데, Spring의 relaxed binding이 그 프로퍼티를 아래 환경변수 이름에서 읽는다
-    // (`.`·`-` → `_` 치환 후 대문자) — 운영 `.env`를 그대로 재사용하려면 이 이름이어야 한다.
+    // 음성(coturn ICE 자격). 이 이름들은 운영 `.env`가 이미 담고 있는 것이라
+    // 그대로 유지한다.
     /** coturn static-auth-secret. `""` = TURN 미제공(STUN만). */
     YORR_VOICE_TURN_SECRET: z.string().default(''),
     /** coturn 호스트. `""` = TURN 미제공(STUN만). */
     YORR_VOICE_TURN_HOST: z.string().default(''),
     YORR_VOICE_STUN_URL: z.string().default('stun:stun.l.google.com:19302'),
     YORR_VOICE_TURN_TTL_SECONDS: z.coerce.number().int().positive().default(600),
-    // 소셜 로그인. 이름·기본값은 backend-java `application.yaml`의 `yorr.auth.*` 그대로다.
+    // 소셜 로그인. 이름·기본값은 운영 `.env`의 것을 그대로 유지한다.
     // 값이 비어 있어도 서버는 뜬다 — 로그인 엔드포인트를 호출할 때만 거절한다.
     /** 로그인을 끝낸 사용자를 되돌려 보낼 **프론트** 주소(제공자 콘솔 등록값이 아니다). */
     AUTH_FRONTEND_REDIRECT_URI: z.string().default('http://localhost:5173/auth/callback'),
