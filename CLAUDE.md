@@ -43,7 +43,8 @@
 ## 🔀 Pull Request
 - 방향: `main` ← `feature/*`
 - PR 제목도 커밋과 같은 형식: `feat: ...`
-- 설명에 작업 내용 + 관련 Jira 번호, 리뷰어 1명 이상 지정 후 승인 시 병합
+- 설명에 작업 내용 + 관련 Jira 번호. **리뷰어 지정은 선택** — 현재 1인 작업이라
+  올린 사람이 그대로 병합한다 (협업자가 생기면 CONTRIBUTING.md에서 되돌린다)
 - 병합 방식: **커밋 1~2개 → Merge commit(`--no-ff`), 3개 이상 → Squash**(제목은 `type: 제목`). 병합 후 feature 브랜치 삭제
 - PR은 작게 — 기능 하나 = PR 하나
 
@@ -53,7 +54,7 @@ git checkout main && git pull origin main            # 1. main 최신화
 git checkout -b feature/22-websocket-connection      # 2. 작업 브랜치 분기
 # 3. 작업 → 커밋 (컨벤션대로)
 git push -u origin feature/22-websocket-connection   # 4. push
-# 5. GitHub에서 PR 생성 (main ← feature) → 리뷰어 지정
+# 5. GitHub에서 PR 생성 (main ← feature) → 그대로 merge
 ```
 
 ---
