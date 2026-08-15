@@ -11,6 +11,7 @@
 | `BottomSheet` | 76% 높이, 드래그 해제(80px), 수동 포커스 트랩. variants와 드래그가 같은 transform을 다투므로 여기서 이어 붙인다. `pb-[max(1.5rem, env(safe-area-inset-bottom))]` — iOS 홈 인디케이터 |
 | `Modal` | `dialog`/`alertdialog`. alertdialog는 스크림 클릭으로 닫히지 않는다 — 확인은 명시적 버튼으로만 |
 | `TextField` | label·help·error를 `aria-describedby`/`aria-invalid`/`role="alert"`로 배선 |
+| `Alert` | 블록 알림. tone 3종(neutral/danger/positive) 정적 map. **`role`을 톤이 정한다** — danger→`alert`, positive→`status`, neutral은 비움(처음부터 화면에 있는 설명문이라 live region이 아니다). 호출부가 `role`을 넘기면 덮인다. 알약 배지는 여기 넣지 않는다 |
 | `Tooltip` | 탭 토글형 toggletip. focus가 연 툴팁을 직후 click 토글이 닫는 문제를 `passiveOpenRef`로 구분. 히트 영역은 `::before`로 44px 확장 |
 | `ToastHost` | 한 번에 하나, 2.5초, `aria-live="polite"` |
 | `ConnectionBanner` | live region 컨테이너를 **항상** 렌더 — 영역과 내용이 같은 프레임에 오면 스크린리더가 놓친다. `closed`는 assertive |

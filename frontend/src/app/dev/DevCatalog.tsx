@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { PlayerCard } from '@/room/components/PlayerCard'
 import { StatusPanel } from '@/room/components/StatusPanel'
+import { Alert } from '@/shared/components/Alert'
 import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 import { TextField } from '@/shared/components/TextField'
@@ -139,6 +140,15 @@ export function DevCatalog() {
             defaultValue="YORR!"
             errorMessage="특수문자는 사용할 수 없어요."
           />
+        </div>
+      </section>
+
+      <section className={sectionClassName}>
+        <h2 className="text-xl font-bold">Alert</h2>
+        <div className="grid gap-3">
+          <Alert>방을 만든 사람이 호스트가 돼요</Alert>
+          <Alert tone="danger">빠른 대전은 로그인이 필요해요.</Alert>
+          <Alert tone="positive">점수가 반영됐습니다. 다음 턴을 기다립니다.</Alert>
         </div>
       </section>
 
