@@ -11,7 +11,7 @@ test('호스트가 시작하면 두 플레이어 모두 게임 화면으로 전�
   try {
     const guestPage = await guestContext.newPage()
     await joinRoom(guestPage, roomCode, uniqueNickname('guest'))
-    await expect(hostPage.getByText('현재 인원 2 / 최대 6명')).toBeVisible()
+    await expect(hostPage.getByRole('region', { name: '참가자 2명' })).toBeVisible()
 
     const startButton = hostPage.getByRole('button', { name: '게임 시작' })
     await expect(startButton).toBeEnabled()
