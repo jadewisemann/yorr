@@ -106,7 +106,9 @@ motion을 mock한다 — [testing.md](./testing.md).
 1. 공통 `Button` 우선, 한 화면에 레드 Primary는 하나. `Button`으로 표현할 수 없으면
    **Button을 감싼 얇은 컴포넌트**를 만든다(선례: `GameChromeButton` — 게임 크롬 알약
    버튼 7곳을 하나로). 감싸는 쪽에 스타일을 쌓지 말고 variant map에 추가한다.
-2. variant는 정적 class map — 동적 문자열 조립 금지
+2. variant·tone은 **정적 class map** — 동적 문자열 조립 금지. 둘 중 어느 이름을 쓰는지는
+   [DESIGN.md](../../DESIGN.md) 원칙 8이 정한다(위계가 바뀌면 `variant`, 색만 바뀌면 `tone`).
+   새 이름을 만들지 않는다
 3. 외부 배치는 `className`, 내부 구조·상태는 컴포넌트 소유
 4. 클릭 요소 최소 `min-h-tap`(44px)
 5. focus ring·**pressed**·disabled·loading·error·reconnect 상태 누락 금지 — pressed는

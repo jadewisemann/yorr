@@ -2,6 +2,7 @@ import { PeerMicButton } from '@/realtime/voice/PeerMicButton'
 import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
 import type { PlayerId, PlayerStatus } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
+import { Badge } from '@/shared/components/Badge'
 
 export interface TurnStripPlayer {
   playerId: PlayerId
@@ -62,9 +63,9 @@ export function TurnStrip({ players, activePlayerId, className, voice, you }: Tu
                   {mine && ' (나)'}
                 </span>
                 {player.status === 'offline' && (
-                  <span className="flex-none rounded-full border border-warning/40 bg-warning/12 px-1.5 py-0.5 text-2xs/none font-bold text-warning">
+                  <Badge className="flex-none px-1.5 text-2xs/none" tone="warning">
                     연결 끊김
-                  </span>
+                  </Badge>
                 )}
                 {voice && (
                   <PeerMicButton className="ml-auto" playerId={player.playerId} voice={voice} />
