@@ -31,7 +31,7 @@ export interface ScoreConfirmationResult {
  * 순서가 다르면 다른 시그니처가 되어 `ROUND_ALREADY_SCORED`로 거부된다.
  * Java와 같은 quirk이고, 그대로 옮긴다(계약).
  */
-export const requestSignatureOf = (category: ScoreCategory, dice: readonly number[]): string =>
+const requestSignatureOf = (category: ScoreCategory, dice: readonly number[]): string =>
   `${category}:${dice.join(',')}`
 
 const validateCommand = (command: ScoreConfirmationCommand): void => {

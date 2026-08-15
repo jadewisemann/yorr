@@ -51,7 +51,7 @@ return 0
 `,
 }
 
-export const DUEL_SCRIPTS: readonly LuaScript[] = [DUEL_UNLOCK]
+const DUEL_SCRIPTS: readonly LuaScript[] = [DUEL_UNLOCK]
 
 const stateKey = (roomId: string): string => {
   if (roomId.trim().length === 0) throw new Error('roomId must not be blank')

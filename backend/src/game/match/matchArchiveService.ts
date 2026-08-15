@@ -12,7 +12,7 @@ import type { MatchArchiveStore, MatchParticipantRow, MatchRecord } from './matc
  */
 
 /** 서비스에 들어오는 참가자 — 이름이 없을 수 있다(게임 끝나기 전에 나간 사람). */
-export interface MatchArchiveParticipant {
+interface MatchArchiveParticipant {
   readonly playerId: string
   /** 방에서 보였던 이름. 없거나 공백이면 프로필 → playerId 순으로 내려간다. */
   readonly displayNickname?: string | null | undefined
@@ -35,11 +35,11 @@ export interface MatchArchiveInput {
  * 랭킹이 바뀔 수 있는 시점은 판이 끝날 때뿐이므로 주기적으로 다시 계산하는 대신
  * 여기서 알린다. **주입하지 않아도 보관은 동작한다** — 4.5가 배선될 때 붙는다.
  */
-export interface RankingCacheInvalidator {
+interface RankingCacheInvalidator {
   invalidateAll(): void | Promise<void>
 }
 
-export interface MatchArchivedEvent {
+interface MatchArchivedEvent {
   readonly gameId: string
   readonly roomCode: string
   readonly playerCount: number

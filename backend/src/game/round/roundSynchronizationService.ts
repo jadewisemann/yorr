@@ -12,7 +12,7 @@ import { DICE_COUNT, RoundSubmission } from './roundSubmission.js'
 export type DieRoller = () => number
 
 /** 운영 기본값. Java `ThreadLocalRandom.current().nextInt(1, 7)` 자리. */
-export const randomDieRoller = (): DieRoller => () => 1 + Math.floor(Math.random() * 6)
+const randomDieRoller = (): DieRoller => () => 1 + Math.floor(Math.random() * 6)
 
 /**
  * 시드 고정 RNG(mulberry32). 테스트·재현용이다 — 같은 시드는 항상 같은 판을 만든다.

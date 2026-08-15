@@ -11,7 +11,7 @@ export type SocialProvider = 'KAKAO' | 'GOOGLE'
 export const PLACEHOLDER_NICKNAME = '플레이어'
 
 /** `users.nickname` 컬럼 길이. 더 길면 잘라서 저장한다(제약 위반이 아니라 절단). */
-export const NICKNAME_MAX_LENGTH = 20
+const NICKNAME_MAX_LENGTH = 20
 
 /** 제공자에 상관없이 로그인에 필요한 최소 정보. */
 export interface SocialProfile {

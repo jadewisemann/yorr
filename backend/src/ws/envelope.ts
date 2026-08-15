@@ -4,7 +4,7 @@ import { z } from 'zod'
 // 서버는 봉투(envelope) 모양만 검증하고, payload 해석은 각 핸들러·게임 모듈이 맡는다.
 // 프로토콜 상수·와이어 타입은 protocol.ts에 있다.
 
-export const inboundEnvelopeSchema = z.object({
+const inboundEnvelopeSchema = z.object({
   type: z.string().min(1),
   ts: z.number(),
   payload: z.unknown(),

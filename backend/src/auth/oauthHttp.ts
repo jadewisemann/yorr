@@ -18,10 +18,10 @@ export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
  * 예산으로 잡는다 — 더 짧게 잡으면 Java에서 되던 느린 로그인이 여기서만
  * 실패하고, 안 걸면 로그인 요청이 영영 매달린다.
  */
-export const SOCIAL_HTTP_TIMEOUT_MS = 8_000
+const SOCIAL_HTTP_TIMEOUT_MS = 8_000
 
 /** 제공자 호출 실패. 상태 코드까지만 담는다 — 본문에는 클라이언트 키가 섞일 수 있다. */
-export class SocialHttpError extends Error {
+class SocialHttpError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options)
     this.name = 'SocialHttpError'

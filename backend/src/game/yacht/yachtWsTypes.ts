@@ -13,7 +13,7 @@ export const yachtWsType = (eventType: string): string => gameWsType(YACHT_DICE,
  * 이 모듈이 받는 인바운드 이벤트(접두사가 벗겨진 이름). 이 목록 밖은
  * 레지스트리 `dispatch`가 `false`를 돌려주고 게이트웨이가 `INVALID_MESSAGE`로 답한다.
  */
-export const YACHT_INBOUND_EVENTS = [
+const YACHT_INBOUND_EVENTS = [
   'dice.roll',
   'dice.hold',
   'dice.shake',

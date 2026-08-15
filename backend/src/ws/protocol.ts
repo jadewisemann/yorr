@@ -10,7 +10,7 @@ export const WS_PROTOCOL_VERSION = 1
 /** 클라이언트가 이 간격으로 `sys.ping`을 보낸다. 서버는 먼저 ping하지 않는다. */
 export const HEARTBEAT_INTERVAL_MS = 30_000
 
-export const HEARTBEAT_TIMEOUT_MULTIPLIER = 3
+const HEARTBEAT_TIMEOUT_MULTIPLIER = 3
 
 /** 3회 미스(90초)면 idle_timeout. 경계는 "이상"이다 — 89_999ms는 생존한다. */
 export const HEARTBEAT_TIMEOUT_MS = HEARTBEAT_INTERVAL_MS * HEARTBEAT_TIMEOUT_MULTIPLIER
@@ -33,14 +33,6 @@ export const WS_MAX_MESSAGE_BYTES = 64 * 1024
 export type WsRoomPhase = 'waiting' | 'playing' | 'finished'
 
 export type PlayerStatus = 'online' | 'away' | 'offline'
-
-/** 실제로 전송되는 것은 `idle_timeout`·`replaced_by_new_session` 둘뿐이다. */
-export type DisconnectReason =
-  | 'server_shutdown'
-  | 'kicked'
-  | 'idle_timeout'
-  | 'replaced_by_new_session'
-  | 'protocol_error'
 
 /**
  * `error` 봉투의 code. Java enum 이름이 그대로 와이어 문자열이다.

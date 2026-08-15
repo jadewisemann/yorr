@@ -35,7 +35,7 @@ export interface PingPongBroadcaster {
  * `RoomSessionRegistry.markPhase(roomId, WsRoomPhase)`가 안전하게 대입된다
  * (넓은 인자 ← 좁은 인자).
  */
-export type PingPongPhaseMark = 'playing' | 'waiting'
+type PingPongPhaseMark = 'playing' | 'waiting'
 
 /** `RoomSessionRegistry`의 부분집합 — phase 마킹 + 좌석 제거. */
 export interface PingPongPresence {

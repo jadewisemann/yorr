@@ -45,7 +45,7 @@ export interface CompletionDeadlineScheduler {
   cancelRoom(roomId: string): unknown
 }
 
-export interface CompletionPlayerSnapshot {
+interface CompletionPlayerSnapshot {
   readonly playerId: string
   readonly nickname: string
   readonly kind: string

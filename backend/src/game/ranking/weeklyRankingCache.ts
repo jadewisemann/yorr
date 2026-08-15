@@ -34,7 +34,7 @@ export const weeklyRankingCacheKey = (gameCode: string, from: Date, limit: numbe
  *
  * Java의 `MatchArchiveService`에 붙은 `@CacheEvict(allEntries = true)` 자리다.
  */
-export interface WeeklyRankingCacheEvictor {
+interface WeeklyRankingCacheEvictor {
   /** 항목 전체를 버린다. 주·게임·limit별로 골라 버리지 않는다(아래 주석). */
   evictAll(): void
 }

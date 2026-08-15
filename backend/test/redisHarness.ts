@@ -19,7 +19,7 @@ const REDIS_TEST_URL = process.env.REDIS_TEST_URL
 const hasRedisServerBinary = (): boolean =>
   spawnSync('redis-server', ['--version'], { stdio: 'ignore' }).status === 0
 
-export const redisTestsEnabled = Boolean(REDIS_TEST_URL) || hasRedisServerBinary()
+const redisTestsEnabled = Boolean(REDIS_TEST_URL) || hasRedisServerBinary()
 
 // CI는 이 값을 켜서 "조용히 건너뛴 초록"을 막는다 — operations.md 참고.
 if (!redisTestsEnabled && process.env.REDIS_TEST_REQUIRED === '1') {

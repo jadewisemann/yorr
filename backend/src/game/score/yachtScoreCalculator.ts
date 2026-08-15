@@ -1,7 +1,6 @@
 import {
   isSatisfiedBy,
   isScoreCategory,
-  isUpperCategory,
   type ScoreCategory,
   UPPER_CATEGORIES,
   upperFaceSum,
@@ -82,4 +81,3 @@ export const calculateUpperBonus = (
 ): number => (calculateUpperSubtotal(scores) >= UPPER_BONUS_THRESHOLD ? UPPER_BONUS_SCORE : 0)
 
 /** 편의 — 카테고리 하나가 상단인지. 재-export라 호출부가 두 모듈을 열지 않아도 된다. */
-export { isUpperCategory }

@@ -35,8 +35,8 @@ export interface MetricsCollector {
 }
 
 /** 이름·태그가 계약이다(docs/design/operations.md 「모니터링」). 바꾸면 대시보드가 끊긴다. */
-export const ROOMS_ACTIVE = 'yorr_rooms_active'
-export const GAME_PARTICIPANTS_ACTIVE = 'yorr_game_participants_active'
+const ROOMS_ACTIVE = 'yorr_rooms_active'
+const GAME_PARTICIPANTS_ACTIVE = 'yorr_game_participants_active'
 
 export class RealtimeGameMetrics implements MetricsCollector {
   constructor(private readonly deps: RealtimeGameMetricsDependencies) {}

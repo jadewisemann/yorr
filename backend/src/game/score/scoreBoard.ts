@@ -9,7 +9,7 @@ import { ScoreDomainError } from './scoreErrors.js'
  * 12키 직렬화가 전부 이 구분 위에 서 있다. `undefined`를 쓰지 않는 이유도
  * 같다: JSON으로 나갈 때 키가 사라지면 12키 계약이 깨진다.
  */
-export type ScoreBoardCategories = Readonly<Record<ScoreCategory, number | null>>
+type ScoreBoardCategories = Readonly<Record<ScoreCategory, number | null>>
 
 /** Java `ScoreBoard` record 자리. 생성 시점에 정규화·검증하고 얼린다. */
 export interface ScoreBoard {
@@ -67,9 +67,3 @@ export const emptyScoreBoard = (): ScoreBoard => createScoreBoard({}, 0, 0, 0)
  */
 export const openCategoriesOf = (scoreboard: ScoreBoard): ScoreCategory[] =>
   SCORE_CATEGORIES.filter((category) => scoreboard.categories[category] === null)
-
-/** 상단 카테고리만 뽑은 맵 — `YachtScoreCalculator`의 소계·보너스 입력 모양. */
-export const categoryScoreMap = (
-  scoreboard: ScoreBoard,
-): ReadonlyMap<ScoreCategory, number | null> =>
-  new Map(SCORE_CATEGORIES.map((category) => [category, scoreboard.categories[category]]))

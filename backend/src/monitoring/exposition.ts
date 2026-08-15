@@ -15,7 +15,7 @@
 /** 스크레이퍼가 기대하는 Content-Type. 이걸 빼면 Prometheus가 본문을 파싱하지 않는다. */
 export const PROMETHEUS_CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8'
 
-export interface GaugeSample {
+interface GaugeSample {
   /** 태그. 값은 계약대로 그대로 싣는다(게임 코드는 대문자). */
   readonly labels?: Readonly<Record<string, string>>
   readonly value: number

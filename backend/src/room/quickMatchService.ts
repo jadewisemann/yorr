@@ -26,7 +26,7 @@ import { ROOM_TTL_SECONDS } from './roomService.js'
 export const QUICK_MATCH_WAIT_TTL_SECONDS = 5 * 60
 
 /** 게임 코드별 매칭 락의 수명. 매칭 한 번(방 생성 + join N회)보다 넉넉하다. */
-export const QUICK_MATCH_LOCK_TTL_SECONDS = 5
+const QUICK_MATCH_LOCK_TTL_SECONDS = 5
 
 /**
  * `WebSocket.OPEN`. `ws/socket.ts`의 `SOCKET_OPEN`과 같은 값을 여기 다시 적는다 —
@@ -44,7 +44,7 @@ export const quickMatchQueueKey = (gameCode: string): string => `quick-match:que
  */
 export const quickMatchTicketKey = (userId: string): string => `quick-match:user:${userId}`
 
-export const quickMatchLockKey = (gameCode: string): string => `quick-match:lock:${gameCode}`
+const quickMatchLockKey = (gameCode: string): string => `quick-match:lock:${gameCode}`
 
 /** 방에 붙는 "전원 접속 시 자동 시작" 마커. 시작하거나 이미 시작됐으면 지운다. */
 export const quickMatchMarkerKey = (roomCode: string): string => `${roomKey(roomCode)}:quick-match`
@@ -58,7 +58,7 @@ const userKey = (userId: string): string => `user:${userId}`
  * 락을 그냥 DEL하면 TTL로 이미 풀린 뒤 남이 잡은 락을 지운다. Java의 `UNLOCK`
  * 스크립트를 텍스트 그대로 옮겼다.
  */
-export const QUICK_MATCH_UNLOCK: LuaScript = {
+const QUICK_MATCH_UNLOCK: LuaScript = {
   name: 'yorrQuickMatchUnlock',
   numberOfKeys: 1,
   lua: `
@@ -67,9 +67,9 @@ return 0
 `,
 }
 
-export const QUICK_MATCH_SCRIPTS: readonly LuaScript[] = [QUICK_MATCH_UNLOCK]
+const QUICK_MATCH_SCRIPTS: readonly LuaScript[] = [QUICK_MATCH_UNLOCK]
 
-export type QuickMatchStatus = 'NOT_QUEUED' | 'WAITING' | 'MATCHED' | 'PLAYING'
+type QuickMatchStatus = 'NOT_QUEUED' | 'WAITING' | 'MATCHED' | 'PLAYING'
 
 /**
  * 와이어 계약 정본은 `frontend/src/room/api/quickMatchApi.ts`다 —

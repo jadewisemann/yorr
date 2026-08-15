@@ -23,13 +23,13 @@ import type {
  */
 
 export const NORMAL_SPEED = 1.0
-export const SMASH_SPEED = 1.95
-export const WEAK_SPEED = 0.82
+const SMASH_SPEED = 1.95
+const WEAK_SPEED = 0.82
 export const WIN_SCORE = 11
 /** 득점 후·전원 ready 후 다음 서브까지의 시간. */
 export const POINT_COUNTDOWN_MILLIS = 2_600
 /** 스윙을 과거로 되감을 수 있는 최대 폭 ({@link judgedAt} 참고). */
-export const MAX_ROLLBACK_MILLIS = 120
+const MAX_ROLLBACK_MILLIS = 120
 
 /* ── 판정 창 (player 0 기준. player 1은 `1 - v` 미러) ───────────────────── */
 

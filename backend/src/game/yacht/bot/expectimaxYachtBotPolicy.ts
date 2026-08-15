@@ -36,9 +36,9 @@ const ENCODE_BASE = DICE_COUNT + 1
 const ENCODE_SPACE = ENCODE_BASE ** FACE_COUNT
 
 /** 턴당 CPU 예산 기본값. Java 테스트가 성능 계약으로 고정한 그 1초다. */
-export const DEFAULT_SEARCH_BUDGET_MS = 1_000
+const DEFAULT_SEARCH_BUDGET_MS = 1_000
 
-export type BotAction = 'HOLD' | 'SCORE'
+type BotAction = 'HOLD' | 'SCORE'
 
 /** Java `BotDecision` record 자리. `SCORE`면 `held`가 비고 `category`가 찬다. */
 export interface BotDecision {

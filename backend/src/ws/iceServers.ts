@@ -13,7 +13,7 @@ import type { Env } from '../config/env.js'
  * TURN이 설정되지 않은 환경(로컬 개발·인프라 구축 전)에서는 **STUN만** 돌려준다 —
  * 같은 NAT 안에서는 그것만으로 통화가 붙어 개발이 막히지 않는다.
  */
-export interface IceServer {
+interface IceServer {
   readonly urls: string[]
   readonly username?: string
   readonly credential?: string

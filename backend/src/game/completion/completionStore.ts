@@ -10,7 +10,7 @@ import { COMPLETION_SCRIPTS, FINISH_IF_COMPLETE, FINISH_IF_COMPLETE_CODE } from 
  * Java는 12를 리터럴로 박아 뒀지만 여기서는 점수 도메인의 목록 길이를 쓴다 —
  * 두 목록이 갈라지면 "제출은 되는데 게임이 안 끝나는" 상태가 되기 때문이다.
  */
-export const REQUIRED_CATEGORIES = SCORE_CATEGORIES.length
+const REQUIRED_CATEGORIES = SCORE_CATEGORIES.length
 
 /**
  * 게임 종료 전이의 권위 — backend-java `GameCompletionStore`.

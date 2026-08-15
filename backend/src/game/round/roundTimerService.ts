@@ -27,7 +27,7 @@ export const ROUND_DURATION_MS = 25_000
 export const EXPIRY_GRACE_MS = 1_000
 
 /** 오프라인 상태로 자기 턴을 이 횟수째 맞으면 스킵 대신 자동 퇴장시킨다. */
-export const MAX_OFFLINE_TURNS = 2
+const MAX_OFFLINE_TURNS = 2
 
 /** 봇 오케스트레이터(3.2)가 구독하는 턴 시작 알림 — Java `RoundStartedEvent`. */
 export interface RoundStartedEvent {

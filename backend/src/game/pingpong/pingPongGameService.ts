@@ -68,8 +68,8 @@ export interface PingPongGameServiceOptions {
 }
 
 /** 좌우 목표점의 유효 범위 — 테이블 끝에 붙지 않도록 양쪽을 잘라 둔다. */
-export const TARGET_X_MIN = 0.15
-export const TARGET_X_MAX = 0.85
+const TARGET_X_MIN = 0.15
+const TARGET_X_MAX = 0.85
 
 const defaultRandomTarget = (): number =>
   TARGET_X_MIN + Math.random() * (TARGET_X_MAX - TARGET_X_MIN)
