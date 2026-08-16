@@ -1,23 +1,298 @@
+# YORR 단일 호스트 스택 — Oracle Cloud Ampere A1 (2 OCPU / 12GB, linux/arm64).
+# 결정 근거: backend/docs/adr/0006-github-actions-ghcr-arm64-single-host.md
+# 운영 절차: backend/docs/design/operations.md 「배포 파이프라인」
+#
+# 이전 버전(SSAFY Jenkins 호스트)은 backend 서비스 하나만 두고 Redis·MySQL·리버스
+# 프록시를 **외부 네트워크에 이미 있는 것으로 전제**했다. 새 호스트에는 그 인프라가
+# 없으므로 스택 전체를 여기서 소유한다. 유지한 계약 / 바꾼 계약은 ADR-0006에 있다:
+#
+#   유지: 서비스 이름 `backend`(rename 금지) · 설정은 `env_file` 주입 ·
+#         backend는 **포트를 공개하지 않는다**(프록시만 공개)
+#   변경: 외부 `app-network`/`app-{main,dev}-network` → 이 파일이 만드는 두 네트워크
+#         · main/dev 두 슬롯 → 단일 호스트 단일 환경
+#
+# ── 설정 파일 하나 ────────────────────────────────────────────────────────────
+# compose는 자기 파일 옆의 `.env`를 **보간(${...})** 용으로 자동으로 읽고,
+# `backend`의 `env_file`도 기본값이 같은 파일이다. 즉 운영자가 관리하는 파일은
+# `deploy/.env` 하나다(루트 .gitignore가 `.env`를 이미 무시한다).
+#
+#   cd deploy && docker compose up -d                            # 첫 기동(스택 전체)
+#   docker compose pull backend && docker compose up -d backend  # 배포(이미지 교체)
+#   docker compose run --rm migrate                              # 빈 DB에 스키마 세우기
+#
+# ⚠️ 배포는 진행 중 게임을 끊는다. WS 구독·라운드 마감 타이머가 프로세스
+#    인메모리이기 때문이다(DESIGN.md 원칙 8). 무중단 롤링은 불가능하다 —
+#    한가한 시간에 배포하는 것이 유일한 완화책이다(ADR-0006).
+
+name: ${COMPOSE_PROJECT_NAME:-yorr}
+
 services:
+  # ── 애플리케이션 ─────────────────────────────────────────────────────────────
   backend:
-    image: ${BACKEND_IMAGE}
-    container_name: ${BACKEND_CONTAINER}
+    # GitHub Actions가 만들어 GHCR에 올린 linux/arm64 이미지. 호스트는 pull만 한다.
+    # 롤백은 이 값을 `:sha-<커밋>`으로 바꿔 `up -d backend`.
+    image: ${BACKEND_IMAGE:-ghcr.io/jadewisemann/yorr-backend:main}
+    container_name: ${BACKEND_CONTAINER:-yorr-backend}
     restart: unless-stopped
+    # PID 1 좀비 수확. node는 자식을 만들지 않지만, 기동 중(종료 훅 등록 전) SIGTERM이
+    # 무시되는 틈에 대한 방어이기도 하다(backend/Dockerfile 주석).
+    init: true
 
     env_file:
-      - ${BACKEND_ENV_FILE}
+      - ${BACKEND_ENV_FILE:-./.env}
 
+    # 여기 있는 네 개는 **`.env`보다 이긴다**(compose 규칙: environment > env_file).
+    # 의도한 것이다 — Redis·MySQL의 좌표는 운영자의 설정이 아니라 이 파일이 정하는
+    # 토폴로지의 성질이다. 운영 `.env`를 SSAFY 호스트에서 그대로 가져와도(그 파일의
+    # `DB_URL`은 `localhost`를 가리킨다) 컨테이너가 옆 서비스를 찾는다.
+    # `DB_URL`을 비우는 것이 특히 중요하다: 값이 있으면 env.ts가 DB_HOST를 덮어쓴다.
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      DB_URL: ""
+      DB_HOST: mysql
+      DB_PORT: "3306"
+
+    depends_on:
+      # 기동 순서가 계약이다: main.ts의 `verifyMigrations`가 MySQL 왕복이고,
+      # 실패하면 exit 1이다. MySQL이 준비되기 전에 뜨면 재시작 루프가 된다.
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    # 포트 공개 없음(기존 계약 유지). 바깥에서 오는 길은 caddy뿐이다.
+    # caddy가 실제로 쓰는 이름은 서비스 이름 `backend`다. 별칭은 구 프록시 설정
+    # (`backend-main`/`backend-dev`)과의 호환용 잔재이며 남겨 두어도 비용이 없다.
     networks:
-      backend-network: {}
-      proxy-network:
+      internal: {}
+      edge:
         aliases:
-          - ${BACKEND_ALIAS}
+          - ${BACKEND_ALIAS:-backend-main}
+
+    logging: &json-logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ── 스키마 부트스트랩 (평상시 뜨지 않는다) ───────────────────────────────────
+  # `profiles`가 붙어 있으므로 `docker compose up -d`에는 포함되지 않는다.
+  #
+  #     docker compose run --rm migrate
+  #
+  # 왜 필요한가: `main.ts`의 `verifyMigrations`는 **읽기 전용**이고, 밀린
+  # 마이그레이션이 있으면 exit 1로 죽는다(ADR-0005 — 전환기에 Java의 Flyway와
+  # 이력이 갈라지지 않게 하려고 일부러 그렇게 만들었다). 그래서 **빈 MySQL 위에서는
+  # backend가 절대 뜨지 못한다** — 재시작 루프가 된다. 스키마를 세우는 경로가
+  # 코드에 있는데(`runMigrations`) 진입점이 없어서, 그 진입점을 여기서 만든다.
+  #
+  # 새 호스트의 MySQL은 backend-java와 공유하지 않으므로 ADR-0005의 "스키마 동결"이
+  # 여기를 묶지 않는다. 다만 **기존 운영 데이터를 옮기는 것이 우선이다**:
+  # 구 호스트의 덤프를 복원하면 `flyway_schema_history`가 함께 와서 이 서비스가
+  # 필요 없어진다(V1·V2는 바이트 단위로 같은 파일이라 체크섬이 맞는다).
+  # 진짜로 빈 DB에서 시작할 때만 이것을 쓴다.
+  migrate:
+    profiles: ["bootstrap"]
+    image: ${BACKEND_IMAGE:-ghcr.io/jadewisemann/yorr-backend:main}
+    restart: "no"
+    env_file:
+      - ${BACKEND_ENV_FILE:-./.env}
+    environment:
+      DB_URL: ""
+      DB_HOST: mysql
+      DB_PORT: "3306"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    entrypoint: ["node", "--input-type=module", "-e"]
+    command:
+      - |
+        const { loadEnv } = await import('/app/dist/config/env.js')
+        const { createMysqlPool, closeMysqlPool } = await import('/app/dist/infra/mysql.js')
+        const { runMigrations } = await import('/app/dist/infra/migrations/index.js')
+        const pool = createMysqlPool(loadEnv())
+        try {
+          const { applied, plan } = await runMigrations(pool)
+          console.log('applied:', applied.length === 0 ? '(없음 — 이미 최신)' : applied.join(', '))
+          console.log('history:', plan.applied.map((entry) => entry.script).join(', '))
+        } finally {
+          await closeMysqlPool(pool)
+        }
+    networks:
+      internal: {}
+    logging: *json-logging
+
+  # ── 리버스 프록시 · TLS ──────────────────────────────────────────────────────
+  # 프론트는 Vercel(https://yorr.site)에 있다. HTTPS 페이지에서 `ws://`는 브라우저가
+  # 차단하므로 **TLS가 선택이 아니다**. Caddy가 도메인 하나에 대해 Let's Encrypt
+  # 인증서를 자동으로 받고 갱신한다. `reverse_proxy`는 WebSocket Upgrade를 그대로
+  # 통과시킨다(별도 설정 없음).
+  #
+  # Caddyfile을 두지 않고 `caddy reverse-proxy` 서브커맨드를 쓰는 이유는 설정이
+  # 정말로 한 줄(도메인 → backend)이기 때문이다. 경로 분기·헤더 조작·여러 도메인이
+  # 필요해지면 Caddyfile을 만들어 `command`를 `caddy run --config`로 바꾼다.
+  #
+  # 앱은 항상 `/api/v1`·`/ws/v1/game`·`/actuator/*`를 그대로 서빙한다 —
+  # 접두사를 벗기는 프록시 규칙(구 dev 호스트의 `/dev-api`)은 여기 없다.
+  caddy:
+    image: caddy:2-alpine
+    container_name: ${CADDY_CONTAINER:-yorr-caddy}
+    restart: unless-stopped
+    command:
+      - caddy
+      - reverse-proxy
+      # 스킴 없이 도메인만: `api.yorr.site`. 이 이름의 A/AAAA 레코드가 이 호스트를
+      # 가리켜야 인증서 발급(HTTP-01)이 성공한다.
+      - --from
+      - ${PUBLIC_HOST:?deploy/.env에 PUBLIC_HOST(예 api.yorr.site)가 필요하다}
+      - --to
+      - backend:${SERVER_PORT:-8080}
+    ports:
+      # 여는 것은 HTTP/HTTPS뿐이다. coturn/TURN을 배포하지 않기로 했으므로
+      # UDP 릴레이 포트가 필요 없다(음성은 STUN-only — YORR_VOICE_TURN_SECRET 미설정).
+      - "80:80"
+      - "443:443"
+    volumes:
+      # 인증서·ACME 계정 키. 이 볼륨을 잃으면 재발급이고, Let's Encrypt 발급
+      # 한도(도메인당 주 5회)에 걸릴 수 있다.
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - backend
+    networks:
+      edge: {}
+    logging: *json-logging
+
+  # ── Redis (방·세션·진행 중 게임 상태·점수판) ─────────────────────────────────
+  redis:
+    # Java 통합 테스트가 쓰던 것과 같은 계열(7.4). linux/arm64 매니페스트 있음.
+    image: redis:7.4-alpine
+    container_name: ${REDIS_CONTAINER:-yorr-redis}
+    restart: unless-stopped
+    command:
+      - redis-server
+      # 방 상태는 TTL로 사라지지만 **세션은 그렇지 않다**(게스트 24h·회원 30d).
+      # 영속화를 끄면 Redis 재시작이 전원 로그아웃이다. AOF로 남긴다.
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      # ⚠️ `noeviction`이 기본값이고 **그대로 두어야 한다.** allkeys-lru로 바꾸면
+      #    한가한 방의 세션·점수판이 조용히 사라진다(그때 나는 증상은 "가끔
+      #    session_expired"라서 원인을 찾기 어렵다).
+      - --maxmemory-policy
+      - noeviction
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks:
+      internal: {}
+    logging: *json-logging
+
+  # ── MySQL (계정·소셜 연동·전적·주간 랭킹) ────────────────────────────────────
+  mysql:
+    # 8.0은 linux/arm64 매니페스트가 있다(5.7은 없다 — 올리지 마라).
+    image: mysql:8.0
+    container_name: ${MYSQL_CONTAINER:-yorr-mysql}
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      # 계약: DATETIME(6)은 UTC 벽시계다(persistence.md). 앱은 mysql2에
+      # `timezone: 'Z'`를 박아 두었고, 서버 기본 시간대도 UTC로 맞춰 둔다 —
+      # 어긋나면 주간 랭킹 집계가 9시간 밀린 값을 쌓는다(복구 불가).
+      - --default-time-zone=+00:00
+      # 컨테이너 네트워크에서 역방향 DNS를 기다리다 접속이 느려지는 것을 막는다.
+      - --skip-name-resolve
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?deploy/.env에 MYSQL_ROOT_PASSWORD가 필요하다}
+      # 앱이 보는 이름과 반드시 같아야 한다(`.env`의 DB_NAME·DB_USERNAME·DB_PASSWORD).
+      MYSQL_DATABASE: ${DB_NAME:-yorr}
+      MYSQL_USER: ${DB_USERNAME:-yorr}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?deploy/.env에 DB_PASSWORD가 필요하다}
+      TZ: UTC
+    volumes:
+      # 실사용자 계정·전적·랭킹이 여기 있다. 이 볼륨을 지우면 복구할 수 없다.
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h 127.0.0.1 -u root -p"$$MYSQL_ROOT_PASSWORD" --silent
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      # 첫 기동은 데이터 디렉터리 초기화를 하므로 오래 걸린다(ARM에서 특히).
+      start_period: 90s
+    networks:
+      internal: {}
+    logging: *json-logging
+
+  # ── 일일 논리 백업 (mysqldump) ───────────────────────────────────────────────
+  # 볼륨 하나가 유일한 사본인 상태를 만들지 않기 위한 서비스다. 기동 직후 한 번
+  # 뜨고 그다음부터 24시간 주기다(cron 앵커가 아니다 — 컨테이너가 재시작하면
+  # 그 시점부터 다시 센다. 정해진 시각이 필요하면 이 서비스를 지우고 호스트의
+  # systemd timer에서 같은 `mysqldump`를 부르면 된다).
+  #
+  # ⚠️ **같은 호스트의 덤프는 백업이 아니다.** 호스트를 잃으면 함께 잃는다.
+  #    `${BACKUP_DIR}`을 호스트 밖으로 주기적으로 복사하는 것까지가 백업이다
+  #    (operations.md의 운영자 체크리스트).
+  mysql-backup:
+    image: mysql:8.0
+    container_name: ${MYSQL_BACKUP_CONTAINER:-yorr-mysql-backup}
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      # mysqldump가 읽는 표준 변수 — 명령줄에 비밀번호를 두지 않는다(`ps`에 보인다).
+      MYSQL_PWD: ${MYSQL_ROOT_PASSWORD:?deploy/.env에 MYSQL_ROOT_PASSWORD가 필요하다}
+      BACKUP_DATABASE: ${DB_NAME:-yorr}
+      RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      TZ: UTC
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -u
+        while :; do
+          stamp=$$(date -u +%Y%m%dT%H%M%SZ)
+          out="/backup/$$BACKUP_DATABASE-$$stamp.sql"
+          # --single-transaction: InnoDB를 잠그지 않고 일관된 스냅샷을 뜬다
+          #   (게임 중 MySQL을 만지지 않는다는 원칙 덕에 경합 자체가 거의 없다).
+          # --databases: 덤프에 CREATE DATABASE가 들어가 빈 서버에 그대로 복원된다.
+          if mysqldump -h mysql -u root --single-transaction --routines --triggers \
+               --events --databases "$$BACKUP_DATABASE" > "$$out.tmp"; then
+            mv "$$out.tmp" "$$out"
+            echo "[backup] ok $$out"
+          else
+            # 반쯤 쓴 파일을 남기지 않는다 — 복원할 때 가장 위험한 것이 그것이다.
+            rm -f "$$out.tmp"
+            echo "[backup] FAILED $$stamp" >&2
+          fi
+          find /backup -maxdepth 1 -name '*.sql' -type f -mtime "+$$RETENTION_DAYS" -delete || true
+          sleep 86400
+        done
+    volumes:
+      - ${BACKUP_DIR:-./backup}:/backup
+    networks:
+      internal: {}
+    logging: *json-logging
 
 networks:
-  backend-network:
-    external: true
-    name: ${BACKEND_NETWORK}
+  # backend ↔ redis · mysql. 바깥으로 가는 길이 없다.
+  internal:
+    driver: bridge
+  # caddy ↔ backend. caddy는 internal에 붙지 않으므로 DB에 닿을 수 없다.
+  edge:
+    driver: bridge
 
-  proxy-network:
-    external: true
-    name: app-network
+volumes:
+  mysql-data: {}
+  redis-data: {}
+  caddy-data: {}
+  caddy-config: {}

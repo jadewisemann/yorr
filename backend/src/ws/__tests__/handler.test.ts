@@ -5,9 +5,10 @@ import type { RoomCloseScheduler } from '../../room/closeScheduler.js'
 import { RoomService } from '../../room/roomService.js'
 import { type GuestSession, UserService } from '../../user/session.js'
 import { RoomBroadcaster } from '../broadcaster.js'
-import { envelope, type OutboundEnvelope } from '../envelope.js'
+import { envelope, type InboundEnvelope, type OutboundEnvelope } from '../envelope.js'
 import { ACTIVE_GAME_GRACE_MS, EMPTY_LOBBY_GRACE_MS, GameSocketHandler } from '../handler.js'
 import { HeartbeatMonitor } from '../heartbeat.js'
+import type { WsRoomSnapshot } from '../protocol.js'
 import { RoomSessionRegistry } from '../registry.js'
 import { RealtimeRoomSnapshotService } from '../snapshot.js'
 import type { ClientSocket } from '../socket.js'
@@ -76,18 +77,21 @@ class FakeCloseScheduler implements RoomCloseScheduler {
 interface StubModule {
   readonly module: GameModule
   readonly calls: string[]
+  readonly handled: InboundEnvelope[]
 }
 
 const stubModule = (
-  options: { hasState?: boolean; reconnect?: () => unknown } = {},
+  options: {
+    hasState?: boolean
+    reconnect?: () => WsRoomSnapshot
+    events?: string[]
+    onHandle?: () => never
+  } = {},
 ): StubModule => {
   const calls: string[] = []
+  const handled: InboundEnvelope[] = []
   const module: GameModule = {
     code: 'YACHT_DICE',
-    name: 'Yacht Dice',
-    minPlayers: 1,
-    maxPlayers: 6,
-    supportsBots: true,
     start: async () => {},
     reset: async () => {},
     resume: async () => {
@@ -106,12 +110,20 @@ const stubModule = (
     reconnect: async (roomId, playerId) => {
       calls.push('reconnect')
       if (options.reconnect) return options.reconnect()
-      return { roomId, phase: 'playing', players: [], game: { activePlayerId: playerId } }
+      return {
+        roomId,
+        phase: 'playing',
+        players: [],
+        game: { activePlayerId: playerId },
+      }
     },
-    handles: () => false,
-    handle: async () => {},
+    handles: (eventType) => (options.events ?? []).includes(eventType),
+    handle: async (_socket, message) => {
+      handled.push(message)
+      options.onHandle?.()
+    },
   }
-  return { module, calls }
+  return { module, calls, handled }
 }
 
 const frame = (type: string, payload: unknown, extra: Record<string, unknown> = {}): string =>
@@ -481,6 +493,66 @@ describeRedis('GameSocketHandler', () => {
     expect(stranger.only()).toMatchObject({
       type: 'error',
       payload: { code: 'AUTH_REQUIRED', refMsgId: 'roll-before-join' },
+    })
+  })
+
+  /* ------------------------------------------------------------ 게임 네임스페이스 */
+
+  it('방의 게임 모듈에 접두사를 벗긴 이벤트로 넘긴다', async () => {
+    const { module, handled } = stubModule({ events: ['dice.roll'] })
+    games.register(module)
+    const { roomCode, host } = await openRoom()
+    const socket = await enter(roomCode, host)
+
+    await handler.message(
+      socket,
+      frame('game.yacht_dice.dice.roll', { keep: [true] }, { msgId: 'roll-1', roomId: roomCode }),
+    )
+
+    expect(handled).toEqual([
+      {
+        type: 'dice.roll',
+        ts: expect.any(Number),
+        payload: { keep: [true] },
+        roomId: roomCode,
+        msgId: 'roll-1',
+      },
+    ])
+    // 응답은 모듈이 만든다 — 게이트웨이는 아무것도 보내지 않는다.
+    expect(socket.sent).toHaveLength(0)
+  })
+
+  it('다른 게임 네임스페이스·모르는 이벤트는 INVALID_MESSAGE다', async () => {
+    const { module, handled } = stubModule({ events: ['dice.roll'] })
+    games.register(module)
+    const { roomCode, host } = await openRoom()
+    const socket = await enter(roomCode, host)
+
+    await handler.message(socket, frame('game.duel.dice.roll', {}, { msgId: 'cross' }))
+    expect(socket.only()).toMatchObject({
+      type: 'error',
+      payload: { code: 'INVALID_MESSAGE', refMsgId: 'cross' },
+    })
+
+    socket.clear()
+    await handler.message(socket, frame('game.yacht_dice.dice.spin', {}, { msgId: 'unknown' }))
+    expect(socket.only()).toMatchObject({
+      type: 'error',
+      payload: { code: 'INVALID_MESSAGE', refMsgId: 'unknown' },
+    })
+    expect(handled).toHaveLength(0)
+  })
+
+  /** 모듈이 아직 없는 게임의 방도 대기실은 돌아간다 — 게임 메시지만 거절된다. */
+  it('등록된 모듈이 없으면 게임 메시지는 INVALID_MESSAGE다', async () => {
+    const { roomCode, host } = await openRoom()
+    const socket = await enter(roomCode, host)
+
+    await handler.message(socket, frame('game.yacht_dice.dice.roll', {}, { msgId: 'no-module' }))
+
+    expect(socket.only()).toMatchObject({
+      type: 'error',
+      payload: { code: 'INVALID_MESSAGE', refMsgId: 'no-module' },
     })
   })
 

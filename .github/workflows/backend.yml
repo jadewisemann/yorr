@@ -1,0 +1,211 @@
+# Node 백엔드 CI + 배포 이미지 빌드 — backend/docs/adr/0006-github-actions-ghcr-arm64-single-host.md
+#
+# 검사와 이미지가 **한 파일 두 잡**인 이유: 테스트가 초록이 아닌 커밋의 이미지가
+# GHCR에 올라가면 안 된다. 워크플로를 두 개로 나누면 `needs:`로 그것을 강제할 수
+# 없다(`workflow_run`은 별개 실행이라 상태 전파가 느슨하다).
+#
+# PR에서도 image 잡이 돈다 — push만 하지 않는다. Dockerfile이 깨진 것을 배포
+# 시점이 아니라 리뷰 시점에 알기 위해서다.
+
+name: backend
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - backend/**
+      - deploy/**
+      - .github/workflows/backend.yml
+  push:
+    branches: [main]
+    paths:
+      - backend/**
+      - deploy/**
+      - .github/workflows/backend.yml
+  workflow_dispatch: {}
+
+# 같은 브랜치의 이전 실행은 취소한다. 단 main은 취소하지 않는다 —
+# 이미지 빌드가 중간에 잘리면 어떤 커밋이 배포 가능한지 알 수 없게 된다.
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # ── 1. 검사 ───────────────────────────────────────────────────────────────────
+  verify:
+    name: check · typecheck · test · build
+    runs-on: ubuntu-latest
+
+    # MySQL 통합 테스트(45건)를 **처음으로 실제로 돌리는 자리다** — 지금까지
+    # `MYSQL_TEST_URL`이 없어 전부 skip이었고 SQL 문법조차 검증된 적이 없다
+    # (ADR-0005 / PLANS.md 상태 표). 여기서 처음 빨간불이 날 수 있다.
+    #
+    # Java 통합 테스트가 쓰던 것과 같은 8.0. 하네스는 테스트마다
+    # `yorr_test_<random>` 스키마를 CREATE/DROP하므로 **root가 필요하다**
+    # (backend/src/infra/__tests__/mysqlHarness.ts).
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          # 비밀번호를 두지 않는다. 이 인스턴스는 잡이 끝나면 사라지고 러너
+          # 밖에서 닿을 수 없으므로 지킬 것이 없는데, 리터럴을 적으면 시크릿
+          # 스캐너(GitGuardian)가 정당하게 잡는다 — "회전할 수 없는 가짜 자격"이
+          # 저장소에 남는 것이 더 나쁘다.
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=18
+          --health-start-period=90s
+
+    env:
+      # ADR-0004 / ADR-0005: 통합 테스트가 "조용히 건너뛴 초록"이 되는 것을 막는
+      # 스위치. 이 두 줄이 없으면 Redis·MySQL이 없는 러너에서 CI가 초록으로 거짓말한다.
+      REDIS_TEST_REQUIRED: "1"
+      MYSQL_TEST_URL: mysql://root@127.0.0.1:3306
+      MYSQL_TEST_REQUIRED: "1"
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # package.json engines: >=22.12
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # ADR-0004의 기본 경로: 하네스가 **테스트 파일마다** redis-server를 유닉스
+      # 소켓으로 띄운다. service container + REDIS_TEST_URL로 대신할 수도 있지만
+      # 그러면 vitest의 병렬 파일들이 하나의 Redis에 FLUSHALL을 걸어 서로를 깬다.
+      # 필요한 것은 데몬이 아니라 **바이너리**다.
+      - name: redis-server 바이너리 설치 (ADR-0004)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends redis-server
+          redis-server --version
+
+      - run: npm ci
+
+      # 아래 네 개는 backend/AGENTS.md 「검증 명령」과 같은 순서·같은 스크립트다.
+      - run: npm run check
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  # ── 2. compose 문법 검증 ─────────────────────────────────────────────────────
+  # `docker compose config`는 데몬 없이 돈다. 필수 변수(`${VAR:?}`)와 보간 오류를
+  # 배포 직전이 아니라 여기서 잡는다.
+  compose:
+    name: deploy/compose.yaml 검증
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: compose config
+        working-directory: deploy
+        run: |
+          # 실제 값이 아니라 자리만 채운다 — 검증하는 것은 문법과 필수 변수 목록이다.
+          cat > ci.env <<'EOF'
+          SERVER_PORT=8080
+          DB_NAME=yorr
+          DB_USERNAME=yorr
+          DB_PASSWORD=ci
+          MYSQL_ROOT_PASSWORD=ci
+          PUBLIC_HOST=api.example.test
+          EOF
+          BACKEND_ENV_FILE=./ci.env docker compose --env-file ci.env config --quiet
+          rm -f ci.env
+
+  # ── 3. linux/arm64 이미지 → GHCR ─────────────────────────────────────────────
+  image:
+    name: linux/arm64 이미지
+    needs: [verify]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 러너는 x86이고 대상은 arm64다. **ARM 러너를 쓰지 않는 이유**(ADR-0006):
+      # Dockerfile이 컴파일·의존성 설치를 전부 `--platform=$BUILDPLATFORM`에서
+      # 끝내고 arm64 스테이지에는 `RUN`이 없다. 즉 arm64 명령이 실행되지 않으므로
+      # 에뮬레이션 비용이 0이고, GitHub의 ARM 러너(비공개 저장소는 유료)도 필요 없다.
+      #
+      # QEMU를 그래도 설치하는 것은 보험이다 — 누군가 런타임 스테이지에 `RUN`을
+      # 넣었을 때 "exec format error"라는 알기 어려운 실패 대신 그냥 느리게 성공한다.
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@v3
+
+      - name: GHCR 로그인
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          # 별도 PAT가 필요 없다 — 이 워크플로의 packages:write 권한으로 충분하다.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-backend
+          # `main`은 "지금 배포 가능한 것", `sha-<커밋>`은 롤백 대상이다.
+          # 롤백은 compose의 BACKEND_IMAGE를 sha 태그로 바꿔 `up -d backend`.
+          tags: |
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=sha-,format=short
+
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: linux/arm64
+          # PR에서는 빌드만 한다(Dockerfile 회귀 검사).
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # attestation 매니페스트를 붙이지 않는다 — 단일 플랫폼 이미지를
+          # `docker pull`로만 쓰는 데 인덱스가 늘면 태그 다루기가 번거로워진다.
+          provenance: false
+
+      - name: 배포 방법 안내
+        if: github.event_name != 'pull_request'
+        run: |
+          {
+            echo "## 이미지 준비 완료"
+            echo
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}" | sed 's/^/tag: /'
+            echo "digest: ${{ steps.build.outputs.digest }}"
+            echo '```'
+            echo
+            echo "### OCI 호스트에서 (사람이 직접 실행한다)"
+            echo
+            echo '```bash'
+            echo "cd ~/yorr/deploy"
+            echo "docker compose pull backend"
+            echo "docker compose up -d backend"
+            echo "sleep 15 && docker compose ps && docker compose logs --tail 100 backend"
+            echo '```'
+            echo
+            echo "> 자동 배포를 걸지 않는 이유: 배포가 **진행 중 게임을 끊는다**."
+            echo "> WS 구독과 라운드 마감 타이머가 프로세스 인메모리다(DESIGN.md 원칙 8)."
+            echo "> 사람이 한가한 시간을 골라 위 명령을 실행한다(ADR-0006)."
+          } >> "$GITHUB_STEP_SUMMARY"

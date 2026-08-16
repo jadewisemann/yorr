@@ -1,3 +1,31 @@
+// ⚠️ 전환 중 — 이 파이프라인은 **backend-java(구 운영)와 프론트 Vercel 배포**만
+//    담당한다. Node 백엔드(`backend/**`)의 CI/CD는 GitHub Actions로 옮겼다:
+//    `.github/workflows/backend.yml` (결정: backend/docs/adr/0006-github-actions-ghcr-arm64-single-host.md).
+//
+//    이 파일을 아직 지우지 않은 이유는 두 가지다:
+//      1. 전환이 끝나기 전까지 SSAFY 호스트의 backend-java가 운영이자 롤백
+//         대상이다. Node 쪽에 문제가 생겼을 때 되돌아갈 길을 먼저 끊지 않는다.
+//      2. 마지막 두 스테이지(Validate Frontend · Deploy Frontend to Vercel)는
+//         백엔드 전환과 무관한데 같은 파일에 얽혀 있다. 지우면 **프론트 배포가
+//         조용히 멈춘다.**
+//
+//    삭제 시점: PLANS.md Phase 5의 마지막 항목(backend-java 제거, 별도 PR).
+//    그 전에 프론트 배포를 GitHub Actions나 Vercel Git 연동으로 옮겨야 한다.
+//
+//    이번 변경에서 백엔드 스테이지 5개를 `DEPLOY_LEGACY_BACKEND`(기본 false)로
+//    잠갔고, 트리거에서 `deploy/**`·`Jenkinsfile`을 뺐다. 이유:
+//      - backend-java는 동결이라(backend/AGENTS.md) 배포할 변경이 없다. 이미 떠 있는
+//        컨테이너는 그대로 돌고, 이 잡이 다시 배포하지 않는다.
+//      - `deploy/compose.yaml`은 이제 **Node/OCI 스택**이다. 외부 `app-network`를
+//        전제하지 않고 `PUBLIC_HOST`를 요구하므로, 그 파일로 backend-java를 배포하면
+//        `compose config`에서 즉시 실패한다. 트리거를 남겨 두면 Node 스택 파일을
+//        고칠 때마다 이 잡이 빨간불이 된다.
+//      - 프론트 스테이지는 그대로다(`frontend/**`·`Jenkinsfile` 트리거 유지).
+//
+//    ⚠️ backend-java로 되돌려야 하면 `DEPLOY_LEGACY_BACKEND`를 켜기 **전에** git
+//       이력에서 구 `deploy/compose.yaml`을 되살려라. 다만 진짜 롤백은 재배포가
+//       아니라 "프론트·DNS를 새 호스트로 옮기지 않는 것"이다 — 구 호스트의 Java
+//       컨테이너는 계속 떠 있다.
 pipeline {
     agent any
 
@@ -13,6 +41,18 @@ pipeline {
             name: 'FORCE_DEPLOY_ALL',
             defaultValue: false,
             description: '변경 경로와 관계없이 백엔드와 프론트를 모두 배포'
+        )
+
+        // 전환 중 기본값 false — 파일 맨 위 주석 참고.
+        // backend-java는 동결이므로 배포할 변경이 없고, `deploy/compose.yaml`은
+        // 이제 Node/OCI 스택을 기술한다(외부 app-network를 전제하지 않고
+        // PUBLIC_HOST를 요구한다). 즉 이 파이프라인의 백엔드 스테이지는 켜면
+        // 실패한다. 켜기 전에 git 이력에서 구 compose.yaml을 되살려야 한다.
+        booleanParam(
+            name: 'DEPLOY_LEGACY_BACKEND',
+            defaultValue: false,
+            description: 'backend-java(구 운영)를 이 호스트에 재배포 — ' +
+                '구 deploy/compose.yaml 복원이 선행돼야 한다'
         )
     }
 
@@ -101,15 +141,16 @@ pipeline {
         }
 
         stage('Check Backend Requirements') {
+            // 전환 중: DEPLOY_LEGACY_BACKEND(기본 false)로 전체를 잠갔다.
+            // `deploy/**`·`Jenkinsfile` 트리거도 뺐다 — Node 스택 파일을 고쳤을 때
+            // 이 잡이 구 호스트에 backend-java를 재배포하려 들면 안 된다.
             when {
-                anyOf {
-                    expression {
-                        currentBuild.number == 1 ||
-                        params.FORCE_DEPLOY_ALL
+                allOf {
+                    expression { params.DEPLOY_LEGACY_BACKEND }
+                    anyOf {
+                        expression { params.FORCE_DEPLOY_ALL }
+                        changeset 'backend-java/**'
                     }
-                    changeset 'backend-java/**'
-                    changeset 'deploy/**'
-                    changeset 'Jenkinsfile'
                 }
             }
 
@@ -140,15 +181,16 @@ pipeline {
         }
 
         stage('Build Backend JAR') {
+            // 전환 중: DEPLOY_LEGACY_BACKEND(기본 false)로 전체를 잠갔다.
+            // `deploy/**`·`Jenkinsfile` 트리거도 뺐다 — Node 스택 파일을 고쳤을 때
+            // 이 잡이 구 호스트에 backend-java를 재배포하려 들면 안 된다.
             when {
-                anyOf {
-                    expression {
-                        currentBuild.number == 1 ||
-                        params.FORCE_DEPLOY_ALL
+                allOf {
+                    expression { params.DEPLOY_LEGACY_BACKEND }
+                    anyOf {
+                        expression { params.FORCE_DEPLOY_ALL }
+                        changeset 'backend-java/**'
                     }
-                    changeset 'backend-java/**'
-                    changeset 'deploy/**'
-                    changeset 'Jenkinsfile'
                 }
             }
 
@@ -188,15 +230,16 @@ pipeline {
         }
 
         stage('Build Backend Image') {
+            // 전환 중: DEPLOY_LEGACY_BACKEND(기본 false)로 전체를 잠갔다.
+            // `deploy/**`·`Jenkinsfile` 트리거도 뺐다 — Node 스택 파일을 고쳤을 때
+            // 이 잡이 구 호스트에 backend-java를 재배포하려 들면 안 된다.
             when {
-                anyOf {
-                    expression {
-                        currentBuild.number == 1 ||
-                        params.FORCE_DEPLOY_ALL
+                allOf {
+                    expression { params.DEPLOY_LEGACY_BACKEND }
+                    anyOf {
+                        expression { params.FORCE_DEPLOY_ALL }
+                        changeset 'backend-java/**'
                     }
-                    changeset 'backend-java/**'
-                    changeset 'deploy/**'
-                    changeset 'Jenkinsfile'
                 }
             }
 
@@ -216,15 +259,16 @@ pipeline {
         }
 
         stage('Deploy Backend') {
+            // 전환 중: DEPLOY_LEGACY_BACKEND(기본 false)로 전체를 잠갔다.
+            // `deploy/**`·`Jenkinsfile` 트리거도 뺐다 — Node 스택 파일을 고쳤을 때
+            // 이 잡이 구 호스트에 backend-java를 재배포하려 들면 안 된다.
             when {
-                anyOf {
-                    expression {
-                        currentBuild.number == 1 ||
-                        params.FORCE_DEPLOY_ALL
+                allOf {
+                    expression { params.DEPLOY_LEGACY_BACKEND }
+                    anyOf {
+                        expression { params.FORCE_DEPLOY_ALL }
+                        changeset 'backend-java/**'
                     }
-                    changeset 'backend-java/**'
-                    changeset 'deploy/**'
-                    changeset 'Jenkinsfile'
                 }
             }
 
@@ -256,15 +300,16 @@ pipeline {
         }
 
         stage('Verify Backend') {
+            // 전환 중: DEPLOY_LEGACY_BACKEND(기본 false)로 전체를 잠갔다.
+            // `deploy/**`·`Jenkinsfile` 트리거도 뺐다 — Node 스택 파일을 고쳤을 때
+            // 이 잡이 구 호스트에 backend-java를 재배포하려 들면 안 된다.
             when {
-                anyOf {
-                    expression {
-                        currentBuild.number == 1 ||
-                        params.FORCE_DEPLOY_ALL
+                allOf {
+                    expression { params.DEPLOY_LEGACY_BACKEND }
+                    anyOf {
+                        expression { params.FORCE_DEPLOY_ALL }
+                        changeset 'backend-java/**'
                     }
-                    changeset 'backend-java/**'
-                    changeset 'deploy/**'
-                    changeset 'Jenkinsfile'
                 }
             }
 
