@@ -4,6 +4,7 @@ import type { GameCode } from '@/games'
 import { PingPongControllerHowTo } from '@/pingpong/components/PingPongControllerHowTo'
 import { CONNECTED_HOLD_MS, CONNECTED_VIBRATE_MS, CONNECTING_MIN_MS } from '@/room/connectSequence'
 import { cn } from '@/shared/cn'
+import { Panel } from '@/shared/components/Panel'
 import type { ConnectionStatus } from '@/store'
 
 export type ControllerConnectStep = 'connecting' | 'connected' | 'ready'
@@ -29,9 +30,11 @@ export function ControllerConnectSequence({ howTo, status }: ControllerConnectSe
   const current = steps.findIndex((entry) => entry.key === step)
 
   return (
-    <section
+    <Panel
+      as="section"
       aria-label="컨트롤러 연결"
-      className="grid flex-none gap-3 rounded-panel border border-border bg-surface-raised p-3"
+      className="grid flex-none gap-3 p-3"
+      surface="raised"
     >
       <ol className="m-0 flex list-none items-center gap-1.5 p-0">
         {steps.map((entry, index) => (
@@ -66,7 +69,7 @@ export function ControllerConnectSequence({ howTo, status }: ControllerConnectSe
       </p>
 
       {step === 'ready' && howTo}
-    </section>
+    </Panel>
   )
 }
 

@@ -5,6 +5,7 @@ import { Alert } from '@/shared/components/Alert'
 import { Badge } from '@/shared/components/Badge'
 import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
+import { Panel } from '@/shared/components/Panel'
 import { TextField } from '@/shared/components/TextField'
 import { Tooltip } from '@/shared/components/Tooltip'
 import { Dice } from '@/yacht/components/Dice'
@@ -15,7 +16,7 @@ import type { CategoryScores } from '@/yacht/domain/scoring'
 import { HandVoiceLab } from './HandVoiceLab'
 import { PhysicsDiceDemo } from './PhysicsDiceDemo'
 
-const sectionClassName = 'grid gap-4 rounded-panel border border-border bg-surface p-5'
+const sectionClassName = 'grid gap-4 p-5'
 
 const initialGuideSignals = {
   candidates: {} as CategoryScores,
@@ -73,7 +74,7 @@ export function DevCatalog() {
         </p>
       </header>
 
-      <section className={sectionClassName}>
+      <Panel as="section" className={sectionClassName}>
         <h2 className="text-xl font-bold">Screens</h2>
         <p className="m-0 text-sm text-content-muted">
           컴포넌트가 아니라 화면 전체를 가짜 서버로 굴려 보는 자리
@@ -86,9 +87,9 @@ export function DevCatalog() {
             모션 센서 랩
           </a>
         </div>
-      </section>
+      </Panel>
 
-      <section className={sectionClassName}>
+      <Panel as="section" className={sectionClassName}>
         <h2 className="text-xl font-bold">Button</h2>
         <div className="flex flex-wrap gap-3">
           <Button size="sm">Small</Button>
@@ -99,9 +100,9 @@ export function DevCatalog() {
           <Button loading>Loading</Button>
           <Button disabled>Disabled</Button>
         </div>
-      </section>
+      </Panel>
 
-      <section className={sectionClassName}>
+      <Panel as="section" className={sectionClassName}>
         <h2 className="text-xl font-bold">Dice</h2>
         <div className="flex flex-wrap items-center gap-4">
           <Dice value={1} size="sm" />
@@ -109,26 +110,26 @@ export function DevCatalog() {
           <Dice value={5} held />
           <Dice value={6} rolling size="lg" />
         </div>
-      </section>
+      </Panel>
 
-      <section className={sectionClassName}>
+      <Panel as="section" className={sectionClassName}>
         <h2 className="text-xl font-bold">Physics dice renderer</h2>
         <p className="text-sm text-content-muted">
           결과 입력형 Three.js·Rapier 렌더러의 굴림, KEEP, 품질 preset을 검증합니다.
         </p>
         <PhysicsDiceDemo />
-      </section>
+      </Panel>
 
-      <section className={sectionClassName}>
+      <Panel as="section" className={sectionClassName}>
         <h2 className="text-xl font-bold">Hand callout and voice</h2>
         <p className="text-sm text-content-muted">
           숫자키 1~5로 족보 콜아웃과 직접 녹음한 음성을 게임 없이 확인합니다. 소리가 나지 않으면
           화면을 한 번 클릭해 브라우저 자동재생 잠금을 풀어주세요.
         </p>
         <HandVoiceLab />
-      </section>
+      </Panel>
 
-      <section className={sectionClassName}>
+      <Panel as="section" className={sectionClassName}>
         <h2 className="text-xl font-bold">Text field</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
@@ -142,27 +143,43 @@ export function DevCatalog() {
             errorMessage="특수문자는 사용할 수 없어요."
           />
         </div>
-      </section>
+      </Panel>
 
-      <section className={sectionClassName}>
+      <Panel as="section" className={sectionClassName}>
         <h2 className="text-xl font-bold">Alert</h2>
         <div className="grid gap-3">
           <Alert>방을 만든 사람이 호스트가 돼요</Alert>
           <Alert tone="danger">빠른 대전은 로그인이 필요해요.</Alert>
           <Alert tone="positive">점수가 반영됐습니다. 다음 턴을 기다립니다.</Alert>
         </div>
-      </section>
+      </Panel>
 
-      <section className={sectionClassName}>
+      <Panel as="section" className={sectionClassName}>
+        <h2 className="text-xl font-bold">Panel</h2>
+        <p className="m-0 text-sm text-content-muted">
+          이 카탈로그의 섹션 상자가 곧 Panel이다. 아래는 면 세 단.
+        </p>
+        <div className="grid gap-3 md:grid-cols-3">
+          <Panel className="p-4 text-sm">surface</Panel>
+          <Panel className="p-4 text-sm" surface="raised">
+            raised
+          </Panel>
+          <Panel className="p-4 text-sm" surface="sunken">
+            sunken
+          </Panel>
+        </div>
+      </Panel>
+
+      <Panel as="section" className={sectionClassName}>
         <h2 className="text-xl font-bold">Badge</h2>
         <div className="flex flex-wrap items-center gap-3">
           <Badge>2인</Badge>
           <Badge tone="warning">연결 끊김</Badge>
           <Badge tone="brand">추천</Badge>
         </div>
-      </section>
+      </Panel>
 
-      <section className={sectionClassName}>
+      <Panel as="section" className={sectionClassName}>
         <h2 className="text-xl font-bold">Player and score</h2>
         <div className="grid gap-3 md:grid-cols-3">
           <PlayerCard name="유진" active />
@@ -176,9 +193,9 @@ export function DevCatalog() {
           <ScoreRow label="4 of a Kind" score={0} state="zeroed" onSelect={() => undefined} />
           <ScoreRow label="S. Straight" score={15} size="sm" onSelect={() => undefined} />
         </div>
-      </section>
+      </Panel>
 
-      <section className={sectionClassName}>
+      <Panel as="section" className={sectionClassName}>
         <h2 className="text-xl font-bold">Tutorial and tooltip</h2>
         <div className="flex flex-wrap items-center gap-4">
           <span className="flex items-center gap-1.5 text-sm text-content-muted">
@@ -287,9 +304,9 @@ export function DevCatalog() {
           )}
         </div>
         <GameHelpModal onClose={() => setHelpOpen(false)} open={helpOpen} />
-      </section>
+      </Panel>
 
-      <section className={sectionClassName}>
+      <Panel as="section" className={sectionClassName}>
         <h2 className="text-xl font-bold">Async states</h2>
         <div className="grid gap-3 md:grid-cols-2">
           <StatusPanel variant="loading" />
@@ -297,9 +314,9 @@ export function DevCatalog() {
           <StatusPanel variant="error" />
           <StatusPanel variant="reconnect" />
         </div>
-      </section>
+      </Panel>
 
-      <section className={sectionClassName}>
+      <Panel as="section" className={sectionClassName}>
         <h2 className="text-xl font-bold">Modal</h2>
         <Button onClick={() => setModalOpen(true)}>Modal 열기</Button>
         <Modal open={modalOpen} title="게임 나가기" onClose={() => setModalOpen(false)}>
@@ -311,7 +328,7 @@ export function DevCatalog() {
             <Button>나가기</Button>
           </div>
         </Modal>
-      </section>
+      </Panel>
     </main>
   )
 }

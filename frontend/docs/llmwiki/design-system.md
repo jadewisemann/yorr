@@ -33,6 +33,11 @@ utility 없이 `appearance.ts`가 원시값을 직접 읽는다) · 랜딩 전�
 - **라운드**: `xs 2 · chip 6 · control 12 · card 14 · panel 18 · sheet 26 · hero 32 · full`
   7단+full. `rounded-2xl` 같은 Tailwind 기본 라운드 이름은 쓰지 않는다 — 토큰과 겹치거나
   어긋난다.
+  - **`card`와 `panel`은 크기가 아니라 모양으로 갈린다.** 표면 27곳을 세어 보니 panel 13 :
+    card 14로 반반이었는데, card 14곳 중 10곳이 사방 패딩 없이 `px`/`py`만 쓰는 **행·띠**였고
+    panel 13곳은 전부 `p-*`를 두른 **상자**였다. 이 갈래를 규칙으로 굳힌다 — 가로로 긴 행은
+    `card`, 사방이 닫힌 덩어리는 `panel`. 상자는 `Panel`이 이미 `panel`을 들고 있으므로
+    라운드를 손으로 적지 않는다.
 - **흰색 알파 헤어라인 3단**: `border`(10%) · `border-raised`(14%, 떠 있는 표면) ·
   `border-strong`(18%, 강조·1px 구분선). 면으로 옅게 깔 때는 `surface-veil`(6%) —
   `surface`는 불투명해서 뒤 그라디언트를 가린다. 눈대중 `white/NN` 금지, 사다리에 없는

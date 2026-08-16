@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
+import { Panel } from '@/shared/components/Panel'
 import { MOTION_GESTURE_CONFIG, type MotionGestureConfig } from '@/yacht/input/motionConfig'
 import { copyTextToClipboard } from './motionLabClipboard'
 import {
@@ -78,7 +79,7 @@ export function MotionLabRecorder({
   }
 
   return (
-    <section className="grid gap-3 rounded-panel border border-border bg-surface p-5">
+    <Panel as="section" className="grid gap-3 p-5">
       <h2 className="m-0 text-xl font-bold">녹화 · 리플레이</h2>
       <p className="m-0 text-sm text-content-muted">
         원시 센서 스트림을 녹화해 두면(최대 30초) 파라미터를 바꿔가며 같은 동작을 결정적으로
@@ -146,7 +147,7 @@ export function MotionLabRecorder({
           <ReplayColumn title="현재 config" result={compared.withCurrent} highlight />
         </div>
       )}
-    </section>
+    </Panel>
   )
 }
 

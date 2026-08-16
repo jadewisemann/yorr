@@ -2,6 +2,7 @@ import { type ReactNode, useState } from 'react'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
 import { IconCheck, IconWarning } from '@/shared/components/Icon'
+import { Panel } from '@/shared/components/Panel'
 import { Screen } from '@/shared/components/Screen'
 
 const dismissalKey = 'yorr.in-app-browser-dismissed'
@@ -44,11 +45,11 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
         </p>
       </div>
 
-      <ul className="m-0 grid list-none gap-2.5 rounded-panel border border-border bg-surface p-4 text-sm">
+      <Panel as="ul" className="m-0 grid list-none gap-2.5 p-4 text-sm">
         <ChecklistItem tone="ok">흔들어서 주사위 굴리기</ChecklistItem>
         <ChecklistItem tone="ok">초대 링크 공유와 복사</ChecklistItem>
         <ChecklistItem tone="warn">인앱에서는 센서가 동작하지 않을 수 있어요</ChecklistItem>
-      </ul>
+      </Panel>
 
       <div className="mt-auto grid gap-2.5">
         {externalUrl && (

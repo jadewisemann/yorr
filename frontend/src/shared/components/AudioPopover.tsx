@@ -5,6 +5,7 @@ import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
 import { IconMic, IconMusic, IconSound } from '@/shared/components/Icon'
 import { Popover, PopoverHeader } from '@/shared/components/Popover'
+import { Panel } from './Panel'
 
 interface AudioPopoverProps {
   anchorRef?: RefObject<HTMLElement | null> | undefined
@@ -53,7 +54,7 @@ export function AudioPopover({
 
       <div className="mt-5 grid gap-5">
         {microphone && (
-          <section className="grid gap-2 rounded-panel border border-border bg-surface-raised p-3.5">
+          <Panel as="section" className="grid gap-2 p-3.5" surface="raised">
             <div className="flex items-center gap-2">
               <IconMic className="size-4.5 flex-none text-content-muted" />
               <span className="text-sm font-semibold">마이크</span>
@@ -80,7 +81,7 @@ export function AudioPopover({
                 특정 사람 목소리만 끄려면 참가자 이름 옆 마이크를 누르세요.
               </p>
             )}
-          </section>
+          </Panel>
         )}
 
         <LevelSlider
