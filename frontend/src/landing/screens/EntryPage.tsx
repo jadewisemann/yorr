@@ -19,7 +19,7 @@ const noticeBase = 'm-0 text-center text-xs/[1.5] font-semibold text-landing-acc
 
 const narrowFooter = {
   filled:
-    'flex flex-none flex-col gap-2.5 px-5 pt-[clamp(10px,1.6vh,16px)] pb-[max(14px,env(safe-area-inset-bottom))]',
+    'flex flex-none flex-col gap-2 px-5 pt-[clamp(10px,1.6vh,16px)] pb-[max(14px,env(safe-area-inset-bottom))]',
   empty: 'flex-none pb-[max(14px,env(safe-area-inset-bottom))]',
 } as const
 
@@ -54,9 +54,9 @@ export function EntryPage({ gameKey }: EntryPageProps) {
           <RankingTicker layout="wide" />
 
           <header className="mx-auto flex h-22 w-full max-w-landing flex-none justify-center">
-            <div className="flex w-[69.4%] items-center justify-between gap-8">
-              <div className="flex items-center gap-5">
-                <span className="flex items-baseline gap-2.5">
+            <div className="flex w-[69.4%] items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <span className="flex items-baseline gap-2">
                   <span className={cn(wordmark, 'text-2xl/none')}>
                     YO<span className="text-landing-accent">R</span>R
                   </span>
@@ -70,7 +70,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
                   링크 하나로 모이면 바로 시작하는 파티 게임
                 </h1>
               </div>
-              <span className="flex min-w-0 items-center gap-2.5">
+              <span className="flex min-w-0 items-center gap-2">
                 <CodeEntryRow anchorRef={codeEntryRef} onOpen={() => setCodeOpen(true)} />
                 <span aria-hidden="true" className="h-6.5 w-px flex-none bg-landing-hairline" />
                 <SoundToggle muted={soundMuted} onToggle={toggleSound} />
@@ -129,7 +129,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
         </div>
 
         <div className="flex flex-none items-center justify-between gap-3 px-5 pt-3.5">
-          <span className="flex items-baseline gap-2.5">
+          <span className="flex items-baseline gap-2">
             <span className={cn(wordmark, 'text-2xl/none')}>
               YO<span className="text-landing-accent">R</span>R
             </span>
@@ -146,7 +146,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
           </span>
         </div>
 
-        <div className="flex flex-none items-center justify-between gap-3 px-5 pt-[clamp(10px,2vh,18px)] max-tiny:flex-col max-tiny:items-stretch max-tiny:gap-2.5">
+        <div className="flex flex-none items-center justify-between gap-3 px-5 pt-[clamp(10px,2vh,18px)] max-tiny:flex-col max-tiny:items-stretch max-tiny:gap-2">
           <h1 className="m-0 min-w-0 text-2xl/[1.25] font-bold tracking-[-0.02em] text-landing-text-strong">
             링크 하나로 모이면 바로 시작하는 파티 게임
           </h1>

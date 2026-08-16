@@ -54,7 +54,7 @@ export function MotionLabParamsPanel({ config, onApply }: MotionLabParamsPanelPr
             {MOTION_PARAM_GROUPS[group]} (
             {MOTION_PARAM_METAS.filter((meta) => meta.group === group).length})
           </summary>
-          <div className="grid gap-5 border-t border-border p-4">
+          <div className="grid gap-4 border-t border-border p-4">
             {MOTION_PARAM_METAS.filter((meta) => meta.group === group).map((meta) => (
               <ParamRow
                 key={meta.key}

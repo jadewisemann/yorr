@@ -81,7 +81,7 @@ function LocalPingPongGame({
         )}
       </header>
 
-      <section className="relative z-10 flex flex-none items-end justify-center gap-7 pb-2">
+      <section className="relative z-10 flex flex-none items-end justify-center gap-6 pb-2">
         <LocalScore label={p1Label} score={hud.s1} tone="blue" />
         <span className="pb-1 text-2xl text-game-separator">:</span>
         <LocalScore label={p2Label} score={hud.s2} tone="red" />

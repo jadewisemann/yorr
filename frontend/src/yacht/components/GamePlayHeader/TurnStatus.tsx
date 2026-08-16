@@ -38,7 +38,7 @@ export function TurnStatus({
   'activePlayer' | 'activePlayerId' | 'isMyTurn' | 'roundNumber' | 'submitted' | 'wide'
 >) {
   return (
-    <span className={cn('flex min-w-0 flex-col gap-0.5', !wide && 'flex-1')}>
+    <span className={cn('flex min-w-0 flex-col gap-1', !wide && 'flex-1')}>
       <span className="font-mono text-2xs leading-none font-bold tracking-[0.16em] whitespace-nowrap text-content-muted tabular-nums uppercase max-tiny:tracking-normal">
         <span className="max-tiny:hidden">Round </span>
         {String(roundNumber).padStart(2, '0')} / {TOTAL_ROUNDS}

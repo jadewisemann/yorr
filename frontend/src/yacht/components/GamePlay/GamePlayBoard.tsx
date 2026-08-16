@@ -59,7 +59,7 @@ export function GamePlayBoard({
               wide
                 ? // 안내문은 트레이 하단 가운데에 있다 — 푸터에는 버튼만 가운데에 남는다.
                   'justify-center gap-4 border-t border-border py-4'
-                : 'gap-2.5 pt-2 pb-[calc(8.75rem+env(safe-area-inset-bottom))]',
+                : 'gap-2 pt-2 pb-[calc(8.75rem+env(safe-area-inset-bottom))]',
             )}
           >
             {actions}

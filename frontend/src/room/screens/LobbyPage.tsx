@@ -64,7 +64,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
         message="게임을 준비하고 있어요"
         open={Boolean(snapshot) && snapshot?.phase !== 'waiting'}
       />
-      <main className="mx-auto flex h-svh w-full max-w-2xl flex-col gap-5 overflow-x-hidden px-gutter pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-content">
+      <main className="mx-auto flex h-svh w-full max-w-2xl flex-col gap-4 overflow-x-hidden px-gutter pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-content">
         <header className="flex items-center gap-3 border-b border-border pb-3.5">
           <div className="grid min-w-0 flex-1 gap-1">
             <h1 className="m-0 text-lg font-bold">대기실</h1>

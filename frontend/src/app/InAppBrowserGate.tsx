@@ -45,13 +45,13 @@ export function InAppBrowserGate({ children }: { children: ReactNode }) {
         </p>
       </div>
 
-      <Panel as="ul" className="m-0 grid list-none gap-2.5 p-4 text-sm">
+      <Panel as="ul" className="m-0 grid list-none gap-2 p-4 text-sm">
         <ChecklistItem tone="ok">흔들어서 주사위 굴리기</ChecklistItem>
         <ChecklistItem tone="ok">초대 링크 공유와 복사</ChecklistItem>
         <ChecklistItem tone="warn">인앱에서는 센서가 동작하지 않을 수 있어요</ChecklistItem>
       </Panel>
 
-      <div className="mt-auto grid gap-2.5">
+      <div className="mt-auto grid gap-2">
         {externalUrl && (
           <a
             className="inline-flex min-h-[3.625rem] items-center justify-center rounded-panel bg-brand px-6 py-3 text-lg font-bold text-on-brand shadow-cta"
@@ -96,7 +96,7 @@ function ChecklistItem({
   const { badge, Icon, row } = checklistTone[tone]
 
   return (
-    <li className={cn('flex items-center gap-2.5', row)}>
+    <li className={cn('flex items-center gap-2', row)}>
       <span
         aria-hidden="true"
         className={cn('grid size-[18px] flex-none place-items-center rounded-chip', badge)}

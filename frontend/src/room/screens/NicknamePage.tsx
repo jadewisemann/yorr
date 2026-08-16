@@ -142,7 +142,7 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
         </span>
       </header>
 
-      <div className="relative mt-11 grid gap-2.5">
+      <div className="relative mt-11 grid gap-2">
         <h1 className="m-0 text-2xl leading-[1.3] font-bold tracking-[-0.02em]">
           어떤 이름으로 참가할까요?
         </h1>
@@ -180,7 +180,7 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
             </Alert>
           )}
           {!roomCode && !quick && (
-            <Alert className="flex items-center gap-2.5">
+            <Alert className="flex items-center gap-2">
               <span
                 aria-hidden="true"
                 className="grid size-5 flex-none place-items-center rounded-chip bg-border text-2xs leading-none font-bold text-content"

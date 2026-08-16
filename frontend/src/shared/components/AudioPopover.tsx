@@ -52,7 +52,7 @@ export function AudioPopover({
         {muted ? '소리 켜기' : '전체 음소거'}
       </Button>
 
-      <div className="mt-5 grid gap-5">
+      <div className="mt-5 grid gap-4">
         {microphone && (
           <Panel as="section" className="grid gap-2 p-3.5" surface="raised">
             <div className="flex items-center gap-2">

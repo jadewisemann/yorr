@@ -29,7 +29,7 @@ export function ComingSoonPill() {
 
 export function ProviderChoice() {
   return (
-    <div className="grid gap-2.5">
+    <div className="grid gap-2">
       <p className="m-0 text-xs/[1.5] text-content-muted">
         로그인하면 전적과 프로필이 계정에 남아요. 로그인 없이도 바로 플레이할 수 있어요.
       </p>

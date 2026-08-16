@@ -29,14 +29,14 @@ export function AccountMenu({
   const [editing, setEditing] = useState(false)
 
   return (
-    <div className="grid gap-2.5">
+    <div className="grid gap-2">
       {editing ? (
         <NicknameEditor onDone={() => setEditing(false)} session={session} />
       ) : (
         <>
           <div className="flex items-center gap-3 rounded-card bg-surface px-4 py-3.5">
             <Avatar nickname={session.nickname} size="lg" />
-            <span className="grid min-w-0 gap-0.5">
+            <span className="grid min-w-0 gap-1">
               <strong className="truncate text-sm font-bold text-content">
                 {session.nickname}
               </strong>

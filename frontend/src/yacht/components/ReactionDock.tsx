@@ -59,7 +59,7 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
         aria-label="리액션 고르기"
         aria-orientation="horizontal"
         className={cn(
-          'absolute top-1/2 right-full mr-2 flex -translate-y-1/2 gap-0.5 rounded-panel border border-border bg-surface-overlay/95 p-1 shadow-raised transition-all duration-(--ds-motion-fast) ease-snappy',
+          'absolute top-1/2 right-full mr-2 flex -translate-y-1/2 gap-1 rounded-panel border border-border bg-surface-overlay/95 p-1 shadow-raised transition-all duration-(--ds-motion-fast) ease-snappy',
           open ? 'scale-100 opacity-100' : 'pointer-events-none scale-90 opacity-0',
         )}
         id={pickerId}

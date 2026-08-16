@@ -514,7 +514,7 @@ function Plate({
         >
           {fighter.name}
         </span>
-        <span className="flex items-center gap-0.5">
+        <span className="flex items-center gap-1">
           {slots('warn', maxFouls, fighter.fouls).map((slot) => (
             <Warn key={slot.id} lit={slot.filled} />
           ))}

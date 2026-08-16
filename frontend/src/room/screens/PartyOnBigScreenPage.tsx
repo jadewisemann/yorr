@@ -18,7 +18,7 @@ export function PartyOnBigScreenPage({ gameKey }: { gameKey: PartyGameKey }) {
         </p>
       </div>
 
-      <div className="mt-auto grid gap-2.5">
+      <div className="mt-auto grid gap-2">
         <Button
           className="min-h-[3.625rem] w-full rounded-panel text-lg"
           onClick={() => void navigate({ to: '/join', search: { code: undefined, game: gameKey } })}

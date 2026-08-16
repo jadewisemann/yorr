@@ -105,7 +105,7 @@ export function MotionLab() {
   }
 
   return (
-    <main className="mx-auto grid min-h-dvh w-full max-w-content gap-5 p-4 pb-10 text-content">
+    <main className="mx-auto grid min-h-dvh w-full max-w-content gap-4 p-4 pb-10 text-content">
       <div
         aria-hidden="true"
         className={cn(
@@ -305,7 +305,7 @@ function SensorStatusSection({
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="grid gap-0.5 rounded-card border border-border bg-surface-raised px-2 py-2">
+    <div className="grid gap-1 rounded-card border border-border bg-surface-raised px-2 py-2">
       <span className="text-xs text-content-muted">{label}</span>
       <span className="text-lg font-bold tabular-nums">{value.toFixed(2)}</span>
     </div>

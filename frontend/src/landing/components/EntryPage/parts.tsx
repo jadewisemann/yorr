@@ -83,7 +83,7 @@ export function AccountControl({
         session
           ? 'size-tap justify-center px-0'
           : wide
-            ? 'gap-2.5 px-5 text-sm'
+            ? 'gap-2 px-5 text-sm'
             : 'gap-2 px-3.5 text-xs',
       )}
       onClick={onOpen}
