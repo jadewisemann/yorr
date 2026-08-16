@@ -7,3 +7,7 @@ coverage/
 *.tsbuildinfo
 logs/
 *.log
+
+# 로컬 개발용 Redis를 이 디렉터리에서 띄우면 남는 스냅샷.
+# 통합 테스트 하네스는 `--save ''`라 만들지 않는다(test/redisHarness.ts).
+dump.rdb
