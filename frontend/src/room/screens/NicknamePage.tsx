@@ -12,6 +12,7 @@ import { useCreateRoom, useJoinRoom } from '@/room/api/useRoomApi'
 import { savePartyRoom } from '@/room/partyControllerStorage'
 import { toUserError } from '@/shared/api/userError'
 import { playLandingSoundtrack } from '@/shared/audio/soundtrack'
+import { Alert } from '@/shared/components/Alert'
 import { Button } from '@/shared/components/Button'
 import { IconBack } from '@/shared/components/Icon'
 import { Screen } from '@/shared/components/Screen'
@@ -174,15 +175,12 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
         />
         <div className="mt-auto grid gap-3">
           {signInRequired && (
-            <p
-              className="m-0 rounded-card border border-brand/36 bg-brand/8 px-3.5 py-3 text-sm text-danger"
-              role="alert"
-            >
+            <Alert tone="danger">
               빠른 대전은 로그인이 필요해요. 홈에서 로그인한 뒤 다시 시도해 주세요.
-            </p>
+            </Alert>
           )}
           {!roomCode && !quick && (
-            <p className="m-0 flex items-center gap-2.5 rounded-card border border-border bg-surface px-3.5 py-3 text-sm text-content-muted">
+            <Alert className="flex items-center gap-2.5">
               <span
                 aria-hidden="true"
                 className="grid size-5 flex-none place-items-center rounded-chip bg-border text-2xs leading-none font-bold text-content"
@@ -190,13 +188,12 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
                 1
               </span>
               방을 만든 사람이 호스트가 돼요
-            </p>
+            </Alert>
           )}
           {userError && (
-            <div className="grid gap-2 rounded-card border border-brand/36 bg-brand/8 px-3.5 py-3 text-left">
-              <p className="m-0 text-sm text-danger" role="alert">
-                {userError.message}
-              </p>
+            <Alert className="grid gap-2 text-left" tone="danger">
+              {/* role은 Alert가 든다 — 여기 또 적으면 이중으로 읽힌다 */}
+              <p className="m-0">{userError.message}</p>
               {userError.canChangeRoom && (
                 <Button
                   type="button"
@@ -206,7 +203,7 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
                   {roomCode ? '다른 코드 입력' : '홈으로'}
                 </Button>
               )}
-            </div>
+            </Alert>
           )}
           <Button
             className="w-full"

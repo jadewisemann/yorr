@@ -1,5 +1,6 @@
 import type { Game } from '@/games'
 import { ModeRow } from '@/landing/components/PlayModeDialog/ModeRow'
+import { Badge } from '@/shared/components/Badge'
 import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 
@@ -43,9 +44,9 @@ export function PlayModeDialog({
         <div className="mb-4">
           <div className="mb-1 flex flex-wrap items-center gap-2">
             <h3 className="m-0 text-base font-bold text-content">방 만들기</h3>
-            <span className="rounded-full border border-brand/40 px-2 py-0.5 text-2xs font-bold tracking-[0.08em] text-brand">
+            <Badge className="tracking-[0.08em]" tone="brand">
               추천
-            </span>
+            </Badge>
           </div>
           <p className="m-0 text-xs/[1.55] text-content-muted">
             초대 링크를 보내면 친구가 로그인 없이 바로 들어와요.

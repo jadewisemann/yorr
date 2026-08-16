@@ -1,5 +1,6 @@
 import { googleLoginUrl, kakaoLoginUrl } from '@/auth/api/authApi'
 import { cn } from '@/shared/cn'
+import { Badge } from '@/shared/components/Badge'
 import { activeRow, row } from './rowStyles'
 
 export function ProviderMark({ provider }: { provider: 'google' | 'kakao' }) {
@@ -23,11 +24,7 @@ export function ProviderMark({ provider }: { provider: 'google' | 'kakao' }) {
 }
 
 export function ComingSoonPill() {
-  return (
-    <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-2xs font-semibold text-content-faint">
-      준비 중
-    </span>
-  )
+  return <Badge className="ml-auto font-semibold text-content-faint">준비 중</Badge>
 }
 
 export function ProviderChoice() {

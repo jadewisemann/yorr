@@ -1,3 +1,5 @@
+import { Badge } from '@/shared/components/Badge'
+
 export type ModeIconKind = 'quick' | 'ai' | 'party' | 'tutorial'
 
 export function ModeIcon({ kind }: { kind: ModeIconKind }) {
@@ -89,11 +91,7 @@ export function ModeRow({
         <span className="text-sm font-semibold text-content">{title}</span>
         <span className="text-xs text-content-muted">{description}</span>
       </span>
-      {tag && (
-        <span className="rounded-full border border-border px-2.5 py-1 text-2xs font-semibold whitespace-nowrap text-content-muted">
-          {tag}
-        </span>
-      )}
+      {tag && <Badge className="px-2.5 py-1 font-semibold whitespace-nowrap">{tag}</Badge>}
       <span
         aria-hidden="true"
         className="text-lg text-content-muted transition-transform group-hover:translate-x-0.5"

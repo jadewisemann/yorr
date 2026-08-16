@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/shared/cn'
+import { Badge } from '@/shared/components/Badge'
 
 type PlayerCardProps = {
   name: string
@@ -71,9 +72,9 @@ export function PlayerCard({
           {nameEnd && <span className="ml-auto shrink-0">{nameEnd}</span>}
         </span>
         {status === 'offline' && !subtitle ? (
-          <span className="mt-1 inline-flex rounded-full border border-warning/40 bg-warning/12 px-2 py-0.5 text-xs font-bold text-warning">
+          <Badge className="mt-1 text-xs" tone="warning">
             {stateLabel}
-          </span>
+          </Badge>
         ) : (
           <span className="text-sm text-content-muted">{stateLabel}</span>
         )}
