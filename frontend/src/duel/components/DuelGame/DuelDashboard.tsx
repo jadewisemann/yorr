@@ -4,6 +4,7 @@ import { MAX_FOULS, MAX_HP } from '@/duel/domain/duel'
 import { buildStage } from '@/duel/domain/stage'
 import type { DuelState, RoomSnapshot } from '@/realtime/wsEvents'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'
+import { GameCanvas } from '@/shared/components/Screen'
 
 export function DuelDashboard({
   flight,
@@ -27,10 +28,7 @@ export function DuelDashboard({
     snapshot.players.find((player) => player.playerId === playerId)?.nickname ?? '?'
 
   return (
-    <main
-      className="relative flex h-svh w-full flex-col overflow-hidden bg-duel-canvas text-white select-none"
-      ref={stageRef}
-    >
+    <GameCanvas className="flex flex-col bg-duel-canvas text-white select-none" ref={stageRef}>
       <Arena
         {...buildStage({
           impact,
@@ -59,6 +57,6 @@ export function DuelDashboard({
       >
         방 닫기
       </GameChromeButton>
-    </main>
+    </GameCanvas>
   )
 }

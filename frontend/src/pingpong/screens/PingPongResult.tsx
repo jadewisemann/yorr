@@ -3,6 +3,7 @@ import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
 import { isRoomHost } from '@/room/api/roomApi'
 import { useReturnToLobby } from '@/room/api/useGameApi'
 import { Button } from '@/shared/components/Button'
+import { GameCanvas } from '@/shared/components/Screen'
 import type { ActiveRoomSession } from '@/store'
 
 interface PingPongResultProps {
@@ -27,7 +28,7 @@ export function PingPongResult({ onLeaveRequest, session, snapshot }: PingPongRe
   const host = isRoomHost(snapshot, session.you)
 
   return (
-    <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-pp-canvas px-gutter text-white">
+    <GameCanvas className="flex flex-col items-center justify-center gap-7 bg-pp-canvas px-gutter text-white">
       <div className="absolute inset-0 [background:radial-gradient(circle_at_50%_30%,rgb(43_143_224_/_20%),transparent_45%)]" />
       <p className="relative m-0 font-mono text-xs tracking-[0.22em] text-game-content-muted">
         MATCH FINISHED
@@ -56,7 +57,7 @@ export function PingPongResult({ onLeaveRequest, session, snapshot }: PingPongRe
           방 나가기
         </Button>
       </div>
-    </main>
+    </GameCanvas>
   )
 }
 
@@ -75,7 +76,7 @@ export function PingPongDashboardResult({
   const secondPlayer = snapshot.players.find((player) => player.playerId === secondPlayerId)
 
   return (
-    <main className="relative flex h-svh w-full flex-col items-center justify-center gap-7 overflow-hidden bg-pp-canvas px-gutter text-white">
+    <GameCanvas className="flex flex-col items-center justify-center gap-7 bg-pp-canvas px-gutter text-white">
       <p className="m-0 font-mono text-xs tracking-[0.22em] text-game-content-muted">
         MATCH FINISHED
       </p>
@@ -101,6 +102,6 @@ export function PingPongDashboardResult({
       <Button size="lg" onClick={onClose} variant="secondary">
         방 닫기
       </Button>
-    </main>
+    </GameCanvas>
   )
 }

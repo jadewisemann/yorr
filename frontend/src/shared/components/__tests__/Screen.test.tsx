@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { ControllerScreen, PlayBoard, Screen } from '../Screen'
+import { ControllerScreen, GameCanvas, PlayBoard, Screen } from '../Screen'
 
 function classSet(element: HTMLElement) {
   return new Set(element.className.split(/\s+/).filter(Boolean))
@@ -89,5 +89,34 @@ describe('ControllerScreen', () => {
         ),
       ),
     )
+  })
+})
+
+describe('GameCanvas', () => {
+  it('한 뷰포트를 꽉 채우고 안에서 절대배치를 받는 껍데기를 만든다', () => {
+    render(<GameCanvas>코트</GameCanvas>)
+
+    expect(classSet(screen.getByRole('main'))).toEqual(
+      new Set(['mx-auto', 'w-full', 'text-content', 'h-svh', 'overflow-hidden', 'relative']),
+    )
+  })
+
+  it('배경색을 들지 않는다 — 게임 팔레트는 호출부 몫이라 shared가 도메인을 모른다', () => {
+    render(<GameCanvas className="bg-pp-canvas text-white">코트</GameCanvas>)
+
+    const classes = classSet(screen.getByRole('main'))
+    expect(classes).toContain('bg-pp-canvas')
+    expect(classes).toContain('text-white')
+    expect(classes).not.toContain('text-content')
+  })
+
+  it('내부 배치는 호출부가 얹는다', () => {
+    render(<GameCanvas className="flex flex-col select-none">코트</GameCanvas>)
+
+    const classes = classSet(screen.getByRole('main'))
+    expect(classes).toContain('flex')
+    expect(classes).toContain('flex-col')
+    expect(classes).toContain('select-none')
+    expect(classes).toContain('h-svh')
   })
 })

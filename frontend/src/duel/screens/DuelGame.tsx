@@ -6,6 +6,7 @@ import { useDuelGame } from '@/duel/model/useDuelGame'
 import type { DuelState, RoomSnapshot } from '@/realtime/wsEvents'
 import { isPartyRoom } from '@/room/partyControllerStorage'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'
+import { GameCanvas } from '@/shared/components/Screen'
 import type { ActiveRoomSession } from '@/store'
 import { DuelController } from './DuelController'
 
@@ -32,9 +33,9 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
 
   if (!state) {
     return (
-      <main className="grid h-svh place-items-center bg-duel-canvas text-white">
+      <GameCanvas className="grid place-items-center bg-duel-canvas text-white">
         결투장을 준비하고 있어요.
-      </main>
+      </GameCanvas>
     )
   }
 
@@ -75,10 +76,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
   }
 
   return (
-    <main
-      className="relative flex h-svh w-full flex-col overflow-hidden bg-duel-canvas text-white select-none"
-      ref={stageRef}
-    >
+    <GameCanvas className="flex flex-col bg-duel-canvas text-white select-none" ref={stageRef}>
       <Arena
         {...buildStage({
           impact,
@@ -140,6 +138,6 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
           </p>
         )}
       </section>
-    </main>
+    </GameCanvas>
   )
 }
