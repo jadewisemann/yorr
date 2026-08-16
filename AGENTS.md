@@ -1,9 +1,14 @@
-# YORR(요르) 프로젝트 — Codex 작업 지침
+# YORR(요르) 프로젝트 — 에이전트 작업 지침
 
-> 이 파일은 Codex가 이 저장소에서 작업하기 전에 **자동으로 읽어 지켜야 하는 규칙**이다.
+> 이 파일이 이 저장소에서 **코딩 에이전트가 일하는 방식의 정본**이다.
+> Claude Code · Codex 등 어떤 에이전트든 작업을 시작하기 전에 이 파일을 읽고 그대로 따른다.
+> ([`CLAUDE.md`](CLAUDE.md)는 이 파일을 가리키는 포인터일 뿐 내용을 갖지 않는다.)
+>
 > Git 협업 규칙의 **단일 기준(source of truth)은 [CONTRIBUTING.md](CONTRIBUTING.md)** 이며,
-> Codex는 작업을 시작하기 전에 `CONTRIBUTING.md`를 읽고, 아래 규칙과 함께 적용한다.
-> 아래는 그중 Codex가 Git 작업 시 반드시 지켜야 할 핵심을 요약한 것이다. 충돌 시 `CONTRIBUTING.md`가 우선한다.
+> 아래는 그중 에이전트가 Git 작업 시 반드시 지켜야 할 핵심을 요약한 것이다. 충돌 시 `CONTRIBUTING.md`가 우선한다.
+>
+> 디렉터리별 작업 프로토콜은 각 폴더의 `AGENTS.md`에 있다 —
+> [`backend/AGENTS.md`](backend/AGENTS.md) · [`frontend/AGENTS.md`](frontend/AGENTS.md).
 
 ## 저장소 정보
 - GitHub: `github.com/jadewisemann/yorr`
@@ -11,8 +16,10 @@
 - 브랜치 전략: `main`(기준·배포) ← `feature/*` · `fix/*`(작업) — 별도 `develop` 없음
 
 ## 🚫 절대 규칙 (반드시 지킬 것)
-1. **`main`에 직접 커밋/push 금지.** 항상 `feature/*` 또는 `fix/*` 브랜치에서 작업하고 PR로 병합한다. (원격은 Protected Branch로 잠겨 있음)
+1. **`main`에 직접 커밋/push 금지.** 항상 `feature/*` 또는 `fix/*` 브랜치에서 작업하고 PR로 병합한다.
+   ⚠️ Protected Branch는 **켜져 있지 않다** — 막아 주는 것이 없으니 규칙으로 지킨다.
 2. **공유 브랜치(`main`)는 rebase · force push 금지.** rebase는 "나만 쓰는 개인 브랜치"에서만.
+   히스토리 재작성이 필요하면 **먼저 사용자 승인**을 받고, 백업 브랜치를 원격에 남긴 뒤 진행한다.
 3. 사용자가 명시적으로 요청하지 않는 한 **push · PR 생성은 임의로 하지 않고 먼저 확인**받는다.
 
 ## 🌿 브랜치 이름
@@ -41,21 +48,36 @@
 예: `feat: WebSocket 연결 핸들러 및 JOIN 처리 구현`
 (선택) 본문에 `Refs: S15P11A406-22`로 Jira 연동 가능.
 
-## 🔀 Pull Request
+## 🔀 Pull Request — **병합은 언제나 Squash**
+
 - 방향: `main` ← `feature/*`
-- PR 제목도 커밋과 같은 형식: `feat: ...`
+- PR 제목도 커밋과 같은 형식: `feat: ...` — **이 제목이 그대로 squash 커밋 제목이 된다.**
 - 설명에 작업 내용 + 관련 Jira 번호. **리뷰어 지정은 선택** — 현재 1인 작업이라
   올린 사람이 그대로 병합한다 (협업자가 생기면 CONTRIBUTING.md에서 되돌린다)
-- 병합 방식: **커밋 1~2개 → Merge commit(`--no-ff`), 3개 이상 → Squash**(제목은 `type: 제목`). 병합 후 feature 브랜치 삭제
-- PR은 작게 — 기능 하나 = PR 하나
+- **PR은 작게** — 기능 하나 = PR 하나
+
+### 병합 방식 (예외 없음)
+
+1. **PR을 올릴 때부터 squash를 전제한다.** 브랜치 안의 커밋이 몇 개든 `main`에는
+   **커밋 1개**로 들어간다. 그러니 PR 제목을 `type: 제목` 컨벤션에 맞춰 쓰고,
+   브랜치 안에서는 WIP 커밋을 자유롭게 쌓아도 된다.
+2. **병합(승인)도 반드시 Squash로 한다.** GitHub PR 화면에서 **`Squash and merge`**
+   만 사용한다. `Create a merge commit`(`--no-ff`)·`Rebase and merge`는 쓰지 않는다.
+   - CLI/API로 병합할 때도 동일: `merge_method: "squash"`
+     (`gh pr merge --squash`, GitHub MCP `merge_pull_request`의 `merge_method: "squash"`).
+   - **에이전트가 병합을 대행할 때 이 규칙을 어기면 `main` 히스토리가 오염된다.**
+     실제로 PR #9 · #10 · #11이 merge commit으로 들어가 31개 커밋이 `main`에 쏟아졌고,
+     히스토리를 재작성해 되돌려야 했다. 같은 실수를 반복하지 않는다.
+3. 커밋 개수에 따른 분기는 **없다.** 1개짜리 PR도 squash로 병합한다.
+4. 병합 후 **작업 브랜치 삭제**.
 
 ## 📋 작업 사이클
 ```bash
 git checkout main && git pull origin main            # 1. main 최신화
 git checkout -b feature/22-websocket-connection      # 2. 작업 브랜치 분기
-# 3. 작업 → 커밋 (컨벤션대로)
+# 3. 작업 → 커밋 (컨벤션대로, 개수 신경 안 써도 됨 — 어차피 squash)
 git push -u origin feature/22-websocket-connection   # 4. push
-# 5. GitHub에서 PR 생성 (main ← feature) → 그대로 merge
+# 5. PR 생성 (main ← feature) → Squash and merge → 브랜치 삭제
 ```
 
 ---
