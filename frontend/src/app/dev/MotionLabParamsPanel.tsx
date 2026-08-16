@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
+import { Panel } from '@/shared/components/Panel'
 import { MOTION_GESTURE_CONFIG, type MotionGestureConfig } from '@/yacht/input/motionConfig'
 import {
   clampParamValue,
@@ -27,7 +28,7 @@ export function MotionLabParamsPanel({ config, onApply }: MotionLabParamsPanelPr
   ).length
 
   return (
-    <section className="grid gap-4 rounded-panel border border-border bg-surface p-5">
+    <Panel as="section" className="grid gap-4 p-5">
       <div className="flex items-center justify-between gap-2">
         <h2 className="m-0 text-xl font-bold">판정 파라미터</h2>
         <Button
@@ -65,7 +66,7 @@ export function MotionLabParamsPanel({ config, onApply }: MotionLabParamsPanelPr
           </div>
         </details>
       ))}
-    </section>
+    </Panel>
   )
 }
 

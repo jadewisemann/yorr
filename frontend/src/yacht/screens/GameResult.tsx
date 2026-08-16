@@ -5,6 +5,7 @@ import { useReturnToLobby } from '@/room/api/useGameApi'
 import { cn } from '@/shared/cn'
 import { BottomSheet } from '@/shared/components/BottomSheet'
 import { Button } from '@/shared/components/Button'
+import { Panel } from '@/shared/components/Panel'
 import type { ActiveRoomSession } from '@/store'
 import { ResultRanking } from '@/yacht/components/ResultRanking'
 import { ScoreMatrix } from '@/yacht/components/ScoreMatrix'
@@ -69,7 +70,11 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
           </span>
         </div>
 
-        <section className="relative mt-5 flex items-center justify-between gap-4 rounded-panel border border-border-strong bg-surface-raised p-4.5">
+        <Panel
+          as="section"
+          className="relative mt-5 flex items-center justify-between gap-4 border-border-strong p-4.5"
+          surface="raised"
+        >
           <div className="min-w-0">
             <p className="m-0 flex items-center gap-2 truncate text-base font-bold">
               {session.nickname}
@@ -93,7 +98,7 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
           <strong className="font-mono text-4xl leading-none font-bold tabular-nums">
             {me?.total ?? 0}
           </strong>
-        </section>
+        </Panel>
 
         <div className="relative mt-6 mb-2 flex items-baseline justify-between">
           <h2 className="m-0 font-mono text-2xs font-bold tracking-[0.14em] text-content-muted uppercase">
