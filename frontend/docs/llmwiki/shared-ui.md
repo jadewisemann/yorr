@@ -20,7 +20,7 @@
 | `ConnectionBanner` | live region 컨테이너를 **항상** 렌더 — 영역과 내용이 같은 프레임에 오면 스크린리더가 놓친다. `closed`는 assertive |
 | `LoadingOverlay` | 닫을 수 없는 상태 전용 — Modal은 닫기 버튼을 전제해 쓸 수 없다 |
 | `AudioPopover` | 마스터 음소거 + 음악/효과 슬라이더 + 마이크 행. 음성 불가면 행 자체를 뺀다 — 실패하는 버튼은 사용자가 자기 잘못이라 생각한다 |
-| `Icon` | 20×20 · `currentColor` · `aria-hidden` 고정 10종. 이모지·글리프는 currentColor·폭·크기 통제가 안 돼 SVG로 통일 |
+| `Icon` | 20×20 · `currentColor` · `aria-hidden`. 목록은 [`Icon.tsx`](../../src/shared/components/Icon.tsx)가 정본 — 여기에 개수를 적지 않는다. 이모지·글리프는 currentColor·폭·크기 통제가 안 돼 SVG로 통일 |
 
 ### Popover 배치 엔진
 
