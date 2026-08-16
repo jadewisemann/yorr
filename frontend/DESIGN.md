@@ -34,6 +34,18 @@
 7. **컴포넌트는 렌더링만 한다.** 훅 호출 6개 초과 시 `model/` 훅으로 분리.
    화면·컴포넌트 파일 200줄 기준선, 넘길 때는 이유를 남긴다. 순수 모듈은 자기가
    생산하는 타입을 소비자에게서 빌려오지 않는다.
+8. **`variant`와 `tone`은 다른 것이다.** 둘 다 정적 class map이지만 고르는 기준이
+   갈린다 — `variant`는 **위계**가 바뀔 때, `tone`은 **색만** 바뀔 때 쓴다.
+   판별법: 그 값을 바꿨을 때 크기·구조·역할이 함께 움직이면 `variant`,
+   같은 상자에 색만 갈아입으면 `tone`. 한 컴포넌트가 둘 다 가질 수 있다.
+
+   | prop | 쓰는 곳 | 왜 |
+   |---|---|---|
+   | `variant` | `Button`(primary/secondary/ghost/danger) · `StatusPanel` | "이 화면에서 몇 번째로 중요한가"라 `size`와 함께 붐빈다 |
+   | `tone` | `Alert` · `GameChromeButton` · pingpong `Score` · `InAppBrowserGate` | 구조·크기 동일, 의미색만 다르다 |
+
+   새 이름(`kind`·`type`·`level` …)을 만들지 않는다. 둘로 부족해 보이면 대개
+   컴포넌트가 두 개여야 하는 것이다.
 
 ## 코드가 정본인 것들 (문서 우위의 예외)
 
