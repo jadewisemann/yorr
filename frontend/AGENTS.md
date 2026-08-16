@@ -12,7 +12,7 @@
 | 하위 시스템 상세 | `docs/llmwiki/*.md` | DESIGN.md의 지도에서 필요한 것만 연다 |
 | 실측값·실패한 대안·함정 | [`docs/llmwiki/code-rationale.md`](docs/llmwiki/code-rationale.md) | 값을 바꾸거나 "단순화"하기 전에 먼저 찾아본다 |
 | 결정의 이유 | `docs/adr/*.md` | "왜 이렇게 안 했는가" |
-| 진행 중 변경 계획 | [`PLANS.md`](PLANS.md) | 와이어 계약 동결·이관 티켓 |
+| 진행 중 변경 계획 | [`PLANS.md`](PLANS.md) | 와이어 계약 동결·이관 티켓 · **디자인 시스템 진행 상태**(스타일 작업 전 필독) |
 | 작업 중 발견 | [`IMPLEMENTATION_NOTES.md`](IMPLEMENTATION_NOTES.md) | 휘발성 working memory |
 | 와이어 계약·카탈로그·토큰 | 코드 (`wsEvents.ts` 등) | DESIGN.md의 「코드가 정본인 것들」 — 이 예외 목록만 코드가 이긴다 |
 
