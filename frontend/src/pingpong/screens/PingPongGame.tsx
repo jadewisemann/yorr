@@ -2,6 +2,7 @@ import { PingPongDashboard } from '@/pingpong/components/PingPongGame/PingPongDa
 import { PingPongDesktopPlayer } from '@/pingpong/components/PingPongGame/PingPongDesktopPlayer'
 import { usePingPongGame } from '@/pingpong/model/usePingPongGame'
 import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
+import { GameCanvas } from '@/shared/components/Screen'
 import { useMediaQuery } from '@/shared/useMediaQuery'
 import type { ActiveRoomSession } from '@/store'
 import { PingPongController } from './PingPongController'
@@ -27,9 +28,9 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
 
   if (!state) {
     return (
-      <main className="grid h-svh place-items-center bg-pp-canvas text-white">
+      <GameCanvas className="grid place-items-center bg-pp-canvas text-white">
         탁구 코트를 준비하고 있어요.
-      </main>
+      </GameCanvas>
     )
   }
 

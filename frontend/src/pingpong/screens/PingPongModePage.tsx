@@ -9,6 +9,7 @@ import { type HudState, useLocalPingPongGame } from '@/pingpong/model/useLocalPi
 import { Button } from '@/shared/components/Button'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import { IconBack, IconWarning } from '@/shared/components/Icon'
+import { GameCanvas } from '@/shared/components/Screen'
 
 export function PingPongModePage() {
   const navigate = useNavigate()
@@ -58,7 +59,7 @@ function LocalPingPongGame({
   const situationLabel = localSituationLabel(hud, p1Label, p2Label)
 
   return (
-    <main className="relative flex h-svh w-full flex-col overflow-hidden bg-pp-canvas text-white">
+    <GameCanvas className="flex flex-col bg-pp-canvas text-white">
       <header className="relative z-20 flex flex-none items-center justify-between gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
         <GameChromeButton className="gap-1.5" onClick={onExit}>
           <IconBack className="size-4" />
@@ -156,7 +157,7 @@ function LocalPingPongGame({
           ? '왼쪽 탭·스페이스 = P1 · 오른쪽 탭·P = P2'
           : '화면 탭·스페이스·휴대폰 스윙으로 받아치기'}
       </footer>
-    </main>
+    </GameCanvas>
   )
 }
 

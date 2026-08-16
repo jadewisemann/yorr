@@ -10,6 +10,7 @@ import { LandingProgress } from '@/landing/components/LandingProgress'
 import { RankingTicker } from '@/landing/components/RankingTicker'
 import { useEntryPage } from '@/landing/model/useEntryPage'
 import { cn } from '@/shared/cn'
+import { GameCanvas } from '@/shared/components/Screen'
 
 const wordmark = 'font-mono font-bold tracking-[-0.03em] text-landing-text'
 const wordmarkTag =
@@ -49,7 +50,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
   if (wide) {
     return (
       <>
-        <main className="relative flex h-svh w-full flex-col overflow-hidden [background:var(--ds-landing-bg)]">
+        <GameCanvas className="flex flex-col [background:var(--ds-landing-bg)]">
           <RankingTicker layout="wide" />
 
           <header className="mx-auto flex h-22 w-full max-w-landing flex-none justify-center">
@@ -112,7 +113,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
               )}
             </div>
           </div>
-        </main>
+        </GameCanvas>
         {codeDialog}
         {accountDialog}
         {playModeDialog}
@@ -122,7 +123,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
 
   return (
     <>
-      <main className="relative flex h-svh w-full flex-col overflow-hidden [background:var(--ds-landing-bg)]">
+      <GameCanvas className="flex flex-col [background:var(--ds-landing-bg)]">
         <div className="flex-none pt-[env(safe-area-inset-top)]">
           <RankingTicker layout="narrow" />
         </div>
@@ -179,7 +180,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
             </p>
           )}
         </div>
-      </main>
+      </GameCanvas>
       {codeDialog}
       {accountDialog}
       {playModeDialog}

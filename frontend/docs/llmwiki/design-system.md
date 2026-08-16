@@ -48,8 +48,13 @@ utility 없이 `appearance.ts`가 원시값을 직접 읽는다) · 랜딩 전�
 ## 화면 프레임
 
 화면에서 `min-h-dvh`·`h-svh` 껍데기를 새로 쓰지 않는다 — **`Screen`이 높이 정책과
-safe-area를 소유**하고, `PlayBoard`(게임판)·`ControllerScreen`(폰 컨트롤러)이 감싼다.
-확장은 props가 아니라 `className`으로.
+safe-area를 소유**하고, `PlayBoard`(게임판)·`ControllerScreen`(폰 컨트롤러)·
+`GameCanvas`(3D 코트·결투장·랜딩 히어로처럼 한 뷰포트를 채우고 안에서 절대배치로 겹치는
+화면)가 감싼다. 확장은 props가 아니라 `className`으로.
+
+`GameCanvas`는 **배경색을 들지 않는다.** 게임마다 세계관이 달라 팔레트를 나눠 둔 것이라
+(`pp-*`·`duel-*`·`landing-*`), shared가 도메인 색을 알면 의존 방향이 뒤집힌다. 배경과
+내부 배치는 호출부가 얹는다.
 
 주의점(코드 주석 근거):
 
