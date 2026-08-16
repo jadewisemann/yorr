@@ -86,8 +86,9 @@ safe-area를 소유**하고, `PlayBoard`(게임판)·`ControllerScreen`(폰 컨�
 
 ## 레시피 (`recipes.css`)
 
-기준: **렌더된 DOM에 5번 이상** 반복되는 class 조합만 (`focus-ring`·`score-row`·
-`quick-chip` 등 5종). 소스는 이미 DRY지만 같은 200~300자 문자열이 화면 하나에 12번 찍혀
+기준: **렌더된 DOM에 5번 이상** 반복되는 class 조합만. 현재 목록은
+[`recipes.css`](../../src/styles/recipes.css)가 정본이다 — 여기에 개수를 적지 않는다
+(레시피가 늘 때마다 어긋난다). 소스는 이미 DRY지만 같은 200~300자 문자열이 화면 하나에 12번 찍혀
 게임 화면 HTML 34.5KB 중 31%가 완전 중복이었다.
 
 `@utility`가 아니라 `@layer components`인 이유: v4 레이어 순서(theme→base→components→
