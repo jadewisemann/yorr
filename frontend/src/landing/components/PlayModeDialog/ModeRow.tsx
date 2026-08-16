@@ -87,7 +87,7 @@ export function ModeRow({
       >
         <ModeIcon kind={icon} />
       </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-sm font-semibold text-content">{title}</span>
         <span className="text-xs text-content-muted">{description}</span>
       </span>

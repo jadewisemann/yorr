@@ -39,7 +39,7 @@ export function WideBand({
   }, [open])
 
   return (
-    <div className="relative flex w-[69.4%] items-center gap-3.5">
+    <div className="relative flex w-[69.4%] items-center gap-3">
       <TickerLabel />
       <TickerViewport>
         {band.length === 0 ? (

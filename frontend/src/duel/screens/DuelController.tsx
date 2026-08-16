@@ -38,7 +38,7 @@ export function DuelController({
   return (
     <ControllerScreen className="bg-duel-canvas">
       <header className="flex flex-none items-center justify-between gap-3">
-        <div className="grid min-w-0 gap-0.5">
+        <div className="grid min-w-0 gap-1">
           <span className="font-mono text-2xs tracking-[0.18em] text-duel-accent/60">
             PHONE CONTROLLER
           </span>

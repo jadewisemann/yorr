@@ -26,7 +26,7 @@ export function ParticipantColumn({
           {players.length} / {capacity}
         </p>
       </div>
-      <div className="grid min-h-0 flex-1 auto-rows-min gap-2.5 overflow-y-auto px-3 pb-3">
+      <div className="grid min-h-0 flex-1 auto-rows-min gap-2 overflow-y-auto px-3 pb-3">
         {players.map((player) => (
           <PlayerCard
             avatarSeed={player.playerId}

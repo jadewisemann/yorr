@@ -7,7 +7,7 @@ import type { CategoryScores } from '@/yacht/domain/scoring'
  * 높이 하한·가운데 정렬·라운드(card→panel)를 여기서 얹는다.
  */
 const noticeClassName =
-  'flex min-h-15 flex-1 items-center justify-center gap-2.5 rounded-panel px-4 text-center font-semibold'
+  'flex min-h-15 flex-1 items-center justify-center gap-2 rounded-panel px-4 text-center font-semibold'
 
 export interface TurnProgress {
   rolled: boolean

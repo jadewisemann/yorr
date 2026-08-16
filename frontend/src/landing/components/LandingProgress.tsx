@@ -24,7 +24,7 @@ export function LandingProgress({ activeIndex, games, layout, onSelect }: Landin
   }
 
   return (
-    <div className={cn('flex items-center', wide ? 'justify-center gap-5.5' : 'w-full gap-3')}>
+    <div className={cn('flex items-center', wide ? 'justify-center gap-6' : 'w-full gap-3')}>
       <span
         className={cn(
           'flex-none font-mono font-bold tracking-[0.08em] tabular-nums',

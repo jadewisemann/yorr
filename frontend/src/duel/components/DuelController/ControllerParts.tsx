@@ -58,7 +58,7 @@ export function AmmoRow({
     <div className="grid min-w-0 gap-1.5">
       <span className="flex items-center gap-1.5">
         <span className="min-w-0 truncate text-xs font-black text-duel-ink">{label}</span>
-        <span className="flex flex-none items-center gap-0.5">
+        <span className="flex flex-none items-center gap-1">
           {slots('warn', MAX_FOULS, fouls).map((slot) => (
             <Warn key={slot.id} lit={slot.filled} />
           ))}

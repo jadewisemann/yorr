@@ -31,7 +31,7 @@ export function ZeroScoreModal({
       title={category ? `${categoryLabel[category]}를 0점으로 확정할까요?` : ''}
     >
       <p className="m-0 text-sm text-content-muted">이 족보는 다시 사용할 수 없습니다.</p>
-      <div className="mt-5 grid gap-2.5">
+      <div className="mt-5 grid gap-2">
         <Button onClick={onCancel} variant="secondary">
           취소
         </Button>

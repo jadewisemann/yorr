@@ -55,7 +55,7 @@ export function GamePlayHeader({
     <header
       className={cn(
         'flex flex-none items-center px-gutter',
-        wide ? 'h-[4.5rem] gap-5 border-b border-border' : 'h-[4.25rem] gap-3',
+        wide ? 'h-[4.5rem] gap-4 border-b border-border' : 'h-[4.25rem] gap-3',
       )}
     >
       <h1 className="sr-only">
