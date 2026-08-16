@@ -39,7 +39,7 @@ export function LobbyRoomContent({
   return (
     <>
       <section
-        className="grid min-h-28 flex-1 auto-rows-min gap-2.5 overflow-y-auto"
+        className="grid min-h-28 flex-1 auto-rows-min gap-2 overflow-y-auto"
         aria-label={`참가자 ${snapshot.players.length}명`}
       >
         {snapshot.players.map((player) => (

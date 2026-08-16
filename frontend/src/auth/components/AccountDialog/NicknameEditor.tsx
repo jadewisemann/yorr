@@ -38,7 +38,7 @@ export function NicknameEditor({ onDone, session }: { onDone: () => void; sessio
 
   return (
     <form
-      className="grid gap-2.5 rounded-card bg-surface px-4 py-3.5"
+      className="grid gap-2 rounded-card bg-surface px-4 py-3.5"
       onSubmit={(event) => {
         event.preventDefault()
         void save()

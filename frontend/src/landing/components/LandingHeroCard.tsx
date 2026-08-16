@@ -56,7 +56,7 @@ export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) 
           'absolute flex items-start justify-between',
           cardInsetX[layout],
           bandTop[layout],
-          wide ? 'gap-8' : 'gap-4',
+          wide ? 'gap-6' : 'gap-4',
         )}
       >
         <div className="flex min-w-0 flex-col items-start gap-2">
@@ -76,7 +76,7 @@ export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) 
         </div>
 
         {wide && (
-          <div className="flex min-w-0 shrink-0 flex-nowrap justify-end gap-2.5">
+          <div className="flex min-w-0 shrink-0 flex-nowrap justify-end gap-2">
             <LandingMetaPills game={game} layout="wide" />
           </div>
         )}
@@ -87,7 +87,7 @@ export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) 
           'absolute flex',
           cardInsetX[layout],
           bandBottom[layout],
-          wide ? 'items-end justify-between gap-8' : 'flex-col items-stretch gap-2.5',
+          wide ? 'items-end justify-between gap-6' : 'flex-col items-stretch gap-2',
         )}
       >
         {wide ? (

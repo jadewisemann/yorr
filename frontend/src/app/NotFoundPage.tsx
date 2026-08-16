@@ -27,7 +27,7 @@ export function NotFoundPage() {
           주세요.
         </p>
         {path && (
-          <p className="m-0 flex items-center gap-2.5 rounded-card border border-border bg-surface px-3.5 py-3">
+          <p className="m-0 flex items-center gap-2 rounded-card border border-border bg-surface px-3.5 py-3">
             <span
               aria-hidden="true"
               className="grid size-5 flex-none place-items-center rounded-chip bg-border text-2xs leading-none font-bold"

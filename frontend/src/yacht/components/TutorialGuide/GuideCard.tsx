@@ -17,7 +17,7 @@ export function Card({
   return (
     <div
       className={cn(
-        'pointer-events-auto absolute grid gap-2.5 rounded-card border border-white/20 bg-surface-raised p-4 shadow-raised',
+        'pointer-events-auto absolute grid gap-2 rounded-card border border-white/20 bg-surface-raised p-4 shadow-raised',
         placement
           ? 'w-88 max-w-[calc(100vw-2rem)]'
           : cn(
