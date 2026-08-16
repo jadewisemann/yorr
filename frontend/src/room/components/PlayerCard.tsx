@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/shared/cn'
 import { Badge } from '@/shared/components/Badge'
+import { Panel } from '@/shared/components/Panel'
 
 type PlayerCardProps = {
   name: string
@@ -45,9 +46,11 @@ export function PlayerCard({
   const avatarTone = avatarTones[hashString(avatarSeed) % avatarTones.length]
 
   return (
-    <article
+    <Panel
+      as="article"
+      surface="raised"
       className={cn(
-        'grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-panel border border-border bg-surface-raised p-3',
+        'grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-3 p-3',
         active && 'border-border-strong',
         status === 'offline' && 'opacity-60',
         speaking && 'outline-2 outline-positive outline-offset-1',
@@ -81,7 +84,7 @@ export function PlayerCard({
       </span>
       {trailing ??
         (score !== undefined && <strong className="font-bold tabular-nums">{score}</strong>)}
-    </article>
+    </Panel>
   )
 }
 

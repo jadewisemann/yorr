@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
+import { Panel } from '@/shared/components/Panel'
 import type { MotionGestureConfig } from '@/yacht/input/motionConfig'
 import type { MotionAvailability, MotionGestureState } from '@/yacht/input/motionTypes'
 import { MotionLabChart } from './MotionLabChart'
@@ -11,7 +12,7 @@ import { copyTextToClipboard } from './motionLabClipboard'
 import { formatConfigAsJson, formatConfigAsTs, formatConfigDiff } from './motionLabParams'
 import { useMotionLab } from './useMotionLab'
 
-const sectionClassName = 'grid gap-4 rounded-panel border border-border bg-surface p-5'
+const sectionClassName = 'grid gap-4 p-5'
 
 const AVAILABILITY_META: Record<
   MotionAvailability,
@@ -144,7 +145,7 @@ export function MotionLab() {
         setKeepAwake={setKeepAwake}
       />
 
-      <section className={sectionClassName} aria-label="실시간 모니터">
+      <Panel as="section" className={sectionClassName} aria-label="실시간 모니터">
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-brand/60 px-3 py-1 text-sm font-bold text-brand-strong">
             {lab.snapshot ? GESTURE_LABEL[lab.snapshot.gestureState] : '대기'}
@@ -177,7 +178,7 @@ export function MotionLab() {
           threshold={lab.snapshot?.effectiveThresholds.throwPeak ?? lab.config.throwPeakThreshold}
         />
         <ThresholdTable config={lab.config} snapshot={lab.snapshot} />
-      </section>
+      </Panel>
 
       <MotionLabRecorder
         canRecord={lab.availability === 'listening'}
@@ -193,7 +194,7 @@ export function MotionLab() {
 
       <MotionLabParamsPanel config={lab.config} onApply={lab.applyConfig} />
 
-      <section className={sectionClassName} aria-label="설정 내보내기">
+      <Panel as="section" className={sectionClassName} aria-label="설정 내보내기">
         <h2 className="m-0 text-xl font-bold">설정 내보내기</h2>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={() => void copyConfig('ts')}>
@@ -219,7 +220,7 @@ export function MotionLab() {
             aria-label="복사 폴백 텍스트"
           />
         )}
-      </section>
+      </Panel>
     </main>
   )
 }
@@ -263,7 +264,7 @@ function SensorStatusSection({
   const canRetry = ['denied', 'error', 'silent'].includes(availability)
 
   return (
-    <section className={sectionClassName} aria-label="센서 상태">
+    <Panel as="section" className={sectionClassName} aria-label="센서 상태">
       <p className="m-0 text-sm text-content-muted">{help}</p>
       {canStart && (
         <Button loading={availability === 'requesting'} onClick={() => void requestPermission()}>
@@ -298,7 +299,7 @@ function SensorStatusSection({
         )}
       </div>
       <DeviceInfo />
-    </section>
+    </Panel>
   )
 }
 

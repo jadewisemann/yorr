@@ -1,4 +1,5 @@
 import { Button } from '@/shared/components/Button'
+import { Panel } from '@/shared/components/Panel'
 
 interface BotManagementPanelProps {
   visible: boolean
@@ -21,9 +22,11 @@ export function BotManagementPanel({
 }: BotManagementPanelProps) {
   if (!visible) return null
   return (
-    <section
+    <Panel
+      as="section"
       aria-label="AI 봇 관리"
-      className="grid flex-none gap-2 rounded-panel border border-border bg-surface-raised p-3"
+      className="grid flex-none gap-2 p-3"
+      surface="raised"
     >
       <p className="m-0 text-xs text-content-muted">
         점수판과 남은 기회를 계산하는 AI 봇을 추가합니다.
@@ -42,6 +45,6 @@ export function BotManagementPanel({
           봇을 변경하지 못했어요: {error.message}
         </p>
       )}
-    </section>
+    </Panel>
   )
 }

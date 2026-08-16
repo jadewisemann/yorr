@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
+import { Panel } from '@/shared/components/Panel'
 import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
 import { copyTextToClipboard } from './motionLabClipboard'
 import type { LabEvent } from './useMotionLab'
@@ -52,7 +53,7 @@ export function MotionLabEventLog({ events, onClear }: MotionLabEventLogProps) {
   }
 
   return (
-    <section className="grid gap-3 rounded-panel border border-border bg-surface p-5">
+    <Panel as="section" className="grid gap-3 p-5">
       <div className="flex items-center justify-between gap-2">
         <h2 className="m-0 text-xl font-bold">이벤트 로그</h2>
         <div className="flex gap-2">
@@ -94,6 +95,6 @@ export function MotionLabEventLog({ events, onClear }: MotionLabEventLogProps) {
           ))}
         </ol>
       )}
-    </section>
+    </Panel>
   )
 }
