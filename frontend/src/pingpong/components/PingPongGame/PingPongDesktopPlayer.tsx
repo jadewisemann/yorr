@@ -3,6 +3,7 @@ import { readyButtonLabel } from '@/pingpong/components/PingPongController/Prepa
 import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
 import { Button } from '@/shared/components/Button'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'
+import { GameCanvas } from '@/shared/components/Screen'
 import { CourtOverlay } from './CourtOverlay'
 import { PingPongPreparation } from './PingPongPreparation'
 
@@ -44,7 +45,7 @@ export function PingPongDesktopPlayer({
   state: PingPongState
 }) {
   return (
-    <main className="relative h-svh w-full overflow-hidden bg-pp-canvas text-white">
+    <GameCanvas className="bg-pp-canvas text-white">
       <canvas aria-label="3D 탁구 코트" className="absolute inset-0 size-full" ref={canvasRef} />
       <button
         aria-label="화면을 클릭해 스윙"
@@ -93,6 +94,6 @@ export function PingPongDesktopPlayer({
           {error}
         </p>
       )}
-    </main>
+    </GameCanvas>
   )
 }

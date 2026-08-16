@@ -13,6 +13,7 @@
 | `TextField` | label·help·error를 `aria-describedby`/`aria-invalid`/`role="alert"`로 배선 |
 | `Alert` | 블록 알림. tone 3종(neutral/danger/positive) 정적 map. **`role`을 톤이 정한다** — danger→`alert`, positive→`status`, neutral은 비움(처음부터 화면에 있는 설명문이라 live region이 아니다). 호출부가 `role`을 넘기면 덮인다. 알약 배지는 여기 넣지 않는다 |
 | `Badge` | 알약 배지(낱말 한정). tone 3종(neutral/warning/brand). **크기는 호출부 몫** — 실측상 패딩 5종·글자 2종으로 자리마다 달라, 사다리를 강제하면 겉모습이 한꺼번에 바뀐다. 반복되던 것은 크기가 아니라 색 세 줄이었다(warning 두 곳은 바이트까지 동일) |
+| `GameCanvas` | 게임 캔버스 프레임(`Screen.tsx`). `relative w-full` + viewport 프레임. 탁구·결투·랜딩 12곳이 `relative h-svh w-full overflow-hidden`을 각자 적고 있었다 — 사다리 규칙을 지킬 대상이 없었던 것. 배경색은 들지 않는다(도메인 팔레트) |
 | `Panel` | 상자 표면. surface 3종(surface/raised/sunken) + `as`로 시맨틱 태그 선택(div/section/article/ul) — 실측 13곳 중 `<div>`는 둘뿐이라 태그를 고정하면 시맨틱을 뺏는다. 패딩 기본값 없음(p-1~p-6 열다섯 값). 속성 타입이 `HTMLAttributes<HTMLElement>`인 것은 `ref`가 태그마다 달라서다 |
 | `Tooltip` | 탭 토글형 toggletip. focus가 연 툴팁을 직후 click 토글이 닫는 문제를 `passiveOpenRef`로 구분. 히트 영역은 `::before`로 44px 확장 |
 | `ToastHost` | 한 번에 하나, 2.5초, `aria-live="polite"` |
