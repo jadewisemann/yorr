@@ -2,7 +2,7 @@ import { cn } from '@/shared/cn'
 import type { LandingHeroCardProps } from './types'
 
 const playCta =
-  'flex cursor-pointer items-center justify-center gap-3 rounded-panel border-0 bg-landing-accent font-bold text-landing-accent-ink transition-[color,background-color,border-color,scale] duration-150 ease-out focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-3 active:scale-[0.97]'
+  'flex cursor-pointer items-center justify-center gap-3 rounded-panel border-0 bg-landing-accent font-bold text-landing-accent-ink transition-[color,background-color,border-color,scale] duration-150 ease-out focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-3 active:scale-[0.97]'
 
 const lockedCta =
   'flex cursor-not-allowed items-center justify-center gap-3 rounded-panel border border-landing-hairline-strong bg-landing-disabled font-bold text-landing-text-faint'

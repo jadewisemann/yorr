@@ -72,10 +72,10 @@ export function TurnStrip({ players, activePlayerId, className, voice, you }: Tu
                 )}
               </span>
               <span
-                className={cn(
-                  'font-mono text-base leading-none font-bold tabular-nums',
-                  active ? 'text-white' : 'text-content',
-                )}
+                // 현재 턴 표시는 위의 aria-current · 마커 모양 · 이름 색(brand-soft)이
+                // 이미 세 채널로 들고 있다. 여기 있던 `active ? white : content`는
+                // #ffffff 대 #f7f7f5(8/255)라 렌더에서 구별되지 않는 네 번째 채널이었다.
+                className="font-mono text-base leading-none font-bold tabular-nums text-content"
               >
                 {player.total}
               </span>
