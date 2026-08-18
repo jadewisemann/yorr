@@ -41,6 +41,25 @@ utility 없이 `appearance.ts`가 원시값을 직접 읽는다) · 랜딩 전�
 네임스페이스를 나누되, "주의·이김·짐"처럼 세계관과 무관한 것은 시스템 토큰을 가리킨다.
 게임 전용 색을 새로 만들 때는 시스템 색과 RGB 거리가 충분한지 확인한다) · 카카오 브랜드.
 
+## JS가 색을 읽을 때 — 원시값만 읽는다
+
+3D 재질·canvas 2D는 CSS를 거치지 않아 JS가 토큰을 읽어야 한다. 규칙 하나:
+**`--ds-color-*`(원시값)를 읽는다. `--color-*`(semantic)를 읽지 않는다.**
+
+`@theme inline`은 semantic 변수를 **항상 내보내지 않는다.** 그 색이 어딘가에서 알파
+수식자와 함께 쓰일 때만(`bg-danger/20` 식) `--color-danger: var(--ds-color-danger)`가
+CSS에 나오고, 수식자 없이만 쓰이는 색은 utility에 인라인돼 변수가 아예 없다
+(실측: `--color-danger`·`--color-brand`는 있고 `--color-canvas`·`--color-content`는
+빈 값이다). 즉 **semantic 변수의 존재 여부가 다른 파일의 `/20` 하나에 달려 있다** —
+그것이 사라지면 읽던 쪽이 조용히 fallback으로 떨어진다. 원시값은 `:root`에 늘 있다.
+
+`shared`의 `dsColorReader()`(`styles/tokenFallbacks.ts`)가 이 규칙을 **타입으로**
+강제한다 — 인자가 `DS_COLOR_FALLBACK`의 키로 제한되고, `tokenFallbacks.test.ts`가
+그 키 집합을 `--ds-color-physics-*` 전체와 정확히 일치시킨다(렌더러가 쓰는 색을
+빠뜨리면 실패). 그래서 **3D는 physics 토큰만 읽을 수 있고**, physics는 테마를 타지
+않으므로 테마 전환 시 3D를 다시 읽을 일이 없다. 게임 무대와 주사위가 라이트에서도
+그대로인 것은 이 구조의 결과다.
+
 ## 사다리(scale) — 크기는 정해진 단에서만
 
 눈대중 px는 "미묘하게 안 맞는" 느낌의 1순위 원인이다(실측: 글자 20종·라운드 28종까지
