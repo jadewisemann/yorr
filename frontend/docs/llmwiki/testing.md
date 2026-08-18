@@ -1,6 +1,7 @@
 # 테스트 전략 — 단위 하네스·mock 백엔드·2단 E2E
 
 > SSOT: [`../../vitest.config.ts`](../../vitest.config.ts), [`../../playwright.config.ts`](../../playwright.config.ts),
+> [`../../playwright.visual.config.ts`](../../playwright.visual.config.ts),
 > [`../../src/test/`](../../src/test/), [`../../e2e/support/`](../../e2e/support/)
 
 ## 전체 그림 — mock 백엔드가 **두 벌**인 이유
@@ -77,6 +78,33 @@ E2E는 자체 페이크가 필요하다. 두 벌을 잇는 다리가 `e2e/suppor
   물리 정착 시점에 의존하지 않는 검증.
 - 셀렉터는 전부 role 기준 — 760/1024px에서 마크업이 갈려도 같은 코드로 통한다. 문구
   단언은 정규식(320px에서 잘리는 라벨이 mobile-320에서만 실패하는 것 방지).
+
+## 시각 대조 (`npm run test:visual`)
+
+**회귀 테스트가 아니라 대조 도구다.** E2E 스펙은 전부 동작 검증이라 "겉모습이 안
+바뀌었다"를 담보할 수단이 없었다 — 디자인 시스템 작업이 알파를 사다리로 옮기면 색이
+미세하게 달라지는데, 그것을 눈으로 볼 자리가 없다.
+
+```bash
+git switch main && npm run test:visual   # 기준 이미지 생성 (없으면 만들고 통과)
+git switch <작업 브랜치> && npm run test:visual   # 달라진 섹션만 실패 + diff 이미지
+npx playwright show-report               # 기대/실제/diff 3장 비교
+```
+
+- **baseline을 저장소에 넣지 않는다**(`.gitignore`). 폰트 렌더링이 기기마다 달라 남의
+  기계에서 뜬 이미지는 전부 어긋나고, 지켜 줄 CI도 없다 — Jenkins 프론트엔드
+  스테이지는 `check`·`typecheck`·`test`·`build`만 돌리고 Playwright를 실행하지 않는다.
+  따라서 **한 기계 안의 before/after**로만 쓴다.
+- 대상은 `/__dev/components` 카탈로그를 **섹션 단위**로. 페이지 한 장으로 찍지 않는
+  이유는 물리 주사위 렌더러·음성 랩·마스코트 가이드가 매 프레임 달라서다 — 세 섹션은
+  제외돼 있다.
+- 프로덕션 빌드가 아니라 **vite dev 서버**를 띄운다. 카탈로그가 `import.meta.env.DEV`
+  게이트 안에 있어 빌드 산출물에는 없다.
+- 임계값은 `maxDiffPixelRatio: 0.002`(안티앨리어싱 몫만). 재시도는 0 — 두 번째 실행이
+  우연히 통과하면 변경을 놓친다.
+- **카탈로그가 곧 커버리지다.** shared 프리미티브 17종 중 카탈로그에 있는 것만 보인다
+  (`ConnectionBanner`·`ToastHost`·`Popover`·`LoadingOverlay` 등은 아직 없다).
+  프리미티브를 고치는데 카탈로그에 없으면 먼저 등재한다.
 
 ## 그 외 품질 장치
 

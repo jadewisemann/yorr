@@ -8,6 +8,37 @@
 >
 > 형식: `## YYYY-MM-DD - 주제` 아래에 불릿. 최신이 위.
 
+## 2026-08-18 - 시각 대조 도구와, 그것을 막고 있던 전제 2개의 판정
+
+PLANS.md「검증 수단의 구멍」이 색 회수(라이트 모드 1순위)의 선행 작업으로 잡아 둔
+것을 만들었다(`npm run test:visual`). 착수 전에 적혀 있던 전제 두 개가 실측에서
+틀렸고, 둘 다 **문서가 낡은 쪽**이라 문서를 고쳤다(AGENTS.md 판정 절차).
+
+- **"baseline은 Jenkins 환경에서 떠야 한다 — 로컬·컨테이너에서 만들면 CI가 영구히
+  빨개진다."** `Jenkinsfile`의 프론트엔드 스테이지는 `npm ci` → `check` →
+  `typecheck` → `test` → `build`뿐이다. **Playwright를 실행하는 스테이지가 없다.**
+  같은 스테이지의 `archiveArtifacts`가 `frontend/playwright-report/**`를 걷고 있어
+  E2E가 도는 것처럼 읽히지만, 그 경로를 채우는 실행이 없다 — 오해의 출처가 이것으로
+  보인다. 결론: 빨개질 CI가 없으니 제약도 없다. 대신 **baseline을 지켜 줄 CI도
+  없으므로** 저장소에 넣지 않고(`.gitignore`) 한 기계 안 before/after로만 쓴다.
+- **"`/__dev/components` 카탈로그 한 장이면 프리미티브 전체가 커버된다."**
+  `src/shared/components/*.tsx` 17종 중 카탈로그에 등재된 것은 7종이었다. 색 회수가
+  건드리는 `GameChromeButton`(`border-white/15·20`, `bg-black/45`, `text-white/70`)과
+  `BottomSheet`(`bg-white/24`)를 이번에 등재했다. 남은 8종은 그것을 고칠 때 등재한다.
+
+**설계상의 선택 두 가지 (되돌릴 때 근거)**
+
+- **페이지 한 장이 아니라 섹션 단위.** 카탈로그에는 물리 주사위 렌더러(three.js·
+  rapier)·음성 랩·마스코트 가이드가 섞여 있어 한 장으로 찍으면 매 실행 diff가 난다.
+  세 섹션을 빼고 나머지를 섹션별로 찍는다.
+- **프로덕션 빌드가 아니라 vite dev 서버.** `DevCatalog`가 `import.meta.env.DEV`
+  게이트 안이라 빌드 산출물에는 "개발 환경에서만 사용할 수 있습니다" 한 줄만 남는다.
+  기존 `playwright.config.ts`(preview :4306)를 재사용할 수 없는 이유가 이것이라
+  설정을 따로 뒀다(`playwright.visual.config.ts`, :5310).
+
+**함정** — 카탈로그를 열면 마스코트 가이드가 페이지를 덮은 채 시작한다. 어떤 섹션을
+찍든 "연습 그만두기"로 먼저 걷어내야 뒤가 보인다.
+
 ## 2026-08-16 - 문서·코드 불일치 감사와 판정
 
 AGENTS.md의 판정 절차("조용히 코드를 따르지 않는다 — 의도가 바뀐 것이면 문서를,

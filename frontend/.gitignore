@@ -12,3 +12,7 @@
 # 원본 테이크는 용량이 크고 재변환은 scripts/import-hand-voice.mjs로 언제든 다시 된다.
 /scripts/voice-source/*
 !/scripts/voice-source/README.md
+
+# 시각 대조 baseline. 회귀 테스트가 아니라 한 기계 안의 before/after 대조 도구라
+# 저장소에 넣지 않는다 — 근거는 playwright.visual.config.ts 주석.
+/e2e/visual/**/*-snapshots/

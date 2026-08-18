@@ -3,7 +3,9 @@ import { PlayerCard } from '@/room/components/PlayerCard'
 import { StatusPanel } from '@/room/components/StatusPanel'
 import { Alert } from '@/shared/components/Alert'
 import { Badge } from '@/shared/components/Badge'
+import { BottomSheet } from '@/shared/components/BottomSheet'
 import { Button } from '@/shared/components/Button'
+import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import { Modal } from '@/shared/components/Modal'
 import { Panel } from '@/shared/components/Panel'
 import { TextField } from '@/shared/components/TextField'
@@ -45,6 +47,7 @@ const { fourOfAKind: _recorded, ...AFTER_RECORD_CANDIDATES } = LAST_ROLL_CANDIDA
 
 export function DevCatalog() {
   const [modalOpen, setModalOpen] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [guideVisible, setGuideVisible] = useState(true)
   const [guideRun, setGuideRun] = useState(0)
@@ -314,6 +317,33 @@ export function DevCatalog() {
           <StatusPanel variant="error" />
           <StatusPanel variant="reconnect" />
         </div>
+      </Panel>
+
+      <Panel as="section" className={sectionClassName}>
+        <h2 className="text-xl font-bold">Game chrome</h2>
+        <p className="m-0 text-sm text-content-muted">
+          overlay 톤은 게임 화면 위에 얹히는 버튼이라 어두운 바닥 위에서 봐야 한다.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <GameChromeButton>나가기</GameChromeButton>
+          <GameChromeButton disabled>비활성</GameChromeButton>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 rounded-panel bg-canvas p-4">
+          <GameChromeButton tone="overlay">도움말</GameChromeButton>
+          <GameChromeButton disabled tone="overlay">
+            비활성
+          </GameChromeButton>
+        </div>
+      </Panel>
+
+      <Panel as="section" className={sectionClassName}>
+        <h2 className="text-xl font-bold">Bottom sheet</h2>
+        <Button variant="secondary" onClick={() => setSheetOpen(true)}>
+          Bottom sheet 열기
+        </Button>
+        <BottomSheet open={sheetOpen} title="족보" onClose={() => setSheetOpen(false)}>
+          <p className="text-content-muted">아래로 끌어내리거나 바깥을 눌러 닫습니다.</p>
+        </BottomSheet>
       </Panel>
 
       <Panel as="section" className={sectionClassName}>
