@@ -332,8 +332,8 @@ export function DevCatalog() {
       <Panel as="section" className={sectionClassName}>
         <h2 className="text-xl font-bold">Theme</h2>
         <p className="m-0 text-sm text-content-muted">
-          라이트는 아직 사용자 화면에 노출하지 않는다 — 대비 미달 1건이 남아 있다 (PLANS.md「라이트
-          모드 로드맵」). 여기서만 켜서 확인한다.
+          사용자 노출 자리는 계정 다이얼로그의 「화면 테마」다. 여기 것은 카탈로그를 두 테마로
+          대조할 때 쓴다.
         </p>
         <div className="flex flex-wrap gap-3">
           {THEME_OPTIONS.map((option) => (

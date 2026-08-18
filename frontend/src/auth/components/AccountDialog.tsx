@@ -1,6 +1,7 @@
 import type { AuthSession } from '@/auth/authSession'
 import { AccountMenu } from '@/auth/components/AccountDialog/AccountMenu'
 import { ProviderChoice } from '@/auth/components/AccountDialog/ProviderChoice'
+import { ThemeRow } from '@/auth/components/AccountDialog/ThemeRow'
 import { BottomSheet } from '@/shared/components/BottomSheet'
 import { Popover } from '@/shared/components/Popover'
 
@@ -14,10 +15,11 @@ interface AccountDialogProps {
 
 export function AccountDialog({ layout, onClose, onSignOut, open, session }: AccountDialogProps) {
   const label = session ? '내 계정' : '로그인'
-  const panel = session ? (
-    <AccountMenu onSignOut={onSignOut} session={session} />
-  ) : (
-    <ProviderChoice />
+  const panel = (
+    <>
+      {session ? <AccountMenu onSignOut={onSignOut} session={session} /> : <ProviderChoice />}
+      <ThemeRow />
+    </>
   )
 
   if (layout === 'narrow') {
