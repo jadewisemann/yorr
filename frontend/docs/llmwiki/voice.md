@@ -1,7 +1,7 @@
 # 음성 채팅 — WebRTC 풀메시
 
 > SSOT: [`../../src/realtime/voice/voiceMesh.ts`](../../src/realtime/voice/voiceMesh.ts)와
-> `wsEvents.ts`의 `voice.*` 계약(VOICE-001 블록). 티켓 S15P11A406-130.
+> `wsEvents.ts`의 `voice.*` 계약(VOICE-001 블록).
 
 ## 구조 결정
 

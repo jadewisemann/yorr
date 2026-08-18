@@ -49,7 +49,7 @@ test('shows the room code, invite popover and an open seat hint in the lobby', a
 
   await createRoomAsHost(page, '요르호스트')
 
-  // 초대는 인라인 카드가 아니라 초대 버튼에 붙는 말풍선이다(S15P11A406-203).
+  // 초대는 인라인 카드가 아니라 초대 버튼에 붙는 말풍선이다(room-and-session.md).
   await page.getByRole('button', { name: '초대' }).click()
   const invite = page.getByRole('dialog', { name: '친구 초대하기' })
   await expect(invite.getByText(ROOM_CODE, { exact: true })).toBeVisible()

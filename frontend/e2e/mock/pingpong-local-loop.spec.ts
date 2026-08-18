@@ -8,7 +8,7 @@ import { expect, test } from '@playwright/test'
  * `createScene`이 던지고 `glFailed` 경로로 빠지므로 단위 테스트로도 닿지 않는다.
  * headless Chromium은 정상적으로 합성하므로 여기가 유일하게 루프를 볼 수 있는 자리다.
  *
- * S15P11A406-215에서 이 루프를 `useLocalPingPongGame` 훅으로 옮겼다. 회귀하면
+ * 도메인 세그먼트 재편 때 이 루프를 `useLocalPingPongGame` 훅으로 옮겼다. 회귀하면
  * 코트는 그려지지만 공이 서지 않는다 — 화면은 정상처럼 보이므로 눈으로는 못 잡는다.
  */
 test.describe('로컬 탁구 프레임 루프', () => {

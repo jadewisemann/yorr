@@ -4,7 +4,7 @@ package com.ssafy.yorr.auth;
  * 소셜 로그인 실패. 실패 사유를 프론트가 화면에 매핑할 수 있도록 코드로 구분한다.
  * <p>
  * 사유를 하나로 뭉개면 사용자가 "다시 시도"로 풀 수 있는 실패와 그렇지 않은 실패를
- * 구분할 수 없다(S15P11A406-110에서 겪은 것과 같은 문제).
+ * 구분할 수 없다(소셜 로그인 도입 때 겪은 것과 같은 문제).
  */
 public class SocialLoginException extends RuntimeException {
 

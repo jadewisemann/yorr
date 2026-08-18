@@ -20,7 +20,7 @@
 | `room/components/ControllerConnectSequence.tsx` | 파티 컨트롤러 연결 스텝퍼 + 게임별 사용법 슬롯 |
 | `room/screens/*` | `NicknamePage` · `LobbyPage` · `GamePage`(게임 셸) · `RoomExitGuard` · `PartyDashboardPage` · `PartyOnBigScreenPage` |
 
-## 세션 FSM (`sessionFsm.ts`, S15P11A406-101)
+## 세션 FSM (`sessionFsm.ts`)
 
 ```text
 idle ──join 성공──▶ joining ──첫 snapshot──▶ inLobby ⇄ inGame ──▶ finished
@@ -65,7 +65,7 @@ idle ──join 성공──▶ joining ──첫 snapshot──▶ inLobby ⇄ 
 - 초대 코드는 `[A-Z0-9]{4,12}`. 초대 링크 통째 붙여넣기가 실제 주 진입 경로라,
   `sanitizeRoomCodeInput`이 URL에서 `?code=`만 추출한다 — 그냥 정규화하면
   `https://yorr.app/...`가 `HTTPSYORRAPP`이 되어 패턴을 통과해 버린다.
-- 초대 UI는 인라인 카드에서 **말풍선 팝오버**로 이전(S15P11A406-203) — 320×568에서 카드가
+- 초대 UI는 인라인 카드에서 **말풍선 팝오버**로 이전 — 320×568에서 카드가
   세로를 다 먹어 참가자 목록이 4px로 짜부라졌다. 초대는 방 생성 직후 한 번 하는 조작이라
   항시 노출할 가치가 없다.
 

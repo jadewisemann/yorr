@@ -336,7 +336,7 @@
 }
 
 :root {
-  /* S15P11A406-117 다크 디자인 시스템 v1 — 블랙·화이트 + 레드 포인트.
+  /* 다크 디자인 시스템 v1 — 블랙·화이트 + 레드 포인트.
      레드는 CTA·현재 턴·킵·경고·결과 강조에만 쓰고 정보 영역은 블랙·그레이를 유지한다.
      Space Grotesk는 한글 글리프가 없어 한글은 자연히 뒤의 Pretendard로 떨어진다. */
   --ds-font-sans:
@@ -607,7 +607,7 @@
   --ds-size-gutter: 1.25rem;
   --ds-size-safe-top: max(1rem, env(safe-area-inset-top));
   --ds-size-safe-bottom: max(1.25rem, env(safe-area-inset-bottom));
-  /* S15P11A406-117 다크 시스템 — 컨트롤 12·카드 14·패널 18·시트 26px 라운드. */
+  /* 다크 시스템 — 컨트롤 12·카드 14·패널 18·시트 26px 라운드. */
   --ds-radius-control: 0.75rem;
   --ds-radius-card: 0.875rem;
   --ds-radius-panel: 1.125rem;
