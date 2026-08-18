@@ -97,7 +97,10 @@ export function RecordPanel({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
         >
-          <span aria-hidden="true" className="mx-auto block h-1 w-11 rounded-full bg-white/24" />
+          <span
+            aria-hidden="true"
+            className="mx-auto block h-1 w-11 rounded-full bg-surface-veil-strong"
+          />
           <button
             aria-controls={sheetId}
             aria-expanded={open}

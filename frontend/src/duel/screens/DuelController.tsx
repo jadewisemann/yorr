@@ -49,7 +49,7 @@ export function DuelController({
 
       <section
         aria-label="탄약과 경고"
-        className="mt-4 grid flex-none grid-cols-2 gap-2 rounded-card border border-border bg-white/6 p-3"
+        className="mt-4 grid flex-none grid-cols-2 gap-2 rounded-card border border-border bg-surface-veil p-3"
       >
         <AmmoRow
           fouls={fouls}
@@ -69,7 +69,7 @@ export function DuelController({
 
       <button
         aria-label="뽑기"
-        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-duel-accent/20 bg-[radial-gradient(circle_at_50%_40%,rgb(255_207_138_/_10%),transparent_62%)] active:bg-white/8"
+        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-duel-accent/20 bg-[radial-gradient(circle_at_50%_40%,rgb(255_207_138_/_10%),transparent_62%)] active:bg-surface-veil"
         onPointerDown={(event) => {
           event.preventDefault()
           onDraw()

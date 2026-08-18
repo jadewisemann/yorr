@@ -33,7 +33,7 @@ export function PingPongPreparation({
             const ready = state.readyPlayerIds.includes(playerId)
             return (
               <div
-                className={`rounded-card border px-4 py-4 ${ready ? 'border-pp-accent/45 bg-pp-accent/12' : 'border-border bg-white/6'}`}
+                className={`rounded-card border px-4 py-4 ${ready ? 'border-pp-accent/45 bg-pp-accent/12' : 'border-border bg-surface-veil'}`}
                 key={playerId}
               >
                 <span className="block truncate text-lg font-black">

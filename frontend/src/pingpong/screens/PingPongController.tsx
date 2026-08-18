@@ -112,7 +112,7 @@ export function PingPongController({
         <GameChromeButton onClick={onLeave}>나가기</GameChromeButton>
       </header>
 
-      <section className="mt-4 flex flex-none items-center justify-between rounded-card border border-border bg-white/6 px-4 py-3">
+      <section className="mt-4 flex flex-none items-center justify-between rounded-card border border-border bg-surface-veil px-4 py-3">
         <ControllerScore
           label={p1.label}
           score={state.scores[p1.id] ?? 0}
@@ -157,7 +157,7 @@ export function PingPongController({
         )}
         {usesTouchFallback(permission) && (
           <button
-            className="min-h-12 rounded-card border border-border-strong bg-white/8 px-5 font-bold active:scale-[0.98] active:bg-white/15"
+            className="min-h-12 rounded-card border border-border-strong bg-surface-veil px-5 font-bold active:scale-[0.98] active:bg-surface-veil-raised"
             onClick={onTouchSwing}
             type="button"
           >

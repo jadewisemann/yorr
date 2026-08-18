@@ -96,7 +96,7 @@ function LocalPingPongGame({
 
         {mode === 'duo' && (
           <>
-            <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-white/20" />
+            <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-border-strong" />
             <span className="pointer-events-none absolute top-3 left-3 font-mono text-xs text-pp-side-blue-text">
               ◀ P1
             </span>

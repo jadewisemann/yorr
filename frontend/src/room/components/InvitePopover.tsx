@@ -49,6 +49,8 @@ export function InvitePopover({ anchorRef, onClose, open, roomCode }: InvitePopo
       <div className="mt-3 grid gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <QrFallback>
+            {/* 순백 고정 — QR 정숙 구역(quiet zone)은 스캐너가 코드를 찾는 기준이라
+                테마를 따라가면 안 된다. 라이트 모드에서도 이 자리는 흰색이다. */}
             <QRCodeSVG
               className="size-28 flex-none rounded-card bg-white p-2"
               value={inviteUrl}
