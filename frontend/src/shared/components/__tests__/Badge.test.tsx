@@ -26,7 +26,7 @@ describe('Badge', () => {
 
     const brand = renderBadge(<Badge tone="brand">추천</Badge>)
     expect(brand).toContain('border-brand/40')
-    expect(brand).toContain('text-brand')
+    expect(brand).toContain('text-brand-strong')
 
     for (const classes of [warning, brand]) {
       expect(classes).toContain('rounded-full')
