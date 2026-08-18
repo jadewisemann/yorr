@@ -119,9 +119,10 @@
    있다 — `surface-veil`(6%) 위로 단을 몇 개 둘 것인가. 실측 8종(4·6·8·10·12·15·20·24)
    인데 8%가 8곳으로 다수파고 24%는 시트 손잡이 2곳 전용이다. 그다음이 `text-white`
    17곳(대부분 `Screen`·`GameCanvas`가 바닥에 까는 것이라 회수하면 파급이 크다).
-2. **테마 층 신설.** `:root` 다크 유지 + `[data-theme="light"]` 오버라이드.
-   색 토큰 84개 중 갈려야 할 것만. semantic 층(`@theme inline`)과 컴포넌트는
-   손대지 않는다 — 2계층 구조가 이 저장소의 제일 큰 자산이다
+2. ✅ **테마 층 신설 — 끝났다.** `[data-theme="light"]` 오버라이드 한 블록.
+   컴포넌트도 semantic 층도 안 건드렸다. 켜자마자 raw 예외 2건(ghost 테두리 ·
+   secondary hover)이 버그로 드러나 토큰으로 올렸다. **남은 구멍 1건: `text-brand`가
+   라이트에서 3.54:1** — 3곳을 `brand-soft`로 옮겨야 사용자에게 켤 수 있다
 3. **3D·canvas.** 재질 색이 CSS를 안 거친다. `pingpong/scene3d.ts`의
    `setClearColor`·`FogExp2`는 tokens.css와 **같은 값을 양쪽에 적어둔
    것**이고(tokens.css 주석), yacht의 `appearance.ts`는 `--ds-*`를 직접 읽는다.

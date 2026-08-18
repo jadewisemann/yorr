@@ -8,6 +8,7 @@
   --color-border: var(--ds-color-border);
   --color-border-raised: var(--ds-color-border-raised);
   --color-border-strong: var(--ds-color-border-strong);
+  --color-border-ghost: var(--ds-color-border-ghost);
   --color-surface-veil: var(--ds-color-surface-veil);
   --color-surface-veil-raised: var(--ds-color-surface-veil-raised);
   --color-surface-veil-strong: var(--ds-color-surface-veil-strong);
@@ -19,6 +20,7 @@
   --color-on-brand: var(--ds-color-on-brand);
   --color-inverse: var(--ds-color-inverse);
   --color-on-inverse: var(--ds-color-on-inverse);
+  --color-inverse-hover: var(--ds-color-inverse-hover);
   --color-positive: var(--ds-color-positive);
   --color-warning: var(--ds-color-warning);
   --color-danger: var(--ds-color-danger);
@@ -352,6 +354,10 @@
   --ds-color-border: rgb(255 255 255 / 10%);
   --ds-color-border-raised: rgb(255 255 255 / 14%);
   --ds-color-border-strong: rgb(255 255 255 / 18%);
+  /* 사다리 밖 한 단 — **테두리가 컴포넌트의 전부인 자리**(배경이 투명한 ghost 컨트롤)
+     에만 쓴다. `border-strong`(18%)은 캔버스 위 1.62:1로 비활성 Primary(2.10:1)보다
+     흐려서 버튼으로 안 읽혔다. 위계가 아니라 용도로 갈리므로 3단에 끼우지 않는다. */
+  --ds-color-border-ghost: rgb(255 255 255 / 28%);
   /* 캔버스 위에 아주 옅게 깔리는 칩·배너 바닥. surface(#111214)는 불투명해서 뒤의
      배경 그라디언트를 가리므로 이 자리에 못 쓴다. hairline과 같은 3단이고 이름도 같은
      규칙을 따른다 — 회수 전에는 4·6·8·10·12·15·24% 7종이 흩어져 있었다.
@@ -372,6 +378,10 @@
      여기에 선다. content(#f7f7f5)보다 살짝 눌러 텍스트와 구분한다. */
   --ds-color-inverse: #f2f2f0;
   --ds-color-on-inverse: #111214;
+  /* inverse 칩의 hover — **캔버스에서 더 멀어지는 쪽**이다. 다크에서는 더 밝아지고
+     라이트에서는 더 어두워진다. 이전에는 `hover:bg-white`로 박혀 있어서 라이트에서
+     어두운 칩이 hover에 흰색으로 뒤집혔다. */
+  --ds-color-inverse-hover: #ffffff;
   --ds-color-positive: #8fcb9b;
   --ds-color-warning: #e9b44c;
   --ds-color-danger: #ff6b66;
@@ -617,6 +627,79 @@
   --ds-z-sheet: 40;
   --ds-z-modal: 50;
   --ds-z-toast: 60;
+}
+
+/* ── 라이트 테마 ────────────────────────────────────────────────────────────────
+   `:root`의 다크가 기본이고 여기서 **갈려야 하는 것만** 덮는다. semantic 층
+   (`@theme inline`)과 컴포넌트는 손대지 않는다 — `@theme inline`이 utility를
+   `var(--ds-*)` 참조로 컴파일하기 때문에 원시값만 바꿔도 화면 전체가 따라온다.
+   이 2계층이 이 저장소의 제일 큰 자산이고, 색 회수 78곳이 그것을 쓸 수 있게 만든 일이다.
+
+   **여기 없는 것은 의도적으로 안 바꾼 것이다.**
+   - 게임 팔레트(`pp-*` 탁구 · `duel-*` 결투)와 랜딩(`landing-*`) — 세계관이 다르다.
+     탁구 코트와 결투장은 라이트 모드에서도 어두운 무대다.
+   - 주사위(`physics-die`·`physics-pip`) — 실물 주사위라 테마와 무관하게 상아색 면에
+     검은 눈이다. 3D 트레이(`physics-rail`·`physics-slot`)도 게임 무대라 그대로 둔다.
+   - 스크림 3단 — 뒤를 가리는 일은 테마와 무관하게 검정이 한다.
+   - `brand`(#e53935) — 두 테마에서 같은 레드. 갈리는 것은 그 위아래 단이다. */
+[data-theme="light"] {
+  /* 표면 사다리. 다크와 **방향이 같다** — canvas에서 멀어질수록 밝아진다.
+     흰 배경에서 흰 카드를 띄우는 통상 관례와 어긋나 보이지만, 다크가 다섯 단을
+     명도로 구별하고 컴포넌트가 그 위계에 기대고 있어 관계를 뒤집으면 raised와
+     overlay가 같은 색이 된다. */
+  --ds-color-canvas: #ebebe8;
+  --ds-color-surface-sunken: #f0f0ed;
+  --ds-color-surface: #f7f7f5;
+  --ds-color-surface-raised: #fcfcfb;
+  --ds-color-surface-overlay: #ffffff;
+
+  /* 헤어라인·면 사다리 — 단(10·14·18 / 6·14·24%)은 그대로 두고 흰색을 검정으로
+     뒤집는다. 알파를 다시 고르면 사다리가 테마마다 갈려 규칙이 둘이 된다. */
+  --ds-color-border: rgb(0 0 0 / 10%);
+  --ds-color-border-raised: rgb(0 0 0 / 14%);
+  --ds-color-border-strong: rgb(0 0 0 / 18%);
+  --ds-color-surface-veil: rgb(0 0 0 / 6%);
+  --ds-color-surface-veil-raised: rgb(0 0 0 / 14%);
+  --ds-color-surface-veil-strong: rgb(0 0 0 / 24%);
+  /* ghost 테두리도 같은 방식으로 뒤집는다 — 안 뒤집으면 흰 배경에 흰 테두리라
+     버튼의 윤곽이 통째로 사라진다(라이트를 처음 켰을 때 실제로 그랬다). */
+  --ds-color-border-ghost: rgb(0 0 0 / 28%);
+
+  /* 글자 3단. 다크의 명도 순서를 뒤집되 간격은 유지한다 — content가 가장 진하고
+     faint가 가장 옅다. faint는 canvas(#ebebe8) 위 4.5:1을 넘겨야 본문에 쓸 수 있다
+     (다크 쪽 `content-faint` 주석과 같은 제약) — 실측 content 14.99 · muted 6.12 ·
+     faint 5.08로 다크(18.58 · 8.11 · 5.28)와 같은 위계다. */
+  --ds-color-content: #16171b;
+  --ds-color-content-muted: #55565c;
+  --ds-color-content-faint: #616269;
+  --ds-color-focus: #16171b;
+
+  /* 뒤집힌 면 — 다크에서는 밝은 칩이었으니 라이트에서는 어두운 칩이다. */
+  --ds-color-inverse: #1a1b1f;
+  --ds-color-on-inverse: #f7f7f5;
+  --ds-color-inverse-hover: #0b0c0f;
+
+  /* brand 자체는 그대로 — 두 테마에서 같은 레드다. hover로 가는 단(`strong`)이
+     다크에서는 밝아지고 라이트에서는 어두워진다("눌리는 쪽이 더 진하다"가 양쪽에서
+     성립해야 한다). `soft`는 레드 계열 텍스트 강조라 4.5:1을 넘긴다(5.53).
+     ⚠ **`text-brand`(민 brand)는 라이트 canvas 위 3.54로 미달이다** — 다크에서는
+     4.71이라 성립했다. 빨간 글자의 자리는 `brand-soft`이므로, 라이트를 켜기 전에
+     `text-brand` 3곳(`Badge` brand 톤 · `NotFoundPage` 장식 R · `DuelHowTo` 상태
+     문구)을 `brand-soft`로 옮겨야 한다. `bg-brand` + `on-brand`(흰 글자, 4.23)는
+     두 테마 공통이라 이 회수와 무관하다. */
+  --ds-color-brand-strong: #c62828;
+  --ds-color-brand-soft: #b3231f;
+
+  /* 상태색 — 다크용 파스텔은 흰 배경에서 전부 대비가 무너진다(#8fcb9b는 canvas 위
+     1.5:1). 같은 계열에서 어두운 쪽으로 옮겨 canvas 위 4.5:1을 넘긴다:
+     positive 5.07 · warning 4.96 · danger 4.71. */
+  --ds-color-positive: #27703a;
+  --ds-color-warning: #8a5a00;
+  --ds-color-danger: #c62828;
+
+  /* 그림자 — 검정 50·70%는 흰 배경에서 먹칠이 된다. */
+  --ds-shadow-raised: 0 0.75rem 2rem rgb(0 0 0 / 12%);
+  --ds-shadow-overlay: 0 -1.5rem 3.75rem rgb(0 0 0 / 18%);
 }
 
 @media (max-width: 22.5rem) {
