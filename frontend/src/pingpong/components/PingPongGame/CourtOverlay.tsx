@@ -49,7 +49,7 @@ export function CourtOverlay({
           tag="P1"
           tone="blue"
         />
-        <div className="mt-1 rounded-full border border-border-raised bg-black/35 px-3 py-1.5 text-center font-mono text-xs tracking-[0.14em] backdrop-blur-md">
+        <div className="mt-1 rounded-full border border-border-raised bg-scrim-soft px-3 py-1.5 text-center font-mono text-xs tracking-[0.14em] backdrop-blur-md">
           {badge}
         </div>
         <Score
@@ -61,7 +61,7 @@ export function CourtOverlay({
       </header>
       {countdown > 0 && (
         <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
-          <div className="grid size-32 place-items-center rounded-full border border-border-strong bg-black/45 font-mono text-7xl font-black backdrop-blur-md">
+          <div className="grid size-32 place-items-center rounded-full border border-border-strong bg-scrim-soft font-mono text-7xl font-black backdrop-blur-md">
             {countdown}
           </div>
         </div>

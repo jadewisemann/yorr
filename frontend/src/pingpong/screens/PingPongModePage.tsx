@@ -129,7 +129,7 @@ function LocalPingPongGame({
         )}
 
         {hud.phase === 'over' && (
-          <div className="absolute inset-0 z-20 grid place-items-center bg-black/65 px-5 backdrop-blur-sm">
+          <div className="absolute inset-0 z-20 grid place-items-center bg-scrim px-5 backdrop-blur-sm">
             <section className="grid w-full max-w-xs gap-4 rounded-sheet border border-border-raised bg-pp-surface p-6 text-center shadow-2xl">
               <h2 className="m-0 text-2xl font-black">
                 {mode === 'solo'

@@ -18,7 +18,7 @@ export function PingPongPreparation({
       : null
 
   return (
-    <section className="absolute inset-0 z-10 grid place-items-center bg-black/45 px-5 backdrop-blur-[2px]">
+    <section className="absolute inset-0 z-10 grid place-items-center bg-scrim-soft px-5 backdrop-blur-[2px]">
       <div className="grid w-full max-w-xl gap-6 rounded-hero border border-border-raised bg-pp-surface/95 p-7 text-center shadow-2xl">
         <div>
           <p className="m-0 font-mono text-xs tracking-[0.2em] text-pp-side-blue-text">WARM-UP</p>

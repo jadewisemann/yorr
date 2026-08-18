@@ -77,7 +77,7 @@ export function TooltipCoachmark({ onDone }: { onDone: () => void }) {
     <>
       <button
         aria-label="안내 닫기"
-        className="absolute inset-0 z-[5] cursor-pointer border-0 bg-black/65"
+        className="absolute inset-0 z-[5] cursor-pointer border-0 bg-scrim"
         onClick={onDone}
         type="button"
       />
