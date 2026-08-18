@@ -21,9 +21,13 @@ export default defineConfig({
   // 재시도는 diff를 감춘다 — 두 번째 실행이 우연히 통과하면 변경을 못 본다.
   retries: 0,
   reporter: [['list'], ['html', { open: 'never' }]],
-  // 색 회수 작업이 노리는 것은 알파 한두 단 차이라 임계값을 두면 안 보인다.
-  // 안티앨리어싱 몫만 열어 둔다.
-  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.002 } },
+  // **`threshold`가 진짜 손잡이다.** Playwright의 기본 `threshold: 0.2`는 픽셀 하나의
+  // 색 거리(YIQ) 허용치라, `maxDiffPixels`를 0으로 조여도 헤어라인 알파 1%p 차이
+  // (#111214 위 15% → 14% = 채널 3/255)는 "같은 픽셀"로 세어 아예 실패하지 않는다.
+  // 실측: 그 상태로 GameChromeButton 15→14·20→18% 변경이 통과했다. 이 도구가 보려는
+  // 것이 정확히 그 차이라 둘 다 0으로 둔다 — 같은 기계·같은 실행이면 나머지 11개
+  // 섹션은 비트 단위로 같아서 오탐이 나지 않는다(실측).
+  expect: { toHaveScreenshot: { threshold: 0, maxDiffPixels: 0 } },
   use: {
     baseURL: 'http://127.0.0.1:5310',
     // 색만 보는 도구라 뷰포트를 늘리지 않는다 — 레이아웃 회귀는 동작 E2E의 몫이다.

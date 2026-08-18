@@ -19,7 +19,7 @@ export function PingPongPreparation({
 
   return (
     <section className="absolute inset-0 z-10 grid place-items-center bg-black/45 px-5 backdrop-blur-[2px]">
-      <div className="grid w-full max-w-xl gap-6 rounded-hero border border-white/15 bg-pp-surface/95 p-7 text-center shadow-2xl">
+      <div className="grid w-full max-w-xl gap-6 rounded-hero border border-border-raised bg-pp-surface/95 p-7 text-center shadow-2xl">
         <div>
           <p className="m-0 font-mono text-xs tracking-[0.2em] text-pp-side-blue-text">WARM-UP</p>
           <h1 className="mt-2 mb-0 text-4xl font-black">{heading}</h1>
@@ -33,7 +33,7 @@ export function PingPongPreparation({
             const ready = state.readyPlayerIds.includes(playerId)
             return (
               <div
-                className={`rounded-card border px-4 py-4 ${ready ? 'border-pp-accent/45 bg-pp-accent/12' : 'border-white/12 bg-white/6'}`}
+                className={`rounded-card border px-4 py-4 ${ready ? 'border-pp-accent/45 bg-pp-accent/12' : 'border-border bg-white/6'}`}
                 key={playerId}
               >
                 <span className="block truncate text-lg font-black">

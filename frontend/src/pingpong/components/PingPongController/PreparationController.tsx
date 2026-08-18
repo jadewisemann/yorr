@@ -63,7 +63,7 @@ export function PreparationStatus({
 }) {
   return (
     <div
-      className={`rounded-card border px-3 py-2.5 text-center text-sm font-bold ${ready ? 'border-pp-accent/45 bg-pp-accent/12 text-pp-accent-text' : 'border-white/12 bg-white/6 text-game-content-faint'}`}
+      className={`rounded-card border px-3 py-2.5 text-center text-sm font-bold ${ready ? 'border-pp-accent/45 bg-pp-accent/12 text-pp-accent-text' : 'border-border bg-white/6 text-game-content-faint'}`}
     >
       <span className="flex items-center justify-center gap-1">
         <span className="rounded-xs border border-current px-1 font-mono text-2xs font-black leading-none">

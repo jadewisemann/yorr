@@ -26,7 +26,7 @@ export function ResultRanking({ className, players, you }: ResultRankingProps) {
               winner
                 ? 'border-brand/45 bg-brand/10 shadow-[0_0_0_3px_rgb(229_57_53_/_14%)]'
                 : mine
-                  ? 'border-white/22 bg-surface-raised'
+                  ? 'border-border-strong bg-surface-raised'
                   : 'border-border bg-surface',
             )}
             key={player.playerId}

@@ -11,7 +11,7 @@ describe('GameChromeButton', () => {
     render(<GameChromeButton onClick={() => {}}>나가기</GameChromeButton>)
 
     const classes = classSet(screen.getByRole('button'))
-    expect(classes).toContain('border-white/15')
+    expect(classes).toContain('border-border-raised')
     expect(classes).not.toContain('border-white/28')
     expect(classes).toContain('bg-surface-veil')
     expect(classes).not.toContain('bg-transparent')
@@ -29,7 +29,7 @@ describe('GameChromeButton', () => {
     const classes = classSet(screen.getByRole('button'))
     expect(classes).toContain('bg-black/45')
     expect(classes).toContain('backdrop-blur-md')
-    expect(classes).toContain('border-white/20')
+    expect(classes).toContain('border-border-strong')
     expect(classes).toContain('absolute')
     expect(classes).toContain('top-20')
   })

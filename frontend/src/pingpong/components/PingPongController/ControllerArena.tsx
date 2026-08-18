@@ -60,7 +60,7 @@ export function ControllerArena({
     <button
       aria-label={onTouchSwing ? '탁구채를 눌러 스윙' : '휴대폰을 휘둘러 스윙'}
       aria-disabled={!onTouchSwing}
-      className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-white/12 bg-[radial-gradient(circle_at_50%_45%,rgb(43_143_224_/_22%),transparent_58%)] active:bg-white/8"
+      className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-border bg-[radial-gradient(circle_at_50%_45%,rgb(43_143_224_/_22%),transparent_58%)] active:bg-white/8"
       onClick={onTouchSwing}
       type="button"
     >

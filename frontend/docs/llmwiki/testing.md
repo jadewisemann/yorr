@@ -100,8 +100,10 @@ npx playwright show-report               # 기대/실제/diff 3장 비교
   제외돼 있다.
 - 프로덕션 빌드가 아니라 **vite dev 서버**를 띄운다. 카탈로그가 `import.meta.env.DEV`
   게이트 안에 있어 빌드 산출물에는 없다.
-- 임계값은 `maxDiffPixelRatio: 0.002`(안티앨리어싱 몫만). 재시도는 0 — 두 번째 실행이
-  우연히 통과하면 변경을 놓친다.
+- 임계값은 **`threshold: 0` + `maxDiffPixels: 0`**, 재시도 0. `threshold`를 빼먹으면
+  도구가 조용히 무력해진다 — 기본값 `0.2`는 픽셀 하나의 색 거리 허용치라 헤어라인
+  알파 1%p(채널 3/255) 차이를 "같은 픽셀"로 세고, `maxDiffPixels: 0`이어도 통과한다.
+  같은 기계에서는 렌더링이 비트 단위로 같아 0/0이 오탐을 내지 않는다.
 - **카탈로그가 곧 커버리지다.** shared 프리미티브 17종 중 카탈로그에 있는 것만 보인다
   (`ConnectionBanner`·`ToastHost`·`Popover`·`LoadingOverlay` 등은 아직 없다).
   프리미티브를 고치는데 카탈로그에 없으면 먼저 등재한다.
