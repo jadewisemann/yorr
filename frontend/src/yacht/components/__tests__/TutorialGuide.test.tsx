@@ -60,7 +60,7 @@ function blockers() {
         !child.className.includes('rounded-card'),
     )
     .map((pane) => ({
-      dimmed: pane.className.includes('bg-black/72'),
+      dimmed: pane.className.includes('bg-scrim-strong'),
       blocks: pane.className.includes('pointer-events-auto'),
     }))
 }

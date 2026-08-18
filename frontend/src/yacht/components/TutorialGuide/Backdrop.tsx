@@ -3,14 +3,14 @@ import type { SpotlightRect } from '@/yacht/components/TutorialGuide/types'
 
 export function Backdrop({ dim, spotlight }: { dim: boolean; spotlight: SpotlightRect | null }) {
   if (!spotlight) {
-    return <div className="pointer-events-auto absolute inset-0 bg-black/72" />
+    return <div className="pointer-events-auto absolute inset-0 bg-scrim-strong" />
   }
 
   const top = spotlight.top - 6
   const left = spotlight.left - 6
   const right = spotlight.left + spotlight.width + 6
   const bottom = spotlight.top + spotlight.height + 6
-  const block = cn('pointer-events-auto absolute', dim && 'bg-black/72')
+  const block = cn('pointer-events-auto absolute', dim && 'bg-scrim-strong')
 
   return (
     <>

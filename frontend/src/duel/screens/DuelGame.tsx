@@ -133,7 +133,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
           </button>
         )}
         {sendError && (
-          <p className="m-0 rounded-full bg-black/55 px-3 py-1 text-sm text-red-300" role="alert">
+          <p className="m-0 rounded-full bg-scrim-soft px-3 py-1 text-sm text-red-300" role="alert">
             {sendError}
           </p>
         )}

@@ -17,7 +17,7 @@ export function ControllerPrompt({
 }) {
   if (countdown > 0) {
     return (
-      <span className="absolute inset-0 grid place-items-center bg-black/35 font-mono text-8xl font-black backdrop-blur-[2px]">
+      <span className="absolute inset-0 grid place-items-center bg-scrim-soft font-mono text-8xl font-black backdrop-blur-[2px]">
         {countdown}
       </span>
     )

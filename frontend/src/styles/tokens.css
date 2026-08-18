@@ -30,7 +30,9 @@
   /* 와이어프레임 1d 신규 3색 — 기존 11색은 그대로 둔다. */
   --color-surface-sunken: var(--ds-color-surface-sunken);
   --color-content-faint: var(--ds-color-content-faint);
+  --color-scrim-soft: var(--ds-color-scrim-soft);
   --color-scrim: var(--ds-color-scrim);
+  --color-scrim-strong: var(--ds-color-scrim-strong);
 
   --color-landing-panel: var(--ds-landing-panel);
   --color-landing-well: var(--ds-landing-well);
@@ -549,7 +551,13 @@
   /* 디자인 Disabled Text(#67686E)는 캔버스 위 3.6:1이라 9~12px 본문에 못 쓴다.
      같은 계열에서 4.5:1을 넘는 밝기로 올린다 — 비활성 컨트롤은 opacity로 처리한다. */
   --ds-color-content-faint: #82838a;
+  /* 스크림 3단. 회수 전에는 검정 알파가 35·45·55·65·72% 5종으로 흩어져 있었고
+     흡수층이 66% 한 단뿐이라 갈 곳이 없었다 — 헤어라인 3단과 같은 처방이다.
+     soft는 blur와 함께 쓰는 얕은 막·3D 캔버스 위 글자 판(뒤를 가리는 게 목적이
+     아니다), scrim은 다이얼로그 기본 차단, strong은 스포트라이트처럼 완전히 덮을 때. */
+  --ds-color-scrim-soft: rgb(0 0 0 / 45%);
   --ds-color-scrim: rgb(0 0 0 / 66%);
+  --ds-color-scrim-strong: rgb(0 0 0 / 72%);
   /* 굴림 콜아웃 텍스트의 화이트 글로우 — 외곽선 대신 글자에서 빛이 퍼지는 느낌으로
      3D 트레이 위에서 글자를 띄운다. 정적으로 얹고 팝 애니메이션의 opacity를 따라
      같이 떠오른다(글로우 자체를 보간하면 매 프레임 블러를 다시 래스터화한다). */
