@@ -6,11 +6,13 @@
 ## 부팅 순서
 
 ```text
+index.html <script>                   # 번들보다 먼저: 저장된 테마를 data-theme으로 적용
 main.tsx bootstrap()
   └─ enableMocking()      # DEV에서 MSW worker (VITE_ENABLE_MSW ≠ 'false')
   └─ #boot-splash 제거    # index.html 인라인 스플래시
   └─ render <App/>
        useAuthSessionCheck()          # 저장된 로그인 세션을 서버에 1회 검증
+       useThemeSync()                 # system을 고른 동안 OS 설정 변화만 따라간다
        <InAppBrowserGate>             # 카톡/인스타/네이버 웹뷰 안내 (그냥 진행 가능)
          <RealtimeSync client=...>    # 소켓 수명 + 서버 메시지 리듀서, RealtimeClientProvider 제공
            <VoiceProvider>            # 라우터 밖 — 화면 전환에도 통화 유지
@@ -23,6 +25,20 @@ main.tsx bootstrap()
 
 MSW 모드(`mocks/mswMode.ts`): `mock`(DEV 기본, 전부 mock) · `fallback`(실서버 우선, 미처리
 요청만 mock) · `off`(prod 고정).
+
+**테마 적용이 번들보다 먼저인 이유**: React에서 적용하면 라이트를 고른 사용자가 흰
+화면 직전에 검은 깜빡임을 본다(`:root`가 다크이므로 첫 페인트가 다크다). 그래서
+`index.html`의 인라인 스크립트가 `localStorage['yorr.theme']`을 읽어 `data-theme`과
+`<meta name="theme-color">`를 먼저 맞춘다 — **그 키와 값은 `styles/theme.ts`와 짝이라
+한쪽만 고치지 않는다.** 렌더 뒤의 `useThemeSync()`가 맡는 것은 그 다음 변화뿐이다.
+
+저장하는 것은 `dark`/`light`가 아니라 **선택**(`system`·`dark`·`light`)이다 —
+"시스템 따라가기"를 고른 사실을 첫 적용 순간에 지우지 않기 위해서다. 전환은
+`store.ts`의 `setThemePreference` 액션이 소유하고, 영속·DOM 반영은 그 액션의
+부수효과다(DESIGN.md 원칙 3). 구독자가 `useEffect`로 뒤따르면 첫 프레임이 옛 테마다.
+
+> 토글은 지금 `/__dev/components`에만 있다. 사용자 화면(계정 메뉴 등)에 올리는 것은
+> 라이트의 대비 미달 1건이 닫힌 뒤다 — [PLANS.md](../../PLANS.md).
 
 ## 라우트 표
 

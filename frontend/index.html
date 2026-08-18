@@ -3,8 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <!-- --ds-color-canvas와 같은 값. 다르면 모바일 주소창만 다른 색으로 떠 화면이 잘려 보인다. -->
+    <!-- --ds-color-canvas와 같은 값. 다르면 모바일 주소창만 다른 색으로 떠 화면이 잘려 보인다.
+         테마를 바꾸면 styles/theme.ts의 applyTheme가 이 content를 같이 갈아준다. -->
     <meta name="theme-color" content="#08090a" />
+    <!--
+      프리페인트 테마 적용. 번들이 실행되기 **전에** 돌아야 한다 — React에서 적용하면
+      라이트를 고른 사용자가 흰 화면 직전에 검은 깜빡임을 본다.
+      계약은 tokens.css와 같다: :root가 다크, [data-theme="light"]가 오버라이드.
+      저장 키·값은 styles/theme.ts와 짝이다(한쪽만 고치지 않는다).
+    -->
+    <script>
+      (() => {
+        try {
+          const saved = localStorage.getItem('yorr.theme')
+          const pref = saved === 'dark' || saved === 'light' || saved === 'system' ? saved : 'system'
+          const light =
+            pref === 'light' ||
+            (pref === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches)
+          if (!light) return
+          document.documentElement.setAttribute('data-theme', 'light')
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ebebe8')
+        } catch {
+          // localStorage가 막힌 환경(프라이빗 모드 등)은 기본 테마인 다크로 둔다.
+        }
+      })()
+    </script>
     <meta name="description" content="흔들어서 즐기는 실시간 요트다이스, YORR" />
     <link rel="icon" type="image/svg+xml" href="/mascot-favicon.svg" />
     <title>YORR</title>

@@ -10,6 +10,8 @@ import { Modal } from '@/shared/components/Modal'
 import { Panel } from '@/shared/components/Panel'
 import { TextField } from '@/shared/components/TextField'
 import { Tooltip } from '@/shared/components/Tooltip'
+import { useAppStore } from '@/store'
+import type { ThemePreference } from '@/styles/theme'
 import { Dice } from '@/yacht/components/Dice'
 import { GameHelpModal } from '@/yacht/components/GameHelpModal'
 import { ScoreRow } from '@/yacht/components/ScoreRow'
@@ -19,6 +21,12 @@ import { HandVoiceLab } from './HandVoiceLab'
 import { PhysicsDiceDemo } from './PhysicsDiceDemo'
 
 const sectionClassName = 'grid gap-4 p-5'
+
+const THEME_OPTIONS: { label: string; value: ThemePreference }[] = [
+  { label: '시스템 따라가기', value: 'system' },
+  { label: '다크', value: 'dark' },
+  { label: '라이트', value: 'light' },
+]
 
 const initialGuideSignals = {
   candidates: {} as CategoryScores,
@@ -46,6 +54,8 @@ const LAST_ROLL_CANDIDATES: CategoryScores = {
 const { fourOfAKind: _recorded, ...AFTER_RECORD_CANDIDATES } = LAST_ROLL_CANDIDATES
 
 export function DevCatalog() {
+  const themePreference = useAppStore((state) => state.themePreference)
+  const setThemePreference = useAppStore((state) => state.setThemePreference)
   const [modalOpen, setModalOpen] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -316,6 +326,26 @@ export function DevCatalog() {
           <StatusPanel variant="empty" />
           <StatusPanel variant="error" />
           <StatusPanel variant="reconnect" />
+        </div>
+      </Panel>
+
+      <Panel as="section" className={sectionClassName}>
+        <h2 className="text-xl font-bold">Theme</h2>
+        <p className="m-0 text-sm text-content-muted">
+          라이트는 아직 사용자 화면에 노출하지 않는다 — 대비 미달 1건이 남아 있다 (PLANS.md「라이트
+          모드 로드맵」). 여기서만 켜서 확인한다.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          {THEME_OPTIONS.map((option) => (
+            <Button
+              key={option.value}
+              size="sm"
+              variant={themePreference === option.value ? 'primary' : 'ghost'}
+              onClick={() => setThemePreference(option.value)}
+            >
+              {option.label}
+            </Button>
+          ))}
         </div>
       </Panel>
 

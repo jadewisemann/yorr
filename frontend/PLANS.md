@@ -129,14 +129,25 @@
    주사위를 테마에서 뺀 결정의 결과다 — **범위를 뒤집어 코트까지 밝히기로 하면
    이 항목이 다시 살아난다.** 옆에서 나온 진짜 함정(semantic 변수를 읽던 dev 차트)은
    고쳤다: [design-system.md](docs/llmwiki/design-system.md)「JS가 색을 읽을 때」
-4. **토글 + 영속.** `store.ts`(현재 theme 상태 없음) + `<meta theme-color>` 동기화
+4. ✅ **토글 + 영속 — 기계는 끝났다.** `styles/theme.ts`(선택 저장·해석·적용·시스템
+   구독) + `store.ts` 액션 + `index.html` 프리페인트(깜빡임 방지) + `<meta
+   theme-color>` 동기화. 토글은 `/__dev/components`에 있다.
+
+   **남은 것은 노출 하나뿐이다.** 사용자 화면(계정 메뉴 등)에 올리려면 아래 대비
+   미달 1건을 닫아야 하고, 그것이 「열린 결정」의 brand 톤과 얽혀 있다.
 
 ### 열린 결정 2건
 
-- **brand 톤이 두 값이다.** `LeveragePage:87`은
+- **brand 톤이 두 값이다 — 라이트가 이 결정을 강제한다.** `LeveragePage:87`은
   `border-brand bg-brand/15 text-brand-strong`, `PlayModeDialog:46`은
   `border-brand/40 text-brand`. `Badge`의 `brand`는 후자로 잡았고 `LeveragePage`는
-  치환하지 않았다 — 합치면 한쪽 겉모습이 바뀐다
+  치환하지 않았다 — 합치면 한쪽 겉모습이 바뀐다.
+  **여기에 라이트 대비 문제가 겹쳤다**: `text-brand`는 라이트 canvas 위 3.54:1로
+  미달이고(다크 4.71), 빨간 글자의 semantic은 원래 `brand-soft`다(라이트 5.53 ·
+  다크 8.76). 즉 `Badge` brand 톤을 `text-brand-soft`로 옮기면 대비가 풀리는데,
+  그것은 이 열린 결정을 한쪽으로 확정하는 일이라 **사람이 정해야 한다.**
+  나머지 두 곳: `NotFoundPage`의 장식 R(로고 글자라 대비 규칙 밖으로 볼 여지가 있다),
+  `DuelHowTo`(결투 캔버스는 테마를 안 타므로 영향 없음)
 - **`gap-0.5` 되돌릴 자리.** 6단으로 좁히며 `0.5`(2px) → `1`(4px)로 올린 10곳은
   전부 **라벨+값 두 줄 묶음의 행간**이었다(`grid gap-0.5`·`flex flex-col gap-0.5`,
   AccountMenu·DuelController·ModeRow·TurnStatus 등 4개 도메인). 뜨게 느껴지면
