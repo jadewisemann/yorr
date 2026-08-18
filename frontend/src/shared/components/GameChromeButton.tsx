@@ -3,8 +3,8 @@ import { cn } from '@/shared/cn'
 import { Button } from './Button'
 
 const tones = {
-  canvas: 'border-white/15 bg-surface-veil text-white/70',
-  overlay: 'border-white/20 bg-black/45 backdrop-blur-md',
+  canvas: 'border-border-raised bg-surface-veil text-white/70',
+  overlay: 'border-border-strong bg-black/45 backdrop-blur-md',
 } as const
 
 type GameChromeButtonProps = Omit<ComponentProps<typeof Button>, 'variant' | 'size'> & {

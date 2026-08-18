@@ -290,7 +290,7 @@ export function DevCatalog() {
             리셋
           </Button>
         </div>
-        <div className="relative h-80 overflow-hidden rounded-panel border border-white/8 [background:var(--ds-physics-tray)]">
+        <div className="relative h-80 overflow-hidden rounded-panel border border-border [background:var(--ds-physics-tray)]">
           {guideVisible && (
             <TutorialGuide
               key={guideRun}

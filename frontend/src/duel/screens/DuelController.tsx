@@ -49,7 +49,7 @@ export function DuelController({
 
       <section
         aria-label="탄약과 경고"
-        className="mt-4 grid flex-none grid-cols-2 gap-2 rounded-card border border-white/12 bg-white/6 p-3"
+        className="mt-4 grid flex-none grid-cols-2 gap-2 rounded-card border border-border bg-white/6 p-3"
       >
         <AmmoRow
           fouls={fouls}

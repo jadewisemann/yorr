@@ -17,7 +17,7 @@ export function Card({
   return (
     <div
       className={cn(
-        'pointer-events-auto absolute grid gap-2 rounded-card border border-white/20 bg-surface-raised p-4 shadow-raised',
+        'pointer-events-auto absolute grid gap-2 rounded-card border border-border-strong bg-surface-raised p-4 shadow-raised',
         placement
           ? 'w-88 max-w-[calc(100vw-2rem)]'
           : cn(
@@ -35,7 +35,7 @@ export function Card({
         <span
           aria-hidden="true"
           className={cn(
-            'absolute size-3 rotate-45 border-white/20 bg-surface-raised',
+            'absolute size-3 rotate-45 border-border-strong bg-surface-raised',
             placement.tail === 'right'
               ? 'top-1/2 -right-1.5 -translate-y-1/2 border-t border-r'
               : '-bottom-1.5 border-r border-b',

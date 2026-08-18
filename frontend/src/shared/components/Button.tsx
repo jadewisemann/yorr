@@ -10,6 +10,9 @@ type ButtonProps = ComponentProps<'button'> & {
 const variants = {
   primary: 'bg-brand text-on-brand shadow-cta hover:bg-brand-strong disabled:shadow-none',
   secondary: 'bg-inverse text-on-inverse hover:bg-white',
+  // 헤어라인 3단(10·14·18%) 밖의 유일한 값. 배경이 투명해 테두리가 버튼의 전부인데
+  // `border-strong`(18%)은 캔버스 위 1.62:1로 **비활성** Primary(2.10:1)보다 흐렸다.
+  // 사다리에 단을 더하지 않고 이 자리만 예외로 둔다 — design-system.md가 이 선례를 가리킨다.
   ghost: 'border-white/28 bg-transparent text-content hover:bg-surface-veil',
   danger: 'border-brand/55 bg-brand/10 text-danger hover:bg-brand/18',
 } as const
