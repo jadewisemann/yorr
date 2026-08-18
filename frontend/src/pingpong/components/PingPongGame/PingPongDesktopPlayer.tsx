@@ -45,7 +45,7 @@ export function PingPongDesktopPlayer({
   state: PingPongState
 }) {
   return (
-    <GameCanvas className="bg-pp-canvas text-white">
+    <GameCanvas className="bg-pp-canvas">
       <canvas aria-label="3D 탁구 코트" className="absolute inset-0 size-full" ref={canvasRef} />
       <button
         aria-label="화면을 클릭해 스윙"

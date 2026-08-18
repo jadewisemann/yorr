@@ -59,7 +59,7 @@ function LocalPingPongGame({
   const situationLabel = localSituationLabel(hud, p1Label, p2Label)
 
   return (
-    <GameCanvas className="flex flex-col bg-pp-canvas text-white">
+    <GameCanvas className="flex flex-col bg-pp-canvas">
       <header className="relative z-20 flex flex-none items-center justify-between gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
         <GameChromeButton className="gap-1.5" onClick={onExit}>
           <IconBack className="size-4" />

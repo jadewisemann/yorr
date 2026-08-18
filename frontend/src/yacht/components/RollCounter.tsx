@@ -47,7 +47,7 @@ function DieFace({ value }: { value: number }) {
   return (
     <svg aria-hidden="true" className="size-5 flex-none" viewBox="0 0 16 16">
       <rect
-        className={value > 0 ? 'fill-content' : 'fill-transparent stroke-white/35'}
+        className={value > 0 ? 'fill-content' : 'fill-transparent stroke-content/35'}
         height="14.5"
         rx="3.5"
         strokeWidth="1.5"

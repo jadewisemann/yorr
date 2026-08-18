@@ -9,7 +9,7 @@ import { IconSound } from '@/shared/components/Icon'
 import { selectSessionPhase, useAppStore } from '@/store'
 
 const codeEntry =
-  'flex min-h-tap shrink-0 cursor-pointer items-center gap-2 rounded-full border-0 bg-landing-accent pr-3 pl-4 text-sm font-landing-bold text-landing-accent-ink outline-white transition-colors duration-150 ease-out hover:bg-landing-accent/90 focus-visible:outline-3 focus-visible:outline-offset-2 pressable'
+  'flex min-h-tap shrink-0 cursor-pointer items-center gap-2 rounded-full border-0 bg-landing-accent pr-3 pl-4 text-sm font-landing-bold text-landing-accent-ink outline-focus transition-colors duration-150 ease-out hover:bg-landing-accent/90 focus-visible:outline-3 focus-visible:outline-offset-2 pressable'
 
 export function CodeEntryRow({
   anchorRef,
@@ -145,14 +145,14 @@ export function ActiveRoomBanner() {
       </p>
       <div className="flex flex-none items-center gap-2">
         <button
-          className="min-h-tap cursor-pointer rounded-card border-0 bg-landing-accent px-4 py-2.5 text-sm font-landing-bold text-landing-accent-ink focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2 pressable"
+          className="min-h-tap cursor-pointer rounded-card border-0 bg-landing-accent px-4 py-2.5 text-sm font-landing-bold text-landing-accent-ink focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2 pressable"
           onClick={handleReturn}
           type="button"
         >
           {needsResume ? returnLabel : '돌아가기'}
         </button>
         <button
-          className="min-h-tap cursor-pointer rounded-full border-0 bg-transparent px-2.5 py-2 text-xs font-landing-bold text-landing-text-muted underline-offset-2 hover:underline focus-visible:outline-3 focus-visible:outline-white focus-visible:outline-offset-2 disabled:opacity-60 pressable"
+          className="min-h-tap cursor-pointer rounded-full border-0 bg-transparent px-2.5 py-2 text-xs font-landing-bold text-landing-text-muted underline-offset-2 hover:underline focus-visible:outline-3 focus-visible:outline-focus focus-visible:outline-offset-2 disabled:opacity-60 pressable"
           disabled={isLeaving}
           onClick={() => void leave()}
           type="button"

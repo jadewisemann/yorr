@@ -55,7 +55,7 @@ export function ControllerScreen({
   return (
     <Screen
       className={cn(
-        'relative flex touch-none flex-col px-5 pt-safe-top pb-safe-bottom text-white select-none',
+        'relative flex touch-none flex-col px-5 pt-safe-top pb-safe-bottom text-content select-none',
         className,
       )}
       frame="viewport"

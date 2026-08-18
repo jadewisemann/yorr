@@ -53,7 +53,7 @@ export function feedbackTextClass(type: PingPongEventType) {
   if (type === 'TOO_EARLY' || type === 'TOO_LATE' || type === 'OUT' || type === 'NET') {
     return 'text-pp-danger-text'
   }
-  return 'text-white'
+  return 'text-content'
 }
 
 const glow = (token: string, blur: string, alpha: number) =>

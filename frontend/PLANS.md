@@ -84,7 +84,7 @@
 
 | 순위 | 남은 격차 | 곳 | 이걸 하면 가능해지는 것 |
 |---|---|---|---|
-| **1** | **하드코딩 색** `white/N`·`black/N`·`text-white` | **78 → 27** | **라이트 모드** (헤어라인 22 · 스크림 10 · 표면 19 완료) |
+| ~~**1**~~ | ~~**하드코딩 색**~~ | ~~78~~ | ✅ **완료** — 헤어라인 22 · 스크림 10 · 표면 19 · 글자·외곽선 22, 예외 6곳만 raw |
 | 2 | 생 `<button>` | **93** | 버튼 위계 1파일화 |
 | 3 | `gap` 리터럴 288 · `p*`/`m*` 677 → **토큰화**(`gap-md` 식) | 965 | 리듬 전체 1파일화 |
 | 4 | `text-*` 타이포 | 428 | 스케일 1파일화 |
@@ -99,7 +99,7 @@
 현재 테마 전환 장치가 **하나도 없다** — `prefers-color-scheme`·`data-theme` 모두
 부재, `:root` 고정. `index.html`의 `<meta name="theme-color">`도 `#08090a` 고정.
 
-1. **하드코딩 색 회수 (78곳 중 51곳 완료, 27곳 남음 — 테스트 제외).**
+1. ✅ **하드코딩 색 회수 — 끝났다 (78곳).** 남은 raw 색 6곳은 전부 주석 달린 의도적 예외다.
    `design-system.md`가 이미 "눈대중 `white/NN` 금지"라 적어 뒀는데 지켜지지 않았다.
    2026-08-18 재실측:
 
@@ -108,9 +108,9 @@
    | ~~`border-white/N`~~ | ~~22~~ | — | ✅ **회수 완료** — 헤어라인 3단으로. 남은 것은 `Button` ghost `/28` 1곳(사다리 밖 예외, 주석 있음) |
    | ~~`bg-white/N`~~ | ~~19~~ | — | ✅ **회수 완료** — veil 3단(`surface-veil` 6 / `-raised` 14 / `-strong` 24) 신설. `w-px` 구분선 1곳은 선이라 `border-strong`으로 |
    | ~~`bg-black/N`~~ | ~~10~~ | — | ✅ **회수 완료** — 스크림 3단(`scrim-soft` 45 / `scrim` 66 / `scrim-strong` 72) 신설 |
-   | `text-white`(+알파) | 17 | 민 14 · /4 · /35 · /70 | semantic (`content`군) |
-   | `outline-white` · `stroke-white/35` | 5 | — | 포커스·아이콘 |
-   | 순백 `bg-white` | 4 | — | **회수 대상 아님** — QR 정숙 구역 2곳(`InvitePopover`·`PartyDashboardPage`), 탁구공 1곳, `Button` secondary hover. 라이트에서도 흰색이어야 한다 |
+   | ~~`text-white`(+알파)~~ | ~~17~~ | — | ✅ **회수 완료** — `content`군으로. `GameCanvas` 호출부 9곳의 중복도 함께 걷었다 |
+   | ~~`outline-white` · `stroke-white/35`~~ | ~~5~~ | — | ✅ **회수 완료** — `outline-focus` · `stroke-content/35` |
+   | 순백 `bg-white` 등 | 6 | — | **회수 대상 아님, 전부 주석 있음** — QR 정숙 구역 2곳, 탁구공, `Button` secondary hover · ghost `/28`, `Dice` 모서리 |
 
    **라이트에서 순백 4곳을 뺀 나머지가 전부 깨진다** — 흰 배경에 `bg-white/8`은 안
    보인다.

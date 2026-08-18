@@ -28,7 +28,7 @@ export function PingPongGame({ onLeaveRequest, roomId, session, snapshot }: Ping
 
   if (!state) {
     return (
-      <GameCanvas className="grid place-items-center bg-pp-canvas text-white">
+      <GameCanvas className="grid place-items-center bg-pp-canvas">
         탁구 코트를 준비하고 있어요.
       </GameCanvas>
     )

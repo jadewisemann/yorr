@@ -28,7 +28,7 @@ export function DuelDashboard({
     snapshot.players.find((player) => player.playerId === playerId)?.nickname ?? '?'
 
   return (
-    <GameCanvas className="flex flex-col bg-duel-canvas text-white select-none" ref={stageRef}>
+    <GameCanvas className="flex flex-col bg-duel-canvas select-none" ref={stageRef}>
       <Arena
         {...buildStage({
           impact,

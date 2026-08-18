@@ -84,7 +84,7 @@ describe('ControllerScreen', () => {
 
     expect(classSet(screen.getByRole('main'))).toEqual(
       new Set(
-        'relative flex h-svh w-full touch-none flex-col overflow-hidden bg-duel-canvas px-5 pt-safe-top pb-safe-bottom text-white select-none mx-auto'.split(
+        'relative flex h-svh w-full touch-none flex-col overflow-hidden bg-duel-canvas px-5 pt-safe-top pb-safe-bottom text-content select-none mx-auto'.split(
           ' ',
         ),
       ),
@@ -102,11 +102,11 @@ describe('GameCanvas', () => {
   })
 
   it('배경색을 들지 않는다 — 게임 팔레트는 호출부 몫이라 shared가 도메인을 모른다', () => {
-    render(<GameCanvas className="bg-pp-canvas text-white">코트</GameCanvas>)
+    render(<GameCanvas className="bg-pp-canvas text-content-muted">코트</GameCanvas>)
 
     const classes = classSet(screen.getByRole('main'))
     expect(classes).toContain('bg-pp-canvas')
-    expect(classes).toContain('text-white')
+    expect(classes).toContain('text-content-muted')
     expect(classes).not.toContain('text-content')
   })
 

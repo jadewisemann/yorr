@@ -116,7 +116,7 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
     <Screen className="relative max-w-2xl overflow-hidden">
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute top-32 -left-7 font-mono text-[11.875rem] leading-none font-bold tracking-[-0.04em] text-white/4 select-none"
+        className="pointer-events-none absolute top-32 -left-7 font-mono text-[11.875rem] leading-none font-bold tracking-[-0.04em] text-content/4 select-none"
       >
         {roomCode ?? 'YORR'}
       </span>

@@ -15,7 +15,7 @@ describe('GameChromeButton', () => {
     expect(classes).not.toContain('border-white/28')
     expect(classes).toContain('bg-surface-veil')
     expect(classes).not.toContain('bg-transparent')
-    expect(classes).toContain('text-white/70')
+    expect(classes).toContain('text-content-muted')
     expect(classes).not.toContain('text-content')
   })
 

@@ -175,7 +175,7 @@ export function PingPongPreparationController({
         )}
         <PreparationMotionStatus permission={permission} practiced={practiced} />
         <button
-          className="min-h-14 rounded-card bg-pp-danger px-5 text-lg font-black text-white disabled:cursor-not-allowed disabled:bg-surface-veil disabled:text-white/35 transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
+          className="min-h-14 rounded-card bg-pp-danger px-5 text-lg font-black text-on-brand disabled:cursor-not-allowed disabled:bg-surface-veil disabled:text-content/35 transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
           disabled={!practiced || ready}
           onClick={onReady}
           type="button"

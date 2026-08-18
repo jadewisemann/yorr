@@ -33,7 +33,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
 
   if (!state) {
     return (
-      <GameCanvas className="grid place-items-center bg-duel-canvas text-white">
+      <GameCanvas className="grid place-items-center bg-duel-canvas">
         결투장을 준비하고 있어요.
       </GameCanvas>
     )
@@ -76,7 +76,7 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
   }
 
   return (
-    <GameCanvas className="flex flex-col bg-duel-canvas text-white select-none" ref={stageRef}>
+    <GameCanvas className="flex flex-col bg-duel-canvas select-none" ref={stageRef}>
       <Arena
         {...buildStage({
           impact,

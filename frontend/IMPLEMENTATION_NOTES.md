@@ -48,6 +48,50 @@ PLANS.md「검증 수단의 구멍」이 색 회수(라이트 모드 1순위)의
 664픽셀(버튼 4개의 테두리 둘레)로 잡혔다. **이 도구를 손볼 일이 있으면 threshold부터
 확인한다** — 0이 아니면 색 작업에 대해 아무것도 검증하지 않는다.
 
+## 2026-08-18 - 글자·외곽선 색 회수와, 그 과정에서 드러난 중복 3건 (색 회수 4/4)
+
+`text-white` 17곳 + `outline-white` 4 + `stroke-white/35` 1. 사다리를 새로 만들 일은
+없었다(`content`군이 이미 3단) — 대신 **회수하고 나니 원래 있던 중복·무의미가 드러났다.**
+
+| raw | 곳 | 간 곳 |
+|---|---|---|
+| `text-white` (Screen 바닥·GameCanvas 호출부·ResultBackdrop·feedback 기본값) | 14 | `text-content` |
+| `text-white/70` (GameChromeButton canvas 톤) | 1 | `text-content-muted` — **유일하게 눈에 보이는 변화** |
+| `text-white/4` (NicknamePage 대형 워터마크 숫자) | 1 | `text-content/4` |
+| `disabled:text-white/35` | 1 | `disabled:text-content/35` |
+| `stroke-white/35` (RollCounter 빈 칸) | 1 | `stroke-content/35` |
+| `outline-white` (랜딩 포커스 링) | 4 | `outline-focus` (`#f7f7f5`, 값 동일) |
+
+**드러난 중복 1 — `GameCanvas` 호출부 9곳이 셸의 기본값을 덮고 있었다.** `GameCanvas`는
+이미 `text-content`를 들고 있는데(`Screen.test.tsx`가 그 class 집합을 단언한다) 호출부가
+`text-white`로 덮어써 왔다. 회수하고 나니 `text-content text-content`가 돼서 **호출부
+쪽을 지웠다.** "외부 배치는 className, 내부는 컴포넌트 소유" 규칙이 색에서 새고 있던
+자리다 — 프리미티브가 기본값을 들면 호출부는 그것을 다시 적지 않는다.
+
+**드러난 중복 2 — `TurnStrip`의 현재 턴 표시에 렌더되지 않는 채널이 하나 있었다.**
+점수 줄이 `active ? 'text-white' : 'text-content'`였는데 `#ffffff` 대 `#f7f7f5`,
+채널당 8/255라 화면에서 구별되지 않는다. 현재 턴은 이미 `aria-current="step"` ·
+마커 모양(`rounded-xs bg-brand-strong` 대 `rounded-full bg-content-faint`) · 이름
+색(`text-brand-soft`)으로 **세 채널이 들고 있어** 이 네 번째는 의도만 있고 효과가
+없었다. 삼항을 걷어내고 이유를 주석에 남겼다. 색 대비를 실제로 주고 싶다면 여기가
+그 자리다 — 지금은 없던 것을 없앤 것이지 있던 것을 지운 게 아니다.
+
+**드러난 중복 3 — `physics` 네임스페이스에는 지켜지는 불변식이 있다.** `Dice.tsx`의
+`border-black/15`를 `--ds-color-physics-die-edge`로 올렸다가 되물렀다.
+`tokenFallbacks.test.ts`가 **"`--ds-color-physics-*` 전부가 JS fallback 맵에 있어야
+한다"**를 강제한다 — 그 네임스페이스의 뜻이 "3D 렌더러가 `dsColor()`로 읽는 색"이기
+때문이다. CSS에서만 쓰는 값을 넣으면 렌더러가 쓰는 것처럼 거짓말이 된다. 다이 모서리는
+**주석 달린 raw 값으로 남겼다** — 다이는 실물 주사위라 라이트에서도 상아색 면에 검은
+모서리다. 순백 4곳(QR 정숙 구역 등)과 같은 처방이다.
+
+**검증**: 시각 대조 diff 664 → 978픽셀. 늘어난 314가 `GameChromeButton` canvas 톤의
+글자(`white/70` → `content-muted`, `#b9b9b9`→`#a4a5aa`)고, diff 이미지에서 overlay 톤
+버튼의 글자는 안 움직였다 — 그 톤은 muted를 안 들기 때문이다. 의도한 것만 움직였다.
+
+**색 회수 78곳 완료.** 남은 raw 색 6곳은 전부 **주석 달린 의도적 예외**다 —
+`Button` ghost `border-white/28`(대비 근거), 순백 4곳(QR 정숙 구역 2 · 탁구공 ·
+`Button` secondary hover), `Dice` 모서리.
+
 ## 2026-08-18 - 면(veil) 3단과 흰색 배경 알파 회수 (색 회수 3/4)
 
 `bg-white/N` 19곳, 실측 8종(4·6·8·10·12·15·20·24%). 스크림 때와 같은 교훈이 또

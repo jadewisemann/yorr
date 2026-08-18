@@ -19,7 +19,7 @@ export function PingPongDashboard({
   state: PingPongState
 }) {
   return (
-    <GameCanvas className="bg-pp-canvas text-white">
+    <GameCanvas className="bg-pp-canvas">
       <canvas
         aria-label="파티 모드 3D 탁구 코트"
         className="absolute inset-0 size-full"
