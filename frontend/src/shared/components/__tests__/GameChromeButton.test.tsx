@@ -12,7 +12,7 @@ describe('GameChromeButton', () => {
 
     const classes = classSet(screen.getByRole('button'))
     expect(classes).toContain('border-border-raised')
-    expect(classes).not.toContain('border-white/28')
+    expect(classes).not.toContain('border-border-ghost')
     expect(classes).toContain('bg-surface-veil')
     expect(classes).not.toContain('bg-transparent')
     expect(classes).toContain('text-content-muted')
