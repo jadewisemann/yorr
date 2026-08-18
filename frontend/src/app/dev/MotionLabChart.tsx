@@ -13,7 +13,16 @@ interface MotionLabChartProps {
 const WINDOW_MS = 4_000
 const HEIGHT = 110
 
-function cssColor(name: string, fallback: string) {
+/**
+ * **원시값(`--ds-color-*`)을 읽는다. semantic(`--color-*`)을 읽으면 안 된다.**
+ * `@theme inline`은 semantic 변수를 CSS에 **항상 내보내지 않는다** — 그 색이 어딘가에서
+ * 알파 수식자와 함께 쓰일 때만(`bg-danger/20` 식) `--color-danger: var(--ds-color-danger)`가
+ * 나온다. 수식자 없이만 쓰이는 색은 utility에 인라인되고 변수는 존재하지 않는다
+ * (실측: `--color-danger`·`--color-brand`는 있고 `--color-canvas`·`--color-content`는 빈 값).
+ * 즉 semantic 변수의 런타임 존재 여부는 **다른 파일의 `/20` 하나에 달려 있다** — 그것이
+ * 사라지면 여기가 조용히 fallback으로 떨어진다. 원시값은 `:root`에 늘 있다.
+ */
+function cssColor(name: `--ds-color-${string}`, fallback: string) {
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   return value === '' ? fallback : value
 }
@@ -82,11 +91,13 @@ export function MotionLabChart({
     const context = canvas.getContext('2d')
     if (!context) return
 
-    const waveColor = cssColor('--color-brand', '#38bdf8')
-    const thresholdColor = cssColor('--color-danger', '#f87171')
-    const releaseColor = cssColor('--color-positive', '#fbbf24')
+    // fallback도 디자인 시스템 값이다 — 예전 fallback(sky/amber 계열)은 팔레트에 없는
+    // 색이라 변수가 빠지는 순간 차트만 다른 세상이 됐다.
+    const waveColor = cssColor('--ds-color-brand', '#e53935')
+    const thresholdColor = cssColor('--ds-color-danger', '#ff6b66')
+    const releaseColor = cssColor('--ds-color-positive', '#8fcb9b')
     const gridColor = 'rgba(148, 163, 184, 0.35)'
-    const textColor = cssColor('--color-content-muted', 'rgba(148, 163, 184, 0.9)')
+    const textColor = cssColor('--ds-color-content-muted', '#a4a5aa')
 
     let frame = 0
     const draw = () => {

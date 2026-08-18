@@ -48,6 +48,35 @@ PLANS.md「검증 수단의 구멍」이 색 회수(라이트 모드 1순위)의
 664픽셀(버튼 4개의 테두리 둘레)로 잡혔다. **이 도구를 손볼 일이 있으면 threshold부터
 확인한다** — 0이 아니면 색 작업에 대해 아무것도 검증하지 않는다.
 
+## 2026-08-18 - 3D 테마 연동은 필요 없었다 (그리고 그 이유가 구조에 박혀 있다)
+
+PLANS 로드맵 3번은 "테마가 바뀌면 JS가 재질 색을 다시 읽어야 한다"였다. **실측해 보니
+다시 읽을 것이 없다.** 3D·canvas에서 토큰을 읽는 곳은 둘뿐이고
+(`yacht/rendering/physics-dice/appearance.ts`, `landing/rendering/heroScene.ts`)
+둘 다 `dsColorReader()`를 통하는데, 그 인자 타입이 `DS_COLOR_FALLBACK`의 키로 묶여
+있고 `tokenFallbacks.test.ts`가 그 집합을 `--ds-color-physics-*`와 정확히 일치시킨다.
+**타입과 테스트가 "3D는 physics 토큰만 읽는다"를 이미 강제하고 있었고**, physics는
+라이트에서 안 갈리는 것으로 정해서(실물 주사위·게임 무대) 재읽기가 성립할 여지가 없다.
+
+로드맵의 전제가 틀린 게 아니라, 라이트 팔레트의 범위를 "게임 세계관은 안 건드린다"로
+정한 순간 3번이 사라진 것이다. 범위를 뒤집어 코트까지 밝히기로 하면 다시 살아난다.
+
+**대신 그 옆에서 진짜 함정이 나왔다.** `dsColorReader`를 안 쓰는 유일한 색 리더인
+`app/dev/MotionLabChart.tsx`가 **semantic 층(`--color-*`)을 읽고 있었다.**
+`@theme inline`은 semantic 변수를 항상 내보내지 않는다 — 그 색이 어딘가에서 알파
+수식자와 함께 쓰일 때만(`bg-danger/20`) `--color-danger: var(--ds-color-danger)`가
+나오고, 수식자 없이만 쓰이는 색은 utility에 인라인돼 변수가 없다. 실측으로
+`--color-danger`·`--color-brand`·`--color-positive`·`--color-content-muted`는 값이
+있고 `--color-canvas`·`--color-content`는 **빈 문자열**이었다. 지금 동작하는 건
+우연이고, **다른 파일의 `/20` 하나가 사라지면 차트가 조용히 fallback으로 떨어진다.**
+게다가 그 fallback이 sky/amber 계열이라 팔레트에 없는 색이었다. 원시값을 읽도록
+바꾸고 fallback도 시스템 값으로 맞췄다. 인자 타입을 `` `--ds-color-${string}` ``로
+좁혀 다음 사람이 semantic을 못 넣게 했다.
+
+(남은 사소한 것: 이 차트는 색을 `useEffect` 진입 시 한 번만 읽으므로 테마를 바꿔도
+리마운트 전까지 색이 그대로다. dev 전용 랩 화면이고, `draw()` 안으로 옮기면 매 프레임
+`getComputedStyle`이라 스타일 재계산을 부른다 — 그대로 뒀다.)
+
 ## 2026-08-18 - 라이트 테마 층 — 회수의 값을 받는 자리
 
 `[data-theme="light"]` 오버라이드 한 블록. **컴포넌트도 semantic 층도 손대지 않았다** —

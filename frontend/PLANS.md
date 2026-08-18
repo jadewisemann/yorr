@@ -123,11 +123,12 @@
    컴포넌트도 semantic 층도 안 건드렸다. 켜자마자 raw 예외 2건(ghost 테두리 ·
    secondary hover)이 버그로 드러나 토큰으로 올렸다. **남은 구멍 1건: `text-brand`가
    라이트에서 3.54:1** — 3곳을 `brand-soft`로 옮겨야 사용자에게 켤 수 있다
-3. **3D·canvas.** 재질 색이 CSS를 안 거친다. `pingpong/scene3d.ts`의
-   `setClearColor`·`FogExp2`는 tokens.css와 **같은 값을 양쪽에 적어둔
-   것**이고(tokens.css 주석), yacht의 `appearance.ts`는 `--ds-*`를 직접 읽는다.
-   테마가 바뀌면 JS가 다시 읽어야 한다. hex가 박힌 파일: duel 6 · pingpong 3 ·
-   yacht 2
+3. ✅ **3D·canvas — 할 일이 없었다.** 3D에서 토큰을 읽는 곳 둘 다
+   `dsColorReader()`를 통하는데 그 타입이 `--ds-color-physics-*`로 묶여 있고
+   (`tokenFallbacks.test.ts`가 강제) physics는 라이트에서 안 갈린다. 게임 무대·
+   주사위를 테마에서 뺀 결정의 결과다 — **범위를 뒤집어 코트까지 밝히기로 하면
+   이 항목이 다시 살아난다.** 옆에서 나온 진짜 함정(semantic 변수를 읽던 dev 차트)은
+   고쳤다: [design-system.md](docs/llmwiki/design-system.md)「JS가 색을 읽을 때」
 4. **토글 + 영속.** `store.ts`(현재 theme 상태 없음) + `<meta theme-color>` 동기화
 
 ### 열린 결정 2건
