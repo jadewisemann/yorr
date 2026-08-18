@@ -9,6 +9,9 @@ export function NotFoundPage() {
   return (
     <Screen className="max-w-lg">
       <header className="pt-2">
+        {/* 로고 마크의 R — 여기 text-brand는 라이트에서 3.54:1이지만 그대로 둔다.
+            text-xl(20px) bold는 large text라 기준이 3:1이고, 로고타입은 애초에 대비
+            규칙의 예외다. 본문 글자에는 brand 대신 brand-strong을 쓴다(Badge 참고). */}
         <span className="font-mono text-xl leading-none font-bold tracking-[-0.03em]">
           YO<span className="text-brand">R</span>R
         </span>

@@ -14,7 +14,10 @@ import { cn } from '@/shared/cn'
 const tones = {
   neutral: 'border-border text-content-muted',
   warning: 'border-warning/40 bg-warning/12 text-warning',
-  brand: 'border-brand/40 text-brand',
+  // 글자는 brand가 아니라 brand-strong — 민 brand는 라이트 canvas 위 3.54:1로 본문
+  // 기준(4.5)에 미달한다(brand-strong은 다크 6.08 / 라이트 4.71). brand 톤 글자를
+  // brand-strong으로 쓰는 선례는 LeveragePage가 먼저다.
+  brand: 'border-brand/40 text-brand-strong',
 } as const
 
 type BadgeProps = ComponentProps<'span'> & {

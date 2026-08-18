@@ -682,11 +682,11 @@
   /* brand 자체는 그대로 — 두 테마에서 같은 레드다. hover로 가는 단(`strong`)이
      다크에서는 밝아지고 라이트에서는 어두워진다("눌리는 쪽이 더 진하다"가 양쪽에서
      성립해야 한다). `soft`는 레드 계열 텍스트 강조라 4.5:1을 넘긴다(5.53).
-     ⚠ **`text-brand`(민 brand)는 라이트 canvas 위 3.54로 미달이다** — 다크에서는
-     4.71이라 성립했다. 빨간 글자의 자리는 `brand-soft`이므로, 라이트를 켜기 전에
-     `text-brand` 3곳(`Badge` brand 톤 · `NotFoundPage` 장식 R · `DuelHowTo` 상태
-     문구)을 `brand-soft`로 옮겨야 한다. `bg-brand` + `on-brand`(흰 글자, 4.23)는
-     두 테마 공통이라 이 회수와 무관하다. */
+     민 `brand`는 라이트 canvas 위 3.54라 **본문 글자로 쓰지 않는다** — 글자는
+     `brand-strong`(다크 6.08 / 라이트 4.71) 또는 `brand-soft`. 남은 text-brand는
+     규칙 밖 두 곳뿐이다: NotFoundPage 로고 R(large text 3:1 통과 + 로고타입 예외),
+     DuelHowTo(결투 캔버스는 테마를 안 탄다). `bg-brand` + `on-brand`(흰 글자, 4.23)는
+     두 테마 공통이라 이 규칙과 무관하다. */
   --ds-color-brand-strong: #c62828;
   --ds-color-brand-soft: #b3231f;
 

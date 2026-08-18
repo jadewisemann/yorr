@@ -138,16 +138,13 @@
 
 ### 열린 결정 2건
 
-- **brand 톤이 두 값이다 — 라이트가 이 결정을 강제한다.** `LeveragePage:87`은
-  `border-brand bg-brand/15 text-brand-strong`, `PlayModeDialog:46`은
-  `border-brand/40 text-brand`. `Badge`의 `brand`는 후자로 잡았고 `LeveragePage`는
-  치환하지 않았다 — 합치면 한쪽 겉모습이 바뀐다.
-  **여기에 라이트 대비 문제가 겹쳤다**: `text-brand`는 라이트 canvas 위 3.54:1로
-  미달이고(다크 4.71), 빨간 글자의 semantic은 원래 `brand-soft`다(라이트 5.53 ·
-  다크 8.76). 즉 `Badge` brand 톤을 `text-brand-soft`로 옮기면 대비가 풀리는데,
-  그것은 이 열린 결정을 한쪽으로 확정하는 일이라 **사람이 정해야 한다.**
-  나머지 두 곳: `NotFoundPage`의 장식 R(로고 글자라 대비 규칙 밖으로 볼 여지가 있다),
-  `DuelHowTo`(결투 캔버스는 테마를 안 타므로 영향 없음)
+- ~~**brand 톤이 두 값이다**~~ → **글자 쪽으로 확정했다 (2026-08-18).** `Badge`
+  brand 톤의 글자를 `text-brand` → `text-brand-strong`으로 — LeveragePage가 이미
+  쓰던 값이라 **글자 톤은 하나가 됐다**(다크에서 `#e53935`→`#ff4d48`로 밝아지는
+  변화 수용, 대비는 4.71→6.08로 오히려 오른다). `brand-soft`가 아닌 이유: soft는
+  다크에서 분홍(#ff8a86)까지 밀려 배지의 브랜드 정체성이 흐려진다. 테두리 차이
+  (`border-brand/40` 대 `border-brand bg-brand/15`)는 컴포넌트 몫으로 남긴다 —
+  같은 톤 이름 아래 강도가 다른 것은 규칙 위반이 아니다
 - **`gap-0.5` 되돌릴 자리.** 6단으로 좁히며 `0.5`(2px) → `1`(4px)로 올린 10곳은
   전부 **라벨+값 두 줄 묶음의 행간**이었다(`grid gap-0.5`·`flex flex-col gap-0.5`,
   AccountMenu·DuelController·ModeRow·TurnStatus 등 4개 도메인). 뜨게 느껴지면
