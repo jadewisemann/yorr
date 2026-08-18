@@ -12,7 +12,6 @@
 
 ## 저장소 정보
 - GitHub: `github.com/jadewisemann/yorr`
-- Jira 프로젝트 키: `S15P11A406`
 - 브랜치 전략: `main`(기준·배포) ← `feature/*` · `fix/*`(작업) — 별도 `develop` 없음
 
 ## 🚫 절대 규칙 (반드시 지킬 것)
@@ -24,13 +23,13 @@
 
 ## 🌿 브랜치 이름
 ```
-<prefix>/<Jira번호>-<짧은-영문-설명>
+<prefix>/<짧은-영문-설명>
 ```
 - **prefix = 그 브랜치의 대표 커밋 type.** 새 기능은 `feature/`, 버그는 `fix/`, 그 외는 커밋 type 그대로 `refactor/` · `docs/` · `chore/` · `test/`.
   - 대부분은 `feature/` · `fix/`. 나머지는 브랜치 전체가 그 한 가지 작업일 때만. `style`은 단독 브랜치를 만들지 않는다.
 - **소문자 + 하이픈 + 영문만** (한글·공백 금지)
-- 앞에 Jira 티켓 번호, 브랜치 하나 = 작업 하나
-- 예: `feature/22-websocket-connection`, `fix/26-broadcast-npe`, `refactor/31-wscodec-split`
+- 브랜치 하나 = 작업 하나
+- 예: `feature/websocket-connection`, `fix/broadcast-npe`, `refactor/wscodec-split`
 
 ## ✍️ 커밋 메시지
 형식: `<type>: <제목>` (제목 50자 내외, 한글 OK, 끝에 마침표 X)
@@ -46,13 +45,12 @@
 | `chore` | 빌드·설정·의존성 |
 
 예: `feat: WebSocket 연결 핸들러 및 JOIN 처리 구현`
-(선택) 본문에 `Refs: S15P11A406-22`로 Jira 연동 가능.
 
 ## 🔀 Pull Request — **병합은 언제나 Squash**
 
 - 방향: `main` ← `feature/*`
 - PR 제목도 커밋과 같은 형식: `feat: ...` — **이 제목이 그대로 squash 커밋 제목이 된다.**
-- 설명에 작업 내용 + 관련 Jira 번호. **리뷰어 지정은 선택** — 현재 1인 작업이라
+- 설명에 작업 내용. **리뷰어 지정은 선택** — 현재 1인 작업이라
   올린 사람이 그대로 병합한다 (협업자가 생기면 CONTRIBUTING.md에서 되돌린다)
 - **PR은 작게** — 기능 하나 = PR 하나
 
@@ -74,9 +72,9 @@
 ## 📋 작업 사이클
 ```bash
 git checkout main && git pull origin main            # 1. main 최신화
-git checkout -b feature/22-websocket-connection      # 2. 작업 브랜치 분기
+git checkout -b feature/websocket-connection         # 2. 작업 브랜치 분기
 # 3. 작업 → 커밋 (컨벤션대로, 개수 신경 안 써도 됨 — 어차피 squash)
-git push -u origin feature/22-websocket-connection   # 4. push
+git push -u origin feature/websocket-connection      # 4. push
 # 5. PR 생성 (main ← feature) → Squash and merge → 브랜치 삭제
 ```
 
