@@ -84,7 +84,7 @@
 
 | 순위 | 남은 격차 | 곳 | 이걸 하면 가능해지는 것 |
 |---|---|---|---|
-| **1** | **하드코딩 색** `white/N`·`black/N`·`text-white` | **85** | **라이트 모드** |
+| **1** | **하드코딩 색** `white/N`·`black/N`·`text-white` | **78** | **라이트 모드** |
 | 2 | 생 `<button>` | **93** | 버튼 위계 1파일화 |
 | 3 | `gap` 리터럴 288 · `p*`/`m*` 677 → **토큰화**(`gap-md` 식) | 965 | 리듬 전체 1파일화 |
 | 4 | `text-*` 타이포 | 428 | 스케일 1파일화 |
@@ -99,13 +99,21 @@
 현재 테마 전환 장치가 **하나도 없다** — `prefers-color-scheme`·`data-theme` 모두
 부재, `:root` 고정. `index.html`의 `<meta name="theme-color">`도 `#08090a` 고정.
 
-1. **하드코딩 색 회수 (85곳).** `design-system.md`가 이미 "눈대중 `white/NN`
-   금지"라 적어 뒀는데 지켜지지 않았다. 실측 알파:
-   `border-white/8·12·15·18·20·22·28` **7종** — 헤어라인 3단 토큰(`border` 10% /
-   `border-raised` 14% / `border-strong` 18%)이 흡수해야 할 값들이다.
-   `bg-white/4·6·8·24` → 표면 토큰, `bg-black/35·45·55·65·72` → 스크림
-   토큰(없으면 신설), `text-white` 20곳 → semantic. **라이트에서 이 85곳은 전부
-   깨진다** — 흰 배경에 `bg-white/8`은 안 보인다
+1. **하드코딩 색 회수 (78곳, 테스트 제외).** `design-system.md`가 이미 "눈대중
+   `white/NN` 금지"라 적어 뒀는데 지켜지지 않았다. 2026-08-18 재실측:
+
+   | 갈래 | 곳 | 실측 알파 (값×곳) | 갈 곳 |
+   |---|---|---|---|
+   | `border-white/N` | 22 | 8×2 · 12×5 · 15×8 · 18×1 · 20×4 · 22×1 · 28×1 | 헤어라인 3단 (`border` 10 / `border-raised` 14 / `border-strong` 18) |
+   | `bg-white/N` | 19 | 4×1 · 6×4 · 8×8 · 10×1 · 12×1 · 15×1 · 20×1 · 24×2 | 표면 토큰 (`surface-veil` 6% 위로 단이 더 필요하다) |
+   | `bg-black/N` | 10 | 35×2 · 45×3 · 55×1 · 65×2 · 72×2 | 스크림 사다리 — 현재 `--ds-color-scrim` 66% 한 단뿐이라 신설 |
+   | `text-white`(+알파) | 17 | 민 14 · /4 · /35 · /70 | semantic (`content`군) |
+   | `outline-white` · `stroke-white/35` | 5 | — | 포커스·아이콘 |
+   | 순백 `bg-white` | 4 | — | **회수 대상 아님** — QR 정숙 구역 2곳(`InvitePopover`·`PartyDashboardPage`), 탁구공 1곳, `Button` secondary hover. 라이트에서도 흰색이어야 한다 |
+
+   **라이트에서 순백 4곳을 뺀 74곳이 전부 깨진다** — 흰 배경에 `bg-white/8`은 안
+   보인다. `border-white/28`(Button ghost)은 사다리 밖이지만 `design-system.md`가
+   이미 이유를 적어 둔 선례다
 2. **테마 층 신설.** `:root` 다크 유지 + `[data-theme="light"]` 오버라이드.
    색 토큰 84개 중 갈려야 할 것만. semantic 층(`@theme inline`)과 컴포넌트는
    손대지 않는다 — 2계층 구조가 이 저장소의 제일 큰 자산이다
@@ -138,15 +146,27 @@
   `LeveragePage`·`GameResult`·`PartyOpeningNotice`·dev 화면. 성격이 제각각이라
   각각 판단이 필요하다
 
-### 검증 수단의 구멍 — 착수 전에 읽을 것
+### 검증 수단 — 메웠다 (2026-08-18)
 
-**시각 회귀 테스트가 없다.** E2E 18개는 전부 동작 검증이라, 위 작업들의 "겉모습
-안 바뀜"은 코드 논증으로만 담보돼 있다. 1번(색 회수)은 알파를 사다리로 옮기므로
-**미세하게 색이 달라진다** — 눈으로 대조할 수단이 필요하다.
+`npm run test:visual`. 한 기계 안에서 main과 작업 브랜치의 `/__dev/components`를
+섹션 단위로 찍어 대조한다. 사용법·제외 섹션은
+[testing.md](docs/llmwiki/testing.md)「시각 대조」.
 
-Playwright는 이미 있고 `/__dev/components` 카탈로그 한 장이면 프리미티브 전체가
-커버된다. 다만 **baseline은 폰트 렌더링에 묶이므로 Jenkins 환경에서 떠야 한다** —
-로컬·컨테이너에서 생성하면 CI가 영구히 빨개진다. 1번보다 이걸 먼저 하는 편이 낫다.
+착수 전 세워 뒀던 전제 두 개가 실측에서 틀렸다.
+
+- **"baseline은 Jenkins 환경에서 떠야 한다 — 아니면 CI가 영구히 빨개진다."** Jenkins
+  프론트엔드 스테이지는 `check`·`typecheck`·`test`·`build`만 돌린다 — **Playwright를
+  아예 실행하지 않는다**(`Jenkinsfile`, `archiveArtifacts`에 playwright-report 경로만
+  남아 있어 오해하기 쉽다). 빨개질 CI가 없으니 이 제약도 없다. 대신 baseline을 지켜
+  줄 CI도 없다는 뜻이라, **저장소에 넣지 않고** before/after 대조로만 쓴다.
+- **"카탈로그 한 장이면 프리미티브 전체가 커버된다."** 실제로는 shared 17종 중
+  7종이었다(`Alert`·`Badge`·`Button`·`Modal`·`Panel`·`TextField`·`Tooltip`).
+  아래 색 회수가 건드리는 `GameChromeButton`·`BottomSheet` 두 종을 등재했고, 나머지
+  8종(`ConnectionBanner`·`ToastHost`·`Popover`·`LoadingOverlay`·`Screen`·`Icon`·
+  `AudioPopover`·`AudioStatusIcon`)은 그것을 고칠 때 등재한다.
+
+카탈로그는 **페이지 한 장이 아니라 섹션 단위**로 찍는다 — 물리 주사위 렌더러·음성
+랩·마스코트 가이드가 매 프레임 달라 한 장으로는 매번 diff가 난다.
 
 ### 작업 규약
 
