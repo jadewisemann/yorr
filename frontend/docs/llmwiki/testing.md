@@ -85,4 +85,4 @@ E2E는 자체 페이크가 필요하다. 두 벌을 잇는 다리가 `e2e/suppor
   `exactOptionalPropertyTypes`.
 - 실기기 smoke: 갤럭시 Chrome·iPhone Safari에서 센서 권한·감도·background 복귀·탭 폴백.
   `/__dev/motion`이 실기기 튜닝용으로 배포에도 열려 있다.
-- 검증 최소화 원칙(관성적 전체 실행 금지)은 [`../../CLAUDE.md`](../../CLAUDE.md).
+- 검증 최소화 원칙(관성적 전체 실행 금지)은 [`../../AGENTS.md`](../../AGENTS.md).
