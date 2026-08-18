@@ -11,10 +11,10 @@ afterEach(() => {
 })
 
 describe('ThemeRow', () => {
-  it('라디오 그룹으로 노출되고 현재 선택이 체크된다', () => {
+  it('그룹으로 노출되고 현재 선택이 체크된다', () => {
     render(<ThemeRow />)
 
-    const group = screen.getByRole('radiogroup', { name: '화면 테마' })
+    const group = screen.getByRole('group', { name: '화면 테마' })
     expect(group).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: '시스템', checked: true })).toBeInTheDocument()
   })
