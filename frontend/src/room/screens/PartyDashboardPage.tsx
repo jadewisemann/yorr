@@ -95,6 +95,7 @@ export function PartyDashboardPage({ gameKey }: { gameKey: PartyGameKey }) {
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-gutter">
           <div className="flex min-w-0 items-center gap-6">
             <QrFallback>
+              {/* 순백 고정 — QR 정숙 구역. 테마를 따라가지 않는다(InvitePopover와 같은 이유). */}
               <QRCodeSVG
                 className="size-[clamp(13rem,26vh,20rem)] flex-none rounded-card bg-white p-3"
                 level="M"

@@ -77,7 +77,7 @@ export function ModeRow({
 }) {
   return (
     <button
-      className="group flex min-h-16 w-full cursor-pointer items-center gap-3 border-0 border-b border-border bg-transparent px-3 py-3 text-left transition-colors duration-150 ease-out last:border-b-0 hover:bg-white/4 focus-ring pressable"
+      className="group flex min-h-16 w-full cursor-pointer items-center gap-3 border-0 border-b border-border bg-transparent px-3 py-3 text-left transition-colors duration-150 ease-out last:border-b-0 hover:bg-surface-veil focus-ring pressable"
       onClick={onClick}
       type="button"
     >

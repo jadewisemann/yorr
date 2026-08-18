@@ -63,7 +63,7 @@ export function PreparationStatus({
 }) {
   return (
     <div
-      className={`rounded-card border px-3 py-2.5 text-center text-sm font-bold ${ready ? 'border-pp-accent/45 bg-pp-accent/12 text-pp-accent-text' : 'border-border bg-white/6 text-game-content-faint'}`}
+      className={`rounded-card border px-3 py-2.5 text-center text-sm font-bold ${ready ? 'border-pp-accent/45 bg-pp-accent/12 text-pp-accent-text' : 'border-border bg-surface-veil text-game-content-faint'}`}
     >
       <span className="flex items-center justify-center gap-1">
         <span className="rounded-xs border border-current px-1 font-mono text-2xs font-black leading-none">
@@ -141,10 +141,11 @@ export function PingPongPreparationController({
       <button
         aria-label="연습 공 치기"
         aria-disabled={permission === 'granted'}
-        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-pp-side-blue/35 bg-[radial-gradient(circle_at_50%_42%,rgb(43_143_224_/_24%),transparent_60%)] active:bg-white/8"
+        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-pp-side-blue/35 bg-[radial-gradient(circle_at_50%_42%,rgb(43_143_224_/_24%),transparent_60%)] active:bg-surface-veil"
         onClick={practiceAction}
         type="button"
       >
+        {/* 순백 고정 — 이건 표면이 아니라 탁구공 그 자체다. veil 사다리로 내리지 않는다. */}
         <span
           aria-hidden="true"
           className={`absolute top-[18%] left-1/2 size-14 -translate-x-1/2 rounded-full bg-white shadow-[0_0_28px_rgb(255_255_255_/_55%)] ${practiceAck ? 'animate-pp-practice-ball' : ''}`}
@@ -174,7 +175,7 @@ export function PingPongPreparationController({
         )}
         <PreparationMotionStatus permission={permission} practiced={practiced} />
         <button
-          className="min-h-14 rounded-card bg-pp-danger px-5 text-lg font-black text-white disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35 transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
+          className="min-h-14 rounded-card bg-pp-danger px-5 text-lg font-black text-white disabled:cursor-not-allowed disabled:bg-surface-veil disabled:text-white/35 transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
           disabled={!practiced || ready}
           onClick={onReady}
           type="button"

@@ -130,7 +130,7 @@ export function BottomSheet({ children, className, onClose, open, title }: Botto
             >
               <span
                 aria-hidden="true"
-                className="mx-auto block h-1 w-11 rounded-full bg-white/24"
+                className="mx-auto block h-1 w-11 rounded-full bg-surface-veil-strong"
               />
             </div>
             {children}

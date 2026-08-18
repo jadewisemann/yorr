@@ -34,7 +34,7 @@ export function PingPongResult({ onLeaveRequest, session, snapshot }: PingPongRe
         MATCH FINISHED
       </p>
       <h1 className="relative m-0 text-5xl font-black">{won ? '승리!' : '좋은 경기였어요'}</h1>
-      <section className="relative flex items-center gap-6 rounded-sheet border border-border-raised bg-white/8 px-8 py-7 backdrop-blur-md">
+      <section className="relative flex items-center gap-6 rounded-sheet border border-border-raised bg-surface-veil px-8 py-7 backdrop-blur-md">
         <Score name="나" score={myScore} tone="blue" large />
         <span className="text-2xl text-game-separator">:</span>
         <Score name={opponent?.nickname ?? '상대'} score={opponentScore} tone="red" large />
@@ -81,7 +81,7 @@ export function PingPongDashboardResult({
         MATCH FINISHED
       </p>
       <h1 className="m-0 text-5xl font-black">경기 종료</h1>
-      <section className="flex items-center gap-6 rounded-sheet border border-border-raised bg-white/8 px-8 py-7">
+      <section className="flex items-center gap-6 rounded-sheet border border-border-raised bg-surface-veil px-8 py-7">
         <Score
           name={firstPlayer?.nickname ?? 'P1'}
           score={state?.scores[firstPlayerId] ?? 0}

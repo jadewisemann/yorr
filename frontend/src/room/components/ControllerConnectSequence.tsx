@@ -43,7 +43,7 @@ export function ControllerConnectSequence({ howTo, status }: ControllerConnectSe
               aria-hidden="true"
               className={cn(
                 'h-1 flex-1 rounded-full transition-colors',
-                index <= current ? 'bg-brand' : 'bg-white/12',
+                index <= current ? 'bg-brand' : 'bg-surface-veil-raised',
               )}
             />
             <span

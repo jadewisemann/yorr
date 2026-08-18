@@ -9,6 +9,8 @@
   --color-border-raised: var(--ds-color-border-raised);
   --color-border-strong: var(--ds-color-border-strong);
   --color-surface-veil: var(--ds-color-surface-veil);
+  --color-surface-veil-raised: var(--ds-color-surface-veil-raised);
+  --color-surface-veil-strong: var(--ds-color-surface-veil-strong);
   --color-content: var(--ds-color-content);
   --color-content-muted: var(--ds-color-content-muted);
   --color-brand: var(--ds-color-brand);
@@ -351,8 +353,12 @@
   --ds-color-border-raised: rgb(255 255 255 / 14%);
   --ds-color-border-strong: rgb(255 255 255 / 18%);
   /* 캔버스 위에 아주 옅게 깔리는 칩·배너 바닥. surface(#111214)는 불투명해서 뒤의
-     배경 그라디언트를 가리므로 이 자리에 못 쓴다. */
+     배경 그라디언트를 가리므로 이 자리에 못 쓴다. hairline과 같은 3단이고 이름도 같은
+     규칙을 따른다 — 회수 전에는 4·6·8·10·12·15·24% 7종이 흩어져 있었다.
+     면(veil) / 눌림·강조 점(raised) / 시트 손잡이처럼 확실히 보여야 하는 것(strong). */
   --ds-color-surface-veil: rgb(255 255 255 / 6%);
+  --ds-color-surface-veil-raised: rgb(255 255 255 / 14%);
+  --ds-color-surface-veil-strong: rgb(255 255 255 / 24%);
   --ds-color-content: #f7f7f5;
   --ds-color-content-muted: #a4a5aa;
   --ds-color-brand: #e53935;

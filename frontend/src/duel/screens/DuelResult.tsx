@@ -73,7 +73,7 @@ export function DuelResult({ onLeaveRequest, session, snapshot }: DuelResultProp
         {OUTCOME_HEADING[outcome]}
       </h1>
 
-      <section className="flex items-center gap-6 rounded-sheet border border-border-raised bg-white/8 px-8 py-6 backdrop-blur-md">
+      <section className="flex items-center gap-6 rounded-sheet border border-border-raised bg-surface-veil px-8 py-6 backdrop-blur-md">
         <Ammo hp={myHp} name="나" outfit={OUTFIT_LEFT} />
         <span className="text-2xl text-game-separator">:</span>
         <Ammo hp={opponentHp} name={opponent?.nickname ?? '상대'} outfit={OUTFIT_RIGHT} />
@@ -143,7 +143,7 @@ export function DuelDashboardResult({
         {survivor ? `${nameOf(survivor)} 승리` : '무승부'}
       </h1>
 
-      <section className="flex items-center gap-6 rounded-sheet border border-border-raised bg-white/8 px-8 py-6 backdrop-blur-md">
+      <section className="flex items-center gap-6 rounded-sheet border border-border-raised bg-surface-veil px-8 py-6 backdrop-blur-md">
         <Ammo hp={state?.hp[first ?? ''] ?? 0} name={nameOf(first)} outfit={OUTFIT_LEFT} />
         <span className="text-2xl text-game-separator">:</span>
         <Ammo hp={state?.hp[second ?? ''] ?? 0} name={nameOf(second)} outfit={OUTFIT_RIGHT} />
