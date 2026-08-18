@@ -1,5 +1,5 @@
 /**
- * 직접 녹음한 족보 콜아웃을 게임 에셋으로 변환한다(S15P11A406-138).
+ * 직접 녹음한 족보 콜아웃을 게임 에셋으로 변환한다.
  *
  *   node scripts/import-hand-voice.mjs [입력폴더]      # 기본값: scripts/voice-source
  *

@@ -123,7 +123,7 @@ public class RoomValidationController {
      * 방이 없을 때의 404. 본문에 도메인 코드를 실어야 클라이언트가 "방이 종료됐다"로 안내한다.
      * <p>
      * 빈 본문({@code notFound().build()})으로 두면 프론트의 코드 매핑이 걸리지 않아 사용자에게
-     * "API request failed with status 404"라는 날것의 문장이 노출된다(S15P11A406-136).
+     * "API request failed with status 404"라는 날것의 문장이 노출된다.
      */
     private static ResponseEntity<?> roomNotFound() {
         return ResponseEntity.status(404).body("room_not_found");

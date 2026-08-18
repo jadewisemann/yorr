@@ -190,5 +190,5 @@ Git 작업 규칙의 단일 기준은 [CONTRIBUTING.md](CONTRIBUTING.md)입니�
 ---
 
 <div align="center">
-  SSAFY 15기 공통 프로젝트 · S15P11A406
+  SSAFY 15기 공통 프로젝트
 </div>

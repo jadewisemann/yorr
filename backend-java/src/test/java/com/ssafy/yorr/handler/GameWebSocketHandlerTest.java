@@ -380,7 +380,7 @@ class GameWebSocketHandlerTest {
 
     /**
      * 유예가 끝나 방이 닫힌 뒤의 "이어서 하기". 메모리에만 존재하는 유령 방에 입장시키면
-     * 사용자가 대기실 화면에서 게임 시작이 404로 실패하는 막힌 상태가 된다(S15P11A406-136).
+     * 사용자가 대기실 화면에서 게임 시작이 404로 실패하는 막힌 상태가 된다.
      */
     @Test
     void rejectsJoinWhenTheRoomIsGoneFromRedis() throws Exception {
@@ -585,7 +585,7 @@ class GameWebSocketHandlerTest {
 
     /**
      * 만료된 토큰은 SESSION_EXPIRED로 알려야 한다. INVALID_MESSAGE로 뭉개면 클라이언트가
-     * 세션 종료로 다루지 않아 대기실에서 안내 없이 멈춘다(S15P11A406-110).
+     * 세션 종료로 다루지 않아 대기실에서 안내 없이 멈춘다.
      */
     @Test
     void reportsExpiredSessionTokenAsSessionExpired() throws Exception {

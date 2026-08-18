@@ -152,7 +152,7 @@ export function ScoreSheet({
               emphasis
                 ? 'text-xl text-brand-strong'
                 : options?.achieved?.[index]
-                  ? // 보너스 달성 강조(QA S15P11A406-102) — 달성한 플레이어의 셀만 brand로 띄운다.
+                  ? // 보너스 달성 강조(QA 피드백) — 달성한 플레이어의 셀만 brand로 띄운다.
                     'text-xs text-brand-strong'
                   : 'text-xs text-content-muted',
               cellHighlight(players[index]?.playerId ?? ''),
