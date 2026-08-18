@@ -32,6 +32,10 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:5310',
     // 색만 보는 도구라 뷰포트를 늘리지 않는다 — 레이아웃 회귀는 동작 E2E의 몫이다.
     ...devices['Desktop Chrome'],
+    // 테마를 고정한다. `index.html`의 프리페인트 스크립트가 `prefers-color-scheme`을
+    // 따르므로, 고정하지 않으면 **기계의 OS 설정에 따라 다크/라이트가 갈려** 기준
+    // 이미지가 통째로 어긋난다(실측: 이 컨테이너의 헤드리스 크로미움은 light를 선호한다).
+    colorScheme: 'dark',
   },
   projects: [{ name: 'catalog' }],
   webServer: {

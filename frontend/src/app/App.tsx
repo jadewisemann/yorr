@@ -5,6 +5,7 @@ import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
 import { WebSocketRealtimeClient } from '@/realtime/realtimeClient'
 import { VoiceProvider } from '@/realtime/voice/VoiceContext'
 import { InAppBrowserGate } from './InAppBrowserGate'
+import { useThemeSync } from './model/useThemeSync'
 import { RealtimeSync } from './RealtimeSync'
 import { router } from './router'
 
@@ -13,6 +14,7 @@ const realtimeClient =
 
 export function App() {
   useAuthSessionCheck()
+  useThemeSync()
 
   return (
     <InAppBrowserGate>

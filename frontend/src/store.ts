@@ -15,6 +15,13 @@ import {
   sessionPhaseOf,
 } from '@/room/domain/sessionFsm'
 import { clearRoomSession, readRoomSession, saveRoomSession } from '@/room/roomSessionStorage'
+import {
+  applyTheme,
+  readThemePreference,
+  resolveTheme,
+  saveThemePreference,
+  type ThemePreference,
+} from '@/styles/theme'
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'closed'
 export type RoomResumeReason = 'restored' | 'disconnected'
@@ -34,6 +41,7 @@ interface AppState {
   roomResumeReason: RoomResumeReason | null
   roomSession: ActiveRoomSession | null
   roomSnapshot: RoomSnapshot | null
+  themePreference: ThemePreference
   signIn: (session: AuthSession) => void
   signOut: () => void
   setAppNotice: (notice: string | null) => void
@@ -43,6 +51,7 @@ interface AppState {
   setRoomSession: (session: RoomSession) => void
   resumeRoomSession: () => void
   replaceRoomSnapshot: (snapshot: RoomSnapshot | null) => void
+  setThemePreference: (preference: ThemePreference) => void
   endSession: (reason: SessionEndReason) => void
   reset: () => void
 }
@@ -61,6 +70,7 @@ const initialState = {
   roomResumeReason: restoredSession ? ('restored' as const) : null,
   roomSession: restoredSession ? withoutSnapshot(restoredSession) : null,
   roomSnapshot: restoredSession?.snapshot ?? null,
+  themePreference: readThemePreference(),
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -87,6 +97,13 @@ export const useAppStore = create<AppState>((set) => ({
     })
   },
   resumeRoomSession: () => set({ appNotice: null, roomResumeReason: null }),
+  // 영속·DOM 반영은 액션의 부수효과다(DESIGN.md 원칙 3) — 구독자가 useEffect로
+  // 뒤따라 적용하면 첫 프레임이 옛 테마로 그려진다.
+  setThemePreference: (themePreference) => {
+    saveThemePreference(themePreference)
+    applyTheme(resolveTheme(themePreference))
+    set({ themePreference })
+  },
   replaceRoomSnapshot: (roomSnapshot) =>
     set((state) => {
       if (state.roomSession && roomSnapshot) {

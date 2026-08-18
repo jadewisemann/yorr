@@ -28,6 +28,11 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:4306',
     trace: 'on-first-retry',
+    // 테마를 고정한다 — `index.html`의 프리페인트 스크립트가 `prefers-color-scheme`을
+    // 따르므로, 고정하지 않으면 실행하는 기계의 OS 설정에 따라 테마가 갈린다.
+    // 스펙은 role 기준이라 대부분 무관하지만, 화면이 갈리는 원인을 CI 로그에서
+    // 역추적하는 것보다 여기서 못 박는 편이 싸다.
+    colorScheme: 'dark',
   },
   projects: [
     { name: 'mobile-chrome', use: { ...devices['Pixel 7'] } },
