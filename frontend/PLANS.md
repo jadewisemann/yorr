@@ -94,47 +94,13 @@
 호출부에 리터럴로 박혀 있어 "전체를 20% 촘촘하게"는 아직 전수 수정이다. 얻은
 것은 "다음 사람이 `gap-2.5`를 새로 만들지 않는다"까지다.
 
-### 라이트 모드 로드맵 (1번이 8할)
+### 라이트 모드 — 끝났다 (2026-08-18)
 
-현재 테마 전환 장치가 **하나도 없다** — `prefers-color-scheme`·`data-theme` 모두
-부재, `:root` 고정. `index.html`의 `<meta name="theme-color">`도 `#08090a` 고정.
-
-1. ✅ **하드코딩 색 회수 — 끝났다 (78곳).** 남은 raw 색 6곳은 전부 주석 달린 의도적 예외다.
-   `design-system.md`가 이미 "눈대중 `white/NN` 금지"라 적어 뒀는데 지켜지지 않았다.
-   2026-08-18 재실측:
-
-   | 갈래 | 곳 | 실측 알파 (값×곳) | 갈 곳 |
-   |---|---|---|---|
-   | ~~`border-white/N`~~ | ~~22~~ | — | ✅ **회수 완료** — 헤어라인 3단으로. 남은 것은 `Button` ghost `/28` 1곳(사다리 밖 예외, 주석 있음) |
-   | ~~`bg-white/N`~~ | ~~19~~ | — | ✅ **회수 완료** — veil 3단(`surface-veil` 6 / `-raised` 14 / `-strong` 24) 신설. `w-px` 구분선 1곳은 선이라 `border-strong`으로 |
-   | ~~`bg-black/N`~~ | ~~10~~ | — | ✅ **회수 완료** — 스크림 3단(`scrim-soft` 45 / `scrim` 66 / `scrim-strong` 72) 신설 |
-   | ~~`text-white`(+알파)~~ | ~~17~~ | — | ✅ **회수 완료** — `content`군으로. `GameCanvas` 호출부 9곳의 중복도 함께 걷었다 |
-   | ~~`outline-white` · `stroke-white/35`~~ | ~~5~~ | — | ✅ **회수 완료** — `outline-focus` · `stroke-content/35` |
-   | 순백 `bg-white` 등 | 6 | — | **회수 대상 아님, 전부 주석 있음** — QR 정숙 구역 2곳, 탁구공, `Button` secondary hover · ghost `/28`, `Dice` 모서리 |
-
-   **라이트에서 순백 4곳을 뺀 나머지가 전부 깨진다** — 흰 배경에 `bg-white/8`은 안
-   보인다.
-
-   **다음 조각은 표면 19곳**(`bg-white/N`)이다. 남은 것 중 유일하게 **열린 결정**이
-   있다 — `surface-veil`(6%) 위로 단을 몇 개 둘 것인가. 실측 8종(4·6·8·10·12·15·20·24)
-   인데 8%가 8곳으로 다수파고 24%는 시트 손잡이 2곳 전용이다. 그다음이 `text-white`
-   17곳(대부분 `Screen`·`GameCanvas`가 바닥에 까는 것이라 회수하면 파급이 크다).
-2. ✅ **테마 층 신설 — 끝났다.** `[data-theme="light"]` 오버라이드 한 블록.
-   컴포넌트도 semantic 층도 안 건드렸다. 켜자마자 raw 예외 2건(ghost 테두리 ·
-   secondary hover)이 버그로 드러나 토큰으로 올렸다. **남은 구멍 1건: `text-brand`가
-   라이트에서 3.54:1** — 3곳을 `brand-soft`로 옮겨야 사용자에게 켤 수 있다
-3. ✅ **3D·canvas — 할 일이 없었다.** 3D에서 토큰을 읽는 곳 둘 다
-   `dsColorReader()`를 통하는데 그 타입이 `--ds-color-physics-*`로 묶여 있고
-   (`tokenFallbacks.test.ts`가 강제) physics는 라이트에서 안 갈린다. 게임 무대·
-   주사위를 테마에서 뺀 결정의 결과다 — **범위를 뒤집어 코트까지 밝히기로 하면
-   이 항목이 다시 살아난다.** 옆에서 나온 진짜 함정(semantic 변수를 읽던 dev 차트)은
-   고쳤다: [design-system.md](docs/llmwiki/design-system.md)「JS가 색을 읽을 때」
-4. ✅ **토글 + 영속 — 기계는 끝났다.** `styles/theme.ts`(선택 저장·해석·적용·시스템
-   구독) + `store.ts` 액션 + `index.html` 프리페인트(깜빡임 방지) + `<meta
-   theme-color>` 동기화. 토글은 `/__dev/components`에 있다.
-
-   **남은 것은 노출 하나뿐이다.** 사용자 화면(계정 메뉴 등)에 올리려면 아래 대비
-   미달 1건을 닫아야 하고, 그것이 「열린 결정」의 brand 톤과 얽혀 있다.
+색 회수 78곳 → 테마 층(`[data-theme="light"]`) → 토글·영속·프리페인트 → 대비 검증
+→ 계정 다이얼로그 「화면 테마」 노출까지 완료. 결과는 문서에 반영했다 —
+구조·규칙은 [design-system.md](docs/llmwiki/design-system.md)(테마 층·JS 색 읽기 규칙),
+부팅 순서는 [app-shell.md](docs/llmwiki/app-shell.md), 과정 기록은
+IMPLEMENTATION_NOTES.md 2026-08-18 항목들.
 
 ### 열린 결정 2건
 
