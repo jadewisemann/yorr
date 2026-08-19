@@ -15,6 +15,11 @@ import { useMediaQuery } from '@/shared/useMediaQuery'
 import { NotFoundPage } from './NotFoundPage'
 import { ScreenFallback } from './ScreenFallback'
 
+/*
+ * 200줄 기준선 초과(원칙 7)를 알고 유지한다 — 이 파일은 화면이 아니라 라우트
+ * 표다(app-shell.md가 이 표를 그대로 서술한다). 경로·코드 스플리팅·프리로드가
+ * 한 파일에 있어야 "어떤 주소가 어떤 청크를 부르나"를 한눈에 대조할 수 있다.
+ */
 const importAuthCallbackPage = () => import('@/auth/screens/AuthCallbackPage')
 const importGamePage = () => import('@/room/screens/GamePage')
 const importInvalidInvitePage = () => import('@/room/screens/InvalidInvitePage')

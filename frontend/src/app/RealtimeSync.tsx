@@ -16,6 +16,13 @@ interface RealtimeSyncProps {
   client: RealtimeClient
 }
 
+/*
+ * 200줄 기준선 초과(원칙 7)를 알고 유지한다 — 소켓 수명주기와 서버 메시지
+ * 리듀서(apply* 가족)가 한 파일인 것은, 와이어 계약 동결이 풀리면 PLANS의 이관
+ * 티켓(envelope 게임 무관화 · sys.reconnect 라우팅)이 이 파일을 통째로 다시
+ * 가르기 때문이다. 그 전에 구조를 흔들면 이관 diff에서 "계약이 어떻게 바뀌었나"가
+ * 파일 이동에 묻힌다. 갈 거면 이관과 함께 간다.
+ */
 export function RealtimeSync({ children, client }: RealtimeSyncProps) {
   const roomId = useAppStore((state) => state.roomSession?.roomId)
   const nickname = useAppStore((state) => state.roomSession?.nickname)
