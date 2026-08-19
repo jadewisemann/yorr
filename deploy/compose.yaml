@@ -85,7 +85,7 @@ services:
   # 마이그레이션이 있으면 exit 1로 죽는다(ADR-0005 — 전환기에 Java의 Flyway와
   # 이력이 갈라지지 않게 하려고 일부러 그렇게 만들었다). 그래서 **빈 MySQL 위에서는
   # backend가 절대 뜨지 못한다** — 재시작 루프가 된다. 스키마를 세우는 경로가
-  # 코드에 있는데(`runMigrations`) 진입점이 없어서, 그 진입점을 여기서 만든다.
+  # `npm run migrate`의 정식 진입점으로 실행한다.
   #
   # 새 호스트의 MySQL은 backend-java와 공유하지 않으므로 ADR-0005의 "스키마 동결"이
   # 여기를 묶지 않는다. 다만 **기존 운영 데이터를 옮기는 것이 우선이다**:
@@ -105,20 +105,7 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-    entrypoint: ["node", "--input-type=module", "-e"]
-    command:
-      - |
-        const { loadEnv } = await import('/app/dist/config/env.js')
-        const { createMysqlPool, closeMysqlPool } = await import('/app/dist/infra/mysql.js')
-        const { runMigrations } = await import('/app/dist/infra/migrations/index.js')
-        const pool = createMysqlPool(loadEnv())
-        try {
-          const { applied, plan } = await runMigrations(pool)
-          console.log('applied:', applied.length === 0 ? '(없음 — 이미 최신)' : applied.join(', '))
-          console.log('history:', plan.applied.map((entry) => entry.script).join(', '))
-        } finally {
-          await closeMysqlPool(pool)
-        }
+    entrypoint: ["npm", "run", "migrate"]
     networks:
       internal: {}
     logging: *json-logging
