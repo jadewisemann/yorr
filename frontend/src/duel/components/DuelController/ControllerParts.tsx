@@ -1,4 +1,4 @@
-import { Shell, Warn } from '@/duel/components/Arena'
+import { Shell, Warn } from '@/duel/components/Arena/SignalLamp'
 import { DRAW_PENALTY_MS, MAX_FOULS, MAX_HP, msLabel, slots } from '@/duel/domain/duel'
 import type { SwingPermission } from '@/shared/useSwing'
 

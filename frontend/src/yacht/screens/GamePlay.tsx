@@ -52,6 +52,12 @@ export interface TurnProgress {
   wide: boolean
 }
 
+/*
+ * 200줄 기준선 초과(원칙 7)를 알고 유지한다 — 훅은 이미 model/로 전부 나가 있고
+ * (파일에 생 useState/useEffect가 0개다) 남은 것은 조립뿐이다. 게임판·폰 컨트롤러·
+ * 대시보드 세 형태가 같은 상태에서 갈라지는 분기가 이 화면의 사양이라, 쪼개면
+ * "어떤 조건에서 무엇이 보이나"를 세 파일을 오가며 읽게 된다.
+ */
 export function GamePlay({
   forceController = false,
   guide,

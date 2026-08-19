@@ -32,6 +32,11 @@ interface ScoreSheetProps {
   you: PlayerId
 }
 
+/*
+ * 200줄 기준선을 조금 넘긴다(원칙 7) — 점수표는 상단 6칸·보너스 행·족보 6칸이
+ * 열 수·정렬·강조 규칙을 공유하는 한 장의 표라, 행 종류별로 가르면 공유 규칙이
+ * 파일마다 복제된다. 행 렌더링 자체는 이미 ScoreRow/ScoreMatrix가 들고 있다.
+ */
 export function ScoreSheet({
   activePlayerId,
   candidates,

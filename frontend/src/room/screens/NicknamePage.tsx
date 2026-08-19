@@ -26,6 +26,11 @@ interface NicknamePageProps {
   roomCode?: string | undefined
 }
 
+/*
+ * 200줄 기준선을 조금 넘긴다(원칙 7) — 이 화면은 방 만들기·초대 입장·빠른 대전
+ * 세 의도가 같은 폼을 공유하는 자리라, intents 맵과 폼이 떨어지면 "의도가 문구와
+ * 제출 동작을 함께 정한다"는 구조가 안 보인다.
+ */
 const intents = {
   join: {
     chip: null,
