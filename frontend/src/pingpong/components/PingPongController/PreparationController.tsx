@@ -1,3 +1,4 @@
+import { PingPongButton } from '@/pingpong/components/PingPongButton'
 import type { ControllerView, PaddleTone } from '@/pingpong/components/PingPongController/types'
 import type { PingPongState } from '@/realtime/wsEvents'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'
@@ -165,23 +166,17 @@ export function PingPongPreparationController({
 
       <section className="mt-3 grid flex-none gap-2">
         {permission === 'unknown' && (
-          <button
-            className="min-h-12 rounded-card border border-pp-accent/45 bg-pp-accent/12 px-5 font-bold text-pp-accent-text transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
-            onClick={() => void requestPermission()}
-            type="button"
-          >
-            폰 스윙 켜기
-          </button>
+          <PingPongButton onClick={() => void requestPermission()}>폰 스윙 켜기</PingPongButton>
         )}
         <PreparationMotionStatus permission={permission} practiced={practiced} />
-        <button
-          className="min-h-14 rounded-card bg-pp-danger px-5 text-lg font-black text-on-brand disabled:cursor-not-allowed disabled:bg-surface-veil disabled:text-content/35 transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
+        <PingPongButton
           disabled={!practiced || ready}
           onClick={onReady}
-          type="button"
+          tone="danger"
+          variant="cta"
         >
           {readyButtonLabel(practiced, ready)}
-        </button>
+        </PingPongButton>
         {error && (
           <p className="m-0 text-center text-sm text-red-300" role="alert">
             {error}

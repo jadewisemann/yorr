@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { DuelButton } from '@/duel/components/DuelButton'
 import { MAX_FOULS, SWING_THRESHOLD } from '@/duel/domain/duel'
 import { useSwing } from '@/shared/useSwing'
 
@@ -49,13 +50,9 @@ function Step({
         <p className="m-0 text-sm text-content-muted">
           모션 센서를 쓸 수 없어요. 게임에서는 화면을 눌러 뽑습니다.
         </p>
-        <button
-          className="min-h-11 rounded-full border border-border bg-surface px-4 text-sm font-bold transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
-          onClick={onPractice}
-          type="button"
-        >
+        <DuelButton onClick={onPractice} tone="neutral" variant="chip">
           눌러서 연습 뽑기
-        </button>
+        </DuelButton>
       </>
     )
   }
@@ -73,13 +70,9 @@ function Step({
       <p className="m-0 text-sm text-content-muted">
         폰을 세로로 쥐고 휘둘러 뽑습니다. 먼저 센서를 켜 주세요.
       </p>
-      <button
-        className="min-h-11 rounded-full border border-brand/50 bg-brand/12 px-4 text-sm font-bold text-brand transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
-        onClick={onRequest}
-        type="button"
-      >
+      <DuelButton onClick={onRequest} tone="brand" variant="chip">
         휴대폰 휘두르기 켜기
-      </button>
+      </DuelButton>
     </>
   )
 }

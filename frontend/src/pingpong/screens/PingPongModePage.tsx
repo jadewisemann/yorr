@@ -1,4 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
+import { PingPongButton } from '@/pingpong/components/PingPongButton'
 import type {
   LocalFeedback,
   LocalPingPongDifficulty,
@@ -69,13 +70,9 @@ function LocalPingPongGame({
           {mode === 'solo' ? 'AI와 대전' : '1:1 파티 모드'}
         </span>
         {permission === 'unknown' ? (
-          <button
-            className="min-h-11 rounded-full border border-pp-accent/40 bg-pp-accent/12 px-3 text-xs font-bold text-pp-accent-text transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
-            onClick={() => void requestPermission()}
-            type="button"
-          >
+          <PingPongButton onClick={() => void requestPermission()} variant="chip">
             폰 스윙
-          </button>
+          </PingPongButton>
         ) : (
           <span className="min-w-20 text-right text-xs text-pp-accent">스윙 ON</span>
         )}

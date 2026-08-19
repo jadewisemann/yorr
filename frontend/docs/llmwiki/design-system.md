@@ -181,6 +181,14 @@ motion을 mock한다 — [testing.md](./testing.md).
 1. 공통 `Button` 우선, 한 화면에 레드 Primary는 하나. `Button`으로 표현할 수 없으면
    **Button을 감싼 얇은 컴포넌트**를 만든다(선례: `GameChromeButton` — 게임 크롬 알약
    버튼 7곳을 하나로). 감싸는 쪽에 스타일을 쌓지 말고 variant map에 추가한다.
+   - 색이 **게임 팔레트**(`pp-*`·`duel-*`)면 래퍼를 shared가 아니라 **그 도메인 안**에
+     둔다 — shared가 도메인 색을 알면 의존 방향이 뒤집힌다(선례: `PingPongButton` ·
+     `DuelButton`, 액션 버튼 9곳을 흡수).
+   - **생 `<button>`이 정당한 자리** (2026-08-18 전수 분류, 59곳): 셸 내부 기능
+     버튼(Modal 닫기·Popover/Tooltip 트리거·스크림), 화면 전체가 입력면인 게임
+     아레나, 정적 map으로 이미 흡수된 리스트 행(`rowStyles`·`ScoreRow`), 랜딩
+     세계관(`landing-*` 팔레트·자체 CTA map), 24px 이하 글리프·아이콘 버튼. 이
+     갈래에 안 드는 새 생 버튼은 Button(또는 래퍼)으로 간다.
 2. variant·tone은 **정적 class map** — 동적 문자열 조립 금지. 둘 중 어느 이름을 쓰는지는
    [DESIGN.md](../../DESIGN.md) 원칙 8이 정한다(위계가 바뀌면 `variant`, 색만 바뀌면 `tone`).
    새 이름을 만들지 않는다

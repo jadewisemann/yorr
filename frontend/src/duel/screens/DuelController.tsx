@@ -1,3 +1,4 @@
+import { DuelButton } from '@/duel/components/DuelButton'
 import { AmmoRow, DrawSourceStatus, Lamp } from '@/duel/components/DuelController/ControllerParts'
 import { DrawPrompt, signalOf } from '@/duel/components/DuelController/DrawPrompt'
 import { MAX_FOULS } from '@/duel/domain/duel'
@@ -95,13 +96,7 @@ export function DuelController({
           </p>
         )}
         {permission === 'unknown' && (
-          <button
-            className="min-h-12 rounded-card border border-duel-signal/50 bg-duel-signal/15 px-5 font-bold text-duel-accent-soft transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
-            onClick={onEnableMotion}
-            type="button"
-          >
-            휴대폰 휘두르기 켜기
-          </button>
+          <DuelButton onClick={onEnableMotion}>휴대폰 휘두르기 켜기</DuelButton>
         )}
         <DrawSourceStatus permission={permission} />
         {error && (

@@ -48,6 +48,35 @@ PLANS.md「검증 수단의 구멍」이 색 회수(라이트 모드 1순위)의
 664픽셀(버튼 4개의 테두리 둘레)로 잡혔다. **이 도구를 손볼 일이 있으면 threshold부터
 확인한다** — 0이 아니면 색 작업에 대해 아무것도 검증하지 않는다.
 
+## 2026-08-18 - 남은 격차 2·3·4번의 판정 — 둘은 전제가 틀렸고 하나는 9곳이었다
+
+PLANS「남은 격차」의 생 button 93 · 간격 965 · 타이포 428을 착수 전에 재실측했다.
+
+**간격·타이포 "토큰화 필요"는 전제가 틀렸다.** 빌드된 CSS를 확인하니 Tailwind v4가
+이미 모든 숫자 간격을 `calc(var(--spacing) * N)`으로, 모든 글자 크기를
+`var(--text-*)`로 컴파일한다. 즉 "전체를 20% 촘촘하게"는 지금도 `--spacing` 한 줄이고
+(0.25rem→0.2rem), 스케일 1파일화도 이미 있다(`@theme`에서 `--text-*` 재정의 — 이
+저장소가 `--text-2xs`를 더한 그 자리). **격차는 흡수층 부재가 아니라 변수를 우회하는
+임의값**인데, 세어 보니 간격 26곳(전부 `env()`·`clamp()` 기하 — 사다리에 태울 수 없는
+정당한 값)과 글자 6곳(디스플레이 숫자)뿐이다. `gap-md` 식 이름을 새로 만드는 것은
+있는 흡수층 위에 흡수층을 또 얹는 일이라 하지 않는다.
+
+**생 button은 93이 아니라 59곳이었고, 재고는 9곳이었다.** 전수 분류:
+- 셸 내부 기능 버튼 12 (Modal 닫기·Popover/Tooltip 트리거·스크림·게임 입력면) — 정당
+- 리스트 행 11 (`rowStyles`·`ScoreRow` 등 정적 map이 이미 흡수) — 정당
+- 랜딩 13 (자체 세계관·자체 CTA map) — 정당
+- 글리프·아이콘 소형 10, 특수 3 (주사위 폴백·칩) — 정당
+- **게임 도메인 액션 버튼 9 — 이것만 재고였다.** `active:scale` 손 표기(규칙 5 위반),
+  한 곳은 focus-ring 누락(PingPongController 대체 조작 — 회수로 해결).
+
+**`PingPongButton` · `DuelButton`** — GameChromeButton 처방(Button ghost 감싸고 map만).
+shared가 아니라 도메인 안에 둔다: tone이 `pp-*`/`duel-*`라 shared가 알면 의존 방향이
+뒤집힌다. variant(action/chip/cta)는 크기·구조가 함께 움직여서 variant, tone은 색만.
+
+**의도한 겉모습 변화(작음)**: active scale 0.98→0.97(pressable로 통일), 카드형에
+hover 틴트 추가(없던 것), Button 기반이 되며 hover -translate-y-px 부상 추가.
+전부 상태 피드백이 강해지는 방향이다.
+
 ## 2026-08-18 - 테마 토글 사용자 노출 — AccountMenu가 아니라 AccountDialog
 
 `ThemeRow`(라디오 그룹 3옵션)를 계정 다이얼로그에 넣었다. **AccountMenu가 아니라
