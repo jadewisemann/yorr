@@ -1,4 +1,5 @@
 import { Arena } from '@/duel/components/Arena'
+import { DuelButton } from '@/duel/components/DuelButton'
 import { DuelDashboard } from '@/duel/components/DuelGame/DuelDashboard'
 import { MAX_FOULS, MAX_HP } from '@/duel/domain/duel'
 import { buildStage } from '@/duel/domain/stage'
@@ -121,16 +122,16 @@ export function DuelGame({ onLeaveRequest, roomId, session, snapshot }: DuelGame
 
       <section className="absolute inset-x-0 bottom-0 z-20 grid justify-items-center gap-2 px-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {permission === 'unknown' && (
-          <button
-            className="min-h-11 rounded-full border border-duel-signal/50 bg-duel-signal/15 px-5 text-sm font-bold text-duel-accent-soft backdrop-blur-md transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
+          <DuelButton
+            className="backdrop-blur-md"
             onClick={(event) => {
               event.stopPropagation()
               void requestPermission()
             }}
-            type="button"
+            variant="chip"
           >
             휴대폰 휘두르기 켜기
-          </button>
+          </DuelButton>
         )}
         {sendError && (
           <p className="m-0 rounded-full bg-scrim-soft px-3 py-1 text-sm text-red-300" role="alert">

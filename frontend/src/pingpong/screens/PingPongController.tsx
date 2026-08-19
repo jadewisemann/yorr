@@ -1,3 +1,4 @@
+import { PingPongButton } from '@/pingpong/components/PingPongButton'
 import { ControllerArena } from '@/pingpong/components/PingPongController/ControllerArena'
 import {
   ControllerScore,
@@ -142,13 +143,7 @@ export function PingPongController({
 
       <section className="mt-3 grid flex-none gap-2 text-center">
         {permission === 'unknown' && (
-          <button
-            className="min-h-12 rounded-card border border-pp-accent/45 bg-pp-accent/12 px-5 font-bold text-pp-accent-text transition-[scale] duration-150 focus-ring active:not-disabled:scale-[0.97]"
-            onClick={() => void requestPermission()}
-            type="button"
-          >
-            폰 스윙 켜기
-          </button>
+          <PingPongButton onClick={() => void requestPermission()}>폰 스윙 켜기</PingPongButton>
         )}
         {permission === 'granted' && (
           <p className="m-0 text-sm font-bold text-pp-accent-text" role="status">
@@ -156,13 +151,9 @@ export function PingPongController({
           </p>
         )}
         {usesTouchFallback(permission) && (
-          <button
-            className="min-h-12 rounded-card border border-border-strong bg-surface-veil px-5 font-bold active:scale-[0.98] active:bg-surface-veil-raised"
-            onClick={onTouchSwing}
-            type="button"
-          >
+          <PingPongButton onClick={onTouchSwing} tone="neutral">
             화면을 눌러 스윙 · 대체 조작
-          </button>
+          </PingPongButton>
         )}
         {error && (
           <p className="m-0 text-sm text-red-300" role="alert">

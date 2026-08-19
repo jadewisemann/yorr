@@ -16,6 +16,7 @@ const SECTIONS = [
   'Player and score',
   'Async states',
   'Game chrome',
+  'Game action buttons',
 ] as const
 
 /**

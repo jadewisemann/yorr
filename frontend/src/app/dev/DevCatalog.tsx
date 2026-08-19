@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { DuelButton } from '@/duel/components/DuelButton'
+import { PingPongButton } from '@/pingpong/components/PingPongButton'
 import { PlayerCard } from '@/room/components/PlayerCard'
 import { StatusPanel } from '@/room/components/StatusPanel'
 import { Alert } from '@/shared/components/Alert'
@@ -346,6 +348,38 @@ export function DevCatalog() {
               {option.label}
             </Button>
           ))}
+        </div>
+      </Panel>
+
+      <Panel as="section" className={sectionClassName}>
+        <h2 className="text-xl font-bold">Game action buttons</h2>
+        <p className="m-0 text-sm text-content-muted">
+          도메인 팔레트를 입는 액션 버튼 — shared가 게임 색을 알면 안 되므로 각 도메인이 Button을
+          감싼다(GameChromeButton과 같은 처방).
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <PingPongButton onClick={() => undefined}>폰 스윙 켜기</PingPongButton>
+          <PingPongButton onClick={() => undefined} tone="neutral">
+            대체 조작
+          </PingPongButton>
+          <PingPongButton onClick={() => undefined} tone="danger" variant="cta">
+            READY
+          </PingPongButton>
+          <PingPongButton disabled onClick={() => undefined} tone="danger" variant="cta">
+            준비 완료
+          </PingPongButton>
+          <PingPongButton onClick={() => undefined} variant="chip">
+            폰 스윙
+          </PingPongButton>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <DuelButton onClick={() => undefined}>휘두르기 켜기</DuelButton>
+          <DuelButton onClick={() => undefined} tone="neutral" variant="chip">
+            눌러서 연습 뽑기
+          </DuelButton>
+          <DuelButton onClick={() => undefined} tone="brand" variant="chip">
+            휘두르기 켜기
+          </DuelButton>
         </div>
       </Panel>
 
