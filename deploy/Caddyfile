@@ -1,3 +1,9 @@
+{
+	# IP 리터럴로 접속하는 클라이언트는 TLS SNI를 보내지 않으므로,
+	# 관리 중인 IP 인증서를 기본 인증서로 선택한다.
+	default_sni {$PUBLIC_HOST}
+}
+
 {$PUBLIC_HOST} {
 	tls {
 		issuer acme https://acme-v02.api.letsencrypt.org/directory {
