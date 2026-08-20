@@ -38,6 +38,7 @@ jobs:
   verify:
     name: check · typecheck · test · build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     # MySQL 통합 테스트(45건)를 **처음으로 실제로 돌리는 자리다** — 지금까지
     # `MYSQL_TEST_URL`이 없어 전부 skip이었고 SQL 문법조차 검증된 적이 없다
@@ -91,8 +92,20 @@ jobs:
       # 필요한 것은 데몬이 아니라 **바이너리**다.
       - name: redis-server 바이너리 설치 (ADR-0004)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends redis-server
+          if ! command -v redis-server >/dev/null; then
+            sudo timeout 120s apt-get \
+              -o Acquire::Retries=3 \
+              -o Acquire::ForceIPv4=true \
+              -o Acquire::http::Timeout=20 \
+              -o Acquire::https::Timeout=20 \
+              update
+            sudo timeout 120s apt-get \
+              -o Acquire::Retries=3 \
+              -o Acquire::ForceIPv4=true \
+              -o Acquire::http::Timeout=20 \
+              -o Acquire::https::Timeout=20 \
+              install -y --no-install-recommends redis-server
+          fi
           redis-server --version
 
       - run: npm ci

@@ -42,7 +42,7 @@ COPY src ./src
 # tsconfig.build.json: rootDir=src, outDir=dist, `src/**/__tests__` 제외.
 RUN npm run build
 # 배선 누락과 같은 종류의 조용한 실패를 막는다 — 진입점이 없으면 여기서 죽는다.
-RUN test -f dist/main.js
+RUN test -f dist/main.js -a -f dist/migrate.js
 
 # ── 3. 런타임 의존성 (devDependencies 없이) ────────────────────────────────────
 FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS prod-deps

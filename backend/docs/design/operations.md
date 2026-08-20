@@ -222,6 +222,9 @@ main push ──────► verify ─► image ─► ghcr.io/jadewisemann/
     실제로 부르며(`ws/__tests__/gateway.test.ts`), MySQL 없는 개발·CI 환경에서
     WS 테스트 전부가 깨진다. 풀은 `main.ts`가 만들어 `createServer(env, { mysql })`로
     주입하고, 주입한 쪽(`main.ts`)이 닫는다.
+- 빈 DB 부트스트랩은 `npm run migrate`가 `runMigrations`를 호출한다. 운영 Compose는
+  같은 진입점을 `docker compose run --rm migrate`로 노출하며, 기존 DB 덤프 복원이
+  우선이므로 실제로 빈 DB에서 시작할 때만 사용한다.
 
 ### 배포는 진행 중 게임을 끊는다 (단일 인스턴스 제약)
 

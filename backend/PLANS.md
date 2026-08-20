@@ -151,9 +151,8 @@
       (`monitoring/` + `http/routes/health.ts`, **의존성 0**의 자체 렌더러).
       배선 누락 시 404가 아니라 503이다.
 - [ ] **머지 전 선행 차단 항목** — 배포하려면 먼저:
-      - [ ] `package.json`에 `migrate` 스크립트 + 마이그레이션 CLI.
-            **`runMigrations`에 진입점이 없어 빈 MySQL에서는 backend가 뜨지 못한다**
-            (compose의 `migrate` 서비스는 임시 우회다)
+      - [x] `package.json`의 `migrate` 스크립트 + 마이그레이션 CLI.
+            `docker compose run --rm migrate`가 같은 진입점을 사용한다.
       - [ ] **구 호스트 MySQL 덤프 → 새 호스트 복원.** 실사용자 계정·전적·랭킹이
             구 호스트에 있다. 덤프를 복원하면 `flyway_schema_history`가 함께 와서
             `verifyMigrations`가 통과한다(V1·V2 바이트 동일).
@@ -161,9 +160,8 @@
       - [ ] OCI 호스트 준비: Security List/NSG에 80·443 ingress ·
             `PUBLIC_HOST` A/AAAA 레코드 · `deploy/.env`(600) 배치 · GHCR 인증 ·
             `${BACKUP_DIR}`를 호스트 밖으로 주기 복사
-- [ ] **MySQL 통합 48건 첫 실행 결과 확인.** 작업 환경에 MySQL 바이너리도 docker
-      데몬도 없어 한 번도 실행되지 않았다 — GHA에서 처음 돈다. **주간 랭킹 집계는
-      SQL 문법과 `ONLY_FULL_GROUP_BY` 호환성조차 미검증**이다.
+- [x] **MySQL 통합 테스트 첫 실행 결과 확인.** GitHub Actions의 mysql:8.0에서
+      `MYSQL_TEST_REQUIRED=1`로 전체 테스트가 통과했다(2026-08-14, run 31787188195).
 - [ ] **프론트 `e2e:real` 통과.** Phase 3의 완료 기준이며 배선이 방금 들어갔으므로
       3.1·3.3·3.4·3.5는 아직 닫히지 않았다.
 - [ ] 부하·재접속 시나리오 검증(하트비트 타임아웃, 유예 close, 소켓 교체,
