@@ -111,30 +111,30 @@ services:
     logging: *json-logging
 
   # ── 리버스 프록시 · TLS ──────────────────────────────────────────────────────
-  # 프론트는 Vercel(https://yorr.site)에 있다. HTTPS 페이지에서 `ws://`는 브라우저가
-  # 차단하므로 **TLS가 선택이 아니다**. Caddy가 도메인 하나에 대해 Let's Encrypt
-  # 인증서를 자동으로 받고 갱신한다. `reverse_proxy`는 WebSocket Upgrade를 그대로
-  # 통과시킨다(별도 설정 없음).
-  #
-  # Caddyfile을 두지 않고 `caddy reverse-proxy` 서브커맨드를 쓰는 이유는 설정이
-  # 정말로 한 줄(도메인 → backend)이기 때문이다. 경로 분기·헤더 조작·여러 도메인이
-  # 필요해지면 Caddyfile을 만들어 `command`를 `caddy run --config`로 바꾼다.
+  # HTTPS 페이지에서 `ws://`는 브라우저가 차단하므로 **TLS가 선택이 아니다**.
+  # Caddy 2.11.4가 Let's Encrypt `shortlived` profile로 공인 IP 인증서(160시간)를
+  # 자동 발급·갱신한다. 관리 루프는 10분마다 갱신 필요 여부를 확인하고 성공한
+  # 인증서를 실행 중인 서버에 무중단 반영한다. 실패는 caddy 로그에 남는다.
+  # `reverse_proxy`는 WebSocket Upgrade를 그대로 통과시킨다(별도 설정 없음).
   #
   # 앱은 항상 `/api/v1`·`/ws/v1/game`·`/actuator/*`를 그대로 서빙한다 —
   # 접두사를 벗기는 프록시 규칙(구 dev 호스트의 `/dev-api`)은 여기 없다.
   caddy:
-    image: caddy:2-alpine
+    # 공인 IP + 명시적 ACME profile을 지원한다고 검증한 최소 버전으로 고정한다.
+    image: caddy:2.11.4-alpine
     container_name: ${CADDY_CONTAINER:-yorr-caddy}
     restart: unless-stopped
     command:
       - caddy
-      - reverse-proxy
-      # 스킴 없이 도메인만: `api.yorr.site`. 이 이름의 A/AAAA 레코드가 이 호스트를
-      # 가리켜야 인증서 발급(HTTP-01)이 성공한다.
-      - --from
-      - ${PUBLIC_HOST:?deploy/.env에 PUBLIC_HOST(예 api.yorr.site)가 필요하다}
-      - --to
-      - backend:${SERVER_PORT:-8080}
+      - run
+      - --config
+      - /etc/caddy/Caddyfile
+      - --adapter
+      - caddyfile
+    environment:
+      # DNS 이름이 아니라 OCI 공인 IP 리터럴이다. 인증서 SAN도 IP Address가 된다.
+      PUBLIC_HOST: ${PUBLIC_HOST:?deploy/.env에 OCI 공인 IP PUBLIC_HOST가 필요하다}
+      SERVER_PORT: ${SERVER_PORT:-8080}
     ports:
       # 여는 것은 HTTP/HTTPS뿐이다. coturn/TURN을 배포하지 않기로 했으므로
       # UDP 릴레이 포트가 필요 없다(음성은 STUN-only — YORR_VOICE_TURN_SECRET 미설정).
@@ -142,7 +142,8 @@ services:
       - "443:443"
     volumes:
       # 인증서·ACME 계정 키. 이 볼륨을 잃으면 재발급이고, Let's Encrypt 발급
-      # 한도(도메인당 주 5회)에 걸릴 수 있다.
+      # 한도에 걸릴 수 있다. IP 인증서와 개인키도 이 영속 볼륨에 저장된다.
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
