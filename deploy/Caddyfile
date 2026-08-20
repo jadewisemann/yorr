@@ -1,0 +1,9 @@
+{$PUBLIC_HOST} {
+	tls {
+		issuer acme https://acme-v02.api.letsencrypt.org/directory {
+			profile shortlived
+		}
+	}
+
+	reverse_proxy backend:{$SERVER_PORT:8080}
+}
