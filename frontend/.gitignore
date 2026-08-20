@@ -16,3 +16,5 @@
 # 시각 대조 baseline. 회귀 테스트가 아니라 한 기계 안의 before/after 대조 도구라
 # 저장소에 넣지 않는다 — 근거는 playwright.visual.config.ts 주석.
 /e2e/visual/**/*-snapshots/
+.vercel
+.env.local
