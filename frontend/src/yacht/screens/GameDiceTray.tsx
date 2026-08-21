@@ -84,7 +84,7 @@ export function GameDiceTray({
   return (
     <div
       className={cn(
-        'relative min-h-0 flex-1 overflow-hidden rounded-panel border border-border shadow-[inset_0_2px_0_rgb(255_255_255_/_6%),inset_0_-26px_46px_rgb(0_0_0_/_62%)] transition-transform [background:var(--ds-physics-tray)] motion-reduce:transform-none',
+        'relative min-h-0 flex-1 overflow-hidden rounded-panel border border-border shadow-[var(--ds-physics-tray-shadow)] transition-transform [background:var(--ds-physics-tray)] motion-reduce:transform-none',
         wide ? 'mx-gutter my-3' : 'mx-gutter mt-3 mb-1',
         motion.lastPulseDirection === 'left' && '-translate-x-1',
         motion.lastPulseDirection === 'right' && 'translate-x-1',

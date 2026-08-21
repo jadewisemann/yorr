@@ -52,7 +52,10 @@ export function TrayBottomBand({
 }) {
   return (
     <div className="pointer-events-none absolute inset-x-4 bottom-2.5 z-10 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
-      <span className="flex items-center gap-1.5 text-2xs font-bold tracking-[0.13em] text-content-faint tabular-nums uppercase">
+      {/* 라이트 테마에서 킵 레일(3D 재질)은 매트만큼 밝아지지 못한다 — 톤매핑이 밝은 쪽을
+          압축해 화면 상한이 #d6d5d2다(tokens.css `--ds-color-physics-rail` 주석). 그 위에서
+          `content-faint`는 4.10:1이라 한 단 올린다. 다크에서는 검은 레일 위라 어차피 여유가 있다. */}
+      <span className="flex items-center gap-1.5 text-2xs font-bold tracking-[0.13em] text-content-muted tabular-nums uppercase">
         킵 레일 · {keptText}
         <Tooltip
           align="start"

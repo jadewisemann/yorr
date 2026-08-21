@@ -24,7 +24,9 @@ export function syncAppearance(resources: AppearanceResources) {
   resources.railMaterial.color.set(color('--ds-color-physics-rail'))
   resources.railLineMaterial.color.set(color('--ds-color-physics-accent'))
   resources.bowlInnerMaterial.color.set(color('--ds-color-physics-danger')).multiplyScalar(0.42)
-  resources.ambient.groundColor.set(0x1a1b1e)
+  // 아랫빛도 트레이 매트와 같이 갈린다 — 밝은 매트 위에서 다크값을 쓰면 주사위
+  // 밑면만 회색으로 남는다(stage.ts의 HemisphereLight 초기값과 같은 자리).
+  resources.ambient.groundColor.set(color('--ds-color-physics-ground'))
   resources.entries.forEach((entry) => {
     entry.outline.material.color.set(color('--ds-color-physics-accent'))
   })
