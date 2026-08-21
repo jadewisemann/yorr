@@ -201,6 +201,12 @@
   /* 초대 코드 버튼 안 입력 칸의 커서. "여기에 쳐 넣는다"를 형태로 말한다. */
   --animate-caret-blink: caret-blink 1200ms steps(1, end) infinite;
 
+  /* 히어로 아트 — 등장(아래에서 떠오름) 뒤 이어지는 둥실거림. 3D 씬의 entrance·bob을
+     CSS로 재현한 것이다. float가 0에서 시작해 0으로 끝나 enter와의 이음선이 없고,
+     enter가 끝나는 시점(640ms)에 float의 delay가 맞물린다. */
+  --animate-hero:
+    hero-enter 640ms var(--ds-ease-snappy) both, hero-float 7000ms ease-in-out 640ms infinite;
+
   /* 센서 안내 닫기 버튼을 두르는 링. 한 바퀴 도는 동안(3초) 안내가 스스로 닫힌다.
      MotionPermissionPanel의 AUTO_CLOSE_MS와 같은 값이다. */
   --animate-close-sweep: close-sweep 3000ms linear both;
@@ -901,6 +907,24 @@
   51%,
   100% {
     opacity: 0;
+  }
+}
+
+/* 히어로 아트의 등장·부유 — transform·opacity만 움직인다. */
+@keyframes hero-enter {
+  from {
+    transform: translateY(2.5rem) scale(0.72);
+    opacity: 0;
+  }
+}
+
+@keyframes hero-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.45rem);
   }
 }
 

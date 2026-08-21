@@ -30,18 +30,26 @@
   capture에서 삼킨다(`event.detail === 0` 키보드 클릭은 통과).
 - 화살표 키는 `document`에서 듣는다(섹션이 포커스를 받지 않으므로). 키보드·스크린리더의
   진입점은 캐러셀이 아니라 `LandingProgress`의 `role="tablist"`다. 순환(circular) 이동.
-- 가운데 카드만 `HeroCanvas`를 렌더 — **WebGL 컨텍스트는 항상 1개**다.
+- 가운데 카드만 `HeroArt`(아트 이미지)를 렌더 — 이웃 카드는 정적 고스트다.
 
-## 히어로 3D (`HeroCanvas` · `heroScene`)
+## 히어로 아트 (`HeroArt` · `scripts/bake-hero.mjs` · `heroScene`)
 
-- `prefers-reduced-motion`·`saveData`·WebGL 불가면 three.js 자체를 받지 않는다 — 정지
-  프레임 한 장을 위해 521KB를 내려받을 이유가 없다.
-- 다이얼로그가 열려 `<main>`에 `inert`가 걸리면 그 속성을 신호로 렌더 루프를 세운다 —
-  inert는 입력만 막고 렌더링은 멈추지 않는다.
+- **런타임은 프리렌더 WebP 한 장이다**(`public/hero/{game}-{wide|narrow}.webp`,
+  장당 7~36KB). 살아 있는 three.js 씬이었다가 에셋으로 바꿨다 — 첫 화면에서
+  three.js(gzip 127KB)·WebGL 컨텍스트·30fps 렌더 루프가 빠지고, reduced-motion·
+  saveData·WebGL 불가 사용자도 이제 같은 그림을 본다(씬 시절엔 셋 다 빈 화면).
+  잃은 것은 개별 주사위 idle 회전과 포인터 시차 — 등장·둥실거림은 CSS
+  (`--animate-hero`)로 재현한다. 이웃 카드 두 장은 캐러셀이 미리 받아 둔다(스와이프
+  직후 공백 방지).
+- **씬의 정본은 여전히 `heroScene.ts`다.** 구도·재질·조명을 고치면
+  `npm run bake:hero`(Playwright + vite dev)로 에셋을 다시 굽는다. 프레이밍이
+  레이아웃마다 두 벌인 이유, object-cover가 라이브 프레이밍의 재현인 이유, 주사위
+  눈 시드 고정은 `scripts/bake-hero.mjs` 머리말에 있다.
+- ⚠️ **피사체 색은 베이크 시점에 동결된다** — `--ds-color-physics-*` 팔레트를 바꾸면
+  히어로가 자동으로 따라오지 않는다. 재베이크가 팔레트 변경의 일부다.
 - **매트한 실물 톤** — 20mm 망원 화각, MeshStandard(metalness 0) + ACES 톤매핑,
   라운드 엣지 주사위, 3점 조명(따뜻한 키 + 차가운 필 + 실루엣용 림), PCFSoft 그림자.
-  광택·환경맵·금속은 쓰지 않는다 — "3D 렌더" 티가 나면 디자인 의도에서 벗어난다는
-  원칙은 그대로고, 초기의 Lambert 단색(콘크리트 블록처럼 읽혔다)에서 재질감만 올렸다.
+  광택·환경맵·금속은 쓰지 않는다 — "3D 렌더" 티가 나면 디자인 의도에서 벗어난다.
   주사위 한 개는 레드 바디다(야추의 "킵 = 레드" 문법, 같은 텍스처에 color 틴트만 곱한다).
 
 ## 랭킹 티커 (`RankingTicker`)

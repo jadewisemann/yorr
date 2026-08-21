@@ -8,6 +8,28 @@
 >
 > 형식: `## YYYY-MM-DD - 주제` 아래에 불릿. 최신이 위.
 
+## 2026-08-21 - 히어로를 라이브 3D에서 프리렌더 에셋으로
+
+바로 아래 항목에서 품질을 올린 씬을, 사용자 결정으로 **에셋 파이프라인**으로 바꿨다.
+실측 근거: 랜딩이 장식 하나에 three.module 512KB(gzip 127KB) + WebGL 컨텍스트 +
+30fps 루프(섀도맵)를 지불하고 있었고, reduced-motion·saveData·WebGL 불가 사용자는
+아무것도 못 봤다. 에셋은 게임당 7~36KB WebP × 2프레이밍(전체 161KB, 첫 화면 1장).
+
+- 구도: `scripts/bake-hero.mjs`가 vite dev + Playwright로 heroScene을 돌려 굽는다.
+  heroScene.ts는 앱 번들에서 빠지고 **베이크 렌더러로 강등** — 테스트는 그 도구의
+  가드로 유지한다. HeroCanvas(런타임 3D 마운트)는 삭제, `HeroArt`(<img> + CSS 모션)로
+  대체. 등장·둥실거림은 `--animate-hero`(enter 640ms + float 7s, 이음선 없음).
+- WebGL 버퍼는 태스크가 끝나면 비워질 수 있어 **drawImage까지 한 evaluate 안에서**
+  끝낸다(preserveDrawingBuffer 없이 안전한 유일한 창). 주사위 눈은 Math.random을
+  시드 LCG로 갈아 고정 — 아니면 베이크마다 에셋 diff가 난다.
+- 함정: 피사체 색이 베이크 시점의 `--ds-color-physics-*`로 동결된다. 팔레트 변경 ⇒
+  `npm run bake:hero` 재실행이 세트다(landing.md에 명시).
+- 총량 착시 주의: three는 야추·탁구 진입 시 어차피 받는 공유 청크라, 앱 총량이 아니라
+  **첫 화면 임계 경로에서 치운 것**이다. 실측하면 랜딩에서도 three 요청이 보이는데,
+  이는 히어로가 아니라 router의 `useScreenPrefetch`(idle에 게임 화면 웜업)가 받는
+  것이다 — 첫 페인트 뒤 백그라운드라 의도대로고, 없애면 게임 진입이 느려진다.
+- 남긴 후보(v2): 피사체를 2~3레이어로 나눠 구워 CSS 시차로 가짜 깊이 복원.
+
 ## 2026-08-21 - 히어로 3D 품질 — 매트 원칙 안에서 재질감만 올렸다
 
 landing.md의 "평평한 장면(Lambert·스페큘러 없음)" 의도를 사용자 요청으로 갱신했다.

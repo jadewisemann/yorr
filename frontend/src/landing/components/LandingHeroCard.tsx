@@ -2,7 +2,7 @@ import { HeroCta } from '@/landing/components/LandingHeroCard/HeroCta'
 import { LandingMetaPills } from '@/landing/components/LandingHeroCard/LandingMetaPills'
 import type { LandingHeroCardProps } from '@/landing/components/LandingHeroCard/types'
 import { cn } from '@/shared/cn'
-import { HeroCanvas } from './HeroCanvas'
+import { HeroArt } from './HeroArt'
 
 export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) {
   const wide = layout === 'wide'
@@ -17,7 +17,7 @@ export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) 
           : 'border-landing-hairline-strong shadow-landing-card-quiet',
       )}
     >
-      <HeroCanvas game={game.key} />
+      <HeroArt game={game.key} layout={layout} />
 
       <span
         aria-hidden="true"
