@@ -152,11 +152,11 @@ IMPLEMENTATION_NOTES.md 2026-08-21.
 
 착수 전 세워 뒀던 전제 두 개가 실측에서 틀렸다.
 
-- **"baseline은 CI 환경에서 떠야 한다 — 아니면 CI가 영구히 빨개진다."** 프론트를
-  검사하는 CI 잡이 없다 — 구 Jenkins 파이프라인은 삭제했고(그것도 Playwright를 돌리지
-  않았다), `.github/workflows/backend.yml`은 백엔드 경로만 본다. 빨개질 CI가 없으니
-  이 제약도 없다. 대신 baseline을 지켜 줄 CI도 없다는 뜻이라, **저장소에 넣지 않고**
-  before/after 대조로만 쓴다.
+- **"baseline은 CI 환경에서 떠야 한다 — 아니면 CI가 영구히 빨개진다."** 프론트 CI
+  (`.github/workflows/frontend.yml`)는 `check`·`typecheck`·`test`·`build`·
+  `check:cycles`만 돌린다 — **Playwright를 실행하지 않는다**(구 Jenkins 파이프라인도
+  그랬다). 빨개질 CI가 없으니 이 제약도 없다. 대신 baseline을 지켜 줄 CI도 없다는
+  뜻이라, **저장소에 넣지 않고** before/after 대조로만 쓴다.
 - **"카탈로그 한 장이면 프리미티브 전체가 커버된다."** 실제로는 shared 17종 중
   7종이었다(`Alert`·`Badge`·`Button`·`Modal`·`Panel`·`TextField`·`Tooltip`).
   아래 색 회수가 건드리는 `GameChromeButton`·`BottomSheet` 두 종을 등재했고, 나머지

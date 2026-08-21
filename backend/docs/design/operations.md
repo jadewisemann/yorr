@@ -383,9 +383,15 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
 git show "$(git log --diff-filter=D --format=%H -1 -- Jenkinsfile)^:Jenkinsfile"
 ```
 
-⚠️ **프론트에는 CI 잡이 없다.** `.github/workflows/backend.yml`은 백엔드 경로만
-본다. 프론트 검증은 로컬 명령(`check`·`typecheck`·`test`·`build`)과 Vercel 빌드가
-전부이며, Playwright는 어디에서도 돌지 않는다.
+검사 잡은 워크플로 둘로 나뉘어 있다 — `.github/workflows/backend.yml`(`backend/**`·
+`deploy/**`)과 `.github/workflows/frontend.yml`(`frontend/**`). 후자는 파이프라인
+삭제로 비어 버린 프론트 검사 자리를 대신한다: `check`·`typecheck`·`test`·`build`·
+`check:cycles`를 AGENTS.md와 같은 순서로 돌린다. Vercel 빌드는 `tsc -b`까지만
+보므로 그것만으로는 lint·테스트가 검증되지 않는다.
+
+⚠️ **Playwright는 어느 잡에서도 돌지 않는다.** mock E2E는 브라우저 두 개를
+내려받아야 하고, 비주얼 대조는 baseline을 저장소에 두지 않는 도구다
+(`frontend/playwright.visual.config.ts`).
 
 ## 프론트 개발 모드와의 접점
 

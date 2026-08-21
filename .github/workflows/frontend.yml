@@ -1,0 +1,66 @@
+# 프론트 CI — frontend/AGENTS.md 「검증 명령」을 그대로 돌린다.
+#
+# 왜 이 파일이 필요한가: 프론트 배포는 Vercel이 직접 한다(`npm run build`). 그
+# 빌드는 **타입 오류와 테스트 실패를 막지 않는다** — `tsc -b`가 걸러 주는 것까지가
+# 전부이고, biome·vitest는 거기서 돌지 않는다. 구 Jenkins 파이프라인이 하던 검사
+# 자리가 파이프라인 삭제와 함께 비어 있었다(operations.md 「구 파이프라인은 없다」).
+#
+# **Playwright는 여기서 돌지 않는다.** mock E2E는 chromium + webkit 두 브라우저를
+# 내려받아야 하고(설치가 검사보다 오래 걸린다), 비주얼 대조는 baseline을 저장소에
+# 두지 않는 도구라 CI가 지킬 대상이 아니다(playwright.visual.config.ts). 필요해지면
+# 별개 잡으로 추가한다 — 그때 frontend/docs/llmwiki/testing.md의 서술도 함께 고친다.
+
+name: frontend
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - frontend/**
+      - .github/workflows/frontend.yml
+  push:
+    branches: [main]
+    paths:
+      - frontend/**
+      - .github/workflows/frontend.yml
+  workflow_dispatch: {}
+
+# 같은 브랜치의 이전 실행은 취소한다(backend.yml과 같은 규칙). main을 취소하지
+# 않는 이유는 이 워크플로에는 없다 — 산출물을 올리지 않으므로 관례를 맞추기만 한다.
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: check · typecheck · test · build · cycles
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 백엔드 잡과 같은 메이저로 맞춘다(backend package.json engines: >=22.12).
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # 순서·스크립트는 frontend/AGENTS.md 「검증 명령」과 같다.
+      - run: npm run check
+      - run: npm run typecheck
+      - run: npm test
+      # 프로덕션 빌드. vite.config.ts의 `assertSecureEndpoint`도 여기서 돈다 —
+      # env가 없으면 상대경로 기본값이라 통과한다(운영 값은 Vercel이 준다).
+      - run: npm run build
+      - run: npm run check:cycles

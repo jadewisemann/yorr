@@ -133,7 +133,8 @@ PLANS.md「검증 수단의 구멍」이 색 회수(라이트 모드 1순위)의
   `typecheck` → `test` → `build`뿐이었다. **Playwright를 실행하는 스테이지가 없었다**
   (같은 스테이지의 `archiveArtifacts`가 `frontend/playwright-report/**`를 걷고 있어
   E2E가 도는 것처럼 읽혔다 — 오해의 출처가 이것으로 보인다). 2026-08-21에 그
-  파이프라인을 삭제한 뒤로는 **프론트를 검사하는 CI 잡이 아예 없다**. 결론: 빨개질
+  파이프라인을 삭제하고 `.github/workflows/frontend.yml`로 검사 자리를 대신했는데,
+  거기서도 **Playwright는 돌리지 않는다**(브라우저 두 개 설치 비용). 결론: 빨개질
   CI가 없으니 제약도 없다. 대신 **baseline을 지켜 줄 CI도 없으므로** 저장소에 넣지
   않고(`.gitignore`) 한 기계 안 before/after로만 쓴다.
 - **"`/__dev/components` 카탈로그 한 장이면 프리미티브 전체가 커버된다."**

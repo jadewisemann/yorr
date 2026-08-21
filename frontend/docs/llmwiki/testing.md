@@ -92,10 +92,11 @@ npx playwright show-report               # 기대/실제/diff 3장 비교
 ```
 
 - **baseline을 저장소에 넣지 않는다**(`.gitignore`). 폰트 렌더링이 기기마다 달라 남의
-  기계에서 뜬 이미지는 전부 어긋나고, 지켜 줄 CI도 없다 — **프론트에는 CI 잡 자체가
-  없다**(`.github/workflows/backend.yml`은 백엔드 경로만 본다. 구 Jenkins
-  파이프라인은 삭제했고, 그것도 Playwright를 돌리지 않았다). 검증은 로컬 명령과
-  Vercel 빌드가 전부다. 따라서 **한 기계 안의 before/after**로만 쓴다.
+  기계에서 뜬 이미지는 전부 어긋나고, 지켜 줄 CI도 없다 — 프론트 CI
+  (`.github/workflows/frontend.yml`)는 `check`·`typecheck`·`test`·`build`·
+  `check:cycles`만 돌리고 **Playwright를 실행하지 않는다**(브라우저 두 개를 내려받는
+  비용 대비 얻는 것이 적다고 판단했다. 구 Jenkins 파이프라인도 돌리지 않았다).
+  따라서 **한 기계 안의 before/after**로만 쓴다.
 - 대상은 `/__dev/components` 카탈로그를 **섹션 단위**로. 페이지 한 장으로 찍지 않는
   이유는 물리 주사위 렌더러·음성 랩·마스코트 가이드가 매 프레임 달라서다 — 세 섹션은
   제외돼 있다.
