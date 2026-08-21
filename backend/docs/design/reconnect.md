@@ -42,7 +42,8 @@ server
     rollCount·dice·held가 **반드시** 실린다. 없으면 복귀자가 굴림 수를 0부터
     세서 다음 roll이 거부된다. 첫 굴림 전이면 rollCount 0에 dice·held 생략.
     라운드 상태나 활성 마감이 없으면 스냅샷 생성이 실패한다(→ `INTERNAL` +
-    fanout 등록 해제).
+    fanout 등록 해제). **`roundDeadline: null`은 실패가 아니다** — 시계 없는 판
+    (연습 방)이라는 값이다.
   - **duel / pingpong**: 각자의 상태 객체(DuelState / PingPongState) 전체.
 - 야추 reconnect는 오프라인 미스 카운터도 리셋한다 — 짧은 끊김이 자동 퇴장
   (2턴)으로 적립되지 않게.
@@ -56,7 +57,7 @@ server
 | 필드 | 출처 | 없을 때 |
 |---|---|---|
 | `roundNumber`·`activePlayerId`·`turnOrder` | `RoundState` | 라운드 상태 없음 → 실패 |
-| `roundDeadline` (epoch ms) | `RoundTimerService.currentDeadline` | 활성 마감 없음 → 실패 |
+| `roundDeadline` (epoch ms **또는 null**) | `RoundTimerService.currentDeadline` | `undefined`(진행 중인 턴 없음) → 실패. `null`(연습 방 — 시계를 걸지 않은 턴)은 그대로 싣는다 |
 | `scores` (playerId → ScoreBoard) | 점수 조회(`GameScoreQueryService`) | 빈 객체 |
 | `rollCount` | `RoundState.activeRollCount` | 첫 굴림 전이면 `0` |
 | `dice`·`held` | `RoundState.activeDice`/`activeHeld` | **키 자체를 생략**(null로 싣지 않는다) |

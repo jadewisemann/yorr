@@ -46,7 +46,7 @@
 | `dice.hold_changed` | `{playerId, roundNumber, held}` — broadcast와 분리된 이유: 클라이언트가 굴림 애니메이션을 재생하지 않게 | ✓ |
 | `dice.shaken` | `{playerId, roundNumber, direction, strength}` | ✓ |
 | `dice.thrown` | `{playerId, roundNumber, rollCount}` | 사람 ✓ / 봇 ✗ |
-| `round.start` | `{roundNumber, deadline(epoch ms), activePlayerId, turnOrder}` — **같은 턴에서도 굴림마다 재전송**된다(마감 연장). 프론트는 (round, activePlayer)가 바뀔 때만 리셋 | ✗ |
+| `round.start` | `{roundNumber, deadline(epoch ms **또는 null**), activePlayerId, turnOrder}` — **같은 턴에서도 굴림마다 재전송**된다(마감 연장). 프론트는 (round, activePlayer)가 바뀔 때만 리셋. `deadline: null`은 시계 없는 판(연습 방 — game-modules.md 「RoundTimerService」)이고 프론트는 그때 타이머를 그리지 않는다 | ✗ |
 | `round.end` | `{roundNumber, submitted:[playerId]}` | ✗ |
 | `score.update` | `{playerId, scoreboard:ScoreBoard}` | 제출 응답 ✓(**프론트 제출 완결에 필수**) / 타임아웃 ✗ |
 | `state.sync` | `{snapshot}` — 시작/리셋/종료 시 | ✗ |
@@ -226,7 +226,9 @@ round.start 브로드캐스트 → RoundStartedEvent (RoundTimerService의 onRou
   최빈 면(전부 단독이면 5 이상만), 카테고리는 점수 최대 + 고정 선호 타이브레이크.
   폴백이 "다섯 개 다 킵"을 말하면 그것은 리롤이 아니라 **제출**로 해석한다.
 - 실패 격리: 봇 태스크의 예외는 삼킨다 — 라운드 타이머가 폴백이다. 봇 턴은
-  타이머 관점에서 절대 오프라인이 아니다.
+  타이머 관점에서 절대 오프라인이 아니다. **시계 없는 연습 방에서도 봇 턴의 폴백
+  예약만은 남긴다**(방송되는 `deadline`은 여전히 null) — 이 폴백이 유일한 안전망이라
+  같이 지우면 굴림 한 번 실패한 판이 영원히 멈춘다.
 - 종료까지 사람과 같은 경로를 탄다(2봇 12라운드 완주 통합 테스트 존재).
 
 ### CPU 예산과 이벤트 루프 (Java와 다른 결정)

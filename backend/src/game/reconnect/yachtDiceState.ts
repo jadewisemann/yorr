@@ -15,8 +15,11 @@ import type { ReconnectRoundState, ScoreboardsByPlayer } from './reconnectPorts.
 export interface YachtDiceState {
   readonly roundNumber: number
   readonly activePlayerId: string
-  /** 현재 턴 마감 시각(epoch ms). 서버 시계가 권위다. */
-  readonly roundDeadline: number
+  /**
+   * 현재 턴 마감 시각(epoch ms). 서버 시계가 권위다.
+   * 시계를 걸지 않은 턴(봇만 있는 연습 방)은 **null** — 프론트가 타이머를 그리지 않는다.
+   */
+  readonly roundDeadline: number | null
   /** playerId → 점수판. 내용은 점수 계층이 만든 것을 그대로 통과시킨다. */
   readonly scores: Readonly<Record<string, unknown>>
   readonly turnOrder: readonly string[]
@@ -37,7 +40,7 @@ export interface YachtDiceState {
  */
 export const createYachtDiceState = (
   round: ReconnectRoundState,
-  roundDeadline: number,
+  roundDeadline: number | null,
   scores: ScoreboardsByPlayer,
 ): YachtDiceState => ({
   roundNumber: round.roundNumber,

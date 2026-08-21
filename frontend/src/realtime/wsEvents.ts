@@ -44,7 +44,12 @@ export type ReactionType = 'like' | 'laugh' | 'shock' | 'clap' | 'gg'
 export interface GameState {
   roundNumber: number
   activePlayerId: PlayerId
-  roundDeadline: number
+  /**
+   * 현재 턴의 마감 시각(epoch ms). **`null`이면 시계가 없는 판이다** — 봇만 데리고
+   * 혼자 하는 방에서는 서버가 마감을 걸지 않고(`backend` `UNTIMED_HUMAN_LIMIT`)
+   * 이 값을 null로 내려보낸다. 화면은 그때 타이머를 그리지 않는다.
+   */
+  roundDeadline: number | null
   scores: Record<PlayerId, ScoreBoard>
   turnOrder?: PlayerId[]
   rankings?: GameOverPayload['rankings']
@@ -266,7 +271,8 @@ export interface VoiceSignaledPayload {
 
 export interface RoundStartPayload {
   roundNumber: number
-  deadline: number // epoch ms
+  /** epoch ms. null이면 이 턴에는 제한 시간이 없다(`GameState.roundDeadline` 참고). */
+  deadline: number | null
   activePlayerId: PlayerId
   turnOrder: PlayerId[]
 }

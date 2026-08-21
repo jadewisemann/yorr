@@ -11,6 +11,8 @@ import { CategoryIcon } from './CategoryIcon'
 interface GameHelpModalProps {
   onClose: () => void
   open: boolean
+  /** 제한 시간이 있는 판인가. 봇만 데리고 혼자 하는 방은 시계가 없다. */
+  timed?: boolean
 }
 
 const HOW_TO_PLAY = [
@@ -18,10 +20,15 @@ const HOW_TO_PLAY = [
   '주사위를 탭하면 킵(고정)돼요. 킵한 주사위는 다시 굴리지 않아요.',
   '굴린 뒤 족보를 탭하면 그 점수로 바로 기록되고 턴이 끝나요.',
   '모든 족보를 한 번씩 기록하면 게임 끝 — 총점이 높은 사람이 승리!',
-  '시간이 다 되면 서버가 대신 굴리거나 남은 족보에 자동 기록해요.',
 ] as const
 
-export function GameHelpModal({ onClose, open }: GameHelpModalProps) {
+/** 시계가 도는 판에서만 붙는 마지막 줄 — 없는 규칙을 설명하면 그게 오답이다. */
+const TIMEOUT_RULE = '시간이 다 되면 서버가 대신 굴리거나 남은 족보에 자동 기록해요.'
+const UNTIMED_RULE = '혼자 하는 연습 방이라 제한 시간이 없어요. 천천히 골라도 돼요.'
+
+export function GameHelpModal({ onClose, open, timed = true }: GameHelpModalProps) {
+  const howToPlay = [...HOW_TO_PLAY, timed ? TIMEOUT_RULE : UNTIMED_RULE]
+
   return (
     <Modal onClose={onClose} open={open} title="게임 도움말">
       <div className="-mr-2 grid max-h-[62svh] gap-4 overflow-y-auto overscroll-contain pr-2">
@@ -30,7 +37,7 @@ export function GameHelpModal({ onClose, open }: GameHelpModalProps) {
             진행 방법
           </h3>
           <ol className="m-0 grid list-none gap-1.5 p-0">
-            {HOW_TO_PLAY.map((line, index) => (
+            {howToPlay.map((line, index) => (
               <li className="flex gap-2 text-sm text-content" key={line}>
                 <span
                   aria-hidden="true"

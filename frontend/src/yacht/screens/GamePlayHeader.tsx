@@ -42,12 +42,14 @@ export function GamePlayHeader({
       >
         <AudioStatusIcon micOn={micOn} muted={soundMuted} />
       </HeaderButton>
-      <RoundTimer
-        compact
-        remainingMs={remainingMs}
-        roundNumber={roundNumber}
-        totalRounds={TOTAL_ROUNDS}
-      />
+      {remainingMs !== null && (
+        <RoundTimer
+          compact
+          remainingMs={remainingMs}
+          roundNumber={roundNumber}
+          totalRounds={TOTAL_ROUNDS}
+        />
+      )}
     </>
   )
 

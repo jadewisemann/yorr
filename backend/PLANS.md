@@ -175,6 +175,25 @@
       + GAME_SESSION_INTEGRATION.md 등 낡은 문서 정리 (별도 PR)
 - **완료 기준**: 운영 도메인이 Node 백엔드를 서빙하고 한 주간 무회귀.
 
+## 연습 방 시계 제거 — 계약 변경 1건 (2026-08-21, 완료)
+
+> 이 저장소에서 **와이어 계약을 의도적으로 넓힌 첫 변경**이다. 원칙(「프론트엔드
+> 무변경」)의 예외이므로 여기 남긴다. 프론트 쪽 계획·표기는
+> [frontend/PLANS.md](../frontend/PLANS.md) 「요트 라이트 모드 · 연습 방 시계」 절.
+
+- **무엇**: 봇을 뺀 사람이 하나 이하인 방(연습 방)에는 턴 제한 시간을 두지 않는다.
+  `round.start.deadline`과 재접속 스냅샷의 `game.roundDeadline`이 `number | null`이
+  됐고, null이면 프론트가 타이머를 그리지 않는다.
+- **왜 계약을 넓혔나**: 제한 시간의 목적은 멈춘 한 사람 때문에 나머지가 기다리는 것을
+  막는 것이다. 혼자 하는 방에는 그 목적이 없다. "아주 먼 마감"으로 우회하면 화면에
+  59:59가 떠 있게 되므로(로컬 튜토리얼이 실제로 그랬다) 값 자체를 없앴다.
+- **호환**: 넓히기만 했다. 숫자 마감을 보내는 서버(backend-java 롤백 포함)에서도
+  프론트는 그대로 동작한다 — 기능이 없을 뿐이다. backend-java는 동결이라 이식하지 않는다.
+- **구현**: `RoundTimerService.UNTIMED_HUMAN_LIMIT`. 판정은 방 스냅샷의 `kind`로 하고,
+  스냅샷을 못 읽으면 기존 동작(시계 있음)으로 떨어진다. 연습 방의 **봇 턴에는 예약만**
+  남긴다(방송은 null) — 봇 스텝 예외의 유일한 폴백이라서다. 설계는
+  [game-modules.md](docs/design/game-modules.md) 「RoundTimerService」.
+
 ## 상태 표
 
 | 하위 시스템 | Java 위치 | 설계 문서 | 상태 |
@@ -185,7 +204,7 @@
 | 봇 참가자 | `room/service/BotParticipantService` | rooms-and-sessions.md | ✅ ADD/REMOVE Lua·REST·supportsBots 게이트·`state.sync` 이식 완료(1.6) |
 | 퀵매치 | `room/service/QuickMatchService` | rooms-and-sessions.md | ✅ 큐·락(토큰 CAS 해제 Lua)·최장 대기 host·롤백, **WS 소켓 생존 조건 자동 시작**, 티켓 소비·FINISHED 자기 치유, REST 3종 이식·배선 완료(3.5) |
 | 게임 모듈 프레임워크 | `game/module/` | game-modules.md | ✅ 시그니처 Java 정렬·레지스트리 dispatch(접두사 검증·스트립·교차 네임스페이스 거부)·GameLifecycleService(start 실패 시 롤백) 이식 완료(2.1). 정원·minPlayers·supportsBots는 카탈로그가 유일한 출처 |
-| 라운드·타이머·타임아웃 | `game/round/` | game-modules.md | ✅ 도메인·마감 스케줄러·스토어 포트(2.2~2.4) + 타이머·타임아웃 해소·동기화 서비스(2.5) 이식 완료. 바깥 계층은 좁은 포트로 역전 — 점수·게임 종료는 2.6·2.7이 구현 |
+| 라운드·타이머·타임아웃 | `game/round/` | game-modules.md | ✅ 도메인·마감 스케줄러·스토어 포트(2.2~2.4) + 타이머·타임아웃 해소·동기화 서비스(2.5) 이식 완료. 바깥 계층은 좁은 포트로 역전 — 점수·게임 종료는 2.6·2.7이 구현. **Java와 한 곳 갈린다**: 연습 방 시계 제거(위 절) |
 | 점수 확정·조회 | `game/service/`, `game/repository/` | game-modules.md | ✅ 점수 도메인·CONFIRM_SCORE Lua(반환 코드 10종)·확정 서비스·라운드 원자 결합(2.6) + 게임 종료·랭킹(2.7) + 조회 REST(2.9) 이식·배선 완료 |
 | 재접속 스냅샷·스위퍼 | `game/round/application/` | reconnect.md | ✅ 재접속 스냅샷(rollCount·dice·held 동봉, scores는 Map→객체 정규화 — Java 그대로면 버그였다) + OrphanedRoundStateSweeper(5분, cancel→remove, `listen()`에서 기동) 이식·배선 완료(2.8) |
 | 야추 (+봇) | `game/yacht/` | games/yacht.md | 🚧 모듈·`RedisYachtDiceStateStore`(운영 라운드 저장소)·`YachtTurnActionService`·dice 릴레이 비대칭·`markPhase('playing')`(3.1) + 봇 스택(3.2 — 지연 4종·세대 가드·TurnVersion·Expectimax **예산 강제**·Local 폴백·2봇 완주) 이식·배선 완료, 총 120건. **프론트 e2e:real 미검증** |

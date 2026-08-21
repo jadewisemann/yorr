@@ -196,10 +196,17 @@ describeRedis('서버 배선', () => {
     const instance = await build()
     const url = await listen(instance)
     const host = await enterRoom(instance, { nickname: '호스트' })
+    // 사람 둘이어야 시계가 돈다 — 혼자 있는 방은 마감 없이 시작하므로(연습 방)
+    // 여기서 보려는 "오프라인 판정 때문에 null"과 구별되지 않는다.
+    const guest = await enterRoom(instance, { nickname: '손님', room_id: host.room_id })
 
     const client = await joined(url, host)
+    const guestClient = await joined(url, { ...guest, room_id: host.room_id })
 
-    const state = await instance.rounds.synchronization.initialize(host.room_id, 1, [host.id])
+    const state = await instance.rounds.synchronization.initialize(host.room_id, 1, [
+      host.id,
+      guest.id,
+    ])
     const deadline = await instance.rounds.timer.start(host.room_id, state)
 
     // null이면 레지스트리가 갈라져 접속자를 오프라인으로 판정했다는 뜻이다.
@@ -208,11 +215,12 @@ describeRedis('서버 배선', () => {
     const started = await client.await('game.yacht_dice.round.start')
     expect(started).toMatchObject({
       roomId: host.room_id,
-      payload: { roundNumber: 1, activePlayerId: host.id, turnOrder: [host.id] },
+      payload: { roundNumber: 1, activePlayerId: host.id, turnOrder: [host.id, guest.id] },
     })
 
     instance.rounds.timer.cancelRoom(host.room_id)
     client.socket.close()
+    guestClient.socket.close()
   })
 
   /**

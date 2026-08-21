@@ -37,6 +37,9 @@ describe('RoundTimerService', () => {
   const DEADLINE = NOW + ROUND_DURATION_MS
   const SOLO = ['player-a']
   const DUO = ['player-a', 'player-b']
+  /** 시계가 도는 방 = 사람이 둘 이상인 방(`UNTIMED_HUMAN_LIMIT`). */
+  const humanRoster = (playerIds: readonly string[]) =>
+    playerIds.map((playerId) => ({ playerId, kind: 'HUMAN' }))
 
   let scheduler: FakeRoundDeadlineScheduler
   let broadcaster: RecordingBroadcaster
@@ -55,7 +58,7 @@ describe('RoundTimerService', () => {
     broadcaster = new RecordingBroadcaster()
     timeoutResolver = new StubTimeoutResolver()
     gameCompletion = new FakeGameCompletion()
-    roomService = new FakeRoomService({ gameId: 'game-a', players: [] })
+    roomService = new FakeRoomService({ gameId: 'game-a', players: humanRoster(DUO) })
     store = new InMemoryRoundStateStore()
     synchronizationService = new RoundSynchronizationService(store, { dieRoller: () => 1 })
     // 참가자를 명단에 올려 online으로 만든다. 비어 있으면 start()가 전원을 오프라인으로
@@ -114,6 +117,88 @@ describe('RoundTimerService', () => {
     // 봇 오케스트레이터(3.2)가 이 이벤트로 자기 차례를 안다.
     expect(roundStarted).toHaveLength(1)
     expect(roundStarted[0]?.state.activePlayerId).toBe('player-a')
+  })
+
+  /**
+   * 연습 방(사람 하나 + 봇) — 기다리는 사람이 없으므로 시계를 걸지 않는다.
+   * `deadline: null`이 그대로 방송되고, 강제 진행 예약도 만들지 않는다.
+   */
+  it('사람이 혼자인 방에는 마감을 걸지 않는다', async () => {
+    roomService.snapshot = {
+      gameId: 'game-a',
+      players: [
+        { playerId: 'player-a', kind: 'HUMAN' },
+        { playerId: 'bot-1', kind: 'BOT' },
+      ],
+    }
+
+    const deadline = await timerService.start('room-a', RoundState.start(1, ['player-a', 'bot-1']))
+
+    expect(deadline).toBeNull()
+    // undefined(진행 중인 턴 없음)와 구별돼야 한다 — 재접속이 그 둘을 다르게 다룬다.
+    expect(timerService.currentDeadline('room-a')).toBeNull()
+    expect(scheduler.timeoutAction).toBeNull()
+    expect(onlyBroadcast().payload).toEqual({
+      roundNumber: 1,
+      deadline: null,
+      activePlayerId: 'player-a',
+      turnOrder: ['player-a', 'bot-1'],
+    })
+  })
+
+  /**
+   * 연습 방이라도 **봇 턴에는 폴백 예약이 남는다** — 봇 스텝의 예외를 받아 줄 것이
+   * 라운드 타이머뿐이라, 없으면 굴림 한 번 실패한 판이 영원히 멈춘다.
+   * 화면에는 여전히 시계가 없다(`deadline: null`).
+   */
+  it('연습 방의 봇 턴은 화면에 시계 없이 폴백만 예약한다', async () => {
+    roomService.snapshot = {
+      gameId: 'game-a',
+      players: [
+        { playerId: 'player-a', kind: 'HUMAN' },
+        { playerId: 'bot-1', kind: 'BOT' },
+      ],
+    }
+
+    const deadline = await timerService.start('room-a', RoundState.start(1, ['bot-1', 'player-a']))
+
+    expect(deadline).toBeNull()
+    expect(onlyBroadcast().payload).toMatchObject({ deadline: null, activePlayerId: 'bot-1' })
+    expect(scheduler.deadline).toBe(DEADLINE + EXPIRY_GRACE_MS)
+    expect(scheduler.timeoutAction).not.toBeNull()
+  })
+
+  /** 시계가 없어도 판은 굴러간다 — 다음 턴은 제출·이탈이 밀어 준다. */
+  it('연습 방에서도 제출하면 다음 턴이 시작된다', async () => {
+    roomService.snapshot = {
+      gameId: 'game-a',
+      players: [
+        { playerId: 'player-a', kind: 'HUMAN' },
+        { playerId: 'bot-1', kind: 'BOT' },
+      ],
+    }
+    const roster = ['player-a', 'bot-1']
+    await synchronizationService.initialize('room-a', 1, roster)
+    const advanced = await synchronizationService.expire('room-a', 1, 'player-a')
+    broadcaster.reset()
+
+    await timerService.advanceTurn('room-a', {
+      score: null,
+      round: advanced as RoundSubmissionResult,
+    })
+
+    const started = broadcaster.messagesFor('room-a').at(-1)
+    expect(started?.type).toBe('game.yacht_dice.round.start')
+    expect(started?.payload).toMatchObject({ deadline: null, activePlayerId: 'bot-1' })
+  })
+
+  /** 방 스냅샷을 못 읽었으면 판단하지 않는다 — 기존 동작(시계 있음)으로 떨어진다. */
+  it('방 스냅샷이 없으면 시계를 건다', async () => {
+    roomService.snapshot = null
+
+    const deadline = await timerService.start('room-a', RoundState.start(1, DUO))
+
+    expect(deadline).toBe(DEADLINE)
   })
 
   it('서버 대리 굴림 뒤에는 같은 턴에 시간을 다시 준다', async () => {
@@ -304,7 +389,12 @@ describe('RoundTimerService', () => {
 
   /** 봇은 소켓이 없다 — 명단으로 판정하면 매 턴 스킵되어 봇이 한 번도 플레이하지 못한다. */
   it('봇은 오프라인으로 보지 않는다', async () => {
-    roomService.snapshot = { gameId: 'game-a', players: [{ playerId: 'bot-1', kind: 'BOT' }] }
+    // 사람 둘 + 봇 하나 — 사람이 혼자면 시계 자체가 안 걸리므로(아래 「연습 방」 절)
+    // 봇 판정만 보려면 시계가 도는 방이어야 한다.
+    roomService.snapshot = {
+      gameId: 'game-a',
+      players: [{ playerId: 'bot-1', kind: 'BOT' }, ...humanRoster(DUO)],
+    }
 
     const deadline = await timerService.start('room-a', RoundState.start(1, ['bot-1', 'player-b']))
 

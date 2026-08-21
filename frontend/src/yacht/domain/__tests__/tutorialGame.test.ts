@@ -73,7 +73,7 @@ describe('연습 모드 주사위', () => {
 })
 
 describe('연습판 초기 상태', () => {
-  it('혼자 플레이하는 1라운드 판이고, 마감은 사실상 없다', () => {
+  it('혼자 플레이하는 1라운드 판이고, 마감이 없다', () => {
     const snapshot = createTutorialSnapshot()
 
     expect(snapshot.phase).toBe('playing')
@@ -81,7 +81,8 @@ describe('연습판 초기 상태', () => {
     expect(snapshot.game?.activePlayerId).toBe(TUTORIAL_PLAYER_ID)
     expect(snapshot.game?.roundNumber).toBe(1)
     expect(snapshot.game?.rollCount).toBe(0)
-    expect(snapshot.game?.roundDeadline ?? 0).toBeGreaterThan(Date.now() + 30 * 60 * 1000)
+    // 예전에는 1시간짜리 가짜 마감이었다 — 계약이 null을 받게 되면서 진짜로 없다.
+    expect(snapshot.game?.roundDeadline).toBeNull()
     const board = snapshot.game?.scores[TUTORIAL_PLAYER_ID]
     expect(Object.values(board?.categories ?? {}).every((score) => score === null)).toBe(true)
     expect(board?.total).toBe(0)
