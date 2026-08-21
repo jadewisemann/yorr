@@ -212,6 +212,12 @@ jobs:
             echo "### OCI 호스트에서 (사람이 직접 실행한다)"
             echo
             echo '```bash'
+            echo "~/yorr/deploy/deploy.sh"
+            echo '```'
+            echo
+            echo "스크립트 없이 손으로 할 때:"
+            echo
+            echo '```bash'
             echo "cd ~/yorr && git pull      # deploy/compose.yaml은 이미지가 아니라 체크아웃에서 온다"
             echo "cd deploy"
             echo "docker compose pull backend"
