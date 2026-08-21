@@ -215,7 +215,11 @@ jobs:
             echo "**할 일이 없다** — 호스트가 5분마다 보고 진행 중인 게임이 없을 때 배포한다."
             echo "확인은 \`journalctl -u yorr-auto-deploy -f\`."
             echo
-            echo "앞당기거나(게임 중에도) 타이머를 끈 상태라면 호스트에서:"
+            echo "앞당기려면 **Actions → deploy → Run workflow**(태그 \`main\`)."
+            echo "그 버튼은 기다리지 않으므로 **진행 중인 게임을 끊는다.**"
+            echo "롤백은 같은 버튼에 \`sha-<커밋>\`을 넣는다."
+            echo
+            echo "러너가 죽었거나 타이머를 끈 상태라면 호스트에서:"
             echo
             echo '```bash'
             echo "~/yorr/deploy/deploy.sh"

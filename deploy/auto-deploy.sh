@@ -14,6 +14,11 @@
 #     `yorr_rooms_active`(PLAYING 방 수)가 0일 때만 배포한다. 사람의 눈대중보다
 #     정확하다 — 배포가 게임을 끊는다는 사실 자체는 변하지 않았다(DESIGN.md 원칙 8).
 #
+# 설치는 이 스크립트가 스스로 한다(호스트에서 한 번, sudo가 필요하다):
+#
+#   ~/yorr/deploy/auto-deploy.sh --install     # 유닛 심고 타이머 켜기
+#   ~/yorr/deploy/auto-deploy.sh --uninstall   # 타이머 끄고 유닛 지우기
+#
 # 조절 가능한 것(환경변수 또는 systemd Environment=):
 #   YORR_DEPLOY_MAX_DEFER  게임 때문에 미룬 지 이 초를 넘기면 그래도 배포한다.
 #                          기본 21600(6시간). 0이면 "영원히 기다린다".
@@ -23,8 +28,53 @@ cd "$(dirname "$(readlink -f "$0")")"
 
 MAX_DEFER=${YORR_DEPLOY_MAX_DEFER:-21600}
 STATE=${YORR_DEPLOY_STATE_DIR:-/var/tmp}/yorr-auto-deploy-pending
+UNIT_DIR=/etc/systemd/system
 
 log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
+
+# ── 설치·제거 ────────────────────────────────────────────────────────────────
+# `deploy/systemd/`의 유닛은 OCI Ubuntu 기본값(`ubuntu`, `/home/ubuntu/yorr/deploy`)로
+# 적혀 있다. 손으로 고치는 대신 **지금 이 실행의 사용자·경로로 치환**해서 심는다 —
+# 계정 이름이나 클론 위치가 다른 호스트에서 그 두 줄을 고치다 틀리는 일이 없어진다.
+install_units() {
+  local user dir
+  user=$(id -un)
+  dir=$(pwd)
+  echo "== 설치: User=$user WorkingDirectory=$dir"
+  command -v systemctl >/dev/null || { echo "systemd가 없다 — 이 호스트에는 설치할 수 없다."; exit 1; }
+  id -nG "$user" | tr ' ' '\n' | grep -qx docker ||
+    echo "!! $user 가 docker 그룹에 없다 — 타이머가 도커를 못 부를 수 있다(id -nG 확인)."
+
+  sed -e "s|^User=.*|User=$user|" \
+      -e "s|^WorkingDirectory=.*|WorkingDirectory=$dir|" \
+      -e "s|^ExecStart=.*|ExecStart=$dir/auto-deploy.sh|" \
+      systemd/yorr-auto-deploy.service | sudo tee "$UNIT_DIR/yorr-auto-deploy.service" >/dev/null
+  sudo cp systemd/yorr-auto-deploy.timer "$UNIT_DIR/yorr-auto-deploy.timer"
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now yorr-auto-deploy.timer
+
+  echo
+  sudo systemctl list-timers yorr-auto-deploy.timer --no-pager || true
+  echo
+  echo "무엇을 판단했는지: journalctl -u yorr-auto-deploy -f"
+  echo "끄기:              $dir/auto-deploy.sh --uninstall"
+}
+
+uninstall_units() {
+  echo "== 타이머를 끄고 유닛을 지운다(손 배포 deploy.sh는 그대로 된다)"
+  sudo systemctl disable --now yorr-auto-deploy.timer || true
+  sudo rm -f "$UNIT_DIR/yorr-auto-deploy.service" "$UNIT_DIR/yorr-auto-deploy.timer"
+  sudo systemctl daemon-reload
+  rm -f "$STATE"
+  echo "완료 — ADR-0006의 원래 상태(손 배포)로 돌아갔다."
+}
+
+case ${1-} in
+  --install) install_units; exit 0 ;;
+  --uninstall) uninstall_units; exit 0 ;;
+  '') ;;
+  *) echo "쓰임: $0 [--install|--uninstall]" >&2; exit 2 ;;
+esac
 
 # 진행 중인 게임 수(`yorr_rooms_active` = phase가 PLAYING인 방). 읽지 못하면
 # `unknown`이고 호출자는 그것을 "0이 아니다"로 다룬다 — 못 읽었을 때 끊는 쪽으로

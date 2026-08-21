@@ -185,14 +185,38 @@ main push ──────► verify ─► image ─► ghcr.io/jadewisemann/
 그 파일은 **호스트의 git 체크아웃에서 읽힌다**(이미지에는 없다). 빼먹으면 새
 이미지가 옛 설정으로 뜬다 — 증상은 "배포했는데 그대로"다.
 
-### 배포하는 두 경로 (같은 몸통)
+### 배포하는 세 경로 (같은 몸통)
 
-| | 명령 | 게임 중이면 | 쓰는 때 |
+| | 어디서 | 게임 중이면 | 쓰는 때 |
 |---|---|---|---|
-| 자동 | `deploy/auto-deploy.sh` (systemd timer, 5분) | **미룬다** — 다음 회차에 다시 본다 | 평상시. 켜 두면 손댈 일이 없다 |
-| 손 | `deploy/deploy.sh` (`-y`로 확인 생략) | 확인을 묻고 **끊는다** | 급한 수정, 자동이 미루는 중에 앞당길 때 |
+| 자동 | 호스트의 systemd timer(5분) → `auto-deploy.sh` | **미룬다** — 다음 회차에 다시 본다 | 평상시. 켜 두면 손댈 일이 없다 |
+| 버튼 | GitHub Actions 탭 → `deploy` 워크플로 | **끊는다** | 앞당길 때, 롤백할 때. 로그가 GitHub에 남는다 |
+| 손 | 호스트에서 `deploy/deploy.sh` | 확인을 묻고 **끊는다** | 러너·네트워크가 죽었을 때의 최후 경로 |
 
-자동 쪽도 실제 배포는 `deploy.sh -y`를 부른다 — 두 갈래로 갈라지면 한쪽만 낡는다.
+셋 다 실제 배포는 `deploy.sh`를 부른다 — 갈래가 갈라지면 한쪽만 낡는다.
+
+**버튼**(`.github/workflows/deploy.yml`)은 `workflow_dispatch` 전용이고 태그
+입력이 하나 있다(`main` = 최신, `sha-xxxxxxx` = 롤백). 롤백은 `.env`의
+`BACKEND_IMAGE`에 **고정으로 적히므로** 5분 타이머가 되돌리지 않는다 — 대신 고정된
+동안 자동 배포는 아무것도 하지 않는다(그 태그는 움직이지 않는다). 원인을 고친 뒤
+같은 버튼을 `main`으로 한 번 더 눌러 고정을 푼다.
+
+**셀프호스티드 러너를 쓰는 이유**는 ADR-0006 §3의 기각 사유를 지키기 위해서다:
+러너는 **호스트에서 GitHub으로 나가는 연결**로 일감을 받으므로 22번 포트를 열지
+않고 배포 키도 Secrets에 두지 않는다. 설치(호스트에서 한 번):
+
+```bash
+# Settings → Actions → Runners → New self-hosted runner 가 주는 명령을 쓰되,
+# config.sh 에 라벨을 붙이고 서비스로 등록한다(로그아웃해도 살아 있게).
+./config.sh --url https://github.com/jadewisemann/yorr --token <UI가 준 값> \
+            --labels yorr-oci --name yorr-oci --unattended
+sudo ./svc.sh install && sudo ./svc.sh start
+```
+
+⚠️ 러너를 돌리는 계정이 **docker 그룹에 있고 `~/yorr`에 쓸 수 있어야** 한다
+(자동 배포 타이머와 같은 조건). 그리고 셀프호스티드 러너에서는 믿을 수 없는 코드를
+돌리지 않는다 — `deploy.yml`만 이 러너를 쓰고 `pull_request`로는 돌지 않는다.
+다른 워크플로는 `ubuntu-latest`에 남겨 둔다.
 
 **자동 배포의 판단 순서**(`auto-deploy.sh`, 하나라도 안 맞으면 조용히 끝난다):
 

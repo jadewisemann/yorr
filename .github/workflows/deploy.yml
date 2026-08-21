@@ -1,0 +1,71 @@
+# 배포 버튼 — Actions 탭에서 사람이 누른다(자동 트리거 없음).
+#
+# 왜 셀프호스티드 러너인가: ADR-0006 §3은 "워크플로에서 SSH로 민다"를 기각했다 —
+# 배포 키를 Secrets에 두면 저장소 쓰기 권한이 곧 운영 셸 권한이 되고, 22번 포트를
+# 러너 IP 대역에 열어야 한다. 러너는 **호스트에서 GitHub으로 나가는 연결**로 일감을
+# 받으므로 그 둘이 모두 필요 없다 — 여는 포트는 여전히 80·443뿐이고 Secrets에
+# 배포 키가 없다. "호스트가 당긴다"는 성질이 유지된다.
+#
+# ⚠️ 셀프호스티드 러너에서는 **믿을 수 없는 코드를 돌리지 않는다.** 이 워크플로는
+#    `workflow_dispatch`(쓰기 권한자만) 전용이고, `pull_request`로는 절대 돌지
+#    않는다. 다른 워크플로(backend.yml·frontend.yml)는 `ubuntu-latest`를 쓴다 —
+#    포크 PR이 호스트에서 실행될 길이 없어야 한다.
+#
+# 러너 설치(호스트에서 한 번, backend/docs/design/operations.md 「배포하는 두 경로」):
+#   Settings → Actions → Runners → New self-hosted runner 의 명령을 그대로 실행하되
+#   `--labels yorr-oci`를 붙이고 `./svc.sh install && ./svc.sh start`로 서비스화한다.
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "배포할 이미지 태그 (main = 최신, sha-xxxxxxx = 그 커밋으로 롤백)"
+        required: true
+        default: main
+        type: string
+
+# 배포가 겹치면 컨테이너 교체가 서로를 밟는다. 진행 중인 것을 취소하지는 않는다
+# (교체 중간에 끊는 것이 더 나쁘다) — 줄을 세운다.
+concurrency:
+  group: deploy-oci
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: OCI 호스트에 배포
+    # 두 라벨을 모두 요구한다 — 다른 러너에 실수로 흘러가지 않게 한다.
+    runs-on: [self-hosted, yorr-oci]
+    # 기본값은 GITHUB_TOKEN을 쓰지 않는 잡이므로 권한을 최소로 내린다.
+    permissions: {}
+    timeout-minutes: 15
+    env:
+      # 호스트의 클론 위치. 다르면 저장소 Variables에 YORR_DEPLOY_DIR을 넣는다.
+      DEPLOY_DIR: ${{ vars.YORR_DEPLOY_DIR || '~/yorr/deploy' }}
+    steps:
+      # `actions/checkout`을 하지 않는다 — 배포가 쓰는 것은 러너의 작업 폴더가
+      # 아니라 **호스트의 클론**(`deploy.sh`가 그 안에서 `git pull`한다)이다.
+      # 여기서 또 체크아웃하면 어느 것이 정본인지 헷갈리는 사본만 하나 늘어난다.
+      - name: 배포
+        run: |
+          set -euo pipefail
+          dir=$(eval echo "$DEPLOY_DIR")
+          "$dir/deploy.sh" -y --tag "${{ inputs.tag }}"
+
+      - name: 요약
+        if: always()
+        run: |
+          {
+            echo "## 배포: \`${{ inputs.tag }}\`"
+            echo
+            if [[ "${{ inputs.tag }}" == main ]]; then
+              echo "- 이미지 고정을 **해제**했다(평상시 상태 — 5분 타이머가 다시 최신을 따라간다)."
+            else
+              echo "- \`${{ inputs.tag }}\`에 **고정했다.** 이 태그는 움직이지 않으므로"
+              echo "  **자동 배포는 이제 아무것도 하지 않는다** — 원인을 고친 뒤"
+              echo "  이 워크플로를 \`main\`으로 한 번 더 돌려 고정을 푼다."
+            fi
+            echo "- 이 버튼은 **진행 중인 게임을 끊는다**(손 배포와 같은 경로다)."
+            echo "  끊지 않고 배포하려면 누르지 말고 5분 타이머에 맡긴다 —"
+            echo "  그쪽은 \`yorr_rooms_active\`가 0일 때만 배포한다."
+          } >> "$GITHUB_STEP_SUMMARY"

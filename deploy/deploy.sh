@@ -20,7 +20,34 @@ set -euo pipefail
 cd "$(dirname "$(readlink -f "$0")")"
 
 assume_yes=false
-[[ ${1-} == -y || ${1-} == --yes ]] && assume_yes=true
+pin=""
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -y | --yes) assume_yes=true ;;
+    # 배포할 이미지 태그. `main`이면 고정을 **푼다**(평상시 상태로 되돌린다).
+    --tag) shift; pin=${1-} ;;
+    *) echo "쓰임: $0 [-y] [--tag <main|sha-xxxxxxx>]" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+# ── 이미지 고정(롤백) ────────────────────────────────────────────────────────
+# 고정은 `.env`의 `BACKEND_IMAGE`에 적는다 — 셸 환경변수로만 주면 이 실행에만
+# 걸리고 **5분 타이머가 다음 회차에 `:main`으로 되돌린다**(그때 증상은 "롤백했는데
+# 잠시 뒤 다시 올라갔다"라서 원인을 찾기 어렵다).
+#
+# ⚠️ sha에 고정해 두면 자동 배포는 **아무것도 하지 않는다**(그 태그는 움직이지
+#    않으므로). 그것이 롤백의 의도다 — 원인을 고친 뒤 `--tag main`으로 푼다.
+if [[ -n $pin ]]; then
+  image_repo="ghcr.io/jadewisemann/yorr-backend"
+  sed -i'' -e '/^BACKEND_IMAGE=/d' .env
+  if [[ $pin == main ]]; then
+    echo "== 이미지 고정 해제 — 평상시(:main)로 되돌린다"
+  else
+    echo "== 이미지 고정: $image_repo:$pin (자동 배포는 이 태그에 머문다)"
+    printf 'BACKEND_IMAGE=%s:%s\n' "$image_repo" "$pin" >> .env
+  fi
+fi
 
 branch=$(git rev-parse --abbrev-ref HEAD)
 echo "== 체크아웃: $branch @ $(git rev-parse --short HEAD)"
