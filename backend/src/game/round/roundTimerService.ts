@@ -7,6 +7,7 @@ import type {
   RoundBroadcaster,
   RoundPresence,
   RoundRoomService,
+  RoundRoomSnapshot,
   ScoreRoundSubmissionOutcome,
 } from './roundPorts.js'
 import type { RoundState, RoundSubmissionResult } from './roundState.js'
@@ -28,6 +29,19 @@ export const EXPIRY_GRACE_MS = 1_000
 
 /** 오프라인 상태로 자기 턴을 이 횟수째 맞으면 스킵 대신 자동 퇴장시킨다. */
 export const MAX_OFFLINE_TURNS = 2
+
+/**
+ * 사람이 이 수 이하인 방은 **시계를 걸지 않는다**(연습 방).
+ *
+ * 턴 제한의 목적은 한 사람이 멈춰 있을 때 나머지가 무한정 기다리지 않게 하는 것이다.
+ * 봇만 데리고 혼자 하는 방에는 기다리는 사람이 없으므로 그 목적이 사라진다 —
+ * 25초는 족보를 따져 보는 사람에게 재촉이기만 하다. 봇은 자기 턴을 스스로 진행하므로
+ * (`BotTurnOrchestrator`) 시계 없이도 판이 앞으로 간다.
+ *
+ * 여기 걸리면 `round.start`의 `deadline`이 **null로 나간다** — 프론트는 그때 타이머를
+ * 그리지 않는다(`frontend/src/realtime/wsEvents.ts`의 `RoundStartPayload`).
+ */
+export const UNTIMED_HUMAN_LIMIT = 1
 
 /** 봇 오케스트레이터(3.2)가 구독하는 턴 시작 알림 — Java `RoundStartedEvent`. */
 export interface RoundStartedEvent {
@@ -59,8 +73,8 @@ export interface RoundTimerServiceOptions {
 
 interface ActiveDeadline {
   readonly roundNumber: number
-  /** epoch ms. Java는 `Instant`. */
-  readonly deadline: number
+  /** epoch ms. Java는 `Instant`. 시계를 걸지 않은 턴(연습 방)은 null이다. */
+  readonly deadline: number | null
 }
 
 /**
@@ -114,10 +128,13 @@ export class RoundTimerService {
    * 턴은 `advanceTurn`을 거쳐 다시 여기로 돌아오므로 연속 오프라인 플레이어도
    * 연쇄적으로 처리된다.
    *
-   * @returns 걸린 마감 시각(epoch ms). 오프라인 스킵·퇴장으로 타이머를 걸지 않았으면 null.
+   * @returns 걸린 마감 시각(epoch ms). 오프라인 스킵·퇴장으로 턴을 시작하지 않았거나,
+   *   시계 없는 연습 방({@link UNTIMED_HUMAN_LIMIT})이면 null.
    */
   async start(roomId: string, state: RoundState): Promise<number | null> {
-    if (await this.isOffline(roomId, state.activePlayerId)) {
+    // 방 스냅샷을 한 번만 읽어 오프라인 판정과 연습 방 판정에 함께 쓴다(둘 다 명단이 근거다).
+    const room = await this.roomService.getSnapshot(roomId)
+    if (this.isOffline(room, roomId, state.activePlayerId)) {
       await this.handleOfflineTurn(roomId, state)
       return null
     }
@@ -125,14 +142,27 @@ export class RoundTimerService {
     // 한 판이 그보다 길어지는 순간(6인 × 12라운드면 충분히 가능) 플레이 중인 방이 사라진다.
     await this.roomService.touch(roomId)
 
-    const deadline = this.now() + ROUND_DURATION_MS
     const roundNumber = state.roundNumber
     const activePlayerId = state.activePlayerId
+    const deadline = isUntimedRoom(room) ? null : this.now() + ROUND_DURATION_MS
     this.activeDeadlines.set(roomId, { roundNumber, deadline })
-    // 클라에는 마감 시각을 그대로 알리고, 강제 진행만 EXPIRY_GRACE_MS 뒤로 미룬다.
-    this.deadlineScheduler.schedule(roomId, roundNumber, deadline + EXPIRY_GRACE_MS, () =>
-      this.expireTurn(roomId, roundNumber, activePlayerId),
-    )
+    /*
+     * 예약은 **사람에게 보이는 마감과 별개**다.
+     *
+     * - 시계가 있는 방: 마감 그대로 예약한다(강제 진행만 EXPIRY_GRACE_MS 뒤로 미룬다).
+     * - 연습 방의 사람 턴: 예약하지 않는다. 이게 "제한 시간 없음"의 전부다.
+     * - 연습 방의 **봇 턴: 화면에는 시계가 없어도 예약은 남긴다.** 봇 스텝의 예외는
+     *   삼켜지고 라운드 타이머가 유일한 폴백이기 때문이다
+     *   (docs/design/games/yacht.md 「실패 격리」). 이게 없으면 봇 굴림이 한 번
+     *   실패한 연습 방은 아무도 깨우지 못해 영원히 멈춘다.
+     */
+    const expireAt =
+      deadline ?? (isBot(room, activePlayerId) ? this.now() + ROUND_DURATION_MS : null)
+    if (expireAt !== null) {
+      this.deadlineScheduler.schedule(roomId, roundNumber, expireAt + EXPIRY_GRACE_MS, () =>
+        this.expireTurn(roomId, roundNumber, activePlayerId),
+      )
+    }
     this.broadcaster.broadcast(roomId, {
       type: gameWsType(this.gameCode, 'round.start'),
       ts: this.now(),
@@ -170,9 +200,15 @@ export class RoundTimerService {
     if (misses.size === 0) this.offlineMisses.delete(roomId)
   }
 
-  /** 재접속 스냅샷(2.8)이 현재 턴의 서버 마감 시각을 그대로 복원할 때 쓴다. */
-  currentDeadline(roomId: string): number | undefined {
-    return this.activeDeadlines.get(roomId)?.deadline
+  /**
+   * 재접속 스냅샷(2.8)이 현재 턴의 서버 마감 시각을 그대로 복원할 때 쓴다.
+   *
+   * **세 값이 다 다른 뜻이다**: 시각이면 그 턴의 마감, `null`이면 시계 없는 턴
+   * (연습 방 — {@link UNTIMED_HUMAN_LIMIT}), `undefined`면 진행 중인 턴 자체가 없다.
+   */
+  currentDeadline(roomId: string): number | null | undefined {
+    const active = this.activeDeadlines.get(roomId)
+    return active === undefined ? undefined : active.deadline
   }
 
   /**
@@ -294,12 +330,9 @@ export class RoundTimerService {
   }
 
   /** 명단에 없는 플레이어(비정상 상태)도 오프라인으로 본다 — 연결이 없다는 사실은 같다. */
-  private async isOffline(roomId: string, playerId: string): Promise<boolean> {
-    const room = await this.roomService.getSnapshot(roomId)
-    const serverControlled =
-      room?.players.some((player) => player.playerId === playerId && player.kind === 'BOT') ?? false
+  private isOffline(room: RoundRoomSnapshot | null, roomId: string, playerId: string): boolean {
     // 봇은 소켓이 없다 — 명단으로 판정하면 매 턴 오프라인 스킵되어 봇이 플레이할 수 없다.
-    if (serverControlled) return false
+    if (isBot(room, playerId)) return false
     const member = this.presence.find(roomId, playerId)
     return member === null || member.status === 'offline'
   }
@@ -338,4 +371,21 @@ export class RoundTimerService {
       msgId: requestMsgId ?? undefined,
     })
   }
+}
+
+/** 방 명단이 근거다 — 명단에 없으면 봇이 아니다(사람으로 보고 오프라인 판정을 태운다). */
+function isBot(room: RoundRoomSnapshot | null, playerId: string): boolean {
+  return (
+    room?.players.some((player) => player.playerId === playerId && player.kind === 'BOT') ?? false
+  )
+}
+
+/**
+ * 봇을 뺀 사람 수로 판정한다 — 방 스냅샷을 못 읽었으면(비정상) 시계를 건다.
+ * 판단이 안 서는 쪽에서는 **기존 동작**으로 떨어지는 것이 안전하다.
+ */
+function isUntimedRoom(room: RoundRoomSnapshot | null): boolean {
+  if (room === null) return false
+  const humans = room.players.filter((player) => player.kind !== 'BOT').length
+  return humans <= UNTIMED_HUMAN_LIMIT
 }

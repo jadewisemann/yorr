@@ -35,7 +35,9 @@ export function RoundTimer({
             'shadow-[0_0_18px_rgb(229_57_53_/_28%)] motion-safe:animate-ring-pulse motion-reduce:animate-none',
         )}
         style={{
-          background: `conic-gradient(${warning ? 'var(--ds-color-brand)' : 'var(--ds-color-content)'} ${ratio}turn, rgb(255 255 255 / 12%) ${ratio}turn 1turn)`,
+          // 남은 트랙은 흰색 알파 12%가 박혀 있었다 — 라이트에서 흰 캔버스 위 흰 트랙이라
+          // 링이 통째로 사라졌다. veil 사다리는 테마마다 흑·백이 뒤집힌다(14%, 차이는 안 보인다).
+          background: `conic-gradient(${warning ? 'var(--ds-color-brand)' : 'var(--ds-color-content)'} ${ratio}turn, var(--ds-color-surface-veil-raised) ${ratio}turn 1turn)`,
         }}
       >
         <span

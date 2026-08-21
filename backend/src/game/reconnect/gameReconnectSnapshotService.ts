@@ -67,6 +67,8 @@ export class GameReconnectSnapshotService<S extends PhasedRoomSnapshot> {
       )
     }
 
+    // null은 실패가 아니다 — 시계를 걸지 않은 턴(봇만 있는 연습 방)이라는 뜻이고,
+    // 그대로 스냅샷에 실어 프론트가 타이머 없이 복원하게 둔다.
     const roundDeadline = this.deadlines.currentDeadline(roomId)
     if (roundDeadline === undefined) {
       throw new ReconnectSnapshotError(

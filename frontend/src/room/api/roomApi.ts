@@ -242,12 +242,17 @@ function toRoomSnapshot(response: unknown): RoomSnapshot {
   }
 }
 
+function isDeadline(value: unknown): value is number | null {
+  return value === null || typeof value === 'number'
+}
+
 function toGameState(value: unknown): GameState | undefined {
   if (
     !isRecord(value) ||
     !isNonEmptyString(value.activePlayerId) ||
     typeof value.roundNumber !== 'number' ||
-    typeof value.roundDeadline !== 'number' ||
+    // null은 정상값이다 — 시계 없는 판(봇만 있는 연습 방). 없거나 숫자가 아닌 것만 거른다.
+    !isDeadline(value.roundDeadline) ||
     !isRecord(value.scores)
   ) {
     return undefined
@@ -256,7 +261,7 @@ function toGameState(value: unknown): GameState | undefined {
   return {
     activePlayerId: value.activePlayerId,
     roundNumber: value.roundNumber,
-    roundDeadline: value.roundDeadline,
+    roundDeadline: value.roundDeadline ?? null,
     scores: value.scores as GameState['scores'],
     rollCount: typeof value.rollCount === 'number' ? value.rollCount : 0,
   }

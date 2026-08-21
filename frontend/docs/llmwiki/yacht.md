@@ -109,3 +109,11 @@ rollRequested(targetDice 확보) → throwDetected → dice.throw 전송 + world
 
 타이머: 서버는 tick을 보내지 않고 `deadline`만 내려준다. `useCountdown`이 초 경계에
 맞춰서만 갱신한다.
+
+**`deadline`은 null일 수 있다 — 그때는 제한 시간이 없는 판이다.** 봇만 데리고 혼자
+하는 방(사람 하나 이하)에는 서버가 시계를 걸지 않는다. 화면 쪽 규칙은 셋이다:
+`GamePlay`가 `remainingMs`를 `number | null`로 내리고, 헤더가 null이면 `RoundTimer`를
+**아예 렌더하지 않으며**(0:00을 띄우면 "시간이 다 됐다"로 읽힌다), 도움말의 마지막
+줄도 "시간이 다 되면 서버가 대신…"에서 "제한 시간이 없어요"로 갈린다. 로컬 판
+(튜토리얼·레버리지)도 같은 길을 쓴다 — 예전에는 1시간짜리 가짜 마감을 넣어 헤더에
+59:45가 떠 있었다. 서버 쪽 판정은 backend `RoundTimerService.UNTIMED_HUMAN_LIMIT`.

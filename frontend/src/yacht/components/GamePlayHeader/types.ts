@@ -13,7 +13,8 @@ export interface GamePlayHeaderProps {
   onHelp: () => void
   onLeave: () => void
   onOpenAudio: () => void
-  remainingMs: number
+  /** null이면 제한 시간이 없는 판 — 타이머를 그리지 않는다. */
+  remainingMs: number | null
   roundNumber: number
   soundMuted: boolean
   submitted: boolean

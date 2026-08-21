@@ -114,7 +114,7 @@ describe('REST 스냅샷 → 프론트 스냅샷 변환', () => {
       null,
       { activePlayerId: '', roundNumber: 1, roundDeadline: 1, scores: {} },
       { activePlayerId: 'p1', roundNumber: '1', roundDeadline: 1, scores: {} },
-      { activePlayerId: 'p1', roundNumber: 1, roundDeadline: null, scores: {} },
+      { activePlayerId: 'p1', roundNumber: 1, roundDeadline: '1', scores: {} },
       { activePlayerId: 'p1', roundNumber: 1, roundDeadline: 1, scores: [] },
     ]) {
       respondToGame(restSnapshot({ game }))

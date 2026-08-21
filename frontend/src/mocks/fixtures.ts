@@ -49,7 +49,8 @@ export const waitingRoomSnapshot: RoomSnapshot = {
 
 export const MOCK_ROUND_DURATION_MS = 30_000
 
-export function createPlayingRoomSnapshot(roundDeadline: number): RoomSnapshot {
+/** `roundDeadline`이 null이면 제한 시간이 없는 판(봇만 있는 연습 방)이다. */
+export function createPlayingRoomSnapshot(roundDeadline: number | null): RoomSnapshot {
   return {
     ...waitingRoomSnapshot,
     phase: 'playing',

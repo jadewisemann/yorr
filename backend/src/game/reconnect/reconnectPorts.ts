@@ -72,10 +72,13 @@ export interface OrphanedRoundStatePort {
 
 /**
  * `RoundTimerService.currentDeadline`의 자리 — 현재 턴의 마감 시각(epoch ms).
- * 활성 마감이 없으면 undefined(Java `Optional.empty()`).
+ *
+ * 세 값이 다 다르다: 시각이면 그 턴의 마감, `null`이면 **시계를 걸지 않은 턴**
+ * (봇만 있는 연습 방 — `UNTIMED_HUMAN_LIMIT`), `undefined`면 진행 중인 턴이 없다
+ * (Java `Optional.empty()`). 재접속은 undefined일 때만 실패로 본다.
  */
 export interface RoundDeadlinePort {
-  currentDeadline(roomId: string): number | undefined
+  currentDeadline(roomId: string): number | null | undefined
 }
 
 /** `RoundTimerService.cancelRoom`의 자리 — 방의 마감 예약·오프라인 카운터를 버린다. */

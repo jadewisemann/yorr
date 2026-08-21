@@ -76,7 +76,13 @@ export function GamePlay({
   const roundNumber = game?.roundNumber ?? 1
   const activePlayerId = game?.activePlayerId
   const isMyTurn = activePlayerId === session.you
-  const remainingMs = useCountdown(game?.roundDeadline ?? null)
+  const roundDeadline = game?.roundDeadline ?? null
+  const countdownMs = useCountdown(roundDeadline)
+  /**
+   * 시계가 없는 판(봇만 있는 연습 방)은 서버가 마감을 null로 내려보낸다 —
+   * 그때는 남은 시간이 0이 아니라 **없는 것**이라 헤더가 타이머를 아예 그리지 않는다.
+   */
+  const remainingMs = roundDeadline === null ? null : countdownMs
 
   const canPlay = session.membershipRole !== 'dashboard'
 
@@ -334,7 +340,11 @@ export function GamePlay({
         open={audioOpen}
       />
       {zeroModal}
-      <GameHelpModal onClose={() => setHelpOpen(false)} open={helpOpen} />
+      <GameHelpModal
+        onClose={() => setHelpOpen(false)}
+        open={helpOpen}
+        timed={roundDeadline !== null}
+      />
     </>
   )
 }

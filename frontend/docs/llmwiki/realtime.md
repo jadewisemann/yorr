@@ -32,6 +32,8 @@
 - 인증은 별도 `auth.*` 없이 `room.join`(닉네임+방ID+sessionToken)으로 병합됐다(v0.2).
 - 타이머 tick 이벤트가 없다 — `round.start.deadline`(epoch ms)을 내려 클라가
   `(deadline - now)`로 계산한다. 서버 브로드캐스트 부하 제거.
+  `deadline`(과 스냅샷의 `game.roundDeadline`)은 **null일 수 있다** — 제한 시간이 없는
+  판(봇만 있는 연습 방)이고, 그때 화면은 타이머를 그리지 않는다([yacht.md](yacht.md)).
 - `state.sync`는 diff가 아니라 **전체 스냅샷**이다. 2~6인 규모라 diff 비용이 없고, 메시지
   하나를 놓쳐도 다음 스냅샷에서 자동 복구된다. (`state.patch`는 선언만 있고 미사용)
 - `dice.hold`도 증분이 아닌 **전체 `held` 배열** — 유실돼도 다음 토글에서 복구.

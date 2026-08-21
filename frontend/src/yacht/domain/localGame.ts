@@ -28,8 +28,6 @@ export interface LocalYachtMode {
   rounds?: number
 }
 
-export const LOCAL_ROUND_MS = 60 * 60 * 1000
-
 export function createEmptyBoard(): ScoreBoard {
   return {
     categories: Object.fromEntries(
@@ -71,7 +69,9 @@ export function createLocalSnapshot(options: {
     game: {
       roundNumber: 1,
       activePlayerId: options.playerId,
-      roundDeadline: Date.now() + LOCAL_ROUND_MS,
+      // 로컬 판(튜토리얼·레버리지)에는 서버 시계가 없다. 예전에는 1시간짜리 가짜 마감을
+      // 넣어 헤더에 "59:45"가 떠 있었다 — 계약이 null을 받게 된 지금은 그대로 없다고 적는다.
+      roundDeadline: null,
       scores: { [options.playerId]: createEmptyBoard() },
       turnOrder: [options.playerId],
       rollCount: 0,
@@ -159,7 +159,7 @@ export function createLocalYachtClient(mode: LocalYachtMode) {
               'game.yacht_dice.round.start',
               {
                 roundNumber: roundNumber + 1,
-                deadline: Date.now() + LOCAL_ROUND_MS,
+                deadline: null,
                 activePlayerId: playerId,
                 turnOrder: [playerId],
               },
