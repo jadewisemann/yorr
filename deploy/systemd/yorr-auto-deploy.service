@@ -1,0 +1,28 @@
+# YORR 자동 배포 — 한 번 판단하고 끝나는 oneshot. 주기는 타이머가 정한다.
+#
+# 설치(호스트에서 한 번):
+#   sudo cp ~/yorr/deploy/systemd/yorr-auto-deploy.* /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now yorr-auto-deploy.timer
+#
+# 보기:  journalctl -u yorr-auto-deploy -f
+# 멈춤:  sudo systemctl disable --now yorr-auto-deploy.timer   (손 배포는 그대로 된다)
+#
+# ⚠️ User·경로는 **이 호스트의 계정에 맞춰 고친다.** `ubuntu`는 OCI Ubuntu 이미지의
+#    기본 계정이고, 그 계정이 docker 그룹에 있어야 한다(`id -nG`로 확인).
+[Unit]
+Description=YORR 백엔드 자동 배포 (게임이 없을 때만)
+# 부팅 직후 도커가 준비되기 전에 돌면 pull이 실패한다.
+After=docker.service network-online.target
+Wants=docker.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/yorr/deploy
+ExecStart=/home/ubuntu/yorr/deploy/auto-deploy.sh
+# 게임 때문에 미루는 시간의 상한(초). 이 시간을 넘기면 진행 중이어도 배포한다.
+# 0으로 두면 "게임이 끝날 때까지 영원히 기다린다".
+Environment=YORR_DEPLOY_MAX_DEFER=21600
+# 배포는 `sleep 15` + 로그 확인까지 하므로 넉넉히 준다.
+TimeoutStartSec=600

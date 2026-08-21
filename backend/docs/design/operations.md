@@ -177,22 +177,52 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
 PR ─────────────► verify(check·typecheck·test·build) + compose 문법 + arm64 이미지 빌드(push 안 함)
 main push ──────► verify ─► image ─► ghcr.io/jadewisemann/yorr-backend:{main, sha-<커밋>}
                                             │
-사람이 시작 ─────────────────────────────────┘  git pull && docker compose pull backend && up -d backend
+호스트가 당긴다 ──────────────────────────────┘  auto-deploy.sh(5분): 바뀐 게 있고 + 게임이 0이면 → deploy.sh -y
+사람이 시작 ─────────────────────────────────┘  deploy.sh (언제든, 게임 중에도)
 ```
 
-`git pull`이 명령의 일부인 이유: 공개 주소 네 개의 정본이 `deploy/compose.yaml`이고
+`git pull`이 배포의 일부인 이유: 공개 주소 네 개의 정본이 `deploy/compose.yaml`이고
 그 파일은 **호스트의 git 체크아웃에서 읽힌다**(이미지에는 없다). 빼먹으면 새
 이미지가 옛 설정으로 뜬다 — 증상은 "배포했는데 그대로"다.
 
-세 명령을 순서대로 묶어 둔 것이 **`deploy/deploy.sh`** 다(확인 프롬프트 + 기동
-확인 + 주입된 공개 주소 출력까지). 호스트에서 실제로 치는 것은 이 한 줄이다:
+### 배포하는 두 경로 (같은 몸통)
+
+| | 명령 | 게임 중이면 | 쓰는 때 |
+|---|---|---|---|
+| 자동 | `deploy/auto-deploy.sh` (systemd timer, 5분) | **미룬다** — 다음 회차에 다시 본다 | 평상시. 켜 두면 손댈 일이 없다 |
+| 손 | `deploy/deploy.sh` (`-y`로 확인 생략) | 확인을 묻고 **끊는다** | 급한 수정, 자동이 미루는 중에 앞당길 때 |
+
+자동 쪽도 실제 배포는 `deploy.sh -y`를 부른다 — 두 갈래로 갈라지면 한쪽만 낡는다.
+
+**자동 배포의 판단 순서**(`auto-deploy.sh`, 하나라도 안 맞으면 조용히 끝난다):
+
+1. `git pull --ff-only` — compose·설정 갱신
+2. `docker compose pull backend` — GHCR의 `main` 태그
+3. **바뀐 것이 있나**: 이미지 ID가 다르거나 이 pull이 `deploy/`를 건드렸나
+4. **게임이 없나**: 컨테이너 안에서 `/actuator/prometheus`를 읽어
+   `yorr_rooms_active`(PLAYING 방 수)가 0인가
+
+`ADR-0006` §3이 자동 배포를 기각했던 두 근거를 둘 다 지킨다(그 절의 갱신 메모):
+
+- **호스트가 당기고 아무도 밀지 않는다.** GitHub에 배포 키가 없고 22번 포트를
+  러너에게 열지 않는다 — 여는 것은 여전히 80·443뿐이다.
+- **게임을 끊지 않는다**(대신 미룬다). 게이지를 못 읽으면 `unknown`이고 **0으로
+  보지 않는다** — 못 읽었을 때 끊는 쪽으로 기울지 않는다.
+- 다만 바쁜 서버에서 영원히 밀리지 않도록 상한이 있다:
+  `YORR_DEPLOY_MAX_DEFER`(기본 21600s = 6시간)를 넘기면 진행 중이어도 배포한다.
+  `0`으로 두면 "게임이 끝날 때까지 영원히 기다린다".
+
+설치·중단(호스트에서 한 번):
 
 ```bash
-~/yorr/deploy/deploy.sh          # -y 를 주면 확인을 묻지 않는다
+sudo cp ~/yorr/deploy/systemd/yorr-auto-deploy.* /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now yorr-auto-deploy.timer
+journalctl -u yorr-auto-deploy -f                        # 무엇을 판단했는지
+sudo systemctl disable --now yorr-auto-deploy.timer      # 끄면 ADR-0006 원래 상태
 ```
 
-스크립트가 자동 배포를 대신하는 것이 **아니다** — "언제"는 여전히 사람이 정한다
-(배포가 진행 중 게임을 끊는다). 고정하는 것은 "무엇을"뿐이다.
+⚠️ 유닛 파일의 `User=`·경로는 **호스트 계정에 맞춰 고친다**(기본값은 OCI Ubuntu
+이미지의 `ubuntu`이고, 그 계정이 docker 그룹에 있어야 한다).
 
 - **빌드는 배포 대상 서버에서 하지 않는다.** 2 OCPU를 빌드와 실서비스가 나눠 쓰면
   라운드 마감 타이머(25s+1s)가 밀린다. 호스트는 pull만 한다.
@@ -202,7 +232,9 @@ main push ──────► verify ─► image ─► ghcr.io/jadewisemann/
   스크립트가 하나도 없다는 것**이고, Dockerfile의 `prod-deps` 스테이지가 매 빌드마다
   `node_modules`에서 `*.node`를 찾아 그 전제를 검사한다.
   ⚠️ **런타임 스테이지에 `RUN`을 넣지 마라** — 넣는 순간 QEMU가 필요해진다.
-- **자동 배포를 걸지 않는다.** 배포가 진행 중 게임을 끊기 때문이다(아래).
+- **워크플로가 배포하지 않는다.** 배포가 진행 중 게임을 끊기 때문이다(아래).
+  자동화는 호스트 쪽에 있다 — GitHub이 미는 것이 아니라 호스트가 당기고,
+  게임이 없을 때만 진행한다(아래 「배포하는 두 경로」).
 
 ### CI 검사 (`verify` 잡)
 
@@ -252,7 +284,10 @@ DESIGN.md 원칙 8(WS 구독·라운드 마감 타이머·방 폐쇄 예약·오
   유실된다. 부팅 시 `closeUnrecoverableGamesOnStartup`이 이어갈 수 없는 PLAYING
   방을 **폐쇄한다** — 게임 중단은 버그가 아니라 설계된 동작이다.
 - 남는 완화책은 **시각 선택**뿐이다. 그래서 워크플로는 이미지까지만 만들고,
-  `docker compose pull && up -d backend`는 사람이 한가한 시간에 실행한다.
+  배포는 호스트에서 일어난다 — 그 "시각 선택"을 사람의 눈대중이 아니라
+  `yorr_rooms_active == 0`이라는 측정으로 하는 것이 `auto-deploy.sh`다
+  (위 「배포하는 두 경로」). **끊긴다는 사실이 사라진 것은 아니다**: 미루는 상한
+  (`YORR_DEPLOY_MAX_DEFER`)에 걸린 배포와 손 배포는 여전히 끊는다.
 
 ### compose 계약 (`deploy/compose.yaml`)
 
@@ -360,6 +395,9 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
    값을 본다(호스트 `.env`에 옛 줄이 남아 이기고 있는지까지 그것으로 드러난다).
 8. 첫 기동: `docker compose up -d` → `sleep 15` → `docker compose ps`(health) →
    `docker compose logs --tail 100 backend`.
+9. (선택) **자동 배포 타이머 설치** — `deploy/systemd/`의 두 유닛을 복사하고
+   `enable --now`. 유닛의 `User=`·경로를 이 호스트에 맞게 고치는 것이 전부다
+   (위 「배포하는 두 경로」). 켜지 않으면 배포는 계속 손으로 한다.
 
 ### 프론트 도메인 전환 (`*.vercel.app` → `https://yorr.site`)
 

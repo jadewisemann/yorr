@@ -209,7 +209,13 @@ jobs:
             echo "digest: ${{ steps.build.outputs.digest }}"
             echo '```'
             echo
-            echo "### OCI 호스트에서 (사람이 직접 실행한다)"
+            echo "### 배포"
+            echo
+            echo "자동 배포 타이머가 켜져 있으면(\`yorr-auto-deploy.timer\`)"
+            echo "**할 일이 없다** — 호스트가 5분마다 보고 진행 중인 게임이 없을 때 배포한다."
+            echo "확인은 \`journalctl -u yorr-auto-deploy -f\`."
+            echo
+            echo "앞당기거나(게임 중에도) 타이머를 끈 상태라면 호스트에서:"
             echo
             echo '```bash'
             echo "~/yorr/deploy/deploy.sh"
@@ -230,7 +236,8 @@ jobs:
             echo "> 그 파일은 호스트의 git 체크아웃에서 읽힌다 — 이미지에는 들어 있지 않다."
             echo "> 실제로 주입되는 값은 \`docker compose config | grep CORS_\`로 확인한다."
             echo
-            echo "> 자동 배포를 걸지 않는 이유: 배포가 **진행 중 게임을 끊는다**."
+            echo "> 워크플로가 직접 배포하지 않는 이유: 배포가 **진행 중 게임을 끊는다**."
             echo "> WS 구독과 라운드 마감 타이머가 프로세스 인메모리다(DESIGN.md 원칙 8)."
-            echo "> 사람이 한가한 시간을 골라 위 명령을 실행한다(ADR-0006)."
+            echo "> 그래서 호스트가 당기고(게임이 없을 때만) GitHub은 밀지 않는다 —"
+            echo "> 배포 키가 저장소에 없고 22번 포트도 열지 않는다(ADR-0006 §3 갱신 메모)."
           } >> "$GITHUB_STEP_SUMMARY"
