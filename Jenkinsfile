@@ -452,29 +452,6 @@ pipeline {
                                     exit 1
                                 }
 
-                                # 운영 프론트는 HTTPS 도메인(https://yorr.site)이다.
-                                # 거기서 http://·ws:// 를 부르면 브라우저가 mixed
-                                # content로 차단한다 — 빌드는 성공하고 런타임에만
-                                # 죽으므로 배포 전에 여기서 막는다. 상대경로(/api/v1,
-                                # /ws/v1/game)는 페이지 스킴을 따르므로 허용한다.
-                                case "$VITE_API_BASE_URL" in
-                                    https://*|/*) ;;
-                                    *)
-                                        echo "VITE_API_BASE_URL must be https:// or a" \
-                                            "same-origin path: $VITE_API_BASE_URL"
-                                        exit 1
-                                        ;;
-                                esac
-
-                                case "$VITE_WS_URL" in
-                                    wss://*|/*) ;;
-                                    *)
-                                        echo "VITE_WS_URL must be wss:// or a" \
-                                            "same-origin path: $VITE_WS_URL"
-                                        exit 1
-                                        ;;
-                                esac
-
                                 echo "Frontend environment variables loaded"
 
                                 npx --yes vercel@latest pull \

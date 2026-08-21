@@ -4,7 +4,7 @@
 > `config/`, `monitoring/`. 배포 파이프라인: `.github/workflows/backend.yml`,
 > `backend/Dockerfile`, `deploy/compose.yaml`
 > ([ADR-0006](../adr/0006-github-actions-ghcr-arm64-single-host.md)).
-> 루트 `Jenkinsfile`은 프론트 Vercel 배포와 구 backend-java 슬롯만 남았다.
+> 루트 `Jenkinsfile`은 더 이상 돌지 않는다(잔재 — 아래 「남아 있는 구 파이프라인」).
 
 ## 환경변수 (backend-java와 이름 동일 유지)
 
@@ -344,10 +344,12 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
    `https://www.yorr.site`도 목록에 넣어야 한다.
 3. **`AUTH_FRONTEND_REDIRECT_URI`를 `https://yorr.site/auth/callback`으로.** 제공자
    콘솔에 등록하는 값이 아니라 우리 서버가 로그인 끝에 보내는 프론트 주소다.
-4. **프론트 `VITE_API_BASE_URL`·`VITE_WS_URL`**(Vercel/Jenkins 자격증명)이
-   `https://`·`wss://`인지 확인. `vercel.json`에 `/api` 프록시가 없으므로 절대
-   URL이어야 하고, HTTPS 페이지에서 `ws://`는 브라우저가 차단한다. Jenkinsfile의
-   Vercel 스테이지가 배포 전에 이 두 값의 스킴을 검사한다.
+4. **프론트 `VITE_API_BASE_URL`·`VITE_WS_URL`**(Vercel 프로젝트 환경변수)을 새
+   백엔드 주소로. `vercel.json`에 `/api` 프록시가 없으므로 절대 URL이어야 하고,
+   HTTPS 페이지에서 `ws://`는 브라우저가 차단한다. 이 두 값의 스킴은
+   `vite.config.ts`가 **빌드에서** 검사한다(`assertSecureEndpoint`) — Vercel이
+   실행하는 빌드가 그것이므로, 평문 주소를 넣으면 배포가 실패하고 산출물이 나오지
+   않는다. localhost 대상 평문은 로컬 프로덕션 빌드용으로 허용한다.
 5. **카카오 콘솔**: 「플랫폼 > Web > 사이트 도메인」에 `https://yorr.site` 추가.
    Redirect URI는 백엔드 콜백이라 프론트 도메인과 무관하다(바꿀 필요 없음).
    구글은 서버 사이드 교환이라 승인된 리디렉션 URI(백엔드)만 보고, JavaScript 원본은
@@ -364,12 +366,15 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
 
 ### 남아 있는 구 파이프라인
 
-루트 `Jenkinsfile`은 지우지 않았다. **프론트 Vercel 배포가 같은 파일에 있고**,
-전환이 끝나기 전까지 backend-java가 롤백 대상이기 때문이다. 백엔드 스테이지 5개는
-`DEPLOY_LEGACY_BACKEND`(기본 false)로 잠갔고 트리거에서 `deploy/**`·`Jenkinsfile`을
-뺐다 — 그러지 않으면 Node 스택 파일을 고칠 때마다 그 잡이 구 호스트에
-backend-java를 재배포하려 들다 실패한다. 삭제는 PLANS.md Phase 5의 마지막
-항목(backend-java 제거, 별도 PR)에서 프론트 배포를 옮긴 뒤에 한다.
+루트 `Jenkinsfile`은 **더 이상 돌지 않는다.** 프론트는 Vercel이 직접 빌드·배포하고
+(그래서 배포 전 검사가 `vite.config.ts`에 있다), 백엔드는 GitHub Actions → GHCR →
+OCI 호스트다. 파일을 아직 지우지 않은 이유는 전환이 끝나기 전까지 backend-java가
+롤백 대상이라는 것뿐이다 — 백엔드 스테이지 5개는 `DEPLOY_LEGACY_BACKEND`(기본
+false)로 잠겨 있고 트리거에서 `deploy/**`·`Jenkinsfile`이 빠져 있다. 삭제는
+PLANS.md Phase 5의 마지막 항목(backend-java 제거, 별도 PR)이다.
+
+⚠️ **이 파일의 프론트 스테이지를 배포 경로로 착각하지 마라.** 거기서 읽는
+`frontend-main` 자격증명이 아니라 **Vercel 프로젝트의 환경변수**가 실제 빌드 값이다.
 
 ## 프론트 개발 모드와의 접점
 
