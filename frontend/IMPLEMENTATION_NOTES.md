@@ -8,6 +8,28 @@
 >
 > 형식: `## YYYY-MM-DD - 주제` 아래에 불릿. 최신이 위.
 
+## 2026-08-21 - 히어로 3D 품질 — 매트 원칙 안에서 재질감만 올렸다
+
+landing.md의 "평평한 장면(Lambert·스페큘러 없음)" 의도를 사용자 요청으로 갱신했다.
+"3D 렌더 티를 내지 않는다"는 지키되, Lambert 단색이 콘크리트 블록처럼 읽히던 것을
+고쳤다. 전부 `heroScene.ts` 안이다:
+
+- **주사위**: BoxGeometry → RoundedBoxGeometry(반경 8%, three examples —
+  BoxGeometry를 상속해 6면 재질 그룹이 그대로 산다). 텍스처는 512px로 올리고
+  면 방향감(세로 sheen)·모서리 비네팅·눈 안쪽 그림자를 그라디언트로 얹었다.
+  **눈 하나 = fill 한 번(합 21회) 계약은 유지** — heroScene.test가 세는 값이라
+  셰이딩은 fillRect·그라디언트 fillStyle로만 얹는다(threeStubs에
+  createLinear/RadialGradient 스텁 추가).
+- **레드 킵 주사위**: 야추 가운데 큰 주사위 하나를 레드 바디로 — 같은 텍스처 6장에
+  MeshStandardMaterial color 틴트만 곱한 두 번째 재질 벌이라 텍스처 비용 0.
+  destroy에서 맵은 한 번만 dispose한다(공유).
+- **재질·조명**: Lambert → MeshStandard(metalness 0 고정 — 환경맵이 없어 금속은
+  검게 죽는다). ACES 톤매핑(노출 1.12), PCFSoft 1024 그림자(bias -0.0004),
+  hemisphere 1.35 + 따뜻한 키 1.1 + 차가운 필 0.35 + 림 0.6(-4,4,-7 — 다크 카드에서
+  실루엣이 배경에 묻히지 않게). 값은 다크·라이트 카드 양쪽 스크린샷 실측으로 잡았다.
+- **소품**: 낚시찌를 반구 2장(레드/아이보리) 투톤으로. CTA(playCta)에
+  hover:bg-landing-accent/90 — codeEntry와 같은 처방이 빠져 있던 자리.
+
 ## 2026-08-21 - 랜딩의 라이트 편입 — 히어로 카드까지 전부 뒤집는다
 
 2026-08-18 노트의 "랜딩 팔레트는 테마 제외가 의도" 결정을 사용자가 뒤집었다
