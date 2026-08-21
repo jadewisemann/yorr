@@ -40,7 +40,13 @@ export function createTray(scene: THREE.Scene, world: RAPIER.World) {
   const floorMaterial = new THREE.ShadowMaterial({ opacity: 0.3 })
   const railMaterial = new THREE.MeshBasicMaterial()
   const railLineMaterial = new THREE.MeshBasicMaterial()
-  const trayMaterials: THREE.Material[] = [floorMaterial, railMaterial, railLineMaterial]
+  const railShadowMaterial = new THREE.ShadowMaterial({ opacity: 0.3 })
+  const trayMaterials: THREE.Material[] = [
+    floorMaterial,
+    railMaterial,
+    railLineMaterial,
+    railShadowMaterial,
+  ]
   /*
    * 그림자 받는 바닥판. **트레이 크기(halfSize 2.9)가 아니라 레일과 같은 RAIL_SPAN이다.**
    *
@@ -64,7 +70,25 @@ export function createTray(scene: THREE.Scene, world: RAPIER.World) {
   const railLine = new THREE.Mesh(new THREE.PlaneGeometry(RAIL_SPAN, 0.05), railLineMaterial)
   railLine.rotation.x = -Math.PI / 2
   railLine.position.set(0, 0.005, tray.separatorZ + 0.025)
-  scene.add(floor, rail, railLine)
+  /*
+   * 킵 레일 위의 그림자판. 레일은 불투명이라 아래 바닥판을 가리고, 자기는
+   * `MeshBasicMaterial`(조명을 안 받는다)이라 그림자를 못 받는다 — 그래서 킵한
+   * 주사위만 그림자가 하나도 없었다(라이트에서 스티커처럼 떠 보인다).
+   *
+   * 레일을 조명 받는 재질로 바꾸는 대신 판을 하나 더 얹는 이유: 레일 색은
+   * 토큰이 정하는 **평면색**이고(`appearance.ts`가 원시값을 그대로 넣는다),
+   * 조명·톤매핑을 태우면 그 값과 화면색이 또 한 겹 어긋난다.
+   *
+   * y는 레일(0.004)과 킵 슬롯 막대(0.018) 사이 — 막대는 그림자 위에 또렷하게 남는다.
+   */
+  const railShadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(RAIL_SPAN, RAIL_SPAN),
+    railShadowMaterial,
+  )
+  railShadow.rotation.x = -Math.PI / 2
+  railShadow.position.set(0, 0.008, tray.separatorZ + RAIL_SPAN / 2)
+  railShadow.receiveShadow = true
+  scene.add(floor, rail, railLine, railShadow)
 
   return { floorMaterial, railMaterial, railLineMaterial, trayMaterials }
 }
