@@ -20,8 +20,8 @@
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | Redis |
 | `REDIS_PASSWORD` | `""` | Redis |
 | `SERVER_PORT` | `8080` | 리슨 포트 |
-| `CORS_ALLOWED_ORIGINS` | `https://yorr.site` | REST·WS 공용 허용 출처(콤마 목록). 기본값이 운영 전용인 것이 fail-safe 설계다 |
-| `AUTH_FRONTEND_REDIRECT_URI` | `http://localhost:5173/auth/callback` | 로그인 콜백 후 프론트 복귀 |
+| `CORS_ALLOWED_ORIGINS` | `https://yorr.site` | REST·WS 공용 허용 출처(콤마 목록). 기본값이 운영 전용인 것이 fail-safe 설계다. **정확 일치**이며 패턴이 아니다 — `allowedOrigins()`가 공백과 끝의 `/`만 정규화한다(브라우저의 `Origin`에는 경로가 없다) |
+| `AUTH_FRONTEND_REDIRECT_URI` | `http://localhost:5173/auth/callback` | 로그인 콜백 후 프론트 복귀. 운영은 `https://yorr.site/auth/callback` — 프론트 도메인을 바꾸면 여기도 바꾼다 |
 | `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET`(선택) / `KAKAO_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 카카오 OAuth |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 구글 OAuth |
 
@@ -309,9 +309,14 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
 1. **OCI Security List / NSG**에 ingress TCP 80·443 허용. Docker가 publish한
    포트는 호스트 iptables의 INPUT을 우회하지만(FORWARD 경로) **클라우드 쪽
    방화벽은 우회하지 않는다.**
-2. `PUBLIC_HOST`(예 `api.yorr.site`)의 **A/AAAA 레코드**를 이 인스턴스로.
-   Caddy의 인증서 발급(HTTP-01)이 여기에 걸려 있다.
-3. `deploy/.env` 배치(권한 600). 루트 `.gitignore`가 `.env`를 이미 무시한다.
+2. `PUBLIC_HOST` 결정. **OCI 공인 IP 리터럴**을 그대로 쓸 수도 있고(현재 구성 —
+   Caddy가 IP 인증서를 받고 `default_sni`로 그것을 기본 인증서로 고른다),
+   DNS 이름(예 `api.yorr.site`)을 쓸 수도 있다. DNS 이름을 쓰면 **A/AAAA 레코드를
+   먼저** 이 인스턴스로 붙여야 한다 — Caddy의 HTTP-01 검증이 거기에 걸려 있다.
+   카카오·구글 콘솔은 IP를 Redirect URI로 받아 주지 않으므로, 소셜 로그인을 켜려면
+   DNS 이름이 사실상 필수다.
+3. `deploy/.env` 배치(권한 600) — `deploy/.env.example`을 복사해 채운다.
+   루트 `.gitignore`가 `.env`를 이미 무시한다.
 4. **GHCR 인증**: 패키지가 비공개면 `read:packages` PAT로
    `docker login ghcr.io`. 공개로 바꾸면 로그인 없이 pull된다.
 5. **구 MySQL 데이터 이관**(위 부트스트랩 절) — 새 호스트 첫 기동 전에.
@@ -321,6 +326,41 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
    `CORS_ALLOWED_ORIGINS`에 프론트 출처가 들어 있는지 확인(기본값은 운영 도메인만).
 8. 첫 기동: `docker compose up -d` → `sleep 15` → `docker compose ps`(health) →
    `docker compose logs --tail 100 backend`.
+
+### 프론트 도메인 전환 (`*.vercel.app` → `https://yorr.site`)
+
+프론트를 Vercel 기본 주소에서 자체 도메인으로 옮기는 것은 **출처(origin)가 바뀌는
+일**이다. 쿠키를 쓰지 않으므로(아래 「출처가 바뀔 때 무엇이 깨지는가」) 손댈 곳은
+목록 하나와 리다이렉트 주소 하나뿐인데, 둘 다 틀렸을 때 증상이 "CORS 403" 또는
+"로그인하면 옛 주소로 튕김" 하나라서 순서대로 확인하는 편이 빠르다.
+
+1. **Vercel**에서 도메인 추가. `yorr.site`와 `www.yorr.site` 둘 다 등록하고 한쪽을
+   primary로 두면 나머지는 301이 걸린다 — 브라우저가 실어 보내는 Origin이 하나로
+   모이므로 CORS 목록도 하나로 끝난다.
+2. **백엔드 `CORS_ALLOWED_ORIGINS`에 `https://yorr.site`.** 기본값이 이미 그것이라
+   변수를 비워도 되지만, 전환 기간에는 옛 `*.vercel.app` 주소를 함께 두고 정리 뒤에
+   뺀다. **정확 일치**이고 패턴이 아니다(`ws/gateway.ts`의 `originAllowed`) — 끝의
+   `/`만 `allowedOrigins()`가 떼 준다. www를 리다이렉트하지 않고 그대로 서비스하면
+   `https://www.yorr.site`도 목록에 넣어야 한다.
+3. **`AUTH_FRONTEND_REDIRECT_URI`를 `https://yorr.site/auth/callback`으로.** 제공자
+   콘솔에 등록하는 값이 아니라 우리 서버가 로그인 끝에 보내는 프론트 주소다.
+4. **프론트 `VITE_API_BASE_URL`·`VITE_WS_URL`**(Vercel/Jenkins 자격증명)이
+   `https://`·`wss://`인지 확인. `vercel.json`에 `/api` 프록시가 없으므로 절대
+   URL이어야 하고, HTTPS 페이지에서 `ws://`는 브라우저가 차단한다. Jenkinsfile의
+   Vercel 스테이지가 배포 전에 이 두 값의 스킴을 검사한다.
+5. **카카오 콘솔**: 「플랫폼 > Web > 사이트 도메인」에 `https://yorr.site` 추가.
+   Redirect URI는 백엔드 콜백이라 프론트 도메인과 무관하다(바꿀 필요 없음).
+   구글은 서버 사이드 교환이라 승인된 리디렉션 URI(백엔드)만 보고, JavaScript 원본은
+   쓰지 않는다.
+
+#### 출처가 바뀔 때 무엇이 깨지는가
+
+| 항목 | 영향 | 이유 |
+|---|---|---|
+| 세션 | **전 사용자 로그아웃처럼 보인다** | 세션 토큰이 `localStorage`(origin별)에 있다. 옛 출처의 값은 옮길 방법이 없다 |
+| 쿠키 | 없음 | REST는 `credentials` 미사용, 인증은 `Authorization: Bearer`. SameSite·서드파티 쿠키 문제가 생기지 않는다 |
+| 초대 링크·QR | 없음 | `window.location.origin`으로 만든다 — 새 도메인에서 자동으로 새 주소가 된다 |
+| Vercel Preview 배포 | 운영 백엔드를 부르면 403 | preview는 배포마다 다른 출처(`yorr-<해시>.vercel.app`)라 정확 일치 목록으로 열 수 없다. 로컬 `dev:real`은 Vite 프록시가 Origin 헤더를 떼서 우회하지만 preview에는 그 우회가 없다 |
 
 ### 남아 있는 구 파이프라인
 
