@@ -15,23 +15,25 @@ describeRedis('OAuthStateStore', () => {
   const redis = useRedis()
   const store = (): OAuthStateStore => new OAuthStateStore(redis())
 
-  it('발급한 state는 한 번만 통과한다', async () => {
-    const state = await store().issue()
+  const RETURN_URL = 'https://yorr.site/auth/callback'
 
-    expect(await store().consume(state)).toBe(true)
+  it('발급한 state는 한 번만 통과하고 담아 둔 복귀 주소를 돌려준다', async () => {
+    const state = await store().issue(RETURN_URL)
+
+    expect(await store().consume(state)).toBe(RETURN_URL)
     // 같은 콜백 URL을 다시 열어도 통하지 않는다.
-    expect(await store().consume(state)).toBe(false)
+    expect(await store().consume(state)).toBeUndefined()
   })
 
   it('우리가 발급하지 않은 값·빈 값은 거절한다', async () => {
-    expect(await store().consume('forged')).toBe(false)
-    expect(await store().consume('')).toBe(false)
-    expect(await store().consume(undefined)).toBe(false)
+    expect(await store().consume('forged')).toBeUndefined()
+    expect(await store().consume('')).toBeUndefined()
+    expect(await store().consume(undefined)).toBeUndefined()
   })
 
-  /** 동시에 도착한 두 콜백 중 정확히 하나만 통과해야 한다(DEL 반환값으로 판정). */
+  /** 동시에 도착한 두 콜백 중 정확히 하나만 통과해야 한다(GETDEL로 판정). */
   it('동시 소비에도 한 번만 통과한다', async () => {
-    const state = await store().issue()
+    const state = await store().issue(RETURN_URL)
 
     const results = await Promise.all([
       store().consume(state),
@@ -39,11 +41,11 @@ describeRedis('OAuthStateStore', () => {
       store().consume(state),
     ])
 
-    expect(results.filter(Boolean)).toHaveLength(1)
+    expect(results.filter((value) => value !== undefined)).toEqual([RETURN_URL])
   })
 
   it('동의 화면 체류 시간을 감안한 TTL을 건다', async () => {
-    const state = await store().issue()
+    const state = await store().issue(RETURN_URL)
 
     const ttl = await redis().ttl(`auth:oauth-state:${state}`)
 
@@ -52,7 +54,7 @@ describeRedis('OAuthStateStore', () => {
   })
 
   it('발급값은 추측할 수 없는 난수다', async () => {
-    const issued = await Promise.all([store().issue(), store().issue()])
+    const issued = await Promise.all([store().issue(RETURN_URL), store().issue(RETURN_URL)])
 
     expect(issued[0]).not.toBe(issued[1])
     expect(issued[0]).toMatch(/^[A-Za-z0-9_-]{43}$/)

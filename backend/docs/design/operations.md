@@ -20,10 +20,10 @@
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | Redis |
 | `REDIS_PASSWORD` | `""` | Redis |
 | `SERVER_PORT` | `8080` | 리슨 포트 |
-| `CORS_ALLOWED_ORIGINS` | `https://yorr.site` | REST·WS 공용 허용 출처(콤마 목록). 기본값이 운영 전용인 것이 fail-safe 설계다. **정확 일치**이며 패턴이 아니다 — `allowedOrigins()`가 공백과 끝의 `/`만 정규화한다(브라우저의 `Origin`에는 경로가 없다) |
-| `AUTH_FRONTEND_REDIRECT_URI` | `http://localhost:5173/auth/callback` | 로그인 콜백 후 프론트 복귀. 운영은 `https://yorr.site/auth/callback` — 프론트 도메인을 바꾸면 여기도 바꾼다 |
-| `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET`(선택) / `KAKAO_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 카카오 OAuth |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 구글 OAuth |
+| `CORS_ALLOWED_ORIGINS` | `https://yorr.site` | REST·WS 공용 허용 출처(콤마 목록). 기본값이 운영 전용인 것이 fail-safe 설계다. **정확 일치**이며 패턴이 아니다 — `allowedOrigins()`가 공백과 끝의 `/`만 정규화한다(브라우저의 `Origin`에는 경로가 없다). 운영에서 실제로 쓰이는 값은 compose가 준다(아래 「공개 주소 네 개」). **소셜 로그인의 복귀 출처 목록도 이것이다**([auth.md](auth.md) 「복귀 출처」) — 새 프론트 주소를 열 때 손댈 곳이 여기 하나인 이유다 |
+| `AUTH_FRONTEND_REDIRECT_URI` | `http://localhost:5173/auth/callback` | 로그인 콜백 후 프론트 복귀. 운영은 `https://yorr.site/auth/callback` — compose가 그 값을 기본값으로 준다(아래 「공개 주소 네 개」) |
+| `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET`(선택) / `KAKAO_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 카카오 OAuth. **`.env`에 넣는 것은 자격 두 개뿐이다** — 콜백 주소는 compose가 준다 |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 구글 OAuth. 같다 — `.env`에는 자격 두 개만 |
 
 Java에서 `@Value`로만 존재해 yaml에 없는 것(환경으로만 주입) — Node에서는
 env.ts에 정식 편입한다(1.7에서 완료). **이름은 제안이 아니라 Java가 실제로 읽는
@@ -260,9 +260,23 @@ DESIGN.md 원칙 8(WS 구독·라운드 마감 타이머·방 폐쇄 예약·오
   좌표는 토폴로지의 성질이다. 덕분에 구 호스트의 `.env`(그 파일의 `DB_URL`은
   `localhost`를 가리킨다)를 그대로 가져와도 동작한다. `DB_URL`을 비우는 것이
   특히 중요하다: 값이 있으면 `env.ts`가 `DB_HOST`를 덮는다(위 「환경변수」 표).
+- **공개 주소 네 개는 compose가 기본값을 준다**(`${VAR:-...}`):
+  `CORS_ALLOWED_ORIGINS` · `AUTH_FRONTEND_REDIRECT_URI` · `KAKAO_REDIRECT_URI` ·
+  `GOOGLE_REDIRECT_URI`. 비밀이 아니고 "우리가 어느 주소로 서비스하는가"라는
+  저장소의 사실이므로 정본을 여기 둔다 — **호스트 `.env`에 옮겨 적지 않는다.**
+  도메인이 바뀌면 `compose.yaml`을 고쳐 커밋하고, 호스트에서는 `git pull` +
+  `up -d backend`뿐이다.
+  - 낡았을 때의 증상이 전부 "로그인이 안 된다"인데 원인은 서로 다르다는 것이
+    이유다(CORS 403 · 로그인 후 옛 주소로 튕김 · 카카오 KOE006). 손으로 쓴
+    `.env`가 그것을 조용히 만드는 자리였다 — `DB_URL`을 비우는 것과 같은 판단이다.
+  - **`.env`에 값이 있으면 그 값이 이긴다**(한 호스트만 다르게 띄우는 탈출구).
+    `KEY=`처럼 **빈 값은 이기지 않는다** — `:-`가 빈 값도 미설정으로 보므로
+    옛 `.env`를 그대로 가져와도 운영 값으로 뜬다.
 - 설정 파일은 **`deploy/.env` 하나**다. compose가 보간(`${...}`)용으로 자동으로
   읽고, `BACKEND_ENV_FILE`의 기본값이 같은 파일이다. 필수 키:
   `PUBLIC_HOST`(스킴 없는 도메인) · `MYSQL_ROOT_PASSWORD` · `DB_PASSWORD`.
+  소셜 로그인을 켤 때 더하는 것은 **자격 네 개뿐이다**(`KAKAO_CLIENT_ID` ·
+  `KAKAO_CLIENT_SECRET`(선택) · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET`).
 - Redis는 **AOF 영속화를 켠다**. 방은 TTL로 사라지지만 세션은 그렇지 않다
   (게스트 24h·회원 30d) — 끄면 Redis 재시작이 전원 로그아웃이다.
   `maxmemory-policy`는 `noeviction`을 유지한다(LRU로 바꾸면 세션·점수판이 조용히 사라진다).
@@ -313,17 +327,23 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
    Caddy가 IP 인증서를 받고 `default_sni`로 그것을 기본 인증서로 고른다),
    DNS 이름(예 `api.yorr.site`)을 쓸 수도 있다. DNS 이름을 쓰면 **A/AAAA 레코드를
    먼저** 이 인스턴스로 붙여야 한다 — Caddy의 HTTP-01 검증이 거기에 걸려 있다.
-   카카오·구글 콘솔은 IP를 Redirect URI로 받아 주지 않으므로, 소셜 로그인을 켜려면
-   DNS 이름이 사실상 필수다.
+   카카오·구글 콘솔은 IP를 Redirect URI로 받아 주지 않지만 **그것이 IP 구성을
+   막지는 않는다**: 콜백을 프론트 도메인으로 받고 `frontend/vercel.json`의
+   rewrite가 백엔드로 넘긴다(#40). 즉 소셜 로그인 때문에 DNS 이름이 필요하지는
+   않다 — 대신 `PUBLIC_HOST`를 바꿀 때 그 rewrite의 대상 주소를 함께 고친다.
 3. `deploy/.env` 배치(권한 600) — `deploy/.env.example`을 복사해 채운다.
-   루트 `.gitignore`가 `.env`를 이미 무시한다.
+   루트 `.gitignore`가 `.env`를 이미 무시한다. **채우는 것은 비밀뿐이다**:
+   `PUBLIC_HOST` · DB·Redis 비밀번호 · 소셜 자격 네 개. 주소 네 개는
+   compose 기본값이다(위 「compose 계약」).
 4. **GHCR 인증**: 패키지가 비공개면 `read:packages` PAT로
    `docker login ghcr.io`. 공개로 바꾸면 로그인 없이 pull된다.
 5. **구 MySQL 데이터 이관**(위 부트스트랩 절) — 새 호스트 첫 기동 전에.
 6. `${BACKUP_DIR}`(기본 `deploy/backup`)을 **호스트 밖으로 주기적으로 복사.**
    같은 호스트의 덤프는 백업이 아니다 — 호스트를 잃으면 함께 잃는다.
 7. 프론트(Vercel)의 `VITE_API_BASE_URL`·`VITE_WS_URL`을 새 도메인으로. 그리고
-   `CORS_ALLOWED_ORIGINS`에 프론트 출처가 들어 있는지 확인(기본값은 운영 도메인만).
+   `CORS_ALLOWED_ORIGINS`에 프론트 출처가 들어 있는지 확인 — 정본은
+   `compose.yaml`이다. `docker compose config | grep CORS_`로 실제로 주입되는
+   값을 본다(호스트 `.env`에 옛 줄이 남아 이기고 있는지까지 그것으로 드러난다).
 8. 첫 기동: `docker compose up -d` → `sleep 15` → `docker compose ps`(health) →
    `docker compose logs --tail 100 backend`.
 
@@ -337,13 +357,15 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
 1. **Vercel**에서 도메인 추가. `yorr.site`와 `www.yorr.site` 둘 다 등록하고 한쪽을
    primary로 두면 나머지는 301이 걸린다 — 브라우저가 실어 보내는 Origin이 하나로
    모이므로 CORS 목록도 하나로 끝난다.
-2. **백엔드 `CORS_ALLOWED_ORIGINS`에 `https://yorr.site`.** 기본값이 이미 그것이라
-   변수를 비워도 되지만, 전환 기간에는 옛 `*.vercel.app` 주소를 함께 두고 정리 뒤에
-   뺀다. **정확 일치**이고 패턴이 아니다(`ws/gateway.ts`의 `originAllowed`) — 끝의
-   `/`만 `allowedOrigins()`가 떼 준다. www를 리다이렉트하지 않고 그대로 서비스하면
+2. **백엔드 `CORS_ALLOWED_ORIGINS`에 `https://yorr.site`.** `compose.yaml`의
+   기본값이 이미 그것 + `https://yorr-eight.vercel.app`(전환 기간의 옛 주소)이므로
+   호스트에서 할 일은 없다 — 정리할 때 그 기본값에서 뺀다. **정확 일치**이고
+   패턴이 아니다(`ws/gateway.ts`의 `originAllowed`) — 끝의 `/`만
+   `allowedOrigins()`가 떼 준다. www를 리다이렉트하지 않고 그대로 서비스하면
    `https://www.yorr.site`도 목록에 넣어야 한다.
-3. **`AUTH_FRONTEND_REDIRECT_URI`를 `https://yorr.site/auth/callback`으로.** 제공자
-   콘솔에 등록하는 값이 아니라 우리 서버가 로그인 끝에 보내는 프론트 주소다.
+3. **`AUTH_FRONTEND_REDIRECT_URI`는 `https://yorr.site/auth/callback`** —
+   이것도 `compose.yaml` 기본값이다. 제공자 콘솔에 등록하는 값이 아니라 우리
+   서버가 로그인 끝에 보내는 프론트 주소다.
 4. **프론트 `VITE_API_BASE_URL`·`VITE_WS_URL`**(Vercel 프로젝트 환경변수)을 새
    백엔드 주소로. `vercel.json`에 `/api` 프록시가 없으므로 절대 URL이어야 하고,
    HTTPS 페이지에서 `ws://`는 브라우저가 차단한다. 이 두 값의 스킴은
@@ -351,9 +373,15 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
    실행하는 빌드가 그것이므로, 평문 주소를 넣으면 배포가 실패하고 산출물이 나오지
    않는다. localhost 대상 평문은 로컬 프로덕션 빌드용으로 허용한다.
 5. **카카오 콘솔**: 「플랫폼 > Web > 사이트 도메인」에 `https://yorr.site` 추가.
-   Redirect URI는 백엔드 콜백이라 프론트 도메인과 무관하다(바꿀 필요 없음).
-   구글은 서버 사이드 교환이라 승인된 리디렉션 URI(백엔드)만 보고, JavaScript 원본은
+   구글은 서버 사이드 교환이라 승인된 리디렉션 URI만 보고, JavaScript 원본은
    쓰지 않는다.
+6. **두 콘솔의 Redirect URI는 프론트 도메인이다** —
+   `https://yorr.site/api/v1/auth/{kakao,google}/callback`. 콘솔이 IP를 받지
+   않으므로 프론트로 받고 `frontend/vercel.json`의 rewrite가 그 두 경로만 백엔드로
+   넘긴다(#40). 그래서 **백엔드 주소를 바꿔도 콘솔은 그대로**이고 고칠 곳은
+   `vercel.json` 하나다. 백엔드가 받는 값(`KAKAO_REDIRECT_URI`·
+   `GOOGLE_REDIRECT_URI`)은 콘솔 등록값과 문자 하나까지 같아야 하며, 그 정본은
+   `compose.yaml`이다(다르면 카카오는 KOE006).
 
 #### 출처가 바뀔 때 무엇이 깨지는가
 

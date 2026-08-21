@@ -8,14 +8,28 @@ interface SessionResponse {
   sessionToken: string
 }
 
+/**
+ * 로그인을 시작하는 주소. `origin`을 실어 보내는 이유: 서버의 복귀 주소는 설정값
+ * 하나여서, 그것을 알려주지 않으면 **어느 주소에서 로그인해도 그 하나로 튕긴다**
+ * (세션은 출처별 `localStorage`에 저장되므로 다른 출처로 튕기면 로그아웃 상태로
+ * 보인다). 운영 도메인·Vercel 기본 주소·로컬이 같은 백엔드를 볼 때 필요하다.
+ * 서버는 허용 목록에 있는 출처만 받고 나머지는 조용히 설정값으로 되돌린다.
+ */
+function authorizeUrl(provider: 'kakao' | 'google', prompt?: string) {
+  const params = new URLSearchParams()
+  if (prompt !== undefined) params.set('prompt', prompt)
+  const origin = globalThis.location?.origin
+  if (origin) params.set('origin', origin)
+  const query = params.toString()
+  return `${API_BASE_URL}/auth/${provider}/authorize${query === '' ? '' : `?${query}`}`
+}
+
 export function kakaoLoginUrl(options?: { forceLogin?: boolean }) {
-  const base = `${API_BASE_URL}/auth/kakao/authorize`
-  return options?.forceLogin ? `${base}?prompt=login` : base
+  return authorizeUrl('kakao', options?.forceLogin ? 'login' : undefined)
 }
 
 export function googleLoginUrl(options?: { selectAccount?: boolean }) {
-  const base = `${API_BASE_URL}/auth/google/authorize`
-  return options?.selectAccount ? `${base}?prompt=select_account` : base
+  return authorizeUrl('google', options?.selectAccount ? 'select_account' : undefined)
 }
 
 export async function exchangeLoginCode(code: string): Promise<AuthSession> {

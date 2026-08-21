@@ -1,4 +1,4 @@
-import type { Env } from '../config/env.js'
+import { allowedOrigins, type Env } from '../config/env.js'
 
 /**
  * 소셜 로그인 설정 — backend-java `auth/config/AuthProperties`.
@@ -19,12 +19,20 @@ export interface AuthOptions {
    * 보내는 것은 우리 서버다.
    */
   readonly frontendRedirectUri: string
+  /**
+   * `frontendRedirectUri` 대신 쓸 수 있는 프론트 출처 목록 — 프론트가 여러 주소에서
+   * 돌 때 **로그인을 시작한 출처로** 되돌려 보내기 위한 것이다(`auth/returnTo.ts`).
+   * CORS 허용 출처를 그대로 쓴다: 목록을 둘로 나누면 한쪽만 갱신되는 순간 증상이
+   * "CORS는 되는데 로그인만 안 된다"가 된다.
+   */
+  readonly returnOrigins: readonly string[]
   readonly kakao: ProviderConfig
   readonly google: ProviderConfig
 }
 
 export const authOptions = (env: Env): AuthOptions => ({
   frontendRedirectUri: env.AUTH_FRONTEND_REDIRECT_URI,
+  returnOrigins: allowedOrigins(env),
   kakao: {
     clientId: env.KAKAO_CLIENT_ID,
     clientSecret: env.KAKAO_CLIENT_SECRET,

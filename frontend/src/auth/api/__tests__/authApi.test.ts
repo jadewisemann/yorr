@@ -12,26 +12,33 @@ import {
 import { mockApiServer } from '@/mocks/server'
 import { API_BASE_URL, ApiError } from '@/shared/api/client'
 
+/**
+ * 시작 주소에는 **현재 출처**가 실린다 — 서버가 로그인을 끝낸 뒤 여기로 되돌려
+ * 보내야 하기 때문이다(설정값 하나로 고정하면 다른 주소에서 로그인한 사용자가
+ * 그 하나로 튕기고, 세션은 출처별 localStorage라서 로그아웃으로 보인다).
+ */
+const ORIGIN = `origin=${encodeURIComponent(globalThis.location.origin)}`
+
 describe('kakaoLoginUrl', () => {
-  it('기본은 카카오 인가 주소를 그대로 돌려준다', () => {
-    expect(kakaoLoginUrl()).toBe(`${API_BASE_URL}/auth/kakao/authorize`)
+  it('기본은 카카오 인가 주소에 현재 출처만 실어 돌려준다', () => {
+    expect(kakaoLoginUrl()).toBe(`${API_BASE_URL}/auth/kakao/authorize?${ORIGIN}`)
   })
 
   it('forceLogin이면 계정 재선택을 위한 prompt=login을 붙인다', () => {
     expect(kakaoLoginUrl({ forceLogin: true })).toBe(
-      `${API_BASE_URL}/auth/kakao/authorize?prompt=login`,
+      `${API_BASE_URL}/auth/kakao/authorize?prompt=login&${ORIGIN}`,
     )
   })
 })
 
 describe('googleLoginUrl', () => {
-  it('기본은 구글 인가 주소를 그대로 돌려준다', () => {
-    expect(googleLoginUrl()).toBe(`${API_BASE_URL}/auth/google/authorize`)
+  it('기본은 구글 인가 주소에 현재 출처만 실어 돌려준다', () => {
+    expect(googleLoginUrl()).toBe(`${API_BASE_URL}/auth/google/authorize?${ORIGIN}`)
   })
 
   it('계정 선택 요청이면 prompt=select_account를 붙인다', () => {
     expect(googleLoginUrl({ selectAccount: true })).toBe(
-      `${API_BASE_URL}/auth/google/authorize?prompt=select_account`,
+      `${API_BASE_URL}/auth/google/authorize?prompt=select_account&${ORIGIN}`,
     )
   })
 })

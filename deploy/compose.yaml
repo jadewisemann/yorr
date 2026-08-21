@@ -41,17 +41,43 @@ services:
     env_file:
       - ${BACKEND_ENV_FILE:-./.env}
 
-    # 여기 있는 네 개는 **`.env`보다 이긴다**(compose 규칙: environment > env_file).
+    # ── 좌표: `.env`보다 이긴다 (compose 규칙: environment > env_file) ─────────
     # 의도한 것이다 — Redis·MySQL의 좌표는 운영자의 설정이 아니라 이 파일이 정하는
     # 토폴로지의 성질이다. 운영 `.env`를 SSAFY 호스트에서 그대로 가져와도(그 파일의
     # `DB_URL`은 `localhost`를 가리킨다) 컨테이너가 옆 서비스를 찾는다.
     # `DB_URL`을 비우는 것이 특히 중요하다: 값이 있으면 env.ts가 DB_HOST를 덮어쓴다.
+    #
+    # ── 공개 주소: 여기가 **기본값**이고 `.env`가 이긴다 ──────────────────────
+    # `${VAR:-...}`이므로 `.env`에 값이 있으면 그 값, **없거나 비어 있으면** 아래
+    # 운영 값이다. 그래서 이 네 개는 호스트 `.env`에 옮겨 적지 않아도 된다 —
+    # 비밀이 아니고, "우리가 어느 주소로 서비스하는가"라는 저장소의 사실이다.
+    # (비밀은 여전히 `.env`에만 있다: KAKAO/GOOGLE_CLIENT_*·DB 비밀번호.)
+    #
+    # 왜 저장소에 두는가: 이 네 값이 낡으면 증상이 전부 "로그인이 안 된다"인데
+    # 원인은 서로 다르다(CORS 403 · 로그인 후 옛 주소로 튕김 · 카카오 KOE006).
+    # 호스트의 손으로 쓴 `.env` 하나가 조용히 그것을 만드는 자리였다 —
+    # `DB_URL`을 여기서 비우는 것과 같은 이유로 저장소가 정본을 갖는다.
+    #
+    # CORS 목록은 "브라우저에서 우리를 부를 수 있는 출처"이자 **로그인을 끝낸
+    # 사용자를 되돌려 보낼 수 있는 출처**다(backend/docs/design/auth.md 「복귀
+    # 출처」). 그래서 DNS가 아직 안 붙은 주소에서 시험하려면 여기에 그 출처를
+    # 더하는 것으로 끝난다 — 제공자 콘솔은 손대지 않는다.
+    #
+    # 두 콜백이 `api.yorr.site`가 아니라 **프론트 도메인**인 것은 오타가 아니다:
+    # 카카오·구글 콘솔이 IP를 Redirect URI로 받지 않으므로 프론트 도메인으로 받고
+    # `frontend/vercel.json`의 rewrite가 백엔드로 넘긴다. 백엔드 주소를 바꾸면
+    # 그 rewrite도 함께 바꿔야 한다(콘솔 등록값은 그대로 둘 수 있다 — 그것이 이
+    # 구성의 이점이다).
     environment:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       DB_URL: ""
       DB_HOST: mysql
       DB_PORT: "3306"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://yorr.site,https://yorr-eight.vercel.app}
+      AUTH_FRONTEND_REDIRECT_URI: ${AUTH_FRONTEND_REDIRECT_URI:-https://yorr.site/auth/callback}
+      KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI:-https://yorr.site/api/v1/auth/kakao/callback}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://yorr.site/api/v1/auth/google/callback}
 
     depends_on:
       # 기동 순서가 계약이다: main.ts의 `verifyMigrations`가 MySQL 왕복이고,

@@ -5,6 +5,7 @@ import type { GoogleOAuthClient } from '../../auth/googleClient.js'
 import type { KakaoOAuthClient } from '../../auth/kakaoClient.js'
 import type { LoginCodeStore } from '../../auth/loginCodeStore.js'
 import { formUrlEncode } from '../../auth/oauthHttp.js'
+import { resolveReturnUrl } from '../../auth/returnTo.js'
 import type { SocialLoginService } from '../../auth/socialLoginService.js'
 import type { SocialProfile, SocialProvider } from '../../auth/socialProfile.js'
 import type { OAuthStateStore } from '../../auth/stateStore.js'
@@ -34,6 +35,12 @@ export interface AuthRouteDependencies {
   readonly state: OAuthStateStore
   readonly loginCodes: LoginCodeStore
   readonly logins: SocialLoginService
+}
+
+interface AuthorizeQuery {
+  readonly prompt?: string | string[]
+  /** 로그인을 시작한 프론트 출처(`window.location.origin`). 목록에 없으면 무시된다. */
+  readonly origin?: string | string[]
 }
 
 interface CallbackQuery {
@@ -78,13 +85,17 @@ export const registerAuthRoutes = async (
      * 상태 코드로만 알린다(503, 빈 본문).
      */
     app.get(`/auth/${route.path}/authorize`, async (request, reply) => {
-      const prompt = first((request.query as { prompt?: string | string[] }).prompt)
+      const query = request.query as AuthorizeQuery
+      const prompt = first(query.prompt)
+      // 로그인을 **시작한 출처**로 되돌아가기 위한 값. 프론트가 자기 origin을 넘기고
+      // 목록에 있는 것만 통과한다(`auth/returnTo.ts`). 없으면 설정값 그대로다.
+      const returnUrl = resolveReturnUrl(deps.options, first(query.origin))
       try {
         // Java와 같은 순서다: state를 먼저 발급하고 URL을 만든다. 미설정 제공자에서는
         // 쓰이지 않는 state가 하나 남지만 5분 뒤 사라진다(동작 계약은 503 그대로).
         const url = route.authorizeUrl(
           deps,
-          await deps.state.issue(),
+          await deps.state.issue(returnUrl),
           prompt === route.reauthPrompt,
         )
         return redirect(reply, url)
@@ -102,8 +113,15 @@ export const registerAuthRoutes = async (
      */
     app.get(`/auth/${route.path}/callback`, async (request, reply) => {
       const query = request.query as CallbackQuery
+      // **error 검사보다 먼저 소비한다** — 실패 응답도 로그인을 시작한 출처로
+      // 돌아가야 하고, 그 주소를 아는 곳이 state뿐이다. 사유 우선순위는 그대로다
+      // (아래 validateCallback이 error를 먼저 본다). 달라지는 것은 취소된 콜백도
+      // state를 태운다는 점뿐인데, 취소한 사용자는 authorize부터 다시 시작하므로
+      // 그 state를 쓸 곳이 없다.
+      const returnUrl = await deps.state.consume(first(query.state))
+      const returnTo = returnUrl ?? deps.options.frontendRedirectUri
       try {
-        const code = await validateCallback(deps, query)
+        const code = validateCallback(query, returnUrl)
         const profile = await route.fetchProfile(deps, code)
         const user = await deps.logins.loginOrRegister(
           route.provider,
@@ -113,14 +131,14 @@ export const registerAuthRoutes = async (
         )
         const sessionToken = await deps.users.openMemberSession(user.id, user.nickname)
         const loginCode = await deps.loginCodes.issue(sessionToken)
-        return redirect(reply, frontendUrl(deps.options, 'code', loginCode))
+        return redirect(reply, frontendUrl(returnTo, 'code', loginCode))
       } catch (error) {
         if (!(error instanceof SocialLoginError)) throw error
         request.log.warn(
           { err: error, provider: route.provider, reason: error.reason },
           '소셜 로그인 실패',
         )
-        return redirect(reply, frontendUrl(deps.options, 'error', error.reason))
+        return redirect(reply, frontendUrl(returnTo, 'error', error.reason))
       }
     })
   }
@@ -155,17 +173,15 @@ export const registerAuthRoutes = async (
   })
 }
 
-/** 검증 순서가 계약이다: error 파라미터 → state 소비 → code 존재. */
-const validateCallback = async (
-  deps: AuthRouteDependencies,
-  query: CallbackQuery,
-): Promise<string> => {
+/**
+ * 검증 **순서**가 계약이다: error 파라미터 → state 유효 → code 존재.
+ * (state의 *소비*는 호출자가 먼저 했다 — 위 콜백 주석 참고. 판정 순서는 그대로다.)
+ */
+const validateCallback = (query: CallbackQuery, returnUrl: string | undefined): string => {
   const error = first(query.error)
   // 사용자가 동의 화면에서 취소하면 code 대신 이 값이 온다.
   if (error !== undefined && error.trim().length > 0) throw new SocialLoginError('canceled')
-  if (!(await deps.state.consume(first(query.state)))) {
-    throw new SocialLoginError('invalid_state')
-  }
+  if (returnUrl === undefined) throw new SocialLoginError('invalid_state')
   const code = first(query.code)
   if (code === undefined || code.trim().length === 0) {
     throw new SocialLoginError('provider_error', 'authorization_code_missing')
@@ -211,9 +227,9 @@ const redirect = (reply: FastifyReply, url: string): FastifyReply =>
  * 프론트 복귀 주소에 파라미터 하나를 붙인다. 값만 인코딩하고 기존 쿼리는 건드리지
  * 않는다(Java `UriComponentsBuilder.queryParam().encode()`와 같은 결과).
  */
-const frontendUrl = (options: AuthOptions, name: string, value: string): string => {
-  const separator = options.frontendRedirectUri.includes('?') ? '&' : '?'
-  return `${options.frontendRedirectUri}${separator}${name}=${formUrlEncode(value)}`
+const frontendUrl = (returnTo: string, name: string, value: string): string => {
+  const separator = returnTo.includes('?') ? '&' : '?'
+  return `${returnTo}${separator}${name}=${formUrlEncode(value)}`
 }
 
 /** 같은 이름이 두 번 오면 Fastify가 배열로 준다 — 첫 값만 본다(Spring과 같다). */

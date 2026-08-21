@@ -1,5 +1,5 @@
 import fastify, { type FastifyInstance } from 'fastify'
-import { afterEach, beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../../test/redisHarness.js'
 import { authOptions } from '../../../auth/config.js'
 import { DataIntegrityViolationError } from '../../../auth/errors.js'
@@ -322,6 +322,82 @@ describeRedis('소셜 로그인 REST', () => {
     const location = String(response.headers.location)
     expect(new URL(location).searchParams.get('error')).toBe('provider_error')
     expect(location).not.toContain('super-secret')
+  })
+
+  /**
+   * 프론트가 여러 출처에서 도는 구성(운영 도메인 + Vercel 기본 주소 + 로컬)에서
+   * **로그인을 시작한 출처로** 돌아와야 한다. 다른 출처로 돌려보내면 세션이
+   * 그쪽 `localStorage`에 저장돼 사용자에게는 로그인 실패로 보인다.
+   */
+  describe('복귀 출처 (origin 파라미터)', () => {
+    const VERCEL = 'https://yorr-eight.vercel.app'
+
+    const useMultiOrigin = async (): Promise<void> => {
+      await app.close()
+      app = await build({ CORS_ALLOWED_ORIGINS: `http://localhost:5173,${VERCEL}` })
+    }
+
+    /** state에 담긴 복귀 주소를 따라간다 — 제공자 콜백은 그대로 한 곳으로 온다. */
+    it('허용 목록에 있는 출처에서 시작하면 그 출처로 돌아온다', async () => {
+      await useMultiOrigin()
+      const started = await app.inject({
+        url: `/api/v1/auth/kakao/authorize?origin=${encodeURIComponent(VERCEL)}`,
+      })
+      const state = new URL(String(started.headers.location)).searchParams.get('state')
+      providerResponses.push(json({ access_token: 'a' }), json({ id: 11 }))
+
+      const response = await app.inject({
+        url: `/api/v1/auth/kakao/callback?code=c&state=${state}`,
+      })
+
+      const location = new URL(String(response.headers.location))
+      expect(location.origin + location.pathname).toBe(`${VERCEL}/auth/callback`)
+      expect(location.searchParams.get('code')).not.toBeNull()
+    })
+
+    it('실패도 시작한 출처로 돌아온다 — 안내 문구를 볼 화면이 거기 있다', async () => {
+      await useMultiOrigin()
+      const started = await app.inject({
+        url: `/api/v1/auth/google/authorize?origin=${encodeURIComponent(VERCEL)}`,
+      })
+      const state = new URL(String(started.headers.location)).searchParams.get('state')
+      providerResponses.push(json({ error: 'nope' }, 401))
+
+      const response = await app.inject({
+        url: `/api/v1/auth/google/callback?code=c&state=${state}`,
+      })
+
+      const location = new URL(String(response.headers.location))
+      expect(location.origin + location.pathname).toBe(`${VERCEL}/auth/callback`)
+      expect(location.searchParams.get('error')).toBe('provider_error')
+    })
+
+    it('목록에 없는 출처는 무시하고 설정된 복귀 주소로 돌아온다', async () => {
+      await useMultiOrigin()
+      const started = await app.inject({
+        url: '/api/v1/auth/kakao/authorize?origin=https%3A%2F%2Fevil.example',
+      })
+      const state = new URL(String(started.headers.location)).searchParams.get('state')
+      providerResponses.push(json({ access_token: 'a' }), json({ id: 12 }))
+
+      const response = await app.inject({
+        url: `/api/v1/auth/kakao/callback?code=c&state=${state}`,
+      })
+
+      const location = new URL(String(response.headers.location))
+      expect(location.origin + location.pathname).toBe(FRONTEND)
+    })
+
+    /** state를 못 꺼낸 콜백은 시작 출처를 알 길이 없다 — 설정값으로 보낸다. */
+    it('state가 없으면 설정된 복귀 주소로 invalid_state를 알린다', async () => {
+      await useMultiOrigin()
+
+      const response = await app.inject({ url: '/api/v1/auth/kakao/callback?code=c' })
+
+      const location = new URL(String(response.headers.location))
+      expect(location.origin + location.pathname).toBe(FRONTEND)
+      expect(location.searchParams.get('error')).toBe('invalid_state')
+    })
   })
 
   it('GET /auth/me — 살아 있는 세션은 200, 죽은 세션은 401 session_expired다', async () => {
