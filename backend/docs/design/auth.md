@@ -9,23 +9,29 @@
 
 ```text
 프론트 로그인 버튼 (전체 페이지 이동, XHR 아님)
- → GET  /api/v1/auth/{provider}/authorize     state 발급, 302 → 제공자
+ → GET  /api/v1/auth/{provider}/authorize     복귀 주소를 담아 state 발급,
+                                              302 → 제공자
  → 제공자 동의 화면
- → GET  /api/v1/auth/{provider}/callback      state 검증, code 교환, 가입/로그인,
-                                              세션 개설 → 302 → 프론트 ?code=<1회용>
+ → GET  /api/v1/auth/{provider}/callback      state 검증(복귀 주소 회수), code 교환,
+                                              가입/로그인, 세션 개설
+                                              → 302 → 프론트 ?code=<1회용>
  → POST /api/v1/auth/session {code}           code를 세션 토큰으로 교환
 ```
 
 - authorize 쿼리: kakao `?prompt=login`, google `?prompt=select_account`
-  (문자열 일치 시에만 전달). 미설정 제공자(`NOT_CONFIGURED`)는 **503 빈 본문**
-  — 브라우저가 직접 여는 URL이라 리다이렉트할 곳이 없다.
+  (문자열 일치 시에만 전달) · `?origin=<프론트 출처>`(아래 「복귀 출처」).
+  미설정 제공자(`NOT_CONFIGURED`)는 **503 빈 본문** — 브라우저가 직접 여는
+  URL이라 리다이렉트할 곳이 없다.
 - authorize URL은 모든 쿼리 값을 form-urlencoded로 완전 인코딩해야 한다
   (redirect_uri의 `:`·`/` 포함 — Java가 UriComponentsBuilder를 피한 이유).
   google은 `scope=openid profile email` 추가.
 - callback은 **항상 302로 응답한다**(JSON 없음 — 사람 브라우저가 도착하는
   곳). 실패는 `?error=<reason소문자>`: `canceled` / `invalid_state` /
   `not_configured` / `provider_error`. 이 네 문자열이 프론트가 아는 전부다.
-  검증 순서: error 파라미터 → state 소비 → code 존재.
+  **판정 순서**: error 파라미터 → state 유효 → code 존재. (state의 *소비*는
+  그보다 먼저 일어난다 — 복귀 주소가 거기 들어 있고 실패 응답도 그 주소로 가야
+  한다. 순서를 바꾼 대가는 "취소된 콜백도 state를 태운다" 하나이고, 취소한
+  사용자는 authorize부터 다시 시작하므로 쓸 곳이 없는 값이다.)
 - 토큰 교환·프로필 조회(서버→제공자, **호출당 8초 예산**):
   - kakao: `POST kauth.kakao.com/oauth/token`(secret은 설정된 경우만) →
     `GET kapi.kakao.com/v2/user/me`. 닉네임은 `kakao_account.profile.nickname`
@@ -50,11 +56,33 @@
 
 | 키 | 값 | TTL | 소비 |
 |---|---|---|---|
-| `auth:oauth-state:{state}` | "1" | 5분 | DEL 반환값으로 판정(동시 콜백에도 1회) — 로그인 CSRF 방어 |
+| `auth:oauth-state:{state}` | 프론트 복귀 주소 | 5분 | GETDEL로 판정(동시 콜백에도 1회) — 로그인 CSRF 방어 + 복귀 출처 왕복 |
 | `auth:login-code:{code}` | 세션 토큰 | 60초 | GETDEL — 2번째 시도는 반드시 실패 |
 
 로그인 코드를 쓰는 이유: 세션 토큰을 리다이렉트 URL에 실으면 브라우저
 히스토리·리퍼러·액세스 로그에 남는다.
+
+## 복귀 출처 (프론트가 여러 주소에서 돌 때)
+
+복귀 주소가 `AUTH_FRONTEND_REDIRECT_URI` 하나로 고정되면 **어느 주소에서
+로그인해도 그 하나로 돌아온다.** 세션 토큰은 출처별 `localStorage`에 저장되므로
+다른 출처로 돌려보내는 것은 사용자에게 곧 로그인 실패다(화면은 로그아웃 상태).
+운영 도메인·Vercel 기본 주소(`*.vercel.app`)·로컬이 같은 백엔드를 볼 때 걸린다.
+
+- 프론트가 `?origin=<window.location.origin>`을 실어 authorize를 연다.
+- 서버는 **CORS 허용 출처 목록**(`CORS_ALLOWED_ORIGINS`)에 있는 값만 받는다
+  (`auth/returnTo.ts`). 목록에 없으면 거절이 아니라 **조용히 설정값으로**
+  되돌린다 — 브라우저가 직접 여는 주소라 에러 화면을 보여줄 곳이 없다.
+- 고를 수 있는 것은 **출처뿐이고 경로가 아니다**: 경로·쿼리는 설정값에서 오고
+  스킴·호스트만 갈아 끼운다. 그래서 오픈 리다이렉트가 되지 않는다.
+  `*`는 받지 않는다(WS 게이트웨이의 와일드카드와 의미가 다르다 — 여기서는
+  "누구에게든 로그인 코드를 실어 보낸다"가 된다).
+- 목록을 CORS와 공유하는 이유: 둘을 따로 두면 한쪽만 갱신되는 순간 증상이
+  "CORS는 되는데 로그인만 안 된다"가 된다. **새 프론트 주소를 열 때 손댈 곳은
+  `CORS_ALLOWED_ORIGINS` 하나다.**
+- 제공자 콘솔은 손대지 않는다. redirect_uri는 그대로 한 곳이고(파라미터를
+  덧붙이면 등록값과 달라져 카카오는 KOE006), 그래서 출처를 왕복시키는 자리가
+  `state`뿐이다.
 
 ## 세션 REST
 
@@ -96,6 +124,7 @@
 | `auth/kakaoClient.ts` · `auth/googleClient.ts` | `KakaoOAuthClient` · `GoogleOAuthClient` |
 | `auth/oauthHttp.ts` | `AuthConfig.socialRestClient` + `URLEncoder`(form-urlencoded 인코딩) |
 | `auth/config.ts` | `AuthProperties`(`configured()` 판정 포함) |
+| `auth/returnTo.ts` | 대응 없음 — Node에서 추가(위 「복귀 출처」) |
 | `auth/socialLoginService.ts` | `SocialLoginService` |
 | `auth/socialAccountStore.ts` | `SocialAccountRepository` + `SocialAccountRegistrar`(별도 트랜잭션 경계) |
 | `auth/errors.ts` | `SocialLoginException` + `DataIntegrityViolationException` 자리 |
@@ -141,12 +170,15 @@
   토큰 교환 폼 내용, secret 공백 시 미전송(kakao), 닉네임 폴백 3단, 20자 절단,
   id 부재, **제공자 오류 본문 비전파**, 타임아웃.
 - `auth/__tests__/stores.test.ts` — state·로그인 코드의 1회용 시맨틱(동시 소비
-  포함)과 TTL. 진짜 Redis.
+  포함)과 TTL, state가 담아 둔 복귀 주소. 진짜 Redis.
+- `auth/__tests__/returnTo.test.ts` — 복귀 출처 결정(목록 통과·미등록 무시·`*`
+  거절·경로는 설정값에서·끝의 `/` 정규화).
 - `auth/__tests__/socialAccountStore.test.ts` — MySQL 게이트(`MYSQL_TEST_URL`)
   안에서만 도는 통합: 한 트랜잭션 가입, 유니크 위반, 롤백으로 유령 회원 없음,
   제공자별 독립, 플레이스홀더일 때만 채택, UTC 벽시계.
 - `http/routes/__tests__/auth.test.ts` — authorize 302/503, prompt 문자열 정확
   일치, 콜백 전 구간(성공·canceled·invalid_state·재사용·code 부재·제공자 실패),
-  코드 1회 교환, 재로그인 시 이전 토큰 무효화, `/me`, 무조건 204 로그아웃.
+  코드 1회 교환, 재로그인 시 이전 토큰 무효화, `/me`, 무조건 204 로그아웃,
+  복귀 출처(성공·실패 모두 시작한 출처로 · 미등록 출처는 설정값으로).
 - `config/__tests__/env.test.ts` — `DB_URL`(JDBC) 파싱과 우선순위, 소셜 로그인
   변수 이름·기본값.

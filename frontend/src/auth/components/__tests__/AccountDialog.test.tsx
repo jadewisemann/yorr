@@ -18,6 +18,9 @@ afterEach(() => {
 
 const session = { userId: 'u1', nickname: '느긋한 선장', sessionToken: 'token-1' }
 
+/** 시작 주소에는 현재 출처가 실린다 — 로그인을 끝낸 뒤 여기로 되돌아오기 위한 값이다. */
+const ORIGIN = `origin=${encodeURIComponent(globalThis.location.origin)}`
+
 describe('로그인 수단 고르기', () => {
   it('제공자마다 그 제공자의 시작 주소로 페이지를 옮긴다', async () => {
     const assign = stubNavigation()
@@ -27,10 +30,10 @@ describe('로그인 수단 고르기', () => {
     )
 
     await user.click(screen.getByRole('button', { name: '카카오로 계속하기' }))
-    expect(assign).toHaveBeenCalledWith(`${API_BASE_URL}/auth/kakao/authorize`)
+    expect(assign).toHaveBeenCalledWith(`${API_BASE_URL}/auth/kakao/authorize?${ORIGIN}`)
 
     await user.click(screen.getByRole('button', { name: '구글로 계속하기' }))
-    expect(assign).toHaveBeenCalledWith(`${API_BASE_URL}/auth/google/authorize`)
+    expect(assign).toHaveBeenCalledWith(`${API_BASE_URL}/auth/google/authorize?${ORIGIN}`)
   })
 
   it('다른 계정으로 로그인은 재인증을 요청한다 — 카카오 세션이 남아 동의 없이 통과하기 때문이다', async () => {
@@ -42,7 +45,9 @@ describe('로그인 수단 고르기', () => {
 
     await user.click(screen.getByRole('button', { name: '다른 계정으로 로그인' }))
 
-    expect(assign).toHaveBeenCalledWith(`${API_BASE_URL}/auth/kakao/authorize?prompt=login`)
+    expect(assign).toHaveBeenCalledWith(
+      `${API_BASE_URL}/auth/kakao/authorize?prompt=login&${ORIGIN}`,
+    )
   })
 })
 

@@ -133,8 +133,10 @@ backend-java의 오류 표면은 세 가지 형식이 섞여 있고, **이 모�
 - 메트릭: `GET /actuator/prometheus` — `yorr_rooms_active`,
   `yorr_game_participants_active{game=...}` ([operations.md](docs/design/operations.md))
 - REST base: `/api/v1`, WebSocket: `/ws/v1/game`, 기본 포트 8080
-- CORS: REST(`/api/**`)와 WS 핸드셰이크가 **같은** `CORS_ALLOWED_ORIGINS` 목록을
-  쓴다. 기본값은 운영 도메인(`https://yorr.site`)만 — dev 출처가 운영에 새지
+- CORS: REST(`/api/**`)와 WS 핸드셰이크, 그리고 **소셜 로그인의 복귀 출처**가
+  같은 `CORS_ALLOWED_ORIGINS` 목록을 쓴다(복귀 출처는
+  [auth.md](docs/design/auth.md) 「복귀 출처」 — 목록이 둘이면 한쪽만 갱신될 때
+  "CORS는 되는데 로그인만 안 된다"가 된다). 기본값은 운영 도메인(`https://yorr.site`)만 — dev 출처가 운영에 새지
   않도록 fail-safe. credentials 미사용(인증은 `Authorization: Bearer`이므로 프론트
   도메인이 바뀌어도 쿠키 계약이 없다). 대조는 **정확 일치**이고 패턴이 아니다 —
   `allowedOrigins()`가 공백과 끝의 `/`만 정규화한다(도메인 전환 절차:

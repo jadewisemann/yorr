@@ -20,10 +20,10 @@
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | Redis |
 | `REDIS_PASSWORD` | `""` | Redis |
 | `SERVER_PORT` | `8080` | 리슨 포트 |
-| `CORS_ALLOWED_ORIGINS` | `https://yorr.site` | REST·WS 공용 허용 출처(콤마 목록). 기본값이 운영 전용인 것이 fail-safe 설계다. **정확 일치**이며 패턴이 아니다 — `allowedOrigins()`가 공백과 끝의 `/`만 정규화한다(브라우저의 `Origin`에는 경로가 없다) |
-| `AUTH_FRONTEND_REDIRECT_URI` | `http://localhost:5173/auth/callback` | 로그인 콜백 후 프론트 복귀. 운영은 `https://yorr.site/auth/callback` — 프론트 도메인을 바꾸면 여기도 바꾼다 |
-| `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET`(선택) / `KAKAO_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 카카오 OAuth |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 구글 OAuth |
+| `CORS_ALLOWED_ORIGINS` | `https://yorr.site` | REST·WS 공용 허용 출처(콤마 목록). 기본값이 운영 전용인 것이 fail-safe 설계다. **정확 일치**이며 패턴이 아니다 — `allowedOrigins()`가 공백과 끝의 `/`만 정규화한다(브라우저의 `Origin`에는 경로가 없다). 운영에서 실제로 쓰이는 값은 compose가 준다(아래 「공개 주소 네 개」). **소셜 로그인의 복귀 출처 목록도 이것이다**([auth.md](auth.md) 「복귀 출처」) — 새 프론트 주소를 열 때 손댈 곳이 여기 하나인 이유다 |
+| `AUTH_FRONTEND_REDIRECT_URI` | `http://localhost:5173/auth/callback` | 로그인 콜백 후 프론트 복귀. 운영은 `https://yorr.site/auth/callback` — compose가 그 값을 기본값으로 준다(아래 「공개 주소 네 개」) |
+| `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET`(선택) / `KAKAO_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 카카오 OAuth. **`.env`에 넣는 것은 자격 두 개뿐이다** — 콜백 주소는 compose가 준다 |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 구글 OAuth. 같다 — `.env`에는 자격 두 개만 |
 
 Java에서 `@Value`로만 존재해 yaml에 없는 것(환경으로만 주입) — Node에서는
 env.ts에 정식 편입한다(1.7에서 완료). **이름은 제안이 아니라 Java가 실제로 읽는
@@ -177,8 +177,76 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
 PR ─────────────► verify(check·typecheck·test·build) + compose 문법 + arm64 이미지 빌드(push 안 함)
 main push ──────► verify ─► image ─► ghcr.io/jadewisemann/yorr-backend:{main, sha-<커밋>}
                                             │
-사람이 시작 ─────────────────────────────────┘  docker compose pull backend && up -d backend
+호스트가 당긴다 ──────────────────────────────┘  auto-deploy.sh(5분): 바뀐 게 있고 + 게임이 0이면 → deploy.sh -y
+사람이 시작 ─────────────────────────────────┘  deploy.sh (언제든, 게임 중에도)
 ```
+
+`git pull`이 배포의 일부인 이유: 공개 주소 네 개의 정본이 `deploy/compose.yaml`이고
+그 파일은 **호스트의 git 체크아웃에서 읽힌다**(이미지에는 없다). 빼먹으면 새
+이미지가 옛 설정으로 뜬다 — 증상은 "배포했는데 그대로"다.
+
+### 배포하는 세 경로 (같은 몸통)
+
+| | 어디서 | 게임 중이면 | 쓰는 때 |
+|---|---|---|---|
+| 자동 | 호스트의 systemd timer(5분) → `auto-deploy.sh` | **미룬다** — 다음 회차에 다시 본다 | 평상시. 켜 두면 손댈 일이 없다 |
+| 버튼 | GitHub Actions 탭 → `deploy` 워크플로 | **끊는다** | 앞당길 때, 롤백할 때. 로그가 GitHub에 남는다 |
+| 손 | 호스트에서 `deploy/deploy.sh` | 확인을 묻고 **끊는다** | 러너·네트워크가 죽었을 때의 최후 경로 |
+
+셋 다 실제 배포는 `deploy.sh`를 부른다 — 갈래가 갈라지면 한쪽만 낡는다.
+
+**버튼**(`.github/workflows/deploy.yml`)은 `workflow_dispatch` 전용이고 태그
+입력이 하나 있다(`main` = 최신, `sha-xxxxxxx` = 롤백). 롤백은 `.env`의
+`BACKEND_IMAGE`에 **고정으로 적히므로** 5분 타이머가 되돌리지 않는다 — 대신 고정된
+동안 자동 배포는 아무것도 하지 않는다(그 태그는 움직이지 않는다). 원인을 고친 뒤
+같은 버튼을 `main`으로 한 번 더 눌러 고정을 푼다.
+
+**셀프호스티드 러너를 쓰는 이유**는 ADR-0006 §3의 기각 사유를 지키기 위해서다:
+러너는 **호스트에서 GitHub으로 나가는 연결**로 일감을 받으므로 22번 포트를 열지
+않고 배포 키도 Secrets에 두지 않는다. 설치(호스트에서 한 번):
+
+```bash
+# Settings → Actions → Runners → New self-hosted runner 가 주는 명령을 쓰되,
+# config.sh 에 라벨을 붙이고 서비스로 등록한다(로그아웃해도 살아 있게).
+./config.sh --url https://github.com/jadewisemann/yorr --token <UI가 준 값> \
+            --labels yorr-oci --name yorr-oci --unattended
+sudo ./svc.sh install && sudo ./svc.sh start
+```
+
+⚠️ 러너를 돌리는 계정이 **docker 그룹에 있고 `~/yorr`에 쓸 수 있어야** 한다
+(자동 배포 타이머와 같은 조건). 그리고 셀프호스티드 러너에서는 믿을 수 없는 코드를
+돌리지 않는다 — `deploy.yml`만 이 러너를 쓰고 `pull_request`로는 돌지 않는다.
+다른 워크플로는 `ubuntu-latest`에 남겨 둔다.
+
+**자동 배포의 판단 순서**(`auto-deploy.sh`, 하나라도 안 맞으면 조용히 끝난다):
+
+1. `git pull --ff-only` — compose·설정 갱신
+2. `docker compose pull backend` — GHCR의 `main` 태그
+3. **바뀐 것이 있나**: 이미지 ID가 다르거나 이 pull이 `deploy/`를 건드렸나
+4. **게임이 없나**: 컨테이너 안에서 `/actuator/prometheus`를 읽어
+   `yorr_rooms_active`(PLAYING 방 수)가 0인가
+
+`ADR-0006` §3이 자동 배포를 기각했던 두 근거를 둘 다 지킨다(그 절의 갱신 메모):
+
+- **호스트가 당기고 아무도 밀지 않는다.** GitHub에 배포 키가 없고 22번 포트를
+  러너에게 열지 않는다 — 여는 것은 여전히 80·443뿐이다.
+- **게임을 끊지 않는다**(대신 미룬다). 게이지를 못 읽으면 `unknown`이고 **0으로
+  보지 않는다** — 못 읽었을 때 끊는 쪽으로 기울지 않는다.
+- 다만 바쁜 서버에서 영원히 밀리지 않도록 상한이 있다:
+  `YORR_DEPLOY_MAX_DEFER`(기본 21600s = 6시간)를 넘기면 진행 중이어도 배포한다.
+  `0`으로 두면 "게임이 끝날 때까지 영원히 기다린다".
+
+설치·중단(호스트에서 한 번):
+
+```bash
+sudo cp ~/yorr/deploy/systemd/yorr-auto-deploy.* /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now yorr-auto-deploy.timer
+journalctl -u yorr-auto-deploy -f                        # 무엇을 판단했는지
+sudo systemctl disable --now yorr-auto-deploy.timer      # 끄면 ADR-0006 원래 상태
+```
+
+⚠️ 유닛 파일의 `User=`·경로는 **호스트 계정에 맞춰 고친다**(기본값은 OCI Ubuntu
+이미지의 `ubuntu`이고, 그 계정이 docker 그룹에 있어야 한다).
 
 - **빌드는 배포 대상 서버에서 하지 않는다.** 2 OCPU를 빌드와 실서비스가 나눠 쓰면
   라운드 마감 타이머(25s+1s)가 밀린다. 호스트는 pull만 한다.
@@ -188,7 +256,9 @@ main push ──────► verify ─► image ─► ghcr.io/jadewisemann/
   스크립트가 하나도 없다는 것**이고, Dockerfile의 `prod-deps` 스테이지가 매 빌드마다
   `node_modules`에서 `*.node`를 찾아 그 전제를 검사한다.
   ⚠️ **런타임 스테이지에 `RUN`을 넣지 마라** — 넣는 순간 QEMU가 필요해진다.
-- **자동 배포를 걸지 않는다.** 배포가 진행 중 게임을 끊기 때문이다(아래).
+- **워크플로가 배포하지 않는다.** 배포가 진행 중 게임을 끊기 때문이다(아래).
+  자동화는 호스트 쪽에 있다 — GitHub이 미는 것이 아니라 호스트가 당기고,
+  게임이 없을 때만 진행한다(아래 「배포하는 두 경로」).
 
 ### CI 검사 (`verify` 잡)
 
@@ -238,7 +308,10 @@ DESIGN.md 원칙 8(WS 구독·라운드 마감 타이머·방 폐쇄 예약·오
   유실된다. 부팅 시 `closeUnrecoverableGamesOnStartup`이 이어갈 수 없는 PLAYING
   방을 **폐쇄한다** — 게임 중단은 버그가 아니라 설계된 동작이다.
 - 남는 완화책은 **시각 선택**뿐이다. 그래서 워크플로는 이미지까지만 만들고,
-  `docker compose pull && up -d backend`는 사람이 한가한 시간에 실행한다.
+  배포는 호스트에서 일어난다 — 그 "시각 선택"을 사람의 눈대중이 아니라
+  `yorr_rooms_active == 0`이라는 측정으로 하는 것이 `auto-deploy.sh`다
+  (위 「배포하는 두 경로」). **끊긴다는 사실이 사라진 것은 아니다**: 미루는 상한
+  (`YORR_DEPLOY_MAX_DEFER`)에 걸린 배포와 손 배포는 여전히 끊는다.
 
 ### compose 계약 (`deploy/compose.yaml`)
 
@@ -260,9 +333,23 @@ DESIGN.md 원칙 8(WS 구독·라운드 마감 타이머·방 폐쇄 예약·오
   좌표는 토폴로지의 성질이다. 덕분에 구 호스트의 `.env`(그 파일의 `DB_URL`은
   `localhost`를 가리킨다)를 그대로 가져와도 동작한다. `DB_URL`을 비우는 것이
   특히 중요하다: 값이 있으면 `env.ts`가 `DB_HOST`를 덮는다(위 「환경변수」 표).
+- **공개 주소 네 개는 compose가 기본값을 준다**(`${VAR:-...}`):
+  `CORS_ALLOWED_ORIGINS` · `AUTH_FRONTEND_REDIRECT_URI` · `KAKAO_REDIRECT_URI` ·
+  `GOOGLE_REDIRECT_URI`. 비밀이 아니고 "우리가 어느 주소로 서비스하는가"라는
+  저장소의 사실이므로 정본을 여기 둔다 — **호스트 `.env`에 옮겨 적지 않는다.**
+  도메인이 바뀌면 `compose.yaml`을 고쳐 커밋하고, 호스트에서는 `git pull` +
+  `up -d backend`뿐이다.
+  - 낡았을 때의 증상이 전부 "로그인이 안 된다"인데 원인은 서로 다르다는 것이
+    이유다(CORS 403 · 로그인 후 옛 주소로 튕김 · 카카오 KOE006). 손으로 쓴
+    `.env`가 그것을 조용히 만드는 자리였다 — `DB_URL`을 비우는 것과 같은 판단이다.
+  - **`.env`에 값이 있으면 그 값이 이긴다**(한 호스트만 다르게 띄우는 탈출구).
+    `KEY=`처럼 **빈 값은 이기지 않는다** — `:-`가 빈 값도 미설정으로 보므로
+    옛 `.env`를 그대로 가져와도 운영 값으로 뜬다.
 - 설정 파일은 **`deploy/.env` 하나**다. compose가 보간(`${...}`)용으로 자동으로
   읽고, `BACKEND_ENV_FILE`의 기본값이 같은 파일이다. 필수 키:
   `PUBLIC_HOST`(스킴 없는 도메인) · `MYSQL_ROOT_PASSWORD` · `DB_PASSWORD`.
+  소셜 로그인을 켤 때 더하는 것은 **자격 네 개뿐이다**(`KAKAO_CLIENT_ID` ·
+  `KAKAO_CLIENT_SECRET`(선택) · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET`).
 - Redis는 **AOF 영속화를 켠다**. 방은 TTL로 사라지지만 세션은 그렇지 않다
   (게스트 24h·회원 30d) — 끄면 Redis 재시작이 전원 로그아웃이다.
   `maxmemory-policy`는 `noeviction`을 유지한다(LRU로 바꾸면 세션·점수판이 조용히 사라진다).
@@ -313,19 +400,28 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
    Caddy가 IP 인증서를 받고 `default_sni`로 그것을 기본 인증서로 고른다),
    DNS 이름(예 `api.yorr.site`)을 쓸 수도 있다. DNS 이름을 쓰면 **A/AAAA 레코드를
    먼저** 이 인스턴스로 붙여야 한다 — Caddy의 HTTP-01 검증이 거기에 걸려 있다.
-   카카오·구글 콘솔은 IP를 Redirect URI로 받아 주지 않으므로, 소셜 로그인을 켜려면
-   DNS 이름이 사실상 필수다.
+   카카오·구글 콘솔은 IP를 Redirect URI로 받아 주지 않지만 **그것이 IP 구성을
+   막지는 않는다**: 콜백을 프론트 도메인으로 받고 `frontend/vercel.json`의
+   rewrite가 백엔드로 넘긴다(#40). 즉 소셜 로그인 때문에 DNS 이름이 필요하지는
+   않다 — 대신 `PUBLIC_HOST`를 바꿀 때 그 rewrite의 대상 주소를 함께 고친다.
 3. `deploy/.env` 배치(권한 600) — `deploy/.env.example`을 복사해 채운다.
-   루트 `.gitignore`가 `.env`를 이미 무시한다.
+   루트 `.gitignore`가 `.env`를 이미 무시한다. **채우는 것은 비밀뿐이다**:
+   `PUBLIC_HOST` · DB·Redis 비밀번호 · 소셜 자격 네 개. 주소 네 개는
+   compose 기본값이다(위 「compose 계약」).
 4. **GHCR 인증**: 패키지가 비공개면 `read:packages` PAT로
    `docker login ghcr.io`. 공개로 바꾸면 로그인 없이 pull된다.
 5. **구 MySQL 데이터 이관**(위 부트스트랩 절) — 새 호스트 첫 기동 전에.
 6. `${BACKUP_DIR}`(기본 `deploy/backup`)을 **호스트 밖으로 주기적으로 복사.**
    같은 호스트의 덤프는 백업이 아니다 — 호스트를 잃으면 함께 잃는다.
 7. 프론트(Vercel)의 `VITE_API_BASE_URL`·`VITE_WS_URL`을 새 도메인으로. 그리고
-   `CORS_ALLOWED_ORIGINS`에 프론트 출처가 들어 있는지 확인(기본값은 운영 도메인만).
+   `CORS_ALLOWED_ORIGINS`에 프론트 출처가 들어 있는지 확인 — 정본은
+   `compose.yaml`이다. `docker compose config | grep CORS_`로 실제로 주입되는
+   값을 본다(호스트 `.env`에 옛 줄이 남아 이기고 있는지까지 그것으로 드러난다).
 8. 첫 기동: `docker compose up -d` → `sleep 15` → `docker compose ps`(health) →
    `docker compose logs --tail 100 backend`.
+9. (선택) **자동 배포 타이머 설치** — `deploy/systemd/`의 두 유닛을 복사하고
+   `enable --now`. 유닛의 `User=`·경로를 이 호스트에 맞게 고치는 것이 전부다
+   (위 「배포하는 두 경로」). 켜지 않으면 배포는 계속 손으로 한다.
 
 ### 프론트 도메인 전환 (`*.vercel.app` → `https://yorr.site`)
 
@@ -337,13 +433,15 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
 1. **Vercel**에서 도메인 추가. `yorr.site`와 `www.yorr.site` 둘 다 등록하고 한쪽을
    primary로 두면 나머지는 301이 걸린다 — 브라우저가 실어 보내는 Origin이 하나로
    모이므로 CORS 목록도 하나로 끝난다.
-2. **백엔드 `CORS_ALLOWED_ORIGINS`에 `https://yorr.site`.** 기본값이 이미 그것이라
-   변수를 비워도 되지만, 전환 기간에는 옛 `*.vercel.app` 주소를 함께 두고 정리 뒤에
-   뺀다. **정확 일치**이고 패턴이 아니다(`ws/gateway.ts`의 `originAllowed`) — 끝의
-   `/`만 `allowedOrigins()`가 떼 준다. www를 리다이렉트하지 않고 그대로 서비스하면
+2. **백엔드 `CORS_ALLOWED_ORIGINS`에 `https://yorr.site`.** `compose.yaml`의
+   기본값이 이미 그것 + `https://yorr-eight.vercel.app`(전환 기간의 옛 주소)이므로
+   호스트에서 할 일은 없다 — 정리할 때 그 기본값에서 뺀다. **정확 일치**이고
+   패턴이 아니다(`ws/gateway.ts`의 `originAllowed`) — 끝의 `/`만
+   `allowedOrigins()`가 떼 준다. www를 리다이렉트하지 않고 그대로 서비스하면
    `https://www.yorr.site`도 목록에 넣어야 한다.
-3. **`AUTH_FRONTEND_REDIRECT_URI`를 `https://yorr.site/auth/callback`으로.** 제공자
-   콘솔에 등록하는 값이 아니라 우리 서버가 로그인 끝에 보내는 프론트 주소다.
+3. **`AUTH_FRONTEND_REDIRECT_URI`는 `https://yorr.site/auth/callback`** —
+   이것도 `compose.yaml` 기본값이다. 제공자 콘솔에 등록하는 값이 아니라 우리
+   서버가 로그인 끝에 보내는 프론트 주소다.
 4. **프론트 `VITE_API_BASE_URL`·`VITE_WS_URL`**(Vercel 프로젝트 환경변수)을 새
    백엔드 주소로. `vercel.json`에 `/api` 프록시가 없으므로 절대 URL이어야 하고,
    HTTPS 페이지에서 `ws://`는 브라우저가 차단한다. 이 두 값의 스킴은
@@ -351,9 +449,15 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
    실행하는 빌드가 그것이므로, 평문 주소를 넣으면 배포가 실패하고 산출물이 나오지
    않는다. localhost 대상 평문은 로컬 프로덕션 빌드용으로 허용한다.
 5. **카카오 콘솔**: 「플랫폼 > Web > 사이트 도메인」에 `https://yorr.site` 추가.
-   Redirect URI는 백엔드 콜백이라 프론트 도메인과 무관하다(바꿀 필요 없음).
-   구글은 서버 사이드 교환이라 승인된 리디렉션 URI(백엔드)만 보고, JavaScript 원본은
+   구글은 서버 사이드 교환이라 승인된 리디렉션 URI만 보고, JavaScript 원본은
    쓰지 않는다.
+6. **두 콘솔의 Redirect URI는 프론트 도메인이다** —
+   `https://yorr.site/api/v1/auth/{kakao,google}/callback`. 콘솔이 IP를 받지
+   않으므로 프론트로 받고 `frontend/vercel.json`의 rewrite가 그 두 경로만 백엔드로
+   넘긴다(#40). 그래서 **백엔드 주소를 바꿔도 콘솔은 그대로**이고 고칠 곳은
+   `vercel.json` 하나다. 백엔드가 받는 값(`KAKAO_REDIRECT_URI`·
+   `GOOGLE_REDIRECT_URI`)은 콘솔 등록값과 문자 하나까지 같아야 하며, 그 정본은
+   `compose.yaml`이다(다르면 카카오는 KOE006).
 
 #### 출처가 바뀔 때 무엇이 깨지는가
 
