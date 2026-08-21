@@ -41,7 +41,7 @@ export function LandingHeroCarousel({
   return (
     <section
       aria-label="게임 캐러셀"
-      className="relative h-full w-full touch-none select-none"
+      className="landing-stage relative h-full w-full touch-none select-none"
       onClickCapture={handleClickCapture}
       onPointerCancel={handlePointerUp}
       onPointerDown={handlePointerDown}

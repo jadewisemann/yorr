@@ -636,8 +636,11 @@
    이 2계층이 이 저장소의 제일 큰 자산이고, 색 회수 78곳이 그것을 쓸 수 있게 만든 일이다.
 
    **여기 없는 것은 의도적으로 안 바꾼 것이다.**
-   - 게임 팔레트(`pp-*` 탁구 · `duel-*` 결투)와 랜딩(`landing-*`) — 세계관이 다르다.
-     탁구 코트와 결투장은 라이트 모드에서도 어두운 무대다.
+   - 게임 팔레트(`pp-*` 탁구 · `duel-*` 결투) — 세계관이 다르다. 탁구 코트와
+     결투장은 라이트 모드에서도 어두운 무대다. 랜딩 크롬(`landing-*`)은 아래에서
+     덮지만 히어로 카드의 바닥·광택·스크림(`--ds-landing-card*`·`ghost`·
+     `accent-line`)은 같은 이유로 안 덮는다 — 카드는 게임 무대의 미리보기라
+     라이트에서도 어둡고, 그 위 글자는 블록 끝의 `.landing-stage`가 되돌린다.
    - 주사위(`physics-die`·`physics-pip`) — 실물 주사위라 테마와 무관하게 상아색 면에
      검은 눈이다. 3D 트레이(`physics-rail`·`physics-slot`)도 게임 무대라 그대로 둔다.
    - 스크림 3단 — 뒤를 가리는 일은 테마와 무관하게 검정이 한다.
@@ -700,6 +703,61 @@
   /* 그림자 — 검정 50·70%는 흰 배경에서 먹칠이 된다. */
   --ds-shadow-raised: 0 0.75rem 2rem rgb(0 0 0 / 12%);
   --ds-shadow-overlay: 0 -1.5rem 3.75rem rgb(0 0 0 / 18%);
+
+  /* ── 랜딩 크롬 ──
+     헤더·티커·프로그레스·배너·코드 팝오버는 앱과 같은 규칙으로 뒤집는다. 히어로
+     카드 무대(--ds-landing-card*·ghost·accent-line)와 그 안 텍스트는 안 뒤집는다 —
+     블록 끝 `.landing-stage` 참고. accent 3종(accent·accent-ink·accent-tint)과
+     CTA 그림자는 두 테마에서 같은 레드라 그대로다. 헤어라인은 :root처럼 공유
+     사다리를 참조하므로 여기서 다시 적지 않는다(위에서 이미 뒤집혔다). */
+  /* 배경 — 구조는 다크와 같다(노이즈 + 하단 레드 글로우 + 중앙 스포트라이트).
+     바닥은 canvas(#ebebe8)와 같은 값이어야 한다 — theme.ts의 주소창 색과 짝이다. */
+  --ds-landing-bg:
+    var(--ds-noise),
+    radial-gradient(40% 30% at 50% 78%, rgb(229 57 53 / 7%) 0%, rgb(229 57 53 / 0) 70%),
+    radial-gradient(58% 52% at 50% 34%, rgb(255 255 255 / 85%) 0%, rgb(255 255 255 / 0) 66%),
+    #ebebe8;
+  --ds-landing-panel: rgb(255 255 255 / 88%);
+  --ds-landing-well: rgb(255 255 255 / 62%);
+  --ds-landing-soft: rgb(0 0 0 / 6%);
+  /* 코드 입력 필드 바닥 — 팝오버(surface-raised #fcfcfb)보다 한 단 가라앉힌다. */
+  --ds-landing-field: #f0f0ed;
+  --ds-landing-bar: rgb(0 0 0 / 22%);
+  /* = 라이트 brand-soft. 다크용 분홍(#ff8a86)은 라이트 canvas 위 2.2:1로 무너진다. */
+  --ds-landing-accent-text: #b3231f;
+  /* 글자 4단 — 본편 content 사다리와 같은 값 계열. text가 wordmark·카운터의 최강단이다.
+     muted 6.12 · faint/placeholder 5.08(canvas 실측, 본편 라이트 주석과 같은 제약). */
+  --ds-landing-text: #0b0c0f;
+  --ds-landing-text-strong: #16171b;
+  --ds-landing-text-muted: #55565c;
+  --ds-landing-text-faint: #616269;
+  --ds-landing-placeholder: #616269;
+  /* 비활성 제출 버튼 바닥 — 위 text-muted가 4.5:1을 넘는 밝기(실측 5.4). */
+  --ds-landing-disabled: #dcdcd8;
+  --ds-landing-shadow-panel: inset 0 0 0 1px rgb(0 0 0 / 10%);
+  /* 카드 겉 그림자는 라이트 페이지 위에 떨어지므로 여기서 뒤집는다(무대가 되돌리지
+     않는다). card-inset은 어두운 카드 안쪽 비네팅이라 안 덮는다. */
+  --ds-landing-shadow-card: 0 40px 80px rgb(0 0 0 / 30%);
+  --ds-landing-shadow-card-quiet: 0 40px 80px rgb(0 0 0 / 26%);
+  --ds-landing-shadow-popover: 0 34px 70px rgb(0 0 0 / 24%);
+}
+
+/* 히어로 캐러셀은 라이트에서도 어두운 무대다 — 카드 바닥(--ds-landing-card*·ghost)은
+   라이트 블록이 안 덮으므로 그대로 어둡고, 그 위에 서는 글자·헤어라인·필 바닥만
+   다크 값으로 되돌린다(:root와 같은 값). 스코프는 LandingHeroCarousel의 <section>
+   하나다 — 가운데 카드·이웃 카드·화살표가 전부 그 안에 있다. */
+[data-theme="light"] .landing-stage {
+  --ds-landing-text: #ffffff;
+  --ds-landing-text-strong: #f7f7f5;
+  --ds-landing-text-muted: #a4a5aa;
+  --ds-landing-text-faint: #8a8b92;
+  --ds-landing-accent-text: #ff8a86;
+  --ds-landing-hairline: rgb(255 255 255 / 10%);
+  --ds-landing-hairline-strong: rgb(255 255 255 / 18%);
+  --ds-landing-well: rgb(8 9 10 / 55%);
+  --ds-landing-disabled: #202125;
+  /* 무대 위 CTA의 포커스 링 — 라이트 focus(#16171b)는 어두운 카드에서 안 보인다. */
+  --ds-color-focus: #f7f7f5;
 }
 
 @media (max-width: 22.5rem) {
