@@ -40,11 +40,27 @@ export function createTray(scene: THREE.Scene, world: RAPIER.World) {
   const floorMaterial = new THREE.ShadowMaterial({ opacity: 0.3 })
   const railMaterial = new THREE.MeshBasicMaterial()
   const railLineMaterial = new THREE.MeshBasicMaterial()
-  const trayMaterials: THREE.Material[] = [floorMaterial, railMaterial, railLineMaterial]
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(tray.halfSize * 2, tray.halfSize * 2),
+  const railShadowMaterial = new THREE.ShadowMaterial({ opacity: 0.3 })
+  const trayMaterials: THREE.Material[] = [
     floorMaterial,
-  )
+    railMaterial,
+    railLineMaterial,
+    railShadowMaterial,
+  ]
+  /*
+   * 그림자 받는 바닥판. **트레이 크기(halfSize 2.9)가 아니라 레일과 같은 RAIL_SPAN이다.**
+   *
+   * 직교 카메라가 보여 주는 폭은 컨테이너 비율을 따라간다(World.resize:
+   * vertical = clamp(4.25/aspect, 3.35, 4.6), horizontal = vertical × aspect) — 실측하면
+   * 320px에서 ±3.47, 1440px에서 ±4.94다. 즉 **모든 브레이크포인트에서 화면이 2.9보다
+   * 넓고**, 5.8×5.8짜리 판을 쓰면 x=2.9를 넘어간 그림자가 수직으로 잘린다(다섯 번째
+   * 주사위와 쏟는 사발이 실제로 그 자리에 온다). 다크에서는 검정 30% 그림자가 매트에
+   * 묻혀 안 보였고 라이트 테마가 그것을 드러냈다.
+   *
+   * 키워도 비용이 없다: `ShadowMaterial`은 그림자가 닿는 자리 말고는 그리지 않고,
+   * 그림자 해상도를 정하는 것은 이 판이 아니라 광원의 shadow camera(±6·±5 × mapSize)다.
+   */
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(RAIL_SPAN, RAIL_SPAN), floorMaterial)
   floor.rotation.x = -Math.PI / 2
   floor.position.y = 0.002
   floor.receiveShadow = true
@@ -54,7 +70,25 @@ export function createTray(scene: THREE.Scene, world: RAPIER.World) {
   const railLine = new THREE.Mesh(new THREE.PlaneGeometry(RAIL_SPAN, 0.05), railLineMaterial)
   railLine.rotation.x = -Math.PI / 2
   railLine.position.set(0, 0.005, tray.separatorZ + 0.025)
-  scene.add(floor, rail, railLine)
+  /*
+   * 킵 레일 위의 그림자판. 레일은 불투명이라 아래 바닥판을 가리고, 자기는
+   * `MeshBasicMaterial`(조명을 안 받는다)이라 그림자를 못 받는다 — 그래서 킵한
+   * 주사위만 그림자가 하나도 없었다(라이트에서 스티커처럼 떠 보인다).
+   *
+   * 레일을 조명 받는 재질로 바꾸는 대신 판을 하나 더 얹는 이유: 레일 색은
+   * 토큰이 정하는 **평면색**이고(`appearance.ts`가 원시값을 그대로 넣는다),
+   * 조명·톤매핑을 태우면 그 값과 화면색이 또 한 겹 어긋난다.
+   *
+   * y는 레일(0.004)과 킵 슬롯 막대(0.018) 사이 — 막대는 그림자 위에 또렷하게 남는다.
+   */
+  const railShadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(RAIL_SPAN, RAIL_SPAN),
+    railShadowMaterial,
+  )
+  railShadow.rotation.x = -Math.PI / 2
+  railShadow.position.set(0, 0.008, tray.separatorZ + RAIL_SPAN / 2)
+  railShadow.receiveShadow = true
+  scene.add(floor, rail, railLine, railShadow)
 
   return { floorMaterial, railMaterial, railLineMaterial, trayMaterials }
 }
