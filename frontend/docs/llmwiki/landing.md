@@ -21,9 +21,6 @@
 
 ## 캐러셀 (`LandingHeroCarousel`)
 
-- 루트 `<section>`의 `landing-stage` 클래스가 **라이트 테마에서 카드 무대를 어둡게
-  유지하는 스코프**다 — 지우면 라이트에서 카드 위 글자가 다크 글자로 뒤집혀 안 보인다.
-  규칙은 [design-system.md](design-system.md)「기술 기준」, 변수는 tokens.css 라이트 블록 끝.
 - MotionValue + 명령형 `animate`. 슬라이드 출발 위치는 `useLayoutEffect`에서 새 내용과
   같은 프레임에 써야 한다 — 한 프레임 늦으면 새 카드가 보였다가 옆으로 튕긴다.
 - **드래그와 CTA의 충돌은 8px 임계값으로 가른다.** `closest('button')`이면 드래그를 아예
