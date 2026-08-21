@@ -212,11 +212,17 @@ jobs:
             echo "### OCI 호스트에서 (사람이 직접 실행한다)"
             echo
             echo '```bash'
-            echo "cd ~/yorr/deploy"
+            echo "cd ~/yorr && git pull      # deploy/compose.yaml은 이미지가 아니라 체크아웃에서 온다"
+            echo "cd deploy"
             echo "docker compose pull backend"
             echo "docker compose up -d backend"
             echo "sleep 15 && docker compose ps && docker compose logs --tail 100 backend"
             echo '```'
+            echo
+            echo "> \`git pull\`을 빼먹으면 **새 이미지가 옛 설정으로 뜬다.**"
+            echo "> 공개 주소(CORS 목록·콜백 세 개)의 정본이 \`deploy/compose.yaml\`이고,"
+            echo "> 그 파일은 호스트의 git 체크아웃에서 읽힌다 — 이미지에는 들어 있지 않다."
+            echo "> 실제로 주입되는 값은 \`docker compose config | grep CORS_\`로 확인한다."
             echo
             echo "> 자동 배포를 걸지 않는 이유: 배포가 **진행 중 게임을 끊는다**."
             echo "> WS 구독과 라운드 마감 타이머가 프로세스 인메모리다(DESIGN.md 원칙 8)."

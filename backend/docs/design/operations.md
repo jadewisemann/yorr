@@ -177,8 +177,12 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
 PR ─────────────► verify(check·typecheck·test·build) + compose 문법 + arm64 이미지 빌드(push 안 함)
 main push ──────► verify ─► image ─► ghcr.io/jadewisemann/yorr-backend:{main, sha-<커밋>}
                                             │
-사람이 시작 ─────────────────────────────────┘  docker compose pull backend && up -d backend
+사람이 시작 ─────────────────────────────────┘  git pull && docker compose pull backend && up -d backend
 ```
+
+`git pull`이 명령의 일부인 이유: 공개 주소 네 개의 정본이 `deploy/compose.yaml`이고
+그 파일은 **호스트의 git 체크아웃에서 읽힌다**(이미지에는 없다). 빼먹으면 새
+이미지가 옛 설정으로 뜬다 — 증상은 "배포했는데 그대로"다.
 
 - **빌드는 배포 대상 서버에서 하지 않는다.** 2 OCPU를 빌드와 실서비스가 나눠 쓰면
   라운드 마감 타이머(25s+1s)가 밀린다. 호스트는 pull만 한다.
