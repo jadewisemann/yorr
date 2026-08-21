@@ -1,5 +1,7 @@
 import { motion } from 'motion/react'
+import { useEffect } from 'react'
 import type { Game } from '@/games'
+import { heroArtSrc } from '@/landing/components/HeroArt'
 import { LANDING_PANEL_ID, landingTabId } from '@/landing/landingTabs'
 import { useHeroCarousel } from '@/landing/model/useHeroCarousel'
 import { cn } from '@/shared/cn'
@@ -35,6 +37,15 @@ export function LandingHeroCarousel({
     trackX,
     wide,
   } = useHeroCarousel({ activeIndex, games, layout, onSelect })
+
+  /* 이웃 카드의 아트를 미리 받아 둔다 — 안 하면 스와이프 직후 새 src를 받는 동안
+     카드가 한 박자 비어 보인다. 장당 수십 KB라 두 장 선로드가 손해가 아니다. */
+  useEffect(() => {
+    for (const neighbor of [previous, next]) {
+      if (!neighbor) continue
+      new Image().src = heroArtSrc(neighbor.key, layout)
+    }
+  }, [previous, next, layout])
 
   if (!game) return null
 

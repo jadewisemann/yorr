@@ -17,6 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "npm run build && playwright test",
     "test:visual": "playwright test --config playwright.visual.config.ts",
+    "bake:hero": "node scripts/bake-hero.mjs",
     "test:e2e:real": "cross-env VITE_WS_URL=/ws/v1/game npm run build && cross-env E2E_TARGET=real playwright test",
     "check:cycles": "dpdm --circular --exit-code circular:1 --no-warning --no-tree --no-progress \"src/**/*.{ts,tsx}\""
   },

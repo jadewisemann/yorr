@@ -134,12 +134,15 @@ export function createSizedContainer(width: number, height: number) {
 
 export function stubCanvas2dContext() {
   const calls: string[] = []
+  const gradient = () => ({ addColorStop: () => {} })
   const context = {
     arc: (...args: number[]) => calls.push(`arc(${args.join(',')})`),
     beginPath: () => calls.push('beginPath'),
+    createLinearGradient: gradient,
+    createRadialGradient: gradient,
     fill: () => calls.push('fill'),
     fillRect: (...args: number[]) => calls.push(`fillRect(${args.join(',')})`),
-    fillStyle: '',
+    fillStyle: '' as unknown,
   }
   const spy = vi
     .spyOn(HTMLCanvasElement.prototype, 'getContext')
