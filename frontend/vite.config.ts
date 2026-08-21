@@ -7,8 +7,40 @@ import { defineConfig, loadEnv } from 'vite'
 // 로컬 백엔드(localhost:8080)는 접두어 없이 /api/v1, /ws/v1 그대로다.
 const DEPLOYED_DEV_ORIGIN = 'https://i15a406.p.ssafy.io'
 
-export default defineConfig(({ mode }) => {
+/**
+ * 운영 프론트는 HTTPS 도메인(https://yorr.site)이고 백엔드는 다른 출처다
+ * (vercel.json 에 /api 프록시가 없으므로 절대 URL 이다). HTTPS 페이지에서
+ * `http://`·`ws://` 를 부르면 브라우저가 mixed content 로 차단하는데, **빌드는
+ * 그대로 성공하고 런타임에만 죽는다** — 배포하고 나서야 안다. 그래서 빌드에서 막는다.
+ *
+ * 허용: 절대 `https://`·`wss://`, 상대경로(페이지 스킴을 따른다 —
+ * realtimeClient 의 `resolveWebSocketUrl`), 그리고 localhost 대상의 평문
+ * (로컬 백엔드로 프로덕션 빌드를 만들어 확인하는 경로: `npm run test:e2e:real`).
+ */
+const assertSecureEndpoint = (name: string, value: string | undefined, wsScheme: boolean) => {
+  if (value === undefined || value === '' || value.startsWith('/')) return
+
+  const secure = wsScheme ? 'wss://' : 'https://'
+  const plain = wsScheme ? 'ws://' : 'http://'
+  if (value.startsWith(secure)) return
+
+  const local = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:$|\/)/
+  if (value.startsWith(plain) && local.test(value.slice(plain.length))) return
+
+  throw new Error(
+    `${name} 은 ${secure} 또는 상대경로여야 한다(HTTPS 페이지에서 ${plain} 는 ` +
+      `mixed content 로 차단된다): ${value}`,
+  )
+}
+
+export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+
+  // 배포 산출물을 만드는 순간에만 본다 — dev 서버는 프록시로 도는 것이 정상이다.
+  if (command === 'build') {
+    assertSecureEndpoint('VITE_API_BASE_URL', env.VITE_API_BASE_URL, false)
+    assertSecureEndpoint('VITE_WS_URL', env.VITE_WS_URL, true)
+  }
 
   // 실서버 모드(VITE_ENABLE_MSW=false)의 기본 대상은 배포 dev 서버 — env 없이 바로 돈다.
   // 로컬 백엔드를 쓰려면 VITE_BACKEND_ORIGIN=http://localhost:8080 (.env.example 참고).

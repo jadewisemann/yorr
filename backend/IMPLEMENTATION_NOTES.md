@@ -351,8 +351,14 @@ npm ls --omit=dev --all --json  ∩  package-lock.json의 cpu/os/hasInstallScrip
   트리거에서 `deploy/**`·`Jenkinsfile`을 뺐다. backend-java는 동결이라 배포할 변경이
   없고, **이미 떠 있는 컨테이너는 그대로 돈다** — 진짜 롤백은 재배포가 아니라
   "프론트·DNS를 새 호스트로 옮기지 않는 것"이다.
-- **프론트 Vercel 배포가 아직 Jenkinsfile에 있다.** Jenkinsfile을 지우는 티켓은
-  그것을 먼저 옮겨야 한다(GitHub Actions 또는 Vercel Git 연동).
+- **`Jenkinsfile`을 삭제했다(2026-08-21).** 잡이 이미 돌지 않고 있었다 — 프론트는
+  Vercel이 직접 빌드하고(실제 빌드 값은 자격증명 `frontend-main`이 아니라 Vercel
+  프로젝트 환경변수다), 백엔드는 GitHub Actions다. 그래서 배포 전 스킴 검사도 그
+  파일이 아니라 `frontend/vite.config.ts`의 `assertSecureEndpoint`에 있다. 삭제로
+  비어 버린 프론트 검사 자리는 `.github/workflows/frontend.yml`로 채웠다(Vercel
+  빌드는 `tsc -b`까지만 본다). backend-java 재배포 스테이지가 필요하면 git 이력에서
+  꺼낸다 —
+  `git show "$(git log --diff-filter=D --format=%H -1 -- Jenkinsfile)^:Jenkinsfile"`.
 - **데이터 이관이 배포보다 앞선다.** 새 호스트의 MySQL은 비어 있고, 실사용자 계정·
   전적·주간 랭킹은 구 호스트에 있다. 구 덤프를 복원하면 `flyway_schema_history`가
   함께 와서 `verifyMigrations`가 그대로 통과한다(V1·V2가 바이트 단위로 같은 파일이라

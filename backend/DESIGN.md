@@ -135,5 +135,8 @@ backend-java의 오류 표면은 세 가지 형식이 섞여 있고, **이 모�
 - REST base: `/api/v1`, WebSocket: `/ws/v1/game`, 기본 포트 8080
 - CORS: REST(`/api/**`)와 WS 핸드셰이크가 **같은** `CORS_ALLOWED_ORIGINS` 목록을
   쓴다. 기본값은 운영 도메인(`https://yorr.site`)만 — dev 출처가 운영에 새지
-  않도록 fail-safe. credentials 미사용.
+  않도록 fail-safe. credentials 미사용(인증은 `Authorization: Bearer`이므로 프론트
+  도메인이 바뀌어도 쿠키 계약이 없다). 대조는 **정확 일치**이고 패턴이 아니다 —
+  `allowedOrigins()`가 공백과 끝의 `/`만 정규화한다(도메인 전환 절차:
+  [operations.md](docs/design/operations.md)).
 - 환경변수 이름은 backend-java와 동일하게 유지한다([operations.md](docs/design/operations.md)의 전체 표).

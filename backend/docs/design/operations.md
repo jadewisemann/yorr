@@ -4,7 +4,7 @@
 > `config/`, `monitoring/`. 배포 파이프라인: `.github/workflows/backend.yml`,
 > `backend/Dockerfile`, `deploy/compose.yaml`
 > ([ADR-0006](../adr/0006-github-actions-ghcr-arm64-single-host.md)).
-> 루트 `Jenkinsfile`은 프론트 Vercel 배포와 구 backend-java 슬롯만 남았다.
+> 구 Jenkins 파이프라인은 삭제했다(아래 「구 파이프라인은 없다」).
 
 ## 환경변수 (backend-java와 이름 동일 유지)
 
@@ -20,8 +20,8 @@
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | Redis |
 | `REDIS_PASSWORD` | `""` | Redis |
 | `SERVER_PORT` | `8080` | 리슨 포트 |
-| `CORS_ALLOWED_ORIGINS` | `https://yorr.site` | REST·WS 공용 허용 출처(콤마 목록). 기본값이 운영 전용인 것이 fail-safe 설계다 |
-| `AUTH_FRONTEND_REDIRECT_URI` | `http://localhost:5173/auth/callback` | 로그인 콜백 후 프론트 복귀 |
+| `CORS_ALLOWED_ORIGINS` | `https://yorr.site` | REST·WS 공용 허용 출처(콤마 목록). 기본값이 운영 전용인 것이 fail-safe 설계다. **정확 일치**이며 패턴이 아니다 — `allowedOrigins()`가 공백과 끝의 `/`만 정규화한다(브라우저의 `Origin`에는 경로가 없다) |
+| `AUTH_FRONTEND_REDIRECT_URI` | `http://localhost:5173/auth/callback` | 로그인 콜백 후 프론트 복귀. 운영은 `https://yorr.site/auth/callback` — 프론트 도메인을 바꾸면 여기도 바꾼다 |
 | `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET`(선택) / `KAKAO_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 카카오 OAuth |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 구글 OAuth |
 
@@ -309,9 +309,14 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
 1. **OCI Security List / NSG**에 ingress TCP 80·443 허용. Docker가 publish한
    포트는 호스트 iptables의 INPUT을 우회하지만(FORWARD 경로) **클라우드 쪽
    방화벽은 우회하지 않는다.**
-2. `PUBLIC_HOST`(예 `api.yorr.site`)의 **A/AAAA 레코드**를 이 인스턴스로.
-   Caddy의 인증서 발급(HTTP-01)이 여기에 걸려 있다.
-3. `deploy/.env` 배치(권한 600). 루트 `.gitignore`가 `.env`를 이미 무시한다.
+2. `PUBLIC_HOST` 결정. **OCI 공인 IP 리터럴**을 그대로 쓸 수도 있고(현재 구성 —
+   Caddy가 IP 인증서를 받고 `default_sni`로 그것을 기본 인증서로 고른다),
+   DNS 이름(예 `api.yorr.site`)을 쓸 수도 있다. DNS 이름을 쓰면 **A/AAAA 레코드를
+   먼저** 이 인스턴스로 붙여야 한다 — Caddy의 HTTP-01 검증이 거기에 걸려 있다.
+   카카오·구글 콘솔은 IP를 Redirect URI로 받아 주지 않으므로, 소셜 로그인을 켜려면
+   DNS 이름이 사실상 필수다.
+3. `deploy/.env` 배치(권한 600) — `deploy/.env.example`을 복사해 채운다.
+   루트 `.gitignore`가 `.env`를 이미 무시한다.
 4. **GHCR 인증**: 패키지가 비공개면 `read:packages` PAT로
    `docker login ghcr.io`. 공개로 바꾸면 로그인 없이 pull된다.
 5. **구 MySQL 데이터 이관**(위 부트스트랩 절) — 새 호스트 첫 기동 전에.
@@ -322,14 +327,71 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
 8. 첫 기동: `docker compose up -d` → `sleep 15` → `docker compose ps`(health) →
    `docker compose logs --tail 100 backend`.
 
-### 남아 있는 구 파이프라인
+### 프론트 도메인 전환 (`*.vercel.app` → `https://yorr.site`)
 
-루트 `Jenkinsfile`은 지우지 않았다. **프론트 Vercel 배포가 같은 파일에 있고**,
-전환이 끝나기 전까지 backend-java가 롤백 대상이기 때문이다. 백엔드 스테이지 5개는
-`DEPLOY_LEGACY_BACKEND`(기본 false)로 잠갔고 트리거에서 `deploy/**`·`Jenkinsfile`을
-뺐다 — 그러지 않으면 Node 스택 파일을 고칠 때마다 그 잡이 구 호스트에
-backend-java를 재배포하려 들다 실패한다. 삭제는 PLANS.md Phase 5의 마지막
-항목(backend-java 제거, 별도 PR)에서 프론트 배포를 옮긴 뒤에 한다.
+프론트를 Vercel 기본 주소에서 자체 도메인으로 옮기는 것은 **출처(origin)가 바뀌는
+일**이다. 쿠키를 쓰지 않으므로(아래 「출처가 바뀔 때 무엇이 깨지는가」) 손댈 곳은
+목록 하나와 리다이렉트 주소 하나뿐인데, 둘 다 틀렸을 때 증상이 "CORS 403" 또는
+"로그인하면 옛 주소로 튕김" 하나라서 순서대로 확인하는 편이 빠르다.
+
+1. **Vercel**에서 도메인 추가. `yorr.site`와 `www.yorr.site` 둘 다 등록하고 한쪽을
+   primary로 두면 나머지는 301이 걸린다 — 브라우저가 실어 보내는 Origin이 하나로
+   모이므로 CORS 목록도 하나로 끝난다.
+2. **백엔드 `CORS_ALLOWED_ORIGINS`에 `https://yorr.site`.** 기본값이 이미 그것이라
+   변수를 비워도 되지만, 전환 기간에는 옛 `*.vercel.app` 주소를 함께 두고 정리 뒤에
+   뺀다. **정확 일치**이고 패턴이 아니다(`ws/gateway.ts`의 `originAllowed`) — 끝의
+   `/`만 `allowedOrigins()`가 떼 준다. www를 리다이렉트하지 않고 그대로 서비스하면
+   `https://www.yorr.site`도 목록에 넣어야 한다.
+3. **`AUTH_FRONTEND_REDIRECT_URI`를 `https://yorr.site/auth/callback`으로.** 제공자
+   콘솔에 등록하는 값이 아니라 우리 서버가 로그인 끝에 보내는 프론트 주소다.
+4. **프론트 `VITE_API_BASE_URL`·`VITE_WS_URL`**(Vercel 프로젝트 환경변수)을 새
+   백엔드 주소로. `vercel.json`에 `/api` 프록시가 없으므로 절대 URL이어야 하고,
+   HTTPS 페이지에서 `ws://`는 브라우저가 차단한다. 이 두 값의 스킴은
+   `vite.config.ts`가 **빌드에서** 검사한다(`assertSecureEndpoint`) — Vercel이
+   실행하는 빌드가 그것이므로, 평문 주소를 넣으면 배포가 실패하고 산출물이 나오지
+   않는다. localhost 대상 평문은 로컬 프로덕션 빌드용으로 허용한다.
+5. **카카오 콘솔**: 「플랫폼 > Web > 사이트 도메인」에 `https://yorr.site` 추가.
+   Redirect URI는 백엔드 콜백이라 프론트 도메인과 무관하다(바꿀 필요 없음).
+   구글은 서버 사이드 교환이라 승인된 리디렉션 URI(백엔드)만 보고, JavaScript 원본은
+   쓰지 않는다.
+
+#### 출처가 바뀔 때 무엇이 깨지는가
+
+| 항목 | 영향 | 이유 |
+|---|---|---|
+| 세션 | **전 사용자 로그아웃처럼 보인다** | 세션 토큰이 `localStorage`(origin별)에 있다. 옛 출처의 값은 옮길 방법이 없다 |
+| 쿠키 | 없음 | REST는 `credentials` 미사용, 인증은 `Authorization: Bearer`. SameSite·서드파티 쿠키 문제가 생기지 않는다 |
+| 초대 링크·QR | 없음 | `window.location.origin`으로 만든다 — 새 도메인에서 자동으로 새 주소가 된다 |
+| Vercel Preview 배포 | 운영 백엔드를 부르면 403 | preview는 배포마다 다른 출처(`yorr-<해시>.vercel.app`)라 정확 일치 목록으로 열 수 없다. 로컬 `dev:real`은 Vite 프록시가 Origin 헤더를 떼서 우회하지만 preview에는 그 우회가 없다 |
+
+### 구 파이프라인은 없다
+
+루트 `Jenkinsfile`을 **삭제했다**(ADR-0006 §6의 유보를 뒤집었다 — 그 절의 갱신 메모
+참고). 남아 있는 배포 경로는 둘뿐이다:
+
+| 대상 | 경로 | 값이 오는 곳 |
+|---|---|---|
+| 백엔드 | GitHub Actions → GHCR → 호스트에서 `docker compose pull` | `deploy/.env` |
+| 프론트 | Vercel이 직접 빌드(`npm run build`)·배포 | Vercel 프로젝트 환경변수 |
+
+`Jenkinsfile`이 들고 있던 것 중 사라진 것은 **backend-java 재배포 스테이지**다
+(`DEPLOY_LEGACY_BACKEND`로 잠겨 있어 이미 돌지 않았다). 이미 떠 있는 Java 컨테이너는
+그대로 돌고, 진짜 롤백은 재배포가 아니라 "프론트·DNS를 새 호스트로 옮기지 않는
+것"이다. 그래도 그 스테이지가 필요하면 git 이력에서 꺼낸다:
+
+```bash
+git show "$(git log --diff-filter=D --format=%H -1 -- Jenkinsfile)^:Jenkinsfile"
+```
+
+검사 잡은 워크플로 둘로 나뉘어 있다 — `.github/workflows/backend.yml`(`backend/**`·
+`deploy/**`)과 `.github/workflows/frontend.yml`(`frontend/**`). 후자는 파이프라인
+삭제로 비어 버린 프론트 검사 자리를 대신한다: `check`·`typecheck`·`test`·`build`·
+`check:cycles`를 AGENTS.md와 같은 순서로 돌린다. Vercel 빌드는 `tsc -b`까지만
+보므로 그것만으로는 lint·테스트가 검증되지 않는다.
+
+⚠️ **Playwright는 어느 잡에서도 돌지 않는다.** mock E2E는 브라우저 두 개를
+내려받아야 하고, 비주얼 대조는 baseline을 저장소에 두지 않는 도구다
+(`frontend/playwright.visual.config.ts`).
 
 ## 프론트 개발 모드와의 접점
 

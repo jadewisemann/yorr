@@ -178,6 +178,14 @@ cron 앵커가 아니라 "기동 직후 한 번 + 24시간 주기"인 이유는 
 낡은 문서 정리 — 별도 PR")에서, 프론트 배포를 GitHub Actions나 Vercel Git 연동으로
 옮긴 뒤에 한다.
 
+> **갱신(2026-08-21): 삭제했다.** 위 두 전제가 둘 다 사라졌다 — 프론트 배포는 이미
+> Vercel로 옮겨졌고(Jenkins 잡이 돌지 않는다), backend-java 배포 스테이지는
+> `DEPLOY_LEGACY_BACKEND`로 잠겨 있어 실행되지 않았다. 죽은 파이프라인을 남겨 두면
+> "프론트 배포가 여기 있다"는 오독을 계속 만든다는 것이 판단 근거다. 롤백이
+> 필요하면 git 이력에서 꺼낸다(operations.md 「구 파이프라인은 없다」). 비어 버린
+> 프론트 검사 자리는 `.github/workflows/frontend.yml`로 채웠다 — Vercel 빌드가
+> `tsc -b`까지만 보므로 lint·테스트를 볼 잡이 따로 필요하다.
+
 ## 검토한 대안
 
 - **Jenkins를 유지하고 스테이지만 Node로 갈아탄다**(PLANS.md가 원래 적어 둔 안).

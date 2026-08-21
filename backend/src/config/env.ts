@@ -103,7 +103,17 @@ export type Env = z.infer<typeof envSchema>
 
 export const loadEnv = (source: NodeJS.ProcessEnv = process.env): Env => envSchema.parse(source)
 
+/**
+ * 콤마 목록 → 허용 출처 배열. REST(`server.ts`의 `@fastify/cors`)와 WS 핸드셰이크
+ * (`ws/gateway.ts`의 `verifyClient`)가 **이 함수 하나**로 같은 목록을 받는다.
+ *
+ * 끝의 `/`를 떼는 이유: 브라우저가 보내는 `Origin`에는 경로가 없다
+ * (`https://yorr.site`). `https://yorr.site/`라고 적어 두면 정확 일치가 **영원히**
+ * 실패하는데, 증상은 CORS 403 하나뿐이라 원인을 찾기 어렵다. 도메인을 새로 붙일 때
+ * 실제로 밟는 지점이므로 여기서 정규화한다(`*`는 그대로 남아 gateway의 와일드카드
+ * 분기가 계속 동작한다).
+ */
 export const allowedOrigins = (env: Env): string[] =>
   env.CORS_ALLOWED_ORIGINS.split(',')
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
     .filter((origin) => origin.length > 0)
