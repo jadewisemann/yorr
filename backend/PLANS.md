@@ -143,7 +143,7 @@
 - [x] **5.2 CI: Jenkins → GitHub Actions**(`.github/workflows/backend.yml`).
       `redis-server` + `REDIS_TEST_REQUIRED=1`([ADR-0004](docs/adr/0004-redis-integration-test-harness.md)),
       mysql:8.0 service + `MYSQL_TEST_REQUIRED=1`([ADR-0005](docs/adr/0005-flyway-compatible-migration-runner.md)).
-      `Jenkinsfile`은 프론트 Vercel 배포가 아직 거기 있어 존치하고 백엔드 스테이지
+      `Jenkinsfile`은 그때는 프론트 배포가 거기 있어 존치했고(지금은 삭제) 백엔드 스테이지
       5개를 `DEPLOY_LEGACY_BACKEND`(기본 false)로 잠갔다 — compose 재작성이 Java
       배포 경로를 깼기 때문이다. **진짜 롤백 수단은 프론트·DNS를 옮기지 않는 것**이다.
 - [x] **5.3 모니터링**: `/actuator/health` 유지, `/actuator/prometheus`에
@@ -171,7 +171,7 @@
 - [ ] 트래픽 전환. **무중단 롤링은 원리적으로 불가능하다**(DESIGN 원칙 8 — WS 구독·
       타이머가 인메모리라 2대로 늘릴 수 없고, 재시작이 진행 중 게임을 끊는다).
       남는 완화책은 시각 선택뿐이라 배포를 자동으로 걸지 않았다.
-- [ ] backend-java 제거 + 프론트 Vercel 배포 이전 + `Jenkinsfile` 삭제
+- [ ] backend-java 제거 (프론트 배포 이전·`Jenkinsfile` 삭제는 완료)
       + GAME_SESSION_INTEGRATION.md 등 낡은 문서 정리 (별도 PR)
 - **완료 기준**: 운영 도메인이 Node 백엔드를 서빙하고 한 주간 무회귀.
 
@@ -213,7 +213,7 @@
 | 음성 시그널링·ICE | `handler/`(voice), `ws/voice/` | voice.md | ✅ voice.join/leave/signal 릴레이·명단·정리 순서·`GET /voice/ice`(coturn HMAC) 이식 완료(1.7) |
 | 소셜 로그인·프로필 | `auth/`, `user/` | auth.md | 🚧 소셜 로그인 이식 완료(4.2 — authorize/callback/session/me/logout, state·로그인 코드 1회용, kakao·google, 가입 경합 재조회). MySQL 통합 6건은 `MYSQL_TEST_URL` 부재로 **미실행**. 프로필은 4.3 |
 | 전적·주간 랭킹 | `game/match/`, `game/ranking/` | persistence.md | 🚧 MySQL 풀·Flyway 호환 러너(4.1) + 전적 보관(4.4 — 멱등·닉네임 우선순위·users로 회원 판정) + 주간 랭킹(4.5 — KST 경계·집계·캐시·REST) 이식 완료. **MySQL 집계·저장 통합 22건은 `MYSQL_TEST_URL`·docker 부재로 미실행 — SQL 문법조차 미검증**. 배선 완료 |
-| 모니터링·배포 | `monitoring/`, Jenkinsfile | operations.md | 🚧 게이지 2종 이식·배선 완료(5.3 — `prom-client` 없이 텍스트 노출, 16건) + 배포 전환(5.1 — Dockerfile arm64 크로스 빌드·compose 전체 스택·GHA+GHCR, [ADR-0006](docs/adr/0006-github-actions-ghcr-arm64-single-host.md)). **이미지 실빌드·arm64 실기동·MySQL 통합 48건 미검증** |
+| 모니터링·배포 | `monitoring/`, `.github/workflows/backend.yml`·`deploy/` | operations.md | 🚧 게이지 2종 이식·배선 완료(5.3 — `prom-client` 없이 텍스트 노출, 16건) + 배포 전환(5.1 — Dockerfile arm64 크로스 빌드·compose 전체 스택·GHA+GHCR, [ADR-0006](docs/adr/0006-github-actions-ghcr-arm64-single-host.md)). **이미지 실빌드·arm64 실기동·MySQL 통합 48건 미검증** |
 | ~~GameAbortService~~ | `game/round/application/` | game-modules.md | 🗑 데드 코드 — 이식 안 함 |
 
 ⬜ Java에만 있음 · 🚧 이식 중 · ✅ 이식 완료(테스트 포함) · 🗑 이식 불필요(사유 기록)

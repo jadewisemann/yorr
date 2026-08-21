@@ -45,7 +45,7 @@ YORR는 별도 앱 설치 없이 모바일 브라우저에서 즐기는 멀티�
 | Data | MySQL 8, Redis 7, JPA, Flyway |
 | Realtime | WebSocket, WebRTC |
 | Test | Vitest, Testing Library, Playwright, MSW, JUnit, Testcontainers |
-| Infra | Docker Compose, Jenkins, Vercel, Prometheus |
+| Infra | Docker Compose, GitHub Actions, Vercel, Prometheus |
 
 ## 시스템 아키텍처
 
@@ -88,8 +88,7 @@ Mobile / Desktop Browser
 │   └── src/
 │       ├── main/          # 애플리케이션 코드와 DB 마이그레이션
 │       └── test/          # 단위·통합 테스트
-├── deploy/                # 운영용 Docker Compose 설정
-├── Jenkinsfile            # 검증 및 배포 파이프라인
+├── deploy/                # 운영용 Docker Compose·Caddy 설정
 └── CONTRIBUTING.md        # Git 브랜치·커밋·PR 규칙
 ```
 

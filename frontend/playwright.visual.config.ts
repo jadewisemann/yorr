@@ -5,10 +5,10 @@ import { defineConfig, devices } from '@playwright/test'
  * 스타일 변경 전후를 비교한다. `playwright.config.ts`(동작 E2E)와는 별개다.
  *
  * **회귀 테스트가 아니라 대조 도구다.** baseline은 저장소에 넣지 않는다 —
- * Jenkins 프론트 스테이지는 check·typecheck·test·build만 돌리고 Playwright를 아예
- * 실행하지 않으므로 CI가 지켜 줄 baseline이 없고, 폰트 렌더링은 기기마다 달라
- * 남의 기계에서 뜬 이미지는 전부 어긋난다. 대신 **한 기계 안에서 before/after**를
- * 본다 (사용법은 docs/llmwiki/testing.md).
+ * 프론트에는 CI 잡이 없어(`.github/workflows/backend.yml`은 백엔드 경로만 본다)
+ * Playwright가 어디에서도 돌지 않으므로 CI가 지켜 줄 baseline이 없고, 폰트 렌더링은
+ * 기기마다 달라 남의 기계에서 뜬 이미지는 전부 어긋난다. 대신 **한 기계 안에서
+ * before/after**를 본다 (사용법은 docs/llmwiki/testing.md).
  *
  * 프로덕션 빌드가 아니라 vite dev 서버를 띄우는 이유: 카탈로그가
  * `import.meta.env.DEV` 게이트 안에 있어 빌드 산출물에는 없다.

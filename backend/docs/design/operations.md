@@ -4,7 +4,7 @@
 > `config/`, `monitoring/`. 배포 파이프라인: `.github/workflows/backend.yml`,
 > `backend/Dockerfile`, `deploy/compose.yaml`
 > ([ADR-0006](../adr/0006-github-actions-ghcr-arm64-single-host.md)).
-> 루트 `Jenkinsfile`은 더 이상 돌지 않는다(잔재 — 아래 「남아 있는 구 파이프라인」).
+> 구 Jenkins 파이프라인은 삭제했다(아래 「구 파이프라인은 없다」).
 
 ## 환경변수 (backend-java와 이름 동일 유지)
 
@@ -364,17 +364,28 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
 | 초대 링크·QR | 없음 | `window.location.origin`으로 만든다 — 새 도메인에서 자동으로 새 주소가 된다 |
 | Vercel Preview 배포 | 운영 백엔드를 부르면 403 | preview는 배포마다 다른 출처(`yorr-<해시>.vercel.app`)라 정확 일치 목록으로 열 수 없다. 로컬 `dev:real`은 Vite 프록시가 Origin 헤더를 떼서 우회하지만 preview에는 그 우회가 없다 |
 
-### 남아 있는 구 파이프라인
+### 구 파이프라인은 없다
 
-루트 `Jenkinsfile`은 **더 이상 돌지 않는다.** 프론트는 Vercel이 직접 빌드·배포하고
-(그래서 배포 전 검사가 `vite.config.ts`에 있다), 백엔드는 GitHub Actions → GHCR →
-OCI 호스트다. 파일을 아직 지우지 않은 이유는 전환이 끝나기 전까지 backend-java가
-롤백 대상이라는 것뿐이다 — 백엔드 스테이지 5개는 `DEPLOY_LEGACY_BACKEND`(기본
-false)로 잠겨 있고 트리거에서 `deploy/**`·`Jenkinsfile`이 빠져 있다. 삭제는
-PLANS.md Phase 5의 마지막 항목(backend-java 제거, 별도 PR)이다.
+루트 `Jenkinsfile`을 **삭제했다**(ADR-0006 §6의 유보를 뒤집었다 — 그 절의 갱신 메모
+참고). 남아 있는 배포 경로는 둘뿐이다:
 
-⚠️ **이 파일의 프론트 스테이지를 배포 경로로 착각하지 마라.** 거기서 읽는
-`frontend-main` 자격증명이 아니라 **Vercel 프로젝트의 환경변수**가 실제 빌드 값이다.
+| 대상 | 경로 | 값이 오는 곳 |
+|---|---|---|
+| 백엔드 | GitHub Actions → GHCR → 호스트에서 `docker compose pull` | `deploy/.env` |
+| 프론트 | Vercel이 직접 빌드(`npm run build`)·배포 | Vercel 프로젝트 환경변수 |
+
+`Jenkinsfile`이 들고 있던 것 중 사라진 것은 **backend-java 재배포 스테이지**다
+(`DEPLOY_LEGACY_BACKEND`로 잠겨 있어 이미 돌지 않았다). 이미 떠 있는 Java 컨테이너는
+그대로 돌고, 진짜 롤백은 재배포가 아니라 "프론트·DNS를 새 호스트로 옮기지 않는
+것"이다. 그래도 그 스테이지가 필요하면 git 이력에서 꺼낸다:
+
+```bash
+git show "$(git log --diff-filter=D --format=%H -1 -- Jenkinsfile)^:Jenkinsfile"
+```
+
+⚠️ **프론트에는 CI 잡이 없다.** `.github/workflows/backend.yml`은 백엔드 경로만
+본다. 프론트 검증은 로컬 명령(`check`·`typecheck`·`test`·`build`)과 Vercel 빌드가
+전부이며, Playwright는 어디에서도 돌지 않는다.
 
 ## 프론트 개발 모드와의 접점
 

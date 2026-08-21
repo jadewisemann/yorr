@@ -128,13 +128,14 @@ PLANS.md「검증 수단의 구멍」이 색 회수(라이트 모드 1순위)의
 것을 만들었다(`npm run test:visual`). 착수 전에 적혀 있던 전제 두 개가 실측에서
 틀렸고, 둘 다 **문서가 낡은 쪽**이라 문서를 고쳤다(AGENTS.md 판정 절차).
 
-- **"baseline은 Jenkins 환경에서 떠야 한다 — 로컬·컨테이너에서 만들면 CI가 영구히
-  빨개진다."** `Jenkinsfile`의 프론트엔드 스테이지는 `npm ci` → `check` →
-  `typecheck` → `test` → `build`뿐이다. **Playwright를 실행하는 스테이지가 없다.**
-  같은 스테이지의 `archiveArtifacts`가 `frontend/playwright-report/**`를 걷고 있어
-  E2E가 도는 것처럼 읽히지만, 그 경로를 채우는 실행이 없다 — 오해의 출처가 이것으로
-  보인다. 결론: 빨개질 CI가 없으니 제약도 없다. 대신 **baseline을 지켜 줄 CI도
-  없으므로** 저장소에 넣지 않고(`.gitignore`) 한 기계 안 before/after로만 쓴다.
+- **"baseline은 CI 환경에서 떠야 한다 — 로컬·컨테이너에서 만들면 CI가 영구히
+  빨개진다."** 당시 `Jenkinsfile`의 프론트엔드 스테이지는 `npm ci` → `check` →
+  `typecheck` → `test` → `build`뿐이었다. **Playwright를 실행하는 스테이지가 없었다**
+  (같은 스테이지의 `archiveArtifacts`가 `frontend/playwright-report/**`를 걷고 있어
+  E2E가 도는 것처럼 읽혔다 — 오해의 출처가 이것으로 보인다). 2026-08-21에 그
+  파이프라인을 삭제한 뒤로는 **프론트를 검사하는 CI 잡이 아예 없다**. 결론: 빨개질
+  CI가 없으니 제약도 없다. 대신 **baseline을 지켜 줄 CI도 없으므로** 저장소에 넣지
+  않고(`.gitignore`) 한 기계 안 before/after로만 쓴다.
 - **"`/__dev/components` 카탈로그 한 장이면 프리미티브 전체가 커버된다."**
   `src/shared/components/*.tsx` 17종 중 카탈로그에 등재된 것은 7종이었다. 색 회수가
   건드리는 `GameChromeButton`(`border-white/15·20`, `bg-black/45`, `text-white/70`)과
