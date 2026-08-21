@@ -2,6 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/api/v1/auth/google/callback",
+      "destination": "https://161.33.36.118/api/v1/auth/google/callback"
+    },
+    {
+      "source": "/api/v1/auth/kakao/callback",
+      "destination": "https://161.33.36.118/api/v1/auth/kakao/callback"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
