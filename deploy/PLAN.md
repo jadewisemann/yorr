@@ -45,7 +45,7 @@ digest"가 결합된 하나의 Release다.**
 | `metadata-action` 기본 label에 `org.opencontainers.image.revision` 포함 | 파일 |
 | 인프라 태그 미고정: `redis:7.4-alpine` · `mysql:8.0` (caddy만 `2.11.4-alpine`) | `compose.yaml:150,184,215` |
 | compose에 리소스 제한 **0건** (`mem_limit`·`cpus`·`cpu_shares`) | `compose.yaml` |
-| `/actuator/health`가 **상수** `{status:'UP'}` — Redis·MySQL이 죽어도 UP | `http/routes/health.ts:26` |
+| ~~`/actuator/health`가 **상수** `{status:'UP'}`~~ → **PR 1에서 readiness로 교체했다** | `monitoring/readiness.ts` |
 | 이미지에 **제대로 된 `HEALTHCHECK`가 이미 있다** (`SERVER_PORT` 존중) | `backend/Dockerfile:92` |
 | 마감 시각이 **프로세스 인메모리 Map**에만 있다. 값 자체는 이미 절대 epoch ms | `roundTimerService.ts:104,147` |
 | 재시작 후 재접속 스냅샷이 **반드시 실패**한다 (`DEADLINE_NOT_FOUND`) | `gameReconnectSnapshotService.ts:72-75` |
@@ -362,17 +362,17 @@ GitHub SSH 배포도 필요하지 않다.
 
 ## 8. 작업 순서
 
-| PR | 내용 | 규모 | 의존 |
-|---|---|---|---|
-| 1 | **Health semantics** | 2~3시간 | 없음 |
-| 2 | **CI Release Gate** | 1시간 | 없음 |
-| 3 | **Pull CD v2 (controller)** | 1~2일 | 1, 2 |
-| 4 | **Cutover** (호스트 작업) | 반나절 | 3 |
-| 5 | **인프라 digest 고정 + 리소스 예산** | 반나절 | 4 |
-| 6 | **마감 시각 영속화** | 1~2일 | 없음. 1~5와 병렬 가능 |
-| 7 | **게임 게이트 제거** | 2시간 | 4, 6 |
+| PR | 내용 | 규모 | 의존 | 상태 |
+|---|---|---|---|---|
+| 1 | **Health semantics** | 2~3시간 | 없음 | ✅ 구현했다 |
+| 2 | **CI Release Gate** | 1시간 | 없음 | ✅ 구현했다 |
+| 3 | **Pull CD v2 (controller)** | 1~2일 | 1, 2 | ✅ 구현했다(호스트 미검증) |
+| 4 | **Cutover** (호스트 작업) | 반나절 | 3 | ⛔ 호스트 접근이 필요하다 |
+| 5 | **인프라 digest 고정 + 리소스 예산** | 반나절 | 4 | ⛔ 실측이 선행한다 |
+| 6 | **마감 시각 영속화** | 1~2일 | 없음. 1~5와 병렬 가능 | ✅ 구현했다 |
+| 7 | **게임 게이트 제거** | 2시간 | 4, 6 | ⛔ PR 4의 검증이 선행한다 |
 
-### PR 1 — Health semantics
+### PR 1 — Health semantics ✅
 
 `/actuator/health`를 readiness 의미로 구현한다. 단순히 HTTP 200인지가 아니라
 **이 인스턴스가 실제 요청을 처리할 준비가 되었는가**를 뜻해야 한다.
@@ -384,6 +384,22 @@ GitHub SSH 배포도 필요하지 않다.
 
 한 번의 변경이 세 곳을 동시에 업그레이드한다: 컨테이너 `HEALTHCHECK`,
 배포 게이트(`--wait`), 외부 uptime 체크.
+
+**구현 결과** — `backend/src/monitoring/readiness.ts`가 판정기이고
+`http/routes/health.ts`가 그것을 라우트로 노출한다. 계획에 없었지만 구현하면서
+필요해진 것 셋:
+
+- **확인 하나에 2초 상한.** ioredis는 오프라인 큐가 기본값이라 Redis가 죽어 있으면
+  `ping()`이 거부되지 않고 매달린다. 상한이 없으면 컨테이너 `HEALTHCHECK`가 자기
+  타임아웃(5초)으로 잘려 판정 자체가 사라진다.
+- **동시 호출 합류.** 캐시는 반복 호출을 흡수하지만 창이 만료된 순간 도착한 요청
+  여럿은 나란히 왕복을 낸다. 이 엔드포인트는 프록시를 통해 공개된다.
+- **판정기 미배선 = 항상 503.** prometheus 라우트와 같은 규약이며, 이 방향이면
+  누락이 조용한 초록이 아니라 배포 거절로 드러난다.
+
+실패한 확인의 이름은 **본문에 싣지 않고** 로그에만 남긴다(공개 표면이다). 로그는
+판정이 바뀔 때만 한 줄 나간다 — 죽어 있는 동안 30초마다 같은 줄을 쌓으면 정작 전이
+시점을 찾기 어려워진다.
 
 ### PR 2 — CI Release Gate
 

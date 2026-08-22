@@ -739,13 +739,39 @@ describeRedis('서버 배선', () => {
   /**
    * 기동 경로는 MySQL을 **건드리지 않는다**. `verifyMigrations`가 `listen()`에 들어가면
    * DB 없는 개발·CI 환경에서 WS 통합 테스트가 전부 깨진다(그래서 `main.ts`에 있다).
+   *
+   * 그러나 **readiness는 MySQL을 요구한다**(PR 1). 기동과 준비가 다른 사건이라는 것이
+   * 이 두 단정의 요점이다: 닿지 않는 MySQL을 가리켜도 리슨은 성공하고, 같은 상태에서
+   * `/actuator/health`는 503을 낸다. 그래서 배포 게이트가 반쯤 죽은 인스턴스를
+   * 성공으로 읽지 않는다.
    */
-  it('listen()이 MySQL을 요구하지 않는다', async () => {
+  it('listen()은 MySQL을 요구하지 않지만 readiness는 요구한다', async () => {
     const instance = await build({ DB_URL: 'jdbc:mysql://127.0.0.1:1/none' })
 
     await expect(listen(instance)).resolves.toContain('ws://127.0.0.1:')
+
     const health = await instance.app.inject({ method: 'GET', url: '/actuator/health' })
+    expect(health.statusCode).toBe(503)
+    expect(health.json()).toEqual({ status: 'DOWN' })
+  })
+
+  /**
+   * readiness가 **그** Redis·MySQL을 받았는지 본다. 새 클라이언트를 만들어 넘기면
+   * 애플리케이션이 쓰지 않는 좌표를 검사하게 되고, 그때 health는 아무것도 증명하지
+   * 않는다 — 게이지 배선과 같은 종류의 조용한 실패다.
+   *
+   * MySQL은 이 환경에 없으므로 `SELECT 1`에 응답하는 풀 대역을 주입한다: readiness가
+   * 주입받은 풀을 실제로 두드리면(=배선이 살아 있으면) 질의가 관측되고 판정이 UP이 된다.
+   */
+  it('readiness가 주입받은 Redis·MySQL을 실제로 두드린다', async () => {
+    const mysql = mysqlDouble()
+    const instance = await build({}, { mysql: mysql.pool })
+
+    const health = await instance.app.inject({ method: 'GET', url: '/actuator/health' })
+
+    expect(health.statusCode).toBe(200)
     expect(health.json()).toEqual({ status: 'UP' })
+    expect(mysql.queries).toContain('SELECT 1')
   })
 
   /**

@@ -75,7 +75,12 @@ import { registerUserRoutes } from './http/routes/users.js'
 import { registerVoiceRoutes } from './http/routes/voice.js'
 import { closeMysqlPool, createMysqlPool } from './infra/mysql.js'
 import { createRedisClient } from './infra/redis.js'
-import { RealtimeGameMetrics } from './monitoring/index.js'
+import {
+  mysqlReadinessCheck,
+  ReadinessService,
+  RealtimeGameMetrics,
+  redisReadinessCheck,
+} from './monitoring/index.js'
 import { BotParticipantService } from './room/botService.js'
 import { InMemoryRoomCloseScheduler } from './room/closeScheduler.js'
 import { QuickMatchService } from './room/quickMatchService.js'
@@ -392,6 +397,26 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   // 때리면 모니터링이 부하 원인이 된다). **위에서 만든 그** 레지스트리·모듈
   // 레지스트리여야 한다 — 새로 만들면 게이지가 영구히 0인데 타입도 테스트도 통과한다.
   await registerHealthRoutes(app, {
+    // readiness는 **위에서 만든 그** Redis·MySQL을 두드린다 — 새 클라이언트를 만들면
+    // 애플리케이션이 쓰는 좌표가 아니라 다른 좌표를 검사하게 되고, 그때 health는
+    // 아무것도 증명하지 않는다(게이지 배선과 같은 종류의 함정이다).
+    readiness: new ReadinessService([redisReadinessCheck(redis), mysqlReadinessCheck(mysql)], {
+      onChanged: (result) =>
+        result.ready
+          ? app.log.info('readiness UP — 의존 확인이 전부 응답합니다')
+          : app.log.error(
+              {
+                failed: result.failures.map((failure) => ({
+                  name: failure.name,
+                  reason:
+                    failure.reason instanceof Error
+                      ? failure.reason.message
+                      : String(failure.reason),
+                })),
+              },
+              'readiness DOWN — /actuator/health가 503을 냅니다',
+            ),
+    }),
     metrics: new RealtimeGameMetrics({ presence: registry, games }),
   })
   await app.register(

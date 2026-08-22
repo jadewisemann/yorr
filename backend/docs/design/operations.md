@@ -118,16 +118,27 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
 
 ## 모니터링
 
-- `GET /actuator/health` → `{"status":"UP"}`. 경로 변경은 배포 검증·모니터링과
-  함께서만(Phase 5).
-  - ⚠️ **지금 이 응답은 상수다**(`http/routes/health.ts:26`). Redis와 MySQL이 둘 다
-    죽어도 `UP`을 낸다. 즉 이 엔드포인트는 "프로세스가 HTTP를 받는다"까지만 증명하며
-    **readiness를 뜻하지 않는다.** 이미지의 `HEALTHCHECK`(`backend/Dockerfile:92`)와
-    외부 uptime 체크가 같은 한계를 물려받는다.
-  - Redis `PING` + MySQL `SELECT 1` + 5초 캐시로 바꾸는 것이
-    [`deploy/PLAN.md`](../../../deploy/PLAN.md)의 PR 1이다. 한 번의 변경이 컨테이너
-    `HEALTHCHECK` · 배포 게이트(`up -d --wait`) · 외부 체크 세 곳을 동시에
-    업그레이드하므로 배포 재설계의 선행 조건이다.
+- `GET /actuator/health` — **readiness다.** 준비됐으면 200 `{"status":"UP"}`,
+  아니면 503 `{"status":"DOWN"}`이다. 경로와 본문 형식은 계약이므로 배포 검증·모니터링과
+  함께서만 바꾼다.
+  - 판정 근거는 Redis `PING` + MySQL `SELECT 1`이다(`monitoring/readiness.ts`).
+    확인 하나에 2초 상한이 있고, 판정은 5초 캐시하며 동시 호출은 같은 왕복 하나로
+    합류한다. 상한이 필요한 이유는 성능이 아니라 의미다 — ioredis는 오프라인 큐가
+    기본값이라 Redis가 죽어 있으면 `ping()`이 거부되지 않고 **매달린다**.
+  - **어느 의존이 죽었는지는 본문에 싣지 않는다**(인증 없이 공개되는 표면이다).
+    진단은 로그에 있고, 판정이 **바뀔 때만** 한 줄 남는다(`readiness UP` /
+    `readiness DOWN` + 실패한 확인 이름).
+  - 판정기를 배선하지 않으면 이 엔드포인트는 **항상 503이다.** 배선 누락이 조용한
+    초록이 되지 않게 하는 방향이며(prometheus 라우트와 같은 규약), 그때는
+    컨테이너가 healthy가 되지 못해 `up -d --wait`가 배포를 거절한다.
+  - 기동과 준비는 다른 사건이다: MySQL이 닿지 않아도 `listen()`은 성공하고
+    (`verifyMigrations`는 `main.ts`에 있다) 같은 상태에서 health는 503이다.
+    진행 중인 게임은 상태가 Redis에 있어 MySQL 없이도 굴러가지만, 로그인·랭킹은
+    즉시 실패하므로 DOWN이 맞다 — readiness는 "게임이 안 끊겼다"가 아니라 "이
+    인스턴스가 자기 계약을 전부 이행할 수 있다"는 뜻이다.
+  - 이 한 곳이 세 소비자를 동시에 올렸다: 이미지 `HEALTHCHECK`
+    (`backend/Dockerfile`) · 배포 게이트(`up -d --wait`) · 외부 uptime 체크.
+    그래서 [`deploy/PLAN.md`](../../../deploy/PLAN.md)에서 이것이 PR 1이었다.
 - `GET /actuator/prometheus` — 노출 메트릭(이름·태그가 계약):
   - `yorr_rooms_active` (gauge): 인메모리 phase가 PLAYING인 방 수
   - `yorr_game_participants_active{game="YACHT_DICE"|...}` (gauge): PLAYING
@@ -345,9 +356,10 @@ sudo systemctl disable --now yorr-auto-deploy.timer      # 끄면 ADR-0006 원�
   보고 접속을 끊게 된다.
   - 이미지에는 이미 제대로 된 `HEALTHCHECK`가 있으므로(`backend/Dockerfile:92`,
     `SERVER_PORT`까지 존중) 고치는 방법은 `docker compose up -d --wait
-    --wait-timeout 120`이다. 다만 그 게이트가 의미를 가지려면 `/actuator/health`가
-    먼저 진짜여야 한다(위 「모니터링」) — 그래서
-    [`deploy/PLAN.md`](../../../deploy/PLAN.md)에서 PR 1이 PR 3보다 앞선다.
+    --wait-timeout 150`이다. 그 게이트가 의미를 가지려면 `/actuator/health`가 먼저
+    진짜여야 했고, **그쪽은 이제 진짜다**(위 「모니터링」 — readiness). 남은 것은
+    게이트를 실제로 쓰는 controller이며 [`deploy/PLAN.md`](../../../deploy/PLAN.md)의
+    PR 3이 그것을 담는다.
 - 그래서 **기동 시 마이그레이션 확인이 `main.ts`에 있다**: `verifyMigrations`가
   밀린 마이그레이션·실패 이력 행을 발견하면 로그를 남기고 exit 1로 죽는다
   (읽기 전용 — Node는 스키마를 바꾸지 않는다, [ADR-0005](../adr/0005-flyway-compatible-migration-runner.md)).
