@@ -340,6 +340,16 @@ sudo systemctl disable --now yorr-auto-deploy.timer      # 끄면 ADR-0006 원�
   필요하다. **MySQL 통합 테스트 45건이 처음으로 실제로 도는 자리다** — 지금까지
   전부 skip이었고 SQL이 실행된 적이 없다(ADR-0005).
 - 두 `*_TEST_REQUIRED` 스위치가 없으면 CI가 "조용히 건너뛴 초록"으로 거짓말한다.
+- **GHCR publish = Release Ready.** 호스트는 별도의 manifest DB도 deployment
+  server도 보지 않으므로, "GHCR에 발행된 이미지"가 곧 배포 가능한 릴리스의 증거다.
+  그래서 `image` 잡은 `verify`와 `compose` **둘 다** 기다린다. 예전에는 `verify`만
+  기다렸고, 그 상태에서는 `compose.yaml` 문법이 깨진 커밋의 이미지가 "배포 가능"으로
+  표시될 수 있었다 — 그 파일은 이미지가 아니라 호스트 체크아웃에서 읽히는 공개
+  주소·필수 변수의 정본이다.
+- `image` 잡은 발행 전에 `org.opencontainers.image.revision` 라벨이 **실제로 그
+  커밋을 가리키는지** 확인한다. 호스트 controller의 릴리스 발견이 그 라벨 하나에
+  달려 있어서(이미지가 곧 release marker다), 라벨이 조용히 사라지면 배포가 조용히
+  멈추고 진단은 호스트에서 해야 한다.
 
 ### 배포 단위와 롤백
 

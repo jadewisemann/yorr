@@ -41,7 +41,7 @@ digest"가 결합된 하나의 Release다.**
 | **`deploy.yml` 실행 횟수 0회** — 셀프호스티드 러너 경로가 한 번도 안 돌았다 | GitHub API |
 | GHCR 패키지 **public** — 익명 pull 가능, `docker login` 불필요 | 익명 토큰으로 manifest 조회 |
 | 저장소 **public**, 호스트 클론 remote가 HTTPS | 미인증 API 200 · `git remote -v` |
-| `image` job의 `needs`가 **`[verify]`뿐**이다 (`backend.yml:145`). `compose` job은 별도(`:122`) | 파일 |
+| ~~`image` job의 `needs`가 **`[verify]`뿐**이다~~ → **PR 2에서 `[verify, compose]`로 고쳤다** | 파일 |
 | `metadata-action` 기본 label에 `org.opencontainers.image.revision` 포함 | 파일 |
 | 인프라 태그 미고정: `redis:7.4-alpine` · `mysql:8.0` (caddy만 `2.11.4-alpine`) | `compose.yaml:150,184,215` |
 | compose에 리소스 제한 **0건** (`mem_limit`·`cpus`·`cpu_shares`) | `compose.yaml` |
@@ -401,12 +401,18 @@ GitHub SSH 배포도 필요하지 않다.
 판정이 바뀔 때만 한 줄 나간다 — 죽어 있는 동안 30초마다 같은 줄을 쌓으면 정작 전이
 시점을 찾기 어려워진다.
 
-### PR 2 — CI Release Gate
+### PR 2 — CI Release Gate ✅
 
 - `backend.yml`의 `image.needs`를 `[verify, compose]`로 (`:145`)
 - `sha-<커밋>` immutable 태그 유지
 - `org.opencontainers.image.revision` label이 실제로 붙는지 워크플로에서 확인
 - "GHCR publish = Release Ready"라는 계약을 워크플로 주석과 operations.md에 명시
+
+**구현 결과** — 라벨 확인은 `metadata-action` 직후이고 `build-push`보다 앞선다
+(라벨이 없으면 발행 자체를 하지 않는다). 기대값은 이벤트에 따라 다르다: PR 실행에서
+`metadata-action`은 머지 커밋이 아니라 **head 커밋**을 revision으로 적으므로
+`github.event.pull_request.head.sha || github.sha`로 비교한다. 그 구분이 없으면
+모든 PR이 이 단계에서 빨간불이 된다.
 
 ### PR 3 — Pull CD v2
 

@@ -140,9 +140,19 @@ jobs:
           rm -f ci.env
 
   # ── 3. linux/arm64 이미지 → GHCR ─────────────────────────────────────────────
+  #
+  # **GHCR publish = Release Ready.** 호스트는 별도의 manifest DB도 deployment
+  # server도 보지 않고, "GHCR에 성공적으로 발행된 이미지"를 배포 가능한 릴리스의
+  # 증거로 쓴다(deploy/PLAN.md D2). 그래서 이 잡이 도달했다는 사실 자체가 계약이며,
+  # **검사 하나라도 통과하지 못한 커밋의 이미지는 여기 올라오면 안 된다.**
+  #
+  # `needs`가 `[verify]`뿐이면 verify 성공 + compose 실패 + 이미지 발행이 성립한다.
+  # 그 조합은 정확히 배포를 깨뜨리는 조합이다: `compose.yaml`이 공개 주소·필수 변수의
+  # 정본이므로(그 파일은 이미지가 아니라 호스트 체크아웃에서 읽힌다) 문법이 깨진
+  # 커밋의 이미지가 "배포 가능"으로 표시된다.
   image:
     name: linux/arm64 이미지
-    needs: [verify]
+    needs: [verify, compose]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -176,11 +186,35 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}-backend
-          # `main`은 "지금 배포 가능한 것", `sha-<커밋>`은 롤백 대상이다.
-          # 롤백은 compose의 BACKEND_IMAGE를 sha 태그로 바꿔 `up -d backend`.
+          # `main`은 "지금 배포 가능한 것"(발견용), `sha-<커밋>`은 움직이지 않는
+          # 불변 태그다. 호스트는 `:main`으로 발견하고 **digest로 고정해 실행한다**
+          # (deploy/PLAN.md D3) — `:main`이 나중에 다른 이미지를 가리켜도 실행 중인
+          # 릴리스가 변하지 않는다.
           tags: |
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=sha-,format=short
+
+      # `metadata-action`의 기본 라벨에 `org.opencontainers.image.revision`이 있다.
+      # 호스트 controller의 릴리스 발견이 **그 라벨 하나**에 달려 있으므로(이미지가
+      # 곧 release marker다 — D2) 여기서 실제로 붙었는지 확인한다. 기본값이 조용히
+      # 바뀌거나 `labels:`를 누군가 덮어쓰면 controller는 "발견할 릴리스가 없다"로
+      # 읽고 배포가 조용히 멈춘다 — 그 실패는 호스트에서 진단하기 훨씬 어렵다.
+      - name: revision 라벨 확인 (Release Ready 계약)
+        env:
+          LABELS: ${{ steps.meta.outputs.labels }}
+          # PR 실행에서 `metadata-action`은 머지 커밋이 아니라 **head 커밋**을
+          # revision으로 적는다. 그쪽이 옳다(이미지의 내용이 그 커밋이다) —
+          # 그래서 기대값도 이벤트에 맞춰 고른다.
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          printf '%s\n' "$LABELS"
+          revision=$(printf '%s\n' "$LABELS" | sed -n 's/^org\.opencontainers\.image\.revision=//p')
+          if [[ $revision != "$EXPECTED" ]]; then
+            echo "::error::revision 라벨이 없거나 커밋과 다르다(값='$revision', 기대='$EXPECTED')."
+            echo "::error::호스트 controller가 이 라벨로 릴리스를 발견한다 — deploy/PLAN.md D2."
+            exit 1
+          fi
+          echo "revision=$revision"
 
       - id: build
         uses: docker/build-push-action@v6
