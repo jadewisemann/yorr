@@ -3,11 +3,6 @@ import { GUEST, HOST, player, ROOM_CODE, waitingSnapshot } from '../support/cont
 import { startFakeGameServer } from '../support/fakeGameServer'
 import { mockRestApi } from '../support/restMock'
 
-/**
- * 형식이 틀린 초대 코드는 REST 요청을 보내기 전에 화면에서 막는다(InvalidInvitePage).
- * smoke가 "막힌다"까지 보므로, 여기서는 고쳐서 실제로 들어가는 데까지 이어 본다.
- */
-
 test('recovers from a malformed invite code and joins with the corrected one', async ({ page }) => {
   const rest = await mockRestApi(page)
   await startFakeGameServer(page, {
@@ -19,18 +14,17 @@ test('recovers from a malformed invite code and joins with the corrected one', a
 
   await expect(page.getByRole('heading', { name: '초대 코드를 확인해 주세요' })).toBeVisible()
   const field = page.getByRole('textbox', { name: '초대 코드' })
-  // 링크의 코드는 대문자로 정규화된 뒤 그대로 입력칸에 남아 고칠 수 있다.
+
   await expect(field).toHaveValue('ABC')
   await expect(page.getByRole('alert')).toHaveText(
     '초대 코드는 영문과 숫자 4~12자로 입력해 주세요.',
   )
-  // 형식이 틀린 코드로는 서버를 부르지 않는다.
+
   expect(rest.enterRoomBodies).toHaveLength(0)
 
   await field.fill('yorr64')
   await page.getByRole('button', { name: '수정한 코드로 참가' }).click()
 
-  // 소문자로 고쳐도 정규화되어 초대 코드 화면으로 넘어간다.
   await expect(page).toHaveURL(new RegExp(`/join\\?code=${ROOM_CODE}$`))
   await expect(page.getByText(`초대 코드 ${ROOM_CODE}`)).toBeVisible()
 

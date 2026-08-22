@@ -4,12 +4,6 @@ import { startFakeGameServer } from '../support/fakeGameServer'
 import { createRoomAsHost } from '../support/flows'
 import { mockRestApi } from '../support/restMock'
 
-/**
- * 호스트의 첫 흐름: 랜딩 → 방 만들기 → 닉네임 → 대기실.
- * 방 코드는 REST(POST /rooms)가 주고, 참가자 명단은 WS(room.joined)가 준다 —
- * 두 경로가 같은 방을 가리키는지가 이 스펙의 핵심이다.
- */
-
 test('creates a room with the suggested nickname and lands in the lobby', async ({ page }) => {
   const rest = await mockRestApi(page)
   const server = await startFakeGameServer(page, { you: HOST.id })
@@ -18,7 +12,6 @@ test('creates a room with the suggested nickname and lands in the lobby', async 
   await page.getByRole('button', { name: '요트 다이스 플레이' }).click()
   await page.getByRole('button', { name: /^방 만들기/ }).click()
 
-  // 닉네임을 비워두면 placeholder에 보이는 제안 닉네임으로 입장한다.
   const field = page.getByRole('textbox', { name: '닉네임' })
   await expect(field).toHaveValue('')
   const suggestion = (await field.getAttribute('placeholder')) ?? ''
@@ -29,10 +22,8 @@ test('creates a room with the suggested nickname and lands in the lobby', async 
   await expect(page).toHaveURL(new RegExp(`/rooms/${ROOM_CODE}/lobby$`))
   await expect(page.getByRole('heading', { name: '대기실' })).toBeVisible()
 
-  // 서버에는 제안 닉네임이 그대로 실려 나가야 한다.
   expect(rest.enterRoomBodies).toEqual([{ nickname: suggestion }])
 
-  // 실시간 채널까지 붙고 나서야 대기실이 완성된다.
   await expect(page.getByText('연결됨')).toBeVisible()
   expect(server.joins).toHaveLength(1)
   expect(server.joins[0]).toMatchObject({ roomId: ROOM_CODE, sessionToken: HOST.token })
@@ -49,14 +40,12 @@ test('shows the room code, invite popover and an open seat hint in the lobby', a
 
   await createRoomAsHost(page, '요르호스트')
 
-  // 초대는 인라인 카드가 아니라 초대 버튼에 붙는 말풍선이다(room-and-session.md).
   await page.getByRole('button', { name: '초대' }).click()
   const invite = page.getByRole('dialog', { name: '친구 초대하기' })
   await expect(invite.getByText(ROOM_CODE, { exact: true })).toBeVisible()
   await expect(invite.getByText(`/join?code=${ROOM_CODE}`)).toBeVisible()
   await expect(invite.getByRole('button', { name: '링크 복사' })).toBeVisible()
 
-  // 말풍선을 닫고 나면 대기실 본문이 그대로 남아 있어야 한다(스크림·inert 원복).
   await invite.getByRole('button', { name: '닫기' }).click()
 
   await expect(page.getByRole('region', { name: '참가자 1명' })).toBeVisible()
@@ -72,7 +61,6 @@ test('lets the host start with a single player in the room', async ({ page }) =>
 
   await createRoomAsHost(page, HOST.nickname)
 
-  // 호스트 혼자여도 시작할 수 있다(서버 검증도 1명부터 허용한다).
   const start = page.getByRole('button', { name: '게임 시작', exact: true })
   await expect(start).toBeEnabled()
   await expect(page.getByText('명부터 시작할 수 있어요.')).toBeHidden()

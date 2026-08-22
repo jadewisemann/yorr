@@ -23,11 +23,6 @@ import {
   storedSession,
 } from '../support/roomSession'
 
-/**
- * 게임 중 새로고침 복원. sessionStorage에 세션이 남아 있어도 자동으로 재입장하지 않는다 —
- * 사용자가 "이어서 하기"를 고른 뒤에야 토큰을 서버에 제시한다(roomSessionStorage 주석).
- */
-
 test.beforeEach(async ({ page }) => {
   await useSimpleDiceRenderer(page)
 })
@@ -46,16 +41,14 @@ test('resumes a game in progress from the stored session', async ({ page }) => {
   await expect(banner).toBeVisible()
   await expect(banner).toContainText('진행 중인 게임이 있어요')
   await expect(banner).toContainText(`${ROOM_CODE} · ${HOST.nickname}`)
-  // 복원만으로는 소켓을 열지 않는다.
+
   expect(server.connections).toBe(0)
 
   await banner.getByRole('button', { name: '이어서 하기' }).click()
 
-  // 게임 중이던 세션은 대기실이 아니라 게임 화면으로 돌아간다.
   await expect(page).toHaveURL(gameUrl)
   await expect(myTurnLabel(page)).toBeVisible()
 
-  // 재조인은 저장된 세션 토큰을 그대로 제시한다(서버가 정체성을 복원하는 근거).
   expect(server.joins).toHaveLength(1)
   expect(server.joins[0]).toMatchObject({
     roomId: ROOM_CODE,
@@ -92,7 +85,6 @@ test('survives a reload in the middle of a game', async ({ page }) => {
 
   await page.reload()
 
-  // 새로고침 직후에는 다시 복귀 확인 상태로 멈춘다 — 화면은 방 URL이어도 세션은 재개 대기다.
   await expect(page.getByRole('region', { name: '진행 중인 방' })).toBeVisible()
   await page.getByRole('button', { name: '이어서 하기' }).click()
 
@@ -117,7 +109,7 @@ test('drops the stored session when leaving from the resume banner', async ({ pa
 
 test('ignores a stored session that does not match its own room', async ({ page }) => {
   await mockRestApi(page)
-  // 스냅샷의 roomId가 세션의 방과 다르면 저장소 검증에서 걸러진다.
+
   await seedRoomSession(page, {
     ...storedSession({ snapshot: waitingSnapshot(roster, 'OTHER1') }),
   })

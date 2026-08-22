@@ -98,13 +98,11 @@ describe('제한 시간', () => {
     expect(screen.getByRole('timer', { name: '남은 시간' })).toBeInTheDocument()
   })
 
-  /** 봇만 데리고 혼자 하는 방 — 서버가 마감을 null로 내려보낸다. */
   it('마감이 없으면 타이머를 아예 그리지 않는다', async () => {
     const { user } = renderGame({ snapshot: createPlayingRoomSnapshot(null) })
 
     expect(screen.queryByRole('timer')).not.toBeInTheDocument()
 
-    // 도움말도 없는 규칙을 설명하면 안 된다.
     await user.click(screen.getByRole('button', { name: '게임 도움말' }))
     expect(screen.getByText(/제한 시간이 없어요/)).toBeInTheDocument()
     expect(screen.queryByText(/시간이 다 되면/)).not.toBeInTheDocument()

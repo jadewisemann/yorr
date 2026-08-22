@@ -2,15 +2,6 @@ import type { Page, WebSocketRoute } from '@playwright/test'
 import type { DiceSet, HeldDice, RoomSnapshot, ScoreBoard } from './contract'
 import { HOST, waitingSnapshot } from './contract'
 
-/**
- * 프로덕션 빌드는 MSW·mock WS가 전부 꺼진 채로 서빙된다(mswMode: !DEV → off).
- * 그래서 실시간 계약은 Playwright의 routeWebSocket으로 서버 역할을 직접 흉내낸다.
- *
- * 흐름은 실서버와 같다: 소켓이 열리면 sys.connected로 인사하고, 클라이언트가 보내는
- * room.join에 room.joined(내 playerId + 세션 토큰 + 스냅샷)로 답한다. 그 뒤의 push는
- * 테스트가 원하는 순간에 직접 쏜다.
- */
-
 export interface ClientEnvelope {
   type: string
   ts: number
@@ -26,23 +17,18 @@ export interface RoomJoinPayload {
 }
 
 export interface FakeGameServerOptions {
-  /** room.joined의 `you`. 기본은 호스트. */
   you?: string
-  /**
-   * 하트비트 주기. 테스트 중 sys.ping 소음이 없도록 크게 준다 —
-   * 클라이언트는 이 값을 그대로 setInterval에 넣는다.
-   */
+
   heartbeatIntervalMs?: number
-  /** room.joined·state.sync가 실어 보낼 스냅샷. join payload로 만들 수도 있다. */
+
   snapshot?: RoomSnapshot | ((join: RoomJoinPayload) => RoomSnapshot)
-  /** false면 room.join에 자동 응답하지 않는다(입장 지연 화면을 보려는 경우). */
+
   autoJoin?: boolean
 }
 
 export interface FakeGameServer {
-  /** 지금까지 열린 WebSocket 연결 수. 재연결이 실제로 일어났는지 이 값으로 본다. */
   readonly connections: number
-  /** 클라이언트가 보낸 room.join payload들. 재접속 때 제시한 토큰을 확인한다. */
+
   readonly joins: RoomJoinPayload[]
   waitForConnection(count?: number): Promise<void>
   waitForClientMessage(type: string, options?: { timeoutMs?: number }): Promise<ClientEnvelope>
@@ -52,22 +38,22 @@ export interface FakeGameServer {
     payload: Record<string, unknown>,
     options?: { msgId?: string; roomId?: string },
   ): void
-  /** room.joined·state.sync가 앞으로 실어 보낼 스냅샷을 갈아끼운다(push는 하지 않는다). */
+
   setSnapshot(snapshot: RoomSnapshot): void
   currentSnapshot(): RoomSnapshot | null
-  /** 스냅샷을 갈아끼우고 state.sync로 방 전체에 알린다. */
+
   syncSnapshot(snapshot: RoomSnapshot): void
-  /** dice.roll 하나를 받아 서버가 확정한 결과로 dice.broadcast 한다. */
+
   answerRoll(
     dice: DiceSet,
     options?: { playerId?: string; auto?: boolean },
   ): Promise<{ roundNumber: number; rollCount: number; held: HeldDice }>
-  /** round.submit 하나를 받아 score.update로 답한다(msgId를 echo해야 클라가 매칭한다). */
+
   answerSubmit(
     scoreboard: ScoreBoard,
     options?: { playerId?: string },
   ): Promise<{ roundNumber: number; category: string }>
-  /** 서버 쪽에서 연결을 끊는다. 클라이언트는 1초 뒤 재연결을 시도한다. */
+
   closeConnection(options?: { code?: number; reason?: string }): void
 }
 
@@ -185,7 +171,6 @@ export async function startFakeGameServer(
       if (socket === ws) socket = null
     })
 
-    // 실서버처럼 인증 전에 먼저 인사한다. 클라이언트는 이 메시지로 하트비트를 시작한다.
     ws.send(
       envelope('sys.connected', {
         serverTs: Date.now(),

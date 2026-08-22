@@ -1,9 +1,3 @@
-/**
- * real 모드 globalSetup — 백엔드가 안 떠 있으면 스펙 30개가 전부 타임아웃으로
- * 죽는 대신, 시작 전에 원인과 해결 방법을 한 문장으로 알려주고 즉시 실패한다.
- */
-
-// vite.config.ts 의 proxy 와 같은 규칙: 배포 dev 서버만 /dev-api 접두어를 쓴다.
 const DEPLOYED_DEV_ORIGIN = 'https://i15a406.p.ssafy.io'
 
 export default async function checkBackend() {
@@ -12,7 +6,6 @@ export default async function checkBackend() {
   const probeUrl = `${origin}${apiPrefix}/v1/rooms`
 
   try {
-    // 4xx 라도 응답이 오면 서버는 떠 있는 것이다. 연결 실패만 미기동으로 본다.
     await fetch(probeUrl, { method: 'POST', signal: AbortSignal.timeout(5_000) })
   } catch {
     const guidance =

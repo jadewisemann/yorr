@@ -4,11 +4,6 @@ import { startFakeGameServer } from '../support/fakeGameServer'
 import { joinRoomAsGuest } from '../support/flows'
 import { mockRestApi } from '../support/restMock'
 
-/**
- * 초대 링크로 들어오는 참가자 흐름. 참가자는 방을 시작할 수 없고,
- * 없는 방이면 실시간 채널을 열기 전에 REST 단계에서 막혀야 한다.
- */
-
 test('joins through an invite link and waits for the host to start', async ({ page }) => {
   const rest = await mockRestApi(page)
   const server = await startFakeGameServer(page, {
@@ -18,7 +13,7 @@ test('joins through an invite link and waits for the host to start', async ({ pa
 
   await page.goto(`/join?code=${ROOM_CODE}`)
   await expect(page.getByText(`초대 코드 ${ROOM_CODE}`)).toBeVisible()
-  // 방을 만드는 흐름에만 있는 호스트 안내는 참가 흐름에서 보이지 않는다.
+
   await expect(page.getByText('방을 만든 사람이 호스트가 돼요')).toBeHidden()
 
   await page.getByRole('textbox', { name: '닉네임' }).fill(GUEST.nickname)
@@ -31,7 +26,6 @@ test('joins through an invite link and waits for the host to start', async ({ pa
   await expect(page.getByRole('article', { name: `${HOST.nickname}, 온라인` })).toBeVisible()
   await expect(page.getByRole('article', { name: `${GUEST.nickname}, 온라인` })).toBeVisible()
 
-  // 명단이 보이는 것 = room.join에 서버가 응답했다는 뜻이다. 그때 제시한 토큰을 확인한다.
   expect(server.joins[0]).toMatchObject({ roomId: ROOM_CODE, sessionToken: GUEST.token })
 })
 
@@ -64,7 +58,7 @@ test('explains a missing room and offers another code without opening a socket',
     '존재하지 않거나 더 이상 사용할 수 없는 방이에요.',
   )
   expect(rest.enterRoomBodies).toEqual([{ nickname: GUEST.nickname, room_id: 'ZZZZ99' }])
-  // 입장 자체가 실패했으니 실시간 채널을 열 이유가 없다.
+
   expect(server.connections).toBe(0)
 
   await page.getByRole('button', { name: '다른 코드 입력' }).click()

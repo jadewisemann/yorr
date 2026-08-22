@@ -3,7 +3,7 @@
 > 이 파일이 `frontend/` 안에서 일하는 방식의 **정본(canonical policy)** 이다.
 > Claude Code는 [`CLAUDE.md`](CLAUDE.md)를 통해 이 파일로 안내된다.
 > 저장소 공통 규칙(브랜치·커밋·PR·**병합은 언제나 Squash**)은 루트
-> [`../AGENTS.md`](../AGENTS.md)를, 그 상세는 [`../CONTRIBUTING.md`](../CONTRIBUTING.md)를 따른다.
+> [`../AGENTS.md`](../AGENTS.md)를 따른다.
 
 ## 무엇이 진실인가 (source of truth)
 

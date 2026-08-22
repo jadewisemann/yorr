@@ -5,7 +5,7 @@
 
   **휴대폰을 흔들고, 휘두르고, 탭하며 함께 즐기는 실시간 웹 게임 플랫폼**
 
-  [서비스 바로가기](https://yorr.site) · [프론트엔드 문서](frontend/README.md) · [백엔드 문서](backend-java/GAME_SESSION_INTEGRATION.md) · [협업 가이드](CONTRIBUTING.md)
+  [서비스 바로가기](https://yorr.site) · [프론트엔드 문서](frontend/README.md) · [백엔드 문서](backend-java/GAME_SESSION_INTEGRATION.md) · [작업 지침](AGENTS.md)
 </div>
 
 ## 소개
@@ -89,7 +89,7 @@ Mobile / Desktop Browser
 │       ├── main/          # 애플리케이션 코드와 DB 마이그레이션
 │       └── test/          # 단위·통합 테스트
 ├── deploy/                # 운영용 Docker Compose·Caddy 설정
-└── CONTRIBUTING.md        # Git 브랜치·커밋·PR 규칙
+└── AGENTS.md              # 에이전트 작업·Git 협업 규칙
 ```
 
 ## 시작하기
@@ -178,13 +178,12 @@ Windows에서는 `gradlew.bat`을 사용합니다. 일부 통합 테스트는 Do
 - [프론트엔드 설계 정본](frontend/DESIGN.md) — 불변식·코드 구조·레퍼런스 위키(llmwiki) 문서 지도
 - [백엔드 게임 세션 연동](backend-java/GAME_SESSION_INTEGRATION.md)
 - [백엔드 JS 마이그레이션 계획](backend/PLANS.md) — 마이그레이션 단계·워크플로우
-- [협업 가이드](CONTRIBUTING.md) — Git 브랜치·커밋·PR 규칙
+- [에이전트 작업 지침](AGENTS.md) — 작업 방식·Git 브랜치·커밋·PR 규칙
 
 ## 협업 규칙
 
-Git 작업 규칙의 단일 기준은 [CONTRIBUTING.md](CONTRIBUTING.md)입니다. `main`에는 직접
-커밋하지 않으며, 작업 브랜치에서 변경한 뒤 리뷰를 거쳐 `main`으로 Pull Request를
-생성합니다.
+Git 작업 규칙의 단일 기준은 [AGENTS.md](AGENTS.md)입니다. `main`에는 직접 커밋하지
+않으며, 작업 브랜치에서 변경한 뒤 Pull Request를 생성합니다.
 
 ---
 

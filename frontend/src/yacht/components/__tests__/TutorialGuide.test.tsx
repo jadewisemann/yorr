@@ -416,7 +416,7 @@ describe('TutorialGuide', () => {
 
     expect(screen.getByText('지금 주사위는 이 모양이 아니라 0점이에요.')).toBeVisible()
 
-    await user.click(screen.getByRole('button', { name: '다음' })) // 듀스
+    await user.click(screen.getByRole('button', { name: '다음' }))
     expect(heading()).toBe('듀스')
     expect(screen.getByText('지금 주사위로 적으면 2점이에요.')).toBeVisible()
   })
