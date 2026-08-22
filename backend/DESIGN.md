@@ -41,6 +41,13 @@
 8. **단일 인스턴스 전제.** WS 구독, 라운드 마감 타이머, 방 폐쇄 예약,
    오프라인 카운터, 주간 랭킹 캐시는 프로세스 인메모리다. 수평 확장은 이
    마이그레이션의 범위 밖이다(backend-java와 동일한 제약).
+   - 이 원칙에서 **"무중단 롤링 배포가 불가능하다"까지는 필연**이다(두 인스턴스
+     공존을 요구하므로). 그러나 **"배포가 진행 중 게임을 끊는다"는 필연이 아니라
+     오늘의 구현 선택이다.** 마감 시각을 Redis에 얹고 부팅 때 재무장하면 재시작이
+     게임을 죽이지 않는다 — 프로세스 밖으로 나가는 것은 "마감 시각"이라는
+     *데이터*이고, "누가 타이머를 발화하는가"라는 *책임*은 그대로 이 프로세스에
+     남으므로 원칙 8 자체는 바뀌지 않는다. 분산 락도 pub/sub도 필요 없다.
+     계획: [`deploy/PLAN.md`](../deploy/PLAN.md) PR 6 (별도 ADR 예정).
 
 ## 아키텍처
 
@@ -64,6 +71,11 @@ Mobile / Desktop Browser
   살아 있고, 클라이언트는 재접속 절차로 복귀한다. 단, 라운드 마감 타이머는
   인메모리라 재시작 시 유실된다 — 부팅 시 `PLAYING` 방을 정리하는 것이 현재의
   방어다(StaleRoomCleaner, [rooms-and-sessions.md](docs/design/rooms-and-sessions.md)).
+  같은 이유로 재시작 후 진행 중이던 야추 방에 재접속하면 스냅샷 생성이
+  `DEADLINE_NOT_FOUND`로 **반드시 실패한다**(`gameReconnectSnapshotService.ts:72-75`)
+  — 라운드 상태는 Redis에서 읽히는데 마감 시각만 없기 때문이다. 마감 시각 자체는
+  이미 절대 벽시계 epoch ms라 영속화해도 의미가 그대로다
+  (`roundTimerService.ts:147`). 원칙 8의 주석과 [PLAN.md](../deploy/PLAN.md) PR 6 참고.
 - 게스트도 회원도 같은 모양의 Redis 세션(`user:{id}` 해시)을 쓴다. 방·게임
   코드는 사용자 종류를 구분할 필요가 없다([rooms-and-sessions.md](docs/design/rooms-and-sessions.md)).
 
@@ -129,7 +141,12 @@ backend-java의 오류 표면은 세 가지 형식이 섞여 있고, **이 모�
 
 ## 운영 계약 (변경 시 배포 파이프라인과 함께)
 
-- 헬스체크: `GET /actuator/health` → `{"status":"UP"}` (Spring Actuator 경로 유지)
+- 헬스체크: `GET /actuator/health` → `{"status":"UP"}` (Spring Actuator 경로 유지).
+  ⚠️ **지금 이 응답은 상수다**(`http/routes/health.ts:26`) — Redis와 MySQL이 죽어도
+  `UP`이다. 즉 liveness에 가깝고 readiness가 아니며, 이미지의 `HEALTHCHECK`와 외부
+  uptime 체크가 같은 한계를 물려받는다. Redis `PING` + MySQL `SELECT 1` + 5초 캐시로
+  바꾸는 것이 [`deploy/PLAN.md`](../deploy/PLAN.md) PR 1이고, 경로와 응답 모양은
+  그대로 유지한다(실패 시 503).
 - 메트릭: `GET /actuator/prometheus` — `yorr_rooms_active`,
   `yorr_game_participants_active{game=...}` ([operations.md](docs/design/operations.md))
 - REST base: `/api/v1`, WebSocket: `/ws/v1/game`, 기본 포트 8080

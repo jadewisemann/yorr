@@ -169,8 +169,14 @@
       점유를 함께 본다(3.2 실측 기준 decide 1회 14~16ms — 재검토 조건은
       [games/yacht.md](docs/design/games/yacht.md)).
 - [ ] 트래픽 전환. **무중단 롤링은 원리적으로 불가능하다**(DESIGN 원칙 8 — WS 구독·
-      타이머가 인메모리라 2대로 늘릴 수 없고, 재시작이 진행 중 게임을 끊는다).
-      남는 완화책은 시각 선택뿐이라 배포를 자동으로 걸지 않았다.
+      타이머가 인메모리라 2대로 늘릴 수 없다).
+      > **갱신 (2026-08-22).** 뒤 절반("재시작이 진행 중 게임을 끊는다 → 남는 완화책은
+      > 시각 선택뿐")은 **필연이 아니라 구현 선택이었다.** 마감 시각을 Redis에 얹고
+      > 부팅 때 재무장하면 재시작이 게임을 죽이지 않는다(DESIGN.md 원칙 8의 주석).
+      > 그리고 "배포를 자동으로 걸지 않았다"도 더 이상 사실이 아니다 —
+      > `deploy/auto-deploy.sh` + systemd 타이머가 이미 있다(ADR-0006 §3의 갱신 메모).
+      > 배포 파이프라인을 Release 단위 pull CD로 재설계하는 계획과 그 안의
+      > 마감 시각 영속화(PR 6)는 [`deploy/PLAN.md`](../deploy/PLAN.md)에 있다.
 - [ ] backend-java 제거 (프론트 배포 이전·`Jenkinsfile` 삭제는 완료)
       + GAME_SESSION_INTEGRATION.md 등 낡은 문서 정리 (별도 PR)
 - **완료 기준**: 운영 도메인이 Node 백엔드를 서빙하고 한 주간 무회귀.
@@ -241,7 +247,9 @@
 - **타이머·스케줄러.** 마감 슬롯 선등록 레이스(과거 실사고), 세대 가드, 25s+1s
   유예, 발화-취소 경합은 전부 테스트로 고정돼 있다 — 테스트부터 이식한다.
   프로세스 재시작 시 마감 유실은 StaleRoomCleaner가 임시 방어다(타이머 복구는
-  범위 밖, 만들면 Cleaner 삭제).
+  범위 밖, 만들면 Cleaner 삭제). **타이머 복구를 실제로 계획에 넣었다** —
+  [`deploy/PLAN.md`](../deploy/PLAN.md) PR 6(별도 ADR 예정). 재무장은 방마다
+  fail-closed여야 하고 Yacht·Duel·PingPong 셋을 모두 봐야 한다.
 - **통합 테스트 인프라.** Java는 Testcontainers(redis 7.4, mysql 8.0)다. Node
   쪽 대응(테스트 전용 compose vs testcontainers-node)을 Phase 1.1에서 정하고
   ADR로 남긴다. Redis 의존 계약(Lua·TTL·동시성)은 모킹으로 검증할 수 없다.

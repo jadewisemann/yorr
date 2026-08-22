@@ -5,6 +5,10 @@
 > `backend/Dockerfile`, `deploy/compose.yaml`
 > ([ADR-0006](../adr/0006-github-actions-ghcr-arm64-single-host.md)).
 > 구 Jenkins 파이프라인은 삭제했다(아래 「구 파이프라인은 없다」).
+>
+> 이 문서는 **지금 동작하는 것**만 기술한다. 배포 파이프라인을 Release 단위
+> pull CD로 교체하는 **예정**은 [`deploy/PLAN.md`](../../../deploy/PLAN.md)에
+> 있으며, 그쪽 내용이 여기로 오는 시점은 호스트 cutover가 끝난 뒤다.
 
 ## 환경변수 (backend-java와 이름 동일 유지)
 
@@ -116,6 +120,14 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
 
 - `GET /actuator/health` → `{"status":"UP"}`. 경로 변경은 배포 검증·모니터링과
   함께서만(Phase 5).
+  - ⚠️ **지금 이 응답은 상수다**(`http/routes/health.ts:26`). Redis와 MySQL이 둘 다
+    죽어도 `UP`을 낸다. 즉 이 엔드포인트는 "프로세스가 HTTP를 받는다"까지만 증명하며
+    **readiness를 뜻하지 않는다.** 이미지의 `HEALTHCHECK`(`backend/Dockerfile:92`)와
+    외부 uptime 체크가 같은 한계를 물려받는다.
+  - Redis `PING` + MySQL `SELECT 1` + 5초 캐시로 바꾸는 것이
+    [`deploy/PLAN.md`](../../../deploy/PLAN.md)의 PR 1이다. 한 번의 변경이 컨테이너
+    `HEALTHCHECK` · 배포 게이트(`up -d --wait`) · 외부 체크 세 곳을 동시에
+    업그레이드하므로 배포 재설계의 선행 조건이다.
 - `GET /actuator/prometheus` — 노출 메트릭(이름·태그가 계약):
   - `yorr_rooms_active` (gauge): 인메모리 phase가 PLAYING인 방 수
   - `yorr_game_participants_active{game="YACHT_DICE"|...}` (gauge): PLAYING
@@ -158,6 +170,25 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
 결정과 기각한 대안: [ADR-0006](../adr/0006-github-actions-ghcr-arm64-single-host.md).
 파일: `.github/workflows/backend.yml` · `backend/Dockerfile` ·
 `backend/.dockerignore` · `deploy/compose.yaml`.
+
+> ⚠️ **이 절은 지금 돌아가는 것을 기술한다. 여기에 확정 결함 두 개가 있다**
+> (아래 「알려진 결함」). 이것을 Release 단위 pull CD로 교체하는 계획은
+> [`deploy/PLAN.md`](../../../deploy/PLAN.md)에 있고, **아직 구현하지 않았다.**
+> 이 문서는 cutover가 끝난 뒤에 갱신한다 — 없는 것을 있다고 적지 않는다.
+
+### 알려진 결함 (2026-08-22 확인)
+
+| # | 무엇 | 어디 | 영향 |
+|---|---|---|---|
+| A | `config_changed`가 **구조적으로 항상 false**다. `auto-deploy.sh:27`이 `deploy/`로 `cd`한 뒤 `:106`이 `git diff … -- deploy/`를 부르므로 실제 검사 대상이 `deploy/deploy/`가 된다(git pathspec은 cwd 기준). 매치가 없으면 git은 경고 없이 exit 0이다 | `deploy/auto-deploy.sh:106` | 설정만 바뀐 배포가 감지되지 않는다. 대부분의 커밋에서는 `metadata-action`의 OCI 라벨이 image ID를 매번 바꿔 `image_changed=true`가 **우연히** 성립해 가려진다 |
+| B | 배포 검증이 **실패를 잡지 못한다.** `up -d`는 컨테이너 *시작*만 확인하고 exit 0을 내며 `ps`·`logs`·`config\|grep`은 무슨 일이 있어도 exit 0이다 | `deploy/deploy.sh:73-85` | `main.ts`의 exit 1을 파이프라인이 **한 번도 보지 않는다.** 게다가 crash 루프 컨테이너는 이미 새 image ID를 가지므로 다음 회차에 `image_changed=false`가 되어 **자동 배포가 재시도조차 하지 않고 조용해진다** |
+
+둘 다 수정은 [`deploy/PLAN.md`](../../../deploy/PLAN.md)의 PR 3에서 이뤄진다
+(A는 변경 감지 자체가 사라지므로 고치지 않고 삭제되고, B는 `--wait`로 대체된다).
+
+**`.github/workflows/deploy.yml`(버튼)은 등록 이후 실행 횟수가 0회다.** 즉 아래
+「배포하는 세 경로」 중 버튼 경로는 문서상으로만 존재하며 한 번도 검증되지 않았다.
+PLAN.md의 PR 4에서 제거한다.
 
 ### 대상 환경
 
@@ -218,11 +249,22 @@ sudo ./svc.sh install && sudo ./svc.sh start
 돌리지 않는다 — `deploy.yml`만 이 러너를 쓰고 `pull_request`로는 돌지 않는다.
 다른 워크플로는 `ubuntu-latest`에 남겨 둔다.
 
+> **이 경로는 제거 예정이다**([`deploy/PLAN.md`](../../../deploy/PLAN.md) PR 4).
+> 근거 셋: ① `deploy.yml` 실행 횟수가 **0회**라 실익이 없다 ② 이 저장소는 **public**
+> 이고 러너 계정이 docker 소켓을 쥐고 있어 워크플로 실행이 사실상 호스트 root다
+> ③ 같은 pull 기반 배포를 systemd 타이머가 이미 한다. 위의 「나가는 연결」 논거는
+> 여전히 옳지만, 그것은 SSH 배포와 비교했을 때의 이야기이고 **러너를 아예 두지
+> 않는 쪽이 더 낫다.** 최종 신뢰 방향은 GitHub → GHCR ← OCI(pull only)이며,
+> 패키지가 public이라 OCI가 GitHub 자격증명을 하나도 들지 않는다.
+
 **자동 배포의 판단 순서**(`auto-deploy.sh`, 하나라도 안 맞으면 조용히 끝난다):
 
 1. `git pull --ff-only` — compose·설정 갱신
 2. `docker compose pull backend` — GHCR의 `main` 태그
 3. **바뀐 것이 있나**: 이미지 ID가 다르거나 이 pull이 `deploy/`를 건드렸나
+   - ⚠️ 뒷절반(`config_changed`)이 **구조적으로 항상 false**다(위 「알려진 결함」 A).
+     지금 이 판단을 실제로 결정하는 것은 이미지 ID 비교뿐이고, 그 비교가 성립하는
+     이유도 `metadata-action`이 커밋마다 라벨을 바꿔 주기 때문이라는 **우연**이다.
 4. **게임이 없나**: 컨테이너 안에서 `/actuator/prometheus`를 읽어
    `yorr_rooms_active`(PLAYING 방 수)가 0인가
 
@@ -245,8 +287,21 @@ journalctl -u yorr-auto-deploy -f                        # 무엇을 판단했�
 sudo systemctl disable --now yorr-auto-deploy.timer      # 끄면 ADR-0006 원래 상태
 ```
 
-⚠️ 유닛 파일의 `User=`·경로는 **호스트 계정에 맞춰 고친다**(기본값은 OCI Ubuntu
-이미지의 `ubuntu`이고, 그 계정이 docker 그룹에 있어야 한다).
+⚠️ **유닛 파일을 손으로 고치지 마라.** `deploy/systemd/yorr-auto-deploy.{service,timer}`는
+**git 추적 파일**이다. 호스트에서 그것을 편집하면 `auto-deploy.sh`의 첫 단계인
+`git pull --ff-only`가 영구 실패하고, 세 배포 경로가 그 한 줄을 공유하므로 **동시에
+죽는다.** 증상은 "배포가 그냥 안 된다"이고 원인은 로그를 끝까지 읽어야 드러난다.
+
+호스트별 값(`User=`·경로)을 반영하는 것은 `--install`이 한다.
+
+```bash
+~/yorr/deploy/auto-deploy.sh --install     # 유닛을 심고 타이머를 켠다
+~/yorr/deploy/auto-deploy.sh --uninstall   # 되돌린다
+```
+
+기본값은 OCI Ubuntu 이미지의 `ubuntu`이고, 그 계정이 docker 그룹에 있어야 한다.
+이미 유닛을 손으로 고쳐 버렸다면 `git -C ~/yorr status --porcelain=v1 -b`로 확인하고
+`git checkout -- deploy/systemd/` 후 `--install`로 다시 심는다.
 
 - **빌드는 배포 대상 서버에서 하지 않는다.** 2 OCPU를 빌드와 실서비스가 나눠 쓰면
   라운드 마감 타이머(25s+1s)가 밀린다. 호스트는 pull만 한다.
@@ -258,7 +313,7 @@ sudo systemctl disable --now yorr-auto-deploy.timer      # 끄면 ADR-0006 원�
   ⚠️ **런타임 스테이지에 `RUN`을 넣지 마라** — 넣는 순간 QEMU가 필요해진다.
 - **워크플로가 배포하지 않는다.** 배포가 진행 중 게임을 끊기 때문이다(아래).
   자동화는 호스트 쪽에 있다 — GitHub이 미는 것이 아니라 호스트가 당기고,
-  게임이 없을 때만 진행한다(아래 「배포하는 두 경로」).
+  게임이 없을 때만 진행한다(아래 「배포하는 세 경로」).
 
 ### CI 검사 (`verify` 잡)
 
@@ -281,9 +336,18 @@ sudo systemctl disable --now yorr-auto-deploy.timer      # 끄면 ADR-0006 원�
   것", `sha-<커밋>`이 롤백 대상이다.
 - 롤백 = `deploy/.env`의 `BACKEND_IMAGE`를 sha 태그로 바꿔 `up -d backend`.
 - 배포 검증은 여전히 **HTTP 헬스체크가 아니라** `sleep 15` + 컨테이너 Running
-  확인이다. 그래서 **기동 실패는 exit≠0으로만 드러난다** — 설정 오류를 안고 뜨는
-  것 금지(env.ts의 fail-fast 근거). 확인됨: MySQL 없이 `node dist/main.js`는
-  `ECONNREFUSED` 로그와 함께 exit 1이다.
+  확인이다. 애플리케이션은 설정 오류를 안고 뜨지 않는다(env.ts의 fail-fast 근거).
+  확인됨: MySQL 없이 `node dist/main.js`는 `ECONNREFUSED` 로그와 함께 exit 1이다.
+- ⚠️ **그러나 그 exit 1을 배포 스크립트가 보지 못한다**(위 「알려진 결함」 B).
+  `up -d`는 컨테이너 *시작*까지만 확인하고 exit 0을 내며, 뒤따르는
+  `ps`·`logs`·`config | grep`도 전부 exit 0이다. 결과적으로 **실패한 배포가
+  "배포 완료"로 보고된다.** 손 배포에서 특히 위험하다 — 긴급 롤백 뒤 초록색 출력을
+  보고 접속을 끊게 된다.
+  - 이미지에는 이미 제대로 된 `HEALTHCHECK`가 있으므로(`backend/Dockerfile:92`,
+    `SERVER_PORT`까지 존중) 고치는 방법은 `docker compose up -d --wait
+    --wait-timeout 120`이다. 다만 그 게이트가 의미를 가지려면 `/actuator/health`가
+    먼저 진짜여야 한다(위 「모니터링」) — 그래서
+    [`deploy/PLAN.md`](../../../deploy/PLAN.md)에서 PR 1이 PR 3보다 앞선다.
 - 그래서 **기동 시 마이그레이션 확인이 `main.ts`에 있다**: `verifyMigrations`가
   밀린 마이그레이션·실패 이력 행을 발견하면 로그를 남기고 exit 1로 죽는다
   (읽기 전용 — Node는 스키마를 바꾸지 않는다, [ADR-0005](../adr/0005-flyway-compatible-migration-runner.md)).
@@ -310,7 +374,7 @@ DESIGN.md 원칙 8(WS 구독·라운드 마감 타이머·방 폐쇄 예약·오
 - 남는 완화책은 **시각 선택**뿐이다. 그래서 워크플로는 이미지까지만 만들고,
   배포는 호스트에서 일어난다 — 그 "시각 선택"을 사람의 눈대중이 아니라
   `yorr_rooms_active == 0`이라는 측정으로 하는 것이 `auto-deploy.sh`다
-  (위 「배포하는 두 경로」). **끊긴다는 사실이 사라진 것은 아니다**: 미루는 상한
+  (위 「배포하는 세 경로」). **끊긴다는 사실이 사라진 것은 아니다**: 미루는 상한
   (`YORR_DEPLOY_MAX_DEFER`)에 걸린 배포와 손 배포는 여전히 끊는다.
 
 ### compose 계약 (`deploy/compose.yaml`)
@@ -355,6 +419,17 @@ DESIGN.md 원칙 8(WS 구독·라운드 마감 타이머·방 폐쇄 예약·오
   `maxmemory-policy`는 `noeviction`을 유지한다(LRU로 바꾸면 세션·점수판이 조용히 사라진다).
 - MySQL은 `--default-time-zone=+00:00`. 앱의 `timezone: 'Z'`와 어긋나면 주간 랭킹
   집계가 9시간 밀린 값을 쌓는다(복구 불가 — persistence.md의 `finished_at` 계약).
+
+아직 없는 것 두 개(둘 다 [`deploy/PLAN.md`](../../../deploy/PLAN.md) PR 5):
+
+- **리소스 제한이 한 줄도 없다** — `mem_limit`·`cpus`·`cpu_shares`·`cpuset` 0건.
+  RAM은 12GB 중 10GB 이상 비어 있으므로 문제는 용량이 아니라, **잘못된 backend
+  하나가 MySQL·SSH·systemd까지 굶길 수 있다는 것**이다. 2 OCPU에서 CPU 경합이
+  실제 제약이다. 숫자는 실측 후에 정한다.
+- **인프라 이미지 태그가 고정돼 있지 않다** — `redis:7.4-alpine`·`mysql:8.0`은
+  움직이는 태그다(caddy만 `2.11.4-alpine`로 패치까지 적었다). 지금은 `deploy.sh`가
+  `up -d backend`로 backend만 건드려 우연히 가려져 있지만, 스택 전체를 수렴시키는
+  순간 **무인 타이머가 DB 엔진을 패치 업그레이드한다.** digest 고정이 선행 조건이다.
 
 ### 빈 MySQL에서는 backend가 뜨지 못한다 (부트스트랩)
 
@@ -408,8 +483,9 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
    루트 `.gitignore`가 `.env`를 이미 무시한다. **채우는 것은 비밀뿐이다**:
    `PUBLIC_HOST` · DB·Redis 비밀번호 · 소셜 자격 네 개. 주소 네 개는
    compose 기본값이다(위 「compose 계약」).
-4. **GHCR 인증**: 패키지가 비공개면 `read:packages` PAT로
-   `docker login ghcr.io`. 공개로 바꾸면 로그인 없이 pull된다.
+4. **GHCR 인증**: **현재 패키지는 public이므로 할 일이 없다** — 익명으로 pull된다
+   (2026-08-22 확인). 비공개로 되돌리면 `read:packages` PAT로
+   `docker login ghcr.io`가 필요하고, 그 순간 호스트가 GitHub 자격증명을 쥐게 된다.
 5. **구 MySQL 데이터 이관**(위 부트스트랩 절) — 새 호스트 첫 기동 전에.
 6. `${BACKUP_DIR}`(기본 `deploy/backup`)을 **호스트 밖으로 주기적으로 복사.**
    같은 호스트의 덤프는 백업이 아니다 — 호스트를 잃으면 함께 잃는다.
@@ -417,11 +493,13 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
    `CORS_ALLOWED_ORIGINS`에 프론트 출처가 들어 있는지 확인 — 정본은
    `compose.yaml`이다. `docker compose config | grep CORS_`로 실제로 주입되는
    값을 본다(호스트 `.env`에 옛 줄이 남아 이기고 있는지까지 그것으로 드러난다).
-8. 첫 기동: `docker compose up -d` → `sleep 15` → `docker compose ps`(health) →
-   `docker compose logs --tail 100 backend`.
-9. (선택) **자동 배포 타이머 설치** — `deploy/systemd/`의 두 유닛을 복사하고
-   `enable --now`. 유닛의 `User=`·경로를 이 호스트에 맞게 고치는 것이 전부다
-   (위 「배포하는 두 경로」). 켜지 않으면 배포는 계속 손으로 한다.
+8. 첫 기동: `docker compose up -d --wait --wait-timeout 120` →
+   `docker compose ps` → `docker compose logs --tail 100 backend`.
+   `--wait` 없이 `sleep`으로 대신하면 crash 루프가 성공으로 보인다(위 「알려진 결함」 B).
+9. (선택) **자동 배포 타이머 설치** — `~/yorr/deploy/auto-deploy.sh --install`.
+   유닛을 손으로 복사하거나 편집하지 않는다(위 「배포하는 세 경로」의 경고 —
+   유닛은 git 추적 파일이라 편집하면 `git pull --ff-only`가 영구 실패한다).
+   켜지 않으면 배포는 계속 손으로 한다.
 
 ### 프론트 도메인 전환 (`*.vercel.app` → `https://yorr.site`)
 
