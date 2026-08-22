@@ -12,11 +12,6 @@ import { startFakeGameServer } from '../support/fakeGameServer'
 import { activeTurnLabel, gameUrl, joinRoomAsGuest, useSimpleDiceRenderer } from '../support/flows'
 import { mockRestApi } from '../support/restMock'
 
-/**
- * 참가자 시점. 참가자는 게임을 시작하지도, 굴리지도 못한다 —
- * 화면 전환과 주사위는 전부 서버 push로만 움직인다.
- */
-
 test.beforeEach(async ({ page }) => {
   await useSimpleDiceRenderer(page)
 })
@@ -37,7 +32,7 @@ test('moves to the game screen when the host starts', async ({ page }) => {
 
   await expect(page).toHaveURL(gameUrl)
   await expect(activeTurnLabel(page, HOST.nickname)).toBeVisible()
-  // 참가자는 시작 API도, 게임 조회 API도 부르지 않는다(gameId는 호스트만 받는다).
+
   expect(rest.startGameCount).toBe(0)
   expect(rest.gameFetchCount).toBe(0)
 })
@@ -53,7 +48,6 @@ test('watches the active player roll without any roll control', async ({ page })
   server.syncSnapshot(playingSnapshot({ players: roster, activePlayerId: HOST.id }))
   await expect(page).toHaveURL(gameUrl)
 
-  // 내 턴이 아니면 굴리기 CTA 자리는 관전 안내로 바뀐다.
   await expect(page.getByRole('button', { name: /^굴리기/ })).toBeHidden()
   await expect(page.getByText(`${HOST.nickname}(이)가 굴리는 중`)).toBeVisible()
 
@@ -64,14 +58,11 @@ test('watches the active player roll without any roll control', async ({ page })
     dice: [6, 6, 6, 6, 6],
     held: [false, false, false, false, false],
   })
-  // 관전자 화면은 dice.broadcast만으로는 사발을 쏟지 않는다 — 굴린 사람이 던지는 시점(dice.thrown)에
-  // 맞춰야 그 사람의 손 동작과 화면이 어긋나지 않는다(wsEvents.ts v0.6 이력).
+
   server.send('game.yacht_dice.dice.thrown', { playerId: HOST.id, roundNumber: 1, rollCount: 1 })
 
-  // 서버 브로드캐스트가 관전자 화면에도 그대로 재생된다.
   await expect(page.getByRole('button', { name: '6 주사위 KEEP' })).toHaveCount(5)
-  // 굴림은 다음 프레임에 완료 처리된다(PhysicsDiceFallback의 requestAnimationFrame) —
-  // 그 전에 dice.hold_changed가 오면 아직 'rolling' phase라 조용히 버려진다.
+
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)))
 
   server.send('game.yacht_dice.dice.hold_changed', {

@@ -18,7 +18,6 @@ afterEach(() => {
 
 const session = { userId: 'u1', nickname: '느긋한 선장', sessionToken: 'token-1' }
 
-/** 시작 주소에는 현재 출처가 실린다 — 로그인을 끝낸 뒤 여기로 되돌아오기 위한 값이다. */
 const ORIGIN = `origin=${encodeURIComponent(globalThis.location.origin)}`
 
 describe('로그인 수단 고르기', () => {

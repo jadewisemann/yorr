@@ -6,8 +6,7 @@ test('shows the mobile entry screen', async ({ page }) => {
   await expect(page.getByText('YORR', { exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
   await expect(page.getByRole('button', { name: '요트 다이스 플레이' })).toBeVisible()
-  // 코드 입력은 팝오버·바텀시트 안이다 — 랜딩에서는 그걸 여는 버튼까지만 보인다.
-  // 이름은 레이아웃마다 다르고(방 코드로 참가 · 초대 코드로 참가 · 코드로 참가) 넓은 화면에는 둘 다 있다.
+
   await expect(page.getByRole('button', { name: /코드로 참가$/ }).first()).toBeVisible()
 })
 

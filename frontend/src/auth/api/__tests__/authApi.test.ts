@@ -12,11 +12,6 @@ import {
 import { mockApiServer } from '@/mocks/server'
 import { API_BASE_URL, ApiError } from '@/shared/api/client'
 
-/**
- * 시작 주소에는 **현재 출처**가 실린다 — 서버가 로그인을 끝낸 뒤 여기로 되돌려
- * 보내야 하기 때문이다(설정값 하나로 고정하면 다른 주소에서 로그인한 사용자가
- * 그 하나로 튕기고, 세션은 출처별 localStorage라서 로그아웃으로 보인다).
- */
 const ORIGIN = `origin=${encodeURIComponent(globalThis.location.origin)}`
 
 describe('kakaoLoginUrl', () => {

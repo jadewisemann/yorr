@@ -54,7 +54,7 @@ describe('연습 모드 주사위', () => {
   it('킵한 자리는 대본이 덮지 않는다', () => {
     const client = createTutorialClient()
 
-    rollAndRead(client, 1, NONE) // [6, 6, 2, 3, 5]
+    rollAndRead(client, 1, NONE)
     const second = rollAndRead(client, 2, [false, false, true, false, false])
 
     expect(second[2]).toBe(2)
@@ -81,7 +81,7 @@ describe('연습판 초기 상태', () => {
     expect(snapshot.game?.activePlayerId).toBe(TUTORIAL_PLAYER_ID)
     expect(snapshot.game?.roundNumber).toBe(1)
     expect(snapshot.game?.rollCount).toBe(0)
-    // 예전에는 1시간짜리 가짜 마감이었다 — 계약이 null을 받게 되면서 진짜로 없다.
+
     expect(snapshot.game?.roundDeadline).toBeNull()
     const board = snapshot.game?.scores[TUTORIAL_PLAYER_ID]
     expect(Object.values(board?.categories ?? {}).every((score) => score === null)).toBe(true)

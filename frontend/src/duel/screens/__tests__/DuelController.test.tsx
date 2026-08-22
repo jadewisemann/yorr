@@ -47,7 +47,7 @@ describe('@/duel/screens/DuelController', () => {
     renderController(duelState({ phase: 'WAITING' }))
     expect(screen.getByText('기다려')).toBeInTheDocument()
 
-    render(<hr />) // 앞 화면과 섞이지 않게 구분만 둔다
+    render(<hr />)
     renderController(duelState({ phase: 'SIGNAL', signalAt: 1 }))
     expect(screen.getByText('뽑아!')).toBeInTheDocument()
   })

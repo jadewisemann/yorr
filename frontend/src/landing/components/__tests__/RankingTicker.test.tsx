@@ -185,7 +185,7 @@ describe('RankingTicker · 내 순위', () => {
     await user.click(await screen.findByRole('button', { name: /전체 보기/ }))
 
     expect(screen.queryByRole('list', { name: '내 순위' })).not.toBeInTheDocument()
-    expect(screen.getAllByText('이등')).toHaveLength(2) // 띠 + 드롭다운
+    expect(screen.getAllByText('이등')).toHaveLength(2)
   })
 
   it('이번 주 기록이 없으면 내 줄이 없다', async () => {
