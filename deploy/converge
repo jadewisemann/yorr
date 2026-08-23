@@ -299,13 +299,29 @@ do_converge() {
     die "GHCR에서 $IMAGE_REPO:$DISCOVERY_TAG 의 digest를 읽지 못했다."
   running_digest=$(current_digest)
 
+  # 무변화 판정은 **digest만으로 하지 않는다.** 릴리스는 "revision + 설정 + digest"이므로
+  # (D1·D5) 이미지가 같아도 체크아웃이 다르면 그것은 수렴해야 할 불일치다.
+  #
+  # 이 분기가 실재하는 상태다(2026-08-23 실측): 호스트 체크아웃이 9커밋 뒤처진 채
+  # 이미지는 `:main`으로 최신이었다. digest만 봤다면 controller가 "할 일 없다"로
+  # 넘어가고 설정 불일치가 영구히 남는다 — 고치려고 만든 문제를 그대로 남기는 셈이다.
+  #
+  # 라벨은 **이미 로컬에 있는 이미지**에서 읽으므로 왕복이 늘지 않는다(실행 중인
+  # 이미지다). 읽지 못하면 판정을 포기하지 않고 아래 정상 경로로 내려간다.
+  local checkout_revision running_revision
+  checkout_revision=$(current_revision)
   if [[ -n $running_digest && $running_digest == "$candidate_digest" ]]; then
-    log "같은 릴리스다($candidate_digest) — 할 일이 없다."
-    $DRY_RUN || heartbeat
-    exit 0
+    running_revision=$(image_revision "$IMAGE_REPO@$candidate_digest")
+    if [[ -n $running_revision && $checkout_revision == "$running_revision" ]]; then
+      log "같은 릴리스다($running_revision / $candidate_digest) — 할 일이 없다."
+      $DRY_RUN || heartbeat
+      exit 0
+    fi
+    log "이미지는 같은데 체크아웃이 다르다(설정 불일치) — 수렴한다."
+    log "  체크아웃 ${checkout_revision:-알 수 없음} / 이미지 ${running_revision:-라벨 없음}"
+  else
+    log "새 후보: $candidate_digest (실행 중: ${running_digest:-알 수 없음})"
   fi
-
-  log "새 후보: $candidate_digest (실행 중: ${running_digest:-알 수 없음})"
 
   # 이미지를 먼저 받아 둔다. revision 라벨을 읽어야 하고, 어차피 배포에 필요하다.
   docker pull -q "$IMAGE_REPO@$candidate_digest" >/dev/null ||
@@ -320,10 +336,8 @@ do_converge() {
   git_repo cat-file -e "$candidate_revision^{commit}" 2>/dev/null ||
     die "revision $candidate_revision 이 이 체크아웃의 git에 없다 — 발견을 신뢰할 수 없다."
 
-  local current_rev
-  current_rev=$(current_revision)
   log "후보 릴리스: revision=$candidate_revision digest=$candidate_digest"
-  log "현재 릴리스: revision=${current_rev:-알 수 없음} digest=${running_digest:-알 수 없음}"
+  log "현재 릴리스: revision=${checkout_revision:-알 수 없음} digest=${running_digest:-알 수 없음}"
 
   if $DRY_RUN; then
     log "--dry-run — 여기서 멈춘다. 실제로는 위 후보를 배포한다."
@@ -334,7 +348,7 @@ do_converge() {
 
   # 롤백 대상은 이미지가 아니라 **Release 전체**다(PLAN.md D5). 되돌릴 때
   # git revision과 digest를 함께 되돌리지 않으면 "이미지는 A, 설정은 B"가 된다.
-  local prev_revision=$current_rev prev_digest=$running_digest
+  local prev_revision=$checkout_revision prev_digest=$running_digest
   if [[ -f $LAST_GOOD && ( -z $prev_revision || -z $prev_digest ) ]]; then
     prev_revision=${prev_revision:-$(state_get "$LAST_GOOD" REVISION)}
     prev_digest=${prev_digest:-$(state_get "$LAST_GOOD" IMAGE)}

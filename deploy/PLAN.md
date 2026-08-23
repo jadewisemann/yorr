@@ -58,6 +58,10 @@ digest"가 결합된 하나의 Release다.**
 | `opc`가 **docker 그룹에 있다**(`opc adm systemd-journal docker`) | 같은 접속 |
 | **`yorr-auto-deploy` 타이머가 설치된 적이 없다** — `0 timers listed` · journal `No entries` · `/etc/systemd/system/`에 유닛 없음 | 같은 접속 |
 | 호스트 체크아웃이 **깨끗하다**(`## main...origin/main`, 수정된 추적 파일 없음) | 같은 접속 |
+| **셀프호스티드 러너가 없다**(`actions.runner*` 유닛 0개) — §11의 제거 항목이 이미 무효다 | 같은 접속 |
+| **D1 불일치가 실재한다**: 체크아웃 `9808236`(08-20)인데 이미지는 `:main`(그보다 새 코드). 9커밋 뒤처짐 | 같은 접속 |
+| 스택 5개가 39시간 가동 중이고 backend·mysql·redis가 `(healthy)` | 같은 접속 |
+| 뒤처진 9커밋의 `compose.yaml` 실제 변화는 **backend `environment:` 4줄 추가뿐** — mysql·redis·caddy 정의는 그대로라 **첫 배포에 MySQL은 재시작하지 않는다** | 같은 접속 |
 
 ### 배제된 가설 (다시 파지 말 것)
 
@@ -483,7 +487,15 @@ PR #46에서 라벨은 `81ec734`, 그 값이 곧 `refs/pull/46/merge`였다. 기
    해석만 `imagetools`로 하고(pull 없이 끝난다 — 같은 릴리스면 왕복 하나다), 그 digest를
    받은 뒤 라벨은 `docker image inspect`로 읽는다. 어차피 배포하려면 이미지가 로컬에
    있어야 하므로 왕복이 늘지 않는다. `buildx`가 없는 호스트를 위한 폴백도 있다.
-3. **실행 중 digest를 `.Config.Image`가 아니라 RepoDigests로 구한다.** cutover 직전의
+3. **무변화 판정을 digest만으로 하지 않는다.** 처음에는 `running_digest == candidate_digest`
+   하나로 no-op을 결정했다. 그런데 릴리스를 "revision + 설정 + digest"로 정의한 것이
+   D1·D5이므로, **이미지가 같고 체크아웃만 뒤처진 상태는 수렴 대상**이다. 그 상태가 가정이
+   아니었다: 2026-08-23 실측에서 호스트가 정확히 그랬다(체크아웃 9커밋 뒤처짐, 이미지는
+   최신). digest만 봤다면 controller가 "할 일 없다"로 넘어가 **고치려고 만든 문제를 그대로
+   남긴다.** 지금은 digest가 같을 때 이미지의 revision 라벨과 체크아웃 HEAD를 대조한다
+   (라벨은 이미 로컬에 있는 이미지에서 읽으므로 왕복이 늘지 않는다).
+   `converge.test.sh`의 1b가 그 상태를 재현한다.
+4. **실행 중 digest를 `.Config.Image`가 아니라 RepoDigests로 구한다.** cutover 직전의
    컨테이너는 태그(`:main`)로 만들어져 있어 `.Config.Image`에서 digest를 얻을 수 없다.
    컨테이너 → 로컬 이미지 ID → 그 이미지의 RepoDigests로 가면 태그로 만들었든 digest로
    만들었든 같은 답이 나온다.
