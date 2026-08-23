@@ -94,6 +94,24 @@ contains "no-op 로그" "할 일이 없다" "$out"
 check "체크아웃은 A에 머문다" "$REV_A" "$(head_rev)"
 check "실행 digest도 A다" "$DIGEST_A" "$(running_digest)"
 
+# 2026-08-23 호스트 실측 상태의 재현: 체크아웃은 9커밋 뒤처졌는데 이미지는 `:main`으로
+# 최신이라 digest가 같았다. 무변화 판정을 digest만으로 하면 controller가 "할 일 없다"로
+# 넘어가고 **설정 불일치가 영구히 남는다** — 릴리스를 "revision + 설정 + digest"로
+# 정의한 D1·D5를 판정이 배신하는 자리다.
+echo "1b. 이미지는 같은데 체크아웃이 뒤처졌으면 수렴한다 (D1 불일치)"
+setup
+# 이미지는 A인 채로 실행 중이고 `:main`도 A다. 그런데 체크아웃만 옛 커밋(A)에 있고
+# A 이미지의 revision 라벨은 B를 가리킨다 = 설정이 뒤처진 상태.
+printf '%s %s\n' "$DIGEST_A" "$REV_B" > "$FAKE_ROOT/registry"
+printf '%s' "$DIGEST_A" > "$FAKE_ROOT/registry_tag"
+printf '%s' "$DIGEST_A" > "$FAKE_ROOT/running_digest"
+printf 'ok' > "$FAKE_ROOT/up_results"
+out=$(converge); rc=$?
+check "종료 코드 0" 0 "$rc"
+contains "불일치를 지목한다" "체크아웃이 다르다" "$out"
+check "체크아웃이 이미지에 맞춰졌다" "$REV_B" "$(head_rev)"
+check "last-good에 그 릴리스가 남았다" "REVISION=$REV_B" "$(grep REVISION "$T/state/last-good")"
+
 echo "2. 정상 배포 A → B"
 setup
 printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"

@@ -53,6 +53,15 @@ digest"가 결합된 하나의 Release다.**
 | 공인 IP `161.33.36.118`이 **ephemeral** — 인스턴스를 잃으면 함께 잃는다 | OCI 콘솔 |
 | Always Free A1 한도 **4 OCPU/24GB → 2 OCPU/12GB** (2026-08-18부터 집행) | OCI 공지 |
 | RAM 12GB 중 0.95~1.6GB 사용. **CPU 2코어가 유일한 실제 제약** | 실측 |
+| 호스트 계정은 **`opc`**, OS는 Oracle Linux Server 9.8 — 추적 파일의 `User=ubuntu`는 이 호스트에 맞지 않는다 | SSH 접속(2026-08-23) |
+| 22번 포트가 열려 있고 공인 IP `161.33.36.118`이 맞다 | 같은 접속 |
+| `opc`가 **docker 그룹에 있다**(`opc adm systemd-journal docker`) | 같은 접속 |
+| **`yorr-auto-deploy` 타이머가 설치된 적이 없다** — `0 timers listed` · journal `No entries` · `/etc/systemd/system/`에 유닛 없음 | 같은 접속 |
+| 호스트 체크아웃이 **깨끗하다**(`## main...origin/main`, 수정된 추적 파일 없음) | 같은 접속 |
+| **셀프호스티드 러너가 없다**(`actions.runner*` 유닛 0개) — §11의 제거 항목이 이미 무효다 | 같은 접속 |
+| **D1 불일치가 실재한다**: 체크아웃 `9808236`(08-20)인데 이미지는 `:main`(그보다 새 코드). 9커밋 뒤처짐 | 같은 접속 |
+| 스택 5개가 39시간 가동 중이고 backend·mysql·redis가 `(healthy)` | 같은 접속 |
+| 뒤처진 9커밋의 `compose.yaml` 실제 변화는 **backend `environment:` 4줄 추가뿐** — mysql·redis·caddy 정의는 그대로라 **첫 배포에 MySQL은 재시작하지 않는다** | 같은 접속 |
 
 ### 배제된 가설 (다시 파지 말 것)
 
@@ -115,14 +124,35 @@ docker compose ps -a --format '{{.Service}}\t{{.State}}\t{{.Status}}\t{{.Image}}
 docker buildx imagetools inspect ghcr.io/jadewisemann/yorr-backend:main --raw | head -40
 ```
 
-진단이 판가름낼 가설 두 개:
+### 진단 결과 (2026-08-23) — **두 가설 다 아니다**
 
-- **가설 1 — `git pull --ff-only`가 영구 실패하고 있다.** `deploy/systemd/`의 두
+`auto-deploy.sh --install`이 **한 번도 실행되지 않았다.** 타이머도 유닛도 없고 journal도
+비어 있다. 그러므로 자동 배포는 "실패하고 있었다"가 아니라 **애초에 존재한 적이 없다.**
+
+이것은 `deploy.yml` 0회 실행과 **같은 실패다**: 설치 단계가 문서에만 있고 아무도 하지
+않았다. D8이 그 함정을 지적하면서 정작 같은 문서의 `--install` 안내가 그 함정에 빠져
+있었다. 새 controller의 `bootstrap.sh`가 그것을 되풀이하지 않게 하는 것이 관건이고,
+cutover 절차(PR 4)가 "손으로 한 번 → test release → 롤백 테스트 → 그다음 타이머"를
+강제하는 이유도 그것이다.
+
+부수 효과로 **cutover가 단순해진다**: 되돌릴 것도 지울 것도 없다. 8번 단계(옛 타이머
+disable)는 무효이고, 체크아웃이 깨끗하므로 `git pull --ff-only`에 정리 작업이 필요 없다.
+새 controller는 교체가 아니라 순수 추가다.
+
+아래 두 가설은 **기각·무효**로 남긴다 — 같은 증상을 다시 만났을 때 이미 배제한 경로를
+다시 파지 않기 위해서다.
+
+가설 두 개(둘 다 성립하지 않았다):
+
+- ~~**가설 1 — `git pull --ff-only`가 영구 실패하고 있다.**~~ **기각.** `deploy/systemd/`의 두
   유닛이 **git 추적 파일**인데 현행 문서가 "호스트 계정에 맞춰 고쳐라"라고
   지시했으므로, 그대로 따랐다면 pull이 막힌다. 세 배포 경로가 그 한 줄을 공유하므로
   **동시에 죽는다.** 위 세 번째 명령이 확인한다.
+  → **기각됐다.** 체크아웃이 깨끗하다(`## main...origin/main`). 계정이 `opc`라 "고쳐야
+  한다"는 압력은 실재했지만, 애초에 유닛을 심지 않았으므로 고칠 일도 없었다.
   (이 지시는 2026-08-22에 `operations.md`에서 `--install` 안내로 교체했다.)
-- **가설 2 — 게임 게이트가 열리지 않는다.** ADR-0006이 스스로 "상시 동접 50명,
+- ~~**가설 2 — 게임 게이트가 열리지 않는다.**~~ **무효.** 타이머가 돈 적이 없으므로
+  게이트가 판단할 기회 자체가 없었다. ADR-0006이 스스로 "상시 동접 50명,
   방 10~20개"라고 적었다. `yorr_rooms_active == 0`이 성립하지 않으면
   `YORR_DEPLOY_MAX_DEFER`(기본 6시간)가 실질 배포 주기가 되고, 체감은 정확히
   "배포가 안 된다"가 된다. 위 두 번째 명령의 journal에 `게임 N개 진행 중`만 쌓여
@@ -457,7 +487,15 @@ PR #46에서 라벨은 `81ec734`, 그 값이 곧 `refs/pull/46/merge`였다. 기
    해석만 `imagetools`로 하고(pull 없이 끝난다 — 같은 릴리스면 왕복 하나다), 그 digest를
    받은 뒤 라벨은 `docker image inspect`로 읽는다. 어차피 배포하려면 이미지가 로컬에
    있어야 하므로 왕복이 늘지 않는다. `buildx`가 없는 호스트를 위한 폴백도 있다.
-3. **실행 중 digest를 `.Config.Image`가 아니라 RepoDigests로 구한다.** cutover 직전의
+3. **무변화 판정을 digest만으로 하지 않는다.** 처음에는 `running_digest == candidate_digest`
+   하나로 no-op을 결정했다. 그런데 릴리스를 "revision + 설정 + digest"로 정의한 것이
+   D1·D5이므로, **이미지가 같고 체크아웃만 뒤처진 상태는 수렴 대상**이다. 그 상태가 가정이
+   아니었다: 2026-08-23 실측에서 호스트가 정확히 그랬다(체크아웃 9커밋 뒤처짐, 이미지는
+   최신). digest만 봤다면 controller가 "할 일 없다"로 넘어가 **고치려고 만든 문제를 그대로
+   남긴다.** 지금은 digest가 같을 때 이미지의 revision 라벨과 체크아웃 HEAD를 대조한다
+   (라벨은 이미 로컬에 있는 이미지에서 읽으므로 왕복이 늘지 않는다).
+   `converge.test.sh`의 1b가 그 상태를 재현한다.
+4. **실행 중 digest를 `.Config.Image`가 아니라 RepoDigests로 구한다.** cutover 직전의
    컨테이너는 태그(`:main`)로 만들어져 있어 `.Config.Image`에서 digest를 얻을 수 없다.
    컨테이너 → 로컬 이미지 ID → 그 이미지의 RepoDigests로 가면 태그로 만들었든 digest로
    만들었든 같은 답이 나온다.
