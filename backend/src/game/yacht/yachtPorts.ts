@@ -112,8 +112,16 @@ export interface YachtRoundService {
  */
 export interface YachtRoundTimer {
   start(roomId: string, state: RoundState): Promise<number | null>
+  /**
+   * 저장된 마감으로 이 턴을 이어간다 — **부팅 재무장 전용**이다(PR 6).
+   *
+   * `start`와 갈라져 있는 것이 요점이다: 새 턴에는 새 시간을 주는 것이 맞고, 재시작
+   * 복구에는 원래 마감을 되살리는 것이 맞다. `false`면 되살릴 근거가 없다는 뜻이며
+   * 호출자가 그 방을 fail-closed로 닫는다.
+   */
+  resumeFromStored(roomId: string, state: RoundState): Promise<boolean>
   advanceTurn(roomId: string, result: TurnAdvanceInput, requestMsgId: string | null): Promise<void>
-  cancelRoom(roomId: string): void
+  cancelRoom(roomId: string): Promise<void>
   removePlayer(roomId: string, playerId: string): Promise<void>
   /** 재접속 복귀 시 오프라인 결석 횟수 리셋. **스냅샷 조립 뒤에** 부른다(2.8의 순서 계약). */
   clearOfflineMisses(roomId: string, playerId: string): void

@@ -49,6 +49,10 @@ export class DuelGameModule implements GameModule {
     await this.games.resume(roomCode)
   }
 
+  async rehydrate(roomCode: string): Promise<void> {
+    await this.games.rehydrate(roomCode)
+  }
+
   async removePlayer(roomCode: string, playerId: string): Promise<void> {
     await this.games.removePlayer(roomCode, playerId)
   }

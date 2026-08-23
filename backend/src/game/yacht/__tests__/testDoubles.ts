@@ -88,7 +88,11 @@ export class RecordingBroadcaster implements YachtBroadcaster {
 /** `RoundTimerService`의 자리 — 호출만 기록한다(Java `mock(RoundTimerService)`). */
 export class FakeRoundTimer implements YachtRoundTimer {
   readonly started: { roomId: string; state: RoundState }[] = []
+  /** 부팅 재무장(`resumeFromStored`)이 실제로 불렸는지 — `start`와 구별해 기록한다. */
+  readonly resumed: { roomId: string; state: RoundState }[] = []
   readonly advanced: { roomId: string; result: TurnAdvanceInput; msgId: string | null }[] = []
+  /** `resumeFromStored`가 돌려줄 값. false면 "되살릴 마감 기록이 없다"다. */
+  resumable = true
   readonly cancelledRooms: string[] = []
   readonly removed: { roomId: string; playerId: string }[] = []
   readonly clearedMisses: { roomId: string; playerId: string }[] = []
@@ -96,6 +100,12 @@ export class FakeRoundTimer implements YachtRoundTimer {
   async start(roomId: string, state: RoundState): Promise<number | null> {
     this.started.push({ roomId, state })
     return 0
+  }
+
+  /** 되살릴 기록이 있다고 답한다. 없는 경우는 `resumable = false`로 만든다. */
+  async resumeFromStored(roomId: string, state: RoundState): Promise<boolean> {
+    this.resumed.push({ roomId, state })
+    return this.resumable
   }
 
   async advanceTurn(
@@ -106,7 +116,7 @@ export class FakeRoundTimer implements YachtRoundTimer {
     this.advanced.push({ roomId, result, msgId: requestMsgId })
   }
 
-  cancelRoom(roomId: string): void {
+  async cancelRoom(roomId: string): Promise<void> {
     this.cancelledRooms.push(roomId)
   }
 
@@ -120,6 +130,7 @@ export class FakeRoundTimer implements YachtRoundTimer {
 
   reset(): void {
     this.started.length = 0
+    this.resumed.length = 0
     this.advanced.length = 0
     this.cancelledRooms.length = 0
     this.removed.length = 0

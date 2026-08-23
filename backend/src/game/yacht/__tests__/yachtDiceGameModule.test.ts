@@ -632,6 +632,43 @@ describe('YachtDiceGameModule', () => {
     expect(timers.started).toHaveLength(1)
   })
 
+  /**
+   * `rehydrate`가 `resume`과 갈라져 있는 것이 계약이다(deploy/PLAN.md PR 6).
+   *
+   * `resume`은 **새 25초**를 준다(멈춰 둔 시계를 다시 켜는 경로 — 그때 원래 마감을
+   * 되살리면 돌아온 사람의 턴이 그 자리에서 만료된다). `rehydrate`는 **저장된 마감**을
+   * 되살린다(프로세스만 죽었고 판은 그대로다). 둘이 같은 메서드를 부르게 되면 한쪽이
+   * 반드시 틀리는데, 타입도 다른 테스트도 그것을 잡지 못한다.
+   */
+  it('rehydrate는 start가 아니라 저장된 마감으로 되살린다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'], 1)
+
+    await module.rehydrate(ROOM)
+
+    expect(timers.resumed).toHaveLength(1)
+    expect(timers.started).toHaveLength(0)
+  })
+
+  it('되살릴 마감 기록이 없으면 던진다 — 호출자가 그 방을 닫는다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'], 1)
+    timers.resumable = false
+
+    await expect(module.rehydrate(ROOM)).rejects.toThrow('되살릴 턴 마감 기록이 없습니다')
+  })
+
+  it('진행 중이라던 방에 라운드 상태가 없으면 던진다', async () => {
+    await expect(module.rehydrate(ROOM)).rejects.toThrow('야추 라운드 상태가 없습니다')
+    expect(timers.resumed).toHaveLength(0)
+  })
+
+  /** 종료 전이가 실패한 채 남은 방이다. 되살리면 끝난 게임이 계속 돌아간다. */
+  it('라운드가 이미 끝난 방은 던진다', async () => {
+    await rounds.initialize(ROOM, 1, ['player-a'], 1)
+    await rounds.expire(ROOM, 1, 'player-a')
+
+    await expect(module.rehydrate(ROOM)).rejects.toThrow('이미 끝난 방입니다')
+  })
+
   it('pause는 타이머만 끊고 상태는 남긴다', async () => {
     await rounds.initialize(ROOM, 1, ['player-a'])
 

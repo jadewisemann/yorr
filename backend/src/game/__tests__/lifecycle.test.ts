@@ -40,6 +40,7 @@ const recordingModule = (code: string, onStart?: () => never): RecordingModule =
     reconnect: async (roomCode) => ({ roomId: roomCode, phase: 'playing', players: [] }),
     pause: async () => {},
     resume: async () => {},
+    rehydrate: async () => {},
     removePlayer: async (roomCode, playerId) => {
       calls.push(`removePlayer:${roomCode}:${playerId}`)
     },

@@ -122,7 +122,7 @@ export class OrphanedRoundStateSweeper {
 
       // ⚠️ 순서가 계약이다: 타이머를 **먼저** 끊어야 방 없는 상태로 마감이 발화하지
       // 않는다. 뒤집으면 이미 지운 방의 마감 작업이 라운드 상태를 다시 만든다.
-      this.timers.cancelRoom(roomId)
+      await this.timers.cancelRoom(roomId)
       await this.roundStates.remove(roomId)
       swept += 1
       this.onSwept(roomId)

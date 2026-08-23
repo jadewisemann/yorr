@@ -152,6 +152,26 @@ export class PingPongGameService<S extends object> {
     if (state !== undefined && !isPingPongFinished(state)) this.schedule(roomId, state)
   }
 
+  /**
+   * 프로세스 재시작 후의 복구(deploy/PLAN.md PR 6).
+   *
+   * 탁구도 결투와 같다 — 마감(`nextActionAt`)이 상태 안의 절대 epoch ms이고 상태가
+   * Redis에 있으므로 되살릴 것은 예약뿐이다. **여기서 마감을 새로 계산하면 안 된다**:
+   * 공의 다음 사건 시각이 곧 마감이라 새 값을 주면 랠리가 어긋난다.
+   *
+   * `resume`과 다른 점은 이어갈 수 없을 때 던진다는 것뿐이다.
+   */
+  async rehydrate(roomId: string): Promise<void> {
+    const state = await this.deps.states.find(roomId)
+    if (state === undefined) {
+      throw new Error(`진행 중이라던 방에 탁구 상태가 없습니다: ${roomId}`)
+    }
+    if (isPingPongFinished(state)) {
+      throw new Error(`탁구가 이미 끝난 방입니다(종료 전이 실패): ${roomId}`)
+    }
+    this.schedule(roomId, state)
+  }
+
   async pause(roomId: string): Promise<void> {
     this.deps.scheduler.cancelRoom(roomId)
   }

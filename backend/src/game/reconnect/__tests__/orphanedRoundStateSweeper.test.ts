@@ -72,7 +72,7 @@ describe('OrphanedRoundStateSweeper', () => {
         },
       },
       timers: {
-        cancelRoom: (roomId) => {
+        cancelRoom: async (roomId) => {
           order.push(`cancel:${roomId}`)
         },
       },
@@ -133,7 +133,7 @@ describe('OrphanedRoundStateSweeper', () => {
           },
           remove: async () => true,
         },
-        timers: { cancelRoom: () => {} },
+        timers: { cancelRoom: async () => {} },
         rooms: goneRooms(),
       },
       { scheduler, onError: (error) => failures.push(error) },
@@ -150,7 +150,7 @@ describe('OrphanedRoundStateSweeper', () => {
 class RecordingTimerCancel implements RoundTimerCancelPort {
   readonly cancelled: string[] = []
 
-  cancelRoom(roomId: string): void {
+  async cancelRoom(roomId: string): Promise<void> {
     this.cancelled.push(roomId)
   }
 }

@@ -11,6 +11,11 @@ export {
   timerDeadlineExecutor,
 } from './deadlineScheduler.js'
 export {
+  InMemoryRoundDeadlineStore,
+  type RoundDeadlineStore,
+  type StoredRoundDeadline,
+} from './deadlineStore.js'
+export {
   isRoundSyncError,
   RoundSynchronizationError,
   type RoundSyncReason,
@@ -72,4 +77,5 @@ export {
   type RoundTimerServiceDeps,
   type RoundTimerServiceOptions,
   type TurnAdvanceInput,
+  UNTIMED_HUMAN_LIMIT,
 } from './roundTimerService.js'

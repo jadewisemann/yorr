@@ -33,6 +33,21 @@ export interface GameModule {
   pause(roomCode: string): Promise<void>
   resume(roomCode: string): Promise<void>
 
+  /**
+   * **프로세스 재시작 후** 진행 중이던 판을 이어간다(deploy/PLAN.md PR 6).
+   *
+   * `resume`과 갈라 두는 이유는 마감 시각을 어디서 가져오느냐가 다르기 때문이다.
+   * `resume`은 "모두 접속이 끊겨 멈춰 둔 시계를 다시 켠다"이므로 새 시간을 주는 것이
+   * 맞고, 이쪽은 "프로세스만 죽었다 — 판은 그대로다"이므로 **원래 마감을 되살려야**
+   * 한다. 이미 지난 마감은 되살리는 순간 발화해 턴이 서버 대리로 넘어간다.
+   *
+   * 이어갈 수 없으면 **던진다.** 호출자(`resumeGamesOnStartup`)가 그 방만 닫는다 —
+   * 반쯤 살아 있는 방을 남기면 상태는 살아 있는데 턴이 넘어가지 않고 JOIN도
+   * `game_started`로 막히는 최악의 상태가 된다. 그 실패 모드를 막으려고 예전에는
+   * 부팅 때 PLAYING 방을 통째로 닫았다(`closeUnrecoverableGamesOnStartup`).
+   */
+  rehydrate(roomCode: string): Promise<void>
+
   /** 게임 중 이탈 처리(턴 순서·명단 정리까지). */
   removePlayer(roomCode: string, playerId: string): Promise<void>
 

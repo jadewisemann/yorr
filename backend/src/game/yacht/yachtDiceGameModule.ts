@@ -119,7 +119,7 @@ export class YachtDiceGameModule implements GameModule {
 
   /** 로비 복귀 정리. 타이머 → 상태 → phase → 방송 순서도 Java 그대로다. */
   async reset(roomCode: string): Promise<void> {
-    this.timers.cancelRoom(roomCode)
+    await this.timers.cancelRoom(roomCode)
     await this.rounds.remove(roomCode)
     this.seats.markPhase(roomCode, 'waiting')
     await this.broadcastState(roomCode)
@@ -141,14 +141,41 @@ export class YachtDiceGameModule implements GameModule {
 
   /** 타이머만 끊는다 — 진행 상태는 남긴다(새로고침으로 돌아올 수 있다). */
   async pause(roomCode: string): Promise<void> {
-    this.timers.cancelRoom(roomCode)
+    await this.timers.cancelRoom(roomCode)
   }
 
-  /** **미완료 상태가 있을 때만** 타이머를 재무장한다. 끝난 게임을 되살리지 않는다. */
+  /**
+   * **미완료 상태가 있을 때만** 타이머를 재무장한다. 끝난 게임을 되살리지 않는다.
+   *
+   * 여기서 `start`를 부르는 것(= 새 25초)이 의도다. 이 경로는 "모두 접속이 끊겨
+   * 시계를 멈춰 둔 방에 누가 돌아왔다"이고, 멈춰 둔 시계를 원래 마감으로 되살리면
+   * 돌아온 사람의 턴이 그 자리에서 만료된다. 재시작 복구는 `rehydrate`가 맡는다.
+   */
   async resume(roomCode: string): Promise<void> {
     const state = await this.rounds.findByRoomId(roomCode)
     if (state === undefined || state.finished) return
     await this.timers.start(roomCode, state)
+  }
+
+  /**
+   * 프로세스 재시작 후의 복구(PR 6). **저장된 마감을 그대로 되살린다.**
+   *
+   * 이어갈 수 없는 세 경우는 전부 던진다 — 호출자가 그 방만 닫는다:
+   * ① 라운드 상태가 없다(진행 중이라던 방에 게임이 없다),
+   * ② 라운드 상태가 이미 끝났다(종료 전이가 실패한 채 남은 방이다),
+   * ③ 저장된 마감이 없거나 라운드 번호가 어긋난다.
+   */
+  async rehydrate(roomCode: string): Promise<void> {
+    const state = await this.rounds.findByRoomId(roomCode)
+    if (state === undefined) {
+      throw new Error(`진행 중이라던 방에 야추 라운드 상태가 없습니다: ${roomCode}`)
+    }
+    if (state.finished) {
+      throw new Error(`야추 라운드가 이미 끝난 방입니다(종료 전이 실패): ${roomCode}`)
+    }
+    if (!(await this.timers.resumeFromStored(roomCode, state))) {
+      throw new Error(`되살릴 턴 마감 기록이 없습니다: ${roomCode}`)
+    }
   }
 
   /** 게임 중 이탈 — 명단·턴 순서·다음 턴 판단은 전부 타이머의 단일 경로에 있다. */
@@ -158,7 +185,7 @@ export class YachtDiceGameModule implements GameModule {
 
   /** 방 소멸. 여기서는 phase를 옮기지 않는다(방 자체가 사라진다). */
   async close(roomCode: string): Promise<void> {
-    this.timers.cancelRoom(roomCode)
+    await this.timers.cancelRoom(roomCode)
     await this.rounds.remove(roomCode)
   }
 

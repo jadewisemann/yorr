@@ -53,7 +53,7 @@
 | 1.2 ✅ | 세션·사용자: `user:{id}` 해시, 토큰 해시·역인덱스, 게스트/회원 TTL 슬라이딩, authenticate 2경로, closeSession, assignRoom/clearRoom, 닉네임 정규화 | `user/service/UserService` | `UserServiceSessionIntegrationTest`(로그아웃 양경로 차단, 재로그인 무효화, TTL 차등), `UserServiceTest` |
 | 1.3 ✅ | 방 도메인: 키 스킴 + Lua 9종(CREATE/JOIN/LEAVE/CLOSE/TOUCH/START/ROLLBACK/CANCEL/RETURN_TO_LOBBY) + 방 코드 생성 + 스냅샷 조회(REST 모양) + 게임 메타데이터 스텁 레지스트리(YACHT_DICE 1..6·bots / DUEL·PING_PONG 2..2·no bots — 정원·minPlayers·supportsBots만) | `room/service/RoomCreateService`·`RoomValidationService`, `RoomRedisKeys` | `RoomValidationServiceTest`, `RoomCloseIntegrationTest`, `PartyRoomIntegrationTest`(host 승계·파티 생존·봇 승계 제외) |
 | 1.4 ✅ | 방 REST: `POST /rooms`(생성·참가·게스트·파티, snake_case 응답), leave, start, lobby 복귀, `GET /games/{id}` + **plain-text 오류 계약**(401 문자열 3종 포함) | `room/controller/RoomController`·`RoomValidationController`·`GameController` | `RoomValidationControllerTest` |
-| 1.5 ✅ | WS 코어: room.join(인증·재접속 분기·순서 계약)/joined/player_joined/leave/ready/reaction, 레지스트리·브로드캐스터(1회 직렬화), 하트비트 모니터(90s·CAS), presence, phase별 끊김 처리, 방 폐쇄 스케줄러(30s/10m 유예), StaleRoomCleaner, 실시간 병합 스냅샷 + 핸드셰이크 origin 검사·메시지 64KB 상한·소켓별 직렬 처리 | `handler/GameWebSocketHandler`, `ws/*`, `room/infrastructure/InMemoryRoomCloseScheduler`, `room/initializer/StaleRoomCleaner` | `GameWebSocketHandlerTest`(유예·재접속·세션만료 구분·유령 방 거부 등), `HeartbeatMonitorTest`(90s 경계·멱등), `RoomSessionRegistryTest`, `RealtimeRoomSnapshotServiceTest` |
+| 1.5 ✅ | WS 코어: room.join(인증·재접속 분기·순서 계약)/joined/player_joined/leave/ready/reaction, 레지스트리·브로드캐스터(1회 직렬화), 하트비트 모니터(90s·CAS), presence, phase별 끊김 처리, 방 폐쇄 스케줄러(30s/10m 유예), 부팅 재무장(StaleRoomCleaner 대체), 실시간 병합 스냅샷 + 핸드셰이크 origin 검사·메시지 64KB 상한·소켓별 직렬 처리 | `handler/GameWebSocketHandler`, `ws/*`, `room/infrastructure/InMemoryRoomCloseScheduler`, `room/initializer/StaleRoomCleaner` | `GameWebSocketHandlerTest`(유예·재접속·세션만료 구분·유령 방 거부 등), `HeartbeatMonitorTest`(90s 경계·멱등), `RoomSessionRegistryTest`, `RealtimeRoomSnapshotServiceTest` |
 | 1.6 ✅ | 봇 REST: ADD/REMOVE Lua + `state.sync` 브로드캐스트 + supportsBots 게이트 | `room/service/BotParticipantService`, `RoomBotController` | `BotParticipantServiceTest`, `RoomBotControllerTest`, `PartyRoomIntegrationTest`의 봇 승계 케이스 |
 | 1.7 ✅ | 음성: voice.join/leave/signal 릴레이, 명단 관리(끊김 시 정리 순서), `GET /voice/ice`(coturn HMAC) | `GameWebSocketHandler` voice 절, `ws/voice/*` | `RoomSessionRegistryVoiceTest`, `GameWebSocketHandlerTest` voice 케이스(from 스푸핑 차단, 부재 상대 무음 드롭) |
 
@@ -165,7 +165,7 @@
 - [ ] **프론트 `e2e:real` 통과.** Phase 3의 완료 기준이며 배선이 방금 들어갔으므로
       3.1·3.3·3.4·3.5는 아직 닫히지 않았다.
 - [ ] 부하·재접속 시나리오 검증(하트비트 타임아웃, 유예 close, 소켓 교체,
-      StaleRoomCleaner 부팅 동작). 상시 50명 규모에서 봇 Expectimax의 이벤트 루프
+      부팅 재무장 동작). 상시 50명 규모에서 봇 Expectimax의 이벤트 루프
       점유를 함께 본다(3.2 실측 기준 decide 1회 14~16ms — 재검토 조건은
       [games/yacht.md](docs/design/games/yacht.md)).
 - [ ] 트래픽 전환. **무중단 롤링은 원리적으로 불가능하다**(DESIGN 원칙 8 — WS 구독·
@@ -206,7 +206,7 @@
 |---|---|---|---|
 | WS 게이트웨이·envelope·하트비트 | `handler/`, `ws/` | realtime.md | ✅ 코어(1.5) + 음성(1.7) + 게임 dispatch(2.1) 이식 완료 |
 | 세션·게스트·회원 | `user/` | rooms-and-sessions.md | ✅ 세션·인증(1.2) + 프로필 REST(4.3) 이식 완료. 프로필의 MySQL 통합 6건은 `MYSQL_TEST_URL` 부재로 **미실행** |
-| 방·Lua·파티·폐쇄 수명 | `room/` | rooms-and-sessions.md | ✅ 키·Lua 9종·스냅샷·REST·폐쇄 스케줄러·StaleRoomCleaner 이식 완료(1.3·1.4·1.5) |
+| 방·Lua·파티·폐쇄 수명 | `room/` | rooms-and-sessions.md | ✅ 키·Lua 9종·스냅샷·REST·폐쇄 스케줄러 이식 완료(1.3·1.4·1.5). StaleRoomCleaner는 부팅 재무장(`game/startupResume.ts`)으로 대체 |
 | 봇 참가자 | `room/service/BotParticipantService` | rooms-and-sessions.md | ✅ ADD/REMOVE Lua·REST·supportsBots 게이트·`state.sync` 이식 완료(1.6) |
 | 퀵매치 | `room/service/QuickMatchService` | rooms-and-sessions.md | ✅ 큐·락(토큰 CAS 해제 Lua)·최장 대기 host·롤백, **WS 소켓 생존 조건 자동 시작**, 티켓 소비·FINISHED 자기 치유, REST 3종 이식·배선 완료(3.5) |
 | 게임 모듈 프레임워크 | `game/module/` | game-modules.md | ✅ 시그니처 Java 정렬·레지스트리 dispatch(접두사 검증·스트립·교차 네임스페이스 거부)·GameLifecycleService(start 실패 시 롤백) 이식 완료(2.1). 정원·minPlayers·supportsBots는 카탈로그가 유일한 출처 |
@@ -246,10 +246,11 @@
   스크립트 안에서 조립하는 부분은 단일 Redis 노드 전제 — 그대로 유지.
 - **타이머·스케줄러.** 마감 슬롯 선등록 레이스(과거 실사고), 세대 가드, 25s+1s
   유예, 발화-취소 경합은 전부 테스트로 고정돼 있다 — 테스트부터 이식한다.
-  프로세스 재시작 시 마감 유실은 StaleRoomCleaner가 임시 방어다(타이머 복구는
-  범위 밖, 만들면 Cleaner 삭제). **타이머 복구를 실제로 계획에 넣었다** —
-  [`deploy/PLAN.md`](../deploy/PLAN.md) PR 6(별도 ADR 예정). 재무장은 방마다
-  fail-closed여야 하고 Yacht·Duel·PingPong 셋을 모두 봐야 한다.
+  프로세스 재시작 시 마감 유실은 **해결됐다**: 마감 시각이 Redis에 있고
+  (`game/round/deadlineStore.ts`) 부팅 재무장이 그 값으로 되살린다
+  (`game/startupResume.ts`). StaleRoomCleaner는 그와 함께 삭제했다.
+  재무장은 방마다 fail-closed이고 Yacht·Duel·PingPong 셋을 모두 검증한다
+  ([`deploy/PLAN.md`](../deploy/PLAN.md) PR 6).
 - **통합 테스트 인프라.** Java는 Testcontainers(redis 7.4, mysql 8.0)다. Node
   쪽 대응(테스트 전용 compose vs testcontainers-node)을 Phase 1.1에서 정하고
   ADR로 남긴다. Redis 의존 계약(Lua·TTL·동시성)은 모킹으로 검증할 수 없다.

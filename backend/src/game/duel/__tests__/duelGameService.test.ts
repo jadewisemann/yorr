@@ -342,6 +342,36 @@ describe('DuelGameService', () => {
     expect(scheduler.scheduled.at(-1)?.version).toBe(1)
   })
 
+  /**
+   * 부팅 재무장(deploy/PLAN.md PR 6). 결투는 마감(`nextActionAt`)이 처음부터 상태 안의
+   * **절대 epoch ms**이고 그 상태는 Redis에 있으므로 되살릴 것이 예약뿐이다 — 야추만
+   * 마감이 프로세스 인메모리였다. 그래서 여기서 보는 것은 "예약을 되살리는가"와
+   * **"이어갈 수 없을 때 던지는가"** 다. 조용히 넘어가면 상태만 살아 있고 턴이 멈춘
+   * 방이 남는다.
+   */
+  it('rehydrate는 진행 중 결투의 마감을 그대로 되살린다', async () => {
+    await service.start(ROOM, humans())
+    const scheduled = scheduler.scheduled.at(-1)
+    const before = scheduler.scheduled.length
+
+    await service.rehydrate(ROOM)
+
+    expect(scheduler.scheduled.length).toBe(before + 1)
+    // 새 값을 계산하지 않는다 — 같은 마감으로 다시 걸린다.
+    expect(scheduler.scheduled.at(-1)?.deadline).toBe(scheduled?.deadline)
+  })
+
+  it('rehydrate는 상태가 없으면 던진다', async () => {
+    await expect(service.rehydrate(ROOM)).rejects.toThrow('결투 상태가 없습니다')
+  })
+
+  it('rehydrate는 이미 끝난 결투에서 던진다', async () => {
+    await service.start(ROOM, humans())
+    await service.removePlayer(ROOM, HOST)
+
+    await expect(service.rehydrate(ROOM)).rejects.toThrow('이미 끝난 방입니다')
+  })
+
   it('close는 타이머와 상태를 함께 버린다', async () => {
     await service.start(ROOM, humans())
 

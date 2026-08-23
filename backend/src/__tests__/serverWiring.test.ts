@@ -218,9 +218,75 @@ describeRedis('서버 배선', () => {
       payload: { roundNumber: 1, activePlayerId: host.id, turnOrder: [host.id, guest.id] },
     })
 
-    instance.rounds.timer.cancelRoom(host.room_id)
+    await instance.rounds.timer.cancelRoom(host.room_id)
     client.socket.close()
     guestClient.socket.close()
+  })
+
+  /**
+   * **부팅 재무장이 실제로 판을 이어가는가**(deploy/PLAN.md PR 6).
+   *
+   * 이 저장소에서 배포가 게임을 끊어 온 이유는 라운드 상태가 아니라 **마감 시각**이었다.
+   * 상태는 진작 Redis에 있었지만 마감은 프로세스 인메모리 Map이었고, 되살릴 방법이
+   * 없으니 부팅 때 PLAYING 방을 전부 닫는 것이 유일한 대책이었다
+   * (`closeUnrecoverableGamesOnStartup`).
+   *
+   * 그래서 여기서는 **진짜로 재시작한다**: 첫 서버를 닫고, 같은 Redis를 물려받은 두
+   * 번째 서버를 세워 `listen()`을 부른다. 판정 기준은 "저장했는가"가 아니라
+   * **"닫히지 않고, 같은 마감으로 이어지는가"** 다. 재무장을 빼면 방이 닫혀 이 테스트가
+   * 깨진다.
+   */
+  it('재시작해도 진행 중이던 판을 같은 마감으로 이어간다', async () => {
+    const first = await build()
+    const url = await listen(first)
+    const host = await enterRoom(first, { nickname: '호스트' })
+    // 사람 둘이어야 시계가 돈다(연습 방은 마감이 null이라 "되살렸다"를 구별할 수 없다).
+    const guest = await enterRoom(first, { nickname: '손님', room_id: host.room_id })
+    const hostClient = await joined(url, host)
+    const guestClient = await joined(url, { ...guest, room_id: host.room_id })
+    await startGame(first, host)
+    await hostClient.await('game.yacht_dice.round.start')
+
+    const deadlineBefore = first.rounds.timer.currentDeadline(host.room_id)
+    expect(typeof deadlineBefore).toBe('number')
+
+    // ── 재시작 ──────────────────────────────────────────────────────────────
+    hostClient.socket.close()
+    guestClient.socket.close()
+    await first.close()
+
+    const second = await build()
+    await second.listen()
+
+    // 방이 살아 있어야 한다. 예전 정책이었다면 여기서 방이 닫혀 있다.
+    expect(await redis().hget(roomKey(host.room_id), 'phase')).toBe('PLAYING')
+
+    // 마감이 **같은 값으로** 되살아났다. 새로 계산했다면 값이 달라진다.
+    expect(second.rounds.timer.currentDeadline(host.room_id)).toBe(deadlineBefore)
+
+    /*
+     * **자기 자리로 돌아올 수 있어야 한다.** 좌석 레지스트리는 프로세스 메모리라
+     * 재시작에 사라지므로, 재접속 판정을 그것만으로 하면 이 join이 새 참가로 보여
+     * `GAME_ALREADY_STARTED`로 거절된다 — 그러면 마감을 되살려도 아무도 돌아올 수
+     * 없어 재무장이 무의미하다. 방 명단(Redis)이 자리의 영속 근거다.
+     *
+     * 그리고 스냅샷의 `roundDeadline`이 **원래 값**이어야 한다. 최초 참가 경로로
+     * 흘렀다면 `resume()`이 불려 새 25초로 덮였을 것이다.
+     */
+    const secondUrl = `ws://127.0.0.1:${(second.app.server.address() as AddressInfo).port}/ws/v1/game`
+    const back = await connect(secondUrl)
+    back.send({
+      type: 'room.join',
+      ts: Date.now(),
+      payload: { roomId: host.room_id, sessionToken: host.token },
+    })
+    const rejoined = await back.await('sys.reconnected')
+    expect(
+      (rejoined.payload as { snapshot: { game?: { roundDeadline?: number } } }).snapshot.game
+        ?.roundDeadline,
+    ).toBe(deadlineBefore)
+
+    back.socket.close()
   })
 
   /**
@@ -274,6 +340,51 @@ describeRedis('서버 배선', () => {
     expect(instance.rounds.timer.currentDeadline(host.room_id)).toBeDefined()
 
     client.socket.close()
+  })
+
+  /**
+   * **세 게임을 모두 검증한다**(deploy/PLAN.md PR 6). 야추만 고치면 절반이다 —
+   * 결투·탁구도 재시작 뒤 이어져야 하고, 그 둘은 마감(`nextActionAt`)이 처음부터
+   * 상태 안의 절대 시각이라 되살릴 것이 예약뿐이다. 즉 이 테스트가 보는 것은
+   * "부팅 재무장이 야추만 부르고 있지 않은가"다.
+   *
+   * 판정 기준: 재시작 뒤에도 방이 닫히지 않고 게임 상태가 Redis에 남아 있으며,
+   * 자기 자리로 돌아올 수 있다.
+   */
+  it.each([
+    ['DUEL', 'game.duel.state'],
+    ['PING_PONG', 'game.ping_pong.state'],
+  ])('%s도 재시작 뒤 이어진다', async (gameCode, stateType) => {
+    const first = await build()
+    const url = await listen(first)
+    const host = await enterRoom(first, { nickname: '호스트' }, gameCode)
+    const guest = await enterRoom(first, { nickname: '손님', room_id: host.room_id })
+    const hostClient = await joined(url, host)
+    const guestClient = await joined(url, { ...guest, room_id: host.room_id })
+    await startGame(first, host)
+    await hostClient.await(stateType)
+
+    hostClient.socket.close()
+    guestClient.socket.close()
+    await first.close()
+
+    const second = await build()
+    await second.listen()
+
+    // 예전 정책(부팅 때 PLAYING 방 전부 닫기)이었다면 둘 다 여기서 깨진다.
+    expect(await redis().hget(roomKey(host.room_id), 'phase')).toBe('PLAYING')
+    expect(await redis().exists(`room:${host.room_id}:game:${gameCode}:state`)).toBe(1)
+
+    const secondUrl = `ws://127.0.0.1:${(second.app.server.address() as AddressInfo).port}/ws/v1/game`
+    const back = await connect(secondUrl)
+    back.send({
+      type: 'room.join',
+      ts: Date.now(),
+      payload: { roomId: host.room_id, sessionToken: host.token },
+    })
+    await back.await('sys.reconnected')
+
+    back.socket.close()
   })
 
   /** **(d) 듀얼 모듈(3.3)** — 2인 방을 시작하면 결투 상태와 방송이 나가야 한다. */

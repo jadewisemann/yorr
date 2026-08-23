@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { InMemoryRoundDeadlineStore } from '../deadlineStore.js'
 import type { ConfirmedScore } from '../roundPorts.js'
 import { RoundState, type RoundSubmissionResult } from '../roundState.js'
 import { InMemoryRoundStateStore } from '../roundStateStore.js'
@@ -48,6 +49,7 @@ describe('RoundTimerService', () => {
   let presence: FakePresence
   let roomService: FakeRoomService
   let store: InMemoryRoundStateStore
+  let deadlineStore: InMemoryRoundDeadlineStore
   let synchronizationService: RoundSynchronizationService
   let roundStarted: RoundStartedEvent[]
   let warnings: string[]
@@ -60,6 +62,7 @@ describe('RoundTimerService', () => {
     gameCompletion = new FakeGameCompletion()
     roomService = new FakeRoomService({ gameId: 'game-a', players: humanRoster(DUO) })
     store = new InMemoryRoundStateStore()
+    deadlineStore = new InMemoryRoundDeadlineStore()
     synchronizationService = new RoundSynchronizationService(store, { dieRoller: () => 1 })
     // 참가자를 명단에 올려 online으로 만든다. 비어 있으면 start()가 전원을 오프라인으로
     // 보고 타이머를 걸지 않아, 이 클래스의 검증 대상 자체가 실행되지 않는다.
@@ -70,6 +73,7 @@ describe('RoundTimerService', () => {
       {
         timeoutResolver,
         deadlineScheduler: scheduler,
+        deadlineStore,
         broadcaster,
         gameCompletion,
         synchronizationService,
@@ -457,6 +461,171 @@ describe('RoundTimerService', () => {
       msgId?: string
     }
   }
+
+  /* ------------------------------------------------------- 부팅 재무장 (PR 6) */
+
+  /**
+   * 마감 시각 영속화의 핵심 계약(deploy/PLAN.md PR 6).
+   *
+   * 판정 기준은 "저장하는가"가 아니라 **"인메모리 Map을 잃은 새 인스턴스가 원래 마감을
+   * 그대로 이어가는가"** 다. 그래서 아래 테스트들은 저장소만 물려받은 두 번째
+   * `RoundTimerService`를 만들어 검증한다 — 그 저장소 자리가 운영에서는 Redis다.
+   */
+  describe('resumeFromStored', () => {
+    const restarted = (now: number): RoundTimerService =>
+      new RoundTimerService(
+        {
+          timeoutResolver,
+          deadlineScheduler: scheduler,
+          deadlineStore,
+          broadcaster,
+          gameCompletion,
+          synchronizationService,
+          presence,
+          roomService,
+        },
+        { now: () => now, onRoundStarted: (event) => roundStarted.push(event) },
+      )
+
+    it('start가 마감을 저장한다', async () => {
+      await timerService.start('room-a', RoundState.start(1, DUO))
+
+      await expect(deadlineStore.find('room-a')).resolves.toEqual({
+        roundNumber: 1,
+        deadline: DEADLINE,
+      })
+    })
+
+    it('시계 없는 연습 방은 마감을 null로 저장한다', async () => {
+      roomService.snapshot = { gameId: 'game-a', players: humanRoster(SOLO) }
+
+      await timerService.start('room-a', RoundState.start(1, SOLO))
+
+      await expect(deadlineStore.find('room-a')).resolves.toEqual({
+        roundNumber: 1,
+        deadline: null,
+      })
+    })
+
+    /** 미래 분기 — 재시작 뒤에도 **같은** 마감으로 이어간다(새 25초가 아니다). */
+    it('마감이 아직 남았으면 그 시각으로 재무장한다', async () => {
+      const state = RoundState.start(1, DUO)
+      await timerService.start('room-a', state)
+      broadcaster.reset()
+      // 10초 뒤에 프로세스가 되살아났다.
+      const timer = restarted(NOW + 10_000)
+
+      await expect(timer.resumeFromStored('room-a', state)).resolves.toBe(true)
+
+      expect(timer.currentDeadline('room-a')).toBe(DEADLINE)
+      expect(scheduler.deadline).toBe(DEADLINE + EXPIRY_GRACE_MS)
+      const message = onlyBroadcast()
+      expect(message.type).toBe('game.yacht_dice.round.start')
+      // 클라가 보는 마감도 원래 값이어야 한다 — 새 값을 주면 남은 시간이 늘어난다.
+      expect((message.payload as { deadline: number }).deadline).toBe(DEADLINE)
+    })
+
+    /**
+     * 이미 지남 분기. 별도 분기 코드가 없는 것이 요점이다 — 예약기가 지연을 0으로
+     * 깎아 그 자리에서 발화하므로 턴이 서버 대리로 넘어간다.
+     */
+    it('마감이 이미 지났으면 과거 시각으로 예약해 즉시 발화시킨다', async () => {
+      const state = RoundState.start(1, DUO)
+      await timerService.start('room-a', state)
+      const restartedAt = DEADLINE + 60_000
+      const timer = restarted(restartedAt)
+
+      await expect(timer.resumeFromStored('room-a', state)).resolves.toBe(true)
+
+      expect(scheduler.deadline).toBe(DEADLINE + EXPIRY_GRACE_MS)
+      expect(scheduler.deadline).toBeLessThan(restartedAt)
+    })
+
+    it('시계 없는 턴은 시계 없이 이어간다', async () => {
+      roomService.snapshot = { gameId: 'game-a', players: humanRoster(SOLO) }
+      const state = RoundState.start(1, SOLO)
+      await timerService.start('room-a', state)
+      // 연습 방의 사람 턴은 애초에 예약하지 않는다 — 그 상태가 그대로 유지돼야 한다.
+      expect(scheduler.deadline).toBeNull()
+      broadcaster.reset()
+      const timer = restarted(NOW + 10_000)
+
+      await expect(timer.resumeFromStored('room-a', state)).resolves.toBe(true)
+
+      expect(timer.currentDeadline('room-a')).toBeNull()
+      expect(scheduler.deadline).toBeNull()
+      expect((onlyBroadcast().payload as { deadline: number | null }).deadline).toBeNull()
+    })
+
+    /** 유효하지 않음 분기 — 호출자가 그 방을 fail-closed로 닫는다. */
+    it('기록이 없으면 false를 낸다', async () => {
+      await expect(
+        restarted(NOW).resumeFromStored('room-a', RoundState.start(1, DUO)),
+      ).resolves.toBe(false)
+    })
+
+    /**
+     * 라운드 번호 대조가 있어야 하는 이유: 게임 종료 경로 일부는 예약기만 취소하므로
+     * 기록이 TTL까지 남을 수 있다. 대조가 없으면 그 낡은 기록으로 **이미 끝난 턴을**
+     * 되살린다.
+     */
+    it('라운드 번호가 어긋난 기록으로는 되살리지 않는다', async () => {
+      await deadlineStore.save('room-a', { roundNumber: 1, deadline: DEADLINE })
+
+      await expect(
+        restarted(NOW).resumeFromStored('room-a', RoundState.start(2, DUO)),
+      ).resolves.toBe(false)
+    })
+
+    it('cancel은 그 라운드의 기록만 지운다', async () => {
+      await deadlineStore.save('room-a', { roundNumber: 2, deadline: DEADLINE })
+
+      await timerService.cancel('room-a', 1)
+      await expect(deadlineStore.find('room-a')).resolves.not.toBeUndefined()
+
+      await timerService.cancel('room-a', 2)
+      await expect(deadlineStore.find('room-a')).resolves.toBeUndefined()
+    })
+
+    /**
+     * 부팅 시점에는 아직 아무 소켓도 붙지 않았다. 오프라인 판정을 그대로 태우면
+     * 재무장이 곧 턴 스킵이 되고, 두 턴이면 `MAX_OFFLINE_TURNS`에 걸려 **재시작만으로
+     * 사람이 방에서 쫓겨난다.**
+     */
+    it('되살릴 때는 접속이 없어도 턴을 스킵하지 않는다', async () => {
+      const state = RoundState.start(1, DUO)
+      await timerService.start('room-a', state)
+      broadcaster.reset()
+      // 새 프로세스의 레지스트리는 비어 있다 = 전원 오프라인으로 답한다.
+      presence = new FakePresence()
+      const timer = new RoundTimerService(
+        {
+          timeoutResolver,
+          deadlineScheduler: scheduler,
+          deadlineStore,
+          broadcaster,
+          gameCompletion,
+          synchronizationService,
+          presence,
+          roomService,
+        },
+        { now: () => NOW + 5_000 },
+      )
+
+      await expect(timer.resumeFromStored('room-a', state)).resolves.toBe(true)
+
+      expect(timer.currentDeadline('room-a')).toBe(DEADLINE)
+      expect(onlyBroadcast().type).toBe('game.yacht_dice.round.start')
+    })
+
+    it('cancelRoom은 기록을 통째로 지운다', async () => {
+      await timerService.start('room-a', RoundState.start(1, DUO))
+
+      await timerService.cancelRoom('room-a')
+
+      await expect(deadlineStore.find('room-a')).resolves.toBeUndefined()
+    })
+  })
 })
 
 const STRAIGHT = [1, 2, 3, 4, 5]

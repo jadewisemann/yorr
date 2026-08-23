@@ -53,6 +53,7 @@ export {
   toDiceThrowRequest,
   toRoundSubmitPayload,
 } from './payloads.js'
+export { RedisRoundDeadlineStore } from './redisRoundDeadlineStore.js'
 export {
   LOCK_RETRY_MS,
   LOCK_TTL_MS,
