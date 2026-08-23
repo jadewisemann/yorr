@@ -116,14 +116,33 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  # ── 2. compose 문법 검증 ─────────────────────────────────────────────────────
+  # ── 2. 배포 설정·controller 검증 ─────────────────────────────────────────────
   # `docker compose config`는 데몬 없이 돈다. 필수 변수(`${VAR:?}`)와 보간 오류를
   # 배포 직전이 아니라 여기서 잡는다.
+  #
+  # controller 검증이 같은 잡에 있는 이유: `image` 잡이 이 잡을 기다리므로(Release
+  # Ready 계약) 배포 로직이 깨진 커밋의 이미지도 발행되지 않는다. 지난번 자동화는
+  # **한 번도 실행되지 않은 채 머지됐다** — 호스트 없이 검증할 수 있는 것은 전부
+  # 여기서 검증한다.
   compose:
-    name: deploy/compose.yaml 검증
+    name: deploy 설정·controller 검증
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: 배포 스크립트 문법
+        working-directory: deploy
+        run: |
+          for script in converge apply.sh status.sh rollback.sh bootstrap.sh tests/*.sh tests/fake-docker; do
+            bash -n "$script"
+            echo "ok $script"
+          done
+
+      # PLAN.md §9의 실패 주입 표. git은 진짜, docker만 대역이다 —
+      # `up --wait` 실패 · 인프라 장애 · 게임 진행 · 잠금 경합을 실제로 주입한다.
+      - name: controller 실패 주입 (deploy/PLAN.md §9)
+        run: deploy/tests/converge.test.sh
+
       - name: compose config
         working-directory: deploy
         run: |
@@ -140,9 +159,19 @@ jobs:
           rm -f ci.env
 
   # ── 3. linux/arm64 이미지 → GHCR ─────────────────────────────────────────────
+  #
+  # **GHCR publish = Release Ready.** 호스트는 별도의 manifest DB도 deployment
+  # server도 보지 않고, "GHCR에 성공적으로 발행된 이미지"를 배포 가능한 릴리스의
+  # 증거로 쓴다(deploy/PLAN.md D2). 그래서 이 잡이 도달했다는 사실 자체가 계약이며,
+  # **검사 하나라도 통과하지 못한 커밋의 이미지는 여기 올라오면 안 된다.**
+  #
+  # `needs`가 `[verify]`뿐이면 verify 성공 + compose 실패 + 이미지 발행이 성립한다.
+  # 그 조합은 정확히 배포를 깨뜨리는 조합이다: `compose.yaml`이 공개 주소·필수 변수의
+  # 정본이므로(그 파일은 이미지가 아니라 호스트 체크아웃에서 읽힌다) 문법이 깨진
+  # 커밋의 이미지가 "배포 가능"으로 표시된다.
   image:
     name: linux/arm64 이미지
-    needs: [verify]
+    needs: [verify, compose]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -176,11 +205,40 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}-backend
-          # `main`은 "지금 배포 가능한 것", `sha-<커밋>`은 롤백 대상이다.
-          # 롤백은 compose의 BACKEND_IMAGE를 sha 태그로 바꿔 `up -d backend`.
+          # `main`은 "지금 배포 가능한 것"(발견용), `sha-<커밋>`은 움직이지 않는
+          # 불변 태그다. 호스트는 `:main`으로 발견하고 **digest로 고정해 실행한다**
+          # (deploy/PLAN.md D3) — `:main`이 나중에 다른 이미지를 가리켜도 실행 중인
+          # 릴리스가 변하지 않는다.
           tags: |
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=sha-,format=short
+
+      # `metadata-action`의 기본 라벨에 `org.opencontainers.image.revision`이 있다.
+      # 호스트 controller의 릴리스 발견이 **그 라벨 하나**에 달려 있으므로(이미지가
+      # 곧 release marker다 — D2) 여기서 실제로 붙었는지 확인한다. 기본값이 조용히
+      # 바뀌거나 `labels:`를 누군가 덮어쓰면 controller는 "발견할 릴리스가 없다"로
+      # 읽고 배포가 조용히 멈춘다 — 그 실패는 호스트에서 진단하기 훨씬 어렵다.
+      - name: revision 라벨 확인 (Release Ready 계약)
+        env:
+          LABELS: ${{ steps.meta.outputs.labels }}
+        run: |
+          printf '%s\n' "$LABELS"
+          revision=$(printf '%s\n' "$LABELS" | sed -n 's/^org\.opencontainers\.image\.revision=//p')
+          # 모양부터 본다 — 라벨이 통째로 사라진 경우와 값이 어긋난 경우는 원인이 다르고,
+          # 한 메시지로 뭉치면 호스트에서 진단할 때 헤맨다.
+          if [[ ! $revision =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::revision 라벨이 없거나 커밋 SHA 모양이 아니다(값='$revision')."
+            echo "::error::호스트 controller가 이 라벨로 릴리스를 발견한다 — deploy/PLAN.md D2."
+            exit 1
+          fi
+          # `metadata-action`은 **이벤트와 무관하게 `github.sha`를 적는다.** PR 실행에서
+          # 그 값은 head 커밋이 아니라 머지 커밋이며, 그것이 이미지의 실제 내용이므로
+          # 옳다. 이미지를 발행하지 않는 PR에서는 어차피 계약이 걸리지 않는다.
+          if [[ $revision != "$GITHUB_SHA" ]]; then
+            echo "::error::revision 라벨이 이 커밋과 다르다(값='$revision', 기대='$GITHUB_SHA')."
+            exit 1
+          fi
+          echo "revision=$revision"
 
       - id: build
         uses: docker/build-push-action@v6

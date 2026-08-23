@@ -396,6 +396,51 @@ describe('PingPongGameService', () => {
     })
   })
 
+  /**
+   * 부팅 재무장(deploy/PLAN.md PR 6). 탁구도 결투와 같아서 마감(`nextActionAt`)이 상태
+   * 안의 절대 시각이고 상태가 Redis에 있으므로 되살릴 것은 예약뿐이다. **여기서 마감을
+   * 새로 계산하면 안 된다** — 공의 다음 사건 시각이 곧 마감이라 새 값을 주면 랠리가
+   * 어긋난다.
+   *
+   * `resume`과 다른 점은 이어갈 수 없을 때 던진다는 것뿐이다. 조용히 넘어가면 상태만
+   * 살아 있고 공이 얼어붙은 방이 남는다.
+   */
+  it('rehydrate는 진행 중 상태의 마감을 되살린다', async () => {
+    const timers = manualExecutor()
+    const test2 = harness({ executor: timers.executor })
+    let state = initial([P1, P2], 1_000)
+    state = swing(state, P1, 0, 1_100, 0.5)
+    state = ready(state, P1, 1_200)
+    state = swing(state, P2, 0, 1_300, 0.5)
+    state = ready(state, P2, 1_400)
+    test2.states.state = state
+    expect(state.nextActionAt).toBeGreaterThan(0)
+    test2.calls.length = 0
+
+    await test2.service.rehydrate(ROOM)
+
+    expect(test2.calls).toContain(`scheduler.schedule(${state.version})`)
+    expect(timers.pending()).toBe(1)
+  })
+
+  it('rehydrate는 상태가 없으면 던진다', async () => {
+    await expect(test.service.rehydrate(ROOM)).rejects.toThrow('탁구 상태가 없습니다')
+  })
+
+  it('rehydrate는 이미 끝난 판에서 던진다', async () => {
+    let state = initial([P1, P2], 1_000)
+    state = swing(state, P1, 0, 1_100, 0.5)
+    state = ready(state, P1, 1_200)
+    state = swing(state, P2, 0, 1_300, 0.5)
+    state = ready(state, P2, 1_400)
+    test.states.state = serve(state, 4_000, 0.7)
+    // 경기 중 이탈 = 몰수 → FINISHED.
+    await test.service.removePlayer(ROOM, P1)
+    expect((test.states.state as PingPongState).phase).toBe('FINISHED')
+
+    await expect(test.service.rehydrate(ROOM)).rejects.toThrow('이미 끝난 방입니다')
+  })
+
   it('연습 스윙 전 ready는 상태를 바꾸지 않으므로 아무 방송도 없다', async () => {
     test.states.state = initial([P1, P2], 1_000)
 

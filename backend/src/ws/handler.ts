@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { GameModuleRegistry, RoomGameHooks } from '../game/module.js'
 import type { RoomCloseScheduler } from '../room/closeScheduler.js'
 import type { RoomService } from '../room/roomService.js'
+import type { RoomSnapshot } from '../room/snapshot.js'
 import { SessionAuthenticationError } from '../user/errors.js'
 import type { UserService } from '../user/session.js'
 import type { RoomBroadcaster } from './broadcaster.js'
@@ -70,6 +71,13 @@ interface Identity {
   readonly sessionToken: string
   readonly nickname: string
 }
+
+/**
+ * Redis 명단에 이 사람의 자리가 있는지. 좌석 레지스트리(프로세스 메모리)와 달리
+ * 재시작을 견디는 근거다 — 재무장한 판으로 돌아오는 판정에 쓴다.
+ */
+const hasSeat = (room: RoomSnapshot, playerId: string): boolean =>
+  room.players.some((player) => player.playerId === playerId)
 
 const isReaction = (value: unknown): value is ReactionType =>
   REACTION_TYPES.includes(value as ReactionType)
@@ -233,7 +241,22 @@ export class GameSocketHandler {
     }
 
     const previous = this.deps.registry.find(roomId, identity.playerId)
-    if (this.deps.registry.phaseOf(roomId) === 'playing' && !previous) {
+    const playing = this.deps.registry.phaseOf(roomId) === 'playing'
+    /*
+     * **재시작 뒤 자기 자리로 돌아오는 경로**(deploy/PLAN.md PR 6).
+     *
+     * 좌석 레지스트리는 프로세스 메모리라 재시작에 함께 사라진다. 그래서 재접속
+     * 판정을 레지스트리만으로 하면, 프로세스가 죽었다 살아난 뒤의 첫 `room.join`이
+     * **자기 방인데도 새 참가로 보여 `GAME_ALREADY_STARTED`로 거절된다.** 그러면 마감
+     * 시각을 되살려 놓아도 아무도 그 판으로 돌아올 수 없어 재무장이 무의미해진다.
+     *
+     * 방 명단은 Redis에 있다 — 그것이 "이 사람에게 자리가 있다"의 영속 근거다.
+     * 진행 중인 방에만 적용하는 이유: 대기실은 지금도 새 참가로 정상 처리되므로
+     * 바꿀 이유가 없고, 바꾸면 `room.joined`·`room.player_joined`가 나가지 않는
+     * 차이만 생긴다.
+     */
+    const reseating = !previous && playing && hasSeat(room, identity.playerId)
+    if (playing && !previous && !reseating) {
       this.sendError(
         socket,
         'GAME_ALREADY_STARTED',
@@ -246,7 +269,9 @@ export class GameSocketHandler {
     const self = this.deps.registry.join(roomId, socket, identity.playerId, identity.nickname)
     this.disconnectPreviousSocket(previous, socket)
 
-    if (previous) {
+    // 자리를 되찾는 경우도 재접속 경로다. 최초 참가 경로로 보내면 `resume()`이
+    // 불려 **되살린 마감이 새 25초로 덮인다** — 재무장이 헛일이 된다.
+    if (previous || reseating) {
       await this.completeReconnect(socket, message, roomId, identity.playerId)
       return
     }

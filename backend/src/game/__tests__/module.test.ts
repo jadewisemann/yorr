@@ -20,6 +20,7 @@ const fakeModule = (code: string, events: string[] = ['dice.roll']): FakeModule 
     reconnect: async (roomCode) => ({ roomId: roomCode, phase: 'playing', players: [] }),
     pause: async () => {},
     resume: async () => {},
+    rehydrate: async () => {},
     removePlayer: async () => {},
     close: async () => {},
     hasState: async () => false,

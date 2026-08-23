@@ -1,0 +1,19 @@
+# 5분마다 "새 릴리스가 있나 · 배포해도 되나"를 본다.
+#
+# 주기를 짧게 잡아도 비싸지 않다: 같은 릴리스면 digest 해석 한 번으로 끝나고
+# (이미지를 당기지도 않는다) 로그도 남기지 않는다. 대신 **게임이 끝나는 순간을 놓치지
+# 않는 것**이 이 방식의 값어치라, 주기가 곧 "배포가 밀리는 최대 시간"이다.
+# 게임 게이트가 사라지면(PR 7) 이 주기는 그냥 배포 지연 상한이 된다.
+
+[Unit]
+Description=YORR 릴리스 수렴 타이머
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+# 여러 타이머가 같은 초에 몰리는 것을 흩는다.
+RandomizedDelaySec=60
+Unit=yorr-converge.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,457 @@
+#!/usr/bin/env bash
+# YORR 배포 controller — Release 단위 pull-based CD.
+#
+# 정본 계획은 deploy/PLAN.md, 결정 배경은
+# backend/docs/adr/0006-github-actions-ghcr-arm64-single-host.md에 있다.
+#
+# ── 한 문장 ───────────────────────────────────────────────────────────────────
+# 배포 단위는 Docker 이미지 하나가 아니라 **"git revision + compose/설정 + image
+# digest"가 결합된 하나의 Release**다. 그래서 이 스크립트는 이미지만 갈아끼우지 않고
+# 체크아웃과 digest를 함께 옮기며, 실패하면 둘을 함께 되돌린다.
+#
+# ── 왜 체크아웃 바깥에 사는가 ─────────────────────────────────────────────────
+# 배포 스크립트가 자기 자신을 `git reset`하는 self-modifying deployment를 피해야 한다.
+# 그렇다고 전부 바깥에 두면 controller 갱신이 수동 단계가 되고, 수동 단계는 하지 않게
+# 된다(`deploy.yml`이 등록 후 0회 실행된 이유가 정확히 그것이다). 그래서 둘로 나눈다:
+#
+#   /usr/local/lib/yorr-deploy/converge   ← 이 파일. lock · 발견 · 상태 · HALT · 롤백
+#   /var/lib/yorr-deploy/                 ← 상태
+#   <체크아웃>/deploy/apply.sh            ← 실제 compose 실행. 릴리스와 함께 움직인다
+#
+# 바깥 controller는 거의 바뀌지 않으므로 수동 bootstrap 빈도가 실질적으로 0이 된다.
+# 안쪽 `apply.sh`는 릴리스 B의 배포 로직이 릴리스 B를 배포하게 만든다(그쪽이 옳다).
+#
+# ⚠️ PLAN.md D8은 `apply.sh`를 `exec`으로 부른다고 적었지만 여기서는 **자식
+#    프로세스로** 부른다. `exec`이면 이 프로세스가 대체되어 롤백·HALT를 할 주체가
+#    사라지는데, 같은 문서의 §7 알고리즘이 그 둘을 controller의 책임으로 두었다.
+#    `exec`의 원래 목적(실행 중 스크립트가 자기 밑에서 교체되는 것을 막기)은 이미
+#    "controller가 체크아웃 바깥에 있다"로 달성되어 있으므로 잃는 것이 없다.
+#
+# ── 쓰임 ──────────────────────────────────────────────────────────────────────
+#   converge              한 번 수렴한다(systemd timer가 부르는 것)
+#   converge --dry-run    판단만 하고 아무것도 바꾸지 않는다
+#   converge status       지금 무엇이 돌고 있는지 보여준다
+#   converge rollback     last-good 릴리스로 손수 되돌린다
+#   converge resume       HALT를 풀고 자동 배포를 다시 켠다
+#
+# 설정은 **git 추적 파일이 아닌 곳**에서 읽는다: /etc/default/yorr-deploy.
+# 유닛 파일을 손으로 고치라는 예전 안내가 `git pull --ff-only`를 영구히 깨뜨릴 수
+# 있었다(PLAN.md §4 가설 1) — 호스트별 값은 git이 모르는 곳에 있어야 한다.
+set -euo pipefail
+
+CONFIG=${YORR_DEPLOY_CONFIG:-/etc/default/yorr-deploy}
+# shellcheck source=/dev/null
+[[ -r $CONFIG ]] && . "$CONFIG"
+
+CHECKOUT=${YORR_CHECKOUT:-/home/ubuntu/yorr}
+IMAGE_REPO=${YORR_IMAGE_REPO:-ghcr.io/jadewisemann/yorr-backend}
+# 발견용 태그. 실행은 언제나 digest로 고정한다(PLAN.md D3).
+DISCOVERY_TAG=${YORR_DISCOVERY_TAG:-main}
+STATE_DIR=${YORR_STATE_DIR:-/var/lib/yorr-deploy}
+WAIT_TIMEOUT=${YORR_WAIT_TIMEOUT:-150}
+# 게임 때문에 미룬 지 이 초를 넘기면 그래도 배포한다. 0이면 영원히 기다린다.
+# 이 게이트는 PR 7에서 사라진다(그때 마감 시각이 Redis에 있어 재시작을 견딘다).
+MAX_DEFER=${YORR_DEPLOY_MAX_DEFER:-21600}
+DISK_MIN_FREE_PCT=${YORR_DISK_MIN_FREE_PCT:-10}
+NOTIFY_WEBHOOK=${YORR_NOTIFY_WEBHOOK:-}
+HEARTBEAT_URL=${YORR_HEARTBEAT_URL:-}
+
+DEPLOY_DIR=$CHECKOUT/deploy
+LAST_GOOD=$STATE_DIR/last-good
+HALTED=$STATE_DIR/halted
+LOCK=$STATE_DIR/lock
+# 4번째 상태 파일이지만 임시다 — 게임 게이트와 함께 PR 7에서 사라진다.
+DEFERRED=$STATE_DIR/deferred-since
+
+DRY_RUN=false
+
+log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
+die() { log "!! $*" >&2; exit 1; }
+
+compose() { (cd "$DEPLOY_DIR" && docker compose "$@"); }
+git_repo() { git -C "$CHECKOUT" "$@"; }
+
+# ── 알림 ──────────────────────────────────────────────────────────────────────
+# 실패·롤백·HALT만 보낸다. 성공은 하트비트가 대신 말한다 — 잘 도는 배포가 매번
+# 알림을 내면 사람이 그 채널을 읽지 않게 되고, 그때 실패 알림도 함께 묻힌다.
+notify() {
+  log "알림: $*"
+  [[ -n $NOTIFY_WEBHOOK ]] || return 0
+  local escaped
+  escaped=$(printf '%s' "$*" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | sed -e ':a' -e 'N' -e '$!ba' -e 's/\n/\\n/g')
+  curl -fsS -m 10 -H 'Content-Type: application/json' \
+    -d "{\"content\":\"$escaped\"}" "$NOTIFY_WEBHOOK" >/dev/null || log "!! 알림 전송 실패"
+}
+
+# 데드맨 — *아무것도 안 돌고 있음*을 알려 준다. HALT 상태에서는 **보내지 않는다**:
+# 멈춘 자동화는 죽은 자동화이고, 데드맨이 그것을 알리는 것이 존재 이유다.
+heartbeat() {
+  [[ -n $HEARTBEAT_URL ]] || return 0
+  curl -fsS -m 10 "$HEARTBEAT_URL" >/dev/null || log "!! 하트비트 전송 실패"
+}
+
+# ── 상태 읽기·쓰기 ───────────────────────────────────────────────────────────
+# `current`(지금 무엇이 도는가)는 파일로 두지 않는다 — `docker inspect`와
+# `git rev-parse`로 유도할 수 있고, 파생 가능한 상태를 이중으로 들면 어긋난다.
+state_get() {
+  [[ -r $1 ]] || return 0
+  sed -n "s/^$2=//p" "$1" | tail -n1
+}
+
+write_atomic() {
+  local target=$1
+  cat > "$target.tmp"
+  mv -f "$target.tmp" "$target"
+}
+
+current_revision() { git_repo rev-parse HEAD 2>/dev/null || true; }
+
+# 실행 중 backend가 **레지스트리에서 어느 digest였는지**. 컨테이너가 태그로
+# 만들어졌든 digest로 만들어졌든 같은 답이 나온다: 컨테이너 → 로컬 이미지 ID →
+# 그 이미지의 RepoDigests. `.Config.Image`를 읽으면 태그로 만든 컨테이너에서
+# digest를 얻지 못한다.
+current_digest() {
+  local cid image
+  cid=$(compose ps -q backend 2>/dev/null | head -n1) || return 0
+  [[ -n $cid ]] || return 0
+  image=$(docker inspect --format '{{.Image}}' "$cid" 2>/dev/null) || return 0
+  docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image" 2>/dev/null |
+    grep -F "$IMAGE_REPO@" | head -n1 | sed 's/.*@//' || true
+}
+
+# ── 릴리스 발견 ──────────────────────────────────────────────────────────────
+# GHCR에 성공적으로 발행된 이미지 자체가 release marker다(PLAN.md D2). 별도
+# manifest DB도 deployment server도 두지 않는다 — 이미지가 이미
+# `org.opencontainers.image.revision`을 들고 있고, CI가 그것을 발행 전에 확인한다.
+#
+# digest 해석이 pull보다 **먼저**여야 한다: 같은 릴리스면 왕복 하나로 끝나야 하고,
+# 5분마다 이미지를 당기는 것은 그 자체로 비용이다.
+resolve_digest() {
+  local ref=$1 digest
+  if digest=$(docker buildx imagetools inspect --format '{{.Manifest.Digest}}' "$ref" 2>/dev/null) &&
+    [[ $digest == sha256:* ]]; then
+    printf '%s' "$digest"
+    return 0
+  fi
+  # 폴백: buildx 플러그인이 없는 호스트. 왕복이 늘 뿐 결과는 같다.
+  docker pull -q "$ref" >/dev/null 2>&1 || return 1
+  docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$ref" 2>/dev/null |
+    grep -F "$IMAGE_REPO@" | head -n1 | sed 's/.*@//'
+}
+
+# revision은 **받아 놓은 로컬 이미지**에서 읽는다. `imagetools inspect`의 라벨 출력
+# 모양(단일 플랫폼이면 객체, multi-arch면 플랫폼 맵)에 발견 로직 전체를 걸지 않기
+# 위해서다 — 어차피 배포하려면 이미지가 로컬에 있어야 한다.
+image_revision() {
+  docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$1" 2>/dev/null || true
+}
+
+# ── preflight ────────────────────────────────────────────────────────────────
+# 두 부류로 나누는 것이 핵심이다(PLAN.md D6). "현재 backend가 healthy한가"를 배포
+# 전제로 두면 **backend가 깨져서 그것을 고친 릴리스를 올리려는 순간 자동화가 배포를
+# 거부한다** — 가장 급할 때 멈추는 설계다.
+#
+#   MySQL · Redis · 디스크 · compose config → 실패하면 배포하지 않는다(인프라 장애)
+#   backend 자체                            → 실패해도 배포한다. 새 릴리스가 고칠 수 있다
+service_health() {
+  local cid
+  cid=$(compose ps -q "$1" 2>/dev/null | head -n1) || return 1
+  [[ -n $cid ]] || { printf 'missing'; return 0; }
+  docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid"
+}
+
+preflight_infra() {
+  # compose config를 **가장 먼저** 본다. 깨져 있으면 `compose ps`도 실패하므로,
+  # 순서를 뒤집으면 "mysql이 healthy가 아니다"라는 엉뚱한 진단이 나간다.
+  compose config --quiet ||
+    die_infra "현재 체크아웃의 compose config가 깨져 있다 — 배포하지 않는다."
+
+  local service status
+  for service in mysql redis; do
+    status=$(service_health "$service" || printf 'unknown')
+    [[ $status == healthy ]] ||
+      die_infra "$service 가 healthy가 아니다(상태=$status) — 인프라 장애다. 배포하지 않는다."
+  done
+
+  # df가 내는 값은 **사용률**이다. 여유가 임계 미만이면 배포하지 않는다 —
+  # 디스크가 찬 호스트에서 이미지를 받다 멈추면 롤백조차 못 하는 상태가 된다.
+  local used
+  used=$(df --output=pcent "$STATE_DIR" 2>/dev/null | tail -n1 | tr -dc '0-9') || used=""
+  if [[ -n $used ]] && ((100 - used < DISK_MIN_FREE_PCT)); then
+    die_infra "디스크 여유가 ${DISK_MIN_FREE_PCT}% 미만이다(사용 ${used}%) — 배포하지 않는다."
+  fi
+}
+
+die_infra() {
+  notify "🛑 YORR preflight 실패 — $*"
+  exit 1
+}
+
+# ── 게임 게이트 (PR 7에서 사라진다) ──────────────────────────────────────────
+# `yorr_rooms_active`가 0일 때만 배포한다. 배포가 진행 중 게임을 끊기 때문이고
+# (마감 타이머가 프로세스 인메모리 — DESIGN.md 원칙 8), 그 사실이 없어지는 것이
+# PR 6이다. 그때까지는 이 세 줄이 있어야 한다.
+#
+# 컨테이너 **안에서** 묻는다: backend는 포트를 공개하지 않으므로 호스트에서 직접
+# 닿을 길이 없고, Caddy를 경유하면 TLS·DNS가 이 판단에 끼어든다.
+active_rooms() {
+  local counted
+  counted=$(compose exec -T backend node -e '
+    fetch("http://127.0.0.1:" + (process.env.SERVER_PORT || "8080") + "/actuator/prometheus")
+      .then((response) => response.text())
+      .then((body) => {
+        const matched = /^yorr_rooms_active (\d+)$/m.exec(body)
+        console.log(matched === null ? "unknown" : matched[1])
+      })
+      .catch(() => console.log("unknown"))' 2>/dev/null | tr -d '\r' | tail -n1)
+  [[ $counted =~ ^[0-9]+$ ]] && printf '%s' "$counted" || printf 'unknown'
+}
+
+# 배포해도 되는지. 게임이 진행 중이면 미루고, 미룬 지 MAX_DEFER를 넘기면 진행한다.
+#
+# @param $1 배포 전 backend의 health 상태.
+game_gate_allows() {
+  local backend_state=$1 running rooms waited
+  running=$(compose ps -q backend 2>/dev/null | head -n1) || running=""
+  if [[ -z $running ]]; then
+    log "backend가 실행 중이 아니다 — 끊을 게임이 없다."
+    return 0
+  fi
+  # backend가 healthy가 아니면 **게이트를 묻지 않는다.** 게이지 조회는 컨테이너 안에서
+  # 도는 HTTP 왕복이라 crash 루프에서는 반드시 실패하고, 실패는 `unknown`(= 0이 아니다)이
+  # 되어 미룸으로 이어진다. 그러면 backend를 고치는 릴리스가 MAX_DEFER(기본 6시간)만큼
+  # 막힌다 — D6이 경고한 "가장 급할 때 멈추는 설계"가 게이트 쪽으로 되살아나는 것이다.
+  # 깨진 backend에는 끊을 게임도 없다.
+  if [[ $backend_state != healthy ]]; then
+    log "backend가 healthy가 아니다($backend_state) — 게임 게이트를 건너뛴다."
+    rm -f "$DEFERRED"
+    return 0
+  fi
+
+  rooms=$(active_rooms)
+  # 못 읽었으면 "0이 아니다"로 다룬다 — 판단이 안 설 때 끊는 쪽으로 기울지 않는다.
+  # 영원한 대기는 MAX_DEFER 상한이 막는다.
+  if [[ $rooms == 0 ]]; then
+    rm -f "$DEFERRED"
+    return 0
+  fi
+
+  [[ -f $DEFERRED ]] || date -u +%s > "$DEFERRED"
+  waited=$(($(date -u +%s) - $(cat "$DEFERRED")))
+  if ((MAX_DEFER > 0 && waited >= MAX_DEFER)); then
+    log "게임 $rooms개 진행 중이지만 ${waited}초 미뤘다(상한 ${MAX_DEFER}s) — 그래도 배포한다."
+    return 0
+  fi
+  log "게임 $rooms개 진행 중 — 미룬다(누적 ${waited}s). 다음 회차에 다시 본다."
+  return 1
+}
+
+# ── HALT ─────────────────────────────────────────────────────────────────────
+# 롤백만 하고 HALT하지 않으면 다음 회차가 같은 깨진 이미지를 다시 올려 **5분마다
+# 게임을 죽이는 플랩**이 된다. 빈 파일이 아니라 원인을 적는다.
+halt() {
+  local failed_revision=$1 failed_image=$2 rollback_revision=$3 reason=$4
+  write_atomic "$HALTED" <<EOF
+HALTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+FAILED_REVISION=$failed_revision
+FAILED_IMAGE=$failed_image
+ROLLBACK_REVISION=$rollback_revision
+REASON=$reason
+EOF
+}
+
+# ── 배포 한 번 ───────────────────────────────────────────────────────────────
+apply_release() {
+  local revision=$1 digest=$2
+  git_repo reset --hard --quiet "$revision"
+  compose config --quiet || return 1
+  # 안쪽 실행부는 릴리스와 함께 움직인다 — B의 배포 로직이 B를 배포한다.
+  "$DEPLOY_DIR/apply.sh" "$IMAGE_REPO@$digest" "$WAIT_TIMEOUT"
+}
+
+do_converge() {
+  mkdir -p "$STATE_DIR"
+
+  # single writer. timer와 손 실행이 겹칠 수 있다.
+  exec 9>"$LOCK"
+  flock -n 9 || { log "이미 수렴 중이다 — 이번 회차는 건너뛴다."; exit 0; }
+
+  if [[ -f $HALTED ]]; then
+    log "HALT 상태다 — 아무것도 하지 않는다. 원인:"
+    sed 's/^/    /' "$HALTED"
+    log "풀려면: converge resume"
+    # 하트비트를 보내지 않는다 — 데드맨이 "자동화가 멈췄다"를 알려야 한다.
+    exit 0
+  fi
+
+  [[ -d $DEPLOY_DIR ]] || die "체크아웃이 없다: $DEPLOY_DIR ($CONFIG의 YORR_CHECKOUT을 확인하라)"
+
+  preflight_infra
+  # backend가 이미 깨져 있었는가. 롤백 후에도 unhealthy할 때 CRITICAL과
+  # PRE_EXISTING_FAILURE를 가르는 근거다 — 오탐이 쌓이면 CRITICAL이 뜻을 잃는다.
+  local backend_before
+  backend_before=$(service_health backend || printf 'unknown')
+  [[ $backend_before == healthy ]] ||
+    log "backend가 healthy가 아니다(상태=$backend_before) — **배포는 진행한다**(새 릴리스가 고칠 수 있다)."
+
+  local candidate_digest running_digest
+  candidate_digest=$(resolve_digest "$IMAGE_REPO:$DISCOVERY_TAG") ||
+    die "GHCR에서 $IMAGE_REPO:$DISCOVERY_TAG 의 digest를 읽지 못했다."
+  running_digest=$(current_digest)
+
+  if [[ -n $running_digest && $running_digest == "$candidate_digest" ]]; then
+    log "같은 릴리스다($candidate_digest) — 할 일이 없다."
+    $DRY_RUN || heartbeat
+    exit 0
+  fi
+
+  log "새 후보: $candidate_digest (실행 중: ${running_digest:-알 수 없음})"
+
+  # 이미지를 먼저 받아 둔다. revision 라벨을 읽어야 하고, 어차피 배포에 필요하다.
+  docker pull -q "$IMAGE_REPO@$candidate_digest" >/dev/null ||
+    die "이미지를 받지 못했다: $IMAGE_REPO@$candidate_digest"
+  local candidate_revision
+  candidate_revision=$(image_revision "$IMAGE_REPO@$candidate_digest")
+  [[ -n $candidate_revision ]] ||
+    die "이미지에 org.opencontainers.image.revision 라벨이 없다 — 릴리스를 특정할 수 없다."
+
+  # fetch가 verify보다 **먼저**다. 아니면 갓 머지된 커밋에서 항상 실패한다.
+  git_repo fetch --quiet origin main || die "git fetch origin main 실패"
+  git_repo cat-file -e "$candidate_revision^{commit}" 2>/dev/null ||
+    die "revision $candidate_revision 이 이 체크아웃의 git에 없다 — 발견을 신뢰할 수 없다."
+
+  local current_rev
+  current_rev=$(current_revision)
+  log "후보 릴리스: revision=$candidate_revision digest=$candidate_digest"
+  log "현재 릴리스: revision=${current_rev:-알 수 없음} digest=${running_digest:-알 수 없음}"
+
+  if $DRY_RUN; then
+    log "--dry-run — 여기서 멈춘다. 실제로는 위 후보를 배포한다."
+    exit 0
+  fi
+
+  game_gate_allows "$backend_before" || exit 0
+
+  # 롤백 대상은 이미지가 아니라 **Release 전체**다(PLAN.md D5). 되돌릴 때
+  # git revision과 digest를 함께 되돌리지 않으면 "이미지는 A, 설정은 B"가 된다.
+  local prev_revision=$current_rev prev_digest=$running_digest
+  if [[ -f $LAST_GOOD && ( -z $prev_revision || -z $prev_digest ) ]]; then
+    prev_revision=${prev_revision:-$(state_get "$LAST_GOOD" REVISION)}
+    prev_digest=${prev_digest:-$(state_get "$LAST_GOOD" IMAGE)}
+  fi
+
+  log "배포 시작 → $candidate_revision"
+  if apply_release "$candidate_revision" "$candidate_digest"; then
+    write_atomic "$LAST_GOOD" <<EOF
+REVISION=$candidate_revision
+IMAGE=$candidate_digest
+EOF
+    rm -f "$DEFERRED"
+    log "배포 성공: $candidate_revision / $candidate_digest"
+    heartbeat
+    exit 0
+  fi
+
+  # ── 실패 → 롤백 ────────────────────────────────────────────────────────────
+  local reason="backend가 ${WAIT_TIMEOUT}초 안에 healthy가 되지 못했다"
+  log "배포 실패 — 롤백한다."
+
+  if [[ -z $prev_revision || -z $prev_digest ]]; then
+    halt "$candidate_revision" "$candidate_digest" "" \
+      "$reason / 되돌릴 last-good 릴리스가 없어 롤백하지 못했다"
+    notify "🚨 YORR 배포 실패 + **롤백 불가**
+실패한 릴리스: $candidate_revision / $candidate_digest
+$reason
+되돌릴 last-good이 없다. 자동 배포를 HALT했다."
+    exit 1
+  fi
+
+  if apply_release "$prev_revision" "$prev_digest"; then
+    halt "$candidate_revision" "$candidate_digest" "$prev_revision" "$reason"
+    notify "⚠️ YORR 배포 실패 / 롤백 성공 — $prev_revision 로 되돌렸다.
+실패한 릴리스: $candidate_revision ($candidate_digest)
+$reason
+자동 배포를 HALT했다. 원인을 고친 뒤 'converge resume'으로 푼다."
+    exit 1
+  fi
+
+  # 롤백까지 unhealthy다. 원래 깨져 있었으면 CRITICAL로 올리지 않는다.
+  if [[ $backend_before == healthy ]]; then
+    halt "$candidate_revision" "$candidate_digest" "$prev_revision" "$reason / 롤백도 unhealthy (CRITICAL)"
+    notify "🚨 CRITICAL — YORR 롤백까지 실패했다.
+실패한 릴리스: $candidate_revision ($candidate_digest)
+롤백 대상: $prev_revision ($prev_digest)
+배포 전 backend는 healthy였다. 사람이 봐야 한다."
+  else
+    halt "$candidate_revision" "$candidate_digest" "$prev_revision" \
+      "$reason / 롤백도 unhealthy (PRE_EXISTING_FAILURE — 배포 전에도 backend가 $backend_before 였다)"
+    notify "⚠️ YORR 배포 실패 / 롤백도 unhealthy — 다만 **배포 전에도** backend가 $backend_before 였다(PRE_EXISTING_FAILURE).
+실패한 릴리스: $candidate_revision ($candidate_digest)"
+  fi
+  exit 1
+}
+
+# ── 운영 명령 ────────────────────────────────────────────────────────────────
+# 추측하지 않고 controller의 실제 상태를 보여 준다.
+do_status() {
+  local desired running_digest running_rev automation backend
+  desired=$(resolve_digest "$IMAGE_REPO:$DISCOVERY_TAG" 2>/dev/null || printf '알 수 없음')
+  running_digest=$(current_digest)
+  running_rev=$(current_revision)
+  if [[ -f $HALTED ]]; then automation=HALTED; else automation=RUNNING; fi
+  backend=$(service_health backend 2>/dev/null || printf '알 수 없음')
+
+  local desired_revision=''
+  [[ $desired == sha256:* ]] && desired_revision=$(image_revision "$IMAGE_REPO@$desired")
+  printf 'desired release : %s / %s\n' "${desired_revision:-알 수 없음}" "$desired"
+  printf 'running release : %s / %s\n' "${running_rev:-알 수 없음}" "${running_digest:-알 수 없음}"
+  printf 'last good       : %s / %s\n' \
+    "$(state_get "$LAST_GOOD" REVISION)" "$(state_get "$LAST_GOOD" IMAGE)"
+  printf 'automation      : %s\n' "$automation"
+  printf 'backend         : %s\n' "$backend"
+  if [[ -f $HALTED ]]; then
+    printf '\n-- HALT 원인\n'
+    sed 's/^/    /' "$HALTED"
+  fi
+  if [[ -f $DEFERRED ]]; then
+    printf '\n게임 때문에 %s초째 미루고 있다(상한 %ss).\n' \
+      "$(($(date -u +%s) - $(cat "$DEFERRED")))" "$MAX_DEFER"
+  fi
+}
+
+do_rollback() {
+  mkdir -p "$STATE_DIR"
+  exec 9>"$LOCK"
+  flock -n 9 || die "수렴이 진행 중이다 — 끝난 뒤에 다시 시도하라."
+
+  local revision digest
+  revision=$(state_get "$LAST_GOOD" REVISION)
+  digest=$(state_get "$LAST_GOOD" IMAGE)
+  [[ -n $revision && -n $digest ]] || die "last-good 릴리스가 없다 — 되돌릴 대상이 없다."
+
+  log "손 롤백: $revision / $digest"
+  apply_release "$revision" "$digest" || die "롤백이 healthy가 되지 못했다 — 로그를 보라."
+  # 자동 배포는 계속 멈춰 있어야 한다. 풀지 않으면 다음 회차가 같은 것을 또 올린다.
+  halt "" "" "$revision" "운영자가 손으로 롤백했다"
+  log "롤백 성공. 원인을 고친 뒤 'converge resume'으로 자동 배포를 다시 켠다."
+}
+
+do_resume() {
+  [[ -f $HALTED ]] || { log "HALT 상태가 아니다 — 할 일이 없다."; exit 0; }
+  log "HALT를 푼다. 마지막 원인:"
+  sed 's/^/    /' "$HALTED"
+  rm -f "$HALTED"
+  log "자동 배포가 다음 회차부터 다시 수렴한다."
+}
+
+case ${1-} in
+  '' | converge) do_converge ;;
+  --dry-run) DRY_RUN=true; do_converge ;;
+  status) do_status ;;
+  rollback) do_rollback ;;
+  resume) do_resume ;;
+  -h | --help)
+    sed -n '2,40p' "$0"
+    ;;
+  *) die "쓰임: $0 [converge|--dry-run|status|rollback|resume]" ;;
+esac

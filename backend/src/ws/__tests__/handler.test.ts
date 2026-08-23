@@ -100,6 +100,9 @@ const stubModule = (
     pause: async () => {
       calls.push('pause')
     },
+    rehydrate: async () => {
+      calls.push('rehydrate')
+    },
     removePlayer: async (_roomId, playerId) => {
       calls.push(`removePlayer:${playerId}`)
     },

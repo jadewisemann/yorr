@@ -42,6 +42,7 @@ import {
 import {
   InMemoryRoundDeadlineScheduler,
   type RoundDeadlineScheduler,
+  type RoundDeadlineStore,
   type RoundStateStore,
   type RoundSubmissionResult,
   RoundSynchronizationService,
@@ -53,10 +54,12 @@ import {
   ScoreConfirmationService,
   ScoreRoundSubmissionService,
 } from './game/score/index.js'
+import { resumeGamesOnStartup } from './game/startupResume.js'
 import {
   BotTurnOrchestrator,
   ExpectimaxYachtBotPolicy,
   LocalYachtBotStrategy,
+  RedisRoundDeadlineStore,
   RedisYachtDiceStateStore,
   ScorecardValueEvaluator,
   YachtBotTurnCoordinator,
@@ -75,12 +78,16 @@ import { registerUserRoutes } from './http/routes/users.js'
 import { registerVoiceRoutes } from './http/routes/voice.js'
 import { closeMysqlPool, createMysqlPool } from './infra/mysql.js'
 import { createRedisClient } from './infra/redis.js'
-import { RealtimeGameMetrics } from './monitoring/index.js'
+import {
+  mysqlReadinessCheck,
+  ReadinessService,
+  RealtimeGameMetrics,
+  redisReadinessCheck,
+} from './monitoring/index.js'
 import { BotParticipantService } from './room/botService.js'
 import { InMemoryRoomCloseScheduler } from './room/closeScheduler.js'
 import { QuickMatchService } from './room/quickMatchService.js'
 import { RoomService } from './room/roomService.js'
-import { closeUnrecoverableGamesOnStartup } from './room/staleRoomCleaner.js'
 import { MysqlUserProfileStore, UserProfileService } from './user/profile.js'
 import { UserService } from './user/session.js'
 import { RoomBroadcaster } from './ws/broadcaster.js'
@@ -129,6 +136,12 @@ export interface RoundWiring {
   readonly submissions: ScoreRoundSubmissionService<RoundSubmissionResult>
   /** `close()`가 `stop()`을 부른다 — 남은 마감 타이머가 이미 닫힌 Redis를 두드리지 않게. */
   readonly deadlines: RoundDeadlineScheduler
+  /**
+   * 마감 시각의 영속 사본(PR 6). **운영은 Redis 어댑터다** —
+   * `InMemoryRoundDeadlineStore`를 여기 두면 재시작마다 진행 중 게임이 사라지는
+   * 예전 동작으로 조용히 돌아간다(타입은 맞고 테스트도 통과한다).
+   */
+  readonly deadlineStore: RoundDeadlineStore
   readonly timer: RoundTimerService
 }
 
@@ -205,6 +218,10 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   const deadlineScheduler = new InMemoryRoundDeadlineScheduler({
     onError: (error, roomId) => app.log.error({ error, roomId }, '라운드 마감 처리 실패'),
   })
+  // 마감 **시각**은 Redis로 나간다(PR 6). 예약기가 인메모리인 것은 그대로다 —
+  // 프로세스 밖으로 나가는 것은 데이터이고, 발화 책임은 여전히 이 프로세스에 있다
+  // (DESIGN.md 원칙 8: 분산 락도 pub/sub도 도입하지 않는다).
+  const deadlineStore = new RedisRoundDeadlineStore(redis)
   const timeoutResolver = new RoundTimeoutResolver(
     {
       synchronizationService: roundSync,
@@ -260,6 +277,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     {
       timeoutResolver,
       deadlineScheduler,
+      deadlineStore,
       broadcaster,
       gameCompletion: completion,
       synchronizationService: roundSync,
@@ -392,6 +410,26 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   // 때리면 모니터링이 부하 원인이 된다). **위에서 만든 그** 레지스트리·모듈
   // 레지스트리여야 한다 — 새로 만들면 게이지가 영구히 0인데 타입도 테스트도 통과한다.
   await registerHealthRoutes(app, {
+    // readiness는 **위에서 만든 그** Redis·MySQL을 두드린다 — 새 클라이언트를 만들면
+    // 애플리케이션이 쓰는 좌표가 아니라 다른 좌표를 검사하게 되고, 그때 health는
+    // 아무것도 증명하지 않는다(게이지 배선과 같은 종류의 함정이다).
+    readiness: new ReadinessService([redisReadinessCheck(redis), mysqlReadinessCheck(mysql)], {
+      onChanged: (result) =>
+        result.ready
+          ? app.log.info('readiness UP — 의존 확인이 전부 응답합니다')
+          : app.log.error(
+              {
+                failed: result.failures.map((failure) => ({
+                  name: failure.name,
+                  reason:
+                    failure.reason instanceof Error
+                      ? failure.reason.message
+                      : String(failure.reason),
+                })),
+              },
+              'readiness DOWN — /actuator/health가 503을 냅니다',
+            ),
+    }),
     metrics: new RealtimeGameMetrics({ presence: registry, games }),
   })
   await app.register(
@@ -469,6 +507,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
       scores,
       submissions: scoreSubmissions,
       deadlines: deadlineScheduler,
+      deadlineStore,
       timer: roundTimer,
     },
     games,
@@ -476,9 +515,26 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     sweeper,
     rankings,
     listen: async () => {
-      // 부팅 시 정리: 마감 타이머가 하나도 없는 지금 PLAYING인 방은 이어갈 수 없다.
-      const closed = await closeUnrecoverableGamesOnStartup(rooms)
-      if (closed > 0) app.log.info({ closed }, '재시작으로 이어갈 수 없는 진행 중 방을 닫았습니다')
+      /*
+       * 부팅 재무장(PR 6). **`app.listen()`보다 먼저다** — 요청을 받기 시작한 뒤에
+       * 되살리면 그 사이 도착한 재접속이 아직 비어 있는 마감을 보고 실패한다.
+       *
+       * 예전에는 이 자리가 `closeUnrecoverableGamesOnStartup`이었다. 마감 시각이
+       * 프로세스 인메모리라 진행 중이던 방을 **전부** 닫는 것이 유일한 대책이었다.
+       * 지금은 저장된 마감으로 이어가고, 이어갈 수 없는 방만 닫는다.
+       */
+      const resumeReport = await resumeGamesOnStartup(
+        { rooms, games },
+        {
+          onResumed: (roomCode, gameCode) =>
+            app.log.info({ roomCode, gameCode }, '진행 중이던 판을 이어갑니다'),
+          onClosed: (roomCode, reason) =>
+            app.log.warn({ roomCode, reason }, '이어갈 수 없는 진행 중 방을 닫았습니다'),
+        },
+      )
+      if (resumeReport.resumed > 0 || resumeReport.closed > 0) {
+        app.log.info(resumeReport, '부팅 재무장을 마쳤습니다')
+      }
       // 방이 사라진 뒤 남은 라운드 상태 키를 5분마다 회수한다(2.8). 상태가 Redis에
       // 살기 시작한 뒤로는 실제로 고아가 생긴다 — 인메모리였을 때는 재시작이 청소했다.
       sweeper.start()

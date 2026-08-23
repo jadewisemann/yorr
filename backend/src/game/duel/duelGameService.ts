@@ -145,6 +145,28 @@ export class DuelGameService<S> {
     this.schedule(roomId, state)
   }
 
+  /**
+   * 프로세스 재시작 후의 복구(deploy/PLAN.md PR 6).
+   *
+   * **결투는 예약 로직을 새로 만들 것이 없다.** 마감(`nextActionAt`)이 처음부터
+   * 상태 안의 절대 epoch ms이고 그 상태는 Redis에 있으므로, 되살리는 것은 `resume`과
+   * 같은 예약이다(이미 지난 마감은 예약기가 지연 0으로 깎아 즉시 발화한다).
+   * 야추만 마감이 프로세스 인메모리였고, 그것을 고친 것이 PR 6이다.
+   *
+   * `resume`과 다른 점은 **이어갈 수 없을 때 던진다**는 것뿐이다 — 부팅 복구에서는
+   * 조용히 넘어가면 상태만 살아 있고 턴이 멈춘 방이 남는다.
+   */
+  async rehydrate(roomId: string): Promise<void> {
+    const state = await this.states.find(roomId)
+    if (state === null) {
+      throw new Error(`진행 중이라던 방에 결투 상태가 없습니다: ${roomId}`)
+    }
+    if (state.phase === 'FINISHED') {
+      throw new Error(`결투가 이미 끝난 방입니다(종료 전이 실패): ${roomId}`)
+    }
+    this.schedule(roomId, state)
+  }
+
   async pause(roomId: string): Promise<void> {
     this.scheduler.cancelRoom(roomId)
   }

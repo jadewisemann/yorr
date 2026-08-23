@@ -75,15 +75,25 @@ export interface OrphanedRoundStatePort {
  *
  * 세 값이 다 다르다: 시각이면 그 턴의 마감, `null`이면 **시계를 걸지 않은 턴**
  * (봇만 있는 연습 방 — `UNTIMED_HUMAN_LIMIT`), `undefined`면 진행 중인 턴이 없다
- * (Java `Optional.empty()`). 재접속은 undefined일 때만 실패로 본다.
+ * (Java `Optional.empty()`).
+ *
+ * **`undefined`가 재시작을 뜻하지 않게 된 것이 PR 6의 결과다.** 예전에는 마감이
+ * 프로세스 인메모리에만 있어 재시작 뒤 첫 재접속이 반드시 `DEADLINE_NOT_FOUND`였고,
+ * 그것을 막는 유일한 수단이 부팅 때 PLAYING 방을 통째로 닫는 것이었다. 지금은 부팅
+ * 재무장이 저장된 마감으로 이 값을 되살리고 되살리지 못한 방은 그 자리에서 닫힌다.
+ *
+ * 남은 `undefined` 경로는 pause로 시계를 끊어 둔 방이다(`reconnectErrors.ts` 참고).
  */
 export interface RoundDeadlinePort {
   currentDeadline(roomId: string): number | null | undefined
 }
 
-/** `RoundTimerService.cancelRoom`의 자리 — 방의 마감 예약·오프라인 카운터를 버린다. */
+/**
+ * `RoundTimerService.cancelRoom`의 자리 — 방의 마감 예약·오프라인 카운터·**영속
+ * 사본**을 버린다. 마지막 것이 생겨서(PR 6) async가 됐다.
+ */
 export interface RoundTimerCancelPort {
-  cancelRoom(roomId: string): void
+  cancelRoom(roomId: string): Promise<void>
 }
 
 /**
