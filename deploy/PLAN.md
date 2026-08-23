@@ -409,10 +409,15 @@ GitHub SSH 배포도 필요하지 않다.
 - "GHCR publish = Release Ready"라는 계약을 워크플로 주석과 operations.md에 명시
 
 **구현 결과** — 라벨 확인은 `metadata-action` 직후이고 `build-push`보다 앞선다
-(라벨이 없으면 발행 자체를 하지 않는다). 기대값은 이벤트에 따라 다르다: PR 실행에서
-`metadata-action`은 머지 커밋이 아니라 **head 커밋**을 revision으로 적으므로
-`github.event.pull_request.head.sha || github.sha`로 비교한다. 그 구분이 없으면
-모든 PR이 이 단계에서 빨간불이 된다.
+(라벨이 없으면 발행 자체를 하지 않는다). 두 단계로 본다: 40자리 hex SHA 모양인지,
+그리고 `github.sha`와 같은지. 라벨이 통째로 사라진 경우와 값이 어긋난 경우는 원인이
+다르므로 메시지를 나눴다.
+
+⚠️ **처음에는 이벤트별로 기대값을 나눴다가 PR에서 빨간불을 냈다.** "PR 실행에서
+`metadata-action`은 head 커밋을 적는다"고 짐작했는데 실제로는 **이벤트와 무관하게
+`github.sha`를 적는다**(PR에서 그 값은 머지 커밋이다). 실측으로 확인했다:
+PR #46에서 라벨은 `81ec734`, 그 값이 곧 `refs/pull/46/merge`였다. 기대값 분기를
+없애는 것이 맞았다.
 
 ### PR 3 — Pull CD v2 ✅ (호스트 미검증)
 
