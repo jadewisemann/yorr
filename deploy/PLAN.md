@@ -495,7 +495,13 @@ PR #46에서 라벨은 `81ec734`, 그 값이 곧 `refs/pull/46/merge`였다. 기
    남긴다.** 지금은 digest가 같을 때 이미지의 revision 라벨과 체크아웃 HEAD를 대조한다
    (라벨은 이미 로컬에 있는 이미지에서 읽으므로 왕복이 늘지 않는다).
    `converge.test.sh`의 1b가 그 상태를 재현한다.
-4. **실행 중 digest를 `.Config.Image`가 아니라 RepoDigests로 구한다.** cutover 직전의
+4. **실행 중 릴리스의 revision은 체크아웃 HEAD가 아니라 그 이미지의 라벨이다.**
+   둘은 보통 같다 — 수렴이 언제나 함께 옮기기 때문이다. 그런데 **사람이 손으로
+   `git pull`을 하면 갈라지고, cutover 첫 회차가 정확히 그 상태였다**(2026-08-23:
+   체크아웃 `f24676d`, 실행 중 이미지 `sha256:e57784e…`). 그때 롤백 대상을 체크아웃에서
+   가져오면 `git reset` 후 옛 digest를 올려 **"새 설정 + 옛 이미지"** 가 된다 — D5가
+   막으려고 존재하는 그 불일치를 롤백이 스스로 만든다. `converge.test.sh` 3b가 고정한다.
+5. **실행 중 digest를 `.Config.Image`가 아니라 RepoDigests로 구한다.** cutover 직전의
    컨테이너는 태그(`:main`)로 만들어져 있어 `.Config.Image`에서 digest를 얻을 수 없다.
    컨테이너 → 로컬 이미지 ID → 그 이미지의 RepoDigests로 가면 태그로 만들었든 digest로
    만들었든 같은 답이 나온다.
