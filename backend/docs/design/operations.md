@@ -184,8 +184,15 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
 
 > ⚠️ **이 절은 지금 돌아가는 것을 기술한다. 여기에 확정 결함 두 개가 있다**
 > (아래 「알려진 결함」). 이것을 Release 단위 pull CD로 교체하는 계획은
-> [`deploy/PLAN.md`](../../../deploy/PLAN.md)에 있고, **아직 구현하지 않았다.**
-> 이 문서는 cutover가 끝난 뒤에 갱신한다 — 없는 것을 있다고 적지 않는다.
+> [`deploy/PLAN.md`](../../../deploy/PLAN.md)에 있다.
+>
+> **새 controller는 저장소에 있지만 호스트에 설치되지 않았다**(`deploy/converge` ·
+> `apply.sh` · `bootstrap.sh` · `systemd/yorr-converge.*`). CI는 그것을 실패 주입으로
+> 검증하지만(`deploy/tests/converge.test.sh`), **운영 호스트에서는 한 번도 돌지
+> 않았다.** 그래서 아래 「배포하는 세 경로」가 여전히 지금의 사실이고, 아래 결함
+> 두 개도 여전히 살아 있다. 이 절은 cutover(PLAN.md PR 4)가 끝난 뒤에 갱신한다 —
+> 없는 것을 있다고 적지 않는 것이 이 문서의 규율이고, `deploy.yml`이 0회 실행된 채
+> 정상 경로로 적혀 있던 것이 정확히 그 규율을 어긴 결과였다.
 
 ### 알려진 결함 (2026-08-22 확인)
 
@@ -194,8 +201,9 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
 | A | `config_changed`가 **구조적으로 항상 false**다. `auto-deploy.sh:27`이 `deploy/`로 `cd`한 뒤 `:106`이 `git diff … -- deploy/`를 부르므로 실제 검사 대상이 `deploy/deploy/`가 된다(git pathspec은 cwd 기준). 매치가 없으면 git은 경고 없이 exit 0이다 | `deploy/auto-deploy.sh:106` | 설정만 바뀐 배포가 감지되지 않는다. 대부분의 커밋에서는 `metadata-action`의 OCI 라벨이 image ID를 매번 바꿔 `image_changed=true`가 **우연히** 성립해 가려진다 |
 | B | 배포 검증이 **실패를 잡지 못한다.** `up -d`는 컨테이너 *시작*만 확인하고 exit 0을 내며 `ps`·`logs`·`config\|grep`은 무슨 일이 있어도 exit 0이다 | `deploy/deploy.sh:73-85` | `main.ts`의 exit 1을 파이프라인이 **한 번도 보지 않는다.** 게다가 crash 루프 컨테이너는 이미 새 image ID를 가지므로 다음 회차에 `image_changed=false`가 되어 **자동 배포가 재시도조차 하지 않고 조용해진다** |
 
-둘 다 수정은 [`deploy/PLAN.md`](../../../deploy/PLAN.md)의 PR 3에서 이뤄진다
-(A는 변경 감지 자체가 사라지므로 고치지 않고 삭제되고, B는 `--wait`로 대체된다).
+둘 다 새 controller에는 없다(A는 변경 감지 자체가 사라졌고, B는 `--wait`로
+대체됐다). 다만 **cutover 전까지 이 호스트에서 도는 것은 여전히 옛 경로이므로 두 결함도
+살아 있다.** 옛 스크립트를 지우는 것은 롤백을 실제로 한 번 성공시켜 본 뒤다(PR 4).
 
 **`.github/workflows/deploy.yml`(버튼)은 등록 이후 실행 횟수가 0회다.** 즉 아래
 「배포하는 세 경로」 중 버튼 경로는 문서상으로만 존재하며 한 번도 검증되지 않았다.

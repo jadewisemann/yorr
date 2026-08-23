@@ -116,14 +116,33 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  # ── 2. compose 문법 검증 ─────────────────────────────────────────────────────
+  # ── 2. 배포 설정·controller 검증 ─────────────────────────────────────────────
   # `docker compose config`는 데몬 없이 돈다. 필수 변수(`${VAR:?}`)와 보간 오류를
   # 배포 직전이 아니라 여기서 잡는다.
+  #
+  # controller 검증이 같은 잡에 있는 이유: `image` 잡이 이 잡을 기다리므로(Release
+  # Ready 계약) 배포 로직이 깨진 커밋의 이미지도 발행되지 않는다. 지난번 자동화는
+  # **한 번도 실행되지 않은 채 머지됐다** — 호스트 없이 검증할 수 있는 것은 전부
+  # 여기서 검증한다.
   compose:
-    name: deploy/compose.yaml 검증
+    name: deploy 설정·controller 검증
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: 배포 스크립트 문법
+        working-directory: deploy
+        run: |
+          for script in converge apply.sh status.sh rollback.sh bootstrap.sh tests/*.sh tests/fake-docker; do
+            bash -n "$script"
+            echo "ok $script"
+          done
+
+      # PLAN.md §9의 실패 주입 표. git은 진짜, docker만 대역이다 —
+      # `up --wait` 실패 · 인프라 장애 · 게임 진행 · 잠금 경합을 실제로 주입한다.
+      - name: controller 실패 주입 (deploy/PLAN.md §9)
+        run: deploy/tests/converge.test.sh
+
       - name: compose config
         working-directory: deploy
         run: |

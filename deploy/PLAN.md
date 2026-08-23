@@ -414,7 +414,7 @@ GitHub SSH 배포도 필요하지 않다.
 `github.event.pull_request.head.sha || github.sha`로 비교한다. 그 구분이 없으면
 모든 PR이 이 단계에서 빨간불이 된다.
 
-### PR 3 — Pull CD v2
+### PR 3 — Pull CD v2 ✅ (호스트 미검증)
 
 새 controller를 **추가만** 한다. 기존 경로는 아직 지우지 않는다.
 
@@ -431,6 +431,44 @@ GitHub SSH 배포도 필요하지 않다.
 `bootstrap.sh`는 idempotent해야 하고, systemd 유닛의 호스트별 값을 **git 추적 파일이
 아닌 곳**(`/etc/default/yorr-deploy`)에서 읽어야 한다. 현행 문서의 "유닛 파일을 손으로
 고쳐라"가 `git pull`을 깨뜨린 원인일 가능성이 크다(§4).
+
+#### 구현 결과
+
+`deploy/tests/converge.test.sh`가 **§9의 표를 그대로 돌린다** — git은 진짜 저장소를
+만들고 docker만 대역으로 바꿔 `up --wait` 실패·인프라 장애·게임 진행·잠금 경합을 실제로
+주입한다(61개 단정). `backend.yml`의 `compose` 잡이 그것을 CI에서 돌리고, `image` 잡이
+그 잡을 기다리므로 **배포 로직이 깨진 커밋의 이미지는 발행되지 않는다.** 지난번 자동화가
+한 번도 실행되지 않은 채 머지된 것에 대한 대비다.
+
+계획과 다르게 구현한 것 셋:
+
+1. **`apply.sh`를 `exec`이 아니라 자식 프로세스로 부른다.** D8은 `exec`을 적었지만,
+   `exec`이면 이 프로세스가 대체되어 **롤백·HALT를 할 주체가 사라진다** — 같은 문서 §7이
+   그 둘을 controller의 책임으로 두었으므로 두 서술이 충돌한다. `exec`의 원래 목적(실행
+   중 스크립트가 자기 밑에서 교체되는 것을 막기)은 이미 "controller가 체크아웃 바깥에
+   있다"로 달성되어 있어 잃는 것이 없다.
+2. **revision 라벨을 `imagetools inspect`가 아니라 받아 놓은 로컬 이미지에서 읽는다.**
+   §4의 미확인 항목 3(라벨 출력 모양)에 발견 로직 전체를 걸지 않기 위해서다. digest
+   해석만 `imagetools`로 하고(pull 없이 끝난다 — 같은 릴리스면 왕복 하나다), 그 digest를
+   받은 뒤 라벨은 `docker image inspect`로 읽는다. 어차피 배포하려면 이미지가 로컬에
+   있어야 하므로 왕복이 늘지 않는다. `buildx`가 없는 호스트를 위한 폴백도 있다.
+3. **실행 중 digest를 `.Config.Image`가 아니라 RepoDigests로 구한다.** cutover 직전의
+   컨테이너는 태그(`:main`)로 만들어져 있어 `.Config.Image`에서 digest를 얻을 수 없다.
+   컨테이너 → 로컬 이미지 ID → 그 이미지의 RepoDigests로 가면 태그로 만들었든 digest로
+   만들었든 같은 답이 나온다.
+
+`apply.sh`는 digest 고정을 **`.env`에 적는다**(셸 환경변수가 아니다). 환경변수로만 주면
+그 실행에만 걸리고, 다음에 누군가 손으로 `docker compose up -d`를 하면 compose 기본값인
+`:main`으로 조용히 돌아간다 — 그때 증상은 "롤백했는데 잠시 뒤 다시 올라갔다"라서 원인을
+찾기 어렵다. `.env`는 git이 추적하지 않으므로 이 쓰기가 `git pull`을 막지 않는다.
+
+`up -d --wait`에 **서비스 목록을 주지 않는다**(D7). `backend`만 건드리면 같은 릴리스에
+들어온 redis·caddy 설정 변경이 적용되지 않아 "git은 B, 실행 중 스택은 A"가 된다. 인프라
+이미지가 몰래 올라가지 않는 것은 compose가 로컬에 있는 이미지를 다시 당기지 않기
+때문이며, PR 5의 digest 고정이 그것을 계약으로 만든다.
+
+상태 파일은 D10의 셋에 **`deferred-since` 하나가 더 있다.** 게임 게이트의 MAX_DEFER
+상한을 세는 파일이며 게이트와 함께 PR 7에서 사라진다.
 
 ### PR 4 — Cutover (호스트 작업)
 

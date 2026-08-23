@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# `converge.test.sh` 전용 docker 대역. 상태는 $FAKE_ROOT의 작은 파일들에 있다.
+#
+# 흉내내는 것은 controller가 실제로 묻는 것뿐이다: 서비스의 health, 컨테이너가 어느
+# 이미지로 만들어졌는지, 그 이미지의 RepoDigests와 revision 라벨, `:main`이 지금 어느
+# digest를 가리키는지, 그리고 `up -d --wait`의 성패.
+#
+# 한 가지는 **일부러 실제 동작을 그대로** 흉낸다: `up`이 실패해도 컨테이너는 새 이미지로
+# 만들어져 있다(crash 루프). 예전 자동 배포가 조용해진 원인이 정확히 그것이었다 —
+# 실패한 컨테이너가 이미 새 image ID를 갖는 바람에 다음 회차가 "바뀐 것이 없다"로 읽었다.
+set -uo pipefail
+R=$FAKE_ROOT
+REPO=ghcr.io/jadewisemann/yorr-backend
+get() { cat "$R/$1" 2>/dev/null; }
+printf '%s\n' "docker $*" >> "$R/calls.log"
+
+digest_of_ref() {
+  case $1 in
+    *@sha256:*) printf '%s' "${1#*@}" ;;
+    "$REPO:main") get registry_tag ;;
+    img-*) printf '%s' "${1#img-}" ;;
+    *) printf '' ;;
+  esac
+}
+revision_of_digest() { sed -n "s/^$1 //p" "$R/registry" 2>/dev/null | head -n1; }
+
+pop_up_result() {
+  local queue first
+  queue=$(get up_results)
+  first=${queue%% *}
+  [[ -z $first ]] && first=ok
+  if [[ $queue == *" "* ]]; then printf '%s' "${queue#* }" > "$R/up_results"; fi
+  printf '%s' "$first"
+}
+
+if [[ ${1-} == compose ]]; then
+  shift
+  case ${1-} in
+    ps)
+      # ps -q <svc> | ps -a ...
+      if [[ ${2-} == -q ]]; then
+        svc=${3-backend}
+        [[ $(get "${svc}_state") == absent ]] && exit 0
+        printf 'cid-%s\n' "$svc"
+        exit 0
+      fi
+      printf 'SERVICE STATE\n'; exit 0 ;;
+    config)
+      [[ $(get config_result) == fail ]] && exit 1
+      [[ ${2-} == --quiet ]] && exit 0
+      printf 'CORS_ALLOWED_ORIGINS: https://yorr.site\n'; exit 0 ;;
+    up)
+      result=$(pop_up_result)
+      ref=$(sed -n 's/^BACKEND_IMAGE=//p' .env | tail -n1)
+      # 실패해도 컨테이너는 새 이미지로 만들어져 있다(crash 루프) — 실제 동작이 그렇다.
+      digest_of_ref "$ref" > "$R/running_digest"
+      printf 'present' > "$R/backend_state"
+      if [[ $result == ok ]]; then printf 'healthy' > "$R/backend_health"; exit 0; fi
+      printf 'unhealthy' > "$R/backend_health"; exit 1 ;;
+    exec)
+      printf '%s\n' "$(get rooms)"; exit 0 ;;
+    logs) printf 'log line\n'; exit 0 ;;
+    *) exit 0 ;;
+  esac
+fi
+
+case "${1-} ${2-}" in
+  "buildx imagetools")
+    [[ $(get registry_result) == fail ]] && exit 1
+    printf '%s\n' "$(get registry_tag)"; exit 0 ;;
+  "image inspect")
+    fmt=$4; ref=$5
+    digest=$(digest_of_ref "$ref")
+    [[ -z $digest ]] && exit 1
+    case $fmt in
+      *RepoDigests*) printf '%s@%s\n' "$REPO" "$digest" ;;
+      *revision*) printf '%s\n' "$(revision_of_digest "$digest")" ;;
+    esac
+    exit 0 ;;
+  "inspect --format")
+    fmt=$3; target=$4
+    case $target in
+      cid-backend)
+        case $fmt in
+          *Health*) printf '%s\n' "$(get backend_health)" ;;
+          *) printf 'img-%s\n' "$(get running_digest)" ;;
+        esac ;;
+      cid-mysql) printf '%s\n' "$(get mysql_health)" ;;
+      cid-redis) printf '%s\n' "$(get redis_health)" ;;
+      *) exit 1 ;;
+    esac
+    exit 0 ;;
+  "pull -q") exit 0 ;;
+esac
+exit 0
