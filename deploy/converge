@@ -161,6 +161,11 @@ service_health() {
 }
 
 preflight_infra() {
+  # compose config를 **가장 먼저** 본다. 깨져 있으면 `compose ps`도 실패하므로,
+  # 순서를 뒤집으면 "mysql이 healthy가 아니다"라는 엉뚱한 진단이 나간다.
+  compose config --quiet ||
+    die_infra "현재 체크아웃의 compose config가 깨져 있다 — 배포하지 않는다."
+
   local service status
   for service in mysql redis; do
     status=$(service_health "$service" || printf 'unknown')
@@ -175,9 +180,6 @@ preflight_infra() {
   if [[ -n $used ]] && ((100 - used < DISK_MIN_FREE_PCT)); then
     die_infra "디스크 여유가 ${DISK_MIN_FREE_PCT}% 미만이다(사용 ${used}%) — 배포하지 않는다."
   fi
-
-  compose config --quiet ||
-    die_infra "현재 체크아웃의 compose config가 깨져 있다 — 배포하지 않는다."
 }
 
 die_infra() {
@@ -206,11 +208,23 @@ active_rooms() {
 }
 
 # 배포해도 되는지. 게임이 진행 중이면 미루고, 미룬 지 MAX_DEFER를 넘기면 진행한다.
+#
+# @param $1 배포 전 backend의 health 상태.
 game_gate_allows() {
-  local running rooms waited
+  local backend_state=$1 running rooms waited
   running=$(compose ps -q backend 2>/dev/null | head -n1) || running=""
   if [[ -z $running ]]; then
     log "backend가 실행 중이 아니다 — 끊을 게임이 없다."
+    return 0
+  fi
+  # backend가 healthy가 아니면 **게이트를 묻지 않는다.** 게이지 조회는 컨테이너 안에서
+  # 도는 HTTP 왕복이라 crash 루프에서는 반드시 실패하고, 실패는 `unknown`(= 0이 아니다)이
+  # 되어 미룸으로 이어진다. 그러면 backend를 고치는 릴리스가 MAX_DEFER(기본 6시간)만큼
+  # 막힌다 — D6이 경고한 "가장 급할 때 멈추는 설계"가 게이트 쪽으로 되살아나는 것이다.
+  # 깨진 backend에는 끊을 게임도 없다.
+  if [[ $backend_state != healthy ]]; then
+    log "backend가 healthy가 아니다($backend_state) — 게임 게이트를 건너뛴다."
+    rm -f "$DEFERRED"
     return 0
   fi
 
@@ -316,7 +330,7 @@ do_converge() {
     exit 0
   fi
 
-  game_gate_allows || exit 0
+  game_gate_allows "$backend_before" || exit 0
 
   # 롤백 대상은 이미지가 아니라 **Release 전체**다(PLAN.md D5). 되돌릴 때
   # git revision과 digest를 함께 되돌리지 않으면 "이미지는 A, 설정은 B"가 된다.

@@ -190,6 +190,32 @@ check "종료 코드 0" 0 "$rc"
 contains "상한 안내" "그래도 배포한다" "$out"
 check "배포됐다" "$REV_B" "$(head_rev)"
 
+# D6이 preflight에서 경고한 것과 같은 함정이 게이트 쪽으로도 되살아날 수 있다:
+# 게이지 조회는 컨테이너 안의 HTTP 왕복이라 crash 루프에서는 반드시 실패하고, 실패는
+# "0이 아니다"로 다뤄져 미룸이 된다. 그러면 backend를 고치는 릴리스가 MAX_DEFER만큼
+# 막힌다 — 가장 급할 때 멈추는 설계다.
+echo "11b. backend가 깨져 있으면 게임 게이트를 묻지 않는다"
+setup
+printf 'unhealthy' > "$FAKE_ROOT/backend_health"
+printf 'unknown' > "$FAKE_ROOT/rooms"          # 게이지를 읽지 못하는 상태
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+printf 'ok' > "$FAKE_ROOT/up_results"
+out=$(converge); rc=$?
+check "종료 코드 0" 0 "$rc"
+contains "게이트를 건너뛴다" "게임 게이트를 건너뛴다" "$out"
+check "고치는 릴리스가 올라갔다" "$REV_B" "$(head_rev)"
+
+# compose config가 깨지면 `compose ps`도 실패한다. 순서가 뒤집히면 "mysql이 healthy가
+# 아니다"라는 엉뚱한 진단이 나가고, 운영자가 없는 인프라 장애를 쫓게 된다.
+echo "11c. compose config가 깨지면 그 사실을 진단으로 낸다"
+setup
+printf 'fail' > "$FAKE_ROOT/config_result"
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+out=$(converge); rc=$?
+check "종료 코드 1" 1 "$rc"
+contains "compose config를 지목한다" "compose config가 깨져 있다" "$out"
+check "체크아웃 그대로" "$REV_A" "$(head_rev)"
+
 echo "12. 발견한 revision이 git에 없으면 배포하지 않는다"
 setup
 printf '%s' "$DIGEST_C" > "$FAKE_ROOT/registry_tag"   # revision이 저장소에 없는 digest
