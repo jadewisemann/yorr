@@ -138,6 +138,24 @@ contains "HALT에 실패 digest" "FAILED_IMAGE=$DIGEST_B" "$(cat "$T/state/halte
 contains "HALT에 롤백 대상" "ROLLBACK_REVISION=$REV_A" "$(cat "$T/state/halted")"
 contains "HALT에 원인" "REASON=" "$(cat "$T/state/halted")"
 
+# cutover 첫 회차의 실측 상태: 사람이 손으로 git pull을 해서 **체크아웃만 앞서 나갔다**.
+# 그때 롤백 대상을 체크아웃에서 가져오면 "새 설정 + 옛 이미지"가 되어, D5가 막으려는
+# 불일치를 롤백이 스스로 만든다. 실행 중인 릴리스의 revision은 그 이미지의 라벨이다.
+echo "3b. 체크아웃이 앞서 나간 상태에서도 롤백은 실행 중이던 릴리스로 돌아간다"
+setup
+# 실행 중: A 이미지(라벨 REV_A). 체크아웃: 손 pull로 이미 REV_B. 후보: B.
+git -C "$T/checkout" reset --hard -q "$REV_B"
+printf '%s' "$DIGEST_A" > "$FAKE_ROOT/running_digest"
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+printf 'fail ok' > "$FAKE_ROOT/up_results"   # 배포 실패 → 롤백
+out=$(converge); rc=$?
+check "종료 코드 1" 1 "$rc"
+# 체크아웃이 REV_B였더라도 되돌아갈 곳은 실행 중이던 이미지의 revision인 REV_A다.
+check "체크아웃이 REV_A로 돌아갔다" "$REV_A" "$(head_rev)"
+check "이미지도 A다" "$DIGEST_A" "$(running_digest)"
+contains "HALT의 롤백 대상이 REV_A다" "ROLLBACK_REVISION=$REV_A" "$(cat "$T/state/halted")"
+contains "불일치를 로그에 남긴다" "체크아웃이 실행 중 릴리스와 다르다" "$out"
+
 echo "4. HALT 상태면 아무것도 하지 않는다"
 printf '%s' "$DIGEST_C" > "$FAKE_ROOT/registry_tag"
 out=$(converge); rc=$?
