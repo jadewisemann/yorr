@@ -509,8 +509,9 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
    방화벽은 우회하지 않는다.**
 2. `PUBLIC_HOST` 결정. **OCI 공인 IP 리터럴**을 그대로 쓸 수도 있고(현재 구성 —
    Caddy가 IP 인증서를 받고 `default_sni`로 그것을 기본 인증서로 고른다),
-   DNS 이름(예 `api.yorr.site`)을 쓸 수도 있다. DNS 이름을 쓰면 **A/AAAA 레코드를
-   먼저** 이 인스턴스로 붙여야 한다 — Caddy의 HTTP-01 검증이 거기에 걸려 있다.
+   백엔드용 DNS 이름을 쓸 수도 있다(**지금 그런 이름은 없다** — 프론트의
+   `yorr.site`는 Vercel을 가리킨다). DNS 이름을 쓰려면 **A/AAAA 레코드를 먼저**
+   이 인스턴스로 붙여야 한다 — Caddy의 HTTP-01 검증이 거기에 걸려 있다.
    카카오·구글 콘솔은 IP를 Redirect URI로 받아 주지 않지만 **그것이 IP 구성을
    막지는 않는다**: 콜백을 프론트 도메인으로 받고 `frontend/vercel.json`의
    rewrite가 백엔드로 넘긴다(#40). 즉 소셜 로그인 때문에 DNS 이름이 필요하지는
