@@ -323,7 +323,16 @@ sudo systemctl disable --now yorr-auto-deploy.timer      # 끄면 ADR-0006 원�
 ~/yorr/deploy/auto-deploy.sh --uninstall   # 되돌린다
 ```
 
-기본값은 OCI Ubuntu 이미지의 `ubuntu`이고, 그 계정이 docker 그룹에 있어야 한다.
+⚠️ **이 호스트의 계정은 `opc`다**(2026-08-23 SSH로 확인). Oracle Linux 계열
+이미지의 기본 계정이며, 추적 파일에 적혀 있는 `ubuntu`는 **OCI Ubuntu 이미지의**
+기본값일 뿐 여기 해당하지 않는다. 즉 그 파일을 그대로 심으면 유닛이 없는 계정으로
+돌게 되므로, 손으로 고치고 싶은 압력이 실제로 존재하는 자리다 — 그것이 위에서 말한
+`git pull` 영구 실패의 원인 후보다.
+
+`--install`(옛 경로)과 `bootstrap.sh`(새 controller)는 둘 다 **`id -un`으로 실행
+계정을 읽어 치환한다.** 그러므로 손으로 고칠 이유가 없다. 어느 쪽이든 그 계정이
+docker 그룹에 있어야 한다(`id -nG`로 확인).
+
 이미 유닛을 손으로 고쳐 버렸다면 `git -C ~/yorr status --porcelain=v1 -b`로 확인하고
 `git checkout -- deploy/systemd/` 후 `--install`로 다시 심는다.
 
