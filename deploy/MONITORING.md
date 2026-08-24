@@ -126,6 +126,32 @@ ls -l /var/lib/yorr-deploy/metrics/  # .prom 파일이 갱신되는가
 cat /var/lib/yorr-deploy/metrics/yorr-converge.prom
 ```
 
+### journal이 Loki에 없다
+
+`docker logs yorr-alloy`에 이것이 있으면 **호스트의 journald가 휘발성**이다.
+
+```
+level=error msg="error creating journal tailer"
+  err="failed to open journal in directory \"/rootfs/var/log/journal\": no such file or directory"
+```
+
+`Storage=auto`(기본값)는 `/var/log/journal`이 **있을 때만** 영속으로 쓴다. 없으면 로그가
+`/run/log/journal`(메모리)에만 남아 재부팅에서 사라진다. Alloy가 못 읽는 것은 그 결과일
+뿐이고, 진짜 문제는 **운영 인터페이스인 `journalctl -u yorr-converge`의 이력이 날아간다**는
+것이다. 실제 호스트(Oracle Linux 9)가 이 상태였다.
+
+```bash
+sudo mkdir -p /var/log/journal /etc/systemd/journald.conf.d
+printf '[Journal]\nStorage=persistent\nSystemMaxUse=200M\n' \
+  | sudo tee /etc/systemd/journald.conf.d/yorr.conf
+sudo systemctl restart systemd-journald
+docker restart yorr-alloy
+```
+
+`SystemMaxUse`를 함께 두는 이유는 디스크다. journald의 기본 상한은 파일 시스템의 10%이고
+preflight는 여유가 10% 미만이면 배포를 막는다 — 상한을 두지 않으면 **로그가 자라서 배포가
+멈추는** 경로가 열린다.
+
 `.prom`이 없거나 낡았으면 소유권을 본다. `bootstrap.sh` 없이 디렉터리가 먼저 만들어져
 root 소유가 되면, `opc`로 도는 converge가 쓰지 못한 채 조용히 포기한다(계측이 배포를
 막지 않게 일부러 그렇게 했다).

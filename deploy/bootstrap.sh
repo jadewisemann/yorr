@@ -129,6 +129,21 @@ else
   echo "  6) 옛 타이머 끄기: sudo systemctl disable --now yorr-auto-deploy.timer"
 fi
 
+# journald가 휘발성이면 **운영 인터페이스가 재부팅에서 비워진다.** `Storage=auto`(기본값)는
+# /var/log/journal이 있을 때만 영속으로 쓰고, 없으면 로그가 메모리에만 남는다. 여기서
+# 말해 주지 않으면 「journalctl에 아무것도 없다」를 재부팅 뒤에야 알게 된다 — 하필
+# 무슨 일이 있었는지 가장 알고 싶을 때다. 실제 호스트가 이 상태였다.
+if [[ ! -d /var/log/journal ]]; then
+  echo
+  echo "!! journald가 휘발성이다 — journalctl 이력이 재부팅에서 사라지고,"
+  echo "   계측의 Loki 수집도 실패한다. 영속으로 바꾸려면:"
+  echo "     sudo mkdir -p /var/log/journal /etc/systemd/journald.conf.d"
+  echo "     printf '[Journal]\\nStorage=persistent\\nSystemMaxUse=200M\\n' \\"
+  echo "       | sudo tee /etc/systemd/journald.conf.d/yorr.conf"
+  echo "     sudo systemctl restart systemd-journald"
+  echo "   상한을 함께 두는 이유는 deploy/MONITORING.md에 있다(디스크가 배포를 막는다)."
+fi
+
 echo
 echo "상태:  deploy/status.sh"
 echo "판단:  journalctl -u yorr-converge -f"
