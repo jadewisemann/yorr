@@ -103,8 +103,16 @@ IP 인증서이므로 SSL 검증을 켠 채로도 통과해야 정상이다 — 
 
 ### 대시보드
 
-계열이 들어오면 Grafana의 **Explore**에서 바로 확인할 수 있다. 대시보드를 만들 때
-쓸 것은 이 정도다.
+[`grafana/dashboard.json`](grafana/dashboard.json)을 가져오면 된다. Dashboards → New →
+Import → JSON을 붙이고, 물어보는 데이터 소스 두 개(Prometheus · Loki)를 고른다.
+데이터 소스 UID는 스택마다 다르므로 파일에 박지 않고 가져올 때 고르게 해 두었다.
+
+핵심 패널은 **「회차마다 무엇을 판단했는가」**의 상태 타임라인이다. 이 규모에서 알고
+싶은 것은 추이가 아니라 사건이라, 회차마다 상태가 하나씩 찍히는 이 모양이 데이터에
+맞고 시계열 그래프는 맞지 않는다. 파란 구간이 길어지는 것은 고장이 아니라 게이트가
+게임을 지키고 있다는 뜻이다.
+
+직접 만들거나 Explore에서 볼 때 쓸 것은 이 정도다.
 
 - `node_load1` · CPU · `node_memory_MemAvailable_bytes` · 디스크 사용률 — 호스트
 - `yorr_game_participants_active{game}` — 게임별 실제 접속자
