@@ -101,8 +101,15 @@ prometheus.scrape "backend" {
 //
 // backend 컨테이너 로그는 여기 없다. json-file 드라이버로 나가므로 journal에 없고,
 // 가져오려면 docker 소켓을 마운트해야 한다 — 그 경계는 넘지 않았다(PLAN.md §11).
+// **경로를 환경에서 받는 이유.** journald는 저장 방식에 따라 저널을 다른 곳에 둔다:
+// 영속이면 /var/log/journal, 휘발성이면 /run/log/journal이고, 한쪽만 존재한다.
+// 한 경로를 박아 두면 **모니터링이 호스트의 journald 설정에 의존한다** — 실제로
+// 그것 때문에 로그가 0줄이었다. 어느 쪽이 있는지는 `metrics.sh`가 골라 준다.
+//
+// 영속성은 Loki가 담당한다. 그러므로 journald가 메모리를 쓰더라도 여기서 긁어
+// 보내면 이력은 남는다 — 호스트의 저장 방식을 고치는 것과 별개의 문제다.
 loki.source.journal "converge" {
-	path       = "/rootfs/var/log/journal"
+	path       = sys.env("GC_JOURNAL_PATH")
 	max_age    = "12h"
 	matches    = "_SYSTEMD_UNIT=yorr-converge.service"
 	labels     = {

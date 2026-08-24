@@ -157,6 +157,22 @@ docker logs --tail 40 yorr-alloy 2>&1 | grep -Ei 'err|401|403|warn'
 
 ### journal이 Loki에 없다
 
+`metrics.sh up`이 찍는 첫 줄을 본다. 저널 위치는 journald의 저장 방식에 따라 갈리고
+**한쪽만 존재하므로**, `up`이 실제로 있는 쪽을 골라 넘긴다.
+
+```
+-- 저널: /run/log/journal      ← 휘발성 저널을 읽고 있다
+-- 저널: /var/log/journal      ← 영속 저널을 읽고 있다
+!! 저널을 찾지 못했다          ← 로그가 가지 않는다(메트릭은 영향 없다)
+```
+
+**휘발성이어도 로그는 Loki에 남는다.** 영속성은 Loki가 담당하므로, 아래의 journald
+설정은 Loki를 위한 것이 아니라 **호스트에서 `journalctl`로 과거를 볼 수 있게** 하려는
+것이다. 둘은 별개의 문제다 — 한동안 그것을 섞어 보고 로그가 0줄인 원인을 journald에서
+찾았다.
+
+### journalctl 이력이 재부팅에서 사라진다
+
 `docker logs yorr-alloy`에 이것이 있으면 **호스트의 journald가 휘발성**이다.
 
 ```

@@ -43,10 +43,32 @@ check_config() {
     -e GC_LOKI_URL=https://example.invalid/loki/api/v1/push \
     -e GC_LOKI_USER=0 -e GC_LOKI_TOKEN=x \
     -e GC_BACKEND_TARGET=backend:8080 \
+    -e GC_JOURNAL_PATH=/rootfs/var/log/journal \
     "$image" validate "$CONFIG_IN_CONTAINER"
   # `validate`는 통과할 때 아무것도 찍지 않는다. 침묵을 성공으로 읽는 습관이
   # 이 저장소의 상습 실패 모드라(배선 누락) 한 줄 남긴다.
   echo "-- 설정 문법 정상"
+}
+
+# journald의 저널이 실제로 어디 있는가. 영속이면 /var/log/journal, 휘발성이면
+# /run/log/journal이고 **한쪽만 존재한다.** 설정에 한 경로를 박아 두면 모니터링이
+# 호스트의 journald 설정에 의존하고, 없는 쪽을 가리키면 오류 한 줄 뒤 로그가 0줄이
+# 된다 — 실제로 그렇게 됐다.
+#
+# 영속을 먼저 본다. 둘 다 있으면 그쪽이 이력을 더 오래 갖는다.
+journal_path() {
+  local d
+  for d in /var/log/journal /run/log/journal; do
+    # 디렉터리 존재가 아니라 **내용**을 본다. journald는 machine-id 이름의 하위
+    # 디렉터리에 쓰므로, 손으로 만들어 비어 있는 /var/log/journal을 고르면 안 된다.
+    #
+    # sudo를 쓰지 않는다 — 스크립트 중간에 암호를 묻게 된다. 두 디렉터리는 2755라
+    # 일반 사용자도 목록은 읽는다(파일 내용은 못 읽지만 여기서는 필요 없다).
+    [[ -n $(ls -A "$d" 2>/dev/null) ]] || continue
+    printf '/rootfs%s' "$d"
+    return 0
+  done
+  return 1
 }
 
 case ${1:-up} in
@@ -63,6 +85,14 @@ case ${1:-up} in
       echo "-- $metrics_dir 가 없다 — $owner 소유로 만든다"
       sudo install -d -m 755 -o "$owner" "$metrics_dir"
     }
+    if jp=$(journal_path); then
+      export YORR_JOURNAL_PATH=$jp
+      echo "-- 저널: ${jp#/rootfs}"
+    else
+      echo "!! 저널을 찾지 못했다 — /var/log/journal도 /run/log/journal도 비어 있다."
+      echo "   판단 로그가 Loki로 가지 않는다(메트릭은 영향 없다)."
+    fi
+
     echo
     "${COMPOSE[@]}" up -d
     echo
