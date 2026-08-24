@@ -311,6 +311,21 @@ contains "desired" "desired release : $REV_A / $DIGEST_A" "$out"
 contains "running" "running release : $REV_A / $DIGEST_A" "$out"
 contains "automation" "automation      : RUNNING" "$out"
 contains "backend" "backend         : healthy" "$out"
+check "같을 때는 체크아웃 줄이 없다" "없음" \
+  "$([[ $out == *checkout* ]] && echo 있음 || echo 없음)"
+
+# 2026-08-24 호스트에서 실제로 본 상태: 게임 때문에 배포를 미루는 동안 체크아웃만
+# 앞서 나갔다. 그때 status가 git HEAD를 "실행 중 revision"으로 찍어 **journal과 서로
+# 다른 답**을 냈다. 운영자가 "지금 무엇이 돌고 있는가"를 보려고 읽는 화면이다.
+echo "15b. 체크아웃이 앞서 나갔으면 status가 실행 중 릴리스를 정확히 말한다"
+setup
+git -C "$T/checkout" reset --hard -q "$REV_B"        # 손 pull로 앞서 나간 체크아웃
+printf '%s' "$DIGEST_A" > "$FAKE_ROOT/running_digest"  # 실행 중은 A 이미지(라벨 REV_A)
+out=$(converge status)
+contains "실행 중 revision은 이미지 라벨이다" "running release : $REV_A / $DIGEST_A" "$out"
+contains "체크아웃을 따로 보여 준다" "checkout        : $REV_B" "$out"
+check "체크아웃을 실행 중으로 오인하지 않는다" "아니다" \
+  "$([[ $out == *"running release : $REV_B"* ]] && echo 오인한다 || echo 아니다)"
 
 echo "16. rollback은 릴리스 전체를 되돌리고 HALT를 남긴다"
 setup
