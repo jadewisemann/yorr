@@ -149,6 +149,16 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
   - `yorr_game_participants_active{game="YACHT_DICE"|...}` (gauge): PLAYING
     방에서 **라이브 소켓**을 가진 플레이어 수(오프라인 좌석 제외). 태그 값은
     대문자 게임 코드(WS 네임스페이스와 달리 소문자화하지 않는다)
+  - ⚠️ **`yorr_rooms_active`는 지금 거짓값을 낸다.** 게임 중 접속이 끊기면 좌석이
+    남고, 좌석이 남는 동안 방을 닫는 경로가 실행되지 않아 인메모리 phase가 영구히
+    `playing`에 머문다(Redis의 방 데이터는 TTL로 사라진다). 게이트는 사람을 세도록
+    고쳤지만 게이지 자체는 남아 있다 —
+    [`deploy/PLAN.md`](../../../deploy/PLAN.md) §17의 별도 티켓이며, 고치기 전에는
+    대시보드·알림에 쓰지 않는다. `yorr_game_participants_active`는 신뢰할 수 있다.
+  - **누가 이것을 긁는가**: 호스트의 Alloy가 60초마다 긁어 Grafana Cloud로 보낸다
+    (`deploy/alloy/config.alloy`). 같은 에이전트가 호스트 메트릭과
+    `journalctl -u yorr-converge`도 함께 보낸다 — 절차는
+    [`deploy/MONITORING.md`](../../../deploy/MONITORING.md)다.
 - 그 외 액추에이터 엔드포인트는 노출하지 않는다(health·prometheus만) —
   `env`·`beans`·`metrics`처럼 방·세션 정보가 인증 없이 새는 표면을 늘리지 않는다.
 - Java에는 메시지 레이트·지연·소켓 수 계측이 없다 — 추가는 자유지만 위 두 개는 유지.
