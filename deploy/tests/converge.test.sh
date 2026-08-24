@@ -383,6 +383,46 @@ printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
 run_converge --dry-run
 check "dry-run은 계열을 쓰지 않는다" 0 "$([[ -f $PROM ]] && echo 1 || echo 0)"
 
+# bootstrap.sh는 운영자에게 `--dry-run`이 **아무것도 바꾸지 않는다**고 안내한다. 그 약속은
+# 지금 do_converge의 **줄 순서**에만 의지하고 있다 — dry-run 분기가 게임 게이트보다 위에
+# 있어서 게이트에 닿지 않는다. 게이트는 도달하면 미룸 시계(`deferred-since`)를 만들고
+# 지우므로, 분기를 게이트 아래로 옮기는 리팩터링이 그 약속을 조용히 깬다. 깨지면 MAX_DEFER
+# 상한이 "판단만 해 본 시점"부터 카운트되어 실제 배포가 게임을 예정보다 일찍 끊는다.
+# 그래서 순서가 아니라 **약속 자체**를 못 박는다. 마지막 검사는 대조군이다 — 실제 실행이
+# 시계를 만드는 것을 함께 확인해, 세 검사가 공허하게 통과하는 것이 아님을 보인다.
+echo "11f. --dry-run은 미룸 시계를 건드리지 않는다"
+dry() {
+  env YORR_DEPLOY_CONFIG=/dev/null YORR_CHECKOUT="$T/checkout" YORR_STATE_DIR="$T/state" \
+    YORR_IMAGE_REPO="$REPO" "$SRC/converge" --dry-run >/dev/null 2>&1
+}
+
+setup   # 사람이 있고 아직 미룬 적이 없다 → 시계를 시작하면 안 된다
+printf '2' > "$FAKE_ROOT/players"
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+dry
+check "시계를 시작하지 않는다" "없다" "$([[ -f $T/state/deferred-since ]] && echo 있다 || echo 없다)"
+
+setup   # 이미 미루는 중이다 → dry-run이 지우면 안 된다
+printf '2' > "$FAKE_ROOT/players"
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+printf '%s' 1000000000 > "$T/state/deferred-since"
+dry
+check "진행 중인 시계를 지우지 않는다" 1000000000 "$(cat "$T/state/deferred-since" 2>/dev/null)"
+
+setup   # 사람이 0명인데 시계가 남아 있다 → dry-run이 정리하지도 않는다
+printf '0' > "$FAKE_ROOT/players"
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+printf '%s' 1000000000 > "$T/state/deferred-since"
+dry
+check "정리도 하지 않는다(판단만 한다)" 1000000000 "$(cat "$T/state/deferred-since" 2>/dev/null)"
+
+setup   # 대조: 실제 실행은 시계를 시작한다
+printf '2' > "$FAKE_ROOT/players"
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+env YORR_DEPLOY_CONFIG=/dev/null YORR_CHECKOUT="$T/checkout" YORR_STATE_DIR="$T/state" \
+  YORR_IMAGE_REPO="$REPO" "$SRC/converge" >/dev/null 2>&1
+check "실제 실행은 시작한다(대조)" "있다" "$([[ -f $T/state/deferred-since ]] && echo 있다 || echo 없다)"
+
 echo "12. 발견한 revision이 git에 없으면 배포하지 않는다"
 setup
 printf '%s' "$DIGEST_C" > "$FAKE_ROOT/registry_tag"   # revision이 저장소에 없는 digest
