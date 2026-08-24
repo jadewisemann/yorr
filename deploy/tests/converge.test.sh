@@ -17,6 +17,13 @@ SRC=${1:-$(cd "$SP/.." && pwd)}
 T=$SP/work
 rm -rf "$T"; mkdir -p "$T/bin" "$T/fake" "$T/state"
 cp "$SP/fake-docker" "$T/bin/docker"
+# 하트비트·알림 전송을 관측하기 위한 curl 대역. 실제 왕복은 하지 않고 호출만 적는다.
+cat > "$T/bin/curl" <<'CURL'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FAKE_ROOT/curl.log"
+exit 0
+CURL
+chmod +x "$T/bin/curl"
 export PATH="$T/bin:$PATH"
 export FAKE_ROOT="$T/fake"
 REPO=ghcr.io/jadewisemann/yorr-backend
@@ -70,6 +77,7 @@ setup() {
   printf 'healthy' > "$FAKE_ROOT/mysql_health"
   printf 'healthy' > "$FAKE_ROOT/redis_health"
   printf '0' > "$FAKE_ROOT/rooms"
+  printf '0' > "$FAKE_ROOT/players"
 }
 
 converge() {
@@ -208,9 +216,10 @@ check "종료 코드 1" 1 "$rc"
 contains "인프라 장애 알림" "인프라 장애다" "$out"
 check "체크아웃 그대로" "$REV_A" "$(head_rev)"
 
-echo "10. 게임이 진행 중이면 미룬다"
+echo "10. 사람이 플레이 중이면 미룬다"
 setup
 printf '3' > "$FAKE_ROOT/rooms"
+printf '2' > "$FAKE_ROOT/players"
 printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
 out=$(converge); rc=$?
 check "종료 코드 0" 0 "$rc"
@@ -218,7 +227,35 @@ contains "미룬다" "미룬다" "$out"
 check "체크아웃 그대로" "$REV_A" "$(head_rev)"
 check "미룸 시각 기록" "있음" "$([[ -f $T/state/deferred-since ]] && echo 있음 || echo 없음)"
 
-echo "11. 상한을 넘기면 게임 중에도 배포한다"
+# 2026-08-24 운영 실측: 방은 PLAYING으로 세어지는데 라이브 소켓이 0이었다.
+#
+#     yorr_rooms_active 1
+#     yorr_game_participants_active{game="YACHT_DICE"} 0
+#
+# 원인은 인메모리 누수다(PLAYING 방의 마지막 소켓이 끊기면 좌석이 markOffline으로 남고
+# phase가 playing으로 남는다). 방을 세는 게이트는 **이미 없는 방** 때문에 매번
+# MAX_DEFER(6시간)까지 배포를 미뤘다. 끊길 사람이 없으면 미룰 이유도 없다.
+echo "10b. 유령 방(사람 0)은 게이트를 막지 못한다"
+setup
+printf '1' > "$FAKE_ROOT/rooms"      # phase가 PLAYING인 방 하나
+printf '0' > "$FAKE_ROOT/players"    # 그런데 라이브 소켓은 0
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+printf 'ok' > "$FAKE_ROOT/up_results"
+out=$(converge); rc=$?
+check "종료 코드 0" 0 "$rc"
+check "미루지 않고 배포했다" "$REV_B" "$(head_rev)"
+check "미룸 기록도 남지 않았다" "없음" \
+  "$([[ -f $T/state/deferred-since ]] && echo 있음 || echo 없음)"
+check "미룬다는 로그가 없다" "없음" "$([[ $out == *미룬다* ]] && echo 있음 || echo 없음)"
+
+# 앞 테스트의 잔여 상태에 기대지 않고 스스로 상황을 만든다 — 사이에 시나리오가
+# 하나 끼는 것만으로 조용히 무의미해지는 테스트였다(실제로 그렇게 됐다).
+echo "11. 상한을 넘기면 사람이 있어도 배포한다"
+setup
+printf '3' > "$FAKE_ROOT/rooms"
+printf '2' > "$FAKE_ROOT/players"
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+printf 'ok' > "$FAKE_ROOT/up_results"
 printf '%s' "$(( $(date -u +%s) - 99999 ))" > "$T/state/deferred-since"
 out=$(env YORR_DEPLOY_MAX_DEFER=60 YORR_DEPLOY_CONFIG=/dev/null YORR_CHECKOUT="$T/checkout" \
   YORR_STATE_DIR="$T/state" YORR_IMAGE_REPO="$REPO" YORR_WAIT_TIMEOUT=5 "$SRC/converge" 2>&1); rc=$?
@@ -233,7 +270,7 @@ check "배포됐다" "$REV_B" "$(head_rev)"
 echo "11b. backend가 깨져 있으면 게임 게이트를 묻지 않는다"
 setup
 printf 'unhealthy' > "$FAKE_ROOT/backend_health"
-printf 'unknown' > "$FAKE_ROOT/rooms"          # 게이지를 읽지 못하는 상태
+printf 'missing' > "$FAKE_ROOT/gauge_result"   # 게이지를 읽지 못하는 상태
 printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
 printf 'ok' > "$FAKE_ROOT/up_results"
 out=$(converge); rc=$?
@@ -251,6 +288,100 @@ out=$(converge); rc=$?
 check "종료 코드 1" 1 "$rc"
 contains "compose config를 지목한다" "compose config가 깨져 있다" "$out"
 check "체크아웃 그대로" "$REV_A" "$(head_rev)"
+
+# 데드맨의 뜻은 "아무것도 안 돌고 있음"이다. 그러므로 **건강한 판단을 끝낸 회차는
+# 반드시 하트비트를 보내야 한다** — 미룸도 건강한 판단이다. 처음에는 미룸 경로가
+# 하트비트 없이 빠져나갔고, 그 상태에서는 정상 동작이 "자동화가 죽었다"로 읽힌다
+# (유령 방 때문에 6시간씩 미룰 수 있으므로 실제로 문제가 된다).
+echo "11d. 하트비트는 건강한 판단에만 나간다"
+# `grep -c`는 매치가 없을 때 `0`을 찍고 **exit 1**을 낸다. `|| printf 0`을 붙이면
+# 둘 다 나가 `00`이 된다 — 그 자리에 처음 걸렸다.
+count_curl() {
+  local n
+  n=$(grep -c -- "$1" "$FAKE_ROOT/curl.log" 2>/dev/null) || n=0
+  printf '%s' "$n"
+}
+hb() { count_curl heartbeat; }
+
+setup   # 같은 릴리스 = 무변화
+env YORR_HEARTBEAT_URL=http://x/heartbeat YORR_DEPLOY_CONFIG=/dev/null \
+  YORR_CHECKOUT="$T/checkout" YORR_STATE_DIR="$T/state" YORR_IMAGE_REPO="$REPO" \
+  "$SRC/converge" >/dev/null 2>&1
+check "무변화에도 보낸다" 1 "$(hb)"
+
+setup   # 사람이 있어서 미룸
+printf '2' > "$FAKE_ROOT/players"
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+env YORR_HEARTBEAT_URL=http://x/heartbeat YORR_DEPLOY_CONFIG=/dev/null \
+  YORR_CHECKOUT="$T/checkout" YORR_STATE_DIR="$T/state" YORR_IMAGE_REPO="$REPO" \
+  "$SRC/converge" >/dev/null 2>&1
+check "미룰 때도 보낸다(정상 동작이다)" 1 "$(hb)"
+
+setup   # HALT 상태
+printf 'REASON=테스트\n' > "$T/state/halted"
+env YORR_HEARTBEAT_URL=http://x/heartbeat YORR_DEPLOY_CONFIG=/dev/null \
+  YORR_CHECKOUT="$T/checkout" YORR_STATE_DIR="$T/state" YORR_IMAGE_REPO="$REPO" \
+  "$SRC/converge" >/dev/null 2>&1
+check "HALT에는 보내지 않는다" 0 "$(hb)"
+
+setup   # 인프라 장애
+printf 'unhealthy' > "$FAKE_ROOT/mysql_health"
+env YORR_HEARTBEAT_URL=http://x/heartbeat YORR_NOTIFY_WEBHOOK=http://x/hook \
+  YORR_DEPLOY_CONFIG=/dev/null YORR_CHECKOUT="$T/checkout" YORR_STATE_DIR="$T/state" \
+  YORR_IMAGE_REPO="$REPO" "$SRC/converge" >/dev/null 2>&1
+check "인프라 장애에는 보내지 않는다" 0 "$(hb)"
+check "대신 알림이 나간다" 1 "$(count_curl x/hook)"
+
+# Grafana Cloud로 나가는 데드맨의 근거가 이 .prom 파일이다. 여기서 지키려는 것은
+# **실패한 회차가 데드맨의 시계를 앞당기지 않는다**는 성질이다. 앞당기면 자동화가
+# 멈춰 있는데 알림이 침묵한다 — 정확히 알려야 할 때 침묵하는 방향의 버그다.
+echo "11e. 판단을 Prometheus 계열로 남긴다"
+PROM=$T/state/metrics/yorr-converge.prom
+metric() {
+  awk -v k="$1" '$1==k{v=$2} END{printf "%d", v+0}' "$PROM" 2>/dev/null || printf 0
+}
+run_converge() {
+  env YORR_DEPLOY_CONFIG=/dev/null YORR_CHECKOUT="$T/checkout" YORR_STATE_DIR="$T/state" \
+    YORR_IMAGE_REPO="$REPO" "$SRC/converge" "$@" >/dev/null 2>&1
+}
+
+setup   # 무변화 — 건강한 회차다
+run_converge
+check "파일을 남긴다" 1 "$([[ -f $PROM ]] && echo 1 || echo 0)"
+contains "HELP를 붙인다(Prometheus 형식)" "# TYPE yorr_converge_halted gauge" "$(cat "$PROM")"
+check "HALT 아님" 0 "$(metric yorr_converge_halted)"
+check "미룸 아님" 0 "$(metric yorr_converge_deferred_seconds)"
+check "건강한 회차가 데드맨 시계를 세운다" \
+  1 "$([[ $(metric yorr_converge_last_healthy_seconds) -gt 0 ]] && echo 1 || echo 0)"
+
+# 같은 상태 디렉터리에 HALT를 만들고 한 회차 더 돌린다. 파일이 갱신되면서도
+# last_healthy는 **그대로여야** 한다.
+#
+# 직전 값을 눈에 띄는 옛 시각으로 바꿔 놓고 본다. 두 회차가 같은 초에 끝나면
+# "앞당겼다"와 "그대로다"가 구별되지 않아 검사가 저절로 통과한다 — 실제로 이
+# 검사를 그렇게 썼다가 버그를 놓쳤다.
+SENTINEL=1000000000
+sed -i "s/^yorr_converge_last_healthy_seconds .*/yorr_converge_last_healthy_seconds $SENTINEL/" "$PROM"
+printf 'REASON=테스트\n' > "$T/state/halted"
+run_converge
+check "HALT를 계열로 알린다" 1 "$(metric yorr_converge_halted)"
+check "HALT는 데드맨 시계를 앞당기지 않는다" \
+  "$SENTINEL" "$(metric yorr_converge_last_healthy_seconds)"
+check "그래도 회차는 돌았다고 남긴다" \
+  1 "$([[ $(metric yorr_converge_last_run_seconds) -gt $SENTINEL ]] && echo 1 || echo 0)"
+
+setup   # 미룸 — 건강한 회차이고, 미룬 시간이 계열에 실린다
+printf '2' > "$FAKE_ROOT/players"
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+run_converge
+check "미룸도 데드맨 시계를 세운다" \
+  1 "$([[ $(metric yorr_converge_last_healthy_seconds) -gt 0 ]] && echo 1 || echo 0)"
+check "미룬 시간을 싣는다" 1 "$([[ -f $T/state/deferred-since ]] && echo 1 || echo 0)"
+
+setup   # --dry-run은 계측을 남기지 않는다 — 판단이 아니라 예행이다
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+run_converge --dry-run
+check "dry-run은 계열을 쓰지 않는다" 0 "$([[ -f $PROM ]] && echo 1 || echo 0)"
 
 echo "12. 발견한 revision이 git에 없으면 배포하지 않는다"
 setup
@@ -311,6 +442,21 @@ contains "desired" "desired release : $REV_A / $DIGEST_A" "$out"
 contains "running" "running release : $REV_A / $DIGEST_A" "$out"
 contains "automation" "automation      : RUNNING" "$out"
 contains "backend" "backend         : healthy" "$out"
+check "같을 때는 체크아웃 줄이 없다" "없음" \
+  "$([[ $out == *checkout* ]] && echo 있음 || echo 없음)"
+
+# 2026-08-24 호스트에서 실제로 본 상태: 게임 때문에 배포를 미루는 동안 체크아웃만
+# 앞서 나갔다. 그때 status가 git HEAD를 "실행 중 revision"으로 찍어 **journal과 서로
+# 다른 답**을 냈다. 운영자가 "지금 무엇이 돌고 있는가"를 보려고 읽는 화면이다.
+echo "15b. 체크아웃이 앞서 나갔으면 status가 실행 중 릴리스를 정확히 말한다"
+setup
+git -C "$T/checkout" reset --hard -q "$REV_B"        # 손 pull로 앞서 나간 체크아웃
+printf '%s' "$DIGEST_A" > "$FAKE_ROOT/running_digest"  # 실행 중은 A 이미지(라벨 REV_A)
+out=$(converge status)
+contains "실행 중 revision은 이미지 라벨이다" "running release : $REV_A / $DIGEST_A" "$out"
+contains "체크아웃을 따로 보여 준다" "checkout        : $REV_B" "$out"
+check "체크아웃을 실행 중으로 오인하지 않는다" "아니다" \
+  "$([[ $out == *"running release : $REV_B"* ]] && echo 오인한다 || echo 아니다)"
 
 echo "16. rollback은 릴리스 전체를 되돌리고 HALT를 남긴다"
 setup

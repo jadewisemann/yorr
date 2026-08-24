@@ -133,7 +133,7 @@ jobs:
       - name: 배포 스크립트 문법
         working-directory: deploy
         run: |
-          for script in converge apply.sh status.sh rollback.sh bootstrap.sh tests/*.sh tests/fake-docker; do
+          for script in converge apply.sh status.sh rollback.sh bootstrap.sh metrics.sh tests/*.sh tests/fake-docker; do
             bash -n "$script"
             echo "ok $script"
           done
@@ -157,6 +157,40 @@ jobs:
           EOF
           BACKEND_ENV_FILE=./ci.env docker compose --env-file ci.env config --quiet
           rm -f ci.env
+
+      # 계측 설정은 문법이 깨져도 배포를 막지 않는다(별도 프로젝트다) — 대신 아무
+      # 신호도 나가지 않는 상태로 **조용히** 멈춘다. 그래서 여기서 잡는다.
+      # 운영자가 호스트에서 부르는 것과 **같은 명령**을 쓴다: 이 잡이 통과했다는 것이
+      # `metrics.sh check`가 그 호스트에서도 통과한다는 뜻이어야 한다.
+      - name: 계측 설정 검증 (Alloy)
+        working-directory: deploy
+        run: |
+          cat > .env <<'EOF'
+          PUBLIC_HOST=example.test
+          SERVER_PORT=8080
+          GRAFANA_CLOUD_PROM_URL=https://example.invalid/api/prom/push
+          GRAFANA_CLOUD_PROM_USER=0
+          GRAFANA_CLOUD_LOKI_URL=https://example.invalid/loki/api/v1/push
+          GRAFANA_CLOUD_LOKI_USER=0
+          GRAFANA_CLOUD_TOKEN=ci
+          EOF
+          ./metrics.sh check
+
+          # 음성 대조. `alloy validate`는 통과할 때 아무것도 찍지 않으므로, 위
+          # 명령이 성공한 것과 **검증기가 아무 일도 하지 않은 것**을 출력만으로는
+          # 구별할 수 없다. 깨진 설정을 거절하는지 확인해 그 구별을 만든다 —
+          # 하지 않으면 이 단계는 초록을 내는 연극이 된다.
+          cp alloy/config.alloy /tmp/good.alloy
+          printf 'prometheus.scrape "broken" {\n' > alloy/config.alloy
+          if ./metrics.sh check >/dev/null 2>&1; then
+            cp /tmp/good.alloy alloy/config.alloy
+            echo "!! alloy validate가 깨진 설정도 통과시킨다 — 이 검증은 무의미하다." >&2
+            exit 1
+          fi
+          cp /tmp/good.alloy alloy/config.alloy
+          echo "-- 음성 대조 통과: 검증기가 깨진 설정을 거절한다"
+
+          rm -f .env
 
   # ── 3. linux/arm64 이미지 → GHCR ─────────────────────────────────────────────
   #

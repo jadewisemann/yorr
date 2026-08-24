@@ -1,0 +1,113 @@
+// YORR 계측 수집 — 호스트·앱·자동화의 상태를 Grafana Cloud로 보낸다.
+//
+// 이 파일은 **배포 경로 밖**에 있다. `deploy/compose.metrics.yaml`이 별도 compose
+// 프로젝트로 띄우며, 그것이 의도다: `apply.sh`는 서비스를 지정하지 않고
+// `docker compose up -d --wait`를 부르므로, 이 컨테이너가 같은 프로젝트에 있으면
+// **재시작 루프 하나가 정상 릴리스를 롤백시킨다.** 모니터링은 감시 대상을 깨뜨릴
+// 권한을 가져서는 안 된다.
+//
+// 자격 증명은 `sys.env`로 받는다 — 저장소의 「설정 파일 하나」 원칙에 따라 값의
+// 정본은 `deploy/.env` 하나다.
+//
+// 검증: CI가 매 변경마다 `alloy validate`를 돌린다(.github/workflows/backend.yml).
+
+// ── 보낼 곳: 메트릭 ──────────────────────────────────────────────────────────
+prometheus.remote_write "grafana_cloud" {
+	endpoint {
+		url = sys.env("GC_PROM_URL")
+
+		basic_auth {
+			username = sys.env("GC_PROM_USER")
+			password = sys.env("GC_PROM_TOKEN")
+		}
+	}
+}
+
+// ── 보낼 곳: 로그 ────────────────────────────────────────────────────────────
+loki.write "grafana_cloud" {
+	endpoint {
+		url = sys.env("GC_LOKI_URL")
+
+		basic_auth {
+			username = sys.env("GC_LOKI_USER")
+			password = sys.env("GC_LOKI_TOKEN")
+		}
+	}
+}
+
+// ── 호스트 메트릭 ────────────────────────────────────────────────────────────
+// 별도 node-exporter 컨테이너가 필요 없다 — Alloy에 내장이다. 호스트의 /proc·/sys를
+// 읽어야 하므로 루트 파일시스템을 읽기 전용으로 마운트해 그 경로를 가리킨다.
+//
+// `textfile`이 이 구성의 핵심이다: `converge`가 자기 판단 결과를 .prom 파일로
+// 남기고 여기서 그것을 함께 긁는다. 그래서 **자동화의 데드맨이 외부 ping 서비스가
+// 아니라 Prometheus 계열**이 된다 — 알림 규칙 하나로 끝난다.
+prometheus.exporter.unix "host" {
+	rootfs_path = "/rootfs"
+	procfs_path = "/rootfs/proc"
+	sysfs_path  = "/rootfs/sys"
+
+	filesystem {
+		// 컨테이너 오버레이와 가상 파일시스템을 뺀다. 안 빼면 계열 수가 수십 배가
+		// 되고(무료 티어 한도가 계열 수로 매겨진다) 정작 보고 싶은 `/`가 묻힌다.
+		mount_points_exclude = "^/(rootfs/)?(dev|proc|sys|run|var/lib/docker/.+|var/lib/containers/.+)($|/)"
+		fs_types_exclude     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$"
+	}
+
+	textfile {
+		directory = "/textfile"
+	}
+}
+
+discovery.relabel "host" {
+	targets = prometheus.exporter.unix.host.targets
+
+	// 호스트 IP가 ephemeral이므로 `instance`를 주소로 두면 IP가 바뀔 때 시계열이
+	// 끊어진다. 고정 이름을 붙여 그것을 막는다.
+	rule {
+		target_label = "instance"
+		replacement  = "yorr-oci"
+	}
+}
+
+prometheus.scrape "host" {
+	targets         = discovery.relabel.host.output
+	job_name        = "yorr-host"
+	scrape_interval = "60s"
+	forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ── 앱 메트릭 ────────────────────────────────────────────────────────────────
+// `yorr_rooms_active`와 `yorr_game_participants_active{game}` 4계열이다.
+//
+// ⚠️ `yorr_rooms_active`는 **지금 거짓값을 낸다** — 게임 중 접속이 끊긴 방이 영구히
+//    남는다(deploy/PLAN.md §17). 그것을 고치기 전까지 이 계열로 대시보드나 알림을
+//    만들지 않는다. `yorr_game_participants_active`는 신뢰할 수 있다.
+prometheus.scrape "backend" {
+	targets = [{
+		__address__ = sys.env("GC_BACKEND_TARGET"),
+		instance    = "yorr-backend",
+	}]
+	metrics_path    = "/actuator/prometheus"
+	job_name        = "yorr-backend"
+	scrape_interval = "60s"
+	forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ── 자동 배포가 무엇을 판단했는가 ────────────────────────────────────────────
+// 메트릭은 "지금 상태"만 말한다. **왜 그 상태인지**는 controller의 로그에 있다:
+// 「같은 릴리스다」·「접속자 2명 플레이 중 — 이번 회차는 미룬다」·「배포 실패 — 롤백한다」.
+// 그것을 메트릭과 같은 화면에서 보는 것이 이 구성의 값어치다.
+//
+// backend 컨테이너 로그는 여기 없다. json-file 드라이버로 나가므로 journal에 없고,
+// 가져오려면 docker 소켓을 마운트해야 한다 — 그 경계는 넘지 않았다(PLAN.md §11).
+loki.source.journal "converge" {
+	path       = "/rootfs/var/log/journal"
+	max_age    = "12h"
+	matches    = "_SYSTEMD_UNIT=yorr-converge.service"
+	labels     = {
+		job      = "yorr-converge",
+		instance = "yorr-oci",
+	}
+	forward_to = [loki.write.grafana_cloud.receiver]
+}

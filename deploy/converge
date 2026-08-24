@@ -105,6 +105,14 @@ HALTED=$STATE_DIR/halted
 LOCK=$STATE_DIR/lock
 # 4번째 상태 파일이지만 임시다 — 게임 게이트와 함께 PR 7에서 사라진다.
 DEFERRED=$STATE_DIR/deferred-since
+# Prometheus textfile 컬렉터가 읽는 곳. 상태 파일과 달리 **controller가 읽지 않는다**
+# — 한 방향으로 나가기만 하는 계측이다(단, 데드맨 계열만 직전 값을 이어받는다).
+METRICS_DIR=$STATE_DIR/metrics
+METRICS_FILE=$METRICS_DIR/yorr-converge.prom
+
+# 이 회차가 건강하게 끝났는가. `heartbeat`가 세우고 EXIT 트랩이 읽는다 —
+# "하트비트를 보낸다"와 "건강하다"의 근거를 하나로 두어, 둘이 갈라질 수 없게 한다.
+HEALTHY_RUN=0
 
 DRY_RUN=false
 
@@ -126,9 +134,63 @@ notify() {
     -d "{\"content\":\"$escaped\"}" "$NOTIFY_WEBHOOK" >/dev/null || log "!! 알림 전송 실패"
 }
 
-# 데드맨 — *아무것도 안 돌고 있음*을 알려 준다. HALT 상태에서는 **보내지 않는다**:
-# 멈춘 자동화는 죽은 자동화이고, 데드맨이 그것을 알리는 것이 존재 이유다.
+# 이 회차의 판단을 Prometheus 계열로 남긴다. Alloy의 textfile 컬렉터가 이 파일을
+# 긁어 Grafana Cloud로 보내므로(deploy/alloy/config.alloy), **자동화의 데드맨이
+# 외부 ping 서비스가 아니라 메트릭**이 된다 — 알림 규칙 하나로 끝나고, 「HALT
+# 상태다」·「몇 초째 미루고 있다」까지 같은 화면에서 보인다.
+#
+# EXIT 트랩으로 부른다. 종료 경로가 일곱 개(무변화·미룸·HALT·인프라 장애·배포
+# 성공·롤백 성공·CRITICAL)라, 손으로 하나씩 부르면 언젠가 하나를 빠뜨린다.
+publish_metrics() {
+  $DRY_RUN && return 0
+
+  local now halted=0 deferred=0 last_healthy since
+  now=$(date -u +%s)
+  [[ -f $HALTED ]] && halted=1
+  if [[ -r $DEFERRED ]]; then
+    since=$(cat "$DEFERRED" 2>/dev/null) || since=''
+    [[ $since =~ ^[0-9]+$ ]] && deferred=$((now - since))
+  fi
+
+  # 건강했으면 지금으로 전진시키고, 아니면 **직전 값을 그대로 옮긴다.** 이 계열이
+  # 데드맨의 근거이므로 실패한 회차가 시계를 앞당기면 알림이 침묵한다 — 정확히
+  # 알려야 할 때 침묵하는 방향이라 기본값을 그 반대로 잡는다.
+  if ((HEALTHY_RUN)); then
+    last_healthy=$now
+  else
+    last_healthy=$(awk '$1=="yorr_converge_last_healthy_seconds"{v=$2} END{printf "%d", v+0}' \
+      "$METRICS_FILE" 2>/dev/null) || last_healthy=0
+  fi
+
+  # 계측이 배포를 막지 못하게 한다 — 실패하면 조용히 포기한다.
+  mkdir -p "$METRICS_DIR" 2>/dev/null || return 0
+  write_atomic "$METRICS_FILE" <<EOF 2>/dev/null || return 0
+# HELP yorr_converge_last_run_seconds 수렴이 마지막으로 한 회차를 끝낸 unix 시각.
+# TYPE yorr_converge_last_run_seconds gauge
+yorr_converge_last_run_seconds $now
+# HELP yorr_converge_last_healthy_seconds 마지막으로 건강하게 끝난 회차의 unix 시각(무변화·미룸·배포 성공).
+# TYPE yorr_converge_last_healthy_seconds gauge
+yorr_converge_last_healthy_seconds $last_healthy
+# HELP yorr_converge_halted 자동 배포가 HALT 상태인가.
+# TYPE yorr_converge_halted gauge
+yorr_converge_halted $halted
+# HELP yorr_converge_deferred_seconds 게임 때문에 배포를 미룬 시간. 0이면 미루고 있지 않다.
+# TYPE yorr_converge_deferred_seconds gauge
+yorr_converge_deferred_seconds $deferred
+EOF
+}
+
+# 데드맨 — *아무것도 안 돌고 있음*을 알려 준다.
+#
+# 규칙: **한 회차가 건강하게 판단을 끝냈으면 보낸다.** 무변화(no-op)·게임 때문에 미룸·
+# 배포 성공이 그렇다. 미룸이 포함되는 것이 중요하다 — 미루는 것은 정상 동작이므로,
+# 그때 보내지 않으면 건강한 자동화를 두고 데드맨이 "죽었다"고 거짓 경보를 낸다.
+#
+# 보내지 않는 경우: **HALT**(멈춘 자동화는 죽은 자동화이고 그것을 알리는 것이 데드맨의
+# 존재 이유다), preflight 인프라 장애, 배포 실패. 셋 다 사람이 봐야 하는 상태이고
+# 앞의 둘은 `notify`도 함께 나간다.
 heartbeat() {
+  HEALTHY_RUN=1
   [[ -n $HEARTBEAT_URL ]] || return 0
   curl -fsS -m 10 "$HEARTBEAT_URL" >/dev/null || log "!! 하트비트 전송 실패"
 }
@@ -147,7 +209,12 @@ write_atomic() {
   mv -f "$target.tmp" "$target"
 }
 
-current_revision() { git_repo rev-parse HEAD 2>/dev/null || true; }
+# 체크아웃의 HEAD다. **실행 중 릴리스의 revision이 아니다** — 그쪽은 실행 중 이미지의
+# `org.opencontainers.image.revision` 라벨에서 온다(`image_revision`). 둘은 수렴이
+# 끝난 뒤에만 같고, 배포를 미루는 동안이나 사람이 손으로 git을 만진 뒤에는 갈라진다.
+# 이 구분을 놓쳐 같은 버그를 두 번 냈다(#48 롤백 대상, 그리고 status 표시). 그래서
+# 이름에 `checkout`을 박아 호출부가 무엇을 받는지 헷갈리지 않게 한다.
+checkout_head() { git_repo rev-parse HEAD 2>/dev/null || true; }
 
 # 실행 중 backend가 **레지스트리에서 어느 digest였는지**. 컨테이너가 태그로
 # 만들어졌든 digest로 만들어졌든 같은 답이 나온다: 컨테이너 → 로컬 이미지 ID →
@@ -237,16 +304,43 @@ die_infra() {
 #
 # 컨테이너 **안에서** 묻는다: backend는 포트를 공개하지 않으므로 호스트에서 직접
 # 닿을 길이 없고, Caddy를 경유하면 TLS·DNS가 이 판단에 끼어든다.
-active_rooms() {
-  local counted
-  counted=$(compose exec -T backend node -e '
+# **방이 아니라 사람을 센다.**
+#
+# 게이트의 목적은 "배포가 진행 중인 게임을 끊는다"이고, 끊기는 대상은 **사람**이다.
+# 그런데 처음에는 `yorr_rooms_active`(인메모리 phase가 PLAYING인 방 수)를 셌다.
+# 그 게이지는 **끊을 사람이 없는 방도 센다** — 2026-08-24 운영에서 실측했다:
+#
+#     yorr_rooms_active 1
+#     yorr_game_participants_active{game="YACHT_DICE"} 0   ← 라이브 소켓 0
+#
+# 원인은 인메모리 누수다: PLAYING 방에서 마지막 소켓이 끊기면 핸들러가 좌석을
+# `markOffline`만 하고 남긴다(새로고침으로 돌아올 수 있어야 하므로 의도된 동작이다).
+# 그러면 레지스트리의 phase가 `playing`으로 남고, 방 폐쇄 예약도 걸리지 않는다.
+# Redis 방은 TTL로 사라지지만 인메모리 phase는 그것을 모른다. 결과적으로 게이트가
+# **이미 없는 방** 때문에 매번 MAX_DEFER(기본 6시간)까지 배포를 미뤘다.
+#
+# `yorr_game_participants_active`는 라이브 소켓을 가진 플레이어만 센다(계약이다 —
+# `monitoring/realtimeGameMetrics.ts`). 그것의 합이 곧 "지금 끊길 사람 수"다.
+# 봇만 있는 연습 방도 0으로 나오는데, 그쪽도 지켜보는 사람이 없으므로 맞다.
+#
+# 누수 자체는 애플리케이션 쪽 문제로 남는다(게이지도 그만큼 거짓말한다).
+# 게이트는 PR 7에서 사라지지만 그 게이지는 모니터링에 남으므로 별도로 다뤄야 한다.
+active_players() {
+  # 컨테이너 안의 node는 **본문을 그대로 내보내는 파이프**일 뿐이고, 합산은 여기서 한다.
+  # 파싱을 JS 쪽에 두면 대역이 그 결과(숫자)를 흉내내야 해서 정작 파싱이 검증되지
+  # 않는다. bash로 옮기면 대역은 진짜 `/actuator/prometheus` 본문을 내고, 합산 로직이
+  # 실패 주입 스위트에 그대로 덮인다.
+  local body counted
+  body=$(compose exec -T backend node -e '
     fetch("http://127.0.0.1:" + (process.env.SERVER_PORT || "8080") + "/actuator/prometheus")
       .then((response) => response.text())
-      .then((body) => {
-        const matched = /^yorr_rooms_active (\d+)$/m.exec(body)
-        console.log(matched === null ? "unknown" : matched[1])
-      })
-      .catch(() => console.log("unknown"))' 2>/dev/null | tr -d '\r' | tail -n1)
+      .then((text) => process.stdout.write(text))
+      .catch(() => process.exit(1))' 2>/dev/null) || body=""
+  # 게이지 줄이 하나도 없으면 **0이 아니라 unknown**이다(스크레이프 실패와 "아무도
+  # 없다"를 섞으면 판단이 안 설 때 끊는 쪽으로 기울게 된다).
+  counted=$(printf '%s\n' "$body" | tr -d '\r' |
+    awk -F'} ' '/^yorr_game_participants_active\{/ { sum += $2; seen += 1 }
+                END { if (seen == 0) print "unknown"; else print sum }')
   [[ $counted =~ ^[0-9]+$ ]] && printf '%s' "$counted" || printf 'unknown'
 }
 
@@ -254,7 +348,7 @@ active_rooms() {
 #
 # @param $1 배포 전 backend의 health 상태.
 game_gate_allows() {
-  local backend_state=$1 running rooms waited
+  local backend_state=$1 running players waited
   running=$(compose ps -q backend 2>/dev/null | head -n1) || running=""
   if [[ -z $running ]]; then
     log "backend가 실행 중이 아니다 — 끊을 게임이 없다."
@@ -271,10 +365,10 @@ game_gate_allows() {
     return 0
   fi
 
-  rooms=$(active_rooms)
+  players=$(active_players)
   # 못 읽었으면 "0이 아니다"로 다룬다 — 판단이 안 설 때 끊는 쪽으로 기울지 않는다.
   # 영원한 대기는 MAX_DEFER 상한이 막는다.
-  if [[ $rooms == 0 ]]; then
+  if [[ $players == 0 ]]; then
     rm -f "$DEFERRED"
     return 0
   fi
@@ -282,10 +376,10 @@ game_gate_allows() {
   [[ -f $DEFERRED ]] || date -u +%s > "$DEFERRED"
   waited=$(($(date -u +%s) - $(cat "$DEFERRED")))
   if ((MAX_DEFER > 0 && waited >= MAX_DEFER)); then
-    log "게임 $rooms개 진행 중이지만 ${waited}초 미뤘다(상한 ${MAX_DEFER}s) — 그래도 배포한다."
+    log "접속자 $players명 플레이 중이지만 ${waited}초 미뤘다(상한 ${MAX_DEFER}s) — 그래도 배포한다."
     return 0
   fi
-  log "게임 $rooms개 진행 중 — 미룬다(누적 ${waited}s). 다음 회차에 다시 본다."
+  log "접속자 $players명 플레이 중 — 미룬다(누적 ${waited}s). 다음 회차에 다시 본다."
   return 1
 }
 
@@ -318,6 +412,10 @@ do_converge() {
   # single writer. timer와 손 실행이 겹칠 수 있다.
   exec 9>"$LOCK"
   flock -n 9 || { log "이미 수렴 중이다 — 이번 회차는 건너뛴다."; exit 0; }
+
+  # 잠금을 잡은 뒤에 건다. 못 잡은 회차는 판단한 것이 없으므로 계측도 남기지
+  # 않는다 — 그 회차의 진실은 잠금을 쥔 다른 프로세스가 쓴다.
+  trap publish_metrics EXIT
 
   if [[ -f $HALTED ]]; then
     log "HALT 상태다 — 아무것도 하지 않는다. 원인:"
@@ -352,7 +450,7 @@ do_converge() {
   # 라벨은 **이미 로컬에 있는 이미지**에서 읽으므로 왕복이 늘지 않는다(실행 중인
   # 이미지다). 읽지 못하면 판정을 포기하지 않고 아래 정상 경로로 내려간다.
   local checkout_revision running_revision
-  checkout_revision=$(current_revision)
+  checkout_revision=$(checkout_head)
   # 실행 중인 **릴리스**의 revision은 체크아웃 HEAD가 아니라 **그 이미지의 라벨**이다.
   #
   # 둘은 보통 같다(수렴이 언제나 둘을 함께 옮긴다). 그러나 사람이 손으로 `git pull`을
@@ -401,7 +499,13 @@ do_converge() {
     exit 0
   fi
 
-  game_gate_allows "$backend_before" || exit 0
+  # 미루는 것도 **건강한 판단**이다 — 하트비트를 보내고 끝낸다. 보내지 않으면
+  # 데드맨이 정상 동작을 "자동화가 죽었다"로 읽는다(게이트가 오래 막힐 수 있고,
+  # 실제로 유령 방 때문에 6시간씩 막힌 적이 있다).
+  if ! game_gate_allows "$backend_before"; then
+    $DRY_RUN || heartbeat
+    exit 0
+  fi
 
   # 롤백 대상은 이미지가 아니라 **Release 전체**다(PLAN.md D5). 되돌릴 때
   # git revision과 digest를 함께 되돌리지 않으면 "이미지는 A, 설정은 B"가 된다.
@@ -467,10 +571,19 @@ $reason
 # ── 운영 명령 ────────────────────────────────────────────────────────────────
 # 추측하지 않고 controller의 실제 상태를 보여 준다.
 do_status() {
-  local desired running_digest running_rev automation backend
+  local desired running_digest running_rev checkout_rev automation backend
   desired=$(resolve_digest "$IMAGE_REPO:$DISCOVERY_TAG" 2>/dev/null || printf '알 수 없음')
   running_digest=$(current_digest)
-  running_rev=$(current_revision)
+  checkout_rev=$(checkout_head)
+  # 실행 중 릴리스의 revision은 **그 이미지의 라벨**이다 — 체크아웃 HEAD가 아니다.
+  # 수렴 경로(do_converge)와 같은 근거를 써야 한다. 예전에는 여기서 git HEAD를 찍었고,
+  # 그래서 체크아웃이 앞서 나간 상태(배포를 미루는 동안)에 **journal과 status가 서로
+  # 다른 답을 냈다.** 운영자가 "지금 무엇이 돌고 있는가"를 보려고 읽는 화면이 하필
+  # 그때 틀렸다.
+  running_rev=''
+  if [[ -n $running_digest ]]; then
+    running_rev=$(image_revision "$IMAGE_REPO@$running_digest")
+  fi
   if [[ -f $HALTED ]]; then automation=HALTED; else automation=RUNNING; fi
   backend=$(service_health backend 2>/dev/null || printf '알 수 없음')
 
@@ -480,6 +593,11 @@ do_status() {
   printf 'running release : %s / %s\n' "${running_rev:-알 수 없음}" "${running_digest:-알 수 없음}"
   printf 'last good       : %s / %s\n' \
     "$(state_get "$LAST_GOOD" REVISION)" "$(state_get "$LAST_GOOD" IMAGE)"
+  # 체크아웃은 실행 중 릴리스와 다를 수 있다: 배포를 미루는 동안, 또는 사람이 손으로
+  # git을 만진 뒤다. 다를 때만 보여 준다 — 같을 때 한 줄 더 있으면 소음이다.
+  if [[ -n $running_rev && $checkout_rev != "$running_rev" ]]; then
+    printf 'checkout        : %s  (실행 중 릴리스와 다르다)\n' "${checkout_rev:-알 수 없음}"
+  fi
   printf 'automation      : %s\n' "$automation"
   printf 'backend         : %s\n' "$backend"
   if [[ -f $HALTED ]]; then

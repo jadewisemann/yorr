@@ -29,7 +29,10 @@ digest"가 결합된 하나의 Release다.**
 5. `docker compose up --wait` + **진짜 health check**를 배포 게이트로 쓴다.
 6. 실패하면 **롤백 후 자동 배포를 정지(HALT)** 한다.
 7. 게임 마감 시각을 Redis에 영속화해 **프로세스 재시작 가능성**을 확보한다.
-8. Prometheus·Grafana·Jenkins·Kubernetes 같은 **별도 control plane은 도입하지 않는다.**
+8. Jenkins·Kubernetes 같은 **별도 control plane을 호스트에 세우지 않는다.** 계측은
+   §10에서 이 원칙 안에 들어왔다: 호스트에 도는 것은 수집 에이전트 하나이고 판정하는
+   쪽(대시보드·알림)은 호스트 밖에 있다. 원래 문구는 Prometheus·Grafana를 이름으로
+   금지했는데, 막으려던 것은 **호스트가 짊어질 운영 부담**이었으므로 그 뜻으로 고쳤다.
 
 ---
 
@@ -360,6 +363,9 @@ GHCR :main 메타데이터 조회
 candidate == 현재 실행 중이면:
     하트비트, 종료
 
+게임 게이트: 사람이 게임 중이면
+    하트비트, 종료 (미룸도 건강한 판단이다 — 아래 참고)
+
 git fetch origin main                       ← verify보다 먼저 (아니면 항상 실패)
 candidate_revision이 git에 있는지 확인
 
@@ -377,6 +383,16 @@ exec deploy/apply.sh candidate_digest       ← up -d --wait --wait-timeout 150
     git reset --hard last-good.REVISION
     exec deploy/apply.sh last-good.IMAGE
     HALTED에 실패 메타데이터 기록
+```
+
+**하트비트를 언제 보내는가.** 데드맨의 뜻은 "아무것도 안 돌고 있음"이므로, **한
+회차가 건강하게 판단을 끝냈으면 보낸다** — 무변화·게임 때문에 미룸·배포 성공이
+그렇다. 보내지 않는 경우는 HALT·preflight 인프라 장애·배포 실패이며, 셋 다 사람이
+봐야 하는 상태다. **미룸이 포함되는 것이 특히 중요하다.** 미룸은 정상 동작인데
+그때 하트비트를 끊으면 데드맨이 건강한 자동화를 두고 거짓 경보를 낸다. §17의 유령
+방처럼 게이트가 몇 시간씩 막히는 상황에서는 그 거짓 경보가 계속 울린다.
+
+```
 
     롤백 healthy       → "배포 실패 / 롤백 성공" 알림
     롤백 unhealthy     → preflight의 backend 플래그를 본다
@@ -400,7 +416,9 @@ GitHub SSH 배포도 필요하지 않다.
 | 4 | **Cutover** (호스트 작업) | 반나절 | 3 | ✅ 완료(옛 경로 삭제만 남음) |
 | 5 | **인프라 digest 고정 + 리소스 예산** | 반나절 | 4 | ⛔ 실측이 선행한다 |
 | 6 | **마감 시각 영속화** | 1~2일 | 없음. 1~5와 병렬 가능 | ✅ 구현했다 |
-| 7 | **게임 게이트 제거** | 2시간 | 4, 6 | ⛔ PR 4의 검증이 선행한다 |
+| 7 | **게임 게이트 제거** | 2시간 | 4, 6 | ⛔ 운영 관찰이 선행한다 |
+| 8 | **모니터링 (Grafana Cloud)** | 반나절 | 4 | ✅ 구현했다(호스트 미검증) |
+| — | **레지스트리 phase 누수** (§17) | ? | — | ⛔ 2026-08-24 새로 발견 |
 
 ### PR 1 — Health semantics ✅
 
@@ -673,6 +691,25 @@ PTTL을 복사한다(라운드 상태 키와 같은 규약).
 "게임 중인가"를 묻지 않고 **"새 release가 있고 healthy하게 실행 가능한가"만** 판단한다.
 게임 복구는 애플리케이션의 책임이다.
 
+### PR 8 — 모니터링 ✅
+
+설계와 근거는 §10, 절차는 [`MONITORING.md`](MONITORING.md)에 있다. 여기서는 무엇이
+코드로 들어왔는지만 적는다.
+
+- `deploy/alloy/config.alloy` — 호스트 메트릭(내장 unix exporter) · backend의
+  `/actuator/prometheus` · textfile 컬렉터 · `journalctl -u yorr-converge` → Loki
+- `deploy/compose.metrics.yaml` — **별도 compose 프로젝트.** 배포 스택의 `edge`
+  네트워크만 빌려 쓴다. 계측이 배포를 롤백시킬 수 없게 하는 장치다
+- `deploy/metrics.sh` — 운영 진입점. `up`은 **재기동 전에 설정을 검증한다**
+- `converge` — 매 회차 판단을 `.prom`으로 남긴다. 계열 4개, EXIT 트랩으로 발행하므로
+  종료 경로 일곱 개를 빠뜨리지 않는다
+- `compose.yaml`의 `mysql-backup` — 덤프 성공 시각을 같은 방식으로 남긴다. 진실을 아는
+  자리가 거기이므로 새 유닛도 새 스크립트도 필요하지 않았다
+- CI — `metrics.sh check`를 돌린다. **운영자가 호스트에서 부르는 것과 같은 명령**이다
+
+호스트에서 아직 돌려 보지 않았다. Alloy 설정은 이 저장소에서 실행해 검증할 수 없어
+(egress 정책) 검증을 CI에 두었고, **CI의 첫 실행이 그 검증이다.**
+
 ---
 
 ## 9. 통합 테스트 (PR 3~4)
@@ -689,39 +726,87 @@ shell unit test보다 **실제 failure injection**이 중요하다.
 | 설정 호환성 (B compose + B image 실패) | **A compose + A image 둘 다** 복귀 |
 | 타이머 중복 (converge 중 손 실행) | second writer 진입 금지 |
 | 게임 중 backend restart (PR 6 이후) | WS 재접속 → 마감 복구 → 정상 다음 턴 |
+| 하트비트 (11d) | 무변화·미룸·배포 성공에만 나가고 HALT·인프라 장애·배포 실패에는 나가지 않는다 |
+| 계측 (11e) | 판단을 `.prom`으로 남기고, **실패한 회차는 데드맨 시계를 앞당기지 않는다** |
 
 ---
 
 ## 10. 모니터링
 
-별도 stack을 두지 않는다. 신호 4개, 전부 호스트 밖, 컨테이너 0개.
+**Grafana Cloud 무료 티어로 간다.** 호스트에는 수집 에이전트(Alloy) 하나만 두고,
+대시보드·알림·uptime 체크는 Grafana가 호스팅한다. 절차는
+[`MONITORING.md`](MONITORING.md)에 있다.
 
-1. **외부 uptime** — 프로세스·호스트·TLS·DNS·방화벽을 한 번에 잡는다 (무료 SaaS, 5분)
-2. **자동화 데드맨** — *아무것도 안 돌고 있음*. 실제로 일어난 실패다. 수렴 끝에 ping
-3. **배포 상태 변화** — 실패 · 롤백 · HALT (Discord webhook)
-4. **백업 데드맨** — 덤프 실패 · 오프사이트 복사 실패
+신호는 여전히 4개이고 전부 호스트 밖에서 판정된다.
 
-운영 인터페이스는 둘이면 충분하다.
+| 신호 | 무엇을 잡는가 | 어디서 오는가 |
+|---|---|---|
+| 1. 외부 uptime | 프로세스·호스트·TLS·방화벽 | Synthetic → `/actuator/health` |
+| 2. 자동화 데드맨 | *아무것도 안 돌고 있음* | `yorr_converge_last_healthy_seconds` |
+| 3. 배포 상태 변화 | 실패 · 롤백 · HALT | `yorr_converge_halted` + Discord 웹훅 |
+| 4. 백업 데드맨 | 덤프가 안 돈다 | `yorr_backup_last_success_seconds` |
+
+### 왜 자체 호스팅이 아닌가
+
+**감시 대상 위에 감시자를 올리면, 호스트가 죽을 때 그것을 알려 줄 것도 같이 죽는다.**
+이 스택은 단일 호스트이고 §4에서 확인한 실제 실패는 "자동화가 아무것도 안 하고 있었다"는
+것이었다. 그 종류의 실패를 잡는 것이 목적이라면 판정하는 쪽이 호스트 밖에 있어야 한다.
+
+부수적으로 컨테이너도 4개 대신 1개다(prometheus · node-exporter · cadvisor · grafana를
+Alloy 하나가 대신한다 — 호스트 메트릭 수집기가 내장이다).
+
+### 데드맨을 ping 서비스가 아니라 메트릭으로 만든 이유
+
+`converge`가 매 회차 자기 판단을 `.prom` 파일로 남기고, Alloy의 textfile 컬렉터가
+그것을 함께 긁는다. 그래서 외부 ping 서비스 계정이 하나 줄고, 「멈췄다」뿐 아니라
+**「HALT 상태다」·「몇 초째 미루고 있다」까지 같은 화면**에서 보인다.
+
+| 계열 | 뜻 |
+|---|---|
+| `yorr_converge_last_run_seconds` | 마지막으로 한 회차를 끝낸 시각 |
+| `yorr_converge_last_healthy_seconds` | 마지막으로 **건강하게** 끝난 시각 |
+| `yorr_converge_halted` | HALT 상태인가 |
+| `yorr_converge_deferred_seconds` | 게임 때문에 미룬 시간 |
+
+「건강하다」는 무변화 · 게임 때문에 미룸 · 배포 성공이다. **실패한 회차는 이 시계를
+앞당기지 않는다** — 앞당기면 멈춘 자동화를 두고 알림이 침묵한다. 정확히 알려야 할 때
+침묵하는 방향이라, 기본값을 그 반대로 잡고 회귀 테스트로 묶었다(§9 시나리오 11e).
+
+`HEARTBEAT_URL`은 그대로 남겨 두었다. 메트릭과 독립된 두 번째 경로이고, Grafana Cloud
+없이도 데드맨을 쓸 수 있게 한다.
+
+### 계측이 배포를 깨뜨릴 수 없어야 한다
+
+두 곳에서 그것을 지킨다.
+
+1. **에이전트는 별도 compose 프로젝트다.** `apply.sh`는 서비스를 지정하지 않고
+   `docker compose up -d --wait`를 부르므로(D7), 같은 프로젝트에 두면 **에이전트의
+   재시작 루프 하나가 정상 릴리스를 롤백시킨다.** 별도 프로젝트면 배포의 `up -d`가
+   그것을 아예 보지 않는다. 대가는 배포와 함께 갱신되지 않는다는 것이고
+   (`deploy/metrics.sh up`을 따로 부른다), 받아들였다.
+2. **`.prom` 쓰기 실패는 조용히 포기한다.** 계측 때문에 배포가 멈추는 것보다 계측이
+   빠지는 것이 낫다.
+
+### 운영 인터페이스
+
+Grafana가 붙어도 이 둘은 그대로다 — 호스트에 들어갔을 때 볼 것이다.
 
 ```bash
 journalctl -u yorr-converge     # 무엇을 판단했는지
 deploy/status.sh                # 지금 무엇이 돌고 있는지
 ```
 
-`status.sh`는 추측하지 않고 controller의 실제 상태를 보여준다.
+### 넘기지 않은 경계
 
-```
-desired release : 187bafc / sha256:b7e...
-running release : 187bafc / sha256:b7e...
-last good       : 187bafc / sha256:b7e...
-automation      : RUNNING
-backend         : healthy
-```
+**컨테이너별 사용량을 얻으려면 docker 소켓을 마운트해야 하고, 그것은 사실상 root
+권한이다.** §11의 보안 경계를 계측 편의 때문에 지우지 않기로 하고 넘기지 않았다.
+같은 이유로 backend 컨테이너 로그도 Loki에 없다(json-file 드라이버라 journal에 없다).
+호스트 전체의 CPU·메모리·디스크와 `journalctl -u yorr-converge`는 보인다.
 
-**Prometheus·Grafana를 넣지 않는 이유:** 노출 메트릭이 4계열(15일에 1.7 MiB)뿐이고,
-게이지 2개의 유일한 소비자가 배포 게이트인데 PR 7에서 게이트가 없어지면 소비자가
-사라진다. 이 규모에서 알고 싶은 것은 시계열이 아니라 이진 사건이다. 용량 때문이
-아니다 — 12GB 중 10GB 이상이 비어 있다.
+### `yorr_rooms_active`는 대시보드에 올리지 않는다
+
+지금 거짓값을 낸다(§17). 고치기 전에 올리면 거짓값을 그래프로 그린다.
+`yorr_game_participants_active`는 신뢰할 수 있다.
 
 ---
 
@@ -761,15 +846,18 @@ attestation·서명 검증은 다음 단계로 남긴다. 현재 규모에서는
 
 ## 12. IP 문제 (별도 작업)
 
-IP `161.33.36.118`이 ephemeral인데 세 곳에 박혀 있다.
+IP `161.33.36.118`이 ephemeral인데 네 곳에 박혀 있다.
 
 1. `deploy/.env` → `PUBLIC_HOST`
 2. `frontend/vercel.json` → rewrite 대상 (**git에 하드코딩**)
 3. Vercel 환경변수 → `VITE_API_BASE_URL` · `VITE_WS_URL` (빌드 타임 주입)
+4. Grafana Cloud의 Synthetic 체크 대상 (§10) — 저장소 밖이므로 스크립트가 닿지 않는다.
+   IP가 바뀌면 uptime 알림이 울리는데 **그것은 맞는 동작이다**: 그때 대상을 손으로
+   갱신한다.
 
 2·3이 프론트라 IP가 바뀌면 프론트 재배포가 따라온다. `vercel.json`의 rewrite
 destination은 환경변수 보간이 되지 않으므로 완전한 단일화는 불가능하다.
-`deploy/set-public-ip.sh <새IP>` 하나가 세 곳을 처리하는 것이 현실적인 선에서의 대안이다.
+`deploy/set-public-ip.sh <새IP>` 하나가 1~3을 처리하는 것이 현실적인 선에서의 대안이다.
 
 **열린 결정:** IP를 지금 reserved로 바꿀 것인가. OCI에서 ephemeral → reserved 직접
 전환은 되지 않고 주소가 한 번 바뀐다. 지금 계획해서 바꾸거나, 인스턴스를 잃을 때
@@ -801,6 +889,55 @@ Kubernetes · OKE · Argo CD · Jenkins · Nomad · Consul · 별도 deployment 
 - PR 7까지 끝나면 이 문서를 삭제하고, 그 내용은 `operations.md`와 새 ADR로 옮긴다.
 
 ---
+
+## 17. 발견: 레지스트리 phase 누수 (2026-08-24)
+
+운영에서 게이트가 2.5시간째 배포를 미루고 있었다. 게이지를 보니 이랬다.
+
+```
+yorr_rooms_active 1
+yorr_game_participants_active{game="YACHT_DICE"} 0
+```
+
+**방은 PLAYING으로 세어지는데 라이브 소켓이 하나도 없다.** 기제는 이렇다.
+
+1. PLAYING 방에서 마지막 소켓이 끊긴다.
+2. `ws/handler.ts`의 게임 중 분기는 좌석을 **`markOffline`으로 남긴다** — 새로고침으로
+   돌아올 수 있어야 하므로 의도된 동작이다. `registry.remove`가 아니므로 `forgetRoom`이
+   불리지 않고 **phase가 `playing`으로 남는다.**
+3. 그 분기는 **방 폐쇄 예약도 걸지 않는다**(대기실 분기만 건다). 설령 걸려도
+   `closeRoomIfStillEmpty`가 오프라인 좌석을 "사람이 있다"로 읽어 빠져나간다.
+4. Redis 방 키는 TTL(40분 슬라이딩)로 사라지지만 **인메모리 phase는 그것을 모른다.**
+
+결과가 둘이다.
+
+- **배포 게이트가 영구히 막힌다.** 이미 없는 방 때문에 매 배포가 MAX_DEFER(6시간)
+  상한을 기다린다. 프로세스가 재시작할 때만 풀린다.
+- **`yorr_rooms_active`가 거짓말한다.** 이건 게이트와 무관하게 모니터링의 문제다.
+
+### 게이트 쪽은 고쳤다
+
+게이트가 **방이 아니라 사람을 센다**(`yorr_game_participants_active`의 합). 게이트의
+목적이 "배포가 사람의 게임을 끊는다"이므로, 끊길 사람이 없으면 미룰 이유가 없다 —
+목적과 세는 대상을 일치시킨 것이다. 봇만 있는 연습 방도 0으로 나오는데 지켜보는 사람이
+없으므로 맞다. `converge.test.sh` 10b가 이 상태를 고정한다.
+
+파싱을 컨테이너 안의 JS에서 bash로 옮겼다. JS에 두면 대역이 그 결과(숫자)를 흉내내야
+해서 정작 합산이 검증되지 않는다. 이제 컨테이너의 node는 본문을 내보내는 파이프일
+뿐이고, 대역이 진짜 `/actuator/prometheus` 본문을 낸다.
+
+### 누수 자체는 남았다
+
+`yorr_rooms_active`가 없는 방을 세는 것은 그대로다. 고치는 방향 후보:
+
+- 오프라인 좌석만 남은 PLAYING 방에도 폐쇄 예약을 걸고, `closeRoomIfStillEmpty`가
+  "라이브 소켓 0"을 빈 방으로 판정한다. 단 유예를 넉넉히 둬야 한다 — 마감 시각이 이제
+  Redis에 있어(PR 6) 판은 살아남지만, 사람이 돌아올 창을 너무 좁히면 방을 먼저 닫는다.
+- 또는 `OrphanedRoundStateSweeper`처럼 주기적으로 레지스트리 phase를 Redis 방 존재
+  여부와 대조해 회수한다. 스위퍼가 이미 같은 종류의 일을 한다.
+
+어느 쪽이든 WS 수명 규약을 건드리므로 별도 티켓이다. **PR 7이 게이트를 없애면 배포
+영향은 사라지지만 게이지 거짓말은 남는다.**
 
 ## 15. 관련 문서
 
