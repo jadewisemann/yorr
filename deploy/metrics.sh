@@ -44,6 +44,9 @@ check_config() {
     -e GC_LOKI_USER=0 -e GC_LOKI_TOKEN=x \
     -e GC_BACKEND_TARGET=backend:8080 \
     "$image" validate "$CONFIG_IN_CONTAINER"
+  # `validate`는 통과할 때 아무것도 찍지 않는다. 침묵을 성공으로 읽는 습관이
+  # 이 저장소의 상습 실패 모드라(배선 누락) 한 줄 남긴다.
+  echo "-- 설정 문법 정상"
 }
 
 case ${1:-up} in

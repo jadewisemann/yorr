@@ -175,6 +175,21 @@ jobs:
           GRAFANA_CLOUD_TOKEN=ci
           EOF
           ./metrics.sh check
+
+          # 음성 대조. `alloy validate`는 통과할 때 아무것도 찍지 않으므로, 위
+          # 명령이 성공한 것과 **검증기가 아무 일도 하지 않은 것**을 출력만으로는
+          # 구별할 수 없다. 깨진 설정을 거절하는지 확인해 그 구별을 만든다 —
+          # 하지 않으면 이 단계는 초록을 내는 연극이 된다.
+          cp alloy/config.alloy /tmp/good.alloy
+          printf 'prometheus.scrape "broken" {\n' > alloy/config.alloy
+          if ./metrics.sh check >/dev/null 2>&1; then
+            cp /tmp/good.alloy alloy/config.alloy
+            echo "!! alloy validate가 깨진 설정도 통과시킨다 — 이 검증은 무의미하다." >&2
+            exit 1
+          fi
+          cp /tmp/good.alloy alloy/config.alloy
+          echo "-- 음성 대조 통과: 검증기가 깨진 설정을 거절한다"
+
           rm -f .env
 
   # ── 3. linux/arm64 이미지 → GHCR ─────────────────────────────────────────────
