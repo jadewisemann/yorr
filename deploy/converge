@@ -40,10 +40,53 @@
 set -euo pipefail
 
 CONFIG=${YORR_DEPLOY_CONFIG:-/etc/default/yorr-deploy}
-# shellcheck source=/dev/null
-[[ -r $CONFIG ]] && . "$CONFIG"
 
-CHECKOUT=${YORR_CHECKOUT:-/home/ubuntu/yorr}
+# 설정 파일을 **읽되 실행하지 않는다.**
+#
+# 예전에는 `. "$CONFIG"`였다. 그 방식은 파일에 들어온 무엇이든 실행하므로, 편집기에
+# 붙여넣기가 한 번 어긋나면 그것이 배포 controller의 명령 실행이 된다 —
+# 2026-08-23에 실제로 겪었다(vi에 안내문이 통째로 들어가 파일 앞에 `ssh …` 줄이 끼었다).
+# 그때는 그 위의 깨진 줄이 `set -e`로 먼저 죽여서 실행까지는 가지 않았지만, 그건 줄
+# 순서가 우연히 그랬을 뿐이다. systemd의 `EnvironmentFile=`도 실행하지 않고 파싱만
+# 한다 — 같은 규약으로 맞춘다.
+#
+# **환경변수가 파일보다 이긴다.** `YORR_WAIT_TIMEOUT=5 converge`처럼 한 번만 다르게
+# 돌리는 것이 가능해야 하고, systemd 경로에서는 그 환경변수 자체가 이 파일에서 오므로
+# (`EnvironmentFile=`) 결과가 같다.
+#
+# 알 수 없는 줄은 **경고하고 넘어간다.** 죽이지 않는 이유: 그 파일이 망가졌다고
+# 배포 자동화가 멈추면, 고치려고 손을 대는 순간이 곧 장애 시간이 된다. 무시하면
+# 기본값으로 돌고 경고가 journal에 남는다.
+load_config() {
+  local file=$1 line key value lineno=0
+  [[ -r $file ]] || return 0
+  while IFS= read -r line || [[ -n $line ]]; do
+    lineno=$((lineno + 1))
+    if [[ $line =~ ^[[:space:]]*(#|$) ]]; then
+      continue
+    fi
+    if [[ ! $line =~ ^[[:space:]]*(YORR_[A-Z0-9_]+)=(.*)$ ]]; then
+      printf '!! %s:%d 알 수 없는 줄 — 무시한다: %s\n' "$file" "$lineno" "$line" >&2
+      continue
+    fi
+    key=${BASH_REMATCH[1]}
+    value=${BASH_REMATCH[2]}
+    # 감싼 따옴표만 벗긴다(EnvironmentFile과 같은 정도까지).
+    if [[ ${#value} -ge 2 ]]; then
+      case $value in
+        \"*\") value=${value:1:${#value}-2} ;;
+        \'*\') value=${value:1:${#value}-2} ;;
+      esac
+    fi
+    # 이미 환경에 있으면 그쪽이 이긴다.
+    if [[ ! -v $key ]]; then
+      declare -g "$key=$value"
+    fi
+  done < "$file"
+}
+load_config "$CONFIG"
+
+CHECKOUT=${YORR_CHECKOUT:-/home/opc/yorr}
 IMAGE_REPO=${YORR_IMAGE_REPO:-ghcr.io/jadewisemann/yorr-backend}
 # 발견용 태그. 실행은 언제나 digest로 고정한다(PLAN.md D3).
 DISCOVERY_TAG=${YORR_DISCOVERY_TAG:-main}

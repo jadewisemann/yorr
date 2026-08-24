@@ -280,6 +280,29 @@ check "종료 코드 0" 0 "$rc"
 contains "건너뛴다" "이미 수렴 중이다" "$out"
 wait $holder 2>/dev/null
 
+# 설정 파일을 `source`로 읽으면 그 파일에 들어온 무엇이든 실행된다. 편집기 붙여넣기가
+# 한 번 어긋나 파일 앞에 `ssh …` 줄이 끼었던 실제 사고(2026-08-23)가 그 위험을 보여
+# 줬다. systemd의 EnvironmentFile처럼 **파싱만** 하는지 고정한다.
+echo "14b. 설정 파일의 이상한 줄을 실행하지 않고 경고만 한다"
+setup
+# 실행되는 줄을 **깨진 줄보다 앞에** 둔다. 뒤에 두면 `source` 방식에서도 `set -e`가
+# 깨진 줄에서 먼저 죽어 실행에 도달하지 않고, 테스트가 줄 순서 운에 기대게 된다.
+cat > "$T/bad.env" <<EOF
+# 정상 주석
+touch $FAKE_ROOT/EXECUTED
+ssh -t -i ~/.ssh/x opc@1.2.3.4 'echo 침입'
+YORR_DISK_MIN_FREE_PCT=99
+이건 알 수 없는 줄이다
+EOF
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+out=$(env YORR_DEPLOY_CONFIG="$T/bad.env"   YORR_CHECKOUT="$T/checkout" YORR_STATE_DIR="$T/state" YORR_IMAGE_REPO="$REPO"   "$SRC/converge" 2>&1); rc=$?
+check "파일의 명령이 실행되지 않았다" "없음"   "$([[ -e $FAKE_ROOT/EXECUTED ]] && echo 있음 || echo 없음)"
+contains "알 수 없는 줄을 경고한다" "알 수 없는 줄" "$out"
+# 정상 키는 실제로 읽혔다: 여유 99% 미만이면 배포하지 않는다 = preflight가 거부한다.
+check "정상 키는 반영됐다(디스크 임계 99%)" 1 "$rc"
+contains "디스크를 지목한다" "디스크 여유가 99% 미만" "$out"
+check "체크아웃 그대로" "$REV_A" "$(head_rev)"
+
 echo "15. status가 실제 상태를 보여 준다"
 setup
 printf 'REVISION=%s\nIMAGE=%s\n' "$REV_A" "$DIGEST_A" > "$T/state/last-good"

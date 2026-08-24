@@ -397,7 +397,7 @@ GitHub SSH 배포도 필요하지 않다.
 | 1 | **Health semantics** | 2~3시간 | 없음 | ✅ 구현했다 |
 | 2 | **CI Release Gate** | 1시간 | 없음 | ✅ 구현했다 |
 | 3 | **Pull CD v2 (controller)** | 1~2일 | 1, 2 | ✅ 구현했다(호스트 미검증) |
-| 4 | **Cutover** (호스트 작업) | 반나절 | 3 | ⛔ 호스트 접근이 필요하다 |
+| 4 | **Cutover** (호스트 작업) | 반나절 | 3 | ✅ 완료(옛 경로 삭제만 남음) |
 | 5 | **인프라 digest 고정 + 리소스 예산** | 반나절 | 4 | ⛔ 실측이 선행한다 |
 | 6 | **마감 시각 영속화** | 1~2일 | 없음. 1~5와 병렬 가능 | ✅ 구현했다 |
 | 7 | **게임 게이트 제거** | 2시간 | 4, 6 | ⛔ PR 4의 검증이 선행한다 |
@@ -516,6 +516,18 @@ PR #46에서 라벨은 `81ec734`, 그 값이 곧 `refs/pull/46/merge`였다. 기
 이미지가 몰래 올라가지 않는 것은 compose가 로컬에 있는 이미지를 다시 당기지 않기
 때문이며, PR 5의 digest 고정이 그것을 계약으로 만든다.
 
+**설정 파일은 `source`하지 않고 파싱한다.** 처음에는 `. "$CONFIG"`였는데, 그 방식은
+파일에 들어온 무엇이든 실행한다. 2026-08-23에 실제로 겪었다: 편집기에 안내문이 통째로
+붙여넣어져 파일 앞에 `ssh …` 줄이 끼었다. 그때는 그 위의 깨진 줄이 `set -e`로 먼저
+죽여서 실행까지 가지 않았지만 **줄 순서가 우연히 그랬을 뿐이고**, 순서를 바꾼 테스트가
+`source` 방식에서 그 명령이 실제로 실행되는 것을 보여 준다(`converge.test.sh` 14b).
+systemd의 `EnvironmentFile=`도 파싱만 하므로 같은 규약으로 맞췄다. 알 수 없는 줄은
+경고하고 넘어간다 — 설정이 망가졌다고 자동화가 멈추면 고치려고 손대는 순간이 곧 장애
+시간이 된다. 환경변수가 파일보다 이기므로 `YORR_WAIT_TIMEOUT=5 converge`처럼 한 번만
+다르게 돌릴 수 있다.
+
+`YORR_CHECKOUT`의 기본값도 `/home/opc/yorr`로 고쳤다(호스트가 Oracle Linux다).
+
 상태 파일은 D10의 셋에 **`deferred-since` 하나가 더 있다.** 게임 게이트의 MAX_DEFER
 상한을 세는 파일이며 게이트와 함께 PR 7에서 사라진다.
 
@@ -526,22 +538,45 @@ PR #46에서 라벨은 `81ec734`, 그 값이 곧 `refs/pull/46/merge`였다. 기
 셈이다. 그래서 backend가 healthy가 아니면 게이트를 묻지 않는다(깨진 backend에는 끊을 게임도
 없다). `deploy/tests/converge.test.sh`의 11b가 그것을 고정한다.
 
-### PR 4 — Cutover (호스트 작업)
+### PR 4 — Cutover (호스트 작업) ✅
 
 **롤백을 실제로 한 번 성공시켜 보기 전에는 기존 경로를 삭제하지 않는다.**
 
 ```
-1. 새 controller를 호스트에 올린다        (타이머 없이)
-2. 손으로 한 번 실행한다                   동일 release no-op 확인
-3. test release를 배포한다
-4. health 확인
-5. rollback을 강제로 테스트한다
-6. HALT / resume 테스트
-7. 타이머 enable
-8. 기존 auto-deploy 타이머 disable
-9. 셀프호스티드 러너 disable + 등록 해제
-10. 안정 확인 후 옛 스크립트·워크플로 삭제
+1. ✅ 새 controller를 호스트에 올린다      (타이머 없이)
+2. ✅ --dry-run으로 판단만 확인
+3. ✅ 손으로 한 번 실행 → 실제 배포 성공
+4. ✅ health 확인 (그 릴리스가 PR 1을 담고 있으므로 진짜 readiness다)
+5. ✅ rollback을 강제로 테스트한다
+6. ✅ HALT / resume 테스트
+7. ✅ 타이머 enable — 5분 주기가 실제로 예약된 것까지 확인
+8. ⭕ 무효 — 옛 auto-deploy 타이머는 설치된 적이 없다
+9. ⭕ 무효 — 셀프호스티드 러너가 없다
+10. ⛔ 안정 확인 후 옛 스크립트·워크플로 삭제
 ```
+
+**1~4단계 실측 기록**(2026-08-23):
+
+```
+desired release : 3efe864… / sha256:9c521af…
+running release : 3efe864… / sha256:9c521af…
+last good       : 3efe864… / sha256:9c521af…
+automation      : RUNNING
+backend         : healthy
+```
+
+8·9번이 무효가 된 것이 §4 진단의 결과다 — 되돌릴 것도 지울 것도 없었다.
+
+**2단계가 값을 했다.** `--dry-run`이 「구현 결과」의 3·4번 버그를 둘 다 잡아냈다.
+그 단계를 건너뛰고 타이머를 켰다면 4번(롤백 대상이 체크아웃에서 온다)은 **실패한 배포를
+롤백하는 순간**에야 드러났을 것이다 — 즉 가장 나쁜 때에.
+
+**5·6번의 실전 검증 범위.** `up --wait` 실패 자체는 `converge.test.sh`가 진짜 git에
+주입해 76건으로 덮는다. 호스트에서 더 얻을 것은 **진짜 docker·compose와의 상호작용**이다:
+`git reset --hard`가 실제 저장소에서 도는가, `apply.sh`가 `.env`를 제대로 고치는가,
+HALT 파일이 쓰이고 `status.sh`가 그것을 읽는가, `resume`이 푸는가. `converge rollback`이
+그 경로를 그대로 지나가며, 지금은 last-good이 실행 중 릴리스와 같으므로 **재생성 없이
+무중단으로** 검증된다(compose가 바뀐 것이 없으면 컨테이너를 다시 만들지 않는다).
 
 삭제 대상: `deploy/auto-deploy.sh` · `deploy/deploy.sh` ·
 `deploy/systemd/yorr-auto-deploy.*` · `.github/workflows/deploy.yml`.

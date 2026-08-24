@@ -187,17 +187,26 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
 파일: `.github/workflows/backend.yml` · `backend/Dockerfile` ·
 `backend/.dockerignore` · `deploy/compose.yaml`.
 
-> ⚠️ **이 절은 지금 돌아가는 것을 기술한다. 여기에 확정 결함 두 개가 있다**
-> (아래 「알려진 결함」). 이것을 Release 단위 pull CD로 교체하는 계획은
-> [`deploy/PLAN.md`](../../../deploy/PLAN.md)에 있다.
+> ✅ **cutover를 마쳤다**(2026-08-23). `main`에 push하면 **호스트가 스스로 당겨
+> 배포한다.** 계획과 남은 항목은 [`deploy/PLAN.md`](../../../deploy/PLAN.md)에 있다.
 >
-> **새 controller는 저장소에 있지만 호스트에 설치되지 않았다**(`deploy/converge` ·
-> `apply.sh` · `bootstrap.sh` · `systemd/yorr-converge.*`). CI는 그것을 실패 주입으로
-> 검증하지만(`deploy/tests/converge.test.sh`), **운영 호스트에서는 한 번도 돌지
-> 않았다.** 그래서 아래 「배포하는 세 경로」가 여전히 지금의 사실이고, 아래 결함
-> 두 개도 여전히 살아 있다. 이 절은 cutover(PLAN.md PR 4)가 끝난 뒤에 갱신한다 —
-> 없는 것을 있다고 적지 않는 것이 이 문서의 규율이고, `deploy.yml`이 0회 실행된 채
-> 정상 경로로 적혀 있던 것이 정확히 그 규율을 어긴 결과였다.
+> | | 상태 |
+> |---|---|
+> | 새 controller 설치 | ✅ `/usr/local/lib/yorr-deploy/converge`, `User=opc` |
+> | 첫 배포 | ✅ `desired = running = last-good = 3efe864 / sha256:9c521af…` |
+> | 새 health가 진짜 readiness인가 | ✅ 그 릴리스가 PR 1을 담고 있다 |
+> | 롤백 · HALT · resume 실전 검증 | ✅ `converge rollback` → HALTED → `resume` 확인 |
+> | 자동 배포 타이머 | ✅ **켜졌다.** 5분 주기가 실제로 예약된 것까지 확인했다 |
+> | 옛 경로 삭제 | ⛔ 남았다. 안정을 확인한 뒤다(PR 4의 10번) |
+> | 게임 게이트 제거 | ⛔ 남았다(PR 7). 운영에서 재시작 복구를 본 뒤다 |
+>
+> 그래서 아래 「옛 경로 세 개」는 **더 이상 사실이 아니다.** 스크립트가 아직 저장소에
+> 남아 있을 뿐이며 **쓰지 않는다** — 특히 `deploy/deploy.sh`는 실패한 배포를 초록으로
+> 보고하는 결함 B를 그대로 갖고 있다. 배포는 `converge`로 한다.
+>
+> 시제를 이렇게 꼼꼼히 나누는 이유가 있다. `deploy.yml`이 0회 실행된 채 정상 경로로
+> 적혀 있던 것이 이 문서가 겪은 실제 사고이고, 그 서술을 믿고 "자동 배포가 왜 안
+> 되나"를 엉뚱한 곳에서 찾게 만들었다.
 
 ### 알려진 결함 (2026-08-22 확인)
 
@@ -207,12 +216,18 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
 | B | 배포 검증이 **실패를 잡지 못한다.** `up -d`는 컨테이너 *시작*만 확인하고 exit 0을 내며 `ps`·`logs`·`config\|grep`은 무슨 일이 있어도 exit 0이다 | `deploy/deploy.sh:73-85` | `main.ts`의 exit 1을 파이프라인이 **한 번도 보지 않는다.** 게다가 crash 루프 컨테이너는 이미 새 image ID를 가지므로 다음 회차에 `image_changed=false`가 되어 **자동 배포가 재시도조차 하지 않고 조용해진다** |
 
 둘 다 새 controller에는 없다(A는 변경 감지 자체가 사라졌고, B는 `--wait`로
-대체됐다). 다만 **cutover 전까지 이 호스트에서 도는 것은 여전히 옛 경로이므로 두 결함도
-살아 있다.** 옛 스크립트를 지우는 것은 롤백을 실제로 한 번 성공시켜 본 뒤다(PR 4).
+대체됐다). **지금 배포에 쓰는 것이 새 controller이므로 두 결함은 실효를 잃었다** —
+다만 옛 스크립트가 아직 저장소에 있어 손으로 부르면 여전히 그렇게 동작한다.
+`deploy/deploy.sh`를 쓰지 말고 `converge`를 쓰라. 옛 스크립트 삭제는 안정을 확인한
+뒤다(PR 4의 10번).
 
-**`.github/workflows/deploy.yml`(버튼)은 등록 이후 실행 횟수가 0회다.** 즉 아래
-「배포하는 세 경로」 중 버튼 경로는 문서상으로만 존재하며 한 번도 검증되지 않았다.
-PLAN.md의 PR 4에서 제거한다.
+**결함 A는 실제로 발동한 적이 없다.** 자동 타이머가 설치된 적이 없어(PLAN.md 진단)
+`config_changed`를 계산하는 코드 자체가 운영에서 한 번도 돌지 않았다. 결함 B는 손
+배포(`deploy.sh`)를 쓸 때마다 발동했다 — 실패한 배포가 초록으로 보고됐다.
+
+**`.github/workflows/deploy.yml`(버튼)은 등록 이후 실행 횟수가 0회다.** 아래
+「옛 경로 세 개」의 버튼 경로는 문서상으로만 존재하며 한 번도 검증되지 않았다.
+**자동 타이머도 같다** — 설치된 적이 없다(PLAN.md 진단). PR 4에서 함께 제거한다.
 
 ### 대상 환경
 
@@ -240,7 +255,55 @@ main push ──────► verify ─► image ─► ghcr.io/jadewisemann/
 그 파일은 **호스트의 git 체크아웃에서 읽힌다**(이미지에는 없다). 빼먹으면 새
 이미지가 옛 설정으로 뜬다 — 증상은 "배포했는데 그대로"다.
 
-### 배포하는 세 경로 (같은 몸통)
+### 배포 (새 controller)
+
+**평상시 할 일이 없다.** `main`에 push하면 CI가 이미지를 발행하고, 호스트의 5분 타이머가
+그것을 발견해 배포한다 — push에서 반영까지 보통 10분 안이다(CI 약 3분 + 타이머 최대 5분,
+`RandomizedDelaySec=60`).
+
+```text
+main push → verify + deploy 설정·controller 검증 ─→ image ─→ GHCR :main 갱신
+                                                                    │ (5분 타이머)
+                                        yorr-converge.service ◄──────┘
+```
+
+손으로 부르는 것도 같은 경로다.
+
+```bash
+/usr/local/lib/yorr-deploy/converge --dry-run   # 판단만 — 아무것도 바꾸지 않는다
+/usr/local/lib/yorr-deploy/converge             # 한 회차 수렴(타이머를 앞당길 때)
+deploy/status.sh                                # 지금 무엇이 돌고 있는지
+journalctl -u yorr-converge -f                  # 무엇을 판단했는지
+```
+
+⚠️ **controller 자신은 자동으로 갱신되지 않는다.** 체크아웃 바깥에 살기 때문이다(D8).
+`deploy/converge`를 바꾼 릴리스를 배포한 뒤에는 호스트에서 한 번 더 심어야 한다.
+
+```bash
+cd ~/yorr && git pull --ff-only && deploy/bootstrap.sh
+```
+
+한 회차가 판단하는 순서: `flock`(single writer) → HALT 확인 → preflight(compose
+config · MySQL·Redis healthy · 디스크 여유) → 릴리스 발견(`:main`의 digest **와**
+revision 라벨) → 게임 게이트 → `git reset --hard <revision>` → `apply.sh <digest>` →
+`up -d --wait`. 실패하면 실행 중이던 릴리스로 **revision과 digest를 함께** 되돌리고
+원인을 적어 HALT한다.
+
+- **backend 자체의 health는 배포 전제가 아니다**(D6). 그것을 전제로 두면 backend를
+  고치는 릴리스를 올리려는 순간 자동화가 거부한다 — 가장 급할 때 멈추는 설계다.
+  같은 이유로 backend가 healthy가 아니면 **게임 게이트도 묻지 않는다**(깨진 backend에는
+  끊을 게임이 없고, 게이지 조회가 실패하면 미룸으로 이어져 6시간 막힌다).
+- HALT 중에는 **하트비트를 보내지 않는다.** 멈춘 자동화는 죽은 자동화이고 데드맨이
+  그것을 알려야 한다. 푸는 것은 `converge resume`이다(`rm`이 운영 인터페이스가 아니다).
+- 손 롤백은 `converge rollback` — last-good으로 되돌리고 **HALT까지 건다.** 풀지 않으면
+  다음 회차가 방금 되돌린 릴리스를 다시 올려 5분마다 게임을 죽이는 플랩이 된다.
+
+### 옛 경로 세 개 (삭제 대기)
+
+> 아래는 **cutover 전의 사실이고 지금은 쓰지 않는다.** `deploy.yml`(버튼)은 등록 이후
+> 실행 0회, 자동 타이머는 **설치된 적조차 없었다.** 즉 실제로 쓰인 것은 「손」 하나뿐이었다.
+> 스크립트를 아직 지우지 않은 것은 안정을 확인한 뒤에 지운다는 계획 때문이다(PR 4의 10번).
+
 
 | | 어디서 | 게임 중이면 | 쓰는 때 |
 |---|---|---|---|
