@@ -242,16 +242,43 @@ die_infra() {
 #
 # 컨테이너 **안에서** 묻는다: backend는 포트를 공개하지 않으므로 호스트에서 직접
 # 닿을 길이 없고, Caddy를 경유하면 TLS·DNS가 이 판단에 끼어든다.
-active_rooms() {
-  local counted
-  counted=$(compose exec -T backend node -e '
+# **방이 아니라 사람을 센다.**
+#
+# 게이트의 목적은 "배포가 진행 중인 게임을 끊는다"이고, 끊기는 대상은 **사람**이다.
+# 그런데 처음에는 `yorr_rooms_active`(인메모리 phase가 PLAYING인 방 수)를 셌다.
+# 그 게이지는 **끊을 사람이 없는 방도 센다** — 2026-08-24 운영에서 실측했다:
+#
+#     yorr_rooms_active 1
+#     yorr_game_participants_active{game="YACHT_DICE"} 0   ← 라이브 소켓 0
+#
+# 원인은 인메모리 누수다: PLAYING 방에서 마지막 소켓이 끊기면 핸들러가 좌석을
+# `markOffline`만 하고 남긴다(새로고침으로 돌아올 수 있어야 하므로 의도된 동작이다).
+# 그러면 레지스트리의 phase가 `playing`으로 남고, 방 폐쇄 예약도 걸리지 않는다.
+# Redis 방은 TTL로 사라지지만 인메모리 phase는 그것을 모른다. 결과적으로 게이트가
+# **이미 없는 방** 때문에 매번 MAX_DEFER(기본 6시간)까지 배포를 미뤘다.
+#
+# `yorr_game_participants_active`는 라이브 소켓을 가진 플레이어만 센다(계약이다 —
+# `monitoring/realtimeGameMetrics.ts`). 그것의 합이 곧 "지금 끊길 사람 수"다.
+# 봇만 있는 연습 방도 0으로 나오는데, 그쪽도 지켜보는 사람이 없으므로 맞다.
+#
+# 누수 자체는 애플리케이션 쪽 문제로 남는다(게이지도 그만큼 거짓말한다).
+# 게이트는 PR 7에서 사라지지만 그 게이지는 모니터링에 남으므로 별도로 다뤄야 한다.
+active_players() {
+  # 컨테이너 안의 node는 **본문을 그대로 내보내는 파이프**일 뿐이고, 합산은 여기서 한다.
+  # 파싱을 JS 쪽에 두면 대역이 그 결과(숫자)를 흉내내야 해서 정작 파싱이 검증되지
+  # 않는다. bash로 옮기면 대역은 진짜 `/actuator/prometheus` 본문을 내고, 합산 로직이
+  # 실패 주입 스위트에 그대로 덮인다.
+  local body counted
+  body=$(compose exec -T backend node -e '
     fetch("http://127.0.0.1:" + (process.env.SERVER_PORT || "8080") + "/actuator/prometheus")
       .then((response) => response.text())
-      .then((body) => {
-        const matched = /^yorr_rooms_active (\d+)$/m.exec(body)
-        console.log(matched === null ? "unknown" : matched[1])
-      })
-      .catch(() => console.log("unknown"))' 2>/dev/null | tr -d '\r' | tail -n1)
+      .then((text) => process.stdout.write(text))
+      .catch(() => process.exit(1))' 2>/dev/null) || body=""
+  # 게이지 줄이 하나도 없으면 **0이 아니라 unknown**이다(스크레이프 실패와 "아무도
+  # 없다"를 섞으면 판단이 안 설 때 끊는 쪽으로 기울게 된다).
+  counted=$(printf '%s\n' "$body" | tr -d '\r' |
+    awk -F'} ' '/^yorr_game_participants_active\{/ { sum += $2; seen += 1 }
+                END { if (seen == 0) print "unknown"; else print sum }')
   [[ $counted =~ ^[0-9]+$ ]] && printf '%s' "$counted" || printf 'unknown'
 }
 
@@ -259,7 +286,7 @@ active_rooms() {
 #
 # @param $1 배포 전 backend의 health 상태.
 game_gate_allows() {
-  local backend_state=$1 running rooms waited
+  local backend_state=$1 running players waited
   running=$(compose ps -q backend 2>/dev/null | head -n1) || running=""
   if [[ -z $running ]]; then
     log "backend가 실행 중이 아니다 — 끊을 게임이 없다."
@@ -276,10 +303,10 @@ game_gate_allows() {
     return 0
   fi
 
-  rooms=$(active_rooms)
+  players=$(active_players)
   # 못 읽었으면 "0이 아니다"로 다룬다 — 판단이 안 설 때 끊는 쪽으로 기울지 않는다.
   # 영원한 대기는 MAX_DEFER 상한이 막는다.
-  if [[ $rooms == 0 ]]; then
+  if [[ $players == 0 ]]; then
     rm -f "$DEFERRED"
     return 0
   fi
@@ -287,10 +314,10 @@ game_gate_allows() {
   [[ -f $DEFERRED ]] || date -u +%s > "$DEFERRED"
   waited=$(($(date -u +%s) - $(cat "$DEFERRED")))
   if ((MAX_DEFER > 0 && waited >= MAX_DEFER)); then
-    log "게임 $rooms개 진행 중이지만 ${waited}초 미뤘다(상한 ${MAX_DEFER}s) — 그래도 배포한다."
+    log "접속자 $players명 플레이 중이지만 ${waited}초 미뤘다(상한 ${MAX_DEFER}s) — 그래도 배포한다."
     return 0
   fi
-  log "게임 $rooms개 진행 중 — 미룬다(누적 ${waited}s). 다음 회차에 다시 본다."
+  log "접속자 $players명 플레이 중 — 미룬다(누적 ${waited}s). 다음 회차에 다시 본다."
   return 1
 }
 

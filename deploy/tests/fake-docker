@@ -58,7 +58,16 @@ if [[ ${1-} == compose ]]; then
       if [[ $result == ok ]]; then printf 'healthy' > "$R/backend_health"; exit 0; fi
       printf 'unhealthy' > "$R/backend_health"; exit 1 ;;
     exec)
-      printf '%s\n' "$(get rooms)"; exit 0 ;;
+      # backend 안에서 도는 게이지 조회. 실제 `/actuator/prometheus` 본문 모양을 낸다 —
+      # 게이트가 방이 아니라 **참가자**를 세는지까지 여기서 검증된다.
+      # `rooms`는 phase가 PLAYING인 방 수, `players`는 라이브 소켓 수다. 둘이 갈라지는
+      # 상태(유령 방)가 2026-08-24 운영에서 실제로 나왔다.
+      if [[ $(get gauge_result) == missing ]]; then printf '\n'; exit 0; fi
+      printf 'yorr_rooms_active %s\n' "$(get rooms)"
+      printf 'yorr_game_participants_active{game="YACHT_DICE"} %s\n' "$(get players)"
+      printf 'yorr_game_participants_active{game="DUEL"} 0\n'
+      printf 'yorr_game_participants_active{game="PING_PONG"} 0\n'
+      exit 0 ;;
     logs) printf 'log line\n'; exit 0 ;;
     *) exit 0 ;;
   esac

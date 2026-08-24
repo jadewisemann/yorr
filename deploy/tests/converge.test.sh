@@ -70,6 +70,7 @@ setup() {
   printf 'healthy' > "$FAKE_ROOT/mysql_health"
   printf 'healthy' > "$FAKE_ROOT/redis_health"
   printf '0' > "$FAKE_ROOT/rooms"
+  printf '0' > "$FAKE_ROOT/players"
 }
 
 converge() {
@@ -208,9 +209,10 @@ check "종료 코드 1" 1 "$rc"
 contains "인프라 장애 알림" "인프라 장애다" "$out"
 check "체크아웃 그대로" "$REV_A" "$(head_rev)"
 
-echo "10. 게임이 진행 중이면 미룬다"
+echo "10. 사람이 플레이 중이면 미룬다"
 setup
 printf '3' > "$FAKE_ROOT/rooms"
+printf '2' > "$FAKE_ROOT/players"
 printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
 out=$(converge); rc=$?
 check "종료 코드 0" 0 "$rc"
@@ -218,7 +220,35 @@ contains "미룬다" "미룬다" "$out"
 check "체크아웃 그대로" "$REV_A" "$(head_rev)"
 check "미룸 시각 기록" "있음" "$([[ -f $T/state/deferred-since ]] && echo 있음 || echo 없음)"
 
-echo "11. 상한을 넘기면 게임 중에도 배포한다"
+# 2026-08-24 운영 실측: 방은 PLAYING으로 세어지는데 라이브 소켓이 0이었다.
+#
+#     yorr_rooms_active 1
+#     yorr_game_participants_active{game="YACHT_DICE"} 0
+#
+# 원인은 인메모리 누수다(PLAYING 방의 마지막 소켓이 끊기면 좌석이 markOffline으로 남고
+# phase가 playing으로 남는다). 방을 세는 게이트는 **이미 없는 방** 때문에 매번
+# MAX_DEFER(6시간)까지 배포를 미뤘다. 끊길 사람이 없으면 미룰 이유도 없다.
+echo "10b. 유령 방(사람 0)은 게이트를 막지 못한다"
+setup
+printf '1' > "$FAKE_ROOT/rooms"      # phase가 PLAYING인 방 하나
+printf '0' > "$FAKE_ROOT/players"    # 그런데 라이브 소켓은 0
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+printf 'ok' > "$FAKE_ROOT/up_results"
+out=$(converge); rc=$?
+check "종료 코드 0" 0 "$rc"
+check "미루지 않고 배포했다" "$REV_B" "$(head_rev)"
+check "미룸 기록도 남지 않았다" "없음" \
+  "$([[ -f $T/state/deferred-since ]] && echo 있음 || echo 없음)"
+check "미룬다는 로그가 없다" "없음" "$([[ $out == *미룬다* ]] && echo 있음 || echo 없음)"
+
+# 앞 테스트의 잔여 상태에 기대지 않고 스스로 상황을 만든다 — 사이에 시나리오가
+# 하나 끼는 것만으로 조용히 무의미해지는 테스트였다(실제로 그렇게 됐다).
+echo "11. 상한을 넘기면 사람이 있어도 배포한다"
+setup
+printf '3' > "$FAKE_ROOT/rooms"
+printf '2' > "$FAKE_ROOT/players"
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+printf 'ok' > "$FAKE_ROOT/up_results"
 printf '%s' "$(( $(date -u +%s) - 99999 ))" > "$T/state/deferred-since"
 out=$(env YORR_DEPLOY_MAX_DEFER=60 YORR_DEPLOY_CONFIG=/dev/null YORR_CHECKOUT="$T/checkout" \
   YORR_STATE_DIR="$T/state" YORR_IMAGE_REPO="$REPO" YORR_WAIT_TIMEOUT=5 "$SRC/converge" 2>&1); rc=$?
@@ -233,7 +263,7 @@ check "배포됐다" "$REV_B" "$(head_rev)"
 echo "11b. backend가 깨져 있으면 게임 게이트를 묻지 않는다"
 setup
 printf 'unhealthy' > "$FAKE_ROOT/backend_health"
-printf 'unknown' > "$FAKE_ROOT/rooms"          # 게이지를 읽지 못하는 상태
+printf 'missing' > "$FAKE_ROOT/gauge_result"   # 게이지를 읽지 못하는 상태
 printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
 printf 'ok' > "$FAKE_ROOT/up_results"
 out=$(converge); rc=$?
