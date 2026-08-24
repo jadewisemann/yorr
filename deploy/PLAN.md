@@ -360,6 +360,9 @@ GHCR :main 메타데이터 조회
 candidate == 현재 실행 중이면:
     하트비트, 종료
 
+게임 게이트: 사람이 게임 중이면
+    하트비트, 종료 (미룸도 건강한 판단이다 — 아래 참고)
+
 git fetch origin main                       ← verify보다 먼저 (아니면 항상 실패)
 candidate_revision이 git에 있는지 확인
 
@@ -377,6 +380,16 @@ exec deploy/apply.sh candidate_digest       ← up -d --wait --wait-timeout 150
     git reset --hard last-good.REVISION
     exec deploy/apply.sh last-good.IMAGE
     HALTED에 실패 메타데이터 기록
+```
+
+**하트비트를 언제 보내는가.** 데드맨의 뜻은 "아무것도 안 돌고 있음"이므로, **한
+회차가 건강하게 판단을 끝냈으면 보낸다** — 무변화·게임 때문에 미룸·배포 성공이
+그렇다. 보내지 않는 경우는 HALT·preflight 인프라 장애·배포 실패이며, 셋 다 사람이
+봐야 하는 상태다. **미룸이 포함되는 것이 특히 중요하다.** 미룸은 정상 동작인데
+그때 하트비트를 끊으면 데드맨이 건강한 자동화를 두고 거짓 경보를 낸다. §17의 유령
+방처럼 게이트가 몇 시간씩 막히는 상황에서는 그 거짓 경보가 계속 울린다.
+
+```
 
     롤백 healthy       → "배포 실패 / 롤백 성공" 알림
     롤백 unhealthy     → preflight의 backend 플래그를 본다

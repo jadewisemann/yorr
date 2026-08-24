@@ -86,8 +86,9 @@ YORR_DEPLOY_MAX_DEFER=21600
 YORR_DISK_MIN_FREE_PCT=10
 # 실패·롤백·HALT를 보낼 Discord 웹훅. 비어 있으면 로그에만 남는다.
 YORR_NOTIFY_WEBHOOK=
-# 수렴이 성공/무변화로 끝날 때 ping하는 데드맨 URL. **HALT 상태에서는 보내지 않는다** —
-# 멈춘 자동화는 죽은 자동화이고, 그것을 알리는 것이 데드맨의 존재 이유다.
+# 한 회차가 건강하게 끝날 때 ping하는 데드맨 URL(무변화·게임 때문에 미룸·배포 성공).
+# **HALT·인프라 장애·배포 실패에는 보내지 않는다** — 멈춘 자동화는 죽은 자동화이고,
+# 그것을 알리는 것이 데드맨의 존재 이유다.
 YORR_HEARTBEAT_URL=
 EOF
   echo "-- $CONFIG (새로 만들었다 — 웹훅·하트비트 URL을 채워라)"

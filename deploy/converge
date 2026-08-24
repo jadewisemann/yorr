@@ -126,8 +126,15 @@ notify() {
     -d "{\"content\":\"$escaped\"}" "$NOTIFY_WEBHOOK" >/dev/null || log "!! 알림 전송 실패"
 }
 
-# 데드맨 — *아무것도 안 돌고 있음*을 알려 준다. HALT 상태에서는 **보내지 않는다**:
-# 멈춘 자동화는 죽은 자동화이고, 데드맨이 그것을 알리는 것이 존재 이유다.
+# 데드맨 — *아무것도 안 돌고 있음*을 알려 준다.
+#
+# 규칙: **한 회차가 건강하게 판단을 끝냈으면 보낸다.** 무변화(no-op)·게임 때문에 미룸·
+# 배포 성공이 그렇다. 미룸이 포함되는 것이 중요하다 — 미루는 것은 정상 동작이므로,
+# 그때 보내지 않으면 건강한 자동화를 두고 데드맨이 "죽었다"고 거짓 경보를 낸다.
+#
+# 보내지 않는 경우: **HALT**(멈춘 자동화는 죽은 자동화이고 그것을 알리는 것이 데드맨의
+# 존재 이유다), preflight 인프라 장애, 배포 실패. 셋 다 사람이 봐야 하는 상태이고
+# 앞의 둘은 `notify`도 함께 나간다.
 heartbeat() {
   [[ -n $HEARTBEAT_URL ]] || return 0
   curl -fsS -m 10 "$HEARTBEAT_URL" >/dev/null || log "!! 하트비트 전송 실패"
@@ -433,7 +440,13 @@ do_converge() {
     exit 0
   fi
 
-  game_gate_allows "$backend_before" || exit 0
+  # 미루는 것도 **건강한 판단**이다 — 하트비트를 보내고 끝낸다. 보내지 않으면
+  # 데드맨이 정상 동작을 "자동화가 죽었다"로 읽는다(게이트가 오래 막힐 수 있고,
+  # 실제로 유령 방 때문에 6시간씩 막힌 적이 있다).
+  if ! game_gate_allows "$backend_before"; then
+    $DRY_RUN || heartbeat
+    exit 0
+  fi
 
   # 롤백 대상은 이미지가 아니라 **Release 전체**다(PLAN.md D5). 되돌릴 때
   # git revision과 digest를 함께 되돌리지 않으면 "이미지는 A, 설정은 B"가 된다.

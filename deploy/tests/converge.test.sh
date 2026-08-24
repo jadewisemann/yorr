@@ -17,6 +17,13 @@ SRC=${1:-$(cd "$SP/.." && pwd)}
 T=$SP/work
 rm -rf "$T"; mkdir -p "$T/bin" "$T/fake" "$T/state"
 cp "$SP/fake-docker" "$T/bin/docker"
+# 하트비트·알림 전송을 관측하기 위한 curl 대역. 실제 왕복은 하지 않고 호출만 적는다.
+cat > "$T/bin/curl" <<'CURL'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FAKE_ROOT/curl.log"
+exit 0
+CURL
+chmod +x "$T/bin/curl"
 export PATH="$T/bin:$PATH"
 export FAKE_ROOT="$T/fake"
 REPO=ghcr.io/jadewisemann/yorr-backend
@@ -281,6 +288,49 @@ out=$(converge); rc=$?
 check "종료 코드 1" 1 "$rc"
 contains "compose config를 지목한다" "compose config가 깨져 있다" "$out"
 check "체크아웃 그대로" "$REV_A" "$(head_rev)"
+
+# 데드맨의 뜻은 "아무것도 안 돌고 있음"이다. 그러므로 **건강한 판단을 끝낸 회차는
+# 반드시 하트비트를 보내야 한다** — 미룸도 건강한 판단이다. 처음에는 미룸 경로가
+# 하트비트 없이 빠져나갔고, 그 상태에서는 정상 동작이 "자동화가 죽었다"로 읽힌다
+# (유령 방 때문에 6시간씩 미룰 수 있으므로 실제로 문제가 된다).
+echo "11d. 하트비트는 건강한 판단에만 나간다"
+# `grep -c`는 매치가 없을 때 `0`을 찍고 **exit 1**을 낸다. `|| printf 0`을 붙이면
+# 둘 다 나가 `00`이 된다 — 그 자리에 처음 걸렸다.
+count_curl() {
+  local n
+  n=$(grep -c -- "$1" "$FAKE_ROOT/curl.log" 2>/dev/null) || n=0
+  printf '%s' "$n"
+}
+hb() { count_curl heartbeat; }
+
+setup   # 같은 릴리스 = 무변화
+env YORR_HEARTBEAT_URL=http://x/heartbeat YORR_DEPLOY_CONFIG=/dev/null \
+  YORR_CHECKOUT="$T/checkout" YORR_STATE_DIR="$T/state" YORR_IMAGE_REPO="$REPO" \
+  "$SRC/converge" >/dev/null 2>&1
+check "무변화에도 보낸다" 1 "$(hb)"
+
+setup   # 사람이 있어서 미룸
+printf '2' > "$FAKE_ROOT/players"
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+env YORR_HEARTBEAT_URL=http://x/heartbeat YORR_DEPLOY_CONFIG=/dev/null \
+  YORR_CHECKOUT="$T/checkout" YORR_STATE_DIR="$T/state" YORR_IMAGE_REPO="$REPO" \
+  "$SRC/converge" >/dev/null 2>&1
+check "미룰 때도 보낸다(정상 동작이다)" 1 "$(hb)"
+
+setup   # HALT 상태
+printf 'REASON=테스트\n' > "$T/state/halted"
+env YORR_HEARTBEAT_URL=http://x/heartbeat YORR_DEPLOY_CONFIG=/dev/null \
+  YORR_CHECKOUT="$T/checkout" YORR_STATE_DIR="$T/state" YORR_IMAGE_REPO="$REPO" \
+  "$SRC/converge" >/dev/null 2>&1
+check "HALT에는 보내지 않는다" 0 "$(hb)"
+
+setup   # 인프라 장애
+printf 'unhealthy' > "$FAKE_ROOT/mysql_health"
+env YORR_HEARTBEAT_URL=http://x/heartbeat YORR_NOTIFY_WEBHOOK=http://x/hook \
+  YORR_DEPLOY_CONFIG=/dev/null YORR_CHECKOUT="$T/checkout" YORR_STATE_DIR="$T/state" \
+  YORR_IMAGE_REPO="$REPO" "$SRC/converge" >/dev/null 2>&1
+check "인프라 장애에는 보내지 않는다" 0 "$(hb)"
+check "대신 알림이 나간다" 1 "$(count_curl x/hook)"
 
 echo "12. 발견한 revision이 git에 없으면 배포하지 않는다"
 setup
