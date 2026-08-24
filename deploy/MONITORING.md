@@ -28,8 +28,17 @@ journalctl -u yorr-converge ──┘                 uptime (Synthetic)
 Grafana Cloud에서 스택을 만들고 값 다섯 개를 받아 온다. 좌측 하단 계정 메뉴 →
 스택 세부 정보에서, Prometheus 카드의 **Remote Write Endpoint**와 **Username**,
 Loki 카드의 **URL**과 **User**를 읽고, Access Policies에서 `metrics:write` ·
-`logs:write` 권한의 토큰을 하나 만든다. Prometheus와 Loki는 사용자 ID가 서로 다르고
-토큰은 같은 것을 쓴다.
+`logs:write` 권한의 토큰을 하나 만든다.
+
+**여기서 두 번 틀린다.**
+
+- **Loki 카드의 URL에는 경로가 없다.** `https://logs-prod-0NN.grafana.net`까지만
+  적혀 있으므로 뒤에 `/loki/api/v1/push`를 **직접 붙여야 한다.** Prometheus 쪽은
+  이미 `/api/prom/push`가 들어 있어서 그대로 쓰면 되는데, 그 차이 때문에 Loki도
+  된 줄 알고 넘어간다. 설정은 이 값을 그대로 쓰고 보정하지 않는다.
+- **사용자 ID가 서로 다르다.** 같은 줄 알고 하나만 복사하면 메트릭은 잘 들어오고
+  로그만 401을 받는다 — 잘 되는 쪽이 보이니 문제를 늦게 발견한다. 토큰은 하나를
+  두 곳에 같이 쓴다.
 
 `deploy/.env`에 다섯 줄을 더한다.
 
@@ -104,8 +113,13 @@ IP 인증서이므로 SSL 검증을 켠 채로도 통과해야 정상이다 — 
 ### 대시보드
 
 [`grafana/dashboard.json`](grafana/dashboard.json)을 가져오면 된다. Dashboards → New →
-Import → JSON을 붙이고, 물어보는 데이터 소스 두 개(Prometheus · Loki)를 고른다.
-데이터 소스 UID는 스택마다 다르므로 파일에 박지 않고 가져올 때 고르게 해 두었다.
+Import → JSON을 붙이고 **Load**를 누르면 데이터 소스 두 개를 고르라고 묻는다.
+UID는 스택마다 다르므로 파일에 박지 않고 가져올 때 고르게 해 두었다.
+
+**새로 만들 것은 없다.** Grafana Cloud가 스택을 만들 때 이미 붙여 두었고, 이름이
+`grafanacloud-<계정이름>-prom`(Prometheus)과 `grafanacloud-<계정이름>-logs`(Loki)다.
+드롭다운이 종류별로 걸러 주므로 각 칸에 대개 선택지가 하나뿐이다. **두 칸에 서로 다른
+것이 들어가야 한다** — 같은 것을 넣으면 로그 패널이 빈다.
 
 핵심 패널은 **「회차마다 무엇을 판단했는가」**의 상태 타임라인이다. 이 규모에서 알고
 싶은 것은 추이가 아니라 사건이라, 회차마다 상태가 하나씩 찍히는 이 모양이 데이터에
@@ -132,6 +146,13 @@ deploy/metrics.sh status              # 컨테이너가 도는가
 deploy/metrics.sh logs               # remote_write가 401·403을 받고 있는가
 ls -l /var/lib/yorr-deploy/metrics/  # .prom 파일이 갱신되는가
 cat /var/lib/yorr-deploy/metrics/yorr-converge.prom
+```
+
+`metrics.sh logs`는 `-f`로 따라붙으므로 Ctrl-C로 끊어야 한다. 한 번만 훑고 끝내려면
+이쪽이 편하다 — 아무것도 안 나오면 정상이다.
+
+```bash
+docker logs --tail 40 yorr-alloy 2>&1 | grep -Ei 'err|401|403|warn'
 ```
 
 ### journal이 Loki에 없다
