@@ -133,15 +133,26 @@ fi
 # /var/log/journal이 있을 때만 영속으로 쓰고, 없으면 로그가 메모리에만 남는다. 여기서
 # 말해 주지 않으면 「journalctl에 아무것도 없다」를 재부팅 뒤에야 알게 된다 — 하필
 # 무슨 일이 있었는지 가장 알고 싶을 때다. 실제 호스트가 이 상태였다.
-if [[ ! -d /var/log/journal ]]; then
+#
+# **디렉터리 존재로 판정하지 않는다.** 손으로 `mkdir`하면 디렉터리는 생기지만 소유·ACL과
+# SELinux 라벨이 빠져 journald가 쓰지 못하고, 저널은 계속 메모리에 남는다. 실제 호스트가
+# 정확히 그 상태였다 — 있으면서 비어 있었다. 그래서 **안에 무엇이 있는지**를 본다:
+# journald는 machine-id 이름의 하위 디렉터리를 만들고 그 안에 쓴다.
+if [[ -z $(ls -A /var/log/journal 2>/dev/null) ]]; then
   echo
-  echo "!! journald가 휘발성이다 — journalctl 이력이 재부팅에서 사라지고,"
+  echo "!! journald가 영속 저널에 쓰고 있지 않다 — journalctl 이력이 재부팅에서 사라지고,"
   echo "   계측의 Loki 수집도 실패한다. 영속으로 바꾸려면:"
-  echo "     sudo mkdir -p /var/log/journal /etc/systemd/journald.conf.d"
+  echo "     sudo mkdir -p /etc/systemd/journald.conf.d"
   echo "     printf '[Journal]\\nStorage=persistent\\nSystemMaxUse=200M\\n' \\"
   echo "       | sudo tee /etc/systemd/journald.conf.d/yorr.conf"
+  echo "     sudo systemd-tmpfiles --create --prefix /var/log/journal"
+  echo "     sudo restorecon -R /var/log/journal 2>/dev/null || true"
   echo "     sudo systemctl restart systemd-journald"
-  echo "   상한을 함께 두는 이유는 deploy/MONITORING.md에 있다(디스크가 배포를 막는다)."
+  echo
+  echo "   ** mkdir로 만들지 마라.** 디렉터리는 생기고 저널은 메모리에 남는다 —"
+  echo "   소유·모드·ACL과 SELinux 라벨이 빠지고, 그 실패는 조용하다"
+  echo "   (restart도 journalctl도 정상으로 보인다). 자세한 것은 MONITORING.md."
+  echo "   상한을 함께 두는 이유도 거기 있다(디스크가 배포를 막는다)."
 fi
 
 echo

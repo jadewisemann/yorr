@@ -157,6 +157,22 @@ docker logs --tail 40 yorr-alloy 2>&1 | grep -Ei 'err|401|403|warn'
 
 ### journal이 Loki에 없다
 
+`metrics.sh up`이 찍는 첫 줄을 본다. 저널 위치는 journald의 저장 방식에 따라 갈리고
+**한쪽만 존재하므로**, `up`이 실제로 있는 쪽을 골라 넘긴다.
+
+```
+-- 저널: /run/log/journal      ← 휘발성 저널을 읽고 있다
+-- 저널: /var/log/journal      ← 영속 저널을 읽고 있다
+!! 저널을 찾지 못했다          ← 로그가 가지 않는다(메트릭은 영향 없다)
+```
+
+**휘발성이어도 로그는 Loki에 남는다.** 영속성은 Loki가 담당하므로, 아래의 journald
+설정은 Loki를 위한 것이 아니라 **호스트에서 `journalctl`로 과거를 볼 수 있게** 하려는
+것이다. 둘은 별개의 문제다 — 한동안 그것을 섞어 보고 로그가 0줄인 원인을 journald에서
+찾았다.
+
+### journalctl 이력이 재부팅에서 사라진다
+
 `docker logs yorr-alloy`에 이것이 있으면 **호스트의 journald가 휘발성**이다.
 
 ```
@@ -170,12 +186,34 @@ level=error msg="error creating journal tailer"
 것이다. 실제 호스트(Oracle Linux 9)가 이 상태였다.
 
 ```bash
-sudo mkdir -p /var/log/journal /etc/systemd/journald.conf.d
+sudo mkdir -p /etc/systemd/journald.conf.d
 printf '[Journal]\nStorage=persistent\nSystemMaxUse=200M\n' \
   | sudo tee /etc/systemd/journald.conf.d/yorr.conf
+# mkdir로 만들지 않는다 — 아래 「왜 mkdir이 아닌가」를 읽어라.
+sudo systemd-tmpfiles --create --prefix /var/log/journal
+sudo restorecon -R /var/log/journal 2>/dev/null || true
 sudo systemctl restart systemd-journald
 docker restart yorr-alloy
 ```
+
+확인은 **디렉터리가 아니라 그 안**을 본다. journald는 machine-id 이름의 하위
+디렉터리를 만들고 그 안에 쓴다.
+
+```bash
+sudo ls -ld /var/log/journal/*/
+```
+
+#### 왜 `mkdir`이 아닌가
+
+`sudo mkdir -p /var/log/journal`만 하면 **디렉터리는 생기고 저널은 여전히 메모리에
+남는다.** 두 가지가 빠지기 때문이다: journald가 요구하는 소유·모드·ACL
+(`root:systemd-journal`, `2755`)과, SELinux 라벨(`systemd_journal_t`)이다. 손으로
+만든 디렉터리는 `var_log_t`가 되고, SELinux가 enforcing이면 journald가 그곳에 쓰지
+못한다. Oracle Linux 9는 기본이 enforcing이다.
+
+**이 실패는 조용하다.** `systemctl restart systemd-journald`가 성공으로 끝나고
+`journalctl`도 정상으로 보인다 — 메모리 저널을 읽고 있기 때문이다. `/var/log/journal`
+아래가 비어 있는 것으로만 알 수 있다. 실제 호스트에서 이 함정에 한 번 빠졌다.
 
 `SystemMaxUse`를 함께 두는 이유는 디스크다. journald의 기본 상한은 파일 시스템의 10%이고
 preflight는 여유가 10% 미만이면 배포를 막는다 — 상한을 두지 않으면 **로그가 자라서 배포가

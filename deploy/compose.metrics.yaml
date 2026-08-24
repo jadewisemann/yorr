@@ -51,6 +51,10 @@ services:
       # backend는 포트를 공개하지 않으므로 컨테이너 이름으로만 닿는다. caddy가
       # 쓰는 것과 같은 주소다.
       GC_BACKEND_TARGET: backend:${SERVER_PORT:-8080}
+      # journald의 저널 위치. 영속이면 /var/log/journal, 휘발성이면 /run/log/journal이고
+      # 한쪽만 존재한다. `metrics.sh`가 실제로 있는 쪽을 골라 넘긴다 — 한 경로를 박으면
+      # 모니터링이 호스트의 journald 설정에 의존한다.
+      GC_JOURNAL_PATH: ${YORR_JOURNAL_PATH:-/rootfs/var/log/journal}
 
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
