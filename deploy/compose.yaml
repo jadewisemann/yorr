@@ -273,6 +273,11 @@ services:
     command:
       - |
         set -u
+        # 백업 데드맨의 기준점. **컨테이너를 다시 만들어도 잊지 않도록** 남아 있는
+        # 덤프에서 복원한다 — 그러지 않으면 재시작마다 "백업이 없다"로 읽힌다.
+        last_ok=$$(find /backup -maxdepth 1 -name '*.sql' -type f -printf '%T@\n' 2>/dev/null |
+                     sort -rn | head -n1 | cut -d. -f1)
+        last_ok=$${last_ok:-0}
         while :; do
           stamp=$$(date -u +%Y%m%dT%H%M%SZ)
           out="/backup/$$BACKUP_DATABASE-$$stamp.sql"
@@ -282,6 +287,7 @@ services:
           if mysqldump -h mysql -u root --single-transaction --routines --triggers \
                --events --databases "$$BACKUP_DATABASE" > "$$out.tmp"; then
             mv "$$out.tmp" "$$out"
+            last_ok=$$(date -u +%s)
             echo "[backup] ok $$out"
           else
             # 반쯤 쓴 파일을 남기지 않는다 — 복원할 때 가장 위험한 것이 그것이다.
@@ -289,10 +295,39 @@ services:
             echo "[backup] FAILED $$stamp" >&2
           fi
           find /backup -maxdepth 1 -name '*.sql' -type f -mtime "+$$RETENTION_DAYS" -delete || true
+
+          # ── 백업 데드맨 ────────────────────────────────────────────────────
+          # 계열을 **여기서** 쓴다. 덤프가 성공했는지 아는 자리가 여기이고, 그래서
+          # 새 systemd 유닛도 새 스크립트도 필요하지 않다. converge가 자기 판단을
+          # 남기는 것과 같은 디렉터리이며(textfile 컬렉터가 둘을 함께 긁는다)
+          # 파일 이름이 달라 서로 덮어쓰지 않는다.
+          #
+          # 없으면 알 수 없는 것: 덤프가 몇 달째 실패해도 로그에만 남고 아무도
+          # 보지 않는다. 알림 규칙은 `time() - yorr_backup_last_success_seconds`다.
+          if [ -d /metrics ]; then
+            {
+              echo "# HELP yorr_backup_last_success_seconds 마지막으로 성공한 논리 백업의 unix 시각."
+              echo "# TYPE yorr_backup_last_success_seconds gauge"
+              echo "yorr_backup_last_success_seconds $$last_ok"
+              echo "# HELP yorr_backup_files 보관 중인 덤프 파일 수."
+              echo "# TYPE yorr_backup_files gauge"
+              echo "yorr_backup_files $$(find /backup -maxdepth 1 -name '*.sql' -type f | wc -l)"
+              echo "# HELP yorr_backup_bytes 보관 중인 덤프의 총 크기."
+              echo "# TYPE yorr_backup_bytes gauge"
+              echo "yorr_backup_bytes $$(du -sb /backup 2>/dev/null | cut -f1)"
+            } > /metrics/yorr-backup.prom.tmp &&
+              mv -f /metrics/yorr-backup.prom.tmp /metrics/yorr-backup.prom ||
+              echo "[backup] 계측 쓰기 실패 — 백업 자체는 영향 없다" >&2
+          fi
+
           sleep 86400
         done
     volumes:
       - ${BACKUP_DIR:-./backup}:/backup
+      # 백업 데드맨의 계열을 남길 곳. bootstrap.sh가 controller 사용자 소유 755로
+      # 미리 만들어 두므로 컨테이너의 root도 쓸 수 있다. 계측이 없어도 백업은
+      # 그대로 돌아간다(위 `[ -d /metrics ]` 가드).
+      - ${YORR_STATE_DIR:-/var/lib/yorr-deploy}/metrics:/metrics
     networks:
       internal: {}
     logging: *json-logging

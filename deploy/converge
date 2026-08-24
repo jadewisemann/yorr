@@ -105,6 +105,14 @@ HALTED=$STATE_DIR/halted
 LOCK=$STATE_DIR/lock
 # 4번째 상태 파일이지만 임시다 — 게임 게이트와 함께 PR 7에서 사라진다.
 DEFERRED=$STATE_DIR/deferred-since
+# Prometheus textfile 컬렉터가 읽는 곳. 상태 파일과 달리 **controller가 읽지 않는다**
+# — 한 방향으로 나가기만 하는 계측이다(단, 데드맨 계열만 직전 값을 이어받는다).
+METRICS_DIR=$STATE_DIR/metrics
+METRICS_FILE=$METRICS_DIR/yorr-converge.prom
+
+# 이 회차가 건강하게 끝났는가. `heartbeat`가 세우고 EXIT 트랩이 읽는다 —
+# "하트비트를 보낸다"와 "건강하다"의 근거를 하나로 두어, 둘이 갈라질 수 없게 한다.
+HEALTHY_RUN=0
 
 DRY_RUN=false
 
@@ -126,6 +134,52 @@ notify() {
     -d "{\"content\":\"$escaped\"}" "$NOTIFY_WEBHOOK" >/dev/null || log "!! 알림 전송 실패"
 }
 
+# 이 회차의 판단을 Prometheus 계열로 남긴다. Alloy의 textfile 컬렉터가 이 파일을
+# 긁어 Grafana Cloud로 보내므로(deploy/alloy/config.alloy), **자동화의 데드맨이
+# 외부 ping 서비스가 아니라 메트릭**이 된다 — 알림 규칙 하나로 끝나고, 「HALT
+# 상태다」·「몇 초째 미루고 있다」까지 같은 화면에서 보인다.
+#
+# EXIT 트랩으로 부른다. 종료 경로가 일곱 개(무변화·미룸·HALT·인프라 장애·배포
+# 성공·롤백 성공·CRITICAL)라, 손으로 하나씩 부르면 언젠가 하나를 빠뜨린다.
+publish_metrics() {
+  $DRY_RUN && return 0
+
+  local now halted=0 deferred=0 last_healthy since
+  now=$(date -u +%s)
+  [[ -f $HALTED ]] && halted=1
+  if [[ -r $DEFERRED ]]; then
+    since=$(cat "$DEFERRED" 2>/dev/null) || since=''
+    [[ $since =~ ^[0-9]+$ ]] && deferred=$((now - since))
+  fi
+
+  # 건강했으면 지금으로 전진시키고, 아니면 **직전 값을 그대로 옮긴다.** 이 계열이
+  # 데드맨의 근거이므로 실패한 회차가 시계를 앞당기면 알림이 침묵한다 — 정확히
+  # 알려야 할 때 침묵하는 방향이라 기본값을 그 반대로 잡는다.
+  if ((HEALTHY_RUN)); then
+    last_healthy=$now
+  else
+    last_healthy=$(awk '$1=="yorr_converge_last_healthy_seconds"{v=$2} END{printf "%d", v+0}' \
+      "$METRICS_FILE" 2>/dev/null) || last_healthy=0
+  fi
+
+  # 계측이 배포를 막지 못하게 한다 — 실패하면 조용히 포기한다.
+  mkdir -p "$METRICS_DIR" 2>/dev/null || return 0
+  write_atomic "$METRICS_FILE" <<EOF 2>/dev/null || return 0
+# HELP yorr_converge_last_run_seconds 수렴이 마지막으로 한 회차를 끝낸 unix 시각.
+# TYPE yorr_converge_last_run_seconds gauge
+yorr_converge_last_run_seconds $now
+# HELP yorr_converge_last_healthy_seconds 마지막으로 건강하게 끝난 회차의 unix 시각(무변화·미룸·배포 성공).
+# TYPE yorr_converge_last_healthy_seconds gauge
+yorr_converge_last_healthy_seconds $last_healthy
+# HELP yorr_converge_halted 자동 배포가 HALT 상태인가.
+# TYPE yorr_converge_halted gauge
+yorr_converge_halted $halted
+# HELP yorr_converge_deferred_seconds 게임 때문에 배포를 미룬 시간. 0이면 미루고 있지 않다.
+# TYPE yorr_converge_deferred_seconds gauge
+yorr_converge_deferred_seconds $deferred
+EOF
+}
+
 # 데드맨 — *아무것도 안 돌고 있음*을 알려 준다.
 #
 # 규칙: **한 회차가 건강하게 판단을 끝냈으면 보낸다.** 무변화(no-op)·게임 때문에 미룸·
@@ -136,6 +190,7 @@ notify() {
 # 존재 이유다), preflight 인프라 장애, 배포 실패. 셋 다 사람이 봐야 하는 상태이고
 # 앞의 둘은 `notify`도 함께 나간다.
 heartbeat() {
+  HEALTHY_RUN=1
   [[ -n $HEARTBEAT_URL ]] || return 0
   curl -fsS -m 10 "$HEARTBEAT_URL" >/dev/null || log "!! 하트비트 전송 실패"
 }
@@ -357,6 +412,10 @@ do_converge() {
   # single writer. timer와 손 실행이 겹칠 수 있다.
   exec 9>"$LOCK"
   flock -n 9 || { log "이미 수렴 중이다 — 이번 회차는 건너뛴다."; exit 0; }
+
+  # 잠금을 잡은 뒤에 건다. 못 잡은 회차는 판단한 것이 없으므로 계측도 남기지
+  # 않는다 — 그 회차의 진실은 잠금을 쥔 다른 프로세스가 쓴다.
+  trap publish_metrics EXIT
 
   if [[ -f $HALTED ]]; then
     log "HALT 상태다 — 아무것도 하지 않는다. 원인:"

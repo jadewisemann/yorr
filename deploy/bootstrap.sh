@@ -99,6 +99,12 @@ fi
 # 보므로 미리 만들어 둔다.
 sudo install -d -m 755 -o "$user" "$STATE_DIR"
 echo "-- $STATE_DIR"
+# textfile 컬렉터가 읽는 곳(deploy/alloy/config.alloy). **여기서 미리 만드는 것이
+# 중요하다**: 없으면 docker가 바인드 마운트 시점에 root 소유로 만들고, 그러면
+# `$user`로 도는 converge가 자기 계열을 쓰지 못한 채 조용히 포기한다.
+# 755이므로 컨테이너의 root(백업 서비스)와 `$user`(converge)가 둘 다 쓸 수 있다.
+sudo install -d -m 755 -o "$user" "$STATE_DIR/metrics"
+echo "-- $STATE_DIR/metrics (계측)"
 
 # ── 4. 유닛 ──────────────────────────────────────────────────────────────────
 # 템플릿의 @USER@만 치환한다. **추적 파일은 건드리지 않는다** — 그것이 이 단계의 요점이다.

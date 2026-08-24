@@ -332,6 +332,57 @@ env YORR_HEARTBEAT_URL=http://x/heartbeat YORR_NOTIFY_WEBHOOK=http://x/hook \
 check "인프라 장애에는 보내지 않는다" 0 "$(hb)"
 check "대신 알림이 나간다" 1 "$(count_curl x/hook)"
 
+# Grafana Cloud로 나가는 데드맨의 근거가 이 .prom 파일이다. 여기서 지키려는 것은
+# **실패한 회차가 데드맨의 시계를 앞당기지 않는다**는 성질이다. 앞당기면 자동화가
+# 멈춰 있는데 알림이 침묵한다 — 정확히 알려야 할 때 침묵하는 방향의 버그다.
+echo "11e. 판단을 Prometheus 계열로 남긴다"
+PROM=$T/state/metrics/yorr-converge.prom
+metric() {
+  awk -v k="$1" '$1==k{v=$2} END{printf "%d", v+0}' "$PROM" 2>/dev/null || printf 0
+}
+run_converge() {
+  env YORR_DEPLOY_CONFIG=/dev/null YORR_CHECKOUT="$T/checkout" YORR_STATE_DIR="$T/state" \
+    YORR_IMAGE_REPO="$REPO" "$SRC/converge" "$@" >/dev/null 2>&1
+}
+
+setup   # 무변화 — 건강한 회차다
+run_converge
+check "파일을 남긴다" 1 "$([[ -f $PROM ]] && echo 1 || echo 0)"
+contains "HELP를 붙인다(Prometheus 형식)" "# TYPE yorr_converge_halted gauge" "$(cat "$PROM")"
+check "HALT 아님" 0 "$(metric yorr_converge_halted)"
+check "미룸 아님" 0 "$(metric yorr_converge_deferred_seconds)"
+check "건강한 회차가 데드맨 시계를 세운다" \
+  1 "$([[ $(metric yorr_converge_last_healthy_seconds) -gt 0 ]] && echo 1 || echo 0)"
+
+# 같은 상태 디렉터리에 HALT를 만들고 한 회차 더 돌린다. 파일이 갱신되면서도
+# last_healthy는 **그대로여야** 한다.
+#
+# 직전 값을 눈에 띄는 옛 시각으로 바꿔 놓고 본다. 두 회차가 같은 초에 끝나면
+# "앞당겼다"와 "그대로다"가 구별되지 않아 검사가 저절로 통과한다 — 실제로 이
+# 검사를 그렇게 썼다가 버그를 놓쳤다.
+SENTINEL=1000000000
+sed -i "s/^yorr_converge_last_healthy_seconds .*/yorr_converge_last_healthy_seconds $SENTINEL/" "$PROM"
+printf 'REASON=테스트\n' > "$T/state/halted"
+run_converge
+check "HALT를 계열로 알린다" 1 "$(metric yorr_converge_halted)"
+check "HALT는 데드맨 시계를 앞당기지 않는다" \
+  "$SENTINEL" "$(metric yorr_converge_last_healthy_seconds)"
+check "그래도 회차는 돌았다고 남긴다" \
+  1 "$([[ $(metric yorr_converge_last_run_seconds) -gt $SENTINEL ]] && echo 1 || echo 0)"
+
+setup   # 미룸 — 건강한 회차이고, 미룬 시간이 계열에 실린다
+printf '2' > "$FAKE_ROOT/players"
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+run_converge
+check "미룸도 데드맨 시계를 세운다" \
+  1 "$([[ $(metric yorr_converge_last_healthy_seconds) -gt 0 ]] && echo 1 || echo 0)"
+check "미룬 시간을 싣는다" 1 "$([[ -f $T/state/deferred-since ]] && echo 1 || echo 0)"
+
+setup   # --dry-run은 계측을 남기지 않는다 — 판단이 아니라 예행이다
+printf '%s' "$DIGEST_B" > "$FAKE_ROOT/registry_tag"
+run_converge --dry-run
+check "dry-run은 계열을 쓰지 않는다" 0 "$([[ -f $PROM ]] && echo 1 || echo 0)"
+
 echo "12. 발견한 revision이 git에 없으면 배포하지 않는다"
 setup
 printf '%s' "$DIGEST_C" > "$FAKE_ROOT/registry_tag"   # revision이 저장소에 없는 digest
