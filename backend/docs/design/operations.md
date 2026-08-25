@@ -631,11 +631,13 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
    primary로 두면 나머지는 301이 걸린다 — 브라우저가 실어 보내는 Origin이 하나로
    모이므로 CORS 목록도 하나로 끝난다.
 2. **백엔드 `CORS_ALLOWED_ORIGINS`에 `https://yorr.site`.** `compose.yaml`의
-   기본값이 이미 그것 + `https://yorr-eight.vercel.app`(전환 기간의 옛 주소)이므로
-   호스트에서 할 일은 없다 — 정리할 때 그 기본값에서 뺀다. **정확 일치**이고
-   패턴이 아니다(`ws/gateway.ts`의 `originAllowed`) — 끝의 `/`만
-   `allowedOrigins()`가 떼 준다. www를 리다이렉트하지 않고 그대로 서비스하면
-   `https://www.yorr.site`도 목록에 넣어야 한다.
+   기본값이 이미 그것 + `https://www.yorr.site` + `https://yorr-eight.vercel.app`
+   (전환 기간의 옛 주소)이므로 호스트에서 할 일은 없다 — 정리할 때 옛 주소를 그
+   기본값에서 뺀다. **정확 일치**이고 패턴이 아니다(`ws/gateway.ts`의
+   `originAllowed`) — 끝의 `/`만 `allowedOrigins()`가 떼 준다.
+   www가 목록에 있는 것은 1번의 301을 **실제로는 걸지 않았기** 때문이다: Vercel이
+   두 이름을 모두 그대로 서비스하고 있어 브라우저가 실어 보내는 Origin이 둘로
+   갈린다. 나중에 한쪽을 primary로 두어 301을 걸면 그때 하나로 줄인다.
 3. **`AUTH_FRONTEND_REDIRECT_URI`는 `https://yorr.site/auth/callback`** —
    이것도 `compose.yaml` 기본값이다. 제공자 콘솔에 등록하는 값이 아니라 우리
    서버가 로그인 끝에 보내는 프론트 주소다.
@@ -663,6 +665,7 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
 | 세션 | **전 사용자 로그아웃처럼 보인다** | 세션 토큰이 `localStorage`(origin별)에 있다. 옛 출처의 값은 옮길 방법이 없다 |
 | 쿠키 | 없음 | REST는 `credentials` 미사용, 인증은 `Authorization: Bearer`. SameSite·서드파티 쿠키 문제가 생기지 않는다 |
 | 초대 링크·QR | 없음 | `window.location.origin`으로 만든다 — 새 도메인에서 자동으로 새 주소가 된다 |
+| apex와 www를 **둘 다** 서비스 | 목록에 없는 쪽에서만 로그인이 안 된다 | 301을 걸지 않으면 Origin이 둘로 갈린다. 빠진 쪽에서는 REST가 CORS로 막히고 WS 핸드셰이크가 거절되며, 로그인은 `AUTH_FRONTEND_REDIRECT_URI`(apex)로 되돌아가 세션이 그 출처의 `localStorage`에 저장된다 — 시작한 출처에서는 계속 로그아웃 상태다 |
 | Vercel Preview 배포 | 운영 백엔드를 부르면 403 | preview는 배포마다 다른 출처(`yorr-<해시>.vercel.app`)라 정확 일치 목록으로 열 수 없다. 로컬 `dev:real`은 Vite 프록시가 Origin 헤더를 떼서 우회하지만 preview에는 그 우회가 없다 |
 
 ### 구 파이프라인은 없다
