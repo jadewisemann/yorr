@@ -63,6 +63,13 @@ services:
     # 출처」). 그래서 DNS가 아직 안 붙은 주소에서 시험하려면 여기에 그 출처를
     # 더하는 것으로 끝난다 — 제공자 콘솔은 손대지 않는다.
     #
+    # `https://www.yorr.site`가 목록에 있는 이유: Vercel이 www를 apex로 301하지
+    # 않고 **그대로 서비스한다**. 브라우저가 실어 보내는 Origin이 두 개로 갈리므로
+    # 둘 다 있어야 한다. 하나가 빠지면 그 출처에서만 REST가 CORS로 막히고, WS
+    # 핸드셰이크가 거절되며, 로그인이 다른 출처(apex)로 되돌아가 세션이 엉뚱한
+    # localStorage에 저장된다 — 사용자에게는 셋 다 "로그인이 안 된다"로 보인다.
+    # Vercel에서 한쪽을 primary로 두어 301을 걸면 그때 하나를 빼도 된다.
+    #
     # 두 콜백이 백엔드 주소가 아니라 **프론트 도메인**인 것은 오타가 아니다:
     # 카카오·구글 콘솔이 IP를 Redirect URI로 받지 않으므로 프론트 도메인으로 받고
     # `frontend/vercel.json`의 rewrite가 백엔드로 넘긴다. 백엔드 주소를 바꾸면
@@ -74,7 +81,7 @@ services:
       DB_URL: ""
       DB_HOST: mysql
       DB_PORT: "3306"
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://yorr.site,https://yorr-eight.vercel.app}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://yorr.site,https://www.yorr.site,https://yorr-eight.vercel.app}
       AUTH_FRONTEND_REDIRECT_URI: ${AUTH_FRONTEND_REDIRECT_URI:-https://yorr.site/auth/callback}
       KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI:-https://yorr.site/api/v1/auth/kakao/callback}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://yorr.site/api/v1/auth/google/callback}
