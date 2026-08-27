@@ -19,6 +19,7 @@ YORR는 모바일 브라우저에서 돌아가는 실시간 멀티플레이 게�
 ```text
 Browser ── REST ──────────► Spring Boot  (방 생성·입장, 계정, 랭킹)
         ── WebSocket ─────► Spring Boot  (방·게임 상태 동기화 — 서버 권위)
+        ── WebRTC ────────► 큰 화면      (파티 컨트롤러의 연출 신호. 안 붙으면 WebSocket)
 ```
 
 ## 디렉터리: 도메인 우선

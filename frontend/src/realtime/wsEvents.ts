@@ -283,6 +283,37 @@ export interface ChatMessagePayload {
   at: number
 }
 
+/**
+ * 컨트롤러 링크(`realtime/controllerLink/`) 협상 데이터 — 파티 대시보드와 컨트롤러 폰
+ * 사이의 WebRTC DataChannel을 세운다.
+ *
+ * **서버는 이 값을 파싱하지 않고 봉투만 보고 배달한다**(backend `ws/controllerSignal.ts` —
+ * `data`가 `z.unknown()`이다). 그래서 이 union은 서버가 아니라 **클라이언트끼리의 합의**이고,
+ * 갈래를 늘려도 서버는 바뀌지 않는다. 갈래를 못 알아보는 상대는 조용히 버리면 되고, 그러면
+ * 링크가 안 열려 컨트롤러 입력은 그대로 WebSocket으로 간다
+ * (`docs/llmwiki/controller-link.md`).
+ */
+export type ControllerLinkSignal =
+  | { kind: 'description'; description: RTCSessionDescriptionInit }
+  | { kind: 'candidate'; candidate: RTCIceCandidateInit }
+
+/**
+ * C→S: 지목한 상대에게 협상 데이터를 전달해 달라고 요청한다. `from`은 서버가 채운다
+ * (클라가 주장하는 신분을 믿으면 남을 사칭할 수 있다). 상대가 이미 떠났으면 서버는 조용히
+ * 버린다 — 협상 중 이탈은 정상 상황이라 에러로 만들 이유가 없다.
+ *
+ * ⚠️ ICE 후보는 다른 메시지보다 훨씬 잦다(연결 수립 순간에 몰린다). `chat.send` 같은
+ *    기준으로 `RATE_LIMITED`를 걸면 링크가 안 붙는다 — 이 타입은 한도를 따로 잡아야 한다.
+ */
+export interface ControllerSignalPayload {
+  to: PlayerId
+  data: ControllerLinkSignal
+}
+export interface ControllerSignaledPayload {
+  from: PlayerId
+  data: ControllerLinkSignal
+}
+
 export interface RoundStartPayload {
   roundNumber: number
   /** epoch ms. null이면 이 턴에는 제한 시간이 없다(`GameState.roundDeadline` 참고). */
@@ -381,6 +412,7 @@ export type ClientMessage =
   | WsEnvelope<'room.ready', RoomReadyPayload>
   | WsEnvelope<'reaction.send', ReactionSendPayload>
   | WsEnvelope<'chat.send', ChatSendPayload>
+  | WsEnvelope<'ctrl.signal', ControllerSignalPayload>
   | WsEnvelope<'game.yacht_dice.dice.roll', DiceRollPayload>
   | WsEnvelope<'game.yacht_dice.dice.hold', DiceHoldPayload>
   | WsEnvelope<'game.yacht_dice.dice.shake', DiceShakePayload>
@@ -407,6 +439,7 @@ export type ServerMessage =
   | WsEnvelope<'game.duel.state.sync', StateSyncPayload>
   | WsEnvelope<'presence.update', PresenceUpdatePayload>
   | WsEnvelope<'chat.message', ChatMessagePayload>
+  | WsEnvelope<'ctrl.signaled', ControllerSignaledPayload>
   | WsEnvelope<'error', ErrorPayload>
   | WsEnvelope<'game.yacht_dice.round.start', RoundStartPayload>
   | WsEnvelope<'game.yacht_dice.round.end', RoundEndPayload>

@@ -95,6 +95,7 @@ Mobile / Desktop Browser
 | 재접속 | [docs/design/reconnect.md](docs/design/reconnect.md) | 스냅샷 동기화 불변식, 소켓 교체, 오프라인 처리 |
 | 인증·계정 | [docs/design/auth.md](docs/design/auth.md) | 세션 모델, 소셜 로그인(OAuth), 프로필 |
 | 텍스트 채팅 | [docs/design/chat.md](docs/design/chat.md) | chat.send 중계, 거절 코드 분기, 도배 한도 |
+| 컨트롤러 링크 시그널링 | [docs/design/controller-signal.md](docs/design/controller-signal.md) | `ctrl.signal` 유니캐스트 릴레이, 대시보드가 닿는 이유, TURN 미배포 |
 | 영속성 | [docs/design/persistence.md](docs/design/persistence.md) | Redis/MySQL 분리, 스키마, 전적 보관, 주간 랭킹 |
 | 운영 | [docs/design/operations.md](docs/design/operations.md) | 환경변수, 모니터링, 배포 파이프라인 계약 |
 

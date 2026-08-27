@@ -226,6 +226,38 @@
 - **새로 생긴 것**: `RATE_LIMITED`가 처음으로 실제 전송된다(채팅 도배 판정).
   그전까지 이 코드는 계약 목록에만 있었다.
 
+## 컨트롤러 링크 시그널링 — 계약 변경 1건 (2026-08-27, 진행 중)
+
+> 와이어 계약을 의도적으로 바꾼 **세 번째** 변경이고, 교체가 아니라 다시 **넓히기**다.
+> 프론트 쪽 계획·판정표·불변식은 [frontend/PLANS.md](../frontend/PLANS.md)
+> 「컨트롤러 링크」 절이 정본이다. 서버가 하는 일은 이 절이 전부다.
+
+- **무엇**: `ctrl.signal`(C→S, `{to, data}`)과 `ctrl.signaled`(S→C, `{from, data}`)를
+  추가한다. 서버는 `data`를 **파싱하지 않고** 같은 방의 지목된 상대에게만 유니캐스트한다.
+  구현은 `ws/controllerSignal.ts`, 계약 문서는
+  [controller-signal.md](docs/design/controller-signal.md).
+- **왜**: 파티 모드에서 컨트롤러 폰과 큰 화면을 WebRTC DataChannel로 직접 이으려면
+  SDP·ICE를 교환할 통로가 필요하다. 오디오·게임 상태가 서버를 지나지 않는다는 점에서
+  삭제된 `voice.signal`과 성격이 같고, **서버 코드도 그 릴레이의 유니캐스트 부분과
+  같다**(`git log -p -- backend/src/ws/voice.ts`).
+- **왜 `chat.*`을 쓰지 않는가**: 채팅은 방 전체 **브로드캐스트**이고 글자 수 상한과
+  도배 한도가 걸려 있다. 협상은 두 피어 사이의 일이라 남이 받으면 의미가 없고, ICE
+  후보는 연결 수립 순간에 몰려서 채팅 한도에 걸린다.
+- **호환**: 넓히기다. 기존 메시지는 하나도 바뀌지 않는다. `ctrl.signal`을 모르는
+  서버(backend-java 롤백 포함)는 `INVALID_MESSAGE`로 답하거나 무시하고, 그러면 링크가
+  안 열려 프론트가 WebSocket 폴백으로 돌아간다 — 기능이 없을 뿐 화면은 그대로다.
+  backend-java는 동결이라 이식하지 않는다.
+- **되살리지 않는 것**: `GET /voice/ice`와 `YORR_VOICE_*` 환경변수. **TURN을 붙이지
+  않기로 했다** — 링크가 TURN 릴레이를 타면 없애려던 서버 홉이 되살아나고, WebSocket
+  폴백이 같은 홉 수로 이미 같은 일을 한다. STUN은 프론트 상수로 박는다(트래픽이
+  지나가지 않아 비용이 없다). 인증 없는 TURN 자격 발급이 무단 사용 표면이었다는 점도
+  되살리지 않는 이유에 든다.
+- **레이트 리밋 주의**: ICE 후보는 다른 메시지보다 훨씬 잦다(연결 수립 순간에 몰린다).
+  `ctrl.signal`에 채팅과 같은 기준을 걸면 링크가 안 붙는다 — 삭제된 `voice.signal`이
+  같은 주의를 달고 있었다.
+- **이식할 테스트**: 지워진 `ws/__tests__/voice.test.ts`의 릴레이 케이스
+  (`from` 스푸핑 차단, 부재 상대 무음 드롭, 다른 방으로 전송 불가).
+
 ## 상태 표
 
 | 하위 시스템 | Java 위치 | 설계 문서 | 상태 |
@@ -243,6 +275,7 @@
 | 석양이 진다 | `game/duel/` | games/duel.md | 🚧 DuelRules(판정·파울·캡)·상태 스토어(version 비증가 무시)·version 키 스케줄링·forfeit·점수=잔탄 이식·배선 완료(3.3, `DuelRulesTest` 12종 전부). **프론트 e2e:real 미검증** |
 | 탁구 (+AI 결과) | `game/pingpong/` | games/pingpong.md | 🚧 규칙(궤적·판정 창·judgedAt)·상태 스토어·서비스·모듈(3.4) + AI 결과 REST(4.6 — 점수 재검증의 구멍까지 재현, 게스트는 `user_id` NULL) 이식·배선 완료. **프론트 e2e:real 미검증** · 실 MySQL 3건 미실행 |
 | ~~음성 시그널링·ICE~~ → 텍스트 채팅 | `ws/chat.ts` | chat.md | 🗑 이식했던 `voice.*`·`GET /voice/ice`를 **삭제**하고 `chat.send`/`chat.message` 중계로 교체했다(아래 절). Java에는 대응 구현이 없다 |
+| 컨트롤러 링크 시그널링 | (Java에 없음) | controller-signal.md | 🚧 `ctrl.signal`/`ctrl.signaled` 유니캐스트 릴레이 추가 중(위 절). 파티 폰↔큰 화면 DataChannel 협상 전용이고 서버는 `data`를 열지 않는다 |
 | 소셜 로그인·프로필 | `auth/`, `user/` | auth.md | 🚧 소셜 로그인 이식 완료(4.2 — authorize/callback/session/me/logout, state·로그인 코드 1회용, kakao·google, 가입 경합 재조회). MySQL 통합 6건은 `MYSQL_TEST_URL` 부재로 **미실행**. 프로필은 4.3 |
 | 전적·주간 랭킹 | `game/match/`, `game/ranking/` | persistence.md | 🚧 MySQL 풀·Flyway 호환 러너(4.1) + 전적 보관(4.4 — 멱등·닉네임 우선순위·users로 회원 판정) + 주간 랭킹(4.5 — KST 경계·집계·캐시·REST) 이식 완료. **MySQL 집계·저장 통합 22건은 `MYSQL_TEST_URL`·docker 부재로 미실행 — SQL 문법조차 미검증**. 배선 완료 |
 | 모니터링·배포 | `monitoring/`, `.github/workflows/backend.yml`·`deploy/` | operations.md | 🚧 게이지 2종 이식·배선 완료(5.3 — `prom-client` 없이 텍스트 노출, 16건) + 배포 전환(5.1 — Dockerfile arm64 크로스 빌드·compose 전체 스택·GHA+GHCR, [ADR-0006](docs/adr/0006-github-actions-ghcr-arm64-single-host.md)). **이미지 실빌드·arm64 실기동·MySQL 통합 48건 미검증** |

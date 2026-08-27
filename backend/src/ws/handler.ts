@@ -7,6 +7,7 @@ import { SessionAuthenticationError } from '../user/errors.js'
 import type { UserService } from '../user/session.js'
 import type { RoomBroadcaster } from './broadcaster.js'
 import { ChatChannel, chatSendPayloadSchema } from './chat.js'
+import { ControllerSignalChannel, controllerSignalPayloadSchema } from './controllerSignal.js'
 import { envelope, type InboundEnvelope, parseInbound } from './envelope.js'
 import type { HeartbeatMonitor } from './heartbeat.js'
 import {
@@ -105,9 +106,16 @@ export class GameSocketHandler {
   /** 텍스트 채팅 중계(docs/design/chat.md). 서버가 들고 있는 상태는 도배 한도 기록뿐이다. */
   private readonly chat: ChatChannel
 
+  /** 컨트롤러 링크 시그널링 릴레이(docs/design/controller-signal.md). 상태가 없다. */
+  private readonly controllerSignal: ControllerSignalChannel
+
   constructor(private readonly deps: GameSocketHandlerDependencies) {
     this.log = deps.logger ?? silentLogger
     this.chat = new ChatChannel({ broadcaster: deps.broadcaster })
+    this.controllerSignal = new ControllerSignalChannel({
+      registry: deps.registry,
+      send: (socket, message) => this.send(socket, message),
+    })
     this.moduleless = {
       pause: async () => {},
       resume: async () => {},
@@ -156,6 +164,8 @@ export class GameSocketHandler {
       // 채팅은 방 레벨이라 게임 네임스페이스(game.<code>.*) 접두사가 없다.
       case 'chat.send':
         return this.handleChatSend(socket, message)
+      case 'ctrl.signal':
+        return this.handleControllerSignal(socket, message)
       default:
         return this.handleGameMessage(socket, message)
     }
@@ -615,6 +625,39 @@ export class GameSocketHandler {
   /** 방에 붙은 게임 모듈. 아직 이식되지 않은 게임이면 모듈 없는 방용 대역. */
   private game(roomId: string): RoomGameHooks {
     return this.deps.games.byCode(this.deps.registry.gameCodeOf(roomId)) ?? this.moduleless
+  }
+
+  /* -------------------------------------------------------------------- ctrl.* */
+
+  /**
+   * `ctrl.signal` → 지목된 상대에게만 릴레이. 검사 순서는 다른 방 레벨 메시지와 같다
+   * (payload 검증 → 멤버십).
+   *
+   * **레이트 리밋을 붙인다면 이 타입은 예외로 잡아야 한다** — ICE 후보는 연결 수립
+   * 순간에 몰려서, 채팅과 같은 기준을 걸면 링크가 안 붙는다.
+   */
+  private handleControllerSignal(socket: ClientSocket, message: InboundEnvelope): void {
+    const parsed = controllerSignalPayloadSchema.safeParse(message.payload)
+    if (!parsed.success) {
+      this.sendError(socket, 'INVALID_MESSAGE', 'ctrl.signal payload가 올바르지 않습니다.', message)
+      return
+    }
+    const to = parsed.data.to ?? ''
+    if (to.trim().length === 0 || parsed.data.data === null || parsed.data.data === undefined) {
+      this.sendError(socket, 'INVALID_MESSAGE', 'ctrl.signal은 to와 data가 필요합니다.', message)
+      return
+    }
+    const me = this.deps.registry.of(socket)
+    if (!me) {
+      this.sendError(
+        socket,
+        'NOT_IN_ROOM',
+        '방에 입장한 뒤에만 시그널을 보낼 수 있습니다.',
+        message,
+      )
+      return
+    }
+    this.controllerSignal.signal(me, to, parsed.data.data)
   }
 
   private send(socket: ClientSocket, message: ReturnType<typeof envelope>): void {

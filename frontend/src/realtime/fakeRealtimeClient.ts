@@ -49,6 +49,10 @@ export class FakeRealtimeClient implements RealtimeClient {
     this.emitMessages(handler(message))
   }
 
+  deliverLocal(message: ServerMessage) {
+    this.emitMessage(message)
+  }
+
   onMessage(listener: MessageListener) {
     this.messageListeners.add(listener)
     return () => this.messageListeners.delete(listener)
