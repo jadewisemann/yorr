@@ -5,7 +5,7 @@ import { Avatar } from '@/auth/components/AccountDialog/AccountMenu'
 import { useLeaveSession } from '@/room/api/useRoomApi'
 import { sessionScreenOf } from '@/room/domain/sessionFsm'
 import { cn } from '@/shared/cn'
-import { IconSound } from '@/shared/components/Icon'
+import { IconMoon, IconSound, IconSun } from '@/shared/components/Icon'
 import { selectSessionPhase, useAppStore } from '@/store'
 
 const codeEntry =
@@ -43,16 +43,44 @@ export function InputGlyph() {
   )
 }
 
+const roundIconButton =
+  'grid size-tap flex-none cursor-pointer place-items-center rounded-full border border-landing-hairline-strong bg-landing-well text-landing-text-muted transition-colors duration-150 ease-out hover:border-landing-accent/70 hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable'
+
 export function SoundToggle({ muted, onToggle }: { muted: boolean; onToggle: () => void }) {
   return (
     <button
       aria-label={muted ? '소리 켜기' : '소리 끄기'}
       aria-pressed={!muted}
-      className="grid size-tap flex-none cursor-pointer place-items-center rounded-full border border-landing-hairline-strong bg-landing-well text-landing-text-muted transition-colors duration-150 ease-out hover:border-landing-accent/70 hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable"
+      className={roundIconButton}
       onClick={onToggle}
       type="button"
     >
       <IconSound className="size-4.5" muted={muted} />
+    </button>
+  )
+}
+
+/*
+ * 화면 테마 토글. 계정 다이얼로그 안이 아니라 **랜딩 헤더**에 있는 이유 — 테마는 계정이
+ * 아니라 기기 설정이라(localStorage 영속) 로그인 여부와 무관하고, 모달을 열어야 닿는
+ * 자리에 두면 첫 화면이 눈부실 때 그것을 고칠 방법이 보이지 않는다.
+ *
+ * 라이트/다크 두 값만 오간다. 누르는 순간 사용자가 명시적으로 고른 것이므로 `system`으로는
+ * 돌아가지 않는다 — 한 버튼으로 세 값을 돌리면 다음 상태를 예측할 수 없다.
+ */
+export function ThemeToggle() {
+  const resolvedTheme = useAppStore((state) => state.resolvedTheme)
+  const setThemePreference = useAppStore((state) => state.setThemePreference)
+  const light = resolvedTheme === 'light'
+
+  return (
+    <button
+      aria-label={light ? '다크 모드로 바꾸기' : '라이트 모드로 바꾸기'}
+      className={roundIconButton}
+      onClick={() => setThemePreference(light ? 'dark' : 'light')}
+      type="button"
+    >
+      {light ? <IconSun className="size-4.5" /> : <IconMoon className="size-4.5" />}
     </button>
   )
 }

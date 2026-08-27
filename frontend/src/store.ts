@@ -17,6 +17,7 @@ import {
 import { clearRoomSession, readRoomSession, saveRoomSession } from '@/room/roomSessionStorage'
 import {
   applyTheme,
+  type ResolvedTheme,
   readThemePreference,
   resolveTheme,
   saveThemePreference,
@@ -42,6 +43,12 @@ interface AppState {
   roomSession: ActiveRoomSession | null
   roomSnapshot: RoomSnapshot | null
   themePreference: ThemePreference
+  /**
+   * 실제로 적용된 테마. `themePreference`가 `system`일 때 OS 설정을 따라가므로 선택만으로는
+   * 알 수 없고, 그 값을 보고 그리는 UI(테마 토글의 아이콘)가 있어서 상태로 들고 있다.
+   * 갱신은 `setThemePreference`와 `useThemeSync`(OS 변화 감시) 두 곳뿐이다.
+   */
+  resolvedTheme: ResolvedTheme
   signIn: (session: AuthSession) => void
   signOut: () => void
   setAppNotice: (notice: string | null) => void
@@ -52,6 +59,7 @@ interface AppState {
   resumeRoomSession: () => void
   replaceRoomSnapshot: (snapshot: RoomSnapshot | null) => void
   setThemePreference: (preference: ThemePreference) => void
+  setResolvedTheme: (theme: ResolvedTheme) => void
   endSession: (reason: SessionEndReason) => void
   reset: () => void
 }
@@ -71,6 +79,7 @@ const initialState = {
   roomSession: restoredSession ? withoutSnapshot(restoredSession) : null,
   roomSnapshot: restoredSession?.snapshot ?? null,
   themePreference: readThemePreference(),
+  resolvedTheme: resolveTheme(readThemePreference()),
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -100,10 +109,12 @@ export const useAppStore = create<AppState>((set) => ({
   // 영속·DOM 반영은 액션의 부수효과다(DESIGN.md 원칙 3) — 구독자가 useEffect로
   // 뒤따라 적용하면 첫 프레임이 옛 테마로 그려진다.
   setThemePreference: (themePreference) => {
+    const resolvedTheme = resolveTheme(themePreference)
     saveThemePreference(themePreference)
-    applyTheme(resolveTheme(themePreference))
-    set({ themePreference })
+    applyTheme(resolvedTheme)
+    set({ resolvedTheme, themePreference })
   },
+  setResolvedTheme: (resolvedTheme) => set({ resolvedTheme }),
   replaceRoomSnapshot: (roomSnapshot) =>
     set((state) => {
       if (state.roomSession && roomSnapshot) {

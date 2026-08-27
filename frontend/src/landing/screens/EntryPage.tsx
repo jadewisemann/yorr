@@ -4,6 +4,7 @@ import {
   ActiveRoomBanner,
   CodeEntryRow,
   SoundToggle,
+  ThemeToggle,
 } from '@/landing/components/EntryPage/parts'
 import { LandingHeroCarousel } from '@/landing/components/LandingHeroCarousel'
 import { LandingProgress } from '@/landing/components/LandingProgress'
@@ -74,6 +75,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
                 <CodeEntryRow anchorRef={codeEntryRef} onOpen={() => setCodeOpen(true)} />
                 <span aria-hidden="true" className="h-6.5 w-px flex-none bg-landing-hairline" />
                 <SoundToggle muted={soundMuted} onToggle={toggleSound} />
+                <ThemeToggle />
                 <AccountControl
                   layout="wide"
                   onOpen={() => setAccountOpen(true)}
@@ -137,6 +139,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
           </span>
           <span className="flex min-w-0 items-center gap-2">
             <SoundToggle muted={soundMuted} onToggle={toggleSound} />
+            <ThemeToggle />
             <AccountControl
               layout="narrow"
               onOpen={() => setAccountOpen(true)}

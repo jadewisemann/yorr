@@ -71,6 +71,25 @@ export function IconChat({ className }: IconProps) {
   )
 }
 
+/** 라이트 모드 상태(=해). 테마 토글이 "지금 무엇인가"를 그린다. */
+export function IconSun({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <circle cx={10} cy={10} r={3.4} />
+      <path d="M10 2.6v1.8M10 15.6v1.8M2.6 10h1.8M15.6 10h1.8M4.8 4.8l1.3 1.3M13.9 13.9l1.3 1.3M15.2 4.8l-1.3 1.3M6.1 13.9l-1.3 1.3" />
+    </Svg>
+  )
+}
+
+/** 다크 모드 상태(=달). */
+export function IconMoon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M15.4 12.4A6.2 6.2 0 0 1 8.1 4.9a6.4 6.4 0 1 0 7.3 7.5z" />
+    </Svg>
+  )
+}
+
 export function IconMusic({ className }: IconProps) {
   return (
     <Svg className={className}>

@@ -1,7 +1,6 @@
 import type { AuthSession } from '@/auth/authSession'
 import { AccountMenu } from '@/auth/components/AccountDialog/AccountMenu'
 import { ProviderChoice } from '@/auth/components/AccountDialog/ProviderChoice'
-import { ThemeRow } from '@/auth/components/AccountDialog/ThemeRow'
 import { BottomSheet } from '@/shared/components/BottomSheet'
 import { Popover } from '@/shared/components/Popover'
 
@@ -15,11 +14,12 @@ interface AccountDialogProps {
 
 export function AccountDialog({ layout, onClose, onSignOut, open, session }: AccountDialogProps) {
   const label = session ? '내 계정' : '로그인'
-  const panel = (
-    <>
-      {session ? <AccountMenu onSignOut={onSignOut} session={session} /> : <ProviderChoice />}
-      <ThemeRow />
-    </>
+  // 화면 테마는 여기 있었다가 랜딩 헤더로 나갔다(`landing/components/EntryPage/parts.tsx`) —
+  // 계정 설정이 아니라 기기 설정이라 모달을 열지 않고 닿아야 한다.
+  const panel = session ? (
+    <AccountMenu onSignOut={onSignOut} session={session} />
+  ) : (
+    <ProviderChoice />
   )
 
   if (layout === 'narrow') {
