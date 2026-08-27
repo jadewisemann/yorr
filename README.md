@@ -53,8 +53,7 @@ YORR는 별도 앱 설치 없이 모바일 브라우저에서 즐기는 멀티�
 Mobile / Desktop Browser
         │
         ├── REST API ───────────────┐
-        ├── WebSocket ──────────────┤
-        └── WebRTC voice (P2P)      │
+        └── WebSocket ──────────────┤
                                     ▼
                          Spring Boot Backend
                            │              │

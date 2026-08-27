@@ -75,7 +75,6 @@ import { registerQuickMatchRoutes } from './http/routes/quickMatch.js'
 import { registerRankingRoutes } from './http/routes/ranking.js'
 import { registerRoomRoutes } from './http/routes/rooms.js'
 import { registerUserRoutes } from './http/routes/users.js'
-import { registerVoiceRoutes } from './http/routes/voice.js'
 import { closeMysqlPool, createMysqlPool } from './infra/mysql.js'
 import { createRedisClient } from './infra/redis.js'
 import {
@@ -94,7 +93,6 @@ import { RoomBroadcaster } from './ws/broadcaster.js'
 import { attachGameSocketGateway, type GameSocketGateway } from './ws/gateway.js'
 import { GameSocketHandler } from './ws/handler.js'
 import { HeartbeatMonitor } from './ws/heartbeat.js'
-import { VoiceIceService, voiceIceOptions } from './ws/iceServers.js'
 import type { WsRoomSnapshot } from './ws/protocol.js'
 import { RoomSessionRegistry } from './ws/registry.js'
 import { RealtimeRoomSnapshotService } from './ws/snapshot.js'
@@ -446,7 +444,6 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
         snapshots,
       })
       await registerGameRoutes(api, { rooms })
-      await registerVoiceRoutes(api, { ice: new VoiceIceService(voiceIceOptions(env)) })
       // 조회 REST(2.9). 등록 전에는 `/rooms/{id}/scores`·`/results`·
       // `/games/{id}/score-candidates`가 조용히 404다.
       await registerGameQueryRoutes(api, { users, queries: gameQueries })

@@ -169,8 +169,8 @@ services:
       PUBLIC_HOST: ${PUBLIC_HOST:?deploy/.env에 OCI 공인 IP PUBLIC_HOST가 필요하다}
       SERVER_PORT: ${SERVER_PORT:-8080}
     ports:
-      # 여는 것은 HTTP/HTTPS뿐이다. coturn/TURN을 배포하지 않기로 했으므로
-      # UDP 릴레이 포트가 필요 없다(음성은 STUN-only — YORR_VOICE_TURN_SECRET 미설정).
+      # 여는 것은 HTTP/HTTPS뿐이다. 채팅이 텍스트로 바뀌며 WebRTC가 사라졌으므로
+      # UDP 릴레이(coturn/TURN) 포트는 앞으로도 필요 없다.
       - "80:80"
       - "443:443"
     volumes:

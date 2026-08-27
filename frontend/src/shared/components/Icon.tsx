@@ -63,12 +63,10 @@ export function IconSound({ className, muted }: IconProps & { muted: boolean }) 
   )
 }
 
-export function IconMic({ className }: IconProps) {
+export function IconChat({ className }: IconProps) {
   return (
     <Svg className={className}>
-      <path d="M10 3.6a2.35 2.35 0 0 1 2.35 2.35v3.6a2.35 2.35 0 0 1-4.7 0v-3.6A2.35 2.35 0 0 1 10 3.6z" />
-      <path d="M5.9 9.3a4.1 4.1 0 0 0 8.2 0" />
-      <path d="M10 13.4v3" />
+      <path d="M16.6 11.3a1.8 1.8 0 0 1-1.8 1.8H7.9L4.4 16.1a.5.5 0 0 1-.8-.4V5.7a1.8 1.8 0 0 1 1.8-1.8h9.4a1.8 1.8 0 0 1 1.8 1.8z" />
     </Svg>
   )
 }

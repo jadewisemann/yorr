@@ -9,6 +9,10 @@
 때까지 프론트엔드 프로덕션 코드는 변경하지 않는 것이 목표다. 특히
 `src/realtime/wsEvents.ts`와 REST 사용부는 **계약 동결** 상태다
 
+> **동결을 깬 2건.** 「연습 방 시계」(계약 넓히기)와 「음성 채팅 → 텍스트 채팅」
+> (계약 교체) 절에 각각 근거가 있다. 둘 다 마이그레이션이 아니라 제품 결정이라
+> 동결의 목적("마이그레이션이 프론트를 건드리지 않는다") 밖이었다.
+
 > **동결의 범위 (2026-08-16 해석).** 동결 대상은 **와이어 계약**이다 —
 > `wsEvents.ts`와 `room/api/*`·`shared/api/*`의 사용부. 화면·스타일·공용
 > 컴포넌트는 계약을 건드리지 않으므로 동결과 무관하다(아래 디자인 시스템 작업
@@ -29,6 +33,31 @@
 구체화하고(목표·관련 설계·불변식·검증), 백엔드 PLANS.md와 상호 링크를 건다.
 
 ---
+
+## 음성 채팅 → 텍스트 채팅 (2026-08-27, 완료)
+
+사용자 요청으로 WebRTC 음성 채팅을 방 텍스트 채팅으로 교체했다. 결과 구조·불변식은
+[chat.md](docs/llmwiki/chat.md), 서버 쪽은
+[backend/docs/design/chat.md](../backend/docs/design/chat.md)와
+[backend/PLANS.md](../backend/PLANS.md)의 같은 이름 절.
+
+- **계약**: `voice.join`·`voice.leave`·`voice.signal`·`voice.peers`·`voice.signaled`와
+  `GET /voice/ice`를 지우고 `chat.send`(C→S)·`chat.message`(S→C)를 넣었다. **넓히기가
+  아니라 교체다** — backend-java로 롤백하면 채팅만 동작하지 않는다(게임·방·인증 경로는
+  그대로).
+- **사라진 코드**: `realtime/voice/` 전부(풀메시 `voiceMesh`·`useVoiceChat`·
+  `PeerMicButton`·`iceServers`), `AudioPopover`의 마이크 행, `AudioStatusIcon`의
+  마이크 겹침, `PlayerCard.speaking`·`TurnStrip`의 발화 표시, `IconMic`.
+- **새 코드**: `realtime/chat/`(3파일) + 대기실·야추 헤더의 여는 버튼. mock 백엔드는
+  `chat.send`를 에코한다.
+- **잃은 것을 알고 지웠다**: "누가 말하는 중" 표시(수신기 `audioLevel` 폴링), 상대별
+  음소거, TURN 자격 발급 경로. 풀메시 세 규칙(offer 방향·ICE 후보 큐·failed 재협상)의
+  근거는 `code-rationale.md`에서 함께 지웠으므로, 음성을 되살리려면 git 이력을 본다
+  (`git log -p -- frontend/src/realtime/voice`).
+- **남은 판단 1건**: 대화를 서버가 저장하지 않으므로 **새로고침·재접속하면 지난 대화가
+  사라진다.** 방 수명이 게임 한 판이라 지금은 그 값이 비용을 넘지 않는다고 봤다.
+  바꾸려면 서버에 방별 링 버퍼를 두고 `room.joined`·`sys.reconnected` 스냅샷에 싣는
+  것이 최소 변경인데, 그것은 계약을 다시 넓히는 일이다.
 
 ## 디자인 시스템 — 스타일 변경 대응력 확보 (진행 중)
 

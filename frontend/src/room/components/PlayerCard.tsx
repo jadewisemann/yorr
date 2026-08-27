@@ -12,7 +12,6 @@ type PlayerCardProps = {
   current?: boolean
   subtitle?: string | undefined
   trailing?: ReactNode | undefined
-  speaking?: boolean
   nameEnd?: ReactNode
   className?: string
 }
@@ -37,7 +36,6 @@ export function PlayerCard({
   avatarSeed = name,
   nameEnd,
   score,
-  speaking = false,
   status = 'online',
   subtitle,
   trailing,
@@ -53,7 +51,6 @@ export function PlayerCard({
         'grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-3 p-3',
         active && 'border-border-strong',
         status === 'offline' && 'opacity-60',
-        speaking && 'outline-2 outline-positive outline-offset-1',
         className,
       )}
       aria-label={`${name}, ${stateLabel}${score === undefined ? '' : `, ${score}점`}`}

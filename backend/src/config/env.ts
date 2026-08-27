@@ -57,15 +57,6 @@ const envSchema = z
     DB_NAME: z.string().default('yorr'),
     DB_USERNAME: z.string().default('yorr'),
     DB_PASSWORD: z.string().default(''),
-    // 음성(coturn ICE 자격). Java에는 yaml 항목이 없고 `@Value("${yorr.voice.*}")`로만
-    // 존재하는데, Spring의 relaxed binding이 그 프로퍼티를 아래 환경변수 이름에서 읽는다
-    // (`.`·`-` → `_` 치환 후 대문자) — 운영 `.env`를 그대로 재사용하려면 이 이름이어야 한다.
-    /** coturn static-auth-secret. `""` = TURN 미제공(STUN만). */
-    YORR_VOICE_TURN_SECRET: z.string().default(''),
-    /** coturn 호스트. `""` = TURN 미제공(STUN만). */
-    YORR_VOICE_TURN_HOST: z.string().default(''),
-    YORR_VOICE_STUN_URL: z.string().default('stun:stun.l.google.com:19302'),
-    YORR_VOICE_TURN_TTL_SECONDS: z.coerce.number().int().positive().default(600),
     // 소셜 로그인. 이름·기본값은 backend-java `application.yaml`의 `yorr.auth.*` 그대로다.
     // 값이 비어 있어도 서버는 뜬다 — 로그인 엔드포인트를 호출할 때만 거절한다.
     /** 로그인을 끝낸 사용자를 되돌려 보낼 **프론트** 주소(제공자 콘솔 등록값이 아니다). */

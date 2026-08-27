@@ -1,4 +1,3 @@
-import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
 import type { PlayerId, RoomSnapshot } from '@/realtime/wsEvents'
 import { Button } from '@/shared/components/Button'
 import type { useAppStore } from '@/store'
@@ -15,7 +14,6 @@ interface LobbyRoomContentProps {
   startLoading: boolean
   startError: Error | null
   botLoading: boolean
-  voice: VoiceChat
   onStart: () => void
   onRemoveBot: (playerId: PlayerId) => void
 }
@@ -31,7 +29,6 @@ export function LobbyRoomContent({
   startLoading,
   startError,
   botLoading,
-  voice,
   onStart,
   onRemoveBot,
 }: LobbyRoomContentProps) {
@@ -49,7 +46,6 @@ export function LobbyRoomContent({
             loading={botLoading}
             onRemove={onRemoveBot}
             player={player}
-            voice={voice}
             you={you}
           />
         ))}

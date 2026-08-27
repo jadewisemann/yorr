@@ -84,6 +84,7 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
         ))}
       </div>
 
+      {/* 글리프가 말풍선이 아니라 웃는 얼굴인 이유: 같은 화면의 채팅 버튼이 말풍선을 쓴다. */}
       <button
         aria-controls={pickerId}
         aria-expanded={open}
@@ -96,7 +97,7 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
         ref={triggerRef}
         type="button"
       >
-        💬
+        😀
       </button>
     </div>
   )

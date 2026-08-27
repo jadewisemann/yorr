@@ -29,18 +29,10 @@
 | `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET`(선택) / `KAKAO_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 카카오 OAuth. **`.env`에 넣는 것은 자격 두 개뿐이다** — 콜백 주소는 compose가 준다 |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 구글 OAuth. 같다 — `.env`에는 자격 두 개만 |
 
-Java에서 `@Value`로만 존재해 yaml에 없는 것(환경으로만 주입) — Node에서는
-env.ts에 정식 편입한다(1.7에서 완료). **이름은 제안이 아니라 Java가 실제로 읽는
-것을 그대로 쓴다**: Spring relaxed binding이 `yorr.voice.turn.secret`을 읽는
-환경변수 이름은 `YORR_VOICE_TURN_SECRET`이다(`.`·`-` → `_`, 대문자). 다른
-이름을 쓰면 운영 `.env`가 재사용되지 않는다.
-
-| 변수 (Java 프로퍼티) | 기본값 | 용도 |
-|---|---|---|
-| `YORR_VOICE_TURN_SECRET` (`yorr.voice.turn.secret`) | `""` = TURN 미제공 | coturn 공유 시크릿 |
-| `YORR_VOICE_TURN_HOST` (`yorr.voice.turn.host`) | `""` = TURN 미제공 | TURN 호스트 |
-| `YORR_VOICE_STUN_URL` (`yorr.voice.stun-url`) | `stun:stun.l.google.com:19302` | STUN |
-| `YORR_VOICE_TURN_TTL_SECONDS` (`yorr.voice.turn.ttl-seconds`) | `600` | 자격 TTL |
+Java에 `@Value`로만 존재했던 `yorr.voice.*`(coturn ICE 자격) 네 개는 **더 이상
+읽지 않는다.** 음성 채팅이 텍스트 채팅으로 바뀌며 WebRTC와 `GET /voice/ice`가 함께
+사라졌다([chat.md](chat.md) · [PLANS.md](../../PLANS.md)). 운영 `.env`에 남아 있어도
+무해하지만(env 스킴이 모르는 키는 무시한다) `deploy/.env.example`에서는 지웠다.
 
 테스트 전용 변수(런타임은 읽지 않는다 — [ADR-0004](../adr/0004-redis-integration-test-harness.md)):
 
@@ -90,7 +82,7 @@ env.ts에 정식 편입한다(1.7에서 완료). **이름은 제안이 아니라
 
 ### 등록되는 REST 라우트 (`/api/v1`)
 
-방·게임(1.4) · 음성(1.7) · 조회(2.9 `scores`·`results`·`score-candidates`) ·
+방·게임(1.4) · 조회(2.9 `scores`·`results`·`score-candidates`) ·
 프로필(4.3 `users/me`) · 퀵매치(3.5) · 랭킹(4.5) · 소셜 로그인(4.2). 헬스·메트릭은
 프리픽스 밖(`/actuator/*`)이다. **등록하지 않으면 404이고 컴파일·단위 테스트는 전부
 통과한다** — 라우트별 고유 오류 표면(503/401 `unauthorized`/401 `session_expired`/
@@ -247,8 +239,7 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
 | 아키텍처 | **linux/arm64 (aarch64)** — x86 이미지는 돌지 않는다 |
 | 규모 | 상시 동접 50명, 방 10~20개 |
 | 스택 | 같은 호스트에 backend · Redis · MySQL · Caddy(TLS) |
-| 여는 포트 | **80 · 443 (TCP)뿐.** coturn을 배포하지 않으므로 UDP 릴레이 범위가 없다 |
-| 음성 | STUN-only (`YORR_VOICE_TURN_SECRET` 미설정 = 코드가 자동으로 그 모드) |
+| 여는 포트 | **80 · 443 (TCP)뿐.** 채팅이 텍스트라 UDP 릴레이(coturn) 범위가 필요 없다 |
 | 프론트 | Vercel(`https://yorr.site`) — 그래서 **`wss://`가 필수이고 TLS가 선택이 아니다** |
 
 ### 흐름

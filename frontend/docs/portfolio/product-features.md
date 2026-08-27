@@ -62,7 +62,9 @@ TV/모니터가 게임판이 되고 폰들이 QR로 붙어 컨트롤러가 되�
 
 - 이모지 리액션(파티 관전의 참여 수단), 주간 랭킹 티커(narrow는 CSS 시세표/wide는
   정적+드롭다운 — 3D와 프레임을 다투지 않는 선택), WebRTC 음성 채팅 UI(마이크
-  상태·말하는 중 링·상대별 음소거). ([voice](../llmwiki/voice.md) · [landing](../llmwiki/landing.md))
+  상태·말하는 중 링·상대별 음소거). ([landing](../llmwiki/landing.md))
+- 음성 채팅은 2026-08-27에 **방 텍스트 채팅으로 교체됐다**(제품 결정). 풀메시 구현은
+  git 이력에 남아 있고, 현재 계약은 [chat](../llmwiki/chat.md)이다.
 
 ## UI 프리미티브 (`bf6c02c`, `0f28a2d` 외)
 

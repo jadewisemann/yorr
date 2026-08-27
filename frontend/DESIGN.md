@@ -62,6 +62,8 @@
 > ⚠️ **와이어 계약 동결 중.** 백엔드 Java → JS 마이그레이션이 끝날 때까지
 > `wsEvents.ts`와 REST 사용부를 바꾸지 않는다
 > ([backend ADR-0002](../backend/docs/adr/0002-strangler-wire-contract.md), [PLANS.md](PLANS.md)).
+> 지금까지 동결을 깬 것은 두 건뿐이고 둘 다 PLANS.md에 근거가 있다 — 연습 방 시계
+> (넓히기)와 음성 채팅 → 텍스트 채팅(교체).
 
 ## 코드 구조
 
@@ -105,7 +107,7 @@
 | [architecture.md](docs/llmwiki/architecture.md) | 구조·의존 방향·상태 설계의 근거와 상세 |
 | [app-shell.md](docs/llmwiki/app-shell.md) | 부팅·라우트 표·코드 스플리팅·View Transitions·dev 화면 |
 | [realtime.md](docs/llmwiki/realtime.md) | WS 계약·연결/재연결·heartbeat·스냅샷 병합 리듀서 |
-| [voice.md](docs/llmwiki/voice.md) | WebRTC 음성 풀메시·시그널링·iOS 오디오 우회 |
+| [chat.md](docs/llmwiki/chat.md) | 방 텍스트 채팅 — 중계 계약·provider 배치·안 읽은 수 |
 | [room-and-session.md](docs/llmwiki/room-and-session.md) | 세션 FSM·저장/복구·방 수명주기·빠른 대전·파티 모드 |
 | [rest-api.md](docs/llmwiki/rest-api.md) | 프론트가 호출하는 REST 엔드포인트 전체 |
 | [landing.md](docs/llmwiki/landing.md) | 히어로 캐러셀·모드 선택·랭킹 티커·히어로 3D |

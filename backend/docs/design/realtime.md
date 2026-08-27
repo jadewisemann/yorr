@@ -14,7 +14,7 @@
   `OriginHandshakeInterceptor`와 같은 규칙).
 - 인바운드 메시지 상한 **64KB**. Java는 서블릿 컨테이너 기본값(Tomcat 텍스트 버퍼
   8KB)에 기대고 아무것도 정하지 않았지만 `ws`의 기본값은 100MB다. 가장 큰 메시지는
-  `voice.signal`의 SDP(수 KB)이므로 그 위로 넉넉히 잡았다. 초과 프레임은 close
+  재접속 스냅샷(수 KB)이므로 그 위로 넉넉히 잡았다. 초과 프레임은 close
   1009로 끊긴다.
 - **소켓 하나의 메시지는 직렬로 처리한다.** 아래 `room.join`의 처리 순서가 계약인데
   Redis 호출을 기다리는 사이 다음 메시지가 끼어들면 그 순서가 깨진다. Java는
@@ -34,7 +34,7 @@
 - 알 수 없는 envelope 필드는 무시한다(Java `@JsonIgnoreProperties`).
 - envelope 파싱 실패 → `error{INVALID_MESSAGE, refMsgId:null}` 전송, 연결 유지.
   payload 파싱 실패 → 핸들러별 `error{INVALID_MESSAGE, refMsgId:<msgId>}`.
-- **envelope `roomId`의 역할**: 최상위 핸들러(`sys.*`·`room.*`·`reaction.*`·`voice.*`)는
+- **envelope `roomId`의 역할**: 최상위 핸들러(`sys.*`·`room.*`·`reaction.*`·`chat.*`)는
   무시한다(`room.join`은 payload의 roomId를 쓴다). 반면 **게임 네임스페이스
   메시지는 envelope roomId가 세션의 방과 일치해야 하며**, 불일치 시 `NOT_IN_ROOM`이다.
 - `msgId`: 요청-응답 상관관계. 서버가 에코해야 하는 곳이 정해져 있다(아래
@@ -107,7 +107,7 @@ Redis 좌석은 없다 — 실전 클라이언트는 이 경로를 쓰지 않는
 ## 구독·브로드캐스트 모델
 
 - 레지스트리(인메모리): `roomId → (playerId → Member{nickname, host, status, session})`,
-  세션 역인덱스, 방별 phase·gameCode, 음성 명단. 첫 입장자가 host 플래그를 받고
+  세션 역인덱스, 방별 phase·gameCode. 첫 입장자가 host 플래그를 받고
   재입장은 host를 유지한다(진짜 host 권위는 Redis `hostId`다 —
   [rooms-and-sessions.md](rooms-and-sessions.md)).
 - 브로드캐스터(인메모리, 레지스트리와 별개 맵): 방별 소켓 집합. **한 번
@@ -130,8 +130,8 @@ Redis 좌석은 없다 — 실전 클라이언트는 이 경로를 쓰지 않는
 | WS `room.leave`, PLAYING | 게임 모듈 removePlayer 경로 | `room.player_left` | `roomService.leave` 호출됨 |
 | WS `room.leave`, 그 외 | 좌석 제거 | `room.player_left` | 방 roster 그대로 |
 
-- 끊김 처리 전에 음성 명단 정리(`voice.peers` 재브로드캐스트)가 먼저다 —
-  레지스트리에서 세션을 지우면 방을 못 찾는다([voice.md](voice.md)).
+- 끊김 처리 전에 채팅 도배 한도 기록 정리가 먼저다 — 레지스트리에서 세션을 지우면
+  소켓만으로는 누구였는지 알 수 없다([chat.md](chat.md)).
 - 방의 마지막 소켓이 사라지면: 게임 모듈 `pause`(마감 타이머 즉시 중단 — 빈
   방이 25초마다 자동 진행되는 것을 막는다) 후 **방 폐쇄 예약**. 유예는 phase가
   아니라 `module.hasState()`로 고른다: 게임 상태가 있으면 10분, 없으면 30초.
@@ -152,7 +152,7 @@ Redis 좌석은 없다 — 실전 클라이언트는 이 경로를 쓰지 않는
 | `room.leave` | (무시) | 프론트 미사용 |
 | `room.ready` | `{ready:boolean}` | **서버 상태 저장 없음** — `room.ready_changed{playerId, ready}`를 본인 포함 전체에 릴레이만 |
 | `reaction.send` | `{reaction:"like"\|"laugh"\|"shock"\|"clap"\|"gg"}` | 미지원 값 → `INVALID_MESSAGE`. `reaction.broadcast{playerId, reaction}` 본인 포함 릴레이. 레이트 리밋 없음 |
-| `voice.join` / `voice.leave` / `voice.signal` | [voice.md](voice.md) | |
+| `chat.send` | `{text}` | [chat.md](chat.md). 빈 줄·200자 초과 → `INVALID_MESSAGE`, 도배 → `RATE_LIMITED`. `chat.message{messageId, playerId, nickname, text, at}`를 본인 포함 전체에 릴레이 |
 | `game.<code>.*` | 게임 모듈로 라우팅 | 방 미참가 → `AUTH_REQUIRED`, 방의 게임과 네임스페이스 불일치·미지원 이벤트 → `INVALID_MESSAGE` |
 
 방향 S→C (방 공통). `roomId` 열은 envelope에 roomId가 실리는지.
@@ -198,7 +198,7 @@ Redis 좌석은 없다 — 실전 클라이언트는 이 경로를 쓰지 않는
 | `AUTH_REQUIRED` | 방 참가 전에 게임 메시지 |
 | `SESSION_EXPIRED` | `room.join`의 토큰 만료/불일치 |
 | `ROOM_NOT_FOUND` | join 대상 방이 Redis에 없음; 야추 `GAME_NOT_FOUND` 매핑 |
-| `NOT_IN_ROOM` | 멤버십 없는 room.*·voice.*·게임 메시지, envelope roomId 불일치 |
+| `NOT_IN_ROOM` | 멤버십 없는 room.*·chat.*·게임 메시지, envelope roomId 불일치 |
 | `GAME_ALREADY_STARTED` | PLAYING 방에 좌석 없는 신규 join |
 | `NOT_YOUR_TURN` | 비활성 플레이어의 dice.throw/roll·중복 제출 |
 | `INVALID_MESSAGE` | 파싱 실패, 필드 누락, 닉네임 불량, 미지원 게임 메시지, 라운드 불일치 등 |

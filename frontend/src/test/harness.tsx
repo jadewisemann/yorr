@@ -7,8 +7,8 @@ import { InAppBrowserGate } from '@/app/InAppBrowserGate'
 import { RealtimeSync } from '@/app/RealtimeSync'
 import { createAppRouter } from '@/app/router'
 import { mockApiServer } from '@/mocks/server'
+import { ChatProvider } from '@/realtime/chat/ChatContext'
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
-import { VoiceProvider } from '@/realtime/voice/VoiceContext'
 import type { RoomSession } from '@/room/api/roomApi'
 import { useAppStore } from '@/store'
 
@@ -40,9 +40,9 @@ export function renderAppHarness(options: AppHarnessOptions = {}) {
   const view = render(
     <InAppBrowserGate>
       <RealtimeSync client={realtimeClient}>
-        <VoiceProvider>
+        <ChatProvider>
           <RouterProvider router={router} />
-        </VoiceProvider>
+        </ChatProvider>
       </RealtimeSync>
     </InAppBrowserGate>,
   )

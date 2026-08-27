@@ -24,7 +24,7 @@ export const WS_CLOSE_POLICY_VIOLATION = 1008
 /**
  * 인바운드 메시지 크기 상한. Java는 서블릿 컨테이너 기본값(Tomcat 텍스트 버퍼 8KB)에
  * 기대고 아무것도 정하지 않았지만, `ws`의 기본값은 100MB라 그대로 두면 소켓 하나가
- * 힙을 먹을 수 있다. 가장 큰 메시지는 `voice.signal`의 SDP(수 KB)이므로 넉넉히 64KB.
+ * 힙을 먹을 수 있다. 지금 가장 큰 메시지는 재접속 스냅샷(수 KB)이므로 넉넉히 64KB.
  * 초과 프레임은 `ws`가 close 1009로 끊는다.
  */
 export const WS_MAX_MESSAGE_BYTES = 64 * 1024
@@ -44,8 +44,9 @@ export type DisconnectReason =
 
 /**
  * `error` 봉투의 code. Java enum 이름이 그대로 와이어 문자열이다.
- * `AUTH_FAILED`·`ROOM_FULL`·`ALREADY_IN_ROOM`·`RATE_LIMITED`는 선언만 있고
- * 전송된 적이 없다(정원은 REST가 판정한다) — 계약 목록이라 그대로 둔다.
+ * `AUTH_FAILED`·`ROOM_FULL`·`ALREADY_IN_ROOM`은 선언만 있고 전송된 적이 없다
+ * (정원은 REST가 판정한다) — 계약 목록이라 그대로 둔다. `RATE_LIMITED`는
+ * 채팅 도배 판정에서 실제로 나간다(docs/design/chat.md).
  */
 export type WsErrorCode =
   | 'AUTH_REQUIRED'
@@ -60,6 +61,12 @@ export type WsErrorCode =
   | 'INVALID_MESSAGE'
   | 'RATE_LIMITED'
   | 'INTERNAL'
+
+/**
+ * `chat.send` 한 줄의 글자 수 상한. 정본은 프론트 `wsEvents.ts`의 `CHAT_TEXT_MAX_LENGTH`다.
+ * 넘으면 자르지 않고 `INVALID_MESSAGE`로 거절한다(docs/design/chat.md).
+ */
+export const CHAT_TEXT_MAX_LENGTH = 200
 
 export const REACTION_TYPES = ['like', 'laugh', 'shock', 'clap', 'gg'] as const
 

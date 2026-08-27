@@ -6,9 +6,11 @@ import type { RoomSnapshot } from '../room/snapshot.js'
 import { SessionAuthenticationError } from '../user/errors.js'
 import type { UserService } from '../user/session.js'
 import type { RoomBroadcaster } from './broadcaster.js'
+import { ChatChannel, chatSendPayloadSchema } from './chat.js'
 import { envelope, type InboundEnvelope, parseInbound } from './envelope.js'
 import type { HeartbeatMonitor } from './heartbeat.js'
 import {
+  CHAT_TEXT_MAX_LENGTH,
   HEARTBEAT_INTERVAL_MS,
   type PlayerStatus,
   REACTION_TYPES,
@@ -21,7 +23,6 @@ import {
 import { type RoomMember, type RoomSessionRegistry, toWsPlayer } from './registry.js'
 import type { RealtimeRoomSnapshotService } from './snapshot.js'
 import { type ClientSocket, isOpen } from './socket.js'
-import { VoiceChannel, voiceSignalPayloadSchema } from './voice.js'
 
 /**
  * 마지막 참가자의 소켓이 끊긴 뒤 **대기실**을 닫기까지의 유예.
@@ -101,16 +102,12 @@ export class GameSocketHandler {
    */
   private readonly moduleless: RoomGameHooks
 
-  /** 음성 명단·시그널 릴레이(docs/design/voice.md). 상태는 레지스트리가 들고 있다. */
-  private readonly voice: VoiceChannel
+  /** 텍스트 채팅 중계(docs/design/chat.md). 서버가 들고 있는 상태는 도배 한도 기록뿐이다. */
+  private readonly chat: ChatChannel
 
   constructor(private readonly deps: GameSocketHandlerDependencies) {
     this.log = deps.logger ?? silentLogger
-    this.voice = new VoiceChannel({
-      registry: deps.registry,
-      broadcaster: deps.broadcaster,
-      send: (socket, message) => this.send(socket, message),
-    })
+    this.chat = new ChatChannel({ broadcaster: deps.broadcaster })
     this.moduleless = {
       pause: async () => {},
       resume: async () => {},
@@ -156,13 +153,9 @@ export class GameSocketHandler {
         return this.handleRoomReady(socket, message)
       case 'reaction.send':
         return this.handleReactionSend(socket, message)
-      // 음성은 방 레벨이라 게임 네임스페이스(game.<code>.*) 접두사가 없다.
-      case 'voice.join':
-        return this.handleVoiceJoin(socket, message)
-      case 'voice.leave':
-        return this.handleVoiceLeave(socket, message)
-      case 'voice.signal':
-        return this.handleVoiceSignal(socket, message)
+      // 채팅은 방 레벨이라 게임 네임스페이스(game.<code>.*) 접두사가 없다.
+      case 'chat.send':
+        return this.handleChatSend(socket, message)
       default:
         return this.handleGameMessage(socket, message)
     }
@@ -171,9 +164,9 @@ export class GameSocketHandler {
   /** 소켓 종료. phase에 따라 "오프라인 전이"와 "명단 이탈"로 갈린다. */
   async closed(socket: ClientSocket): Promise<void> {
     this.deps.heartbeat.untrack(socket)
-    // 음성 명단 정리가 아래 분기보다 **먼저**다 — 레지스트리에서 소켓을 지우면
-    // 누구였는지·어느 방이었는지 알 수 없다(docs/design/voice.md).
-    this.voice.drop(socket)
+    // 도배 한도 기록 정리가 아래 분기보다 **먼저**다 — 레지스트리에서 소켓을 지우면
+    // 소켓만으로는 누구였는지 알 수 없다(docs/design/chat.md).
+    this.forgetChat(socket)
     const member = this.deps.registry.of(socket)
     if (!member) {
       this.deps.broadcaster.unregister(socket)
@@ -380,9 +373,9 @@ export class GameSocketHandler {
    * `DELETE /rooms/{code}/players/me`를 쓰고 이 메시지를 보내지 않는다.
    */
   private async handleRoomLeave(socket: ClientSocket): Promise<void> {
-    // 방을 떠나면 음성 채널에서도 나간다. 아래 두 분기 모두 명단에서 이 소켓을 지우므로
+    // 방을 떠나면 도배 한도 기록도 버린다. 아래 두 분기 모두 명단에서 이 소켓을 지우므로
     // 그 전에 처리해야 누구였는지 알 수 있다.
-    this.voice.drop(socket)
+    this.forgetChat(socket)
     const member = this.deps.registry.of(socket)
     if (member && this.deps.registry.phaseOf(member.roomId) === 'playing') {
       this.deps.broadcaster.unregister(socket) // 본인을 팬아웃에서 뺀 뒤 player_left가 나간다
@@ -460,70 +453,60 @@ export class GameSocketHandler {
     )
   }
 
-  /* ------------------------------------------------------------------- voice.* */
-
-  /** `voice.join` → 명단에 넣고 방 전체에 `voice.peers`. payload는 읽지 않는다. */
-  private handleVoiceJoin(socket: ClientSocket, message: InboundEnvelope): void {
-    const me = this.deps.registry.of(socket)
-    if (!me) {
-      this.sendError(
-        socket,
-        'NOT_IN_ROOM',
-        '방에 입장한 뒤에만 음성 채널에 들어올 수 있습니다.',
-        message,
-      )
-      return
-    }
-    this.voice.join(me)
-  }
-
-  /** `voice.leave` → 명단에서 빼고 `voice.peers`. 방을 나가는 것은 아니다. */
-  private handleVoiceLeave(socket: ClientSocket, message: InboundEnvelope): void {
-    const me = this.deps.registry.of(socket)
-    if (!me) {
-      this.sendError(
-        socket,
-        'NOT_IN_ROOM',
-        '방에 입장한 뒤에만 음성 채널을 떠날 수 있습니다.',
-        message,
-      )
-      return
-    }
-    this.voice.leave(me)
-  }
+  /* -------------------------------------------------------------------- chat.* */
 
   /**
-   * `voice.signal` → 지목된 상대에게만 릴레이. 검사 순서는 Java 그대로다
-   * (payload 검증 → 멤버십) — 방 밖에서 깨진 payload를 보내면 `NOT_IN_ROOM`이 아니라
-   * `INVALID_MESSAGE`가 나간다.
+   * `chat.send` → 방 전원에게 `chat.message`. 거절 사유마다 코드가 갈린다: 빈 줄·길이
+   * 초과는 `INVALID_MESSAGE`, 도배는 `RATE_LIMITED`다 — 사용자가 고칠 방법이 다르므로
+   * (글을 바꾸는 것과 잠시 기다리는 것) 하나로 뭉개지 않는다.
+   *
+   * 검사 순서는 다른 방 레벨 메시지와 같다(payload 검증 → 멤버십) — 방 밖에서 깨진
+   * payload를 보내면 `NOT_IN_ROOM`이 아니라 `INVALID_MESSAGE`가 나간다.
    */
-  private handleVoiceSignal(socket: ClientSocket, message: InboundEnvelope): void {
-    const parsed = voiceSignalPayloadSchema.safeParse(message.payload)
+  private handleChatSend(socket: ClientSocket, message: InboundEnvelope): void {
+    const parsed = chatSendPayloadSchema.safeParse(message.payload)
     if (!parsed.success) {
+      this.sendError(socket, 'INVALID_MESSAGE', 'chat.send payload가 올바르지 않습니다.', message)
+      return
+    }
+    const me = this.deps.registry.of(socket)
+    if (!me) {
+      this.sendError(
+        socket,
+        'NOT_IN_ROOM',
+        '방에 입장한 뒤에만 메시지를 보낼 수 있습니다.',
+        message,
+      )
+      return
+    }
+    const rejection = this.chat.send(me, parsed.data.text)
+    if (rejection === 'empty') {
+      this.sendError(socket, 'INVALID_MESSAGE', '보낼 내용이 필요합니다.', message)
+      return
+    }
+    if (rejection === 'too_long') {
       this.sendError(
         socket,
         'INVALID_MESSAGE',
-        'voice.signal payload가 올바르지 않습니다.',
+        `메시지는 ${CHAT_TEXT_MAX_LENGTH}자까지 보낼 수 있습니다.`,
         message,
       )
       return
     }
-    const to = parsed.data.to ?? ''
-    if (to.trim().length === 0 || parsed.data.data === null || parsed.data.data === undefined) {
-      this.sendError(socket, 'INVALID_MESSAGE', 'voice.signal은 to와 data가 필요합니다.', message)
-      return
-    }
-    const me = this.deps.registry.of(socket)
-    if (!me) {
+    if (rejection === 'rate_limited') {
       this.sendError(
         socket,
-        'NOT_IN_ROOM',
-        '방에 입장한 뒤에만 시그널을 보낼 수 있습니다.',
+        'RATE_LIMITED',
+        '메시지를 너무 빠르게 보내고 있습니다. 잠시 후 다시 시도해 주세요.',
         message,
       )
-      return
     }
-    this.voice.signal(me, to, parsed.data.data)
+  }
+
+  /** 이 소켓의 사람이 누구였는지 아는 동안 도배 한도 기록을 버린다. */
+  private forgetChat(socket: ClientSocket): void {
+    const member = this.deps.registry.of(socket)
+    if (member) this.chat.forget(member.playerId)
   }
 
   /**

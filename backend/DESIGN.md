@@ -56,8 +56,7 @@
 Mobile / Desktop Browser
         │
         ├── REST /api/v1/**   ── 방·계정·조회·퀵매치·랭킹 (상태 변경 경로)
-        ├── WS   /ws/v1/game  ── 인증·구독·브로드캐스트·게임 진행·음성 시그널링
-        └── WebRTC voice      ── P2P 풀 메시 (시그널 릴레이만 WS, TURN 자격은 REST)
+        └── WS   /ws/v1/game  ── 인증·구독·브로드캐스트·게임 진행·텍스트 채팅
                   │
                   ▼
           Node.js Backend (이 저장소)   ←  GET /actuator/health · /actuator/prometheus
@@ -95,7 +94,7 @@ Mobile / Desktop Browser
 | 탁구 | [docs/design/games/pingpong.md](docs/design/games/pingpong.md) | 랠리 시뮬레이션, 지연 보상, AI 결과 |
 | 재접속 | [docs/design/reconnect.md](docs/design/reconnect.md) | 스냅샷 동기화 불변식, 소켓 교체, 오프라인 처리 |
 | 인증·계정 | [docs/design/auth.md](docs/design/auth.md) | 세션 모델, 소셜 로그인(OAuth), 프로필 |
-| 음성 채팅 | [docs/design/voice.md](docs/design/voice.md) | 시그널 릴레이, voice.peers, ICE/TURN |
+| 텍스트 채팅 | [docs/design/chat.md](docs/design/chat.md) | chat.send 중계, 거절 코드 분기, 도배 한도 |
 | 영속성 | [docs/design/persistence.md](docs/design/persistence.md) | Redis/MySQL 분리, 스키마, 전적 보관, 주간 랭킹 |
 | 운영 | [docs/design/operations.md](docs/design/operations.md) | 환경변수, 모니터링, 배포 파이프라인 계약 |
 
@@ -109,7 +108,7 @@ Mobile / Desktop Browser
 |---|---|---|
 | `config/` | 환경변수 로딩·검증 (`env.ts`) | `application.yaml`, `@ConfigurationProperties` |
 | `http/` | REST 라우트. Fastify 핸들러는 얇게, 로직은 도메인 서비스로 | `*Controller` |
-| `ws/` | WebSocket 게이트웨이 — envelope, 하트비트, 구독 레지스트리, 브로드캐스터, 음성 릴레이 | `handler/`, `ws/` |
+| `ws/` | WebSocket 게이트웨이 — envelope, 하트비트, 구독 레지스트리, 브로드캐스터, 채팅 중계 | `handler/`, `ws/` |
 | `room/` | 방 도메인 — Redis 키·Lua, 방 서비스, 퀵매치, 봇, 방 폐쇄 스케줄러 | `room/` |
 | `user/` | 세션·게스트·프로필 | `user/` |
 | `auth/` | 소셜 로그인(OAuth), 로그인 코드·state 스토어 | `auth/` |

@@ -11,7 +11,7 @@ Spring Boot 백엔드(`../backend-java/`)를 Node.js + TypeScript로 마이그�
 | [PLANS.md](PLANS.md) | 마이그레이션 단계·상태 표·워크플로우 |
 | [AGENTS.md](AGENTS.md) | 에이전트·개발자 작업 프로토콜 (Understand → Implement → Reconcile) |
 | [IMPLEMENTATION_NOTES.md](IMPLEMENTATION_NOTES.md) | 작업 중 발견 기록 (working memory) |
-| `docs/design/` | 하위 시스템 설계 (realtime · rooms · game-modules · games/{yacht,duel,pingpong} · reconnect · auth · voice · persistence · operations) |
+| `docs/design/` | 하위 시스템 설계 (realtime · rooms · game-modules · games/{yacht,duel,pingpong} · reconnect · auth · chat · persistence · operations) |
 | `docs/adr/` | 아키텍처 결정 기록 (왜 이렇게 했는가) |
 
 ## 기술 스택

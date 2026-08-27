@@ -1,0 +1,65 @@
+# 텍스트 채팅 — 방 대화
+
+> SSOT: [`../../src/realtime/chat/`](../../src/realtime/chat/)와 `wsEvents.ts`의
+> `chat.*` 계약. 서버 쪽 계약 문서는
+> [backend/docs/design/chat.md](../../../backend/docs/design/chat.md).
+>
+> 이 자리에는 WebRTC 음성 채팅(`voice.*` 풀메시 · `GET /voice/ice`)이 있었다.
+> 교체 배경과 잃은 것은 [PLANS.md](../../PLANS.md) 「음성 채팅 → 텍스트 채팅」 절.
+
+## 파일 지도
+
+| 파일 | 책임 |
+|---|---|
+| `useRoomChat.ts` | `chat.message` 수집·중복 제거·안 읽은 수 계산, `chat.send` 전송 |
+| `ChatContext.tsx` | 라우터 위 provider(`ChatProvider`)와 `useChat()` |
+| `ChatDialog.tsx` | 대화 창(좁은 화면 바텀시트 / 넓은 화면 팝오버) + 여는 버튼 보조 요소 |
+
+## 구조 결정
+
+- **서버는 중계만 한다.** 저장도, 지난 대화 재전송도 없다. 늦게 들어온 사람은 들어온
+  뒤의 말만 본다. 방이 게임 한 판만 사는 수명이라 서버에 이력을 두면 방 TTL·재접속
+  스냅샷·정원 계산이 모두 늘어난다.
+- **대화는 전역 store에 두지 않는다.** 서버 권위 상태가 아니라 방에 머무는 동안의
+  로컬 기록이다(DESIGN.md 원칙 3의 ② 로컬 UI 상태). 그래서 `roomSnapshot` 옆이 아니라
+  provider 안에 있고, 방이 바뀌면 버린다.
+- **`ChatProvider`는 라우터 위**(`App.tsx`, `RealtimeSync` 안)에 있다. 화면마다 훅을
+  부르면 대기실 → 게임으로 넘어갈 때 그 화면의 훅이 언마운트되며 대화가 통째로
+  사라진다 — 방은 그대로인데 기록만 없어진다. 음성 provider가 같은 자리에 있던 이유와
+  같다.
+- **`useChat()`은 provider 밖에서 던지지 않고 `NO_CHAT`으로 강등한다.**
+  (`useRealtimeClient`는 던진다 — 그건 없으면 앱이 아예 안 돌아가고, 대화는 없어도
+  게임이 돌아가므로 심각도가 다르다.)
+- **여는 버튼은 화면이 각자 그린다.** 대기실은 `Button variant="secondary"`, 게임
+  헤더는 `HeaderButton`으로 생김새가 다르다. 창(`ChatDialog`)만 공유하고 트리거를
+  넘기지 않는 것이 `AudioPopover`와 같은 갈래다.
+
+## 불변식
+
+- **같은 `messageId`는 한 줄이다.** 중복 배달·재전송에서 같은 말이 두 줄로 쌓이지
+  않게 `useRoomChat`이 걸러낸다.
+- **화면에 남기는 것은 최근 `CHAT_HISTORY_LIMIT`(50)줄.** 긴 판에서 리스트가 계속
+  자라 스크롤 컨테이너가 느려지는 것을 막는다.
+- **안 읽은 수의 기준선은 인덱스가 아니라 「남이 보낸 말의 누적 개수」다.** 인덱스로
+  두면 50줄을 넘어 앞줄이 잘려 나갈 때 기준선이 함께 밀려서, 읽지 않은 말이 읽음으로
+  바뀐다. 내가 보낸 말은 세지 않는다.
+- **방이 바뀌면 렌더 중에 기록을 버린다**(effect가 아니다). effect로 지우면 새 방의
+  첫 프레임에 옛 방의 대화가 한 번 그려진다.
+- **보낸 말도 서버 방송으로 되받아 그린다.** 낙관적으로 먼저 그리면 목록이 두 벌이
+  되고, `messageId`·`at`이 서버 값이어야 모두가 같은 줄을 같은 순서로 본다.
+
+## 거절 처리
+
+앞뒤 공백을 다듬은 뒤 빈 문자열이거나 `CHAT_TEXT_MAX_LENGTH`(200자)를 넘으면
+**보내지 않는다** — 서버가 거절할 요청을 만들지 않고, 입력칸의 `maxLength`가 넘길
+방법을 먼저 막는다. 도배 한도(`RATE_LIMITED`)는 서버만 판정하고, 프론트는 그 `error`
+봉투를 다른 오류와 같은 경로로 흘린다.
+
+끊긴 소켓에 보내려다 `send`가 던지는 것은 조용히 넘긴다 — 재연결한 뒤 다시 입력하면
+되고, 연결 상태는 이미 `ConnectionBanner`가 말하고 있다.
+
+## mock 백엔드
+
+`mocks/realtimeScenarios.ts`가 `chat.send`를 받아 `chat.message`로 **되돌려 준다**.
+서버가 하는 일이 중계뿐이라 에코가 곧 실제 흐름이고, 이것이 없으면 fake client의
+strict 모드가 던져 mock으로 도는 화면에서 채팅이 아무 반응 없이 사라진다.

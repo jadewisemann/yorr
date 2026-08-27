@@ -6,7 +6,7 @@
 > 나머지 주석은 지웠고 git 이력에 남아 있다 — `git log -p <파일>` 로 언제든 되찾는다.
 > 자동 추출이라 문장이 끊긴 곳이 있다. 원문이 필요하면 이력을 본다.
 
-총 85건 / 55파일
+총 77건 / 51파일
 
 ### `src/app/dev/HandVoiceLab.tsx`
 
@@ -127,35 +127,7 @@
 ### `src/realtime/peerInput.ts`
 
 - **}**
-  // 스윙 하나를 못 보낸 것뿐이다. 다시 휘두르면 된다 — 재전송 큐를 둘 만한 값이 아니다. // (같은 이유로 useVoiceChat의 sendSignal도 조용히 버린다.)
-
-### `src/realtime/voice/iceServers.ts`
-
-- **export async function loadIceServers(): Promise<RTCIceServer[]> {**
-  * TURN 자격증명을 받아온다. 실패하면 통화를 막지 않고 STUN만으로 진행한다. * * 주소는 반드시 `API_BASE_URL`로 만든다. `/api/v1/...`을 직접 쓰면 Vercel 배포본에서 * rewrite에 걸려 index.html이 200으로 돌아오고, json() 파싱 실패가 조용히 fallback으로 * 떨어져 TURN이 영원히 안 붙는다(같은 NAT 밖 조합은 "연결 중"에서 멈춘다). * * `credentials`를 붙이지 않는다. 이 엔드포인트는 쿠키를 보지 않고(식별자는 선택적 * `X-User-Id` 헤더), 백엔드 CORS는 `allowCredentials(false)`에 `Access-Control-Allow-Origin: *`이다. * `include`를 붙이면 브라우저가 그 조합을 거부해 배포본에서 응답이 통째로 버려진다 — * 다른 REST 호출(`apiRequest`)도 credentials를 쓰지 않는다. * * ⚠️ 자격증명에 수명이 있으므로 결과를 앱 수명 내내 캐시하면 안 된다. 통화를 시작할 때마다 *    부른다 — 6인 방에서 한 번씩이라 호출량이 문제 되는 규모가 아니다.
-
-### `src/realtime/voice/useVoiceChat.ts`
-
-- **setMutedPeers(new Set())**
-  // 통화를 끄면 mesh와 함께 사라지므로 화면 상태도 비운다 — 다음 통화에 남아 있으면 // 껐던 기억이 없는 사람의 소리가 조용히 안 들린다.
-
-### `src/realtime/voice/voiceMesh.ts`
-
-- **/****
-  * WebRTC 풀메시 한 벌. React를 모른다 — 훅(useVoiceChat)이 이걸 감싸고 화면에 상태를 흘린다. * * 왜 라이브러리를 안 쓰는가: simple-peer·peerjs는 이 파일이 하는 일을 대신하지만, 아래 * "누가 offer를 만드는가"와 "후보 큐"를 감춘다. 6인 메시에서 필요한 건 그 두 규칙이 전부고, * 감춰지면 문제가 생겼을 때 라이브러리 내부를 읽어야 한다. * * ── 규칙 1: offer는 playerId가 작은 쪽만 만든다 *   양쪽이 동시에 offer를 보내면 협상이 깨진다(glare). 계약(wsEvents.ts)에 적힌 대로 *   문자열 비교로 한쪽만 offer를 만들면 perfect negotiation의 복잡한 롤백이 필요 없다. * * ── 규칙 2: remote description 전에 온 ICE 후보는 큐에 쌓는다 *   addIceCandidate는 remote description이 없으면 던진다. 그런데 상대의 후보는 offer/answer *   보다 먼저 도착할 수 있다(별개 메시지라 순서 보장이 없다). 큐가 없으면 통화가 간헐적으로 *   안 붙고, 재현이 어려운 쪽으로 실패한다. * * ── 규칙 3: failed면 스스로 다시 협상한다 *   명단(voice.peers)은 사람이 들락날락할 때만 온다. 죽은 연결을 버리고 기다리기만 하면 *   명단이 다시 오지 않는 방에서는 영구히 "연결 중"이다. 폰은 화면 잠금·WiFi↔LTE 전환에서 *   실제로 여기 걸린다.
-- **if (data.kind === 'input') return**
-  // 같은 봉투(voice.signal)로 폰 컨트롤러의 조작도 온다 — 통화와 무관하니 여기서 끊는다. // addPeer보다 먼저 걸러야 한다: 스윙 하나 때문에 RTCPeerConnection이 생기면 안 된다.
-- **audio.muted = this.mutedPeers.has(id)**
-  // 껐던 상대가 재접속하면 연결이 새로 만들어진다 — 그때 소리가 다시 나면 안 된다.
-- **void audio.play().catch(() => undefined)**
-  // 자동재생 차단은 조용히 실패한다 — 마이크 권한을 이미 받은 컨텍스트라 보통 통과한다.
-
-### `src/realtime/wsEvents.ts`
-
-- **/** C→S: 음성 채널 입장. roomId는 envelope. room.join을 마친 뒤에만 유효하다(아니면 NOT_IN_ROOM). */**
-  ===== VOICE-001 · WebRTC 음성 시그널링 (130 · 이정현) ✅ ===== * *  풀메시(full mesh)다. 오디오는 피어끼리 **직접** 흐르고, 서버는 "서로를 찾는 정보"만 *  중계한다 — 미디어 서버(SFU)를 두지 않는다. 방 정원이 6명이라 피어당 연결 4~5개, *  업링크 Opus 30kbps × 5 ≈ 150kbps로 감당되는 구간이다. 정원이 늘면 이 선택을 다시 봐야 *  한다(인코딩을 N번 돌리는 비용이 모바일에서 배터리·발열로 먼저 나타난다). * *  서버가 하는 일은 딱 두 가지다. *    1. 음성 채널 명단 관리 — 누가 들어오고 나갔는지 방에 알린다(voice.peers). *    2. voice.signal을 **내용을 열지 않고** 지목된 상대에게 그대로 전달한다. *  SDP·ICE를 서버가 파싱하면 안 된다. 파싱하는 순간 브라우저가 규격을 늘릴 때마다 *  서버를 같이 고쳐야 한다 — 봉투만 보고 배달하면 그 일이 사라진다. * *  offer 충돌(glare) 방지: 두 피어가 동시에 offer를 보내면 협상이 깨진다. **playerId를 *  문자열로 비교해 작은 쪽이 offer를 만든다.** 양쪽 FE가 같은 규칙을 쓰기만 하면 되므로 *  서버는 관여하지 않지만, 규칙이 갈리면 연결이 안 되므로 계약에 적어 둔다. * *  ICE/TURN은 이 계약에 없다 — REST(`GET /api/v1/voice/ice`)가 담당한다. 자격증명이 시간제한 *  토큰이라 방 전체에 브로드캐스트하면 안 되기 때문이다. FE에서 그 자리는 *  `realtime/voice/iceServers.ts` 한 곳이고, 엔드포인트가 없으면 공용 STUN으로 떨어진다. * *  ─ 결정된 사항 (2026-08 · 이 계약은 아래를 전제로 한다) *    · 정원 6인 확정 → 풀메시 유지. 늘리려면 위 업링크 계산부터 다시 본다. *    · 음소거는 상대에게 보이지 않는다 → voice.mute도 muted 플래그도 두지 않는다. *      트랙만 끄므로 남에게는 "말 안 하는 중"으로 보이고, 그걸로 충분하다는 판단이다. *    · TURN 도입 확정(싸피 서버 UDP 개방 확인) → 자격증명은 시간제한 토큰이라 *      `GET /api/v1/voice/ice`로 발급한다. 방 전체에 방송하면 안 되므로 이 계약에는 없다. *    · "누가 말하는 중"은 각 클라가 수신기의 audioLevel을 직접 읽어 그린다 *      (getSynchronizationSources) — 서버로 올리면 말할 때마다 메시지가 나가고 표시도 늦다. *      그래서 계약에 관련 이벤트가 없다.
-- **export interface VoiceSignalPayload {**
-  * C→S: 지목한 상대에게 시그널을 전달해 달라고 요청한다. from은 서버가 채운다(클라가 주장하는 * 신분을 믿으면 남을 사칭할 수 있다). 상대가 이미 음성 채널을 떠났으면 서버는 조용히 버린다 — * 협상 중 이탈은 정상 상황이라 에러로 만들 이유가 없다. * * ⚠️ ICE 후보는 다른 메시지보다 훨씬 잦다(연결 수립 순간에 몰린다). RATE_LIMITED를 *    room.ready 같은 기준으로 걸면 통화가 안 붙는다 — 이 타입은 한도를 따로 잡아야 한다.
+  // 스윙 하나를 못 보낸 것뿐이다. 다시 휘두르면 된다 — 재전송 큐를 둘 만한 값이 아니다. // (같은 이유로 채팅의 chat.send도 던지면 조용히 버린다.)
 
 ### `src/room/api/roomApi.ts`
 

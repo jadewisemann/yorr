@@ -1,4 +1,5 @@
-import { useVoice } from '@/realtime/voice/VoiceContext'
+import { useChat } from '@/realtime/chat/ChatContext'
+import { ChatDialog, ChatUnreadBadge, chatLabel } from '@/realtime/chat/ChatDialog'
 import {
   ControllerConnectSequence,
   controllerHowTo,
@@ -14,7 +15,9 @@ import { cn } from '@/shared/cn'
 import { AudioPopover } from '@/shared/components/AudioPopover'
 import { AudioStatusIcon, audioLabel } from '@/shared/components/AudioStatusIcon'
 import { Button } from '@/shared/components/Button'
+import { IconChat } from '@/shared/components/Icon'
 import { LoadingOverlay } from '@/shared/components/LoadingOverlay'
+import { useWideLayout } from '@/shared/useWideLayout'
 import { RoomExitGuard } from './RoomExitGuard'
 
 interface LobbyPageProps {
@@ -25,11 +28,11 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
   const room = useLobbyRoom(roomId)
   const chrome = useLobbyChrome()
   const actions = useLobbyActions(room)
-  const voice = useVoice()
+  const chat = useChat()
+  const wide = useWideLayout()
 
   const { connectionStatus, session, snapshot } = room
   const HowTo = controllerHowTo[room.gameCode]
-  const micOn = voice.status === 'on'
 
   if (!session) return null
 
@@ -38,21 +41,18 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
       <RoomExitGuard onClose={chrome.cancelExit} open={chrome.exitRequested} roomId={roomId} />
       <AudioPopover
         anchorRef={chrome.audio.buttonRef}
-        microphone={
-          voice.status === 'unsupported'
-            ? undefined
-            : {
-                connectedPeers: voice.peers.length,
-                denied: voice.status === 'denied',
-                on: micOn,
-                onToggle: voice.toggle,
-                requesting: voice.status === 'requesting',
-              }
-        }
         muted={chrome.soundMuted}
         onClose={chrome.audio.close}
         onToggleMute={chrome.toggleMute}
         open={chrome.audio.open}
+      />
+      <ChatDialog
+        anchorRef={chrome.chat.buttonRef}
+        chat={chat}
+        layout={wide ? 'wide' : 'narrow'}
+        onClose={chrome.chat.close}
+        open={chrome.chat.open}
+        you={session.you}
       />
       <InvitePopover
         anchorRef={chrome.invite.buttonRef}
@@ -86,18 +86,25 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
             </p>
           </div>
           <Button
-            aria-label={audioLabel({
-              micOn,
-              muted: chrome.soundMuted,
-              peerCount: voice.peers.length,
-            })}
-            className={cn('flex-none px-3 text-base', micOn && 'border-brand')}
+            aria-label={chatLabel(chat.unread)}
+            className={cn('relative flex-none px-3 text-base', chat.unread > 0 && 'border-brand')}
+            onClick={chrome.chat.show}
+            ref={chrome.chat.buttonRef}
+            type="button"
+            variant="secondary"
+          >
+            <IconChat className="size-4.5" />
+            <ChatUnreadBadge count={chat.unread} />
+          </Button>
+          <Button
+            aria-label={audioLabel({ muted: chrome.soundMuted })}
+            className="flex-none px-3 text-base"
             onClick={chrome.audio.show}
             ref={chrome.audio.buttonRef}
             type="button"
             variant="secondary"
           >
-            <AudioStatusIcon micOn={micOn} muted={chrome.soundMuted} />
+            <AudioStatusIcon muted={chrome.soundMuted} />
           </Button>
           <Button
             className="flex-none px-3.5 text-sm"
@@ -161,7 +168,6 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
           onRemoveBot={actions.removeBot}
           onStart={() => void actions.start()}
           snapshot={snapshot}
-          voice={voice}
           startError={actions.startError}
           startLoading={actions.startLoading}
           you={session.you}

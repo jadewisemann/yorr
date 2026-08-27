@@ -3,35 +3,18 @@ import { type AudioLevels, audioLevels, setAudioLevel } from '@/shared/audio/aud
 import { applyMusicLevel } from '@/shared/audio/soundtrack'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
-import { IconMic, IconMusic, IconSound } from '@/shared/components/Icon'
+import { IconMusic, IconSound } from '@/shared/components/Icon'
 import { Popover, PopoverHeader } from '@/shared/components/Popover'
-import { Panel } from './Panel'
 
 interface AudioPopoverProps {
   anchorRef?: RefObject<HTMLElement | null> | undefined
   onClose: () => void
   onToggleMute: () => void
   open: boolean
-  microphone?:
-    | {
-        connectedPeers: number
-        onToggle: () => void
-        on: boolean
-        requesting: boolean
-        denied: boolean
-      }
-    | undefined
   muted: boolean
 }
 
-export function AudioPopover({
-  anchorRef,
-  microphone,
-  muted,
-  onClose,
-  onToggleMute,
-  open,
-}: AudioPopoverProps) {
+export function AudioPopover({ anchorRef, muted, onClose, onToggleMute, open }: AudioPopoverProps) {
   const [levels, setLevels] = useState<AudioLevels>(audioLevels)
 
   const change = (kind: keyof AudioLevels, value: number) => {
@@ -53,37 +36,6 @@ export function AudioPopover({
       </Button>
 
       <div className="mt-5 grid gap-4">
-        {microphone && (
-          <Panel as="section" className="grid gap-2 p-3.5" surface="raised">
-            <div className="flex items-center gap-2">
-              <IconMic className="size-4.5 flex-none text-content-muted" />
-              <span className="text-sm font-semibold">마이크</span>
-              <span className="ml-auto text-xs text-content-muted tabular-nums">
-                {microphoneStatusLabel(microphone)}
-              </span>
-            </div>
-            <Button
-              className="w-full justify-center"
-              disabled={microphone.requesting}
-              loading={microphone.requesting}
-              onClick={microphone.onToggle}
-              variant={microphone.on ? 'danger' : 'primary'}
-            >
-              {microphone.on ? '음성 채팅 끄기' : '음성 채팅 켜기'}
-            </Button>
-            {microphone.denied && (
-              <p className="m-0 text-xs text-warning">
-                브라우저가 마이크를 막았어요. 주소창의 권한 설정에서 허용한 뒤 다시 눌러 주세요.
-              </p>
-            )}
-            {microphone.on && (
-              <p className="m-0 text-xs text-content-faint">
-                특정 사람 목소리만 끄려면 참가자 이름 옆 마이크를 누르세요.
-              </p>
-            )}
-          </Panel>
-        )}
-
         <LevelSlider
           icon={<IconMusic className="size-4.5 flex-none text-content-muted" />}
           label="배경음"
@@ -102,13 +54,6 @@ export function AudioPopover({
       </div>
     </Popover>
   )
-}
-
-function microphoneStatusLabel(microphone: NonNullable<AudioPopoverProps['microphone']>) {
-  if (microphone.requesting) return '권한 요청 중'
-  if (microphone.denied) return '권한 거부됨'
-  if (!microphone.on) return '꺼짐'
-  return microphone.connectedPeers > 0 ? `${microphone.connectedPeers}명 연결됨` : '연결 대기 중'
 }
 
 function LevelSlider({

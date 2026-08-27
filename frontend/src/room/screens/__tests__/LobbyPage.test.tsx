@@ -26,13 +26,28 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   useBlocker: () => ({ status: 'idle' }),
 }))
 
+/**
+ * `matches`만 있는 반쪽 스텁으로는 `useMediaQuery`가 change 리스너를 달다가 깨진다 —
+ * 대기실 화면도 미디어 질의를 구독하므로(채팅 창 레이아웃) 리스너 두 개를 함께 준다.
+ */
+function stubMatchMedia(matches: boolean) {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockReturnValue({
+      matches,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  )
+}
+
 describe('LobbyPage', () => {
   beforeEach(() => {
     navigate.mockReset()
     clearMockRoomSnapshot()
     prefetchPhysicsDiceWorld.mockReset()
     clearMockRoomSnapshot()
-    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
+    stubMatchMedia(false)
     vi.stubGlobal(
       'requestIdleCallback',
       vi.fn((callback: IdleRequestCallback) => {
@@ -71,7 +86,7 @@ describe('LobbyPage', () => {
   })
 
   it('모션 감소 설정에서는 물리 주사위 모듈을 미리 받지 않는다', () => {
-    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    stubMatchMedia(true)
 
     render(<LobbyPage roomId={creatorSession.roomId} />)
 

@@ -244,29 +244,43 @@ export interface PresenceUpdatePayload {
   status: PlayerStatus
 }
 
-export type VoiceJoinPayload = Record<string, never> // 빈 payload
-export type VoiceLeavePayload = Record<string, never> // 빈 payload
-export interface VoicePeersPayload {
-  peers: PlayerId[]
-}
-export type VoiceSignalData =
-  | { kind: 'description'; description: RTCSessionDescriptionInit }
-  | { kind: 'candidate'; candidate: RTCIceCandidateInit }
 /**
- * C→S: 지목한 상대에게 시그널을 전달해 달라고 요청한다. from은 서버가 채운다(클라가 주장하는
- * 신분을 믿으면 남을 사칭할 수 있다). 상대가 이미 음성 채널을 떠났으면 서버는 조용히 버린다 —
- * 협상 중 이탈은 정상 상황이라 에러로 만들 이유가 없다.
+ * 텍스트 채팅 — 방 레벨이라 게임 네임스페이스 접두사가 없다(리액션과 같은 층).
  *
- * ⚠️ ICE 후보는 다른 메시지보다 훨씬 잦다(연결 수립 순간에 몰린다). RATE_LIMITED를
- *    room.ready 같은 기준으로 걸면 통화가 안 붙는다 — 이 타입은 한도를 따로 잡아야 한다.
+ * 서버가 중계만 하는 것이 계약이다: 저장하지 않고, 지난 대화를 다시 내려주지 않는다.
+ * 그래서 늦게 들어온 사람에게는 들어온 뒤의 말만 보인다 — 방이 게임 한 판 동안만
+ * 사는 수명이라 서버에 이력을 두면 방 TTL·재접속 스냅샷·정원 계산이 모두 늘어난다.
  */
-export interface VoiceSignalPayload {
-  to: PlayerId
-  data: VoiceSignalData
+export const CHAT_TEXT_MAX_LENGTH = 200
+
+/**
+ * C→S: 방 전체에 보낼 한 줄. 서버는 앞뒤 공백을 다듬고 빈 문자열을 거절하며,
+ * `CHAT_TEXT_MAX_LENGTH`를 넘으면 `INVALID_MESSAGE`다(자르지 않는다 — 잘린 말이
+ * 나가면 보낸 사람은 자기가 무엇을 보냈는지 모른다).
+ *
+ * 도배는 `RATE_LIMITED`로 막는다. 리액션과 달리 채팅은 글자가 화면에 쌓이므로
+ * 한도가 없으면 한 명이 대화를 덮어 버린다.
+ */
+export interface ChatSendPayload {
+  text: string
 }
-export interface VoiceSignaledPayload {
-  from: PlayerId
-  data: VoiceSignalData
+
+/**
+ * S→C: 중계된 한 줄. `playerId`·`nickname`·`at`은 모두 **서버가 채운다** — 클라이언트가
+ * 주장하는 신분을 믿으면 남을 사칭할 수 있다(`reaction.broadcast`의 `playerId`와 같은 이유).
+ *
+ * `nickname`을 함께 싣는 이유: 보낸 사람이 방을 떠난 뒤에도 그 말은 화면에 남아야
+ * 하는데, 명단에서 지워진 playerId로는 이름을 찾을 수 없다.
+ *
+ * `messageId`는 서버가 만드는 방 안에서 유일한 값이다. 재전송·중복 배달에서 같은 말이
+ * 두 줄로 쌓이지 않게 하는 열쇠다.
+ */
+export interface ChatMessagePayload {
+  messageId: string
+  playerId: PlayerId
+  nickname: string
+  text: string
+  at: number
 }
 
 export interface RoundStartPayload {
@@ -366,9 +380,7 @@ export type ClientMessage =
   | WsEnvelope<'room.leave', RoomLeavePayload>
   | WsEnvelope<'room.ready', RoomReadyPayload>
   | WsEnvelope<'reaction.send', ReactionSendPayload>
-  | WsEnvelope<'voice.join', VoiceJoinPayload>
-  | WsEnvelope<'voice.leave', VoiceLeavePayload>
-  | WsEnvelope<'voice.signal', VoiceSignalPayload>
+  | WsEnvelope<'chat.send', ChatSendPayload>
   | WsEnvelope<'game.yacht_dice.dice.roll', DiceRollPayload>
   | WsEnvelope<'game.yacht_dice.dice.hold', DiceHoldPayload>
   | WsEnvelope<'game.yacht_dice.dice.shake', DiceShakePayload>
@@ -394,8 +406,7 @@ export type ServerMessage =
   | WsEnvelope<'game.ping_pong.state.sync', StateSyncPayload>
   | WsEnvelope<'game.duel.state.sync', StateSyncPayload>
   | WsEnvelope<'presence.update', PresenceUpdatePayload>
-  | WsEnvelope<'voice.peers', VoicePeersPayload>
-  | WsEnvelope<'voice.signaled', VoiceSignaledPayload>
+  | WsEnvelope<'chat.message', ChatMessagePayload>
   | WsEnvelope<'error', ErrorPayload>
   | WsEnvelope<'game.yacht_dice.round.start', RoundStartPayload>
   | WsEnvelope<'game.yacht_dice.round.end', RoundEndPayload>

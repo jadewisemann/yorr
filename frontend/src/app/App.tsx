@@ -2,8 +2,8 @@ import { RouterProvider } from '@tanstack/react-router'
 import { useAuthSessionCheck } from '@/auth/model/useAuthSessionCheck'
 import { resolveMswMode } from '@/mocks/mswMode'
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
+import { ChatProvider } from '@/realtime/chat/ChatContext'
 import { WebSocketRealtimeClient } from '@/realtime/realtimeClient'
-import { VoiceProvider } from '@/realtime/voice/VoiceContext'
 import { InAppBrowserGate } from './InAppBrowserGate'
 import { useThemeSync } from './model/useThemeSync'
 import { RealtimeSync } from './RealtimeSync'
@@ -19,9 +19,9 @@ export function App() {
   return (
     <InAppBrowserGate>
       <RealtimeSync client={realtimeClient}>
-        <VoiceProvider>
+        <ChatProvider>
           <RouterProvider router={router} />
-        </VoiceProvider>
+        </ChatProvider>
       </RealtimeSync>
     </InAppBrowserGate>
   )

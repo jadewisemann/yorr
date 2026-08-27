@@ -1,6 +1,7 @@
+import { ChatUnreadBadge, chatLabel } from '@/realtime/chat/ChatDialog'
 import { cn } from '@/shared/cn'
 import { AudioStatusIcon, audioLabel } from '@/shared/components/AudioStatusIcon'
-import { IconClose, IconHelp } from '@/shared/components/Icon'
+import { IconChat, IconClose, IconHelp } from '@/shared/components/Icon'
 import {
   ConnectionIndicator,
   HeaderButton,
@@ -15,32 +16,36 @@ export function GamePlayHeader({
   activePlayer,
   activePlayerId,
   audioButtonRef,
+  chatButtonRef,
+  chatUnread,
   connectionStatus,
   isMyTurn,
   leaderLabel,
   onHelp,
   onLeave,
   onOpenAudio,
+  onOpenChat,
   remainingMs,
   roundNumber,
   soundMuted,
   submitted,
-  voice,
   wide,
 }: GamePlayHeaderProps) {
-  const micOn = voice.status === 'on'
   const controls = (
     <>
       <HeaderButton label="게임 도움말" onClick={onHelp}>
         <IconHelp className="size-4.5" />
       </HeaderButton>
+      <HeaderButton label={chatLabel(chatUnread)} onClick={onOpenChat} ref={chatButtonRef}>
+        <IconChat className="size-4.5" />
+        <ChatUnreadBadge count={chatUnread} />
+      </HeaderButton>
       <HeaderButton
-        label={audioLabel({ micOn, muted: soundMuted, peerCount: voice.peers.length })}
+        label={audioLabel({ muted: soundMuted })}
         onClick={onOpenAudio}
-        pressed={micOn}
         ref={audioButtonRef}
       >
-        <AudioStatusIcon micOn={micOn} muted={soundMuted} />
+        <AudioStatusIcon muted={soundMuted} />
       </HeaderButton>
       {remainingMs !== null && (
         <RoundTimer

@@ -1,5 +1,3 @@
-import { PeerMicButton } from '@/realtime/voice/PeerMicButton'
-import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
 import type { PlayerId, PlayerStatus } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
 import { Badge } from '@/shared/components/Badge'
@@ -15,11 +13,10 @@ interface TurnStripProps {
   players: TurnStripPlayer[]
   activePlayerId: PlayerId | undefined
   className?: string
-  voice?: VoiceChat
   you: PlayerId
 }
 
-export function TurnStrip({ players, activePlayerId, className, voice, you }: TurnStripProps) {
+export function TurnStrip({ players, activePlayerId, className, you }: TurnStripProps) {
   return (
     <ol
       aria-label="턴 순서"
@@ -31,7 +28,6 @@ export function TurnStrip({ players, activePlayerId, className, voice, you }: Tu
       {players.map((player) => {
         const active = player.playerId === activePlayerId
         const mine = player.playerId === you
-        const talking = voice?.speaking.has(player.playerId) ?? false
         return (
           <li className="min-w-[5.25rem] flex-1" key={player.playerId}>
             <span
@@ -42,7 +38,6 @@ export function TurnStrip({ players, activePlayerId, className, voice, you }: Tu
                   ? // 턴이 넘어오는 순간 카드가 한 번 튀어 "전환됐다"를 알린다(QA FND-7).
                     'border-brand bg-brand/12 shadow-[0_0_0_3px_rgb(229_57_53_/_16%)] motion-safe:animate-turn-pop'
                   : 'border-border bg-surface-raised',
-                talking && 'outline-2 outline-positive outline-offset-1',
               )}
             >
               <span className="flex min-w-0 items-center gap-1.5">
@@ -66,9 +61,6 @@ export function TurnStrip({ players, activePlayerId, className, voice, you }: Tu
                   <Badge className="flex-none px-1.5 text-2xs/none" tone="warning">
                     연결 끊김
                   </Badge>
-                )}
-                {voice && (
-                  <PeerMicButton className="ml-auto" playerId={player.playerId} voice={voice} />
                 )}
               </span>
               <span
