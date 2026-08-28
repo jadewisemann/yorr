@@ -45,7 +45,7 @@
 
 프론트가 로비까지 실제로 동작하는 최소 서버. 근거 문서:
 [rooms-and-sessions.md](docs/design/rooms-and-sessions.md) ·
-[realtime.md](docs/design/realtime.md) · [voice.md](docs/design/voice.md).
+[realtime.md](docs/design/realtime.md) · [chat.md](docs/design/chat.md).
 
 | # | 티켓 | Java 참조 | 이식할 테스트 |
 |---|---|---|---|
@@ -55,10 +55,10 @@
 | 1.4 ✅ | 방 REST: `POST /rooms`(생성·참가·게스트·파티, snake_case 응답), leave, start, lobby 복귀, `GET /games/{id}` + **plain-text 오류 계약**(401 문자열 3종 포함) | `room/controller/RoomController`·`RoomValidationController`·`GameController` | `RoomValidationControllerTest` |
 | 1.5 ✅ | WS 코어: room.join(인증·재접속 분기·순서 계약)/joined/player_joined/leave/ready/reaction, 레지스트리·브로드캐스터(1회 직렬화), 하트비트 모니터(90s·CAS), presence, phase별 끊김 처리, 방 폐쇄 스케줄러(30s/10m 유예), 부팅 재무장(StaleRoomCleaner 대체), 실시간 병합 스냅샷 + 핸드셰이크 origin 검사·메시지 64KB 상한·소켓별 직렬 처리 | `handler/GameWebSocketHandler`, `ws/*`, `room/infrastructure/InMemoryRoomCloseScheduler`, `room/initializer/StaleRoomCleaner` | `GameWebSocketHandlerTest`(유예·재접속·세션만료 구분·유령 방 거부 등), `HeartbeatMonitorTest`(90s 경계·멱등), `RoomSessionRegistryTest`, `RealtimeRoomSnapshotServiceTest` |
 | 1.6 ✅ | 봇 REST: ADD/REMOVE Lua + `state.sync` 브로드캐스트 + supportsBots 게이트 | `room/service/BotParticipantService`, `RoomBotController` | `BotParticipantServiceTest`, `RoomBotControllerTest`, `PartyRoomIntegrationTest`의 봇 승계 케이스 |
-| 1.7 ✅ | 음성: voice.join/leave/signal 릴레이, 명단 관리(끊김 시 정리 순서), `GET /voice/ice`(coturn HMAC) | `GameWebSocketHandler` voice 절, `ws/voice/*` | `RoomSessionRegistryVoiceTest`, `GameWebSocketHandlerTest` voice 케이스(from 스푸핑 차단, 부재 상대 무음 드롭) |
+| 1.7 ✅ → 🗑 | 음성: voice.join/leave/signal 릴레이, 명단 관리, `GET /voice/ice`(coturn HMAC) | `GameWebSocketHandler` voice 절, `ws/voice/*` | 이식은 끝냈으나 **기능 자체가 텍스트 채팅으로 교체돼 삭제했다**(아래 「음성 채팅 → 텍스트 채팅」) |
 
 - **완료 기준**: 프론트 `dev:real`로 방 생성 → 초대 참가 → 로비 표시·리액션·
-  음성 명단까지 동작. `e2e:real`의 로비 스위트(방 생성+스냅샷, 게스트 join
+  채팅까지 동작. `e2e:real`의 로비 스위트(방 생성+스냅샷, 게스트 join
   브로드캐스트, 미존재 코드 ROOM_NOT_FOUND, 6석 ROOM_FULL) 통과.
   - 1.5에서 그중 로비 스위트를 **인프로세스로 좁혀** 옮겼다
     (`ws/__tests__/gateway.test.ts` — 진짜 소켓 + REST). 프론트 실물 검증은
@@ -200,6 +200,32 @@
   남긴다(방송은 null) — 봇 스텝 예외의 유일한 폴백이라서다. 설계는
   [game-modules.md](docs/design/game-modules.md) 「RoundTimerService」.
 
+## 음성 채팅 → 텍스트 채팅 — 계약 변경 2건 (2026-08-27, 완료)
+
+> 와이어 계약을 의도적으로 바꾼 **두 번째** 변경이고, 넓히기가 아니라 **교체**라는
+> 점에서 첫 번째와 다르다. 프론트 쪽 계획·표기는
+> [frontend/PLANS.md](../frontend/PLANS.md) 「음성 채팅 → 텍스트 채팅」 절.
+
+- **무엇**: `voice.join`·`voice.leave`·`voice.signal`·`voice.peers`·`voice.signaled`와
+  `GET /api/v1/voice/ice`를 **삭제**하고, `chat.send`(C→S)·`chat.message`(S→C) 두
+  개로 대체했다. 서버 쪽 구현은 `ws/chat.ts`이고 계약 문서는
+  [chat.md](docs/design/chat.md)다.
+- **왜**: 사용자 요청이다(음성 채팅 기능을 텍스트 채팅으로 전환). 계약 동결의
+  목적은 "마이그레이션이 프론트를 건드리지 않는 것"인데, 이 변경은 마이그레이션이
+  아니라 **제품 결정**이라 동결의 대상이 아니다. 다만 프론트·서버를 같은 PR에서
+  함께 바꿔야 하므로 여기 기록한다.
+- **호환**: 넓히기가 아니므로 **backend-java로 롤백하면 채팅이 동작하지 않는다**
+  (그쪽은 `chat.send`를 모르고, 프론트는 `voice.*`를 더 이상 보내지 않는다). 게임
+  진행·방·인증 경로는 그대로라 롤백 자체는 여전히 가능하고, 잃는 것은 채팅 하나다.
+  backend-java는 동결이라 이식하지 않는다.
+- **함께 사라진 것**: `RoomSessionRegistry`의 음성 명단
+  (`joinVoice`/`leaveVoice`/`voiceMembersOf`), `ws/iceServers.ts`,
+  `http/routes/voice.ts`, 환경변수 `YORR_VOICE_*` 네 개,
+  `deploy/.env.example`의 같은 항목. 채팅에는 명단이 없다 — 방에 있으면 대화에 있는
+  것이다.
+- **새로 생긴 것**: `RATE_LIMITED`가 처음으로 실제 전송된다(채팅 도배 판정).
+  그전까지 이 코드는 계약 목록에만 있었다.
+
 ## 상태 표
 
 | 하위 시스템 | Java 위치 | 설계 문서 | 상태 |
@@ -216,7 +242,7 @@
 | 야추 (+봇) | `game/yacht/` | games/yacht.md | 🚧 모듈·`RedisYachtDiceStateStore`(운영 라운드 저장소)·`YachtTurnActionService`·dice 릴레이 비대칭·`markPhase('playing')`(3.1) + 봇 스택(3.2 — 지연 4종·세대 가드·TurnVersion·Expectimax **예산 강제**·Local 폴백·2봇 완주) 이식·배선 완료, 총 120건. **프론트 e2e:real 미검증** |
 | 석양이 진다 | `game/duel/` | games/duel.md | 🚧 DuelRules(판정·파울·캡)·상태 스토어(version 비증가 무시)·version 키 스케줄링·forfeit·점수=잔탄 이식·배선 완료(3.3, `DuelRulesTest` 12종 전부). **프론트 e2e:real 미검증** |
 | 탁구 (+AI 결과) | `game/pingpong/` | games/pingpong.md | 🚧 규칙(궤적·판정 창·judgedAt)·상태 스토어·서비스·모듈(3.4) + AI 결과 REST(4.6 — 점수 재검증의 구멍까지 재현, 게스트는 `user_id` NULL) 이식·배선 완료. **프론트 e2e:real 미검증** · 실 MySQL 3건 미실행 |
-| 음성 시그널링·ICE | `handler/`(voice), `ws/voice/` | voice.md | ✅ voice.join/leave/signal 릴레이·명단·정리 순서·`GET /voice/ice`(coturn HMAC) 이식 완료(1.7) |
+| ~~음성 시그널링·ICE~~ → 텍스트 채팅 | `ws/chat.ts` | chat.md | 🗑 이식했던 `voice.*`·`GET /voice/ice`를 **삭제**하고 `chat.send`/`chat.message` 중계로 교체했다(아래 절). Java에는 대응 구현이 없다 |
 | 소셜 로그인·프로필 | `auth/`, `user/` | auth.md | 🚧 소셜 로그인 이식 완료(4.2 — authorize/callback/session/me/logout, state·로그인 코드 1회용, kakao·google, 가입 경합 재조회). MySQL 통합 6건은 `MYSQL_TEST_URL` 부재로 **미실행**. 프로필은 4.3 |
 | 전적·주간 랭킹 | `game/match/`, `game/ranking/` | persistence.md | 🚧 MySQL 풀·Flyway 호환 러너(4.1) + 전적 보관(4.4 — 멱등·닉네임 우선순위·users로 회원 판정) + 주간 랭킹(4.5 — KST 경계·집계·캐시·REST) 이식 완료. **MySQL 집계·저장 통합 22건은 `MYSQL_TEST_URL`·docker 부재로 미실행 — SQL 문법조차 미검증**. 배선 완료 |
 | 모니터링·배포 | `monitoring/`, `.github/workflows/backend.yml`·`deploy/` | operations.md | 🚧 게이지 2종 이식·배선 완료(5.3 — `prom-client` 없이 텍스트 노출, 16건) + 배포 전환(5.1 — Dockerfile arm64 크로스 빌드·compose 전체 스택·GHA+GHCR, [ADR-0006](docs/adr/0006-github-actions-ghcr-arm64-single-host.md)). **이미지 실빌드·arm64 실기동·MySQL 통합 48건 미검증** |

@@ -15,7 +15,7 @@
 | `room/` | 방 생성·입장·로비 + 게임을 띄우는 껍데기(`GamePage`) | [room-and-session.md](./room-and-session.md) |
 | `yacht/` · `pingpong/` · `duel/` | 게임 구현 전부 | [yacht.md](./yacht.md) · [pingpong.md](./pingpong.md) · [duel.md](./duel.md) |
 | `shared/` | 프리미티브 UI·공용 훅·REST client·`cn` | [shared-ui.md](./shared-ui.md) |
-| `realtime/` | WS wire contract(SSOT)와 연결 client | [realtime.md](./realtime.md) · [voice.md](./voice.md) |
+| `realtime/` | WS wire contract(SSOT)와 연결 client · 방 채팅 | [realtime.md](./realtime.md) · [chat.md](./chat.md) |
 | `mocks/` · `test/` · `styles/` | MSW·테스트 하네스·디자인 토큰 | [testing.md](./testing.md) · [design-system.md](./design-system.md) |
 | `games.ts` · `store.ts` | 게임 카탈로그 SSOT · 전역 상태 | |
 
@@ -99,5 +99,5 @@ Three.js · `@dimforge/rapier3d-compat` · motion · qrcode.react · Vitest · T
 MSW · Playwright.
 
 **검토 후 미채택** (사용처 0 확인): TanStack Query(명령형 REST 위주라 캐시 가치 낮음),
-Zod(runtime 검증 담당처 미정), ts-pattern, es-toolkit. simple-peer/peerjs도 의도적 미채택
-([voice.md](./voice.md)).
+Zod(runtime 검증 담당처 미정), ts-pattern, es-toolkit. WebRTC 라이브러리
+(simple-peer·peerjs)는 음성 채팅과 함께 사라졌다 — 채팅은 WS 하나로 끝난다.

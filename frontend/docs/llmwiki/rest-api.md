@@ -43,7 +43,6 @@
 - `GET /rankings/weekly` · `GET /rankings/weekly/me` — 주간 랭킹(60초 폴링 + visibility
   게이트), "내 순위"는 204/401/403 전부 null
 - `POST /games/ping-pong/ai-results` — AI 탁구 결과 저장(1회, 실패 무시)
-- `GET /voice/ice` — TURN/STUN 설정 (절대 경로 필수·무캐시 — [voice.md](./voice.md))
 
 오류 처리: `ApiError{status, message, code}` → `toUserError` 표
 (`SESSION_EXPIRED`만 세션 삭제). 실서버의 text/plain 코드 문자열도 표준 코드로 매핑.

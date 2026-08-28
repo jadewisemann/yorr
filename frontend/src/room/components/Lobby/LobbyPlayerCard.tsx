@@ -1,5 +1,3 @@
-import { PeerMicButton } from '@/realtime/voice/PeerMicButton'
-import type { VoiceChat } from '@/realtime/voice/useVoiceChat'
 import type { Player, PlayerId } from '@/realtime/wsEvents'
 import { PlayerCard } from '@/room/components/PlayerCard'
 import { Button } from '@/shared/components/Button'
@@ -9,18 +7,10 @@ interface LobbyPlayerCardProps {
   you: PlayerId
   isHost: boolean
   loading: boolean
-  voice: VoiceChat
   onRemove: (playerId: PlayerId) => void
 }
 
-export function LobbyPlayerCard({
-  player,
-  you,
-  isHost,
-  loading,
-  voice,
-  onRemove,
-}: LobbyPlayerCardProps) {
+export function LobbyPlayerCard({ player, you, isHost, loading, onRemove }: LobbyPlayerCardProps) {
   const isBot = player.kind === 'BOT'
   return (
     <PlayerCard
@@ -29,8 +19,6 @@ export function LobbyPlayerCard({
       status={player.status}
       current={player.playerId === you}
       active={player.playerId === you}
-      speaking={voice.speaking.has(player.playerId)}
-      nameEnd={<PeerMicButton playerId={player.playerId} voice={voice} />}
       subtitle={isBot ? '상태 기반 AI 봇' : undefined}
       trailing={
         isBot && isHost ? (

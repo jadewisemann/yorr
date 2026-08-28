@@ -26,7 +26,7 @@
 - Envelope: `{ type, ts(서버가 채움), payload, roomId?, msgId? }`. `msgId`는 서버가 echo해
   요청-실패 상관관계(`refMsgId`)에 쓴다. `room.join`은 아직 방 밖이므로 envelope `roomId`가
   없고 payload로 방을 지정한다.
-- **네임스페이스**: 방 레벨(`sys.*` `room.*` `reaction.*` `presence.*` `state.sync` `voice.*`)은
+- **네임스페이스**: 방 레벨(`sys.*` `room.*` `reaction.*` `presence.*` `state.sync` `chat.*`)은
   접두사가 없고, 게임 모듈 이벤트는 v0.9부터 `game.<game_code>.` 접두사가 붙는다
   (`game.yacht_dice.*` · `game.ping_pong.*` · `game.duel.*`).
 - 인증은 별도 `auth.*` 없이 `room.join`(닉네임+방ID+sessionToken)으로 병합됐다(v0.2).
@@ -129,5 +129,5 @@ REST 입장 → RoomSession{roomId, you, nickname, sessionToken}
   heartbeat가 멈춘다.
 - `INVALID_ROLL`이 `rollCount` 주석에 언급되지만 `WsErrorCode`에는 없다.
 
-음성 채팅(WebRTC)은 [voice.md](./voice.md), 세션 FSM·저장 정책은
+방 텍스트 채팅은 [chat.md](./chat.md), 세션 FSM·저장 정책은
 [room-and-session.md](./room-and-session.md) 참고.

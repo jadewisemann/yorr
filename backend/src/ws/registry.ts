@@ -34,13 +34,6 @@ export class RoomSessionRegistry {
   private readonly bySocket = new Map<ClientSocket, RoomMember>()
   private readonly phases = new Map<string, WsRoomPhase>()
   private readonly gameCodes = new Map<string, string>()
-  /**
-   * roomId → 음성 채널에 들어와 있는 playerId. 방 명단(`rooms`)과 **별개 맵**이다 —
-   * 방에는 있는데 마이크만 내려놓은 상태가 정상이라 같은 맵에 섞을 수 없다
-   * (docs/design/voice.md).
-   */
-  private readonly voiceMembers = new Map<string, Set<string>>()
-
   /** 방에 적힌 게임을 기록한다. 같은 방에 다른 게임이 들어오면 상태가 섞이므로 던진다. */
   registerGame(roomId: string, gameCode: string | null | undefined): void {
     if (!gameCode || gameCode.trim().length === 0) throw new Error('invalid_game_code')
@@ -129,46 +122,6 @@ export class RoomSessionRegistry {
     return member
   }
 
-  /* ------------------------------------------------------------ 음성 채널 명단 */
-
-  /*
-   * 아래 두 메서드는 갱신 후 **전체 명단**을 돌려준다 — `voice.peers`가 증분이 아니라
-   * 전체 스냅샷이라 호출부가 받은 값을 그대로 브로드캐스트할 수 있다.
-   */
-
-  /** 음성 채널 입장(멱등). 재연결 직후의 중복 `voice.join`이 명단을 망가뜨리면 안 된다. */
-  joinVoice(roomId: string, playerId: string): string[] {
-    let members = this.voiceMembers.get(roomId)
-    if (!members) {
-      members = new Set()
-      this.voiceMembers.set(roomId, members)
-    }
-    members.add(playerId)
-    return [...members]
-  }
-
-  /**
-   * 음성 채널 퇴장. `voice.leave`·소켓 종료·방 퇴장이 모두 이리로 온다 —
-   * `voice.leave`를 못 보내고 끊기는 것이 정상 경로라 어느 쪽에서 불러도 안전해야 한다.
-   */
-  leaveVoice(roomId: string, playerId: string): string[] {
-    const members = this.voiceMembers.get(roomId)
-    if (!members) return []
-    members.delete(playerId)
-    // 빈 Set을 남기면 방이 사라진 뒤에도 키가 쌓인다.
-    if (members.size === 0) {
-      this.voiceMembers.delete(roomId)
-      return []
-    }
-    return [...members]
-  }
-
-  /** 지금 음성 채널에 있는 사람들. 통화 중이 아무도 없으면 빈 목록. */
-  voiceMembersOf(roomId: string): string[] {
-    const members = this.voiceMembers.get(roomId)
-    return members ? [...members] : []
-  }
-
   /** 게임 시작처럼 **REST가 상태를 바꾸는** 경로에서 알려 준다. 기본은 `waiting`. */
   markPhase(roomId: string, phase: WsRoomPhase): void {
     this.phases.set(roomId, phase)
@@ -225,14 +178,10 @@ export class RoomSessionRegistry {
     }
   }
 
-  /**
-   * 방이 비면 phase·gameCode·음성 명단도 함께 버린다 — 방 코드는 재사용되기 때문이다
-   * (이전 통화 명단이 남으면 새 방이 통화 중으로 보인다).
-   */
+  /** 방이 비면 phase·gameCode도 함께 버린다 — 방 코드는 재사용되기 때문이다. */
   private forgetRoom(roomId: string): void {
     this.rooms.delete(roomId)
     this.gameCodes.delete(roomId)
     this.phases.delete(roomId)
-    this.voiceMembers.delete(roomId)
   }
 }

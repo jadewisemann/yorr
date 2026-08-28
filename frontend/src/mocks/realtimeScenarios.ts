@@ -43,6 +43,7 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
     heartbeatIntervalMs: 15_000,
   })
   let serverDice: DiceSet = [1, 2, 3, 4, 5]
+  let chatSequence = 0
 
   const handlers: FakeMessageHandlers = {
     'sys.ping': (message) => [
@@ -90,6 +91,27 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
             snapshot,
           },
           { roomId: joinedSession.roomId, msgId: message.msgId },
+        ),
+      ]
+    },
+    /*
+     * 채팅은 mock에서도 **되돌려 준다**. 서버가 하는 일이 중계뿐이라(wsEvents.ts의 chat 절)
+     * 보낸 말을 그대로 방송하면 실제 서버와 같은 흐름이 되고, 이것이 없으면 strict 모드가
+     * 던져 mock으로 도는 화면에서 채팅이 아무 반응 없이 사라진다.
+     */
+    'chat.send': (message) => {
+      chatSequence += 1
+      return [
+        serverMessage(
+          'chat.message',
+          {
+            messageId: `mock-chat-${chatSequence}`,
+            playerId: session.you,
+            nickname: session.nickname,
+            text: message.payload.text,
+            at: Date.now(),
+          },
+          { roomId: MOCK_ROOM_ID },
         ),
       ]
     },

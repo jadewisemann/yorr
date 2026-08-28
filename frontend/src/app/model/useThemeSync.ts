@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useAppStore } from '@/store'
-import { applyTheme, resolveTheme, watchSystemTheme } from '@/styles/theme'
+import { applyTheme, type ResolvedTheme, resolveTheme, watchSystemTheme } from '@/styles/theme'
 
 /**
  * 첫 적용은 `index.html`의 프리페인트 스크립트가 이미 했다 — 여기서 하면 첫 프레임이
@@ -9,11 +9,16 @@ import { applyTheme, resolveTheme, watchSystemTheme } from '@/styles/theme'
  */
 export function useThemeSync(): void {
   const preference = useAppStore((state) => state.themePreference)
+  const setResolvedTheme = useAppStore((state) => state.setResolvedTheme)
 
   useEffect(() => {
     // 다른 탭에서 바꿨거나 프리페인트가 못 돈 경우를 맞춰 둔다(멱등).
-    applyTheme(resolveTheme(preference))
+    const apply = (theme: ResolvedTheme) => {
+      applyTheme(theme)
+      setResolvedTheme(theme)
+    }
+    apply(resolveTheme(preference))
     if (preference !== 'system') return
-    return watchSystemTheme(applyTheme)
-  }, [preference])
+    return watchSystemTheme(apply)
+  }, [preference, setResolvedTheme])
 }

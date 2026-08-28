@@ -19,7 +19,6 @@ YORR는 모바일 브라우저에서 돌아가는 실시간 멀티플레이 게�
 ```text
 Browser ── REST ──────────► Spring Boot  (방 생성·입장, 계정, 랭킹)
         ── WebSocket ─────► Spring Boot  (방·게임 상태 동기화 — 서버 권위)
-        ── WebRTC (P2P) ──► 다른 참가자  (음성만. 시그널링은 위 WebSocket을 같이 씀)
 ```
 
 ## 디렉터리: 도메인 우선
@@ -101,7 +100,7 @@ app → landing → room → yacht (· pingpong · duel)
   스냅샷이 단순하고, 재접속 복구와 같은 경로를 타게 됩니다.
 
 연결·재접속·heartbeat의 상세는 [`llmwiki/realtime.md`](llmwiki/realtime.md),
-음성 채팅은 [`llmwiki/voice.md`](llmwiki/voice.md)를 참고하세요.
+방 텍스트 채팅은 [`llmwiki/chat.md`](llmwiki/chat.md)를 참고하세요.
 
 ## 스타일: 토큰 2계층
 
@@ -133,7 +132,7 @@ Three.js · Rapier · Motion · Vitest · Testing Library · MSW · Playwright.
 
 검토했지만 **쓰지 않기로 한 것**도 기록합니다: TanStack Query(명령형 REST 위주라 캐시
 가치가 낮음), Zod(runtime 검증 담당처 미정), ts-pattern, es-toolkit,
-simple-peer/peerjs(음성은 브라우저 API 직접 사용 — [`llmwiki/voice.md`](llmwiki/voice.md)).
+simple-peer/peerjs(WebRTC 음성 채팅이 텍스트 채팅으로 바뀌며 필요가 사라졌습니다 — [`llmwiki/chat.md`](llmwiki/chat.md)).
 
 ---
 

@@ -63,12 +63,29 @@ export function IconSound({ className, muted }: IconProps & { muted: boolean }) 
   )
 }
 
-export function IconMic({ className }: IconProps) {
+export function IconChat({ className }: IconProps) {
   return (
     <Svg className={className}>
-      <path d="M10 3.6a2.35 2.35 0 0 1 2.35 2.35v3.6a2.35 2.35 0 0 1-4.7 0v-3.6A2.35 2.35 0 0 1 10 3.6z" />
-      <path d="M5.9 9.3a4.1 4.1 0 0 0 8.2 0" />
-      <path d="M10 13.4v3" />
+      <path d="M16.6 11.3a1.8 1.8 0 0 1-1.8 1.8H7.9L4.4 16.1a.5.5 0 0 1-.8-.4V5.7a1.8 1.8 0 0 1 1.8-1.8h9.4a1.8 1.8 0 0 1 1.8 1.8z" />
+    </Svg>
+  )
+}
+
+/** 라이트 모드 상태(=해). 테마 토글이 "지금 무엇인가"를 그린다. */
+export function IconSun({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <circle cx={10} cy={10} r={3.4} />
+      <path d="M10 2.6v1.8M10 15.6v1.8M2.6 10h1.8M15.6 10h1.8M4.8 4.8l1.3 1.3M13.9 13.9l1.3 1.3M15.2 4.8l-1.3 1.3M6.1 13.9l-1.3 1.3" />
+    </Svg>
+  )
+}
+
+/** 다크 모드 상태(=달). */
+export function IconMoon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M15.4 12.4A6.2 6.2 0 0 1 8.1 4.9a6.4 6.4 0 1 0 7.3 7.5z" />
     </Svg>
   )
 }

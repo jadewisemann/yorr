@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { useVoice } from '@/realtime/voice/VoiceContext'
+import { useChat } from '@/realtime/chat/ChatContext'
+import { ChatDialog } from '@/realtime/chat/ChatDialog'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { isPartyRoom } from '@/room/partyControllerStorage'
 import { AudioPopover } from '@/shared/components/AudioPopover'
@@ -70,7 +71,7 @@ export function GamePlay({
   const wide = useWideLayout()
   const connectionStatus = useAppStore((state) => state.connectionStatus)
   const { message: toastMessage, showToast } = useToast()
-  const voice = useVoice()
+  const chat = useChat()
 
   const game = snapshot.game
   const roundNumber = game?.roundNumber ?? 1
@@ -129,9 +130,12 @@ export function GamePlay({
   const {
     audioButtonRef,
     audioOpen,
+    chatButtonRef,
+    chatOpen,
     closeSheet,
     helpOpen,
     setAudioOpen,
+    setChatOpen,
     setHelpOpen,
     setSheetOpen,
     setTurnCallout,
@@ -189,12 +193,7 @@ export function GamePlay({
   useShortcuts(wide && isMyTurn, { onRoll: handleRoll, dispatch })
 
   const turnStrip = (
-    <TurnStrip
-      activePlayerId={activePlayerId}
-      players={turnPlayers}
-      voice={voice}
-      you={session.you}
-    />
+    <TurnStrip activePlayerId={activePlayerId} players={turnPlayers} you={session.you} />
   )
 
   const diceScene = controller ? (
@@ -223,11 +222,13 @@ export function GamePlay({
       onLeave={onLeaveRequest}
       audioButtonRef={audioButtonRef}
       onOpenAudio={() => setAudioOpen(true)}
+      chatButtonRef={chatButtonRef}
+      chatUnread={chat.unread}
+      onOpenChat={() => setChatOpen(true)}
       remainingMs={remainingMs}
       roundNumber={roundNumber}
       soundMuted={soundMuted}
       submitted={submitted}
-      voice={voice}
       wide={wide}
     />
   )
@@ -323,21 +324,18 @@ export function GamePlay({
       <ToastHost message={toastMessage} />
       <AudioPopover
         anchorRef={audioButtonRef}
-        microphone={
-          voice.status === 'unsupported'
-            ? undefined
-            : {
-                connectedPeers: voice.peers.length,
-                denied: voice.status === 'denied',
-                on: voice.status === 'on',
-                onToggle: voice.toggle,
-                requesting: voice.status === 'requesting',
-              }
-        }
         muted={soundMuted}
         onClose={() => setAudioOpen(false)}
         onToggleMute={toggleSound}
         open={audioOpen}
+      />
+      <ChatDialog
+        anchorRef={chatButtonRef}
+        chat={chat}
+        layout={wide ? 'wide' : 'narrow'}
+        onClose={() => setChatOpen(false)}
+        open={chatOpen}
+        you={session.you}
       />
       {zeroModal}
       <GameHelpModal
