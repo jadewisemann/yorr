@@ -12,8 +12,16 @@
    클라이언트는 "의도"를 보내고 서버가 결과를 확정한다. 그래서 **서버가 판정·저장하는
    메시지는 반드시 WebSocket으로 간다** — 서버는 WebSocket만 말하므로, 피어 사이 직결
    (`realtime/controllerLink/`)에 태울 수 있는 것은 서버가 중계만 하는 연출 릴레이뿐이다
-   ([controller-link.md](docs/llmwiki/controller-link.md)의 판정표). 주사위 물리
-   시뮬레이션(three.js·rapier)은 **연출**이다 — `physics result != game result`.
+   ([controller-link.md](docs/llmwiki/controller-link.md)의 판정표).
+
+   > **예외 1건 (파티 모드 탁구).** 파티 방에서는 **PLAYING 국면의 랠리 판정만** 대시보드가
+   > 맡는다 — 큰 화면이 판정과 렌더를 같은 기기에서 해야 공 반전이 즉시 보이고, 한 방에
+   > 모인 사람들이라 서버 판정이 지키던 신뢰가 필요 없다. 방 수명·시작·초기 상태·준비
+   > 게이트·종료·전적은 그대로 서버가 소유한다. 경계는
+   > [ADR-0003](docs/adr/0003-party-host-authority-pingpong.md).
+   > **야추는 예외가 아니다** — 주사위 눈은 파티 모드에서도 서버가 굴린다.
+
+   주사위 물리 시뮬레이션(three.js·rapier)은 **연출**이다 — `physics result != game result`.
    물리 결과를 서버로 보내거나 권위 상태에 반영하는 구현은 설계 위반이다.
 2. **서버 권위 상태는 WS 이벤트·재접속 스냅샷만 변경한다.** phase·host·참가자·
    라운드·deadline·주사위·킵·굴림수·점수를 React 컴포넌트가 직접 수정하지

@@ -15,9 +15,16 @@ const throwMessage = buildClientMessage(
 )
 
 describe('isRelayable', () => {
-  it('연출 릴레이만 링크로 보낸다', () => {
+  it('연출 릴레이는 링크로 보낸다', () => {
     expect(isRelayable(shake)).toBe(true)
     expect(isRelayable(throwMessage)).toBe(true)
+  })
+
+  it('탁구 스윙도 링크로 보낸다 — 파티 모드에서는 큰 화면이 판정한다', () => {
+    // 서버가 판정하지 않는 유일한 권위성 입력이다(ADR-0003).
+    const swing = buildClientMessage('game.ping_pong.swing', { inputSeq: 1, clientTs: 0 })
+
+    expect(isRelayable(swing)).toBe(true)
   })
 
   it('서버가 판정하는 권위 메시지는 거부한다', () => {
@@ -26,7 +33,6 @@ describe('isRelayable', () => {
       rollCount: 1,
       held: [false, false, false, false, false],
     })
-    const swing = buildClientMessage('game.ping_pong.swing', { inputSeq: 1, clientTs: 0 })
     const draw = buildClientMessage('game.duel.draw', { inputSeq: 1, reactionMs: 220 })
     const hold = buildClientMessage('game.yacht_dice.dice.hold', {
       roundNumber: 3,
@@ -34,7 +40,6 @@ describe('isRelayable', () => {
     })
 
     expect(isRelayable(roll)).toBe(false)
-    expect(isRelayable(swing)).toBe(false)
     expect(isRelayable(draw)).toBe(false)
     expect(isRelayable(hold)).toBe(false)
   })

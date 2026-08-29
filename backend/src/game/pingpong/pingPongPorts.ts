@@ -86,6 +86,11 @@ export interface PingPongRoomService {
   leave(roomId: string, playerId: string): Promise<boolean> | boolean
   /** START로 세운 `gameId`·phase를 되돌린다(Lua CANCEL_ACTIVE_GAME). */
   cancelActiveGame(roomId: string): Promise<unknown> | unknown
+  /**
+   * 파티 방이면 랠리를 **대시보드가 판정한다**(frontend ADR-0003). 서버는 시뮬레이션을
+   * 멈추고 보고받은 상태를 중계하는 쪽으로 바뀐다.
+   */
+  isPartyRoom(roomId: string): Promise<boolean> | boolean
 }
 
 /**

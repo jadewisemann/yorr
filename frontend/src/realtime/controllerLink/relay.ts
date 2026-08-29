@@ -9,10 +9,19 @@ import type { ClientMessage, PlayerId, RoomId, ServerMessage } from '@/realtime/
  * 없으면 굴린 사람이 아직 흔드는 중에 결과가 먼저 보인다. 즉 **얼마나 빨리 도착하는지가
  * 곧 품질인 이벤트**라서 링크로 옮길 값이 가장 크다.
  *
+ * `game.ping_pong.swing`은 성격이 다르다. **파티 모드에서는 서버가 탁구를 판정하지 않고
+ * 대시보드가 판정하므로**(ADR-0003), 스윙이 가야 할 곳이 서버가 아니라 큰 화면이다.
+ * 링크가 없으면 서버가 받아 `game.ping_pong.swung`으로 대시보드에 전달하므로, 두 경로가
+ * 같은 봉투로 수렴한다 — 받는 쪽은 어느 길로 왔는지 모른다.
+ *
  * 나머지 컨트롤러 메시지가 여기 없는 이유는 하나다 — 서버가 판정·저장하고, 서버는
  * WebSocket만 말한다. 자세한 판정표는 `docs/llmwiki/controller-link.md`.
  */
-export const RELAYABLE_TYPES = ['game.yacht_dice.dice.shake', 'game.yacht_dice.dice.throw'] as const
+export const RELAYABLE_TYPES = [
+  'game.yacht_dice.dice.shake',
+  'game.yacht_dice.dice.throw',
+  'game.ping_pong.swing',
+] as const
 
 export type RelayableType = (typeof RELAYABLE_TYPES)[number]
 
@@ -83,6 +92,16 @@ export function relayedServerMessage(
   if (message.type === 'game.yacht_dice.dice.shake') {
     return {
       type: 'game.yacht_dice.dice.shaken',
+      ts: Date.now(),
+      roomId,
+      payload: { ...message.payload, playerId: from },
+    }
+  }
+  if (message.type === 'game.ping_pong.swing') {
+    // 서버가 폴백으로 뿌리는 `swung`과 **같은 봉투**를 만든다. 대시보드의 입력 경로가
+    // 하나로 모이는 것이 이 변환의 목적이다.
+    return {
+      type: 'game.ping_pong.swung',
       ts: Date.now(),
       roomId,
       payload: { ...message.payload, playerId: from },

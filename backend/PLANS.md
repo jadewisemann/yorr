@@ -258,6 +258,36 @@
 - **이식할 테스트**: 지워진 `ws/__tests__/voice.test.ts`의 릴레이 케이스
   (`from` 스푸핑 차단, 부재 상대 무음 드롭, 다른 방으로 전송 불가).
 
+## 파티 탁구 호스트 판정 — 계약 변경 1건 (2026-08-27, 진행 중)
+
+> 넓히기다. 프론트 쪽 계획·불변식은 [frontend/PLANS.md](../frontend/PLANS.md)
+> 「파티 탁구 호스트 판정」, 결정과 경계는
+> [frontend ADR-0003](../frontend/docs/adr/0003-party-host-authority-pingpong.md)이 정본이다.
+> **프론트 DESIGN 원칙 1(서버 권위)의 첫 예외**이므로 서버가 무엇을 놓는지 여기 명확히 적는다.
+
+- **무엇**: 파티 방(`rooms.isPartyRoom`)에서 `PING_PONG`을 할 때 **서버가 PLAYING 국면의
+  랠리를 시뮬레이션하지 않는다.** 대신 대시보드가 판정한 상태를 받아 방에 뿌리고, 링크가
+  없는 폰의 스윙을 대시보드로 전달한다.
+- **왜**: 탁구의 체감 지연은 공이 방향을 바꾸는 순간에 있고 그것은 판정이다. 큰 화면이
+  판정과 렌더를 같은 기기에서 하면 그 지연이 0이 된다. 파티 모드는 한 방에 모인 사람들이라
+  서버 판정이 지키던 신뢰가 필요 없다(빠른 대전은 그대로 서버 판정이다).
+- **서버가 계속 소유하는 것**: 방 수명, 게임 시작, **초기 상태**(roster·`playerOrder`·
+  serve), PREPARING 준비 게이트, 상태 방송, 종료 확정, 전적·랭킹. 넘기는 것은 PLAYING
+  국면의 랠리뿐이다.
+- **메시지 2개 추가**:
+  - C→S `game.ping_pong.host_state` — 대시보드가 판정한 `PingPongState`. **발신자가
+    대시보드인지 검증한다**(방 스냅샷 명단에 없는 방 멤버). 받으면 `game.ping_pong.state`로
+    방송하고, `FINISHED`면 보고된 점수로 기존 완료 경로를 탄다.
+  - S→C `game.ping_pong.swung` — 폴백으로 들어온 `game.ping_pong.swing`을 대시보드에게만
+    전달한다. 이것이 있어야 **링크가 없어도 파티 탁구가 성립한다.**
+- **⚠️ 마감 스케줄러를 걸지 않는 것이 핵심이다.** 걸어 두면 서버가 자기 시뮬레이션으로
+  점수를 내고 `game.over`까지 만들어 **전적에 틀린 결과가 남는다.** 파티 방 판정은
+  PLAYING 진입 시점에 한 번 하고 그 판 동안 유지한다.
+- **호환**: 넓히기다. 파티 방이 아니면 두 메시지가 오가지 않고 동작이 그대로다.
+  backend-java는 동결이라 이식하지 않는다 — 롤백하면 파티 탁구도 서버 판정으로 돌아간다.
+- **이식할 테스트**: 파티 방에서 스케줄러 미등록, `host_state` 발신자 검증(플레이어가
+  보내면 거절), `swung` 전달 대상(대시보드에게만), 보고된 점수로 종료.
+
 ## 상태 표
 
 | 하위 시스템 | Java 위치 | 설계 문서 | 상태 |
@@ -273,7 +303,7 @@
 | 재접속 스냅샷·스위퍼 | `game/round/application/` | reconnect.md | ✅ 재접속 스냅샷(rollCount·dice·held 동봉, scores는 Map→객체 정규화 — Java 그대로면 버그였다) + OrphanedRoundStateSweeper(5분, cancel→remove, `listen()`에서 기동) 이식·배선 완료(2.8) |
 | 야추 (+봇) | `game/yacht/` | games/yacht.md | 🚧 모듈·`RedisYachtDiceStateStore`(운영 라운드 저장소)·`YachtTurnActionService`·dice 릴레이 비대칭·`markPhase('playing')`(3.1) + 봇 스택(3.2 — 지연 4종·세대 가드·TurnVersion·Expectimax **예산 강제**·Local 폴백·2봇 완주) 이식·배선 완료, 총 120건. **프론트 e2e:real 미검증** |
 | 석양이 진다 | `game/duel/` | games/duel.md | 🚧 DuelRules(판정·파울·캡)·상태 스토어(version 비증가 무시)·version 키 스케줄링·forfeit·점수=잔탄 이식·배선 완료(3.3, `DuelRulesTest` 12종 전부). **프론트 e2e:real 미검증** |
-| 탁구 (+AI 결과) | `game/pingpong/` | games/pingpong.md | 🚧 규칙(궤적·판정 창·judgedAt)·상태 스토어·서비스·모듈(3.4) + AI 결과 REST(4.6 — 점수 재검증의 구멍까지 재현, 게스트는 `user_id` NULL) 이식·배선 완료. **프론트 e2e:real 미검증** · 실 MySQL 3건 미실행 |
+| 탁구 (+AI 결과) | `game/pingpong/` | games/pingpong.md | 🚧 규칙(궤적·판정 창·judgedAt)·상태 스토어·서비스·모듈(3.4) + AI 결과 REST(4.6 — 점수 재검증의 구멍까지 재현, 게스트는 `user_id` NULL) 이식·배선 완료. **프론트 e2e:real 미검증** · 실 MySQL 3건 미실행. **파티 방에서는 랠리를 시뮬레이션하지 않는다**(위 「파티 탁구 호스트 판정」 절) |
 | ~~음성 시그널링·ICE~~ → 텍스트 채팅 | `ws/chat.ts` | chat.md | 🗑 이식했던 `voice.*`·`GET /voice/ice`를 **삭제**하고 `chat.send`/`chat.message` 중계로 교체했다(아래 절). Java에는 대응 구현이 없다 |
 | 컨트롤러 링크 시그널링 | (Java에 없음) | controller-signal.md | 🚧 `ctrl.signal`/`ctrl.signaled` 유니캐스트 릴레이 추가 중(위 절). 파티 폰↔큰 화면 DataChannel 협상 전용이고 서버는 `data`를 열지 않는다 |
 | 소셜 로그인·프로필 | `auth/`, `user/` | auth.md | 🚧 소셜 로그인 이식 완료(4.2 — authorize/callback/session/me/logout, state·로그인 코드 1회용, kakao·google, 가입 경합 재조회). MySQL 통합 6건은 `MYSQL_TEST_URL` 부재로 **미실행**. 프로필은 4.3 |

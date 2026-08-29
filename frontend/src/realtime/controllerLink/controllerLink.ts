@@ -37,6 +37,10 @@ const PROBE_INTERVAL_MS = 2000
 const PULSE_CHANNEL = 'yorr.ctrl.pulse'
 const EVENT_CHANNEL = 'yorr.ctrl.event'
 
+/**
+ * 흔들림 펄스만 unreliable이다. 던지기와 탁구 스윙은 **한 번뿐인 신호**라 놓치면
+ * 대시보드가 그 입력을 영영 모른다.
+ */
 const channelFor = (type: RelayableClientMessage['type']) =>
   type === 'game.yacht_dice.dice.shake' ? PULSE_CHANNEL : EVENT_CHANNEL
 

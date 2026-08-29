@@ -9,6 +9,7 @@ import type {
   PingPongPlayerNumbers,
   PingPongState,
 } from './pingPongState.js'
+import { isPingPongFinished } from './pingPongState.js'
 
 /**
  * 탁구 규칙 — backend-java `game/pingpong/PingPongRules`. **순수 함수만** 있다:
@@ -417,4 +418,38 @@ const point = (
     nextActionAt: finished ? 0 : now + POINT_COUNTDOWN_MILLIS,
     lastEvent: event(version, finished ? 'GAME_OVER' : 'POINT', scorerId, now),
   }
+}
+
+/**
+ * 대시보드가 보고한 상태를 받아들일지 판정한다 — 파티 모드 호스트 판정
+ * (frontend ADR-0003). 서버는 **랠리를 다시 계산하지 않지만 아무거나 받지도 않는다.**
+ *
+ * 통과 조건 넷:
+ *
+ * 1. **보낸 사람이 플레이어가 아니어야 한다.** 대시보드는 방 스냅샷 명단에 없으므로
+ *    `playerOrder`에 없다. 플레이어가 자기 점수를 올리는 것을 막는 최소선이다.
+ * 2. **version이 증가해야 한다.** 늦게 도착한 옛 상태가 진행을 되돌리면 안 된다
+ *    (결투의 "version 비증가 무시"와 같은 규칙).
+ * 3. **roster를 바꿀 수 없다.** `playerOrder`가 서버가 만든 것과 같아야 한다 —
+ *    대시보드가 참가자를 새로 정하는 통로가 되면 안 된다.
+ * 4. **끝난 판은 다시 열리지 않는다.**
+ *
+ * @returns 받아들일 상태, 거절이면 null(스토어가 아무것도 쓰지 않는다).
+ */
+export const hostReport = (
+  current: PingPongState,
+  reported: PingPongState,
+  senderId: string,
+): PingPongState | null => {
+  if (current.playerOrder.includes(senderId)) return null
+  if (isPingPongFinished(current)) return null
+  if (reported.version <= current.version) return null
+  if (
+    reported.playerOrder.length !== current.playerOrder.length ||
+    reported.playerOrder.some((id, index) => id !== current.playerOrder[index])
+  ) {
+    return null
+  }
+  // roster는 서버 것을 그대로 쓴다 — 보고된 배열을 신뢰하지 않고 참조만 맞춘다.
+  return { ...reported, playerOrder: current.playerOrder }
 }
