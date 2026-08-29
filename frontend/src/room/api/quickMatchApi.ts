@@ -64,5 +64,7 @@ function isQuickMatchStatus(value: unknown): value is QuickMatchStatus {
 }
 
 function isGameCode(value: unknown): value is GameCode {
-  return value === 'YACHT_DICE' || value === 'PING_PONG' || value === 'DUEL'
+  return (
+    value === 'YACHT_DICE' || value === 'PING_PONG' || value === 'DUEL' || value === 'DAVINCI_CODE'
+  )
 }

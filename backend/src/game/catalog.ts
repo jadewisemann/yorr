@@ -22,11 +22,13 @@ export interface GameMetadata {
 export const YACHT_DICE = 'YACHT_DICE'
 export const DUEL = 'DUEL'
 export const PING_PONG = 'PING_PONG'
+export const DAVINCI_CODE = 'DAVINCI_CODE'
 
 export const GAME_CATALOG: readonly GameMetadata[] = [
   { code: YACHT_DICE, name: 'Yacht Dice', minPlayers: 1, maxPlayers: 6, supportsBots: true },
   { code: DUEL, name: 'Duel', minPlayers: 2, maxPlayers: 2, supportsBots: false },
   { code: PING_PONG, name: 'Ping Pong', minPlayers: 2, maxPlayers: 2, supportsBots: false },
+  { code: DAVINCI_CODE, name: 'Da Vinci Code', minPlayers: 2, maxPlayers: 4, supportsBots: false },
 ]
 
 /** Java `GameModuleRegistry.normalize` — 레지스트리도 같은 규칙을 써야 한다. */

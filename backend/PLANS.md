@@ -303,6 +303,7 @@
 | 재접속 스냅샷·스위퍼 | `game/round/application/` | reconnect.md | ✅ 재접속 스냅샷(rollCount·dice·held 동봉, scores는 Map→객체 정규화 — Java 그대로면 버그였다) + OrphanedRoundStateSweeper(5분, cancel→remove, `listen()`에서 기동) 이식·배선 완료(2.8) |
 | 야추 (+봇) | `game/yacht/` | games/yacht.md | 🚧 모듈·`RedisYachtDiceStateStore`(운영 라운드 저장소)·`YachtTurnActionService`·dice 릴레이 비대칭·`markPhase('playing')`(3.1) + 봇 스택(3.2 — 지연 4종·세대 가드·TurnVersion·Expectimax **예산 강제**·Local 폴백·2봇 완주) 이식·배선 완료, 총 120건. **프론트 e2e:real 미검증** |
 | 석양이 진다 | `game/duel/` | games/duel.md | 🚧 DuelRules(판정·파울·캡)·상태 스토어(version 비증가 무시)·version 키 스케줄링·forfeit·점수=잔탄 이식·배선 완료(3.3, `DuelRulesTest` 12종 전부). **프론트 e2e:real 미검증** |
+| 다빈치 코드 | (Java에 없음) | games/davinci.md | 🆕 JS 백엔드에서 새로 만든 게임(2026-08-29). 규칙·상태·좌석별 유니캐스트·WS 모듈·점수 기록 구현 완료, 단위 62건. **Java 이식이 아니라 신규 기능이라 마이그레이션 범위 밖이다** — 프론트 계약 넓히기 근거는 [frontend/PLANS.md](../frontend/PLANS.md) 「다빈치 코드 추가」 |
 | 탁구 (+AI 결과) | `game/pingpong/` | games/pingpong.md | 🚧 규칙(궤적·판정 창·judgedAt)·상태 스토어·서비스·모듈(3.4) + AI 결과 REST(4.6 — 점수 재검증의 구멍까지 재현, 게스트는 `user_id` NULL) 이식·배선 완료. **프론트 e2e:real 미검증** · 실 MySQL 3건 미실행. **파티 방에서는 랠리를 시뮬레이션하지 않는다**(위 「파티 탁구 호스트 판정」 절) |
 | ~~음성 시그널링·ICE~~ → 텍스트 채팅 | `ws/chat.ts` | chat.md | 🗑 이식했던 `voice.*`·`GET /voice/ice`를 **삭제**하고 `chat.send`/`chat.message` 중계로 교체했다(아래 절). Java에는 대응 구현이 없다 |
 | 컨트롤러 링크 시그널링 | (Java에 없음) | controller-signal.md | 🚧 `ctrl.signal`/`ctrl.signaled` 유니캐스트 릴레이 추가 중(위 절). 파티 폰↔큰 화면 DataChannel 협상 전용이고 서버는 `data`를 열지 않는다 |
@@ -311,7 +312,8 @@
 | 모니터링·배포 | `monitoring/`, `.github/workflows/backend.yml`·`deploy/` | operations.md | 🚧 게이지 2종 이식·배선 완료(5.3 — `prom-client` 없이 텍스트 노출, 16건) + 배포 전환(5.1 — Dockerfile arm64 크로스 빌드·compose 전체 스택·GHA+GHCR, [ADR-0006](docs/adr/0006-github-actions-ghcr-arm64-single-host.md)). **이미지 실빌드·arm64 실기동·MySQL 통합 48건 미검증** |
 | ~~GameAbortService~~ | `game/round/application/` | game-modules.md | 🗑 데드 코드 — 이식 안 함 |
 
-⬜ Java에만 있음 · 🚧 이식 중 · ✅ 이식 완료(테스트 포함) · 🗑 이식 불필요(사유 기록)
+⬜ Java에만 있음 · 🚧 이식 중 · ✅ 이식 완료(테스트 포함) · 🗑 이식 불필요(사유 기록) ·
+🆕 Java에 없던 신규 기능(마이그레이션 범위 밖)
 
 ## 작업 워크플로우 (티켓 단위)
 

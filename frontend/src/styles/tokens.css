@@ -91,6 +91,15 @@
   --color-duel-positive: var(--ds-duel-positive);
   --color-duel-danger: var(--ds-duel-danger);
 
+  --color-dv-canvas: var(--ds-dv-canvas);
+  --color-dv-felt: var(--ds-dv-felt);
+  --color-dv-black: var(--ds-dv-black);
+  --color-dv-black-ink: var(--ds-dv-black-ink);
+  --color-dv-white: var(--ds-dv-white);
+  --color-dv-white-ink: var(--ds-dv-white-ink);
+  --color-dv-accent: var(--ds-dv-accent);
+  --color-dv-turn: var(--ds-dv-turn);
+
   --shadow-landing-panel: var(--ds-landing-shadow-panel);
   --shadow-landing-card: var(--ds-landing-shadow-card);
   --shadow-landing-card-quiet: var(--ds-landing-shadow-card-quiet);
@@ -492,6 +501,18 @@
   --ds-duel-gold: var(--ds-color-warning);
   --ds-duel-positive: var(--ds-color-positive);
   --ds-duel-danger: var(--ds-color-brand-soft);
+
+  /* 다빈치 코드 — 색이 곧 규칙인 게임이라 타일 두 색이 팔레트의 중심이다.
+     검정·흰색은 실제 타일처럼 순색을 피해 눈이 부시지 않게 잡았고, 글자색은 각 타일
+     위에서 읽히는 값이다. accent는 방금 공개된 타일, turn은 지금 차례인 사람을 가리킨다. */
+  --ds-dv-canvas: #0a0b0d;
+  --ds-dv-felt: #14161a;
+  --ds-dv-black: #16171b;
+  --ds-dv-black-ink: #f2f2f0;
+  --ds-dv-white: #eae7de;
+  --ds-dv-white-ink: #14151a;
+  --ds-dv-accent: var(--ds-color-brand-strong);
+  --ds-dv-turn: var(--ds-color-warning);
 
   /* 게임 화면 텍스트 밝기. 결투·탁구가 content / content-muted / content-faint 사다리를
      흰색 알파 11단(/30 /35 /40 /45 /50 /55 /60 /65 /70 /75 /85, 33곳)으로 다시 구현하고

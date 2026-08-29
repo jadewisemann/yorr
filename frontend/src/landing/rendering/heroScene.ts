@@ -393,6 +393,8 @@ export class HeroScene {
         return buildPingpong()
       case 'fishing':
         return buildFishing()
+      case 'davinci':
+        return buildDavinci()
       default:
         return this.buildYacht()
     }
@@ -491,6 +493,32 @@ function paddle(color: number) {
   const grip = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.9, 8, 16), matte(0x202125))
   grip.position.y = -1.25
   group.add(grip)
+  return group
+}
+
+/** 세워 둔 타일 넉 장 — 검정·흰색이 섞이고 가운데 한 장만 앞으로 넘어와 있다. */
+function buildDavinci() {
+  const group = new THREE.Group()
+  const tiles: [number, number, number, number][] = [
+    [-2.1, -0.1, 0, INK],
+    [-0.7, 0.05, 0, IVORY],
+    [0.7, 0.05, 0, INK],
+    [2.1, -0.1, 0, IVORY],
+  ]
+  tiles.forEach(([x, y, z, color], index) => {
+    const tile = new THREE.Mesh(new RoundedBoxGeometry(1.05, 1.7, 0.34, 4, 0.12), matte(color))
+    tile.castShadow = true
+    tile.receiveShadow = true
+    tile.position.set(x, y, z)
+    tile.rotation.set(0, index % 2 === 0 ? 0.12 : -0.12, index % 2 === 0 ? 0.05 : -0.05)
+    group.add(tile)
+  })
+  // 방금 맞혀 눕힌 한 장 — 판이 어디로 굴러가는지 보여 주는 레드 점이다.
+  const opened = new THREE.Mesh(new RoundedBoxGeometry(1.05, 1.7, 0.34, 4, 0.12), matte(ACCENT))
+  opened.position.set(0, -1.35, 1.1)
+  opened.rotation.set(-1.15, 0, 0.08)
+  opened.userData = { bob: 0.5 } satisfies SpinBob
+  group.add(opened)
   return group
 }
 

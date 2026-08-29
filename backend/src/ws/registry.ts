@@ -74,6 +74,17 @@ export class RoomSessionRegistry {
     return this.rooms.get(roomId)?.get(playerId) ?? null
   }
 
+  /**
+   * 그 방의 좌석 전부(오프라인 좌석·파티 대시보드 포함).
+   *
+   * 방송이 아니라 **좌석마다 다른 내용을 보내야 하는** 게임이 쓴다(다빈치 코드의
+   * `DavinciAudience`). 방 스냅샷의 플레이어 명단으로는 대신할 수 없다 — 대시보드는
+   * 명단에 없지만 화면을 받아야 하기 때문이다.
+   */
+  membersOf(roomId: string): RoomMember[] {
+    return [...(this.rooms.get(roomId)?.values() ?? [])]
+  }
+
   of(socket: ClientSocket): RoomMember | null {
     return this.bySocket.get(socket) ?? null
   }

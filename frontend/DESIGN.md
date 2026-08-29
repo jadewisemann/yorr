@@ -34,7 +34,7 @@
    비공개 세그먼트(`model/`·`rendering/`)는 도메인 밖에서 import할 수 없다
    (biome `noRestrictedImports`가 강제). 배럴(`index.ts`) 금지 —
    `check:cycles`가 배럴 경유 순환을 못 잡는다.
-5. **의존 방향은 단방향.** `app → landing → room → yacht(·pingpong·duel)`.
+5. **의존 방향은 단방향.** `app → landing → room → yacht(·pingpong·duel·davinci)`.
    `auth`·`shared`·`realtime`·`games.ts`·`store.ts`는 경계 모듈이라 어디서나
    참조한다. 되돌아가는 import 금지(`npm run check:cycles`가 강제). 경계를 넘는
    import만 `@/`를 쓴다.
@@ -73,8 +73,9 @@
 > ⚠️ **와이어 계약 동결 중.** 백엔드 Java → JS 마이그레이션이 끝날 때까지
 > `wsEvents.ts`와 REST 사용부를 바꾸지 않는다
 > ([backend ADR-0002](../backend/docs/adr/0002-strangler-wire-contract.md), [PLANS.md](PLANS.md)).
-> 지금까지 동결을 깬 것은 세 건이고 모두 PLANS.md에 근거가 있다 — 연습 방 시계(넓히기),
-> 음성 채팅 → 텍스트 채팅(교체), 컨트롤러 링크 시그널링(넓히기).
+> 지금까지 동결을 깬 것은 다섯 건이고 모두 PLANS.md에 근거가 있다 — 연습 방 시계(넓히기),
+> 음성 채팅 → 텍스트 채팅(교체), 컨트롤러 링크 시그널링(넓히기), 파티 탁구 호스트
+> 판정(넓히기), 다빈치 코드 추가(넓히기).
 
 ## 코드 구조
 
@@ -84,7 +85,7 @@
 | `landing/` | 랜딩 화면·히어로 연출 |
 | `auth/` | 소셜 로그인·세션 |
 | `room/` | 방 생성·입장·로비, 게임을 띄우는 껍데기(`screens/GamePage`) |
-| `yacht/` · `pingpong/` · `duel/` | 게임 구현 전부 |
+| `yacht/` · `pingpong/` · `duel/` · `davinci/` | 게임 구현 전부 |
 | `shared/` | 프리미티브 UI·공용 훅·REST client·`cn` |
 | `realtime/` | WS 와이어 계약(`wsEvents.ts`)과 연결 client. P2P 직결은 `controllerLink/` |
 | `mocks/` · `test/` · `styles/` | MSW·테스트 하네스·디자인 토큰 |
@@ -129,6 +130,7 @@
 | [motion-input.md](docs/llmwiki/motion-input.md) | 모션 센서 제스처 파이프라인·useSwing·피드백 |
 | [pingpong.md](docs/llmwiki/pingpong.md) | 탁구 — 기기 분기·지연 보상·코트 SSOT·AI 모드 |
 | [duel.md](docs/llmwiki/duel.md) | 석양이 진다 — 반응 측정·입력 밸런스·착탄 예측 |
+| [davinci.md](docs/llmwiki/davinci.md) | 다빈치 코드 — 시점별 상태·선택 draft·타일 표기 |
 | [shared-ui.md](docs/llmwiki/shared-ui.md) | 프리미티브 컴포넌트·훅·REST 클라이언트 |
 | [design-system.md](docs/llmwiki/design-system.md) | 토큰 2계층·cn 병합·레시피·모션 경계 |
 | [testing.md](docs/llmwiki/testing.md) | 단위 하네스·mock 백엔드 2벌·2단 E2E·커버리지 래칫 |

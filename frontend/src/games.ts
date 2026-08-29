@@ -1,5 +1,5 @@
-export type GameKey = 'duel' | 'fishing' | 'liars' | 'pingpong' | 'yacht'
-export type GameCode = 'DUEL' | 'PING_PONG' | 'YACHT_DICE'
+export type GameKey = 'davinci' | 'duel' | 'fishing' | 'liars' | 'pingpong' | 'yacht'
+export type GameCode = 'DAVINCI_CODE' | 'DUEL' | 'PING_PONG' | 'YACHT_DICE'
 
 export interface Game {
   control: string
@@ -45,6 +45,17 @@ export const games: [Game, ...Game[]] = [
     duration: '약 2분',
     gameCode: 'DUEL',
     control: '화면 탭 · 폰 휘두르기',
+    live: true,
+  },
+  {
+    key: 'davinci',
+    name: '다빈치 코드',
+    tagline: '감춘 숫자를 읽고, 내 숫자는 지키세요.',
+    description: '상대의 타일을 먼저 다 맞히는 쪽이 이기는 추리 게임',
+    players: '2–4 PLAYERS',
+    duration: '약 10분',
+    gameCode: 'DAVINCI_CODE',
+    control: '화면 탭',
     live: true,
   },
   {
