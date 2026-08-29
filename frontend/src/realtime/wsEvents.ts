@@ -116,6 +116,29 @@ export interface PingPongSwingPayload {
 
 export type PingPongReadyPayload = Record<string, never>
 
+/**
+ * C→S: **파티 모드에서 대시보드가 판정한 상태**(ADR-0003). 서버는 랠리를 다시 계산하지
+ * 않고 검증만 한 뒤 방에 `game.ping_pong.state`로 뿌리고, `FINISHED`면 보고된 점수로
+ * 완료 경로를 탄다.
+ *
+ * 서버가 보는 것 넷: 보낸 사람이 플레이어가 **아닐 것**(대시보드는 명단에 없다),
+ * `version`이 증가할 것, `playerOrder`가 서버 것과 같을 것, 끝난 판이 아닐 것.
+ * 그 밖의 판정은 하지 않는다 — 그것이 이 계약의 뜻이다.
+ */
+export type PingPongHostStatePayload = PingPongState
+
+/**
+ * S→C: 링크가 없는 폰의 스윙을 **대시보드에게 전달**하는 방송. 파티 모드에서만 나간다.
+ *
+ * 방 전체 방송인 이유는 서버가 대시보드를 특정하지 않기 때문이고, 컨트롤러는 이 메시지를
+ * 무시하면 된다. 이것이 있어야 **링크가 없어도 파티 탁구가 성립한다**(ADR-0003).
+ */
+export interface PingPongSwungPayload {
+  playerId: PlayerId
+  inputSeq: number
+  clientTs: number
+}
+
 export type DuelPhase = 'WAITING' | 'SIGNAL' | 'RESULT' | 'FINISHED'
 export type DuelRoundKind = 'SHOT' | 'TIE' | 'WARNING' | 'SELF_SHOT' | 'FORFEIT'
 
@@ -283,6 +306,37 @@ export interface ChatMessagePayload {
   at: number
 }
 
+/**
+ * 컨트롤러 링크(`realtime/controllerLink/`) 협상 데이터 — 파티 대시보드와 컨트롤러 폰
+ * 사이의 WebRTC DataChannel을 세운다.
+ *
+ * **서버는 이 값을 파싱하지 않고 봉투만 보고 배달한다**(backend `ws/controllerSignal.ts` —
+ * `data`가 `z.unknown()`이다). 그래서 이 union은 서버가 아니라 **클라이언트끼리의 합의**이고,
+ * 갈래를 늘려도 서버는 바뀌지 않는다. 갈래를 못 알아보는 상대는 조용히 버리면 되고, 그러면
+ * 링크가 안 열려 컨트롤러 입력은 그대로 WebSocket으로 간다
+ * (`docs/llmwiki/controller-link.md`).
+ */
+export type ControllerLinkSignal =
+  | { kind: 'description'; description: RTCSessionDescriptionInit }
+  | { kind: 'candidate'; candidate: RTCIceCandidateInit }
+
+/**
+ * C→S: 지목한 상대에게 협상 데이터를 전달해 달라고 요청한다. `from`은 서버가 채운다
+ * (클라가 주장하는 신분을 믿으면 남을 사칭할 수 있다). 상대가 이미 떠났으면 서버는 조용히
+ * 버린다 — 협상 중 이탈은 정상 상황이라 에러로 만들 이유가 없다.
+ *
+ * ⚠️ ICE 후보는 다른 메시지보다 훨씬 잦다(연결 수립 순간에 몰린다). `chat.send` 같은
+ *    기준으로 `RATE_LIMITED`를 걸면 링크가 안 붙는다 — 이 타입은 한도를 따로 잡아야 한다.
+ */
+export interface ControllerSignalPayload {
+  to: PlayerId
+  data: ControllerLinkSignal
+}
+export interface ControllerSignaledPayload {
+  from: PlayerId
+  data: ControllerLinkSignal
+}
+
 export interface RoundStartPayload {
   roundNumber: number
   /** epoch ms. null이면 이 턴에는 제한 시간이 없다(`GameState.roundDeadline` 참고). */
@@ -381,6 +435,8 @@ export type ClientMessage =
   | WsEnvelope<'room.ready', RoomReadyPayload>
   | WsEnvelope<'reaction.send', ReactionSendPayload>
   | WsEnvelope<'chat.send', ChatSendPayload>
+  | WsEnvelope<'ctrl.signal', ControllerSignalPayload>
+  | WsEnvelope<'game.ping_pong.host_state', PingPongHostStatePayload>
   | WsEnvelope<'game.yacht_dice.dice.roll', DiceRollPayload>
   | WsEnvelope<'game.yacht_dice.dice.hold', DiceHoldPayload>
   | WsEnvelope<'game.yacht_dice.dice.shake', DiceShakePayload>
@@ -407,6 +463,8 @@ export type ServerMessage =
   | WsEnvelope<'game.duel.state.sync', StateSyncPayload>
   | WsEnvelope<'presence.update', PresenceUpdatePayload>
   | WsEnvelope<'chat.message', ChatMessagePayload>
+  | WsEnvelope<'ctrl.signaled', ControllerSignaledPayload>
+  | WsEnvelope<'game.ping_pong.swung', PingPongSwungPayload>
   | WsEnvelope<'error', ErrorPayload>
   | WsEnvelope<'game.yacht_dice.round.start', RoundStartPayload>
   | WsEnvelope<'game.yacht_dice.round.end', RoundEndPayload>

@@ -4,6 +4,7 @@ import type { FrameState } from '@/pingpong/domain/frameState'
 import { type PlayerTracking, trackIncomingBall } from '@/pingpong/domain/playerTracking'
 import { createScene, type PingPongScene } from '@/pingpong/rendering/scene3d'
 import { playRacketHit, playTableHit } from '@/pingpong/sounds'
+import { useControllerLink } from '@/realtime/controllerLink/ControllerLinkContext'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import { buildClientMessage, type PingPongState } from '@/realtime/wsEvents'
 import { useSwing } from '@/shared/useSwing'
@@ -25,6 +26,7 @@ export function usePingPongGame({
   state,
 }: UsePingPongGameOptions) {
   const client = useRealtimeClient()
+  const controllerLink = useControllerLink()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sceneRef = useRef<PingPongScene | null>(null)
   const trackingRef = useRef({ p1X: 0.5, p2X: 0.5 })
@@ -40,21 +42,29 @@ export function usePingPongGame({
     viewerRef.current = viewerFor(state, session.you)
   })
 
+  /**
+   * 스윙은 **링크를 먼저 시도한다.** 파티 모드에서는 이 신호가 가야 할 곳이 서버가 아니라
+   * 판정하는 큰 화면이고(ADR-0003), 링크가 없으면 서버가 받아 대시보드에 전달한다.
+   * 일반 방·빠른 대전에는 링크가 없으므로 지금까지와 똑같이 서버로 간다.
+   */
   const swing = useCallback(() => {
     if (dashboard || !canSwing(stateRef.current)) return
+    const message = buildClientMessage(
+      'game.ping_pong.swing',
+      { inputSeq: ++inputSeq.current, clientTs: Date.now() },
+      { roomId },
+    )
+    if (controllerLink.trySend(message)) {
+      setSendError(null)
+      return
+    }
     try {
-      client.send(
-        buildClientMessage(
-          'game.ping_pong.swing',
-          { inputSeq: ++inputSeq.current, clientTs: Date.now() },
-          { roomId },
-        ),
-      )
+      client.send(message)
       setSendError(null)
     } catch {
       setSendError('연결을 확인한 뒤 다시 스윙해 주세요.')
     }
-  }, [client, dashboard, roomId])
+  }, [client, controllerLink, dashboard, roomId])
 
   const ready = useCallback(() => {
     if (dashboard || stateRef.current?.phase !== 'PREPARING') return

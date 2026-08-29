@@ -12,6 +12,7 @@
 | `room/roomSessionStorage.ts` | localStorage 영속화 — `{session, expiresAt}` 봉투 + 런타임 검증 |
 | `room/domain/roomCode.ts` | 초대 코드 정규화·검증, 붙여넣은 초대 URL에서 `?code=` 추출 |
 | `room/partyControllerStorage.ts` | "이 방은 파티 모드다"의 폰 쪽 기억 (방 코드 단위) |
+| `room/model/useControllerLinkRole.ts` | 이 기기가 컨트롤러 직결에서 맡을 역할 판정 (`dashboard`·`controller`·없음) |
 | `room/connectSequence.ts` | 재연결·연결 단계 타이밍 상수 (실기기에서 함께 튜닝하는 값들) |
 | `room/api/roomApi.ts` | 방 REST 계약 + 응답→도메인 변환 + `isRoomHost` |
 | `room/api/quickMatchApi.ts` | 빠른 대전 대기열 REST (`POST/GET/DELETE /quick-matches`) |
@@ -105,9 +106,23 @@ REST 계약: `POST/GET/DELETE /quick-matches` (모두 회원 인증 필요),
 - **폰이 컨트롤러임을 아는 방법**: 서버 스냅샷에 방 모드가 없어서, 대시보드가 초대 URL에
   `party=1`을 실어 보내고 입장 성공한 폰이 `yorr.party-room`에 **방 코드와 함께** 기억한다.
   플래그만 남기면 다음 일반 방까지 컨트롤러로 뜬다. 알려진 구멍: 초대 코드를 손으로 입력해
-  들어온 사람은 일반 화면으로 뜬다.
+  들어온 사람은 일반 화면으로 뜬다 — 이 기억이 **컨트롤러 링크의 존재 조건**이기도 해서
+  (`useControllerLinkRole`) 같은 구멍이 연출 하나를 더 건드린다
+  ([controller-link.md](./controller-link.md) 「알려진 틈」).
 - 좁은 화면의 `/party`는 대시보드를 억지로 그리지 않고 안내 화면으로 받는다 — 폰의
   대시보드는 덜 좋은 경험이 아니라 **틀린** 경험이다.
+
+### 컨트롤러 직결 (WebRTC)
+
+파티 모드에서는 폰과 대시보드가 **WebRTC DataChannel로 직접 이어진다.** 야추의 흔들림·던지기
+같은 연출 릴레이만 그 길로 보내 서버 왕복 한 홉을 없애고, 서버가 판정하는 입력은 그대로
+WebSocket으로 간다. 링크가 안 붙으면 전부 WebSocket으로 떨어진다 —
+설계·판정표·폴백 규칙은 [controller-link.md](./controller-link.md).
+
+**협상은 대시보드가 먼저 건다**: 서버가 대시보드를 플레이어 명단에 넣지 않으므로 폰은
+대시보드의 playerId를 알 방법이 없고, 반대 방향은 스냅샷으로 알 수 있다. 시그널링은
+`ctrl.signal` 유니캐스트를 쓰고 TURN은 붙이지 않는다(STUN만) — 중계를 타면 없애려던 서버
+홉이 되살아난다.
 
 ### 컨트롤러 연결 시퀀스 (`ControllerConnectSequence`)
 
@@ -143,3 +158,5 @@ REST 계약: `POST/GET/DELETE /quick-matches` (모두 회원 인증 필요),
    결과 화면이 영영 안 뜨는 실측 버그가 근거)
 6. 저장 TTL 40분 = 서버 방 TTL, 복원 시 자동 입장 금지
 7. 퇴장은 네트워크 실패에 막히지 않는다
+8. 컨트롤러 직결(WebRTC)에는 **서버가 판정하는 메시지를 태우지 않는다** —
+   [controller-link.md](./controller-link.md)의 판정표가 목록의 정본

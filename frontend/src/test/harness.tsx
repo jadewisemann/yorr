@@ -2,14 +2,17 @@ import { createMemoryHistory, RouterProvider } from '@tanstack/react-router'
 import { render } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
+import type { ReactNode } from 'react'
 import { vi } from 'vitest'
 import { InAppBrowserGate } from '@/app/InAppBrowserGate'
 import { RealtimeSync } from '@/app/RealtimeSync'
 import { createAppRouter } from '@/app/router'
 import { mockApiServer } from '@/mocks/server'
 import { ChatProvider } from '@/realtime/chat/ChatContext'
+import { ControllerLinkProvider } from '@/realtime/controllerLink/ControllerLinkContext'
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import type { RoomSession } from '@/room/api/roomApi'
+import { useControllerLinkRole } from '@/room/model/useControllerLinkRole'
 import { useAppStore } from '@/store'
 
 export interface AppHarnessOptions {
@@ -40,9 +43,9 @@ export function renderAppHarness(options: AppHarnessOptions = {}) {
   const view = render(
     <InAppBrowserGate>
       <RealtimeSync client={realtimeClient}>
-        <ChatProvider>
+        <SessionProviders>
           <RouterProvider router={router} />
-        </ChatProvider>
+        </SessionProviders>
       </RealtimeSync>
     </InAppBrowserGate>,
   )
@@ -54,6 +57,16 @@ export function renderAppHarness(options: AppHarnessOptions = {}) {
     router,
     user,
   }
+}
+
+/** `App`의 provider 층을 그대로 세운다 — 테스트가 실제 배선과 다른 트리를 보면 안 된다. */
+function SessionProviders({ children }: { children: ReactNode }) {
+  const controllerLinkRole = useControllerLinkRole()
+  return (
+    <ControllerLinkProvider linkRole={controllerLinkRole}>
+      <ChatProvider>{children}</ChatProvider>
+    </ControllerLinkProvider>
+  )
 }
 
 export function resetAppTestState() {

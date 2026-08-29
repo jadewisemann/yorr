@@ -9,7 +9,7 @@
 | 파일 | 책임 |
 |---|---|
 | `realtime/wsEvents.ts` | FE/BE 공유 와이어 계약 SSOT — envelope, 전체 payload 타입, 메시지 유니온, 오류 코드, `WS_PROTOCOL_VERSION`, `buildClientMessage` |
-| `realtime/realtimeClient.ts` | `WebSocketRealtimeClient` — **전송만 하는 멍청한 클라이언트**. 열기/닫기/JSON 인코딩/리스너 팬아웃. 재연결·heartbeat·큐 없음 |
+| `realtime/realtimeClient.ts` | `WebSocketRealtimeClient` — **전송만 하는 멍청한 클라이언트**. 열기/닫기/JSON 인코딩/리스너 팬아웃. 재연결·heartbeat·큐 없음. `deliverLocal()`은 서버를 거치지 않고 도착한 봉투를 같은 팬아웃에 흘리는 유일한 주입 구멍이다([controller-link.md](./controller-link.md)) |
 | `realtime/RealtimeClientContext.tsx` | DI 경계. `useRealtimeClient()`는 provider 밖이면 **던진다** (없으면 앱이 안 돌아가므로) |
 | `realtime/fakeRealtimeClient.ts` | 테스트/mock 모드용 인메모리 클라이언트 — 보낸 메시지 기록, type별 핸들러 표, 지연·strict 모드 |
 | `app/RealtimeSync.tsx` | **세션 엔진** — heartbeat, 재연결 스케줄링, rejoin, `ServerMessage → store` 단일 리듀서 |
@@ -50,6 +50,12 @@
   타이머로 사발을 쏟아, **굴린 사람이 아직 흔드는 중에 결과가 먼저 보였다.**
 - `dice.shake/shaken` — 흔들림 펄스를 그대로 중계한다. 그전까지 관전 화면은 정해진
   애니메이션으로 계속 흔들려서, 굴린 사람이 손을 멈춰도 멈추지 않았다.
+
+이 둘은 **서버가 판정하지 않고 그대로 중계만 하는 유일한 게임 메시지**다. 그래서 파티
+모드에서는 서버를 거치지 않고 컨트롤러 폰 → 큰 화면으로 직접 가고, 링크가 붙어 있을 때만
+그렇다 — 아니면 여기 적힌 대로 서버가 중계한다([controller-link.md](./controller-link.md)).
+받는 쪽 코드는 어느 경로로 왔는지 모른다: 링크가 봉투를 서버와 같은 모양으로 만들어 같은
+팬아웃에 넣는다.
 
 ### 알려진 계약 부채
 
@@ -129,5 +135,6 @@ REST 입장 → RoomSession{roomId, you, nickname, sessionToken}
   heartbeat가 멈춘다.
 - `INVALID_ROLL`이 `rollCount` 주석에 언급되지만 `WsErrorCode`에는 없다.
 
-방 텍스트 채팅은 [chat.md](./chat.md), 세션 FSM·저장 정책은
+방 텍스트 채팅은 [chat.md](./chat.md), 컨트롤러 직결(WebRTC)은
+[controller-link.md](./controller-link.md), 세션 FSM·저장 정책은
 [room-and-session.md](./room-and-session.md) 참고.

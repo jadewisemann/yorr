@@ -7,6 +7,15 @@ export interface RealtimeClient {
   connect(): void
   disconnect(): void
   send(message: ClientMessage): void
+  /**
+   * 서버를 거치지 않고 도착한 메시지를 **서버에서 온 것과 같은 팬아웃**에 흘린다.
+   * 컨트롤러 링크(`controllerLink/`)가 피어에게서 직접 받은 연출 릴레이를 여기로 넣기
+   * 때문에, 소비자(`useRollIncoming` 등)는 어느 전송을 타고 왔는지 알 필요가 없다.
+   *
+   * 전송 계층에 남기는 유일한 주입 구멍이라 이름에 `local`을 박아 뒀다 — 서버에 나가는
+   * 것은 `send`뿐이다.
+   */
+  deliverLocal(message: ServerMessage): void
   onMessage(listener: MessageListener): () => void
   onConnectionChange(listener: ConnectionListener): () => void
 }
@@ -49,6 +58,10 @@ export class WebSocketRealtimeClient implements RealtimeClient {
       throw new Error('WebSocket is not connected')
     }
     this.socket.send(JSON.stringify(message))
+  }
+
+  deliverLocal(message: ServerMessage) {
+    this.emitMessage(message)
   }
 
   onMessage(listener: MessageListener) {

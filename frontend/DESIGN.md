@@ -9,8 +9,19 @@
 ## 핵심 원칙
 
 1. **서버 권위(server authoritative).** 방·게임 상태의 최종 권위는 서버에 있다.
-   클라이언트는 "의도"를 보내고 서버가 결과를 확정한다. 주사위 물리
-   시뮬레이션(three.js·rapier)은 **연출**이다 — `physics result != game result`.
+   클라이언트는 "의도"를 보내고 서버가 결과를 확정한다. 그래서 **서버가 판정·저장하는
+   메시지는 반드시 WebSocket으로 간다** — 서버는 WebSocket만 말하므로, 피어 사이 직결
+   (`realtime/controllerLink/`)에 태울 수 있는 것은 서버가 중계만 하는 연출 릴레이뿐이다
+   ([controller-link.md](docs/llmwiki/controller-link.md)의 판정표).
+
+   > **예외 1건 (파티 모드 탁구).** 파티 방에서는 **PLAYING 국면의 랠리 판정만** 대시보드가
+   > 맡는다 — 큰 화면이 판정과 렌더를 같은 기기에서 해야 공 반전이 즉시 보이고, 한 방에
+   > 모인 사람들이라 서버 판정이 지키던 신뢰가 필요 없다. 방 수명·시작·초기 상태·준비
+   > 게이트·종료·전적은 그대로 서버가 소유한다. 경계는
+   > [ADR-0003](docs/adr/0003-party-host-authority-pingpong.md).
+   > **야추는 예외가 아니다** — 주사위 눈은 파티 모드에서도 서버가 굴린다.
+
+   주사위 물리 시뮬레이션(three.js·rapier)은 **연출**이다 — `physics result != game result`.
    물리 결과를 서버로 보내거나 권위 상태에 반영하는 구현은 설계 위반이다.
 2. **서버 권위 상태는 WS 이벤트·재접속 스냅샷만 변경한다.** phase·host·참가자·
    라운드·deadline·주사위·킵·굴림수·점수를 React 컴포넌트가 직접 수정하지
@@ -62,8 +73,8 @@
 > ⚠️ **와이어 계약 동결 중.** 백엔드 Java → JS 마이그레이션이 끝날 때까지
 > `wsEvents.ts`와 REST 사용부를 바꾸지 않는다
 > ([backend ADR-0002](../backend/docs/adr/0002-strangler-wire-contract.md), [PLANS.md](PLANS.md)).
-> 지금까지 동결을 깬 것은 두 건뿐이고 둘 다 PLANS.md에 근거가 있다 — 연습 방 시계
-> (넓히기)와 음성 채팅 → 텍스트 채팅(교체).
+> 지금까지 동결을 깬 것은 세 건이고 모두 PLANS.md에 근거가 있다 — 연습 방 시계(넓히기),
+> 음성 채팅 → 텍스트 채팅(교체), 컨트롤러 링크 시그널링(넓히기).
 
 ## 코드 구조
 
@@ -75,7 +86,7 @@
 | `room/` | 방 생성·입장·로비, 게임을 띄우는 껍데기(`screens/GamePage`) |
 | `yacht/` · `pingpong/` · `duel/` | 게임 구현 전부 |
 | `shared/` | 프리미티브 UI·공용 훅·REST client·`cn` |
-| `realtime/` | WS 와이어 계약(`wsEvents.ts`)과 연결 client |
+| `realtime/` | WS 와이어 계약(`wsEvents.ts`)과 연결 client. P2P 직결은 `controllerLink/` |
 | `mocks/` · `test/` · `styles/` | MSW·테스트 하네스·디자인 토큰 |
 
 도메인 안 세그먼트: `screens/`·`components/`·`domain/`·`api/`(공개),
@@ -108,6 +119,7 @@
 | [app-shell.md](docs/llmwiki/app-shell.md) | 부팅·라우트 표·코드 스플리팅·View Transitions·dev 화면 |
 | [realtime.md](docs/llmwiki/realtime.md) | WS 계약·연결/재연결·heartbeat·스냅샷 병합 리듀서 |
 | [chat.md](docs/llmwiki/chat.md) | 방 텍스트 채팅 — 중계 계약·provider 배치·안 읽은 수 |
+| [controller-link.md](docs/llmwiki/controller-link.md) | 파티 폰↔큰 화면 WebRTC DataChannel — 연출 릴레이 직결·폴백·STUN만 |
 | [room-and-session.md](docs/llmwiki/room-and-session.md) | 세션 FSM·저장/복구·방 수명주기·빠른 대전·파티 모드 |
 | [rest-api.md](docs/llmwiki/rest-api.md) | 프론트가 호출하는 REST 엔드포인트 전체 |
 | [landing.md](docs/llmwiki/landing.md) | 히어로 캐러셀·모드 선택·랭킹 티커·히어로 3D |

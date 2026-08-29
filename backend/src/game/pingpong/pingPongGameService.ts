@@ -15,6 +15,7 @@ import type {
 import {
   expire,
   forfeit,
+  hostReport,
   initial,
   judgedAt,
   ready as readyRule,
@@ -78,6 +79,15 @@ export class PingPongGameService<S extends object> {
   private readonly now: () => number
   private readonly randomTarget: () => number
 
+  /**
+   * 방마다 "이 판의 랠리를 대시보드가 판정하는가"(frontend ADR-0003).
+   *
+   * **판이 시작될 때 한 번 정하고 끝날 때까지 유지한다.** 매번 Redis를 읽지 않는 이유가
+   * 성능만은 아니다 — 판정 주체가 판 도중에 바뀌면 같은 랠리를 둘이 판정하는 순간이 생긴다.
+   * 방이 끝나거나 대기실로 돌아갈 때 지운다.
+   */
+  private readonly hostJudged = new Map<string, boolean>()
+
   constructor(
     private readonly deps: PingPongGameServiceDeps<S>,
     options: PingPongGameServiceOptions = {},
@@ -105,11 +115,12 @@ export class PingPongGameService<S extends object> {
     if (players.length !== 2) throw new ConflictError('ping_pong_requires_two_players')
 
     const state = initial(players, this.now())
+    await this.isHostJudged(roomId)
     await this.deps.states.initialize(roomId, state)
     this.deps.presence.markPhase(roomId, 'playing')
     await this.broadcast(roomId, state, true)
     // PREPARING은 `nextActionAt=0`이라 예약이 걸리지 않는다 — 준비 게이트가 타이머를 대신한다.
-    this.schedule(roomId, state)
+    await this.schedule(roomId, state)
   }
 
   /**
@@ -122,9 +133,42 @@ export class PingPongGameService<S extends object> {
     payload: PingPongSwingPayload | null | undefined,
   ): Promise<void> {
     if (!payload || payload.inputSeq < 0) throw new DomainError('invalid_ping_pong_swing')
+    if (await this.isHostJudged(roomId)) {
+      // 대시보드가 판정하는 판이다. 서버는 판정하지 않고 **그대로 넘긴다** — 링크가 없는
+      // 폰의 스윙이 도착하는 유일한 경로라, 이것이 있어야 링크 없이도 파티 탁구가 성립한다.
+      // 방 전체 방송인 이유: 대시보드를 서버가 특정하려면 명단에 없는 멤버를 뒤져야 하는데,
+      // 컨트롤러는 이 메시지를 무시하면 그만이라 방송이 더 싸다.
+      this.deps.broadcaster.broadcast(
+        roomId,
+        this.envelope(
+          'game.ping_pong.swung',
+          { playerId, inputSeq: payload.inputSeq, clientTs: payload.clientTs },
+          roomId,
+        ),
+      )
+      return
+    }
     const swungAt = judgedAt(this.now(), payload.clientTs)
     const next = await this.deps.states.mutate(roomId, (current) =>
       swingRule(current, playerId, payload.inputSeq, swungAt, this.randomTarget()),
+    )
+    if (next !== undefined) await this.changed(roomId, next)
+  }
+
+  /**
+   * 대시보드가 판정한 상태 보고 — 파티 모드 호스트 판정(frontend ADR-0003).
+   *
+   * 서버는 랠리를 다시 계산하지 않지만 **아무거나 받지도 않는다**: `hostReport`가
+   * 발신자·version·roster·종료 여부를 본다. 통과하면 그 뒤는 서버가 판정했을 때와 **같은
+   * 경로**를 탄다(`changed`) — 방송·최종 점수 기록·완료 판정이 한 곳에 남는다.
+   *
+   * 대시보드가 판정하는 판이 아니면 조용히 버린다. 오류로 만들면 방 종류를 잘못 안
+   * 클라이언트가 게임 중 오류 토스트를 계속 띄운다.
+   */
+  async hostState(roomId: string, playerId: string, reported: PingPongState): Promise<void> {
+    if (!(await this.isHostJudged(roomId))) return
+    const next = await this.deps.states.mutate(roomId, (current) =>
+      hostReport(current, reported, playerId),
     )
     if (next !== undefined) await this.changed(roomId, next)
   }
@@ -149,7 +193,8 @@ export class PingPongGameService<S extends object> {
   /** 타이머만 되살린다 — 상태는 그대로다. 끝난 판은 다시 걸지 않는다. */
   async resume(roomId: string): Promise<void> {
     const state = await this.deps.states.find(roomId)
-    if (state !== undefined && !isPingPongFinished(state)) this.schedule(roomId, state)
+    if (state === undefined || isPingPongFinished(state)) return
+    await this.schedule(roomId, state)
   }
 
   /**
@@ -169,7 +214,7 @@ export class PingPongGameService<S extends object> {
     if (isPingPongFinished(state)) {
       throw new Error(`탁구가 이미 끝난 방입니다(종료 전이 실패): ${roomId}`)
     }
-    this.schedule(roomId, state)
+    await this.schedule(roomId, state)
   }
 
   async pause(roomId: string): Promise<void> {
@@ -211,6 +256,7 @@ export class PingPongGameService<S extends object> {
   /** 로비 복귀 정리. 매치 취소와 달리 `cancelActiveGame`은 부르지 않는다(이미 FINISHED다). */
   async reset(roomId: string): Promise<void> {
     this.deps.scheduler.cancelRoom(roomId)
+    this.hostJudged.delete(roomId)
     await this.deps.states.remove(roomId)
     this.deps.presence.markPhase(roomId, 'waiting')
     await this.syncRoom(roomId)
@@ -218,6 +264,7 @@ export class PingPongGameService<S extends object> {
 
   async close(roomId: string): Promise<void> {
     this.deps.scheduler.cancelRoom(roomId)
+    this.hostJudged.delete(roomId)
     await this.deps.states.remove(roomId)
   }
 
@@ -232,6 +279,7 @@ export class PingPongGameService<S extends object> {
    */
   private async cancelPreparation(roomId: string): Promise<void> {
     this.deps.scheduler.cancelRoom(roomId)
+    this.hostJudged.delete(roomId)
     await this.deps.states.remove(roomId)
     await this.deps.rooms.cancelActiveGame(roomId)
     this.deps.presence.markPhase(roomId, 'waiting')
@@ -270,10 +318,28 @@ export class PingPongGameService<S extends object> {
       return
     }
     await this.broadcast(roomId, state, state.phase === 'COUNTDOWN')
-    this.schedule(roomId, state)
+    await this.schedule(roomId, state)
   }
 
-  private schedule(roomId: string, state: PingPongState): void {
+  /**
+   * 이 방의 랠리를 대시보드가 판정하는가. 처음 물을 때 한 번 읽고 캐시한다 —
+   * 캐시가 있으면 Redis를 다시 보지 않으므로 **판 도중에 판정 주체가 바뀌지 않는다.**
+   */
+  private async isHostJudged(roomId: string): Promise<boolean> {
+    const cached = this.hostJudged.get(roomId)
+    if (cached !== undefined) return cached
+    const party = await this.deps.rooms.isPartyRoom(roomId)
+    this.hostJudged.set(roomId, party)
+    return party
+  }
+
+  /**
+   * 마감 예약. **대시보드가 판정하는 판에는 걸지 않는다** — 걸어 두면 서버가 자기
+   * 시뮬레이션으로 공을 넘기고 점수를 내고 `game.over`까지 만들어, 전적에 틀린 결과가
+   * 남는다(frontend ADR-0003 「기각한 대안」).
+   */
+  private async schedule(roomId: string, state: PingPongState): Promise<void> {
+    if (await this.isHostJudged(roomId)) return
     if (isPingPongFinished(state) || state.nextActionAt <= 0) return
     this.deps.scheduler.schedule(roomId, state.version, state.nextActionAt, () =>
       this.timeout(roomId, state.version),
