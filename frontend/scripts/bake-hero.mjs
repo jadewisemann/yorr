@@ -28,7 +28,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const OUT_DIR = path.join(ROOT, 'public', 'hero')
 const PORT = 5183
 
-const GAMES = ['yacht', 'pingpong', 'duel', 'liars', 'fishing']
+const GAMES = ['yacht', 'pingpong', 'duel', 'davinci', 'liars', 'fishing']
 const FRAMINGS = [
   { name: 'wide', width: 1280, height: 768 },
   { name: 'narrow', width: 560, height: 800 },
