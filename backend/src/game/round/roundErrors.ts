@@ -22,7 +22,7 @@ export type RoundSyncReason =
   | 'GAME_ALREADY_FINISHED'
 
 /**
- * Java `RoundSynchronizationException`(unchecked) 자리.
+ * 라운드 동기화 실패.
  *
  * `errors.ts`의 `DomainError`/`ConflictError`를 **상속하지 않는다** — 저쪽은
  * REST의 소문자 문자열 코드 계약(400/404/409)이고, 이쪽은 게임 모듈이 WS 코드로

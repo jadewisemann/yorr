@@ -4,9 +4,8 @@ import { InMemoryRoundStateStore } from '../roundStateStore.js'
 import { RoundSynchronizationService, seededDieRoller } from '../roundSynchronizationService.js'
 
 /**
- * Java의 동시성 케이스(`advancesOnlyAfterEachPlayerSubmitsInTurnOrder`가 20명
- * 순차 제출인 것과 별개로 존재하던 스레드 테스트)는 2.4에서 방 단위 프라미스 락
- * 테스트로 이미 옮겼다 — 여기서는 서비스 표면만 본다.
+ * 동시성은 `roundStateStore.test.ts`의 방 단위 프라미스 락 테스트가 본다 —
+ * 여기서는 서비스 표면만 본다.
  */
 describe('RoundSynchronizationService', () => {
   let store: InMemoryRoundStateStore
@@ -14,7 +13,7 @@ describe('RoundSynchronizationService', () => {
 
   beforeEach(() => {
     store = new InMemoryRoundStateStore()
-    // Java 테스트의 `() -> 1`. 다섯 개가 전부 1인 주사위라 제출 페이로드를 고정할 수 있다.
+    // 다섯 개가 전부 1인 주사위라 제출 페이로드를 고정할 수 있다.
     service = new RoundSynchronizationService(store, { dieRoller: () => 1 })
   })
 
@@ -84,7 +83,7 @@ describe('RoundSynchronizationService', () => {
     expect(state?.submittedPlayerIds).toEqual([])
   })
 
-  /* ------------------------------------------------ Java에 없던 계약: 서버 RNG 시임 */
+  /* ------------------------------------------------------------ 계약: 서버 RNG 시임 */
 
   /**
    * 주사위의 권위는 서버다(DESIGN.md 원칙 1). 굴림 페이로드에 dice가 없다는 사실

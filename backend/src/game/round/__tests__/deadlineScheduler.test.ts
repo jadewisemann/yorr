@@ -6,9 +6,8 @@ import {
 } from '../deadlineScheduler.js'
 
 /**
- * Mockito
- * `mock(ScheduledExecutorService)` 자리에 손으로 만든 executor 시임을 넣는다 —
- * 실시간 sleep도, 가짜 타이머 advance도 쓰지 않는다.
+ * 손으로 만든 executor 시임을 넣는다 — 실시간 sleep도, 가짜 타이머 advance도
+ * 쓰지 않는다.
  */
 describe('InMemoryRoundDeadlineScheduler', () => {
   /**

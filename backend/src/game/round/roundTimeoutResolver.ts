@@ -13,10 +13,8 @@ import type { RoundSynchronizationService } from './roundSynchronizationService.
 /**
  * 마감 시각이 지난 턴을 서버가 어떻게 처리했는지. 타이머는 이 결과만 보고 다음 동작을 정한다.
  *
- * Java는 `record RoundTimeoutResolution(Kind, RoundSubmissionResult, RoundState)`로
- * **두 필드 중 하나만 채우고 나머지는 null**이었다(kind를 보지 않고 꺼내면 NPE).
- * 여기서는 판별 유니온이라 그 규약을 타입이 강제한다 — Java의 정적 팩터리 3개가
- * 하던 null 검사가 컴파일 타임으로 올라간다.
+ * 판별 유니온이라 "kind에 맞는 필드만 있다"를 타입이 강제한다 — 한 레코드에
+ * 두 필드를 두고 하나만 채우는 모양이었다면 런타임 null 검사가 필요했을 것이다.
  */
 export type RoundTimeoutResolution =
   /** 그 사이 플레이어가 직접 제출해 턴이 이미 넘어갔다 — 아무것도 하지 않는다. */
@@ -40,9 +38,9 @@ export const advancedResolution = (advanced: RoundSubmissionResult): RoundTimeou
 })
 
 /**
- * 타이머가 해소기에 요구하는 전부. 타이머 테스트가 해소 결과를 고정할 수 있어야 하고
- * (Java는 `mock(RoundTimeoutResolver.class)`), 구현 클래스는 private 필드 때문에
- * 구조적으로 대체할 수 없다 — TS에서 private 멤버는 명목 타입이다.
+ * 타이머가 해소기에 요구하는 전부. 타이머 테스트가 해소 결과를 고정할 수 있어야
+ * 하는데, 구현 클래스는 private 필드 때문에 구조적으로 대체할 수 없다 —
+ * TS에서 private 멤버는 명목 타입이다.
  */
 export interface RoundTimeoutResolverPort {
   resolve(
@@ -59,7 +57,7 @@ export interface RoundTimeoutResolverOptions {
   readonly now?: () => number
   readonly categoryPicker?: CategoryPicker
   readonly gameCode?: string
-  /** 강등 경로(점수 없이 진행)를 관측하기 위한 훅. Java의 `log.warn` 자리. */
+  /** 강등 경로(점수 없이 진행)를 관측하기 위한 훅. */
   readonly onDegraded?: (roomId: string, reason: string, error?: unknown) => void
 }
 
@@ -187,7 +185,7 @@ export class RoundTimeoutResolver implements RoundTimeoutResolverPort {
       this.onDegraded(roomId, 'no_open_category')
       return null
     }
-    // Java `Math.floorMod` — 음수 인덱스를 돌려주는 picker에도 범위 안으로 접는다.
+    // 음수 인덱스를 돌려주는 picker에도 범위 안으로 접는다.
     const index = ((this.categoryPicker(open.length) % open.length) + open.length) % open.length
     return open[index] ?? null
   }
