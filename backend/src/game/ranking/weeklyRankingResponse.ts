@@ -7,8 +7,7 @@ import type { WeeklyRanking } from './weeklyRankingService.js'
  * `WeeklyRanking`(camelCase — 방 REST의 snake_case가 아니다).
  *
  * 라우트 파일이 아니라 도메인 모듈에 둔 것은 이 규칙이 순수 함수이고 MySQL 없이
- * 테스트되어야 하기 때문이다. Java도 컨트롤러가 아닌 DTO에 두고 별도 단위
- * 테스트(`WeeklyRankingResponseTest`)로 고정한다.
+ * 테스트되어야 하기 때문이다.
  */
 
 export interface WeeklyRankingEntry {

@@ -1,13 +1,12 @@
 /**
  * 주간 랭킹의 주 경계 — **KST 월요일 00:00**.
  *
- * 이 파일이 4.5의 유일하게 미묘한 지점이다. 경계가 어긋나면 주가 바뀌는 순간에만
- * 틀리므로 굴려서는 잡히지 않는다(Java `WeeklyRankingServiceTest`가 초 단위로
- * 못박아 둔 이유).
+ * 주간 랭킹에서 유일하게 미묘한 지점이다. 경계가 어긋나면 주가 바뀌는 순간에만
+ * 틀리므로 굴려서는 잡히지 않는다 — 그래서 테스트가 초 단위로 못박아 둔다.
  *
  * ## 왜 존을 코드에 고정하는가
- * Java는 `ZoneId.of("Asia/Seoul")`을 상수로 박았다. 인프라의 `TZ` 환경변수에
- * 맡기면 개발 컨테이너(Asia/Seoul)와 운영(UTC)이 서로 다른 주를 세게 된다 —
+ * 인프라의 `TZ` 환경변수에 맡기면 개발 컨테이너(Asia/Seoul)와 운영(UTC)이
+ * 서로 다른 주를 세게 된다 —
  * `infra/mysql.ts`가 `timezone: 'Z'`로 막아 둔 것과 **같은 종류의 스큐**다.
  *
  * ## 왜 시간대 DB(`Intl`) 대신 +9 고정인가
@@ -32,8 +31,8 @@ const KST_OFFSET_MS = KST_OFFSET_MINUTES * MS_PER_MINUTE
 
 export interface WeekBoundary {
   /**
-   * 이 주가 시작하는 **KST 달력 날짜**(`YYYY-MM-DD`). Java `LocalDate`가
-   * 직렬화되는 모양 그대로다 — 프론트의 "이번 주" 표기를 서버 기준으로 맞추려면
+   * 이 주가 시작하는 **KST 달력 날짜**(`YYYY-MM-DD`).
+   * 프론트의 "이번 주" 표기를 서버 기준으로 맞추려면
    * 순위와 함께 나가야 한다(`frontend/src/shared/api/rankingApi.ts`).
    */
   readonly weekStart: string
@@ -48,8 +47,7 @@ export interface WeekBoundary {
  * 00:00 정각은 **새 주에 속한다**(반개구간 `[from, to)`).
  *
  * 돌려주는 `from`·`to`는 순간(`Date`)이다. 풀이 `timezone: 'Z'`이므로 그대로
- * `finished_at DATETIME(6)`(UTC 벽시계)과 비교된다 — Java가 `LocalDateTime`으로
- * 환산해 넘기는 것과 같은 값이 SQL에 실린다.
+ * `finished_at DATETIME(6)`(UTC 벽시계)과 비교된다.
  */
 export const weekBoundaryOf = (at: Date): WeekBoundary => {
   // KST 벽시계를 UTC 게터로 읽기 위해 오프셋만큼 옮긴 값. 이 시각의 `getUTC*`가

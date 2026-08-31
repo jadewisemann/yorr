@@ -62,7 +62,7 @@ export const registerQuickMatchRoutes = async (
 
   /**
    * 큐 입장. `game_code`가 없으면 야추다.
-   * 코드 정규화(`canonicalCode`)가 인증 **뒤**에 오는 것도 Java와 같다 — 잘못된
+   * 코드 정규화(`canonicalCode`)는 인증 **뒤**에 온다 — 잘못된
    * 코드보다 만료된 세션이 먼저 보고된다.
    */
   app.post<{ Querystring: { game_code?: string } }>('/quick-matches', async (request, reply) => {

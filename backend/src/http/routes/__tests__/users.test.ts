@@ -189,10 +189,10 @@ describeRedis('프로필 REST', () => {
 
   /**
    * 의도된 비대칭: GET은 `read()`의 `user_not_found`를 잡지 않는다(PATCH만 잡는다).
-   * Spring에서는 처리되지 않은 `IllegalArgumentException`이 500이 되고, 여기서도
-   * Fastify 기본 처리로 500이다. **비대칭 자체가 계약**이라 통일하지 않았다.
+   * 잡히지 않은 도메인 오류는 Fastify 기본 처리로 500이 된다.
+   * **비대칭 자체가 계약**이라 통일하지 않았다.
    */
-  it('GET은 회원 행이 없으면 404가 아니라 500이다(Java와 같은 비대칭)', async () => {
+  it('GET은 회원 행이 없으면 404가 아니라 500이다(의도된 비대칭)', async () => {
     const ghost = await users.openMemberSession(randomUUID(), '유령')
 
     const response = await get(ghost)

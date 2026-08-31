@@ -104,7 +104,7 @@ export class GameModuleRegistry {
     this.modules.set(code, module)
   }
 
-  /** 게임 메타데이터. 모르는 코드는 `invalid_game_code`(Java `require`와 같은 자리). */
+  /** 게임 메타데이터. 모르는 코드는 `invalid_game_code`다. */
   require(code: string | null | undefined): GameMetadata {
     return this.catalog.require(code)
   }

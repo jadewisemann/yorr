@@ -140,7 +140,7 @@ export const registerGameQueryRoutes = async (
   })
 
   /**
-   * **인증 없음 · `gameId` 미사용**의 순수 계산기(Java와 같은 quirk).
+   * **인증 없음 · `gameId` 미사용**의 순수 계산기다.
    *
    * 본문 검증 실패를 "400 + 빈 본문"으로 맞추려고 캡슐화된 하위 스코프에
    * 오류 핸들러를 둔다 — 이 스코프 밖(방 REST 등)에는 영향이 없다. JSON 파싱

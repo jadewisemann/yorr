@@ -222,7 +222,7 @@ describeRedis('탁구 AI 결과 REST', () => {
       expect(response.body).toBe('invalid_final_score')
     })
 
-    /** Java는 `@RequestBody(required = false)`라 본문 없는 POST도 서비스까지 온다. */
+    /** 본문 없는 POST도 서비스까지 와서 도메인 오류가 되어야 한다. */
     it.each([
       { label: '빈 본문 + JSON Content-Type', options: { raw: '' } },
       { label: 'Content-Type 없는 빈 본문', options: { raw: '', contentType: null } },
@@ -234,8 +234,8 @@ describeRedis('탁구 AI 결과 REST', () => {
     })
 
     /**
-     * 읽을 수 없는 본문은 도메인 오류가 아니다 — Spring이 만드는 400의 본문은
-     * 프레임워크 흔적이라 계약이 아니므로 **빈 본문**으로 맞춘다
+     * 읽을 수 없는 본문은 도메인 오류가 아니다 — 프레임워크가 만드는 400의 본문은
+     * 계약이 아니므로 **빈 본문**으로 맞춘다
      * (`gameQueries.ts`의 score-candidates 400과 같은 판단).
      */
     it.each([

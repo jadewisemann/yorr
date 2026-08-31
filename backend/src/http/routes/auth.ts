@@ -91,7 +91,7 @@ export const registerAuthRoutes = async (
       // 목록에 있는 것만 통과한다(`auth/returnTo.ts`). 없으면 설정값 그대로다.
       const returnUrl = resolveReturnUrl(deps.options, first(query.origin))
       try {
-        // Java와 같은 순서다: state를 먼저 발급하고 URL을 만든다. 미설정 제공자에서는
+        // 순서가 계약이다: state를 먼저 발급하고 URL을 만든다. 미설정 제공자에서는
         // 쓰이지 않는 state가 하나 남지만 5분 뒤 사라진다(동작 계약은 503 그대로).
         const url = route.authorizeUrl(
           deps,
@@ -191,7 +191,7 @@ const validateCallback = (query: CallbackQuery, returnUrl: string | undefined): 
 
 /**
  * 세션 응답 한 모양. `sessionToken`은 교환(POST)에서만 실리고 `/auth/me`에서는
- * **null**이다(Java `SessionResponse`가 그대로 직렬화되는 모양).
+ * **null**이다.
  */
 const authenticated = async (
   deps: AuthRouteDependencies,
@@ -225,7 +225,7 @@ const redirect = (reply: FastifyReply, url: string): FastifyReply =>
 
 /**
  * 프론트 복귀 주소에 파라미터 하나를 붙인다. 값만 인코딩하고 기존 쿼리는 건드리지
- * 않는다(Java `UriComponentsBuilder.queryParam().encode()`와 같은 결과).
+ * 않는다.
  */
 const frontendUrl = (returnTo: string, name: string, value: string): string => {
   const separator = returnTo.includes('?') ? '&' : '?'

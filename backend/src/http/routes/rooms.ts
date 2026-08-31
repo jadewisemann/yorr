@@ -300,7 +300,7 @@ const registerBotRoutes = async (
 /**
  * 봇 API의 오류 매핑 — **방 API와 다르다**. 여기서는 `room_not_found`만 404이고
  * 나머지 `DomainError`는 400(`invalid_game_code`), `bot_not_found`만 409가 아닌
- * 404다. Java 컨트롤러별로 다른 이 비일관성이 그대로 계약이다(DESIGN.md 「오류 계약」).
+ * 404다. 라우트별로 다른 이 비일관성이 그대로 계약이다(DESIGN.md 「오류 계약」).
  */
 const sendBotError = (reply: FastifyReply, error: unknown): FastifyReply => {
   if (error instanceof ForbiddenError) return sendCode(reply, 403, error.code)
@@ -313,7 +313,7 @@ const sendBotError = (reply: FastifyReply, error: unknown): FastifyReply => {
   throw error
 }
 
-/** 시작 실패만 409로 내린다 — 그 외(모르는 게임 코드 등)는 Java와 같이 500으로 나간다. */
+/** 시작 실패만 409로 내린다 — 그 외(모르는 게임 코드 등)는 500으로 나간다. */
 const sendConflictOnly = (reply: FastifyReply, error: unknown): FastifyReply => {
   if (error instanceof ConflictError) return sendCode(reply, 409, error.code)
   throw error

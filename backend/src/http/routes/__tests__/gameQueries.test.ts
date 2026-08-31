@@ -22,8 +22,8 @@ interface ScoreBoardResponse {
 }
 
 /**
- * Java는 서비스를 모킹했지만 여기서는 **하네스 Redis + 진짜 스토어**로 돈다
- * (1.4의 `rooms.test.ts`와 같은 방식) — 계약의 절반이 "Redis 상태 → 이유 코드 →
+ * **하네스 Redis + 진짜 스토어**로 돈다(`rooms.test.ts`와 같은 방식) —
+ * 계약의 절반이 "Redis 상태 → 이유 코드 →
  * HTTP 상태" 매핑이라 스토어를 모킹하면 테스트가 매핑을 스스로 정의해 버린다.
  *
  * `server.ts` 배선에 기대지 않고 라우트만 `/api/v1` 프리픽스로 등록한다.
@@ -252,7 +252,7 @@ describeRedis('조회 REST', () => {
       largeStraight: 0,
       yacht: 0,
     })
-    // 키 순서·표기는 계약이다(Java enum 상수 이름이 새어 나오면 안 된다)
+    // 키 순서·표기는 계약이다(내부 상수 이름이 새어 나오면 안 된다)
     expect(Object.keys(body.candidates)).toEqual([...SCORE_CATEGORIES])
     expect(response.body).not.toContain('FOUR_OF_A_KIND')
   })
