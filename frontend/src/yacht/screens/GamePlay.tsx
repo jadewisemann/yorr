@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 import { useChat } from '@/realtime/chat/ChatContext'
-import { ChatDialog } from '@/realtime/chat/ChatDialog'
+import { ChatOverlay } from '@/realtime/chat/ChatOverlay'
 import { ChatPanel } from '@/realtime/chat/ChatPanel'
-import { ChatToast } from '@/realtime/chat/ChatToast'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { isPartyRoom } from '@/room/partyControllerStorage'
 import { AudioPopover } from '@/shared/components/AudioPopover'
@@ -232,11 +231,12 @@ export function GamePlay({
    * z-banner인 이유: 턴·족보 연출(`EffectCallout`, z-20)이 같은 자리에 뜬다. 아래에 깔리면
    * 연출 글자가 말풍선을 가로질러 둘 다 못 읽는다 — 4초 동안은 대화가 위에 있는 편이 낫다.
    */
-  const chatToast = wide ? null : (
-    <ChatToast
+  const chatOverlay = wide ? null : (
+    <ChatOverlay
       chat={chat}
       className="absolute inset-x-gutter top-20 z-banner"
-      onOpen={() => setChatOpen(true)}
+      onToggle={setChatOpen}
+      open={chatOpen}
       you={session.you}
     />
   )
@@ -325,7 +325,7 @@ export function GamePlay({
     <>
       <GamePlayBoard
         actions={actions}
-        chatToast={chatToast}
+        chatOverlay={chatOverlay}
         chatPanel={chatPanel}
         connectionStatus={connectionStatus}
         diceScene={diceScene}
@@ -360,14 +360,6 @@ export function GamePlay({
         onToggleMute={toggleSound}
         open={audioOpen}
       />
-      {!wide && (
-        <ChatDialog
-          chat={chat}
-          onClose={() => setChatOpen(false)}
-          open={chatOpen}
-          you={session.you}
-        />
-      )}
       {zeroModal}
       <GameHelpModal
         onClose={() => setHelpOpen(false)}

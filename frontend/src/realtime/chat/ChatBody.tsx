@@ -9,6 +9,8 @@ interface ChatBodyProps {
   active: boolean
   chat: RoomChat
   className?: string | undefined
+  /** 말풍선 모양. 판 위에 껍데기 없이 얹히는 자리(`ChatOverlay`)는 `toast`를 쓴다. */
+  lineVariant?: 'sheet' | 'toast'
   /** 대화 목록의 높이 정책. 창은 상한을 두고, 상주 패널은 남는 높이를 채운다. */
   listClassName?: string | undefined
   you: PlayerId
@@ -17,11 +19,18 @@ interface ChatBodyProps {
 const timeFormat = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' })
 
 /**
- * 대화 목록과 입력칸. 창(`ChatDialog`)과 상주 패널(`ChatPanel`)이 이것을 공유한다 —
+ * 대화 목록과 입력칸. 상주 패널(`ChatPanel`)과 판 위 오버레이(`ChatOverlay`)가 공유한다 —
  * 읽음 처리·마지막 줄 따라가기·거절 처리가 두 형태에서 같아야 하기 때문이다.
  * 다른 것은 **높이 정책과 껍데기**뿐이라 그 둘만 prop으로 받는다.
  */
-export function ChatBody({ active, chat, className, listClassName, you }: ChatBodyProps) {
+export function ChatBody({
+  active,
+  chat,
+  className,
+  lineVariant = 'sheet',
+  listClassName,
+  you,
+}: ChatBodyProps) {
   const [draft, setDraft] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
   const { lines, markRead, send } = chat
@@ -70,7 +79,9 @@ export function ChatBody({ active, chat, className, listClassName, you }: ChatBo
             아직 대화가 없어요. 먼저 말을 걸어 보세요.
           </p>
         ) : (
-          lines.map((line) => <ChatLineRow key={line.messageId} line={line} you={you} />)
+          lines.map((line) => (
+            <ChatLineRow key={line.messageId} line={line} variant={lineVariant} you={you} />
+          ))
         )}
         <div ref={endRef} />
       </div>

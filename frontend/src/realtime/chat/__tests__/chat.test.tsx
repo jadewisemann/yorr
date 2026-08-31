@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { creatorSession } from '@/mocks/fixtures'
 import { ChatProvider, useChat } from '@/realtime/chat/ChatContext'
-import { ChatDialog, chatLabel } from '@/realtime/chat/ChatDialog'
+import { ChatOverlay, chatLabel } from '@/realtime/chat/ChatOverlay'
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import type { ChatMessagePayload } from '@/realtime/wsEvents'
@@ -22,7 +22,7 @@ function ChatHost() {
       <button onClick={() => setOpen(true)} type="button">
         {chatLabel(chat.unread)}
       </button>
-      <ChatDialog chat={chat} onClose={() => setOpen(false)} open={open} you={me} />
+      <ChatOverlay chat={chat} onToggle={setOpen} open={open} you={me} />
     </>
   )
 }
@@ -91,8 +91,8 @@ describe('방 채팅', () => {
 
     expect(screen.getAllByText('먼저 굴려요')).toHaveLength(1)
     expect(screen.getByText('참가자')).toBeVisible()
-    // 내가 보낸 줄은 닉네임 대신 '나'로 표시한다.
-    expect(screen.getByText('나')).toBeVisible()
+    // 판 위에서는 내 말에 이름을 붙이지 않는다 — 오른쪽에 붙는 것으로 이미 구분된다.
+    expect(screen.queryByText('나')).not.toBeInTheDocument()
   })
 
   it('닫혀 있는 동안 온 남의 말만 안 읽은 수로 세고, 열면 지운다', async () => {

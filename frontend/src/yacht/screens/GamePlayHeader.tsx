@@ -1,4 +1,4 @@
-import { ChatUnreadBadge, chatLabel } from '@/realtime/chat/ChatDialog'
+import { ChatUnreadBadge, chatLabel } from '@/realtime/chat/ChatOverlay'
 import { cn } from '@/shared/cn'
 import { AudioStatusIcon, audioLabel } from '@/shared/components/AudioStatusIcon'
 import { IconChat, IconClose, IconHelp } from '@/shared/components/Icon'
