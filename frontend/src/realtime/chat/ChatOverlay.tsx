@@ -42,16 +42,16 @@ const PEEK_BACKDROP =
   'pointer-events-none absolute -inset-x-3 -top-3 -bottom-12 -z-10 bg-[linear-gradient(to_bottom,rgb(0_0_0/_0%)_0%,rgb(0_0_0/_78%)_14%,rgb(0_0_0/_58%)_58%,rgb(0_0_0/_0%)_100%)]'
 
 /**
- * 펼침용 — 대화를 **읽는** 자리라 가운데는 아예 검다. 조금이라도 비치면 뒤 안내 카드나
- * 점수가 글자 사이로 겹쳐 둘 다 못 읽는다. 페이드는 위아래 **끝자락에만** 남겨 판과 이어
- * 붙인다 — 경계선이 그어지면 그 자체가 껍데기가 된다.
+ * 펼침용 — 대화를 **읽는** 자리라 그라데이션이 아니라 불투명한 면이고, 아래 모서리와 테두리로
+ * 어디까지가 대화인지 선을 긋는다. 조금이라도 비치면 뒤 안내 카드나 점수가 글자 사이로 겹쳐
+ * 둘 다 못 읽고, 페이드로 흐려 놓으면 경계가 없어 어디를 눌러야 판인지 모른다.
  *
- * 컨테이너의 **자체 배경**인 것도 접힘과 다르다: 별도 레이어(`-z-10`)로 깔면 판의 3D 트레이가
- * 그 위를 덮어 아무것도 안 보인다. 좌우로 넓히려고 음수 마진을 쓰고 같은 만큼 패딩으로
- * 되돌린다.
+ * 화면 폭을 꽉 채운다 — 좌우 여백만큼 음수 마진을 주고 같은 만큼 패딩으로 되돌린다. 위는
+ * 트레이 툴바(흔들기·남은 굴림) 위까지 덮는다: 대화를 읽는 동안 굴릴 일이 없고, 툴바만
+ * 남겨 두면 그 띠가 대화와 판 사이에 끼어 지저분하다.
  */
-const OPEN_BACKDROP =
-  '-mx-3 px-3 pt-4 pb-16 bg-[linear-gradient(to_bottom,rgb(0_0_0/_0%)_0%,rgb(0_0_0/_100%)_7%,rgb(0_0_0/_100%)_86%,rgb(0_0_0/_0%)_100%)]'
+const OPEN_PANEL =
+  '-mx-gutter rounded-b-panel border-b border-border bg-surface-overlay px-gutter pt-3 pb-4 shadow-overlay'
 
 /**
  * 좁은 화면 게임판 위의 채팅. 판 **위에 얹히기만 하고 껍데기를 두르지 않는다** — 카드나
@@ -126,7 +126,7 @@ export function ChatOverlay({ chat, className, onToggle, open, you }: ChatOverla
       <motion.section
         animate={{ opacity: 1, y: 0 }}
         aria-label="채팅"
-        className={cn('pointer-events-none flex flex-col gap-2', OPEN_BACKDROP, className)}
+        className={cn('pointer-events-none top-2 flex flex-col gap-2', OPEN_PANEL, className)}
         initial={{ opacity: 0, y: -10 }}
         transition={ENTER}
       >
@@ -154,7 +154,7 @@ export function ChatOverlay({ chat, className, onToggle, open, you }: ChatOverla
   return (
     <div
       aria-live="polite"
-      className={cn('pointer-events-none grid grid-cols-1 gap-1.5', className)}
+      className={cn('pointer-events-none top-20 grid grid-cols-1 gap-1.5', className)}
       role="status"
     >
       <AnimatePresence initial={false}>
