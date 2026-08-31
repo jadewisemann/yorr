@@ -16,8 +16,7 @@ import {
 } from '../aiResultService.js'
 
 /**
- * 이식: 전부(불가능 점수 3종 · UUID 검증)
- * + Java 테스트가 모킹으로 넘긴 **보관 인자**까지 실제로 본다.
+ * 불가능 점수 3종 · UUID 검증 · **보관 인자**까지 실제로 본다.
  *
  * MySQL은 이 환경에 없으므로 보관 포트를 기록용 가짜로 바꿔 끼운다. 이 티켓에서
  * 조용히 틀릴 수 있는 것은 저장소가 아니라 **점수 재검증·UUID·게스트/회원 분기**이고,
@@ -83,11 +82,10 @@ describe('PingPongAiResultService — 점수 재검증', () => {
   })
 
   /**
-   * Java와 **같은 구멍**이다: 11점에서 이미 끝났어야 하는 스코어라인을 막지 못한다.
-   * 조용히 조이지 않고 재현한 뒤 문서에 적었다(마이그레이션 규칙 — 동작 차이는
-   * 기록하고 결정한다).
+   * **알려진 구멍**이다: 11점에서 이미 끝났어야 하는 스코어라인을 막지 못한다.
+   * 조용히 조이지 않고 계약으로 고정해 둔다(근거는 `aiResultService.ts`).
    */
-  it('11점에서 끝났어야 하는 점수도 통과한다 (Java와 같은 재검증의 한계)', async () => {
+  it('11점에서 끝났어야 하는 점수도 통과한다 (재검증의 한계)', async () => {
     const { service } = setUp()
 
     await expect(service.archive(member, request({ humanScore: 50, aiScore: 3 }))).resolves.toBe(
@@ -124,7 +122,7 @@ describe('PingPongAiResultService — resultId', () => {
     },
   )
 
-  it('resultId가 없으면 invalid_result_id다 (Java의 UUID.fromString(null) 갈래)', async () => {
+  it('resultId가 없으면 invalid_result_id다', async () => {
     const { service } = setUp()
 
     await expect(service.archive(member, request({ resultId: null }))).rejects.toThrow(
@@ -133,7 +131,7 @@ describe('PingPongAiResultService — resultId', () => {
   })
 
   /**
-   * 검증 **순서**가 계약이다 — Java는 `normalizeResultId`를 먼저 부르므로 둘 다 틀린
+   * 검증 **순서**가 계약이다 — `normalizeResultId`가 먼저이므로 둘 다 틀린
    * 요청은 점수 오류가 아니라 ID 오류를 받는다.
    */
   it('ID와 점수가 함께 틀리면 invalid_result_id가 먼저다', async () => {
@@ -144,7 +142,7 @@ describe('PingPongAiResultService — resultId', () => {
     ).rejects.toThrow(new DomainError('invalid_result_id'))
   })
 
-  /** Java `UUID.fromString(...).toString()`은 소문자로 정규화한다. */
+  /** UUID는 소문자로 정규화한다. */
   it('대문자 UUID는 소문자로 정규화해 저장한다', async () => {
     const { archive, service } = setUp()
 
@@ -254,7 +252,7 @@ describe('PingPongAiResultService — 게스트/회원 분기', () => {
   })
 })
 
-describe('bindPingPongAiResult — Jackson record 바인딩 흉내', () => {
+describe('bindPingPongAiResult — 본문 바인딩 관용 규칙', () => {
   it('본문이 없으면 request가 null이다 (@RequestBody(required = false))', () => {
     expect(bindPingPongAiResult(undefined)).toEqual({ ok: true, request: null })
     expect(bindPingPongAiResult(null)).toEqual({ ok: true, request: null })

@@ -222,7 +222,7 @@ export class PingPongGameService<S extends object> {
   }
 
   /**
-   * 게임 중 이탈. **순서가 계약이다**(Java `PingPongGameServiceTest`가 고정한다):
+   * 게임 중 이탈. **순서가 계약이다**(테스트가 고정한다):
    *
    * 1. 이탈 전 phase를 먼저 읽는다 — 상태를 지운 뒤에는 PREPARING이었는지 알 수 없다
    * 2. 좌석 제거(WS 명단) → 방 이탈(Redis)

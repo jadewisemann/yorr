@@ -21,7 +21,7 @@ import type { PingPongState } from '../pingPongState.js'
 const P1 = 'player-1'
 const P2 = 'player-2'
 
-/** Java 테스트의 `startMatch()` — 연습 → ready → 전원 ready → 서브까지. */
+/** 판 시작까지 — 연습 → ready → 전원 ready → 서브. */
 const startMatch = (): PingPongState => {
   let state = initial([P1, P2], 1_000)
   state = swing(state, P1, 0, 1_100, 0.5)
@@ -31,7 +31,7 @@ const startMatch = (): PingPongState => {
   return serve(state, 4_000, 0.7)
 }
 
-/** Java 테스트의 `playingAtScore()` — 임의 점수의 랠리 상태를 직접 심는다. */
+/** 임의 점수의 랠리 상태를 직접 심는다. */
 const playingAtScore = (p1: number, p2: number): PingPongState => ({
   version: 1,
   phase: 'PLAYING',

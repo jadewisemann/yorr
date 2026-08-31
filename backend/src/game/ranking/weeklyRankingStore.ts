@@ -7,10 +7,9 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
  * **집계의 권위는 MySQL 하나**다 — 별도 순위 자료구조(Redis ZSET 등)를 두지 않는다.
  * 두 곳이 각자 세면 어긋난 뒤 스스로 복구하지 못한다(persistence.md 「주간 랭킹」).
  *
- * Java에서는 이 인터페이스가 전적 패키지(`game/match`)에 있었다. 여기서는 랭킹
- * 모듈에 두는데, 읽는 쪽이 소유해야 4.4(쓰기)와 4.5(읽기)가 서로의 파일을 건드리지
- * 않고 같은 테이블을 나눠 쓸 수 있다. 스키마 계약은 Flyway V2 하나뿐이므로
- * 인터페이스가 어디 있든 결합은 같다.
+ * 이 인터페이스를 전적 모듈이 아니라 랭킹 모듈에 둔다 — 읽는 쪽이 소유해야
+ * 보관(쓰기)과 랭킹(읽기)이 서로의 파일을 건드리지 않고 같은 테이블을 나눠 쓴다.
+ * 스키마 계약은 마이그레이션 V2 하나뿐이라 인터페이스 위치가 결합을 바꾸지 않는다.
  */
 
 /** 한 회원의 주간 최고점 한 줄. 닉네임은 **현재 프로필 이름**이다. */
@@ -128,8 +127,8 @@ export class MysqlWeeklyRankingStore implements WeeklyRankingRepository {
     from: Date,
     to: Date,
   ): Promise<number | undefined> {
-    // 여기서는 users를 조인하지 않는다 — user_id 컬럼만으로 판정된다(Java의
-    // `p.user.id = :userId`도 조인을 만들지 않는다). 탈퇴로 users 행이 사라진
+    // 여기서는 users를 조인하지 않는다 — user_id 컬럼만으로 판정된다.
+    // 탈퇴로 users 행이 사라진
     // 회원까지 잡히지만, 그런 세션은 인증 단계를 통과하지 못하므로 도달할 수 없다.
     const [rows] = await this.pool.query<BestScoreRow[]>(
       `SELECT MAX(p.total_score) AS bestScore

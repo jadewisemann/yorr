@@ -174,12 +174,12 @@ const normalizeResultId = (resultId: string | null | undefined): string => {
  * "탁구 규칙으로 **끝날 수 있는** 스코어라인인가"만 본다: 음수 없음 ·
  * 이긴 쪽이 {@link WIN_SCORE} 이상 · 2점차 이상.
  *
- * ### 재검증의 한계 (Java와 같은 구멍 — 그대로 이식했다)
+ * ### 재검증의 한계 (알려진 구멍)
  *
  * `11:0`처럼 실제로 가능한 값과 `50:3`·`12:9`처럼 **11점에서 이미 끝났어야 하는**
  * 값을 구분하지 못한다(듀스는 12:10·13:11…로 올라가므로 상한을 못박을 수 없고,
  * 듀스 구간의 정확한 조건은 "이긴 점수가 11이거나, 11 초과면 2점차 정확히"다).
- * 조용히 조이지 않는 이유: 와이어 계약 동결(ADR-0002)이고, 이 경로로 남는 점수는
+ * 조용히 조이지 않는 이유: 와이어 계약을 바꾸는 일이고, 이 경로로 남는 점수는
  * `user_id`가 있어도 **주간 랭킹의 게임 코드 필터**를 통과하지 못하면 순위에
  * 영향이 없다. 조이려면 프론트가 보내는 값의 실측이 먼저다.
  */
@@ -190,7 +190,7 @@ const validateFinalScore = (humanScore: number, aiScore: number): void => {
   }
 }
 
-/** Jackson `int` 바인딩 흉내 — {@link bindPingPongAiResult} 참고. */
+/** 정수 바인딩 관용 — {@link bindPingPongAiResult} 참고. */
 const bindInt = (value: unknown): number | undefined => {
   if (value === undefined || value === null) return 0
   if (typeof value === 'number') return Number.isFinite(value) ? Math.trunc(value) : undefined
