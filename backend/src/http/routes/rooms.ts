@@ -53,7 +53,7 @@ interface Entrant {
 
 const isBlank = (value: string | undefined | null): boolean => (value ?? '').trim().length === 0
 
-/** 헤더는 중복되면 배열로 온다 — Java(@RequestHeader String)와 같이 첫 값만 본다. */
+/** 헤더는 중복되면 배열로 온다 — 첫 값만 본다. */
 const header = (
   headers: Record<string, string | string[] | undefined>,
   name: string,

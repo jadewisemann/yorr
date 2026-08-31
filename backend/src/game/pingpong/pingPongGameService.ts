@@ -62,7 +62,7 @@ export interface PingPongGameServiceOptions {
   /** 주입 가능한 시계. 판정 시각이 계약이라 테스트는 실시간 sleep을 쓰지 않는다. */
   readonly now?: () => number
   /**
-   * 좌우 목표점 — Java `ThreadLocalRandom.nextDouble(0.15, 0.85)`.
+   * 좌우 목표점.
    * **공이 어디로 갈지는 서버만 정한다**(DESIGN.md 원칙 1).
    */
   readonly randomTarget?: () => number

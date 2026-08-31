@@ -62,7 +62,7 @@ export interface RoundDeadlineSchedulerOptions {
 }
 
 /**
- * 단일 인스턴스 전제 어댑터(Java `InMemoryRoundDeadlineScheduler`).
+ * 단일 인스턴스 전제 어댑터.
  *
  * 세대 카운터는 Java의 `AtomicLong`이지만 Node는 단일 스레드라 평범한 숫자로
  * 충분하다. 맵도 `ConcurrentHashMap` 대신 `Map` — 전이가 모두 동기라 사이에

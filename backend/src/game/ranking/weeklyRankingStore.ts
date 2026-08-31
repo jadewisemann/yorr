@@ -97,7 +97,7 @@ export class MysqlWeeklyRankingStore implements WeeklyRankingRepository {
   ): Promise<readonly WeeklyBest[]> {
     // `JOIN users`가 게스트 행(user_id NULL)을 빼는데도 `IS NOT NULL`을 명시하는
     // 이유는 "회원만 센다"가 이 질의의 **의도**이고, 조인 방식이 바뀌어도 그 의도가
-    // 남아야 하기 때문이다(Java 주석과 같은 판단).
+    // 남아야 하기 때문이다.
     //
     // 정렬에 user_id를 덧붙인 건 동점자 순서를 고정하기 위함이다 — 없으면 같은
     // 요청이 호출마다 다른 순서를 낼 수 있다.

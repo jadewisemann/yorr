@@ -41,7 +41,7 @@ const sendQueryError = (reply: FastifyReply, error: unknown): FastifyReply => {
   return reply.code(status).send({ code, message: error.message } satisfies GameQueryErrorResponse)
 }
 
-/** 헤더는 중복되면 배열로 온다 — Java(@RequestHeader String)와 같이 첫 값만 본다. */
+/** 헤더는 중복되면 배열로 온다 — 첫 값만 본다. */
 const header = (
   headers: Record<string, string | string[] | undefined>,
   name: string,

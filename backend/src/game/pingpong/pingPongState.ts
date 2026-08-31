@@ -68,7 +68,7 @@ export interface PingPongBall {
   readonly smash: boolean
   /** 폴트가 붙은 공은 상대가 받을 수 없다 — 마감 시 친 쪽이 실점한다. */
   readonly fault?: PingPongFault | undefined
-  /** 폴트 연출의 시작 진행률(0~1). 폴트가 없어도 채워진다(Java와 같음). */
+  /** 폴트 연출의 시작 진행률(0~1). 폴트가 없어도 채워진다. */
   readonly faultFrom: number
   /** 좌우 위치의 시작점. 진행률 0.5가 네트 통과 지점이다. */
   readonly x0: number
@@ -103,7 +103,7 @@ export interface PingPongState {
   /** LinkedHashSet 자리 — 순서 있는 중복 없는 목록이다. */
   readonly readyPlayerIds: readonly string[]
   readonly ball: PingPongBall
-  /** 폴트 없는 리턴에만 +1. 득점해도 리셋되지 않는다(Java와 같음). */
+  /** 폴트 없는 리턴에만 +1. 득점해도 리셋되지 않는다. */
   readonly rally: number
   /** **서브권이 아니라 리시버**를 저장한다(서브 로테이션 계산의 근간). */
   readonly serveReceiverId?: string | undefined

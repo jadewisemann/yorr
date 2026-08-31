@@ -51,7 +51,7 @@ const setUp = (): { archive: RecordingArchive; service: PingPongAiResultService 
 
 describe('PingPongAiResultService — 점수 재검증', () => {
   /**
-   * 이식: Java `정상적으로_끝날_수_없는_점수는_거절한다`.
+   * 
    *
    * 서버가 랠리를 보지 못하는 경로이므로 이 판정이 조작 방어의 전부다
    * (DESIGN.md 원칙 1 — 클라이언트가 보낸 점수를 그대로 믿지 않는다).
@@ -111,7 +111,7 @@ describe('PingPongAiResultService — 점수 재검증', () => {
 })
 
 describe('PingPongAiResultService — resultId', () => {
-  /** 이식: Java `결과_ID는_UUID여야_한다`. */
+  /** */
   it.each(['not-a-uuid', '', 'e848355a78a14297a492754a124c6b16', `${RESULT_ID} `])(
     'UUID가 아닌 %j는 invalid_result_id다',
     async (resultId) => {
@@ -193,7 +193,7 @@ describe('PingPongAiResultService — 게스트/회원 분기', () => {
   })
 
   /**
-   * 이식: Java `기존_게스트_세션도_해당_UUID로_결과를_저장한다`.
+   * 
    *
    * 서비스는 회원과 게스트 세션을 **가르지 않는다** — 회원 판정은 4.4가 users
    * 테이블 존재 여부로 한다. 여기서 타입으로 가르면 세션이 만료된 회원의 전적이

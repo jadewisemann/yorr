@@ -56,7 +56,7 @@ const sendAiResultError = (reply: FastifyReply, error: unknown): FastifyReply =>
  * @throws SessionAuthenticationError 형식이 틀린 헤더
  */
 const bearerToken = (header: string | string[] | undefined): string | undefined => {
-  // 헤더가 중복되면 배열로 온다 — Java(@RequestHeader String)와 같이 첫 값만 본다.
+  // 헤더가 중복되면 배열로 온다 — 첫 값만 본다.
   const value = Array.isArray(header) ? header[0] : header
   if (value === undefined || value.trim().length === 0) return undefined
   if (!value.startsWith('Bearer ') || value.length === 'Bearer '.length) {

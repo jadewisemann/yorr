@@ -52,7 +52,7 @@ export interface YachtBotTurnCoordinatorDeps {
 }
 
 export interface YachtBotTurnCoordinatorOptions {
-  /** Java `log.warn` 자리 — Expectimax 실패로 폴백했을 때의 관측 훅. */
+  /** Expectimax 실패로 폴백했을 때의 관측 훅. */
   readonly onPolicyFallback?: (roomId: string, state: RoundState, error: unknown) => void
 }
 

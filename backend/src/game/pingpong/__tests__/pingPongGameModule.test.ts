@@ -122,7 +122,7 @@ describe('PingPongGameModule', () => {
       refMsgId: 'm-1',
     })
 
-    // 락 경합(`game_state_busy`)·저장소 장애처럼 도메인 오류가 아닌 것은 뭉개진다(Java와 같음).
+    // 락 경합(`game_state_busy`)·저장소 장애처럼 도메인 오류가 아닌 것은 뭉개진다.
     const other = moduleUnderTest({ throws: new Error('boom') })
     await other.module.handle(other.socket, inbound('swing', { inputSeq: 1, clientTs: 0 }))
     expect(errorOf(other.socket)?.message).toBe('invalid swing payload')

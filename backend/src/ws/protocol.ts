@@ -15,7 +15,7 @@ export const HEARTBEAT_TIMEOUT_MULTIPLIER = 3
 export const HEARTBEAT_TIMEOUT_MS = HEARTBEAT_INTERVAL_MS * HEARTBEAT_TIMEOUT_MULTIPLIER
 
 /**
- * 서버가 소켓을 닫을 때 쓰는 유일한 close code(Java `CloseStatus.POLICY_VIOLATION`).
+ * 서버가 소켓을 닫을 때 쓰는 유일한 close code.
  * 하트비트 타임아웃과 소켓 교체 두 경우뿐이다.
  */
 export const WS_CLOSE_POLICY_VIOLATION = 1008
@@ -82,7 +82,7 @@ export interface WsPlayer {
 /**
  * `room.joined`·`state.sync`·`sys.reconnected`가 싣는 방 스냅샷.
  *
- * null인 필드는 **JSON에서 생략**된다(Java `@JsonInclude(NON_NULL)`) —
+ * null인 필드는 **JSON에서 생략**된다 —
  * `JSON.stringify`가 `undefined` 속성을 지우므로 undefined로 두면 같은 결과다.
  */
 export interface WsRoomSnapshot {

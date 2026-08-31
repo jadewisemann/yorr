@@ -53,7 +53,7 @@ export type YachtRoomPhase = 'waiting' | 'playing' | 'finished'
  * 소켓 → 좌석 조회 + phase 마킹 — `RoomSessionRegistry`가 그대로 만족한다.
  *
  * `markPhase`가 여기 있는 것이 이 티켓의 숨은 핵심이다: **레지스트리 phase를 옮기는
- * 것은 게임 모듈의 일**이다(Java `YachtDiceGameModule.start`). 이게 빠지면 REST로
+ * 것은 게임 모듈의 일**이다. 이게 빠지면 REST로
  * 시작한 게임의 소켓 phase가 `waiting`에 머물러 끊긴 플레이어가 offline이 아니라
  * `room.player_left`가 되고, 재접속의 PLAYING 분기가 실전에서 도달하지 않는다.
  */

@@ -60,7 +60,7 @@ export interface MatchArchiveServiceOptions {
   readonly onDuplicate?: (gameId: string) => void
 }
 
-/** display_nickname이 비었을 때 마지막으로 남기는 이름(Java와 같은 문자열). */
+/** display_nickname이 비었을 때 마지막으로 남기는 이름. */
 export const FALLBACK_NICKNAME = '플레이어'
 
 /** `match_participants.display_nickname`은 VARCHAR(20)이다. */
@@ -177,7 +177,7 @@ export class MatchArchiveService {
   /**
    * Java의 `@CacheEvict`가 메서드 프록시라, **저장하지 않은 호출(중복 판·검증
    * 실패)에도** 캐시가 비워진다. 그 관용을 그대로 옮겼다 — 반환값으로 조건을 거는
-   * 복잡함보다 캐시 미스 한 번이 싸다(Java `@implNote`).
+   * 복잡함보다 캐시 미스 한 번이 싸다.
    *
    * 무효화 실패는 보관 결과를 뒤집지 않는다. 행은 이미 커밋됐고, 캐시가 남아 있다는
    * 이유로 종료 경로에 실패를 보고하면 거짓말이 된다.

@@ -26,7 +26,7 @@ export interface RoundCompletion {
 
 /**
  * 전이 결과. `completedRound`가 null이 아니면 그 전이로 라운드가 끝났다
- * (Java `RoundSubmissionResult.roundCompleted()` 자리 — Optional 대신 null).
+ * (Optional 대신 null).
  */
 export interface RoundSubmissionResult {
   readonly state: RoundState

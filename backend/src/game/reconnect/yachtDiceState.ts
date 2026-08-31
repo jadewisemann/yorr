@@ -24,7 +24,7 @@ export interface YachtDiceState {
   readonly turnOrder: readonly string[]
   /** 현재 턴에서 이미 굴린 횟수(0~3). 첫 굴림 전이면 0. */
   readonly rollCount: number
-  /** 첫 굴림 전에는 **생략**된다(Java `@JsonInclude(NON_NULL)`). */
+  /** 첫 굴림 전에는 **생략**된다. */
   readonly dice?: readonly number[] | undefined
   /** 첫 굴림 전에는 **생략**된다. */
   readonly held?: readonly boolean[] | undefined

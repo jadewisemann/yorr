@@ -24,7 +24,7 @@ export const LOCAL_AI_ROOM_CODE = 'LOCAL_AI'
 /** AI 참가자의 `player_id`. users 테이블에 없으므로 `user_id`는 항상 NULL이 된다. */
 export const AI_PLAYER_ID = 'ping-pong-ai'
 export const AI_NICKNAME = 'AI'
-/** 비로그인 보고자의 표시 이름(Java와 같은 문자열). */
+/** 비로그인 보고자의 표시 이름. */
 export const GUEST_NICKNAME = '게스트'
 
 /**
@@ -121,7 +121,7 @@ export class PingPongAiResultService {
 
   /**
    * 검증 순서가 계약이다: **resultId 먼저, 점수 나중**. 둘 다 틀린 요청은
-   * `invalid_result_id`를 받는다(Java와 같다).
+   * `invalid_result_id`를 받는다.
    *
    * @returns 실제로 저장했는지. 이미 보고된 `resultId`면 false다 — 실패가 아니라
    * 멱등이므로 REST는 그래도 204를 돌려준다(`game_id` UNIQUE가 중복을 막는다).

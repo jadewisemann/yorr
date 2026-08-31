@@ -75,7 +75,7 @@ export interface OrphanedRoundStatePort {
  *
  * 세 값이 다 다르다: 시각이면 그 턴의 마감, `null`이면 **시계를 걸지 않은 턴**
  * (봇만 있는 연습 방 — `UNTIMED_HUMAN_LIMIT`), `undefined`면 진행 중인 턴이 없다
- * (Java `Optional.empty()`).
+ *.
  *
  * **`undefined`가 재시작을 뜻하지 않게 된 것이 PR 6의 결과다.** 예전에는 마감이
  * 프로세스 인메모리에만 있어 재시작 뒤 첫 재접속이 반드시 `DEADLINE_NOT_FOUND`였고,

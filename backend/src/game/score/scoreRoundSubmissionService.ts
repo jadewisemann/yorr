@@ -5,7 +5,7 @@ import type {
 import { ScoreConfirmationError } from './scoreErrors.js'
 
 /**
- * `round.submit`의 payload 모양(Java `RoundSubmitPayload`). WS 계층의 타입을
+ * `round.submit`의 payload 모양. WS 계층의 타입을
  * import하지 않으려고 **구조적으로만** 요구한다 — 도메인은 전송 계층을 모른다.
  */
 export interface RoundSubmitPayloadLike {

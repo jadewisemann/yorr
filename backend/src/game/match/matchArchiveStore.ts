@@ -76,7 +76,7 @@ export class MysqlMatchArchiveStore implements MatchArchiveStore {
     const conn = await this.pool.getConnection()
     try {
       await conn.beginTransaction()
-      // 빠른 경로(Java `existsByGameId`). 동시 호출에서는 이것이 깨지므로 최종
+      // 빠른 경로. 동시 호출에서는 이것이 깨지므로 최종
       // 방어선은 `uk_matches_game` 유니크 제약이다 — 아래 catch가 그 자리다.
       const [existing] = await conn.query<RowDataPacket[]>(
         'SELECT id FROM matches WHERE game_id = ?',

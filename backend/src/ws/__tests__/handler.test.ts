@@ -49,7 +49,7 @@ class FakeSocket implements ClientSocket {
   }
 }
 
-/** 유예를 실시간으로 기다리지 않고 원할 때 터뜨린다(Java `FakeRoomCloseScheduler`). */
+/** 유예를 실시간으로 기다리지 않고 원할 때 터뜨린다. */
 class FakeCloseScheduler implements RoomCloseScheduler {
   lastDelayMs: number | null = null
   private readonly pending = new Map<string, () => void | Promise<void>>()

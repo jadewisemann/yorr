@@ -4,7 +4,7 @@ import type { RoundStateStore } from './roundStateStore.js'
 import { DICE_COUNT, RoundSubmission } from './roundSubmission.js'
 
 /**
- * 주사위 하나의 값(1~6)을 만드는 시임 — Java `IntSupplier dieRoller`.
+ * 주사위 하나의 값(1~6)을 만드는 시임.
  *
  * **서버 권위 RNG의 유일한 출처다**(DESIGN.md 원칙 1: 주사위는 서버가 만든다).
  * 클라이언트가 보낸 물리 결과는 이 자리에 들어올 수 없다.

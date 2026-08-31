@@ -133,7 +133,7 @@ export class RedisDuelStateStore implements DuelStateStore {
 const serialize = (state: DuelState): string => JSON.stringify(state)
 
 /**
- * 저장된 값이 결투 상태가 아니면 **조용히 넘기지 않는다**(Java `invalid_duel_state`).
+ * 저장된 값이 결투 상태가 아니면 **조용히 넘기지 않는다**.
  * 배포 사이에 상태 모양이 바뀌면 여기서 드러나는 편이 낫다 — 반쪽 상태로 판정하면
  * 총알 수가 틀린 결투가 계속 진행된다.
  */

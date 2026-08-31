@@ -188,7 +188,7 @@ describeRedis('프로필 REST', () => {
   })
 
   /**
-   * Java quirk 재현: GET은 `read()`의 `user_not_found`를 잡지 않는다(PATCH만 잡는다).
+   * 의도된 비대칭: GET은 `read()`의 `user_not_found`를 잡지 않는다(PATCH만 잡는다).
    * Spring에서는 처리되지 않은 `IllegalArgumentException`이 500이 되고, 여기서도
    * Fastify 기본 처리로 500이다. **비대칭 자체가 계약**이라 통일하지 않았다.
    */

@@ -25,7 +25,7 @@ export interface QuickMatchRouteDependencies {
   readonly matches: QuickMatchService
 }
 
-/** 헤더는 중복되면 배열로 온다 — Java(@RequestHeader String)와 같이 첫 값만 본다. */
+/** 헤더는 중복되면 배열로 온다 — 첫 값만 본다. */
 const header = (
   headers: Record<string, string | string[] | undefined>,
   name: string,
@@ -61,7 +61,7 @@ export const registerQuickMatchRoutes = async (
     users.authenticate(header(headers, 'x-user-id'), header(headers, 'authorization'))
 
   /**
-   * 큐 입장. `game_code`가 없으면 야추다(Java `@RequestParam(defaultValue=…)`).
+   * 큐 입장. `game_code`가 없으면 야추다.
    * 코드 정규화(`canonicalCode`)가 인증 **뒤**에 오는 것도 Java와 같다 — 잘못된
    * 코드보다 만료된 세션이 먼저 보고된다.
    */

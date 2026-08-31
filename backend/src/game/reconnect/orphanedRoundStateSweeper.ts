@@ -46,7 +46,7 @@ export interface OrphanedRoundStateSweeperDeps {
 export interface OrphanedRoundStateSweeperOptions {
   readonly intervalMs?: number
   readonly scheduler?: SweepScheduler
-  /** 회수 관측 훅(Java `log.info`). */
+  /** 회수 관측 훅. */
   readonly onSwept?: (roomId: string) => void
   /** 주기 실행이 던졌을 때(Java: Spring이 로그만 남기고 다음 주기에 재시도). */
   readonly onError?: (error: unknown) => void

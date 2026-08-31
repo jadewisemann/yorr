@@ -240,7 +240,7 @@ interface HoldChoice {
   readonly kept: number
 }
 
-/** 동점이면 **뒤쪽(하단) 칸**이 이긴다(Java `ordinal() > other.ordinal()`). */
+/** 동점이면 **뒤쪽(하단) 칸**이 이긴다. */
 const isBetterScore = (candidate: ScoreChoice, best: ScoreChoice): boolean =>
   candidate.utility > best.utility ||
   (candidate.utility === best.utility && candidate.ordinal > best.ordinal)

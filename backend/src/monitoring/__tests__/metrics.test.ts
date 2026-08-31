@@ -140,7 +140,7 @@ describe('RealtimeGameMetrics', () => {
     expect(body).toContain('yorr_game_participants_active{game="PING_PONG"} 0')
   })
 
-  /** Java `GameModuleRegistry.supportedCodes()` 자리 — 등록된 코드만 계열이 된다. */
+  /** 등록된 코드만 계열이 된다. */
   it('태그 값은 카탈로그의 대문자 코드다', () => {
     const body = metrics.render()
 

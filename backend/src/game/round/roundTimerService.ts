@@ -44,7 +44,7 @@ export const MAX_OFFLINE_TURNS = 2
  */
 export const UNTIMED_HUMAN_LIMIT = 1
 
-/** 봇 오케스트레이터(3.2)가 구독하는 턴 시작 알림 — Java `RoundStartedEvent`. */
+/** 봇 오케스트레이터(3.2)가 구독하는 턴 시작 알림. */
 export interface RoundStartedEvent {
   readonly roomId: string
   readonly state: RoundState
@@ -78,7 +78,7 @@ export interface RoundTimerServiceOptions {
   readonly gameCode?: string
   /** Java `ApplicationEventPublisher.publishEvent(RoundStartedEvent)` 자리. */
   readonly onRoundStarted?: (event: RoundStartedEvent) => void
-  /** 종료 전이 실패처럼 "진행은 멈추지만 예외는 아닌" 상황의 관측 훅(Java `log.warn`). */
+  /** 종료 전이 실패처럼 "진행은 멈추지만 예외는 아닌" 상황의 관측 훅. */
   readonly onWarning?: (roomId: string, reason: string) => void
 }
 
@@ -347,7 +347,7 @@ export class RoundTimerService {
     await this.roomService.leave(roomId, playerId)
     if (removed !== null) {
       this.broadcaster.broadcast(roomId, {
-        // 방 이벤트는 게임 네임스페이스가 붙지 않는다(Java `WsEnvelope.of("room.player_left")`).
+        // 방 이벤트는 게임 네임스페이스가 붙지 않는다.
         type: 'room.player_left',
         ts: this.now(),
         payload: { playerId },
@@ -439,7 +439,7 @@ export class RoundTimerService {
       ts: this.now(),
       payload: { playerId: score.playerId, scoreboard: score.scoreboard },
       roomId,
-      // null이면 필드를 생략한다(Java `@JsonInclude(NON_NULL)`).
+      // null이면 필드를 생략한다.
       msgId: requestMsgId ?? undefined,
     })
   }

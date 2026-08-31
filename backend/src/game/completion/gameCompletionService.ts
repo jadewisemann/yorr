@@ -24,9 +24,9 @@ export interface GameCompletionServiceDeps {
 }
 
 export interface GameCompletionServiceOptions {
-  /** 전적 보관 실패의 관측 훅(Java `log.error`). 종료는 그대로 진행한다. */
+  /** 전적 보관 실패의 관측 훅. 종료는 그대로 진행한다. */
   readonly onArchiveFailure?: (roomId: string, error: unknown) => void
-  /** 종료 성사 알림(Java `log.info("game.over: ...")`). */
+  /** 종료 성사 알림. */
   readonly onFinished?: (event: GameFinishedEvent) => void
 }
 

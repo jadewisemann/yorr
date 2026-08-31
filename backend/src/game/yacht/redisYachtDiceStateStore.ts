@@ -21,7 +21,7 @@ export const LOCK_TTL_MS = 5_000
 /** 락 대기 예산. 넘기면 `game_state_busy`. */
 export const LOCK_WAIT_MS = 2_000
 
-/** 스핀 간격(Java `Thread.sleep(10)`). */
+/** 스핀 간격. */
 export const LOCK_RETRY_MS = 10
 
 const STATE_KEY_SUFFIX = `:game:${YACHT_DICE}:state`
@@ -266,7 +266,7 @@ export class RedisYachtDiceStateStore implements RoundStateStore {
 
   /**
    * 방 키의 남은 TTL을 상태 키에 복사한다. 방에 TTL이 없거나 이미 사라졌으면
-   * 아무것도 하지 않는다(Java와 같음) — 그 경우 상태 키는 무기한으로 남고
+   * 아무것도 하지 않는다 — 그 경우 상태 키는 무기한으로 남고
    * 스위퍼(2.8)가 걷어간다.
    */
   private async copyRoomTtl(roomId: string): Promise<void> {
@@ -289,7 +289,7 @@ const invalidYachtState = (cause: unknown): ConflictError => {
   return failure
 }
 
-/** Java `IllegalArgumentException("roomId must not be blank")` 자리 — 인메모리 구현과 같은 모양. */
+/** 인메모리 구현과 같은 모양. */
 const validateRoomId = (roomId: string): void => {
   if (roomId.trim().length === 0) throw new Error('roomId must not be blank')
 }

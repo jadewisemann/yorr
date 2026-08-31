@@ -232,6 +232,6 @@ const frontendUrl = (returnTo: string, name: string, value: string): string => {
   return `${returnTo}${separator}${name}=${formUrlEncode(value)}`
 }
 
-/** 같은 이름이 두 번 오면 Fastify가 배열로 준다 — 첫 값만 본다(Spring과 같다). */
+/** 같은 이름이 두 번 오면 Fastify가 배열로 준다 — 첫 값만 본다. */
 const first = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value

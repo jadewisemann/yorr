@@ -39,7 +39,7 @@ const isInvalidDie = (die: number | undefined): boolean =>
  * 검증을 그대로 옮겼다 — **생성 자체가 검증 지점**이라 잘못된 제출은 도메인
  * 안으로 들어오지 못한다.
  *
- * `dice`는 방어적으로 복사해 얼린다(Java `List.copyOf`). 호출부가 넘긴 배열을
+ * `dice`는 방어적으로 복사해 얼린다. 호출부가 넘긴 배열을
  * 나중에 바꿔도 제출 내용은 변하지 않는다.
  */
 export class RoundSubmission {

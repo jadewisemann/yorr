@@ -85,7 +85,7 @@ export class RecordingBroadcaster implements YachtBroadcaster {
   }
 }
 
-/** `RoundTimerService`의 자리 — 호출만 기록한다(Java `mock(RoundTimerService)`). */
+/** `RoundTimerService`의 자리 — 호출만 기록한다. */
 export class FakeRoundTimer implements YachtRoundTimer {
   readonly started: { roomId: string; state: RoundState }[] = []
   /** 부팅 재무장(`resumeFromStored`)이 실제로 불렸는지 — `start`와 구별해 기록한다. */

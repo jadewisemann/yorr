@@ -103,7 +103,7 @@ export class YachtTurnActionService {
       payload: {
         playerId: actorId,
         roundNumber: state.roundNumber,
-        // 굴림과 달리 **서버 상태**를 싣는다(Java `state.activeHeld()`). 굴림 애니메이션이
+        // 굴림과 달리 **서버 상태**를 싣는다. 굴림 애니메이션이
         // 없으므로 프레임 어긋남 문제가 없고, 관전자가 권위 값을 보는 쪽이 낫다.
         held: [...(state.activeHeld ?? [])],
       },

@@ -8,7 +8,7 @@ import { BOT_ADD, BOT_REMOVE, BOT_SCRIPTS } from './scripts.js'
 import type { RoomSnapshot } from './snapshot.js'
 
 /**
- * Java `SecurityException` 자리 — REST **403**.
+ * REST **403**.
  *
  * `DomainError`(400/404)·`ConflictError`(409)와 섞이면 상태 코드가 조용히
  * 바뀌므로 따로 둔다. 지금 이 코드를 던지는 곳은 봇 API뿐이라 여기에 있다 —

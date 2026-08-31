@@ -34,7 +34,7 @@ import type { BotTurnStep, YachtBotTurnCoordinator } from './yachtBotTurnCoordin
  *
  * 주의: 봇이 굴리면 `YachtTurnActionService.roll` → `timers.start` → `onRoundStarted`로
  * 이 클래스가 **자기 안에서 다시 호출**되어 세대가 올라간다. 그래서 `dice.thrown`
- * 예약은 자기 세대가 아니라 **그때의 최신 세대**로 건다(Java와 같다).
+ * 예약은 자기 세대가 아니라 **그때의 최신 세대**로 건다.
  */
 
 export const TURN_START_DELAY_MS = 1_200

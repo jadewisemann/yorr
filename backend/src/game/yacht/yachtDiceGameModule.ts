@@ -355,7 +355,7 @@ export class YachtDiceGameModule implements GameModule {
   /* --------------------------------------------------------------- 공통 보조 */
 
   /**
-   * 라운드 상태가 없으면 "활성 아님"이다(Java `orElse(false)`) — 게임이 시작되기
+   * 라운드 상태가 없으면 "활성 아님"이다 — 게임이 시작되기
    * 전이나 끝난 뒤의 연출 신호가 릴레이되지 않는다.
    */
   private async isActivePlayer(seat: Seat): Promise<boolean> {
@@ -405,7 +405,7 @@ export class YachtDiceGameModule implements GameModule {
       this.sendError(socket, roundErrorCode(error.reason), error.message, message)
       return
     }
-    // Java `catch (IllegalArgumentException)` 자리 — 점수 도메인의 인자 검증과
+    // 점수 도메인의 인자 검증과
     // 코드 문자열 도메인 오류가 여기 들어온다.
     if (error instanceof ScoreDomainError || error instanceof DomainError) {
       this.sendError(socket, 'INVALID_MESSAGE', error.message, message)
@@ -422,7 +422,7 @@ export class YachtDiceGameModule implements GameModule {
     request: InboundEnvelope,
   ): void {
     if (!isOpen(socket)) return
-    // refMsgId가 undefined면 `JSON.stringify`가 필드를 지운다(Java `@JsonInclude(NON_NULL)`).
+    // refMsgId가 undefined면 `JSON.stringify`가 필드를 지운다.
     const frame = JSON.stringify({
       type: 'error',
       ts: this.now(),
