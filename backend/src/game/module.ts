@@ -8,10 +8,9 @@ import { GameCatalog, type GameMetadata, normalizeGameCode } from './catalog.js'
 /**
  * 게임 하나 = 모듈 하나.
  *
- * **정원·시작 인원·봇 지원 여부는 여기 없다.** Java는 모듈이 세 값을 직접 들고
- * 있지만 우리는 1.3에서 옮긴 `GAME_CATALOG`가 유일한 출처이고 레지스트리가 그
- * 표를 흡수한다(`registry.require(code)`) — 모듈이 다시 선언하면 방 정원이 두
- * 곳으로 갈라진다. 모듈이 채우는 것은 **코드와 동작**뿐이다.
+ * **정원·시작 인원·봇 지원 여부는 여기 없다.** `GAME_CATALOG`가 유일한 출처이고
+ * 레지스트리가 그 표를 흡수한다(`registry.require(code)`) — 모듈이 다시 선언하면
+ * 방 정원이 두 곳으로 갈라진다. 모듈이 채우는 것은 **코드와 동작**뿐이다.
  */
 export interface GameModule {
   /** 대문자 정규 코드. 레지스트리 키이자 WS 네임스페이스(소문자화)다. */
@@ -86,13 +85,12 @@ export const gameWsType = (
 /**
  * 등록된 게임 모듈 + 메타데이터 카탈로그.
  *
- * Java는 Spring이 모아 준 `List<GameModule>`로 조립되지만 여기서는 부팅 배선이
- * `register`를 부른다. 코드 정규화(`trim().toUpperCase()`)·중복 거부·교차
- * 네임스페이스 거부는 Java와 같다.
+ * 부팅 배선이 `register`를 부른다. 코드 정규화(`trim().toUpperCase()`)·중복
+ * 거부·교차 네임스페이스 거부를 여기서 한다.
  *
- * **모듈이 없는 게임 코드를 정상으로 취급한다**는 점만 다르다: 카탈로그에는
- * 세 게임이 다 있지만 모듈은 게임별 슬라이스(3.x)가 하나씩 채운다. 그래서
- * 코드 조회(`require`)와 모듈 조회(`byCode`)를 분리했다.
+ * **모듈이 없는 게임 코드도 정상으로 취급한다**: 카탈로그에는 게임이 다 있지만
+ * 모듈은 게임별 슬라이스가 하나씩 채운다. 그래서 코드 조회(`require`)와
+ * 모듈 조회(`byCode`)를 분리했다.
  */
 export class GameModuleRegistry {
   private readonly modules = new Map<string, GameModule>()

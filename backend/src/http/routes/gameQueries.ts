@@ -17,8 +17,8 @@ export interface GameQueryRouteDependencies {
 
 /**
  * 조회 REST의 오류 본문은 **JSON `{code,message}`** 다 — 방·봇 REST의 plain-text
- * 소문자 코드(`room_not_found` …)와 다르다. Java에서 컨트롤러마다 오류 표면이
- * 다른 것이 그대로 계약이므로 섞지 않는다(DESIGN.md 「오류 계약」).
+ * 소문자 코드(`room_not_found` …)와 다르다. 라우트마다 오류 표면이 다른 것이
+ * 그대로 계약이므로 섞지 않는다(DESIGN.md 「오류 계약」).
  * 그래서 이 파일은 `http/errorResponse.ts`의 `sendCode`·`sendDomainError`를 쓰지 않는다.
  */
 interface GameQueryErrorResponse {
@@ -26,7 +26,7 @@ interface GameQueryErrorResponse {
   readonly message: string
 }
 
-/** Java `GameScoreQueryException.Reason` → (HTTP 상태, 응답 code). */
+/** 조회 실패 이유 → (HTTP 상태, 응답 code). */
 const ERROR_MAPPING: Readonly<Record<GameScoreQueryReason, readonly [number, string]>> = {
   ROOM_NOT_FOUND: [404, 'ROOM_NOT_FOUND'],
   PLAYER_NOT_IN_ROOM: [403, 'NOT_IN_ROOM'],
@@ -50,7 +50,7 @@ const header = (
   return Array.isArray(value) ? value[0] : value
 }
 
-/** Java `ScoreBoardResponse`. 12키는 **생략하지 않고 `null`로** 싣는다. */
+/** 점수판 응답. 12키는 **생략하지 않고 `null`로** 싣는다. */
 interface ScoreBoardResponse {
   readonly categories: Readonly<Record<string, number | null>>
   readonly upperSubtotal: number
@@ -66,8 +66,7 @@ const scoreBoardResponse = (scoreboard: ScoreBoard): ScoreBoardResponse => ({
 })
 
 /**
- * Java `ScoreCandidatesRequest`의 Bean Validation과 같은 범위:
- * 정확히 5개, 각각 1~6의 정수. 위반은 **400**이다.
+ * 가정 점수 요청의 유효 범위: 정확히 5개, 각각 1~6의 정수. 위반은 **400**이다.
  */
 const scoreCandidatesRequestSchema = z.object({
   dice: z.array(z.number().int().min(1).max(6)).length(DICE_COUNT),
@@ -127,7 +126,7 @@ export const registerGameQueryRoutes = async (
     try {
       const result = await queries.getResults(request.params.roomId, requester.userId)
       return reply.send({
-        // Java `GameRankingResponse`는 점수 필드 이름이 `total`이다(`finalScore` 아님).
+        // 순위 응답의 점수 필드 이름은 `total`이다(`finalScore` 아님).
         rankings: result.players.map((player) => ({
           rank: player.rank,
           playerId: player.playerId,

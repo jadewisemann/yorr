@@ -22,11 +22,10 @@ import { sendCode } from '../errorResponse.js'
  * (`frontend/src/landing/components/RankingTicker.tsx`).
  *
  * 오류 본문은 **plain-text 소문자 코드**다(프로필·auth REST와 같은 결). 조회
- * REST(2.9 `gameQueries.ts`)의 JSON `{code,message}`가 아니다 — Java에서
- * `ResponseEntity.body("session_expired")`가 `StringHttpMessageConverter`를 타
+ * REST(`gameQueries.ts`)의 JSON `{code,message}`가 아니다 — 본문이
  * `text/plain`으로 나가고, 프론트 `shared/api/client.ts`가 JSON이 아닌 본문을
  * 텍스트로 읽어 코드로 매핑한다(`src/mocks/restHandlers.ts`가 같은 모양으로
- * 흉내내고 있다). 컨트롤러마다 오류 표면이 다른 것이 계약이므로 섞지 않는다.
+ * 흉내내고 있다). 라우트마다 오류 표면이 다른 것이 계약이므로 섞지 않는다.
  */
 export interface RankingRouteDependencies {
   readonly users: UserService
@@ -34,12 +33,11 @@ export interface RankingRouteDependencies {
 }
 
 /**
- * Java는 `@RequestParam(defaultValue = "100") int limit`이다 — 없으면 상한,
- * 숫자가 아니면 Spring의 타입 변환이 **400**을 만든다. 그 400의 본문은 Spring이
- * 만든 프레임워크 흔적이라 계약이 아니므로 **빈 본문**으로 맞춘다
- * (`gameQueries.ts`의 score-candidates 400과 같은 판단).
+ * `limit`은 없으면 상한, 숫자가 아니면 **400**이다. 그 400의 본문은 프레임워크
+ * 흔적이라 계약이 아니므로 **빈 본문**으로 맞춘다(`gameQueries.ts`의
+ * score-candidates 400과 같은 판단).
  *
- * 범위 클램프([1,100])는 여기서 하지 않는다 — 서비스가 한다. Java도 그렇고,
+ * 범위 클램프([1,100])는 여기서 하지 않는다 — 서비스가 한다.
  * `limit=0`·`limit=1000`은 오류가 아니라 잘리는 값이다.
  *
  * @returns 정수면 그 값, `undefined`면 400을 보내야 한다

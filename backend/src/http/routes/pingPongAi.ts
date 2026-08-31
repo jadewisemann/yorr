@@ -24,13 +24,13 @@ import { sendCode } from '../errorResponse.js'
  * 로그인하지 않아도 할 수 있으므로, 헤더가 없다는 것은 오류가 아니라 "게스트다"라는
  * 뜻이다. 반대로 헤더가 **있는데 모양이 틀리면** 401이다 — 토큰을 들고 왔다는 것은
  * 자기 전적으로 남기려는 의도이고, 그것을 조용히 게스트로 떨어뜨리면 기록이 주인을
- * 잃는다(Java `bearerToken`이 blank는 null, 형식 위반은 예외로 가르는 이유).
+ * 잃는다 — 그래서 공백 헤더는 게스트, 형식 위반은 예외로 가른다.
  *
  * 오류 본문은 **plain-text 소문자 코드**다(프로필·auth·랭킹 REST와 같은 결).
  * 조회 REST(2.9)의 JSON `{code,message}`가 아니고, 401 본문은 퀵매치의
- * `unauthorized`도 방 REST의 `invalid_guest_session`도 아닌 **`session_expired`** 다 —
- * Java가 그 리터럴을 그대로 쓰고 프론트 `shared/api/client.ts`가 본문을 텍스트로
- * 읽어 대문자 코드로 매핑한다. 라우트마다 다른 이 문자열들이 계약이므로 섞지 않는다.
+ * `unauthorized`도 방 REST의 `invalid_guest_session`도 아닌 **`session_expired`** 다.
+ * 프론트 `shared/api/client.ts`가 본문을 텍스트로 읽어 대문자 코드로 매핑한다.
+ * 라우트마다 다른 이 문자열들이 계약이므로 섞지 않는다.
  */
 
 export interface PingPongAiRouteDependencies {
@@ -49,8 +49,8 @@ const sendAiResultError = (reply: FastifyReply, error: unknown): FastifyReply =>
 }
 
 /**
- * Java `bearerToken`: 헤더가 없거나 공백이면 **게스트**(null), 있는데
- * `Bearer ` 접두사가 없거나 토큰이 빈 문자열이면 401이다.
+ * 헤더가 없거나 공백이면 **게스트**(null), 있는데 `Bearer ` 접두사가 없거나
+ * 토큰이 빈 문자열이면 401이다.
  *
  * @returns 세션 토큰, 또는 게스트를 뜻하는 `undefined`
  * @throws SessionAuthenticationError 형식이 틀린 헤더
@@ -72,8 +72,8 @@ export const registerPingPongAiRoutes = async (
   /**
    * 캡슐화된 하위 스코프 — `gameQueries.ts`의 score-candidates와 같은 이유다.
    *
-   * ① Java는 `@RequestBody(required = false)`라 **본문 없는 POST도 핸들러까지
-   * 들어와** `invalid_ai_result`를 만든다. Fastify 기본 JSON 파서는 그 전에
+   * ① **본문 없는 POST도 핸들러까지 들어와** `invalid_ai_result`를 만들어야
+   * 한다. Fastify 기본 JSON 파서는 그 전에
    * `FST_ERR_CTP_EMPTY_JSON_BODY`(400 + 프레임워크 JSON)를 던지므로, 이 스코프에서만
    * 빈 본문을 `undefined`로 통과시키는 파서로 바꾼다. ② 읽을 수 없는 본문의 4xx는
    * **빈 본문**으로 내보낸다 — `{statusCode,error,message}`가 계약처럼 굳지 않게.

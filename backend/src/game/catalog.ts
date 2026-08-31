@@ -29,7 +29,7 @@ export const GAME_CATALOG: readonly GameMetadata[] = [
   { code: DAVINCI_CODE, name: 'Da Vinci Code', minPlayers: 2, maxPlayers: 4, supportsBots: false },
 ]
 
-/** Java `GameModuleRegistry.normalize` — 레지스트리도 같은 규칙을 써야 한다. */
+/** 게임 코드 정규화 — 레지스트리도 같은 규칙을 써야 한다. */
 export const normalizeGameCode = (code: string | null | undefined): string =>
   (code ?? '').trim().toUpperCase()
 
