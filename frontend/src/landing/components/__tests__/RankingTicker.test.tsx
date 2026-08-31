@@ -100,6 +100,45 @@ describe('RankingTicker · narrow', () => {
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2))
     expect(screen.getAllByText('일등').length).toBeGreaterThan(1)
   })
+
+  it('띠를 누르면 띠에 없던 인원까지 팝업으로 펼친다', async () => {
+    respondWith(sevenEntries)
+    const user = userEvent.setup()
+    render(<RankingTicker layout="narrow" />)
+
+    const toggle = await screen.findByRole('button', { name: '이번 주 요트랭킹 전체 보기' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(toggle)
+
+    const panel = screen.getByRole('list', { name: '이번 주 순위' })
+    expect(panel).toHaveTextContent('육등')
+    expect(panel).toHaveTextContent('칠등')
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('팝업은 Escape로 닫힌다', async () => {
+    respondWith(fiveEntries)
+    const user = userEvent.setup()
+    render(<RankingTicker layout="narrow" />)
+
+    await user.click(await screen.findByRole('button', { name: '이번 주 요트랭킹 전체 보기' }))
+    expect(screen.getByRole('list', { name: '이번 주 순위' })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+
+    await waitFor(() =>
+      expect(screen.queryByRole('list', { name: '이번 주 순위' })).not.toBeInTheDocument(),
+    )
+  })
+
+  it('기록이 없으면 펼칠 것도 없어 탭 영역을 두지 않는다', async () => {
+    respondWith([])
+    render(<RankingTicker layout="narrow" />)
+
+    expect(await screen.findByText(/로그인하고 1위 도전하기/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /전체 보기/ })).not.toBeInTheDocument()
+  })
 })
 
 describe('RankingTicker · wide', () => {

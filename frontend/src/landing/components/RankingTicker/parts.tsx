@@ -1,7 +1,52 @@
+import { motion } from 'motion/react'
 import type { WeeklyRankingEntry } from '@/shared/api/rankingApi'
 import { cn } from '@/shared/cn'
 import { IconChevron } from '@/shared/components/Icon'
-import { SECONDS_PER_ENTRY } from './shared'
+import { popVariants } from '@/shared/motion'
+import { PANEL_ID, SECONDS_PER_ENTRY } from './shared'
+
+/**
+ * 전체 순위 팝업 — 스크림은 `fixed`, 패널은 앵커(띠) 기준 `absolute`다.
+ * `useDialogBackground`를 쓰지 않는다: 랜딩 캔버스가 곧 `<main>`이라 inert를 걸면
+ * 이 패널이 자기 자신을 잠근다.
+ */
+export function RankingPanel({
+  children,
+  className,
+  onClose,
+  transformOrigin,
+}: {
+  children: React.ReactNode
+  className: string
+  onClose: () => void
+  transformOrigin: string
+}) {
+  return (
+    <>
+      <button
+        aria-label="랭킹 닫기"
+        className="fixed inset-0 z-banner cursor-default border-0 bg-transparent"
+        onClick={onClose}
+        tabIndex={-1}
+        type="button"
+      />
+      <motion.div
+        animate="visible"
+        className={cn(
+          'absolute z-banner rounded-panel border border-landing-hairline-strong bg-surface-raised p-2 shadow-landing-popover',
+          className,
+        )}
+        exit="exit"
+        id={PANEL_ID}
+        initial="hidden"
+        style={{ transformOrigin }}
+        variants={popVariants}
+      >
+        {children}
+      </motion.div>
+    </>
+  )
+}
 
 export function Chevron({ open }: { open: boolean }) {
   return (

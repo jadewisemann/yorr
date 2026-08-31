@@ -1,11 +1,4 @@
-import {
-  EmptyNotice,
-  EntryRow,
-  ScrollingTrack,
-  TickerLabel,
-  TickerViewport,
-} from '@/landing/components/RankingTicker/parts'
-import { MIN_SCROLL_ENTRIES } from '@/landing/components/RankingTicker/shared'
+import { NarrowBand } from '@/landing/components/RankingTicker/NarrowBand'
 import { WideBand } from '@/landing/components/RankingTicker/WideBand'
 import { useMyWeeklyRank, useWeeklyRanking } from '@/shared/api/useRankingApi'
 import { cn } from '@/shared/cn'
@@ -22,6 +15,14 @@ export function RankingTicker({ layout }: { layout: 'narrow' | 'wide' }) {
 
   const entries = data?.entries ?? []
   const band = entries.slice(0, BAND_COUNT)
+  const bandProps = {
+    band,
+    entries,
+    loading: !data,
+    myNickname: authSession?.nickname ?? null,
+    myRank: myRank ?? null,
+    myUserId: authSession?.userId ?? null,
+  }
 
   return (
     <section
@@ -30,28 +31,10 @@ export function RankingTicker({ layout }: { layout: 'narrow' | 'wide' }) {
     >
       {layout === 'wide' ? (
         <div className="mx-auto flex h-11 w-full max-w-landing justify-center">
-          <WideBand
-            band={band}
-            entries={entries}
-            loading={!data}
-            myNickname={authSession?.nickname ?? null}
-            myRank={myRank ?? null}
-            myUserId={authSession?.userId ?? null}
-          />
+          <WideBand {...bandProps} />
         </div>
       ) : (
-        <div className="flex h-11 items-center gap-3 px-5">
-          <TickerLabel />
-          <TickerViewport>
-            {band.length === 0 ? (
-              <EmptyNotice loading={!data} />
-            ) : band.length >= MIN_SCROLL_ENTRIES ? (
-              <ScrollingTrack entries={band} myUserId={authSession?.userId ?? null} />
-            ) : (
-              <EntryRow entries={band} myUserId={authSession?.userId ?? null} />
-            )}
-          </TickerViewport>
-        </div>
+        <NarrowBand {...bandProps} />
       )}
 
       <span

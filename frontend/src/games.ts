@@ -1,3 +1,5 @@
+// 'fishing'은 카탈로그에서 내렸지만 히어로 아트 파이프라인(heroScene·bake-hero)이 아직
+// 씬 키로 쓴다 — 다시 세우려면 games 배열에 항목만 되돌리면 된다.
 export type GameKey = 'davinci' | 'duel' | 'fishing' | 'liars' | 'pingpong' | 'yacht'
 export type GameCode = 'DAVINCI_CODE' | 'DUEL' | 'PING_PONG' | 'YACHT_DICE'
 
@@ -66,16 +68,6 @@ export const games: [Game, ...Game[]] = [
     players: '2–6 PLAYERS',
     duration: '약 6분',
     control: '화면 탭',
-    live: false,
-  },
-  {
-    key: 'fishing',
-    name: '낚시',
-    tagline: '입질이 오는 순간을 놓치지 마세요.',
-    description: '가장 무거운 물고기를 건져 올리는 타이밍 게임',
-    players: '2–8 PLAYERS',
-    duration: '약 5분',
-    control: '휴대폰 흔들기',
     live: false,
   },
 ]
