@@ -1,8 +1,7 @@
 import type { ReconnectRoundState, ScoreboardsByPlayer } from './reconnectPorts.js'
 
 /**
- * 재접속 시 클라이언트가 진행 화면을 복원하는 데 필요한 권위 상태 —
- * backend-java `game/yacht/YachtDiceState`.
+ * 재접속 시 클라이언트가 진행 화면을 복원하는 데 필요한 권위 상태.
  *
  * 정본은 프론트의 `GameState`(`frontend/src/realtime/wsEvents.ts`)이며
  * `sys.reconnected`/`state.sync` 스냅샷의 `game` 필드에 그대로 실린다.

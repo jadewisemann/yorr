@@ -27,7 +27,7 @@ import {
 } from './testDoubles.js'
 
 /**
- * backend-java `RoundTimerServiceTest`의 이식 + Java에 없던 오프라인·이탈 경로.
+ * Java에 없던 오프라인·이탈 경로.
  *
  * **방송 순서가 계약이다.** Mockito `InOrder` 대신 기록형 브로드캐스터의 배열
  * 순서로 고정한다. 시간은 고정 `now`, 마감 발화는 가짜 예약기의 `fire()`라

@@ -1,10 +1,10 @@
 /**
  * Flyway 호환 마이그레이션 러너 — [ADR-0005](../../../docs/adr/0005-flyway-compatible-migration-runner.md).
  *
- * 전환기(같은 MySQL을 backend-java와 Node가 함께 보는 기간)의 계약은
- * **Node가 스키마를 바꾸지 않는다**이다. 서버 기동 경로가 쓰는 것은
- * `verifyMigrations`(읽기 전용 확인)이고, `runMigrations`는 빈 개발 DB와
- * 통합 테스트가 쓴다.
+ * **서버 기동 경로는 스키마를 바꾸지 않는다.** 기동이 쓰는 것은
+ * `verifyMigrations`(읽기 전용 확인)이고, `runMigrations`는 배포의 migrate 잡과
+ * 빈 개발 DB·통합 테스트가 쓴다. 적용과 기동을 갈라 두면 "부팅했더니 스키마가
+ * 바뀌어 있었다"가 일어나지 않는다.
  */
 export { flywayChecksum } from './checksum.js'
 export { DEFAULT_MIGRATION_DIR, discoverMigrations } from './discover.js'

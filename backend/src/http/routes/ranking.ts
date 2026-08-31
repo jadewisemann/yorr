@@ -9,7 +9,7 @@ import type { UserIdentity, UserService } from '../../user/session.js'
 import { sendCode } from '../errorResponse.js'
 
 /**
- * 랭킹 조회 REST — backend-java `game/ranking/controller/RankingController`.
+ * 랭킹 조회 REST.
  *
  * | 요청 | 응답 |
  * |---|---|

@@ -11,7 +11,6 @@ import type { Ranking } from '../gameResultCalculator.js'
 
 const ROOM = 'ROOM1'
 
-/** backend-java `GameCompletionServiceTest` 이식. */
 describe('GameCompletionService', () => {
   it('전이하지 않았으면 아무 부수효과도 남기지 않는다', async () => {
     const world = createWorld({ transitions: false })

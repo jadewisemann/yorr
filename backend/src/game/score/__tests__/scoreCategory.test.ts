@@ -10,7 +10,6 @@ import {
 } from '../scoreCategory.js'
 import { ScoreDomainError } from '../scoreErrors.js'
 
-// backend-java `ScoreCategoryTest` 이식.
 describe('ScoreCategory', () => {
   it('12종을 선언 순서 그대로 가진다', () => {
     expect([...SCORE_CATEGORIES]).toEqual([

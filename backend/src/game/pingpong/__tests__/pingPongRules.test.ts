@@ -15,7 +15,7 @@ import {
 import type { PingPongState } from '../pingPongState.js'
 
 /**
- * backend-java `PingPongRulesTest` 7종의 이식. 모든 시각은 인자로 주입하므로
+ * 탁구 규칙 7종. 모든 시각은 인자로 주입하므로
  * **실시간 sleep도 가짜 타이머도 필요 없다** — 규칙이 순수 함수이기 때문이다.
  */
 const P1 = 'player-1'

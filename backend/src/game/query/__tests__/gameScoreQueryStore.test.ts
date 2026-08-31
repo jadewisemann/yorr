@@ -14,8 +14,6 @@ const PLAYER_A = 'player-a'
 const PLAYER_B = 'player-b'
 
 /**
- * backend-java `RedisGameScoreQueryStore(Integration)Test` 이식.
- *
  * Java 단위 테스트는 `RedisTemplate`을 모킹해 "읽는 사이 게임이 바뀐다"를
  * 만들었다. 여기서는 **진짜 Redis** 위에서 읽기 사이에 실제 쓰기를 끼워 넣는
  * 래퍼로 같은 인터리빙을 만든다 — 값은 전부 Redis에서 나오므로 스토어가 스스로

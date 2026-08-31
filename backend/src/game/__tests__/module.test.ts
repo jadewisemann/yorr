@@ -5,7 +5,7 @@ import type { ClientSocket } from '../../ws/socket.js'
 import { DUEL, GameCatalog, YACHT_DICE } from '../catalog.js'
 import { type GameModule, GameModuleRegistry, gameWsType } from '../module.js'
 
-/** backend-java `GameModuleRegistryTest`의 `mock(GameModule.class)` 자리. */
+/** 레지스트리 테스트용 게임 모듈 대역. */
 interface FakeModule {
   readonly module: GameModule
   readonly handled: { socket: ClientSocket; message: InboundEnvelope }[]

@@ -1,8 +1,7 @@
 /**
  * Prometheus 텍스트 노출 형식(0.0.4)을 만드는 **최소 렌더러**.
  *
- * backend-java는 Micrometer + `micrometer-registry-prometheus`가 이 일을 했다.
- * 여기서 라이브러리(`prom-client`)를 쓰지 않는 이유는 노출 대상이 게이지 **두 개**뿐이고
+ * 라이브러리(`prom-client`)를 쓰지 않는 이유는 노출 대상이 게이지 **두 개**뿐이고
  * (histogram·summary·exemplar 없음) 형식이 `name{tag="v"} value` 세 줄짜리이기 때문이다 —
  * ADR-0003의 기조(작은 표면에는 의존성을 늘리지 않는다: ORM·NestJS를 뺀 것과 같은 이유)를
  * 따른다. 계약은 **이름·태그**이므로(docs/design/operations.md 「모니터링」) 렌더러가

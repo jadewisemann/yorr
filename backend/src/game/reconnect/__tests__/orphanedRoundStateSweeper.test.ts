@@ -9,8 +9,6 @@ import {
 import type { RoundTimerCancelPort, SweeperRoomService } from '../reconnectPorts.js'
 
 /**
- * backend-java `OrphanedRoundStateSweeperTest` 이식.
- *
  * Java와 같이 **라운드 상태 저장소는 진짜 구현**(`InMemoryRoundStateStore` +
  * `RoundSynchronizationService`)을 쓴다 — 순회 중 remove가 안전한지가 이 테스트의
  * 절반이라 가짜 목록으로는 검증되지 않는다.

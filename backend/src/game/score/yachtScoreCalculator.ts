@@ -9,8 +9,7 @@ import {
 import { ScoreDomainError } from './scoreErrors.js'
 
 /**
- * 야추 채점의 **유일한 권위** — 순수 함수 묶음이다(backend-java
- * `YachtScoreCalculator`, static 전용 final class).
+ * 야추 채점의 **유일한 권위** — 순수 함수 묶음이다.
  *
  * 클라이언트가 보낸 점수는 와이어에 존재하지도 않는다. `round.submit`은
  * {roundNumber, dice, category}만 싣고 점수는 서버가 여기서 다시 만든다

@@ -10,7 +10,7 @@ import { BotDecisionError, BotSearchBudgetError } from './botErrors.js'
 import type { ScorecardValueEvaluator } from './scorecardValueEvaluator.js'
 
 /**
- * 야추 봇의 주 정책 — backend-java `ExpectimaxYachtBotPolicy`.
+ * 야추 봇의 주 정책.
  *
  * 남은 리롤 수(0..2)가 깊이인 expectimax다. 확률 노드는 **다항 분포 정확 계산**이고
  * 샘플링이 아니다(같은 상태에서 같은 답이 나오는 것이 재현·테스트의 전제다).

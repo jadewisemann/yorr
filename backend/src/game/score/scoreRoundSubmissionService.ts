@@ -50,7 +50,7 @@ export interface ScoreRoundSubmissionResult<TRoundResult> {
 }
 
 /**
- * 라운드 제출과 점수 확정의 **원자 결합**(backend-java `ScoreRoundSubmissionService`).
+ * 라운드 제출과 점수 확정의 **원자 결합**.
  *
  * 순서가 계약이다: 라운드 검증 → **점수 확정(Redis Lua)** → 라운드 상태 커밋.
  * 점수 확정이 던지면 커밋은 일어나지 않는다. 반대 순서였다면 "제출은 됐는데

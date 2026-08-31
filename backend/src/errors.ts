@@ -1,10 +1,9 @@
 /**
  * 도메인 오류. **메시지 자리에 문자열 오류 코드**가 들어간다.
  *
- * backend-java는 `IllegalArgumentException("room_full")` 관용으로 코드를
- * 던지고 REST 계층이 그 문자열을 그대로 본문에 담는다. 이 모양이 프론트와의
- * 계약이므로(DESIGN.md 「오류 계약」) 그대로 옮긴다 — 코드 이름을 다듬거나
- * JSON 봉투로 감싸지 않는다.
+ * REST 계층이 이 문자열을 그대로 본문에 담는다. 프론트가 문자열 단위로
+ * 매핑하므로 이 모양이 곧 계약이다(DESIGN.md 「오류 계약」) — 코드 이름을
+ * 다듬거나 JSON 봉투로 감싸지 않는다.
  */
 export class CodedError extends Error {
   readonly code: string

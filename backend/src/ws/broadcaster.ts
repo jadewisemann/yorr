@@ -2,7 +2,7 @@ import type { OutboundEnvelope } from './envelope.js'
 import { type ClientSocket, isOpen } from './socket.js'
 
 /**
- * 방별 소켓 집합(팬아웃) — backend-java `ws/InMemoryRoomBroadcaster`.
+ * 방별 소켓 집합(팬아웃).
  *
  * 레지스트리와 **별개 맵**이다: 명단에는 올랐지만 아직 팬아웃에 없는 순간이
  * `room.join`의 순서 계약(본인이 자기 입장 소식을 받지 않는다)을 만든다.

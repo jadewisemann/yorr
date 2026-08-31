@@ -15,11 +15,10 @@ import {
 import { UserService } from '../session.js'
 
 /**
- * backend-java `UserProfileServiceIntegrationTest` 4종의 이식.
+ * 회원 프로필 4종.
  *
- * Java는 MySQL·Redis 컨테이너를 둘 다 띄우지만 **이 환경에는 MySQL이 없다**
- * (ADR-0005의 게이트 — `MYSQL_TEST_URL`이 있을 때만 통합 스위트가 돈다). 그래서
- * 같은 4종을 두 번 적는다:
+ * **이 환경에는 MySQL이 없을 수 있다**(ADR-0005의 게이트 — `MYSQL_TEST_URL`이
+ * 있을 때만 통합 스위트가 돈다). 그래서 같은 4종을 두 번 적는다:
  *
  * 1. `UserProfileService` + **인메모리 회원 저장소 + 진짜 Redis** — 항상 돈다.
  *    dual-write에서 **세션 쪽 절반**과 순서·정규화 계약이 여기서 고정된다.

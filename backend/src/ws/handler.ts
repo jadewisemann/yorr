@@ -85,7 +85,7 @@ const isReaction = (value: unknown): value is ReactionType =>
   REACTION_TYPES.includes(value as ReactionType)
 
 /**
- * WebSocket 게이트웨이 — backend-java `handler/GameWebSocketHandler`.
+ * WebSocket 게이트웨이.
  *
  * 소켓 수명(연결·메시지·종료)에서 하는 일은 인증·구독·브로드캐스트뿐이다.
  * **방 멤버십의 권위는 Redis**이고 REST가 그것을 바꾼다(DESIGN.md 원칙 3).

@@ -12,13 +12,11 @@ import { RoundTimeoutResolver } from '../roundTimeoutResolver.js'
 import { FakeOpenCategories, FakeRoomService, RecordingBroadcaster } from './testDoubles.js'
 
 /**
- * backend-java `RoundTimeoutResolverTest` 5종의 이식.
+ * 라운드 마감 처리 5종.
  *
- * Java는 진짜 `ScoreRoundSubmissionService` + `mock(ScoreConfirmationService)`를
- * 썼는데, 우리 쪽 점수 계층은 2.6이 만든다. 그래서 여기서는 **그 서비스가 지켜야 할
- * 계약을 그대로 흉내 내는 대역**을 쓴다(라운드 검증 후·커밋 전에 점수를 확정하고,
- * 확정이 던지면 라운드 상태가 무변화로 남는다). 2.6이 이 대역 자리에 진짜 구현을
- * 끼우면 테스트는 그대로 통과해야 한다.
+ * 점수 계층은 **그 서비스가 지켜야 할 계약을 그대로 흉내 내는 대역**으로 세운다
+ * (라운드 검증 후·커밋 전에 점수를 확정하고, 확정이 던지면 라운드 상태가 무변화로
+ * 남는다). 대역 자리에 진짜 구현을 끼워도 테스트는 그대로 통과해야 한다.
  */
 describe('RoundTimeoutResolver', () => {
   const NOW = Date.parse('2026-07-26T00:00:00Z')

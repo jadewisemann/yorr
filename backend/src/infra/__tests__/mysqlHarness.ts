@@ -10,7 +10,6 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe } from 'vitest'
  * "있으면 쓰고 없으면 건너뛴다"만 한다:
  *
  * - `MYSQL_TEST_URL`(예: `mysql://root:pw@127.0.0.1:3306`)이 있으면 그 서버를 쓴다.
- *   `backend-java/compose.yaml`의 mysql 컨테이너가 그대로 대상이 된다.
  * - 없으면 통합 스위트를 건너뛴다(`describeMysql`). 순수 로직 테스트는 계속 돈다.
  * - `MYSQL_TEST_REQUIRED=1`이면 건너뛰지 않고 **실패**한다 — 파이프라인이 조용히
  *   초록이 되는 것을 막는 스위치(ADR-0004의 `REDIS_TEST_REQUIRED`와 같은 역할).

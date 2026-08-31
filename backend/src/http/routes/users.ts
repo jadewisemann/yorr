@@ -7,7 +7,7 @@ import type { UserIdentity, UserService } from '../../user/session.js'
 import { sendCode } from '../errorResponse.js'
 
 /**
- * 내 프로필 — backend-java `user/controller/UserProfileController`.
+ * 내 프로필.
  *
  * 인증은 **Bearer 토큰만**이다(방 REST의 `X-User-Id` + Bearer 2요소가 아니다) —
  * 프로필은 세션 토큰 하나로 신원이 유도되는 경로다(auth.md 「프로필 REST」).

@@ -4,7 +4,7 @@ import type { GameScoreQueryStore } from './gameScoreQueryStore.js'
 import { GameScoreQueryError } from './queryErrors.js'
 
 /**
- * 점수판·최종 결과 조회(backend-java `GameScoreQueryService`).
+ * 점수판·최종 결과 조회.
  *
  * 스토어가 방·참가 자격을 판정하고, 이 서비스는 **phase 게이트 두 개**만 얹는다:
  * 점수판은 PLAYING·FINISHED에서, 최종 결과는 FINISHED에서만 나간다.

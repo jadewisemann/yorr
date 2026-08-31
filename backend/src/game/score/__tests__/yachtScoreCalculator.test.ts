@@ -17,7 +17,6 @@ const upperScores = (onesScore: number): ReadonlyMap<ScoreCategory, number> =>
     ['sixes', 18],
   ])
 
-// backend-java `YachtScoreCalculatorTest` 이식.
 describe('YachtScoreCalculator', () => {
   it('상단 카테고리는 해당 눈의 합이다', () => {
     expect(calculateScore('ones', [1, 1, 1, 2, 3])).toBe(3)

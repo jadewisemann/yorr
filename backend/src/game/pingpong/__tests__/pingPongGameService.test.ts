@@ -6,8 +6,6 @@ import { initial, POINT_COUNTDOWN_MILLIS, ready, serve, swing } from '../pingPon
 import type { PingPongPlayerNumbers, PingPongState } from '../pingPongState.js'
 
 /**
- * backend-java `PingPongGameServiceTest`의 이식.
- *
  * Java는 Mockito `verify()`(순서 없음) + 브로드캐스트만 `ArgumentCaptor`로 순서를
  * 봤지만, **취소 순서 자체가 계약**이므로(docs/design/games/pingpong.md) 여기서는
  * 협력자 호출 전체를 한 줄의 로그로 모아 순서까지 고정한다.

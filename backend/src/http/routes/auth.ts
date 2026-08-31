@@ -14,15 +14,15 @@ import type { UserService } from '../../user/session.js'
 import { sendCode } from '../errorResponse.js'
 
 /**
- * 소셜 로그인 진입점 — backend-java `auth/controller/AuthController`.
+ * 소셜 로그인 진입점.
  *
  * ```text
  * 프론트 로그인 버튼
- *   → GET  /auth/{provider}/authorize   state 발급 후 제공자로 302
- *   → (카카오 또는 구글 동의 화면)
- *   → GET  /auth/{provider}/callback    state 검증 · 토큰 교환 · 가입/로그인 · 세션 발급
- *                                       → 프론트로 302 (일회용 code 동반)
- *   → POST /auth/session                code를 세션 토큰으로 교환
+ * → GET  /auth/{provider}/authorize   state 발급 후 제공자로 302
+ * → (카카오 또는 구글 동의 화면)
+ * → GET  /auth/{provider}/callback    state 검증 · 토큰 교환 · 가입/로그인 · 세션 발급
+ * → 프론트로 302 (일회용 code 동반)
+ * → POST /auth/session                code를 세션 토큰으로 교환
  * ```
  *
  * 콜백이 세션 토큰을 URL에 직접 싣지 않는 이유는 `auth/loginCodeStore.ts` 참고.

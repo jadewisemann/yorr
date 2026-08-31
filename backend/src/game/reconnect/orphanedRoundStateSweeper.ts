@@ -53,8 +53,7 @@ export interface OrphanedRoundStateSweeperOptions {
 }
 
 /**
- * 방이 사라졌는데도 남아 있는 라운드 상태를 주기적으로 걷어낸다 — backend-java
- * `OrphanedRoundStateSweeper`.
+ * 방이 사라졌는데도 남아 있는 라운드 상태를 주기적으로 걷어낸다.
  *
  * **왜 필요한가:** 라운드 상태는 Redis에 있어 TTL로 스스로 사라지지만, 거기 딸린
  * 인메모리 자원(마감 타이머 예약 · 오프라인 결석 카운트)은 TTL이 청소해주지 않는다.

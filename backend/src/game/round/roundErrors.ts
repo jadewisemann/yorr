@@ -1,6 +1,5 @@
 /**
- * 라운드 동기화 실패의 이유 코드 — backend-java
- * `RoundSynchronizationException.Reason` enum과 이름까지 1:1이다.
+ * 라운드 동기화 실패의 이유 코드.
  *
  * 이 값들은 **와이어 코드가 아니다.** WS 오류 코드로의 매핑은 게임 모듈이
  * 한다(docs/design/game-modules.md 「RoundState」):

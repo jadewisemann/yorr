@@ -91,7 +91,6 @@ const payload = (): RoundSubmitPayloadLike => ({
   category: 'choice',
 })
 
-// backend-java `ScoreRoundSubmissionServiceTest` 이식.
 describe('ScoreRoundSubmissionService', () => {
   let rounds: InMemoryRoundStateStore
   let store: ScriptedScoreBoardStore

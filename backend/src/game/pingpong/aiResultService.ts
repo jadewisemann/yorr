@@ -5,7 +5,7 @@ import type { MatchArchiveInput } from '../match/index.js'
 import { WIN_SCORE } from './pingPongRules.js'
 
 /**
- * 로컬 AI 탁구 결과 보관 — backend-java `game/pingpong/PingPongAiResultService`.
+ * 로컬 AI 탁구 결과 보관.
  *
  * **멀티플레이 파이프라인과 완전히 분리된 경로다**(docs/design/games/pingpong.md).
  * 온디바이스 AI와의 싱글플레이는 서버가 판을 진행하지 않으므로 Redis 상태·스토어·
@@ -124,7 +124,7 @@ export class PingPongAiResultService {
    * `invalid_result_id`를 받는다(Java와 같다).
    *
    * @returns 실제로 저장했는지. 이미 보고된 `resultId`면 false다 — 실패가 아니라
-   *   멱등이므로 REST는 그래도 204를 돌려준다(`game_id` UNIQUE가 중복을 막는다).
+   * 멱등이므로 REST는 그래도 204를 돌려준다(`game_id` UNIQUE가 중복을 막는다).
    */
   private async save(
     playerId: string,

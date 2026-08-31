@@ -1,5 +1,5 @@
 /**
- * 주간 랭킹(4.5) — backend-java `game/ranking/*` + `config/CacheConfig`.
+ * 주간 랭킹(4.5).
  *
  * 조립 순서가 곧 의존 방향이다:
  * `MysqlWeeklyRankingStore` → `CachingWeeklyRankingRepository` → `WeeklyRankingService`.

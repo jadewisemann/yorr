@@ -25,7 +25,7 @@ const newBotId = (): string => `${BOT_ID_PREFIX}${randomUUID()}`
 const botNickname = (botId: string): string => `요르봇 ${botId.slice(-4).toUpperCase()}`
 
 /**
- * 대기실 AI 봇 참가자 — backend-java `room/service/BotParticipantService`.
+ * 대기실 AI 봇 참가자.
  *
  * 봇은 roster·scores의 **정규 행**이라 정원과 START의 minPlayers를 그대로
  * 채운다. `room:{code}:bots` 해시가 "이 행은 봇"이라는 유일한 마커이자 삭제

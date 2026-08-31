@@ -13,7 +13,7 @@ import { UserService } from '../../../user/session.js'
 import { registerPingPongAiRoutes } from '../pingPongAi.js'
 
 /**
- * 이식: backend-java `PingPongAiResultControllerTest` 전부 + 오류 표면.
+ * 이식: 전부 + 오류 표면.
  *
  * 세션은 **진짜 Redis**로 돈다 — 이 라우트의 계약 절반이 "헤더가 없으면 게스트,
  * 있는데 틀리면 401"이고 그 판정은 세션 스토어를 지난다(`ranking.test.ts`·

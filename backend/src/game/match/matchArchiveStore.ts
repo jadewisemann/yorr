@@ -1,12 +1,11 @@
 import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 
 /**
- * 전적의 **쓰기 표면** — backend-java `game/match/repository/MatchRepository` +
- * `user/repository/UserRepository.findById`가 하던 일만 남긴 좁은 포트.
+ * 전적의 **쓰기 표면** — 보관에 필요한 것만 남긴 좁은 포트.
  *
- * 저장소를 포트로 뒤집은 이유는 4.3(`user/profile.ts`)과 같다: 보관의 판정 로직
- * (멱등·닉네임 우선순위·회원/게스트 분기)은 MySQL 없이도 시험할 수 있어야 한다.
- * 이 환경에는 MySQL이 없고(4.1·4.2의 관찰), 그 로직이 실제로 틀리는 자리다.
+ * 저장소를 포트로 뒤집은 이유는 `user/profile.ts`와 같다: 보관의 판정 로직
+ * (멱등·닉네임 우선순위·회원/게스트 분기)은 MySQL 없이도 시험할 수 있어야 하고,
+ * 그 로직이 실제로 틀리는 자리다.
  */
 export interface MatchArchiveStore {
   /**

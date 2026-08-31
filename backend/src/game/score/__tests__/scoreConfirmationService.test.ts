@@ -59,7 +59,6 @@ const command = (
   dice,
 })
 
-// backend-java `ScoreConfirmationServiceTest` 이식.
 describe('ScoreConfirmationService', () => {
   let store: CapturingScoreBoardStore
   let service: ScoreConfirmationService

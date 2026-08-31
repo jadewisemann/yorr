@@ -9,7 +9,7 @@ import type { UserService } from '../../user/session.js'
 import { sendCode } from '../errorResponse.js'
 
 /**
- * 로컬 AI 탁구 결과 REST — backend-java `game/pingpong/PingPongAiResultController`.
+ * 로컬 AI 탁구 결과 REST.
  *
  * | 요청 | 응답 |
  * |---|---|

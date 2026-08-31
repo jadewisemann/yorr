@@ -13,8 +13,7 @@ export class ScoreDomainError extends Error {
 }
 
 /**
- * 점수 확정 실패의 이유 코드 — backend-java
- * `ScoreConfirmationException.Reason` enum과 이름까지 1:1이다.
+ * 점수 확정 실패의 이유 코드.
  *
  * **와이어 코드가 아니다.** WS 오류 코드로의 매핑은 야추 모듈(3.1)이 한다.
  * 그중 `GAME_NOT_FOUND`·`GAME_NOT_ACTIVE`·`PLAYER_NOT_IN_GAME`·

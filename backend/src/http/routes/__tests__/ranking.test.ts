@@ -8,7 +8,7 @@ import { UserService } from '../../../user/session.js'
 import { registerRankingRoutes } from '../ranking.js'
 
 /**
- * 이식: backend-java `RankingControllerTest` 전부.
+ * 이식: 전부.
  *
  * 세션은 진짜 Redis로 돈다 — 게스트/회원 구분이 이 라우트의 계약(403 vs 401)이고
  * 모킹으로는 지킬 수 없다(`users.test.ts`와 같은 방식). MySQL은 이 환경에 없으므로

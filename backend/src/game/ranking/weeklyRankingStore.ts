@@ -1,8 +1,7 @@
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 
 /**
- * 주간 집계 질의 — backend-java `game/match/repository/MatchParticipantRepository`의
- * 집계 메서드 3개.
+ * 주간 집계 질의 3종.
  *
  * 읽는 테이블은 `matches`·`match_participants`(전적 보관 4.4가 쓰는 것)와 `users`다.
  * **집계의 권위는 MySQL 하나**다 — 별도 순위 자료구조(Redis ZSET 등)를 두지 않는다.

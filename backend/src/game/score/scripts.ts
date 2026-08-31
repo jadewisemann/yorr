@@ -1,9 +1,8 @@
 import type { LuaScript } from '../../infra/lua.js'
 
 /**
- * 점수 확정 Lua — backend-java `RedisScoreBoardStore.CONFIRM_SCORE`에서
- * **텍스트 그대로** 옮겼다. 반환 코드가 곧 계약이므로 가드 사다리의 **순서도**
- * 바꾸지 않는다(DESIGN.md 원칙 7, docs/design/game-modules.md 「CONFIRM_SCORE Lua」).
+ * 점수 확정 Lua. 반환 코드가 곧 계약이므로 가드 사다리의 **순서도** 바꾸지 않는다
+ * (DESIGN.md 원칙 7, docs/design/game-modules.md 「CONFIRM_SCORE Lua」).
  *
  * KEYS
  * | # | 키 | 용도 |

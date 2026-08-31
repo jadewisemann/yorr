@@ -232,7 +232,7 @@ type Authenticator = (
 ) => Promise<UserIdentity | null>
 
 /**
- * 대기실 봇 API — backend-java `RoomBotController`.
+ * 대기실 봇 API.
  *
  * 응답은 방 REST 스냅샷이고, 성공 시 방 전원에게 `state.sync`를 쏜다(변경한
  * 사람만 스냅샷을 받으면 다른 화면의 명단이 어긋난다).

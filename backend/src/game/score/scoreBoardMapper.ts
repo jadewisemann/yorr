@@ -21,7 +21,7 @@ const integerValue = (value: string | undefined, defaultValue: number | null): n
 }
 
 /**
- * Redis 해시 → `ScoreBoard`(backend-java `RedisScoreBoardMapper`).
+ * Redis 해시 → `ScoreBoard`.
  *
  * **없는 카테고리 필드는 null**(미기록), 없는 메타 필드는 0이다. 이 비대칭이
  * "null vs 0" 계약의 저장소 쪽 절반이다. 2.9의 조회 스토어도 같은 해시를 읽으므로

@@ -5,10 +5,10 @@ import type { Redis } from 'ioredis'
  *
  * 방 정원·중복 참가·점수 확정 같은 동시성 있는 전이는 전부 Lua 한 번으로
  * 검증+갱신한다(DESIGN.md 원칙 7). **반환 코드가 곧 계약**이므로 스크립트
- * 텍스트와 반환값 의미는 backend-java에서 그대로 옮긴다.
+ * 텍스트와 반환값 의미를 임의로 손보지 않는다.
  *
  * ioredis의 `defineCommand`는 이름 붙인 스크립트를 EVALSHA로 보내고 NOSCRIPT면
- * 자동으로 EVAL로 재전송한다 — Spring의 `DefaultRedisScript`와 같은 역할이다.
+ * 자동으로 EVAL로 재전송한다.
  */
 export interface LuaScript {
   readonly name: string

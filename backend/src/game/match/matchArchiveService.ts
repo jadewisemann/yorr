@@ -2,7 +2,7 @@ import type { CompletionRoomSnapshot, Ranking } from '../completion/index.js'
 import type { MatchArchiveStore, MatchParticipantRow, MatchRecord } from './matchArchiveStore.js'
 
 /**
- * 끝난 판을 MySQL에 남긴다 — backend-java `game/match/application/MatchArchiveService`.
+ * 끝난 판을 MySQL에 남긴다.
  * 여기까지 오지 않으면 결과는 Redis와 함께 40분 만에 사라진다.
  *
  * DESIGN.md 원칙 6의 **유일한 MySQL 쓰기 지점**이다: 게임이 진행되는 동안은 MySQL을
@@ -102,7 +102,7 @@ export class MatchArchiveService {
    * 게임 종료 경로 — `MatchArchivePort`(2.7)를 **구조적으로** 만족한다(어댑터 없음).
    *
    * @param room 끝난 게임의 방 스냅샷. 닉네임은 여기서 가져온다 — 순위 payload에는
-   *   점수만 있다.
+   * 점수만 있다.
    * @param rankings 서버가 확정한 최종 순위.
    * @returns 이 호출이 실제로 저장했는지. 이미 저장된 판이면 false.
    */

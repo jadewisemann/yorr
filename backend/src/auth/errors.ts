@@ -1,5 +1,5 @@
 /**
- * 소셜 로그인 실패 — backend-java `auth/SocialLoginException`.
+ * 소셜 로그인 실패.
  *
  * 사유를 하나로 뭉개지 않는 것이 계약이다. 콜백은 이 값을 소문자 그대로
  * `?error=`에 실어 프론트로 보내고, 프론트(`auth/api/authApi.ts`의
@@ -12,8 +12,8 @@ export class SocialLoginError extends Error {
 
   /**
    * @param detail 로그에만 남는 내부 사유(`kakao_token_exchange_failed` 등).
-   *   **클라이언트로 나가지 않는다** — 제공자 응답 본문에 클라이언트 키가 섞여
-   *   나올 수 있어서 일반화한 `reason`만 내보낸다.
+   * **클라이언트로 나가지 않는다** — 제공자 응답 본문에 클라이언트 키가 섞여
+   * 나올 수 있어서 일반화한 `reason`만 내보낸다.
    */
   constructor(reason: SocialLoginReason, detail: string = reason, options?: { cause?: unknown }) {
     super(detail, options)

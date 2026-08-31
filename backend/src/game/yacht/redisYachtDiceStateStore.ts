@@ -40,7 +40,7 @@ interface Change<T> {
 }
 
 /**
- * 야추 라운드 상태의 운영 저장소 — backend-java `RedisYachtDiceStateStore`.
+ * 야추 라운드 상태의 운영 저장소.
  *
  * 2.4가 정의한 `RoundStateStore` 포트를 Redis로 구현한다. 인메모리 구현이
  * **방 단위 프라미스 체인 락**으로 얻던 "검증 → 콜백 → 커밋" 원자성을, 여기서는

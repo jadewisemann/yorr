@@ -43,7 +43,7 @@ const authHeaders = (userId: string, token: string): Record<string, string> => (
 })
 
 /**
- * 봇 REST — backend-java `RoomBotControllerTest`.
+ * 봇 REST.
  *
  * Java는 서비스·브로드캐스터를 모킹했지만 여기서는 진짜 Redis와 진짜
  * 브로드캐스터를 쓴다 — 계약의 절반이 Lua 반환 코드 → 상태 코드 매핑이라

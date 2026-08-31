@@ -10,7 +10,7 @@ import { yachtWsType } from '../yachtWsTypes.js'
 import type { BotTurnStep, YachtBotTurnCoordinator } from './yachtBotTurnCoordinator.js'
 
 /**
- * 봇의 **연출 시계** — backend-java `BotTurnOrchestrator`.
+ * 봇의 **연출 시계**.
  *
  * 라운드 타이머가 `round.start`를 방송할 때마다(같은 턴의 굴림마다 재전송된다) 이
  * 오케스트레이터가 깨어나, 활성자가 봇이면 지연을 두고 한 스텝을 실행한다. 지연이

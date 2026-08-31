@@ -9,13 +9,10 @@ import {
 import type { MatchArchiveStore, MatchRecord } from '../matchArchiveStore.js'
 
 /**
- * backend-java `MatchArchiveServiceIntegrationTest`의 **`MatchArchiveService` 4종**
- * 이식(같은 파일의 나머지 3종은 `PingPongAiResultService`의 것이고 그 서비스는
- * 아직 없다 — 4.4의 범위는 보관 자체다).
+ * 전적 보관 4종.
  *
- * Java는 MySQL 컨테이너로만 시험하지만 **이 환경에는 MySQL이 없다**(ADR-0005의
- * 게이트). 그래서 4.3(`user/__tests__/profile.test.ts`)과 같은 방식으로 같은 4종을
- * 두 벌 적는다:
+ * **이 환경에는 MySQL이 없을 수 있다**(ADR-0005의 게이트). 그래서
+ * `user/__tests__/profile.test.ts`와 같은 방식으로 같은 4종을 두 벌 적는다:
  *
  * 1. 이 파일 — 인메모리 저장소. **항상 돈다.** 멱등 판정·닉네임 우선순위·회원/게스트
  *    분기·시계 주입이 여기서 고정된다. 실제로 틀리는 로직이 전부 여기 있다.

@@ -1,5 +1,5 @@
 /**
- * 탁구 한 판의 전체 상태 — backend-java `game/pingpong/PingPongState`.
+ * 탁구 한 판의 전체 상태.
  *
  * 방마다 하나씩 Redis에 직렬화되어 살아 있고, **그대로 WebSocket으로도 나간다**
  * (`game.ping_pong.state`의 payload는 래핑 없이 이 객체다). 화면은 이 값과

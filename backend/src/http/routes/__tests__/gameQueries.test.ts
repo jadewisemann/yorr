@@ -22,8 +22,6 @@ interface ScoreBoardResponse {
 }
 
 /**
- * backend-java `GameScoreQueryControllerTest` · `ScoreCandidateControllerTest` 이식.
- *
  * Java는 서비스를 모킹했지만 여기서는 **하네스 Redis + 진짜 스토어**로 돈다
  * (1.4의 `rooms.test.ts`와 같은 방식) — 계약의 절반이 "Redis 상태 → 이유 코드 →
  * HTTP 상태" 매핑이라 스토어를 모킹하면 테스트가 매핑을 스스로 정의해 버린다.

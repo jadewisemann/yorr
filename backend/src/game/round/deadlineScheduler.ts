@@ -1,6 +1,6 @@
 /**
  * 라운드 마감 예약. 방 하나당 예약은 **하나**이고, 다시 예약하면 세대가 바뀌어
- * 앞의 예약은 무효가 된다 — backend-java `RoundDeadlineScheduler` 포트.
+ * 앞의 예약은 무효가 된다.
  */
 export interface RoundDeadlineScheduler {
   /** @param deadline 마감 시각(Date 또는 epoch ms). 이미 지났으면 지연 0으로 발화한다. */
@@ -99,7 +99,6 @@ export class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
     // 아래 executor.schedule 직후 바로 실행되는데, 그때 이 세대가 맵에 없으면
     // runIfCurrent가 "내 차례가 아니다"로 조용히 스킵한다 → 그 방은 다음
     // schedule까지 타임아웃이 영영 안 온다(탁구: 서브·실점이 멈추고 공이 얼어붙음).
-    //
     // Node의 setTimeout은 스레드가 없어 이 인터리빙이 실제로 생기지 않지만,
     // executor가 주입 가능한 시임인 이상(인라인 executor·향후 다른 어댑터)
     // 순서 자체가 계약이다. Java의 회귀 수정을 그대로 유지한다.

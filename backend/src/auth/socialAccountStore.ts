@@ -5,8 +5,6 @@ import { type MemberUser, PLACEHOLDER_NICKNAME, type SocialProvider } from './so
 
 /**
  * 소셜 로그인의 **진입 조회** — 결과가 있으면 로그인, 없으면 가입이다.
- * backend-java `user/repository/SocialAccountRepository`
- * (`@EntityGraph("user")` = 아래 JOIN).
  */
 export interface SocialAccountRepository {
   findUserByProviderAccount(
@@ -16,7 +14,7 @@ export interface SocialAccountRepository {
 }
 
 /**
- * 가입·프로필 채택 — backend-java `auth/application/SocialAccountRegistrar`.
+ * 가입·프로필 채택.
  *
  * 조회(`SocialAccountRepository`)와 **따로** 둔 것이 설계의 핵심이다. 경합에서
  * 진 쪽이 유니크 위반을 잡아 다시 조회하려면 그 쓰기 트랜잭션이 **먼저 끝나
@@ -29,7 +27,7 @@ export interface SocialAccountRegistrar {
    * 남지 않아야 한다.
    *
    * @throws DataIntegrityViolationError 제약 위반(유니크·길이·FK). 유니크 위반은
-   *   실패가 아니라 "누군가 방금 먼저 가입했다"는 신호로 쓰인다.
+   * 실패가 아니라 "누군가 방금 먼저 가입했다"는 신호로 쓰인다.
    */
   register(
     provider: SocialProvider,

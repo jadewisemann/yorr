@@ -8,7 +8,7 @@ const TOKEN_URI = 'https://oauth2.googleapis.com/token'
 const USER_INFO_URI = 'https://openidconnect.googleapis.com/v1/userinfo'
 const SCOPE = 'openid profile email'
 
-/** Google OAuth — backend-java `auth/infrastructure/GoogleOAuthClient`. */
+/** Google OAuth. */
 export class GoogleOAuthClient {
   constructor(
     private readonly config: ProviderConfig,

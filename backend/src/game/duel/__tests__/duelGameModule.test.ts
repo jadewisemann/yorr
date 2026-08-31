@@ -36,7 +36,7 @@ const inbound = (payload: unknown, roomId: string | null = ROOM): InboundEnvelop
 
 /**
  * 모듈은 라우팅·검증·오류 응답만 한다 — 판정은 규칙이, 진행은 서비스가 맡는다.
- * backend-java `DuelGameModule` + `GameWebSocketHandlerTest`의 draw 케이스 자리.
+ * 결투 모듈의 draw 케이스.
  */
 describe('DuelGameModule', () => {
   let draws: { roomId: string; playerId: string; payload: DuelDrawPayload }[]

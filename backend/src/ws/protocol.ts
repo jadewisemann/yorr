@@ -1,8 +1,7 @@
 import type { ParticipantKind, RoomPhase } from '../room/snapshot.js'
 
 /**
- * WebSocket 와이어 상수·타입. 정본은 `frontend/src/realtime/wsEvents.ts`이며
- * backend-java `ws/WsProtocol` + `ws/dto/*`가 같은 값을 들고 있다
+ * WebSocket 와이어 상수·타입. **정본은 `frontend/src/realtime/wsEvents.ts`다**
  * (docs/design/realtime.md).
  */
 export const WS_PROTOCOL_VERSION = 1

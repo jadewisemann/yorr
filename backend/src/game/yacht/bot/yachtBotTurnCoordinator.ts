@@ -57,15 +57,15 @@ export interface YachtBotTurnCoordinatorOptions {
 }
 
 /**
- * 봇 턴의 **한 스텝을 원자적으로** 실행한다 — backend-java `YachtBotTurnCoordinator`.
+ * 봇 턴의 **한 스텝을 원자적으로** 실행한다.
  *
  * 두 가지가 이 클래스의 전부다:
  *
  * 1. **스테일 판정.** 예약될 때 본 상태(`event.state`)와 지금 저장소의 상태가
- *    TurnVersion(라운드·활성자·rollCount·dice·held)까지 같아야 움직인다. 다르면
- *    그 사이에 사람이 뭔가 했거나 타임아웃이 턴을 넘긴 것이므로 **조용히 무시**한다.
+ * TurnVersion(라운드·활성자·rollCount·dice·held)까지 같아야 움직인다. 다르면
+ * 그 사이에 사람이 뭔가 했거나 타임아웃이 턴을 넘긴 것이므로 **조용히 무시**한다.
  * 2. **사람과 같은 경로.** 굴림·킵·제출을 전부 `YachtTurnActionService`로 보낸다.
- *    별도 경로를 만들면 "봇만 점수가 안 들어간다" 같은 갈라짐이 생긴다.
+ * 별도 경로를 만들면 "봇만 점수가 안 들어간다" 같은 갈라짐이 생긴다.
  */
 export class YachtBotTurnCoordinator {
   private readonly rounds: YachtBotRoundLookup

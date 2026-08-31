@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import type { Redis } from 'ioredis'
 
 /**
- * OAuth `state` 보관소 — backend-java `auth/application/OAuthStateStore`.
+ * OAuth `state` 보관소.
  *
  * 이게 없으면 공격자가 자기 인가 코드를 담은 콜백 URL로 피해자를 유도해
  * **피해자를 공격자 계정으로 로그인시킬 수 있다**(로그인 CSRF). authorize에서

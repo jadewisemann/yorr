@@ -9,7 +9,7 @@ import type { RoomService } from './roomService.js'
 import { ROOM_TTL_SECONDS } from './roomService.js'
 
 /**
- * 퀵매치 — backend-java `room/service/QuickMatchService`.
+ * 퀵매치.
  *
  * 세 개의 짧은 REST 호출(enter/status/cancel)이 전부이고 **자동 시작은 폴링이
  * 굴린다**: 프론트가 1초마다 `GET /quick-matches`를 두드리고, 그 호출이

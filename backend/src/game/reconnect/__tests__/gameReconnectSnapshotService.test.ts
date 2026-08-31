@@ -18,8 +18,6 @@ import type {
 import type { YachtDiceState } from '../yachtDiceState.js'
 
 /**
- * backend-java `GameReconnectSnapshotServiceTest` 이식.
- *
  * Java와 같이 **실시간 병합 스냅샷은 진짜 구현**(`RealtimeRoomSnapshotService` +
  * `RoomSessionRegistry`)을 쓰고 라운드·마감·점수만 대역으로 넣는다 — 스냅샷의
  * 방 부분과 게임 부분이 실제로 합쳐지는지가 이 티켓의 계약이기 때문이다.

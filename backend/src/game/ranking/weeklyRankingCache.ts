@@ -1,8 +1,7 @@
 import type { WeeklyBest, WeeklyRankingRepository } from './weeklyRankingStore.js'
 
 /**
- * 주간 상위 목록 캐시 — backend-java `config/CacheConfig`(`ConcurrentMapCacheManager`)
- * + `MatchParticipantRepository.findWeeklyBest`의 `@Cacheable`.
+ * 주간 상위 목록 캐시.
  *
  * **Redis가 아니라 프로세스 인메모리다**(DESIGN.md 원칙 8). 캐시를 공유해야 하는
  * 상황은 인스턴스가 둘 이상일 때인데 이 앱은 이미 그럴 수 없다 — 라운드 상태·WS

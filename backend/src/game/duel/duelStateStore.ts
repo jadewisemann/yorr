@@ -7,7 +7,7 @@ import { DUEL_CODE } from './duelCode.js'
 import type { DuelState } from './duelState.js'
 
 /**
- * 진행 중 결투 상태의 저장소 — backend-java `RedisDuelStateStore`.
+ * 진행 중 결투 상태의 저장소.
  *
  * 왜 락인가: 결투는 두 플레이어의 `draw`와 서버 타임아웃(신호·유예 만료·연출
  * 종료)이 **같은 밀리초에 도착할 수 있다**. read-modify-write를 그냥 하면 늦게 쓴
@@ -24,7 +24,7 @@ export interface DuelStateStore {
    * 락 안에서 read → 규칙 적용 → write.
    *
    * @param mutation `null`을 돌려주면 "변이 없음". 규칙 함수가 **상태를 그대로**
-   *   돌려주는 경우(= version 비증가)도 같게 취급한다.
+   * 돌려주는 경우(= version 비증가)도 같게 취급한다.
    * @returns 실제로 저장된 새 상태. 변이가 없었으면 `null`(방송·재예약 금지 신호).
    */
   mutate(

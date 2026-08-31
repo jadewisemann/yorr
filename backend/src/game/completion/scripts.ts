@@ -1,8 +1,7 @@
 import type { LuaScript } from '../../infra/lua.js'
 
 /**
- * 게임 종료 전이 Lua — backend-java `RedisGameCompletionStore.FINISH_IF_COMPLETE`에서
- * **텍스트 그대로** 옮겼다. 판정과 전이가 한 연산이어야 `game.over`가 정확히 한 번
+ * 게임 종료 전이 Lua. 판정과 전이가 한 연산이어야 `game.over`가 정확히 한 번
  * 나간다(docs/design/game-modules.md 「게임 종료」).
  *
  * KEYS

@@ -61,7 +61,7 @@ export interface DuelGameServiceOptions {
 export type DuelSnapshot<S> = S | (S & { readonly game: DuelState })
 
 /**
- * 결투 진행의 권위 — backend-java `DuelGameService`.
+ * 결투 진행의 권위.
  *
  * 신호등을 언제 초록으로 바꿀지, 라운드를 언제 넘길지 전부 서버가 스케줄러로 잡는다 —
  * 두 클라이언트가 같은 순간에 같은 신호를 보게 하려면 시각의 주인이 하나여야 한다

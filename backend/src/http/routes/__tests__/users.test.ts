@@ -12,7 +12,7 @@ import { UserService } from '../../../user/session.js'
 import { registerUserRoutes } from '../users.js'
 
 /**
- * 프로필 REST — backend-java `user/controller/UserProfileController`.
+ * 프로필 REST.
  *
  * 세션은 진짜 Redis로 돈다(게스트/회원 구분·TTL이 계약이라 모킹으로는 못 지킨다).
  * MySQL은 이 환경에 없으므로 회원 저장소만 인메모리 가짜로 바꿔 끼운다 — 라우트가

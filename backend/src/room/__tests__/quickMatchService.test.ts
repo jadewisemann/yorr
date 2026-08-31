@@ -18,16 +18,14 @@ import {
 import { RoomService } from '../roomService.js'
 
 /**
- * 퀵매치 — backend-java `QuickMatchServiceIntegrationTest` 8종 전부.
+ * 퀵매치 8종.
  *
- * Java는 `GameLifecycleService`·`GameModuleRegistry`를 Mockito로 모킹했지만
- * 여기서는 **진짜 Redis + 진짜 `RoomService`/`UserService`/`RoomSessionRegistry`**를
- * 쓴다. 계약의 핵심(락·큐 순서·티켓 TTL·소켓 생존 판정)이 전부 모킹 불가한
- * 부분이라 그렇게 해야 의미가 있다(ADR-0004).
+ * **진짜 Redis + 진짜 `RoomService`/`UserService`/`RoomSessionRegistry`**를 쓴다.
+ * 계약의 핵심(락·큐 순서·티켓 TTL·소켓 생존 판정)이 전부 모킹 불가한 부분이라
+ * 그렇게 해야 의미가 있다(ADR-0004).
  *
- * `games.start`만 **기록하는 래퍼**로 감쌌다 — Java `verify(games).start(roomId)`
- * 자리이며, 진짜 `GameLifecycleService`에 위임하므로 phase 전이까지 함께 확인된다
- * (Java의 모킹은 이 뒷부분을 보지 못했다).
+ * `games.start`만 **기록하는 래퍼**로 감쌌다 — 호출 여부를 보면서도 진짜
+ * `GameLifecycleService`에 위임하므로 phase 전이까지 함께 확인된다.
  */
 const NEW_GAME: GameMetadata = {
   code: 'NEW_GAME',

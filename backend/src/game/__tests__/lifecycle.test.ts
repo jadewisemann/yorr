@@ -81,7 +81,6 @@ describeRedis('GameLifecycleService', () => {
   }
 
   /**
-   * backend-java `GameLifecycleServiceTest.rollsBackOnlyTheWinningGameWhenModuleInitializationFails`.
    * Java는 모킹으로 `rollbackStart(roomCode, gameId)` 호출만 확인하지만, 여기서는
    * 진짜 Lua가 도는지까지 본다 — 롤백의 계약은 "phase 복구 + 그 game 키 삭제"다.
    */

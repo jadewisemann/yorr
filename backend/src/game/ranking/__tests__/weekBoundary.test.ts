@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { KST_OFFSET_MINUTES, weekBoundaryOf } from '../weekBoundary.js'
 
 /**
- * 이식: backend-java `WeeklyRankingServiceTest`의 경계 항목(초 단위) — 다만 저기서는
+ * 이식: 의 경계 항목(초 단위) — 다만 저기서는
  * 서비스가 mock 리포지토리에 넘긴 값으로 관찰했고, 여기서는 경계 계산 자체를 직접
  * 본다. 서비스가 이 값을 그대로 넘기는지는 `weeklyRankingService.test.ts`가 본다.
  *

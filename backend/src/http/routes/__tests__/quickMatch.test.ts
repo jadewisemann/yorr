@@ -11,7 +11,7 @@ import { RoomSessionRegistry } from '../../../ws/registry.js'
 import { registerQuickMatchRoutes } from '../quickMatch.js'
 
 /**
- * 퀵매치 REST — backend-java `QuickMatchController`.
+ * 퀵매치 REST.
  *
  * 조립을 `server.ts`가 아니라 여기서 한다(3.5 시점에 배선이 아직 없다). 방 REST
  * 통합 테스트와 같은 이유로 모킹 없이 하네스 Redis를 쓴다 — 계약의 절반이

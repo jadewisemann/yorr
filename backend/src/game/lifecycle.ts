@@ -4,7 +4,7 @@ import type { GameCatalog } from './catalog.js'
 import { GameModuleRegistry } from './module.js'
 
 /**
- * 방 phase 전이와 게임 모듈 초기화를 잇는 자리 — backend-java `GameLifecycleService`.
+ * 방 phase 전이와 게임 모듈 초기화를 잇는 자리.
  *
  * 게임 코드 검증(`invalid_game_code`)과 시작 인원은 카탈로그가, 실제 상태
  * 초기화·정리는 모듈이 맡는다. **모듈이 아직 없는 게임도 정상 경로다** —

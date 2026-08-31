@@ -48,31 +48,33 @@ match_participants(id BIGINT AI PK,
 - Flyway 설정 중 계약인 것: `baseline-on-migrate: true` + **`baseline-version: 0`**
   (기본값 1이면 V1이 적용된 것으로 오인되어 건너뛴다).
 
-## 마이그레이션 (전환기 스키마 동결)
+## 마이그레이션
 
 Node 쪽 도구는 **Flyway 이력 테이블 위에서 도는 자체 러너**다
 ([ADR-0005](../adr/0005-flyway-compatible-migration-runner.md), `src/infra/migrations/`).
 새 의존성 없음 — `flyway_schema_history`를 그대로 읽고 쓴다.
 
-- SQL은 `backend/db/migration/`. V1·V2는 backend-java 원본의 **바이트 단위
-  사본**이다(체크섬이 내용에서 나온다 — 한 글자도 고치면 운영 이력과 어긋난다).
+- SQL은 `backend/db/migration/`. **V1·V2는 한 글자도 고치지 않는다** — 체크섬이
+  내용에서 나오는데 운영 DB의 `flyway_schema_history`에 그 값이 이미 적혀 있다.
 - 체크섬은 Flyway와 같은 값이다: 줄 종결자를 뺀 각 줄의 UTF-8 바이트에 대한
   CRC32(signed int). 줄 종결자 종류·파일 끝 개행·BOM에 영향받지 않는다.
 - 버전 판정도 Flyway와 같다: 숫자 단위 비교, `1` == `1.0`, baseline **이하**는
   적용 대상이 아니다.
 
-**전환기(같은 DB를 두 백엔드가 보는 기간)에는 스키마 변경 금지다.** 관례가 아니라
-기계적 이유가 있다 — Java의 Flyway는 부팅마다 `validateOnMigrate`로 이력을
-파일 목록과 대조하므로, Node가 새 마이그레이션을 적용하고 이력에 행을 쓰면
-**backend-java가 다음 부팅에서 뜨지 못한다**. 스키마 변경이 필요하면
-backend-java의 Flyway로 넣고 같은 파일을 `backend/db/migration/`에 복사한다.
+**스키마의 주인은 이 저장소다.** 새 마이그레이션은 V3부터 여기에 추가한다.
+이미 적용된 V1·V2만 손대지 않으면 된다.
 
-이 동결이 코드에도 박혀 있다:
+**적용과 기동은 갈라 둔다.** 관례가 아니라 안전 장치다 — 기동이 스키마를 바꾸면
+"부팅했더니 스키마가 바뀌어 있었다"가 되고, 롤백한 이미지가 앞서 나간 스키마를
+만나게 된다.
 
 | 진입점 | 하는 일 | 쓰는 곳 |
 |---|---|---|
-| `verifyMigrations(pool)` | **읽기 전용 확인.** 이력 테이블조차 만들지 않는다. 미적용 마이그레이션·실패 이력 행이 있으면 던진다 | 서버 기동(4.2에서 배선) |
-| `runMigrations(pool)` | 밀린 것을 실제로 적용 | 빈 개발 DB, 통합 테스트 |
+| `verifyMigrations(pool)` | **읽기 전용 확인.** 이력 테이블조차 만들지 않는다. 미적용 마이그레이션·실패 이력 행이 있으면 던진다 | 서버 기동 |
+| `runMigrations(pool)` | 밀린 것을 실제로 적용 | 배포의 `migrate` 잡(`deploy/compose.yaml`, bootstrap 프로파일), 빈 개발 DB, 통합 테스트 |
+
+그러므로 **마이그레이션을 추가한 배포는 `migrate`를 먼저 돌려야 한다.** 그러지
+않으면 새 이미지가 `verifyMigrations`에서 죽는다.
 
 - 체크섬 불일치는 기본적으로 **보고만** 한다(`validateChecksums: true`로 승격).
   우리 계산이 Java와 어긋났을 때 운영 부팅이 막히는 형태로 드러나면 안 된다.

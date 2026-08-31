@@ -9,7 +9,7 @@ import {
 import { BotDecisionError } from './botErrors.js'
 
 /**
- * 봇의 **휴리스틱 가치 함수** — backend-java `ScorecardValueEvaluator`.
+ * 봇의 **휴리스틱 가치 함수**.
  *
  * ⚠️ `YachtScoreCalculator`(룰북)와 혼동하면 안 된다. 저쪽은 순수·정수·유일한
  * 채점 권위고, 여기는 **부동소수·비영속·봇 전용**이다. 이 값이 점수판에 들어가는
@@ -117,7 +117,7 @@ export class ScorecardValueEvaluator {
    * 이 점수판 상태에서 `category`에 `score`를 기록하는 것의 가치.
    *
    * @throws {BotDecisionError} 이미 채워진 칸을 평가하려 하면(Java
-   *   `IllegalArgumentException`) — 코디네이터가 잡아 폴백 정책으로 내려간다.
+   * `IllegalArgumentException`) — 코디네이터가 잡아 폴백 정책으로 내려간다.
    */
   categoryUtility(board: ScoreBoard, category: ScoreCategory, score: number): number {
     requireOpen(board, category)

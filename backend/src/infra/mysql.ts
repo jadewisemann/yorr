@@ -3,13 +3,12 @@ import type { Env } from '../config/env.js'
 
 /**
  * MySQL은 계정·전적·랭킹 등 영속 기록 전용이다 — docs/design/persistence.md.
- * 스키마는 backend-java의 Flyway 마이그레이션(V1·V2)을 그대로 이어받고,
- * 전환기에는 Node가 스키마를 바꾸지 않는다([ADR-0005](../../docs/adr/0005-flyway-compatible-migration-runner.md)).
+ * 스키마 이력은 운영 DB의 `flyway_schema_history` 위에 그대로 얹히고, 기동 경로는
+ * 스키마를 바꾸지 않는다([ADR-0005](../../docs/adr/0005-flyway-compatible-migration-runner.md)).
  *
  * `redis.ts`와 같은 결이다: env로 만들고, 주입할 수 있고, 만든 쪽이 닫는다.
  * 풀은 태생이 lazy라 ioredis의 `lazyConnect`에 해당하는 옵션이 따로 없다 —
- * 첫 질의 전에는 커넥션을 열지 않으므로 **MySQL 없이도 서버 기동은 성공한다**
- * (backend-java와 같은 동작).
+ * 첫 질의 전에는 커넥션을 열지 않으므로 **MySQL 없이도 서버 기동은 성공한다**.
  */
 export const createMysqlPool = (env: Env): Pool =>
   mysql.createPool({

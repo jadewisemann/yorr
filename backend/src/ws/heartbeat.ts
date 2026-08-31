@@ -15,8 +15,7 @@ export interface HeartbeatMonitorOptions {
 }
 
 /**
- * 세션별 마지막 하트비트를 추적하고 제한 시간을 넘긴 연결을 종료 경로로 보낸다 —
- * backend-java `ws/HeartbeatMonitor`. 실제 `sys.disconnect` 전송과 close는
+ * 세션별 마지막 하트비트를 추적하고 제한 시간을 넘긴 연결을 종료 경로로 보낸다. 실제 `sys.disconnect` 전송과 close는
  * 넘겨받은 콜백(게이트웨이)의 책임이다.
  */
 export class HeartbeatMonitor {

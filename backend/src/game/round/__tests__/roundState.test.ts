@@ -3,7 +3,7 @@ import { isRoundSyncError, type RoundSyncReason } from '../roundErrors.js'
 import { RoundState } from '../roundState.js'
 import { RoundSubmission } from '../roundSubmission.js'
 
-/** backend-java `RoundStateTest`의 이식. 케이스 이름·의도를 그대로 옮겼다. */
+/**  케이스 이름·의도를 그대로 옮겼다. */
 describe('RoundState', () => {
   it('모든 참가자가 제출할 때까지 라운드를 끝내지 않는다', () => {
     const state = rolled(RoundState.start(1, ['player-a', 'player-b']))

@@ -16,7 +16,7 @@ import {
 } from '../aiResultService.js'
 
 /**
- * 이식: backend-java `PingPongAiResultServiceTest` 전부(불가능 점수 3종 · UUID 검증)
+ * 이식: 전부(불가능 점수 3종 · UUID 검증)
  * + Java 테스트가 모킹으로 넘긴 **보관 인자**까지 실제로 본다.
  *
  * MySQL은 이 환경에 없으므로 보관 포트를 기록용 가짜로 바꿔 끼운다. 이 티켓에서

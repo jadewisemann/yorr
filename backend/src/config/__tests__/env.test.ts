@@ -2,14 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { allowedOrigins, loadEnv } from '../env.js'
 
 /**
- * 환경변수 스킴 — 이름은 backend-java `application.yaml`이 **실제로 읽는 것**과
- * 같아야 한다(운영 `.env`를 그대로 재사용하는 것이 목적).
+ * 환경변수 스킴 — 이름은 운영 `.env`에 실제로 들어 있는 것과 같아야 한다.
  *
- * `DB_URL`이 특히 그렇다: Java는 JDBC URL 하나만 받는데 Node는 호스트·포트·
- * 스키마로 쪼개 쓰므로, 운영 파일을 그대로 먹이려면 여기서 풀어 줘야 한다.
+ * `DB_URL`이 특히 그렇다: 운영 파일은 JDBC URL 하나로 들고 있는데 Node는
+ * 호스트·포트·스키마로 쪼개 쓰므로, 그 파일을 그대로 먹이려면 여기서 풀어 준다.
  */
 describe('loadEnv — DB_URL 정렬', () => {
-  /** 운영 `.env`(backend-java/.env.example)에 실제로 들어 있는 모양 그대로. */
+  /** 운영 `.env`에 실제로 들어 있는 모양 그대로. */
   it('JDBC URL을 호스트·포트·스키마로 푼다', () => {
     const env = loadEnv({
       DB_URL:

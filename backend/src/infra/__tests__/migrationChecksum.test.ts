@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { crc32 } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
@@ -50,18 +50,5 @@ describe('flywayChecksum', () => {
   it('이미 적용된 V1·V2의 체크섬은 고정값이다', () => {
     expect(flywayChecksum(read('V1__create_user_tables.sql'))).toBe(-1108258305)
     expect(flywayChecksum(read('V2__create_match_tables.sql'))).toBe(-748743682)
-  })
-})
-
-describe('db/migration', () => {
-  // backend-java는 Phase 5에서 지워진다 — 그때는 이 검사가 조용히 사라진다.
-  const javaDir = fileURLToPath(
-    new URL('../../../../backend-java/src/main/resources/db/migration/', import.meta.url),
-  )
-
-  it.skipIf(!existsSync(javaDir))('backend-java의 원본과 바이트 단위로 같다', () => {
-    for (const name of ['V1__create_user_tables.sql', 'V2__create_match_tables.sql']) {
-      expect(readFileSync(`${migrationDir}${name}`)).toEqual(readFileSync(`${javaDir}${name}`))
-    }
   })
 })

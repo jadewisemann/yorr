@@ -1,5 +1,5 @@
 /**
- * 결투 한 판의 전체 상태 — backend-java `game/duel/DuelState`.
+ * 결투 한 판의 전체 상태.
  *
  * 방마다 하나씩 Redis에 직렬화되어 살아 있고, **그대로 WebSocket으로도 나간다**
  * (`game.duel.state`의 payload는 래핑 없이 이 객체다). 화면은 이 값만 보고 그린다.
@@ -10,9 +10,9 @@
  * 와이어 정본은 `frontend/src/realtime/wsEvents.ts`의 `DuelState`·`DuelRound`다.
  * null 취급이 두 갈래인 것도 Java 그대로다:
  * - `lastRound`는 **생략**된다(Java `@JsonInclude(NON_NULL)`이 DuelState에만 붙어
- *   있다) → `undefined`로 두면 `JSON.stringify`가 지운다.
+ * 있다) → `undefined`로 두면 `JSON.stringify`가 지운다.
  * - `lastRound` **안의** shooterId·hitId·koId·foulId는 애노테이션이 없는 중첩
- *   레코드라 `null`이 그대로 실린다 → 여기서도 `null`을 쓴다.
+ * 레코드라 `null`이 그대로 실린다 → 여기서도 `null`을 쓴다.
  */
 export type DuelPhase =
   /** 신호등 빨강 — 여기서 뽑으면 부정출발이다. */

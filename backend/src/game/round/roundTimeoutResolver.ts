@@ -72,7 +72,7 @@ export interface RoundTimeoutResolverDeps {
 }
 
 /**
- * 마감 시각이 지난 턴을 서버가 대신 진행한다(backend-java `RoundTimeoutResolver`).
+ * 마감 시각이 지난 턴을 서버가 대신 진행한다.
  *
  * 예전에는 마감 시 턴만 넘겼고 점수 기록은 클라이언트의 자동 제출에 의존했다. 그래서
  * 한 번도 굴리지 않았거나 탭이 백그라운드로 내려간 플레이어는 그 라운드 점수판이

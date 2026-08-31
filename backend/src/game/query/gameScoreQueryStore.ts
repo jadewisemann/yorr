@@ -23,7 +23,7 @@ export interface GameScoreSnapshot {
   readonly scoreboards: ReadonlyMap<string, ScoreBoard>
 }
 
-/** 조회 포트(backend-java `GameScoreQueryStore`). */
+/** 조회 포트. */
 export interface GameScoreQueryStore {
   findByRoomId(roomId: string, requesterId: string): Promise<GameScoreSnapshot>
 }
@@ -52,7 +52,7 @@ const createSnapshot = (
 }
 
 /**
- * Redis 조회 어댑터(backend-java `RedisGameScoreQueryStore`).
+ * Redis 조회 어댑터.
  *
  * **락 없는 읽기 → 검증 → 재시도**가 이 클래스의 전부다. 점수판은 플레이어마다
  * 다른 키에 있어 한 번에 읽을 수 없으므로, 다 읽은 뒤 gameId·phase·게임↔방

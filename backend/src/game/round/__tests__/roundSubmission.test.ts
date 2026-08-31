@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { isRoundSyncError, type RoundSyncReason } from '../roundErrors.js'
 import { RoundSubmission } from '../roundSubmission.js'
 
-/** backend-java `RoundSubmissionTest`의 이식. */
 describe('RoundSubmission', () => {
   it('주사위를 방어적으로 복사한다', () => {
     const dice = [1, 2, 3, 4, 5]

@@ -54,7 +54,7 @@ interface Seat {
 }
 
 /**
- * 야추 게임 모듈 — backend-java `YachtDiceGameModule`.
+ * 야추 게임 모듈.
  *
  * 이 클래스가 하는 일은 두 가지다: ① **수명주기 훅**(start/reset/pause/resume/
  * removePlayer/close/hasState/reconnect)을 라운드 프레임워크 호출로 옮기고,

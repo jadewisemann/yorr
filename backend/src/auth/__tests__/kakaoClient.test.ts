@@ -5,7 +5,7 @@ import { KakaoOAuthClient } from '../kakaoClient.js'
 import type { FetchLike } from '../oauthHttp.js'
 
 /**
- * backend-java `auth/infrastructure/KakaoOAuthClientTest` 이식 + Node 고유
+ * Node 고유
  * 관심사(타임아웃·오류 일반화)를 더한 것.
  */
 

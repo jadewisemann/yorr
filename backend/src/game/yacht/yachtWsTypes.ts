@@ -2,7 +2,7 @@ import { YACHT_DICE } from '../catalog.js'
 import { gameWsType } from '../module.js'
 
 /**
- * 야추 WS 타입 조립 — backend-java `YachtDiceWsTypes.type`.
+ * 야추 WS 타입 조립.
  *
  * 접두사 규칙(`game.<code소문자>.<event>`)의 소유자는 `game/module.ts`의
  * `gameWsType`이다. 여기서 문자열을 다시 만들지 않고 코드만 고정한다.

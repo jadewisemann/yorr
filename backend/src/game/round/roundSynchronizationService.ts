@@ -37,8 +37,7 @@ export interface RoundSynchronizationServiceOptions {
 }
 
 /**
- * 라운드 상태 저장소 위에 얹힌 얇은 응용 서비스 — backend-java
- * `RoundSynchronizationService`와 1:1이다.
+ * 라운드 상태 저장소 위에 얹힌 얇은 응용 서비스 — 이다.
  *
  * 두 가지만 한다: ① WS 페이로드를 도메인 인자로 옮기고 ② **서버 주사위를 굴린다**.
  * 원자성·검증은 전부 `RoundStateStore`와 `RoundState`가 갖고 있다.
@@ -65,7 +64,7 @@ export class RoundSynchronizationService {
 
   /**
    * @param beforeStateChange 라운드 검증 후·상태 커밋 전에 실행된다. 던지면 라운드
-   *   상태는 무변화 — 점수 저장이 실패한 플레이어는 미제출로 남아 재시도할 수 있다.
+   * 상태는 무변화 — 점수 저장이 실패한 플레이어는 미제출로 남아 재시도할 수 있다.
    */
   async submit(
     roomId: string,

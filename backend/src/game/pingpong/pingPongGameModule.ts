@@ -10,7 +10,7 @@ import type { PingPongGameService, PingPongGameStart } from './pingPongGameServi
 import type { PingPongState, PingPongSwingPayload } from './pingPongState.js'
 
 /**
- * 탁구 게임 모듈 — backend-java `game/pingpong/PingPongGameModule`.
+ * 탁구 게임 모듈.
  *
  * 하는 일은 라우팅과 오류 응답뿐이다: 멤버십·roomId 검증 → payload 파싱 →
  * 서비스 호출. 정원·봇 지원 여부는 여기 없다 — `game/catalog.ts`가 유일한

@@ -4,8 +4,6 @@ import { InMemoryRoundStateStore } from '../roundStateStore.js'
 import { RoundSynchronizationService, seededDieRoller } from '../roundSynchronizationService.js'
 
 /**
- * backend-java `RoundSynchronizationServiceTest`의 이식.
- *
  * Java의 동시성 케이스(`advancesOnlyAfterEachPlayerSubmitsInTurnOrder`가 20명
  * 순차 제출인 것과 별개로 존재하던 스레드 테스트)는 2.4에서 방 단위 프라미스 락
  * 테스트로 이미 옮겼다 — 여기서는 서비스 표면만 본다.

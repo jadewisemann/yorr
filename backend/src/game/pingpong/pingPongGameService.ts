@@ -29,7 +29,7 @@ import {
 } from './pingPongState.js'
 
 /**
- * 탁구 한 판의 진행 — backend-java `game/pingpong/PingPongGameService`.
+ * 탁구 한 판의 진행.
  *
  * 규칙은 `pingPongRules.ts`(순수)가, 원자성·TTL은 스토어가, 바깥 계층은 전부
  * `pingPongPorts.ts`의 좁은 포트가 맡는다. 이 클래스가 갖는 것은 **순서**다:
@@ -227,9 +227,9 @@ export class PingPongGameService<S extends object> {
    * 1. 이탈 전 phase를 먼저 읽는다 — 상태를 지운 뒤에는 PREPARING이었는지 알 수 없다
    * 2. 좌석 제거(WS 명단) → 방 이탈(Redis)
    * 3. 둘 중 하나라도 실제로 빠졌으면 `room.player_left`
-   *    (**게임 네임스페이스가 붙지 않는 방 이벤트다**)
+   * (**게임 네임스페이스가 붙지 않는 방 이벤트다**)
    * 4. PREPARING이었으면 **매치 자체를 취소**한다 — 시작도 안 한 판을 이겼다고 주지
-   *    않는다. 경기 중이었으면 몰수(생존자 11점, OPPONENT_LEFT)
+   * 않는다. 경기 중이었으면 몰수(생존자 11점, OPPONENT_LEFT)
    */
   async removePlayer(roomId: string, playerId: string): Promise<void> {
     const current = await this.deps.states.find(roomId)

@@ -308,7 +308,7 @@ describeRedis('서버 배선', () => {
     const recovered = await restarted.findByRoomId(host.room_id)
     expect(recovered?.roundNumber).toBe(1)
     expect(recovered?.activePlayerId).toBe(host.id)
-    // 키 이름은 backend-java와 공유하는 전환기 계약이다(3.1).
+    // 키 이름은 운영 Redis에 이미 이 모양으로 들어 있는 계약이다.
     expect(await redis().exists(`room:${host.room_id}:game:YACHT_DICE:state`)).toBe(1)
     // 스위퍼(2.8)가 쓰는 목록도 같은 저장소에서 나온다.
     expect(await instance.rounds.states.roomIds()).toContain(host.room_id)

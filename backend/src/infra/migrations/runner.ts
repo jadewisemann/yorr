@@ -64,7 +64,7 @@ export const inspectMigrations = async (
  * - `validateChecksums`가 켜져 있고 체크섬이 어긋난다.
  *
  * 던지지 **않는** 경우: 이력에는 있는데 우리 `db/migration`에 파일이 없는 것.
- * Java가 우리보다 앞서 나간 상태이고, 남는 테이블이 우리 질의를 깨뜨리지는
+ * DB가 우리보다 앞서 나간 상태이고, 남는 테이블이 우리 질의를 깨뜨리지는
  * 않는다 — 보고서에 실어 호출부가 경고 로그를 남기게 한다.
  */
 export const verifyMigrations = async (
@@ -79,7 +79,7 @@ export const verifyMigrations = async (
     if (plan.pending.length > 0) {
       throw new MigrationError(
         `DB에 적용되지 않은 마이그레이션이 있다: ${plan.pending.map((m) => m.script).join(', ')}. ` +
-          '전환기에는 Node가 스키마를 바꾸지 않는다 — backend-java(Flyway)를 먼저 올려라(ADR-0005)',
+          '기동 경로는 스키마를 바꾸지 않는다 — 마이그레이션을 먼저 적용해라(ADR-0005)',
       )
     }
     return { plan, applied: [] }
@@ -89,12 +89,12 @@ export const verifyMigrations = async (
 }
 
 /**
- * 밀린 마이그레이션을 실제로 적용한다. **전환기 운영 경로가 아니다** — 빈 개발
- * DB와 통합 테스트용 임시 스키마를 세우는 용도다(ADR-0005).
+ * 밀린 마이그레이션을 실제로 적용한다. **기동 경로가 아니다** — 배포의 migrate
+ * 잡과 빈 개발 DB·통합 테스트용 임시 스키마가 쓴다(ADR-0005).
  *
- * MySQL의 DDL은 암묵 커밋이라 트랜잭션으로 되돌릴 수 없다. Flyway와 같이
- * **실패한 마이그레이션도 `success = 0`으로 이력에 남기고** 던진다 — 반쯤 적용된
- * 스키마가 이력에서 안 보이는 것이 가장 나쁜 상태다.
+ * MySQL의 DDL은 암묵 커밋이라 트랜잭션으로 되돌릴 수 없다. 그래서 **실패한
+ * 마이그레이션도 `success = 0`으로 이력에 남기고** 던진다 — 반쯤 적용된 스키마가
+ * 이력에서 안 보이는 것이 가장 나쁜 상태다.
  */
 export const runMigrations = async (
   pool: Pool,

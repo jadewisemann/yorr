@@ -3,7 +3,7 @@ import type { RoundState, RoundSubmissionResult } from './roundState.js'
 import type { RoundSubmission } from './roundSubmission.js'
 
 /**
- * 라운드 상태 저장소 포트(backend-java `RoundStateStore`).
+ * 라운드 상태 저장소 포트.
  *
  * **모든 메서드가 async다** — Java는 `ConcurrentHashMap.compute` 안에서 동기로
  * 원자성을 얻지만, 운영 어댑터는 Redis(방 락 + JSON 스냅샷)이고

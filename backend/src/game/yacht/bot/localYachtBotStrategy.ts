@@ -2,7 +2,7 @@ import { calculateScore, DICE_COUNT, type ScoreCategory } from '../../score/inde
 import { BotDecisionError } from './botErrors.js'
 
 /**
- * Expectimax가 실패했을 때의 **폴백 정책** — backend-java `LocalYachtBotStrategy`.
+ * Expectimax가 실패했을 때의 **폴백 정책**.
  *
  * 탐색이 없다. 규칙 두 줄이다: ① 4연속 창에서 3면 이상 모였으면 스트레이트를 잡는다
  * ② 아니면 최빈 면을 잡는다(전부 단독이면 5·6만). 카테고리는 점수 최대 + 고정

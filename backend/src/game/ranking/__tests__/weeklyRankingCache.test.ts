@@ -5,7 +5,7 @@ import { WeeklyRankingService } from '../weeklyRankingService.js'
 import type { WeeklyBest, WeeklyRankingRepository } from '../weeklyRankingStore.js'
 
 /**
- * 이식: backend-java `WeeklyRankingQueryIntegrationTest`의 캐시 3종
+ * 이식: 의 캐시 3종
  * (`같은_주를_다시_물으면_캐시가_답한다`, `같은_주라도_게임이_다르면_별도_캐시`,
  * `판이_끝나면_캐시가_비워진다`).
  *

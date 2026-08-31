@@ -60,9 +60,8 @@ const parsePhase = (value: string | undefined): RoomPhase => {
 }
 
 /**
- * 방 도메인의 Redis 접근 지점. backend-java의 `RoomCreateService` +
- * `RoomValidationService`를 하나로 합쳤다(둘 다 같은 키 가족을 다루는 얇은 Lua
- * 래퍼였다 — IMPLEMENTATION_NOTES.md 참고).
+ * 방 도메인의 Redis 접근 지점. 생성과 검증을 한 클래스로 합쳐 두었다 — 둘 다
+ * 같은 키 가족을 다루는 얇은 Lua 래퍼다.
  *
  * **REST가 방 상태의 유일한 변경 경로다.** WS는 여기를 통해 멤버십을 바꾸지
  * 않는다(예외는 게임 모듈의 퇴장 경로 — docs/design/rooms-and-sessions.md).

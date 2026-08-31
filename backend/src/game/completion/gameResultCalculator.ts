@@ -1,5 +1,5 @@
 /**
- * 최종 순위 산출 — backend-java `GameResultCalculator`(순수·정적).
+ * 최종 순위 산출 — 순수 함수 묶음이다.
  *
  * 저장소도 전송 계층도 모른다. 입력은 "playerId → 최종 점수"뿐이고, 그 점수는
  * **서버가 확정해 Redis에 쌓아둔 값**이다(DESIGN.md 원칙 1).

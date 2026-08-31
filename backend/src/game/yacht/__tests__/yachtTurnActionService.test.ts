@@ -15,8 +15,6 @@ import {
 } from './testDoubles.js'
 
 /**
- * backend-java `YachtTurnActionServiceTest` 이식.
- *
  * Java는 `RoundTimerService`·`RoomBroadcaster`·`ScoreRoundSubmissionService` 셋을
  * 모킹하고 라운드 서비스만 진짜를 썼다. 여기서는 **제출 경로도 진짜**를 쓴다
  * (`ScoreRoundSubmissionService` + `ScoreConfirmationService` + 대역 저장소) —

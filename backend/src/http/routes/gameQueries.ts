@@ -74,7 +74,7 @@ const scoreCandidatesRequestSchema = z.object({
 })
 
 /**
- * 점수 조회 REST — backend-java `GameScoreQueryController` · `ScoreCandidateController`.
+ * 점수 조회 REST.
  *
  * `server.ts`가 `/api/v1` 프리픽스 안에서 등록한다. 라우트 등록만 export하고
  * 배선은 하지 않는다(다른 슬라이스와 같은 관용).

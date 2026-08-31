@@ -89,7 +89,7 @@ interface ActiveDeadline {
 }
 
 /**
- * 야추 턴 시계 — backend-java `RoundTimerService`.
+ * 야추 턴 시계.
  *
  * **Node 이식에서 가장 큰 차이: 전 경로가 async다.** Java는 `roomService`가 동기라
  * `start`가 `Instant`를 그냥 돌려줬지만, 우리 `RoomService.getSnapshot`·`touch`·
@@ -142,7 +142,7 @@ export class RoundTimerService {
    * 연쇄적으로 처리된다.
    *
    * @returns 걸린 마감 시각(epoch ms). 오프라인 스킵·퇴장으로 턴을 시작하지 않았거나,
-   *   시계 없는 연습 방({@link UNTIMED_HUMAN_LIMIT})이면 null.
+   * 시계 없는 연습 방({@link UNTIMED_HUMAN_LIMIT})이면 null.
    */
   async start(roomId: string, state: RoundState): Promise<number | null> {
     return this.beginTurn(roomId, state, null)
@@ -159,10 +159,10 @@ export class RoundTimerService {
    * 세 갈래가 전부 여기서 결정된다:
    * - **미래** → 그 시각으로 재무장한다.
    * - **이미 지남** → 예약기가 지연을 0으로 깎아 즉시 발화하므로(`schedule` 주석)
-   *   별도 분기가 없다. 턴은 서버 대리 진행으로 넘어간다.
+   * 별도 분기가 없다. 턴은 서버 대리 진행으로 넘어간다.
    * - **유효하지 않음**(기록이 없거나 라운드 번호가 어긋남) → `false`. 호출자가 그 방을
-   *   fail-closed로 닫는다. 반쯤 살아 있는 방을 남기면 상태는 살아 있는데 턴이 넘어가지
-   *   않고 JOIN도 `game_started`로 막히는 최악의 상태가 된다.
+   * fail-closed로 닫는다. 반쯤 살아 있는 방을 남기면 상태는 살아 있는데 턴이 넘어가지
+   * 않고 JOIN도 `game_started`로 막히는 최악의 상태가 된다.
    *
    * @returns 재무장했으면 true.
    */
@@ -221,9 +221,9 @@ export class RoundTimerService {
      * - 시계가 있는 방: 마감 그대로 예약한다(강제 진행만 EXPIRY_GRACE_MS 뒤로 미룬다).
      * - 연습 방의 사람 턴: 예약하지 않는다. 이게 "제한 시간 없음"의 전부다.
      * - 연습 방의 **봇 턴: 화면에는 시계가 없어도 예약은 남긴다.** 봇 스텝의 예외는
-     *   삼켜지고 라운드 타이머가 유일한 폴백이기 때문이다
-     *   (docs/design/games/yacht.md 「실패 격리」). 이게 없으면 봇 굴림이 한 번
-     *   실패한 연습 방은 아무도 깨우지 못해 영원히 멈춘다.
+     * 삼켜지고 라운드 타이머가 유일한 폴백이기 때문이다
+     * (docs/design/games/yacht.md 「실패 격리」). 이게 없으면 봇 굴림이 한 번
+     * 실패한 연습 방은 아무도 깨우지 못해 영원히 멈춘다.
      */
     const expireAt =
       deadline ?? (isBot(room, activePlayerId) ? this.now() + ROUND_DURATION_MS : null)
@@ -289,8 +289,8 @@ export class RoundTimerService {
    * 두 경로가 갈라지지 않는다.
    *
    * @param requestMsgId 클라이언트 제출이면 그 msgId — 클라는 이 값으로 자기 제출의
-   *   확정을 판별한다. 마감 처리로 들어온 경우엔 점수 방송을 `RoundTimeoutResolver`가
-   *   이미 했으므로 score가 null이고 msgId도 없다.
+   * 확정을 판별한다. 마감 처리로 들어온 경우엔 점수 방송을 `RoundTimeoutResolver`가
+   * 이미 했으므로 score가 null이고 msgId도 없다.
    */
   async advanceTurn(
     roomId: string,

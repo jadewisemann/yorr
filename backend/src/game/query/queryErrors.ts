@@ -15,8 +15,7 @@ export class GameQueryDomainError extends Error {
 }
 
 /**
- * 조회 실패의 이유 코드 — backend-java `GameScoreQueryException.Reason` enum과
- * 이름까지 1:1이다.
+ * 조회 실패의 이유 코드.
  *
  * **와이어 코드가 아니다.** HTTP 상태·응답 `code`로의 매핑은 라우트가 한다
  * (`http/routes/gameQueries.ts`, docs/design/game-modules.md 「조회 REST」):

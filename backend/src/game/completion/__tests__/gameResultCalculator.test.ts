@@ -7,7 +7,6 @@ import {
   rankTotals,
 } from '../gameResultCalculator.js'
 
-/** backend-java `GameResultCalculatorTest` 이식. */
 describe('calculateGameResult', () => {
   const score = (playerId: string, finalScore: number): PlayerFinalScore => ({
     playerId,

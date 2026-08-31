@@ -4,7 +4,7 @@ import { MAX_LIMIT, WeeklyRankingService } from '../weeklyRankingService.js'
 import type { WeeklyBest, WeeklyRankingRepository } from '../weeklyRankingStore.js'
 
 /**
- * 이식: backend-java `WeeklyRankingServiceTest` 전부 + `myCurrentWeek` 갈래.
+ * 이식: 전부 + `myCurrentWeek` 갈래.
  *
  * Java는 Mockito로 리포지토리 호출 인자를 캡처했다. 여기서는 호출을 기록하는 가짜
  * 리포지토리를 쓴다 — **MySQL 없이 돈다**. 서비스가 고정하는 것은 저장소가 아니라

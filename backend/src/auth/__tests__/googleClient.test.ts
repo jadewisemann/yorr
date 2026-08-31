@@ -4,7 +4,7 @@ import { SocialLoginError } from '../errors.js'
 import { GoogleOAuthClient } from '../googleClient.js'
 import type { FetchLike } from '../oauthHttp.js'
 
-/** backend-java `auth/infrastructure/GoogleOAuthClientTest` 이식 + 오류 일반화. */
+/** 오류 일반화. */
 
 const REDIRECT_URI = 'http://localhost:8080/api/v1/auth/google/callback'
 
