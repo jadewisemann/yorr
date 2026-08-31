@@ -53,10 +53,16 @@ export function ChatDialog({ anchorRef, chat, layout, onClose, open, you }: Chat
 
   const body = (
     <>
+      {/*
+       * grid-cols-1(= minmax(0, 1fr))이 있어야 한다. 열을 정의하지 않으면 암시적 열이 auto라서
+       * 한 줄의 max-w-[85%]가 순환 참조로 무력화되고, 긴 말이 max-content 폭을 요구해 열이
+       * 컨테이너보다 넓어진다 — 그러면 justify-self-end인 내 말풍선이 스크롤 영역 밖으로 밀려
+       * 잘리고 가로 스크롤바가 생긴다.
+       */}
       <div
         aria-label="대화 내용"
         aria-live="polite"
-        className="grid max-h-64 min-h-32 auto-rows-min gap-2 overflow-y-auto overscroll-contain"
+        className="grid max-h-64 min-h-32 auto-rows-min grid-cols-1 gap-2 overflow-y-auto overscroll-contain"
         role="log"
       >
         {lines.length === 0 ? (
@@ -109,7 +115,7 @@ export function ChatDialog({ anchorRef, chat, layout, onClose, open, you }: Chat
   return (
     <Popover anchorRef={anchorRef} label="채팅" onClose={onClose} open={open} width={340}>
       <PopoverHeader onClose={onClose}>채팅</PopoverHeader>
-      <div className="mt-2 grid gap-3">{body}</div>
+      <div className="mt-2 grid grid-cols-1 gap-3">{body}</div>
     </Popover>
   )
 }
@@ -120,7 +126,7 @@ function ChatLineRow({ line, you }: { line: RoomChat['lines'][number]; you: Play
   return (
     <p
       className={cn(
-        'm-0 grid max-w-[85%] gap-0.5',
+        'm-0 grid max-w-[85%] grid-cols-1 gap-0.5',
         mine ? 'justify-self-end' : 'justify-self-start',
       )}
     >
@@ -130,7 +136,7 @@ function ChatLineRow({ line, you }: { line: RoomChat['lines'][number]; you: Play
           mine && 'justify-end',
         )}
       >
-        <span className="truncate">{mine ? '나' : line.nickname}</span>
+        <span className="min-w-0 truncate">{mine ? '나' : line.nickname}</span>
         <span className="flex-none tabular-nums">{timeFormat.format(line.at)}</span>
       </span>
       <span
