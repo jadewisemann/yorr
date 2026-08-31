@@ -131,7 +131,7 @@ interface WorldOptions {
   readonly onFinished?: (event: unknown) => void
 }
 
-/** 동점이 1,2,2,4로 접히도록 섞어 둔 총점(Java 테스트의 `totals()`와 같다). */
+/** 동점이 1,2,2,4로 접히도록 섞어 둔 총점. */
 const totals = (): Map<string, number> =>
   new Map([
     ['player-a', 180],

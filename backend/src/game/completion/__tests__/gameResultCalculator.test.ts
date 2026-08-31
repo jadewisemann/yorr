@@ -136,7 +136,7 @@ describe('calculateGameResult', () => {
     )
   })
 
-  /** 마지막 케이스는 Java에 없다 — TS의 number는 정수가 아닐 수 있어 여기서 막는다. */
+  /** TS의 number는 정수가 아닐 수 있어 마지막 케이스로 막는다. */
   it('음수·정수 아닌 최종 점수를 거부한다', () => {
     expect(() => calculateGameResult([score('player-a', -1)])).toThrow(GameCompletionDomainError)
     expect(() => calculateGameResult([score('player-a', null as unknown as number)])).toThrow(
