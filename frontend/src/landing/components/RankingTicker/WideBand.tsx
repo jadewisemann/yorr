@@ -1,11 +1,10 @@
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence } from 'motion/react'
 import { useEffect, useState } from 'react'
 import type { MyWeeklyRank, WeeklyRankingEntry } from '@/shared/api/rankingApi'
 import { cn } from '@/shared/cn'
-import { popVariants } from '@/shared/motion'
 import { FullRanking } from './FullRanking'
-import { Chevron, EmptyNotice, EntryRow, TickerLabel, TickerViewport } from './parts'
-import { PANEL_ID } from './shared'
+import { Chevron, EmptyNotice, EntryRow, RankingPanel, TickerLabel, TickerViewport } from './parts'
+import { PANEL_ID, useCloseOnEscape } from './shared'
 
 export function WideBand({
   band,
@@ -29,14 +28,7 @@ export function WideBand({
     if (entries.length === 0) setOpen(false)
   }, [entries.length])
 
-  useEffect(() => {
-    if (!open) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [open])
+  useCloseOnEscape(open, () => setOpen(false))
 
   return (
     <div className="relative flex w-[69.4%] items-center gap-3">
@@ -67,31 +59,18 @@ export function WideBand({
 
       <AnimatePresence>
         {open && (
-          <>
-            <button
-              aria-label="랭킹 닫기"
-              className="fixed inset-0 z-banner cursor-default border-0 bg-transparent"
-              onClick={() => setOpen(false)}
-              tabIndex={-1}
-              type="button"
+          <RankingPanel
+            className="top-full right-0 mt-2.5 w-90"
+            onClose={() => setOpen(false)}
+            transformOrigin="top right"
+          >
+            <FullRanking
+              entries={entries}
+              myNickname={myNickname}
+              myRank={myRank}
+              myUserId={myUserId}
             />
-            <motion.div
-              animate="visible"
-              className="absolute top-full right-0 z-banner mt-2.5 w-90 rounded-panel border border-landing-hairline-strong bg-surface-raised p-2 shadow-landing-popover"
-              exit="exit"
-              id={PANEL_ID}
-              initial="hidden"
-              style={{ transformOrigin: 'top right' }}
-              variants={popVariants}
-            >
-              <FullRanking
-                entries={entries}
-                myNickname={myNickname}
-                myRank={myRank}
-                myUserId={myUserId}
-              />
-            </motion.div>
-          </>
+          </RankingPanel>
         )}
       </AnimatePresence>
     </div>
