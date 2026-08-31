@@ -94,7 +94,7 @@ export function ActionPanel({
       )}
 
       {sendError !== null && (
-        <p className="m-0 text-center text-danger text-sm" role="alert">
+        <p className="m-0 text-center text-dv-accent text-sm" role="alert">
           {sendError}
         </p>
       )}

@@ -33,7 +33,7 @@ export function TileRack({
     <section
       className={cn(
         'grid gap-2 rounded-card border px-3 py-2.5 transition-colors',
-        turn ? 'border-dv-turn/60 bg-dv-felt' : 'border-border bg-surface-veil',
+        turn ? 'border-dv-turn/60 bg-dv-felt' : 'border-dv-line bg-dv-surface',
         eliminated && 'opacity-55',
       )}
     >

@@ -28,6 +28,27 @@ export function numberLabel(value: number): string {
   return value === DAVINCI_JOKER ? '조커' : String(value)
 }
 
+/** 읽는 소리에 받침이 있는 숫자 — 0 영·1 일·3 삼·6 육·7 칠·8 팔. 2·4·5·9만 없다. */
+const DIGITS_WITH_FINAL = new Set(['0', '1', '3', '6', '7', '8'])
+
+/**
+ * 받침에 맞는 조사를 고른다 — "2을(를)"이나 "손님가" 같은 표기를 없애기 위해서다.
+ *
+ * 한글 음절은 유니코드로 받침 유무를 계산하고(`(code - 0xAC00) % 28`), 숫자는 읽는
+ * 소리로 판정한다. 0~11은 마지막 자리만 봐도 결과가 같다(10은 십, 11은 십일 — 둘 다
+ * 마지막 자리의 판정과 일치한다). 그 밖의 글자(영문·이모지)는 받침 없는 쪽으로 붙인다:
+ * 닉네임이 무엇으로 끝나든 문장이 깨지지 않는 것이 먼저다.
+ */
+export function particle(word: string, afterFinal: string, afterVowel: string): string {
+  const last = word.at(-1) ?? ''
+  const code = last.charCodeAt(0)
+  if (code >= 0xac00 && code <= 0xd7a3) {
+    return (code - 0xac00) % 28 === 0 ? afterVowel : afterFinal
+  }
+  if (last >= '0' && last <= '9') return DIGITS_WITH_FINAL.has(last) ? afterFinal : afterVowel
+  return afterVowel
+}
+
 export function isMyTurn(state: DavinciView | undefined, you: PlayerId): boolean {
   return state?.turnPlayerId === you && state.phase !== 'FINISHED'
 }
@@ -98,8 +119,9 @@ export function lastEventMessage(
   if (event.kind === 'FORFEIT') return `${nameOf(event.actorId)} 님이 판을 떠났어요.`
   if (event.kind === 'TIMEOUT') return `${nameOf(event.actorId)} 님이 시간을 넘겼어요.`
   const number = event.number === DAVINCI_JOKER ? '조커' : String(event.number ?? '')
+  const called = `${number}${particle(number, '을', '를')}`
   const target = nameOf(event.targetId ?? '')
   return event.correct
-    ? `${nameOf(event.actorId)} 님이 ${target}의 ${number}을(를) 맞혔어요.`
-    : `${nameOf(event.actorId)} 님이 ${target}에게 ${number}을(를) 불렀지만 틀렸어요.`
+    ? `${nameOf(event.actorId)} 님이 ${target}의 ${called} 맞혔어요.`
+    : `${nameOf(event.actorId)} 님이 ${target}에게 ${called} 불렀지만 틀렸어요.`
 }

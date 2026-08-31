@@ -37,8 +37,10 @@ export function TurnBar({ deckCount, message, mine, secondsLeft, turnName }: Tur
           )}
         </div>
       </div>
+      {/* 자르지 않는다 — 무엇을 불러서 맞았는지가 이 게임에서 가장 중요한 한 줄이라,
+          잘리면 판을 되짚을 수 없다. 길면 두 줄로 흐른다. */}
       {message !== null && (
-        <p className="m-0 truncate text-game-content-muted text-sm" role="status">
+        <p className="m-0 text-balance text-game-content-muted text-sm" role="status">
           {message}
         </p>
       )}

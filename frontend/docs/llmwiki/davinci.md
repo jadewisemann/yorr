@@ -55,6 +55,17 @@
 고른다(`PlaceRail`). 놓은 자리는 남들도 본다 — 조커는 **위치가 비밀인 타일이 아니라
 위치가 거짓말을 하는 타일**이다.
 
+## 팔레트는 테마를 타지 않는다
+
+`dv-*` 토큰(`src/styles/tokens.css`)은 라이트 테마에서 뒤집히지 않는 고정값이다 —
+결투 캔버스와 같은 규칙이다. 판이 언제나 어두우므로 앱 공용 토큰(`content`·
+`surface-veil`·`brand-strong`·`warning`)을 쓰면 안 된다: 그것들은 라이트 테마에서
+어두운 값으로 뒤집혀 어두운 판 위에서 글자와 면이 통째로 사라진다.
+
+실측으로 확인한 사례가 있다. 결과 화면 제목을 `text-content`로 적었더니 라이트 테마
+브라우저에서 `#16171b`(사실상 배경색)로 렌더돼 제목이 보이지 않았다. 게임 캔버스 안의
+글자는 `text-game-content`(흰색 알파 고정)나 `dv-*`를 쓴다.
+
 ## 하단 패널은 `promptOf` 하나로 갈린다
 
 `domain/davinci.ts`의 `promptOf(state, you)`가 `guess`·`decide`·`place`·`wait`·

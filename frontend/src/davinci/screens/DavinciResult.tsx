@@ -14,8 +14,9 @@ interface DavinciResultProps {
 }
 
 /**
- * 판이 끝난 화면. 끝나는 순간 모든 타일이 공개되므로 **손패를 그대로 펼쳐 보여 준다** —
- * 마지막까지 무엇을 감추고 있었는지가 이 게임의 결과 그 자체다.
+ * 판이 끝난 화면. 서버가 끝난 판의 시점에서는 숫자를 전부 열어 주므로 **손패를 그대로
+ * 펼쳐 보여 준다** — 마지막까지 무엇을 감추고 있었는지가 이 게임의 결과 그 자체다.
+ * 감춰져 있던 타일은 자세(`revealed`)가 그대로라 끝까지 지킨 것이 한눈에 갈린다.
  */
 export function DavinciResult({ onLeaveRequest, session, snapshot }: DavinciResultProps) {
   const returnToLobby = useReturnToLobby()
@@ -31,59 +32,63 @@ export function DavinciResult({ onLeaveRequest, session, snapshot }: DavinciResu
     (left, right) => scoreOf(state, right) - scoreOf(state, left),
   )
 
+  // 순위 줄이 둘뿐인 2인 판에서는 콘텐츠가 화면의 절반도 안 된다 — 세로 가운데로 모으고,
+  // 4인 판처럼 넘칠 때는 `min-h-full`이 그대로 스크롤로 흘려보낸다.
   return (
-    <GameCanvas className="flex flex-col gap-4 overflow-y-auto bg-dv-canvas px-4 pt-safe-top pb-safe-bottom">
-      <header className="grid gap-1 pt-6 text-center">
-        <p className="m-0 font-mono text-2xs text-game-content-faint uppercase tracking-[0.3em]">
-          Da Vinci Code
-        </p>
-        <h1 className="m-0 font-black text-4xl text-content">
-          {winnerId === null
-            ? '판이 끝났어요'
-            : winnerId === session.you && !spectating
-              ? '지켜냈다'
-              : `${nameOf(winnerId)} 승리`}
-        </h1>
-      </header>
-
-      <ol className="m-0 grid list-none gap-2 p-0">
-        {ranked.map((playerId, rank) => (
-          <li className="grid gap-1" key={playerId}>
-            <div className="flex items-baseline justify-between gap-2 px-1">
-              <span className="truncate font-bold text-game-content text-sm">
-                {rank + 1}위 · {nameOf(playerId)}
-              </span>
-              <span className="shrink-0 font-mono text-2xs text-game-content-faint uppercase tracking-[0.18em]">
-                {scoreOf(state, playerId)}점 · 맞힘 {state?.hits[playerId] ?? 0}
-              </span>
-            </div>
-            <TileRack
-              hidden={hiddenCount(state, playerId)}
-              mine={playerId === session.you && !spectating}
-              name={nameOf(playerId)}
-              tiles={state?.hands[playerId] ?? []}
-            />
-          </li>
-        ))}
-      </ol>
-
-      <div className="grid gap-3 pb-2">
-        {host ? (
-          <Button
-            loading={returnToLobby.isLoading}
-            onClick={() => void returnToLobby.execute()}
-            size="lg"
-          >
-            대기실로 돌아가기
-          </Button>
-        ) : (
-          <p className="m-0 text-center text-game-content-muted text-sm">
-            호스트가 다음 판을 준비하고 있어요.
+    <GameCanvas className="overflow-y-auto bg-dv-canvas px-4 pt-safe-top pb-safe-bottom">
+      <div className="flex min-h-full flex-col justify-center gap-4 py-6">
+        <header className="grid gap-1 text-center">
+          <p className="m-0 font-mono text-2xs text-game-content-faint uppercase tracking-[0.3em]">
+            Da Vinci Code
           </p>
-        )}
-        <Button onClick={onLeaveRequest} size="lg" variant="secondary">
-          방 나가기
-        </Button>
+          <h1 className="m-0 font-black text-4xl text-game-content">
+            {winnerId === null
+              ? '판이 끝났어요'
+              : winnerId === session.you && !spectating
+                ? '지켜냈다'
+                : `${nameOf(winnerId)} 승리`}
+          </h1>
+        </header>
+
+        <ol className="m-0 grid list-none gap-2 p-0">
+          {ranked.map((playerId, rank) => (
+            <li className="grid gap-1" key={playerId}>
+              <div className="flex items-baseline justify-between gap-2 px-1">
+                <span className="truncate font-bold text-game-content text-sm">
+                  {rank + 1}위 · {nameOf(playerId)}
+                </span>
+                <span className="shrink-0 font-mono text-2xs text-game-content-faint uppercase tracking-[0.18em]">
+                  {scoreOf(state, playerId)}점 · 맞힘 {state?.hits[playerId] ?? 0}
+                </span>
+              </div>
+              <TileRack
+                hidden={hiddenCount(state, playerId)}
+                mine={playerId === session.you && !spectating}
+                name={nameOf(playerId)}
+                tiles={state?.hands[playerId] ?? []}
+              />
+            </li>
+          ))}
+        </ol>
+
+        <div className="grid gap-3 pb-2">
+          {host ? (
+            <Button
+              loading={returnToLobby.isLoading}
+              onClick={() => void returnToLobby.execute()}
+              size="lg"
+            >
+              대기실로 돌아가기
+            </Button>
+          ) : (
+            <p className="m-0 text-center text-game-content-muted text-sm">
+              호스트가 다음 판을 준비하고 있어요.
+            </p>
+          )}
+          <Button onClick={onLeaveRequest} size="lg" variant="secondary">
+            방 나가기
+          </Button>
+        </div>
       </div>
     </GameCanvas>
   )

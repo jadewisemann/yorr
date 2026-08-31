@@ -4,6 +4,7 @@ import {
   hiddenCount,
   lastEventMessage,
   opponentsOf,
+  particle,
   promptOf,
   scoreOf,
   tileLabel,
@@ -55,6 +56,29 @@ describe('타일 표기', () => {
   })
 })
 
+describe('조사', () => {
+  it('받침이 있는 숫자에는 을, 없는 숫자에는 를이 붙는다', () => {
+    // 읽는 소리 기준이다 — 1 일·3 삼·6 육은 받침이 있고 2 이·4 사·5 오·9 구는 없다.
+    expect(particle('1', '을', '를')).toBe('을')
+    expect(particle('4', '을', '를')).toBe('를')
+    expect(particle('10', '을', '를')).toBe('을')
+    expect(particle('11', '을', '를')).toBe('을')
+    expect(particle('12', '을', '를')).toBe('를')
+  })
+
+  it('한글 이름은 받침으로 이·가를 가른다', () => {
+    expect(particle('손님', '이', '가')).toBe('이')
+    expect(particle('호스트', '이', '가')).toBe('가')
+    expect(particle('조커', '을', '를')).toBe('를')
+  })
+
+  it('영문·이모지로 끝나는 닉네임에도 문장이 깨지지 않는다', () => {
+    expect(particle('yorr', '이', '가')).toBe('가')
+    expect(particle('🎲', '이', '가')).toBe('가')
+    expect(particle('', '이', '가')).toBe('가')
+  })
+})
+
 describe('지금 무엇을 해야 하는가', () => {
   it('내 차례의 단계가 그대로 화면의 요구가 된다', () => {
     expect(promptOf(view(), ME)).toBe('guess')
@@ -100,7 +124,7 @@ describe('직전에 일어난 일', () => {
       },
     })
 
-    expect(lastEventMessage(hit, nameOf)).toBe('나 님이 상대의 4을(를) 맞혔어요.')
+    expect(lastEventMessage(hit, nameOf)).toBe('나 님이 상대의 4를 맞혔어요.')
   })
 
   it('조커는 숫자가 아니라 조커라고 적는다', () => {
@@ -116,7 +140,7 @@ describe('직전에 일어난 일', () => {
       },
     })
 
-    expect(lastEventMessage(miss, nameOf)).toBe('상대 님이 나에게 조커을(를) 불렀지만 틀렸어요.')
+    expect(lastEventMessage(miss, nameOf)).toBe('상대 님이 나에게 조커를 불렀지만 틀렸어요.')
   })
 
   it('시간 초과와 이탈은 추측과 다른 문장이다', () => {

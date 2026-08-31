@@ -1,7 +1,13 @@
 import { ActionPanel } from '@/davinci/components/DavinciGame/ActionPanel'
 import { TileRack } from '@/davinci/components/TileRack'
 import { TurnBar } from '@/davinci/components/TurnBar'
-import { hiddenCount, isEliminated, lastEventMessage, promptOf } from '@/davinci/domain/davinci'
+import {
+  hiddenCount,
+  isEliminated,
+  lastEventMessage,
+  particle,
+  promptOf,
+} from '@/davinci/domain/davinci'
 import { useDavinciGame } from '@/davinci/model/useDavinciGame'
 import { useSecondsLeft } from '@/davinci/model/useSecondsLeft'
 import type { DavinciView, RoomSnapshot } from '@/realtime/wsEvents'
@@ -64,33 +70,38 @@ export function DavinciGame({ onLeaveRequest, roomId, session, snapshot }: Davin
         </GameChromeButton>
       </div>
 
-      <div className="grid min-h-0 flex-1 content-start gap-2 overflow-y-auto">
-        {others.map((playerId) => (
-          <TileRack
-            eliminated={isEliminated(state, playerId)}
-            hidden={hiddenCount(state, playerId)}
-            key={playerId}
-            name={nameOf(playerId)}
-            onSelectTile={
-              prompt === 'guess' && !isEliminated(state, playerId)
-                ? (tileId) => selectTile(playerId, tileId)
-                : undefined
-            }
-            selectedTileId={selection?.playerId === playerId ? selection.tileId : null}
-            tiles={state.hands[playerId] ?? []}
-            turn={state.turnPlayerId === playerId}
-          />
-        ))}
-        {!spectating && (
-          <TileRack
-            eliminated={isEliminated(state, you)}
-            hidden={hiddenCount(state, you)}
-            mine
-            name={nameOf(you)}
-            tiles={myHand}
-            turn={state.turnPlayerId === you}
-          />
-        )}
+      {/* 손패는 아래로 붙인다 — 2인 판에서 줄이 둘뿐이라 위에 붙이면 손패와 숫자 패드
+          사이가 화면 절반만큼 벌어져, 고른 타일과 부르는 숫자를 번갈아 보기 어렵다.
+          `min-h-full`이라 4인 판에서는 그대로 넘쳐 스크롤된다. */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="grid min-h-full content-end gap-2">
+          {others.map((playerId) => (
+            <TileRack
+              eliminated={isEliminated(state, playerId)}
+              hidden={hiddenCount(state, playerId)}
+              key={playerId}
+              name={nameOf(playerId)}
+              onSelectTile={
+                prompt === 'guess' && !isEliminated(state, playerId)
+                  ? (tileId) => selectTile(playerId, tileId)
+                  : undefined
+              }
+              selectedTileId={selection?.playerId === playerId ? selection.tileId : null}
+              tiles={state.hands[playerId] ?? []}
+              turn={state.turnPlayerId === playerId}
+            />
+          ))}
+          {!spectating && (
+            <TileRack
+              eliminated={isEliminated(state, you)}
+              hidden={hiddenCount(state, you)}
+              mine
+              name={nameOf(you)}
+              tiles={myHand}
+              turn={state.turnPlayerId === you}
+            />
+          )}
+        </div>
       </div>
 
       <ActionPanel
@@ -98,7 +109,7 @@ export function DavinciGame({ onLeaveRequest, roomId, session, snapshot }: Davin
         drawnLabel={
           state.turnPlayerId === you && !spectating
             ? '내가 뽑은 타일'
-            : `${nameOf(state.turnPlayerId)}가 뽑은 타일`
+            : `${nameOf(state.turnPlayerId)}${particle(nameOf(state.turnPlayerId), '이', '가')} 뽑은 타일`
         }
         hand={myHand}
         number={number}

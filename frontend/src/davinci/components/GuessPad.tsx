@@ -30,7 +30,7 @@ export function GuessPad({ disabled, onPick, onSubmit, picked, targetName }: Gue
               'min-h-tap rounded-control border font-bold tabular-nums transition-colors pressable focus-ring',
               picked === value
                 ? 'border-transparent bg-dv-accent text-on-brand'
-                : 'border-border bg-surface-veil text-game-content hover:bg-surface-veil-raised',
+                : 'border-dv-line bg-dv-surface text-game-content hover:bg-dv-surface-raised',
               value < 0 && 'col-span-2 text-sm',
             )}
             key={value}

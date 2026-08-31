@@ -120,13 +120,23 @@ export interface DavinciView {
 
 export const isDavinciFinished = (state: DavinciState): boolean => state.phase === 'FINISHED'
 
-/** 숫자를 보여 줄 것인가 — 공개된 타일이거나 **내 타일**이면 보여 준다. */
-const visible = (tile: DavinciTile, mine: boolean): boolean => tile.revealed || mine
+/**
+ * 숫자를 보여 줄 것인가 — 공개된 타일이거나 **내 타일**이거나 **판이 끝났으면** 보여 준다.
+ *
+ * 끝난 판을 여는 이유: 결과 화면의 값은 "누가 무엇을 끝까지 감췄는가"다. 이긴 사람의
+ * 타일이 물음표로 남으면 진 사람은 자기가 무엇을 못 맞혔는지 영영 모른다.
+ *
+ * **`revealed`는 건드리지 않는다.** 그 값이 점수의 재료이기 때문이다 — 화면의 점수는
+ * `맞힌 수 + 감춘 수`이고 감춘 수는 `revealed === false`를 센다. 여기서 함께 뒤집으면
+ * 이긴 사람의 점수가 판이 끝나는 순간 0으로 무너진다. 숫자만 열고 자세는 그대로 둔다.
+ */
+const visible = (tile: DavinciTile, mine: boolean, over: boolean): boolean =>
+  tile.revealed || mine || over
 
-const tileView = (tile: DavinciTile, mine: boolean): DavinciTileView => ({
+const tileView = (tile: DavinciTile, mine: boolean, over: boolean): DavinciTileView => ({
   id: tile.id,
   color: tile.color,
-  number: visible(tile, mine) ? tile.number : null,
+  number: visible(tile, mine, over) ? tile.number : null,
   revealed: tile.revealed,
 })
 
@@ -141,9 +151,10 @@ const tileView = (tile: DavinciTile, mine: boolean): DavinciTileView => ({
  * 추론 재료라 서버가 색까지 지우면 안 된다.
  */
 export const toView = (state: DavinciState, viewerId: string | null): DavinciView => {
+  const over = state.phase === 'FINISHED'
   const hands: Record<string, DavinciTileView[]> = {}
   for (const [playerId, tiles] of Object.entries(state.hands)) {
-    hands[playerId] = tiles.map((tile) => tileView(tile, playerId === viewerId))
+    hands[playerId] = tiles.map((tile) => tileView(tile, playerId === viewerId, over))
   }
   return {
     version: state.version,
@@ -152,7 +163,8 @@ export const toView = (state: DavinciState, viewerId: string | null): DavinciVie
     turnPlayerId: state.turnPlayerId,
     hands,
     deckCount: state.deck.length,
-    drawn: state.drawn === null ? null : tileView(state.drawn, state.turnPlayerId === viewerId),
+    drawn:
+      state.drawn === null ? null : tileView(state.drawn, state.turnPlayerId === viewerId, over),
     turn: state.turn,
     eliminated: state.eliminated,
     winnerId: state.winnerId,

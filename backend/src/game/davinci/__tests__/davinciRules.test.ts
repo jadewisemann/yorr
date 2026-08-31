@@ -375,6 +375,18 @@ describe('시점', () => {
     expect(toView(state, GUEST).drawn?.color).toBe(state.drawn?.color)
   })
 
+  it('판이 끝나면 남의 감춘 타일도 숫자가 열린다 — 점수의 재료인 revealed는 그대로다', () => {
+    const state = twoPlayerState()
+    const finished: DavinciState = { ...state, phase: 'FINISHED', winnerId: HOST }
+
+    const view = toView(finished, GUEST)
+
+    expect(view.hands[HOST]?.every((tile) => tile.number !== null)).toBe(true)
+    expect(view.hands[HOST]?.every((tile) => !tile.revealed)).toBe(true)
+    // 감춘 수가 유지되므로 이긴 쪽의 점수가 끝나는 순간 무너지지 않는다.
+    expect(scoreOf(finished, HOST)).toBe(4)
+  })
+
   it('관전 시점에는 감춘 숫자가 하나도 없다', () => {
     const view = toView(twoPlayerState(), null)
     for (const tiles of Object.values(view.hands)) {
