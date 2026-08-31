@@ -5,7 +5,7 @@ import { CHAT_TEXT_MAX_LENGTH, type PlayerId } from '../wsEvents'
 import type { RoomChat } from './useRoomChat'
 
 interface ChatBodyProps {
-  /** 목록이 실제로 보이는 동안만 true — 보이지 않을 때 마지막 줄을 따라갈 이유가 없다. */
+  /** 화면에 보이는 동안만 true. 창은 열림 여부이고, 상주 패널은 늘 true다. */
   active: boolean
   chat: RoomChat
   className?: string | undefined
@@ -17,14 +17,23 @@ interface ChatBodyProps {
 const timeFormat = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' })
 
 /**
- * 대화 목록과 입력칸. 상주 패널(`ChatPanel`)과 도크(`ChatDock`)가 이것을 공유한다 —
- * 마지막 줄 따라가기·거절 처리가 두 형태에서 같아야 하기 때문이다. 다른 것은 **높이 정책과
- * 껍데기**뿐이라 그 둘만 prop으로 받는다.
+ * 대화 목록과 입력칸. 창(`ChatDialog`)과 상주 패널(`ChatPanel`)이 이것을 공유한다 —
+ * 읽음 처리·마지막 줄 따라가기·거절 처리가 두 형태에서 같아야 하기 때문이다.
+ * 다른 것은 **높이 정책과 껍데기**뿐이라 그 둘만 prop으로 받는다.
  */
 export function ChatBody({ active, chat, className, listClassName, you }: ChatBodyProps) {
   const [draft, setDraft] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
-  const { lines, send } = chat
+  const { lines, markRead, send } = chat
+
+  /*
+   * 보이는 동안은 계속 읽음으로 둔다. `markRead`의 신원이 남의 말 개수에 묶여 있어
+   * (useRoomChat) 새 말이 오면 이 effect가 다시 돈다 — 줄 수를 따로 의존성에 넣지 않아도 된다.
+   */
+  useEffect(() => {
+    if (!active) return
+    markRead()
+  }, [markRead, active])
 
   useEffect(() => {
     // 새 말은 아래에 쌓인다 — 보이는 동안은 마지막 줄을 따라간다.
@@ -91,31 +100,67 @@ export function ChatBody({ active, chat, className, listClassName, you }: ChatBo
   )
 }
 
-function ChatLineRow({ line, you }: { line: RoomChat['lines'][number]; you: PlayerId }) {
+interface ChatLineRowProps {
+  className?: string | undefined
+  line: RoomChat['lines'][number]
+  you: PlayerId
+  /**
+   * `toast`는 판 위에 얹히는 자리다 — 시각 언어(좌우 정렬·말풍선)는 그대로 두되 배경을
+   * **불투명**으로 바꾸고 시각을 뺀다. 목록 안에서는 시각이 흐름을 잡아 주지만 방금 온 한
+   * 줄에는 군더더기이고, 반투명이면 판이 비쳐 못 읽는다.
+   */
+  variant?: 'sheet' | 'toast'
+}
+
+/**
+ * 대화 한 줄. 내 말은 오른쪽, 남의 말은 왼쪽이다 — 누가 한 말인지 닉네임을 읽기 전에
+ * 자리로 먼저 알게 한다. 판 위 토스트도 같은 모양을 쓰므로 눌러서 시트를 열었을 때 방금
+ * 본 말풍선이 그대로 이어진다.
+ */
+export function ChatLineRow({ className, line, variant = 'sheet', you }: ChatLineRowProps) {
   const mine = line.playerId === you
+  const toast = variant === 'toast'
 
   return (
     <p
       className={cn(
         'm-0 grid max-w-[85%] grid-cols-1 gap-0.5',
         mine ? 'justify-self-end' : 'justify-self-start',
+        className,
       )}
     >
+      {/*
+       * 토스트는 이름을 말풍선 **안에** 넣는다 — 판 위에는 배경이 없어서 말풍선 밖으로 빼면
+       * 어두운 주사위 판에 글자가 묻힌다. 내 말은 오른쪽에 붙는 것으로 이미 구분되므로
+       * 이름을 달지 않는다.
+       */}
+      {!toast && (
+        <span
+          className={cn(
+            'flex items-baseline gap-2 text-2xs font-semibold text-content-faint',
+            mine && 'justify-end',
+          )}
+        >
+          <span className="min-w-0 truncate">{mine ? '나' : line.nickname}</span>
+          <span className="flex-none tabular-nums">{timeFormat.format(line.at)}</span>
+        </span>
+      )}
       <span
         className={cn(
-          'flex items-baseline gap-2 text-2xs font-semibold text-content-faint',
-          mine && 'justify-end',
+          'rounded-card px-3 py-2 text-sm/[1.45] break-words whitespace-pre-wrap text-content',
+          toast
+            ? cn(
+                'border bg-surface-overlay shadow-raised',
+                mine ? 'border-brand/45' : 'border-border',
+              )
+            : mine
+              ? 'bg-brand/15'
+              : 'bg-surface',
         )}
       >
-        <span className="min-w-0 truncate">{mine ? '나' : line.nickname}</span>
-        <span className="flex-none tabular-nums">{timeFormat.format(line.at)}</span>
-      </span>
-      <span
-        className={cn(
-          'rounded-card px-3 py-2 text-sm/[1.45] break-words whitespace-pre-wrap',
-          mine ? 'bg-brand/15 text-content' : 'bg-surface text-content',
+        {toast && !mine && (
+          <span className="mr-1.5 text-2xs font-semibold text-content-faint">{line.nickname}</span>
         )}
-      >
         {line.text}
       </span>
     </p>

@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { useChat } from '@/realtime/chat/ChatContext'
-import { ChatDock } from '@/realtime/chat/ChatDock'
+import { ChatDialog } from '@/realtime/chat/ChatDialog'
 import { ChatPanel } from '@/realtime/chat/ChatPanel'
+import { ChatToast } from '@/realtime/chat/ChatToast'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { isPartyRoom } from '@/room/partyControllerStorage'
 import { AudioPopover } from '@/shared/components/AudioPopover'
@@ -223,12 +224,19 @@ export function GamePlay({
     />
   ) : null
 
-  const chatDock = wide ? null : (
-    <ChatDock
+  /*
+   * 좁은 화면에서는 새 말만 잠깐 띄운다 — 판 위에 대화를 상주시키면 주사위를 계속 가리고,
+   * 창을 열어야만 보이면 굴리는 중에 오간 말을 놓친다. 지나간 대화와 입력은 헤더 버튼이 여는
+   * 시트가 맡는다.
+   *
+   * z-banner인 이유: 턴·족보 연출(`EffectCallout`, z-20)이 같은 자리에 뜬다. 아래에 깔리면
+   * 연출 글자가 말풍선을 가로질러 둘 다 못 읽는다 — 4초 동안은 대화가 위에 있는 편이 낫다.
+   */
+  const chatToast = wide ? null : (
+    <ChatToast
       chat={chat}
-      className="absolute inset-x-gutter top-2 z-sticky"
-      onToggle={setChatOpen}
-      open={chatOpen}
+      className="absolute inset-x-gutter top-20 z-banner"
+      onOpen={() => setChatOpen(true)}
       you={session.you}
     />
   )
@@ -244,6 +252,8 @@ export function GamePlay({
       onLeave={onLeaveRequest}
       audioButtonRef={audioButtonRef}
       onOpenAudio={() => setAudioOpen(true)}
+      chatUnread={chat.unread}
+      onOpenChat={() => setChatOpen(true)}
       remainingMs={remainingMs}
       roundNumber={roundNumber}
       soundMuted={soundMuted}
@@ -315,7 +325,7 @@ export function GamePlay({
     <>
       <GamePlayBoard
         actions={actions}
-        chatDock={chatDock}
+        chatToast={chatToast}
         chatPanel={chatPanel}
         connectionStatus={connectionStatus}
         diceScene={diceScene}
@@ -350,6 +360,14 @@ export function GamePlay({
         onToggleMute={toggleSound}
         open={audioOpen}
       />
+      {!wide && (
+        <ChatDialog
+          chat={chat}
+          onClose={() => setChatOpen(false)}
+          open={chatOpen}
+          you={session.you}
+        />
+      )}
       {zeroModal}
       <GameHelpModal
         onClose={() => setHelpOpen(false)}

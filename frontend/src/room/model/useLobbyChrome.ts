@@ -11,15 +11,12 @@ function usePopoverAnchor() {
 export function useLobbyChrome() {
   const audio = usePopoverAnchor()
   const invite = usePopoverAnchor()
-  const [chatOpen, setChatOpen] = useState(false)
   const [exitRequested, setExitRequested] = useState(false)
   const [soundMuted, setSoundMuted] = useState(readSoundMuted)
 
   return {
     audio,
     cancelExit: () => setExitRequested(false),
-    chatOpen,
-    setChatOpen,
     exitRequested,
     invite,
     requestExit: () => setExitRequested(true),
