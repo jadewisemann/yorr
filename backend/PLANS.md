@@ -288,6 +288,113 @@
 - **이식할 테스트**: 파티 방에서 스케줄러 미등록, `host_state` 발신자 검증(플레이어가
   보내면 거절), `swung` 전달 대상(대시보드에게만), 보고된 점수로 종료.
 
+## 유저 전적·레이팅 (야추) — 계약 넓히기 (2026-08-31, 계획)
+
+> 마이그레이션이 아니라 **제품 결정**이고, 이 절은 **착수 전 계획**이다 — 아직
+> 코드도 계약도 바뀌지 않았다. 프론트 쪽 계획·계약 표기는
+> [frontend/PLANS.md](../frontend/PLANS.md) 「유저 전적·레이팅 (야추)」 절과
+> 짝이다. 구현이 끝나면 결과를 [persistence.md](docs/design/persistence.md)와
+> 새 설계 문서(`docs/design/rating.md`)로 승격하고 이 절을 갱신한다.
+
+- **무엇**: 회원에게 게임별 전적(승·무·패·판수)과 Elo 레이팅을 준다. 레이팅은
+  티어 6단(브론즈·실버·골드·플래티넘·다이아·마스터)으로 변환되어, 야추 방의 WS
+  플레이어 객체에 `tier` optional 필드로 실리고 프로필 REST로 조회된다. 대상
+  게임은 우선 `YACHT_DICE` 하나이며, 다빈치 코드가 다음 후보다.
+- **왜**: 사용자 요청이다(유저별 전적과 레이팅, 멀티플레이 이름 옆 티어 휘장).
+  주간 랭킹은 "이번 주 최고점" 하나라 누적 실력을 보여주지 못한다. 회원만
+  집계하는 경계(`user_id IS NOT NULL`)를 그대로 쓰므로, 주간 랭킹과 같은
+  이유("그 경계가 곧 로그인할 이유")가 하나 더 생긴다.
+- **호환**: 넓히기만 한다. WS는 `Player.tier?`(optional) 추가, REST는 경로 2개
+  신설이고 기존 응답 모양은 바뀌지 않는다. `tier`를 모르는 서버(backend-java
+  롤백 포함)에서 프론트는 휘장 없이 그대로 동작한다. backend-java는 동결이라
+  이식하지 않는다.
+
+### 레이팅 규칙 — 착수 시점의 초안 (수치는 운영하며 조정)
+
+- **순위 기반 쌍별 Elo.** 종료 시점의 `rankings`에서 **회원끼리의 모든 쌍**을
+  1대1 대결로 계산한다(낮은 rank가 승, 동순위는 0.5). 시작 1000점, K=32를
+  `n-1`(n = 그 판의 회원 수)로 나눠 한 판의 총 변동 폭을 인원과 무관하게
+  유지한다. 야추가 1~6인 순위전이라 이 형태가 자연스럽고, 입력이 순위
+  (`ranking`)뿐이라 다빈치 코드에도 그대로 적용된다.
+- **대상 게임은 허용 목록** `RATED_GAME_CODES = ['YACHT_DICE']` 하나로
+  관리한다. 다빈치 코드를 붙일 때 바뀌는 것이 이 목록뿐이도록 스키마·계산기는
+  처음부터 `game_code` 단위로 만든다.
+- **게스트·봇이 낀 쌍은 건너뛴다**(`user_id NULL` — 봇전·연습 방이 자동으로
+  빠진다). 회원이 본인 하나뿐인 판은 판수(`plays`)만 오르고 레이팅은 그대로다.
+- **탁구 AI 결과 경로는 반영하지 않는다.** `archiveParticipants`는 클라이언트가
+  보고한 결과라 서버 권위(DESIGN 원칙 1)와 맞지 않고, 애초에 탁구가 대상 게임이
+  아니다.
+- **티어 경계**: 브론즈 <1100 · 실버 <1300 · 골드 <1500 · 플래티넘 <1700 ·
+  다이아 <1900 · 마스터 ≥1900. `rated_games < 5`(배치 미완)면 언랭크로 두고
+  `tier`를 아예 싣지 않는다. 경계·K·시작점은 `game/rating/tier.ts` 상수 한 곳이
+  유일한 출처다.
+
+### 스키마 — 마이그레이션 V3 (V1·V2는 전환기 동결이라 새 파일)
+
+`db/migration/V3__create_rating_tables.sql`에 테이블 2개를 만든다.
+
+- `user_game_stats` — 현재값 집계. `(user_id, game_code)` PK에
+  `rating`·`rated_games`·`wins`·`losses`·`draws`·`plays`·`updated_at`.
+  승패는 `ranking = 1`이면 승(공동 1위는 무), 나머지는 패로 센다.
+- `match_ratings` — 판별 변동 이력. `(match_id, user_id)` UNIQUE에
+  `rating_before`·`rating_after`. 전적 화면의 "이 판에 +18" 표시용이고, 집계가
+  어긋났을 때 재구성하는 근거이기도 하다.
+
+### 갱신 경로 — 보관과 같은 트랜잭션
+
+- 진입점은 `MatchArchiveService.archive` **내부**다(게임 종료 순서 ⑤). 회원
+  참가자를 골라 현재 레이팅을 읽고 계산해 두 테이블에 쓰되, `matches` INSERT와
+  **같은 MySQL 트랜잭션**으로 묶는다 — `matches.game_id` UNIQUE에 걸려 보관이
+  실패하면 레이팅도 함께 구르므로, 별도 멱등 장치 없이 이중 반영이 차단된다.
+- 실패 정책은 보관과 동일하다: 예외는 `onArchiveFailure`로 흘리고 **게임 종료
+  방송을 막지 않는다.**
+- 새 모듈은 `src/game/rating/` — `eloCalculator.ts`(순수 함수, MySQL 없이 전부
+  테스트), `tier.ts`(경계 상수), `ratingStore.ts`(포트 + MySQL 구현, 보관과
+  트랜잭션 커넥션 공유), 공개 표면 `index.ts`. `game/ranking/`과 같은 3층
+  관용이다.
+- **주간 랭킹은 건드리지 않는다.** `WeeklyRankingService`의 `YACHT_DICE`
+  하드코딩·캐시·REST 전부 그대로다 — 주간 최고점과 누적 레이팅은 별개 지표로
+  공존한다.
+
+### REST 2개 신설
+
+| 요청 | 응답 |
+|---|---|
+| `GET /api/v1/users/me/stats` | 200 게임별 `{gameCode, rating, tier(언랭크는 null), ratedGames, wins, losses, draws, plays}` 배열. 401·403은 프로필 REST와 동일 |
+| `GET /api/v1/users/me/matches?limit=` | 200 최근 경기 `{finishedAt, gameCode, rank, playerCount, totalScore, ratingBefore?, ratingAfter?}` 배열 |
+
+`users.ts`·`ranking.ts`에 중복된 `authenticateMember`가 **세 번째 사용처**를
+만나므로, 주석에 예정된 대로 `http/`로 승격하는 리팩터링을 이 작업에 포함한다.
+
+### 티어를 방에 싣는 방법
+
+야추 방 **입장 시점**(joinRoom)에 회원이면 티어를 한 번 조회해 새 해시
+`room:{roomCode}:tiers`(playerId → tier)에 적고, 방 키 가족에 포함시켜 같은
+순간에 만료시킨다. WS 스냅샷(`RealtimeRoomSnapshotService`)과
+`room.player.joined`가 이 해시를 읽어 `tier`를 채운다. 대상 게임이 아닌
+방·게스트·봇·언랭크는 필드를 생략한다. 게임 중에 레이팅이 변해도 그 판의 휘장은
+입장 시점 값으로 고정한다 — 다시 조회하지 않는다.
+
+### 진행 순서 (PR 4개, 각각 독립 배포 가능)
+
+1. **백엔드 기반**: V3 + `game/rating/` + 보관 트랜잭션 훅. 화면 변화 없이
+   데이터부터 쌓는다 — 다음 단계 전에 실데이터로 티어 경계를 점검할 수 있다.
+2. **조회 REST + 내 전적 UI**: `/users/me/stats`·`/users/me/matches`와 계정
+   다이얼로그의 「내 전적」 활성화.
+3. **계약 넓히기 + 로비 휘장**: `wsEvents.ts`의 `Player.tier?`(프론트가 정본 —
+   먼저 고치고 서버가 맞춘다) + `room:{code}:tiers` + 휘장 표시. 프론트·서버를
+   같은 PR에서 바꾼다.
+4. **(선택) 확장**: 게임 중·결과 화면 휘장, 랭킹 티커 휘장, 다빈치 코드 편입,
+   시즌 리셋.
+
+### 검증
+
+- 단위: `eloCalculator`(쌍별 계산·동순위 0.5·회원 필터·K 분배·허용 목록 밖
+  무시), `tier` 경계값, 보관 실패 시 레이팅 미반영(같은 트랜잭션).
+- 통합: `MYSQL_TEST_REQUIRED=1`로 V3 적용과 집계 SQL을 검증한다 — 기존 전적
+  통합 테스트와 같은 조건이라 CI(mysql:8.0 service)에서 돈다.
+- 티어 해시: 입장 시 기록, 방 키 가족과 만료 동행, 비대상 게임에서 생략.
+
 ## 상태 표
 
 | 하위 시스템 | Java 위치 | 설계 문서 | 상태 |
@@ -309,6 +416,7 @@
 | 컨트롤러 링크 시그널링 | (Java에 없음) | controller-signal.md | 🚧 `ctrl.signal`/`ctrl.signaled` 유니캐스트 릴레이 추가 중(위 절). 파티 폰↔큰 화면 DataChannel 협상 전용이고 서버는 `data`를 열지 않는다 |
 | 소셜 로그인·프로필 | `auth/`, `user/` | auth.md | 🚧 소셜 로그인 이식 완료(4.2 — authorize/callback/session/me/logout, state·로그인 코드 1회용, kakao·google, 가입 경합 재조회). MySQL 통합 6건은 `MYSQL_TEST_URL` 부재로 **미실행**. 프로필은 4.3 |
 | 전적·주간 랭킹 | `game/match/`, `game/ranking/` | persistence.md | 🚧 MySQL 풀·Flyway 호환 러너(4.1) + 전적 보관(4.4 — 멱등·닉네임 우선순위·users로 회원 판정) + 주간 랭킹(4.5 — KST 경계·집계·캐시·REST) 이식 완료. **MySQL 집계·저장 통합 22건은 `MYSQL_TEST_URL`·docker 부재로 미실행 — SQL 문법조차 미검증**. 배선 완료 |
+| 유저 전적·레이팅 (야추) | (Java에 없음) | persistence.md(승격 예정) | 🆕 **계획만 수립, 구현 미착수** — 위 「유저 전적·레이팅 (야추)」 절. 게임별 Elo·티어 6단·`Player.tier` 넓히기·REST 2개 |
 | 모니터링·배포 | `monitoring/`, `.github/workflows/backend.yml`·`deploy/` | operations.md | 🚧 게이지 2종 이식·배선 완료(5.3 — `prom-client` 없이 텍스트 노출, 16건) + 배포 전환(5.1 — Dockerfile arm64 크로스 빌드·compose 전체 스택·GHA+GHCR, [ADR-0006](docs/adr/0006-github-actions-ghcr-arm64-single-host.md)). **이미지 실빌드·arm64 실기동·MySQL 통합 48건 미검증** |
 | ~~GameAbortService~~ | `game/round/application/` | game-modules.md | 🗑 데드 코드 — 이식 안 함 |
 

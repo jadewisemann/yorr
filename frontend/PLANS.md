@@ -13,6 +13,8 @@
 > 「컨트롤러 링크」(넓히기)·「파티 탁구 호스트 판정」(넓히기)·「다빈치 코드 추가」(넓히기)
 > 절에 각각 근거가 있다. 다섯 다 마이그레이션이 아니라 제품 결정이라 동결의 목적
 > ("마이그레이션이 프론트를 건드리지 않는다") 밖이었다.
+> 여섯 번째가 될 「유저 전적·레이팅 (야추)」(넓히기)는 **계획 단계**다 — 아직
+> 계약을 건드리지 않았다.
 
 > **동결의 범위 (2026-08-16 해석).** 동결 대상은 **와이어 계약**이다 —
 > `wsEvents.ts`와 `room/api/*`·`shared/api/*`의 사용부. 화면·스타일·공용
@@ -34,6 +36,84 @@
 구체화하고(목표·관련 설계·불변식·검증), 백엔드 PLANS.md와 상호 링크를 건다.
 
 ---
+
+## 유저 전적·레이팅 (야추) — 계약 넓히기 (2026-08-31, 계획)
+
+> **착수 전 계획이다** — 아직 계약도 화면도 바뀌지 않았다. 서버 쪽 계획(레이팅
+> 규칙·스키마·갱신 경로·진행 순서)은 [backend/PLANS.md](../backend/PLANS.md)
+> 「유저 전적·레이팅 (야추)」 절이 짝이다. 구현이 끝나면 이 절을 지우고 결과를
+> DESIGN.md·해당 llmwiki 페이지로 승격한다.
+
+### 목표
+
+회원에게 야추 전적(승·무·패·판수)과 Elo 레이팅을 주고, 레이팅을 티어 6단
+(브론즈·실버·골드·플래티넘·다이아·마스터) 휘장으로 멀티플레이 화면의 이름 옆에
+보여준다. 대상 게임은 우선 야추 하나다 — 다빈치 코드가 다음 후보라서, 계약과
+컴포넌트는 게임을 특정하지 않는 모양으로 둔다.
+
+주간 요트 랭킹(이번 주 최고점)과는 별개 지표로 공존한다. 내 전적 화면에서 두
+지표를 나란히 보여 혼동을 줄인다.
+
+### 관련 설계
+
+- `room/components/PlayerCard.tsx`의 `nameEnd?: ReactNode` — 이름 오른쪽에
+  렌더되는 슬롯인데 현재 사용처가 0곳이다. 휘장이 첫 사용자가 된다
+- `auth/components/AccountDialog/AccountMenu.tsx`의 「내 전적」 행 — disabled +
+  `ComingSoonPill`로 자리만 있다. 활성화하면 `EntryPage.test.tsx`의 disabled
+  단언을 갱신해야 한다
+- [design-system.md](docs/llmwiki/design-system.md) — 상태를 색 하나에 싣지
+  않는다(색맹 대응), 정적 class map, 2계층 토큰, 라이트 대비 4.5:1
+- DESIGN.md 원칙 8 — 티어 6단은 `Badge`의 tone 3종에 들어가지 않으므로 tone을
+  늘리지 않고 별도 컴포넌트로 만든다
+
+### 계약 변경 — 전부 넓히기
+
+| 종류 | 무엇 |
+|---|---|
+| WS | `Player`에 `tier?: 'BRONZE' \| 'SILVER' \| 'GOLD' \| 'PLATINUM' \| 'DIAMOND' \| 'MASTER'` optional 추가. 게스트·봇·언랭크(배치 5판 미만)·비대상 게임은 필드 생략 |
+| REST | `GET /users/me/stats`(게임별 레이팅·티어·전적) · `GET /users/me/matches?limit=`(최근 경기와 레이팅 변동) 신설 |
+
+기존 메시지·경로는 하나도 바뀌지 않는다. `tier`를 모르는 서버(backend-java 롤백
+포함)에서는 휘장이 안 보일 뿐 화면은 그대로다. 프론트가 계약의 정본이므로
+`wsEvents.ts`를 먼저 고치고 서버가 맞춘다.
+
+### 화면 계획
+
+- **`TierEmblem`** (`shared/components/TierEmblem.tsx` 신규): 색 + 모양(티어별
+  SVG 심볼) + `aria-label`의 3채널로 티어를 구분한다. 티어 6색은 `tokens.css`에
+  `--ds-tier-*` 원시값 → semantic alias 2계층으로, 라이트 층까지 함께 추가하고
+  두 테마 모두 대비를 검증한다. `/__dev/components` 카탈로그 등재 + `__tests__` +
+  shared-ui.md 인벤토리 한 줄까지가 한 단위다. shared는 앱 토큰만 안다 —
+  랜딩(랭킹 티커)에 쓰려면 `landing-*` 래퍼를 랜딩 도메인에 두는 별도
+  작업이다(후순위).
+- **로비·파티**: `LobbyPlayerCard`·`ParticipantColumn`이 `nameEnd`로 휘장을
+  꽂는다. `PlayerCard`의 `aria-label` 조립에 티어를 포함한다.
+- **내 전적**: `AccountMenu`의 「내 전적」을 활성화하고, `NicknameEditor`가 쓰는
+  다이얼로그 내 화면 전환 패턴으로 전적 패널(티어·레이팅·승률 + 최근 경기와
+  변동)을 붙인다. 새 라우트를 파지 않는다.
+- **API 계층**: `auth/api/statsApi.ts` + `useFetchEffect` 기반 훅, MSW 핸들러
+  (`mocks/restHandlers.ts`), [rest-api.md](docs/llmwiki/rest-api.md) 표 갱신.
+- **후순위**: 게임 중(`TurnStrip`·`PlayerBadge`)·결과(`ResultRanking`) 화면
+  휘장, 랭킹 티커 휘장, 채팅 휘장(`ChatTextPayload` 확장이 필요해 별도 결정).
+
+### 불변식
+
+1. **티어는 서버가 준 값을 그대로 그린다.** 레이팅→티어 매핑을 프론트가 갖지
+   않는다 — 경계를 바꿀 때 두 곳이 어긋나면 안 된다
+2. **`tier` 필드가 없으면 아무것도 그리지 않는다.** 게스트·봇·언랭크·비대상
+   게임·구 서버가 전부 이 한 경로다 — 프론트에 게임별 분기를 두지 않는다
+3. **색만으로 티어를 구분하지 않는다** — 모양·라벨 병행(색맹 대응)
+4. **휘장은 그 판 동안 고정이다.** 입장 시점 값이고, 게임 중 갱신을 그리려 하지
+   않는다
+
+### 검증
+
+- 단위: `TierEmblem` 6단 렌더·aria, 전적 패널의 상태 분기(로딩·언랭크·빈 전적),
+  `tier` 없는 `Player` 렌더 무변화
+- `EntryPage.test.tsx`의 「내 전적」 disabled 단언 갱신
+- 시각: `/__dev/components`에 TierEmblem 섹션을 추가한 뒤 `test:visual`로 대조
+- E2E(mock): MSW로 `tier`가 실린 스냅샷과 stats 응답을 주고 로비 휘장·전적
+  패널을 확인
 
 ## 다빈치 코드 추가 — 계약 넓히기 (2026-08-29)
 
