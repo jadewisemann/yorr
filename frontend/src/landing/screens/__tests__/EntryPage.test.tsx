@@ -221,12 +221,12 @@ describe('EntryPage', () => {
     firstTab.focus()
     await user.keyboard('{ArrowLeft}')
 
-    const lastTab = screen.getByRole('tab', { name: /낚시/ })
+    const lastTab = screen.getByRole('tab', { name: /라이어스 다이스/ })
     expect(lastTab).toHaveFocus()
     expect(lastTab).toHaveAttribute('aria-selected', 'true')
     expect(lastTab).toHaveAttribute('tabindex', '0')
     expect(firstTab).toHaveAttribute('tabindex', '-1')
-    expect(screen.getByRole('heading', { name: '낚시' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
   })
 
   it('steps through the carousel with the arrow buttons on the wide layout', async () => {
@@ -245,7 +245,7 @@ describe('EntryPage', () => {
     render(<EntryPage />)
 
     await user.click(screen.getByRole('button', { name: '이전 게임' }))
-    expect(screen.getByRole('heading', { name: '낚시' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
 
     await user.click(screen.getByRole('button', { name: '다음 게임' }))
     expect(screen.getByRole('heading', { name: '요트 다이스' })).toBeVisible()

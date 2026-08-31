@@ -24,11 +24,11 @@ test('moves between games with the arrow keys and wraps at the end', async ({ pa
   await firstTab.focus()
 
   await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '탁구' })).toBeVisible()
 
   await page.keyboard.press('ArrowLeft')
   await page.keyboard.press('ArrowLeft')
-  await expect(page.getByRole('heading', { name: '낚시' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '라이어스 다이스' })).toBeVisible()
 
   await page.keyboard.press('Home')
   await expect(page.getByRole('heading', { name: '요트 다이스' })).toBeVisible()
