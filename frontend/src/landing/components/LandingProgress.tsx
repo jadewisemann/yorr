@@ -24,7 +24,7 @@ export function LandingProgress({ activeIndex, games, layout, onSelect }: Landin
   }
 
   return (
-    <div className={cn('flex items-center', wide ? 'justify-center gap-6' : 'w-full gap-3')}>
+    <div className={cn('flex items-center justify-center', wide ? 'gap-6' : 'w-full gap-3')}>
       <span
         className={cn(
           'flex-none font-mono font-bold tracking-[0.08em] tabular-nums',
@@ -80,17 +80,13 @@ export function LandingProgress({ activeIndex, games, layout, onSelect }: Landin
         })}
       </div>
 
-      {wide ? (
+      {wide && (
         <>
           <span aria-hidden="true" className="h-4 w-px flex-none bg-landing-hairline-strong" />
           <span className="flex-none font-mono text-xs font-semibold tracking-[0.18em] text-landing-text-muted">
             DRAG OR USE ← →
           </span>
         </>
-      ) : (
-        <span className="flex-1 text-right text-xs text-landing-text-muted max-tiny:hidden">
-          옆으로 밀어 다른 게임 보기
-        </span>
       )}
     </div>
   )
