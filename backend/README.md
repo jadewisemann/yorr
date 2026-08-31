@@ -1,7 +1,8 @@
 # YORR Backend (Node.js)
 
-Spring Boot 백엔드(`../backend-java/`)를 Node.js + TypeScript로 마이그레이션하는
-저장소다. 마이그레이션이 끝날 때까지 운영은 backend-java가 담당한다.
+YORR의 API 및 실시간 게임 서버다. 기존 Spring Boot 구현을 Node.js + TypeScript로
+이식해 왔으며, 원본 `backend-java/`는 제거되었다 — 이제 이 디렉터리가 유일한
+백엔드다. 이식 경과는 [PLANS.md](PLANS.md)에 남아 있다.
 
 ## 문서 지도
 

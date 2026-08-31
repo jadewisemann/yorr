@@ -177,8 +177,13 @@
       > `deploy/auto-deploy.sh` + systemd 타이머가 이미 있다(ADR-0006 §3의 갱신 메모).
       > 배포 파이프라인을 Release 단위 pull CD로 재설계하는 계획과 그 안의
       > 마감 시각 영속화(PR 6)는 [`deploy/PLAN.md`](../deploy/PLAN.md)에 있다.
-- [ ] backend-java 제거 (프론트 배포 이전·`Jenkinsfile` 삭제는 완료)
-      + GAME_SESSION_INTEGRATION.md 등 낡은 문서 정리 (별도 PR)
+- [x] backend-java 제거 (프론트 배포 이전·`Jenkinsfile` 삭제는 완료)
+      + GAME_SESSION_INTEGRATION.md 등 낡은 문서 정리
+      > 참조 구현으로서의 역할이 끝나 디렉터리를 통째로 삭제했다. 이식 과정에서
+      > 남긴 대조 기록(`DESIGN.md`·`docs/design/*`·`docs/adr/*`)의 backend-java
+      > 언급은 **당시 판단의 근거**이므로 그대로 둔다 — 삭제된 코드를 가리키는
+      > 서술이지만, 지우면 왜 그렇게 구현했는지를 잃는다. 원본이 필요하면
+      > git 이력에서 꺼낸다.
 - **완료 기준**: 운영 도메인이 Node 백엔드를 서빙하고 한 주간 무회귀.
 
 ## 연습 방 시계 제거 — 계약 변경 1건 (2026-08-21, 완료)

@@ -15,7 +15,6 @@
 | 진행 중 변경 계획 | [`PLANS.md`](PLANS.md) | 마이그레이션 단계와 완료 기준 |
 | 작업 중 발견 | [`IMPLEMENTATION_NOTES.md`](IMPLEMENTATION_NOTES.md) | 휘발성 working memory |
 | WebSocket 와이어 계약 | `../frontend/src/realtime/wsEvents.ts` | **프론트가 정본이다.** 서버가 임의로 바꾸지 않는다 |
-| 마이그레이션 대상 동작 | `../backend-java/` | 읽기 전용 참조 구현. 여기 코드는 수정하지 않는다 |
 
 문서와 코드가 충돌하면 **조용히 코드를 따르지 않는다.** 구현이 틀렸는지, 설계가
 바뀐 것인지 판정하고 — 의도가 바뀐 것이면 DESIGN.md를 고치고, 구현이 틀린 것이면

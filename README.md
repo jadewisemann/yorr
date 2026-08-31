@@ -5,7 +5,7 @@
 
   **휴대폰을 흔들고, 휘두르고, 탭하며 함께 즐기는 실시간 웹 게임 플랫폼**
 
-  [서비스 바로가기](https://yorr.site) · [프론트엔드 문서](frontend/README.md) · [백엔드 문서](backend-java/GAME_SESSION_INTEGRATION.md) · [작업 지침](AGENTS.md)
+  [서비스 바로가기](https://yorr.site) · [프론트엔드 문서](frontend/README.md) · [백엔드 문서](backend/README.md) · [작업 지침](AGENTS.md)
 </div>
 
 ## 소개
@@ -83,15 +83,12 @@ Mobile / Desktop Browser
 │   ├── e2e/               # Playwright 브라우저 테스트
 │   ├── docs/              # 아키텍처 문서 · 레퍼런스 위키(llmwiki) · ADR
 │   └── DESIGN.md          # 프론트엔드 설계 정본(source of truth)
-├── backend/               # Node.js + TypeScript 백엔드 (마이그레이션 진행 중)
+├── backend/               # Node.js + TypeScript API 및 실시간 게임 서버
 │   ├── src/               # 애플리케이션 코드
+│   ├── db/                # DB 마이그레이션
 │   ├── docs/              # 설계 문서(design) · 의사결정 기록(adr)
 │   ├── DESIGN.md          # 시스템 설계 정본(source of truth)
-│   └── PLANS.md           # Java → JS 마이그레이션 계획
-├── backend-java/          # 기존 Spring Boot API 및 실시간 게임 서버 (운영 중)
-│   └── src/
-│       ├── main/          # 애플리케이션 코드와 DB 마이그레이션
-│       └── test/          # 단위·통합 테스트
+│   └── PLANS.md           # 마이그레이션 단계·상태 표
 ├── deploy/                # 운영용 Docker Compose·Caddy 설정
 └── AGENTS.md              # 에이전트 작업·Git 협업 규칙
 ```
@@ -100,36 +97,23 @@ Mobile / Desktop Browser
 
 ### 준비 사항
 
-- Java 21
 - Node.js 22.12 이상과 npm
 - Docker 및 Docker Compose
 
 ### 1. 백엔드 실행
 
-현재 운영 백엔드는 `backend-java/`의 Spring Boot 서버입니다. (`backend/`의 Node.js
-서버는 마이그레이션 진행 중으로, 실행 방법은 [backend/README.md](backend/README.md) 참고)
-
 ```bash
-cd backend-java
-cp .env.example .env
+cd backend
+cp .env.example .env   # 필요한 값만 채우면 됩니다 — 백본은 Redis·MySQL 없이도 뜹니다
+npm ci
+npm run dev
 ```
 
-`.env`의 `DB_PASSWORD`에 로컬 개발용 비밀번호를 설정한 뒤 실행합니다. 소셜 로그인
-기능을 개발하지 않는 경우 OAuth 관련 값은 비워 두어도 됩니다.
-
-```bash
-# macOS / Linux
-./gradlew bootRun
-
-# Windows
-gradlew.bat bootRun
-```
-
-Spring Boot가 `compose.yaml`을 통해 MySQL과 Redis를 함께 시작합니다.
+소셜 로그인 기능을 개발하지 않는 경우 OAuth 관련 값은 비워 두어도 됩니다. 자세한
+내용은 [backend/README.md](backend/README.md)를 참고하세요.
 
 - API: `http://localhost:8080/api/v1`
 - WebSocket: `ws://localhost:8080/ws/v1/game`
-- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 - Health check: `http://localhost:8080/actuator/health`
 
 ### 2. 프론트엔드 실행
@@ -165,23 +149,27 @@ npm run test:e2e     # E2E (mock 백엔드)
 
 실제 백엔드와 연결하는 E2E는 백엔드를 먼저 실행한 뒤 `npm run test:e2e:real`로 수행합니다.
 
-### Backend (Java)
+### Backend
 
 ```bash
-cd backend-java
-./gradlew test
+cd backend
+npm run check        # lint + format
+npm run typecheck    # 타입 검사
+npm test             # 단위·통합 테스트
+npm run build        # 프로덕션 빌드
 ```
 
-Windows에서는 `gradlew.bat`을 사용합니다. 일부 통합 테스트는 Docker가 실행 중이어야
-합니다.
+Redis 통합 테스트는 `redis-server` 바이너리가 있어야 실행되며, 없으면 해당
+스위트만 건너뜁니다.
 
 ## 문서
 
 - [프론트엔드 README](frontend/README.md) — 기술 스택·폴더 구조·시작하기
 - [프론트엔드 아키텍처](frontend/docs/architecture.md) — 구조·의존 방향·상태 설계와 그 이유
 - [프론트엔드 설계 정본](frontend/DESIGN.md) — 불변식·코드 구조·레퍼런스 위키(llmwiki) 문서 지도
-- [백엔드 게임 세션 연동](backend-java/GAME_SESSION_INTEGRATION.md)
-- [백엔드 JS 마이그레이션 계획](backend/PLANS.md) — 마이그레이션 단계·워크플로우
+- [백엔드 README](backend/README.md) — 기술 스택·시작하기·검증
+- [백엔드 설계 정본](backend/DESIGN.md) — 원칙·불변식·하위 시스템 인덱스
+- [백엔드 마이그레이션 계획](backend/PLANS.md) — 마이그레이션 단계·워크플로우
 - [에이전트 작업 지침](AGENTS.md) — 작업 방식·Git 브랜치·커밋·PR 규칙
 
 ## 협업 규칙
