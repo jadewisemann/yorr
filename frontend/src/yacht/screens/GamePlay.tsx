@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { useChat } from '@/realtime/chat/ChatContext'
-import { ChatDialog } from '@/realtime/chat/ChatDialog'
-import { ChatOverlay } from '@/realtime/chat/ChatOverlay'
+import { ChatDock } from '@/realtime/chat/ChatDock'
 import { ChatPanel } from '@/realtime/chat/ChatPanel'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { isPartyRoom } from '@/room/partyControllerStorage'
@@ -224,11 +223,12 @@ export function GamePlay({
     />
   ) : null
 
-  const chatOverlay = wide ? null : (
-    <ChatOverlay
+  const chatDock = wide ? null : (
+    <ChatDock
       chat={chat}
       className="absolute inset-x-gutter top-2 z-sticky"
-      onOpen={() => setChatOpen(true)}
+      onToggle={setChatOpen}
+      open={chatOpen}
       you={session.you}
     />
   )
@@ -244,8 +244,6 @@ export function GamePlay({
       onLeave={onLeaveRequest}
       audioButtonRef={audioButtonRef}
       onOpenAudio={() => setAudioOpen(true)}
-      chatUnread={chat.unread}
-      onOpenChat={() => setChatOpen(true)}
       remainingMs={remainingMs}
       roundNumber={roundNumber}
       soundMuted={soundMuted}
@@ -317,7 +315,7 @@ export function GamePlay({
     <>
       <GamePlayBoard
         actions={actions}
-        chatOverlay={chatOverlay}
+        chatDock={chatDock}
         chatPanel={chatPanel}
         connectionStatus={connectionStatus}
         diceScene={diceScene}
@@ -352,14 +350,6 @@ export function GamePlay({
         onToggleMute={toggleSound}
         open={audioOpen}
       />
-      {!wide && (
-        <ChatDialog
-          chat={chat}
-          onClose={() => setChatOpen(false)}
-          open={chatOpen}
-          you={session.you}
-        />
-      )}
       {zeroModal}
       <GameHelpModal
         onClose={() => setHelpOpen(false)}

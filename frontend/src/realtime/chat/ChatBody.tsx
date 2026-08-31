@@ -5,7 +5,7 @@ import { CHAT_TEXT_MAX_LENGTH, type PlayerId } from '../wsEvents'
 import type { RoomChat } from './useRoomChat'
 
 interface ChatBodyProps {
-  /** 화면에 보이는 동안만 true. 창은 열림 여부이고, 상주 패널은 늘 true다. */
+  /** 목록이 실제로 보이는 동안만 true — 보이지 않을 때 마지막 줄을 따라갈 이유가 없다. */
   active: boolean
   chat: RoomChat
   className?: string | undefined
@@ -17,23 +17,14 @@ interface ChatBodyProps {
 const timeFormat = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' })
 
 /**
- * 대화 목록과 입력칸. 창(`ChatDialog`)과 상주 패널(`ChatPanel`)이 이것을 공유한다 —
- * 읽음 처리·마지막 줄 따라가기·거절 처리가 두 형태에서 같아야 하기 때문이다.
- * 다른 것은 **높이 정책과 껍데기**뿐이라 그 둘만 prop으로 받는다.
+ * 대화 목록과 입력칸. 상주 패널(`ChatPanel`)과 도크(`ChatDock`)가 이것을 공유한다 —
+ * 마지막 줄 따라가기·거절 처리가 두 형태에서 같아야 하기 때문이다. 다른 것은 **높이 정책과
+ * 껍데기**뿐이라 그 둘만 prop으로 받는다.
  */
 export function ChatBody({ active, chat, className, listClassName, you }: ChatBodyProps) {
   const [draft, setDraft] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
-  const { lines, markRead, send } = chat
-
-  /*
-   * 보이는 동안은 계속 읽음으로 둔다. `markRead`의 신원이 남의 말 개수에 묶여 있어
-   * (useRoomChat) 새 말이 오면 이 effect가 다시 돈다 — 줄 수를 따로 의존성에 넣지 않아도 된다.
-   */
-  useEffect(() => {
-    if (!active) return
-    markRead()
-  }, [markRead, active])
+  const { lines, send } = chat
 
   useEffect(() => {
     // 새 말은 아래에 쌓인다 — 보이는 동안은 마지막 줄을 따라간다.

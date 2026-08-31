@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { creatorSession } from '@/mocks/fixtures'
 import { ChatProvider, useChat } from '@/realtime/chat/ChatContext'
-import { ChatDialog, chatLabel } from '@/realtime/chat/ChatDialog'
+import { ChatDock } from '@/realtime/chat/ChatDock'
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import type { ChatMessagePayload } from '@/realtime/wsEvents'
@@ -17,14 +17,7 @@ function ChatHost() {
   const chat = useChat()
   const [open, setOpen] = useState(false)
 
-  return (
-    <>
-      <button onClick={() => setOpen(true)} type="button">
-        {chatLabel(chat.unread)}
-      </button>
-      <ChatDialog chat={chat} onClose={() => setOpen(false)} open={open} you={me} />
-    </>
-  )
+  return <ChatDock chat={chat} onToggle={setOpen} open={open} you={me} />
 }
 
 function renderChat() {
@@ -60,7 +53,7 @@ describe('방 채팅', () => {
   it('입력한 말을 앞뒤 공백을 다듬어 chat.send로 보낸다', async () => {
     const { client, user } = renderChat()
 
-    await user.click(screen.getByRole('button', { name: '채팅' }))
+    await user.click(screen.getByRole('button', { name: '채팅 열기' }))
     await user.type(screen.getByLabelText('보낼 메시지'), '  좋아요  ')
     await user.click(screen.getByRole('button', { name: '보내기' }))
 
@@ -73,7 +66,7 @@ describe('방 채팅', () => {
   it('공백만 입력하면 보내기를 막는다 — 서버가 거절할 요청을 만들지 않는다', async () => {
     const { client, user } = renderChat()
 
-    await user.click(screen.getByRole('button', { name: '채팅' }))
+    await user.click(screen.getByRole('button', { name: '채팅 열기' }))
     await user.type(screen.getByLabelText('보낼 메시지'), '   ')
 
     expect(screen.getByRole('button', { name: '보내기' })).toBeDisabled()
@@ -87,7 +80,7 @@ describe('방 채팅', () => {
     deliver(line())
     deliver(line({ messageId: 'm2', playerId: me, nickname: '느긋한 주사위', text: '네' }))
 
-    await user.click(screen.getByRole('button', { name: /^채팅/ }))
+    await user.click(screen.getByRole('button', { name: '채팅 열기' }))
 
     expect(screen.getAllByText('먼저 굴려요')).toHaveLength(1)
     expect(screen.getByText('참가자')).toBeVisible()
@@ -95,17 +88,13 @@ describe('방 채팅', () => {
     expect(screen.getByText('나')).toBeVisible()
   })
 
-  it('닫혀 있는 동안 온 남의 말만 안 읽은 수로 세고, 열면 지운다', async () => {
-    const { deliver, user } = renderChat()
+  it('접혀 있어도 최근 대화를 보여 준다 — 열어야 보이는 대화가 아니다', () => {
+    const { deliver } = renderChat()
 
     deliver(line())
-    deliver(line({ messageId: 'm2', playerId: me, nickname: '느긋한 주사위', text: '네' }))
 
-    expect(screen.getByRole('button', { name: '채팅 · 읽지 않은 메시지 1개' })).toBeVisible()
-
-    await user.click(screen.getByRole('button', { name: '채팅 · 읽지 않은 메시지 1개' }))
-
-    expect(screen.getByRole('button', { name: '채팅' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '채팅 열기' })).toBeVisible()
+    expect(screen.getByText('먼저 굴려요')).toBeVisible()
   })
 
   it('방을 나가면 대화 기록을 버린다 — 다음 방에 지난 말이 남지 않는다', async () => {
@@ -114,7 +103,7 @@ describe('방 채팅', () => {
     deliver(line())
     act(() => useAppStore.getState().reset())
 
-    await user.click(screen.getByRole('button', { name: /^채팅/ }))
+    await user.click(screen.getByRole('button', { name: '채팅 열기' }))
 
     expect(screen.queryByText('먼저 굴려요')).not.toBeInTheDocument()
     expect(screen.getByText('아직 대화가 없어요. 먼저 말을 걸어 보세요.')).toBeVisible()

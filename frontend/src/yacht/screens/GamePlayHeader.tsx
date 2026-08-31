@@ -1,7 +1,6 @@
-import { ChatUnreadBadge, chatLabel } from '@/realtime/chat/ChatDialog'
 import { cn } from '@/shared/cn'
 import { AudioStatusIcon, audioLabel } from '@/shared/components/AudioStatusIcon'
-import { IconChat, IconClose, IconHelp } from '@/shared/components/Icon'
+import { IconClose, IconHelp } from '@/shared/components/Icon'
 import {
   ConnectionIndicator,
   HeaderButton,
@@ -16,14 +15,12 @@ export function GamePlayHeader({
   activePlayer,
   activePlayerId,
   audioButtonRef,
-  chatUnread,
   connectionStatus,
   isMyTurn,
   leaderLabel,
   onHelp,
   onLeave,
   onOpenAudio,
-  onOpenChat,
   remainingMs,
   roundNumber,
   soundMuted,
@@ -35,13 +32,6 @@ export function GamePlayHeader({
       <HeaderButton label="게임 도움말" onClick={onHelp}>
         <IconHelp className="size-4.5" />
       </HeaderButton>
-      {/* 넓은 화면은 채팅이 오른쪽 열에 상주한다 — 열 것이 없으니 버튼도 없다. */}
-      {!wide && (
-        <HeaderButton label={chatLabel(chatUnread)} onClick={onOpenChat}>
-          <IconChat className="size-4.5" />
-          <ChatUnreadBadge count={chatUnread} />
-        </HeaderButton>
-      )}
       <HeaderButton
         label={audioLabel({ muted: soundMuted })}
         onClick={onOpenAudio}

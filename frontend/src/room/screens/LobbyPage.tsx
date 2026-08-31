@@ -1,4 +1,5 @@
 import { useChat } from '@/realtime/chat/ChatContext'
+import { ChatDock } from '@/realtime/chat/ChatDock'
 import { ChatPanel } from '@/realtime/chat/ChatPanel'
 import {
   ControllerConnectSequence,
@@ -95,82 +96,92 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
             </Button>
           </header>
 
-          {/*
-           * 대기실 본문은 **하나의 스크롤 영역**이다. 채팅이 화면 아래를 상주로 차지하면서
-           * 좁은 화면에 남는 세로 공간이 봇 패널·참가자 목록을 다 담지 못하게 됐다 — 목록만
-           * 따로 굴리게 두면 시작 버튼이 화면 밖으로 밀려난다.
-           */}
-          <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-4 overflow-y-auto overscroll-contain">
-            {room.controller && (
-              <ControllerConnectSequence
-                howTo={HowTo ? <HowTo /> : undefined}
-                status={connectionStatus}
-              />
-            )}
-
-            <BotManagementPanel
-              adding={actions.addingBot}
-              capacity={room.capacity}
-              error={actions.botError}
-              loading={actions.botLoading}
-              onAdd={() => void actions.addBot()}
-              playerCount={snapshot?.players.length ?? 0}
-              visible={Boolean(snapshot && room.isHost && !room.duoGame)}
-            />
-
-            {!snapshot && !room.controller && (
-              <p className="m-0 text-center text-sm text-content-muted" role="status">
-                실시간 대기실에 연결하고 있어요.
-              </p>
-            )}
-
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-semibold">참가 인원</span>
-              <span className="ml-auto font-mono text-base font-bold tabular-nums">
-                {snapshot?.players.length ?? 0}
-                <span className="text-content-faint"> / {room.capacity}</span>
-              </span>
-              {!room.controller && (
-                <Button
-                  className="min-h-9 flex-none px-3 text-sm"
-                  onClick={chrome.invite.show}
-                  ref={chrome.invite.buttonRef}
-                  type="button"
-                  variant="secondary"
-                >
-                  초대
-                </Button>
-              )}
-            </div>
-
-            <LobbyPlayerList
-              botLoading={actions.botLoading}
-              capacity={room.capacity}
-              isHost={room.isHost}
-              onRemoveBot={actions.removeBot}
-              snapshot={snapshot}
+          <div className="relative flex min-h-0 flex-1 flex-col gap-4">
+            {/*
+             * 좁은 화면의 채팅은 본문 **위에 떠 있다**(넓은 화면은 오른쪽 열 패널이 맡는다).
+             * 폰 세로에서 채팅에 자리를 떼어 주면 참가자 목록과 시작 버튼이 그만큼 밀린다 —
+             * 접힌 도크가 최근 몇 줄만 보여 주고, 펼치면 본문 위를 덮는다.
+             */}
+            <ChatDock
+              chat={chat}
+              className="absolute inset-x-0 top-0 z-sticky lg:hidden"
+              onToggle={chrome.setChatOpen}
+              open={chrome.chatOpen}
               you={session.you}
             />
-          </div>
 
-          <LobbyStartPanel
-            canStart={room.canStart}
-            connectionStatus={connectionStatus}
-            isHost={room.isHost}
-            minPlayers={room.minPlayers}
-            onStart={() => void actions.start()}
-            snapshot={snapshot}
-            startError={actions.startError}
-            startLoading={actions.startLoading}
-          />
+            {/*
+             * 대기실 본문은 **하나의 스크롤 영역**이다. 위쪽 `pt`(4.75rem)는 접힌 도크 세 줄이
+             * 앉을 자리다 —
+             * 목록만 따로 굴리게 두면 도크에 가린 채 시작 버튼까지 밀려난다.
+             */}
+            <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-4 overflow-y-auto overscroll-contain max-lg:pt-[4.75rem]">
+              {room.controller && (
+                <ControllerConnectSequence
+                  howTo={HowTo ? <HowTo /> : undefined}
+                  status={connectionStatus}
+                />
+              )}
+
+              <BotManagementPanel
+                adding={actions.addingBot}
+                capacity={room.capacity}
+                error={actions.botError}
+                loading={actions.botLoading}
+                onAdd={() => void actions.addBot()}
+                playerCount={snapshot?.players.length ?? 0}
+                visible={Boolean(snapshot && room.isHost && !room.duoGame)}
+              />
+
+              {!snapshot && !room.controller && (
+                <p className="m-0 text-center text-sm text-content-muted" role="status">
+                  실시간 대기실에 연결하고 있어요.
+                </p>
+              )}
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold">참가 인원</span>
+                <span className="ml-auto font-mono text-base font-bold tabular-nums">
+                  {snapshot?.players.length ?? 0}
+                  <span className="text-content-faint"> / {room.capacity}</span>
+                </span>
+                {!room.controller && (
+                  <Button
+                    className="min-h-9 flex-none px-3 text-sm"
+                    onClick={chrome.invite.show}
+                    ref={chrome.invite.buttonRef}
+                    type="button"
+                    variant="secondary"
+                  >
+                    초대
+                  </Button>
+                )}
+              </div>
+
+              <LobbyPlayerList
+                botLoading={actions.botLoading}
+                capacity={room.capacity}
+                isHost={room.isHost}
+                onRemoveBot={actions.removeBot}
+                snapshot={snapshot}
+                you={session.you}
+              />
+            </div>
+
+            <LobbyStartPanel
+              canStart={room.canStart}
+              connectionStatus={connectionStatus}
+              isHost={room.isHost}
+              minPlayers={room.minPlayers}
+              onStart={() => void actions.start()}
+              snapshot={snapshot}
+              startError={actions.startError}
+              startLoading={actions.startLoading}
+            />
+          </div>
         </div>
 
-        {/*
-         * 좁은 화면에서는 높이를 **고정**한다. flex-1로 나눠 갖게 두면 대화가 쌓일수록
-         * 위쪽 본문 몫을 잠식해 참가자 목록이 사라진다 — 넓은 화면에서만 오른쪽 열이 되어
-         * 화면 높이를 통째로 쓴다.
-         */}
-        <ChatPanel chat={chat} className="h-64 flex-none lg:h-auto lg:w-80" you={session.you} />
+        <ChatPanel chat={chat} className="hidden lg:flex lg:w-80" you={session.you} />
       </main>
     </>
   )

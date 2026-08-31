@@ -9,9 +9,7 @@ import { type RoomChat, useRoomChat } from './useRoomChat'
  */
 const NO_CHAT: RoomChat = {
   lines: [],
-  unread: 0,
   send: () => undefined,
-  markRead: () => undefined,
 }
 
 const ChatContext = createContext<RoomChat>(NO_CHAT)

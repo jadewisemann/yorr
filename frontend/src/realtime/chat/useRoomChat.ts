@@ -19,10 +19,7 @@ export interface ChatLine {
 
 export interface RoomChat {
   lines: ChatLine[]
-  /** 마지막으로 읽은 뒤 도착한 **남의** 말 개수. 내가 보낸 말은 세지 않는다. */
-  unread: number
   send: (text: string) => void
-  markRead: () => void
 }
 
 /**
@@ -35,7 +32,6 @@ export interface RoomChat {
 export function useRoomChat(you: PlayerId): RoomChat {
   const client = useRealtimeClient()
   const [lines, setLines] = useState<ChatLine[]>([])
-  const [readCount, setReadCount] = useState(0)
 
   useEffect(
     () =>
@@ -61,7 +57,6 @@ export function useRoomChat(you: PlayerId): RoomChat {
   if (roomOf !== you) {
     setRoomOf(you)
     setLines([])
-    setReadCount(0)
   }
 
   const send = useCallback(
@@ -77,13 +72,5 @@ export function useRoomChat(you: PlayerId): RoomChat {
     [client],
   )
 
-  /*
-   * 읽음 기준선은 인덱스가 아니라 **남이 보낸 말의 누적 개수**다. 인덱스로 두면
-   * CHAT_HISTORY_LIMIT을 넘어 앞줄이 잘려 나갈 때 기준선이 함께 밀려서, 읽지 않은 말이
-   * 읽음으로 바뀐다.
-   */
-  const fromOthers = lines.filter((line) => line.playerId !== you).length
-  const markRead = useCallback(() => setReadCount(fromOthers), [fromOthers])
-
-  return { lines, unread: Math.max(0, fromOthers - readCount), send, markRead }
+  return { lines, send }
 }

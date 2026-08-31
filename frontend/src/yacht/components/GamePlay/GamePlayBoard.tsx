@@ -8,8 +8,8 @@ import { RecordPanel } from '@/yacht/components/RecordPanel'
 
 interface GamePlayBoardProps {
   actions: ReactNode
-  /** 좁은 화면에서 판 위에 겹치는 최근 대화. 넓은 화면은 `chatPanel`이 대신한다. */
-  chatOverlay?: ReactNode
+  /** 좁은 화면에서 판 위에 떠 있는 채팅 도크. 넓은 화면은 `chatPanel`이 대신한다. */
+  chatDock?: ReactNode
   /** 넓은 화면에서 점수표 아래에 상주하는 채팅. 좁은 화면에서는 자리가 없어 넘기지 않는다. */
   chatPanel?: ReactNode
   connectionStatus: Parameters<typeof ConnectionBanner>[0]['status']
@@ -30,7 +30,7 @@ interface GamePlayBoardProps {
 
 export function GamePlayBoard({
   actions,
-  chatOverlay,
+  chatDock,
   chatPanel,
   connectionStatus,
   diceScene,
@@ -58,7 +58,7 @@ export function GamePlayBoard({
 
         <div className={cn('flex min-h-0 flex-1 flex-col', !wide && 'relative')}>
           {diceScene}
-          {chatOverlay}
+          {chatDock}
           {guideOverlay}
           <footer
             className={cn(
