@@ -23,7 +23,7 @@ interface RecordingModule {
   readonly calls: string[]
 }
 
-/** 라이프사이클이 부르는 훅만 기록하는 모듈(Java 테스트의 `mock(GameModule.class)`). */
+/** 라이프사이클이 부르는 훅만 기록하는 모듈. */
 const recordingModule = (code: string, onStart?: () => never): RecordingModule => {
   const started: { roomCode: string; game: GameStartResult }[] = []
   const calls: string[] = []
@@ -81,8 +81,8 @@ describeRedis('GameLifecycleService', () => {
   }
 
   /**
-   * Java는 모킹으로 `rollbackStart(roomCode, gameId)` 호출만 확인하지만, 여기서는
-   * 진짜 Lua가 도는지까지 본다 — 롤백의 계약은 "phase 복구 + 그 game 키 삭제"다.
+   * 호출 여부가 아니라 **진짜 Lua가 도는지**까지 본다 — 롤백의 계약은
+   * "phase 복구 + 그 game 키 삭제"다.
    */
   it('모듈 초기화가 실패하면 그 게임만 롤백하고 원인 예외를 그대로 올린다', async () => {
     const failure = new Error('initialization_failed')

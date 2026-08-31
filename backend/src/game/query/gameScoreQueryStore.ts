@@ -14,7 +14,7 @@ export interface ReadOnlyRedis {
   hgetall(key: string): Promise<Record<string, string>>
 }
 
-/** Java `GameScoreSnapshot` record 자리. 생성 시점에 검증하고 동결한다. */
+/** 조회 스냅샷. 생성 시점에 검증하고 동결한다. */
 export interface GameScoreSnapshot {
   readonly roomId: string
   readonly gameId: string
@@ -29,8 +29,8 @@ export interface GameScoreQueryStore {
 }
 
 /**
- * 읽기 재시도 횟수. Java `MAX_READ_ATTEMPTS = 2`와 같다 — 2회 모두 스냅샷이
- * 어긋나면 `STORE_FAILURE`(500)다. 조회는 락을 잡지 않는다: 게임 진행 경로가
+ * 읽기 재시도 횟수. 2회 모두 스냅샷이 어긋나면 `STORE_FAILURE`(500)다.
+ * 조회는 락을 잡지 않는다: 게임 진행 경로가
  * 조회 때문에 멈추는 것이 스테일 응답보다 나쁘다.
  */
 const MAX_READ_ATTEMPTS = 2
@@ -67,7 +67,7 @@ export class RedisGameScoreQueryStore implements GameScoreQueryStore {
   constructor(private readonly redis: ReadOnlyRedis) {}
 
   async findByRoomId(roomId: string, requesterId: string): Promise<GameScoreSnapshot> {
-    // 빈 식별자의 이유 코드가 서로 다르다(404 vs 403) — Java의 매핑 그대로.
+    // 빈 식별자의 이유 코드가 서로 다르다(404 vs 403) — 이 매핑이 계약이다.
     if (isBlank(roomId)) {
       throw new GameScoreQueryError('ROOM_NOT_FOUND', 'roomId must not be blank')
     }
@@ -171,7 +171,7 @@ export class RedisGameScoreQueryStore implements GameScoreQueryStore {
   }
 }
 
-/** Java `RoomPhase.valueOf` — 알 수 없는 값·누락은 500(STORE_FAILURE)이다. */
+/** 알 수 없는 phase 값·누락은 500(STORE_FAILURE)이다. */
 const parsePhase = (value: string | undefined, roomId: string): RoomPhase => {
   if (value === undefined || !ROOM_PHASES.has(value)) {
     throw new GameScoreQueryError('STORE_FAILURE', `방 상태가 올바르지 않습니다: ${roomId}`)

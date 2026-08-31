@@ -1,6 +1,5 @@
 /**
- * 조회 도메인의 **인자 검증 실패** — Java `IllegalArgumentException` 자리
- * (`GameResultCalculator.validate`·`GameScoreSnapshot` compact constructor).
+ * 조회 도메인의 **인자 검증 실패**.
  *
  * `errors.ts`의 `DomainError`를 상속하지 **않는다**. 저쪽은 방 REST의 plain-text
  * 소문자 코드 계약(`room_not_found` …)이고 조회 REST는 JSON `{code,message}`라
@@ -29,7 +28,7 @@ export type GameScoreQueryReason =
   | 'GAME_NOT_FINISHED'
   | 'STORE_FAILURE'
 
-/** Java `GameScoreQueryException`(unchecked) 자리. */
+/** 조회 실패. 이유 코드가 HTTP 상태로 매핑된다. */
 export class GameScoreQueryError extends Error {
   readonly reason: GameScoreQueryReason
 

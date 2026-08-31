@@ -97,9 +97,9 @@ describe('GameModuleRegistry', () => {
   })
 
   /**
-   * 모듈이 아직 없는 게임 코드는 **던지지 않고** false다(Java는 `require()`가
-   * `invalid_game_code`를 던진다) — 야추 모듈이 붙기 전까지 그 방의 대기실 자체가
-   * 돌아가야 하고, 게이트웨이는 이 false를 `INVALID_MESSAGE`로 답한다.
+   * 모듈이 아직 없는 게임 코드는 **던지지 않고** false다 — 모듈이 붙기 전까지도
+   * 그 방의 대기실 자체는 돌아가야 하고, 게이트웨이는 이 false를
+   * `INVALID_MESSAGE`로 답한다. (코드 조회 `require`는 반대로 던진다.)
    */
   it('모듈이 없는 게임 코드는 던지지 않고 처리하지 않았다고 답한다', async () => {
     const registry = new GameModuleRegistry()

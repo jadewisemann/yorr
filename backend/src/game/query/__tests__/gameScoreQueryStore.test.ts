@@ -14,10 +14,9 @@ const PLAYER_A = 'player-a'
 const PLAYER_B = 'player-b'
 
 /**
- * Java 단위 테스트는 `RedisTemplate`을 모킹해 "읽는 사이 게임이 바뀐다"를
- * 만들었다. 여기서는 **진짜 Redis** 위에서 읽기 사이에 실제 쓰기를 끼워 넣는
- * 래퍼로 같은 인터리빙을 만든다 — 값은 전부 Redis에서 나오므로 스토어가 스스로
- * 계약을 정의해 버리는 문제가 없다.
+ * "읽는 사이 게임이 바뀐다"를 **진짜 Redis** 위에서 만든다 — 읽기 사이에 실제
+ * 쓰기를 끼워 넣는 래퍼로 인터리빙을 낸다. 값이 전부 Redis에서 나오므로 스토어가
+ * 스스로 계약을 정의해 버리는 문제가 없다.
  */
 describeRedis('RedisGameScoreQueryStore', () => {
   const redis = useRedis()
@@ -61,7 +60,7 @@ describeRedis('RedisGameScoreQueryStore', () => {
     await startGame('game-a')
     await redis().hset(gameScoreboardKey('game-a', PLAYER_A), '_total', '10')
 
-    // 첫 방 해시 읽기 직후 게임을 game-b로 교체한다(Java 테스트의 인터리빙).
+    // 첫 방 해시 읽기 직후 게임을 game-b로 교체한다.
     let switched = false
     const racing: ReadOnlyRedis = {
       hget: (key, field) => redis().hget(key, field),
