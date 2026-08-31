@@ -45,9 +45,8 @@ export interface PingPongAiResultArchive {
 }
 
 /**
- * 바인딩이 끝난 요청 본문. Java `PingPongAiResultRequest` record에 해당한다 —
- * 점수는 `int` primitive이므로 **빠지면 0**이고(그 값은 점수 재검증에서 걸린다),
- * `resultId`는 `String`이라 null일 수 있다.
+ * 바인딩이 끝난 요청 본문. 점수는 **빠지면 0**이고(그 값은 점수 재검증에서
+ * 걸린다), `resultId`는 null일 수 있다.
  */
 export interface PingPongAiResultRequest {
   readonly resultId: string | null | undefined
@@ -56,9 +55,8 @@ export interface PingPongAiResultRequest {
 }
 
 /**
- * 바인딩 결과. `ok: false`는 Spring의 `HttpMessageNotReadableException` 자리다 —
- * 도메인 오류 코드가 아니라 **읽을 수 없는 본문**이므로 코드 문자열이 없다.
- * `request: null`은 본문 자체가 없는 요청(`@RequestBody(required = false)` → null)이고,
+ * 바인딩 결과. `ok: false`는 **읽을 수 없는 본문**이다 — 도메인 오류 코드가
+ * 아니므로 코드 문자열이 없다. `request: null`은 본문 자체가 없는 요청이고,
  * 그 갈래는 서비스가 `invalid_ai_result`로 판정한다.
  */
 export type PingPongAiResultBinding =
@@ -66,11 +64,11 @@ export type PingPongAiResultBinding =
   | { readonly ok: false }
 
 /**
- * 원시 JSON → {@link PingPongAiResultRequest}. Jackson의 record 바인딩을 흉내낸다:
+ * 원시 JSON → {@link PingPongAiResultRequest}. 관용 규칙이 계약이다:
  *
- * - 필드가 없거나 null이면 primitive 기본값 **0**(3.4가 swing payload에서 쓴 관용과 같다).
- * - 정수 문자열(`"11"`)은 받는다 — Jackson의 String→int 강제 변환.
- * - 소수는 **버린다**(`11.9 → 11`) — Jackson `ACCEPT_FLOAT_AS_INT`가 기본 on이다.
+ * - 필드가 없거나 null이면 **0**(swing payload에서 쓴 관용과 같다).
+ * - 정수 문자열(`"11"`)은 받는다.
+ * - 소수는 **버린다**(`11.9 → 11`).
  * - `resultId`가 문자열이 아니면 없는 것으로 본다 → `invalid_result_id`로 떨어진다.
  */
 export const bindPingPongAiResult = (body: unknown): PingPongAiResultBinding => {
@@ -159,15 +157,14 @@ export class PingPongAiResultService {
  * `matches.game_id`가 되고 그 컬럼의 UNIQUE 제약이 재전송·새로고침으로 같은 판이
  * 두 번 쌓이는 것을 막는 유일한 장치다 — 그래서 모양을 여기서 못박는다.
  *
- * Java는 `UUID.fromString`의 `RuntimeException`(null이면 NPE 포함)을 통째로 잡아
- * `invalid_result_id`로 바꾼다. 같은 갈래를 정규식으로 만든다.
+ * 모양이 어긋나면 값이 무엇이든 `invalid_result_id` 하나로 떨어진다.
  */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const normalizeResultId = (resultId: string | null | undefined): string => {
   const value = resultId ?? ''
   if (!UUID_PATTERN.test(value)) throw new DomainError('invalid_result_id')
-  // Java `UUID.fromString(...).toString()`은 **소문자로 정규화**한다.
+  // UUID는 **소문자로 정규화**한다.
   return value.toLowerCase()
 }
 

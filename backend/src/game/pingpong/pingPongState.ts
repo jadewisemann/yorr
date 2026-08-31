@@ -11,8 +11,8 @@
  * 판정을 상태에 반영하는 경로는 존재하지 않는다.
  *
  * 와이어 정본은 `frontend/src/realtime/wsEvents.ts`의 `PingPongState`다.
- * null 취급은 Java `@JsonInclude(NON_NULL)`을 그대로 따른다 — `fault`·
- * `serveReceiverId`·`lastEvent`가 없으면 **필드 자체가 생략**되므로
+ * null 취급이 계약이다 — `fault`·`serveReceiverId`·`lastEvent`가 없으면
+ * **필드 자체가 생략**되므로
  * `undefined`로 둔다(`JSON.stringify`가 지운다).
  */
 
@@ -88,7 +88,7 @@ export interface PingPongEvent {
   readonly at: number
 }
 
-/** playerId → 값. Java `Map<String, Integer>`·`Map<String, Long>` 자리. */
+/** playerId → 값. */
 export type PingPongPlayerNumbers = Readonly<Record<string, number>>
 
 export interface PingPongState {

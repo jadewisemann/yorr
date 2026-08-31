@@ -26,8 +26,8 @@ export interface PingPongSocketMembership {
 }
 
 /**
- * Jackson의 record 바인딩 자리. 없는 필드는 `long` 기본값 0이 되므로
- * (`{}` → `{inputSeq:0, clientTs:0}`) 여기서도 관용한다 — 판정은 서비스가 한다.
+ * 없는 필드는 0으로 관용한다(`{}` → `{inputSeq:0, clientTs:0}`) —
+ * 판정은 서비스가 한다.
  */
 const swingPayloadSchema = z
   .object({
@@ -156,10 +156,10 @@ export class PingPongGameModule implements GameModule {
       }
       await this.games.swing(message.roomId, member.playerId, parseSwing(message.payload))
     } catch (error) {
-      // Java의 갈래 그대로: IllegalArgumentException(=DomainError)만 자기 코드를 싣고,
-      // 그 밖은 전부 `invalid swing payload`로 뭉개진다 — payload 파싱 실패는 물론
-      // `game_state_busy`(락 경합) 같은 IllegalStateException도 여기로 온다.
-      // 예외를 다시 던지지 않는 것도 Java와 같다(응답을 보냈으면 소켓은 살아 있다).
+      // 갈래가 계약이다: `DomainError`만 자기 코드를 싣고, 그 밖은 전부
+      // `invalid swing payload`로 뭉개진다 — payload 파싱 실패는 물론
+      // `game_state_busy`(락 경합)도 여기로 온다.
+      // 예외를 다시 던지지 않는다 — 응답을 보냈으면 소켓은 살아 있다.
       const reason = error instanceof DomainError ? error.code : 'invalid swing payload'
       this.sendError(socket, 'INVALID_MESSAGE', reason, message)
     }
@@ -187,10 +187,11 @@ export class PingPongGameModule implements GameModule {
 }
 
 /**
- * `null`·비객체 payload는 Java에서 `treeToValue`가 null을 돌려주고 서비스가
- * `invalid_ping_pong_swing`으로 튕긴다 — 같은 결과가 되도록 null을 그대로 넘긴다.
+ * `null`·비객체 payload는 그대로 넘겨 서비스가 `invalid_ping_pong_swing`으로
+ * 튕기게 한다.
+ *
+ * 모양이 어긋나면 던진다 — 호출부가 `INVALID_MESSAGE`로 바꾼다.
  */
-/** 모양이 어긋나면 던진다 — 호출부가 `INVALID_MESSAGE`로 바꾼다. */
 const parseHostState = (payload: unknown): PingPongState => {
   const parsed = hostStateSchema.parse(payload)
   const { fault, ...ball } = parsed.ball

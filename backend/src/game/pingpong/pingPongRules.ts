@@ -155,7 +155,7 @@ export const serveReceiver = (
  * 알려진 구멍: 클라 시계가 서버보다 뒤져 있으면 그만큼 공짜 되감기를 얻는다
  * (최대 120ms). 시계에서 완전히 벗어나려면 `clientTs` 대신 "이 공 상태를 받은 뒤
  * 흐른 ms"를 보내고 `launchedAt`에 더해야 한다 — 그때 이 함수는 사라진다.
- * 와이어 계약 동결이므로 지금은 Java 그대로 이식한다.
+ * 와이어 계약을 바꾸는 일이라 지금은 그대로 둔다.
  */
 export const judgedAt = (now: number, clientTs: number): number =>
   Math.max(now - MAX_ROLLBACK_MILLIS, Math.min(now, clientTs))
