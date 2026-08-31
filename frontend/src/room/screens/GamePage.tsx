@@ -10,6 +10,16 @@ import { GameResult } from '@/yacht/screens/GameResult'
 import { RoomExitGuard } from './RoomExitGuard'
 
 const moduleScreens = {
+  DAVINCI_CODE: {
+    Game: lazy(() =>
+      import('@/davinci/screens/DavinciGame').then((module) => ({ default: module.DavinciGame })),
+    ),
+    Result: lazy(() =>
+      import('@/davinci/screens/DavinciResult').then((module) => ({
+        default: module.DavinciResult,
+      })),
+    ),
+  },
   DUEL: {
     Game: lazy(() =>
       import('@/duel/screens/DuelGame').then((module) => ({ default: module.DuelGame })),
@@ -33,7 +43,9 @@ const moduleScreens = {
 }
 
 function screensOf(gameCode: GameCode | undefined) {
-  return gameCode === 'DUEL' || gameCode === 'PING_PONG' ? moduleScreens[gameCode] : null
+  return gameCode !== undefined && gameCode in moduleScreens
+    ? moduleScreens[gameCode as keyof typeof moduleScreens]
+    : null
 }
 
 const RESULT_TRANSITION_MS = 1_000

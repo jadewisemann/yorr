@@ -91,6 +91,18 @@
   --color-duel-positive: var(--ds-duel-positive);
   --color-duel-danger: var(--ds-duel-danger);
 
+  --color-dv-canvas: var(--ds-dv-canvas);
+  --color-dv-felt: var(--ds-dv-felt);
+  --color-dv-black: var(--ds-dv-black);
+  --color-dv-black-ink: var(--ds-dv-black-ink);
+  --color-dv-white: var(--ds-dv-white);
+  --color-dv-white-ink: var(--ds-dv-white-ink);
+  --color-dv-accent: var(--ds-dv-accent);
+  --color-dv-turn: var(--ds-dv-turn);
+  --color-dv-surface: var(--ds-dv-surface);
+  --color-dv-surface-raised: var(--ds-dv-surface-raised);
+  --color-dv-line: var(--ds-dv-line);
+
   --shadow-landing-panel: var(--ds-landing-shadow-panel);
   --shadow-landing-card: var(--ds-landing-shadow-card);
   --shadow-landing-card-quiet: var(--ds-landing-shadow-card-quiet);
@@ -492,6 +504,28 @@
   --ds-duel-gold: var(--ds-color-warning);
   --ds-duel-positive: var(--ds-color-positive);
   --ds-duel-danger: var(--ds-color-brand-soft);
+
+  /* 다빈치 코드 — 색이 곧 규칙인 게임이라 타일 두 색이 팔레트의 중심이다.
+     검정·흰색은 실제 타일처럼 순색을 피해 눈이 부시지 않게 잡았고, 글자색은 각 타일
+     위에서 읽히는 값이다. accent는 방금 공개된 타일, turn은 지금 차례인 사람을 가리킨다.
+     면(surface)·선(line)까지 여기 두는 이유는 아래 「테마를 타지 않는다」와 같다.
+
+     ⚠️ **이 팔레트는 테마를 타지 않는다** — 결투 캔버스와 같은 규칙이다(위 brand 주석).
+     캔버스가 언제나 어두우므로 앱 공용 토큰(`content`·`surface-veil`·`brand-strong`·
+     `warning`)을 쓰면 안 된다: 그것들은 라이트 테마에서 어두운 값으로 뒤집혀, 어두운
+     판 위에서 글자와 면이 통째로 사라진다. 실제로 결과 화면 제목을 `text-content`로
+     적었다가 라이트 테마에서 #16171b(거의 배경색)로 렌더되는 것을 실기로 확인했다. */
+  --ds-dv-canvas: #0a0b0d;
+  --ds-dv-felt: #14161a;
+  --ds-dv-black: #16171b;
+  --ds-dv-black-ink: #f2f2f0;
+  --ds-dv-white: #eae7de;
+  --ds-dv-white-ink: #14151a;
+  --ds-dv-accent: #ff4d48;
+  --ds-dv-turn: #e9b44c;
+  --ds-dv-surface: rgb(255 255 255 / 6%);
+  --ds-dv-surface-raised: rgb(255 255 255 / 14%);
+  --ds-dv-line: rgb(255 255 255 / 12%);
 
   /* 게임 화면 텍스트 밝기. 결투·탁구가 content / content-muted / content-faint 사다리를
      흰색 알파 11단(/30 /35 /40 /45 /50 /55 /60 /65 /70 /75 /85, 33곳)으로 다시 구현하고

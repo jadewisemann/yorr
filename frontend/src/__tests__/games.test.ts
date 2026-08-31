@@ -11,6 +11,7 @@ describe('games', () => {
       'yacht',
       'pingpong',
       'duel',
+      'davinci',
     ])
   })
 

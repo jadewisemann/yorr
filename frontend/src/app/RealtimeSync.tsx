@@ -129,6 +129,7 @@ function isRoomReadyMessage(message: ServerMessage) {
     message.type === 'game.yacht_dice.state.sync' ||
     message.type === 'game.ping_pong.state.sync' ||
     message.type === 'game.duel.state.sync' ||
+    message.type === 'game.davinci_code.state.sync' ||
     message.type === 'sys.reconnected'
   )
 }
@@ -157,6 +158,7 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
     case 'game.yacht_dice.state.sync':
     case 'game.ping_pong.state.sync':
     case 'game.duel.state.sync':
+    case 'game.davinci_code.state.sync':
       store.replaceRoomSnapshot(keepGameState(message.payload.snapshot, store.roomSnapshot))
       return
     case 'room.player_joined':
@@ -180,6 +182,7 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
     case 'game.yacht_dice.game.over':
     case 'game.ping_pong.game.over':
     case 'game.duel.game.over':
+    case 'game.davinci_code.game.over':
       applyGameOver(message.payload, store)
       return
     case 'game.ping_pong.state':
@@ -187,6 +190,9 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
       return
     case 'game.duel.state':
       applyModuleGameState(message.payload, 'DUEL', store)
+      return
+    case 'game.davinci_code.state':
+      applyModuleGameState(message.payload, 'DAVINCI_CODE', store)
       return
     case 'room.closed':
       store.endSession('room_closed')
@@ -200,7 +206,10 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
 }
 
 function applyModuleGameState(
-  payload: Extract<ServerMessage, { type: 'game.ping_pong.state' | 'game.duel.state' }>['payload'],
+  payload: Extract<
+    ServerMessage,
+    { type: 'game.davinci_code.state' | 'game.ping_pong.state' | 'game.duel.state' }
+  >['payload'],
   gameCode: GameCode,
   store: Store,
 ) {

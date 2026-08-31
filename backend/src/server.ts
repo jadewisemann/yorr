@@ -13,6 +13,13 @@ import { allowedOrigins, type Env } from './config/env.js'
 import { GameCatalog } from './game/catalog.js'
 import { GameCompletionService, RedisGameCompletionStore } from './game/completion/index.js'
 import {
+  DavinciGameModule,
+  DavinciGameService,
+  RedisDavinciScoreboard,
+  RedisDavinciStateStore,
+  registryAudience,
+} from './game/davinci/index.js'
+import {
   DuelGameModule,
   DuelGameService,
   RedisDuelScoreboard,
@@ -96,6 +103,7 @@ import { HeartbeatMonitor } from './ws/heartbeat.js'
 import type { WsRoomSnapshot } from './ws/protocol.js'
 import { RoomSessionRegistry } from './ws/registry.js'
 import { RealtimeRoomSnapshotService } from './ws/snapshot.js'
+import type { ClientSocket } from './ws/socket.js'
 
 /** REST base. WebSocket은 `/ws/v1/game`(gateway.ts) — 둘 다 계약이다. */
 const API_PREFIX = '/api/v1'
@@ -369,6 +377,22 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
         presence: registry,
         completion,
         scoreboard: new RedisDuelScoreboard(redis),
+      }),
+      registry,
+    ),
+  )
+  games.register(
+    new DavinciGameModule(
+      new DavinciGameService<WsRoomSnapshot, ClientSocket>({
+        states: new RedisDavinciStateStore(redis),
+        scheduler: deadlineScheduler,
+        // 좌석마다 감춘 숫자가 달라 방송기 대신 유니캐스트 어댑터를 쓴다
+        // (game/davinci/davinciPorts.ts의 `DavinciAudience` 주석).
+        audience: registryAudience(registry),
+        realtimeSnapshots: snapshots,
+        presence: registry,
+        completion,
+        scoreboard: new RedisDavinciScoreboard(redis),
       }),
       registry,
     ),

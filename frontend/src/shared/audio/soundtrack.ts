@@ -13,27 +13,48 @@ let stopWaitingForGesture: (() => void) | null = null
 const tracks = new Map<GameKey, HTMLAudioElement>()
 
 function allTracks(): HTMLAudioElement[] {
-  return [...tracks.values(), ...gameTracks.values(), resultTrack].filter((track) => track !== null)
+  // 같은 요소가 두 자리에 걸릴 수 있어 중복을 지운다(아래 `prepare`의 곡 공유).
+  // 지우지 않으면 잠금 해제 때 한 요소를 두 번 재생하게 된다.
+  return [...new Set([...tracks.values(), ...gameTracks.values(), resultTrack])].filter(
+    (track) => track !== null,
+  )
 }
+
+/**
+ * 아직 전용 곡이 없는 게임이 빌려 쓰는 트랙. 없는 파일을 `new Audio`에 넘기면 화면마다
+ * 404가 나고 그 게임에서는 음악이 통째로 빠진다 — 결이 가까운 곡으로 이어 둔다.
+ * 다빈치 코드는 같은 심리·추리 결인 라이어스 다이스의 곡을 쓰고, 인게임에서는 판을
+ * 두고 도는 야추의 곡을 빌린다(위 표).
+ */
+const LANDING_TRACK: Partial<Record<GameKey, GameKey>> = { davinci: 'liars' }
 
 function prepare(): void {
   if (tracks.size) return
 
-  for (const { key } of games) {
-    const audio = new Audio(`/audio/landing/${key}.mp3`)
+  // **같은 파일에는 요소 하나.** 곡을 나눠 쓰는 게임이 있으므로(위 LANDING_TRACK,
+  // 아래 인게임 표) 매번 `new Audio`를 하면 같은 곡의 요소가 둘이 되고, 한쪽을 멈춰도
+  // 다른 쪽이 계속 울린다.
+  const bySource = new Map<string, HTMLAudioElement>()
+  const looping = (source: string): HTMLAudioElement => {
+    const existing = bySource.get(source)
+    if (existing) return existing
+    const audio = new Audio(source)
     audio.loop = true
     audio.preload = 'auto'
-    tracks.set(key, audio)
+    bySource.set(source, audio)
+    return audio
+  }
+
+  for (const { key } of games) {
+    tracks.set(key, looping(`/audio/landing/${LANDING_TRACK[key] ?? key}.mp3`))
   }
   for (const [code, source] of Object.entries({
+    DAVINCI_CODE: '/audio/game/yacht_ingame.mp3',
     DUEL: '/audio/game/duel-ingame.mp3',
     PING_PONG: '/audio/game/ping-pong-ingame.mp3',
     YACHT_DICE: '/audio/game/yacht_ingame.mp3',
   }) as [GameCode, string][]) {
-    const audio = new Audio(source)
-    audio.loop = true
-    audio.preload = 'auto'
-    gameTracks.set(code, audio)
+    gameTracks.set(code, looping(source))
   }
   resultTrack = new Audio('/audio/game/result.mp3')
   resultTrack.preload = 'auto'
