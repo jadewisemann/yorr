@@ -46,9 +46,9 @@ const PEEK_BACKDROP =
  * 어디까지가 대화인지 선을 긋는다. 조금이라도 비치면 뒤 안내 카드나 점수가 글자 사이로 겹쳐
  * 둘 다 못 읽고, 페이드로 흐려 놓으면 경계가 없어 어디를 눌러야 판인지 모른다.
  *
- * 화면 폭을 꽉 채운다 — 좌우 여백만큼 음수 마진을 주고 같은 만큼 패딩으로 되돌린다. 위는
- * 트레이 툴바(흔들기·남은 굴림) 위까지 덮는다: 대화를 읽는 동안 굴릴 일이 없고, 툴바만
- * 남겨 두면 그 띠가 대화와 판 사이에 끼어 지저분하다.
+ * 화면 폭을 꽉 채우고 높이도 **고정으로 크게** 잡는다(62svh) — 대화가 두 줄이든 스무 줄이든
+ * 같은 크기로 열려야 채팅창으로 읽힌다. 그동안 판이 가려지는 것은 사용자가 채팅을 열어서
+ * 고른 결과다. 좌우는 여백만큼 음수 마진을 주고 같은 만큼 패딩으로 되돌린다.
  */
 const OPEN_PANEL =
   '-mx-gutter rounded-b-panel border-b border-border bg-surface-overlay px-gutter pt-3 pb-4 shadow-overlay'
@@ -126,7 +126,11 @@ export function ChatOverlay({ chat, className, onToggle, open, you }: ChatOverla
       <motion.section
         animate={{ opacity: 1, y: 0 }}
         aria-label="채팅"
-        className={cn('pointer-events-none top-2 flex flex-col gap-2', OPEN_PANEL, className)}
+        className={cn(
+          'pointer-events-none top-2 flex h-[62svh] flex-col gap-2',
+          OPEN_PANEL,
+          className,
+        )}
         initial={{ opacity: 0, y: -10 }}
         transition={ENTER}
       >
@@ -142,9 +146,10 @@ export function ChatOverlay({ chat, className, onToggle, open, you }: ChatOverla
         <ChatBody
           active
           chat={chat}
-          className="pointer-events-auto"
+          className="pointer-events-auto min-h-0 flex-1"
           lineVariant="toast"
-          listClassName="max-h-[38svh] min-h-24"
+          /* 최근 말이 입력칸 바로 위에 오도록 아래부터 채운다 — 대화가 짧아도 위에 붕 뜨지 않는다. */
+          listClassName="min-h-0 flex-1 content-end"
           you={you}
         />
       </motion.section>
