@@ -1,9 +1,8 @@
-import { type FormEvent, type RefObject, useEffect, useRef, useState } from 'react'
-import { cn } from '@/shared/cn'
+import type { RefObject } from 'react'
 import { BottomSheet } from '@/shared/components/BottomSheet'
-import { Button } from '@/shared/components/Button'
 import { Popover, PopoverHeader } from '@/shared/components/Popover'
-import { CHAT_TEXT_MAX_LENGTH, type PlayerId } from '../wsEvents'
+import type { PlayerId } from '../wsEvents'
+import { ChatBody } from './ChatBody'
 import type { RoomChat } from './useRoomChat'
 
 interface ChatDialogProps {
@@ -15,89 +14,20 @@ interface ChatDialogProps {
   you: PlayerId
 }
 
-const timeFormat = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' })
+/** 창 안에서 대화 목록이 차지할 높이. 상주 패널(`ChatPanel`)은 남는 높이를 대신 채운다. */
+const DIALOG_LIST_HEIGHT = 'max-h-64 min-h-32'
 
 /**
- * 방 채팅 창. 좁은 화면은 바텀시트, 넓은 화면은 앵커 팝오버다(`AccountDialog`와 같은 갈래) —
+ * 방 채팅 **창**. 좁은 화면은 바텀시트, 넓은 화면은 앵커 팝오버다(`AccountDialog`와 같은 갈래) —
  * 폰에서 팝오버를 띄우면 키보드가 올라올 때 입력칸이 화면 밖으로 밀린다.
  *
- * 대화 목록·입력칸의 상태만 여기 있고, 여는 버튼은 화면마다 생김새가 달라
- * **호스트 화면이 각자 그린다**(대기실은 `Button`, 게임 헤더는 `HeaderButton`).
+ * 대기실은 이 창을 쓰지 않고 `ChatPanel`을 화면에 상주시킨다 — 지금 이 창을 쓰는 곳은
+ * 게임 화면뿐이다(주사위 판을 가리지 않아야 해서 여전히 띄우고 닫는다).
+ *
+ * 여는 버튼은 화면마다 생김새가 달라 **호스트 화면이 각자 그린다**(게임 헤더는 `HeaderButton`).
  */
 export function ChatDialog({ anchorRef, chat, layout, onClose, open, you }: ChatDialogProps) {
-  const [draft, setDraft] = useState('')
-  const endRef = useRef<HTMLDivElement>(null)
-  const { lines, markRead, send } = chat
-
-  /*
-   * 열려 있는 동안은 계속 읽음으로 둔다. `markRead`의 신원이 남의 말 개수에 묶여 있어
-   * (useRoomChat) 새 말이 오면 이 effect가 다시 돈다 — 줄 수를 따로 의존성에 넣지 않아도 된다.
-   */
-  useEffect(() => {
-    if (!open) return
-    markRead()
-  }, [markRead, open])
-
-  useEffect(() => {
-    // 새 말은 아래에 쌓인다 — 열려 있는 동안은 마지막 줄을 따라간다.
-    // jsdom에는 scrollIntoView가 없다 — 따라가지 못하는 것은 화면 밖 환경이라 문제가 아니다.
-    if (!open || lines.length === 0) return
-    endRef.current?.scrollIntoView?.({ block: 'end' })
-  }, [lines, open])
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
-    send(draft)
-    setDraft('')
-  }
-
-  const body = (
-    <>
-      {/*
-       * grid-cols-1(= minmax(0, 1fr))이 있어야 한다. 열을 정의하지 않으면 암시적 열이 auto라서
-       * 한 줄의 max-w-[85%]가 순환 참조로 무력화되고, 긴 말이 max-content 폭을 요구해 열이
-       * 컨테이너보다 넓어진다 — 그러면 justify-self-end인 내 말풍선이 스크롤 영역 밖으로 밀려
-       * 잘리고 가로 스크롤바가 생긴다.
-       */}
-      <div
-        aria-label="대화 내용"
-        aria-live="polite"
-        className="grid max-h-64 min-h-32 auto-rows-min grid-cols-1 gap-2 overflow-y-auto overscroll-contain"
-        role="log"
-      >
-        {lines.length === 0 ? (
-          <p className="m-0 self-center text-center text-sm text-content-faint">
-            아직 대화가 없어요. 먼저 말을 걸어 보세요.
-          </p>
-        ) : (
-          lines.map((line) => <ChatLineRow key={line.messageId} line={line} you={you} />)
-        )}
-        <div ref={endRef} />
-      </div>
-
-      <form className="flex flex-none items-end gap-2" onSubmit={submit}>
-        <label className="min-w-0 flex-1">
-          <span className="sr-only">보낼 메시지</span>
-          <input
-            autoComplete="off"
-            className="min-h-12 w-full rounded-card border border-border bg-surface px-3.5 text-base text-content outline-none transition-[border-color,box-shadow] placeholder:text-content-faint focus-visible:border-focus focus-visible:ring-4 focus-visible:ring-focus/10"
-            enterKeyHint="send"
-            maxLength={CHAT_TEXT_MAX_LENGTH}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="메시지 입력"
-            value={draft}
-          />
-        </label>
-        <Button
-          className="min-h-12 flex-none px-4"
-          disabled={draft.trim().length === 0}
-          type="submit"
-        >
-          보내기
-        </Button>
-      </form>
-    </>
-  )
+  const body = <ChatBody active={open} chat={chat} listClassName={DIALOG_LIST_HEIGHT} you={you} />
 
   if (layout === 'narrow') {
     return (
@@ -115,39 +45,8 @@ export function ChatDialog({ anchorRef, chat, layout, onClose, open, you }: Chat
   return (
     <Popover anchorRef={anchorRef} label="채팅" onClose={onClose} open={open} width={340}>
       <PopoverHeader onClose={onClose}>채팅</PopoverHeader>
-      <div className="mt-2 grid grid-cols-1 gap-3">{body}</div>
+      <div className="mt-2">{body}</div>
     </Popover>
-  )
-}
-
-function ChatLineRow({ line, you }: { line: RoomChat['lines'][number]; you: PlayerId }) {
-  const mine = line.playerId === you
-
-  return (
-    <p
-      className={cn(
-        'm-0 grid max-w-[85%] grid-cols-1 gap-0.5',
-        mine ? 'justify-self-end' : 'justify-self-start',
-      )}
-    >
-      <span
-        className={cn(
-          'flex items-baseline gap-2 text-2xs font-semibold text-content-faint',
-          mine && 'justify-end',
-        )}
-      >
-        <span className="min-w-0 truncate">{mine ? '나' : line.nickname}</span>
-        <span className="flex-none tabular-nums">{timeFormat.format(line.at)}</span>
-      </span>
-      <span
-        className={cn(
-          'rounded-card px-3 py-2 text-sm/[1.45] break-words whitespace-pre-wrap',
-          mine ? 'bg-brand/15 text-content' : 'bg-surface text-content',
-        )}
-      >
-        {line.text}
-      </span>
-    </p>
   )
 }
 
