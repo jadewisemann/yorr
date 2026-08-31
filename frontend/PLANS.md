@@ -73,9 +73,9 @@
 | WS | `Player`에 `tier?: 'BRONZE' \| 'SILVER' \| 'GOLD' \| 'PLATINUM' \| 'DIAMOND' \| 'MASTER'` optional 추가. 게스트·봇·언랭크(배치 5판 미만)·비대상 게임은 필드 생략 |
 | REST | `GET /users/me/stats`(게임별 레이팅·티어·전적) · `GET /users/me/matches?limit=`(최근 경기와 레이팅 변동) 신설 |
 
-기존 메시지·경로는 하나도 바뀌지 않는다. `tier`를 모르는 서버(backend-java 롤백
-포함)에서는 휘장이 안 보일 뿐 화면은 그대로다. 프론트가 계약의 정본이므로
-`wsEvents.ts`를 먼저 고치고 서버가 맞춘다.
+기존 메시지·경로는 하나도 바뀌지 않는다. `tier`를 모르는 서버(`deploy/rollback.sh`로
+직전 릴리스에 되돌린 경우 포함)에서는 휘장이 안 보일 뿐 화면은 그대로다. 프론트가
+계약의 정본이므로 `wsEvents.ts`를 먼저 고치고 서버가 맞춘다.
 
 ### 화면 계획
 
