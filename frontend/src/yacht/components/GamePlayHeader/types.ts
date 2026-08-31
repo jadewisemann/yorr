@@ -5,7 +5,6 @@ import type { ConnectionStatus } from '@/store'
 export interface GamePlayHeaderProps {
   activePlayer: Player | undefined
   audioButtonRef?: Ref<HTMLButtonElement> | undefined
-  chatButtonRef?: Ref<HTMLButtonElement> | undefined
   chatUnread: number
   activePlayerId: PlayerId | undefined
   connectionStatus: ConnectionStatus

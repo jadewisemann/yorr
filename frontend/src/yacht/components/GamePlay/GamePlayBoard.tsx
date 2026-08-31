@@ -8,6 +8,10 @@ import { RecordPanel } from '@/yacht/components/RecordPanel'
 
 interface GamePlayBoardProps {
   actions: ReactNode
+  /** 좁은 화면에서 판 위에 겹치는 최근 대화. 넓은 화면은 `chatPanel`이 대신한다. */
+  chatOverlay?: ReactNode
+  /** 넓은 화면에서 점수표 아래에 상주하는 채팅. 좁은 화면에서는 자리가 없어 넘기지 않는다. */
+  chatPanel?: ReactNode
   connectionStatus: Parameters<typeof ConnectionBanner>[0]['status']
   diceScene: ReactNode
   guideOverlay: ReactNode
@@ -26,6 +30,8 @@ interface GamePlayBoardProps {
 
 export function GamePlayBoard({
   actions,
+  chatOverlay,
+  chatPanel,
   connectionStatus,
   diceScene,
   guideOverlay,
@@ -52,6 +58,7 @@ export function GamePlayBoard({
 
         <div className={cn('flex min-h-0 flex-1 flex-col', !wide && 'relative')}>
           {diceScene}
+          {chatOverlay}
           {guideOverlay}
           <footer
             className={cn(
@@ -87,15 +94,26 @@ export function GamePlayBoard({
         />
       </div>
 
-      {wide
-        ? scoreSheet(
-            'min-h-0 border-l border-border',
+      {/*
+       * 넓은 화면의 오른쪽 열은 점수표와 채팅이 나눠 쓴다 — 점수표가 남는 높이를 갖고 채팅은
+       * 아래에서 고정 높이를 지킨다. 대화가 쌓인다고 점수표가 줄어들면 안 된다.
+       *
+       * 그 대가로 720px 높이에서는 점수표 하단 족보가 스크롤 안으로 들어간다(`ScoreSheet`가
+       * overflow-auto라 굴려서 본다). 채팅을 상주시키기로 한 이상 오른쪽 열 어딘가는 줄어야
+       * 하고, 굴려서 볼 수 있는 쪽이 점수표다 — 대화는 마지막 줄이 늘 보여야 한다.
+       */}
+      {wide ? (
+        <div className="flex min-h-0 flex-col border-l border-border">
+          {scoreSheet(
+            'min-h-0 flex-1',
             <div className="flex items-baseline justify-between gap-3 px-3 pt-2.5 pb-1.5">
               <h2 className="m-0 text-sm font-bold tracking-[0.02em] whitespace-nowrap">점수표</h2>
               <p className="m-0 truncate text-xs text-content-faint">{sheetHint}</p>
             </div>,
-          )
-        : null}
+          )}
+          {chatPanel}
+        </div>
+      ) : null}
     </PlayBoard>
   )
 }

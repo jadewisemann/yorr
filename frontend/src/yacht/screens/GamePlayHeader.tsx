@@ -16,7 +16,6 @@ export function GamePlayHeader({
   activePlayer,
   activePlayerId,
   audioButtonRef,
-  chatButtonRef,
   chatUnread,
   connectionStatus,
   isMyTurn,
@@ -36,10 +35,13 @@ export function GamePlayHeader({
       <HeaderButton label="게임 도움말" onClick={onHelp}>
         <IconHelp className="size-4.5" />
       </HeaderButton>
-      <HeaderButton label={chatLabel(chatUnread)} onClick={onOpenChat} ref={chatButtonRef}>
-        <IconChat className="size-4.5" />
-        <ChatUnreadBadge count={chatUnread} />
-      </HeaderButton>
+      {/* 넓은 화면은 채팅이 오른쪽 열에 상주한다 — 열 것이 없으니 버튼도 없다. */}
+      {!wide && (
+        <HeaderButton label={chatLabel(chatUnread)} onClick={onOpenChat}>
+          <IconChat className="size-4.5" />
+          <ChatUnreadBadge count={chatUnread} />
+        </HeaderButton>
+      )}
       <HeaderButton
         label={audioLabel({ muted: soundMuted })}
         onClick={onOpenAudio}

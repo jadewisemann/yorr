@@ -22,7 +22,7 @@ function ChatHost() {
       <button onClick={() => setOpen(true)} type="button">
         {chatLabel(chat.unread)}
       </button>
-      <ChatDialog chat={chat} layout="wide" onClose={() => setOpen(false)} open={open} you={me} />
+      <ChatDialog chat={chat} onClose={() => setOpen(false)} open={open} you={me} />
     </>
   )
 }

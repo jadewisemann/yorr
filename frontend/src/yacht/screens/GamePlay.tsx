@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { useChat } from '@/realtime/chat/ChatContext'
 import { ChatDialog } from '@/realtime/chat/ChatDialog'
+import { ChatOverlay } from '@/realtime/chat/ChatOverlay'
+import { ChatPanel } from '@/realtime/chat/ChatPanel'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { isPartyRoom } from '@/room/partyControllerStorage'
 import { AudioPopover } from '@/shared/components/AudioPopover'
@@ -130,7 +132,6 @@ export function GamePlay({
   const {
     audioButtonRef,
     audioOpen,
-    chatButtonRef,
     chatOpen,
     closeSheet,
     helpOpen,
@@ -211,6 +212,27 @@ export function GamePlay({
     />
   )
 
+  /*
+   * 넓은 화면에서는 오른쪽 열에 채팅을 상주시킨다 — 점수표 옆에 자리가 있고, 대화를 보려고
+   * 판 위에 창을 띄우면 그때마다 주사위가 가려진다. 좁은 화면은 그 자리가 없어 창을 쓴다.
+   */
+  const chatPanel = wide ? (
+    <ChatPanel
+      chat={chat}
+      className="h-56 flex-none rounded-none border-0 border-t border-border bg-transparent"
+      you={session.you}
+    />
+  ) : null
+
+  const chatOverlay = wide ? null : (
+    <ChatOverlay
+      chat={chat}
+      className="absolute inset-x-gutter top-2 z-sticky"
+      onOpen={() => setChatOpen(true)}
+      you={session.you}
+    />
+  )
+
   const header = (
     <GamePlayHeader
       activePlayer={activePlayer}
@@ -222,7 +244,6 @@ export function GamePlay({
       onLeave={onLeaveRequest}
       audioButtonRef={audioButtonRef}
       onOpenAudio={() => setAudioOpen(true)}
-      chatButtonRef={chatButtonRef}
       chatUnread={chat.unread}
       onOpenChat={() => setChatOpen(true)}
       remainingMs={remainingMs}
@@ -296,6 +317,8 @@ export function GamePlay({
     <>
       <GamePlayBoard
         actions={actions}
+        chatOverlay={chatOverlay}
+        chatPanel={chatPanel}
         connectionStatus={connectionStatus}
         diceScene={diceScene}
         guideOverlay={guide?.({
@@ -329,14 +352,14 @@ export function GamePlay({
         onToggleMute={toggleSound}
         open={audioOpen}
       />
-      <ChatDialog
-        anchorRef={chatButtonRef}
-        chat={chat}
-        layout={wide ? 'wide' : 'narrow'}
-        onClose={() => setChatOpen(false)}
-        open={chatOpen}
-        you={session.you}
-      />
+      {!wide && (
+        <ChatDialog
+          chat={chat}
+          onClose={() => setChatOpen(false)}
+          open={chatOpen}
+          you={session.you}
+        />
+      )}
       {zeroModal}
       <GameHelpModal
         onClose={() => setHelpOpen(false)}

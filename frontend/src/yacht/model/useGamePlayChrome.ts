@@ -30,7 +30,6 @@ export function useGamePlayChrome({
   const [chatOpen, setChatOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const audioButtonRef = useRef<HTMLButtonElement>(null)
-  const chatButtonRef = useRef<HTMLButtonElement>(null)
 
   const activePlayerRef = useRef(activePlayerId)
   useEffect(() => {
@@ -58,7 +57,6 @@ export function useGamePlayChrome({
   return {
     audioButtonRef,
     audioOpen,
-    chatButtonRef,
     chatOpen,
     closeSheet,
     helpOpen,
