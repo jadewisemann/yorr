@@ -76,7 +76,7 @@ export interface RoundTimerServiceDeps {
 export interface RoundTimerServiceOptions {
   readonly now?: () => number
   readonly gameCode?: string
-  /** Java `ApplicationEventPublisher.publishEvent(RoundStartedEvent)` 자리. */
+  /** 라운드 시작을 알리는 훅. */
   readonly onRoundStarted?: (event: RoundStartedEvent) => void
   /** 종료 전이 실패처럼 "진행은 멈추지만 예외는 아닌" 상황의 관측 훅. */
   readonly onWarning?: (roomId: string, reason: string) => void
@@ -84,7 +84,7 @@ export interface RoundTimerServiceOptions {
 
 interface ActiveDeadline {
   readonly roundNumber: number
-  /** epoch ms. Java는 `Instant`. 시계를 걸지 않은 턴(연습 방)은 null이다. */
+  /** epoch ms. 시계를 걸지 않은 턴(연습 방)은 null이다. */
   readonly deadline: number | null
 }
 

@@ -24,7 +24,7 @@ import type {
  * (2.5가 이미 덮었다), 여기서는 "모듈이 타이머를 불렀는가"만 관측한다.
  */
 
-/** 전송 프레임만 기록하는 소켓 — Java `mock(WebSocketSession)` 자리. */
+/** 전송 프레임만 기록하는 소켓. */
 export class FakeSocket implements ClientSocket {
   readyState = 1
   readonly frames: string[] = []

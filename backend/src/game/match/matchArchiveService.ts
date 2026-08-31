@@ -54,9 +54,9 @@ export interface MatchArchiveServiceOptions {
    */
   readonly now?: () => Date
   readonly rankingCache?: RankingCacheInvalidator
-  /** Java `log.info("게임 결과를 저장했습니다: ...")`. */
+  /** 저장 성공 로그 훅. */
   readonly onArchived?: (event: MatchArchivedEvent) => void
-  /** Java `log.info("이미 저장된 판입니다: ...")` — 멱등이 실제로 걸렸다는 신호. */
+  /** 중복 판 로그 훅 — 멱등이 실제로 걸렸다는 신호. */
   readonly onDuplicate?: (gameId: string) => void
 }
 
@@ -71,7 +71,7 @@ export const DISPLAY_NICKNAME_LIMIT = 20
  *
  * 그때 화면에 보였던 이름을 남기는 것이 목적이라(persistence.md의 dual-write 표)
  * 20자를 넘으면 거절하지 않고 **잘라서라도 남긴다**. 셋 다 비면 "플레이어".
- * 앞뒤 공백을 다듬지 않는 것도 Java 그대로다 — 방 이름은 이미
+ * 앞뒤 공백을 다듬지 않는다 — 방 이름은 이미
  * `normalizeNickname`(1~20자, trim)을 통과한 값이라 다듬을 것이 없다.
  */
 export const resolveDisplayNickname = (
@@ -114,7 +114,7 @@ export class MatchArchiveService {
       if (room == null || isBlank(room.gameId)) return false
       if (rankings == null || rankings.length === 0) return false
 
-      // 같은 playerId가 두 번 있으면 먼저 온 이름을 쓴다(Java의 merge 함수).
+      // 같은 playerId가 두 번 있으면 먼저 온 이름을 쓴다.
       const roomNicknames = new Map<string, string>()
       for (const player of room.players) {
         if (!roomNicknames.has(player.playerId)) roomNicknames.set(player.playerId, player.nickname)

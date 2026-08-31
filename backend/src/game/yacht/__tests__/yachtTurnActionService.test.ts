@@ -168,7 +168,7 @@ describe('YachtTurnActionService', () => {
     expect(timers.advanced).toHaveLength(0)
   })
 
-  it('msgId가 없으면 봉투에서 필드가 사라진다(Java NON_NULL)', async () => {
+  it('msgId가 없으면 봉투에서 필드가 사라진다', async () => {
     await roll(null)
 
     const envelope = broadcaster.lastOf(ROOM, 'game.yacht_dice.dice.broadcast')

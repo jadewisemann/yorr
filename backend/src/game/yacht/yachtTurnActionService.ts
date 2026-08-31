@@ -21,7 +21,7 @@ export interface YachtTurnActionServiceDeps {
 }
 
 export interface YachtTurnActionServiceOptions {
-  /** 봉투 `ts`의 출처. Java는 `WsEnvelope.of`가 `System.currentTimeMillis()`를 쓴다. */
+  /** 봉투 `ts`의 출처. 주입해서 테스트가 시각을 고정한다. */
   readonly now?: () => number
 }
 

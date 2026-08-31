@@ -10,7 +10,7 @@ describe('RoundSubmission', () => {
     dice[0] = 6
 
     expect(submission.dice).toEqual([1, 2, 3, 4, 5])
-    // Java의 List.copyOf → UnsupportedOperationException 자리. 얼린 배열은 TypeError.
+    // 얼린 배열이라 쓰기를 시도하면 TypeError다.
     expect(() => (submission.dice as number[]).push(6)).toThrow(TypeError)
   })
 

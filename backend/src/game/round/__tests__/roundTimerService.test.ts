@@ -27,9 +27,9 @@ import {
 } from './testDoubles.js'
 
 /**
- * Java에 없던 오프라인·이탈 경로.
+ * 오프라인·이탈 경로를 포함한다.
  *
- * **방송 순서가 계약이다.** Mockito `InOrder` 대신 기록형 브로드캐스터의 배열
+ * **방송 순서가 계약이다.** 기록형 브로드캐스터의 배열
  * 순서로 고정한다. 시간은 고정 `now`, 마감 발화는 가짜 예약기의 `fire()`라
  * 실시간 sleep이 없다.
  */
@@ -329,7 +329,7 @@ describe('RoundTimerService', () => {
     expect(warnings).toEqual(['round_cap_reached_without_finish'])
   })
 
-  /* ------------------------------------------ Java에 없던 계약: 오프라인·게임 중 이탈 */
+  /* ------------------------------------------------ 계약: 오프라인·게임 중 이탈 */
 
   it('오프라인 플레이어의 첫 턴은 타이머 없이 무득점 스킵한다', async () => {
     await synchronizationService.initialize('room-a', 1, DUO)
@@ -643,7 +643,7 @@ const score = (playerId: string): ConfirmedScore => ({
   scoreboard: { categories: { smallStraight: 15 }, subtotal: 0, bonus: 0, total: 15 },
 })
 
-/** Java 테스트의 `mock(RoundTimeoutResolver.class)` 자리. */
+/** 해소 결과를 고정하는 대역. */
 class StubTimeoutResolver implements RoundTimeoutResolverPort {
   resolution: RoundTimeoutResolution = staleResolution()
   readonly calls: { roomId: string; roundNumber: number; activePlayerId: string }[] = []

@@ -191,7 +191,7 @@ describe('RoundState', () => {
   })
 
   /**
-   * Java 원본에는 없지만 game-modules.md가 계약으로 못박은 규칙이라 고정한다
+   * game-modules.md가 계약으로 못박은 규칙이라 고정한다
    * (`withoutParticipant`: 활성 플레이어는 직접 제거 불가, 인덱스 보정).
    */
   describe('withoutParticipant', () => {

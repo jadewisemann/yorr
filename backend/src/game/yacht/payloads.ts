@@ -60,8 +60,7 @@ export type DiceThrowRequest = {
 
 /**
  * `unknown[]` → 도메인이 기대하는 배열. **여기서 값을 고치지 않는다** —
- * boolean이 아닌 원소는 그대로 넘겨 `validateHeld`가 `INVALID_ROLL`을 던지게 한다
- * (Java `List<Boolean>`에 null이 섞여 들어오는 것과 같은 자리).
+ * boolean이 아닌 원소는 그대로 넘겨 `validateHeld`가 `INVALID_ROLL`을 던지게 한다.
  */
 const asBooleans = (values: readonly unknown[] | null | undefined): readonly boolean[] =>
   (values ?? []) as readonly boolean[]
@@ -84,7 +83,7 @@ export const toDiceHoldPayload = (
   held: asBooleans(parsed.held),
 })
 
-/** `direction`은 null로 남긴다 — Java `DiceShakenPayload`에 NON_NULL이 없어 그대로 실린다. */
+/** `direction`은 null로 남긴다 — 봉투에 그대로 실린다. */
 export const toDiceShakeRequest = (
   parsed: z.infer<typeof diceShakePayloadSchema>,
 ): DiceShakeRequest => ({
@@ -105,6 +104,6 @@ export const toRoundSubmitPayload = (
 ): RoundSubmitPayload => ({
   roundNumber: parsed.roundNumber ?? 0,
   dice: asNumbers(parsed.dice),
-  // 빈 문자열은 `SUPPORTED_CATEGORIES`에 없으므로 `INVALID_CATEGORY`가 된다(Java의 null 자리).
+  // 빈 문자열은 `SUPPORTED_CATEGORIES`에 없으므로 `INVALID_CATEGORY`가 된다.
   category: parsed.category ?? '',
 })

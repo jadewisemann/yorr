@@ -29,7 +29,7 @@ describeRedis('RedisYachtDiceStateStore', () => {
 
   const stateKey = (roomId = ROOM): string => gameStateKey(roomId, 'YACHT_DICE')
 
-  /** 진행 중인 방 하나 + 라운드 상태 초기화. Java 테스트의 `@BeforeEach reset` 자리. */
+  /** 진행 중인 방 하나 + 라운드 상태 초기화. */
   const seed = async (
     options: { players?: string[]; ttlMs?: number; roomId?: string } = {},
   ): Promise<RedisYachtDiceStateStore> => {

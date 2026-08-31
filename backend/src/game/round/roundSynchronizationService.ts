@@ -11,7 +11,7 @@ import { DICE_COUNT, RoundSubmission } from './roundSubmission.js'
  */
 export type DieRoller = () => number
 
-/** 운영 기본값. Java `ThreadLocalRandom.current().nextInt(1, 7)` 자리. */
+/** 운영 기본값 — 1~6 균등 난수. */
 export const randomDieRoller = (): DieRoller => () => 1 + Math.floor(Math.random() * 6)
 
 /**

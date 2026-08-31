@@ -99,7 +99,7 @@ describe('MatchArchiveService (인메모리 저장소)', () => {
     })
   })
 
-  // --- Java 4종 ---
+  // --- 보관 기본 4종 ---
 
   /** 회원과 게스트가 한 판에 섞여 있다. 판 자체는 온전히 남고, 주인이 있는 행에만 계정이 붙는다. */
   it('회원은_계정에_게스트는_이름만_남는다', async () => {
@@ -175,7 +175,7 @@ describe('MatchArchiveService (인메모리 저장소)', () => {
     expect(stored.participants[1]?.userId).toBeNull()
   })
 
-  // --- 이식하며 추가한 것(Java에는 없지만 Node 계약을 고정한다) ---
+  // --- Node 계약을 고정하는 추가 케이스 ---
 
   /** 2.7이 채울 자리를 어댑터 없이 채운다 — 배선은 상수 하나를 바꾸는 것뿐이어야 한다. */
   it('MatchArchivePort를 구조적으로 만족한다', async () => {
@@ -253,7 +253,7 @@ describe('MatchArchiveService (인메모리 저장소)', () => {
     })
   })
 
-  /** 같은 playerId가 방 명단에 두 번 있으면 먼저 온 이름을 쓴다(Java의 merge 함수). */
+  /** 같은 playerId가 방 명단에 두 번 있으면 먼저 온 이름을 쓴다. */
   it('중복 playerId는 방 명단의 첫 이름을 쓴다', async () => {
     await service.archive(
       room([
@@ -266,7 +266,7 @@ describe('MatchArchiveService (인메모리 저장소)', () => {
     expect(store.only().participants[0]?.displayNickname).toBe('첫이름')
   })
 
-  /** Java의 `@CacheEvict`는 메서드 프록시라 중복 판·검증 실패에도 캐시를 비운다. */
+  /** 중복 판·검증 실패에도 캐시를 비운다. */
   it('랭킹 캐시는 중복 보관·빈 호출에도 비워진다', async () => {
     const snapshot = room([{ playerId: 'guest-1', nickname: '손님' }])
     const rankings = [ranking(1, 'guest-1', 100)]

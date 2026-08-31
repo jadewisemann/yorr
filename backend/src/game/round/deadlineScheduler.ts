@@ -18,13 +18,13 @@ export interface RoundDeadlineScheduler {
   cancelRoom(roomId: string): void
 }
 
-/** 예약 하나의 핸들. Java `ScheduledFuture` 자리. */
+/** 예약 하나의 핸들. */
 export interface ScheduledTimeout {
   cancel(): void
 }
 
 /**
- * 타이머 주입 시임 — Java의 `ScheduledExecutorService` 생성자 인자 자리다.
+ * 타이머 주입 시임 — 테스트가 실제 시계 없이 발화시킬 수 있게 한다.
  *
  * 이게 없으면 "슬롯 선등록" 규칙(아래 schedule 주석)을 검증할 수 없다: 그
  * 회귀 테스트는 **schedule()이 반환하기 전에** 작업이 실행되는 인터리빙을
@@ -64,7 +64,7 @@ export interface RoundDeadlineSchedulerOptions {
 /**
  * 단일 인스턴스 전제 어댑터.
  *
- * 세대 카운터는 Java의 `AtomicLong`이지만 Node는 단일 스레드라 평범한 숫자로
+ * 세대 카운터는 Node가 단일 스레드라 평범한 숫자로
  * 충분하다. 맵도 `ConcurrentHashMap` 대신 `Map` — 전이가 모두 동기라 사이에
  * 다른 콜백이 끼어들 수 없다.
  */
@@ -101,7 +101,7 @@ export class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
     // schedule까지 타임아웃이 영영 안 온다(탁구: 서브·실점이 멈추고 공이 얼어붙음).
     // Node의 setTimeout은 스레드가 없어 이 인터리빙이 실제로 생기지 않지만,
     // executor가 주입 가능한 시임인 이상(인라인 executor·향후 다른 어댑터)
-    // 순서 자체가 계약이다. Java의 회귀 수정을 그대로 유지한다.
+    // 순서 자체가 계약이다.
     const previous = this.scheduledRounds.get(roomId)
     this.scheduledRounds.set(roomId, { roundNumber, generation, timeout: null })
     cancelQuietly(previous)
@@ -130,7 +130,7 @@ export class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
     cancelQuietly(scheduled)
   }
 
-  /** 프로세스 종료 정리 — Java `@PreDestroy executor.shutdownNow()` 자리. */
+  /** 프로세스 종료 정리 — 남은 예약을 전부 취소한다. */
   stop(): void {
     for (const scheduled of this.scheduledRounds.values()) cancelQuietly(scheduled)
     this.scheduledRounds.clear()
