@@ -5,9 +5,8 @@ import { DomainError } from '../errors.js'
  * 타입이다 — 둘이 같은 오류였을 때 토큰 만료가 "닉네임이 올바르지 않습니다"로
  * 응답돼 클라이언트의 재입장 복구 경로가 동작하지 않았다.
  *
- * `DomainError`를 상속하는 것은 Java에서 `IllegalArgumentException`을 상속하던
- * 것과 같은 의도다: REST 컨트롤러의 일괄 401 처리를 그대로 두고 WebSocket 쪽만
- * 만료를 세분화한다.
+ * `DomainError`를 상속하는 의도: REST 라우트의 일괄 401 처리를 그대로 두고
+ * WebSocket 쪽만 만료를 세분화한다.
  *
  * 본문 문자열은 API마다 다르다 — 방·봇은 이 `invalid_guest_session`,
  * 퀵매치는 `unauthorized`, 프로필·auth·랭킹은 `session_expired`.

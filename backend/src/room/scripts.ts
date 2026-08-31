@@ -297,7 +297,7 @@ return 1
 `,
 }
 
-/** 봇 참가자 스크립트 — `BotParticipantService`가 등록한다(Java도 봇만 따로 들고 있다). */
+/** 봇 참가자 스크립트 — `BotParticipantService`가 등록한다. */
 export const BOT_SCRIPTS: readonly LuaScript[] = [BOT_ADD, BOT_REMOVE]
 
 export const ROOM_SCRIPTS: readonly LuaScript[] = [

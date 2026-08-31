@@ -18,8 +18,8 @@ export interface SocialAccountRepository {
  *
  * 조회(`SocialAccountRepository`)와 **따로** 둔 것이 설계의 핵심이다. 경합에서
  * 진 쪽이 유니크 위반을 잡아 다시 조회하려면 그 쓰기 트랜잭션이 **먼저 끝나
- * 있어야** 한다(Java가 별도 빈으로 뺀 이유 = 프록시 경계). Node에서는 여기
- * 구현이 자기 커넥션에서 트랜잭션을 열고 닫는 것으로 같은 효과를 낸다.
+ * 있어야** 한다. 여기 구현이 자기 커넥션에서 트랜잭션을 열고 닫는 것으로
+ * 그 효과를 낸다.
  */
 export interface SocialAccountRegistrar {
   /**

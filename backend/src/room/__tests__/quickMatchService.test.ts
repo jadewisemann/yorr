@@ -57,7 +57,7 @@ describeRedis('퀵매치', () => {
   const redis = useRedis()
   let harness: Harness
 
-  /** Java `setUp()` 자리. 카탈로그를 바꿔 끼우는 테스트만 인자를 넘긴다. */
+  /** 공통 준비. 카탈로그를 바꿔 끼우는 테스트만 인자를 넘긴다. */
   const build = (games: readonly GameMetadata[] = GAME_CATALOG): Harness => {
     const client = redis() as Redis
     const rooms = new RoomService(client)
@@ -82,7 +82,7 @@ describeRedis('퀵매치', () => {
     return { matches, rooms, users, registry, started }
   }
 
-  /** Java `user(id, nickname)` — 세션 해시만 심는다(퀵매치가 읽는 것은 nickname·type뿐). */
+  /** 세션 해시만 심는다 — 퀵매치가 읽는 것은 nickname·type뿐이다. */
   const user = async (userId: string, nickname: string): Promise<UserIdentity> => {
     await redis().hset(`user:${userId}`, { nickname, type: 'GUEST' })
     return { userId, nickname, type: 'GUEST' }
@@ -211,7 +211,7 @@ describeRedis('퀵매치', () => {
     expect(await redis().exists(quickMatchMarkerKey(roomId))).toBe(0)
   })
 
-  /* ── Java 테스트에 없던 회귀 방어 ─────────────────────────────────────── */
+  /* ── 회귀 방어 ────────────────────────────────────────────────────────── */
 
   it('닫히는 중인 소켓은 라이브가 아니다', async () => {
     const { matches, registry, started } = harness

@@ -117,8 +117,7 @@ export class RoomService {
   /**
    * 방에 들어간다. 같은 사람의 재참가는 인원을 늘리지 않는다(중복 반환 4 = 성공 취급).
    *
-   * Java는 `JoinResult(userId, sessionToken, snapshot)`을 돌려주지만 앞의 둘은
-   * 호출부가 이미 쥐고 있는 값이라 스냅샷만 돌려준다.
+   * `userId`·`sessionToken`은 호출부가 이미 쥐고 있는 값이라 스냅샷만 돌려준다.
    */
   async join(roomCode: string, user: UserIdentity): Promise<RoomSnapshot> {
     const result = await runLuaNumber(this.redis, JOIN, roomKeyFamily(roomCode), [

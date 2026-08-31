@@ -21,7 +21,7 @@ export interface GaugeSample {
 }
 
 export interface GaugeFamily {
-  /** 노출 이름 — Micrometer가 `yorr.rooms.active`를 변환한 것과 같은 스네이크 표기. */
+  /** 노출 이름 — `yorr_rooms_active` 같은 스네이크 표기. */
   readonly name: string
   readonly help: string
   /** 태그 조합별 한 줄. 값이 0인 조합도 **생략하지 않는다**(대시보드에서 계열이 사라진다). */

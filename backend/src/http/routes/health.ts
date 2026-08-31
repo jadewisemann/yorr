@@ -27,11 +27,10 @@ export interface ActuatorRouteDependencies {
   readonly metrics?: MetricsCollector
 }
 
-// Spring Actuator와 같은 경로를 유지한다 — 배포 파이프라인·모니터링의
-// 헬스체크 대상 경로를 바꾸지 않고 서버 구현만 갈아끼우기 위해서다.
-// **노출은 health·prometheus 둘뿐이다**(env·beans·metrics 같은 나머지 액추에이터
-// 엔드포인트는 만들지 않는다 — Spring Boot에서도 노출하지 않았고, 방·세션 정보가
-// 인증 없이 새는 표면을 늘리지 않는다).
+// `/actuator/*` 경로를 유지한다 — 배포 파이프라인·모니터링의 헬스체크 대상이
+// 이 경로를 보고 있어서 바꾸면 그쪽을 함께 고쳐야 한다.
+// **노출은 health·prometheus 둘뿐이다** — env·beans·metrics 같은 것은 만들지
+// 않는다. 방·세션 정보가 인증 없이 새는 표면을 늘리지 않는다.
 export const registerHealthRoutes = async (
   app: FastifyInstance,
   deps: ActuatorRouteDependencies = {},

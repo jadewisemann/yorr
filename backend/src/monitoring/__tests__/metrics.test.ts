@@ -128,7 +128,7 @@ describe('RealtimeGameMetrics', () => {
 
   /**
    * 배선 계약: `server.ts`가 넘길 두 인스턴스가 포트를 그대로 만족해야 한다
-   * (Java도 `RoomSessionRegistry` + `GameModuleRegistry`를 주입받았다).
+   * (`RoomSessionRegistry` + `GameModuleRegistry`를 주입받는다).
    */
   it('WS 레지스트리와 게임 모듈 레지스트리를 그대로 받는다', () => {
     const presence: MetricsPresence = new RoomSessionRegistry()

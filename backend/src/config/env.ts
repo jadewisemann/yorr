@@ -8,8 +8,8 @@ import { z } from 'zod'
  *   들어 있는데, 그것을 따르면 4.1이 `timezone: 'Z'`로 막아 둔 9시간 어긋남이
  *   그대로 되살아난다(persistence.md의 `finished_at` 계약). SSL·인코딩 옵션도
  *   mysql2에서는 이름이 다르므로 옮기지 않는다.
- * - userinfo(`user:pass@`)도 무시한다 — Java도 JDBC 프로퍼티(`DB_USERNAME`·
- *   `DB_PASSWORD`)가 URL 안의 값을 이기므로 같은 결론이다.
+ * - userinfo(`user:pass@`)도 무시한다 — `DB_USERNAME`·`DB_PASSWORD`가 URL 안의
+ *   값을 이긴다.
  */
 const parseJdbcMysqlUrl = (
   value: string,
@@ -42,8 +42,7 @@ const envSchema = z
     REDIS_PORT: z.coerce.number().int().positive().default(6379),
     REDIS_PASSWORD: z.string().default(''),
     /**
-     * **운영 `.env`가 실제로 담고 있는 MySQL 좌표**다. Java는
-     * `application.yaml`의 `url: ${DB_URL}` 하나로 JDBC URL을 받는다
+     * **운영 `.env`가 실제로 담고 있는 MySQL 좌표**다. JDBC URL 하나로 온다
      * (예: `jdbc:mysql://localhost:3306/yorr?useSSL=false&...`).
      *
      * 값이 있으면 아래 `DB_HOST`·`DB_PORT`·`DB_NAME`을 **덮어쓴다** — 쪼개진

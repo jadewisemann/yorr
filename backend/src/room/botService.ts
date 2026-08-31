@@ -19,7 +19,7 @@ export class ForbiddenError extends CodedError {}
 const BOT_ID_PREFIX = 'bot-'
 const BOT_MARKER = 'BOT'
 
-/** `bot-<uuid>` — 끝 4자를 대문자로 붙인 표시 이름까지 Java와 같은 규칙이다. */
+/** `bot-<uuid>` — 표시 이름에는 끝 4자를 대문자로 붙인다. */
 const newBotId = (): string => `${BOT_ID_PREFIX}${randomUUID()}`
 
 const botNickname = (botId: string): string => `요르봇 ${botId.slice(-4).toUpperCase()}`
@@ -66,7 +66,7 @@ export class BotParticipantService {
 
 /**
  * 반환 코드 → 오류 코드. **4의 뜻이 두 스크립트에서 다르다**(추가=정원 초과,
- * 삭제=그런 봇 없음) — Java의 `botMustExist` 분기를 그대로 옮겼다.
+ * 삭제=그런 봇 없음).
  */
 const requireSuccess = (result: number, botMustExist: boolean): void => {
   if (result === 1) return

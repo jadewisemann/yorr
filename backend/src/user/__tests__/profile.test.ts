@@ -57,7 +57,7 @@ describeRedis('UserProfileService (인메모리 회원 저장소 + 진짜 Redis)
   let member: MemberUser
   let sessionToken: string
 
-  /** Java의 `@BeforeEach signUp()` — 플레이스홀더 이름으로 가입한 회원 + 열린 세션. */
+  /** 공통 준비 — 플레이스홀더 이름으로 가입한 회원 + 열린 세션. */
   beforeEach(async () => {
     users = new UserService(redis())
     profiles = new FakeUserProfiles()
@@ -112,14 +112,14 @@ describeRedis('UserProfileService (인메모리 회원 저장소 + 진짜 Redis)
     expect((await stored()).nickname).toBe('세션없이바꾼이름')
   })
 
-  // --- 이식하며 추가한 것(Java에는 없지만 Node 계약을 고정한다) ---
+  // --- Node 계약을 고정하는 추가 케이스 ---
 
   it('없는 회원은 read·rename 모두 user_not_found다', async () => {
     await expect(service.read('nobody')).rejects.toBeInstanceOf(UserNotFoundError)
     await expect(service.rename('nobody', '이름')).rejects.toThrow('user_not_found')
   })
 
-  /** 규칙 위반은 회원 조회 없이 판정되는 값 검증이라 먼저 터진다(Java와 같은 순서). */
+  /** 규칙 위반은 회원 조회 없이 판정되는 값 검증이라 먼저 터진다. */
   it('없는 회원 + 잘못된 이름이면 invalid_nickname이 이긴다', async () => {
     await expect(service.rename('nobody', '')).rejects.toThrow('invalid_nickname')
   })
@@ -154,7 +154,7 @@ describeMysql('MysqlUserProfileStore (실 MySQL + 진짜 Redis)', () => {
   const redis = useRedis()
   const mysqlPool = useMysql()
 
-  /** Java의 `@BeforeEach signUp()` — 빈 스키마에 V1을 적용하고 회원 1명을 넣는다. */
+  /** 공통 준비 — 빈 스키마에 V1을 적용하고 회원 1명을 넣는다. */
   const signUp = async (): Promise<{
     pool: Pool
     users: UserService
