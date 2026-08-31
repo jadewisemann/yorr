@@ -26,7 +26,7 @@ import { AccumulatingScoreBoardStore, roomWith } from './botTestDoubles.js'
  * (마감 발화는 2.5가 덮었다)·브로드캐스터·방 스냅샷·점수 저장소뿐이다.
  *
  * 오케스트레이터는 여기서 쓰지 않는다 — 지연 4종을 실시간으로 기다리면 12라운드가
- * 몇 분이 된다. 대신 Java 테스트와 같이 코디네이터를 루프에서 직접 돌린다.
+ * 몇 분이 된다. 대신 코디네이터를 루프에서 직접 돌린다.
  */
 
 const ROOM = 'room-a'

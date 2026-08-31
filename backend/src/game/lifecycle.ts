@@ -41,7 +41,7 @@ export class GameLifecycleService {
       await module.start(roomCode, game)
       return game
     } catch (error) {
-      // Java와 같이 롤백 실패는 감추지 않는다 — 그 예외가 원인 예외를 대신 올라간다.
+      // 롤백 실패는 감추지 않는다 — 그 예외가 원인 예외를 대신 올라간다.
       await this.rooms.rollbackStart(roomCode, game.gameId)
       throw error
     }
@@ -50,7 +50,7 @@ export class GameLifecycleService {
   /** @returns 실제로 대기실로 되돌렸는지. 저장소 전이가 권위다 — 막히면 아무것도 건드리지 않는다. */
   async returnToLobby(roomCode: string, room: RoomSnapshot): Promise<boolean> {
     if (!(await this.rooms.returnToLobby(roomCode))) return false
-    // 모르는 게임 코드면 여기서 던진다(Java의 modules.require(...).reset(roomCode)와 같은 지점).
+    // 모르는 게임 코드면 여기서 던진다.
     this.catalog.require(room.gameCode)
     await this.modules.byCode(room.gameCode)?.reset(roomCode)
     return true

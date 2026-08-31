@@ -94,7 +94,7 @@ export class DuelGameService<S> {
   }
 
   /**
-   * 상태 초기화 + 첫 신호 예약. **호스트가 playerOrder[0]** 이다(Java의 정렬 그대로) —
+   * 상태 초기화 + 첫 신호 예약. **호스트가 playerOrder[0]** 이다 —
    * 화면 좌우 배치가 아니라 판정 순서의 기준이라 안정적이어야 한다.
    *
    * 봇은 명단에서 걸러낸다. 카탈로그가 `supportsBots: false`로 막지만 여기서 한 번 더
@@ -285,5 +285,5 @@ export class DuelGameService<S> {
   }
 }
 
-/** [1400, 4600) — Java `ThreadLocalRandom.nextLong(MIN, MAX)`와 같은 반열림 구간. */
+/** [1400, 4600) — 반열림 구간이다. */
 const randomWait = (): number => randomInt(MIN_WAIT_MILLIS, MAX_WAIT_MILLIS)

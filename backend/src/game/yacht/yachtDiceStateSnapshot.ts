@@ -34,7 +34,7 @@ export interface YachtSubmissionSnapshot {
 /**
  * 읽기 스키마. 저장소가 돌려준 JSON을 **구조 수준에서** 검증한다 — 값의 도메인
  * 유효성(주사위 범위·카테고리 이름·라운드 상한)은 `RoundSubmission`·`RoundState.restore`가
- * 다시 본다. 손상된 값을 조용히 통과시키지 않는 것이 목적이다(Java는 Jackson
+ * 다시 본다. 손상된 값을 조용히 통과시키지 않는 것이 목적이다(직렬화가
  * 역직렬화 실패가 `invalid_yacht_state`로 뭉개진다 — 같은 자리).
  */
 const submissionSchema = z.object({
@@ -48,7 +48,7 @@ const snapshotSchema = z.object({
   roundNumber: z.number(),
   totalRounds: z.number(),
   participantOrder: z.array(z.string()),
-  // Java Jackson은 없는 필드를 null로 둔다 — 옛 스냅샷도 읽을 수 있게 관용한다.
+  // 없는 필드는 null로 둔다 — 옛 스냅샷도 읽을 수 있게 관용한다.
   submissions: z.record(z.string(), submissionSchema).nullish(),
   activePlayerIndex: z.number(),
   activeRollCount: z.number(),
@@ -57,7 +57,7 @@ const snapshotSchema = z.object({
   finished: z.boolean(),
 })
 
-/** 필드 순서가 Java record와 같다(전환기 호환 — 위 주석 참고). */
+/** 필드 순서를 바꾸지 않는다(운영 Redis 호환 — 위 주석 참고). */
 export const toStateSnapshot = (state: RoundState): YachtDiceStateSnapshot => {
   const submissions: Record<string, YachtSubmissionSnapshot> = {}
   for (const [playerId, submission] of state.submissions) {

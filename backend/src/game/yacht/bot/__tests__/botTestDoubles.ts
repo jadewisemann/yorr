@@ -24,12 +24,12 @@ import type {
 } from '../botPorts.js'
 
 /**
- * 3.2 봇 스위트가 공유하는 대역. Java 테스트의 `mock(YachtTurnActionService)`·
+ * 봇 스위트가 공유하는 대역. 호출을 기록하는
  * `mock(RoomService)`·`mock(ScheduledExecutorService)` 자리다.
  *
  * 실시간 sleep도 가짜 타이머도 쓰지 않는다 — 지연 4종이 **얼마인지**는
  * `ManualExecutor`에 기록된 delayMs로 검증하고, 발화 순서는 테스트가 직접 정한다
- * (Java가 `ArgumentCaptor<Runnable>`로 하는 것과 같은 방식이고, 2.3이 인라인
+ * (마감 스케줄러가 인라인
  * executor를 둔 것과 같은 이유다).
  */
 
@@ -180,7 +180,7 @@ export class FakeBotScores implements YachtBotScoreLookup {
 
 /**
  * 점수를 실제로 **누적**하는 저장소 — 완주 테스트가 12칸이 다 차는지 보려면
- * 3.1의 `FakeScoreBoardStore`(매번 새 점수판)로는 안 된다. Java
+ * 야추 스위트의 `FakeScoreBoardStore`(매번 새 점수판)로는 안 된다.
  * `YachtBotGameCompletionTest.InMemoryScoreBoardStore`와 같은 역할이다.
  */
 export class AccumulatingScoreBoardStore implements ScoreBoardStore {

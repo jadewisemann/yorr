@@ -125,7 +125,7 @@ describe('ExpectimaxYachtBotPolicy', () => {
   })
 
   it('2리롤 전체 탐색이 턴당 지연 예산 안에서 끝난다', () => {
-    // Java `searchesTwoRemainingRollsWithinTheTurnLatencyBudget`. 워밍업 후 측정한다.
+    // 남은 두 굴림 탐색이 지연 예산 안에 드는지. 워밍업 후 측정한다.
     expect(() => policy.decide(emptyBoard(), [1, 2, 3, 5, 6], 1)).not.toThrow()
 
     const startedAt = performance.now()
@@ -136,7 +136,7 @@ describe('ExpectimaxYachtBotPolicy', () => {
   })
 
   it('예산을 넘기면 스스로 중단한다 — 실시간을 기다리지 않는다', () => {
-    // 시계를 주입해 "1초가 지난 척"한다. 예산 강제는 Java에 없는 우리 추가분이다.
+    // 시계를 주입해 "1초가 지난 척"한다.
     let clock = 0
     const budgeted = new ExpectimaxYachtBotPolicy(new ScorecardValueEvaluator(), {
       budgetMs: 1_000,

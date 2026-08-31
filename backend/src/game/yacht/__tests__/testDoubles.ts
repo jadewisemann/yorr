@@ -17,7 +17,7 @@ import type {
 } from '../yachtPorts.js'
 
 /**
- * 3.1 스위트가 공유하는 테스트 대역. Java 테스트의 `mock(RoundTimerService)`·
+ * 야추 스위트가 공유하는 테스트 대역. 기록형이라
  * `mock(ScoreConfirmationService)`·`mock(WebSocketSession)` 자리다.
  *
  * 실시간 sleep도 가짜 타이머도 쓰지 않는다 — 마감 발화는 이 티켓의 범위가 아니고
@@ -139,7 +139,7 @@ export class FakeRoundTimer implements YachtRoundTimer {
 }
 
 /**
- * `ScoreBoardStore`의 자리. Java 테스트가 `ScoreConfirmationService`를 모킹한 것과
+ * `ScoreBoardStore`의 자리. 점수 확정을 대역으로 두는 것과
  * 달리 **진짜 확정 서비스**를 쓰고 저장소만 대역으로 둔다 — 그래야 카테고리 파싱·
  * 서버 재계산·시그니처 같은 2.6 계약이 이 경로에서도 실제로 돈다.
  */

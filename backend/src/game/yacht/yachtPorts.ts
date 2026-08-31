@@ -107,7 +107,7 @@ export interface YachtRoundService {
 /**
  * `RoundTimerService`의 부분집합 — 턴 시계 조작 5개.
  *
- * `advanceTurn`의 세 번째 인자는 Java에서 `String requestMsgId`(nullable)다. 타이머
+ * `advanceTurn`의 세 번째 인자는 nullable한 `requestMsgId`다. 타이머
  * 구현이 기본값(`null`)을 갖고 있어도 이 시그니처를 만족한다.
  */
 export interface YachtRoundTimer {

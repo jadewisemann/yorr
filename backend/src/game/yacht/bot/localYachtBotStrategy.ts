@@ -12,7 +12,7 @@ import { BotDecisionError } from './botErrors.js'
  */
 
 /**
- * 점수가 같을 때의 고정 선호. **ordinal이 아니라 손으로 정한 순서**다(Java의
+ * 점수가 같을 때의 고정 선호. **인덱스가 아니라 손으로 정한 순서**다(아래
  * switch 그대로): 희소한 족보를 아껴 쓰는 것보다 지금 쓰는 쪽에 값을 준다.
  */
 const TIE_BREAK: Readonly<Record<ScoreCategory, number>> = Object.freeze({
@@ -51,7 +51,7 @@ const counts = (dice: readonly number[]): Map<number, number> => {
 
 /**
  * 가장 긴 4연속 창(1-4 / 2-5 / 3-6)에 들어 있는 **서로 다른** 면들.
- * 동률이면 낮은 창이 이긴다(Java의 `>` 비교 그대로).
+ * 동률이면 낮은 창이 이긴다.
  */
 const bestStraightWindow = (dice: readonly number[]): number[] => {
   let best: number[] = []

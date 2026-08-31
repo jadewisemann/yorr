@@ -37,7 +37,7 @@ export type DuelMarkablePhase = 'playing' | 'waiting'
 /**
  * `RoomSessionRegistry`의 부분집합.
  *
- * `start`에서 `markPhase('playing')`을 부르는 것이 **모듈의 계약**이다(Java
+ * `start`에서 `markPhase('playing')`을 부르는 것이 **모듈의 계약**이다(아래
  * `YachtDiceGameModule`·`DuelGameService`가 하는 일). 빠뜨리면 진행 중 방의
  * 레지스트리 phase가 waiting에 머물러, 끊긴 플레이어가 offline 전이가 아니라
  * `room.player_left`가 된다(IMPLEMENTATION_NOTES 2.1의 「registry phase 구멍」).

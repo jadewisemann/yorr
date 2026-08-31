@@ -8,8 +8,8 @@
  * 화면의 몫이라 서버는 순서(`playerOrder`)만 알려준다.
  *
  * 와이어 정본은 `frontend/src/realtime/wsEvents.ts`의 `DuelState`·`DuelRound`다.
- * null 취급이 두 갈래인 것도 Java 그대로다:
- * - `lastRound`는 **생략**된다(Java `@JsonInclude(NON_NULL)`이 DuelState에만 붙어
+ * null 취급이 두 갈래인 것이 계약이다:
+ * - `lastRound`는 **생략**된다(`DuelState`에만 생략 규칙이 붙어
  * 있다) → `undefined`로 두면 `JSON.stringify`가 지운다.
  * - `lastRound` **안의** shooterId·hitId·koId·foulId는 애노테이션이 없는 중첩
  * 레코드라 `null`이 그대로 실린다 → 여기서도 `null`을 쓴다.
@@ -53,7 +53,7 @@ export interface DuelRound {
   readonly at: number
 }
 
-/** playerId → 값. Java `Map<String, Integer>` 자리(JSON 객체로 직렬화된다). */
+/** playerId → 값(JSON 객체로 직렬화된다). */
 export type DuelPlayerNumbers = Readonly<Record<string, number>>
 
 export interface DuelState {

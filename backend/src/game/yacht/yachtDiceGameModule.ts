@@ -437,7 +437,7 @@ export class YachtDiceGameModule implements GameModule {
 }
 
 /**
- * 턴 순서 = **host 우선, 나머지는 Redis 명단 순서 유지**(Java `Comparator.comparing`의
+ * 턴 순서 = **host 우선, 나머지는 Redis 명단 순서 유지**(안정 정렬의
  * 안정 정렬 자리 — `Array.prototype.sort`도 안정 정렬이다).
  */
 const turnOrderOf = (game: GameStartResult): string[] =>

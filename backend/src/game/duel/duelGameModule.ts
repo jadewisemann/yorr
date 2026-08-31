@@ -76,7 +76,7 @@ export class DuelGameModule implements GameModule {
    * 오류 응답은 모듈이 직접 보낸다(2.1의 계약). 두 갈래뿐이다:
    * - 멤버십 불일치 → `NOT_IN_ROOM`
    * - payload 형식 위반·도메인 거부 → `INVALID_MESSAGE`. 도메인 오류는 **코드 문자열
-   * 그대로**(`invalid_duel_draw`) 나가고, 그 밖의 실패(락 경합 등)는 Java와 같이
+   * 그대로**(`invalid_duel_draw`) 나가고, 그 밖의 실패(락 경합 등)는
    * `invalid draw payload`로 뭉개진다.
    */
   async handle(socket: ClientSocket, message: InboundEnvelope): Promise<void> {

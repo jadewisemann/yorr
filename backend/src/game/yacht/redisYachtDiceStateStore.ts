@@ -48,7 +48,7 @@ interface Change<T> {
  *
  * 왜 Lua 하나가 아니라 락인가: 상태 전이가 JSON 스냅샷을 도메인 객체로 되살려
  * `RoundState`의 검증을 통과시키는 일이고, `submitAtomically`의 `beforeStateChange`가
- * **또 다른 Lua**(CONFIRM_SCORE)다. Lua 안에서 Lua를 부를 수 없으므로 Java도 락을
+ * **또 다른 Lua**(CONFIRM_SCORE)다. Lua 안에서 Lua를 부를 수 없으므로 락을
  * 골랐다(원본 코드의 ponytail 주석: 작업이 5초를 넘기면 상태+점수를 한 Lua로 합칠 것).
  *
  * TTL은 **독립적으로 걸지 않는다** — 쓸 때마다 방 키의 PTTL을 복사한다. 방보다
@@ -71,7 +71,7 @@ export class RedisYachtDiceStateStore implements RoundStateStore {
   }
 
   /**
-   * SETNX 시맨틱 — 락을 쓰지 않는다(SET NX 자체가 원자적이다, Java와 같음).
+   * SETNX 시맨틱 — 락을 쓰지 않는다(SET NX 자체가 원자적이다).
    * 이중 초기화는 `ROUND_ALREADY_INITIALIZED`.
    */
   async initialize(roomId: string, initialState: RoundState): Promise<void> {
@@ -243,7 +243,7 @@ export class RedisYachtDiceStateStore implements RoundStateStore {
     } finally {
       await runLua(this.redis, YACHT_UNLOCK_STATE, [lockKey], [token]).catch(() => {
         // 해제 실패는 삼킨다 — TTL이 5초 뒤에 같은 일을 한다. 여기서 던지면
-        // 정상 처리된 전이의 결과를 잃는다(Java의 finally도 예외를 올리지 않는다).
+        // 정상 처리된 전이의 결과를 잃는다.
       })
     }
   }
@@ -278,7 +278,7 @@ export class RedisYachtDiceStateStore implements RoundStateStore {
 const stateKey = (roomId: string): string => gameStateKey(roomId, YACHT_DICE)
 
 /**
- * Java `IllegalStateException("invalid_yacht_state", cause)` 자리.
+ * 스냅샷이 손상됐을 때의 오류(`invalid_yacht_state`).
  *
  * `CodedError`의 생성자는 코드 문자열만 받으므로(오류 계약이 그 문자열이다) 원인은
  * 표준 `Error.cause`에 따로 붙인다 — 손상된 스냅샷을 진단할 때 이것만이 단서다.

@@ -17,7 +17,7 @@ import {
 /**
  * `YachtBotTurnCoordinatorTest` 이식(9종) + 스테일 경계 2종.
  *
- * Java와 달라진 곳: Mockito가 `roll`에 null을 돌려주게 두는 대신 대역이 실제
+ * 대역이 실제
  * `RoundState`를 돌려준다. `BotTurnStep.state`가 오케스트레이터의 `dice.thrown`
  * 판정 입력이라, null로 두면 그 계약이 테스트에서 사라진다.
  */

@@ -26,13 +26,13 @@ const SECURED_BONUS_PREMIUM = 4.0
 const BONUS_CURVE_SCALE = 5.0
 /**
  * 다음 턴의 기준 점수를 확정값처럼 취급하면 현재의 좋은 패를 버리는 과도한 낙관이
- * 생긴다(Java 주석 그대로).
+ * 생긴다.
  */
 const FUTURE_VALUE_DISCOUNT = 0.7
 
 /**
  * 칸별 기준 기대값. **경험적 상수이고 룰과 무관**하다 — 상단은 "그 눈 3개 정도",
- * 하단은 "그 족보를 노려서 얻는 평균"에 가깝게 잡혀 있다. Java와 숫자까지 같다.
+ * 하단은 "그 족보를 노려서 얻는 평균"에 가깝게 잡혀 있다.
  */
 const BASELINE_VALUES: Readonly<Record<ScoreCategory, number>> = Object.freeze({
   ones: 2.0,
