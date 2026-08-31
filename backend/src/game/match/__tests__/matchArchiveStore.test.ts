@@ -200,9 +200,9 @@ describeMysql('MysqlMatchArchiveStore (실 MySQL)', () => {
   })
 
   /**
-   * **Java와 의도적으로 다른 지점.** Java는 제약 위반 전체를 "이미 저장됨"(false)으로
-   * 뭉갠다. FK 위반은 저장되지 않았다는 뜻이므로 여기서는 던진다 — 종료 경로가
-   * 삼켜 `onArchiveFailure`로 흘리므로 게임은 끝나고 사실은 드러난다.
+   * 제약 위반 전체를 "이미 저장됨"(false)으로 뭉개지 않는다. FK 위반은 저장되지
+   * 않았다는 뜻이므로 던진다 — 종료 경로가 삼켜 `onArchiveFailure`로 흘리므로
+   * 게임은 끝나고 사실은 드러난다.
    */
   it('유니크가 아닌 제약 위반은 false로 뭉개지 않고 던진다', async () => {
     const { pool, store } = await setUp()

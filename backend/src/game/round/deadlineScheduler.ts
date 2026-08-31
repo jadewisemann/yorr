@@ -110,8 +110,8 @@ export class InMemoryRoundDeadlineScheduler implements RoundDeadlineScheduler {
       () => this.runIfCurrent(roomId, roundNumber, generation, timeoutAction),
       delayMs,
     )
-    // 이미 실행돼 슬롯이 비었거나 다른 세대로 바뀌었으면 붙일 곳이 없다(Java의
-    // computeIfPresent no-op 자리). 그 핸들은 버려도 runIfCurrent가 세대로 막는다.
+    // 이미 실행돼 슬롯이 비었거나 다른 세대로 바뀌었으면 붙일 곳이 없다.
+    // 그 핸들은 버려도 runIfCurrent가 세대로 막는다.
     const slot = this.scheduledRounds.get(roomId)
     if (slot !== undefined && slot.generation === generation) slot.timeout = timeout
   }

@@ -17,8 +17,8 @@ export const randomDieRoller = (): DieRoller => () => 1 + Math.floor(Math.random
 /**
  * 시드 고정 RNG(mulberry32). 테스트·재현용이다 — 같은 시드는 항상 같은 판을 만든다.
  *
- * Java에는 대응물이 없다(테스트가 `() -> 1` 같은 상수 공급자를 썼다). 상수 공급자는
- * "다섯 개가 전부 같은 값"이라 주사위 분포에 기대는 회귀(킵 유지 등)를 못 잡는다.
+ * 상수 공급자(항상 1 등)로는 "다섯 개가 전부 같은 값"이라 주사위 분포에 기대는
+ * 회귀(킵 유지 등)를 못 잡는다.
  */
 export const seededDieRoller = (seed: number): DieRoller => {
   let state = seed >>> 0

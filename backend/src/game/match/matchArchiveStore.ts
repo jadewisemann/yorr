@@ -140,12 +140,11 @@ export class MysqlMatchArchiveStore implements MatchArchiveStore {
 /**
  * `game_id` 유니크 위반만 "이미 보관됨"으로 읽는다.
  *
- * **Java와 의도적으로 다르다.** Java는 `DataIntegrityViolationException`을 통째로
- * 잡아 false로 뭉갠다 — 그 갈래에는 FK 위반(참가자의 회원이 그 사이 사라짐)·길이
- * 위반도 들어 있다. 뭉개면 저장되지 않은 판이 "이미 저장됨"으로 조용히 사라진다.
- * 여기서는 1062만 false이고 나머지는 던진다 — 종료 경로가 그것을 삼켜
- * `onArchiveFailure`로 흘리므로(2.7) 게임은 그대로 끝나고 사실은 드러난다.
- * 4.2의 errno 승격(`auth/errors.ts`)과 같은 결이지만, 정책이 다르므로 공유하지 않는다.
+ * 제약 위반 전체를 false로 뭉개지 않는다 — 그 갈래에는 FK 위반(참가자의 회원이
+ * 그 사이 사라짐)·길이 위반도 들어 있고, 뭉개면 저장되지 않은 판이 "이미 저장됨"
+ * 으로 조용히 사라진다. 여기서는 1062만 false이고 나머지는 던진다 — 종료 경로가
+ * 그것을 삼켜 `onArchiveFailure`로 흘리므로 게임은 그대로 끝나고 사실은 드러난다.
+ * `auth/errors.ts`의 errno 승격과 같은 결이지만, 정책이 다르므로 공유하지 않는다.
  */
 const isDuplicateEntry = (error: unknown): boolean =>
   typeof error === 'object' &&

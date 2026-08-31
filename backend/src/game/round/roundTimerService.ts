@@ -91,10 +91,9 @@ interface ActiveDeadline {
 /**
  * 야추 턴 시계.
  *
- * **Node 이식에서 가장 큰 차이: 전 경로가 async다.** Java는 `roomService`가 동기라
- * `start`가 `Instant`를 그냥 돌려줬지만, 우리 `RoomService.getSnapshot`·`touch`·
- * `leave`는 Redis라 Promise다. 마감 스케줄러의 작업 시그니처가 이미
- * `() => void | Promise<void>`라 그대로 얹힌다(2.3에서 그 이유로 넓혀 뒀다).
+ * **전 경로가 async다.** `RoomService.getSnapshot`·`touch`·`leave`가 Redis라
+ * Promise를 돌려주기 때문이다. 마감 스케줄러의 작업 시그니처가
+ * `() => void | Promise<void>`로 넓혀져 있어 그대로 얹힌다.
  *
  * 방송 순서가 계약이다(`__tests__/roundTimerService.test.ts`가 고정):
  * `score.update` → `round.end` → `round.start`.

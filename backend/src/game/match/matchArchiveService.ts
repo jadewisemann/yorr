@@ -29,11 +29,10 @@ export interface MatchArchiveInput {
 }
 
 /**
- * 주간 랭킹 캐시(4.5)의 무효화 자리 — Java의
- * `@CacheEvict(cacheNames = WEEKLY_RANKING, allEntries = true)`.
+ * 주간 랭킹 캐시의 무효화 자리.
  *
  * 랭킹이 바뀔 수 있는 시점은 판이 끝날 때뿐이므로 주기적으로 다시 계산하는 대신
- * 여기서 알린다. **주입하지 않아도 보관은 동작한다** — 4.5가 배선될 때 붙는다.
+ * 여기서 알린다. **주입하지 않아도 보관은 동작한다.**
  */
 export interface RankingCacheInvalidator {
   invalidateAll(): void | Promise<void>
@@ -48,9 +47,8 @@ export interface MatchArchivedEvent {
 export interface MatchArchiveServiceOptions {
   /**
    * 보관 시각. **UTC 벽시계로 저장된다** — `Date`는 순간(instant)이고 UTC로 적는
-   * 것은 풀의 `timezone: 'Z'`(4.1)다. Java가 `Clock.systemUTC()`를 명시하는 것과
-   * 같은 이유·같은 자리이며, 주입 가능한 것은 4.5의 KST 주 경계 계산이 이 값을
-   * 기준으로 시험되기 때문이다.
+   * 것은 풀의 `timezone: 'Z'`다. 주입 가능한 이유는 주간 랭킹의 KST 주 경계
+   * 계산이 이 값을 기준으로 시험되기 때문이다.
    */
   readonly now?: () => Date
   readonly rankingCache?: RankingCacheInvalidator
@@ -175,9 +173,8 @@ export class MatchArchiveService {
   }
 
   /**
-   * Java의 `@CacheEvict`가 메서드 프록시라, **저장하지 않은 호출(중복 판·검증
-   * 실패)에도** 캐시가 비워진다. 그 관용을 그대로 옮겼다 — 반환값으로 조건을 거는
-   * 복잡함보다 캐시 미스 한 번이 싸다.
+   * **저장하지 않은 호출(중복 판·검증 실패)에도** 캐시를 비운다 — 반환값으로
+   * 조건을 거는 복잡함보다 캐시 미스 한 번이 싸다.
    *
    * 무효화 실패는 보관 결과를 뒤집지 않는다. 행은 이미 커밋됐고, 캐시가 남아 있다는
    * 이유로 종료 경로에 실패를 보고하면 거짓말이 된다.
