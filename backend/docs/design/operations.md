@@ -693,5 +693,5 @@ git show "$(git log --diff-filter=D --format=%H -1 -- Jenkinsfile)^:Jenkinsfile"
 - `frontend npm run dev:real` / `test:e2e:real`: Vite 프록시가 `/api`·`/ws`를
   백엔드 origin으로 넘긴다(로컬은 `http://localhost:8080`). 프록시가 origin
   헤더를 제거하므로 CORS 기본값으로도 로컬 개발이 된다.
-- e2e:real이 계약 검증의 최종 수단이다(ADR-0002). 백엔드 기동 감지는
+- e2e:real이 계약 검증의 최종 수단이다. 백엔드 기동 감지는
   `POST /rooms`가 **아무 HTTP 응답**이나 주면 성공으로 본다.

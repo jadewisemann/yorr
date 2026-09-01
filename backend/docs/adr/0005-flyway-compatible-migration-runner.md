@@ -65,7 +65,7 @@ V1이 "이미 적용됨"으로 오인돼 조용히 유실된다).
 
 - **Flyway CLI/`node-flyway`를 그대로 쓴다.** 이력 호환은 정의상 완벽하다. 하지만
   JRE와 Flyway 배포본이 런타임 이미지에 들어와야 한다 — "JVM을 걷어낸다"는
-  ADR-0001의 목적을 정면으로 되돌리고, Node 이미지가 Java 이미지보다 무거워진다.
+  Node 이미지에 JVM을 다시 들이게 된다.
   마이그레이션 도구 하나 때문에 치를 값이 아니다.
 - **Prisma Migrate / Drizzle Kit.** 둘 다 자기 이력 테이블(`_prisma_migrations`
   등)을 쓴다. 기존 `flyway_schema_history`를 인식하지 못하므로 V1·V2를 "적용되지

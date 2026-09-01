@@ -72,7 +72,7 @@
 
 > ⚠️ **와이어 계약 동결 중.** 백엔드 Java → JS 마이그레이션이 끝날 때까지
 > `wsEvents.ts`와 REST 사용부를 바꾸지 않는다
-> ([backend ADR-0002](../backend/docs/adr/0002-strangler-wire-contract.md), [PLANS.md](PLANS.md)).
+> ([backend DESIGN.md](../backend/DESIGN.md) 원칙 5, [PLANS.md](PLANS.md)).
 > 지금까지 동결을 깬 것은 다섯 건이고 모두 PLANS.md에 근거가 있다 — 연습 방 시계(넓히기),
 > 음성 채팅 → 텍스트 채팅(교체), 컨트롤러 링크 시그널링(넓히기), 파티 탁구 호스트
 > 판정(넓히기), 다빈치 코드 추가(넓히기).

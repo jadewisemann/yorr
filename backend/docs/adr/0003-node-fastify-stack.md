@@ -5,7 +5,7 @@
 
 ## 맥락
 
-ADR-0001의 결정에 따라 JS 런타임·프레임워크·라이브러리를 정해야 한다.
+백엔드를 Node.js + TypeScript로 쓰기로 하면서 런타임·프레임워크·라이브러리를 정해야 한다.
 요구사항: REST(`/api/v1`), WebSocket(`/ws/v1/game`), Redis(Lua 스크립트 포함),
 MySQL, 팀 도구 체인(TS·Biome·Vitest)과의 정합.
 

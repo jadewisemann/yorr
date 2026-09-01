@@ -21,7 +21,7 @@
 > 컴포넌트는 계약을 건드리지 않으므로 동결과 무관하다(아래 디자인 시스템 작업
 > 5건이 그 선례다). 백엔드는 "이식 완료"지만 e2e:real·MySQL 통합이 미검증이라
 > 동결을 아직 풀지 않는다
-([backend ADR-0002](../backend/docs/adr/0002-strangler-wire-contract.md)).
+([backend DESIGN.md](../backend/DESIGN.md) 원칙 5).
 문서·테스트·포트폴리오 작업은 동결과 무관하다.
 
 ## 대기 중인 이관 티켓 (동결 해제 후)

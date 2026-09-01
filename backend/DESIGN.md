@@ -4,12 +4,9 @@
 > What / Why / Invariant를 말한다. 구현과 이 문서가 어긋나면 [AGENTS.md](AGENTS.md)의
 > 판정 절차를 따른다. 결정의 배경("왜 이렇게 안 했는가")은 `docs/adr/`에 있다.
 >
-> 이 문서와 `docs/design/*.md`는 backend-java의 **코드와 테스트 전체**,
-> 그리고 프론트 와이어 계약(`frontend/src/realtime/wsEvents.ts` ·
-> `frontend/src/room/api/roomApi.ts`)을 대조해 작성했다(2026-08-14, 기준 커밋 a3a2c29).
-> ⚠️ `backend-java/GAME_SESSION_INTEGRATION.md`는 실제 계약보다 낡았다
-> (`room.subscribe`/`room.snapshot`, `POST /users/guests` 등은 존재하지 않는 프로토콜).
-> 그 문서를 명세로 쓰지 않는다 — 정본은 코드·테스트와 프론트 계약이다.
+> 이 문서와 `docs/design/*.md`는 코드·테스트와 프론트 와이어 계약
+> (`frontend/src/realtime/wsEvents.ts` · `frontend/src/room/api/roomApi.ts`)을
+> 대조해 유지한다.
 
 ## 핵심 원칙
 
@@ -30,7 +27,8 @@
 5. **와이어 계약의 정본은 프론트엔드.** `frontend/src/realtime/wsEvents.ts`
    (프로토콜 버전 1)와 `frontend/src/room/api/*.ts`가 계약의 SSOT다. 서버는 이
    계약을 구현하는 쪽이며, 계약 변경은 프론트와 함께 결정한다. 알려진 결함
-   (야추 타입 결합 등)도 그대로 구현한다([ADR-0002](docs/adr/0002-strangler-wire-contract.md)).
+   (야추 타입 결합 등)도 그대로 구현한다 — 서버가 조용히 조이면 프론트가 깨진다.
+   계약을 바꾸는 변경은 [PLANS.md](PLANS.md)에 절을 만들어 근거를 남긴다.
 6. **Redis는 실시간, MySQL은 영속.** 방·세션·진행 중 게임 상태·점수판은 Redis,
    계정·전적·주간 랭킹은 MySQL. 게임이 진행되는 동안 MySQL을 만지지 않는다 —
    MySQL 기록은 게임 종료(전적 보관) 시점에만 일어난다.
@@ -40,7 +38,7 @@
    전제**다(클러스터 전환 시 별도 ADR).
 8. **단일 인스턴스 전제.** WS 구독, 라운드 마감 **타이머 발화**, 방 폐쇄 예약,
    오프라인 카운터, 주간 랭킹 캐시는 프로세스 인메모리다. 수평 확장은 이
-   마이그레이션의 범위 밖이다(backend-java와 동일한 제약).
+   범위 밖이다.
    - 이 원칙에서 **"무중단 롤링 배포가 불가능하다"까지는 필연**이다(두 인스턴스
      공존을 요구하므로). 그러나 **"배포가 진행 중 게임을 끊는다"는 필연이 아니었다.**
      마감 **시각**은 이제 Redis에 있고 부팅 때 그 값으로 재무장한다
@@ -105,29 +103,28 @@ Mobile / Desktop Browser
 (프론트의 도메인 우선 원칙과 동일 취지 — 게임 하나를 이해하려고 레이어 여섯 개를
 뒤지지 않게 한다).
 
-| 폴더 | 책임 | backend-java 대응 |
-|---|---|---|
-| `config/` | 환경변수 로딩·검증 (`env.ts`) | `application.yaml`, `@ConfigurationProperties` |
-| `http/` | REST 라우트. Fastify 핸들러는 얇게, 로직은 도메인 서비스로 | `*Controller` |
-| `ws/` | WebSocket 게이트웨이 — envelope, 하트비트, 구독 레지스트리, 브로드캐스터, 채팅 중계 | `handler/`, `ws/` |
-| `room/` | 방 도메인 — Redis 키·Lua, 방 서비스, 퀵매치, 봇, 방 폐쇄 스케줄러 | `room/` |
-| `user/` | 세션·게스트·프로필 | `user/` |
-| `auth/` | 소셜 로그인(OAuth), 로그인 코드·state 스토어 | `auth/` |
-| `game/` | GameModule 인터페이스·레지스트리, 라운드 프레임워크, 점수 파이프라인, `game/yacht/` 등 게임별 모듈 | `game/` |
-| `infra/` | Redis·MySQL 클라이언트 팩토리, Lua 스크립트 등록·호출 체계. 도메인 로직 금지 | Spring Data 설정, `DefaultRedisScript` |
-| `errors.ts` | 도메인 오류의 공통 뿌리 `DomainError` — 메시지 자리에 **문자열 오류 코드**가 들어간다 | `IllegalArgumentException("room_full")` 관용 |
-| `main.ts` / `server.ts` | 부팅·조립. 조립 순서 외의 로직 금지 | `YorrApplication` |
+| 폴더 | 책임 |
+|---|---|
+| `config/` | 환경변수 로딩·검증 (`env.ts`) |
+| `http/` | REST 라우트. Fastify 핸들러는 얇게, 로직은 도메인 서비스로 |
+| `ws/` | WebSocket 게이트웨이 — envelope, 하트비트, 구독 레지스트리, 브로드캐스터, 채팅 중계 |
+| `room/` | 방 도메인 — Redis 키·Lua, 방 서비스, 퀵매치, 봇, 방 폐쇄 스케줄러 |
+| `user/` | 세션·게스트·프로필 |
+| `auth/` | 소셜 로그인(OAuth), 로그인 코드·state 스토어 |
+| `game/` | GameModule 인터페이스·레지스트리, 라운드 프레임워크, 점수 파이프라인, `game/yacht/` 등 게임별 모듈 |
+| `infra/` | Redis·MySQL 클라이언트 팩토리, Lua 스크립트 등록·호출 체계. 도메인 로직 금지 |
+| `errors.ts` | 도메인 오류의 공통 뿌리 `DomainError` — 메시지 자리에 **문자열 오류 코드**가 들어간다 |
+| `main.ts` / `server.ts` | 부팅·조립. 조립 순서 외의 로직 금지 |
 
 - 테스트는 소스와 같은 폴더의 `__tests__/`에 둔다. 여러 스위트가 함께 쓰는
   테스트 하네스(Redis 통합 테스트용 서버 등)만 `src/` 밖 `test/`에 둔다 —
   빌드 산출물에 들어가지 않게 하기 위해서다([ADR-0004](docs/adr/0004-redis-integration-test-harness.md)).
-- 도메인 규칙(점수 계산·판정)은 전송 계층(HTTP·WS)을 몰라야 한다 —
-  backend-java의 `ScoreConfirmationService` / `DuelRules` / `PingPongRules` 분리와
-  같은 원칙.
+- 도메인 규칙(점수 계산·판정)은 전송 계층(HTTP·WS)을 몰라야 한다
+  (`ScoreConfirmationService`·`DuelRules`·`PingPongRules`가 그 경계다).
 
 ## 오류 계약 (전 계층 공통 원칙)
 
-backend-java의 오류 표면은 세 가지 형식이 섞여 있고, **이 모양 그대로가 계약이다**:
+오류 표면은 세 가지 형식이 섞여 있고, **이 모양 그대로가 계약이다**:
 
 1. **REST 대부분**: 상태 코드 + **plain-text 문자열 코드** 본문(`room_full`,
    `invalid_nickname`, `session_expired` …). JSON 봉투가 아니다. 프론트
@@ -136,16 +133,15 @@ backend-java의 오류 표면은 세 가지 형식이 섞여 있고, **이 모�
    `{"code","message"}` (`GameQueryErrorResponse`).
 3. **WebSocket**: `error` 타입 envelope + `{code(SCREAMING_SNAKE), message, refMsgId?}`.
 
-상세 표는 각 하위 시스템 문서에 있다. 새 오류를 추가하거나 형식을 통일하는 일은
-마이그레이션 범위 밖이다(계약 동결).
+상세 표는 각 하위 시스템 문서에 있다. **형식을 통일하지 않는다** — 프론트가
+문자열 단위로 매핑하고 있어서 통일하는 순간 그쪽이 깨진다.
 
-구현: 도메인은 `errors.ts`의 `DomainError`(Java `IllegalArgumentException` 자리,
-400/404) · `ConflictError`(`IllegalStateException` 자리, 409)로 코드 문자열을
-던지고, `http/errorResponse.ts`가 상태 코드와 plain-text 본문으로 옮긴다.
+구현: 도메인은 `errors.ts`의 `DomainError`(400/404) · `ConflictError`(409)로 코드
+문자열을 던지고, `http/errorResponse.ts`가 상태 코드와 plain-text 본문으로 옮긴다.
 
 ## 운영 계약 (변경 시 배포 파이프라인과 함께)
 
-- 헬스체크: `GET /actuator/health` → `{"status":"UP"}` (Spring Actuator 경로 유지).
+- 헬스체크: `GET /actuator/health` → `{"status":"UP"}`.
   ⚠️ **지금 이 응답은 상수다**(`http/routes/health.ts:26`) — Redis와 MySQL이 죽어도
   `UP`이다. 즉 liveness에 가깝고 readiness가 아니며, 이미지의 `HEALTHCHECK`와 외부
   uptime 체크가 같은 한계를 물려받는다. Redis `PING` + MySQL `SELECT 1` + 5초 캐시로
@@ -162,4 +158,4 @@ backend-java의 오류 표면은 세 가지 형식이 섞여 있고, **이 모�
   도메인이 바뀌어도 쿠키 계약이 없다). 대조는 **정확 일치**이고 패턴이 아니다 —
   `allowedOrigins()`가 공백과 끝의 `/`만 정규화한다(도메인 전환 절차:
   [operations.md](docs/design/operations.md)).
-- 환경변수 이름은 backend-java와 동일하게 유지한다([operations.md](docs/design/operations.md)의 전체 표).
+- 환경변수 이름은 운영 `.env`에 이미 있는 것을 그대로 쓴다([operations.md](docs/design/operations.md)의 전체 표).
