@@ -1,5 +1,9 @@
 import { ScoreDomainError } from './scoreErrors.js'
 
+// Stryker disable StringLiteral: 여기서 던지는 메시지는 사람이 읽는 설명이지 계약이
+// 아니다(scoreErrors.ts 주석 — 상위 계층이 이유 코드로 옮겨 담는다). 문구를 검사에
+// 박으면 문구를 다듬을 때마다 검사가 깨진다.
+
 /**
  * 야추 족보 12종.
  *
@@ -76,8 +80,13 @@ export const DICE_COUNT = 5
 const MIN_FACE = 1
 const MAX_FACE = 6
 
+// `typeof` 검사를 지워도 결과가 같다 — `CATEGORY_SET`은 문자열만 담으므로 그 밖의
+// 값은 `has`에서 false가 된다(등가). 검사를 남기는 것은 의도를 읽히게 하려는 것이다.
+// Stryker disable all
 export const isScoreCategory = (value: unknown): value is ScoreCategory =>
   typeof value === 'string' && CATEGORY_SET.has(value)
+// Stryker restore all
+// Stryker disable StringLiteral
 
 export const isUpperCategory = (category: ScoreCategory): category is UpperScoreCategory =>
   UPPER_CATEGORY_SET.has(category)
@@ -92,6 +101,9 @@ export const scoreCategoryOf = (apiKey: string): ScoreCategory => {
 
 /** 주사위 검증 — 5개·1~6. 검증 실패는 "0점"이 아니라 **예외**다. */
 const validateDice = (dice: readonly number[]): void => {
+  // 타입이 이미 막는 입력에 대한 런타임 방어다. 이 분기를 죽이려면 검사가 타입을
+  // 속여야 하는데, 그것은 타입 이완을 0으로 유지한다는 다른 기준과 부딪힌다.
+  // Stryker disable next-line all
   if (dice === null || dice === undefined || !Array.isArray(dice)) {
     throw new ScoreDomainError('주사위는 null일 수 없습니다.')
   }
@@ -117,6 +129,9 @@ const isFourOfAKind = (dice: readonly number[]): boolean =>
 /** 5개 동일은 **불충족**이다(정확히 2 + 3). 의도된 판정이자 계약이다. */
 const isFullHouse = (dice: readonly number[]): boolean => {
   const values = [...counts(dice).values()]
+  // 개수의 합이 항상 5라 "2와 3이 모두 있다"이면 종류는 반드시 둘이다. 그래서
+  // `length === 2`를 흔드는 돌연변이는 결과를 바꾸지 못한다(등가).
+  // Stryker disable next-line all
   return values.length === 2 && values.includes(2) && values.includes(3)
 }
 

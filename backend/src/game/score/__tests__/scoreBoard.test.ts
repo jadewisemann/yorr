@@ -56,4 +56,33 @@ describe('ScoreBoard', () => {
     expect(open).not.toContain('fullHouse')
     expect(open[0]).toBe('ones')
   })
+
+  /**
+   * 합계 세 자리를 **각각** 본다. 하나로 묶어 검사하면 나머지 두 검사가 사라져도
+   * 통과한다 — 음수 소계가 그대로 저장되면 보너스 판정과 순위가 함께 틀어진다.
+   */
+  it.each([
+    ['소계', -1, 0, 0],
+    ['보너스', 0, -1, 0],
+    ['총점', 0, 0, -1],
+  ])('%s가 음수면 거부한다', (_name, upperSubtotal, upperBonus, total) => {
+    expect(() => createScoreBoard({}, upperSubtotal, upperBonus, total)).toThrow(
+      '점수 합계는 0 이상이어야 합니다.',
+    )
+  })
+
+  it('카테고리 점수가 음수면 거부한다', () => {
+    expect(() => createScoreBoard({ ones: -1 }, 0, 0, 0)).toThrow(
+      '카테고리 점수는 0 이상이어야 합니다.',
+    )
+  })
+
+  /** 채우지 않은 칸은 `null`이다 — `undefined`로 두면 12키 계약이 깨진다. */
+  it('undefined와 null은 둘 다 빈 칸으로 정규화한다', () => {
+    const scoreboard = createScoreBoard({ ones: undefined, twos: null, threes: 9 }, 9, 0, 9)
+
+    expect(scoreboard.categories.ones).toBeNull()
+    expect(scoreboard.categories.twos).toBeNull()
+    expect(scoreboard.categories.threes).toBe(9)
+  })
 })

@@ -107,4 +107,27 @@ describe('YachtScoreCalculator', () => {
   it('키가 아예 없는 상단 칸은 0으로 센다', () => {
     expect(calculateUpperSubtotal(new Map([['ones', 3]]))).toBe(3)
   })
+
+  /**
+   * 상단 소계는 **음수를 받지 않는다.** 경계가 `< 0`이라 0은 정상이다 — 0점 기록은
+   * 야추에서 흔한 선택이므로 여기서 막으면 판이 멈춘다.
+   */
+  it('상단 점수가 음수면 거부하고 0은 받는다', () => {
+    expect(() => calculateUpperSubtotal(new Map([['ones', -1]]))).toThrow(
+      '상단 카테고리 점수는 0 이상이어야 합니다.',
+    )
+    expect(calculateUpperSubtotal(new Map([['ones', 0]]))).toBe(0)
+  })
+
+  /**
+   * `has`는 true인데 `get`이 `undefined`인 경우가 있다 — 값으로 undefined를 넣은 Map이다.
+   * 이 갈래를 빼면 소계가 조용히 `NaN`이 되어 점수판 전체가 무너진다.
+   */
+  it('값이 undefined로 들어 있는 칸도 거부한다', () => {
+    const scores = new Map<ScoreCategory, number | null | undefined>([['ones', undefined]])
+
+    expect(() => calculateUpperSubtotal(scores)).toThrow(
+      '상단 카테고리 점수는 0 이상이어야 합니다.',
+    )
+  })
 })

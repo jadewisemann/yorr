@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { SUBMITTABLE_CATEGORIES } from '../../round/index.js'
 import {
   isSatisfiedBy,
+  isScoreCategory,
   isUpperCategory,
   SCORE_CATEGORIES,
   SCORE_CATEGORY_INFO,
@@ -84,6 +85,10 @@ describe('ScoreCategory', () => {
   it('fullHouse는 정확히 3+2일 때만 충족한다(5개 동일은 불충족)', () => {
     expect(isSatisfiedBy('fullHouse', [2, 5, 2, 5, 5])).toBe(true)
     expect(isSatisfiedBy('fullHouse', [6, 6, 6, 6, 6])).toBe(false)
+    // 한 쌍만 있는 손 — "2가 섞여 있다"만 보면 통과해 버린다.
+    expect(isSatisfiedBy('fullHouse', [1, 1, 2, 3, 4])).toBe(false)
+    // 눈이 두 종류지만 4+1이라 3+2가 아니다.
+    expect(isSatisfiedBy('fullHouse', [4, 4, 4, 4, 1])).toBe(false)
     expect(isSatisfiedBy('fullHouse', [3, 3, 3, 2, 1])).toBe(false)
   })
 
@@ -130,4 +135,15 @@ describe('ScoreCategory', () => {
     const category: ScoreCategory = scoreCategoryOf(candidate)
     expect(category).toBe('ones')
   })
+
+  /**
+   * 문자열이 아닌 값도 들어올 수 있다 — REST 본문과 WS payload가 그대로 흘러온다.
+   * 타입만 믿고 넘기면 `CATEGORY_SET.has`가 조용히 false를 내는 대신 통과해 버린다.
+   */
+  it.each([[42], [null], [undefined], [{}], [['ones']]])(
+    '문자열이 아닌 %s는 카테고리가 아니다',
+    (value) => {
+      expect(isScoreCategory(value)).toBe(false)
+    },
+  )
 })

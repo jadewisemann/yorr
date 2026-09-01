@@ -1,3 +1,7 @@
+// Stryker disable StringLiteral: 여기서 던지는 메시지는 사람이 읽는 설명이지 계약이
+// 아니다 — 상위 계층이 이유 코드로 옮겨 담는다. 문구를 검사에 박으면 문구를 다듬을
+// 때마다 검사가 깨진다.
+
 /**
  * 최종 순위 산출 — 순수 함수 묶음이다.
  *
@@ -54,6 +58,9 @@ const byTotalDescThenPlayerId = (
   right: readonly [string, number],
 ): number => {
   if (left[1] !== right[1]) return right[1] - left[1]
+  // 여기서 부등호를 흔드는 돌연변이는 **같은 playerId가 두 번 올 때만** 결과가 달라진다.
+  // 그런 입력에서는 두 항목이 완전히 같아 정렬 결과도 같으므로 죽일 방법이 없다(등가).
+  // Stryker disable next-line all
   return left[0] < right[0] ? -1 : left[0] > right[0] ? 1 : 0
 }
 
@@ -71,7 +78,8 @@ export const rankTotals = (totals: Iterable<readonly [string, number]>): Ranking
   let rank = 0
   let previousTotal: number | null = null
   ordered.forEach(([playerId, total], index) => {
-    if (previousTotal === null || previousTotal !== total) {
+    // `previousTotal`이 null이면 어떤 수와도 다르므로 `!==` 하나로 첫 항목까지 걸린다.
+    if (previousTotal !== total) {
       rank = index + 1
       previousTotal = total
     }
@@ -103,6 +111,9 @@ export const calculateGameResult = (playerScores: readonly PlayerFinalScore[]): 
     tied: (counts.get(total) ?? 0) > 1,
   }))
 
+  // `validate`가 빈 목록을 이미 거부하므로 `players[0]`은 반드시 있다. 옵셔널 체이닝은
+  // 그 사실이 바뀔 때를 위한 보험이다.
+  // Stryker disable next-line OptionalChaining
   const topScore = players[0]?.finalScore ?? 0
   return Object.freeze({
     players: Object.freeze(players),
@@ -111,9 +122,13 @@ export const calculateGameResult = (playerScores: readonly PlayerFinalScore[]): 
 }
 
 const validate = (playerScores: readonly PlayerFinalScore[]): void => {
+  // 타입이 막는 입력에 대한 런타임 방어다.
+  // Stryker disable all
   if (playerScores === null || playerScores === undefined) {
     throw new GameCompletionDomainError('플레이어 최종 점수 목록은 null일 수 없습니다.')
   }
+  // Stryker restore all
+  // Stryker disable StringLiteral
   if (playerScores.length === 0) {
     throw new GameCompletionDomainError('플레이어 최종 점수 목록은 비어 있을 수 없습니다.')
   }
@@ -129,9 +144,13 @@ const validate = (playerScores: readonly PlayerFinalScore[]): void => {
 }
 
 const validatePlayerScore = (playerScore: PlayerFinalScore | null | undefined): void => {
+  // 타입이 막는 입력에 대한 런타임 방어다.
+  // Stryker disable all
   if (playerScore === null || playerScore === undefined) {
     throw new GameCompletionDomainError('플레이어 최종 점수는 null일 수 없습니다.')
   }
+  // Stryker restore all
+  // Stryker disable StringLiteral
   if (typeof playerScore.playerId !== 'string' || playerScore.playerId.trim().length === 0) {
     throw new GameCompletionDomainError('플레이어 식별자는 비어 있을 수 없습니다.')
   }

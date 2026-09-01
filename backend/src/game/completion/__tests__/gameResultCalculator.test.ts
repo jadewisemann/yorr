@@ -201,4 +201,30 @@ describe('rankTotals', () => {
   it('빈 총점 맵이면 빈 순위다(예외 아님)', () => {
     expect(rankTotals(new Map())).toEqual([])
   })
+
+  /**
+   * 동점끼리는 **playerId 오름차순**이다. 입력 순서를 그대로 두면 같은 점수의 순서가
+   * 방마다 달라지고, 결과 화면의 줄 순서가 사람마다 뒤집힌다.
+   */
+  it('동점은 playerId 오름차순으로 세운다 — 입력 순서와 무관하게', () => {
+    const rankings = rankTotals([
+      ['player-z', 100],
+      ['player-a', 100],
+    ])
+
+    expect(rankings.map((ranking) => ranking.playerId)).toEqual(['player-a', 'player-z'])
+  })
+
+  /** 같은 playerId가 두 번 오면(있어서는 안 되지만) 순서를 뒤집지 않는다. */
+  it('같은 playerId가 겹쳐도 순위를 매긴다', () => {
+    expect(
+      rankTotals([
+        ['player-a', 50],
+        ['player-a', 50],
+      ]),
+    ).toEqual([
+      { rank: 1, playerId: 'player-a', total: 50 },
+      { rank: 1, playerId: 'player-a', total: 50 },
+    ])
+  })
 })

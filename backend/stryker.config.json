@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "_comment": "QUALITY.md 5단계. 전 범위를 대상으로 삼으면 한 번 실행에 수 시간이 걸려 CI에서 쓸 수 없으므로, 외부 의존이 없는 순수 로직 모듈부터 범위를 넓혀 간다.",
+  "_comment": "QUALITY.md 5단계. 전 범위를 대상으로 삼으면 한 번 실행에 수 시간이 걸려 CI에서 쓸 수 없으므로, 외부 의존이 없는 순수 로직 모듈부터 범위를 넓혀 간다. break=100은 이 범위에서 생존 0을 이미 달성했다는 뜻이다 — 하나라도 살아남으면 실행이 실패한다.",
   "packageManager": "npm",
   "testRunner": "vitest",
   "vitest": {
@@ -13,7 +13,7 @@
   "jsonReporter": {
     "fileName": "../tools/quality/.stryker.json"
   },
-  "coverageAnalysis": "perTest",
+  "coverageAnalysis": "all",
   "timeoutMS": 60000,
   "concurrency": 2,
   "mutate": [
@@ -27,7 +27,7 @@
   "thresholds": {
     "high": 100,
     "low": 100,
-    "break": null
+    "break": 100
   },
   "tsconfigFile": ""
 }

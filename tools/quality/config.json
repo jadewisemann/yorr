@@ -58,7 +58,8 @@
     "cognitive",
     "halstead",
     "explicitAny",
-    "fileLines"
+    "fileLines",
+    "mutation"
   ],
   "_enforcedNote": "QUALITY.md 5절의 단계에 따라 하나씩 추가한다. 키: cyclomatic·cognitive·halstead·fileLines·coverage·crap·mutation·deadCode·duplication·explicitAny·unknownCast",
   "ratchets": {

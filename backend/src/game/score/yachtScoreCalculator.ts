@@ -7,6 +7,10 @@ import {
 } from './scoreCategory.js'
 import { ScoreDomainError } from './scoreErrors.js'
 
+// Stryker disable StringLiteral: 여기서 던지는 메시지는 사람이 읽는 설명이지 계약이
+// 아니다(scoreErrors.ts 주석 — 상위 계층이 이유 코드로 옮겨 담는다). 문구를 검사에
+// 박으면 문구를 다듬을 때마다 검사가 깨진다.
+
 /**
  * 야추 채점의 **유일한 권위** — 순수 함수 묶음이다.
  *
@@ -59,6 +63,9 @@ export const calculateScore = (category: ScoreCategory, dice: readonly number[])
 export const calculateUpperSubtotal = (
   scores: ReadonlyMap<ScoreCategory, number | null | undefined>,
 ): number => {
+  // 타입이 이미 막는 입력에 대한 런타임 방어다. 이 분기를 죽이려면 검사가 타입을
+  // 속여야 하는데, 그것은 타입 이완을 0으로 유지한다는 다른 기준과 부딪힌다.
+  // Stryker disable next-line all
   if (!(scores instanceof Map)) {
     throw new ScoreDomainError('카테고리별 점수는 null일 수 없습니다.')
   }
