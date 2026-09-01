@@ -1,7 +1,6 @@
 # 영속성 (Redis / MySQL)
 
-> 상위 원칙은 [DESIGN.md](../../DESIGN.md). Java 원본: `game/match/`,
-> `game/ranking/`, `user/domain·repository`, Flyway `db/migration/`.
+> 상위 원칙은 [DESIGN.md](../../DESIGN.md).
 > Redis 키 스킴 전체는 [rooms-and-sessions.md](rooms-and-sessions.md).
 
 ## 저장소 분리
@@ -127,10 +126,10 @@ Node 쪽 도구는 **Flyway 이력 테이블 위에서 도는 자체 러너**다
 
 ### 구현 위치 (Node)
 
-| 파일 | 대응 Java |
-|---|---|
-| `user/profile.ts` — `UserProfileService`·`UserProfileRepository`·`MysqlUserProfileStore`·`UserNotFoundError` | `user/application/UserProfileService` + `user/repository/UserRepository` + `user/domain/User.rename` |
-| `http/routes/users.ts` — `registerUserRoutes` | `user/controller/UserProfileController` |
+| 파일 |
+|---|
+| `user/profile.ts` — `UserProfileService`·`UserProfileRepository`·`MysqlUserProfileStore`·`UserNotFoundError` |
+| `http/routes/users.ts` — `registerUserRoutes` |
 
 - 세션 쪽은 좁은 포트(`SessionNicknameWriter`)로만 잡는다. `UserService`가
   구조적으로 이를 만족하므로 배선은 그대로이고, MySQL 없는 환경에서도 라우트
@@ -169,11 +168,11 @@ Node 쪽 도구는 **Flyway 이력 테이블 위에서 도는 자체 러너**다
 
 ### 구현 위치 (Node)
 
-| 파일 | 대응 Java |
-|---|---|
-| `game/match/matchArchiveService.ts` — `MatchArchiveService`(`archive(room, rankings)` · `archiveParticipants(input)`), `resolveDisplayNickname` | `game/match/application/MatchArchiveService` + `MatchParticipant.of`의 이름 규칙 |
-| `game/match/matchArchiveStore.ts` — `MatchArchiveStore`(포트) · `MysqlMatchArchiveStore` | `MatchRepository` + `UserRepository.findById` |
-| `game/match/index.ts` | 공개 표면(배선·탁구 AI REST는 여기만 import) |
+| 파일 |
+|---|
+| `game/match/matchArchiveService.ts` — `MatchArchiveService`(`archive(room, rankings)` · `archiveParticipants(input)`), `resolveDisplayNickname` |
+| `game/match/matchArchiveStore.ts` — `MatchArchiveStore`(포트) · `MysqlMatchArchiveStore` |
+| `game/match/index.ts` |
 
 - `MatchArchiveService`는 2.7의 `MatchArchivePort`를 **구조적으로** 만족한다 —
   배선에서 `noopMatchArchive`를 이 인스턴스로 바꾸는 것 외에 다른 변경이 없다.
@@ -259,14 +258,14 @@ rank 번호는 응답 조립 시 부여(동점 공동·다음 순위 건너뜀 �
 
 ### 구현 위치 (Node)
 
-| 파일 | 대응 Java |
-|---|---|
-| `game/ranking/weekBoundary.ts` — `weekBoundaryOf`·`KST_OFFSET_MINUTES` | `WeeklyRankingService.weekStart`·`utcWallClock` |
-| `game/ranking/weeklyRankingStore.ts` — `WeeklyRankingRepository`·`MysqlWeeklyRankingStore` | `MatchParticipantRepository`의 집계 3종 |
-| `game/ranking/weeklyRankingCache.ts` — `CachingWeeklyRankingRepository`·`WeeklyRankingCacheEvictor`·`weeklyRankingCacheKey` | `config/CacheConfig` + `@Cacheable`/`@CacheEvict` |
-| `game/ranking/weeklyRankingService.ts` — `WeeklyRankingService`·`MAX_LIMIT` | `game/ranking/application/WeeklyRankingService` |
-| `game/ranking/weeklyRankingResponse.ts` — `weeklyRankingResponse` | `controller/dto/WeeklyRankingResponse.of` |
-| `http/routes/ranking.ts` — `registerRankingRoutes` | `game/ranking/controller/RankingController` |
+| 파일 |
+|---|
+| `game/ranking/weekBoundary.ts` — `weekBoundaryOf`·`KST_OFFSET_MINUTES` |
+| `game/ranking/weeklyRankingStore.ts` — `WeeklyRankingRepository`·`MysqlWeeklyRankingStore` |
+| `game/ranking/weeklyRankingCache.ts` — `CachingWeeklyRankingRepository`·`WeeklyRankingCacheEvictor`·`weeklyRankingCacheKey` |
+| `game/ranking/weeklyRankingService.ts` — `WeeklyRankingService`·`MAX_LIMIT` |
+| `game/ranking/weeklyRankingResponse.ts` — `weeklyRankingResponse` |
+| `http/routes/ranking.ts` — `registerRankingRoutes` |
 
 - 집계 질의 인터페이스를 **전적 패키지가 아니라 랭킹 모듈**에 둔다. 읽는 쪽이 소유하면 보관(쓰기)과 랭킹(읽기)이 서로의
   파일을 건드리지 않고 같은 테이블을 나눠 쓴다 — 결합은 Flyway V2 스키마 하나다.

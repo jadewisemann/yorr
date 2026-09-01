@@ -1,8 +1,7 @@
 # YORR Backend (Node.js)
 
-YORR의 API 및 실시간 게임 서버다. 기존 Spring Boot 구현을 Node.js + TypeScript로
-이식해 왔으며, 원본 `backend-java/`는 제거되었다 — 이제 이 디렉터리가 유일한
-백엔드다. 이식 경과는 [PLANS.md](PLANS.md)에 남아 있다.
+YORR의 API 및 실시간 게임 서버다. 진행 중인 계약 변경과 하위 시스템 상태는
+[PLANS.md](PLANS.md)에 있다.
 
 ## 문서 지도
 

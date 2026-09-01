@@ -1,7 +1,6 @@
 # 운영 (환경변수 · 모니터링 · 배포 계약)
 
-> 상위 원칙은 [DESIGN.md](../../DESIGN.md). Java 원본: `application.yaml`,
-> `config/`, `monitoring/`. 배포 파이프라인: `.github/workflows/backend.yml`,
+> 상위 원칙은 [DESIGN.md](../../DESIGN.md). 배포 파이프라인: `.github/workflows/backend.yml`,
 > `backend/Dockerfile`, `deploy/compose.yaml`
 > ([ADR-0006](../adr/0006-github-actions-ghcr-arm64-single-host.md)).
 > 구 Jenkins 파이프라인은 삭제했다(아래 「구 파이프라인은 없다」).

@@ -1,10 +1,8 @@
 # 방·세션
 
-> 상위 원칙은 [DESIGN.md](../../DESIGN.md). Java 원본: `room/`, `user/`.
-> 아래는 backend-java 코드·테스트 전수 대조 결과다(2026-08-14).
+> 상위 원칙은 [DESIGN.md](../../DESIGN.md).
 > ⚠️ `POST /api/v1/users/guests`·`POST /rooms/{code}/players` 같은 엔드포인트는
-> **존재하지 않는다**(낡은 GAME_SESSION_INTEGRATION.md의 잔재). 게스트 발급은
-> `POST /rooms`에 통합되어 있다.
+> **존재하지 않는다.** 게스트 발급은 `POST /rooms`에 통합되어 있다.
 
 ## 세션 모델 (게스트 = 회원, 같은 모양)
 

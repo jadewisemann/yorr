@@ -1,7 +1,7 @@
 # 컨트롤러 링크 시그널링 (`ctrl.*`)
 
 > 상위 원칙은 [DESIGN.md](../../DESIGN.md). 구현: `ws/controllerSignal.ts`(릴레이) ·
-> `ws/handler.ts`(라우팅·payload 검증). Java에는 대응 구현이 **없다** — 마이그레이션
+> `ws/handler.ts`(라우팅·payload 검증). **새로 만든 메시지다** — 마이그레이션
 > 이후에 생긴 기능이다.
 >
 > 무엇을 위한 통로인지, 무엇이 그 위로 흐르는지는 프론트가 정본이다:

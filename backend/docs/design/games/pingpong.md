@@ -1,7 +1,7 @@
 # 탁구 (PING_PONG)
 
-> 프레임워크 공통은 [game-modules.md](../game-modules.md). Java 원본:
-> `game/pingpong/`. 구현은 `src/game/pingpong/`(아래 「구현」).
+> 프레임워크 공통은 [game-modules.md](../game-modules.md).
+> 구현은 `src/game/pingpong/`(아래 「구현」).
 > min 2 / max 2 / supportsBots **false** — 그 세 값의 출처는 `game/catalog.ts`
 > 하나이고 모듈은 다시 선언하지 않는다. duel과 같은 자체 상태기계 + 버전 키
 > 스케줄링 패턴.

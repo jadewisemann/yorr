@@ -1,7 +1,7 @@
 # 석양이 진다 (DUEL)
 
-> 프레임워크 공통은 [game-modules.md](../game-modules.md). Java 원본:
-> `game/duel/`. min 2 / max 2 / supportsBots **false**. 라운드 프레임워크
+> 프레임워크 공통은 [game-modules.md](../game-modules.md).
+> min 2 / max 2 / supportsBots **false**. 라운드 프레임워크
 > (RoundState·RoundTimerService)를 쓰지 않고 자체 상태기계 + 버전 키 스케줄링을
 > 쓴다.
 

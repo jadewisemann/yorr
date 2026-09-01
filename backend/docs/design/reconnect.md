@@ -1,8 +1,6 @@
 # 재접속
 
-> 상위 원칙은 [DESIGN.md](../../DESIGN.md). Java 원본:
-> `game/round/application/GameReconnectSnapshotService`·`OrphanedRoundStateSweeper`,
-> `handler/GameWebSocketHandler`(재접속 분기), `ws/RoomSessionRegistry`.
+> 상위 원칙은 [DESIGN.md](../../DESIGN.md).
 > 구현: `src/game/reconnect/`(공개 표면은 `src/game/reconnect/index.ts`).
 
 ## 불변식
@@ -71,7 +69,7 @@ server
 - 실패는 `ReconnectSnapshotError`다: 라운드 상태 없음 → `ROUND_NOT_INITIALIZED`,
   활성 마감 없음 → `DEADLINE_NOT_FOUND`. **둘 다 WS `INTERNAL`로 매핑**하며 그
   매핑은 게임 모듈이 한다(라운드의 `RoundSynchronizationError`와 같은 경계).
-- 오프라인 미스 리셋은 **스냅샷 조립 뒤**다(Java `YachtDiceGameModule.reconnect`
+- 오프라인 미스 리셋은 **스냅샷 조립 뒤**다(`YachtDiceGameModule.reconnect`
   순서 그대로) — 조립이 실패하면 카운터는 남는다.
 
 ## 고아 라운드 상태 스위퍼
@@ -90,7 +88,7 @@ server
   뒤집으면 상태를 지운 뒤 남은 마감이 발화해 방 없는 상태로 라운드가 되살아난다.
   타이머를 먼저 끊는 것이 계약이고 테스트가 순서 자체를 고정한다.
 - 순회 목록은 **복사본**이어야 한다(`roomIds()`) — 도는 중에 `remove`를 부른다.
-- 한 주기가 던져도 예약은 살아남고 다음 주기에 재시도한다(Spring `@Scheduled`와
+- 한 주기가 던져도 예약은 살아남고 다음 주기에 재시도한다(주기 실행의 통상 규약과
   같은 결과). 주기 실행은 주입 가능한 시임이라 테스트가 실시간 sleep에 기대지 않는다.
 
 ## 소켓 끊김과 멤버십 (재접속의 전제)

@@ -1,7 +1,7 @@
 # 야추 (YACHT_DICE)
 
-> 프레임워크 공통은 [game-modules.md](../game-modules.md). Java 원본:
-> `game/yacht/`, `ws/dto/Dice*`. min 1 / max 6 / supportsBots **true**.
+> 프레임워크 공통은 [game-modules.md](../game-modules.md).
+> min 1 / max 6 / supportsBots **true**.
 > 라운드·점수 파이프라인(RoundState·타이머·CONFIRM_SCORE)은 프레임워크 문서에
 > 있고, 여기는 야추 고유 부분만 다룬다.
 >
