@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MISS1, SMASH_SPEED } from '@/pingpong/domain/court'
+import { IDEAL2, MISS1, SMASH_SPEED, W2_HI, W2_LO } from '@/pingpong/domain/court'
 import { advanceLocalGame, createLocalGame, swingLocalGame } from '@/pingpong/domain/localGame'
 
 const highRandom = () => 0.99
@@ -76,5 +76,50 @@ describe('local ping pong game', () => {
 
     expect(game.s2).toBe(12)
     expect(game.phase).toBe('over')
+  })
+
+  /**
+   * 파티 모드의 **먼 쪽(P2)** 스윙. 가까운 쪽과 창(window)이 반대라 경계도 뒤집힌다 —
+   * 여기가 비어 있으면 두 사람이 붙었을 때만 드러나는 판정 오류를 못 잡는다.
+   */
+  it('먼 쪽이 제때 휘두르면 공이 돌아간다', () => {
+    const game = createLocalGame('duo', 'normal', highRandom)
+    game.ball.dir = -1
+    game.ball.pos = IDEAL2
+    game.ball.x = 0.4
+
+    const feedback = swingLocalGame(game, 2, 300, false, highRandom)
+
+    expect(feedback?.kind).not.toBe('miss')
+    expect(game.ball.dir).toBe(1)
+    expect(game.p2X).toBe(0.4)
+  })
+
+  it('먼 쪽이 너무 빠르거나 늦으면 놓친다', () => {
+    const early = createLocalGame('duo', 'normal', highRandom)
+    early.ball.dir = -1
+    early.ball.pos = W2_HI + 0.01
+
+    expect(swingLocalGame(early, 2, 300, false, highRandom)).toEqual({
+      kind: 'miss',
+      text: '너무 빨라요',
+    })
+
+    const late = createLocalGame('duo', 'normal', highRandom)
+    late.ball.dir = -1
+    late.ball.pos = W2_LO - 0.01
+
+    expect(swingLocalGame(late, 2, 300, false, highRandom)).toEqual({
+      kind: 'miss',
+      text: '너무 늦었어요',
+    })
+  })
+
+  it('혼자 하는 판에서는 먼 쪽 스윙이 무시된다 — 봇이 대신 친다', () => {
+    const game = createLocalGame('solo', 'normal', highRandom)
+    game.ball.dir = -1
+    game.ball.pos = IDEAL2
+
+    expect(swingLocalGame(game, 2, 300, false, highRandom)).toBeNull()
   })
 })

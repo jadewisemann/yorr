@@ -49,10 +49,10 @@ export default defineConfig({
        * 올릴 때는 이 숫자를 함께 올린다. 내리는 변경은 리뷰에서 막는다.
        */
       thresholds: {
-        statements: 82,
+        statements: 83,
         branches: 77,
         functions: 85,
-        lines: 83,
+        lines: 84,
       },
     },
   },

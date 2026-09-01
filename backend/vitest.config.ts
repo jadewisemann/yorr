@@ -27,10 +27,10 @@ export default defineConfig({
        * 나오면 그때 올린다.
        */
       thresholds: {
-        statements: 90,
+        statements: 91,
         branches: 82,
-        functions: 88,
-        lines: 91,
+        functions: 89,
+        lines: 92,
       },
     },
   },

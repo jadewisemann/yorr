@@ -113,6 +113,10 @@ const mutation = strykerReport
 
 const { thresholds } = CONFIG
 // 예외로 적힌 파일은 그 지표에서만 빼고 센다. 예외 목록 자체는 아래에서 개수를 감시한다.
+// 핵심 순수 로직만 절대 기준을 진다(QUALITY.md 3절 (c)). 나머지는 래칫이다.
+const corePatterns = (CONFIG.coreModules?.patterns ?? []).map((pattern) => new RegExp(pattern))
+const isCore = (file) => corePatterns.some((pattern) => pattern.test(file))
+
 const waived = (metric, file) =>
   CONFIG.waivers.files.some((entry) => entry.metric === metric && entry.file === file)
 const allFiles = metrics.targets.flatMap((t) => t.files)
@@ -149,7 +153,9 @@ const productionFunctions = allFunctions.filter((fn) => {
 const violations = {
   cyclomatic: productionFunctions.filter((fn) => fn.cyclomatic > thresholds.cyclomatic),
   halstead: productionFunctions.filter((fn) => fn.halsteadDifficulty > thresholds.halsteadDifficulty),
-  crap: productionFunctions.filter((fn) => fn.crap !== null && fn.crap > thresholds.crap),
+  crap: productionFunctions.filter(
+    (fn) => isCore(fn.file) && fn.crap !== null && fn.crap > thresholds.crap,
+  ),
   fileLines: allFiles.filter(
     (f) => f.codeLines > thresholds.fileLines && !waived('fileLines', f.file),
   ),
@@ -199,7 +205,10 @@ const metricRows = [
     id: 6,
     name: 'CRAP',
     goal: `< ${thresholds.crap}`,
-    value: `최대 ${Math.max(0, ...productionFunctions.map((f) => f.crap ?? 0))}`,
+    value: `핵심 최대 ${Math.max(
+      0,
+      ...productionFunctions.filter((f) => isCore(f.file)).map((f) => f.crap ?? 0),
+    )} · 전체 최대 ${Math.max(0, ...productionFunctions.map((f) => f.crap ?? 0))}`,
     violations: violations.crap.length,
   },
   {

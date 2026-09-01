@@ -332,6 +332,16 @@ npm run quality:gate       # 켜진 게이트를 검사한다 — CI가 부르�
 어댑터를 `score/rosterScoreWriter.ts` 하나로 모으고 진짜 Redis로 검사를 붙여 네 파일을
 100%로 올렸다.
 
+**CRAP의 적용 범위도 3절 (c)를 따른다.** 절대 기준(< 25)은 핵심 순수 로직에만 건다
+(`config.json`의 `coreModules`). 전 범위에 걸면 위반 32건 가운데 스물 몇 건이 결투 화면
+컴포넌트인데, 그것을 0으로 만들려면 프론트가 금지한 "단순 렌더링 확인용 검사"를 찍어내야
+한다(frontend/AGENTS.md 「테스트 최소화 원칙」). 두 문서가 부딪히는 자리라 계획서가 이미
+정해 둔 갈래를 따랐다.
+
+핵심 범위의 CRAP 위반은 7건에서 5건으로 줄었다. 남은 다섯은 전부 React 훅
+(`useDuelGame`·`useLocalPingPongGame`·`usePartyHostGame`)이고, 실시간 클라이언트와 타이머
+대역을 세워야 검사할 수 있어 별도 작업으로 둔다.
+
 ### 5단계 — 생존 돌연변이 — **도입 완료, 0은 진행 중**
 
 Stryker 10 + vitest-runner를 `backend/`에 도입했다. 대상은 외부 의존이 없는 순수 로직
