@@ -1,10 +1,10 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import type { MemberUser } from '../../auth/socialProfile.js'
 import { DomainError } from '../../errors.js'
-import { SessionAuthenticationError } from '../../user/errors.js'
 import type { UserProfileService } from '../../user/profile.js'
-import type { UserIdentity, UserService } from '../../user/session.js'
+import type { UserService } from '../../user/session.js'
 import { sendCode } from '../errorResponse.js'
+import { authenticateMember } from '../memberAuth.js'
 
 /**
  * 내 프로필.
@@ -56,40 +56,4 @@ export const registerUserRoutes = async (
       return sendCode(reply, error.code === 'user_not_found' ? 404 : 400, error.code)
     }
   })
-}
-
-/**
- * 세션을 확인하고 **회원인지**까지 본다. 게스트 토큰은 401이 아니라 **403**이다 —
- * 인증은 됐지만 고칠 프로필 자체가 없는 상태라 다시 로그인해도 달라지지 않는다.
- * 클라이언트가 401(재로그인)과 403(불가)을 다르게 다뤄야 하므로 계약이다.
- *
- * 응답을 이미 보냈으면 `undefined`를 돌려준다.
- */
-const authenticateMember = async (
-  deps: UserRouteDependencies,
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<UserIdentity | undefined> => {
-  let identity: UserIdentity
-  try {
-    identity = await deps.users.authenticateSession(bearerToken(request))
-  } catch (error) {
-    if (!(error instanceof SessionAuthenticationError)) throw error
-    // 세션 계약의 본문은 API마다 다르다 — 프로필·auth·랭킹은 `session_expired`.
-    sendCode(reply, 401, 'session_expired')
-    return undefined
-  }
-  if (identity.type !== 'MEMBER') {
-    sendCode(reply, 403, 'member_only')
-    return undefined
-  }
-  return identity
-}
-
-/** 헤더가 없거나 형식이 다르면 `undefined` — `authenticateSession`이 401로 판정한다. */
-const bearerToken = (request: FastifyRequest): string | undefined => {
-  const header = request.headers.authorization
-  const value = Array.isArray(header) ? header[0] : header
-  if (value === undefined || !value.startsWith('Bearer ')) return undefined
-  return value.slice('Bearer '.length)
 }

@@ -141,6 +141,10 @@
 인증은 **Bearer 토큰만**(X-User-Id 없음). 게스트 토큰은 인증은 되지만 DB
 프로필이 없다 → **403 `member_only`**.
 
+> 구현(Node): `http/memberAuth.ts`. 헤더 파싱과 401·403 가르기를 회원 전용 라우트들이
+> 공유한다. 탁구 AI 라우트는 게스트를 허용하면서 깨진 헤더는 거절해야 해서 자기 판본을
+> 갖고 있다.
+
 | 요청 | 응답 / 오류 |
 |---|---|
 | `GET /api/v1/users/me` | 200 `{userId, nickname, profileImageUrl}` · 401 `session_expired` · 403 `member_only` |

@@ -1,7 +1,8 @@
-import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
+import type { Pool, PoolConnection } from 'mysql2/promise'
 import type { MemberUser } from '../auth/socialProfile.js'
 import { DomainError } from '../errors.js'
 import { normalizeNickname } from './session.js'
+import { toMember, type UserRow } from './userRow.js'
 
 /**
  * 회원이 자기 프로필을 보고 고치는 경로.
@@ -42,18 +43,6 @@ export interface UserProfileRepository {
 export interface SessionNicknameWriter {
   renameSession(userId: string, nickname: string): Promise<void>
 }
-
-interface UserRow extends RowDataPacket {
-  readonly id: string
-  readonly nickname: string
-  readonly profile_image_url: string | null
-}
-
-const toMember = (row: UserRow): MemberUser => ({
-  id: row.id,
-  nickname: row.nickname,
-  profileImageUrl: row.profile_image_url,
-})
 
 /**
  * MySQL 구현. 스키마는 Flyway V1(`users`)이고 전환기에는 바꾸지 않는다

@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyReply } from 'fastify'
 import type { AuthOptions } from '../../auth/config.js'
 import { SocialLoginError } from '../../auth/errors.js'
 import type { GoogleOAuthClient } from '../../auth/googleClient.js'
@@ -12,6 +12,7 @@ import type { OAuthStateStore } from '../../auth/stateStore.js'
 import { SessionAuthenticationError } from '../../user/errors.js'
 import type { UserService } from '../../user/session.js'
 import { sendCode } from '../errorResponse.js'
+import { bearerToken } from '../memberAuth.js'
 
 /**
  * 소셜 로그인 진입점.
@@ -211,13 +212,6 @@ const authenticated = async (
     if (!(error instanceof SessionAuthenticationError)) throw error
     return sendCode(reply, 401, 'session_expired')
   }
-}
-
-/** 헤더가 없거나 형식이 달라도 던지지 않는다 — 두 엔드포인트 모두 그 경우를 스스로 처리한다. */
-const bearerToken = (request: FastifyRequest): string | undefined => {
-  const header = first(request.headers.authorization)
-  if (header === undefined || !header.startsWith('Bearer ')) return undefined
-  return header.slice('Bearer '.length)
 }
 
 const redirect = (reply: FastifyReply, url: string): FastifyReply =>

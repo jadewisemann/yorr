@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
+import type { Pool, PoolConnection } from 'mysql2/promise'
+import { toMember, type UserRow } from '../user/userRow.js'
 import { DataIntegrityViolationError, isMysqlIntegrityViolation } from './errors.js'
 import { type MemberUser, PLACEHOLDER_NICKNAME, type SocialProvider } from './socialProfile.js'
 
@@ -47,18 +48,6 @@ export interface SocialAccountRegistrar {
     profileImageUrl: string | null,
   ): Promise<MemberUser>
 }
-
-interface UserRow extends RowDataPacket {
-  readonly id: string
-  readonly nickname: string
-  readonly profile_image_url: string | null
-}
-
-const toMember = (row: UserRow): MemberUser => ({
-  id: row.id,
-  nickname: row.nickname,
-  profileImageUrl: row.profile_image_url,
-})
 
 /**
  * MySQL 구현. 스키마는 Flyway V1(`users`·`social_accounts`)이고 전환기에는
