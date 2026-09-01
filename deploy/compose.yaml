@@ -184,7 +184,7 @@ services:
 
   # ── Redis (방·세션·진행 중 게임 상태·점수판) ─────────────────────────────────
   redis:
-    # Java 통합 테스트가 쓰던 것과 같은 계열(7.4). linux/arm64 매니페스트 있음.
+    # 통합 테스트가 쓰는 것과 같은 계열(7.4). linux/arm64 매니페스트 있음.
     image: redis:7.4-alpine
     container_name: ${REDIS_CONTAINER:-yorr-redis}
     restart: unless-stopped
