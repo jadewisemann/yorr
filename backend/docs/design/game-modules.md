@@ -14,7 +14,7 @@
 | `code` | 대문자 정규 코드(`YACHT_DICE`·`DUEL`·`PING_PONG`). 레지스트리 키이자 WS 네임스페이스(소문자화) |
 | `start(roomCode, game)` | phase 전이 **후** 게임 상태 초기화. `game`은 START 결과(`{gameId, snapshot}`). 실패 시 throw(롤백 유도) |
 | `reset(roomCode)` | 로비 복귀 정리 |
-| `reconnect(roomCode, playerId)` → `WsRoomSnapshot` | 재접속 스냅샷 생성([reconnect.md](../reconnect.md)). 게임 상태는 `game` 필드 |
+| `reconnect(roomCode, playerId)` → `WsRoomSnapshot` | 재접속 스냅샷 생성([reconnect.md](reconnect.md)). 게임 상태는 `game` 필드 |
 | `pause` / `resume` | 타이머만 중단/재개, 상태는 그대로 |
 | `removePlayer(roomCode, playerId)` | 게임 중 이탈 처리 |
 | `close(roomCode)` | 방 소멸 — 타이머+상태 폐기 |
