@@ -234,9 +234,9 @@ export function GamePlay({
   const chatOverlay = wide ? null : (
     <ChatOverlay
       chat={chat}
-      className="absolute inset-x-gutter z-banner"
       onToggle={setChatOpen}
       open={chatOpen}
+      peekClassName="absolute inset-x-gutter z-banner"
       you={session.you}
     />
   )

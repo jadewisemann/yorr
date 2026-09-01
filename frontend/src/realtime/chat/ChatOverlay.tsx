@@ -8,9 +8,13 @@ import type { ChatLine, RoomChat } from './useRoomChat'
 
 interface ChatOverlayProps {
   chat: RoomChat
-  className?: string | undefined
   onToggle: (open: boolean) => void
   open: boolean
+  /**
+   * 접힘 상태의 자리. 펼침은 화면 최상단을 기준으로 스스로 자리를 잡으므로 받지 않는다 —
+   * 판 안에 갇히면 헤더와 점수 줄을 못 덮는다.
+   */
+  peekClassName?: string | undefined
   you: PlayerId
 }
 
@@ -46,12 +50,13 @@ const PEEK_BACKDROP =
  * 어디까지가 대화인지 선을 긋는다. 조금이라도 비치면 뒤 안내 카드나 점수가 글자 사이로 겹쳐
  * 둘 다 못 읽고, 페이드로 흐려 놓으면 경계가 없어 어디를 눌러야 판인지 모른다.
  *
- * 화면 폭을 꽉 채우고 높이도 **고정으로 크게** 잡는다(62svh) — 대화가 두 줄이든 스무 줄이든
- * 같은 크기로 열려야 채팅창으로 읽힌다. 그동안 판이 가려지는 것은 사용자가 채팅을 열어서
- * 고른 결과다. 좌우는 여백만큼 음수 마진을 주고 같은 만큼 패딩으로 되돌린다.
+ * 자리는 **화면 최상단**이고(`fixed`) 크기는 폭 전체 · 높이 62svh 고정이다. 판 안에 갇히면
+ * 헤더와 점수 줄이 위에 남아 창이 어중간하게 걸치고, 크기가 대화량을 따라 변하면 열 때마다
+ * 다른 것이 뜬 것처럼 보인다. 그동안 게임 정보가 가려지는 것은 **사용자가 채팅을 열어서 고른
+ * 결과**다.
  */
 const OPEN_PANEL =
-  '-mx-gutter rounded-b-panel border-b border-border bg-surface-overlay px-gutter pt-3 pb-4 shadow-overlay'
+  'fixed inset-x-0 top-0 z-sheet h-[62svh] rounded-b-panel border-b border-border bg-surface-overlay px-gutter pt-[max(0.75rem,env(safe-area-inset-top))] pb-4 shadow-overlay'
 
 /**
  * 좁은 화면 게임판 위의 채팅. 판 **위에 얹히기만 하고 껍데기를 두르지 않는다** — 카드나
@@ -71,7 +76,7 @@ const OPEN_PANEL =
  * 접힌 대화는 스크린리더에 읽히지 않는다 — 펼친 목록의 `role="log"`가 같은 말을 이미 읽어
  * 주므로 여기서 또 읽으면 새 말마다 두 번 들린다.
  */
-export function ChatOverlay({ chat, className, onToggle, open, you }: ChatOverlayProps) {
+export function ChatOverlay({ chat, onToggle, open, peekClassName, you }: ChatOverlayProps) {
   const { lines } = chat
   const [pending, setPending] = useState<Pending[]>([])
   const seenRef = useRef<Set<string> | null>(null)
@@ -126,11 +131,7 @@ export function ChatOverlay({ chat, className, onToggle, open, you }: ChatOverla
       <motion.section
         animate={{ opacity: 1, y: 0 }}
         aria-label="채팅"
-        className={cn(
-          'pointer-events-none top-2 flex h-[62svh] flex-col gap-2',
-          OPEN_PANEL,
-          className,
-        )}
+        className={cn('pointer-events-none flex flex-col gap-2', OPEN_PANEL)}
         initial={{ opacity: 0, y: -10 }}
         transition={ENTER}
       >
@@ -159,7 +160,7 @@ export function ChatOverlay({ chat, className, onToggle, open, you }: ChatOverla
   return (
     <div
       aria-live="polite"
-      className={cn('pointer-events-none top-20 grid grid-cols-1 gap-1.5', className)}
+      className={cn('pointer-events-none top-20 grid grid-cols-1 gap-1.5', peekClassName)}
       role="status"
     >
       <AnimatePresence initial={false}>
