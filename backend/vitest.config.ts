@@ -20,6 +20,18 @@ export default defineConfig({
         // 기본 제외에 걸리지 않는다.
         'src/**/__tests__/**',
       ],
+
+      /*
+       * 현재 수치를 바닥으로 고정한 래칫이다(QUALITY.md 4단계). 이 숫자는 MySQL 통합
+       * 테스트가 **도는** 환경(CI)에서 잰 값이 아니라 로컬 기준선이므로, CI에서 더 높게
+       * 나오면 그때 올린다.
+       */
+      thresholds: {
+        statements: 90,
+        branches: 82,
+        functions: 88,
+        lines: 91,
+      },
     },
   },
 })

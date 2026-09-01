@@ -59,6 +59,8 @@ jobs:
       # 순서·스크립트는 frontend/AGENTS.md 「검증 명령」과 같다.
       - run: npm run check
       - run: npm run typecheck
+      # `npm test`가 커버리지까지 잰다 — 임계값(vitest.config.ts)이 래칫이라
+      # 여기서 돌지 않으면 그 게이트는 설정만 있고 강제되지 않는다(QUALITY.md 4단계).
       - run: npm test
       # 프로덕션 빌드. vite.config.ts의 `assertSecureEndpoint`도 여기서 돈다 —
       # env가 없으면 상대경로 기본값이라 통과한다(운영 값은 Vercel이 준다).
