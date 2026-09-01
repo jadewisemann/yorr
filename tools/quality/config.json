@@ -48,7 +48,7 @@
       {
         "file": "frontend/src/yacht/rendering/physics-dice/World.ts",
         "metric": "fileLines",
-        "reason": "760줄. 굴림 단계 진행(흔들기→기울이기→방출→궤적 재생→결과 정렬)이 스무 개 남짓한 필드를 함께 읽고 쓰는 상태 기계라, 파일을 가르는 일이 곧 그 상태의 재설계다. 겉모습이 바뀌지 않았음을 단위 테스트만으로는 다 보이지 못하므로 시각 대조를 함께 세운 뒤에 손댄다."
+        "reason": "506줄(760에서 줄였다). 그릇 거동·주사위 방출·궤적 재생·결과 정렬·자리 이동·리사이즈 가라앉히기를 전부 밖으로 뺐고, 남은 것은 월드가 **자기 상태를 관리하는 부분**이다(필드 50여 개의 초기화·수명·프레임 루프). 여기서 더 쪼개면 상태와 그것을 만지는 코드가 갈라져 오히려 읽기 어려워진다. 남은 감축은 상태 자체를 몇 덩어리로 묶는 재설계이며, 시각 대조를 함께 세운 뒤에 한다."
       }
     ]
   },
@@ -63,6 +63,7 @@
   "_enforcedNote": "QUALITY.md 5절의 단계에 따라 하나씩 추가한다. 키: cyclomatic·cognitive·halstead·fileLines·coverage·crap·mutation·deadCode·duplication·explicitAny·unknownCast",
   "ratchets": {
     "unknownCast": 59,
-    "_note": "지금 값을 바닥으로 잡는다. 줄이면 이 숫자도 함께 줄여 되돌아가지 못하게 한다. 남은 캐스트의 성격은 QUALITY.md 3단계에 적혀 있다."
+    "_note": "지금 값을 바닥으로 잡는다. 줄이면 이 숫자도 함께 줄여 되돌아가지 못하게 한다. 남은 캐스트의 성격은 QUALITY.md 3단계에 적혀 있다.",
+    "duplication": 200
   }
 }

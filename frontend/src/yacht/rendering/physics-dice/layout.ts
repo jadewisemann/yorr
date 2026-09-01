@@ -280,3 +280,26 @@ export function updateAlignmentEntries(entries: AlignmentEntry[], progress: numb
 function easeInOut(progress: number) {
   return progress < 0.5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2
 }
+
+/**
+ * 킵 순서를 갱신한다. **이미 잡혀 있던 것의 순서는 지키고** 새로 잡힌 것만 뒤에 붙인다 —
+ * 킵 자리는 잡은 순서대로 채워지므로, 다시 정렬하면 화면에서 주사위가 자리를 바꾼다.
+ */
+export const nextHeldOrder = (
+  current: readonly PhysicsDiceIndex[],
+  held: PhysicsHeldDice,
+): PhysicsDiceIndex[] => {
+  const kept = current.filter((index) => held[index])
+  held.forEach((isHeld, index) => {
+    const dieIndex = index as PhysicsDiceIndex
+    if (isHeld && !kept.includes(dieIndex)) kept.push(dieIndex)
+  })
+  return kept
+}
+
+/** 지금 보여야 할 킵 자리 수. 전부 잡은 판(`keepAll`)에서는 다섯 자리가 모두 선다. */
+export const occupiedKeepSlotCount = (
+  keepAll: boolean,
+  slotCount: number,
+  heldCount: number,
+): number => (keepAll ? slotCount : heldCount)
