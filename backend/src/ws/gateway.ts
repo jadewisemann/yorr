@@ -54,7 +54,7 @@ export const attachGameSocketGateway = (
   })
 
   wss.on('connection', (socket) => {
-    const client = socket as unknown as ClientSocket
+    const client: ClientSocket = socket
     let queue: Promise<void> = Promise.resolve()
     const serialize = (task: () => Promise<void>): void => {
       queue = queue.then(async () => {

@@ -175,9 +175,11 @@ function createTrajectoryPlan(
   bodies: Array<RAPIER.RigidBody | undefined>,
   settled: boolean,
 ): DiceTrajectoryPlan {
-  const naturalDice = bodies.map((body) =>
-    body ? topFaceFromQuaternion(body.rotation()) : 1,
-  ) as unknown as PhysicsDiceSet
+  const faceAt = (index: 0 | 1 | 2 | 3 | 4): PhysicsDiceValue => {
+    const body = bodies[index]
+    return body ? topFaceFromQuaternion(body.rotation()) : 1
+  }
+  const naturalDice: PhysicsDiceSet = [faceAt(0), faceAt(1), faceAt(2), faceAt(3), faceAt(4)]
   return { attempt, durationSeconds, floorAssists, frames, naturalDice, settled }
 }
 

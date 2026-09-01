@@ -25,7 +25,7 @@ export const VARIADIC_KEYS = -1
 type LuaCallable = (...args: (string | number)[]) => Promise<unknown>
 
 const callableOf = (redis: Redis, name: string): LuaCallable | undefined => {
-  const value = (redis as unknown as Record<string, unknown>)[name]
+  const value: unknown = Reflect.get(redis, name)
   return typeof value === 'function' ? (value as LuaCallable) : undefined
 }
 

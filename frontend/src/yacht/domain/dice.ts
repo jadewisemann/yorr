@@ -61,11 +61,14 @@ export function createRollRequest({
 
 export function rollDice(seed: number, held: HeldDice, currentDice: DiceSet | null): DiceSet {
   let state = normalizeSeed(seed)
-  return held.map((isHeld, index) => {
-    if (isHeld && currentDice) return currentDice[index]
+  // 자리마다 직접 부른다 — `map`은 길이를 모르는 배열을 주므로 5칸 튜플로 만들려면
+  // 캐스트가 필요해진다. 굴림 순서가 곧 난수 순서라 왼쪽부터 평가되는 것도 중요하다.
+  const rollAt = (index: 0 | 1 | 2 | 3 | 4): DiceValue => {
+    if (held[index] && currentDice) return currentDice[index]
     state = advanceSeed(state)
     return (Math.floor((state / 2 ** 32) * 6) + 1) as DiceValue
-  }) as unknown as DiceSet
+  }
+  return [rollAt(0), rollAt(1), rollAt(2), rollAt(3), rollAt(4)]
 }
 
 export function nextRollSeed(seed: number) {

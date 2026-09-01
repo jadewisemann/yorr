@@ -16,10 +16,12 @@ function schedulePhysicsDicePrefetch() {
       prefetchPhysicsDice(),
     )
   }
-  const idleApi = window as unknown as {
+  // 옵셔널로 받는다 — 구형 Safari에는 없는 API라 존재를 확인해야 하고, 그 확인을
+  // 위해 window 전체를 다른 타입으로 바꿔칠 이유는 없다.
+  const idleApi: {
     requestIdleCallback?: Window['requestIdleCallback']
     cancelIdleCallback?: Window['cancelIdleCallback']
-  }
+  } = window
   if (idleApi.requestIdleCallback && idleApi.cancelIdleCallback) {
     const idleId = idleApi.requestIdleCallback(prefetch, { timeout: 2_000 })
     return () => idleApi.cancelIdleCallback?.(idleId)

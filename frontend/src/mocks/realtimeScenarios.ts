@@ -1,6 +1,7 @@
 import { type FakeMessageHandlers, FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import {
   type DiceSet,
+  type DiceValue,
   type ScoreBoard,
   type ServerMessage,
   WS_PROTOCOL_VERSION,
@@ -132,9 +133,9 @@ export function createRealtimeFixture(options: RealtimeFixtureOptions = {}) {
     ],
     'game.yacht_dice.dice.roll': (message) => {
       const rolled: DiceSet = [6, 5, 4, 3, 2]
-      serverDice = rolled.map((value, index) =>
-        message.payload.held[index] ? serverDice[index] : value,
-      ) as unknown as DiceSet
+      const keepAt = (index: 0 | 1 | 2 | 3 | 4): DiceValue =>
+        message.payload.held[index] ? serverDice[index] : rolled[index]
+      serverDice = [keepAt(0), keepAt(1), keepAt(2), keepAt(3), keepAt(4)]
       return [
         serverMessage(
           'game.yacht_dice.dice.broadcast',

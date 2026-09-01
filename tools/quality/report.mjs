@@ -218,6 +218,12 @@ const metricRows = [
 // ── 출력 ─────────────────────────────────────────────────────────────────────
 
 const enforced = new Set(CONFIG.enforced ?? [])
+// 래칫은 "0"이 아니라 "지금보다 나빠지지 않기"를 강제한다. 절대 기준을 당장 걸 수
+// 없는 지표(계약 재설계를 기다리는 캐스트, 아직 덜 쪼갠 테스트 파일)를 방치하지 않고
+// 붙잡아 두는 장치다 — 값을 줄이면 상한도 함께 줄여 되돌아가지 못하게 한다.
+const ratchets = Object.fromEntries(
+  Object.entries(CONFIG.ratchets ?? {}).filter(([key]) => !key.startsWith('_')),
+)
 const GATE_KEYS = {
   1: 'cyclomatic',
   2: 'cognitive',
@@ -243,8 +249,11 @@ console.log(`${pad('#', 3)}${pad('지표', 22)}${pad('목표', 17)}${pad('현재
 console.log('─'.repeat(98))
 for (const row of metricRows) {
   const gateOn = enforced.has(GATE_KEYS[row.id])
+  const key = GATE_KEYS[row.id]
+  const limit = ratchets[key]
   const status = row.violations === null ? '—' : row.violations === 0 ? '충족' : `${row.violations}`
-  console.log(`${pad(row.id, 3)}${pad(row.name, 22)}${pad(row.goal, 17)}${pad(row.value, 40)}${pad(status, 8)}${gateOn ? '켜짐' : '꺼짐'}`)
+  const gate = gateOn ? '켜짐' : limit === undefined ? '꺼짐' : `래칫 ≤${limit}`
+  console.log(`${pad(row.id, 3)}${pad(row.name, 22)}${pad(row.goal, 17)}${pad(row.value, 40)}${pad(status, 8)}${gate}`)
 }
 console.log(`\n예외 목록: ${waiverCount}개 (상한 ${CONFIG.waivers.maxCount})`)
 
@@ -294,9 +303,32 @@ if (ARGS.has('--baseline')) {
 
 if (ARGS.has('--gate')) {
   const failures = metricRows.filter((row) => enforced.has(GATE_KEYS[row.id]) && row.violations)
+  const overRatchet = metricRows.filter((row) => {
+    const limit = ratchets[GATE_KEYS[row.id]]
+    return limit !== undefined && row.violations !== null && row.violations > limit
+  })
+  // 상한보다 낮아졌으면 알려 준다. 조이지 않고 두면 다음 사람이 그만큼 되돌려 놓아도
+  // 게이트가 잡지 못한다.
+  const slack = metricRows.filter((row) => {
+    const limit = ratchets[GATE_KEYS[row.id]]
+    return limit !== undefined && row.violations !== null && row.violations < limit
+  })
+  if (slack.length > 0) {
+    console.log('\n래칫을 조일 수 있다 — config.json의 ratchets를 현재 값으로 낮춘다:')
+    for (const row of slack)
+      console.log(`  ${GATE_KEYS[row.id]}: ${ratchets[GATE_KEYS[row.id]]} → ${row.violations}`)
+  }
   if (waiverCount > CONFIG.waivers.maxCount) {
     console.error(`\n예외 목록이 상한을 넘었다: ${waiverCount} > ${CONFIG.waivers.maxCount}`)
     console.error('예외를 늘리는 대신 코드를 고치거나, 상한을 올리는 결정을 문서에 남긴다.')
+    process.exit(1)
+  }
+  if (overRatchet.length > 0) {
+    console.error('\n래칫이 뒤로 밀렸다:')
+    for (const row of overRatchet)
+      console.error(
+        `  ${row.id}. ${row.name} — ${row.violations}건 (상한 ${ratchets[GATE_KEYS[row.id]]})`,
+      )
     process.exit(1)
   }
   if (failures.length > 0) {

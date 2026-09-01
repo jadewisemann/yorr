@@ -140,7 +140,10 @@ export class MotionInputController {
 }
 
 function getPermissionRequest() {
-  const deviceMotionApi = window.DeviceMotionEvent as unknown as PermissionAwareDeviceMotionEvent
+  // `requestPermission`은 iOS Safari에만 있다. 표준 타입에 없는 속성 하나를 보려고
+  // 생성자 전체를 다른 타입으로 바꿔칠 이유는 없으므로 옵셔널로 받는다.
+  const deviceMotionApi: typeof DeviceMotionEvent & PermissionAwareDeviceMotionEvent =
+    window.DeviceMotionEvent
   return typeof deviceMotionApi.requestPermission === 'function'
     ? deviceMotionApi.requestPermission.bind(deviceMotionApi)
     : null

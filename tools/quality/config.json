@@ -51,7 +51,12 @@
     "deadCode",
     "cyclomatic",
     "cognitive",
-    "halstead"
+    "halstead",
+    "explicitAny"
   ],
-  "_enforcedNote": "QUALITY.md 5절의 단계에 따라 하나씩 추가한다. 키: cyclomatic·cognitive·halstead·fileLines·coverage·crap·mutation·deadCode·duplication·explicitAny·unknownCast"
+  "_enforcedNote": "QUALITY.md 5절의 단계에 따라 하나씩 추가한다. 키: cyclomatic·cognitive·halstead·fileLines·coverage·crap·mutation·deadCode·duplication·explicitAny·unknownCast",
+  "ratchets": {
+    "unknownCast": 59,
+    "_note": "지금 값을 바닥으로 잡는다. 줄이면 이 숫자도 함께 줄여 되돌아가지 못하게 한다. 남은 캐스트의 성격은 QUALITY.md 3단계에 적혀 있다."
+  }
 }

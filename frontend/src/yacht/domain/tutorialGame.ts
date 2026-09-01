@@ -1,4 +1,4 @@
-import type { DiceSet } from '@/realtime/wsEvents'
+import type { DiceSet, DiceValue } from '@/realtime/wsEvents'
 import { createLocalSession, createLocalSnapshot, createLocalYachtClient } from './localGame'
 
 export const TUTORIAL_ROOM_ID = 'tutorial'
@@ -20,12 +20,16 @@ const SCRIPTED_ROLLS: DiceSet[] = [
   [6, 6, 6, 6, 2],
 ]
 
-function scriptedRoll(held: readonly boolean[], previous: DiceSet | null, rollCount: number) {
+function scriptedRoll(
+  held: readonly boolean[],
+  previous: DiceSet | null,
+  rollCount: number,
+): DiceSet {
   const scripted = SCRIPTED_ROLLS[Math.min(rollCount, SCRIPTED_ROLLS.length) - 1]
   if (!scripted) throw new Error(`연습 굴림 ${rollCount}의 대본이 없습니다`)
-  return Array.from({ length: 5 }, (_, index) =>
-    held[index] && previous ? previous[index] : scripted[index],
-  ) as unknown as DiceSet
+  const faceAt = (index: 0 | 1 | 2 | 3 | 4): DiceValue =>
+    (held[index] && previous ? previous[index] : scripted[index]) ?? 1
+  return [faceAt(0), faceAt(1), faceAt(2), faceAt(3), faceAt(4)]
 }
 
 export function createTutorialClient() {
