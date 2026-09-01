@@ -114,7 +114,7 @@ phase가 **대문자**고, 키가 `roomCode`며, 플레이어에 `score`가 있�
 ## Lua 스크립트 (원자성 계약)
 
 반환 코드가 곧 계약이다. 이식 시 **스크립트 텍스트와 반환 코드 의미를 그대로**
-옮기고 동시성 테스트를 함께 이식한다. 전체 텍스트는 backend-java
+옮기고 동시성 테스트를 함께 둔다. 전체 텍스트는
 `RoomCreateService`·`RoomValidationService`·`BotParticipantService`·
 `RedisScoreBoardStore`·`RedisGameCompletionStore` 참고. 요지:
 

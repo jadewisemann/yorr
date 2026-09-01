@@ -54,7 +54,7 @@ lastEvent{id(=version), type, playerId, at}
 0.12(정상 속도 기준 120ms)라 업링크 지연이 완벽한 스윙을 네트로 만든다.
 미래 timestamp는 now로, 과거는 120ms까지만 롤백(죽은 공을 쳤다고 주장 불가).
 알려진 잔여 구멍(클라이언트 시계가 느리면 공짜 롤백)과 개선안(벽시계 대신
-상태 기준 경과시간)은 Java 주석에 있다 — 계약 동결이므로 그대로 이식.
+상태 기준 경과시간)은 `pingPongRules.ts` 주석에 있다.
 
 ## 준비 게이트·서브·득점
 
@@ -75,7 +75,7 @@ lastEvent{id(=version), type, playerId, at}
 
 `removePlayer`는 phase를 **먼저 읽는다** — 상태를 지운 뒤에는 PREPARING이었는지
 알 수 없다. 그 다음은 두 갈래로 갈리며 각 단계의 순서까지 테스트가 고정한다
-(`__tests__/pingPongGameService.test.ts`, Java `PingPongGameServiceTest`).
+(`__tests__/pingPongGameService.test.ts`).
 
 | # | PREPARING 이탈 (매치 취소) | 경기 중 이탈 (몰수) |
 |---|---|---|
@@ -131,7 +131,7 @@ duel과 동일 패턴: `RedisPingPongStateStore` SETNX init
 | `index.ts` | 공개 표면(배럴). 배선과 4.6은 여기만 import한다 |
 
 - **협력자 일곱을 전부 좁은 포트로 뒤집었다**(2.5 `roundPorts.ts`·2.7
-  `completionPorts.ts`와 같은 이유). Java는 `RoomBroadcaster`·
+  `completionPorts.ts`와 같은 이유). `RoomBroadcaster`·
   `RoomSessionRegistry`·`RealtimeRoomSnapshotService`·`RoundDeadlineScheduler`·
   `GameCompletionService`·`StringRedisTemplate`·`RoomValidationService`를 구체
   타입으로 잡는다. 실제 구현이 어댑터 없이 구조적으로 만족하며 그 대입 가능성은
@@ -203,12 +203,12 @@ roomCode: "LOCAL_AI"})`. `resultId`는 **클라이언트가 만드는 UUID**이�
 
 - 본문은 **JSON이 아니라 문자열 코드**다(조회 REST(2.9)의 `{code,message}`가 아니다).
   401 문자열은 퀵매치의 `unauthorized`도 방 REST의 `invalid_guest_session`도 아닌
-  **`session_expired`** 다 — Java가 그 리터럴을 쓰고 프론트가 본문을 텍스트로 읽어
+  **`session_expired`** 다 — 프론트가 본문을 텍스트로 읽어
   대문자 코드로 매핑한다. 라우트마다 다른 이 문자열들이 계약이므로 섞지 않는다.
 - 검증 **순서**가 계약이다: resultId 먼저, 점수 나중. 둘 다 틀리면 `invalid_result_id`.
 - 읽을 수 없는 본문의 400이 빈 본문인 이유는 `gameQueries.ts`의 score-candidates와
-  같다 — Spring이 만드는 `{timestamp,status,...}`는 프레임워크 흔적이라 계약이 아니다.
-- Java는 `@RequestBody(required = false)`라 **본문 없는 POST도 핸들러까지 들어온다**.
+  같다 — 프레임워크가 만드는 `{timestamp,status,...}`는 계약이 아니다.
+- **본문 없는 POST도 핸들러까지 들어와야 한다**.
   Fastify 기본 JSON 파서는 그 전에 400을 던지므로, 라우트가 **자기 하위 스코프에서만**
   파서와 오류 핸들러를 갈아 끼운다(캡슐화 — 같은 `/api/v1`의 방·퀵매치 REST에는 영향이
   없고, 테스트가 그 격리를 못박는다).
@@ -217,8 +217,8 @@ roomCode: "LOCAL_AI"})`. `resultId`는 **클라이언트가 만드는 UUID**이�
 
 | 파일 | 덮는 것 | MySQL |
 |---|---|---|
-| `game/pingpong/__tests__/aiResultService.test.ts` | Java `PingPongAiResultServiceTest` 전부 + 보관 인자·순위·UUID 정규화·본문 바인딩 | 불필요 |
-| `http/routes/__tests__/pingPongAi.test.ts` | Java `PingPongAiResultControllerTest` 전부 + 오류 표면·파서 캡슐화(세션은 진짜 Redis) | 불필요 |
+| `game/pingpong/__tests__/aiResultService.test.ts` | 점수 재검증·보관 인자·순위·UUID 정규화·본문 바인딩 | 불필요 |
+| `http/routes/__tests__/pingPongAi.test.ts` | REST 계약·오류 표면·파서 캡슐화(세션은 진짜 Redis) | 불필요 |
 | `game/pingpong/__tests__/aiResultArchive.test.ts` | `game_id` UNIQUE로 중복 보고 차단 · 게스트 행의 `user_id` NULL | **필요**(`MYSQL_TEST_URL` 없으면 skip) |
 
 ## 이식할 대표 테스트
@@ -234,8 +234,8 @@ inputSeq 무시 / 실점 시 상대 득점·서브 유지(2점 규칙) / 서브 
 
 | 파일 | 덮는 것 |
 |---|---|
-| `__tests__/pingPongRules.test.ts` | Java `PingPongRulesTest` **7종 전부**(위 목록의 규칙 항목) |
-| `__tests__/pingPongGameService.test.ts` | Java `PingPongGameServiceTest`의 취소 순서 + 시작/몰수/서브 마감/스테일 예약/판정 시각 |
+| `__tests__/pingPongRules.test.ts` | 규칙 **7종**(위 목록의 규칙 항목) |
+| `__tests__/pingPongGameService.test.ts` | 취소 순서 + 시작/몰수/서브 마감/스테일 예약/판정 시각 |
 | `__tests__/pingPongGameModule.test.ts` | 라우팅·멤버십 검증·오류 매핑 |
 | `__tests__/pingPongPorts.contract.test.ts` | 좁은 포트 ↔ 실제 구현 대입 가능성 |
 | `__tests__/redisPingPongStateStore.test.ts` | 진짜 Redis: SETNX·TTL 복사·version 비증가 무시·동시 변이·NON_NULL |

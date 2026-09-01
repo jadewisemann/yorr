@@ -74,7 +74,7 @@ shooterId·hitId·koId·foulId는 애노테이션 없는 중첩 레코드라 **`
 | 한쪽 FOUL, 통산 2회차 | `SELF_SHOT` | **본인** -1 | **true**(즉시 패배) |
 | 이탈 | `FORFEIT` | 이탈자 hp = 0 | true |
 
-- 경고(`fouls`)는 **매치 전체에 걸쳐 누적되고 리셋되지 않는다**. Java 주석은
+- 경고(`fouls`)는 **매치 전체에 걸쳐 누적되고 리셋되지 않는다**. 원 설계 주석은
   "한도에 닿아 소진되면 0으로 돌아간다"고 하지만 코드도 테스트도 누적을 고정한다
   — **테스트가 계약**이다.
 - `SELF_SHOT`은 hp를 1만 깎으므로 총알 2개를 든 채로 질 수 있다. 총알로 환산하지
@@ -112,7 +112,7 @@ shooterId·hitId·koId·foulId는 애노테이션 없는 중첩 레코드라 **`
 - `RedisDuelStateStore`: 야추 스토어와 동일 패턴(SETNX init
   `duel_already_initialized`, 5초 락 + 토큰 비교 해제 Lua, 방 TTL 복사) +
   **version이 안 오른 변이는 버린다**(no-op 규칙 함수 = 무브로드캐스트).
-  JS 판은 Java의 `==` 비교를 `<=`로 좁혔다 — 오래된 스냅샷이 새 판정을 덮는
+  같은 값 비교가 아니라 `<=`로 좁혔다 — 오래된 스냅샷이 새 판정을 덮는
   경로를 구조적으로 막는다.
 - 스케줄러 키 = `state.version`(라운드 번호가 아니다), 발화 시 기대 버전
   불일치·FINISHED면 무시. phase별 타임아웃: WAITING→signal,
@@ -142,7 +142,7 @@ shooterId·hitId·koId·foulId는 애노테이션 없는 중첩 레코드라 **`
 | 시작 인원이 2명이 아니다 | `ConflictError('duel_requires_two_players')` | (WS 아님 — REST 시작이 롤백된다) |
 | 상태가 이미 있다 | `ConflictError('duel_already_initialized')` | 같음 |
 
-도메인 오류 코드 문자열은 그대로 나가고 그 밖의 실패는 Java와 같이
+도메인 오류 코드 문자열은 그대로 나가고 그 밖의 실패는
 `invalid draw payload`로 뭉갠다 — 오류 표면을 넓히지 않는 쪽이 계약 동결에 맞다.
 
 ## 이식할 대표 테스트 (DuelRulesTest — 순수 도메인)

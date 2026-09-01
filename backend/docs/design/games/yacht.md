@@ -74,7 +74,7 @@ roomId 검증(세션의 방과 일치) → payload 파싱 → [활성 플레이�
   보내면 무음이 아니라 `INVALID_MESSAGE`가 나간다.
 - `dice.roll`·`dice.hold`·`round.submit`은 별도의 활성 판정이 없다 — 라운드 도메인의
   `NOT_ACTIVE_PLAYER`가 그 역할을 하고, 그래서 오류 코드도 도메인 이유에서 나온다.
-- payload 검증은 **의도적으로 관용적**이다. 없는 필드를 Java record의 기본값
+- payload 검증은 **의도적으로 관용적**이다. 없는 필드를 기본값
   (int 0 / 참조 null)처럼 채워 도메인 검증에 걸리게 한다. 여기서 엄격하게 막으면
   같은 `INVALID_MESSAGE`라도 **턴 소유 검증보다 앞서게** 되어 응답이 갈라진다.
 
@@ -102,8 +102,7 @@ roomId 검증(세션의 방과 일치) → payload 파싱 → [활성 플레이�
 - 인자 검증 실패도
   `INVALID_MESSAGE`다.
 - ⚠️ **여기 없는 예외는 응답이 나가지 않는다.** 대표 사례가 방 락 경합의
-  `game_state_busy`(`ConflictError`)다 — Java도 그 `IllegalStateException`을 잡지 않아
-  Spring 밖으로 나가고 클라이언트는 아무 응답도 받지 못한다. 우리 쪽은 게이트웨이가
+  `game_state_busy`(`ConflictError`)다 — 모듈이 잡지 않으므로 게이트웨이가
   잡아 로그를 남기고 소켓을 살려 둔다(관측 결과 동일). 새 오류 응답을 만들면 계약이
   넓어지므로 재현하기로 했다.
 
@@ -150,7 +149,7 @@ POST /rooms/{code}/games ─ GameLifecycleService ─ START Lua(phase PLAYING·g
 - 키 `room:{code}:game:YACHT_DICE:state`, 값은 `YachtDiceStateSnapshot` JSON
   (roundNumber, totalRounds, participantOrder, submissions, activePlayerIndex,
   activeRollCount, activeDice, activeHeld, finished). 재접속용 DTO
-  (`YachtDiceState`)와는 다른 모양이다. **필드 이름·순서를 Java record 그대로
+  (`YachtDiceState`)와는 다른 모양이다. **필드 이름·순서를 그대로
   유지한다** — 전환기에는 두 백엔드가 같은 키를 읽을 수 있어야 한다.
 - 모든 변이는 방 락(`…:state:lock`, SET NX PX, TTL 5초, 2초 스핀/10ms 간격,
   토큰 비교 Lua 해제) 아래에서 read-modify-write. 대기 초과는
@@ -159,7 +158,7 @@ POST /rooms/{code}/games ─ GameLifecycleService ─ START Lua(phase PLAYING·g
   직렬화된 뒤에는 두 번째가 rollCount 연속성에 걸려 거부된다).
 - 왜 Lua 하나가 아니라 락인가: 전이가 JSON을 도메인 객체로 되살려 `RoundState`의
   검증을 통과시키는 일이고, `submitAtomically`의 `beforeStateChange`가 **또 다른 Lua**
-  (CONFIRM_SCORE)다. Lua 안에서 Lua를 부를 수 없다(Java 원본의 ponytail 주석: 작업이
+  (CONFIRM_SCORE)다. Lua 안에서 Lua를 부를 수 없다(작업이
   5초를 넘기면 상태+점수를 한 Lua로 합칠 것).
 - 락 해제는 `finally`에서 **항상** 시도한다. 토큰 비교 덕분에 락을 못 잡고 나가는
   경로에서는 no-op이다 — 그게 토큰 비교의 두 번째 역할이다(첫째는 TTL 만료 후 남의
@@ -233,7 +232,7 @@ round.start 브로드캐스트 → RoundStartedEvent (RoundTimerService의 onRou
 
 ### CPU 예산과 이벤트 루프
 
-Java는 이 탐색을 **2스레드 데몬 풀**에서 돌렸다. Node는 단일 스레드라 탐색이 도는 동안
+Node는 단일 스레드라 탐색이 도는 동안
 **관계없는 다른 방들의 WS 메시지·하트비트·라운드 마감이 그 뒤에 줄을 선다.** 그대로
 인라인 이식하면 실전 지연이 되는지 판정해야 했다.
 
@@ -245,7 +244,7 @@ Java는 이 탐색을 **2스레드 데몬 풀**에서 돌렸다. Node는 단일 
 | 2 | 1 | 3.5ms |
 | 3 | 0 (12칸 평가만) | 0.02ms |
 
-2봇 12라운드 완주 통합 테스트 전체가 0.7초다(탐색 ~50회 포함). Java 테스트가 성능
+2봇 12라운드 완주 통합 테스트 전체가 0.7초다(탐색 ~50회 포함). 테스트가 성능
 계약으로 고정한 1초는 **실측의 60배 여유**인 상한이었다.
 
 **결정: 인라인 유지 + 예산을 런타임 불변식으로 승격.** 근거:
@@ -287,7 +286,7 @@ Java는 이 탐색을 **2스레드 데몬 풀**에서 돌렸다. Node는 단일 
 - `actions`는 야추 모듈이 받는 **그** `YachtTurnActionService`여야 한다. 새로 만들면
   봇의 굴림이 다른 브로드캐스터·타이머를 타고 나가는데 **타입도 테스트도 통과한다**.
 - `rounds`·`rooms`·`scores`·`broadcaster`도 전부 위에서 만든 그것.
-- 순환이 하나 있다: 봇 → 행동 서비스 → 타이머 → (`onRoundStarted`) → 봇. Java는
+- 순환이 하나 있다: 봇 → 행동 서비스 → 타이머 → (`onRoundStarted`) → 봇.
   `ApplicationEventPublisher`가 끊었고, 우리는 **늦은 바인딩 한 칸**으로 끊는다
   (`let yachtBots: BotTurnOrchestrator | null = null` → 타이머 옵션에서
   `yachtBots?.onRoundStarted(event)`).
@@ -316,7 +315,7 @@ Java는 이 탐색을 **2스레드 데몬 풀**에서 돌렸다. Node는 단일 
 | `RedisYachtDiceStateStoreIntegrationTest` | `__tests__/redisYachtDiceStateStore.test.ts` | + 락 고갈·TTL 복사·SCAN·손상 스냅샷 |
 | — | `__tests__/yachtPorts.contract.test.ts` | 좁은 포트 ↔ 실제 구현 대입 고정(2.5·2.6과 같은 이유) |
 
-Java에 없어서 새로 쓴 것: rollCount 불연속 거부, 라운드 미초기화 → `INTERNAL`,
+추가로 쓴 것: rollCount 불연속 거부, 라운드 미초기화 → `INTERNAL`,
 `dice.broadcast`의 held가 서버 상태가 아니라 에코임을 두 번째 굴림으로 고정,
 깨진 shake의 검사 순서, `start`의 host 우선 정렬·phase 마킹·잔여 상태 제거,
 `reconnect`의 스냅샷 → 카운터 리셋 순서(실패 시 카운터 유지 포함),
@@ -338,7 +337,7 @@ Java에 없어서 새로 쓴 것: rollCount 불연속 거부, 라운드 미초�
   `DeadlineExecutor`(2.3의 시임)에 기록된 `delayMs`로 검증하고, 발화 순서는 테스트가
   직접 정한다.
 - 완주 테스트는 오케스트레이터를 쓰지 않는다 — 지연 4종을 실시간으로 기다리면 12라운드가
-  몇 분이다. Java 테스트와 같이 코디네이터를 루프에서 직접 돌린다.
+  몇 분이다. 코디네이터를 루프에서 직접 돌린다.
 - 타임아웃 계열은 2.5(`roundTimeoutResolver.test.ts`·`roundTimerService.test.ts`)가
   이미 덮었다: 마지막 held 유지 autoRoll, 굴림 소진 시 빈 카테고리 무작위 기록,
   유예 중 제출 시 STALE, 저장 실패에도 턴 진행.

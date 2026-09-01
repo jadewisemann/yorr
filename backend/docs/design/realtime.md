@@ -2,7 +2,7 @@
 
 > 상위 원칙은 [DESIGN.md](../../DESIGN.md). 와이어 계약의 정본은
 > `frontend/src/realtime/wsEvents.ts`(프로토콜 버전 1). 이 문서는 서버가 구현해야
-> 하는 동작을 backend-java(`handler/GameWebSocketHandler`, `ws/*`)와 프론트 소비
+> 하는 동작을 구현(`ws/*`)과 프론트 소비
 > 코드(`app/RealtimeSync.tsx`) 기준으로 기술한다.
 
 ## 엔드포인트
@@ -10,14 +10,14 @@
 - 경로 `/ws/v1/game`, raw WebSocket(SockJS 없음), 핸드셰이크 인증 없음.
 - 허용 출처는 REST CORS와 **같은** `CORS_ALLOWED_ORIGINS` 목록(정확 일치, 패턴 아님).
   Origin 헤더가 **없으면 통과**시키고(브라우저가 아닌 클라이언트), 있으면 목록에
-  정확히 있어야 한다 — 아니면 핸드셰이크를 403으로 거절한다(Spring
+  정확히 있어야 한다 — 아니면 핸드셰이크를 403으로 거절한다(브라우저가
   `OriginHandshakeInterceptor`와 같은 규칙).
-- 인바운드 메시지 상한 **64KB**. Java는 서블릿 컨테이너 기본값(Tomcat 텍스트 버퍼
+- 인바운드 메시지 상한 **64KB**. 이전 구현은 컨테이너 기본값(텍스트 버퍼
   8KB)에 기대고 아무것도 정하지 않았지만 `ws`의 기본값은 100MB다. 가장 큰 메시지는
   재접속 스냅샷(수 KB)이므로 그 위로 넉넉히 잡았다. 초과 프레임은 close
   1009로 끊긴다.
 - **소켓 하나의 메시지는 직렬로 처리한다.** 아래 `room.join`의 처리 순서가 계약인데
-  Redis 호출을 기다리는 사이 다음 메시지가 끼어들면 그 순서가 깨진다. Java는
+  Redis 호출을 기다리는 사이 다음 메시지가 끼어들면 그 순서가 깨진다.
   세션당 한 스레드라 자연히 보장되던 성질이다.
 
 ## Envelope
@@ -40,8 +40,8 @@
 - `msgId`: 요청-응답 상관관계. 서버가 에코해야 하는 곳이 정해져 있다(아래
   카탈로그의 "msgId" 열). 특히 `round.submit`→`score.update` 에코가 없으면
   프론트의 제출 흐름이 완결되지 않는다.
-- Java 세부: `ts`는 nullable로 파싱되고 사용되지 않는다. `type` 필드가 없는
-  JSON은 Java에서 NPE가 난다(오류 응답 없이 로그만) — 이 quirk는 **재현하지
+- 세부: `ts`는 nullable로 파싱되고 사용되지 않는다. `type` 필드가 없는
+  JSON에 대해 이전 구현은 오류 응답 없이 죽었는데, 그 동작은 **재현하지
   않는다**. Node는 `type` 부재를 `INVALID_MESSAGE`로 처리한다(IMPLEMENTATION_NOTES
   2026-08-14 결정).
 
@@ -191,7 +191,7 @@ Redis 좌석은 없다 — 실전 클라이언트는 이 경로를 쓰지 않는
 
 ## WS 오류 코드
 
-`code`는 Java enum 이름 그대로 SCREAMING_SNAKE로 직렬화된다.
+`code`는 SCREAMING_SNAKE 문자열이며 그 자체가 와이어 계약이다.
 
 | code | 발생 지점 |
 |---|---|

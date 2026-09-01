@@ -9,7 +9,7 @@
 > pull CD로 교체하는 **예정**은 [`deploy/PLAN.md`](../../../deploy/PLAN.md)에
 > 있으며, 그쪽 내용이 여기로 오는 시점은 호스트 cutover가 끝난 뒤다.
 
-## 환경변수 (backend-java와 이름 동일 유지)
+## 환경변수
 
 기본값은 `config/env.ts`(zod 스킴)가 정본이다. **필수 변수는 하나도 없다** —
 전부 기본값이 있어 빈 환경에서도 부팅된다(운영에서 빠뜨리면 로컬 기본값으로 뜨는
@@ -17,8 +17,8 @@
 
 | 변수 | 기본값 | 용도 |
 |---|---|---|
-| `DB_URL` | `""` = 미사용 | MySQL 좌표. **Java가 읽는 것은 이것 하나(JDBC URL)다**(`application.yaml: url: ${DB_URL}`). 값이 있으면 `jdbc:` 접두를 벗겨 파싱해 아래 `DB_HOST`·`DB_PORT`·`DB_NAME`을 **덮어쓴다** — 운영 `.env`가 그대로 재사용된다(4.2에서 정렬 완료). 쿼리 파라미터(`serverTimezone` 등)는 일부러 버린다 |
-| `DB_HOST` / `DB_PORT` / `DB_NAME` | `localhost` / `3306` / `yorr` | `DB_URL`이 없을 때 쓰는 쪼갠 좌표. Node·로컬 `.env.example` 전용이며 Java에는 대응이 없다 |
+| `DB_URL` | `""` = 미사용 | MySQL 좌표. **운영 `.env`가 담고 있는 것은 이것 하나(JDBC URL)다.** 값이 있으면 `jdbc:` 접두를 벗겨 파싱해 아래 `DB_HOST`·`DB_PORT`·`DB_NAME`을 **덮어쓴다** — 운영 `.env`가 그대로 재사용된다(4.2에서 정렬 완료). 쿼리 파라미터(`serverTimezone` 등)는 일부러 버린다 |
+| `DB_HOST` / `DB_PORT` / `DB_NAME` | `localhost` / `3306` / `yorr` | `DB_URL`이 없을 때 쓰는 쪼갠 좌표. 로컬 `.env.example` 전용이다 |
 | `DB_USERNAME` / `DB_PASSWORD` | `yorr` / `""` | MySQL 자격. **URL 안의 userinfo보다 이쪽이 이긴다** |
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | Redis |
 | `REDIS_PASSWORD` | `""` | Redis |
@@ -28,7 +28,7 @@
 | `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET`(선택) / `KAKAO_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 카카오 OAuth. **`.env`에 넣는 것은 자격 두 개뿐이다** — 콜백 주소는 compose가 준다 |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 구글 OAuth. 같다 — `.env`에는 자격 두 개만 |
 
-Java에 `@Value`로만 존재했던 `yorr.voice.*`(coturn ICE 자격) 네 개는 **더 이상
+`yorr.voice.*`(coturn ICE 자격) 네 개는 **더 이상
 읽지 않는다.** 음성 채팅이 텍스트 채팅으로 바뀌며 WebRTC와 `GET /voice/ice`가 함께
 사라졌다([chat.md](chat.md) · [PLANS.md](../../PLANS.md)). 운영 `.env`에 남아 있어도
 무해하지만(env 스킴이 모르는 키는 무시한다) `deploy/.env.example`에서는 지웠다.
@@ -152,7 +152,7 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
     [`deploy/MONITORING.md`](../../../deploy/MONITORING.md)다.
 - 그 외 액추에이터 엔드포인트는 노출하지 않는다(health·prometheus만) —
   `env`·`beans`·`metrics`처럼 방·세션 정보가 인증 없이 새는 표면을 늘리지 않는다.
-- Java에는 메시지 레이트·지연·소켓 수 계측이 없다 — 추가는 자유지만 위 두 개는 유지.
+- 메시지 레이트·지연·소켓 수 계측은 없다 — 추가는 자유지만 위 두 개는 유지.
 
 ### Node 구현 (5.3)
 
@@ -160,7 +160,7 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
   게이지 수집기는 `monitoring/realtimeGameMetrics.ts`(`RealtimeGameMetrics`, 텍스트 렌더러는
   `monitoring/exposition.ts`.
 - **수집 출처는 WS 레지스트리의 인메모리 상태**다(`RoomSessionRegistry.activeRoomCount()`
-  ·`activeParticipantCount(code)`). Java도 같았고, **Redis 왕복은 없다** — 스크레이프
+  ·`activeParticipantCount(code)`). **Redis 왕복은 없다** — 스크레이프
   주기마다 SCAN을 던지면 모니터링이 부하 원인이 된다. 단일 인스턴스 전제(DESIGN.md 원칙 8)
   라 phase·소켓이 인메모리에 있어 이 값이 곧 이 프로세스의 진실이다.
   - 계열(태그 조합)은 `GameModuleRegistry.supportedCodes()`(= 카탈로그) 전체이며,
