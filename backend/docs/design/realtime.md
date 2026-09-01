@@ -31,7 +31,7 @@
 
 - `ts`는 **클라이언트가 채운다**(`Date.now()`). 서버는 파싱만 하고 읽지 않는다.
   아웃바운드 `ts`는 서버가 `Date.now()`로 채운다.
-- 알 수 없는 envelope 필드는 무시한다(Java `@JsonIgnoreProperties`).
+- 알 수 없는 envelope 필드는 무시한다.
 - envelope 파싱 실패 → `error{INVALID_MESSAGE, refMsgId:null}` 전송, 연결 유지.
   payload 파싱 실패 → 핸들러별 `error{INVALID_MESSAGE, refMsgId:<msgId>}`.
 - **envelope `roomId`의 역할**: 최상위 핸들러(`sys.*`·`room.*`·`reaction.*`·`chat.*`)는

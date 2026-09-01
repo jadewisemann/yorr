@@ -113,8 +113,7 @@ duel과 동일 패턴: `RedisPingPongStateStore` SETNX init
 - 고아 상태 스위퍼는 야추 상태만 SCAN하므로 **탁구는 청소하지 않는다** — 상태는
   방 TTL 복사로, 죽은 예약은 version 체크로 방어한다
   ([game-modules.md](../game-modules.md)의 quirk).
-- `fault`·`serveReceiverId`·`lastEvent`는 없으면 **필드 자체가 생략**된다
-  (Java `@JsonInclude(NON_NULL)` = TS의 `undefined`). 역직렬화에서 `null`이 섞여
+- `fault`·`serveReceiverId`·`lastEvent`는 없으면 **필드 자체가 생략**된다` = TS의 `undefined`). 역직렬화에서 `null`이 섞여
   들어와도 `undefined`로 정규화한다 — 그러지 않으면 다시 쓸 때 `"fault":null`이
   새로 생겨 와이어 계약이 조용히 달라진다.
 
@@ -140,9 +139,9 @@ duel과 동일 패턴: `RedisPingPongStateStore` SETNX init
 - 방 스냅샷 타입은 **제네릭**이다(`PingPongGameService<S>`) — 스냅샷의 모양은
   ws 소유이고 탁구는 `game` 하나를 얹을 뿐이다(2.8 `PhasedRoomSnapshot`과 같은 경계).
   모듈이 `S = WsRoomSnapshot`으로 고정해 `GameModule.reconnect` 계약을 만족시킨다.
-- **시계와 좌우 RNG는 주입 가능한 시임**(`now`·`randomTarget`)이다. Java는
-  `System.currentTimeMillis()`·`ThreadLocalRandom`을 직접 부르므로 판정 시각
-  테스트가 실시간에 묶인다 — 우리는 시임 덕에 sleep도 가짜 타이머도 쓰지 않는다.
+- **시계와 좌우 RNG는 주입 가능한 시임**(`now`·`randomTarget`)이다. 전역 시계와
+  전역 난수를 직접 부르면 판정 시각 테스트가 실시간에 묶인다 — 시임 덕에 sleep도
+  가짜 타이머도 쓰지 않는다.
 - `start()`가 `markPhase('playing')`을 부르는 자리다(3.1·3.3과 같은 계약).
   빠지면 진행 중 방의 소켓이 끊길 때 offline이 아니라 player_left가 된다.
 
@@ -237,7 +236,7 @@ inputSeq 무시 / 실점 시 상대 득점·서브 유지(2점 규칙) / 서브 
 |---|---|
 | `__tests__/pingPongRules.test.ts` | Java `PingPongRulesTest` **7종 전부**(위 목록의 규칙 항목) |
 | `__tests__/pingPongGameService.test.ts` | Java `PingPongGameServiceTest`의 취소 순서 + 시작/몰수/서브 마감/스테일 예약/판정 시각 |
-| `__tests__/pingPongGameModule.test.ts` | 라우팅·멤버십 검증·오류 매핑(Java `GameWebSocketHandlerTest` 자리) |
+| `__tests__/pingPongGameModule.test.ts` | 라우팅·멤버십 검증·오류 매핑 |
 | `__tests__/pingPongPorts.contract.test.ts` | 좁은 포트 ↔ 실제 구현 대입 가능성 |
 | `__tests__/redisPingPongStateStore.test.ts` | 진짜 Redis: SETNX·TTL 복사·version 비증가 무시·동시 변이·NON_NULL |
 

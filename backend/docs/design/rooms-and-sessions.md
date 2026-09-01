@@ -123,7 +123,7 @@ phase가 **대문자**고, 키가 `roomCode`며, 플레이어에 `score`가 있�
 | 스크립트 | 검증 → 변경 | 반환 |
 |---|---|---|
 | CREATE | 코드 미사용 확인 → 방 해시 생성+TTL | 0 충돌(재시도) / 1 생성 |
-| JOIN | 존재 → LOBBY → **중복(먼저)** → 정원 → roster/scores 추가, members+1, host 승계(공석/roster 밖이면 참가자가 승계), 자식 키 TTL 정렬 | 0 없음 / 2 시작됨 / 3 정원 / 4 중복(Java는 **미처리** — 성공 취급, 단 TTL 갱신을 건너뜀) / 1 참가 |
+| JOIN | 존재 → LOBBY → **중복(먼저)** → 정원 → roster/scores 추가, members+1, host 승계(공석/roster 밖이면 참가자가 승계), 자식 키 TTL 정렬 | 0 없음 / 2 시작됨 / 3 정원 / 4 중복 / 1 참가 |
 | LEAVE | roster에서 제거 → members-1 → 0명이고 PARTY 아니면 방 전체 삭제 → host였으면 **botId가 아닌 것 중 사전순 최소**에게 승계(없으면 빈 문자열) | -1 방/좌석 없음(404) / 0 방 삭제됨 / 1 잔류 |
 | CLOSE | gameId 있으면 플레이어별 scoreboard·submissions·game 키까지 삭제 → 방 키 4종 삭제 | 항상 1(멱등) |
 | TOUCH | 방 TTL 40분 재설정 → 자식 키·game 키 전부 PTTL 정렬 | 0 방 없음 / 1 |

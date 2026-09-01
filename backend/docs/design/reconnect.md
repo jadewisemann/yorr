@@ -62,8 +62,8 @@ server
 | `rollCount` | `RoundState.activeRollCount` | 첫 굴림 전이면 `0` |
 | `dice`·`held` | `RoundState.activeDice`/`activeHeld` | **키 자체를 생략**(null로 싣지 않는다) |
 
-- `dice`·`held`는 값이 없을 때 **키가 빠져야 한다**(Java `@JsonInclude(NON_NULL)`
-  자리). 구현은 null 대신 `undefined`를 넣어 `JSON.stringify`가 지우게 한다.
+- `dice`·`held`는 값이 없을 때 **키가 빠져야 한다.** 구현은 null 대신
+  `undefined`를 넣어 `JSON.stringify`가 지우게 한다.
 - `scores`는 **평범한 객체**로 나가야 한다. 조회 계층은 playerId 오름차순을
   보존하려고 `ReadonlyMap`을 돌려주는데 `JSON.stringify(new Map())`은 `{}`다 —
   스냅샷 조립이 삽입 순서를 지킨 채 객체로 옮긴다(REST `/rooms/{id}/scores`가
@@ -83,7 +83,7 @@ server
 최적화로 남는다. (keyspace notification은 at-most-once라 근거로 쓰지 않는다.)
 
 - **주기 5분**(`SWEEP_INTERVAL_MS`). 이 값이 회수 지연의 상한이며 방 TTL(40분)보다
-  충분히 짧으면 된다. 첫 실행도 5분 뒤다(Java `initialDelay = fixedDelay`).
+  충분히 짧으면 된다. 첫 실행도 5분 뒤다.
 - 판정: 라운드 상태를 가진 방마다 `RoomService.getSnapshot(roomId).phase`가
   **null이면 방이 사라진 것**이다(`roomNotFound` 스냅샷).
 - ⚠️ **순서 불변식 — `timers.cancelRoom(roomId)` → `rounds.remove(roomId)`.**
@@ -115,7 +115,7 @@ server
   쌓인 score.update를 지우는" 사고 방지). FINISHED로 간 phase는 낡은 응답이
   되돌릴 수 없다.
 
-## 알려진 틈 (Java 그대로 — 바꾸려면 결정 기록)
+## 알려진 틈
 
 - 재접속 분기는 방 폐쇄 예약을 **취소하지 않는다**(최초 join 분기만 취소).
   좌석이 남아 있으면 발화 시점의 빈 방 재확인이 no-op이 되어 실전에서는

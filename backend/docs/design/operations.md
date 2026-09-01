@@ -20,7 +20,7 @@
 |---|---|---|
 | `DB_URL` | `""` = 미사용 | MySQL 좌표. **Java가 읽는 것은 이것 하나(JDBC URL)다**(`application.yaml: url: ${DB_URL}`). 값이 있으면 `jdbc:` 접두를 벗겨 파싱해 아래 `DB_HOST`·`DB_PORT`·`DB_NAME`을 **덮어쓴다** — 운영 `.env`가 그대로 재사용된다(4.2에서 정렬 완료). 쿼리 파라미터(`serverTimezone` 등)는 일부러 버린다 |
 | `DB_HOST` / `DB_PORT` / `DB_NAME` | `localhost` / `3306` / `yorr` | `DB_URL`이 없을 때 쓰는 쪼갠 좌표. Node·로컬 `.env.example` 전용이며 Java에는 대응이 없다 |
-| `DB_USERNAME` / `DB_PASSWORD` | `yorr` / `""` | MySQL 자격. **URL 안의 userinfo보다 이쪽이 이긴다**(Java의 JDBC 프로퍼티와 같은 결론) |
+| `DB_USERNAME` / `DB_PASSWORD` | `yorr` / `""` | MySQL 자격. **URL 안의 userinfo보다 이쪽이 이긴다** |
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | Redis |
 | `REDIS_PASSWORD` | `""` | Redis |
 | `SERVER_PORT` | `8080` | 리슨 포트 |
@@ -158,8 +158,7 @@ Redis는 하네스가 닫는다. 인메모리 예약을 먼저 끊는 이유는 
 ### Node 구현 (5.3)
 
 - 두 라우트 모두 `http/routes/health.ts`(`registerHealthRoutes(app, { metrics })`).
-  게이지 수집기는 `monitoring/realtimeGameMetrics.ts`(`RealtimeGameMetrics` —
-  Java `monitoring/RealtimeGameMetrics` MeterBinder 자리), 텍스트 렌더러는
+  게이지 수집기는 `monitoring/realtimeGameMetrics.ts`(`RealtimeGameMetrics`, 텍스트 렌더러는
   `monitoring/exposition.ts`.
 - **수집 출처는 WS 레지스트리의 인메모리 상태**다(`RoomSessionRegistry.activeRoomCount()`
   ·`activeParticipantCount(code)`). Java도 같았고, **Redis 왕복은 없다** — 스크레이프

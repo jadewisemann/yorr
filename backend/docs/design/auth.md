@@ -23,7 +23,7 @@
   미설정 제공자(`NOT_CONFIGURED`)는 **503 빈 본문** — 브라우저가 직접 여는
   URL이라 리다이렉트할 곳이 없다.
 - authorize URL은 모든 쿼리 값을 form-urlencoded로 완전 인코딩해야 한다
-  (redirect_uri의 `:`·`/` 포함 — Java가 UriComponentsBuilder를 피한 이유).
+  (redirect_uri의 `:`·`/` 포함.
   google은 `scope=openid profile email` 추가.
 - callback은 **항상 302로 응답한다**(JSON 없음 — 사람 브라우저가 도착하는
   곳). 실패는 `?error=<reason소문자>`: `canceled` / `invalid_state` /
@@ -48,8 +48,7 @@
     실패하고, 안 걸면 로그인 요청이 영영 매달린다.
 - 설정 판정: kakao는 clientId+redirectUri만 필수(secret 선택), google은 3개
   전부. 미설정이어도 부팅은 된다 — 호출 시점에 실패.
-- quirk(Java와 동일): authorize는 **설정을 확인하기 전에 state를 먼저 발급**한다
-  (Java의 인자 평가 순서). 미설정 제공자를 호출하면 쓰이지 않는 state 키가 하나
+- quirk: authorize는 **설정을 확인하기 전에 state를 먼저 발급**한다. 미설정 제공자를 호출하면 쓰이지 않는 state 키가 하나
   남지만 5분 뒤 사라진다. 응답 계약(503)은 그대로다.
 
 ## state · 로그인 코드 (Redis, 1회용)

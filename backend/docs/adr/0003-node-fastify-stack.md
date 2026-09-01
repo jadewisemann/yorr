@@ -11,18 +11,18 @@ MySQL, 팀 도구 체인(TS·Biome·Vitest)과의 정합.
 
 ## 결정
 
-| 역할 | 선택 | Java 대응 |
-|---|---|---|
-| 런타임 | Node.js ≥ 22.12 (프로젝트 요구 버전과 동일) | JVM 21 |
-| 언어 | TypeScript (strict, ESM, NodeNext) | Java |
-| HTTP | Fastify + `@fastify/cors` | Spring MVC |
-| WebSocket | `ws` (HTTP 서버에 직접 부착) | Spring WebSocket |
-| Redis | `ioredis` (Lua `defineCommand` 지원) | Spring Data Redis |
-| MySQL | `mysql2/promise` | JPA + MySQL Connector |
-| 검증 | `zod` (envelope·env·요청 payload) | Bean Validation |
-| 테스트 | Vitest | JUnit |
-| 린트·포맷 | Biome (프론트와 동일 설정 기조) | — |
-| 실행 | `tsx`(dev) / `tsc` 빌드 후 `node`(prod) | Gradle bootRun/bootJar |
+| 역할 | 선택 |
+|---|---|
+| 런타임 | Node.js ≥ 22.12 (프로젝트 요구 버전과 동일) |
+| 언어 | TypeScript (strict, ESM, NodeNext) |
+| HTTP | Fastify + `@fastify/cors` |
+| WebSocket | `ws` (HTTP 서버에 직접 부착) |
+| Redis | `ioredis` (Lua `defineCommand` 지원) |
+| MySQL | `mysql2/promise` |
+| 검증 | `zod` (envelope·env·요청 payload) |
+| 테스트 | Vitest |
+| 린트·포맷 | Biome (프론트와 동일 설정 기조) |
+| 실행 | `tsx`(dev) / `tsc` 빌드 후 `node`(prod) |
 
 WebSocket은 Fastify 플러그인(`@fastify/websocket`) 대신 `ws`를 HTTP 서버에 직접
 붙인다 — 연결 수명·구독 관리가 HTTP 프레임워크 수명과 분리되는 편이

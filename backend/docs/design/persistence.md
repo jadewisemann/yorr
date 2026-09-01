@@ -146,13 +146,11 @@ Node 쪽 도구는 **Flyway 이력 테이블 위에서 도는 자체 러너**다
 - 호출 시점: ① 게임 종료(`GameCompletionService` — **실패해도 삼킨다**, 종료를
   막지 않음) ② 탁구 AI 결과 REST.
 - 한 트랜잭션에 matches 1행 + 참가자 N행. `finished_at`은 **UTC 고정 시계**
-  (dev KST / prod UTC의 9시간 스큐는 주간 집계에 복구 불가능한 오염 —
-  Java가 명시적으로 `Clock.systemUTC()`를 쓰는 이유).
+  (dev KST / prod UTC의 9시간 스큐는 주간 집계에 복구 불가능한 오염이다).
 - 멱등 키는 **`game_id`** 하나다: 트랜잭션 안의 사전 확인(`SELECT ... WHERE
   game_id = ?`) + `uk_matches_game` 유니크 제약. 사전 확인은 동시 호출에서 깨지므로
   최종 방어선은 제약이고, 그 유니크 위반(errno 1062)만 "이미 보관됨"(false)이다.
-- **유니크가 아닌 제약 위반은 던진다**(Java와 의도적 차이 — Java는
-  `DataIntegrityViolationException` 전체를 false로 뭉갠다). FK·길이 위반은 "저장되지
+- **유니크가 아닌 제약 위반은 던진다**(Java와 의도적 차이. FK·길이 위반은 "저장되지
   않았다"는 뜻이고, false로 뭉개면 사라진 판이 조용해진다. 종료 경로가 예외를 삼켜
   `onArchiveFailure`로 흘리므로 게임은 그대로 끝나고 사실은 로그에 남는다.
 - 회원 판정은 **users 테이블 존재 여부**다(Redis 세션 아님 — 게임 중 세션이
@@ -270,8 +268,7 @@ rank 번호는 응답 조립 시 부여(동점 공동·다음 순위 건너뜀 �
 | `game/ranking/weeklyRankingResponse.ts` — `weeklyRankingResponse` | `controller/dto/WeeklyRankingResponse.of` |
 | `http/routes/ranking.ts` — `registerRankingRoutes` | `game/ranking/controller/RankingController` |
 
-- 집계 질의 인터페이스를 **전적 패키지가 아니라 랭킹 모듈**에 둔다(Java는
-  `game/match/repository`). 읽는 쪽이 소유하면 보관(쓰기)과 랭킹(읽기)이 서로의
+- 집계 질의 인터페이스를 **전적 패키지가 아니라 랭킹 모듈**에 둔다. 읽는 쪽이 소유하면 보관(쓰기)과 랭킹(읽기)이 서로의
   파일을 건드리지 않고 같은 테이블을 나눠 쓴다 — 결합은 Flyway V2 스키마 하나다.
 - 이식된 테스트(4.5): 주 경계(초·밀리초 단위)·동점 번호·캐시 키·evict·limit
   클램프·REST 표면은 **MySQL 없이** 돈다(`Intl` 대조 포함). 실 MySQL이 필요한
@@ -290,7 +287,7 @@ rank 번호는 응답 조립 시 부여(동점 공동·다음 순위 건너뜀 �
 - **`timezone: 'Z'`가 계약이다.** `DATETIME(6)`은 UTC 벽시계인데(위의
   `finished_at`) mysql2 기본값 `'local'`은 Date ↔ DATETIME 변환에 프로세스 TZ를
   쓴다. 개발 컨테이너는 Asia/Seoul, 운영은 UTC라 그대로 두면 같은 코드가 환경마다
-  9시간 어긋난 값을 쓴다 — Java가 `Clock.systemUTC()`를 명시하는 것과 같은 이유로
+  9시간 어긋난 값을 쓴다. 그래서
   드라이버 쪽에서도 못박는다.
 - `multipleStatements`는 끈다. 마이그레이션 SQL은 러너가 문장 단위로 잘라
   보낸다(ADR-0005) — 마이그레이션 한 곳 때문에 애플리케이션 풀 전체에 인젝션

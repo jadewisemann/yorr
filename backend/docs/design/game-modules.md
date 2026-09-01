@@ -43,10 +43,10 @@
   `game.<code소문자>.` 접두사로 시작해야 하며(다른 게임 네임스페이스는 거부),
   접두사를 벗긴 이벤트명으로 `handles` 확인 후 같은 envelope(타입만 교체)로
   `handle` 호출. 어느 단계든 불통과면 `false`를 돌려주고 게이트웨이가
-  `INVALID_MESSAGE`로 응답한다 — **모듈이 없는 게임 코드도 여기서 `false`다**
-  (Java는 `require()`가 던져 응답이 아예 나가지 않는다).
+  `INVALID_MESSAGE`로 응답한다 — **모듈이 없는 게임 코드도 여기서 `false`다.**
+  던지지 않는 이유: 모듈이 아직 없는 게임의 방도 대기실은 돌아가야 한다.
 - 모듈이 `handle`에서 던지면 잡지 않는다 — 게이트웨이가 로그만 남기고 소켓을
-  살려 둔다(Java에서 예외가 `handleTextMessage` 밖으로 나가는 것과 같은 결과).
+  살려 둔다.
   **응답은 모듈이 스스로 보낸다.**
 - 아웃바운드 타입 조립: `game.<code소문자>.<event>` (`gameWsType`, Java
   `GameWsTypes`). `game.over`·`state.sync`도 방의 게임 코드로 네임스페이스가 붙는다.
@@ -155,7 +155,7 @@ recordRoll을 타므로 함께 막힌다) ③ 제출 기록은 이탈로 지워�
 - **주사위의 유일한 출처가 이 서비스의 `DieRoller` 시임**이다(DESIGN.md 원칙 1).
   `dice.roll`·`round.submit` 페이로드에 주사위를 만들 권한이 없고, 자동 굴림도
   같은 시임을 지난다. 테스트는 상수 롤러(`() => 1`)로, 재현이 필요한 판은
-  `seededDieRoller(seed)`(mulberry32)로 고정한다 — Java에는 상수 공급자만 있었다.
+  `seededDieRoller(seed)`(mulberry32)로 고정한다.
 - `submit`의 `beforeStateChange` 기본값은 no-op이다. 점수와 묶인 실제 제출 경로는
   2.6 `ScoreRoundSubmissionService`가 이 인자로 점수 확정을 끼워 넣는다.
 
@@ -193,7 +193,7 @@ recordRoll을 타므로 함께 막힌다) ③ 제출 기록은 이탈로 지워�
   마감 경로로 들어온 점수는 해소기가 이미 방송했으므로 타이머에는 `score: null`로
   전달된다 — 여기서 다시 쏘면 클라이언트가 중복 반영한다.
 - Node 이식: `roomService.touch`·`leave`·`getSnapshot`이 Redis라 **`start`·
-  `advanceTurn`·`removePlayer`가 전부 async다**(Java는 동기 `Instant` 반환).
+  `advanceTurn`·`removePlayer`가 전부 async다**.
   마감 작업 시그니처가 이미 `() => void | Promise<void>`라 그대로 얹힌다.
   `Instant` 자리는 epoch ms 숫자다.
 - **바깥 계층은 전부 좁은 포트로 뒤집었다**(`roundPorts.ts`): 브로드캐스터·
@@ -224,12 +224,12 @@ recordRoll을 타므로 함께 막힌다) ③ 제출 기록은 이탈로 지워�
 찾지 못함(`gameId` 없음) · 빈 족보 조회 실패 · 자동 기록 실패. 어느 쪽이든
 `expire`로 턴만 넘기고, 그 `expire`마저 스테일이면 STALE이다 — **라운드 진행은
 어떤 저장 실패에도 멈추지 않는다.** 관측은 `onDegraded(roomId, reason, error?)`
-훅으로 뺐다(Java `log.warn` 자리).
+훅으로 뺐다.
 
 - 결과 타입은 Java의 `record(kind, advanced, rolled)`(둘 중 하나만 채우고 나머지는
   null) 대신 **판별 유니온**이다. Java가 정적 팩터리 3개로 지키던 "kind를 보고
   꺼내라"는 규약이 타입으로 강제된다.
-- 카테고리 선택은 `CategoryPicker(bound) → index` 시임이다(Java `IntUnaryOperator`).
+- 카테고리 선택은 `CategoryPicker(bound) → index` 시임이다.
   `Math.floorMod` 접기까지 그대로 옮겨 음수 인덱스도 범위 안으로 들어온다.
 - 남은 족보는 **api key 문자열**로 주고받는다(`OpenCategoriesPort`) — `RoundSubmission`이
   카테고리를 문자열로 드는 것과 같은 경계다(라운드 → 점수 도메인 의존 금지).
@@ -413,7 +413,7 @@ POST /games/{gameId}/score-candidates  { dice:[5개] } → { candidates: {12키:
 - 키 순서는 `SCORE_CATEGORIES`(ones…yacht) 그대로다. 응답 필드 이름은 Java
   `GameRankingResponse`를 따라 **`total`** 이다(도메인의 `finalScore`가 아니다).
 - 점수 출처가 종료 방송과 다르다: `/results`는 **점수판 해시의 `_total`**,
-  `game.over`는 `room:{roomCode}:scores` ZSET이다(Java와 같은 비대칭). 순위
+  `game.over`는 `room:{roomCode}:scores` ZSET이다. 순위
   규칙이 갈라지지 않도록 계산기는 `game/completion`의 `calculateGameResult` 하나를
   공유한다.
 
@@ -436,7 +436,7 @@ POST /games/{gameId}/score-candidates  { dice:[5개] } → { candidates: {12키:
 
 - 한 번의 읽기 순서 = 오류 우선순위다: 방 해시 → `gameId` 존재 → `phase` 파싱 →
   게임→방 역매핑 → 참가 여부 → 플레이어별 점수판. 알 수 없는 `phase`는
-  500이다(조용히 넘기지 않는다 — Java `RoomPhase.valueOf`).
+  500이다(조용히 넘기지 않는다).
 - 재검증이 보는 것은 `gameId` · `phase` · 게임→방 역매핑 · roster 넷뿐이다.
   **점수 값은 보지 않는다** — 확정 점수는 늘기만 하므로 값 변화는 일관성 위반이
   아니다. 넷 중 하나라도 변하면 통째로 다시 읽고, 2회 모두 실패하면 500이다.

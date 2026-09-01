@@ -7,15 +7,15 @@
 
 ## 구현 지도 (`src/game/duel/`)
 
-| 파일 | 책임 | Java 대응 |
-|---|---|---|
-| `duelState.ts` | 상태·라운드 타입(와이어 그대로) | `DuelState` |
-| `duelRules.ts` | **판정·파울·캡 — 순수 함수**. 전송·Redis를 모른다 | `DuelRules` |
-| `duelStateStore.ts` | Redis 상태 저장(SETNX·락·TTL 복사·version 가드) | `RedisDuelStateStore` |
-| `duelScoreboard.ts` | 종료 시 점수(잔탄) 기록 | `DuelGameService`의 인라인 Redis 호출 |
-| `duelGameService.ts` | 시각·난수 주입, 방송, 마감 예약, 종료 처리 | `DuelGameService` |
-| `duelGameModule.ts` | WS 표면(`draw` 라우팅·검증·오류 응답) | `DuelGameModule` |
-| `duelPorts.ts` | 바깥 계층(ws·room·완료)의 **좁은 포트** | (Java는 구체 타입 직접 주입) |
+| 파일 | 책임 |
+|---|---|
+| `duelState.ts` | 상태·라운드 타입(와이어 그대로) |
+| `duelRules.ts` | **판정·파울·캡 — 순수 함수**. 전송·Redis를 모른다 |
+| `duelStateStore.ts` | Redis 상태 저장(SETNX·락·TTL 복사·version 가드) |
+| `duelScoreboard.ts` | 종료 시 점수(잔탄) 기록 |
+| `duelGameService.ts` | 시각·난수 주입, 방송, 마감 예약, 종료 처리 |
+| `duelGameModule.ts` | WS 표면(`draw` 라우팅·검증·오류 응답) |
+| `duelPorts.ts` | 바깥 계층(ws·room·완료)의 **좁은 포트** |
 
 바깥 의존은 2.5·2.7과 같이 포트로 역전한다(`duelPorts.ts`): 브로드캐스터·레지스트리
 (phase 표시·소켓→멤버 조회)·실시간 스냅샷·마감 스케줄러·게임 종료·점수 기록.
@@ -43,7 +43,7 @@ lastRound{number, kind(SHOT|TIE|WARNING|SELF_SHOT|FORFEIT), shooterId, hitId,
           koId, foulId, over, at}
 ```
 
-null 취급이 두 갈래인 것이 계약이다(Java의 애노테이션 배치를 그대로 옮겼다):
+null 취급이 두 갈래인 것이 계약이다:
 `lastRound`는 **필드 자체가 생략**되고(`@JsonInclude(NON_NULL)`은 DuelState에만
 붙어 있다 → JS에서는 `undefined`), `lastRound` **안의**
 shooterId·hitId·koId·foulId는 애노테이션 없는 중첩 레코드라 **`null`이 실린다**.

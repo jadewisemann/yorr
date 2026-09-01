@@ -90,7 +90,7 @@ app → landing → room → yacht (· pingpong · duel)
 
 ## 실시간 통신: 계약 하나, 정책 한 곳
 
-- **와이어 계약의 SSOT는 `src/realtime/wsEvents.ts`** 입니다. 백엔드(Java)는 이 파일을
+- **와이어 계약의 SSOT는 `src/realtime/wsEvents.ts`** 입니다. 백엔드는 이 파일을
   import할 수 없으므로 같은 타입 문자열과 필드로 DTO를 미러링합니다 — "이 .ts가 기준이고
   Java가 따라온다"가 팀 합의입니다.
 - 전송 클라이언트(`realtimeClient.ts`)는 열기/닫기/JSON 인코딩만 하는 **정책 없는**
