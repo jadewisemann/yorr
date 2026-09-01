@@ -38,7 +38,10 @@
       "preset": "recommended",
       "complexity": {
         "noImportantStyles": "off",
-        "noExcessiveCognitiveComplexity": "warn"
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": { "maxAllowedComplexity": 22 }
+        }
       }
     }
   },

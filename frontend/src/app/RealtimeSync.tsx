@@ -143,16 +143,29 @@ function keepGameState(snapshot: RoomSnapshot, current: RoomSnapshot | null): Ro
   return { ...snapshot, game: current.game }
 }
 
+/*
+ * 디스패치를 셋으로 가른 이유는 분기 수 자체다. 한 switch에 24개 case를 두면
+ * 사이클로매틱 복잡도가 24가 되어 기준(22)을 넘는데, 갈래가 실제로 셋이라
+ * (세션·방·게임) 나누면 각 함수가 자기 갈래만 안다. 처리했으면 true를 돌려주는
+ * 규약이라 앞선 갈래가 먹은 메시지를 뒤가 다시 보지 않는다.
+ */
 function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs: number) => void) {
   const store = useAppStore.getState()
+  if (applySessionMessage(message, store, startHeartbeat)) return
+  if (applyRoomMessage(message, store)) return
+  applyGameMessage(message, store)
+}
 
+/** 연결 수명과 방 전체 스냅샷 교체. 게임 종류와 무관한 갈래다. */
+function applySessionMessage(
+  message: ServerMessage,
+  store: Store,
+  startHeartbeat: (intervalMs: number) => void,
+): boolean {
   switch (message.type) {
     case 'sys.connected':
       startHeartbeat(message.payload.heartbeatIntervalMs)
-      return
-    case 'room.joined':
-      applyRoomJoined(message.payload, store)
-      return
+      return true
     case 'sys.reconnected':
     case 'state.sync':
     case 'game.yacht_dice.state.sync':
@@ -160,16 +173,41 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
     case 'game.duel.state.sync':
     case 'game.davinci_code.state.sync':
       store.replaceRoomSnapshot(keepGameState(message.payload.snapshot, store.roomSnapshot))
-      return
+      return true
+    case 'room.closed':
+      store.endSession('room_closed')
+      return true
+    case 'error':
+      applyServerError(message.payload, store)
+      return true
+    default:
+      return false
+  }
+}
+
+/** 명단과 접속 상태. */
+function applyRoomMessage(message: ServerMessage, store: Store): boolean {
+  switch (message.type) {
+    case 'room.joined':
+      applyRoomJoined(message.payload, store)
+      return true
     case 'room.player_joined':
       applyPlayerJoined(message.payload, store)
-      return
+      return true
     case 'room.player_left':
       applyPlayerLeft(message.payload, store)
-      return
+      return true
     case 'presence.update':
       applyPresenceUpdate(message.payload, store)
-      return
+      return true
+    default:
+      return false
+  }
+}
+
+/** 게임 진행. 어느 게임인지는 메시지 타입이 말한다. */
+function applyGameMessage(message: ServerMessage, store: Store): void {
+  switch (message.type) {
     case 'game.yacht_dice.score.update':
       applyScoreUpdate(message.payload, store)
       return
@@ -193,12 +231,6 @@ function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs:
       return
     case 'game.davinci_code.state':
       applyModuleGameState(message.payload, 'DAVINCI_CODE', store)
-      return
-    case 'room.closed':
-      store.endSession('room_closed')
-      return
-    case 'error':
-      applyServerError(message.payload, store)
       return
     default:
       return
