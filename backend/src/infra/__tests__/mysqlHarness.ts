@@ -20,7 +20,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe } from 'vitest'
  */
 const MYSQL_TEST_URL = process.env.MYSQL_TEST_URL
 
-export const mysqlTestsEnabled = Boolean(MYSQL_TEST_URL)
+const mysqlTestsEnabled = Boolean(MYSQL_TEST_URL)
 
 if (!mysqlTestsEnabled && process.env.MYSQL_TEST_REQUIRED === '1') {
   throw new Error('MYSQL_TEST_REQUIRED=1인데 MYSQL_TEST_URL이 없다')

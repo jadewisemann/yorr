@@ -15,7 +15,7 @@ interface UseDavinciGameOptions {
 }
 
 /** 지금 고르고 있는 상대 타일. 서버가 아니라 이 화면만 아는 값이다. */
-export interface TileSelection {
+interface TileSelection {
   playerId: PlayerId
   tileId: string
 }

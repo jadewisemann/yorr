@@ -2,17 +2,6 @@ import { cn } from '@/shared/cn'
 import type { CategoryScores, YachtCategory } from '@/yacht/domain/scoring'
 import { categoryLabel, categoryShortLabel } from '@/yacht/domain/yachtCategoryView'
 
-export interface TurnProgress {
-  rolled: boolean
-  keptValues: number[]
-  rolling: boolean
-  submitted: boolean
-  rollCount: number
-  candidates: CategoryScores
-  motionNoticeVisible: boolean
-  wide: boolean
-}
-
 export function QuickCategoryStrip({
   canPick,
   candidates,

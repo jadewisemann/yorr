@@ -1,7 +1,5 @@
 import * as THREE from 'three'
 
-export type DiceStage = ReturnType<typeof createStage>
-
 export function createStage(container: HTMLElement) {
   const scene = new THREE.Scene()
   const camera = new THREE.OrthographicCamera(-4.5, 4.5, 3, -3, 0.1, 30)

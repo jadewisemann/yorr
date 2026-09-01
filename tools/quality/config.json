@@ -22,9 +22,33 @@
     "explicitAny": 0
   },
   "waivers": {
-    "maxCount": 0,
-    "files": []
+    "maxCount": 4,
+    "_note": "예외는 파일 단위로 명시하고 개수를 게이트가 감시한다. 늘리려면 여기 상한을 올려야 하고, 그 결정이 diff에 남는다.",
+    "files": [
+      {
+        "file": "frontend/src/realtime/wsEvents.ts",
+        "metric": "deadCode",
+        "reason": "WebSocket 와이어 계약의 정본이다(backend/AGENTS.md 「무엇이 진실인가」). 계약 타입은 프론트가 지금 참조하는지와 무관하게 정의되어야 하므로 미사용 export로 셀 수 없다. knip.json에서 진입점으로 선언했다."
+      },
+      {
+        "file": "backend/src/ws/protocol.ts",
+        "metric": "deadCode",
+        "reason": "WS 봉투의 코드 목록이 곧 계약이다. 파일 주석이 밝히듯 전송된 적 없는 값(AUTH_FAILED·ROOM_FULL 등)도 목록으로서 존재해야 하므로 미사용 export로 셀 수 없다."
+      },
+      {
+        "file": "frontend/package.json:tailwindcss",
+        "metric": "deadCode",
+        "reason": "오탐 교정. Tailwind v4는 CSS의 `@import \"tailwindcss\"`로 들어오는데 knip은 CSS를 따라가지 않는다."
+      },
+      {
+        "file": "frontend/scripts/bake-hero.mjs",
+        "metric": "deadCode",
+        "reason": "오탐 교정. 절대 경로 동적 import는 Node가 아니라 Vite dev 서버를 띄운 브라우저 컨텍스트에서 해석된다."
+      }
+    ]
   },
-  "enforced": [],
+  "enforced": [
+    "deadCode"
+  ],
   "_enforcedNote": "QUALITY.md 5절의 단계에 따라 하나씩 추가한다. 키: cyclomatic·cognitive·halstead·fileLines·coverage·crap·mutation·deadCode·duplication·explicitAny·unknownCast"
 }

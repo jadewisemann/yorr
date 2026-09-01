@@ -1,7 +1,4 @@
-import type { GameKey } from '@/games'
 import { Button } from '@/shared/components/Button'
-
-export type PartyGameKey = GameKey
 
 export function PartyOpeningNotice({ error, onHome }: { error: Error | null; onHome: () => void }) {
   return (

@@ -77,7 +77,7 @@ export async function renameProfile(sessionToken: string, nickname: string): Pro
   })
 }
 
-export const loginErrorMessages: Record<string, string> = {
+const loginErrorMessages: Record<string, string> = {
   canceled: '로그인을 취소했어요.',
   invalid_state: '로그인 요청이 만료됐어요. 다시 시도해 주세요.',
   not_configured: '지금은 로그인을 사용할 수 없어요. 잠시 후 다시 시도해 주세요.',

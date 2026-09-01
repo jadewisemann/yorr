@@ -33,7 +33,7 @@ function allSixesKept(play: PlaySignals) {
   return play.keptSixes >= play.sixesOnTray
 }
 
-export function afterKeepAgain(play: PlaySignals): GuideStep {
+function afterKeepAgain(play: PlaySignals): GuideStep {
   return play.rollCount >= MAX_ROLLS ? 'record' : 'askLastRoll'
 }
 

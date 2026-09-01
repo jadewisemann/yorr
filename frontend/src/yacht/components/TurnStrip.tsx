@@ -2,7 +2,7 @@ import type { PlayerId, PlayerStatus } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
 import { Badge } from '@/shared/components/Badge'
 
-export interface TurnStripPlayer {
+interface TurnStripPlayer {
   playerId: PlayerId
   nickname: string
   status: PlayerStatus

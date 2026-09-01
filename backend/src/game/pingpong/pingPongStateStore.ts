@@ -34,7 +34,7 @@ return 0
 `,
 }
 
-export const PING_PONG_STATE_SCRIPTS: readonly LuaScript[] = [UNLOCK]
+const PING_PONG_STATE_SCRIPTS: readonly LuaScript[] = [UNLOCK]
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {

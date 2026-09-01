@@ -7,72 +7,12 @@
  * 스토어·모듈을 건드리지 않는다(docs/design/games/pingpong.md).
  */
 export {
-  AI_NICKNAME,
   AI_PLAYER_ID,
-  bindPingPongAiResult,
   GUEST_NICKNAME,
-  LOCAL_AI_ROOM_CODE,
-  type PingPongAiPlayer,
   type PingPongAiResultArchive,
-  type PingPongAiResultBinding,
-  type PingPongAiResultRequest,
   PingPongAiResultService,
 } from './aiResultService.js'
-export {
-  PingPongGameModule,
-  type PingPongSocketMembership,
-} from './pingPongGameModule.js'
-export {
-  PingPongGameService,
-  type PingPongGameServiceDeps,
-  type PingPongGameServiceOptions,
-  type PingPongGameStart,
-  TARGET_X_MAX,
-  TARGET_X_MIN,
-} from './pingPongGameService.js'
-export type {
-  PingPongBroadcaster,
-  PingPongCompletionPort,
-  PingPongDeadlineScheduler,
-  PingPongOutboundEnvelope,
-  PingPongPhaseMark,
-  PingPongPresence,
-  PingPongRoomService,
-  PingPongScoreWriter,
-  PingPongSnapshotService,
-  PingPongStateStore,
-} from './pingPongPorts.js'
-export {
-  ballAt,
-  expire,
-  forfeit,
-  initial,
-  judgedAt,
-  MAX_ROLLBACK_MILLIS,
-  NORMAL_SPEED,
-  POINT_COUNTDOWN_MILLIS,
-  ready,
-  SMASH_SPEED,
-  serve,
-  serveReceiver,
-  swing,
-  WEAK_SPEED,
-  WIN_SCORE,
-} from './pingPongRules.js'
+export { PingPongGameModule } from './pingPongGameModule.js'
+export { PingPongGameService } from './pingPongGameService.js'
 export { redisPingPongScoreWriter } from './pingPongScoreWriter.js'
-export {
-  isPingPongFinished,
-  type PingPongBall,
-  type PingPongDirection,
-  type PingPongEvent,
-  type PingPongEventType,
-  type PingPongFault,
-  type PingPongPhase,
-  type PingPongPlayerNumbers,
-  type PingPongState,
-  type PingPongSwingPayload,
-} from './pingPongState.js'
-export {
-  PING_PONG_STATE_SCRIPTS,
-  RedisPingPongStateStore,
-} from './pingPongStateStore.js'
+export { RedisPingPongStateStore } from './pingPongStateStore.js'

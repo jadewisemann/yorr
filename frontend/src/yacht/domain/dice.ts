@@ -22,7 +22,7 @@ export interface CreateRollRequestInput {
   targetDice?: DiceSet
 }
 
-export function isDiceValue(value: unknown): value is DiceValue {
+function isDiceValue(value: unknown): value is DiceValue {
   return Number.isInteger(value) && typeof value === 'number' && value >= 1 && value <= 6
 }
 

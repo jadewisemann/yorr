@@ -24,7 +24,7 @@ export interface YachtDiceStateSnapshot {
   readonly finished: boolean
 }
 
-export interface YachtSubmissionSnapshot {
+interface YachtSubmissionSnapshot {
   readonly playerId: string
   readonly roundNumber: number
   readonly dice: readonly number[]
@@ -58,7 +58,7 @@ const snapshotSchema = z.object({
 })
 
 /** 필드 순서를 바꾸지 않는다(운영 Redis 호환 — 위 주석 참고). */
-export const toStateSnapshot = (state: RoundState): YachtDiceStateSnapshot => {
+const toStateSnapshot = (state: RoundState): YachtDiceStateSnapshot => {
   const submissions: Record<string, YachtSubmissionSnapshot> = {}
   for (const [playerId, submission] of state.submissions) {
     submissions[playerId] = {

@@ -29,7 +29,7 @@ export const ROUND_DURATION_MS = 25_000
 export const EXPIRY_GRACE_MS = 1_000
 
 /** 오프라인 상태로 자기 턴을 이 횟수째 맞으면 스킵 대신 자동 퇴장시킨다. */
-export const MAX_OFFLINE_TURNS = 2
+const MAX_OFFLINE_TURNS = 2
 
 /**
  * 사람이 이 수 이하인 방은 **시계를 걸지 않는다**(연습 방).
@@ -42,7 +42,7 @@ export const MAX_OFFLINE_TURNS = 2
  * 여기 걸리면 `round.start`의 `deadline`이 **null로 나간다** — 프론트는 그때 타이머를
  * 그리지 않는다(`frontend/src/realtime/wsEvents.ts`의 `RoundStartPayload`).
  */
-export const UNTIMED_HUMAN_LIMIT = 1
+const UNTIMED_HUMAN_LIMIT = 1
 
 /** 봇 오케스트레이터(3.2)가 구독하는 턴 시작 알림. */
 export interface RoundStartedEvent {

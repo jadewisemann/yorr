@@ -2,7 +2,7 @@ import { Badge } from '@/shared/components/Badge'
 
 export type ModeIconKind = 'quick' | 'ai' | 'party' | 'tutorial'
 
-export function ModeIcon({ kind }: { kind: ModeIconKind }) {
+function ModeIcon({ kind }: { kind: ModeIconKind }) {
   if (kind === 'quick') {
     return (
       <svg

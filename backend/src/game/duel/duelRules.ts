@@ -35,14 +35,14 @@ export const MISS = -2
 export const MIN_WAIT_MILLIS = 1_400
 export const MAX_WAIT_MILLIS = 4_600
 /** 한쪽이 먼저 뽑은 뒤, 상대가 뽑을 수 있는 마지막 유예. */
-export const GRACE_MILLIS = 700
+const GRACE_MILLIS = 700
 /** 신호 후 아무도 안 뽑으면 라운드를 무효로 넘긴다. */
-export const FREEZE_MILLIS = 2_600
+const FREEZE_MILLIS = 2_600
 
 /* 연출 시간 — 프런트 duel.ts의 CSS 애니메이션 길이와 맞춰야 한다. */
 /** 아무도 맞지 않은 라운드(TIE·경고)는 짧게 보여준다. */
-export const TIE_HOLD_MILLIS = 1_650
-export const RESULT_HOLD_MILLIS = 2_150
+const TIE_HOLD_MILLIS = 1_650
+const RESULT_HOLD_MILLIS = 2_150
 export const KO_HOLD_MILLIS = 2_900
 
 const copy = (values: DuelPlayerNumbers): Record<string, number> => ({ ...values })

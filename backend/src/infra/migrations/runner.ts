@@ -44,7 +44,7 @@ const resolve = (options: MigrationOptions) => ({
  * 디스크와 이력 테이블을 읽어 판정만 한다(쓰기 없음). 이력 테이블이 아직 없으면
  * 이력은 빈 목록이다 — 그 경우 전부 pending이 된다.
  */
-export const inspectMigrations = async (
+const inspectMigrations = async (
   conn: PoolConnection,
   options: MigrationOptions = {},
 ): Promise<MigrationPlan> => {

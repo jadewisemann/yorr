@@ -23,7 +23,7 @@ export interface HistoryEntry {
   readonly success: boolean
 }
 
-export interface ChecksumMismatch {
+interface ChecksumMismatch {
   readonly version: string
   readonly script: string
   readonly recorded: number | null

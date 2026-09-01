@@ -3,7 +3,7 @@ import type { GuideStep, Lesson, SpotlightRect } from '@/yacht/components/Tutori
 import type { YachtCategory } from '@/yacht/domain/scoring'
 import { YACHT_UPPER_CATEGORIES } from '@/yacht/domain/scoring'
 
-export function unionRect(targets: Element[]): SpotlightRect | null {
+function unionRect(targets: Element[]): SpotlightRect | null {
   if (targets.length === 0) return null
   const boxes = targets.map((target) => target.getBoundingClientRect())
   const top = Math.min(...boxes.map((box) => box.top))

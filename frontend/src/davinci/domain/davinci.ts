@@ -49,7 +49,7 @@ export function particle(word: string, afterFinal: string, afterVowel: string): 
   return afterVowel
 }
 
-export function isMyTurn(state: DavinciView | undefined, you: PlayerId): boolean {
+function isMyTurn(state: DavinciView | undefined, you: PlayerId): boolean {
   return state?.turnPlayerId === you && state.phase !== 'FINISHED'
 }
 
@@ -78,15 +78,6 @@ export function opponentsOf(state: DavinciView | undefined, you: PlayerId): Play
   return (state?.playerOrder ?? []).filter(
     (playerId) => playerId !== you && !isEliminated(state, playerId),
   )
-}
-
-export function canTarget(
-  state: DavinciView | undefined,
-  you: PlayerId,
-  playerId: PlayerId,
-  tile: DavinciTile,
-): boolean {
-  return isMyTurn(state, you) && state?.phase === 'GUESSING' && playerId !== you && !tile.revealed
 }
 
 export type DavinciPrompt =

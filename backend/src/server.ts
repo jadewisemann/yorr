@@ -130,7 +130,7 @@ export interface ServerOptions {
  * 라운드 진행 배선(2.5·2.6). 3.1(야추 모듈)이 여기 있는 것을 그대로 받아 쓴다 —
  * 새로 만들면 브로드캐스터·레지스트리가 갈라져 방송이 허공으로 나간다.
  */
-export interface RoundWiring {
+interface RoundWiring {
   /**
    * **운영은 Redis 어댑터(3.1)다.** `InMemoryRoundStateStore`는 2.4가 남긴 테스트
    * 시드이며, 여기 두면 서버 재시작마다 진행 중 게임 상태가 사라진다(타입은 맞아서

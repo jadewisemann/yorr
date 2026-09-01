@@ -51,7 +51,7 @@ export function Card({
   )
 }
 
-export function anchoredPlacement(anchor: SpotlightRect) {
+function anchoredPlacement(anchor: SpotlightRect) {
   const gap = 14
   if (anchor.left >= 400) {
     const centerY = Math.min(
@@ -88,7 +88,7 @@ export function GuideTextButton({ label, onClick }: { label: string; onClick: ()
   )
 }
 
-export function DiceBuddy({ className }: { className?: string }) {
+function DiceBuddy({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"

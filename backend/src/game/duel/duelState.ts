@@ -14,7 +14,7 @@
  * - `lastRound` **안의** shooterId·hitId·koId·foulId는 애노테이션이 없는 중첩
  * 레코드라 `null`이 그대로 실린다 → 여기서도 `null`을 쓴다.
  */
-export type DuelPhase =
+type DuelPhase =
   /** 신호등 빨강 — 여기서 뽑으면 부정출발이다. */
   | 'WAITING'
   /** 신호등 초록 — 뽑는 순간이 기록된다. */
@@ -24,7 +24,7 @@ export type DuelPhase =
   | 'FINISHED'
 
 /** 라운드 성격 — 규칙 근거는 `duelRules.ts` 주석에 있다. */
-export type DuelRoundKind =
+type DuelRoundKind =
   /** 정상 승부 — 더 빨리 뽑은 쪽이 상대를 쐈다. */
   | 'SHOT'
   /** 1ms까지 동일하거나 둘 다 놓쳤다 — 체력 변화 없음. */
@@ -75,5 +75,3 @@ export interface DuelState {
   /** 없으면 **필드 자체가 생략**된다(NON_NULL). */
   readonly lastRound?: DuelRound | undefined
 }
-
-export const isDuelFinished = (state: DuelState): boolean => state.phase === 'FINISHED'

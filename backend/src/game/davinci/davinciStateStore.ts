@@ -51,7 +51,7 @@ return 0
 `,
 }
 
-export const DAVINCI_SCRIPTS: readonly LuaScript[] = [DAVINCI_UNLOCK]
+const DAVINCI_SCRIPTS: readonly LuaScript[] = [DAVINCI_UNLOCK]
 
 const stateKey = (roomId: string): string => {
   if (roomId.trim().length === 0) throw new Error('roomId must not be blank')

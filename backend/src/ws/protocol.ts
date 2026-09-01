@@ -9,7 +9,7 @@ export const WS_PROTOCOL_VERSION = 1
 /** 클라이언트가 이 간격으로 `sys.ping`을 보낸다. 서버는 먼저 ping하지 않는다. */
 export const HEARTBEAT_INTERVAL_MS = 30_000
 
-export const HEARTBEAT_TIMEOUT_MULTIPLIER = 3
+const HEARTBEAT_TIMEOUT_MULTIPLIER = 3
 
 /** 3회 미스(90초)면 idle_timeout. 경계는 "이상"이다 — 89_999ms는 생존한다. */
 export const HEARTBEAT_TIMEOUT_MS = HEARTBEAT_INTERVAL_MS * HEARTBEAT_TIMEOUT_MULTIPLIER

@@ -1,12 +1,12 @@
 import type { Transition, Variants } from 'motion/react'
 
-export const DURATION = {
+const DURATION = {
   fast: 0.12,
   base: 0.22,
 } as const
 
-export const EASE_SNAPPY = [0.2, 0, 0, 1] as const
-export const EASE_EXIT = [0.4, 0, 1, 1] as const
+const EASE_SNAPPY = [0.2, 0, 0, 1] as const
+const EASE_EXIT = [0.4, 0, 1, 1] as const
 
 export const ENTER: Transition = { duration: DURATION.base, ease: EASE_SNAPPY }
 export const EXIT: Transition = { duration: DURATION.fast, ease: EASE_EXIT }

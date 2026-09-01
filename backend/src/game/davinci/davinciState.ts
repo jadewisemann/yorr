@@ -16,7 +16,7 @@ export type DavinciTileColor = 'BLACK' | 'WHITE'
 /** 조커의 숫자 자리. 실제 숫자는 0~11이라 음수와 겹치지 않는다. */
 export const DAVINCI_JOKER = -1
 
-export type DavinciPhase =
+type DavinciPhase =
   /** 턴 플레이어가 상대 타일 하나를 지목해 숫자를 맞힐 차례다. */
   | 'GUESSING'
   /** 맞혔다 — 계속 추측할지 멈출지 고르는 중이다. */
@@ -38,7 +38,7 @@ export interface DavinciTile {
   readonly revealed: boolean
 }
 
-export type DavinciEventKind =
+type DavinciEventKind =
   /** 추측했다 — 맞았는지는 `correct`가 말한다. */
   | 'GUESS'
   /** 제한 시간을 넘겼다. 추측 차례였다면 틀린 것과 같게 처리된다. */
@@ -117,8 +117,6 @@ export interface DavinciView {
   readonly nextActionAt: number
   readonly lastEvent?: DavinciEvent | undefined
 }
-
-export const isDavinciFinished = (state: DavinciState): boolean => state.phase === 'FINISHED'
 
 /**
  * 숫자를 보여 줄 것인가 — 공개된 타일이거나 **내 타일**이거나 **판이 끝났으면** 보여 준다.

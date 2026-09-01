@@ -5,8 +5,6 @@ import { createDieModel, createPhysicsDiceGeometries, createPhysicsDiceMaterials
 import type { DieEntry } from './runtimeTypes'
 import type { PhysicsDiceIndex } from './types'
 
-export type DiceInstances = ReturnType<typeof createDiceInstances>
-
 export function createDiceInstances(scene: THREE.Scene, world: RAPIER.World) {
   const geometries = createPhysicsDiceGeometries()
   const materials = createPhysicsDiceMaterials()

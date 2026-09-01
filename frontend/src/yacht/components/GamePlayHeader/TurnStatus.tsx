@@ -2,23 +2,19 @@ import { cn } from '@/shared/cn'
 import { TOTAL_ROUNDS } from '@/yacht/domain/yachtGame'
 import type { GamePlayHeaderProps } from './types'
 
-export function turnStatusLabel(isMyTurn: boolean, submitted: boolean, activePlayerName?: string) {
+function turnStatusLabel(isMyTurn: boolean, submitted: boolean, activePlayerName?: string) {
   if (isMyTurn && !submitted) return '내 턴이에요'
   if (isMyTurn) return '제출 완료 · 대기 중'
   return activePlayerName ? `${activePlayerName}의 턴` : '턴 동기화 중'
 }
 
-export function shortTurnStatusLabel(
-  isMyTurn: boolean,
-  submitted: boolean,
-  activePlayerName?: string,
-) {
+function shortTurnStatusLabel(isMyTurn: boolean, submitted: boolean, activePlayerName?: string) {
   if (isMyTurn && !submitted) return '내 턴'
   if (isMyTurn) return '제출 완료'
   return activePlayerName ?? '동기화 중'
 }
 
-export function turnDotClass(isMyTurn: boolean, submitted: boolean, hasActivePlayer: boolean) {
+function turnDotClass(isMyTurn: boolean, submitted: boolean, hasActivePlayer: boolean) {
   if (isMyTurn && !submitted) return 'bg-positive'
   if (hasActivePlayer) {
     return 'bg-brand-strong shadow-[0_0_8px_rgb(229_57_53_/_90%)] motion-safe:animate-ring-pulse'

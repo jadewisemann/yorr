@@ -2,9 +2,9 @@ import { useEffect } from 'react'
 import { fetchMyWeeklyRank, fetchWeeklyRanking } from './rankingApi'
 import { useFetchEffect } from './useAsyncTask'
 
-export const TICKER_LIMIT = 10
+const TICKER_LIMIT = 10
 
-export const REFRESH_INTERVAL_MS = 60_000
+const REFRESH_INTERVAL_MS = 60_000
 
 function useVisibleRefresh(refetch: () => void, intervalMs: number, enabled = true) {
   useEffect(() => {

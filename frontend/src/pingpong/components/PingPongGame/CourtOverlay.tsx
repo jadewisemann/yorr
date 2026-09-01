@@ -81,7 +81,7 @@ export function CourtOverlay({
   )
 }
 
-export function dashboardSituationLabel(
+function dashboardSituationLabel(
   state: PingPongState,
   firstPlayerId: string,
   secondPlayerId: string,
@@ -96,7 +96,7 @@ export function dashboardSituationLabel(
   )
 }
 
-export function DashboardFeedback({
+function DashboardFeedback({
   event,
   eventAge,
   eventLabel,

@@ -6,16 +6,10 @@
  * 정본이다(같은 계산기를 두 벌 들지 않는다).
  */
 export { GameScoreQueryService } from './gameScoreQueryService.js'
+export { type ReadOnlyRedis, RedisGameScoreQueryStore } from './gameScoreQueryStore.js'
 export {
-  type GameScoreQueryStore,
-  type GameScoreSnapshot,
-  type ReadOnlyRedis,
-  RedisGameScoreQueryStore,
-} from './gameScoreQueryStore.js'
-export {
-  GameQueryDomainError,
   GameScoreQueryError,
   type GameScoreQueryReason,
   isGameScoreQueryError,
 } from './queryErrors.js'
-export { calculateScoreCandidates, type ScoreCandidates } from './scoreCandidateService.js'
+export { calculateScoreCandidates } from './scoreCandidateService.js'

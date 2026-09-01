@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-export type AsyncStatus = 'idle' | 'loading' | 'success' | 'error'
+type AsyncStatus = 'idle' | 'loading' | 'success' | 'error'
 
 interface AsyncState<TData> {
   data: TData | null

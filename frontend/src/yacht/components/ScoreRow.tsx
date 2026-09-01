@@ -2,8 +2,6 @@ import { cn } from '@/shared/cn'
 import { IconCheck } from '@/shared/components/Icon'
 import type { ScoreRowState } from '@/yacht/domain/yachtCategoryView'
 
-export type { ScoreRowState }
-
 type ScoreRowProps = {
   className?: string
   label: string

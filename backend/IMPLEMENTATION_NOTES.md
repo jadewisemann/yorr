@@ -85,3 +85,24 @@
   대역 기본값을 사람 둘로 바꿨다(`humanRoster`). `serverWiring` 통합 테스트도
   같은 이유로 손님 하나를 더 붙였다 — 그 테스트가 보려던 것은 "레지스트리가 갈리면
   start가 null"이었는데, 연습 방도 null이라 신호가 겹쳤다.
+
+## 2026-09-01 — 죽은 export 정리(QUALITY.md 1단계)
+
+knip이 지목한 미사용 export 592건을 제거했다. 대부분은 배럴(`index.ts`)이 내부
+파일에서 재export만 하고 아무도 가져가지 않던 심볼이다 — 배럴 자체는 `server.ts`가
+실제로 import하므로 살아 있고, **공개 표면이 필요 이상으로 넓었을 뿐**이다. 필요해지면
+그때 다시 열면 된다.
+
+배럴이 아닌 자리에서 함께 사라진 도메인 함수들을 남겨 둔다. 셋 다 호출부가 없었고
+같은 판정이 호출 지점에 인라인으로 들어가 있다.
+
+- `davinciState.ts`의 `isDavinciFinished`
+- `duelState.ts`의 `isDuelFinished`
+- `scoreBoard.ts`의 `categoryScoreMap` — 주석은 `YachtScoreCalculator`의 입력
+  모양이라고 적었지만 계산기는 이 함수를 부르지 않는다.
+
+**계약 파일 두 개는 예외로 두었다.** `ws/protocol.ts`와 프론트의
+`realtime/wsEvents.ts`는 목록 자체가 와이어 계약이라, 전송된 적 없는 값도 선언으로
+존재해야 한다(`protocol.ts`의 `WsErrorCode` 주석이 그렇게 밝히고 있다). knip.json에서
+진입점으로 선언하고 `tools/quality/config.json`의 예외 목록에 근거를 적었다. 예외
+개수는 게이트가 감시하므로 늘리려면 상한을 함께 올려야 한다.

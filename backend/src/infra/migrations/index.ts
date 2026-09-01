@@ -6,13 +6,4 @@
  * 빈 개발 DB·통합 테스트가 쓴다. 적용과 기동을 갈라 두면 "부팅했더니 스키마가
  * 바뀌어 있었다"가 일어나지 않는다.
  */
-export { flywayChecksum } from './checksum.js'
-export { DEFAULT_MIGRATION_DIR, discoverMigrations } from './discover.js'
-export { MigrationError } from './error.js'
-export { DEFAULT_HISTORY_TABLE } from './history.js'
-export type { ChecksumMismatch, HistoryEntry, LocalMigration, MigrationPlan } from './plan.js'
-export { planMigrations } from './plan.js'
-export type { MigrationOptions, MigrationReport } from './runner.js'
-export { inspectMigrations, runMigrations, verifyMigrations } from './runner.js'
-export { splitSqlStatements } from './statements.js'
-export { compareVersions, normalizeVersion, parseScriptName } from './version.js'
+export { runMigrations, verifyMigrations } from './runner.js'

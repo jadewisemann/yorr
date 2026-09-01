@@ -16,13 +16,13 @@ import { YACHT_SCRIPTS, YACHT_UNLOCK_STATE } from './scripts.js'
 import { deserializeState, serializeState } from './yachtDiceStateSnapshot.js'
 
 /** 락 TTL. 이 안에서 read-modify-write(+점수 확정 Lua)가 끝난다는 전제다. */
-export const LOCK_TTL_MS = 5_000
+const LOCK_TTL_MS = 5_000
 
 /** 락 대기 예산. 넘기면 `game_state_busy`. */
-export const LOCK_WAIT_MS = 2_000
+const LOCK_WAIT_MS = 2_000
 
 /** 스핀 간격. */
-export const LOCK_RETRY_MS = 10
+const LOCK_RETRY_MS = 10
 
 const STATE_KEY_SUFFIX = `:game:${YACHT_DICE}:state`
 

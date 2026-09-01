@@ -1,12 +1,5 @@
-import type { PlayerId, ScoreBoard } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
 import { isRecorded } from '@/yacht/domain/yachtCategoryView'
-
-export interface ScoreSheetPlayer {
-  nickname: string
-  playerId: PlayerId
-  scoreboard: ScoreBoard | undefined
-}
 
 export function scoreCell(
   value: number | null | undefined,
@@ -43,7 +36,7 @@ export function PlayerBadge({
   )
 }
 
-export function initialsOf(nickname: string) {
+function initialsOf(nickname: string) {
   if (/[가-힣]/.test(nickname)) return nickname.slice(0, 2)
   const parts = nickname.split(/[\s'’-]+/).filter(Boolean)
   const first = parts[0]?.[0] ?? nickname[0] ?? '?'

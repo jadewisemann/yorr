@@ -7,7 +7,7 @@ import { buildClientMessage, CHAT_TEXT_MAX_LENGTH, type PlayerId } from '../wsEv
  * 방 하나의 수명(게임 한 판)에서 이보다 위로 올려 볼 이유가 없다. 무한히 쌓으면 긴 판에서
  * 리스트가 계속 자라 스크롤 컨테이너가 느려진다.
  */
-export const CHAT_HISTORY_LIMIT = 50
+const CHAT_HISTORY_LIMIT = 50
 
 export interface ChatLine {
   messageId: string

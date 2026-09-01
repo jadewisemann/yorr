@@ -36,7 +36,7 @@ export function xToWorld(x: number): number {
   return (x - 0.5) * TABLE_W
 }
 
-export const NET_CROSS_PROG = 0.5
+const NET_CROSS_PROG = 0.5
 
 const LAUNCH = 0.12
 const ARRIVE = 0.13
@@ -74,7 +74,7 @@ const OUT_B = 1.705
 const NET_A = -0.218
 const NET_B = 0.198
 
-export function ballLift(prog: number, smash: boolean, fault: Fault = null, from = 0): number {
+function ballLift(prog: number, smash: boolean, fault: Fault = null, from = 0): number {
   return fault ? faultLift(prog, fault, from) : rallyLift(prog, smash)
 }
 

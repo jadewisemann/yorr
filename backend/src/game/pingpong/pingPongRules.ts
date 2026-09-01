@@ -24,13 +24,13 @@ import { isPingPongFinished } from './pingPongState.js'
  */
 
 export const NORMAL_SPEED = 1.0
-export const SMASH_SPEED = 1.95
-export const WEAK_SPEED = 0.82
+const SMASH_SPEED = 1.95
+const WEAK_SPEED = 0.82
 export const WIN_SCORE = 11
 /** 득점 후·전원 ready 후 다음 서브까지의 시간. */
 export const POINT_COUNTDOWN_MILLIS = 2_600
 /** 스윙을 과거로 되감을 수 있는 최대 폭 ({@link judgedAt} 참고). */
-export const MAX_ROLLBACK_MILLIS = 120
+const MAX_ROLLBACK_MILLIS = 120
 
 /* ── 판정 창 (player 0 기준. player 1은 `1 - v` 미러) ───────────────────── */
 
@@ -93,7 +93,7 @@ const flightDeadline = (ball: PingPongBall, now: number): number => {
  * `now` 시점으로 공을 전진시킨다. 궤적이 같으므로 `pos`·`launchedAt`만 옮기는
  * 재표현이고 상태 변화가 아니다.
  */
-export const ballAt = (ball: PingPongBall, now: number): PingPongBall => {
+const ballAt = (ball: PingPongBall, now: number): PingPongBall => {
   const elapsed = Math.max(0, now - ball.launchedAt) / 1_000
   return { ...ball, pos: ball.pos + ball.direction * ball.speed * elapsed, launchedAt: now }
 }

@@ -28,7 +28,7 @@ export interface LocalYachtMode {
   rounds?: number
 }
 
-export function createEmptyBoard(): ScoreBoard {
+function createEmptyBoard(): ScoreBoard {
   return {
     categories: Object.fromEntries(
       YACHT_CATEGORIES.map((category) => [category, null]),
@@ -192,7 +192,7 @@ function recordedOnly(categories: ScoreBoard['categories']): CategoryScores {
   ) as CategoryScores
 }
 
-export function serverMessage<T extends ServerMessage['type']>(
+function serverMessage<T extends ServerMessage['type']>(
   type: T,
   payload: Extract<ServerMessage, { type: T }>['payload'],
   options: { msgId?: string | undefined; roomId?: string | undefined } = {},

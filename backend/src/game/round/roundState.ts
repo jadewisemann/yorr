@@ -9,7 +9,7 @@ export const DEFAULT_TOTAL_ROUNDS = 12
 const NO_HELD: readonly boolean[] = Object.freeze([false, false, false, false, false])
 
 /** 라운드 하나가 끝났을 때의 결과 요약. */
-export interface RoundCompletion {
+interface RoundCompletion {
   readonly roundNumber: number
   readonly submittedPlayerIds: readonly string[]
   /** 게임이 끝났다면 다음 라운드가 없으므로 `roundNumber`와 같다. */

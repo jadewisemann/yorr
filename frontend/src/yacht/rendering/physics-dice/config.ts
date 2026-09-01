@@ -145,5 +145,3 @@ export const PHYSICS_DICE_CONFIG = {
     safety: { margin: 0.16, bounce: 0.35, penetrationTolerance: 0.025 },
   },
 } as const
-
-export type PhysicsDiceConfig = typeof PHYSICS_DICE_CONFIG

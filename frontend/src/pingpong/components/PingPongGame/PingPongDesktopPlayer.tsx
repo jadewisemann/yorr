@@ -7,7 +7,7 @@ import { GameCanvas } from '@/shared/components/Screen'
 import { CourtOverlay } from './CourtOverlay'
 import { PingPongPreparation } from './PingPongPreparation'
 
-export function DesktopReadyButton({
+function DesktopReadyButton({
   onReady,
   practiced,
   ready,

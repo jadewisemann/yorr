@@ -25,11 +25,11 @@ import {
 } from '@/styles/theme'
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'closed'
-export type RoomResumeReason = 'restored' | 'disconnected'
+type RoomResumeReason = 'restored' | 'disconnected'
 
 export type ActiveRoomSession = Omit<RoomSession, 'snapshot'>
 
-export interface QuickMatchRequest {
+interface QuickMatchRequest {
   gameCode: GameCode
   nickname: string
 }

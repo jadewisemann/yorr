@@ -91,7 +91,7 @@ export const scoreCategoryOf = (apiKey: string): ScoreCategory => {
 }
 
 /** 주사위 검증 — 5개·1~6. 검증 실패는 "0점"이 아니라 **예외**다. */
-export const validateDice = (dice: readonly number[]): void => {
+const validateDice = (dice: readonly number[]): void => {
   if (dice === null || dice === undefined || !Array.isArray(dice)) {
     throw new ScoreDomainError('주사위는 null일 수 없습니다.')
   }

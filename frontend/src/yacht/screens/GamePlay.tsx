@@ -43,7 +43,7 @@ interface GamePlayProps {
   forceController?: boolean
 }
 
-export interface TurnProgress {
+interface TurnProgress {
   rolled: boolean
   keptValues: number[]
   rolling: boolean

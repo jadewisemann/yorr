@@ -55,7 +55,7 @@ export interface ScoreCandidatesRequest {
   dice: DiceSet
 }
 
-export interface ScoreCandidates {
+interface ScoreCandidates {
   candidates: Record<YachtCategory, number>
 }
 

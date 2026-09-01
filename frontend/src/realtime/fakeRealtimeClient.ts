@@ -1,7 +1,7 @@
 import type { ConnectionListener, MessageListener, RealtimeClient } from './realtimeClient'
 import type { ClientMessage, ClientMessageType, ServerMessage } from './wsEvents'
 
-export type FakeMessageHandler<T extends ClientMessageType = ClientMessageType> = (
+type FakeMessageHandler<T extends ClientMessageType = ClientMessageType> = (
   message: Extract<ClientMessage, { type: T }>,
 ) => ServerMessage[]
 

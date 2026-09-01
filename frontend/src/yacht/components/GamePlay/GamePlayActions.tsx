@@ -1,18 +1,6 @@
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
-import type { CategoryScores } from '@/yacht/domain/scoring'
 import { WaitingNotice } from './WaitingNotice'
-
-export interface TurnProgress {
-  rolled: boolean
-  keptValues: number[]
-  rolling: boolean
-  submitted: boolean
-  rollCount: number
-  candidates: CategoryScores
-  motionNoticeVisible: boolean
-  wide: boolean
-}
 
 export function GamePlayActions({
   activePlayerName,

@@ -10,7 +10,7 @@ import type { WeeklyRanking } from './weeklyRankingService.js'
  * 테스트되어야 하기 때문이다.
  */
 
-export interface WeeklyRankingEntry {
+interface WeeklyRankingEntry {
   /** 1부터. 동점자는 같은 번호를 받는다. */
   readonly rank: number
   readonly userId: string

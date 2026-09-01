@@ -4,7 +4,7 @@ import { TUTORIAL_RECORD_CATEGORY } from '@/yacht/model/useSpotlight'
 import { openHandLessons } from './openHandLessons'
 import type { GuideStep } from './types'
 
-export function keepLesson(ctx: LessonContext, again: boolean): Lesson {
+function keepLesson(ctx: LessonContext, again: boolean): Lesson {
   if (ctx.keptOther > 0) {
     return {
       title: '6이 아닌 주사위를 킵했어요',
@@ -30,7 +30,7 @@ export function keepLesson(ctx: LessonContext, again: boolean): Lesson {
   }
 }
 
-export function recordLesson(ctx: LessonContext): Lesson {
+function recordLesson(ctx: LessonContext): Lesson {
   const pokerScore = ctx.candidates[TUTORIAL_RECORD_CATEGORY] ?? 0
   const where = ctx.wide ? '표시된 포커 행' : '아래 기록 패널에서 표시된 포커'
   return {
@@ -39,7 +39,7 @@ export function recordLesson(ctx: LessonContext): Lesson {
   }
 }
 
-export function handLesson(ctx: LessonContext): Lesson {
+function handLesson(ctx: LessonContext): Lesson {
   const lessons = openHandLessons(ctx.candidates)
   const hand = lessons[ctx.handIndex]
   if (!hand) return doneLesson()
@@ -57,7 +57,7 @@ export function handLesson(ctx: LessonContext): Lesson {
   }
 }
 
-export function doneLesson(): Lesson {
+function doneLesson(): Lesson {
   return {
     title: '한 턴을 다 하셨어요!',
     body: '이걸 12번 반복하면 게임이 끝나고, 총점이 가장 높은 사람이 이겨요. 이제 실전에서 만나요.',

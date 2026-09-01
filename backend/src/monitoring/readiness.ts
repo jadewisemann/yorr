@@ -25,7 +25,7 @@ export const READINESS_CACHE_MS = 5_000
  * 그 요청은 영원히 대기하고, 컨테이너 `HEALTHCHECK`는 자기 타임아웃(5초)으로 잘려
  * "판정 없음"이 된다. 여기서 끊으면 같은 상황이 **명시적인 DOWN**이 된다.
  */
-export const READINESS_TIMEOUT_MS = 2_000
+const READINESS_TIMEOUT_MS = 2_000
 
 /** 확인 하나. 거부하거나 던지면 준비되지 않은 것으로 본다. */
 export interface ReadinessCheck {

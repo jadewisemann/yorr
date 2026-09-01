@@ -22,7 +22,7 @@
  */
 
 /** 재무장이 방에서 실제로 읽는 것만. `RoomSnapshot`이 그대로 만족한다. */
-export interface StartupResumeRoomSnapshot {
+interface StartupResumeRoomSnapshot {
   readonly gameCode: string | null
   readonly phase: string | null
 }

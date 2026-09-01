@@ -3,7 +3,7 @@ import { cn } from '@/shared/cn'
 import { Badge } from '@/shared/components/Badge'
 import { activeRow, row } from './rowStyles'
 
-export function ProviderMark({ provider }: { provider: 'google' | 'kakao' }) {
+function ProviderMark({ provider }: { provider: 'google' | 'kakao' }) {
   return (
     <span
       aria-hidden="true"

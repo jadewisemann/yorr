@@ -29,7 +29,7 @@ export interface SweepScheduler {
 }
 
 /** 운영 기본값. Node 타이머는 `unref`해 이벤트 루프를 붙잡지 않는다. */
-export const timerSweepScheduler = (): SweepScheduler => ({
+const timerSweepScheduler = (): SweepScheduler => ({
   every(intervalMs, task) {
     const timer = setInterval(task, intervalMs)
     timer.unref()

@@ -99,7 +99,7 @@ export function calculateScoreSummary(categories: CategoryScores): ScoreSummary 
   }
 }
 
-export function isUpperCategory(category: YachtCategory): category is YachtUpperCategory {
+function isUpperCategory(category: YachtCategory): category is YachtUpperCategory {
   return (YACHT_UPPER_CATEGORIES as readonly YachtCategory[]).includes(category)
 }
 

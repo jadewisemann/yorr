@@ -47,7 +47,7 @@ export interface YachtBroadcaster {
  * WS 스냅샷의 phase 문자열. **소문자가 계약이다**(`ws/protocol.ts`의 `WsRoomPhase` —
  * Redis의 대문자 `PLAYING`과 다르다). 2.8이 `PLAYING_PHASE`를 같은 이유로 소문자로 뒀다.
  */
-export type YachtRoomPhase = 'waiting' | 'playing' | 'finished'
+type YachtRoomPhase = 'waiting' | 'playing' | 'finished'
 
 /**
  * 소켓 → 좌석 조회 + phase 마킹 — `RoomSessionRegistry`가 그대로 만족한다.

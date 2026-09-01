@@ -1,8 +1,5 @@
-import type { GameKey } from '@/games'
 import type { Player, PlayerId } from '@/realtime/wsEvents'
 import { PlayerCard } from '@/room/components/PlayerCard'
-
-export type PartyGameKey = GameKey
 
 export function ParticipantColumn({
   capacity,

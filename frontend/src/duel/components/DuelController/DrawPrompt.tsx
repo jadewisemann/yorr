@@ -10,11 +10,11 @@ export function signalOf(state: DuelState, playerId: string): ControllerSignal {
   return 'hold'
 }
 
-export function holdHint(permission: SwingPermission): string {
+function holdHint(permission: SwingPermission): string {
   return permission === 'granted' ? '초록이 되면 폰을 휘둘러라' : '초록이 되면 화면을 눌러라'
 }
 
-export function Prompt({
+function Prompt({
   children,
   sub,
   tone,

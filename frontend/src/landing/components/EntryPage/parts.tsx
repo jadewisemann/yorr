@@ -32,7 +32,7 @@ export function CodeEntryRow({
   )
 }
 
-export function InputGlyph() {
+function InputGlyph() {
   return (
     <span
       aria-hidden="true"

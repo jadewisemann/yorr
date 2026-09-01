@@ -1,16 +1,4 @@
-import type { CategoryScores } from '@/yacht/domain/scoring'
 import type { toMatrixPlayers } from '@/yacht/model/playerViews'
-
-export interface TurnProgress {
-  rolled: boolean
-  keptValues: number[]
-  rolling: boolean
-  submitted: boolean
-  rollCount: number
-  candidates: CategoryScores
-  motionNoticeVisible: boolean
-  wide: boolean
-}
 
 export function scoreLeaderLabel(players: ReturnType<typeof toMatrixPlayers>) {
   const leader = players.reduce(

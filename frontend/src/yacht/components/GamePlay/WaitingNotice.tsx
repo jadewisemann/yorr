@@ -1,6 +1,5 @@
 import { Alert } from '@/shared/components/Alert'
 import { IconCheck } from '@/shared/components/Icon'
-import type { CategoryScores } from '@/yacht/domain/scoring'
 
 /*
  * 주사위 트레이 자리를 그대로 채우는 한 줄 알림이라 Alert 기본형보다 크다 —
@@ -8,17 +7,6 @@ import type { CategoryScores } from '@/yacht/domain/scoring'
  */
 const noticeClassName =
   'flex min-h-15 flex-1 items-center justify-center gap-2 rounded-panel px-4 text-center font-semibold'
-
-export interface TurnProgress {
-  rolled: boolean
-  keptValues: number[]
-  rolling: boolean
-  submitted: boolean
-  rollCount: number
-  candidates: CategoryScores
-  motionNoticeVisible: boolean
-  wide: boolean
-}
 
 export function WaitingNotice({
   activePlayerName,

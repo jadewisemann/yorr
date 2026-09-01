@@ -3,7 +3,7 @@ import { cn } from '@/shared/cn'
 import { IconEllipsis } from '@/shared/components/Icon'
 import { RankBadge, Score } from './parts'
 
-export function FullRankingRow({ entry, mine }: { entry: WeeklyRankingEntry; mine: boolean }) {
+function FullRankingRow({ entry, mine }: { entry: WeeklyRankingEntry; mine: boolean }) {
   return (
     <li
       className={cn(

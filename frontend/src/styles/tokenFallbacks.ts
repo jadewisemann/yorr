@@ -10,10 +10,6 @@ export const DS_COLOR_FALLBACK = {
 
 export type DsColorName = keyof typeof DS_COLOR_FALLBACK
 
-export function dsColor(name: DsColorName): string {
-  return dsColorReader()(name)
-}
-
 export function dsColorReader(): (name: DsColorName) => string {
   const styles = getComputedStyle(document.documentElement)
   return (name) => styles.getPropertyValue(name).trim() || DS_COLOR_FALLBACK[name]

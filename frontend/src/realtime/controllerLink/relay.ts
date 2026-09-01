@@ -17,13 +17,13 @@ import type { ClientMessage, PlayerId, RoomId, ServerMessage } from '@/realtime/
  * 나머지 컨트롤러 메시지가 여기 없는 이유는 하나다 — 서버가 판정·저장하고, 서버는
  * WebSocket만 말한다. 자세한 판정표는 `docs/llmwiki/controller-link.md`.
  */
-export const RELAYABLE_TYPES = [
+const RELAYABLE_TYPES = [
   'game.yacht_dice.dice.shake',
   'game.yacht_dice.dice.throw',
   'game.ping_pong.swing',
 ] as const
 
-export type RelayableType = (typeof RELAYABLE_TYPES)[number]
+type RelayableType = (typeof RELAYABLE_TYPES)[number]
 
 export type RelayableClientMessage = Extract<ClientMessage, { type: RelayableType }>
 

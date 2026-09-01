@@ -1,6 +1,6 @@
 const roomCodePattern = /^[A-Z0-9]{4,12}$/
 
-export const ROOM_CODE_MAX_LENGTH = 12
+const ROOM_CODE_MAX_LENGTH = 12
 
 export function normalizeRoomCode(value: string) {
   return value.trim().toUpperCase()

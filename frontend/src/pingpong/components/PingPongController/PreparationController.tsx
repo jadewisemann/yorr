@@ -11,7 +11,7 @@ export function usesTouchFallback(permission: SwingPermission) {
   return permission === 'denied' || permission === 'unsupported'
 }
 
-export function selectPracticeAction(
+function selectPracticeAction(
   permission: SwingPermission,
   requestPermission: () => Promise<void>,
   onTouchSwing: () => void,
@@ -20,7 +20,7 @@ export function selectPracticeAction(
   return usesTouchFallback(permission) ? onTouchSwing : undefined
 }
 
-export function practicePrompt(permission: SwingPermission) {
+function practicePrompt(permission: SwingPermission) {
   if (permission === 'unknown') return '화면을 눌러 모션 센서 연결'
   if (permission === 'granted') return '센서 연결 완료 · 휴대폰을 휘둘러 스윙'
   return '화면을 눌러 스윙 · 센서 대체 조작'
@@ -31,7 +31,7 @@ export function readyButtonLabel(practiced: boolean, ready: boolean) {
   return practiced ? '준비 완료' : '먼저 공을 한 번 쳐보세요'
 }
 
-export function PreparationMotionStatus({
+function PreparationMotionStatus({
   permission,
   practiced,
 }: {
@@ -53,15 +53,7 @@ export function PreparationMotionStatus({
   )
 }
 
-export function PreparationStatus({
-  label,
-  ready,
-  tag,
-}: {
-  label: string
-  ready: boolean
-  tag: string
-}) {
+function PreparationStatus({ label, ready, tag }: { label: string; ready: boolean; tag: string }) {
   return (
     <div
       className={`rounded-card border px-3 py-2.5 text-center text-sm font-bold ${ready ? 'border-pp-accent/45 bg-pp-accent/12 text-pp-accent-text' : 'border-border bg-surface-veil text-game-content-faint'}`}

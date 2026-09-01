@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypt
 import type { Redis } from 'ioredis'
 import { InvalidNicknameError, SessionAuthenticationError } from './errors.js'
 
-export type UserType = 'GUEST' | 'MEMBER'
+type UserType = 'GUEST' | 'MEMBER'
 
 export interface UserIdentity {
   readonly userId: string
@@ -197,8 +197,3 @@ export class UserService {
     return type === undefined ? GUEST_TTL_SECONDS : ttlOfType(type)
   }
 }
-
-export const SESSION_TTL_SECONDS = {
-  guest: GUEST_TTL_SECONDS,
-  member: MEMBER_TTL_SECONDS,
-} as const

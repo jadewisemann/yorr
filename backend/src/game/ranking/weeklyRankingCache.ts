@@ -29,7 +29,7 @@ export const weeklyRankingCacheKey = (gameCode: string, from: Date, limit: numbe
  * 전적이 새로 쌓였음을 알리는 **좁은 포트**. 전적 보관(4.4)이 이것만 알면 되고,
  * 랭킹 캐시 구현이나 서비스 전체를 알 필요가 없다.
  */
-export interface WeeklyRankingCacheEvictor {
+interface WeeklyRankingCacheEvictor {
   /** 항목 전체를 버린다. 주·게임·limit별로 골라 버리지 않는다(아래 주석). */
   evictAll(): void
 }

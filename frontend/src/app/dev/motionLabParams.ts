@@ -1,6 +1,6 @@
 import { MOTION_GESTURE_CONFIG, type MotionGestureConfig } from '@/yacht/input/motionConfig'
 
-export type MotionParamKey = keyof MotionGestureConfig
+type MotionParamKey = keyof MotionGestureConfig
 export type MotionParamGroup = 'shake' | 'throw' | 'timing'
 
 export interface MotionParamMeta {
@@ -206,10 +206,6 @@ export function storeConfig(config: MotionGestureConfig) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
   } catch {}
-}
-
-export function isDefaultValue(key: MotionParamKey, value: number) {
-  return value === MOTION_GESTURE_CONFIG[key]
 }
 
 const sortedKeys = Object.keys(MOTION_GESTURE_CONFIG).sort() as MotionParamKey[]

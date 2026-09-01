@@ -9,6 +9,7 @@
   "scripts": {
     "quality": "node tools/quality/report.mjs",
     "quality:metrics": "node tools/quality/analyze.mjs --out tools/quality/.metrics.json",
+    "quality:dup": "jscpd backend/src frontend/src",
     "quality:coverage": "node tools/quality/report.mjs --coverage",
     "quality:baseline": "node tools/quality/report.mjs --coverage --baseline",
     "quality:gate": "node tools/quality/report.mjs --gate"

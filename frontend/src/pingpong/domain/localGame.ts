@@ -30,8 +30,8 @@ const SHAKE_MS = 190
 
 export type LocalPingPongMode = 'solo' | 'duo'
 export type LocalPingPongDifficulty = 'easy' | 'normal' | 'hard'
-export type LocalPingPongPhase = 'playing' | 'point' | 'over'
-export type LocalFeedbackKind = 'smash' | 'nice' | 'ok' | 'miss' | 'good' | 'bad'
+type LocalPingPongPhase = 'playing' | 'point' | 'over'
+type LocalFeedbackKind = 'smash' | 'nice' | 'ok' | 'miss' | 'good' | 'bad'
 
 interface BotSkill {
   band: number

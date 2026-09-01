@@ -8,13 +8,7 @@ export function paddleFaceClass(tone: PaddleTone) {
     : 'border-pp-danger/45 bg-pp-danger shadow-[0_18px_45px_rgb(226_81_60_/_35%)]'
 }
 
-export function ControllerPrompt({
-  countdown,
-  incoming,
-}: {
-  countdown: number
-  incoming: boolean
-}) {
+function ControllerPrompt({ countdown, incoming }: { countdown: number; incoming: boolean }) {
   if (countdown > 0) {
     return (
       <span className="absolute inset-0 grid place-items-center bg-scrim-soft font-mono text-8xl font-black backdrop-blur-[2px]">
@@ -29,7 +23,7 @@ export function ControllerPrompt({
   )
 }
 
-export function ControllerFeedback({ rally, view }: { rally: number; view: ControllerView }) {
+function ControllerFeedback({ rally, view }: { rally: number; view: ControllerView }) {
   const showEvent = Boolean(view.label && view.event && view.eventAge < 900)
   const label = showEvent ? view.label : view.situationLabel
   const tone = showEvent && view.event ? feedbackTextClass(view.event.type) : 'text-pp-gold'

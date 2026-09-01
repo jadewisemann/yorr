@@ -8,7 +8,7 @@ import { ScoreDomainError } from './scoreErrors.js'
  * 새 메타 필드를 접두 없이 추가하면 종료가 영원히 성립하지 않는다.
  */
 export const UPPER_SUBTOTAL_FIELD = '_upperSubtotal'
-export const UPPER_BONUS_FIELD = '_upperBonus'
+const UPPER_BONUS_FIELD = '_upperBonus'
 export const TOTAL_FIELD = '_total'
 
 const integerValue = (value: string | undefined, defaultValue: number | null): number | null => {

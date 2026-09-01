@@ -16,9 +16,8 @@ import {
   type YachtCategory,
 } from './scoring'
 
-export type YachtGamePhase = 'ready' | 'rolling' | 'choosing' | 'submitting' | 'roundComplete'
+type YachtGamePhase = 'ready' | 'rolling' | 'choosing' | 'submitting' | 'roundComplete'
 export type RollCount = 0 | 1 | 2 | 3
-export type { DiceIndex } from './dice'
 export const MAX_ROLLS = 3
 
 export interface YachtGameState {

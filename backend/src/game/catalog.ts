@@ -20,7 +20,7 @@ export interface GameMetadata {
 export const YACHT_DICE = 'YACHT_DICE'
 export const DUEL = 'DUEL'
 export const PING_PONG = 'PING_PONG'
-export const DAVINCI_CODE = 'DAVINCI_CODE'
+const DAVINCI_CODE = 'DAVINCI_CODE'
 
 export const GAME_CATALOG: readonly GameMetadata[] = [
   { code: YACHT_DICE, name: 'Yacht Dice', minPlayers: 1, maxPlayers: 6, supportsBots: true },
