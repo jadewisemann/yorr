@@ -306,14 +306,14 @@ Node는 단일 스레드라 탐색이 도는 동안
 - 모듈 등록은 `GameModuleRegistry`(카탈로그를 흡수한 그것)에 `register()` 한 번.
   **`GameLifecycleService`도 같은 레지스트리를 받아야** REST 시작이 `module.start`를 부른다.
 
-## 이식된 테스트 (3.1)
+## 테스트
 
-| Java | Node | 비고 |
-|---|---|---|
-| `YachtTurnActionServiceTest` | `__tests__/yachtTurnActionService.test.ts` | 제출 경로를 모킹하지 않고 진짜 `ScoreRoundSubmissionService`로 돌린다 |
-| `GameWebSocketHandlerTest`의 dice·submit 케이스 | `__tests__/yachtDiceGameModule.test.ts` | 응답을 모듈이 만들므로 검증 대상이 모듈로 내려왔다. 브로드캐스터·레지스트리는 진짜(정확 JSON 문자열 검증) |
-| `RedisYachtDiceStateStoreIntegrationTest` | `__tests__/redisYachtDiceStateStore.test.ts` | + 락 고갈·TTL 복사·SCAN·손상 스냅샷 |
-| — | `__tests__/yachtPorts.contract.test.ts` | 좁은 포트 ↔ 실제 구현 대입 고정(2.5·2.6과 같은 이유) |
+| 테스트 | 비고 |
+|---|---|
+| `__tests__/yachtTurnActionService.test.ts` | 제출 경로를 모킹하지 않고 진짜 `ScoreRoundSubmissionService`로 돌린다 |
+| `__tests__/yachtDiceGameModule.test.ts` | 응답을 모듈이 만들므로 검증 대상이 모듈로 내려왔다. 브로드캐스터·레지스트리는 진짜(정확 JSON 문자열 검증) |
+| `__tests__/redisYachtDiceStateStore.test.ts` | + 락 고갈·TTL 복사·SCAN·손상 스냅샷 |
+| `__tests__/yachtPorts.contract.test.ts` | 좁은 포트 ↔ 실제 구현 대입 고정(2.5·2.6과 같은 이유) |
 
 추가로 쓴 것: rollCount 불연속 거부, 라운드 미초기화 → `INTERNAL`,
 `dice.broadcast`의 held가 서버 상태가 아니라 에코임을 두 번째 굴림으로 고정,
@@ -321,17 +321,17 @@ Node는 단일 스레드라 탐색이 도는 동안
 `reconnect`의 스냅샷 → 카운터 리셋 순서(실패 시 카운터 유지 포함),
 락 대기 초과 시 **남의 락을 풀지 않는지**, 방 키 TTL 없으면 상태 키도 무기한.
 
-## 이식된 테스트 (3.2 봇)
+## 테스트 (봇)
 
-| Java | Node | 비고 |
-|---|---|---|
-| `BotTurnOrchestratorTest` 3종 | `bot/__tests__/botTurnOrchestrator.test.ts` | + 지연 4종 값, 최신 세대 예약, 오류 격리, `stop()` |
-| `YachtBotTurnCoordinatorTest` 9종 | `bot/__tests__/yachtBotTurnCoordinator.test.ts` | + held만 바뀐 스테일, gameId 없는 방, 폴백의 전체 킵 해석, 굴림 직전 턴 교대 |
-| `ExpectimaxYachtBotPolicyTest` 11종 | `bot/__tests__/expectimaxYachtBotPolicy.test.ts` | + 예산 초과 중단(시계 주입), 리롤 없는 결정은 예산 무관, 입력 검증 |
-| `LocalYachtBotStrategyTest` 4종 | `bot/__tests__/localYachtBotStrategy.test.ts` | + 창이 2면 이하일 때, 최빈 동률, 결정론적 타이브레이크 |
-| `ScorecardValueEvaluatorTest` 2종 | `bot/__tests__/scorecardValueEvaluator.test.ts` | + 채워진 칸 평가 시 예외 |
-| `YachtBotGameCompletionTest` | `bot/__tests__/yachtBotGameCompletion.test.ts` | 서버 RNG를 시드로 고정(2.5의 시임) — 실패가 재현 가능해야 한다 |
-| — | `bot/__tests__/botPorts.contract.test.ts` | 좁은 포트 ↔ 실제 구현 대입 고정(3.1과 같은 이유) |
+| 테스트 | 비고 |
+|---|---|
+| `bot/__tests__/botTurnOrchestrator.test.ts` | + 지연 4종 값, 최신 세대 예약, 오류 격리, `stop()` |
+| `bot/__tests__/yachtBotTurnCoordinator.test.ts` | + held만 바뀐 스테일, gameId 없는 방, 폴백의 전체 킵 해석, 굴림 직전 턴 교대 |
+| `bot/__tests__/expectimaxYachtBotPolicy.test.ts` | + 예산 초과 중단(시계 주입), 리롤 없는 결정은 예산 무관, 입력 검증 |
+| `bot/__tests__/localYachtBotStrategy.test.ts` | + 창이 2면 이하일 때, 최빈 동률, 결정론적 타이브레이크 |
+| `bot/__tests__/scorecardValueEvaluator.test.ts` | + 채워진 칸 평가 시 예외 |
+| `bot/__tests__/yachtBotGameCompletion.test.ts` | 서버 RNG를 시드로 고정(2.5의 시임) — 실패가 재현 가능해야 한다 |
+| `bot/__tests__/botPorts.contract.test.ts` | 좁은 포트 ↔ 실제 구현 대입 고정(3.1과 같은 이유) |
 
 - 오케스트레이터 테스트는 **실시간 sleep도 가짜 타이머도 쓰지 않는다.** 지연 값은
   `DeadlineExecutor`(2.3의 시임)에 기록된 `delayMs`로 검증하고, 발화 순서는 테스트가

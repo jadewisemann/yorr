@@ -26,12 +26,12 @@ MySQL, 팀 도구 체인(TS·Biome·Vitest)과의 정합.
 
 WebSocket은 Fastify 플러그인(`@fastify/websocket`) 대신 `ws`를 HTTP 서버에 직접
 붙인다 — 연결 수명·구독 관리가 HTTP 프레임워크 수명과 분리되는 편이
-backend-java의 구조(WebSocketConfig 분리)와 대응이 쉽고, 게이트웨이를 프레임워크
+게이트웨이를 프레임워크
 없이 단위 테스트할 수 있다.
 
 ## 검토한 대안
 
-- **NestJS**: Spring과 가장 닮아 이식 매핑은 쉽지만, DI 컨테이너·데코레이터
+- **NestJS**: 구조가 잡혀 있지만 DI 컨테이너·데코레이터
   레이어가 이 규모(단일 서비스, 도메인 몇 개)에는 과하고 팀의 프론트 코드
   스타일(함수·모듈 중심)과 이질적이다.
 - **Express**: 생태계는 크지만 타입·검증·성능 모두 Fastify가 낫다.

@@ -22,7 +22,7 @@
 ## 와이어 계약 (`wsEvents.ts`)
 
 - **파일 전체가 팀 합의 기준이다.** BE는 import할 수 없으므로 같은 `type` 문자열/필드로
-  DTO(record)를 미러링한다 — "이 .ts가 기준이고 Java가 따라온다."
+  타입을 미러링한다 — "이 .ts가 기준이고 서버가 따라온다."
 - Envelope: `{ type, ts(서버가 채움), payload, roomId?, msgId? }`. `msgId`는 서버가 echo해
   요청-실패 상관관계(`refMsgId`)에 쓴다. `room.join`은 아직 방 밖이므로 envelope `roomId`가
   없고 payload로 방을 지정한다.

@@ -5,9 +5,8 @@
 
 ## 현재 상태: 와이어 계약 동결 🧊
 
-백엔드 Java → JS 마이그레이션([backend/PLANS.md](../backend/PLANS.md))이 끝날
-때까지 프론트엔드 프로덕션 코드는 변경하지 않는 것이 목표다. 특히
-`src/realtime/wsEvents.ts`와 REST 사용부는 **계약 동결** 상태다
+`src/realtime/wsEvents.ts`와 REST 사용부는 **계약 동결** 상태다 — 프론트가
+계약의 정본이므로 여기를 바꾸면 서버가 따라와야 한다
 
 > **동결을 깬 5건.** 「연습 방 시계」(넓히기)·「음성 채팅 → 텍스트 채팅」(교체)·
 > 「컨트롤러 링크」(넓히기)·「파티 탁구 호스트 판정」(넓히기)·「다빈치 코드 추가」(넓히기)
@@ -290,7 +289,7 @@ STUN은 유지한다. 트래픽이 지나가지 않아 비용이 없고, 손님 
 
 - **계약**: `voice.join`·`voice.leave`·`voice.signal`·`voice.peers`·`voice.signaled`와
   `GET /voice/ice`를 지우고 `chat.send`(C→S)·`chat.message`(S→C)를 넣었다. **넓히기가
-  아니라 교체다** — backend-java로 롤백하면 채팅만 동작하지 않는다(게임·방·인증 경로는
+  아니라 교체다** — `chat.send`를 모르는 서버로 되돌리면 채팅만 동작하지 않는다(게임·방·인증 경로는
   그대로).
 - **사라진 코드**: `realtime/voice/` 전부(풀메시 `voiceMesh`·`useVoiceChat`·
   `PeerMicButton`·`iceServers`), `AudioPopover`의 마이크 행, `AudioStatusIcon`의
@@ -410,7 +409,7 @@ IMPLEMENTATION_NOTES.md 2026-08-21.
 (봇만 데리고 혼자 하는 방). 서버 쪽 판정·근거는
 [backend/PLANS.md](../backend/PLANS.md) 「연습 방 시계 제거」 절. 프론트가 계약의
 정본이므로 `wsEvents.ts`를 먼저 고치고 서버를 맞췄다. 넓히기만 했으므로 숫자 마감을
-보내는 서버(구 backend-java 롤백 포함)에서도 화면은 그대로 동작한다.
+보내는 서버(직전 릴리스로 롤백한 경우 포함)에서도 화면은 그대로 동작한다.
 
 ### 열린 결정 2건
 

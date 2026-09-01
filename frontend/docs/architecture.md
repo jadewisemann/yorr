@@ -17,8 +17,8 @@ YORR는 모바일 브라우저에서 돌아가는 실시간 멀티플레이 게�
    만드는 것은 전부 클라이언트 몫입니다.
 
 ```text
-Browser ── REST ──────────► Spring Boot  (방 생성·입장, 계정, 랭킹)
-        ── WebSocket ─────► Spring Boot  (방·게임 상태 동기화 — 서버 권위)
+Browser ── REST ──────────► Node 백엔드  (방 생성·입장, 계정, 랭킹)
+        ── WebSocket ─────► Node 백엔드  (방·게임 상태 동기화 — 서버 권위)
         ── WebRTC ────────► 큰 화면      (파티 컨트롤러의 연출 신호. 안 붙으면 WebSocket)
 ```
 
@@ -91,8 +91,8 @@ app → landing → room → yacht (· pingpong · duel)
 ## 실시간 통신: 계약 하나, 정책 한 곳
 
 - **와이어 계약의 SSOT는 `src/realtime/wsEvents.ts`** 입니다. 백엔드는 이 파일을
-  import할 수 없으므로 같은 타입 문자열과 필드로 DTO를 미러링합니다 — "이 .ts가 기준이고
-  Java가 따라온다"가 팀 합의입니다.
+  import할 수 없으므로 같은 타입 문자열과 필드로 타입을 미러링합니다 — "이 .ts가
+  기준이고 서버가 따라온다"가 팀 합의입니다.
 - 전송 클라이언트(`realtimeClient.ts`)는 열기/닫기/JSON 인코딩만 하는 **정책 없는**
   클라이언트이고, 재연결·heartbeat·상태 반영 정책은 전부 `app/RealtimeSync.tsx` 한 곳에
   있습니다. 덕분에 전송만 가짜(`fakeRealtimeClient`)로 갈아끼우면 정책까지 통째로

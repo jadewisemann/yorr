@@ -552,7 +552,7 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
 빈 DB로 시작하는 것은 데이터 유실이다:
 
 1. 구 호스트에서 `mysqldump --single-transaction --databases yorr` → 새 호스트로 복사
-2. 새 MySQL에 복원 — `flyway_schema_history`가 함께 온다(V1·V2는 backend-java
+2. 새 MySQL에 복원 — `flyway_schema_history`가 함께 온다(V1·V2는 원본과
    원본을 바이트 단위로 복사한 파일이라 체크섬이 맞는다, ADR-0005)
 3. 그러면 `migrate`가 필요 없다. `migrate`는 **진짜로 빈 DB**에서만 쓴다.
 
@@ -667,8 +667,8 @@ docker compose run --rm migrate     # profiles: ["bootstrap"] — 평상시 뜨�
 | 백엔드 | GitHub Actions → GHCR → 호스트에서 `docker compose pull` | `deploy/.env` |
 | 프론트 | Vercel이 직접 빌드(`npm run build`)·배포 | Vercel 프로젝트 환경변수 |
 
-`Jenkinsfile`이 들고 있던 것 중 사라진 것은 **backend-java 재배포 스테이지**다
-(`DEPLOY_LEGACY_BACKEND`로 잠겨 있어 이미 돌지 않았다). 이미 떠 있는 Java 컨테이너는
+`Jenkinsfile`이 들고 있던 것 중 사라진 것은 **구 백엔드 재배포 스테이지**다
+(`DEPLOY_LEGACY_BACKEND`로 잠겨 있어 이미 돌지 않았다). 이미 떠 있는 구 컨테이너는
 그대로 돌고, 진짜 롤백은 재배포가 아니라 "프론트·DNS를 새 호스트로 옮기지 않는
 것"이다. 그래도 그 스테이지가 필요하면 git 이력에서 꺼낸다:
 

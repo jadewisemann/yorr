@@ -8,7 +8,7 @@
 방·세션·점수의 계약은 대부분 Redis 안에 있다 — Lua 스크립트의 원자성과 반환
 코드, TTL 슬라이딩, 동시 제출 경합. 이것들은 **모킹으로 검증할 수 없다**
 (가짜 Redis는 우리가 검증하려는 바로 그 시맨틱을 우리가 상상한 대로 구현한다).
-backend-java는 Testcontainers(`redis:7.4-alpine`)로 실제 Redis를 띄웠고,
+Redis 의존 계약(Lua·TTL·동시성)은 모킹으로 검증할 수 없고,
 PLANS.md 1.1은 Node 쪽 대응 방식을 정하도록 남겨 두었다.
 
 제약:
@@ -28,7 +28,7 @@ PLANS.md 1.1은 Node 쪽 대응 방식을 정하도록 남겨 두었다.
 - `useRedis()`가 `beforeAll`에서 `redis-server --port 0 --unixsocket <tmp>/r.sock
   --save '' --appendonly no`를 spawn하고, `afterAll`에서 죽인다.
   포트를 열지 않으므로 포트 충돌이 없고, 파일마다 인스턴스가 달라 병렬 실행과
-  양립한다. 매 테스트 전 `FLUSHALL`은 Java의 `@BeforeEach flushAll`과 같다.
+  양립한다. 매 테스트 전 `FLUSHALL`로 격리한다.
 - `REDIS_TEST_URL`이 있으면 spawn 대신 그 서버에 붙는다 — CI의 service
   container나 개발자의 기존 Redis를 쓰는 탈출구.
 - `redis-server`도 `REDIS_TEST_URL`도 없으면 통합 스위트를 **건너뛴다**
@@ -38,7 +38,7 @@ PLANS.md 1.1은 Node 쪽 대응 방식을 정하도록 남겨 두었다.
 
 ## 검토한 대안
 
-- **testcontainers-node**: Java와 같은 방식이고 이미지 버전을 고정할 수 있다.
+- **testcontainers-node**: 이미지 버전을 고정할 수 있다.
   하지만 Docker 데몬이 필요하다 — 컨테이너 안에서 도는 개발·에이전트 환경에서
   DinD 설정이 필요해지고, 기동이 초 단위로 느리다. 여기서 검증하는 것은 Redis
   자체가 아니라 우리 스크립트의 시맨틱이라 이미지 고정의 이득이 크지 않다.
