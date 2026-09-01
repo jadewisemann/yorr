@@ -94,7 +94,20 @@ for (const target of CONFIG.targets) {
   coverage[target.name] = readJson(join(REPO_ROOT, workspace, 'coverage/coverage-summary.json'))?.total ?? null
 }
 
-const mutation = readJson(join(HERE, '.stryker.json'))
+// Stryker의 JSON 리포트에서 살아남은 돌연변이를 센다. 커버리지가 아예 없는
+// 자리(NoCoverage)도 "테스트가 잡지 못한다"는 점에서 생존과 같이 다룬다.
+const strykerReport = readJson(join(HERE, '.stryker.json'))
+const mutation = strykerReport
+  ? (() => {
+      const mutants = Object.values(strykerReport.files ?? {}).flatMap((file) => file.mutants ?? [])
+      const count = (status) => mutants.filter((mutant) => mutant.status === status).length
+      return {
+        survived: count('Survived') + count('NoCoverage'),
+        killed: count('Killed'),
+        files: Object.keys(strykerReport.files ?? {}).length,
+      }
+    })()
+  : null
 
 // ── 지표 집계 ────────────────────────────────────────────────────────────────
 
@@ -193,7 +206,9 @@ const metricRows = [
     id: 7,
     name: '생존 돌연변이',
     goal: '0',
-    value: mutation ? `${mutation.survived ?? '?'}건` : '미측정(Stryker 미도입)',
+    value: mutation
+      ? `생존 ${mutation.survived} · 사멸 ${mutation.killed} (파일 ${mutation.files}개)`
+      : '미측정 — npm run quality:mutation',
     violations: mutation?.survived ?? null,
   },
   {

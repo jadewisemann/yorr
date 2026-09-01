@@ -22,6 +22,10 @@ on:
       - package.json
       - package-lock.json
       - .github/workflows/quality.yml
+  schedule:
+    # 돌연변이 검사는 한 번에 몇 분씩 걸린다. PR마다 돌리면 리뷰가 그만큼 늦어지므로
+    # 야간에 한 번 돌려 추세를 본다(QUALITY.md 5단계).
+    - cron: '0 18 * * *'
   push:
     branches: [main]
     paths:
@@ -71,3 +75,47 @@ jobs:
       # 게이트가 하나도 켜져 있지 않은 동안에도 표는 출력된다 — 지표가 어느 방향으로
       # 움직이는지 PR마다 보이는 것이 이 잡의 절반이다.
       - run: npm run quality:gate
+
+  # ── 돌연변이 검사(야간·수동) ────────────────────────────────────────────────
+  #
+  # 대상은 외부 의존이 없는 순수 로직 모듈뿐이다(backend/stryker.config.json).
+  # 전 범위를 걸면 한 번에 수 시간이라 CI에서 쓸 수 없다.
+  mutation:
+    name: 생존 돌연변이
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: redis-server 바이너리 설치 (ADR-0004)
+        run: |
+          if ! command -v redis-server >/dev/null; then
+            sudo timeout 120s apt-get -o Acquire::Retries=3 update
+            sudo timeout 120s apt-get -o Acquire::Retries=3 install -y --no-install-recommends redis-server
+          fi
+
+      - run: npm ci
+        working-directory: backend
+
+      - run: npm run test:mutation
+        working-directory: backend
+
+      # 점수가 떨어졌는지는 사람이 본다 — 아직 게이트로 걸지 않는다(생존 45건).
+      - name: 요약
+        if: always()
+        working-directory: backend
+        run: |
+          node -e '
+            const report = require("../tools/quality/.stryker.json")
+            const mutants = Object.values(report.files).flatMap((file) => file.mutants)
+            const count = (status) => mutants.filter((m) => m.status === status).length
+            console.log(`생존 ${count("Survived") + count("NoCoverage")} · 사멸 ${count("Killed")}`)
+          ' >> "$GITHUB_STEP_SUMMARY"

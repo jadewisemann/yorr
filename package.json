@@ -12,7 +12,8 @@
     "quality:dup": "jscpd backend/src frontend/src",
     "quality:coverage": "node tools/quality/report.mjs --coverage",
     "quality:baseline": "node tools/quality/report.mjs --coverage --baseline",
-    "quality:gate": "node tools/quality/report.mjs --gate"
+    "quality:gate": "node tools/quality/report.mjs --gate",
+    "quality:mutation": "npm --prefix backend run test:mutation"
   },
   "devDependencies": {
     "jscpd": "^5.1.1",
