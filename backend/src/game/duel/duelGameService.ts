@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto'
 import { ConflictError, DomainError } from '../../errors.js'
 import { gameWsType } from '../module.js'
+import { humanPlayersHostFirst } from '../startRoster.js'
 import { DUEL_CODE } from './duelCode.js'
 import type {
   DuelBroadcaster,
@@ -102,11 +103,7 @@ export class DuelGameService<S> {
    * 그 예외로 START를 롤백한다).
    */
   async start(roomId: string, roster: DuelStartRoster): Promise<void> {
-    const humans = roster.players.filter((player) => player.kind === 'HUMAN')
-    const players = [
-      ...humans.filter((player) => player.playerId === roster.hostId),
-      ...humans.filter((player) => player.playerId !== roster.hostId),
-    ].map((player) => player.playerId)
+    const players = humanPlayersHostFirst(roster)
     if (players.length !== 2) throw new ConflictError('duel_requires_two_players')
 
     const state = initialDuelState(players, this.now(), this.wait())

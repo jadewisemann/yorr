@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import {
+  FakeDeadlineScheduler,
+  InMemoryVersionedStateStore,
+} from '../../__tests__/versionedDoubles.js'
 import { DavinciGameService, type DavinciStartRoster } from '../davinciGameService.js'
 import type {
   DavinciAudience,
   DavinciCompletionPort,
-  DavinciDeadlineScheduler,
   DavinciMarkablePhase,
   DavinciOutboundEnvelope,
   DavinciPresence,
@@ -13,7 +16,6 @@ import type {
 } from '../davinciPorts.js'
 import { DAVINCI_DECK_SIZE, GUESS_MILLIS } from '../davinciRules.js'
 import type { DavinciState, DavinciTileView, DavinciView } from '../davinciState.js'
-import type { DavinciStateStore } from '../davinciStateStore.js'
 
 const ROOM = 'ROOM1'
 const HOST = 'player-1'
@@ -27,70 +29,6 @@ interface FakeSnapshot {
 }
 
 /** 스토어의 계약(version 비증가 무시)만 지키는 인메모리 대역. */
-class InMemoryDavinciStateStore implements DavinciStateStore {
-  private readonly states = new Map<string, DavinciState>()
-
-  async initialize(roomId: string, state: DavinciState): Promise<void> {
-    if (this.states.has(roomId)) throw new Error('davinci_already_initialized')
-    this.states.set(roomId, state)
-  }
-
-  async find(roomId: string): Promise<DavinciState | null> {
-    return this.states.get(roomId) ?? null
-  }
-
-  async mutate(
-    roomId: string,
-    mutation: (current: DavinciState) => DavinciState | null,
-  ): Promise<DavinciState | null> {
-    const current = this.states.get(roomId)
-    if (current === undefined) return null
-    const next = mutation(current)
-    if (next === null || next.version <= current.version) return null
-    this.states.set(roomId, next)
-    return next
-  }
-
-  async remove(roomId: string): Promise<boolean> {
-    return this.states.delete(roomId)
-  }
-}
-
-interface Scheduled {
-  readonly version: number
-  readonly deadline: number
-  readonly action: () => void | Promise<void>
-}
-
-class FakeScheduler implements DavinciDeadlineScheduler {
-  readonly scheduled: Scheduled[] = []
-  cancelled = 0
-
-  schedule(
-    _roomId: string,
-    version: number,
-    deadline: Date | number,
-    timeoutAction: () => void | Promise<void>,
-  ): void {
-    this.scheduled.push({
-      version,
-      deadline: deadline instanceof Date ? deadline.getTime() : deadline,
-      action: timeoutAction,
-    })
-  }
-
-  cancelRoom(): unknown {
-    this.cancelled += 1
-    return undefined
-  }
-
-  async fireLatest(): Promise<void> {
-    const latest = this.scheduled.at(-1)
-    if (latest === undefined) throw new Error('예약된 마감이 없다')
-    await latest.action()
-  }
-}
-
 interface SentFrame {
   readonly to: string
   readonly message: DavinciOutboundEnvelope
@@ -166,8 +104,8 @@ const roster: DavinciStartRoster = {
 
 interface Harness {
   readonly service: DavinciGameService<FakeSnapshot, string>
-  readonly states: InMemoryDavinciStateStore
-  readonly scheduler: FakeScheduler
+  readonly states: InMemoryVersionedStateStore<DavinciState>
+  readonly scheduler: FakeDeadlineScheduler
   readonly audience: FakeAudience
   readonly presence: FakePresence
   readonly completion: FakeCompletion
@@ -175,8 +113,8 @@ interface Harness {
 }
 
 const harness = (): Harness => {
-  const states = new InMemoryDavinciStateStore()
-  const scheduler = new FakeScheduler()
+  const states = new InMemoryVersionedStateStore<DavinciState>('davinci_already_initialized')
+  const scheduler = new FakeDeadlineScheduler()
   const audience = new FakeAudience([
     { playerId: HOST, socket: HOST },
     { playerId: GUEST, socket: GUEST },

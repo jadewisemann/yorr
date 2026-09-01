@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto'
 import { ConflictError, DomainError } from '../../errors.js'
 import { gameWsType } from '../module.js'
+import { humanPlayersHostFirst } from '../startRoster.js'
 import { DAVINCI_CODE } from './davinciCode.js'
 import type {
   DavinciAudience,
@@ -115,11 +116,7 @@ export class DavinciGameService<S, K = unknown> {
    * 확인해 2~4인이 아니면 시작을 거부한다(라이프사이클이 그 예외로 START를 롤백한다).
    */
   async start(roomId: string, roster: DavinciStartRoster): Promise<void> {
-    const humans = roster.players.filter((player) => player.kind === 'HUMAN')
-    const players = [
-      ...humans.filter((player) => player.playerId === roster.hostId),
-      ...humans.filter((player) => player.playerId !== roster.hostId),
-    ].map((player) => player.playerId)
+    const players = humanPlayersHostFirst(roster)
     if (players.length < DAVINCI_MIN_PLAYERS || players.length > DAVINCI_MAX_PLAYERS) {
       throw new ConflictError('davinci_requires_two_to_four_players')
     }

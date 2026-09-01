@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import {
+  FakeDeadlineScheduler,
+  InMemoryVersionedStateStore,
+} from '../../__tests__/versionedDoubles.js'
 import { DuelGameService, type DuelStartRoster } from '../duelGameService.js'
 import type {
   DuelBroadcaster,
   DuelCompletionPort,
-  DuelDeadlineScheduler,
   DuelMarkablePhase,
   DuelOutboundEnvelope,
   DuelPresence,
@@ -12,7 +15,6 @@ import type {
 } from '../duelPorts.js'
 import { MAX_HP } from '../duelRules.js'
 import type { DuelState } from '../duelState.js'
-import type { DuelStateStore } from '../duelStateStore.js'
 
 const ROOM = 'ROOM1'
 const HOST = 'player-1'
@@ -24,74 +26,9 @@ interface FakeSnapshot {
 }
 
 /** 스토어의 계약(version 비증가 무시)만 지키는 인메모리 대역. Redis 판은 별도 스위트. */
-class InMemoryDuelStateStore implements DuelStateStore {
-  private readonly states = new Map<string, DuelState>()
-
-  async initialize(roomId: string, state: DuelState): Promise<void> {
-    if (this.states.has(roomId)) throw new Error('duel_already_initialized')
-    this.states.set(roomId, state)
-  }
-
-  async find(roomId: string): Promise<DuelState | null> {
-    return this.states.get(roomId) ?? null
-  }
-
-  async mutate(
-    roomId: string,
-    mutation: (current: DuelState) => DuelState | null,
-  ): Promise<DuelState | null> {
-    const current = this.states.get(roomId)
-    if (current === undefined) return null
-    const next = mutation(current)
-    if (next === null || next.version <= current.version) return null
-    this.states.set(roomId, next)
-    return next
-  }
-
-  async remove(roomId: string): Promise<boolean> {
-    return this.states.delete(roomId)
-  }
-}
-
-interface Scheduled {
-  readonly version: number
-  readonly deadline: number
-  readonly action: () => void | Promise<void>
-}
-
-class FakeScheduler implements DuelDeadlineScheduler {
-  readonly scheduled: Scheduled[] = []
-  cancelled = 0
-
-  schedule(
-    _roomId: string,
-    version: number,
-    deadline: Date | number,
-    timeoutAction: () => void | Promise<void>,
-  ): void {
-    this.scheduled.push({
-      version,
-      deadline: deadline instanceof Date ? deadline.getTime() : deadline,
-      action: timeoutAction,
-    })
-  }
-
-  cancelRoom(): unknown {
-    this.cancelled += 1
-    return undefined
-  }
-
-  /** 마지막 예약을 발화한다 — 서버 시계가 그 마감에 닿았다는 뜻이다. */
-  async fireLatest(): Promise<void> {
-    const latest = this.scheduled.at(-1)
-    if (latest === undefined) throw new Error('예약된 마감이 없다')
-    await latest.action()
-  }
-}
-
 describe('DuelGameService', () => {
-  let store: InMemoryDuelStateStore
-  let scheduler: FakeScheduler
+  let store: InMemoryVersionedStateStore<DuelState>
+  let scheduler: FakeDeadlineScheduler
   let sent: { roomId: string; message: DuelOutboundEnvelope }[]
   let phases: DuelMarkablePhase[]
   let written: { roomId: string; scores: Map<string, number> }[]
@@ -119,8 +56,8 @@ describe('DuelGameService', () => {
   }
 
   beforeEach(() => {
-    store = new InMemoryDuelStateStore()
-    scheduler = new FakeScheduler()
+    store = new InMemoryVersionedStateStore<DuelState>('duel_already_initialized')
+    scheduler = new FakeDeadlineScheduler()
     sent = []
     phases = []
     written = []
