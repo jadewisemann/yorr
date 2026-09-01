@@ -71,7 +71,7 @@ const startRedisServer = async (): Promise<RedisServerHandle> => {
  * 테스트 파일 하나가 쓸 Redis 클라이언트를 준비한다. 반환된 함수는 `beforeAll`
  * 이후에만 호출한다(테스트 본문에서 `redis()`).
  *
- * 매 테스트 전에 FLUSHALL — Java 통합 테스트의 `@BeforeEach flushAll`과 같다.
+ * 매 테스트 전에 FLUSHALL로 격리한다.
  */
 export const useRedis = (): (() => Redis) => {
   let server: RedisServerHandle | undefined
