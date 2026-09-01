@@ -2,6 +2,9 @@ import { createScoreBoard, type ScoreBoard } from './scoreBoard.js'
 import { SCORE_CATEGORIES } from './scoreCategory.js'
 import { ScoreDomainError } from './scoreErrors.js'
 
+// Stryker disable StringLiteral: 던지는 메시지는 사람이 읽는 설명이지 계약이 아니다
+// (scoreErrors.ts 주석). 문구를 검사에 박으면 문구를 다듬을 때마다 검사가 깨진다.
+
 /**
  * 점수판 해시의 **메타 필드는 `_` 접두**다 — 카테고리 필드와 섞이지 않게 하려는
  * 규약이고, 게임 종료 판정(2.7)이 "`_` 비접두 필드 12개"로 완료를 세기 때문에
