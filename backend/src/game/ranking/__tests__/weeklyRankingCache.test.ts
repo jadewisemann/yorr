@@ -5,14 +5,12 @@ import { WeeklyRankingService } from '../weeklyRankingService.js'
 import type { WeeklyBest, WeeklyRankingRepository } from '../weeklyRankingStore.js'
 
 /**
- * 이식: backend-java `WeeklyRankingQueryIntegrationTest`의 캐시 3종
+ * 이식: 의 캐시 3종
  * (`같은_주를_다시_물으면_캐시가_답한다`, `같은_주라도_게임이_다르면_별도_캐시`,
  * `판이_끝나면_캐시가_비워진다`).
  *
- * Java는 Spring 캐시 프록시를 확인해야 해서 MySQL 컨테이너 위에서 돌았고 "리포지토리로
- * 직접 넣은 행이 보이지 않는 것"이 캐시의 증거였다. Node에서는 캐시가 데코레이터라
- * **위임 호출 횟수**로 같은 것을 직접 본다 — MySQL 없이 돌고, 확인하려는 것(캐시가
- * 실제로 걸렸는가)은 더 정확하다.
+ * 캐시가 데코레이터라 **위임 호출 횟수**로 캐시 적중을 직접 본다 — MySQL 없이
+ * 돌고, 확인하려는 것(캐시가 실제로 걸렸는가)을 곧바로 잰다.
  */
 
 const WEEK_FROM = new Date('2026-08-02T15:00:00.000Z')
@@ -126,8 +124,7 @@ describe('주간 랭킹 캐시', () => {
   })
 
   /**
-   * 전적 보관(4.4)이 부르는 자리. Java `MatchArchiveService`의
-   * `@CacheEvict(allEntries = true)`와 같다 — 주·게임을 가리지 않고 통째로 버린다.
+   * 전적 보관이 부르는 자리 — 주·게임을 가리지 않고 통째로 버린다.
    */
   it('판이 끝나면(evictAll) 캐시가 비워진다', async () => {
     const delegate = new CountingRepository()

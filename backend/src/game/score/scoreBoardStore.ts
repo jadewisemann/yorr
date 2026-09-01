@@ -15,7 +15,7 @@ import { ScoreConfirmationError, ScoreDomainError } from './scoreErrors.js'
 import { CONFIRM_SCORE, CONFIRM_SCORE_CODE, SCORE_SCRIPTS } from './scripts.js'
 
 /**
- * 점수판 저장소 포트(backend-java `ScoreBoardStore`).
+ * 점수판 저장소 포트.
  *
  * 구현이 하는 일은 "저장"이 아니라 **확정**이다 — 중복·순서·보너스 판정을
  * 전부 원자적으로 끝내고 최종 점수판을 돌려준다.

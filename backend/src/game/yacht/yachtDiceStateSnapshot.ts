@@ -2,17 +2,15 @@ import { z } from 'zod'
 import { RoundState, RoundSubmission } from '../round/index.js'
 
 /**
- * Redis에 저장되는 야추 라운드 상태의 직렬화 모양 — backend-java
- * `YachtDiceStateSnapshot` record.
+ * Redis에 저장되는 야추 라운드 상태의 직렬화 모양.
  *
  * **재접속용 `YachtDiceState`와 다른 타입이다**(그쪽은 와이어, 이쪽은 저장소).
- * 필드 이름·순서를 Java record 그대로 유지한다: 전환기에는 backend-java와 Node가
- * **같은 Redis 키를 읽을 수 있어야** 하므로 여기서 이름을 다듬으면 진행 중인 게임이
- * 깨진다(`room:{code}:game:YACHT_DICE:state`).
+ * 필드 이름과 순서를 바꾸지 않는다: 운영 Redis에 진행 중인 게임이 이미 이 모양으로
+ * 들어 있어서, 배포가 이름을 다듬으면 그 판들이 깨진다
+ * (`room:{code}:game:YACHT_DICE:state`).
  *
- * `submissions`는 Jackson이 `RoundSubmission` record를 그대로 펼친 모양
- * (`{playerId, roundNumber, dice, category}`)이고, 우리 `RoundSubmission` 클래스의
- * readonly 필드가 `JSON.stringify`에서 같은 객체를 만든다.
+ * `submissions`는 `{playerId, roundNumber, dice, category}`로 펼쳐진 모양이고,
+ * `RoundSubmission` 클래스의 readonly 필드가 `JSON.stringify`에서 같은 객체를 만든다.
  */
 export interface YachtDiceStateSnapshot {
   readonly roundNumber: number
@@ -36,7 +34,7 @@ export interface YachtSubmissionSnapshot {
 /**
  * 읽기 스키마. 저장소가 돌려준 JSON을 **구조 수준에서** 검증한다 — 값의 도메인
  * 유효성(주사위 범위·카테고리 이름·라운드 상한)은 `RoundSubmission`·`RoundState.restore`가
- * 다시 본다. 손상된 값을 조용히 통과시키지 않는 것이 목적이다(Java는 Jackson
+ * 다시 본다. 손상된 값을 조용히 통과시키지 않는 것이 목적이다(직렬화가
  * 역직렬화 실패가 `invalid_yacht_state`로 뭉개진다 — 같은 자리).
  */
 const submissionSchema = z.object({
@@ -50,7 +48,7 @@ const snapshotSchema = z.object({
   roundNumber: z.number(),
   totalRounds: z.number(),
   participantOrder: z.array(z.string()),
-  // Java Jackson은 없는 필드를 null로 둔다 — 옛 스냅샷도 읽을 수 있게 관용한다.
+  // 없는 필드는 null로 둔다 — 옛 스냅샷도 읽을 수 있게 관용한다.
   submissions: z.record(z.string(), submissionSchema).nullish(),
   activePlayerIndex: z.number(),
   activeRollCount: z.number(),
@@ -59,7 +57,7 @@ const snapshotSchema = z.object({
   finished: z.boolean(),
 })
 
-/** 필드 순서가 Java record와 같다(전환기 호환 — 위 주석 참고). */
+/** 필드 순서를 바꾸지 않는다(운영 Redis 호환 — 위 주석 참고). */
 export const toStateSnapshot = (state: RoundState): YachtDiceStateSnapshot => {
   const submissions: Record<string, YachtSubmissionSnapshot> = {}
   for (const [playerId, submission] of state.submissions) {

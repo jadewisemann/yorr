@@ -10,7 +10,7 @@ import type {
  * 야추 모듈(3.1)이 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은 포트로만
  * 표현한다.
  *
- * 왜 포트인가: Java `YachtDiceGameModule`/`YachtTurnActionService`는
+ * 왜 포트인가: 모듈과 턴 서비스가
  * `RoundSynchronizationService`·`RoundTimerService`·`RoomSessionRegistry`·
  * `RealtimeRoomSnapshotService`·`RoomBroadcaster`·`GameReconnectSnapshotService`·
  * `ScoreRoundSubmissionService`를 구체 타입으로 직접 잡는다. 2.5(`round/roundPorts.ts`)·
@@ -53,7 +53,7 @@ export type YachtRoomPhase = 'waiting' | 'playing' | 'finished'
  * 소켓 → 좌석 조회 + phase 마킹 — `RoomSessionRegistry`가 그대로 만족한다.
  *
  * `markPhase`가 여기 있는 것이 이 티켓의 숨은 핵심이다: **레지스트리 phase를 옮기는
- * 것은 게임 모듈의 일**이다(Java `YachtDiceGameModule.start`). 이게 빠지면 REST로
+ * 것은 게임 모듈의 일**이다. 이게 빠지면 REST로
  * 시작한 게임의 소켓 phase가 `waiting`에 머물러 끊긴 플레이어가 offline이 아니라
  * `room.player_left`가 되고, 재접속의 PLAYING 분기가 실전에서 도달하지 않는다.
  */
@@ -107,7 +107,7 @@ export interface YachtRoundService {
 /**
  * `RoundTimerService`의 부분집합 — 턴 시계 조작 5개.
  *
- * `advanceTurn`의 세 번째 인자는 Java에서 `String requestMsgId`(nullable)다. 타이머
+ * `advanceTurn`의 세 번째 인자는 nullable한 `requestMsgId`다. 타이머
  * 구현이 기본값(`null`)을 갖고 있어도 이 시그니처를 만족한다.
  */
 export interface YachtRoundTimer {

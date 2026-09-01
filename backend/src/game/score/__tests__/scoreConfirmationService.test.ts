@@ -19,7 +19,7 @@ const expectReason = async (
   })
 }
 
-/** Java 테스트의 `CapturingScoreBoardStore`. */
+/** 호출을 기록하는 점수판 저장소 대역. */
 class CapturingScoreBoardStore implements ScoreBoardStore {
   scoreboard: ScoreBoard = createScoreBoard({}, 0, 0, 0)
   roundNumber = 0
@@ -59,7 +59,6 @@ const command = (
   dice,
 })
 
-// backend-java `ScoreConfirmationServiceTest` 이식.
 describe('ScoreConfirmationService', () => {
   let store: CapturingScoreBoardStore
   let service: ScoreConfirmationService

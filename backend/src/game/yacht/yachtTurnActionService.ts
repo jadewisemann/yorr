@@ -21,13 +21,12 @@ export interface YachtTurnActionServiceDeps {
 }
 
 export interface YachtTurnActionServiceOptions {
-  /** 봉투 `ts`의 출처. Java는 `WsEnvelope.of`가 `System.currentTimeMillis()`를 쓴다. */
+  /** 봉투 `ts`의 출처. 주입해서 테스트가 시각을 고정한다. */
   readonly now?: () => number
 }
 
 /**
- * 사람의 WS 요청과 서버가 제어하는 봇(3.2)이 **공유하는** 야추 행동 경계 —
- * backend-java `YachtTurnActionService`.
+ * 사람의 WS 요청과 서버가 제어하는 봇(3.2)이 **공유하는** 야추 행동 경계.
  *
  * 호출자는 "누가 무엇을 하려는지"만 넘기고, 상태 변경 뒤의 방송·타이머 진행은
  * 여기가 한 벌로 처리한다. 이 경계가 있어야 봇이 사람과 **완전히 같은 경로**를 타고,
@@ -104,7 +103,7 @@ export class YachtTurnActionService {
       payload: {
         playerId: actorId,
         roundNumber: state.roundNumber,
-        // 굴림과 달리 **서버 상태**를 싣는다(Java `state.activeHeld()`). 굴림 애니메이션이
+        // 굴림과 달리 **서버 상태**를 싣는다. 굴림 애니메이션이
         // 없으므로 프레임 어긋남 문제가 없고, 관전자가 권위 값을 보는 쪽이 낫다.
         held: [...(state.activeHeld ?? [])],
       },

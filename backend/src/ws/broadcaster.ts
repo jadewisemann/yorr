@@ -2,14 +2,14 @@ import type { OutboundEnvelope } from './envelope.js'
 import { type ClientSocket, isOpen } from './socket.js'
 
 /**
- * 방별 소켓 집합(팬아웃) — backend-java `ws/InMemoryRoomBroadcaster`.
+ * 방별 소켓 집합(팬아웃).
  *
  * 레지스트리와 **별개 맵**이다: 명단에는 올랐지만 아직 팬아웃에 없는 순간이
  * `room.join`의 순서 계약(본인이 자기 입장 소식을 받지 않는다)을 만든다.
  */
 export class RoomBroadcaster {
   private readonly rooms = new Map<string, Set<ClientSocket>>()
-  /** 소켓 → 등록된 방. Java가 세션 attribute에 넣어 두던 값. */
+  /** 소켓 → 등록된 방. */
   private readonly roomOf = new Map<ClientSocket, string>()
 
   register(roomId: string, socket: ClientSocket): void {
@@ -47,7 +47,7 @@ export class RoomBroadcaster {
       try {
         socket.send(frame)
       } catch {
-        // 개별 소켓 실패는 무시한다(Java의 소켓별 catch와 같은 이유).
+        // 개별 소켓 실패는 무시한다 — 한 소켓 때문에 팬아웃이 멈추면 안 된다.
       }
     }
   }

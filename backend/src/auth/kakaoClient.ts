@@ -8,7 +8,7 @@ const TOKEN_URI = 'https://kauth.kakao.com/oauth/token'
 const USER_INFO_URI = 'https://kapi.kakao.com/v2/user/me'
 
 /**
- * 카카오 OAuth — backend-java `auth/infrastructure/KakaoOAuthClient`.
+ * 카카오 OAuth.
  * 인가 코드를 토큰으로 바꾸고 프로필을 읽어오는 두 가지 일만 한다.
  */
 export class KakaoOAuthClient {
@@ -25,8 +25,8 @@ export class KakaoOAuthClient {
    * 순간 제공자가 파라미터를 잘라 읽는다.
    *
    * @param forceLogin 우리 쪽에서 로그아웃해도 카카오 세션은 브라우저에 남아
-   *   다음 로그인이 동의 화면 없이 통과한다. 계정을 바꾸려는 사용자만 이 길로
-   *   재인증을 강제한다(기본은 빠른 재로그인 유지).
+   * 다음 로그인이 동의 화면 없이 통과한다. 계정을 바꾸려는 사용자만 이 길로
+   * 재인증을 강제한다(기본은 빠른 재로그인 유지).
    */
   authorizeUrl(state: string, forceLogin: boolean): string {
     this.requireConfigured()

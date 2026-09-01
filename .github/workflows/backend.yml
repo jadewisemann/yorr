@@ -44,7 +44,7 @@ jobs:
     # `MYSQL_TEST_URL`이 없어 전부 skip이었고 SQL 문법조차 검증된 적이 없다
     # (ADR-0005 / PLANS.md 상태 표). 여기서 처음 빨간불이 날 수 있다.
     #
-    # Java 통합 테스트가 쓰던 것과 같은 8.0. 하네스는 테스트마다
+    # 운영과 같은 8.0. 하네스는 테스트마다
     # `yorr_test_<random>` 스키마를 CREATE/DROP하므로 **root가 필요하다**
     # (backend/src/infra/__tests__/mysqlHarness.ts).
     services:

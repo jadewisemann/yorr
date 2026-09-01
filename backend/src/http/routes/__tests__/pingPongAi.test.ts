@@ -13,7 +13,7 @@ import { UserService } from '../../../user/session.js'
 import { registerPingPongAiRoutes } from '../pingPongAi.js'
 
 /**
- * 이식: backend-java `PingPongAiResultControllerTest` 전부 + 오류 표면.
+ * 이식: 전부 + 오류 표면.
  *
  * 세션은 **진짜 Redis**로 돈다 — 이 라우트의 계약 절반이 "헤더가 없으면 게스트,
  * 있는데 틀리면 401"이고 그 판정은 세션 스토어를 지난다(`ranking.test.ts`·
@@ -90,7 +90,7 @@ describeRedis('탁구 AI 결과 REST', () => {
   })
 
   describe('보관 성공', () => {
-    /** 이식: Java `로그인_회원의_결과를_저장한다`. */
+    /** */
     it('회원 세션의 결과를 그 계정으로 저장하고 204다', async () => {
       const token = await users.openMemberSession('member-1', '회원')
 
@@ -111,7 +111,7 @@ describeRedis('탁구 AI 결과 REST', () => {
       })
     })
 
-    /** 이식: Java `비로그인_게스트의_결과를_저장한다`. */
+    /** */
     it('헤더가 없으면 게스트로 저장하고 204다', async () => {
       const response = await post({ body: result({ humanScore: 6, aiScore: 11 }) })
 
@@ -125,7 +125,7 @@ describeRedis('탁구 AI 결과 REST', () => {
       })
     })
 
-    /** 빈 문자열·공백 헤더도 "안 보낸 것"이다(Java `isBlank`). */
+    /** 빈 문자열·공백 헤더도 "안 보낸 것"이다. */
     it.each(['', '   '])('공백 Authorization(%j)은 게스트로 본다', async (authorization) => {
       const response = await post({ body: result(), headers: { authorization } })
 
@@ -134,7 +134,7 @@ describeRedis('탁구 AI 결과 REST', () => {
     })
 
     /**
-     * 이식: Java `기존_게스트_세션도_해당_UUID로_결과를_저장한다`.
+     *
      * 게스트 세션도 **자기 userId로** 남는다 — 라우트는 회원/게스트를 가르지 않고,
      * 그 판정은 4.4가 users 테이블로 한다.
      */
@@ -162,7 +162,7 @@ describeRedis('탁구 AI 결과 REST', () => {
   })
 
   describe('401 — 세션', () => {
-    /** 이식: Java `잘못된_인증_헤더는_거절한다`. */
+    /** */
     it.each(['invalid', 'Bearer', 'bearer token', 'Basic abc', 'Bearer '])(
       'Authorization %j은 401 session_expired다',
       async (authorization) => {
@@ -214,7 +214,7 @@ describeRedis('탁구 AI 결과 REST', () => {
       expect(archive.inputs).toEqual([])
     })
 
-    /** 점수가 빠지면 0으로 바인딩돼 재검증에서 걸린다(Jackson primitive 기본값). */
+    /** 점수가 빠지면 0으로 바인딩돼 재검증에서 걸린다. */
     it('점수가 없는 본문은 invalid_final_score다', async () => {
       const response = await post({ body: { resultId: RESULT_ID } })
 
@@ -222,7 +222,7 @@ describeRedis('탁구 AI 결과 REST', () => {
       expect(response.body).toBe('invalid_final_score')
     })
 
-    /** Java는 `@RequestBody(required = false)`라 본문 없는 POST도 서비스까지 온다. */
+    /** 본문 없는 POST도 서비스까지 와서 도메인 오류가 되어야 한다. */
     it.each([
       { label: '빈 본문 + JSON Content-Type', options: { raw: '' } },
       { label: 'Content-Type 없는 빈 본문', options: { raw: '', contentType: null } },
@@ -234,8 +234,8 @@ describeRedis('탁구 AI 결과 REST', () => {
     })
 
     /**
-     * 읽을 수 없는 본문은 도메인 오류가 아니다 — Spring이 만드는 400의 본문은
-     * 프레임워크 흔적이라 계약이 아니므로 **빈 본문**으로 맞춘다
+     * 읽을 수 없는 본문은 도메인 오류가 아니다 — 프레임워크가 만드는 400의 본문은
+     * 계약이 아니므로 **빈 본문**으로 맞춘다
      * (`gameQueries.ts`의 score-candidates 400과 같은 판단).
      */
     it.each([

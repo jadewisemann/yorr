@@ -1,7 +1,6 @@
 # 인증·계정 (소셜 로그인·프로필)
 
-> 상위 원칙은 [DESIGN.md](../../DESIGN.md). Java 원본: `auth/`,
-> `user/`(프로필). 세션 저장 모양·TTL·게스트는
+> 상위 원칙은 [DESIGN.md](../../DESIGN.md). 세션 저장 모양·TTL·게스트는
 > [rooms-and-sessions.md](rooms-and-sessions.md)의 세션 모델 참고 — 회원
 > 세션도 같은 `user:{id}` 해시다(type=MEMBER, TTL 30일).
 
@@ -23,7 +22,7 @@
   미설정 제공자(`NOT_CONFIGURED`)는 **503 빈 본문** — 브라우저가 직접 여는
   URL이라 리다이렉트할 곳이 없다.
 - authorize URL은 모든 쿼리 값을 form-urlencoded로 완전 인코딩해야 한다
-  (redirect_uri의 `:`·`/` 포함 — Java가 UriComponentsBuilder를 피한 이유).
+  (redirect_uri의 `:`·`/` 포함.
   google은 `scope=openid profile email` 추가.
 - callback은 **항상 302로 응답한다**(JSON 없음 — 사람 브라우저가 도착하는
   곳). 실패는 `?error=<reason소문자>`: `canceled` / `invalid_state` /
@@ -42,14 +41,13 @@
   - 제공자 오류 본문은 클라이언트로 전파하지 않는다(키 유출 방지) —
     `provider_error` 일반화. 액세스 토큰은 1회 사용 후 폐기(저장 금지).
   - 닉네임은 20자로 절단.
-  - 타임아웃은 Java가 connect 3s + read 5s로 나눠 걸지만 Node `fetch`에는 그
-    구분이 없다(AbortSignal 하나가 전체를 덮는다) — **Java의 최악값 8초를
-    통짜 예산**으로 잡는다. 더 짧게 잡으면 Java에서 되던 느린 로그인이 여기서만
+  - 타임아웃은 `fetch`에 connect/read 구분이 없어(AbortSignal 하나가 전체를
+    덮는다) **8초를 통짜 예산**으로 잡는다. 더 짧게 잡으면 원래 성공하던
+    느린 로그인이
     실패하고, 안 걸면 로그인 요청이 영영 매달린다.
 - 설정 판정: kakao는 clientId+redirectUri만 필수(secret 선택), google은 3개
   전부. 미설정이어도 부팅은 된다 — 호출 시점에 실패.
-- quirk(Java와 동일): authorize는 **설정을 확인하기 전에 state를 먼저 발급**한다
-  (Java의 인자 평가 순서). 미설정 제공자를 호출하면 쓰이지 않는 state 키가 하나
+- quirk: authorize는 **설정을 확인하기 전에 state를 먼저 발급**한다. 미설정 제공자를 호출하면 쓰이지 않는 state 키가 하나
   남지만 5분 뒤 사라진다. 응답 계약(503)은 그대로다.
 
 ## state · 로그인 코드 (Redis, 1회용)
@@ -104,13 +102,13 @@
   연동 없는 유령 회원 금지. 동시 가입 경합은 유니크 위반을 잡아 재조회로
   승자를 반환한다(재조회도 비면 원래 예외 재던짐 — 진짜 제약 위반을 삼키지
   않는다). 이 재조회가 동작하려면 등록이 **별도 트랜잭션 경계**여야 한다
-  (Java에서 registrar를 별도 빈으로 뺀 이유 — Node에서는 명시적 트랜잭션
+  (등록을 별도 경계로 뺀 이유 — 명시적 트랜잭션
   분리로 동일 효과를 낸다).
 - 닉네임 채택: 플레이스홀더("플레이어")인 동안만 제공자 프로필을 받아들인다.
   사용자가 직접 정한 이름은 이후 로그인이 절대 덮어쓰지 않는다. 이번에 받은
   이름도 플레이스홀더면 채택할 것이 없으므로 쓰기를 하지 않는다.
 - 한 사용자에 제공자 여러 개 연동 가능(1:N). email 컬럼 없음(kakao 심사 이슈).
-- 제약 위반의 갈래는 **유니크만이 아니다.** Java가 `DataIntegrityViolationException`
+- 제약 위반의 갈래는 **유니크만이 아니다.** 제약 위반 예외
   하나로 잡던 자리를 Node는 `DataIntegrityViolationError`로 옮겼고, MySQL errno
   (1062 유니크 · 1406 길이 · 1452 FK …)를 그 갈래로 승격한다. 승격 지점은
   저장소(`auth/socialAccountStore.ts`)이고 판정은 서비스에 있다 — 서비스는
@@ -118,23 +116,23 @@
 
 ## 구현 위치 (Node)
 
-| 파일 | 대응 Java |
-|---|---|
-| `auth/stateStore.ts` · `auth/loginCodeStore.ts` | `OAuthStateStore` · `LoginCodeStore` |
-| `auth/kakaoClient.ts` · `auth/googleClient.ts` | `KakaoOAuthClient` · `GoogleOAuthClient` |
-| `auth/oauthHttp.ts` | `AuthConfig.socialRestClient` + `URLEncoder`(form-urlencoded 인코딩) |
-| `auth/config.ts` | `AuthProperties`(`configured()` 판정 포함) |
-| `auth/returnTo.ts` | 대응 없음 — Node에서 추가(위 「복귀 출처」) |
-| `auth/socialLoginService.ts` | `SocialLoginService` |
-| `auth/socialAccountStore.ts` | `SocialAccountRepository` + `SocialAccountRegistrar`(별도 트랜잭션 경계) |
-| `auth/errors.ts` | `SocialLoginException` + `DataIntegrityViolationException` 자리 |
-| `http/routes/auth.ts` | `AuthController` |
+| 파일 |
+|---|
+| `auth/stateStore.ts` · `auth/loginCodeStore.ts` |
+| `auth/kakaoClient.ts` · `auth/googleClient.ts` |
+| `auth/oauthHttp.ts` |
+| `auth/config.ts` |
+| `auth/returnTo.ts` |
+| `auth/socialLoginService.ts` |
+| `auth/socialAccountStore.ts` |
+| `auth/errors.ts` |
+| `http/routes/auth.ts` |
 
-- 환경변수는 `application.yaml`의 `yorr.auth.*`를 Spring이 읽는 이름 그대로
+- 환경변수는 운영 `.env`에 있는 이름 그대로
   쓴다: `AUTH_FRONTEND_REDIRECT_URI` · `KAKAO_CLIENT_ID` · `KAKAO_CLIENT_SECRET` ·
   `KAKAO_REDIRECT_URI` · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` ·
   `GOOGLE_REDIRECT_URI`.
-- authorize URL 인코딩은 `encodeURIComponent`가 아니라 Java `URLEncoder`와 같은
+- authorize URL 인코딩은 `encodeURIComponent`가 아니라 `application/x-www-form-urlencoded`와 같은
   규칙(`formUrlEncode`)이다 — 공백이 `+`여야 하고(`scope=openid+profile+email`)
   `!'()~`도 인코딩된다. 이 모양이 테스트로 고정돼 있다.
 
@@ -161,11 +159,11 @@
 
 ## 이식된 테스트 (4.2)
 
-- `auth/__tests__/socialLoginService.test.ts` — Java `SocialLoginServiceTest`
+- `auth/__tests__/socialLoginService.test.ts` — 소셜 로그인 서비스
   전 케이스(로그인/가입 분기, 플레이스홀더 채택, 직접 정한 이름 보존,
   **경합 승자 재조회**, 재조회 실패 시 원래 예외 재던짐) + Node 추가:
   제약 위반이 아닌 오류는 재조회하지 않고 그대로 전파.
-- `auth/__tests__/kakaoClient.test.ts` · `googleClient.test.ts` — Java의 두
+- `auth/__tests__/kakaoClient.test.ts` · `googleClient.test.ts` — 두
   클라이언트 테스트(파라미터·인코딩·prompt·미설정 거절) + 이식하며 추가한 것:
   토큰 교환 폼 내용, secret 공백 시 미전송(kakao), 닉네임 폴백 3단, 20자 절단,
   id 부재, **제공자 오류 본문 비전파**, 타임아웃.

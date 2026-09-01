@@ -15,8 +15,7 @@ export interface HeartbeatMonitorOptions {
 }
 
 /**
- * 세션별 마지막 하트비트를 추적하고 제한 시간을 넘긴 연결을 종료 경로로 보낸다 —
- * backend-java `ws/HeartbeatMonitor`. 실제 `sys.disconnect` 전송과 close는
+ * 세션별 마지막 하트비트를 추적하고 제한 시간을 넘긴 연결을 종료 경로로 보낸다. 실제 `sys.disconnect` 전송과 close는
  * 넘겨받은 콜백(게이트웨이)의 책임이다.
  */
 export class HeartbeatMonitor {
@@ -53,7 +52,7 @@ export class HeartbeatMonitor {
   /**
    * 경계는 정확히 `timeoutMs` **이상**이다(89_999ms는 생존).
    *
-   * 삭제 전에 값이 그대로인지 다시 확인한다(Java의 2-인자 `remove` = CAS) —
+   * 삭제 전에 값이 그대로인지 다시 확인한다(CAS) —
    * 그 사이 도착한 ping이 이기면 살아 있는 세션을 끊지 않는다. 항목을 먼저
    * 지우므로 같은 세션에 콜백이 두 번 실행되지 않는다(멱등).
    */

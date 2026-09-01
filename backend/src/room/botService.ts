@@ -8,7 +8,7 @@ import { BOT_ADD, BOT_REMOVE, BOT_SCRIPTS } from './scripts.js'
 import type { RoomSnapshot } from './snapshot.js'
 
 /**
- * Java `SecurityException` 자리 — REST **403**.
+ * REST **403**.
  *
  * `DomainError`(400/404)·`ConflictError`(409)와 섞이면 상태 코드가 조용히
  * 바뀌므로 따로 둔다. 지금 이 코드를 던지는 곳은 봇 API뿐이라 여기에 있다 —
@@ -19,13 +19,13 @@ export class ForbiddenError extends CodedError {}
 const BOT_ID_PREFIX = 'bot-'
 const BOT_MARKER = 'BOT'
 
-/** `bot-<uuid>` — 끝 4자를 대문자로 붙인 표시 이름까지 Java와 같은 규칙이다. */
+/** `bot-<uuid>` — 표시 이름에는 끝 4자를 대문자로 붙인다. */
 const newBotId = (): string => `${BOT_ID_PREFIX}${randomUUID()}`
 
 const botNickname = (botId: string): string => `요르봇 ${botId.slice(-4).toUpperCase()}`
 
 /**
- * 대기실 AI 봇 참가자 — backend-java `room/service/BotParticipantService`.
+ * 대기실 AI 봇 참가자.
  *
  * 봇은 roster·scores의 **정규 행**이라 정원과 START의 minPlayers를 그대로
  * 채운다. `room:{code}:bots` 해시가 "이 행은 봇"이라는 유일한 마커이자 삭제
@@ -66,7 +66,7 @@ export class BotParticipantService {
 
 /**
  * 반환 코드 → 오류 코드. **4의 뜻이 두 스크립트에서 다르다**(추가=정원 초과,
- * 삭제=그런 봇 없음) — Java의 `botMustExist` 분기를 그대로 옮겼다.
+ * 삭제=그런 봇 없음).
  */
 const requireSuccess = (result: number, botMustExist: boolean): void => {
   if (result === 1) return

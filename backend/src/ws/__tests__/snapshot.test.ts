@@ -82,7 +82,7 @@ describeRedis('RealtimeRoomSnapshotService', () => {
     expect(snapshot.phase).toBe('playing')
   })
 
-  /** 방이 이미 사라졌으면 인메모리 명단만으로 답한다(Java와 같음). */
+  /** 방이 이미 사라졌으면 인메모리 명단만으로 답한다. */
   it('사라진 방은 레지스트리 스냅샷으로 대체된다', async () => {
     const rooms = new RoomService(redis())
     const sessions = new RoomSessionRegistry()

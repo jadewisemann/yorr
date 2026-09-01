@@ -5,7 +5,7 @@ import type { MatchArchiveInput } from '../match/index.js'
 import { WIN_SCORE } from './pingPongRules.js'
 
 /**
- * 로컬 AI 탁구 결과 보관 — backend-java `game/pingpong/PingPongAiResultService`.
+ * 로컬 AI 탁구 결과 보관.
  *
  * **멀티플레이 파이프라인과 완전히 분리된 경로다**(docs/design/games/pingpong.md).
  * 온디바이스 AI와의 싱글플레이는 서버가 판을 진행하지 않으므로 Redis 상태·스토어·
@@ -24,7 +24,7 @@ export const LOCAL_AI_ROOM_CODE = 'LOCAL_AI'
 /** AI 참가자의 `player_id`. users 테이블에 없으므로 `user_id`는 항상 NULL이 된다. */
 export const AI_PLAYER_ID = 'ping-pong-ai'
 export const AI_NICKNAME = 'AI'
-/** 비로그인 보고자의 표시 이름(Java와 같은 문자열). */
+/** 비로그인 보고자의 표시 이름. */
 export const GUEST_NICKNAME = '게스트'
 
 /**
@@ -45,9 +45,8 @@ export interface PingPongAiResultArchive {
 }
 
 /**
- * 바인딩이 끝난 요청 본문. Java `PingPongAiResultRequest` record에 해당한다 —
- * 점수는 `int` primitive이므로 **빠지면 0**이고(그 값은 점수 재검증에서 걸린다),
- * `resultId`는 `String`이라 null일 수 있다.
+ * 바인딩이 끝난 요청 본문. 점수는 **빠지면 0**이고(그 값은 점수 재검증에서
+ * 걸린다), `resultId`는 null일 수 있다.
  */
 export interface PingPongAiResultRequest {
   readonly resultId: string | null | undefined
@@ -56,9 +55,8 @@ export interface PingPongAiResultRequest {
 }
 
 /**
- * 바인딩 결과. `ok: false`는 Spring의 `HttpMessageNotReadableException` 자리다 —
- * 도메인 오류 코드가 아니라 **읽을 수 없는 본문**이므로 코드 문자열이 없다.
- * `request: null`은 본문 자체가 없는 요청(`@RequestBody(required = false)` → null)이고,
+ * 바인딩 결과. `ok: false`는 **읽을 수 없는 본문**이다 — 도메인 오류 코드가
+ * 아니므로 코드 문자열이 없다. `request: null`은 본문 자체가 없는 요청이고,
  * 그 갈래는 서비스가 `invalid_ai_result`로 판정한다.
  */
 export type PingPongAiResultBinding =
@@ -66,11 +64,11 @@ export type PingPongAiResultBinding =
   | { readonly ok: false }
 
 /**
- * 원시 JSON → {@link PingPongAiResultRequest}. Jackson의 record 바인딩을 흉내낸다:
+ * 원시 JSON → {@link PingPongAiResultRequest}. 관용 규칙이 계약이다:
  *
- * - 필드가 없거나 null이면 primitive 기본값 **0**(3.4가 swing payload에서 쓴 관용과 같다).
- * - 정수 문자열(`"11"`)은 받는다 — Jackson의 String→int 강제 변환.
- * - 소수는 **버린다**(`11.9 → 11`) — Jackson `ACCEPT_FLOAT_AS_INT`가 기본 on이다.
+ * - 필드가 없거나 null이면 **0**(swing payload에서 쓴 관용과 같다).
+ * - 정수 문자열(`"11"`)은 받는다.
+ * - 소수는 **버린다**(`11.9 → 11`).
  * - `resultId`가 문자열이 아니면 없는 것으로 본다 → `invalid_result_id`로 떨어진다.
  */
 export const bindPingPongAiResult = (body: unknown): PingPongAiResultBinding => {
@@ -121,10 +119,10 @@ export class PingPongAiResultService {
 
   /**
    * 검증 순서가 계약이다: **resultId 먼저, 점수 나중**. 둘 다 틀린 요청은
-   * `invalid_result_id`를 받는다(Java와 같다).
+   * `invalid_result_id`를 받는다.
    *
    * @returns 실제로 저장했는지. 이미 보고된 `resultId`면 false다 — 실패가 아니라
-   *   멱등이므로 REST는 그래도 204를 돌려준다(`game_id` UNIQUE가 중복을 막는다).
+   * 멱등이므로 REST는 그래도 204를 돌려준다(`game_id` UNIQUE가 중복을 막는다).
    */
   private async save(
     playerId: string,
@@ -159,15 +157,14 @@ export class PingPongAiResultService {
  * `matches.game_id`가 되고 그 컬럼의 UNIQUE 제약이 재전송·새로고침으로 같은 판이
  * 두 번 쌓이는 것을 막는 유일한 장치다 — 그래서 모양을 여기서 못박는다.
  *
- * Java는 `UUID.fromString`의 `RuntimeException`(null이면 NPE 포함)을 통째로 잡아
- * `invalid_result_id`로 바꾼다. 같은 갈래를 정규식으로 만든다.
+ * 모양이 어긋나면 값이 무엇이든 `invalid_result_id` 하나로 떨어진다.
  */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const normalizeResultId = (resultId: string | null | undefined): string => {
   const value = resultId ?? ''
   if (!UUID_PATTERN.test(value)) throw new DomainError('invalid_result_id')
-  // Java `UUID.fromString(...).toString()`은 **소문자로 정규화**한다.
+  // UUID는 **소문자로 정규화**한다.
   return value.toLowerCase()
 }
 
@@ -177,12 +174,12 @@ const normalizeResultId = (resultId: string | null | undefined): string => {
  * "탁구 규칙으로 **끝날 수 있는** 스코어라인인가"만 본다: 음수 없음 ·
  * 이긴 쪽이 {@link WIN_SCORE} 이상 · 2점차 이상.
  *
- * ### 재검증의 한계 (Java와 같은 구멍 — 그대로 이식했다)
+ * ### 재검증의 한계 (알려진 구멍)
  *
  * `11:0`처럼 실제로 가능한 값과 `50:3`·`12:9`처럼 **11점에서 이미 끝났어야 하는**
  * 값을 구분하지 못한다(듀스는 12:10·13:11…로 올라가므로 상한을 못박을 수 없고,
  * 듀스 구간의 정확한 조건은 "이긴 점수가 11이거나, 11 초과면 2점차 정확히"다).
- * 조용히 조이지 않는 이유: 와이어 계약 동결(ADR-0002)이고, 이 경로로 남는 점수는
+ * 조용히 조이지 않는 이유: 와이어 계약을 바꾸는 일이고, 이 경로로 남는 점수는
  * `user_id`가 있어도 **주간 랭킹의 게임 코드 필터**를 통과하지 못하면 순위에
  * 영향이 없다. 조이려면 프론트가 보내는 값의 실측이 먼저다.
  */
@@ -193,7 +190,7 @@ const validateFinalScore = (humanScore: number, aiScore: number): void => {
   }
 }
 
-/** Jackson `int` 바인딩 흉내 — {@link bindPingPongAiResult} 참고. */
+/** 정수 바인딩 관용 — {@link bindPingPongAiResult} 참고. */
 const bindInt = (value: unknown): number | undefined => {
   if (value === undefined || value === null) return 0
   if (typeof value === 'number') return Number.isFinite(value) ? Math.trunc(value) : undefined

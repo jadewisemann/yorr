@@ -6,7 +6,7 @@ import { ScorecardValueEvaluator } from '../scorecardValueEvaluator.js'
  * `ScorecardValueEvaluatorTest` 이식(2종).
  *
  * 절대값을 단정하지 않는다 — 상수(2.0·0.70·4.0 …)는 튜닝 대상이고, 계약은
- * **두 선택 중 어느 쪽이 큰가**다. Java 테스트도 같은 형태다.
+ * **두 선택 중 어느 쪽이 큰가**다.
  */
 
 const boardWith = (filled: Readonly<Record<string, number>>, upperSubtotal: number): ScoreBoard =>
@@ -36,7 +36,7 @@ describe('ScorecardValueEvaluator', () => {
   })
 
   it('이미 채운 칸을 평가하려 하면 던진다', () => {
-    // Java `IllegalArgumentException`. 코디네이터가 잡아 폴백으로 내려가는 경로다.
+    // 코디네이터가 잡아 폴백으로 내려가는 경로다.
     const board = boardWith({ yacht: 0 }, 0)
 
     expect(() => evaluator.categoryUtility(board, 'yacht' as ScoreCategory, 50)).toThrow(

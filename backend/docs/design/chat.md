@@ -5,7 +5,7 @@
 > 구현(Node): `ws/chat.ts`(다듬기·검사·방송·도배 한도) · `ws/handler.ts`(메시지
 > 라우팅과 거절 코드 분기) · `ws/protocol.ts`(`CHAT_TEXT_MAX_LENGTH`).
 >
-> Java 원본은 없다 — 이 자리에 있던 WebRTC 음성 시그널링(`voice.*`)을 텍스트
+> 이 자리에 있던 WebRTC 음성 시그널링(`voice.*`)을 텍스트
 > 채팅으로 교체하며 새로 만든 계약이다. 전환 배경은 [PLANS.md](../../PLANS.md)
 > 「음성 채팅 → 텍스트 채팅」 절.
 

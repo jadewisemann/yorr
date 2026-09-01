@@ -1,7 +1,7 @@
 /**
  * 재접속 스냅샷 조립 실패의 이유 코드.
  *
- * Java는 두 경우 모두 `IllegalStateException`이고, WS 핸들러 바깥으로 나가면
+ * 두 경우 모두 같은 오류이고, WS 핸들러 바깥으로 나가면
  * `INTERNAL` 오류 + 팬아웃 등록 해제로 이어진다(docs/design/reconnect.md
  * 「스냅샷 내용」). 이유를 잃지 않으려고 코드로 구분해 둔다 — **와이어 코드는
  * 아니다.** 둘 다 WS `INTERNAL`로 매핑하는 것이 계약이고, 매핑은 게임 모듈(3.1)이 한다.
@@ -28,7 +28,7 @@ export type ReconnectSnapshotReason =
   | 'DEADLINE_NOT_FOUND'
 
 /**
- * Java `IllegalStateException` 자리.
+ * 재접속 스냅샷을 만들 수 없는 상태.
  *
  * `errors.ts`의 `ConflictError`를 상속하지 **않는다** — 저쪽은 REST의 소문자
  * 문자열 코드 계약(409)이고, 이쪽은 WS 코드로 옮겨질 도메인 이유 코드다

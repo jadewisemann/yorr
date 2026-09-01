@@ -24,7 +24,7 @@ describe('LocalYachtBotStrategy', () => {
   })
 
   /**
-   * ⚠️ Java의 `keepMostFrequentOrHigh`에는 "최빈이 단독이면 5·6만 남긴다" 분기가
+   * ⚠️ `keepMostFrequentOrHigh`에는 "최빈이 단독이면 5·6만 남긴다" 분기가
    * 있는데, `chooseHeld` 경로로는 **도달할 수 없다**: 최빈이 단독이려면 5개가 전부
    * 다른 면이어야 하고, 6면 중 5면을 고르면 어떤 면이 빠져도 4연속 창 하나에는
    * 반드시 3면 이상이 들어가 스트레이트 분기가 먼저 성립한다. 그대로 옮겨 두었고

@@ -7,16 +7,16 @@ import type { UserIdentity, UserService } from '../../user/session.js'
 import { sendCode } from '../errorResponse.js'
 
 /**
- * 퀵매치 REST — backend-java `room/controller/QuickMatchController`.
+ * 퀵매치 REST.
  *
  * 오류 본문은 방 REST와 같은 **plain-text 문자열 코드**다(조회 REST(2.9)의 JSON
  * `{code,message}`와 섞지 않는다 — DESIGN.md 「오류 계약」). 다만 두 곳이 다르다:
  *
  * 1. **401 본문이 `unauthorized`** 다(방·봇은 `invalid_guest_session`). 프론트
- *    userError 매핑이 API마다 다른 이 문자열들을 각각 알고 있다.
+ * userError 매핑이 API마다 다른 이 문자열들을 각각 알고 있다.
  * 2. `IllegalArgumentException` 갈래가 **전부 400**이다(방 REST는 기본이 404이고
- *    `invalid_nickname`·`invalid_game_code`만 400). 그래서 공용
- *    `sendDomainError`를 쓸 수 없고 `sendQuickMatchError`를 따로 둔다.
+ * `invalid_nickname`·`invalid_game_code`만 400). 그래서 공용
+ * `sendDomainError`를 쓸 수 없고 `sendQuickMatchError`를 따로 둔다.
  */
 
 export interface QuickMatchRouteDependencies {
@@ -25,7 +25,7 @@ export interface QuickMatchRouteDependencies {
   readonly matches: QuickMatchService
 }
 
-/** 헤더는 중복되면 배열로 온다 — Java(@RequestHeader String)와 같이 첫 값만 본다. */
+/** 헤더는 중복되면 배열로 온다 — 첫 값만 본다. */
 const header = (
   headers: Record<string, string | string[] | undefined>,
   name: string,
@@ -61,8 +61,8 @@ export const registerQuickMatchRoutes = async (
     users.authenticate(header(headers, 'x-user-id'), header(headers, 'authorization'))
 
   /**
-   * 큐 입장. `game_code`가 없으면 야추다(Java `@RequestParam(defaultValue=…)`).
-   * 코드 정규화(`canonicalCode`)가 인증 **뒤**에 오는 것도 Java와 같다 — 잘못된
+   * 큐 입장. `game_code`가 없으면 야추다.
+   * 코드 정규화(`canonicalCode`)는 인증 **뒤**에 온다 — 잘못된
    * 코드보다 만료된 세션이 먼저 보고된다.
    */
   app.post<{ Querystring: { game_code?: string } }>('/quick-matches', async (request, reply) => {

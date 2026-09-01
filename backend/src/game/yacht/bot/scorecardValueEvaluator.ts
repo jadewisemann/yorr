@@ -9,7 +9,7 @@ import {
 import { BotDecisionError } from './botErrors.js'
 
 /**
- * 봇의 **휴리스틱 가치 함수** — backend-java `ScorecardValueEvaluator`.
+ * 봇의 **휴리스틱 가치 함수**.
  *
  * ⚠️ `YachtScoreCalculator`(룰북)와 혼동하면 안 된다. 저쪽은 순수·정수·유일한
  * 채점 권위고, 여기는 **부동소수·비영속·봇 전용**이다. 이 값이 점수판에 들어가는
@@ -26,13 +26,13 @@ const SECURED_BONUS_PREMIUM = 4.0
 const BONUS_CURVE_SCALE = 5.0
 /**
  * 다음 턴의 기준 점수를 확정값처럼 취급하면 현재의 좋은 패를 버리는 과도한 낙관이
- * 생긴다(Java 주석 그대로).
+ * 생긴다.
  */
 const FUTURE_VALUE_DISCOUNT = 0.7
 
 /**
  * 칸별 기준 기대값. **경험적 상수이고 룰과 무관**하다 — 상단은 "그 눈 3개 정도",
- * 하단은 "그 족보를 노려서 얻는 평균"에 가깝게 잡혀 있다. Java와 숫자까지 같다.
+ * 하단은 "그 족보를 노려서 얻는 평균"에 가깝게 잡혀 있다.
  */
 const BASELINE_VALUES: Readonly<Record<ScoreCategory, number>> = Object.freeze({
   ones: 2.0,
@@ -50,7 +50,7 @@ const BASELINE_VALUES: Readonly<Record<ScoreCategory, number>> = Object.freeze({
 })
 
 /**
- * 상단 카테고리가 한 칸에서 낼 수 있는 최대치 = 눈 × 5. Java는
+ * 상단 카테고리가 한 칸에서 낼 수 있는 최대치 = 눈 × 5. 여기서는
  * `(category.ordinal() + 1) * 5`로 같은 값을 만든다(상단 6개의 ordinal이 눈−1이다).
  */
 const upperCategoryMaximum = (category: ScoreCategory): number =>
@@ -60,7 +60,7 @@ const upperCategoryMaximum = (category: ScoreCategory): number =>
  * 아직 안 채운 칸들의 가치 + 상단 보너스 기대값.
  *
  * 배열을 만들지 않고 12칸을 한 번 훑는다 — 이 함수가 탐색 한 번에 수백 번
- * 불리므로(`bestScore`가 열린 칸마다 부른다) 할당을 피하는 쪽이 낫다. Java의
+ * 불리므로(`bestScore`가 열린 칸마다 부른다) 할당을 피하는 쪽이 낫다. 아래
  * `EnumSet` 사본과 결과는 같다.
  */
 const remainingPotential = (
@@ -116,8 +116,8 @@ export class ScorecardValueEvaluator {
   /**
    * 이 점수판 상태에서 `category`에 `score`를 기록하는 것의 가치.
    *
-   * @throws {BotDecisionError} 이미 채워진 칸을 평가하려 하면(Java
-   *   `IllegalArgumentException`) — 코디네이터가 잡아 폴백 정책으로 내려간다.
+   * @throws {BotDecisionError} 이미 채워진 칸을 평가하려 하면(아래
+   * `IllegalArgumentException`) — 코디네이터가 잡아 폴백 정책으로 내려간다.
    */
   categoryUtility(board: ScoreBoard, category: ScoreCategory, score: number): number {
     requireOpen(board, category)

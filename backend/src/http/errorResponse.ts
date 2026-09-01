@@ -11,10 +11,9 @@ export const sendCode = (reply: FastifyReply, status: number, code: string): Fas
   reply.code(status).type('text/plain; charset=utf-8').send(code)
 
 /**
- * Java 컨트롤러의 `catch (IllegalArgumentException) → 400/404` +
- * `catch (IllegalStateException) → 409`를 그대로 옮긴 것.
+ * 도메인 오류를 HTTP 상태로 옮긴다.
  * **`invalid_nickname`·`invalid_game_code`만 400이고 나머지는 404**인 것이
- * 계약이다(quirk — RoomController).
+ * 계약이다 — 방 REST의 의도된 비대칭이다.
  */
 export const sendDomainError = (reply: FastifyReply, error: unknown): FastifyReply => {
   if (error instanceof ConflictError) return sendCode(reply, 409, error.code)

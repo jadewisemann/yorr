@@ -1,8 +1,7 @@
 import type { LuaScript } from '../infra/lua.js'
 
 /**
- * 방 상태 전이 Lua — backend-java `RoomCreateService`·`RoomValidationService`에서
- * **텍스트 그대로** 옮겼다. 반환 코드가 곧 계약이므로 조건 순서도 바꾸지 않는다
+ * 방 상태 전이 Lua. 반환 코드가 곧 계약이므로 조건 순서를 바꾸지 않는다
  * (docs/design/rooms-and-sessions.md 「Lua 스크립트」).
  *
  * CLOSE·TOUCH는 참가자 수가 가변이라 게임 키 이름을 스크립트 안에서 조립한다 —
@@ -298,7 +297,7 @@ return 1
 `,
 }
 
-/** 봇 참가자 스크립트 — `BotParticipantService`가 등록한다(Java도 봇만 따로 들고 있다). */
+/** 봇 참가자 스크립트 — `BotParticipantService`가 등록한다. */
 export const BOT_SCRIPTS: readonly LuaScript[] = [BOT_ADD, BOT_REMOVE]
 
 export const ROOM_SCRIPTS: readonly LuaScript[] = [

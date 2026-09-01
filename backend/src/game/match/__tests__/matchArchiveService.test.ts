@@ -9,13 +9,10 @@ import {
 import type { MatchArchiveStore, MatchRecord } from '../matchArchiveStore.js'
 
 /**
- * backend-java `MatchArchiveServiceIntegrationTest`의 **`MatchArchiveService` 4종**
- * 이식(같은 파일의 나머지 3종은 `PingPongAiResultService`의 것이고 그 서비스는
- * 아직 없다 — 4.4의 범위는 보관 자체다).
+ * 전적 보관 4종.
  *
- * Java는 MySQL 컨테이너로만 시험하지만 **이 환경에는 MySQL이 없다**(ADR-0005의
- * 게이트). 그래서 4.3(`user/__tests__/profile.test.ts`)과 같은 방식으로 같은 4종을
- * 두 벌 적는다:
+ * **이 환경에는 MySQL이 없을 수 있다**(ADR-0005의 게이트). 그래서
+ * `user/__tests__/profile.test.ts`와 같은 방식으로 같은 4종을 두 벌 적는다:
  *
  * 1. 이 파일 — 인메모리 저장소. **항상 돈다.** 멱등 판정·닉네임 우선순위·회원/게스트
  *    분기·시계 주입이 여기서 고정된다. 실제로 틀리는 로직이 전부 여기 있다.
@@ -102,7 +99,7 @@ describe('MatchArchiveService (인메모리 저장소)', () => {
     })
   })
 
-  // --- Java 4종 ---
+  // --- 보관 기본 4종 ---
 
   /** 회원과 게스트가 한 판에 섞여 있다. 판 자체는 온전히 남고, 주인이 있는 행에만 계정이 붙는다. */
   it('회원은_계정에_게스트는_이름만_남는다', async () => {
@@ -178,7 +175,7 @@ describe('MatchArchiveService (인메모리 저장소)', () => {
     expect(stored.participants[1]?.userId).toBeNull()
   })
 
-  // --- 이식하며 추가한 것(Java에는 없지만 Node 계약을 고정한다) ---
+  // --- Node 계약을 고정하는 추가 케이스 ---
 
   /** 2.7이 채울 자리를 어댑터 없이 채운다 — 배선은 상수 하나를 바꾸는 것뿐이어야 한다. */
   it('MatchArchivePort를 구조적으로 만족한다', async () => {
@@ -256,7 +253,7 @@ describe('MatchArchiveService (인메모리 저장소)', () => {
     })
   })
 
-  /** 같은 playerId가 방 명단에 두 번 있으면 먼저 온 이름을 쓴다(Java의 merge 함수). */
+  /** 같은 playerId가 방 명단에 두 번 있으면 먼저 온 이름을 쓴다. */
   it('중복 playerId는 방 명단의 첫 이름을 쓴다', async () => {
     await service.archive(
       room([
@@ -269,7 +266,7 @@ describe('MatchArchiveService (인메모리 저장소)', () => {
     expect(store.only().participants[0]?.displayNickname).toBe('첫이름')
   })
 
-  /** Java의 `@CacheEvict`는 메서드 프록시라 중복 판·검증 실패에도 캐시를 비운다. */
+  /** 중복 판·검증 실패에도 캐시를 비운다. */
   it('랭킹 캐시는 중복 보관·빈 호출에도 비워진다', async () => {
     const snapshot = room([{ playerId: 'guest-1', nickname: '손님' }])
     const rankings = [ranking(1, 'guest-1', 100)]

@@ -14,7 +14,7 @@ export const inboundEnvelopeSchema = z.object({
 
 export type InboundEnvelope = z.infer<typeof inboundEnvelopeSchema>
 
-/** roomId·msgId는 값이 없으면 **필드 자체를 생략**한다(Java `@JsonInclude(NON_NULL)`). */
+/** roomId·msgId는 값이 없으면 **필드 자체를 생략**한다. */
 export interface OutboundEnvelope {
   type: string
   ts: number

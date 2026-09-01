@@ -6,8 +6,8 @@ import type { HistoryEntry } from './plan.js'
  * Flyway 이력 테이블(`flyway_schema_history`) 접근 — ADR-0005.
  *
  * 컬럼·타입·인덱스 이름은 Flyway가 MySQL에 만드는 것과 **똑같아야** 한다.
- * 전환기에는 Java의 Flyway가 이 테이블을 계속 읽으므로, 우리가 만든 테이블
- * 위에서 Java가 그대로 동작해야 한다.
+ * 운영 DB의 이 테이블이 이미 그 모양이고, 우리 러너가 그 위에 그대로 얹히기
+ * 때문이다.
  */
 export const DEFAULT_HISTORY_TABLE = 'flyway_schema_history'
 

@@ -3,7 +3,7 @@ import { isRoundSyncError, type RoundSyncReason } from '../roundErrors.js'
 import { RoundState } from '../roundState.js'
 import { RoundSubmission } from '../roundSubmission.js'
 
-/** backend-java `RoundStateTest`의 이식. 케이스 이름·의도를 그대로 옮겼다. */
+/**  케이스 이름·의도를 그대로 옮겼다. */
 describe('RoundState', () => {
   it('모든 참가자가 제출할 때까지 라운드를 끝내지 않는다', () => {
     const state = rolled(RoundState.start(1, ['player-a', 'player-b']))
@@ -191,7 +191,7 @@ describe('RoundState', () => {
   })
 
   /**
-   * Java 원본에는 없지만 game-modules.md가 계약으로 못박은 규칙이라 고정한다
+   * game-modules.md가 계약으로 못박은 규칙이라 고정한다
    * (`withoutParticipant`: 활성 플레이어는 직접 제거 불가, 인덱스 보정).
    */
   describe('withoutParticipant', () => {

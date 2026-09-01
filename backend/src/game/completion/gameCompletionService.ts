@@ -24,9 +24,9 @@ export interface GameCompletionServiceDeps {
 }
 
 export interface GameCompletionServiceOptions {
-  /** 전적 보관 실패의 관측 훅(Java `log.error`). 종료는 그대로 진행한다. */
+  /** 전적 보관 실패의 관측 훅. 종료는 그대로 진행한다. */
   readonly onArchiveFailure?: (roomId: string, error: unknown) => void
-  /** 종료 성사 알림(Java `log.info("game.over: ...")`). */
+  /** 종료 성사 알림. */
   readonly onFinished?: (event: GameFinishedEvent) => void
 }
 
@@ -38,17 +38,17 @@ export interface GameFinishedEvent {
 }
 
 /**
- * 게임 종료 단일 진입점 — backend-java `GameCompletionService`. 종료 판정·전이·방송이
+ * 게임 종료 단일 진입점. 종료 판정·전이·방송이
  * 여기 한 곳에만 있다(docs/design/game-modules.md 「게임 종료」).
  *
  * 순서가 계약이다: **① CAS 전이 → ② 타이머 정지 → ③ 방송**.
  * - ①이 실패하면(= 다른 호출이 이미 끝냈다) **아무 부수효과도 남기지 않는다** —
- *   방송도, 타이머 취소도, phase 표시도 하지 않는다. 이것이 `game.over` 정확히
- *   1회의 구조적 보장이다.
+ * 방송도, 타이머 취소도, phase 표시도 하지 않는다. 이것이 `game.over` 정확히
+ * 1회의 구조적 보장이다.
  * - 판정이 성립하기 전에 타이머를 멈추면 진행 중인 게임이 멈춘다. 그래서 취소는
- *   반드시 전이가 성공한 뒤다(Java의 주석과 순서를 그대로 옮겼다).
+ * 반드시 전이가 성공한 뒤다.
  * - 방송은 `game.over` → `state.sync` 순서다. phase(finished)는 스냅샷으로만
- *   전달되므로 뒤엣것을 빼면 클라이언트가 결과 화면으로 넘어가지 못한다.
+ * 전달되므로 뒤엣것을 빼면 클라이언트가 결과 화면으로 넘어가지 못한다.
  *
  * `round/roundPorts.ts`의 `GameCompletionPort`를 구조적으로 만족한다 — 타이머(2.5)에
  * 어댑터 없이 그대로 꽂힌다.
@@ -78,7 +78,7 @@ export class GameCompletionService {
    * 게임이 끝났으면 종료 처리하고 방에 알린다.
    *
    * @param force 라운드 상한에 도달했는지. true면 점수판에 빈 칸이 남아도 종료한다(안전망).
-   *   false면 "전원 점수판 12칸 완료"라는 저장소 판정에만 따른다.
+   * false면 "전원 점수판 12칸 완료"라는 저장소 판정에만 따른다.
    * @returns 이 호출이 게임을 종료시켰는지. false면 아직 진행 중이므로 다음 턴을 시작해야 한다.
    */
   async finishIfComplete(roomId: string, force: boolean): Promise<boolean> {

@@ -11,8 +11,7 @@ import type { PingPongGameService } from '../pingPongGameService.js'
  * 모듈 계층의 계약: 라우팅(`swing`·`ready`만) · 멤버십/roomId 검증 ·
  * **오류 응답을 스스로 보내기**(게이트웨이는 예외를 삼킨다).
  *
- * Java에서는 `GameWebSocketHandlerTest`가 이 경계를 덮었지만 우리 쪽 라우팅은
- * `GameModuleRegistry.dispatch`가 하므로 여기서 모듈과 함께 고정한다.
+ * 라우팅은 `GameModuleRegistry.dispatch`가 하므로 이 경계를 모듈과 함께 고정한다.
  */
 const ROOM = 'room-a'
 const PLAYER = 'player-1'
@@ -88,7 +87,7 @@ describe('PingPongGameModule', () => {
     expect(await registry.dispatch('PING_PONG', socket, inbound('game.duel.shoot', {}))).toBe(false)
   })
 
-  it('없는 필드는 0으로 관용한다(Java record 바인딩과 같음)', async () => {
+  it('없는 필드는 0으로 관용한다', async () => {
     const { module, socket, recorded } = moduleUnderTest()
 
     await module.handle(socket, inbound('swing', {}))
@@ -122,7 +121,7 @@ describe('PingPongGameModule', () => {
       refMsgId: 'm-1',
     })
 
-    // 락 경합(`game_state_busy`)·저장소 장애처럼 도메인 오류가 아닌 것은 뭉개진다(Java와 같음).
+    // 락 경합(`game_state_busy`)·저장소 장애처럼 도메인 오류가 아닌 것은 뭉개진다.
     const other = moduleUnderTest({ throws: new Error('boom') })
     await other.module.handle(other.socket, inbound('swing', { inputSeq: 1, clientTs: 0 }))
     expect(errorOf(other.socket)?.message).toBe('invalid swing payload')

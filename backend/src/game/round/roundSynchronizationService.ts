@@ -4,21 +4,21 @@ import type { RoundStateStore } from './roundStateStore.js'
 import { DICE_COUNT, RoundSubmission } from './roundSubmission.js'
 
 /**
- * 주사위 하나의 값(1~6)을 만드는 시임 — Java `IntSupplier dieRoller`.
+ * 주사위 하나의 값(1~6)을 만드는 시임.
  *
  * **서버 권위 RNG의 유일한 출처다**(DESIGN.md 원칙 1: 주사위는 서버가 만든다).
  * 클라이언트가 보낸 물리 결과는 이 자리에 들어올 수 없다.
  */
 export type DieRoller = () => number
 
-/** 운영 기본값. Java `ThreadLocalRandom.current().nextInt(1, 7)` 자리. */
+/** 운영 기본값 — 1~6 균등 난수. */
 export const randomDieRoller = (): DieRoller => () => 1 + Math.floor(Math.random() * 6)
 
 /**
  * 시드 고정 RNG(mulberry32). 테스트·재현용이다 — 같은 시드는 항상 같은 판을 만든다.
  *
- * Java에는 대응물이 없다(테스트가 `() -> 1` 같은 상수 공급자를 썼다). 상수 공급자는
- * "다섯 개가 전부 같은 값"이라 주사위 분포에 기대는 회귀(킵 유지 등)를 못 잡는다.
+ * 상수 공급자(항상 1 등)로는 "다섯 개가 전부 같은 값"이라 주사위 분포에 기대는
+ * 회귀(킵 유지 등)를 못 잡는다.
  */
 export const seededDieRoller = (seed: number): DieRoller => {
   let state = seed >>> 0
@@ -37,8 +37,7 @@ export interface RoundSynchronizationServiceOptions {
 }
 
 /**
- * 라운드 상태 저장소 위에 얹힌 얇은 응용 서비스 — backend-java
- * `RoundSynchronizationService`와 1:1이다.
+ * 라운드 상태 저장소 위에 얹힌 얇은 응용 서비스 — 이다.
  *
  * 두 가지만 한다: ① WS 페이로드를 도메인 인자로 옮기고 ② **서버 주사위를 굴린다**.
  * 원자성·검증은 전부 `RoundStateStore`와 `RoundState`가 갖고 있다.
@@ -65,7 +64,7 @@ export class RoundSynchronizationService {
 
   /**
    * @param beforeStateChange 라운드 검증 후·상태 커밋 전에 실행된다. 던지면 라운드
-   *   상태는 무변화 — 점수 저장이 실패한 플레이어는 미제출로 남아 재시도할 수 있다.
+   * 상태는 무변화 — 점수 저장이 실패한 플레이어는 미제출로 남아 재시도할 수 있다.
    */
   async submit(
     roomId: string,

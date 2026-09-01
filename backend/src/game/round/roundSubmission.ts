@@ -7,10 +7,9 @@ const MAX_DIE_VALUE = 6
 /**
  * 제출 가능한 카테고리 이름.
  *
- * Java `RoundSubmission`도 `ScoreCategory` enum을 참조하지 않고 **문자열 집합을
- * 따로 들고 있다**(중복 정의). 라운드 도메인이 점수 도메인을 모르게 하는 경계라
- * 그대로 옮긴다 — 2.6의 `ScoreCategory`가 들어와도 이 목록과 순서·철자가
- * 같아야 한다.
+ * 점수 도메인의 `ScoreCategory`를 참조하지 않고 **문자열 집합을 따로 든다.**
+ * 라운드 도메인이 점수 도메인을 모르게 하는 경계다 — 대신 두 목록의 순서와
+ * 철자가 같아야 한다.
  */
 export const SUBMITTABLE_CATEGORIES = [
   'ones',
@@ -35,11 +34,10 @@ const isInvalidDie = (die: number | undefined): boolean =>
   die === undefined || !Number.isInteger(die) || die < MIN_DIE_VALUE || die > MAX_DIE_VALUE
 
 /**
- * 한 플레이어의 라운드 제출. Java `RoundSubmission` record의 compact constructor
- * 검증을 그대로 옮겼다 — **생성 자체가 검증 지점**이라 잘못된 제출은 도메인
- * 안으로 들어오지 못한다.
+ * 한 플레이어의 라운드 제출. **생성 자체가 검증 지점**이라 잘못된 제출은
+ * 도메인 안으로 들어오지 못한다.
  *
- * `dice`는 방어적으로 복사해 얼린다(Java `List.copyOf`). 호출부가 넘긴 배열을
+ * `dice`는 방어적으로 복사해 얼린다. 호출부가 넘긴 배열을
  * 나중에 바꿔도 제출 내용은 변하지 않는다.
  */
 export class RoundSubmission {

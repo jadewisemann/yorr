@@ -18,9 +18,7 @@ import {
 import type { DuelRound, DuelState } from '../duelState.js'
 
 /**
- * backend-java `DuelRulesTest` 12종을 그대로 옮긴 것 — **이 12개가 결투 규칙의
- * 명세다**(PLANS.md 3.3의 완료 기준). 케이스 이름과 순서를 Java와 같게 두어
- * 나중에 두 쪽을 대조할 수 있게 했다.
+ * 결투 규칙 12종 — **이 12개가 결투 규칙의 명세다.**
  */
 const P1 = 'player-1'
 const P2 = 'player-2'

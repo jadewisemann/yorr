@@ -44,7 +44,7 @@ const authHeaders = (userId: string, token: string): Record<string, string> => (
  * 실전 프론트는 `room.join`(WS)을 먼저 하고 **그다음** REST로 게임을 시작한다.
  * 레지스트리에 없으면 라운드 타이머가 첫 턴 주인을 오프라인으로 판정하고, 1인
  * 방에서는 `MAX_OFFLINE_TURNS`(2)에 즉시 닿아 그 사람이 자동 퇴장하고 마지막
- * 참가자 퇴장으로 방까지 지워진다(2.5의 계약이며 Java와 같다). 게임 모듈이
+ * 참가자 퇴장으로 방까지 지워진다(방 계약). 게임 모듈이
  * 배선되기 전에는 `POST /games`가 phase만 옮겼기 때문에 이 자리가 필요 없었다.
  *
  * `ws`의 WebSocket 대신 전송을 버리는 가짜를 넣는다 — 이 스위트는 `app.inject()`로

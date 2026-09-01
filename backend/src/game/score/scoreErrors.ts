@@ -1,5 +1,5 @@
 /**
- * 점수 도메인의 **인자 검증 실패** — Java `IllegalArgumentException` 자리.
+ * 점수 도메인의 **인자 검증 실패**.
  *
  * `errors.ts`의 `DomainError`를 상속하지 않는다(라운드 도메인과 같은 이유):
  * 저쪽은 REST의 소문자 문자열 코드 계약이고, 이쪽은 도메인 내부 검증이라
@@ -13,8 +13,7 @@ export class ScoreDomainError extends Error {
 }
 
 /**
- * 점수 확정 실패의 이유 코드 — backend-java
- * `ScoreConfirmationException.Reason` enum과 이름까지 1:1이다.
+ * 점수 확정 실패의 이유 코드.
  *
  * **와이어 코드가 아니다.** WS 오류 코드로의 매핑은 야추 모듈(3.1)이 한다.
  * 그중 `GAME_NOT_FOUND`·`GAME_NOT_ACTIVE`·`PLAYER_NOT_IN_GAME`·
@@ -31,7 +30,7 @@ export type ScoreConfirmationReason =
   | 'CATEGORY_ALREADY_USED'
   | 'STORE_FAILURE'
 
-/** Java `ScoreConfirmationException`(unchecked) 자리. */
+/** 점수 확정 실패. */
 export class ScoreConfirmationError extends Error {
   readonly reason: ScoreConfirmationReason
 

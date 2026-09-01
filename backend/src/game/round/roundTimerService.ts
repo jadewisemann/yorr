@@ -44,7 +44,7 @@ export const MAX_OFFLINE_TURNS = 2
  */
 export const UNTIMED_HUMAN_LIMIT = 1
 
-/** 봇 오케스트레이터(3.2)가 구독하는 턴 시작 알림 — Java `RoundStartedEvent`. */
+/** 봇 오케스트레이터(3.2)가 구독하는 턴 시작 알림. */
 export interface RoundStartedEvent {
   readonly roomId: string
   readonly state: RoundState
@@ -76,25 +76,24 @@ export interface RoundTimerServiceDeps {
 export interface RoundTimerServiceOptions {
   readonly now?: () => number
   readonly gameCode?: string
-  /** Java `ApplicationEventPublisher.publishEvent(RoundStartedEvent)` 자리. */
+  /** 라운드 시작을 알리는 훅. */
   readonly onRoundStarted?: (event: RoundStartedEvent) => void
-  /** 종료 전이 실패처럼 "진행은 멈추지만 예외는 아닌" 상황의 관측 훅(Java `log.warn`). */
+  /** 종료 전이 실패처럼 "진행은 멈추지만 예외는 아닌" 상황의 관측 훅. */
   readonly onWarning?: (roomId: string, reason: string) => void
 }
 
 interface ActiveDeadline {
   readonly roundNumber: number
-  /** epoch ms. Java는 `Instant`. 시계를 걸지 않은 턴(연습 방)은 null이다. */
+  /** epoch ms. 시계를 걸지 않은 턴(연습 방)은 null이다. */
   readonly deadline: number | null
 }
 
 /**
- * 야추 턴 시계 — backend-java `RoundTimerService`.
+ * 야추 턴 시계.
  *
- * **Node 이식에서 가장 큰 차이: 전 경로가 async다.** Java는 `roomService`가 동기라
- * `start`가 `Instant`를 그냥 돌려줬지만, 우리 `RoomService.getSnapshot`·`touch`·
- * `leave`는 Redis라 Promise다. 마감 스케줄러의 작업 시그니처가 이미
- * `() => void | Promise<void>`라 그대로 얹힌다(2.3에서 그 이유로 넓혀 뒀다).
+ * **전 경로가 async다.** `RoomService.getSnapshot`·`touch`·`leave`가 Redis라
+ * Promise를 돌려주기 때문이다. 마감 스케줄러의 작업 시그니처가
+ * `() => void | Promise<void>`로 넓혀져 있어 그대로 얹힌다.
  *
  * 방송 순서가 계약이다(`__tests__/roundTimerService.test.ts`가 고정):
  * `score.update` → `round.end` → `round.start`.
@@ -142,7 +141,7 @@ export class RoundTimerService {
    * 연쇄적으로 처리된다.
    *
    * @returns 걸린 마감 시각(epoch ms). 오프라인 스킵·퇴장으로 턴을 시작하지 않았거나,
-   *   시계 없는 연습 방({@link UNTIMED_HUMAN_LIMIT})이면 null.
+   * 시계 없는 연습 방({@link UNTIMED_HUMAN_LIMIT})이면 null.
    */
   async start(roomId: string, state: RoundState): Promise<number | null> {
     return this.beginTurn(roomId, state, null)
@@ -159,10 +158,10 @@ export class RoundTimerService {
    * 세 갈래가 전부 여기서 결정된다:
    * - **미래** → 그 시각으로 재무장한다.
    * - **이미 지남** → 예약기가 지연을 0으로 깎아 즉시 발화하므로(`schedule` 주석)
-   *   별도 분기가 없다. 턴은 서버 대리 진행으로 넘어간다.
+   * 별도 분기가 없다. 턴은 서버 대리 진행으로 넘어간다.
    * - **유효하지 않음**(기록이 없거나 라운드 번호가 어긋남) → `false`. 호출자가 그 방을
-   *   fail-closed로 닫는다. 반쯤 살아 있는 방을 남기면 상태는 살아 있는데 턴이 넘어가지
-   *   않고 JOIN도 `game_started`로 막히는 최악의 상태가 된다.
+   * fail-closed로 닫는다. 반쯤 살아 있는 방을 남기면 상태는 살아 있는데 턴이 넘어가지
+   * 않고 JOIN도 `game_started`로 막히는 최악의 상태가 된다.
    *
    * @returns 재무장했으면 true.
    */
@@ -221,9 +220,9 @@ export class RoundTimerService {
      * - 시계가 있는 방: 마감 그대로 예약한다(강제 진행만 EXPIRY_GRACE_MS 뒤로 미룬다).
      * - 연습 방의 사람 턴: 예약하지 않는다. 이게 "제한 시간 없음"의 전부다.
      * - 연습 방의 **봇 턴: 화면에는 시계가 없어도 예약은 남긴다.** 봇 스텝의 예외는
-     *   삼켜지고 라운드 타이머가 유일한 폴백이기 때문이다
-     *   (docs/design/games/yacht.md 「실패 격리」). 이게 없으면 봇 굴림이 한 번
-     *   실패한 연습 방은 아무도 깨우지 못해 영원히 멈춘다.
+     * 삼켜지고 라운드 타이머가 유일한 폴백이기 때문이다
+     * (docs/design/games/yacht.md 「실패 격리」). 이게 없으면 봇 굴림이 한 번
+     * 실패한 연습 방은 아무도 깨우지 못해 영원히 멈춘다.
      */
     const expireAt =
       deadline ?? (isBot(room, activePlayerId) ? this.now() + ROUND_DURATION_MS : null)
@@ -289,8 +288,8 @@ export class RoundTimerService {
    * 두 경로가 갈라지지 않는다.
    *
    * @param requestMsgId 클라이언트 제출이면 그 msgId — 클라는 이 값으로 자기 제출의
-   *   확정을 판별한다. 마감 처리로 들어온 경우엔 점수 방송을 `RoundTimeoutResolver`가
-   *   이미 했으므로 score가 null이고 msgId도 없다.
+   * 확정을 판별한다. 마감 처리로 들어온 경우엔 점수 방송을 `RoundTimeoutResolver`가
+   * 이미 했으므로 score가 null이고 msgId도 없다.
    */
   async advanceTurn(
     roomId: string,
@@ -347,7 +346,7 @@ export class RoundTimerService {
     await this.roomService.leave(roomId, playerId)
     if (removed !== null) {
       this.broadcaster.broadcast(roomId, {
-        // 방 이벤트는 게임 네임스페이스가 붙지 않는다(Java `WsEnvelope.of("room.player_left")`).
+        // 방 이벤트는 게임 네임스페이스가 붙지 않는다.
         type: 'room.player_left',
         ts: this.now(),
         payload: { playerId },
@@ -439,7 +438,7 @@ export class RoundTimerService {
       ts: this.now(),
       payload: { playerId: score.playerId, scoreboard: score.scoreboard },
       roomId,
-      // null이면 필드를 생략한다(Java `@JsonInclude(NON_NULL)`).
+      // null이면 필드를 생략한다.
       msgId: requestMsgId ?? undefined,
     })
   }

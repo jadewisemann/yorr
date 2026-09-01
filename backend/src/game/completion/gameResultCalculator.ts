@@ -1,12 +1,12 @@
 /**
- * 최종 순위 산출 — backend-java `GameResultCalculator`(순수·정적).
+ * 최종 순위 산출 — 순수 함수 묶음이다.
  *
  * 저장소도 전송 계층도 모른다. 입력은 "playerId → 최종 점수"뿐이고, 그 점수는
  * **서버가 확정해 Redis에 쌓아둔 값**이다(DESIGN.md 원칙 1).
  */
 
 /**
- * 순위 도메인의 **인자 검증 실패** — Java `IllegalArgumentException` 자리.
+ * 순위 도메인의 **인자 검증 실패**.
  * `errors.ts`의 `DomainError`를 상속하지 않는다(점수 도메인과 같은 이유):
  * 저쪽은 REST의 소문자 코드 계약이고 이쪽은 도메인 내부 검증이다.
  */
@@ -47,7 +47,7 @@ export interface GameResult {
 
 /**
  * 총점 내림차순 · playerId 오름차순. 정렬 기준이 두 곳(서비스 랭킹·결과 계산기)에서
- * 같아야 해서 한 함수로 둔다 — Java는 이 비교자를 두 벌 들고 있다.
+ * 같아야 해서 한 함수로 둔다 — 두 벌로 두면 조용히 갈라진다.
  */
 const byTotalDescThenPlayerId = (
   left: readonly [string, number],
@@ -81,9 +81,9 @@ export const rankTotals = (totals: Iterable<readonly [string, number]>): Ranking
 }
 
 /**
- * 순위 + 승자·동점 표시까지 붙인 결과. 조회 REST(2.9 `/results`)가 쓴다.
+ * 순위 + 승자·동점 표시까지 붙인 결과. 조회 REST(`/results`)가 쓴다.
  *
- * 검증은 Java와 같다: 빈 목록·중복 playerId·빈 playerId·음수 점수는 거부한다.
+ * 빈 목록·중복 playerId·빈 playerId·음수 점수는 거부한다.
  */
 export const calculateGameResult = (playerScores: readonly PlayerFinalScore[]): GameResult => {
   validate(playerScores)
@@ -135,8 +135,8 @@ const validatePlayerScore = (playerScore: PlayerFinalScore | null | undefined): 
   if (typeof playerScore.playerId !== 'string' || playerScore.playerId.trim().length === 0) {
     throw new GameCompletionDomainError('플레이어 식별자는 비어 있을 수 없습니다.')
   }
-  // Java의 `Integer`는 정수 아닌 값이 애초에 못 들어오지만 TS의 number는 들어온다.
-  // 순위를 소수점으로 매기는 경로는 없으므로 여기서 막는다.
+  // TS의 number에는 소수도 들어온다. 순위를 소수점으로 매기는 경로는 없으므로
+  // 여기서 막는다.
   if (!Number.isInteger(playerScore.finalScore) || playerScore.finalScore < 0) {
     throw new GameCompletionDomainError('최종 점수는 0 이상의 정수여야 합니다.')
   }

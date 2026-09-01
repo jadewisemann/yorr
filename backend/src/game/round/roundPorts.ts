@@ -1,12 +1,11 @@
 /**
- * 라운드 진행 서비스(2.5)가 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은
+ * 라운드 진행 서비스가 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은
  * 포트로만 표현한다.
  *
- * 왜 포트인가: Java `RoundTimerService`는 `RoomService`·`RoomBroadcaster`·
- * `RoomSessionRegistry`·`GameCompletionService`·`ScoreRoundSubmissionService`를
- * 구체 타입으로 직접 잡는다. 우리 쪽에서 같은 짓을 하면 라운드 프레임워크가
- * ① 아직 없는 계층(점수 2.6·게임 종료 2.7)에 컴파일 의존을 만들고
- * ② `docs/design/game-modules.md`의 "도메인 규칙은 전송 계층을 모른다"를 깬다.
+ * 왜 포트인가: 방·브로드캐스터·레지스트리·게임 종료·점수 제출을 구체 타입으로
+ * 직접 잡으면 라운드 프레임워크가 ① 함께 고쳐지는 계층(점수·게임 종료)에 컴파일
+ * 의존을 만들고 ② `docs/design/game-modules.md`의 "도메인 규칙은 전송 계층을
+ * 모른다"를 깬다.
  * 여기 선언된 인터페이스는 실제 클래스(`RoomBroadcaster`·`RoomSessionRegistry`·
  * `RoomService`)가 **구조적으로 이미 만족**하므로 어댑터 코드가 필요 없다
  * (`__tests__/roundPorts.contract.test.ts`가 그 대입 가능성을 고정한다).

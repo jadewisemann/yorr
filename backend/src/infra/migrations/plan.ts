@@ -10,7 +10,7 @@ export interface LocalMigration {
   readonly sql: string
 }
 
-/** `flyway_schema_history`의 한 행. Java가 쓴 행도 우리가 쓴 행도 같은 모양이다. */
+/** `flyway_schema_history`의 한 행. 기존 행도 우리가 쓴 행도 같은 모양이다. */
 export interface HistoryEntry {
   readonly installedRank: number
   /** repeatable 마이그레이션은 NULL. */
@@ -72,8 +72,8 @@ const isVersionedMigration = (entry: HistoryEntry): boolean =>
  * Flyway의 판정 규칙을 그대로 따른다:
  * - 같은 **버전**이 이력에 성공으로 있으면 적용된 것이다. 파일명이나 설명이
  *   달라도 버전이 기준이다(`1`과 `1.0`은 같은 버전 — `normalizeVersion`).
- * - baseline 행이 있으면 그 버전 **이하**는 적용 대상이 아니다. Java는
- *   `baseline-version: 0`을 명시해 V1이 조용히 건너뛰어지는 것을 막는다.
+ * - baseline 행이 있으면 그 버전 **이하**는 적용 대상이 아니다. baseline을 `0`으로
+ *   두어 V1이 조용히 건너뛰어지는 것을 막는다.
  * - 이력에만 있고 파일이 없는 것, 체크섬이 어긋난 것, 실패로 남은 행은
  *   판정 결과에 그대로 실어 보낸다 — 무엇을 오류로 볼지는 호출부가 정한다
  *   (전환기의 `verifyMigrations`는 엄격하고, 로컬 `runMigrations`는 덜 엄격하다).

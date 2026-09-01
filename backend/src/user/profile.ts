@@ -4,8 +4,7 @@ import { DomainError } from '../errors.js'
 import { normalizeNickname } from './session.js'
 
 /**
- * 회원이 자기 프로필을 보고 고치는 경로 —
- * backend-java `user/application/UserProfileService`.
+ * 회원이 자기 프로필을 보고 고치는 경로.
  *
  * 닉네임은 **두 곳**에 산다: `users` 테이블(영구)과 Redis 세션(인증·표시).
  * 개명은 그래서 dual-write다 — DB만 고치면 다시 로그인하기 전까지 방 명단에 옛
@@ -22,7 +21,7 @@ export class UserNotFoundError extends DomainError {
   }
 }
 
-/** 회원 프로필 저장소 — backend-java `user/repository/UserRepository`의 필요한 부분만. */
+/** 회원 프로필 저장소 — 프로필 경로에 필요한 부분만. */
 export interface UserProfileRepository {
   findById(userId: string): Promise<MemberUser | undefined>
 
@@ -138,12 +137,11 @@ export class UserProfileService {
    * 개명 자체가 그 상태를 해제한다.
    *
    * 순서가 계약이다:
-   * 1. **정규화 먼저**(Java와 같다). 없는 회원 + 잘못된 이름이면 `invalid_nickname`이
-   *    이긴다 — 규칙 위반은 회원 조회 없이도 판정되는 값 검증이다.
-   * 2. DB → 세션. Java는 `renameSession`을 트랜잭션 **안에서** 부르지만
-   *    (`@Transactional` 커밋 전), 그러면 커밋 실패 시 세션에만 새 이름이 남아
-   *    영구히 갈라진다. 뒤집으면 최악이 "DB는 새 이름·세션은 옛 이름"이고 이는
-   *    다음 로그인에 저절로 맞춰진다. **의도적 편차**(notes-4.3).
+   * 1. **정규화 먼저.** 없는 회원 + 잘못된 이름이면 `invalid_nickname`이
+   * 이긴다 — 규칙 위반은 회원 조회 없이도 판정되는 값 검증이다.
+   * 2. **DB → 세션.** 순서를 뒤집어 `renameSession`을 커밋 전에 부르면, 커밋
+   * 실패 시 세션에만 새 이름이 남아 영구히 갈라진다. 이 순서라면 최악이
+   * "DB는 새 이름·세션은 옛 이름"이고 이는 다음 로그인에 저절로 맞춰진다.
    * 3. 세션이 없어도 성공한다 — `renameSession`은 키가 있을 때만 쓴다.
    *
    * @throws InvalidNicknameError 빈 값·20자 초과

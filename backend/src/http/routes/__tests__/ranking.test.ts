@@ -8,7 +8,7 @@ import { UserService } from '../../../user/session.js'
 import { registerRankingRoutes } from '../ranking.js'
 
 /**
- * 이식: backend-java `RankingControllerTest` 전부.
+ * 이식: 전부.
  *
  * 세션은 진짜 Redis로 돈다 — 게스트/회원 구분이 이 라우트의 계약(403 vs 401)이고
  * 모킹으로는 지킬 수 없다(`users.test.ts`와 같은 방식). MySQL은 이 환경에 없으므로
@@ -154,8 +154,8 @@ describeRedis('랭킹 REST', () => {
     })
 
     /**
-     * Java는 `int limit`의 타입 변환 실패로 400을 낸다. 그 400의 본문은 Spring이
-     * 만든 프레임워크 흔적이라 계약이 아니므로 빈 본문으로 맞춘다.
+     * `limit`이 정수로 변환되지 않으면 400이다. 그 400의 본문은 프레임워크
+     * 흔적이라 계약이 아니므로 빈 본문으로 맞춘다.
      */
     it('limit이 정수가 아니면 400이다', async () => {
       for (const query of ['?limit=abc', '?limit=1.5', '?limit=1e3', '?limit=열']) {

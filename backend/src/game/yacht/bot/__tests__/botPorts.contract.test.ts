@@ -29,7 +29,7 @@ describe('봇 포트 ↔ 실제 구현 호환', () => {
 
     await real.initialize('room-a', 1, ['bot-a'])
     expect((await port.findByRoomId('room-a'))?.roundNumber).toBe(1)
-    // 없는 방은 undefined다(Java `Optional.empty()`) — 코디네이터의 스테일 판정 입력.
+    // 없는 방은 undefined다 — 코디네이터의 스테일 판정 입력.
     expect(await port.findByRoomId('room-z')).toBeUndefined()
   })
 

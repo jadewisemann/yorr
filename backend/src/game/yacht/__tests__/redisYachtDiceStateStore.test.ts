@@ -12,7 +12,7 @@ import {
 import { RedisYachtDiceStateStore } from '../redisYachtDiceStateStore.js'
 
 /**
- * backend-java `RedisYachtDiceStateStoreIntegrationTest` 이식 + 그 테스트가 덮지
+ * 그 테스트가 덮지
  * 않던 저장소 계약(락 고갈·TTL 복사·SETNX·SCAN·스냅샷 라운드트립).
  *
  * **모킹으로 검증할 수 없는 것만 여기 둔다**(ADR-0004): 방 락의 원자성, 방 키
@@ -29,7 +29,7 @@ describeRedis('RedisYachtDiceStateStore', () => {
 
   const stateKey = (roomId = ROOM): string => gameStateKey(roomId, 'YACHT_DICE')
 
-  /** 진행 중인 방 하나 + 라운드 상태 초기화. Java 테스트의 `@BeforeEach reset` 자리. */
+  /** 진행 중인 방 하나 + 라운드 상태 초기화. */
   const seed = async (
     options: { players?: string[]; ttlMs?: number; roomId?: string } = {},
   ): Promise<RedisYachtDiceStateStore> => {

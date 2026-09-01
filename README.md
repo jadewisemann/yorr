@@ -43,10 +43,10 @@ YORR는 별도 앱 설치 없이 모바일 브라우저에서 즐기는 멀티�
 |---|---|
 | Frontend | React 19, TypeScript, Vite, TanStack Router, Zustand |
 | UI · 그래픽 | Tailwind CSS 4, Motion, Three.js, Rapier |
-| Backend | Java 21, Spring Boot 4, Spring MVC, Spring WebSocket (Node.js + TypeScript로 마이그레이션 진행 중 — [backend/PLANS.md](backend/PLANS.md)) |
-| Data | MySQL 8, Redis 7, JPA, Flyway |
+| Backend | Node.js 22, TypeScript, Fastify, ws |
+| Data | MySQL 8, Redis 7 |
 | Realtime | WebSocket, WebRTC |
-| Test | Vitest, Testing Library, Playwright, MSW, JUnit, Testcontainers |
+| Test | Vitest, Testing Library, Playwright, MSW |
 | Infra | Docker Compose, GitHub Actions, Vercel, Prometheus |
 
 ## 시스템 아키텍처
@@ -58,7 +58,7 @@ Mobile / Desktop Browser
         ├── WebSocket ──────────────┤
         └── WebRTC DataChannel      │
              휴대폰 ↔ 큰 화면        ▼
-             (파티 모드)   Spring Boot Backend
+             (파티 모드)   Node 백엔드
                              │              │
                              ▼              ▼
                           MySQL           Redis

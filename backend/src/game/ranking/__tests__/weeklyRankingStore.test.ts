@@ -8,7 +8,7 @@ import { weeklyRankingResponse } from '../weeklyRankingResponse.js'
 import { MysqlWeeklyRankingStore } from '../weeklyRankingStore.js'
 
 /**
- * 이식: backend-java `WeeklyRankingQueryIntegrationTest`(캐시 3종 제외 — 그건
+ * 이식: (캐시 3종 제외 — 그건
  * 데코레이터 단위 테스트로 옮겼다, `weeklyRankingCache.test.ts`).
  *
  * 주간 집계 질의는 스키마와 함께 움직인다 — `user_id` nullable(게스트)과 users 조인,

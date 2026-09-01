@@ -8,8 +8,8 @@ import { z } from 'zod'
  *   들어 있는데, 그것을 따르면 4.1이 `timezone: 'Z'`로 막아 둔 9시간 어긋남이
  *   그대로 되살아난다(persistence.md의 `finished_at` 계약). SSL·인코딩 옵션도
  *   mysql2에서는 이름이 다르므로 옮기지 않는다.
- * - userinfo(`user:pass@`)도 무시한다 — Java도 JDBC 프로퍼티(`DB_USERNAME`·
- *   `DB_PASSWORD`)가 URL 안의 값을 이기므로 같은 결론이다.
+ * - userinfo(`user:pass@`)도 무시한다 — `DB_USERNAME`·`DB_PASSWORD`가 URL 안의
+ *   값을 이긴다.
  */
 const parseJdbcMysqlUrl = (
   value: string,
@@ -32,8 +32,8 @@ const parseJdbcMysqlUrl = (
   }
 }
 
-// backend-java의 application.yaml과 같은 환경변수 이름을 유지한다 —
-// 운영 전환 시 .env 파일을 그대로 재사용하기 위해서다.
+// 환경변수 이름은 운영 `.env`에 이미 들어 있는 것을 그대로 쓴다 — 이름을
+// 바꾸면 배포 호스트의 파일을 함께 고쳐야 하고, 그 둘이 어긋나면 부팅이 깨진다.
 const envSchema = z
   .object({
     SERVER_PORT: z.coerce.number().int().positive().default(8080),
@@ -42,8 +42,7 @@ const envSchema = z
     REDIS_PORT: z.coerce.number().int().positive().default(6379),
     REDIS_PASSWORD: z.string().default(''),
     /**
-     * **운영 `.env`가 실제로 담고 있는 MySQL 좌표**다. Java는
-     * `application.yaml`의 `url: ${DB_URL}` 하나로 JDBC URL을 받는다
+     * **운영 `.env`가 실제로 담고 있는 MySQL 좌표**다. JDBC URL 하나로 온다
      * (예: `jdbc:mysql://localhost:3306/yorr?useSSL=false&...`).
      *
      * 값이 있으면 아래 `DB_HOST`·`DB_PORT`·`DB_NAME`을 **덮어쓴다** — 쪼개진
@@ -57,7 +56,7 @@ const envSchema = z
     DB_NAME: z.string().default('yorr'),
     DB_USERNAME: z.string().default('yorr'),
     DB_PASSWORD: z.string().default(''),
-    // 소셜 로그인. 이름·기본값은 backend-java `application.yaml`의 `yorr.auth.*` 그대로다.
+    // 소셜 로그인. 이름·기본값은 운영 `.env`에 들어 있는 것 그대로다.
     // 값이 비어 있어도 서버는 뜬다 — 로그인 엔드포인트를 호출할 때만 거절한다.
     /** 로그인을 끝낸 사용자를 되돌려 보낼 **프론트** 주소(제공자 콘솔 등록값이 아니다). */
     AUTH_FRONTEND_REDIRECT_URI: z.string().default('http://localhost:5173/auth/callback'),

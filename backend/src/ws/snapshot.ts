@@ -4,7 +4,7 @@ import type { RoomSessionRegistry } from './registry.js'
 
 /**
  * Redis의 전체 참가자 명단과 WebSocket의 접속 상태를 합쳐 클라이언트용 스냅샷을
- * 만든다 — backend-java `ws/RealtimeRoomSnapshotService`.
+ * 만든다.
  *
  * 봇은 서버가 제어하는 참가자라 소켓 레지스트리에 없다 → **항상 online**.
  * Redis에는 있는데 소켓이 없는 사람은 offline이다.
@@ -17,7 +17,7 @@ export class RealtimeRoomSnapshotService {
 
   async snapshot(roomId: string): Promise<WsRoomSnapshot> {
     const persistent = await this.rooms.getSnapshot(roomId)
-    // 방이 이미 사라졌으면 인메모리 명단만으로 답한다(Java와 같음).
+    // 방이 이미 사라졌으면 인메모리 명단만으로 답한다.
     if (persistent.phase === null) return this.sessions.snapshot(roomId)
 
     const players = persistent.players

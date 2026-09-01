@@ -5,9 +5,8 @@
 
 ## 현재 상태: 와이어 계약 동결 🧊
 
-백엔드 Java → JS 마이그레이션([backend/PLANS.md](../backend/PLANS.md))이 끝날
-때까지 프론트엔드 프로덕션 코드는 변경하지 않는 것이 목표다. 특히
-`src/realtime/wsEvents.ts`와 REST 사용부는 **계약 동결** 상태다
+`src/realtime/wsEvents.ts`와 REST 사용부는 **계약 동결** 상태다 — 프론트가
+계약의 정본이므로 여기를 바꾸면 서버가 따라와야 한다
 
 > **동결을 깬 5건.** 「연습 방 시계」(넓히기)·「음성 채팅 → 텍스트 채팅」(교체)·
 > 「컨트롤러 링크」(넓히기)·「파티 탁구 호스트 판정」(넓히기)·「다빈치 코드 추가」(넓히기)
@@ -21,7 +20,7 @@
 > 컴포넌트는 계약을 건드리지 않으므로 동결과 무관하다(아래 디자인 시스템 작업
 > 5건이 그 선례다). 백엔드는 "이식 완료"지만 e2e:real·MySQL 통합이 미검증이라
 > 동결을 아직 풀지 않는다
-([backend ADR-0002](../backend/docs/adr/0002-strangler-wire-contract.md)).
+([backend DESIGN.md](../backend/DESIGN.md) 원칙 5).
 문서·테스트·포트폴리오 작업은 동결과 무관하다.
 
 ## 대기 중인 이관 티켓 (동결 해제 후)
@@ -73,9 +72,9 @@
 | WS | `Player`에 `tier?: 'BRONZE' \| 'SILVER' \| 'GOLD' \| 'PLATINUM' \| 'DIAMOND' \| 'MASTER'` optional 추가. 게스트·봇·언랭크(배치 5판 미만)·비대상 게임은 필드 생략 |
 | REST | `GET /users/me/stats`(게임별 레이팅·티어·전적) · `GET /users/me/matches?limit=`(최근 경기와 레이팅 변동) 신설 |
 
-기존 메시지·경로는 하나도 바뀌지 않는다. `tier`를 모르는 서버(backend-java 롤백
-포함)에서는 휘장이 안 보일 뿐 화면은 그대로다. 프론트가 계약의 정본이므로
-`wsEvents.ts`를 먼저 고치고 서버가 맞춘다.
+기존 메시지·경로는 하나도 바뀌지 않는다. `tier`를 모르는 서버(`deploy/rollback.sh`로
+직전 릴리스에 되돌린 경우 포함)에서는 휘장이 안 보일 뿐 화면은 그대로다. 프론트가
+계약의 정본이므로 `wsEvents.ts`를 먼저 고치고 서버가 맞춘다.
 
 ### 화면 계획
 
@@ -290,7 +289,7 @@ STUN은 유지한다. 트래픽이 지나가지 않아 비용이 없고, 손님 
 
 - **계약**: `voice.join`·`voice.leave`·`voice.signal`·`voice.peers`·`voice.signaled`와
   `GET /voice/ice`를 지우고 `chat.send`(C→S)·`chat.message`(S→C)를 넣었다. **넓히기가
-  아니라 교체다** — backend-java로 롤백하면 채팅만 동작하지 않는다(게임·방·인증 경로는
+  아니라 교체다** — `chat.send`를 모르는 서버로 되돌리면 채팅만 동작하지 않는다(게임·방·인증 경로는
   그대로).
 - **사라진 코드**: `realtime/voice/` 전부(풀메시 `voiceMesh`·`useVoiceChat`·
   `PeerMicButton`·`iceServers`), `AudioPopover`의 마이크 행, `AudioStatusIcon`의
@@ -410,7 +409,7 @@ IMPLEMENTATION_NOTES.md 2026-08-21.
 (봇만 데리고 혼자 하는 방). 서버 쪽 판정·근거는
 [backend/PLANS.md](../backend/PLANS.md) 「연습 방 시계 제거」 절. 프론트가 계약의
 정본이므로 `wsEvents.ts`를 먼저 고치고 서버를 맞췄다. 넓히기만 했으므로 숫자 마감을
-보내는 서버(구 backend-java 롤백 포함)에서도 화면은 그대로 동작한다.
+보내는 서버(직전 릴리스로 롤백한 경우 포함)에서도 화면은 그대로 동작한다.
 
 ### 열린 결정 2건
 

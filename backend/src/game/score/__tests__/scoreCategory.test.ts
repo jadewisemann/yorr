@@ -10,7 +10,6 @@ import {
 } from '../scoreCategory.js'
 import { ScoreDomainError } from '../scoreErrors.js'
 
-// backend-java `ScoreCategoryTest` 이식.
 describe('ScoreCategory', () => {
   it('12종을 선언 순서 그대로 가진다', () => {
     expect([...SCORE_CATEGORIES]).toEqual([
@@ -33,7 +32,7 @@ describe('ScoreCategory', () => {
   })
 
   /**
-   * 라운드 도메인이 같은 목록을 **따로** 들고 있다(의도된 중복 — Java와 같은 경계).
+   * 라운드 도메인이 같은 목록을 **따로** 들고 있다(의도된 중복 — 도메인 경계).
    * 갈라지면 "제출은 되는데 점수를 못 매기는" 카테고리가 생기므로 여기서 못박는다.
    */
   it('라운드 도메인의 제출 가능 카테고리 목록과 순서·철자가 같다', () => {

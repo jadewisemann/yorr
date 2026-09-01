@@ -1,8 +1,7 @@
 import type { ReconnectRoundState, ScoreboardsByPlayer } from './reconnectPorts.js'
 
 /**
- * 재접속 시 클라이언트가 진행 화면을 복원하는 데 필요한 권위 상태 —
- * backend-java `game/yacht/YachtDiceState`.
+ * 재접속 시 클라이언트가 진행 화면을 복원하는 데 필요한 권위 상태.
  *
  * 정본은 프론트의 `GameState`(`frontend/src/realtime/wsEvents.ts`)이며
  * `sys.reconnected`/`state.sync` 스냅샷의 `game` 필드에 그대로 실린다.
@@ -25,7 +24,7 @@ export interface YachtDiceState {
   readonly turnOrder: readonly string[]
   /** 현재 턴에서 이미 굴린 횟수(0~3). 첫 굴림 전이면 0. */
   readonly rollCount: number
-  /** 첫 굴림 전에는 **생략**된다(Java `@JsonInclude(NON_NULL)`). */
+  /** 첫 굴림 전에는 **생략**된다. */
   readonly dice?: readonly number[] | undefined
   /** 첫 굴림 전에는 **생략**된다. */
   readonly held?: readonly boolean[] | undefined
@@ -35,7 +34,7 @@ export interface YachtDiceState {
  * 라운드 상태 + 마감 + 점수판을 재접속용 게임 상태로 조립한다.
  *
  * `dice`·`held`는 null 대신 **undefined**로 둔다: `JSON.stringify`가 undefined
- * 프로퍼티를 지우므로 Java의 `@JsonInclude(NON_NULL)`과 같은 와이어 결과가 되고,
+ * 프로퍼티를 지우므로 "null이면 필드 생략"이라는 와이어 계약이 지켜지고,
  * null을 그대로 실으면 프론트가 "굴렸는데 값이 없다"로 읽는다.
  */
 export const createYachtDiceState = (

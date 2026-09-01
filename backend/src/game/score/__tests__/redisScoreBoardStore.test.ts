@@ -30,7 +30,7 @@ const GAME_ID = 'game-1'
 const PLAYER_ID = 'player-1'
 
 /**
- * backend-java `RedisScoreBoardStoreIntegrationTest` 이식 — **진짜 Redis**에서만
+ * **진짜 Redis**에서만
  * 의미가 있는 것들(Lua 원자성·멱등 재시도·동시 요청·TTL·양방향 매핑)만 여기 둔다.
  */
 describeRedis('RedisScoreBoardStore', () => {

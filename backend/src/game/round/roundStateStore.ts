@@ -3,10 +3,9 @@ import type { RoundState, RoundSubmissionResult } from './roundState.js'
 import type { RoundSubmission } from './roundSubmission.js'
 
 /**
- * 라운드 상태 저장소 포트(backend-java `RoundStateStore`).
+ * 라운드 상태 저장소 포트.
  *
- * **모든 메서드가 async다** — Java는 `ConcurrentHashMap.compute` 안에서 동기로
- * 원자성을 얻지만, 운영 어댑터는 Redis(방 락 + JSON 스냅샷)이고
+ * **모든 메서드가 async다** — 운영 어댑터는 Redis(방 락 + JSON 스냅샷)이고
  * `beforeStateChange`(점수 확정)도 Redis Lua라 동기일 수 없다. 인메모리 구현은
  * 방 단위 프라미스 락으로 "검증 → 콜백 → 커밋" 구간의 끼어들기를 막아 같은
  * 계약을 지킨다.
@@ -113,7 +112,7 @@ const notInitialized = (roomId: string): RoundSynchronizationError =>
  * 단일 인스턴스 인메모리 어댑터 — **테스트 시드**다. 운영은 Redis 어댑터가
  * 같은 포트를 구현한다(docs/design/game-modules.md 「저장소 포트」).
  *
- * Java의 `ConcurrentHashMap.compute` 자리에 **방 단위 프라미스 체인 락**을 뒀다.
+ * 원자성은 **방 단위 프라미스 체인 락**으로 얻는다.
  * Node는 단일 스레드라 동기 구간은 원자적이지만 `beforeStateChange`를 await하는
  * 순간 같은 방의 다른 제출이 끼어들 수 있다 — 그러면 "두 개의 마지막 제출이
  * 라운드를 두 번 완료"가 실제로 가능해진다.

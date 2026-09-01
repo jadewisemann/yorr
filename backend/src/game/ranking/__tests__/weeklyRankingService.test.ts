@@ -4,10 +4,8 @@ import { MAX_LIMIT, WeeklyRankingService } from '../weeklyRankingService.js'
 import type { WeeklyBest, WeeklyRankingRepository } from '../weeklyRankingStore.js'
 
 /**
- * 이식: backend-java `WeeklyRankingServiceTest` 전부 + `myCurrentWeek` 갈래.
- *
- * Java는 Mockito로 리포지토리 호출 인자를 캡처했다. 여기서는 호출을 기록하는 가짜
- * 리포지토리를 쓴다 — **MySQL 없이 돈다**. 서비스가 고정하는 것은 저장소가 아니라
+ * 호출을 기록하는 가짜 리포지토리를 쓴다 — **MySQL 없이 돈다**.
+ * 서비스가 고정하는 것은 저장소가 아니라
  * "어떤 구간·어떤 게임 코드·어떤 limit으로 물었는가"다.
  */
 
@@ -57,8 +55,8 @@ describe('WeeklyRankingService', () => {
   }
 
   /**
-   * Java: `월요일_0시_KST가_되는_순간부터_새_주를_센다`. 경계 계산 자체는
-   * `weekBoundary.test.ts`가 보고, 여기서는 **그 값이 실제로 질의에 실리는지**를 본다.
+   * 경계 계산 자체는 `weekBoundary.test.ts`가 보고, 여기서는 **그 값이 실제로
+   * 질의에 실리는지**를 본다.
    */
   it('KST 월요일 00:00을 UTC 구간으로 바꿔 질의한다', async () => {
     const { participants, service } = serviceAt('2026-08-02T15:00:00.000Z')

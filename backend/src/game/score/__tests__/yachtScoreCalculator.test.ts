@@ -17,7 +17,6 @@ const upperScores = (onesScore: number): ReadonlyMap<ScoreCategory, number> =>
     ['sixes', 18],
   ])
 
-// backend-java `YachtScoreCalculatorTest` 이식.
 describe('YachtScoreCalculator', () => {
   it('상단 카테고리는 해당 눈의 합이다', () => {
     expect(calculateScore('ones', [1, 1, 1, 2, 3])).toBe(3)
@@ -101,7 +100,7 @@ describe('YachtScoreCalculator', () => {
       calculateUpperSubtotal(null as unknown as ReadonlyMap<ScoreCategory, number>),
     ).toThrow(ScoreDomainError)
     expect(() => calculateUpperSubtotal(new Map([['ones', -1]]))).toThrow(ScoreDomainError)
-    // 기록하지 않은 칸(null)은 0이 아니라 손상으로 본다 — Java와 같다.
+    // 기록하지 않은 칸(null)은 0이 아니라 손상으로 본다.
     expect(() => calculateUpperSubtotal(new Map([['ones', null]]))).toThrow(ScoreDomainError)
   })
 

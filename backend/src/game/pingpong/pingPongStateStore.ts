@@ -7,7 +7,7 @@ import type { PingPongStateStore } from './pingPongPorts.js'
 import type { PingPongState } from './pingPongState.js'
 
 /**
- * Redis 어댑터 — backend-java `game/pingpong/RedisPingPongStateStore`.
+ * Redis 어댑터.
  *
  * 상태 하나가 JSON 문자열로 `room:{code}:game:PING_PONG:state`에 산다. duel과
  * 같은 패턴이다: SETNX 초기화 · 방 단위 락(5초 TTL, 2초 스핀) · 방 키 PTTL 복사 ·

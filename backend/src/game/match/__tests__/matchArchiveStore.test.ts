@@ -8,10 +8,10 @@ import { MatchArchiveService } from '../matchArchiveService.js'
 import { MysqlMatchArchiveStore } from '../matchArchiveStore.js'
 
 /**
- * backend-java `MatchArchiveServiceIntegrationTest`의 MySQL 절반.
+ * 전적 보관의 MySQL 절반.
  *
- * Java 주석이 그 이유를 말한다: "결과 적재는 스키마·제약과 함께 움직인다
- * (`game_id` UNIQUE, `user_id` nullable + FK). 그 합은 실제 MySQL에서만 확인된다."
+ * 결과 적재는 스키마·제약과 함께 움직인다(`game_id` UNIQUE, `user_id` nullable +
+ * FK). 그 합은 실제 MySQL에서만 확인된다.
  * 여기서만 확인되는 것: 제약이 실제로 멱등을 지키는가, `finished_at`이 **UTC
  * 벽시계**로 적히는가(4.5의 KST 주 경계 질의가 그 값에 기댄다).
  *
@@ -200,9 +200,9 @@ describeMysql('MysqlMatchArchiveStore (실 MySQL)', () => {
   })
 
   /**
-   * **Java와 의도적으로 다른 지점.** Java는 제약 위반 전체를 "이미 저장됨"(false)으로
-   * 뭉갠다. FK 위반은 저장되지 않았다는 뜻이므로 여기서는 던진다 — 종료 경로가
-   * 삼켜 `onArchiveFailure`로 흘리므로 게임은 끝나고 사실은 드러난다.
+   * 제약 위반 전체를 "이미 저장됨"(false)으로 뭉개지 않는다. FK 위반은 저장되지
+   * 않았다는 뜻이므로 던진다 — 종료 경로가 삼켜 `onArchiveFailure`로 흘리므로
+   * 게임은 끝나고 사실은 드러난다.
    */
   it('유니크가 아닌 제약 위반은 false로 뭉개지 않고 던진다', async () => {
     const { pool, store } = await setUp()

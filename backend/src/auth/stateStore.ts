@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import type { Redis } from 'ioredis'
 
 /**
- * OAuth `state` 보관소 — backend-java `auth/application/OAuthStateStore`.
+ * OAuth `state` 보관소.
  *
  * 이게 없으면 공격자가 자기 인가 코드를 담은 콜백 URL로 피해자를 유도해
  * **피해자를 공격자 계정으로 로그인시킬 수 있다**(로그인 CSRF). authorize에서
@@ -11,7 +11,7 @@ import type { Redis } from 'ioredis'
  * **한 번 쓰면 사라진다.** 판정을 `GETDEL`의 반환값으로 하므로 같은 콜백 URL이
  * 동시에 두 번 열려도 한쪽만 통과한다 — 1회용 시맨틱이 계약이다.
  *
- * 값에는 **그 로그인을 시작한 프론트 복귀 주소**를 담는다(Java는 `"1"`을 담았다).
+ * 값에는 **그 로그인을 시작한 프론트 복귀 주소**를 담는다.
  * 제공자가 콜백으로 돌려주는 것은 `state`·`code`·`error`뿐이고 redirect_uri에
  * 파라미터를 덧붙이면 콘솔 등록값과 달라져 거절되므로(카카오 KOE006),
  * **출처를 왕복시킬 수 있는 자리가 여기뿐**이다. 값은 우리가 발급한 것만

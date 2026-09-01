@@ -19,9 +19,9 @@ const GUEST_2 = guest('player-2', '참가자')
 const DASHBOARD = 'dashboard-1'
 
 /**
- * 봇 참가자 — backend-java `BotParticipantServiceTest`.
+ * 봇 참가자.
  *
- * Java 쪽은 Lua **텍스트**를 문자열로 대조하는 테스트였다. 텍스트는 이식하면서
+ * Lua **텍스트**를 문자열로 대조하지 않는다. 텍스트는 옮기면서
  * 이미 1:1로 옮겼으므로, 여기서는 그 텍스트가 지키려던 **동작**(검증 순서·세 키
  * 동시 기록·봇만 삭제)을 진짜 Redis로 확인한다 — 조건 하나가 빠져도 텍스트
  * 비교는 통과할 수 있지만 이건 통과하지 못한다.
@@ -206,7 +206,7 @@ describeRedis('BotParticipantService — 삭제', () => {
 })
 
 /**
- * 파티 방·방장 승계와 봇의 관계 — backend-java `PartyRoomIntegrationTest`의 봇 케이스.
+ * 파티 방·방장 승계와 봇의 관계.
  * 봇 추가 권한이 "지금 명단 안의 방장"에게만 있고, 봇은 그 자리를 물려받지 못한다.
  */
 describeRedis('BotParticipantService — 파티 방과 방장 승계', () => {

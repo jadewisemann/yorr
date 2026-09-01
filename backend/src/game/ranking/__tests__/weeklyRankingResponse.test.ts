@@ -3,7 +3,7 @@ import { weeklyRankingResponse } from '../weeklyRankingResponse.js'
 import type { WeeklyBest } from '../weeklyRankingStore.js'
 
 /**
- * 이식: backend-java `WeeklyRankingResponseTest` 2종 + `WeeklyRankingQueryIntegrationTest`의
+ * 이식: 2종 + `WeeklyRankingQueryIntegrationTest`의
  * `내_순위는_목록에_적히는_번호와_같다`의 번호 체계 부분(MySQL 없이 확인되는 절반).
  */
 describe('주간 랭킹 응답 조립', () => {

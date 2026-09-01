@@ -1,12 +1,11 @@
 import type { Ranking } from './gameResultCalculator.js'
 
 /**
- * 게임 종료 서비스(2.7)가 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은
- * 포트로만 표현한다. 2.5(`round/roundPorts.ts`)와 같은 방식이고 같은 이유다:
- * Java `GameCompletionService`는 `RoomService`·`RoomBroadcaster`·
- * `RoomSessionRegistry`·`RealtimeRoomSnapshotService`·`RoundDeadlineScheduler`·
- * `MatchArchiveService`를 구체 타입으로 잡는데, 그대로 옮기면
- * ① 병렬로 고쳐지는 파일(ws·room·4.4)에 컴파일이 묶이고
+ * 게임 종료 서비스가 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은
+ * 포트로만 표현한다. `round/roundPorts.ts`와 같은 방식이고 같은 이유다.
+ *
+ * 방·브로드캐스터·레지스트리·스냅샷·스케줄러·전적 보관을 구체 타입으로 잡으면
+ * ① 함께 고쳐지는 파일(ws·room·match)에 컴파일이 묶이고
  * ② game-modules.md의 "도메인 규칙은 전송 계층을 모른다"를 깬다.
  *
  * 여기 선언한 인터페이스는 실제 클래스가 **구조적으로 이미 만족**하므로 어댑터가
@@ -73,11 +72,11 @@ export interface CompletionSnapshotService {
 }
 
 /**
- * 전적 보관의 자리 — **4.4(MatchArchiveService)가 채운다**.
+ * 전적 보관의 자리 — `MatchArchiveService`가 채운다.
  *
- * 반환값(Java는 "실제로 저장했는지" boolean)을 종료 경로는 쓰지 않는다. 그래서
- * `unknown`으로 열어 둔다 — 4.4가 `Promise<boolean>`을 돌려주든 아무것도 돌려주지
- * 않든 이 포트를 만족한다(`round/roundPorts.ts`의 `touch`와 같은 규약).
+ * 반환값("실제로 저장했는지")을 종료 경로는 쓰지 않는다. 그래서 `unknown`으로
+ * 열어 둔다 — 구현이 `Promise<boolean>`을 돌려주든 아무것도 돌려주지 않든 이
+ * 포트를 만족한다(`round/roundPorts.ts`의 `touch`와 같은 규약).
  */
 export interface MatchArchivePort {
   archive(room: CompletionRoomSnapshot, rankings: readonly Ranking[]): Promise<unknown> | unknown

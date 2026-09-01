@@ -3,8 +3,7 @@ import type { SocialAccountRegistrar, SocialAccountRepository } from './socialAc
 import { type MemberUser, PLACEHOLDER_NICKNAME, type SocialProvider } from './socialProfile.js'
 
 /**
- * "있으면 로그인, 없으면 가입"을 정하는 한 곳 —
- * backend-java `auth/application/SocialLoginService`.
+ * "있으면 로그인, 없으면 가입"을 정하는 한 곳.
  *
  * 이 분기는 동시 요청에서 **깨진다.** 같은 사람이 로그인 버튼을 두 번 누르면 두
  * 요청이 모두 "없음"을 보고 나란히 가입을 시도한다. 최종 방어선은

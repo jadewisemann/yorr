@@ -7,11 +7,11 @@ import { DUEL_CODE } from './duelCode.js'
 import type { DuelState } from './duelState.js'
 
 /**
- * 진행 중 결투 상태의 저장소 — backend-java `RedisDuelStateStore`.
+ * 진행 중 결투 상태의 저장소.
  *
  * 왜 락인가: 결투는 두 플레이어의 `draw`와 서버 타임아웃(신호·유예 만료·연출
  * 종료)이 **같은 밀리초에 도착할 수 있다**. read-modify-write를 그냥 하면 늦게 쓴
- * 쪽이 앞의 판정을 덮어써 "먼저 뽑았는데 안 맞은" 상태가 나온다. Java와 같은
+ * 쪽이 앞의 판정을 덮어써 "먼저 뽑았는데 안 맞은" 상태가 나온다. 아래
  * SET NX 락 + 토큰 비교 해제를 쓴다(DESIGN.md 원칙 8 단일 인스턴스 전제).
  */
 export interface DuelStateStore {
@@ -24,7 +24,7 @@ export interface DuelStateStore {
    * 락 안에서 read → 규칙 적용 → write.
    *
    * @param mutation `null`을 돌려주면 "변이 없음". 규칙 함수가 **상태를 그대로**
-   *   돌려주는 경우(= version 비증가)도 같게 취급한다.
+   * 돌려주는 경우(= version 비증가)도 같게 취급한다.
    * @returns 실제로 저장된 새 상태. 변이가 없었으면 `null`(방송·재예약 금지 신호).
    */
   mutate(
@@ -91,7 +91,7 @@ export class RedisDuelStateStore implements DuelStateStore {
       if (value === null) return null
       const current = deserialize(value)
       const next = mutation(current)
-      // **version이 오르지 않은 갱신은 버린다.** Java는 `==`만 비교하지만 여기서는
+      // **version이 오르지 않은 갱신은 버린다.** 같은 값 비교가 아니라
       // `<=`로 막는다 — 오래된 상태(재예약 전에 만들어진 스냅샷)를 그대로 쓰면
       // 새 판정이 조용히 지워지고, 방송도 스케줄도 과거로 되돌아간다.
       if (next === null || next.version <= current.version) return null
@@ -133,7 +133,7 @@ export class RedisDuelStateStore implements DuelStateStore {
 const serialize = (state: DuelState): string => JSON.stringify(state)
 
 /**
- * 저장된 값이 결투 상태가 아니면 **조용히 넘기지 않는다**(Java `invalid_duel_state`).
+ * 저장된 값이 결투 상태가 아니면 **조용히 넘기지 않는다**.
  * 배포 사이에 상태 모양이 바뀌면 여기서 드러나는 편이 낫다 — 반쪽 상태로 판정하면
  * 총알 수가 틀린 결투가 계속 진행된다.
  */

@@ -15,13 +15,13 @@ import {
 import type { PingPongState } from '../pingPongState.js'
 
 /**
- * backend-java `PingPongRulesTest` 7종의 이식. 모든 시각은 인자로 주입하므로
+ * 탁구 규칙 7종. 모든 시각은 인자로 주입하므로
  * **실시간 sleep도 가짜 타이머도 필요 없다** — 규칙이 순수 함수이기 때문이다.
  */
 const P1 = 'player-1'
 const P2 = 'player-2'
 
-/** Java 테스트의 `startMatch()` — 연습 → ready → 전원 ready → 서브까지. */
+/** 판 시작까지 — 연습 → ready → 전원 ready → 서브. */
 const startMatch = (): PingPongState => {
   let state = initial([P1, P2], 1_000)
   state = swing(state, P1, 0, 1_100, 0.5)
@@ -31,7 +31,7 @@ const startMatch = (): PingPongState => {
   return serve(state, 4_000, 0.7)
 }
 
-/** Java 테스트의 `playingAtScore()` — 임의 점수의 랠리 상태를 직접 심는다. */
+/** 임의 점수의 랠리 상태를 직접 심는다. */
 const playingAtScore = (p1: number, p2: number): PingPongState => ({
   version: 1,
   phase: 'PLAYING',

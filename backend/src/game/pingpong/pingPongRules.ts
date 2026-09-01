@@ -12,7 +12,7 @@ import type {
 import { isPingPongFinished } from './pingPongState.js'
 
 /**
- * 탁구 규칙 — backend-java `game/pingpong/PingPongRules`. **순수 함수만** 있다:
+ * 탁구 규칙. **순수 함수만** 있다:
  * Redis·WS·시계·난수를 모르고, 시각과 좌우 목표점은 인자로 받는다.
  *
  * 궤적은 1차원 해석 모델이다(틱 없음). `pos`는 0→1로 `playerOrder[0]` 쪽을
@@ -155,7 +155,7 @@ export const serveReceiver = (
  * 알려진 구멍: 클라 시계가 서버보다 뒤져 있으면 그만큼 공짜 되감기를 얻는다
  * (최대 120ms). 시계에서 완전히 벗어나려면 `clientTs` 대신 "이 공 상태를 받은 뒤
  * 흐른 ms"를 보내고 `launchedAt`에 더해야 한다 — 그때 이 함수는 사라진다.
- * 와이어 계약 동결이므로 지금은 Java 그대로 이식한다.
+ * 와이어 계약을 바꾸는 일이라 지금은 그대로 둔다.
  */
 export const judgedAt = (now: number, clientTs: number): number =>
   Math.max(now - MAX_ROLLBACK_MILLIS, Math.min(now, clientTs))
@@ -427,11 +427,11 @@ const point = (
  * 통과 조건 넷:
  *
  * 1. **보낸 사람이 플레이어가 아니어야 한다.** 대시보드는 방 스냅샷 명단에 없으므로
- *    `playerOrder`에 없다. 플레이어가 자기 점수를 올리는 것을 막는 최소선이다.
+ * `playerOrder`에 없다. 플레이어가 자기 점수를 올리는 것을 막는 최소선이다.
  * 2. **version이 증가해야 한다.** 늦게 도착한 옛 상태가 진행을 되돌리면 안 된다
- *    (결투의 "version 비증가 무시"와 같은 규칙).
+ * (결투의 "version 비증가 무시"와 같은 규칙).
  * 3. **roster를 바꿀 수 없다.** `playerOrder`가 서버가 만든 것과 같아야 한다 —
- *    대시보드가 참가자를 새로 정하는 통로가 되면 안 된다.
+ * 대시보드가 참가자를 새로 정하는 통로가 되면 안 된다.
  * 4. **끝난 판은 다시 열리지 않는다.**
  *
  * @returns 받아들일 상태, 거절이면 null(스토어가 아무것도 쓰지 않는다).

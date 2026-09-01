@@ -3,7 +3,7 @@ import { weekBoundaryOf } from './weekBoundary.js'
 import type { WeeklyBest, WeeklyRankingRepository } from './weeklyRankingStore.js'
 
 /**
- * 이번 주 최고점 랭킹 — backend-java `game/ranking/application/WeeklyRankingService`.
+ * 이번 주 최고점 랭킹.
  *
  * 랭킹이 바뀔 수 있는 시점은 판이 끝날 때뿐이므로(한 판이 10~30분) 주기적으로 다시
  * 세지 않는다. 집계는 요청 때 MySQL이 하고, 그 결과를 캐시가 들고 있다가 전적

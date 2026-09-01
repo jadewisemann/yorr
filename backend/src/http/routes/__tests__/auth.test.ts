@@ -23,7 +23,7 @@ import { UserService } from '../../../user/session.js'
 import { registerAuthRoutes } from '../auth.js'
 
 /**
- * 소셜 로그인 REST — backend-java `auth/controller/AuthController`.
+ * 소셜 로그인 REST.
  *
  * 세션·state·로그인 코드는 진짜 Redis로 돈다(1회용 시맨틱과 TTL이 계약이라
  * 모킹으로는 못 지킨다). MySQL은 이 환경에 없으므로 회원 저장소만 인메모리

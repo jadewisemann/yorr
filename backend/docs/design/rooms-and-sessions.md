@@ -1,10 +1,8 @@
 # 방·세션
 
-> 상위 원칙은 [DESIGN.md](../../DESIGN.md). Java 원본: `room/`, `user/`.
-> 아래는 backend-java 코드·테스트 전수 대조 결과다(2026-08-14).
+> 상위 원칙은 [DESIGN.md](../../DESIGN.md).
 > ⚠️ `POST /api/v1/users/guests`·`POST /rooms/{code}/players` 같은 엔드포인트는
-> **존재하지 않는다**(낡은 GAME_SESSION_INTEGRATION.md의 잔재). 게스트 발급은
-> `POST /rooms`에 통합되어 있다.
+> **존재하지 않는다.** 게스트 발급은 `POST /rooms`에 통합되어 있다.
 
 ## 세션 모델 (게스트 = 회원, 같은 모양)
 
@@ -116,14 +114,14 @@ phase가 **대문자**고, 키가 `roomCode`며, 플레이어에 `score`가 있�
 ## Lua 스크립트 (원자성 계약)
 
 반환 코드가 곧 계약이다. 이식 시 **스크립트 텍스트와 반환 코드 의미를 그대로**
-옮기고 동시성 테스트를 함께 이식한다. 전체 텍스트는 backend-java
+옮기고 동시성 테스트를 함께 둔다. 전체 텍스트는
 `RoomCreateService`·`RoomValidationService`·`BotParticipantService`·
 `RedisScoreBoardStore`·`RedisGameCompletionStore` 참고. 요지:
 
 | 스크립트 | 검증 → 변경 | 반환 |
 |---|---|---|
 | CREATE | 코드 미사용 확인 → 방 해시 생성+TTL | 0 충돌(재시도) / 1 생성 |
-| JOIN | 존재 → LOBBY → **중복(먼저)** → 정원 → roster/scores 추가, members+1, host 승계(공석/roster 밖이면 참가자가 승계), 자식 키 TTL 정렬 | 0 없음 / 2 시작됨 / 3 정원 / 4 중복(Java는 **미처리** — 성공 취급, 단 TTL 갱신을 건너뜀) / 1 참가 |
+| JOIN | 존재 → LOBBY → **중복(먼저)** → 정원 → roster/scores 추가, members+1, host 승계(공석/roster 밖이면 참가자가 승계), 자식 키 TTL 정렬 | 0 없음 / 2 시작됨 / 3 정원 / 4 중복 / 1 참가 |
 | LEAVE | roster에서 제거 → members-1 → 0명이고 PARTY 아니면 방 전체 삭제 → host였으면 **botId가 아닌 것 중 사전순 최소**에게 승계(없으면 빈 문자열) | -1 방/좌석 없음(404) / 0 방 삭제됨 / 1 잔류 |
 | CLOSE | gameId 있으면 플레이어별 scoreboard·submissions·game 키까지 삭제 → 방 키 4종 삭제 | 항상 1(멱등) |
 | TOUCH | 방 TTL 40분 재설정 → 자식 키·game 키 전부 PTTL 정렬 | 0 방 없음 / 1 |

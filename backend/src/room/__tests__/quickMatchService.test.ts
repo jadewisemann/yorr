@@ -18,16 +18,14 @@ import {
 import { RoomService } from '../roomService.js'
 
 /**
- * 퀵매치 — backend-java `QuickMatchServiceIntegrationTest` 8종 전부.
+ * 퀵매치 8종.
  *
- * Java는 `GameLifecycleService`·`GameModuleRegistry`를 Mockito로 모킹했지만
- * 여기서는 **진짜 Redis + 진짜 `RoomService`/`UserService`/`RoomSessionRegistry`**를
- * 쓴다. 계약의 핵심(락·큐 순서·티켓 TTL·소켓 생존 판정)이 전부 모킹 불가한
- * 부분이라 그렇게 해야 의미가 있다(ADR-0004).
+ * **진짜 Redis + 진짜 `RoomService`/`UserService`/`RoomSessionRegistry`**를 쓴다.
+ * 계약의 핵심(락·큐 순서·티켓 TTL·소켓 생존 판정)이 전부 모킹 불가한 부분이라
+ * 그렇게 해야 의미가 있다(ADR-0004).
  *
- * `games.start`만 **기록하는 래퍼**로 감쌌다 — Java `verify(games).start(roomId)`
- * 자리이며, 진짜 `GameLifecycleService`에 위임하므로 phase 전이까지 함께 확인된다
- * (Java의 모킹은 이 뒷부분을 보지 못했다).
+ * `games.start`만 **기록하는 래퍼**로 감쌌다 — 호출 여부를 보면서도 진짜
+ * `GameLifecycleService`에 위임하므로 phase 전이까지 함께 확인된다.
  */
 const NEW_GAME: GameMetadata = {
   code: 'NEW_GAME',
@@ -59,7 +57,7 @@ describeRedis('퀵매치', () => {
   const redis = useRedis()
   let harness: Harness
 
-  /** Java `setUp()` 자리. 카탈로그를 바꿔 끼우는 테스트만 인자를 넘긴다. */
+  /** 공통 준비. 카탈로그를 바꿔 끼우는 테스트만 인자를 넘긴다. */
   const build = (games: readonly GameMetadata[] = GAME_CATALOG): Harness => {
     const client = redis() as Redis
     const rooms = new RoomService(client)
@@ -84,7 +82,7 @@ describeRedis('퀵매치', () => {
     return { matches, rooms, users, registry, started }
   }
 
-  /** Java `user(id, nickname)` — 세션 해시만 심는다(퀵매치가 읽는 것은 nickname·type뿐). */
+  /** 세션 해시만 심는다 — 퀵매치가 읽는 것은 nickname·type뿐이다. */
   const user = async (userId: string, nickname: string): Promise<UserIdentity> => {
     await redis().hset(`user:${userId}`, { nickname, type: 'GUEST' })
     return { userId, nickname, type: 'GUEST' }
@@ -213,7 +211,7 @@ describeRedis('퀵매치', () => {
     expect(await redis().exists(quickMatchMarkerKey(roomId))).toBe(0)
   })
 
-  /* ── Java 테스트에 없던 회귀 방어 ─────────────────────────────────────── */
+  /* ── 회귀 방어 ────────────────────────────────────────────────────────── */
 
   it('닫히는 중인 소켓은 라이브가 아니다', async () => {
     const { matches, registry, started } = harness

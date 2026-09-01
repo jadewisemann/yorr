@@ -1,10 +1,8 @@
 /**
  * 소셜 제공자와의 HTTP 두 번(토큰 교환·프로필 조회)에만 쓰는 최소 클라이언트.
- * backend-java `auth/config/AuthConfig`의 `socialRestClient` 자리다.
  *
- * OAuth 라이브러리를 넣지 않은 이유는 Java 쪽과 같다 — 실제로 필요한 것은
- * 아래 두 번의 호출뿐이고, 라이브러리를 넣으면 인증 경로 전체를 그 모델에
- * 맞춰 다시 배선해야 한다.
+ * OAuth 라이브러리를 넣지 않았다 — 실제로 필요한 것은 아래 두 번의 호출뿐이고,
+ * 라이브러리를 넣으면 인증 경로 전체를 그 모델에 맞춰 다시 배선해야 한다.
  */
 
 /** 주입 가능한 최소 형태. 테스트가 진짜 네트워크 없이 응답을 흉내 낸다. */
@@ -13,10 +11,9 @@ export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 /**
  * 호출 하나에 허용하는 전체 시간.
  *
- * Java는 connect 3s + read 5s로 **나눠** 걸지만 Node의 `fetch`에는 그 구분이
- * 없다(AbortSignal 하나가 전체를 덮는다). 그래서 Java의 최악값 8초를 통짜
- * 예산으로 잡는다 — 더 짧게 잡으면 Java에서 되던 느린 로그인이 여기서만
- * 실패하고, 안 걸면 로그인 요청이 영영 매달린다.
+ * `fetch`에는 connect·read 구분이 없다(AbortSignal 하나가 전체를 덮는다).
+ * 그래서 8초를 통짜 예산으로 잡는다 — 더 짧게 잡으면 원래 성공하던 느린
+ * 로그인이 실패하고, 안 걸면 로그인 요청이 영영 매달린다.
  */
 export const SOCIAL_HTTP_TIMEOUT_MS = 8_000
 
@@ -34,7 +31,7 @@ export interface SocialHttpOptions {
 }
 
 /**
- * Java `URLEncoder.encode(value, UTF_8)`와 **같은 결과**를 낸다(application/
+ * `application/
  * x-www-form-urlencoded): 공백은 `+`, 안전 문자는 `A-Za-z0-9`와 `.-*_`뿐이다.
  *
  * `encodeURIComponent`만으로는 부족하다 — 공백을 `%20`으로 두고 `!'()~`를

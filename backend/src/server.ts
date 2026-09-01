@@ -277,7 +277,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   )
 
   // 봇 오케스트레이터(3.2)와 타이머는 순환한다(봇 → 행동 서비스 → 타이머 → 봇).
-  // Java는 `ApplicationEventPublisher`로 끊고, 우리는 늦은 바인딩으로 끊는다.
+  // 순환은 늦은 바인딩으로 끊는다.
   let yachtBots: BotTurnOrchestrator | null = null
   const roundTimer = new RoundTimerService(
     {

@@ -4,7 +4,7 @@ import { calculateScore, SCORE_CATEGORIES, type ScoreCategory } from '../score/i
 export type ScoreCandidates = Readonly<Record<ScoreCategory, number>>
 
 /**
- * 주사위 하나로 12칸의 **가정 점수**를 뽑는다(backend-java `ScoreCandidateService`).
+ * 주사위 하나로 12칸의 **가정 점수**를 뽑는다.
  *
  * 점수판과 달리 **불충족 족보는 `null`이 아니라 `0`** 이다 — "이 칸에 넣으면
  * 0점"이라는 뜻이고, 미기록을 뜻하는 점수판의 `null`과 의미가 다르다.

@@ -26,7 +26,7 @@ export interface RoundCompletion {
 
 /**
  * 전이 결과. `completedRound`가 null이 아니면 그 전이로 라운드가 끝났다
- * (Java `RoundSubmissionResult.roundCompleted()` 자리 — Optional 대신 null).
+ * (Optional 대신 null).
  */
 export interface RoundSubmissionResult {
   readonly state: RoundState
@@ -112,9 +112,9 @@ const immutableParticipants = (participantIds: Iterable<string>): readonly strin
 
 /**
  * 한 방의 라운드 진행 상태 — **불변 객체**다. 모든 전이는 새 인스턴스를 돌려주고
- * 실패는 `RoundSynchronizationError`로 던진다(Java `RoundState`와 1:1).
+ * 실패는 `RoundSynchronizationError`로 던진다.
  *
- * Java의 getter 메서드(`roundNumber()`·`isFinished()` …)는 readonly 필드로,
+ * 조회는 메서드가 아니라 readonly 필드로 노출하고,
  * 파생값(`activePlayerId()`·`hasRollsLeft()`)은 getter로 옮겼다.
  *
  * 검증 순서가 계약이다: GAME_ALREADY_FINISHED → ROUND_MISMATCH →
@@ -174,7 +174,7 @@ export class RoundState {
   get activePlayerId(): string {
     const playerId = this.participantOrder[this.activePlayerIndex]
     if (playerId === undefined) {
-      // Java에서는 List.get의 IndexOutOfBounds. 공개 전이로는 도달할 수 없고
+      // 공개 전이로는 도달할 수 없고
       // 손상된 스냅샷을 restore했을 때만 나온다.
       throw new RoundSynchronizationError(
         'INVALID_PLAYER',

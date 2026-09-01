@@ -1,7 +1,7 @@
 # 야추 (YACHT_DICE)
 
-> 프레임워크 공통은 [game-modules.md](../game-modules.md). Java 원본:
-> `game/yacht/`, `ws/dto/Dice*`. min 1 / max 6 / supportsBots **true**.
+> 프레임워크 공통은 [game-modules.md](../game-modules.md).
+> min 1 / max 6 / supportsBots **true**.
 > 라운드·점수 파이프라인(RoundState·타이머·CONFIRM_SCORE)은 프레임워크 문서에
 > 있고, 여기는 야추 고유 부분만 다룬다.
 >
@@ -11,16 +11,16 @@
 
 ## 구현 파일 (`src/game/yacht/`)
 
-| 파일 | 책임 | Java 대응 |
-|---|---|---|
-| `yachtDiceGameModule.ts` | `GameModule` 구현 — 수명주기 훅 + 5메시지 라우팅 + 오류 매핑 + roomId 검증 | `YachtDiceGameModule` |
-| `yachtTurnActionService.ts` | 사람·봇이 공유하는 행동 경계(roll/hold/submitScore) | `YachtTurnActionService` |
-| `redisYachtDiceStateStore.ts` | `RoundStateStore`의 Redis 어댑터(방 락·SETNX·TTL 복사·SCAN) | `RedisYachtDiceStateStore` |
-| `yachtDiceStateSnapshot.ts` | 저장 JSON ↔ `RoundState` 변환 | `YachtDiceStateSnapshot` |
-| `payloads.ts` | 인바운드 payload 파싱(Java record의 관용을 그대로) | `ws/dto/Dice*Payload` |
-| `yachtWsTypes.ts` | `game.yacht_dice.<event>` 조립, 인바운드 이벤트 목록 | `YachtDiceWsTypes` |
-| `yachtPorts.ts` | 바깥 계층(ws·room·타이머·점수)을 잡는 좁은 포트 | (Java는 구체 타입 직접 주입) |
-| `scripts.ts` | 락 해제 Lua(토큰 비교) | `RedisYachtDiceStateStore.UNLOCK` |
+| 파일 | 책임 |
+|---|---|
+| `yachtDiceGameModule.ts` | `GameModule` 구현 — 수명주기 훅 + 5메시지 라우팅 + 오류 매핑 + roomId 검증 |
+| `yachtTurnActionService.ts` | 사람·봇이 공유하는 행동 경계(roll/hold/submitScore) |
+| `redisYachtDiceStateStore.ts` | `RoundStateStore`의 Redis 어댑터(방 락·SETNX·TTL 복사·SCAN) |
+| `yachtDiceStateSnapshot.ts` | 저장 JSON ↔ `RoundState` 변환 |
+| `payloads.ts` | 인바운드 payload 파싱 |
+| `yachtWsTypes.ts` | `game.yacht_dice.<event>` 조립, 인바운드 이벤트 목록 |
+| `yachtPorts.ts` | 바깥 계층(ws·room·타이머·점수)을 잡는 좁은 포트 |
+| `scripts.ts` | 락 해제 Lua(토큰 비교) |
 
 재접속 와이어 타입 `YachtDiceState`는 **`game/reconnect/`가 소유**한다(만드는 곳이
 거기 하나뿐이다). 야추 배럴은 3.2·배선의 편의를 위해 재수출만 한다.
@@ -58,8 +58,8 @@
   autoRoll은 서버 상태의 activeHeld.
 - 반대로 `dice.hold_changed`의 held는 **서버 상태**(`activeHeld`)다. 굴림
   애니메이션이 없어 프레임 어긋남 문제가 없으므로 권위 값을 그대로 싣는다.
-- msgId가 없는 요청의 응답 봉투에서는 `msgId` 필드가 **사라진다**(Java
-  `@JsonInclude(NON_NULL)` — `JSON.stringify`가 undefined 속성을 지우는 것과 같은 결과).
+- msgId가 없는 요청의 응답 봉투에서는 `msgId` 필드가 **사라진다** —
+  `JSON.stringify`가 undefined 속성을 지우기 때문이다.
 - `error` 봉투는 roomId·msgId를 싣지 않는다. 짝은 payload의 `refMsgId`로만 맞춘다.
 
 ### 처리 순서 (5메시지 공통)
@@ -70,11 +70,11 @@ roomId 검증(세션의 방과 일치) → payload 파싱 → [활성 플레이�
    NOT_IN_ROOM               INVALID_MESSAGE    shake: 무음 / throw: NOT_YOUR_TURN
 ```
 
-- **payload 파싱이 활성 판정보다 먼저다**(Java 그대로). 남의 턴에 깨진 `dice.shake`를
+- **payload 파싱이 활성 판정보다 먼저다**. 남의 턴에 깨진 `dice.shake`를
   보내면 무음이 아니라 `INVALID_MESSAGE`가 나간다.
 - `dice.roll`·`dice.hold`·`round.submit`은 별도의 활성 판정이 없다 — 라운드 도메인의
   `NOT_ACTIVE_PLAYER`가 그 역할을 하고, 그래서 오류 코드도 도메인 이유에서 나온다.
-- payload 검증은 **의도적으로 관용적**이다. 없는 필드를 Java record의 기본값
+- payload 검증은 **의도적으로 관용적**이다. 없는 필드를 기본값
   (int 0 / 참조 null)처럼 채워 도메인 검증에 걸리게 한다. 여기서 엄격하게 막으면
   같은 `INVALID_MESSAGE`라도 **턴 소유 검증보다 앞서게** 되어 응답이 갈라진다.
 
@@ -99,11 +99,10 @@ roomId 검증(세션의 방과 일치) → payload 파싱 → [활성 플레이�
 | `STORE_FAILURE` | `INTERNAL` |
 | 그 밖의 전부(`INVALID_CATEGORY`·`INVALID_DICE`·`GAME_NOT_ACTIVE`·`ROUND_ALREADY_SCORED`·`CATEGORY_ALREADY_USED`) | `INVALID_MESSAGE` |
 
-- 인자 검증 실패(Java `IllegalArgumentException`, 우리 `ScoreDomainError`·`DomainError`)도
+- 인자 검증 실패도
   `INVALID_MESSAGE`다.
 - ⚠️ **여기 없는 예외는 응답이 나가지 않는다.** 대표 사례가 방 락 경합의
-  `game_state_busy`(`ConflictError`)다 — Java도 그 `IllegalStateException`을 잡지 않아
-  Spring 밖으로 나가고 클라이언트는 아무 응답도 받지 못한다. 우리 쪽은 게이트웨이가
+  `game_state_busy`(`ConflictError`)다 — 모듈이 잡지 않으므로 게이트웨이가
   잡아 로그를 남기고 소켓을 살려 둔다(관측 결과 동일). 새 오류 응답을 만들면 계약이
   넓어지므로 재현하기로 했다.
 
@@ -129,7 +128,7 @@ POST /rooms/{code}/games ─ GameLifecycleService ─ START Lua(phase PLAYING·g
                                      실패 시 ↘ module.reset() 후 재throw → ROLLBACK_START
 ```
 
-- **`markPhase('playing')`은 모듈의 일**이다(Java도 `YachtDiceGameModule.start`가 한다).
+- **`markPhase('playing')`은 모듈의 일**이다.
   이게 없으면 REST로 시작한 게임에 이미 붙어 있는 소켓의 레지스트리 phase가 `waiting`에
   머물러 ① 끊긴 플레이어가 offline이 아니라 `room.player_left`가 되고 ② 재접속의
   PLAYING 분기(스냅샷에 `game` 동봉)가 실전에서 도달하지 않는다. 1.5·2.1이 "3.1이
@@ -150,7 +149,7 @@ POST /rooms/{code}/games ─ GameLifecycleService ─ START Lua(phase PLAYING·g
 - 키 `room:{code}:game:YACHT_DICE:state`, 값은 `YachtDiceStateSnapshot` JSON
   (roundNumber, totalRounds, participantOrder, submissions, activePlayerIndex,
   activeRollCount, activeDice, activeHeld, finished). 재접속용 DTO
-  (`YachtDiceState`)와는 다른 모양이다. **필드 이름·순서를 Java record 그대로
+  (`YachtDiceState`)와는 다른 모양이다. **필드 이름·순서를 그대로
   유지한다** — 전환기에는 두 백엔드가 같은 키를 읽을 수 있어야 한다.
 - 모든 변이는 방 락(`…:state:lock`, SET NX PX, TTL 5초, 2초 스핀/10ms 간격,
   토큰 비교 Lua 해제) 아래에서 read-modify-write. 대기 초과는
@@ -159,7 +158,7 @@ POST /rooms/{code}/games ─ GameLifecycleService ─ START Lua(phase PLAYING·g
   직렬화된 뒤에는 두 번째가 rollCount 연속성에 걸려 거부된다).
 - 왜 Lua 하나가 아니라 락인가: 전이가 JSON을 도메인 객체로 되살려 `RoundState`의
   검증을 통과시키는 일이고, `submitAtomically`의 `beforeStateChange`가 **또 다른 Lua**
-  (CONFIRM_SCORE)다. Lua 안에서 Lua를 부를 수 없다(Java 원본의 ponytail 주석: 작업이
+  (CONFIRM_SCORE)다. Lua 안에서 Lua를 부를 수 없다(작업이
   5초를 넘기면 상태+점수를 한 Lua로 합칠 것).
 - 락 해제는 `finally`에서 **항상** 시도한다. 토큰 비교 덕분에 락을 못 잡고 나가는
   경로에서는 no-op이다 — 그게 토큰 비교의 두 번째 역할이다(첫째는 TTL 만료 후 남의
@@ -183,15 +182,15 @@ POST /rooms/{code}/games ─ GameLifecycleService ─ START Lua(phase PLAYING·g
 
 ## 봇 스택 (`src/game/yacht/bot/`)
 
-| 파일 | 책임 | Java 대응 |
-|---|---|---|
-| `botTurnOrchestrator.ts` | 연출 시계 — 지연 4종 + 방별 세대 가드 + `dice.thrown` | `BotTurnOrchestrator` |
-| `yachtBotTurnCoordinator.ts` | 한 스텝 원자 실행 — TurnVersion·킵 재사용·폴백 전환 | `YachtBotTurnCoordinator` |
-| `expectimaxYachtBotPolicy.ts` | 주 정책(정확 확률·메모·CPU 예산) | `ExpectimaxYachtBotPolicy` |
-| `localYachtBotStrategy.ts` | 폴백 정책(탐색 없음) | `LocalYachtBotStrategy` |
-| `scorecardValueEvaluator.ts` | 봇의 가치 함수 | `ScorecardValueEvaluator` |
-| `botPorts.ts` | 행동·라운드 조회·방·점수·정책의 좁은 포트 | (Java는 구체 타입 직접 주입) |
-| `botErrors.ts` | `BotDecisionError`·`BotSearchBudgetError` | (Java는 표준 런타임 예외) |
+| 파일 | 책임 |
+|---|---|
+| `botTurnOrchestrator.ts` | 연출 시계 — 지연 4종 + 방별 세대 가드 + `dice.thrown` |
+| `yachtBotTurnCoordinator.ts` | 한 스텝 원자 실행 — TurnVersion·킵 재사용·폴백 전환 |
+| `expectimaxYachtBotPolicy.ts` | 주 정책(정확 확률·메모·CPU 예산) |
+| `localYachtBotStrategy.ts` | 폴백 정책(탐색 없음) |
+| `scorecardValueEvaluator.ts` | 봇의 가치 함수 |
+| `botPorts.ts` | 행동·라운드 조회·방·점수·정책의 좁은 포트 |
+| `botErrors.ts` | `BotDecisionError`·`BotSearchBudgetError` |
 
 ```text
 round.start 브로드캐스트 → RoundStartedEvent (RoundTimerService의 onRoundStarted 훅)
@@ -231,9 +230,9 @@ round.start 브로드캐스트 → RoundStartedEvent (RoundTimerService의 onRou
   같이 지우면 굴림 한 번 실패한 판이 영원히 멈춘다.
 - 종료까지 사람과 같은 경로를 탄다(2봇 12라운드 완주 통합 테스트 존재).
 
-### CPU 예산과 이벤트 루프 (Java와 다른 결정)
+### CPU 예산과 이벤트 루프
 
-Java는 이 탐색을 **2스레드 데몬 풀**에서 돌렸다. Node는 단일 스레드라 탐색이 도는 동안
+Node는 단일 스레드라 탐색이 도는 동안
 **관계없는 다른 방들의 WS 메시지·하트비트·라운드 마감이 그 뒤에 줄을 선다.** 그대로
 인라인 이식하면 실전 지연이 되는지 판정해야 했다.
 
@@ -245,7 +244,7 @@ Java는 이 탐색을 **2스레드 데몬 풀**에서 돌렸다. Node는 단일 
 | 2 | 1 | 3.5ms |
 | 3 | 0 (12칸 평가만) | 0.02ms |
 
-2봇 12라운드 완주 통합 테스트 전체가 0.7초다(탐색 ~50회 포함). Java 테스트가 성능
+2봇 12라운드 완주 통합 테스트 전체가 0.7초다(탐색 ~50회 포함). 테스트가 성능
 계약으로 고정한 1초는 **실측의 60배 여유**인 상한이었다.
 
 **결정: 인라인 유지 + 예산을 런타임 불변식으로 승격.** 근거:
@@ -270,7 +269,7 @@ Java는 이 탐색을 **2스레드 데몬 풀**에서 돌렸다. Node는 단일 
   잘게 쪼개려면 재귀를 명시적 작업 큐로 바꿔야 하고, 그러면 **총 CPU가 늘어난다**.
   1초 예산의 의미도 벽시계로 바뀐다.
 
-**예산 강제(Java에 없는 추가분).** `ExpectimaxYachtBotPolicy`는 메모 미스마다 경과
+**예산 강제.** `ExpectimaxYachtBotPolicy`는 메모 미스마다 경과
 시간을 보고 `budgetMs`(기본 1000)를 넘기면 `BotSearchBudgetError`로 **스스로 중단**한다.
 코디네이터가 그것을 잡아 `LocalYachtBotStrategy`(마이크로초급)로 내려가므로, 병리적
 상황에서도 이벤트 루프 점유가 상한을 갖는다. 예산은 **주입 가능**하다 — 테스트가 실시간
@@ -287,7 +286,7 @@ Java는 이 탐색을 **2스레드 데몬 풀**에서 돌렸다. Node는 단일 
 - `actions`는 야추 모듈이 받는 **그** `YachtTurnActionService`여야 한다. 새로 만들면
   봇의 굴림이 다른 브로드캐스터·타이머를 타고 나가는데 **타입도 테스트도 통과한다**.
 - `rounds`·`rooms`·`scores`·`broadcaster`도 전부 위에서 만든 그것.
-- 순환이 하나 있다: 봇 → 행동 서비스 → 타이머 → (`onRoundStarted`) → 봇. Java는
+- 순환이 하나 있다: 봇 → 행동 서비스 → 타이머 → (`onRoundStarted`) → 봇.
   `ApplicationEventPublisher`가 끊었고, 우리는 **늦은 바인딩 한 칸**으로 끊는다
   (`let yachtBots: BotTurnOrchestrator | null = null` → 타이머 옵션에서
   `yachtBots?.onRoundStarted(event)`).
@@ -307,38 +306,38 @@ Java는 이 탐색을 **2스레드 데몬 풀**에서 돌렸다. Node는 단일 
 - 모듈 등록은 `GameModuleRegistry`(카탈로그를 흡수한 그것)에 `register()` 한 번.
   **`GameLifecycleService`도 같은 레지스트리를 받아야** REST 시작이 `module.start`를 부른다.
 
-## 이식된 테스트 (3.1)
+## 테스트
 
-| Java | Node | 비고 |
-|---|---|---|
-| `YachtTurnActionServiceTest` | `__tests__/yachtTurnActionService.test.ts` | 제출 경로를 모킹하지 않고 진짜 `ScoreRoundSubmissionService`로 돌린다 |
-| `GameWebSocketHandlerTest`의 dice·submit 케이스 | `__tests__/yachtDiceGameModule.test.ts` | 응답을 모듈이 만들므로 검증 대상이 모듈로 내려왔다. 브로드캐스터·레지스트리는 진짜(정확 JSON 문자열 검증) |
-| `RedisYachtDiceStateStoreIntegrationTest` | `__tests__/redisYachtDiceStateStore.test.ts` | + 락 고갈·TTL 복사·SCAN·손상 스냅샷 |
-| — | `__tests__/yachtPorts.contract.test.ts` | 좁은 포트 ↔ 실제 구현 대입 고정(2.5·2.6과 같은 이유) |
+| 테스트 | 비고 |
+|---|---|
+| `__tests__/yachtTurnActionService.test.ts` | 제출 경로를 모킹하지 않고 진짜 `ScoreRoundSubmissionService`로 돌린다 |
+| `__tests__/yachtDiceGameModule.test.ts` | 응답을 모듈이 만들므로 검증 대상이 모듈로 내려왔다. 브로드캐스터·레지스트리는 진짜(정확 JSON 문자열 검증) |
+| `__tests__/redisYachtDiceStateStore.test.ts` | + 락 고갈·TTL 복사·SCAN·손상 스냅샷 |
+| `__tests__/yachtPorts.contract.test.ts` | 좁은 포트 ↔ 실제 구현 대입 고정(2.5·2.6과 같은 이유) |
 
-Java에 없어서 새로 쓴 것: rollCount 불연속 거부, 라운드 미초기화 → `INTERNAL`,
+추가로 쓴 것: rollCount 불연속 거부, 라운드 미초기화 → `INTERNAL`,
 `dice.broadcast`의 held가 서버 상태가 아니라 에코임을 두 번째 굴림으로 고정,
 깨진 shake의 검사 순서, `start`의 host 우선 정렬·phase 마킹·잔여 상태 제거,
 `reconnect`의 스냅샷 → 카운터 리셋 순서(실패 시 카운터 유지 포함),
 락 대기 초과 시 **남의 락을 풀지 않는지**, 방 키 TTL 없으면 상태 키도 무기한.
 
-## 이식된 테스트 (3.2 봇)
+## 테스트 (봇)
 
-| Java | Node | 비고 |
-|---|---|---|
-| `BotTurnOrchestratorTest` 3종 | `bot/__tests__/botTurnOrchestrator.test.ts` | + 지연 4종 값, 최신 세대 예약, 오류 격리, `stop()` |
-| `YachtBotTurnCoordinatorTest` 9종 | `bot/__tests__/yachtBotTurnCoordinator.test.ts` | + held만 바뀐 스테일, gameId 없는 방, 폴백의 전체 킵 해석, 굴림 직전 턴 교대 |
-| `ExpectimaxYachtBotPolicyTest` 11종 | `bot/__tests__/expectimaxYachtBotPolicy.test.ts` | + 예산 초과 중단(시계 주입), 리롤 없는 결정은 예산 무관, 입력 검증 |
-| `LocalYachtBotStrategyTest` 4종 | `bot/__tests__/localYachtBotStrategy.test.ts` | + 창이 2면 이하일 때, 최빈 동률, 결정론적 타이브레이크 |
-| `ScorecardValueEvaluatorTest` 2종 | `bot/__tests__/scorecardValueEvaluator.test.ts` | + 채워진 칸 평가 시 예외 |
-| `YachtBotGameCompletionTest` | `bot/__tests__/yachtBotGameCompletion.test.ts` | 서버 RNG를 시드로 고정(2.5의 시임) — 실패가 재현 가능해야 한다 |
-| — | `bot/__tests__/botPorts.contract.test.ts` | 좁은 포트 ↔ 실제 구현 대입 고정(3.1과 같은 이유) |
+| 테스트 | 비고 |
+|---|---|
+| `bot/__tests__/botTurnOrchestrator.test.ts` | + 지연 4종 값, 최신 세대 예약, 오류 격리, `stop()` |
+| `bot/__tests__/yachtBotTurnCoordinator.test.ts` | + held만 바뀐 스테일, gameId 없는 방, 폴백의 전체 킵 해석, 굴림 직전 턴 교대 |
+| `bot/__tests__/expectimaxYachtBotPolicy.test.ts` | + 예산 초과 중단(시계 주입), 리롤 없는 결정은 예산 무관, 입력 검증 |
+| `bot/__tests__/localYachtBotStrategy.test.ts` | + 창이 2면 이하일 때, 최빈 동률, 결정론적 타이브레이크 |
+| `bot/__tests__/scorecardValueEvaluator.test.ts` | + 채워진 칸 평가 시 예외 |
+| `bot/__tests__/yachtBotGameCompletion.test.ts` | 서버 RNG를 시드로 고정(2.5의 시임) — 실패가 재현 가능해야 한다 |
+| `bot/__tests__/botPorts.contract.test.ts` | 좁은 포트 ↔ 실제 구현 대입 고정(3.1과 같은 이유) |
 
 - 오케스트레이터 테스트는 **실시간 sleep도 가짜 타이머도 쓰지 않는다.** 지연 값은
   `DeadlineExecutor`(2.3의 시임)에 기록된 `delayMs`로 검증하고, 발화 순서는 테스트가
-  직접 정한다(Java의 `ArgumentCaptor<Runnable>` 자리).
+  직접 정한다.
 - 완주 테스트는 오케스트레이터를 쓰지 않는다 — 지연 4종을 실시간으로 기다리면 12라운드가
-  몇 분이다. Java 테스트와 같이 코디네이터를 루프에서 직접 돌린다.
+  몇 분이다. 코디네이터를 루프에서 직접 돌린다.
 - 타임아웃 계열은 2.5(`roundTimeoutResolver.test.ts`·`roundTimerService.test.ts`)가
   이미 덮었다: 마지막 held 유지 autoRoll, 굴림 소진 시 빈 카테고리 무작위 기록,
   유예 중 제출 시 STALE, 저장 실패에도 턴 진행.

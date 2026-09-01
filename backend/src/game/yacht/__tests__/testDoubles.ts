@@ -17,14 +17,14 @@ import type {
 } from '../yachtPorts.js'
 
 /**
- * 3.1 스위트가 공유하는 테스트 대역. Java 테스트의 `mock(RoundTimerService)`·
+ * 야추 스위트가 공유하는 테스트 대역. 기록형이라
  * `mock(ScoreConfirmationService)`·`mock(WebSocketSession)` 자리다.
  *
  * 실시간 sleep도 가짜 타이머도 쓰지 않는다 — 마감 발화는 이 티켓의 범위가 아니고
  * (2.5가 이미 덮었다), 여기서는 "모듈이 타이머를 불렀는가"만 관측한다.
  */
 
-/** 전송 프레임만 기록하는 소켓 — Java `mock(WebSocketSession)` 자리. */
+/** 전송 프레임만 기록하는 소켓. */
 export class FakeSocket implements ClientSocket {
   readyState = 1
   readonly frames: string[] = []
@@ -85,7 +85,7 @@ export class RecordingBroadcaster implements YachtBroadcaster {
   }
 }
 
-/** `RoundTimerService`의 자리 — 호출만 기록한다(Java `mock(RoundTimerService)`). */
+/** `RoundTimerService`의 자리 — 호출만 기록한다. */
 export class FakeRoundTimer implements YachtRoundTimer {
   readonly started: { roomId: string; state: RoundState }[] = []
   /** 부팅 재무장(`resumeFromStored`)이 실제로 불렸는지 — `start`와 구별해 기록한다. */
@@ -139,7 +139,7 @@ export class FakeRoundTimer implements YachtRoundTimer {
 }
 
 /**
- * `ScoreBoardStore`의 자리. Java 테스트가 `ScoreConfirmationService`를 모킹한 것과
+ * `ScoreBoardStore`의 자리. 점수 확정을 대역으로 두는 것과
  * 달리 **진짜 확정 서비스**를 쓰고 저장소만 대역으로 둔다 — 그래야 카테고리 파싱·
  * 서버 재계산·시그니처 같은 2.6 계약이 이 경로에서도 실제로 돈다.
  */

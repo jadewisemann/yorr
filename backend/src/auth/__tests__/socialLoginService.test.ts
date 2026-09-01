@@ -5,8 +5,6 @@ import { SocialLoginService } from '../socialLoginService.js'
 import { type MemberUser, PLACEHOLDER_NICKNAME, type SocialProvider } from '../socialProfile.js'
 
 /**
- * backend-java `auth/application/SocialLoginServiceTest` 이식.
- *
  * MySQL 없이 돈다 — 여기서 고정하는 것은 저장소 동작이 아니라 **분기**다:
  * 로그인/가입 선택, 플레이스홀더 채택 규칙, 그리고 가입 경합에서 진 쪽이
  * 승자를 다시 찾아 돌려주는 경로.

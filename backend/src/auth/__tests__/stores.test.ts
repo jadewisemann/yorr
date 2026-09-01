@@ -4,7 +4,7 @@ import { LOGIN_CODE_TTL_SECONDS, LoginCodeStore } from '../loginCodeStore.js'
 import { OAUTH_STATE_TTL_SECONDS, OAuthStateStore } from '../stateStore.js'
 
 /**
- * state·로그인 코드 스토어 — backend-java `OAuthStateStore`·`LoginCodeStore`.
+ * state·로그인 코드 스토어.
  *
  * **1회용 시맨틱이 계약이다.** state는 로그인 CSRF 방어(콜백 URL 재사용 차단),
  * 로그인 코드는 유출된 코드의 수명 제한이 목적이라 "두 번째는 반드시 실패"가

@@ -128,7 +128,7 @@ describe('RealtimeGameMetrics', () => {
 
   /**
    * 배선 계약: `server.ts`가 넘길 두 인스턴스가 포트를 그대로 만족해야 한다
-   * (Java도 `RoomSessionRegistry` + `GameModuleRegistry`를 주입받았다).
+   * (`RoomSessionRegistry` + `GameModuleRegistry`를 주입받는다).
    */
   it('WS 레지스트리와 게임 모듈 레지스트리를 그대로 받는다', () => {
     const presence: MetricsPresence = new RoomSessionRegistry()
@@ -140,7 +140,7 @@ describe('RealtimeGameMetrics', () => {
     expect(body).toContain('yorr_game_participants_active{game="PING_PONG"} 0')
   })
 
-  /** Java `GameModuleRegistry.supportedCodes()` 자리 — 등록된 코드만 계열이 된다. */
+  /** 등록된 코드만 계열이 된다. */
   it('태그 값은 카탈로그의 대문자 코드다', () => {
     const body = metrics.render()
 

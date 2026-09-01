@@ -1,7 +1,6 @@
 # 다빈치 코드 (DAVINCI_CODE)
 
-> 프레임워크 공통은 [game-modules.md](../game-modules.md). **Java 원본이 없다** —
-> backend-java에 없던 게임을 JS 백엔드에서 새로 만든 첫 사례다.
+> 프레임워크 공통은 [game-modules.md](../game-modules.md).
 > min 2 / max 4 / supportsBots **false**. 라운드 프레임워크(RoundState·
 > RoundTimerService)를 쓰지 않고 결투처럼 자체 상태기계 + 버전 키 스케줄링을 쓴다.
 

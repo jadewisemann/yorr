@@ -2,7 +2,7 @@ import { calculateScore, DICE_COUNT, type ScoreCategory } from '../../score/inde
 import { BotDecisionError } from './botErrors.js'
 
 /**
- * Expectimax가 실패했을 때의 **폴백 정책** — backend-java `LocalYachtBotStrategy`.
+ * Expectimax가 실패했을 때의 **폴백 정책**.
  *
  * 탐색이 없다. 규칙 두 줄이다: ① 4연속 창에서 3면 이상 모였으면 스트레이트를 잡는다
  * ② 아니면 최빈 면을 잡는다(전부 단독이면 5·6만). 카테고리는 점수 최대 + 고정
@@ -12,7 +12,7 @@ import { BotDecisionError } from './botErrors.js'
  */
 
 /**
- * 점수가 같을 때의 고정 선호. **ordinal이 아니라 손으로 정한 순서**다(Java의
+ * 점수가 같을 때의 고정 선호. **인덱스가 아니라 손으로 정한 순서**다(아래
  * switch 그대로): 희소한 족보를 아껴 쓰는 것보다 지금 쓰는 쪽에 값을 준다.
  */
 const TIE_BREAK: Readonly<Record<ScoreCategory, number>> = Object.freeze({
@@ -51,7 +51,7 @@ const counts = (dice: readonly number[]): Map<number, number> => {
 
 /**
  * 가장 긴 4연속 창(1-4 / 2-5 / 3-6)에 들어 있는 **서로 다른** 면들.
- * 동률이면 낮은 창이 이긴다(Java의 `>` 비교 그대로).
+ * 동률이면 낮은 창이 이긴다.
  */
 const bestStraightWindow = (dice: readonly number[]): number[] => {
   let best: number[] = []

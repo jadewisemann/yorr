@@ -11,9 +11,8 @@ import { crc32 } from 'node:zlib'
  * - 파일 끝의 개행 유무도 영향이 없으며,
  * - 첫 줄의 BOM은 제거된다.
  *
- * 이 함수가 Flyway와 1비트라도 다르면 Java 쪽 Flyway가 부팅 시
- * `validateOnMigrate`에서 checksum mismatch로 죽는다 — 전환기에 두 백엔드가 같은
- * 이력 테이블을 보기 때문이다. 계약이므로 값을 고정한 단위 테스트가 있다.
+ * 이 함수가 Flyway와 1비트라도 다르면 운영 DB에 이미 적힌 체크섬과 어긋나
+ * 검증이 부팅을 거부한다. 계약이므로 값을 고정한 단위 테스트가 있다.
  */
 export const flywayChecksum = (content: string): number => {
   // BufferedReader.readLine()과 같은 분할: 종결자는 결과에 포함되지 않는다.

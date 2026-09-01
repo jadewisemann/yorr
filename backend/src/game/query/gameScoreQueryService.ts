@@ -4,14 +4,13 @@ import type { GameScoreQueryStore } from './gameScoreQueryStore.js'
 import { GameScoreQueryError } from './queryErrors.js'
 
 /**
- * 점수판·최종 결과 조회(backend-java `GameScoreQueryService`).
+ * 점수판·최종 결과 조회.
  *
  * 스토어가 방·참가 자격을 판정하고, 이 서비스는 **phase 게이트 두 개**만 얹는다:
  * 점수판은 PLAYING·FINISHED에서, 최종 결과는 FINISHED에서만 나간다.
  *
- * 순위 계산은 게임 종료(2.7)의 `calculateGameResult`를 그대로 쓴다 — Java도
- * `GameResultCalculator` 한 벌을 공유한다. 여기서 다시 구현하면 `game.over`
- * 방송과 `/results` 응답의 순위가 갈라진다.
+ * 순위 계산은 게임 종료의 `calculateGameResult`를 그대로 쓴다. 여기서 다시
+ * 구현하면 `game.over` 방송과 `/results` 응답의 순위가 갈라진다.
  */
 export class GameScoreQueryService {
   constructor(private readonly store: GameScoreQueryStore) {}
@@ -33,7 +32,7 @@ export class GameScoreQueryService {
    * 내보내면 클라이언트가 그것을 결과 화면으로 쓴다.
    *
    * 점수는 `game.over` 방송과 달리 **점수판 해시의 `_total`** 에서 온다
-   * (2.7은 `room:{id}:scores` ZSET을 읽는다). Java와 같은 비대칭이다.
+   * (종료 경로는 `room:{id}:scores` ZSET을 읽는다). 의도된 비대칭이다.
    */
   async getResults(roomId: string, requesterId: string): Promise<GameResult> {
     const snapshot = await this.store.findByRoomId(roomId, requesterId)

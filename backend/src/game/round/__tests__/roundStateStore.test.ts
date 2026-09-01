@@ -5,9 +5,8 @@ import { InMemoryRoundStateStore } from '../roundStateStore.js'
 import { RoundSubmission } from '../roundSubmission.js'
 
 /**
- * Java에는 이 스토어의 단위 테스트가 없다(2.5~2.7 서비스 테스트가 간접 검증).
- * 우리 구현은 Java의 `ConcurrentHashMap.compute` 대신 프라미스 락을 쓰므로
- * 포트 계약 — 특히 `beforeStateChange` 시맨틱 — 을 여기서 직접 고정한다.
+ * 구현이 프라미스 락으로 원자성을 얻으므로, 포트 계약 — 특히
+ * `beforeStateChange` 시맨틱 — 을 여기서 직접 고정한다.
  */
 describe('InMemoryRoundStateStore', () => {
   const noHeld = [false, false, false, false, false]

@@ -3,7 +3,7 @@ import { createScoreBoard, emptyScoreBoard, openCategoriesOf } from '../scoreBoa
 import { SCORE_CATEGORIES } from '../scoreCategory.js'
 import { ScoreDomainError } from '../scoreErrors.js'
 
-// backend-java `ScoreBoardTest` 이식 — 핵심은 **null(미기록) vs 0(기록하고 희생)**.
+// 핵심은 **null(미기록) vs 0(기록하고 희생)**.
 describe('ScoreBoard', () => {
   it('미기록 칸과 확정된 0점을 구분한다', () => {
     const scoreboard = createScoreBoard({ ones: 0 }, 0, 0, 0)

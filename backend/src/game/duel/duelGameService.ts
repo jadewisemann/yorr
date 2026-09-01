@@ -61,7 +61,7 @@ export interface DuelGameServiceOptions {
 export type DuelSnapshot<S> = S | (S & { readonly game: DuelState })
 
 /**
- * 결투 진행의 권위 — backend-java `DuelGameService`.
+ * 결투 진행의 권위.
  *
  * 신호등을 언제 초록으로 바꿀지, 라운드를 언제 넘길지 전부 서버가 스케줄러로 잡는다 —
  * 두 클라이언트가 같은 순간에 같은 신호를 보게 하려면 시각의 주인이 하나여야 한다
@@ -94,7 +94,7 @@ export class DuelGameService<S> {
   }
 
   /**
-   * 상태 초기화 + 첫 신호 예약. **호스트가 playerOrder[0]** 이다(Java의 정렬 그대로) —
+   * 상태 초기화 + 첫 신호 예약. **호스트가 playerOrder[0]** 이다 —
    * 화면 좌우 배치가 아니라 판정 순서의 기준이라 안정적이어야 한다.
    *
    * 봇은 명단에서 걸러낸다. 카탈로그가 `supportsBots: false`로 막지만 여기서 한 번 더
@@ -285,5 +285,5 @@ export class DuelGameService<S> {
   }
 }
 
-/** [1400, 4600) — Java `ThreadLocalRandom.nextLong(MIN, MAX)`와 같은 반열림 구간. */
+/** [1400, 4600) — 반열림 구간이다. */
 const randomWait = (): number => randomInt(MIN_WAIT_MILLIS, MAX_WAIT_MILLIS)

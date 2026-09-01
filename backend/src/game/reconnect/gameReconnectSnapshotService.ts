@@ -22,15 +22,14 @@ export type ReconnectSnapshot<S extends PhasedRoomSnapshot> =
   | (S & { readonly game: YachtDiceState })
 
 /**
- * 재접속 응답용 방·라운드·점수 상태를 **한 시점의 전체 스냅샷**으로 조립한다 —
- * backend-java `GameReconnectSnapshotService`.
+ * 재접속 응답용 방·라운드·점수 상태를 **한 시점의 전체 스냅샷**으로 조립한다.
  *
  * DESIGN.md 원칙 4: 재접속 클라이언트는 증분 이벤트로 상태를 재구성하지 않는다.
  * 그래서 이 스냅샷은 "그 시점의 화면을 그리기에 충분"해야 하고, 진행 중 턴의
  * 굴림 상태(`rollCount`·`dice`·`held`)가 그 충분성의 기준 사례다
  * (docs/design/reconnect.md 「스냅샷 내용」).
  *
- * **오프라인 결석 카운터 리셋은 여기서 하지 않는다.** Java도 `YachtDiceGameModule.
+ * **오프라인 결석 카운터 리셋은 여기서 하지 않는다.** `YachtDiceGameModule.
  * reconnect`가 스냅샷을 받은 **뒤에** `clearOfflineMisses`를 부른다 — 스냅샷
  * 조립이 실패하면 카운터가 남는 것이 계약이다. 3.1이 그 순서를 지켜야 한다.
  */
@@ -50,8 +49,8 @@ export class GameReconnectSnapshotService<S extends PhasedRoomSnapshot> {
   /**
    * @param playerId 요청자. 점수판 조회의 권한 판정에 그대로 넘어간다.
    * @throws ReconnectSnapshotError phase가 playing인데 라운드 상태 또는 활성
-   *   마감이 없을 때. 조회 순서(라운드 → 마감 → 점수판)가 Java와 같다 —
-   *   먼저 걸리는 쪽이 이유 코드를 결정한다.
+   * 마감이 없을 때. 조회 순서(라운드 → 마감 → 점수판)가 계약이다 —
+   * 먼저 걸리는 쪽이 이유 코드를 결정한다.
    */
   async snapshot(roomId: string, playerId: string): Promise<ReconnectSnapshot<S>> {
     const room = await this.realtimeSnapshots.snapshot(roomId)

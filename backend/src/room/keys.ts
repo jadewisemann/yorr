@@ -1,4 +1,4 @@
-// backend-java `RoomRedisKeys`와 1:1. 키 스킴은 계약이다(운영 중 Redis에 이미
+// 키 스킴은 계약이다(운영 중 Redis에 이미
 // 이 이름으로 데이터가 있다) — docs/design/rooms-and-sessions.md 「Redis 키 스킴」.
 export const ROOM_KEY_PREFIX = 'room:'
 

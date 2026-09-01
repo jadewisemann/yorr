@@ -7,7 +7,7 @@ import type { UserIdentity, UserService } from '../../user/session.js'
 import { sendCode } from '../errorResponse.js'
 
 /**
- * 내 프로필 — backend-java `user/controller/UserProfileController`.
+ * 내 프로필.
  *
  * 인증은 **Bearer 토큰만**이다(방 REST의 `X-User-Id` + Bearer 2요소가 아니다) —
  * 프로필은 세션 토큰 하나로 신원이 유도되는 경로다(auth.md 「프로필 REST」).
@@ -22,7 +22,7 @@ export interface UserRouteDependencies {
   readonly profiles: UserProfileService
 }
 
-/** Java `ProfileResponse`가 직렬화되는 모양 그대로. camelCase다(방 REST의 snake_case가 아니다). */
+/** 프로필 응답의 직렬화 모양. camelCase다 — 방 REST의 snake_case가 아니다. */
 const profileResponse = (user: MemberUser) => ({
   userId: user.id,
   nickname: user.nickname,
@@ -37,7 +37,7 @@ export const registerUserRoutes = async (
     const member = await authenticateMember(deps, request, reply)
     if (member === undefined) return reply
     // 회원 행이 사라진 세션은 여기서 `UserNotFoundError`가 그대로 올라가 500이 된다.
-    // Java도 같다 — GET은 read()의 IllegalArgumentException을 잡지 않는다(quirk 재현).
+    // 의도된 비대칭이다 — GET은 `read()`의 도메인 오류를 잡지 않는다(PATCH만 잡는다).
     return reply.code(200).send(profileResponse(await deps.profiles.read(member.userId)))
   })
 
@@ -51,7 +51,7 @@ export const registerUserRoutes = async (
       return reply.code(200).send(profileResponse(renamed))
     } catch (error) {
       if (!(error instanceof DomainError)) throw error
-      // Java: `user_not_found`만 404, 나머지(=`invalid_nickname`)는 400.
+      // `user_not_found`만 404, 나머지(=`invalid_nickname`)는 400.
       // 기본값이 404인 공용 `sendDomainError`와 **갈래가 반대**라 여기서 직접 쓴다.
       return sendCode(reply, error.code === 'user_not_found' ? 404 : 400, error.code)
     }

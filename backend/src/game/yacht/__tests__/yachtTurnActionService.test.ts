@@ -15,9 +15,7 @@ import {
 } from './testDoubles.js'
 
 /**
- * backend-java `YachtTurnActionServiceTest` 이식.
- *
- * Java는 `RoundTimerService`·`RoomBroadcaster`·`ScoreRoundSubmissionService` 셋을
+ * `RoundTimerService`·`RoomBroadcaster`·`ScoreRoundSubmissionService` 셋을
  * 모킹하고 라운드 서비스만 진짜를 썼다. 여기서는 **제출 경로도 진짜**를 쓴다
  * (`ScoreRoundSubmissionService` + `ScoreConfirmationService` + 대역 저장소) —
  * 그 경로의 계약 절반이 "라운드 검증 → 점수 확정 → 커밋" 순서라, 모킹하면 테스트가
@@ -170,7 +168,7 @@ describe('YachtTurnActionService', () => {
     expect(timers.advanced).toHaveLength(0)
   })
 
-  it('msgId가 없으면 봉투에서 필드가 사라진다(Java NON_NULL)', async () => {
+  it('msgId가 없으면 봉투에서 필드가 사라진다', async () => {
     await roll(null)
 
     const envelope = broadcaster.lastOf(ROOM, 'game.yacht_dice.dice.broadcast')

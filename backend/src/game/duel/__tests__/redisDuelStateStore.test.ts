@@ -9,7 +9,7 @@ const ROOM_CODE = 'ROOM1'
 const PLAYERS = ['player-1', 'player-2'] as const
 
 /**
- * backend-java `RedisDuelStateStore` 이식 검증. 락·SETNX·TTL 복사는 모킹으로 볼 수
+ * 검증. 락·SETNX·TTL 복사는 모킹으로 볼 수
  * 없어 **진짜 Redis**로 돈다(ADR-0004).
  *
  * 핵심 케이스는 **version 비증가 갱신 무시**다: 결투는 두 플레이어의 draw와 서버

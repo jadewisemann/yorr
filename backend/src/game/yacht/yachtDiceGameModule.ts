@@ -54,7 +54,7 @@ interface Seat {
 }
 
 /**
- * 야추 게임 모듈 — backend-java `YachtDiceGameModule`.
+ * 야추 게임 모듈.
  *
  * 이 클래스가 하는 일은 두 가지다: ① **수명주기 훅**(start/reset/pause/resume/
  * removePlayer/close/hasState/reconnect)을 라운드 프레임워크 호출로 옮기고,
@@ -94,7 +94,7 @@ export class YachtDiceGameModule implements GameModule {
    * 레지스트리 phase PLAYING → `state.sync` → 첫 턴 타이머.
    *
    * ⚠️ **`markPhase('playing')`이 이 자리에 있는 것이 중요하다.** 1.5·2.1이 이 구멍을
-   * 열어 둔 채로 남겼다(레지스트리 phase를 옮기는 코드가 Java에서도 모듈 안에 있다).
+   * 열어 둔 채로 남겼다 — 레지스트리 phase를 옮기는 코드가 모듈 안에 있다.
    * 없으면 REST로 시작한 게임에 이미 붙어 있는 소켓의 phase가 `waiting`에 머물러
    * ① 끊긴 플레이어가 offline이 아니라 `room.player_left`가 되고
    * ② 재접속의 PLAYING 분기(스냅샷에 `game` 동봉)가 실전에서 도달하지 않는다.
@@ -111,13 +111,13 @@ export class YachtDiceGameModule implements GameModule {
       await this.broadcastState(roomCode)
       await this.timers.start(roomCode, firstTurn)
     } catch (error) {
-      // Java와 같이 reset이 또 던지면 그 예외가 원인을 대신 올라간다(2.1의 롤백과 같은 판단).
+      // reset이 또 던지면 그 예외가 원인을 대신 올라간다(롤백과 같은 판단).
       await this.reset(roomCode)
       throw error
     }
   }
 
-  /** 로비 복귀 정리. 타이머 → 상태 → phase → 방송 순서도 Java 그대로다. */
+  /** 로비 복귀 정리. 타이머 → 상태 → phase → 방송 순서가 계약이다. */
   async reset(roomCode: string): Promise<void> {
     await this.timers.cancelRoom(roomCode)
     await this.rounds.remove(roomCode)
@@ -213,7 +213,7 @@ export class YachtDiceGameModule implements GameModule {
       case 'round.submit':
         return this.submit(socket, message)
       default:
-        // `handles`가 걸러 주므로 dispatch 경로로는 도달할 수 없다(Java와 같은 방어).
+        // `handles`가 걸러 주므로 dispatch 경로로는 도달할 수 없다.
         throw new DomainError('unsupported_game_message')
     }
   }
@@ -266,7 +266,7 @@ export class YachtDiceGameModule implements GameModule {
    * 정상이다 — 매번 오류를 돌려주면 그 순간 오류만 쏟아진다. `dice.throw`와의 이
    * **비대칭이 계약**이다(docs/design/games/yacht.md).
    *
-   * payload 검증이 활성 판정보다 **먼저**인 것도 Java 그대로다: 남의 턴에 깨진
+   * payload 검증이 활성 판정보다 **먼저**다: 남의 턴에 깨진
    * shake를 보내면 무음이 아니라 `INVALID_MESSAGE`가 나간다.
    */
   private async shakeDice(socket: ClientSocket, message: InboundEnvelope): Promise<void> {
@@ -355,7 +355,7 @@ export class YachtDiceGameModule implements GameModule {
   /* --------------------------------------------------------------- 공통 보조 */
 
   /**
-   * 라운드 상태가 없으면 "활성 아님"이다(Java `orElse(false)`) — 게임이 시작되기
+   * 라운드 상태가 없으면 "활성 아님"이다 — 게임이 시작되기
    * 전이나 끝난 뒤의 연출 신호가 릴레이되지 않는다.
    */
   private async isActivePlayer(seat: Seat): Promise<boolean> {
@@ -392,7 +392,7 @@ export class YachtDiceGameModule implements GameModule {
    * (`registry.dispatch`는 예외를 잡지 않는다).
    *
    * 여기서 다루지 않는 예외는 **그대로 올린다** — 예: 방 락 경합의
-   * `game_state_busy`(`ConflictError`). Java도 그 `IllegalStateException`을 잡지 않아
+   * `game_state_busy`(`ConflictError`). 이것을 잡지 않아
    * 응답 없이 로그만 남으므로, 새 오류 응답을 만들면 계약이 넓어진다. 우리 쪽에서는
    * 게이트웨이가 잡아 로그를 남기고 소켓을 살려 둔다(같은 관측 결과).
    */
@@ -405,7 +405,7 @@ export class YachtDiceGameModule implements GameModule {
       this.sendError(socket, roundErrorCode(error.reason), error.message, message)
       return
     }
-    // Java `catch (IllegalArgumentException)` 자리 — 점수 도메인의 인자 검증과
+    // 점수 도메인의 인자 검증과
     // 코드 문자열 도메인 오류가 여기 들어온다.
     if (error instanceof ScoreDomainError || error instanceof DomainError) {
       this.sendError(socket, 'INVALID_MESSAGE', error.message, message)
@@ -422,7 +422,7 @@ export class YachtDiceGameModule implements GameModule {
     request: InboundEnvelope,
   ): void {
     if (!isOpen(socket)) return
-    // refMsgId가 undefined면 `JSON.stringify`가 필드를 지운다(Java `@JsonInclude(NON_NULL)`).
+    // refMsgId가 undefined면 `JSON.stringify`가 필드를 지운다.
     const frame = JSON.stringify({
       type: 'error',
       ts: this.now(),
@@ -437,7 +437,7 @@ export class YachtDiceGameModule implements GameModule {
 }
 
 /**
- * 턴 순서 = **host 우선, 나머지는 Redis 명단 순서 유지**(Java `Comparator.comparing`의
+ * 턴 순서 = **host 우선, 나머지는 Redis 명단 순서 유지**(안정 정렬의
  * 안정 정렬 자리 — `Array.prototype.sort`도 안정 정렬이다).
  */
 const turnOrderOf = (game: GameStartResult): string[] =>
@@ -451,7 +451,7 @@ const turnOrderOf = (game: GameStartResult): string[] =>
 
 const hostRank = (playerId: string, hostId: string | null): number => (playerId === hostId ? 0 : 1)
 
-/** Java `YachtDiceGameModule.errorCode(RoundSynchronizationException.Reason)`와 1:1. */
+/** 라운드 동기화 이유 코드 → WS 오류 코드. */
 const roundErrorCode = (reason: RoundSyncReason): WsErrorCode => {
   switch (reason) {
     case 'PLAYER_NOT_IN_ROUND':
@@ -466,7 +466,7 @@ const roundErrorCode = (reason: RoundSyncReason): WsErrorCode => {
   }
 }
 
-/** Java `YachtDiceGameModule.errorCode(ScoreConfirmationException.Reason)`와 1:1. */
+/** 점수 확정 이유 코드 → WS 오류 코드. */
 const scoreErrorCode = (reason: ScoreConfirmationReason): WsErrorCode => {
   switch (reason) {
     case 'GAME_NOT_FOUND':

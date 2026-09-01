@@ -1,14 +1,12 @@
 import type { PingPongPlayerNumbers, PingPongState } from './pingPongState.js'
 
 /**
- * 탁구 게임 서비스(3.4)가 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은
- * 포트로만 표현한다. 2.5(`round/roundPorts.ts`)·2.7(`completion/completionPorts.ts`)와
- * 같은 방식이고 같은 이유다:
+ * 탁구 게임 서비스가 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은
+ * 포트로만 표현한다. `round/roundPorts.ts`·`completion/completionPorts.ts`와
+ * 같은 방식이고 같은 이유다.
  *
- * Java `PingPongGameService`는 `RoundDeadlineScheduler`·`RoomBroadcaster`·
- * `RealtimeRoomSnapshotService`·`RoomSessionRegistry`·`GameCompletionService`·
- * `StringRedisTemplate`·`RoomValidationService` 일곱을 구체 타입으로 잡는다.
- * 그대로 옮기면 ① 병렬로 고쳐지는 계층(ws·room·2.7)에 컴파일이 묶이고
+ * 스케줄러·브로드캐스터·스냅샷·레지스트리·종료 서비스·Redis·방 검증을 구체
+ * 타입으로 잡으면 ① 함께 고쳐지는 계층(ws·room·completion)에 컴파일이 묶이고
  * ② game-modules.md의 "도메인 규칙은 전송 계층을 모른다"를 깬다.
  *
  * 여기 선언한 인터페이스는 실제 클래스가 **구조적으로 이미 만족**하므로 어댑터가

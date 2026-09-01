@@ -25,7 +25,7 @@ import {
 /**
  * `BotTurnOrchestratorTest` 이식(3종) + 지연 4종·오류 격리 검증.
  *
- * Java는 `mock(ScheduledExecutorService)` + `ArgumentCaptor<Runnable>`로 예약을 잡고
+ * 손으로 만든 executor 시임으로 예약을 잡고
  * 손으로 `run()` 한다. 여기서는 같은 일을 `ManualExecutor`가 한다 — **실시간
  * sleep도 가짜 타이머도 쓰지 않는다**(6.5초를 기다리는 테스트는 만들지 않는다).
  */
@@ -113,7 +113,7 @@ describe('BotTurnOrchestrator', () => {
     expect(executor.delays()).toEqual([TURN_START_DELAY_MS])
     await executor.fire(0)
     // 킵 선택 지연으로 같은 턴이 다시 예약된다. 중간의 600ms는 이 픽스처의 상태가
-    // rollCount 0 → 1이라 `isRollStep`도 성립하기 때문이다(Java 테스트도 같은
+    // rollCount 0 → 1이라 `isRollStep`도 성립하기 때문이다(같은
     // 픽스처이고, `eq(0L)` 매처가 그 예약을 세지 않아 안 보였을 뿐이다).
     expect(executor.delays()).toEqual([
       TURN_START_DELAY_MS,

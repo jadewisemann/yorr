@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { compareVersions, normalizeVersion, parseScriptName } from '../migrations/version.js'
 
 describe('parseScriptName', () => {
-  it('Java가 쓰는 파일명을 version·description으로 가른다', () => {
+  it('Flyway 파일명을 version·description으로 가른다', () => {
     expect(parseScriptName('V1__create_user_tables.sql')).toEqual({
       version: '1',
       description: 'create user tables',
