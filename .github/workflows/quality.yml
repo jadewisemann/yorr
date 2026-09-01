@@ -1,0 +1,73 @@
+# 코드 품질 게이트 — QUALITY.md
+#
+# backend.yml·frontend.yml과 **별도 워크플로인 이유**: 분석기와 knip·jscpd는
+# 두 패키지를 한 번에 읽는다(중복은 패키지를 가로질러 생기고, knip은 워크스페이스
+# 전체를 봐야 미사용 export를 판정한다). 잡을 backend.yml에 넣으면 프론트만 바뀐
+# PR에서 돌지 않고, 양쪽에 넣으면 같은 분석을 두 번 돌린다.
+#
+# 커버리지를 여기서 측정하지 않는 이유: 각 패키지의 테스트 잡이 이미 자기 커버리지
+# 임계값을 강제한다. 여기서 또 돌리면 CI 시간만 두 배가 된다.
+
+name: quality
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - backend/**
+      - frontend/**
+      - tools/**
+      - knip.json
+      - .jscpd.json
+      - package.json
+      - package-lock.json
+      - .github/workflows/quality.yml
+  push:
+    branches: [main]
+    paths:
+      - backend/**
+      - frontend/**
+      - tools/**
+      - knip.json
+      - .jscpd.json
+      - package.json
+      - package-lock.json
+      - .github/workflows/quality.yml
+  workflow_dispatch: {}
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: 지표 측정 · 게이트
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      # knip은 각 워크스페이스의 node_modules로 의존성을 해석한다. 설치하지 않으면
+      # 모든 외부 import가 "미해결"로 보고되어 결과가 무의미해진다.
+      - run: npm ci
+      - run: npm ci
+        working-directory: backend
+      - run: npm ci
+        working-directory: frontend
+
+      # 게이트가 하나도 켜져 있지 않은 동안에도 표는 출력된다 — 지표가 어느 방향으로
+      # 움직이는지 PR마다 보이는 것이 이 잡의 절반이다.
+      - run: npm run quality:gate

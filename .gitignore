@@ -27,3 +27,10 @@ Thumbs.db
 /docs/
 /.dev.md
 deploy/tests/work/
+
+# 품질 계측의 중간 산출물. 언제든 `npm run quality`로 다시 만들 수 있으므로
+# 커밋하는 것은 기준선(tools/quality/baseline.json) 하나뿐이다.
+tools/quality/.metrics.json
+tools/quality/.knip.json
+tools/quality/.jscpd/
+tools/quality/.stryker.json

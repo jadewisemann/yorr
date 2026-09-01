@@ -1,0 +1,30 @@
+{
+  "targets": [
+    {
+      "name": "backend",
+      "root": "backend/src",
+      "coverage": "backend/coverage/coverage-final.json"
+    },
+    {
+      "name": "frontend",
+      "root": "frontend/src",
+      "coverage": "frontend/coverage/coverage-final.json"
+    }
+  ],
+  "thresholds": {
+    "cyclomatic": 22,
+    "cognitive": 22,
+    "halsteadDifficulty": 80,
+    "fileLines": 500,
+    "crap": 25,
+    "duplication": 0,
+    "deadCode": 0,
+    "explicitAny": 0
+  },
+  "waivers": {
+    "maxCount": 0,
+    "files": []
+  },
+  "enforced": [],
+  "_enforcedNote": "QUALITY.md 5절의 단계에 따라 하나씩 추가한다. 키: cyclomatic·cognitive·halstead·fileLines·coverage·crap·mutation·deadCode·duplication·explicitAny·unknownCast"
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["tools/quality/analyze.mjs", "tools/quality/report.mjs"],
+      "project": ["tools/**/*.mjs"]
+    },
+    "backend": {
+      "entry": ["src/main.ts", "src/migrate.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "frontend": {
+      "entry": ["src/main.tsx", "src/mocks/**/*.ts", "scripts/*.mjs", "e2e/**/*.ts"],
+      "project": ["src/**/*.{ts,tsx}", "scripts/*.mjs", "e2e/**/*.ts"]
+    }
+  }
+}

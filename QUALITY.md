@@ -78,46 +78,58 @@
 
 ---
 
-## 2. 현재 코드베이스 실측
+## 2. 0단계 기준선 (실측)
 
-> 아래 수치는 `backend-java/` 삭제 이전에 측정했고, Java 관련 항목은 제외했다.
+`npm run quality:baseline`이 산출한 값이며 `tools/quality/baseline.json`에 기록되어
+있다. 아래 수치는 전부 `backend-java/` 삭제 **이후**에 측정했다.
 
-| 항목 | `backend/` (Node·TS) | `frontend/` (React·TS) |
+| 항목 | `backend/` | `frontend/` |
 |---|---|---|
-| 소스 파일 수 | 268(테스트 포함) | 464 |
-| 비테스트 코드 라인 | 20,113 | 31,595 |
-| 테스트 파일 수 | 103 | 154 |
-| 커버리지 설정 | **없음**(`@vitest/coverage-v8` 미설치) | statements 96·branches 91·functions 96·lines 98 |
-| 인지 복잡도 규칙 | Biome `noExcessiveCognitiveComplexity`: **warn** | 동일하게 **warn** |
-| 순환 의존성 검사 | 없음 | `dpdm`으로 검사 |
-| 돌연변이·중복·죽은 코드 도구 | 없음 | 없음 |
+| 비테스트 파일 | 160 | 312 |
+| 비테스트 코드 라인(주석·빈 줄 제외) | 14,300 | 28,859 |
+| 비테스트 전체 라인 | 20,033 | 32,027 |
+| 테스트 파일 | 107 | 154 |
+| 함수 | 3,494 | 4,800 |
+| 커버리지(lines) | 91.93% | 83.77% |
 
-### 즉시 드러나는 위반
+### 11개 지표 현황
 
-**500줄 초과 비테스트 파일(6개)**
+| # | 지표 | 목표 | 기준선 | 위반 |
+|---|---|---|---|---|
+| 1 | 사이클로매틱 복잡도 | < 22 | 최대 24 | 1 |
+| 2 | 인지 복잡도 | < 22 | Biome 진단 0건(기본 상한 15에서도 없다) | 0 |
+| 3 | 할스테드 난이도 | < 80 | 최대 84.82 | 1 |
+| 4 | 파일당 코드 라인 | < 500 | 최대 1,133 | 11 |
+| 5 | 테스트 커버리지 | 100% | backend 91.93 · frontend 83.77 | 2 |
+| 6 | CRAP | < 25 | 최대 306 | 33 |
+| 7 | 생존 돌연변이 | 0 | 미측정(5단계에서 도입) | — |
+| 8 | 죽은 코드 | 0 | 미사용 export 592 · 의존성 2 | 594 |
+| 9 | 중복 코드 | 0 | 209쌍 · 2.32% | 209 |
+| 10 | `any` 타입 | 0 | 0건 | 0 |
+| 11 | `unknown` 이완 | 0 | `as unknown as` 67 · 억제 주석 14 | 67 |
 
-- `frontend/src/yacht/rendering/physics-dice/World.ts` — 798줄
-- `frontend/src/pingpong/rendering/scene3d.ts` — 794줄
-- `backend/src/ws/handler.ts` — 681줄
-- `frontend/src/realtime/wsEvents.ts` — 590줄
-- `backend/src/server.ts` — 579줄
-- `frontend/src/landing/rendering/heroScene.ts` — 576줄
+위반 목록의 상세(어떤 파일·어떤 함수인지)는 기준선 파일에 들어 있다.
 
-**500줄 초과 테스트 파일(8개)** — 최대 1,145줄(`World.test.ts`).
+### 이 문서가 처음에 적었던 수치 가운데 사실과 달랐던 것
 
-**타입 이완**
+**`any` 351건 — 실제로는 0건이다.** `backend/` 219건·`frontend/` 132건이라고 적었으나
+`: any`·`as any`·`<any>`·`any[]` 어느 형태도 두 패키지에 존재하지 않는다. 이 문서를
+쓴 커밋(`8b376b2`) 시점으로 되돌려 세어 보아도 0이다. 소스에 등장하는 `any`는 전부
+`expect.any(Function)` 같은 Vitest 매처다. 따라서 3단계에서 남는 일은
+`noExplicitAny`를 `error`로 올리는 설정 변경뿐이고, 실제로 손이 가는 대상은
+`as unknown as` 67건이다.
 
-- `: any` · `as any` · `<any>` 계열 패턴 351건(backend 219, frontend 132, 테스트 포함)
-- `as unknown as` 67건
-- `@ts-ignore` 계열 0건, `biome-ignore` 14건
-- 다만 `tsconfig`는 이미 `strict`·`noUncheckedIndexedAccess`·
-  `exactOptionalPropertyTypes`가 모두 켜져 있어서 출발점이 나쁘지 않습니다.
+**`frontend/`의 96~98%는 실측이 아니라 설정값이었다.** 그 숫자는
+`vitest.config.ts`의 `thresholds`이고, 실측은 statements 82.37 · branches 77.30 ·
+functions 84.84 · lines 83.77이다. 즉 **이 임계값은 지금 통과하지 못한다.**
+그런데도 CI가 초록인 이유는 `npm test`가 `--coverage` 없이 돌기 때문이다 — 임계값이
+설정되어 있을 뿐 한 번도 강제된 적이 없다. 4단계는 "래칫을 새로 만드는 일"이 아니라
+**죽어 있는 게이트를 살리는 일**부터 시작한다.
 
-**커버리지** — `backend/`에는 커버리지 측정 자체가 없어서 현재 수치를 알 수 없습니다.
-`frontend/`는 96~98% 선이며, `World.ts`를 비롯한 렌더링·개발용 화면 여러 개를
-측정 대상에서 제외해 둔 상태입니다.
-
----
+**500줄 초과 파일은 세는 기준에 따라 6개도 되고 4개도 된다.** 전체 라인으로 세면
+비테스트 6개, 주석과 빈 줄을 뺀 코드 라인으로 세면 4개다(`handler.ts`는 681줄 가운데
+134줄이 주석이다). 지표 이름이 "코드 라인 수"이므로 **코드 라인을 기준으로 삼는다.**
+주석을 이유로 파일을 쪼개게 만들면 이 저장소가 유지해 온 설명 주석을 벌주는 셈이 된다.
 
 ## 3. 확정된 범위 결정
 
@@ -163,8 +175,8 @@ Node 백엔드로의 이식이 끝나 참조 구현으로서의 역할이 사라
 | 지표 | 채택 도구 | 비고 |
 |---|---|---|
 | 인지 복잡도 | Biome `complexity/noExcessiveCognitiveComplexity` | 이미 설치되어 있으며 `warn`에서 `error`로 올리고 상한 옵션을 22로 설정합니다. 옵션 키 이름은 도입 시 Biome 2.5 문서에서 확인합니다. |
-| 사이클로매틱 복잡도 | 자체 분석기 (TypeScript Compiler API) | Biome에는 해당 규칙이 없습니다. ESLint 코어의 `complexity` 규칙을 쓰려면 ESLint 체계를 새로 들여와야 하는데, Biome을 쓰는 저장소에 린터를 이중으로 두는 비용이 큽니다. |
-| 할스테드 난이도 | 자체 분석기 (동일) | `ts-complex`(2018)·`typhonjs-escomplex`(2018)·`codehawk-cli`(2023)는 모두 유지 보수가 멈추었고 최신 TS 문법 지원이 불확실합니다. 저장소가 이미 `typescript` 의존성을 갖고 있으므로 컴파일러 API로 직접 계산하는 편이 안전합니다. |
+| 사이클로매틱 복잡도 | 자체 분석기 (`tools/quality/`) | Biome에는 해당 규칙이 없습니다. ESLint 코어의 `complexity` 규칙을 쓰려면 ESLint 체계를 새로 들여와야 하는데, Biome을 쓰는 저장소에 린터를 이중으로 두는 비용이 큽니다. |
+| 할스테드 난이도 | 자체 분석기 (동일) | `ts-complex`(2018)·`typhonjs-escomplex`(2018)·`codehawk-cli`(2023)는 모두 유지 보수가 멈추었고 최신 TS 문법 지원이 불확실합니다. |
 | CRAP | 자체 분석기 + Vitest 커버리지 리포트 | 함수별 사이클로매틱 복잡도와 함수별 커버리지를 결합해 계산합니다. |
 | 파일당 라인 수 | 자체 분석기 (동일) | |
 | 테스트 커버리지 | Vitest + `@vitest/coverage-v8` | `frontend/`에 이미 있고 `backend/`에 새로 추가합니다. |
@@ -175,10 +187,21 @@ Node 백엔드로의 이식이 끝나 참조 구현으로서의 역할이 사라
 
 ### 자체 분석기에 관하여
 
-`tools/quality/` 아래에 TypeScript Compiler API를 사용하는 분석기 하나를 둡니다.
-파일을 순회하며 함수별로 사이클로매틱 복잡도·인지 복잡도·할스테드 지표·라인 수를
-계산하고, Vitest가 만든 `coverage-final.json`의 함수별 실행 정보와 결합해 CRAP까지
-산출한 뒤, 위반 목록과 JSON 리포트를 함께 출력합니다.
+`tools/quality/analyze.mjs`가 파일을 순회하며 함수별로 사이클로매틱 복잡도·할스테드
+지표·라인 수를 계산하고, Vitest가 만든 `coverage-final.json`의 statement 실행 정보와
+결합해 CRAP까지 산출합니다. `tools/quality/report.mjs`는 그 결과에 Biome·knip·jscpd·
+커버리지 요약을 합쳐 11개 지표를 한 표로 만들고, `--gate`에서 **켜져 있는 게이트만**
+검사합니다. 어떤 게이트가 켜져 있는지는 `tools/quality/config.json`의 `enforced`가
+정합니다 — 단계적으로 켜는 것이 계획이므로 그 스위치가 코드가 아니라 설정에 있어야
+합니다.
+
+인지 복잡도는 이 분석기가 계산하지 않습니다. Biome이 이미 그 지표를 담당하므로
+같은 값을 두 번 정의하지 않고, 리포터가 Biome 진단을 수집합니다.
+
+**파서로 저장소의 `typescript` 의존성을 쓰지 못했습니다.** 이 저장소는 TypeScript 7을
+쓰는데 7.x는 Go 네이티브 포팅이라 JS 컴파일러 API(`ts.createSourceFile`·`ts.SyntaxKind`)를
+내보내지 않습니다. 그래서 분석 전용으로 `typescript@5.9`를 루트 `package.json`에 따로
+둡니다. TypeScript 7은 5.9와 문법 집합이 같으므로 파싱 결과에는 차이가 없습니다.
 
 여기서 짚어 둘 점이 하나 있습니다. **CRAP은 커버리지가 100%일 때 사이클로매틱
 복잡도와 같아집니다.** 정의가 `복잡도² × (1 − 커버리지)³ + 복잡도`이므로 커버리지가
@@ -191,17 +214,33 @@ Node 백엔드로의 이식이 끝나 참조 구현으로서의 역할이 사라
 
 ## 5. 단계별 실행 계획
 
-### 0단계 — 계측 (게이트 없음)
+### 0단계 — 계측 (게이트 없음) — **완료**
 
-1. `tools/quality/` 분석기를 작성합니다.
-2. `backend/`에 `@vitest/coverage-v8`을 추가하고 커버리지 설정을 넣습니다.
-3. `knip`·`jscpd`를 추가하고 설정 파일을 작성합니다.
-4. `npm run quality:report`로 11개 지표 전체의 **현재 수치**를 산출해
-   `docs/quality-baseline.json`에 기록합니다.
-5. 이 기준선을 보고 3절의 결정 사항을 확정합니다.
+1. ~~`tools/quality/` 분석기를 작성합니다.~~ `analyze.mjs`·`report.mjs`·`config.json`.
+2. ~~`backend/`에 `@vitest/coverage-v8`을 추가하고 커버리지 설정을 넣습니다.~~
+3. ~~`knip`·`jscpd`를 추가하고 설정 파일을 작성합니다.~~ 루트 `package.json`에 두었습니다 —
+   두 도구 모두 두 패키지를 가로질러 봐야 하기 때문입니다.
+4. ~~11개 지표의 현재 수치를 산출해 기록합니다.~~ 2절과 `tools/quality/baseline.json`.
+5. ~~이 기준선을 보고 3절의 결정 사항을 확정합니다.~~
 
-이 단계는 아직 아무것도 막지 않습니다. 실제 위반 규모를 모르는 상태에서 일정을
-추정하면 반드시 틀리기 때문에, 숫자를 먼저 확보합니다.
+기준선 파일을 `docs/`가 아니라 `tools/quality/`에 둔 이유: 루트 `.gitignore`가
+`/docs/`를 통째로 무시합니다(로컬 기획 자료 보관용). 래칫의 바닥이 되려면 커밋되어야
+하므로 도구와 같은 자리에 둡니다.
+
+CI는 `backend.yml`·`frontend.yml`이 아니라 `.github/workflows/quality.yml` 하나에
+배선했습니다. 분석기와 knip·jscpd는 두 패키지를 한 번에 읽어야 하는데(중복은 패키지를
+가로질러 생기고, knip은 워크스페이스 전체를 봐야 미사용 export를 판정합니다), 잡을
+`backend.yml`에 넣으면 프론트만 바뀐 PR에서 돌지 않고 양쪽에 넣으면 같은 분석을 두 번
+돌리게 됩니다.
+
+명령은 다음과 같습니다.
+
+```bash
+npm run quality            # 측정하고 표를 출력한다(커버리지는 기존 리포트를 읽는다)
+npm run quality:coverage   # 커버리지까지 새로 측정한다
+npm run quality:baseline   # 측정하고 기준선 파일을 갱신한다
+npm run quality:gate       # 켜진 게이트를 검사한다 — CI가 부르는 명령
+```
 
 ### 1단계 — 즉시 강제 가능한 게이트
 

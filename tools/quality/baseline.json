@@ -1,0 +1,519 @@
+{
+  "generatedAt": "2026-09-01T00:45:26.207Z",
+  "thresholds": {
+    "cyclomatic": 22,
+    "cognitive": 22,
+    "halsteadDifficulty": 80,
+    "fileLines": 500,
+    "crap": 25,
+    "duplication": 0,
+    "deadCode": 0,
+    "explicitAny": 0
+  },
+  "note": "QUALITY.md 0단계 기준선. 이 값들은 게이트가 아니라 출발점이며, 래칫의 바닥으로 쓴다.",
+  "metrics": [
+    {
+      "id": 1,
+      "name": "사이클로매틱 복잡도",
+      "goal": "< 22",
+      "value": "최대 24",
+      "violations": 1
+    },
+    {
+      "id": 2,
+      "name": "인지 복잡도",
+      "goal": "< 22",
+      "value": "Biome 진단 0건",
+      "violations": 0
+    },
+    {
+      "id": 3,
+      "name": "할스테드 난이도",
+      "goal": "< 80",
+      "value": "최대 84.82",
+      "violations": 1
+    },
+    {
+      "id": 4,
+      "name": "파일당 코드 라인",
+      "goal": "< 500",
+      "value": "최대 1133",
+      "violations": 11
+    },
+    {
+      "id": 5,
+      "name": "테스트 커버리지",
+      "goal": "100%",
+      "value": "backend 91.93% · frontend 83.84%",
+      "violations": 2
+    },
+    {
+      "id": 6,
+      "name": "CRAP",
+      "goal": "< 25",
+      "value": "최대 306",
+      "violations": 33
+    },
+    {
+      "id": 7,
+      "name": "생존 돌연변이",
+      "goal": "0",
+      "value": "미측정(Stryker 미도입)",
+      "violations": null
+    },
+    {
+      "id": 8,
+      "name": "죽은 코드",
+      "goal": "0",
+      "value": "export 592 · 파일 0 · 의존성 2",
+      "violations": 594
+    },
+    {
+      "id": 9,
+      "name": "중복 코드",
+      "goal": "0 (50토큰 이상)",
+      "value": "209쌍 · 2.32%",
+      "violations": 209
+    },
+    {
+      "id": 10,
+      "name": "`any` 타입",
+      "goal": "0",
+      "value": "0건",
+      "violations": 0
+    },
+    {
+      "id": 11,
+      "name": "`unknown` 이완",
+      "goal": "0",
+      "value": "as unknown as 67건 · 억제 주석 14건",
+      "violations": 67
+    }
+  ],
+  "details": {
+    "files": [
+      {
+        "target": "backend",
+        "files": 267,
+        "productionFiles": 160,
+        "functions": 3494,
+        "maxCodeLines": 864,
+        "over500": [
+          {
+            "file": "backend/src/__tests__/serverWiring.test.ts",
+            "codeLines": 864,
+            "totalLines": 907,
+            "test": true
+          },
+          {
+            "file": "backend/src/game/pingpong/__tests__/pingPongGameService.test.ts",
+            "codeLines": 533,
+            "totalLines": 563,
+            "test": true
+          },
+          {
+            "file": "backend/src/game/yacht/__tests__/yachtDiceGameModule.test.ts",
+            "codeLines": 533,
+            "totalLines": 700,
+            "test": true
+          },
+          {
+            "file": "backend/src/ws/__tests__/handler.test.ts",
+            "codeLines": 700,
+            "totalLines": 716,
+            "test": true
+          },
+          {
+            "file": "backend/src/ws/handler.ts",
+            "codeLines": 547,
+            "totalLines": 681,
+            "test": false
+          }
+        ]
+      },
+      {
+        "target": "frontend",
+        "files": 466,
+        "productionFiles": 312,
+        "functions": 4800,
+        "maxCodeLines": 1133,
+        "over500": [
+          {
+            "file": "frontend/src/app/__tests__/RealtimeSync.test.tsx",
+            "codeLines": 539,
+            "totalLines": 626,
+            "test": true
+          },
+          {
+            "file": "frontend/src/landing/rendering/heroScene.ts",
+            "codeLines": 504,
+            "totalLines": 576,
+            "test": false
+          },
+          {
+            "file": "frontend/src/pingpong/rendering/scene3d.ts",
+            "codeLines": 716,
+            "totalLines": 794,
+            "test": false
+          },
+          {
+            "file": "frontend/src/yacht/rendering/physics-dice/World.ts",
+            "codeLines": 760,
+            "totalLines": 798,
+            "test": false
+          },
+          {
+            "file": "frontend/src/yacht/rendering/physics-dice/__tests__/World.test.ts",
+            "codeLines": 1133,
+            "totalLines": 1145,
+            "test": true
+          },
+          {
+            "file": "frontend/src/yacht/screens/__tests__/GamePlay.test.tsx",
+            "codeLines": 966,
+            "totalLines": 967,
+            "test": true
+          }
+        ]
+      }
+    ],
+    "cyclomaticOver": [
+      {
+        "file": "frontend/src/app/RealtimeSync.tsx",
+        "name": "applyServerMessage",
+        "line": 146,
+        "value": 24
+      }
+    ],
+    "halsteadOver": [
+      {
+        "file": "frontend/src/pingpong/rendering/scene3d.ts",
+        "name": "createScene",
+        "line": 393,
+        "value": 84.82
+      }
+    ],
+    "crapOver": [
+      {
+        "file": "backend/src/auth/socialAccountStore.ts",
+        "name": "this.inTransaction(…)",
+        "line": 117,
+        "value": 42,
+        "coverage": 0
+      },
+      {
+        "file": "backend/src/game/davinci/davinciStateStore.ts",
+        "name": "isDavinciState",
+        "line": 145,
+        "value": 40.77,
+        "coverage": 0.2
+      },
+      {
+        "file": "frontend/src/app/RealtimeSync.tsx",
+        "name": "applyServerMessage",
+        "line": 146,
+        "value": 27.46,
+        "coverage": 0.82
+      },
+      {
+        "file": "frontend/src/davinci/screens/DavinciResult.tsx",
+        "name": "DavinciResult",
+        "line": 21,
+        "value": 56,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/components/Arena.tsx",
+        "name": "Arena",
+        "line": 44,
+        "value": 306,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/components/Arena/SignalLamp.tsx",
+        "name": "SignalLamp",
+        "line": 7,
+        "value": 110,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/components/Arena/SignalLamp.tsx",
+        "name": "Plate",
+        "line": 84,
+        "value": 30,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/components/Arena/effects.tsx",
+        "name": "Bullet",
+        "line": 61,
+        "value": 72,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/components/Arena/effects.tsx",
+        "name": "FoulDust",
+        "line": 123,
+        "value": 30,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/components/Arena/lines.tsx",
+        "name": "Headline",
+        "line": 8,
+        "value": 90,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/components/Arena/resultLines.tsx",
+        "name": "FoulLine",
+        "line": 10,
+        "value": 42,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/components/Arena/resultLines.tsx",
+        "name": "TimeTag",
+        "line": 122,
+        "value": 42,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/components/Arena/scenery.tsx",
+        "name": "Wasteland",
+        "line": 31,
+        "value": 42,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/components/Gunslinger.tsx",
+        "name": "Gunslinger",
+        "line": 35,
+        "value": 132,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/model/useDuelGame.ts",
+        "name": "useImpactDelay",
+        "line": 40,
+        "value": 56,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/model/useDuelGame.ts",
+        "name": "useCallback(…)",
+        "line": 124,
+        "value": 90,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/screens/DuelGame.tsx",
+        "name": "DuelGame",
+        "line": 21,
+        "value": 182,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/screens/DuelResult.tsx",
+        "name": "DuelResult",
+        "line": 30,
+        "value": 90,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/duel/screens/DuelResult.tsx",
+        "name": "DuelDashboardResult",
+        "line": 104,
+        "value": 156,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/pingpong/domain/court.ts",
+        "name": "rallyLift",
+        "line": 89,
+        "value": 30,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/pingpong/domain/localGame.ts",
+        "name": "swingP2",
+        "line": 358,
+        "value": 42,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/pingpong/feedback.ts",
+        "name": "sharedEventLabel",
+        "line": 25,
+        "value": 48.47,
+        "coverage": 0.27
+      },
+      {
+        "file": "frontend/src/pingpong/model/useLocalPingPongGame.ts",
+        "name": "sameHud",
+        "line": 42,
+        "value": 30,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/pingpong/model/usePartyHostGame.ts",
+        "name": "useCallback(…)",
+        "line": 63,
+        "value": 30,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/pingpong/model/usePartyHostGame.ts",
+        "name": "client.onMessage(…)",
+        "line": 87,
+        "value": 30,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/pingpong/rendering/scene3d.ts",
+        "name": "makeMascot",
+        "line": 216,
+        "value": 30,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/pingpong/rendering/scene3d.ts",
+        "name": "createScene",
+        "line": 393,
+        "value": 48.39,
+        "coverage": 0.14
+      },
+      {
+        "file": "frontend/src/pingpong/rendering/scene3d.ts",
+        "name": "renderTrail",
+        "line": 684,
+        "value": 30,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/pingpong/rendering/scene3d.ts",
+        "name": "prepareTimingRing",
+        "line": 723,
+        "value": 56,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/pingpong/screens/PingPongModePage.tsx",
+        "name": "feedbackClass",
+        "line": 180,
+        "value": 30,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/pingpong/screens/PingPongResult.tsx",
+        "name": "PingPongResult",
+        "line": 15,
+        "value": 72,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/pingpong/screens/PingPongResult.tsx",
+        "name": "PingPongDashboardResult",
+        "line": 64,
+        "value": 56,
+        "coverage": 0
+      },
+      {
+        "file": "frontend/src/yacht/screens/GameController.tsx",
+        "name": "GameControllerPad",
+        "line": 17,
+        "value": 210,
+        "coverage": 0
+      }
+    ],
+    "coverage": {
+      "backend": {
+        "lines": {
+          "total": 4490,
+          "covered": 4128,
+          "skipped": 0,
+          "pct": 91.93
+        },
+        "statements": {
+          "total": 5089,
+          "covered": 4585,
+          "skipped": 0,
+          "pct": 90.09
+        },
+        "functions": {
+          "total": 1159,
+          "covered": 1028,
+          "skipped": 0,
+          "pct": 88.69
+        },
+        "branches": {
+          "total": 2811,
+          "covered": 2313,
+          "skipped": 0,
+          "pct": 82.28
+        },
+        "branchesTrue": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "frontend": {
+        "lines": {
+          "total": 6535,
+          "covered": 5479,
+          "skipped": 0,
+          "pct": 83.84
+        },
+        "statements": {
+          "total": 7466,
+          "covered": 6156,
+          "skipped": 0,
+          "pct": 82.45
+        },
+        "functions": {
+          "total": 1900,
+          "covered": 1617,
+          "skipped": 0,
+          "pct": 85.1
+        },
+        "branches": {
+          "total": 5129,
+          "covered": 3958,
+          "skipped": 0,
+          "pct": 77.16
+        },
+        "branchesTrue": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        }
+      }
+    },
+    "deadCode": {
+      "exports": 592,
+      "files": 0,
+      "dependencies": 2
+    },
+    "duplication": {
+      "clones": 209,
+      "duplicatedLines": 2172,
+      "duplicatedTokens": 14812,
+      "lines": 93640,
+      "newClones": 0,
+      "newDuplicatedLines": 0,
+      "percentage": 2.3195215719777873,
+      "percentageTokens": 2.7696697600753937,
+      "sources": 715,
+      "tokens": 534793
+    },
+    "typeLaxity": {
+      "explicitAny": 0,
+      "unknownCast": 67,
+      "biomeIgnore": 14,
+      "tsSuppression": 0
+    }
+  }
+}

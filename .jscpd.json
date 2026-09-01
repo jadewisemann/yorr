@@ -1,0 +1,8 @@
+{
+  "minTokens": 50,
+  "reporters": ["json"],
+  "output": "tools/quality/.jscpd",
+  "gitignore": true,
+  "ignore": ["**/node_modules/**", "**/dist/**", "**/coverage/**", "**/*.d.ts"],
+  "format": ["typescript", "tsx"]
+}

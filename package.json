@@ -1,0 +1,21 @@
+{
+  "name": "yorr-quality",
+  "private": true,
+  "type": "module",
+  "description": "저장소 전역 품질 게이트. 앱 코드는 backend/·frontend/에 있고 여기에는 계측 도구만 둔다.",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "quality": "node tools/quality/report.mjs",
+    "quality:metrics": "node tools/quality/analyze.mjs --out tools/quality/.metrics.json",
+    "quality:coverage": "node tools/quality/report.mjs --coverage",
+    "quality:baseline": "node tools/quality/report.mjs --coverage --baseline",
+    "quality:gate": "node tools/quality/report.mjs --gate"
+  },
+  "devDependencies": {
+    "jscpd": "^5.1.1",
+    "knip": "^6.34.0",
+    "typescript": "^5.9.3"
+  }
+}
