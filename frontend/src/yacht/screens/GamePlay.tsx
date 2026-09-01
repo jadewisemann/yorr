@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useChat } from '@/realtime/chat/ChatContext'
-import { ChatDialog } from '@/realtime/chat/ChatDialog'
+import { ChatOverlay } from '@/realtime/chat/ChatOverlay'
+import { ChatPanel } from '@/realtime/chat/ChatPanel'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
 import { isPartyRoom } from '@/room/partyControllerStorage'
 import { AudioPopover } from '@/shared/components/AudioPopover'
@@ -130,7 +131,6 @@ export function GamePlay({
   const {
     audioButtonRef,
     audioOpen,
-    chatButtonRef,
     chatOpen,
     closeSheet,
     helpOpen,
@@ -211,6 +211,36 @@ export function GamePlay({
     />
   )
 
+  /*
+   * 넓은 화면에서는 오른쪽 열에 채팅을 상주시킨다 — 점수표 옆에 자리가 있고, 대화를 보려고
+   * 판 위에 창을 띄우면 그때마다 주사위가 가려진다. 좁은 화면은 그 자리가 없어 창을 쓴다.
+   */
+  const chatPanel = wide ? (
+    <ChatPanel
+      chat={chat}
+      className="h-56 flex-none rounded-none border-0 border-t border-border bg-transparent"
+      you={session.you}
+    />
+  ) : null
+
+  /*
+   * 좁은 화면에서는 새 말만 잠깐 띄운다 — 판 위에 대화를 상주시키면 주사위를 계속 가리고,
+   * 창을 열어야만 보이면 굴리는 중에 오간 말을 놓친다. 지나간 대화와 입력은 헤더 버튼이 여는
+   * 시트가 맡는다.
+   *
+   * z-banner인 이유: 턴·족보 연출(`EffectCallout`, z-20)이 같은 자리에 뜬다. 아래에 깔리면
+   * 연출 글자가 말풍선을 가로질러 둘 다 못 읽는다 — 4초 동안은 대화가 위에 있는 편이 낫다.
+   */
+  const chatOverlay = wide ? null : (
+    <ChatOverlay
+      chat={chat}
+      onToggle={setChatOpen}
+      open={chatOpen}
+      peekClassName="absolute inset-x-gutter z-banner"
+      you={session.you}
+    />
+  )
+
   const header = (
     <GamePlayHeader
       activePlayer={activePlayer}
@@ -222,7 +252,6 @@ export function GamePlay({
       onLeave={onLeaveRequest}
       audioButtonRef={audioButtonRef}
       onOpenAudio={() => setAudioOpen(true)}
-      chatButtonRef={chatButtonRef}
       chatUnread={chat.unread}
       onOpenChat={() => setChatOpen(true)}
       remainingMs={remainingMs}
@@ -296,6 +325,8 @@ export function GamePlay({
     <>
       <GamePlayBoard
         actions={actions}
+        chatOverlay={chatOverlay}
+        chatPanel={chatPanel}
         connectionStatus={connectionStatus}
         diceScene={diceScene}
         guideOverlay={guide?.({
@@ -328,14 +359,6 @@ export function GamePlay({
         onClose={() => setAudioOpen(false)}
         onToggleMute={toggleSound}
         open={audioOpen}
-      />
-      <ChatDialog
-        anchorRef={chatButtonRef}
-        chat={chat}
-        layout={wide ? 'wide' : 'narrow'}
-        onClose={() => setChatOpen(false)}
-        open={chatOpen}
-        you={session.you}
       />
       {zeroModal}
       <GameHelpModal
