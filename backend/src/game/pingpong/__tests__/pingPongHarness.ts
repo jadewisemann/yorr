@@ -15,7 +15,7 @@ export const ROOM = 'room-a'
 export const P1 = 'player-1'
 export const P2 = 'player-2'
 
-export interface TestSnapshot {
+interface TestSnapshot {
   readonly roomId: string
   readonly phase: string
   readonly hostId: string
@@ -23,7 +23,7 @@ export interface TestSnapshot {
 }
 
 /** 방 하나짜리 인메모리 스토어. version 비증가 변이를 무시하는 계약까지 지킨다. */
-export class MemoryPingPongStateStore implements PingPongStateStore {
+class MemoryPingPongStateStore implements PingPongStateStore {
   state: PingPongState | undefined
 
   async initialize(_roomId: string, state: PingPongState): Promise<void> {

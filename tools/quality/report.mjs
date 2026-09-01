@@ -99,6 +99,9 @@ const mutation = readJson(join(HERE, '.stryker.json'))
 // ── 지표 집계 ────────────────────────────────────────────────────────────────
 
 const { thresholds } = CONFIG
+// 예외로 적힌 파일은 그 지표에서만 빼고 센다. 예외 목록 자체는 아래에서 개수를 감시한다.
+const waived = (metric, file) =>
+  CONFIG.waivers.files.some((entry) => entry.metric === metric && entry.file === file)
 const allFiles = metrics.targets.flatMap((t) => t.files)
 const allFunctions = metrics.targets.flatMap((t) => t.functions)
 const laxity = metrics.targets.reduce(
@@ -134,7 +137,9 @@ const violations = {
   cyclomatic: productionFunctions.filter((fn) => fn.cyclomatic > thresholds.cyclomatic),
   halstead: productionFunctions.filter((fn) => fn.halsteadDifficulty > thresholds.halsteadDifficulty),
   crap: productionFunctions.filter((fn) => fn.crap !== null && fn.crap > thresholds.crap),
-  fileLines: allFiles.filter((f) => f.codeLines > thresholds.fileLines),
+  fileLines: allFiles.filter(
+    (f) => f.codeLines > thresholds.fileLines && !waived('fileLines', f.file),
+  ),
   cognitive: cognitiveDiagnostics,
 }
 
@@ -165,7 +170,7 @@ const metricRows = [
     id: 4,
     name: '파일당 코드 라인',
     goal: `< ${thresholds.fileLines}`,
-    value: `최대 ${Math.max(0, ...allFiles.map((f) => f.codeLines))}`,
+    value: `최대 ${Math.max(0, ...allFiles.filter((f) => !waived('fileLines', f.file)).map((f) => f.codeLines))}`,
     violations: violations.fileLines.length,
   },
   {

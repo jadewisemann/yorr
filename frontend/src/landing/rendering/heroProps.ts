@@ -12,7 +12,7 @@ export function materialsOf(mesh: THREE.Mesh): THREE.Material[] {
   return Array.isArray(mesh.material) ? mesh.material : [mesh.material]
 }
 
-export function paddle(color: number) {
+function paddle(color: number) {
   const group = new THREE.Group()
   const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.13, 48), matte(color))
   blade.rotation.x = Math.PI / 2
