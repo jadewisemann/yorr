@@ -11,7 +11,7 @@ import type { DuelState } from './duelState.js'
  *
  * 왜 락인가: 결투는 두 플레이어의 `draw`와 서버 타임아웃(신호·유예 만료·연출
  * 종료)이 **같은 밀리초에 도착할 수 있다**. read-modify-write를 그냥 하면 늦게 쓴
- * 쪽이 앞의 판정을 덮어써 "먼저 뽑았는데 안 맞은" 상태가 나온다. Java와 같은
+ * 쪽이 앞의 판정을 덮어써 "먼저 뽑았는데 안 맞은" 상태가 나온다. 아래
  * SET NX 락 + 토큰 비교 해제를 쓴다(DESIGN.md 원칙 8 단일 인스턴스 전제).
  */
 export interface DuelStateStore {
@@ -91,7 +91,7 @@ export class RedisDuelStateStore implements DuelStateStore {
       if (value === null) return null
       const current = deserialize(value)
       const next = mutation(current)
-      // **version이 오르지 않은 갱신은 버린다.** Java는 `==`만 비교하지만 여기서는
+      // **version이 오르지 않은 갱신은 버린다.** 같은 값 비교가 아니라
       // `<=`로 막는다 — 오래된 상태(재예약 전에 만들어진 스냅샷)를 그대로 쓰면
       // 새 판정이 조용히 지워지고, 방송도 스케줄도 과거로 되돌아간다.
       if (next === null || next.version <= current.version) return null

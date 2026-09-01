@@ -26,7 +26,7 @@ const server = await createServer(env, { mysql })
 try {
   const { plan } = await verifyMigrations(mysql)
   if (plan.missingLocally.length > 0) {
-    // Java가 우리보다 앞서 나간 상태다. 우리 질의를 깨뜨리지는 않으므로 경고만 남긴다.
+    // DB가 우리보다 앞서 나간 상태다. 우리 질의를 깨뜨리지는 않으므로 경고만 남긴다.
     server.app.log.warn(
       { scripts: plan.missingLocally.map((entry) => entry.script) },
       'DB 이력에는 있는데 db/migration에 없는 마이그레이션이 있습니다',

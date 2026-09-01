@@ -10,7 +10,7 @@ import type {
  * 야추 모듈(3.1)이 **자기 바깥**에 요구하는 것들 — 전부 이 파일의 좁은 포트로만
  * 표현한다.
  *
- * 왜 포트인가: Java `YachtDiceGameModule`/`YachtTurnActionService`는
+ * 왜 포트인가: 모듈과 턴 서비스가
  * `RoundSynchronizationService`·`RoundTimerService`·`RoomSessionRegistry`·
  * `RealtimeRoomSnapshotService`·`RoomBroadcaster`·`GameReconnectSnapshotService`·
  * `ScoreRoundSubmissionService`를 구체 타입으로 직접 잡는다. 2.5(`round/roundPorts.ts`)·

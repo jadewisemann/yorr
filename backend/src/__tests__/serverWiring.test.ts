@@ -571,7 +571,7 @@ describeRedis('서버 배선', () => {
       url: '/api/v1/rooms/ROOM01/results',
     })
     expect(results.statusCode).toBe(401)
-    // 인증 없는 순수 계산기(Java와 같은 quirk).
+    // 인증 없는 순수 계산기다.
     const candidates = await instance.app.inject({
       method: 'POST',
       url: '/api/v1/games/any/score-candidates',

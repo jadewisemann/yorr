@@ -1,5 +1,5 @@
 /**
- * 점수 도메인의 **인자 검증 실패** — Java `IllegalArgumentException` 자리.
+ * 점수 도메인의 **인자 검증 실패**.
  *
  * `errors.ts`의 `DomainError`를 상속하지 않는다(라운드 도메인과 같은 이유):
  * 저쪽은 REST의 소문자 문자열 코드 계약이고, 이쪽은 도메인 내부 검증이라
@@ -30,7 +30,7 @@ export type ScoreConfirmationReason =
   | 'CATEGORY_ALREADY_USED'
   | 'STORE_FAILURE'
 
-/** Java `ScoreConfirmationException`(unchecked) 자리. */
+/** 점수 확정 실패. */
 export class ScoreConfirmationError extends Error {
   readonly reason: ScoreConfirmationReason
 

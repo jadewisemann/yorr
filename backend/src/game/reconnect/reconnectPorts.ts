@@ -2,7 +2,7 @@
  * 재접속 스냅샷·고아 상태 스윕(2.8)이 **자기 바깥**에 요구하는 것들 — 전부 이
  * 파일의 좁은 포트로만 표현한다.
  *
- * 왜 포트인가: Java `GameReconnectSnapshotService`/`OrphanedRoundStateSweeper`는
+ * 왜 포트인가: 재접속 스냅샷 서비스와 스위퍼가
  * `RealtimeRoomSnapshotService`·`RoundSynchronizationService`·`RoundTimerService`·
  * `GameScoreQueryService`·`RoomService`를 구체 타입으로 직접 잡는다. 2.5가
  * `round/roundPorts.ts`에서 같은 이유로 뒤집었듯이 여기서도 뒤집는다:
@@ -38,7 +38,7 @@ export interface RealtimeRoomSnapshotPort<S extends PhasedRoomSnapshot> {
 
 /**
  * 재접속 스냅샷이 라운드 상태에서 읽는 것만. `round/RoundState`가 그대로 만족한다
- * (`activePlayerId`는 Java의 파생 메서드 자리인 getter라 구조적으로 프로퍼티다).
+ * (`activePlayerId`는 파생 값이지만 구조적으로 프로퍼티다).
  *
  * `activeRollCount`·`activeDice`·`activeHeld`가 여기 있는 이유가 이 티켓의 핵심이다:
  * 진행 중 턴의 굴림 상태가 스냅샷에서 빠지면 복귀한 클라이언트가 굴림 수를 0부터
@@ -100,8 +100,7 @@ export interface RoundTimerCancelPort {
  * playerId → 점수판. **`Map`과 평범한 객체를 모두 받는다.**
  *
  * 2.9의 `GameScoreQueryService.getScoreboards`는 `ReadonlyMap`을 돌려준다
- * (playerId 오름차순을 스토어가 정한 순서 그대로 보존하려고). Java의
- * `Map<String, ScoreBoard>`는 Jackson이 JSON 객체로 직렬화하지만 **JS의 `Map`은
+ * (playerId 오름차순을 스토어가 정한 순서 그대로 보존하려고). 다만 **JS의 `Map`은
  * `JSON.stringify`가 `{}`로 만든다** — 그대로 스냅샷에 실으면 점수판이 통째로
  * 사라진다. 그래서 포트가 둘 다 받고 `createYachtDiceState`가 평범한 객체로
  * 정규화한다(REST 라우트가 같은 이유로 같은 변환을 한다).
@@ -109,13 +108,13 @@ export interface RoundTimerCancelPort {
 export type ScoreboardsByPlayer = ReadonlyMap<string, unknown> | Readonly<Record<string, unknown>>
 
 /**
- * 점수판 조회(Java `GameScoreQueryService.getScoreboards`, 우리는 2.9)의 자리.
+ * 점수판 조회(`GameScoreQueryService.getScoreboards`)의 자리.
  *
  * 반환값의 **내용은 해석하지 않는다** — 재접속은 점수판을 스냅샷에 그대로 실어
  * 보낼 뿐이라 `ScoreBoard` 도메인 타입에 묶일 이유가 없다(2.5 `ConfirmedScore.
  * scoreboard: unknown`과 같은 경계).
  *
- * Java는 동기지만 우리 조회는 Redis라 Promise가 된다 — 둘 다 받는다.
+ * 조회가 Redis라 Promise가 된다 — 동기·비동기 둘 다 받는다.
  */
 export interface ScoreboardQueryPort {
   getScoreboards(

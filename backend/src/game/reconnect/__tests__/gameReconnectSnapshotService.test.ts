@@ -18,7 +18,7 @@ import type {
 import type { YachtDiceState } from '../yachtDiceState.js'
 
 /**
- * Java와 같이 **실시간 병합 스냅샷은 진짜 구현**(`RealtimeRoomSnapshotService` +
+ * **실시간 병합 스냅샷은 진짜 구현**(`RealtimeRoomSnapshotService` +
  * `RoomSessionRegistry`)을 쓰고 라운드·마감·점수만 대역으로 넣는다 — 스냅샷의
  * 방 부분과 게임 부분이 실제로 합쳐지는지가 이 티켓의 계약이기 때문이다.
  */
@@ -69,7 +69,7 @@ describe('GameReconnectSnapshotService', () => {
   })
 
   /**
-   * Java에 없는 케이스. `dice`·`held`는 값이 없을 때 **키 자체가 빠져야** 한다
+   * `dice`·`held`는 값이 없을 때 **키 자체가 빠져야** 한다
    * (`@JsonInclude(NON_NULL)` 자리) — null로 실으면 프론트가 "굴렸는데 값이 없다"로 읽는다.
    */
   it('첫 굴림 전에는 dice·held 키가 직렬화에서 빠진다', async () => {
@@ -87,7 +87,7 @@ describe('GameReconnectSnapshotService', () => {
   })
 
   /**
-   * Java에 없는 케이스지만 프론트 리듀서의 전제다: `game` 없는 스냅샷이 와야
+   * 프론트 리듀서의 전제다: `game` 없는 스냅샷이 와야
    * 클라이언트가 로컬 game을 보존한다(docs/design/reconnect.md 「규칙」).
    */
   it('진행 중이 아닌 방은 방 스냅샷 그대로 — game을 붙이지 않는다', async () => {
@@ -126,7 +126,7 @@ describe('GameReconnectSnapshotService', () => {
   })
 
   /**
-   * Java에 없는, **Node에서만 생기는 함정**. 조회 계층(2.9)은 playerId 순서를
+   * **직렬화에서 생기는 함정**. 조회 계층은 playerId 순서를
    * 보존하려고 `ReadonlyMap`을 돌려주는데 `JSON.stringify(new Map())`은 `{}`다 —
    * 그대로 실으면 재접속 클라이언트의 점수판이 통째로 사라진다.
    */
@@ -172,7 +172,7 @@ interface Fixture {
 }
 
 /**
- * 방이 이미 사라진 것처럼 보이게 하는 `RoomService` 대역 — Java 테스트의
+ * 방이 이미 사라진 것처럼 보이게 하는 `RoomService` 대역 — 아래
  * `mock(RoomService.class)` 자리다. 그러면 `RealtimeRoomSnapshotService`가
  * 레지스트리 명단으로 답하므로 소켓·phase만 준비하면 된다.
  */

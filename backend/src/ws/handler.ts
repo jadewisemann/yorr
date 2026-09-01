@@ -97,7 +97,7 @@ export class GameSocketHandler {
    * 방에 붙은 게임의 **모듈이 아직 없을 때** 쓰는 대역(게임 슬라이스 3.x가 하나씩
    * 채운다). 게임 상태가 없으므로 `hasState`는 false(=30초 유예)이고, 재접속
    * 스냅샷은 실시간 병합 방 스냅샷 그대로다(reconnect.md의 "PLAYING이 아니면"
-   * 경우와 같다). Java는 여기서 `gameModules.require()`가 던지지만, 그러면 모듈이
+   * 경우와 같다). 여기서 `require()`로 던지게 하면 모듈이
    * 없는 게임의 방은 대기실조차 돌지 않는다 — 세 게임의 모듈이 모두 등록될 때까지
    * 이 대역이 남는다.
    */
@@ -525,10 +525,10 @@ export class GameSocketHandler {
    *
    * 라우팅 판정은 전부 레지스트리의 `dispatch`에 있다 — 접두사(`game.<code>.`)
    * 검증·스트립·교차 네임스페이스 거부. 모듈이 없는 게임의 방도 여기서
-   * `INVALID_MESSAGE`로 떨어진다(Java는 `require()`가 던져 응답이 아예 없다).
+   * `INVALID_MESSAGE`로 떨어진다.
    *
    * 모듈이 던지면 잡지 않는다 — 게이트웨이가 로그만 남기고 소켓을 살려 두는 것이
-   * Java(`handleTextMessage` 밖으로 나가는 예외)와 같은 결과다.
+   * 핸들러 밖으로 나가는 예외와 같은 결과다.
    */
   private async handleGameMessage(socket: ClientSocket, message: InboundEnvelope): Promise<void> {
     const member = this.deps.registry.of(socket)

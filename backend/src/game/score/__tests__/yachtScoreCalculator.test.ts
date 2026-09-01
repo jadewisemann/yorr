@@ -100,7 +100,7 @@ describe('YachtScoreCalculator', () => {
       calculateUpperSubtotal(null as unknown as ReadonlyMap<ScoreCategory, number>),
     ).toThrow(ScoreDomainError)
     expect(() => calculateUpperSubtotal(new Map([['ones', -1]]))).toThrow(ScoreDomainError)
-    // 기록하지 않은 칸(null)은 0이 아니라 손상으로 본다 — Java와 같다.
+    // 기록하지 않은 칸(null)은 0이 아니라 손상으로 본다.
     expect(() => calculateUpperSubtotal(new Map([['ones', null]]))).toThrow(ScoreDomainError)
   })
 

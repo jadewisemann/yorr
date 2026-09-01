@@ -28,8 +28,8 @@ describeMysql('마이그레이션 러너 (실 MySQL)', () => {
     return rows
   }
 
-  /** Java의 Flyway가 V1·V2를 적용해 둔 운영 DB를 그대로 재현한다. */
-  const seedAsJavaFlyway = async (pool: Pool): Promise<void> => {
+  /** V1·V2가 이미 적용돼 있는 운영 DB를 그대로 재현한다. */
+  const seedAppliedHistory = async (pool: Pool): Promise<void> => {
     await runMigrations(pool)
   }
 
@@ -77,9 +77,9 @@ describeMysql('마이그레이션 러너 (실 MySQL)', () => {
     expect(await history(pool)).toHaveLength(2)
   })
 
-  it('Java가 적용해 둔 DB에서 verify가 통과한다 — 전환기의 계약', async () => {
+  it('이미 적용된 DB에서 verify가 통과한다', async () => {
     const pool = mysqlPool()
-    await seedAsJavaFlyway(pool)
+    await seedAppliedHistory(pool)
 
     const report = await verifyMigrations(pool, { validateChecksums: true })
     expect(report.applied).toEqual([])

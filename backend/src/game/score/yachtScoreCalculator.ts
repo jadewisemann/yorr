@@ -55,7 +55,7 @@ export const calculateScore = (category: ScoreCategory, dice: readonly number[])
 /**
  * 상단 소계. **기록하지 않은 칸(키 없음)은 0으로 세고, 값이 null이거나 음수면
  * 던진다** — 미기록(null)과 무득점(0)의 구분을 계산기까지 끌고 가지 않되,
- * 손상된 값은 조용히 넘기지 않는다는 Java의 선택을 그대로 옮겼다.
+ * 손상된 값을 조용히 넘기지 않는다.
  */
 export const calculateUpperSubtotal = (
   scores: ReadonlyMap<ScoreCategory, number | null | undefined>,

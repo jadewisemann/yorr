@@ -3,7 +3,7 @@
  * 표현한다. 2.5(`round/roundPorts.ts`)·2.7(`completion/completionPorts.ts`)과 같은
  * 방식이고 같은 이유다.
  *
- * Java `DuelGameService`는 `RoomBroadcaster`·`RoomSessionRegistry`·
+ * 결투 서비스가 `RoomBroadcaster`·`RoomSessionRegistry`·
  * `RealtimeRoomSnapshotService`·`RoundDeadlineScheduler`·`GameCompletionService`·
  * `StringRedisTemplate`을 구체 타입으로 잡는데, 그대로 옮기면
  * ① 병렬로 고쳐지는 파일(ws·room)에 컴파일이 묶이고
@@ -92,7 +92,7 @@ export interface DuelRoomSnapshotPort<S> {
 }
 
 /**
- * 종료 시 점수판 기록. Java는 `StringRedisTemplate`으로 roster 해시를 확인하고
+ * 종료 시 점수판 기록. 구현은 roster 해시를 확인하고
  * 점수 해시에 직접 쓴다 — 그 두 동작만 포트로 남긴다.
  *
  * **방을 떠난 플레이어의 점수 항목은 되살리지 않는다**(roster에 없으면 건너뛴다).

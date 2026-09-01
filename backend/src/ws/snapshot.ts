@@ -17,7 +17,7 @@ export class RealtimeRoomSnapshotService {
 
   async snapshot(roomId: string): Promise<WsRoomSnapshot> {
     const persistent = await this.rooms.getSnapshot(roomId)
-    // 방이 이미 사라졌으면 인메모리 명단만으로 답한다(Java와 같음).
+    // 방이 이미 사라졌으면 인메모리 명단만으로 답한다.
     if (persistent.phase === null) return this.sessions.snapshot(roomId)
 
     const players = persistent.players

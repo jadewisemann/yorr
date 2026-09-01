@@ -50,7 +50,7 @@ const BASELINE_VALUES: Readonly<Record<ScoreCategory, number>> = Object.freeze({
 })
 
 /**
- * 상단 카테고리가 한 칸에서 낼 수 있는 최대치 = 눈 × 5. Java는
+ * 상단 카테고리가 한 칸에서 낼 수 있는 최대치 = 눈 × 5. 여기서는
  * `(category.ordinal() + 1) * 5`로 같은 값을 만든다(상단 6개의 ordinal이 눈−1이다).
  */
 const upperCategoryMaximum = (category: ScoreCategory): number =>
@@ -60,7 +60,7 @@ const upperCategoryMaximum = (category: ScoreCategory): number =>
  * 아직 안 채운 칸들의 가치 + 상단 보너스 기대값.
  *
  * 배열을 만들지 않고 12칸을 한 번 훑는다 — 이 함수가 탐색 한 번에 수백 번
- * 불리므로(`bestScore`가 열린 칸마다 부른다) 할당을 피하는 쪽이 낫다. Java의
+ * 불리므로(`bestScore`가 열린 칸마다 부른다) 할당을 피하는 쪽이 낫다. 아래
  * `EnumSet` 사본과 결과는 같다.
  */
 const remainingPotential = (
@@ -116,7 +116,7 @@ export class ScorecardValueEvaluator {
   /**
    * 이 점수판 상태에서 `category`에 `score`를 기록하는 것의 가치.
    *
-   * @throws {BotDecisionError} 이미 채워진 칸을 평가하려 하면(Java
+   * @throws {BotDecisionError} 이미 채워진 칸을 평가하려 하면(아래
    * `IllegalArgumentException`) — 코디네이터가 잡아 폴백 정책으로 내려간다.
    */
   categoryUtility(board: ScoreBoard, category: ScoreCategory, score: number): number {

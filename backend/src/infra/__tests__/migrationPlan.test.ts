@@ -31,7 +31,7 @@ const baseline = (version: string): HistoryEntry => ({
 })
 
 describe('planMigrations — Flyway 이력 호환 판정', () => {
-  it('운영 상태(V1·V2가 Java Flyway로 적용됨)를 이미 적용됨으로 읽는다', () => {
+  it('운영 상태(V1·V2가 이미 적용됨)를 이미 적용됨으로 읽는다', () => {
     const plan = planMigrations([local('1'), local('2')], [applied('1'), applied('2')])
     expect(plan.pending).toEqual([])
     expect(plan.applied.map((m) => m.version)).toEqual(['1', '2'])
@@ -63,7 +63,7 @@ describe('planMigrations — Flyway 이력 호환 판정', () => {
     expect(plan.baselineVersion).toBe('1')
   })
 
-  it('baseline 0(Java 설정값)은 아무것도 건너뛰지 않는다', () => {
+  it('baseline 0은 아무것도 건너뛰지 않는다', () => {
     const plan = planMigrations([local('1'), local('2')], [baseline('0')])
     expect(plan.belowBaseline).toEqual([])
     expect(plan.pending.map((m) => m.version)).toEqual(['1', '2'])

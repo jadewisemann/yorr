@@ -12,7 +12,7 @@ import { ScoreDomainError } from './scoreErrors.js'
  * `openCategories`의 열거 순서(랜덤 선택이 재현 가능해야 한다).
  *
  * ⚠️ `game/round/roundSubmission.ts`의 `SUBMITTABLE_CATEGORIES`가 같은 목록을
- * **따로** 들고 있다(라운드 → 점수 의존을 만들지 않는 Java의 경계를 그대로
+ * **따로** 들고 있다(라운드 → 점수 의존을 만들지 않는 경계를
  * 옮긴 것). 두 목록이 갈라지지 않는지는 `__tests__/scoreCategory.test.ts`가 지킨다.
  */
 export const SCORE_CATEGORIES = [
@@ -55,7 +55,7 @@ export interface ScoreCategoryInfo {
   readonly description: string
 }
 
-/** Java enum이 들고 있던 표시용 문자열. 서버 로직은 쓰지 않지만 계약의 일부라 옮긴다. */
+/** 표시용 문자열. 서버 로직은 쓰지 않지만 계약의 일부다. */
 export const SCORE_CATEGORY_INFO: Readonly<Record<ScoreCategory, ScoreCategoryInfo>> =
   Object.freeze({
     ones: { label: '에이스', description: '1의 합' },
@@ -82,7 +82,7 @@ export const isScoreCategory = (value: unknown): value is ScoreCategory =>
 export const isUpperCategory = (category: ScoreCategory): category is UpperScoreCategory =>
   UPPER_CATEGORY_SET.has(category)
 
-/** Java `ScoreCategory.fromApiKey` — 모르는 키는 던진다(상위가 INVALID_CATEGORY로 옮긴다). */
+/** 모르는 키는 던진다(상위가 INVALID_CATEGORY로 옮긴다). */
 export const scoreCategoryOf = (apiKey: string): ScoreCategory => {
   if (!isScoreCategory(apiKey)) {
     throw new ScoreDomainError(`지원하지 않는 점수 카테고리입니다: ${apiKey}`)
@@ -90,7 +90,7 @@ export const scoreCategoryOf = (apiKey: string): ScoreCategory => {
   return apiKey
 }
 
-/** Java `validateDice` — 5개·1~6. 검증 실패는 "0점"이 아니라 **예외**다. */
+/** 주사위 검증 — 5개·1~6. 검증 실패는 "0점"이 아니라 **예외**다. */
 export const validateDice = (dice: readonly number[]): void => {
   if (dice === null || dice === undefined || !Array.isArray(dice)) {
     throw new ScoreDomainError('주사위는 null일 수 없습니다.')
@@ -114,7 +114,7 @@ const containsFace = (dice: readonly number[], face: number): boolean => dice.in
 const isFourOfAKind = (dice: readonly number[]): boolean =>
   [...counts(dice).values()].some((count) => count >= 4)
 
-/** 5개 동일은 **불충족**이다(정확히 2 + 3). Java와 같은 판정 — quirk이자 계약. */
+/** 5개 동일은 **불충족**이다(정확히 2 + 3). 의도된 판정이자 계약이다. */
 const isFullHouse = (dice: readonly number[]): boolean => {
   const values = [...counts(dice).values()]
   return values.length === 2 && values.includes(2) && values.includes(3)

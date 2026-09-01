@@ -21,7 +21,7 @@ export const HEARTBEAT_TIMEOUT_MS = HEARTBEAT_INTERVAL_MS * HEARTBEAT_TIMEOUT_MU
 export const WS_CLOSE_POLICY_VIOLATION = 1008
 
 /**
- * 인바운드 메시지 크기 상한. Java는 서블릿 컨테이너 기본값(Tomcat 텍스트 버퍼 8KB)에
+ * 인바운드 메시지 크기 상한. 8KB 기준에
  * 기대고 아무것도 정하지 않았지만, `ws`의 기본값은 100MB라 그대로 두면 소켓 하나가
  * 힙을 먹을 수 있다. 지금 가장 큰 메시지는 재접속 스냅샷(수 KB)이므로 넉넉히 64KB.
  * 초과 프레임은 `ws`가 close 1009로 끊는다.
@@ -42,7 +42,7 @@ export type DisconnectReason =
   | 'protocol_error'
 
 /**
- * `error` 봉투의 code. Java enum 이름이 그대로 와이어 문자열이다.
+ * `error` 봉투의 code. 이 문자열 자체가 와이어 계약이다.
  * `AUTH_FAILED`·`ROOM_FULL`·`ALREADY_IN_ROOM`은 선언만 있고 전송된 적이 없다
  * (정원은 REST가 판정한다) — 계약 목록이라 그대로 둔다. `RATE_LIMITED`는
  * 채팅 도배 판정에서 실제로 나간다(docs/design/chat.md).

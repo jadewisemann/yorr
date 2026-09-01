@@ -16,14 +16,14 @@ export class CodedError extends Error {
 }
 
 /**
- * Java `IllegalArgumentException` 자리. 컨트롤러들이 이 갈래를 한 번에 잡아
+ * 라우트들이 이 갈래를 한 번에 잡아
  * **400 또는 404**로 매핑한다(`invalid_nickname`·`invalid_game_code`만 400,
  * 나머지는 404 — RoomController의 quirk가 그대로 계약이다).
  */
 export class DomainError extends CodedError {}
 
 /**
- * Java `IllegalStateException` 자리. REST는 **409**로 매핑한다
+ * 상태 충돌. REST는 **409**로 매핑한다
  * (`game_started`·`room_full`·`game_not_ready`·`not_finished` …).
  *
  * `DomainError`를 상속하지 **않는다** — 상속시키면 404 갈래에 먹혀 상태 코드가

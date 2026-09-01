@@ -45,8 +45,8 @@ describe('flywayChecksum', () => {
   })
 
   // 값 고정. 이 테스트가 깨졌다면 db/migration의 SQL이 수정됐다는 뜻이고,
-  // 그것은 운영 DB의 flyway_schema_history와 체크섬이 어긋난다는 뜻이다
-  // (Java Flyway가 validateOnMigrate에서 부팅을 거부한다) — ADR-0005.
+  // 그것은 운영 DB의 flyway_schema_history에 적힌 체크섬과 어긋난다는 뜻이다
+  // — 검증이 부팅을 거부한다(ADR-0005).
   it('이미 적용된 V1·V2의 체크섬은 고정값이다', () => {
     expect(flywayChecksum(read('V1__create_user_tables.sql'))).toBe(-1108258305)
     expect(flywayChecksum(read('V2__create_match_tables.sql'))).toBe(-748743682)

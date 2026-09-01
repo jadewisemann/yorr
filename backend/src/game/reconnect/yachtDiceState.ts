@@ -34,7 +34,7 @@ export interface YachtDiceState {
  * 라운드 상태 + 마감 + 점수판을 재접속용 게임 상태로 조립한다.
  *
  * `dice`·`held`는 null 대신 **undefined**로 둔다: `JSON.stringify`가 undefined
- * 프로퍼티를 지우므로 Java의 `@JsonInclude(NON_NULL)`과 같은 와이어 결과가 되고,
+ * 프로퍼티를 지우므로 "null이면 필드 생략"이라는 와이어 계약이 지켜지고,
  * null을 그대로 실으면 프론트가 "굴렸는데 값이 없다"로 읽는다.
  */
 export const createYachtDiceState = (

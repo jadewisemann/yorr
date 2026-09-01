@@ -15,14 +15,14 @@ import { splitSqlStatements } from './statements.js'
 export interface MigrationOptions {
   /** SQL 위치. 기본값은 `backend/db/migration/`. */
   readonly directory?: URL | string
-  /** 이력 테이블 이름. 기본값 `flyway_schema_history`(Java와 같아야 한다). */
+  /** 이력 테이블 이름. 기본값 `flyway_schema_history` — 운영 DB의 이름이다. */
   readonly table?: string
-  /** `baseline-on-migrate`의 baseline 버전. Java `application.yaml`과 같이 `0`. */
+  /** `baseline-on-migrate`의 baseline 버전. 기본 `0`(아래 주석 참고). */
   readonly baselineVersion?: string
   /**
-   * 체크섬 불일치를 **오류로** 볼지. 기본 `false` — 전환기에는 우리 체크섬 계산이
-   * Java Flyway와 어긋나도 Node를 못 뜨게 만들면 안 된다(불일치는 보고서에
-   * 남고, 호출부가 로그로 알린다). 파이프라인에서는 켜서 드리프트를 잡는다.
+   * 체크섬 불일치를 **오류로** 볼지. 기본 `false` — 계산이 어긋났다는 이유로
+   * 서버를 못 뜨게 만들지 않는다(불일치는 보고서에 남고, 호출부가 로그로
+   * 알린다). 파이프라인에서는 켜서 드리프트를 잡는다.
    */
   readonly validateChecksums?: boolean
 }
@@ -105,8 +105,8 @@ export const runMigrations = async (
   try {
     if (!(await historyTableExists(conn, table))) {
       // `baseline-on-migrate: true`: 스키마에 이미 뭔가 있는데 이력이 없으면
-      // baseline을 찍는다. Java가 `baseline-version: 0`을 명시하는 이유는 기본값
-      // 1이면 V1이 "적용됨"으로 오인돼 조용히 유실되기 때문이다 — 같은 값을 쓴다.
+      // baseline을 찍는다. `0`을 쓰는 이유는 기본값 1이면 V1이 "적용됨"으로
+      // 오인돼 조용히 유실되기 때문이다.
       const needsBaseline = await schemaHasOtherTables(conn, table)
       await createHistoryTable(conn, table)
       if (needsBaseline) {

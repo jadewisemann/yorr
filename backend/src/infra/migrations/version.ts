@@ -3,7 +3,7 @@
  *
  * `V<version>__<description>.sql`. 버전의 `_`는 `.`과 같은 구분자이고
  * (`V2_1__x.sql` = 2.1), description의 `_`는 공백이 된다. 이 두 값이 그대로
- * `flyway_schema_history`의 `version`·`description` 컬럼에 들어가므로 Java가 쓴
+ * `flyway_schema_history`의 `version`·`description` 컬럼에 들어가므로 운영 DB의
  * 기존 행과 문자 단위로 같아야 "이미 적용됨"으로 이어진다.
  */
 

@@ -9,7 +9,7 @@ import {
 import type { RoundTimerCancelPort, SweeperRoomService } from '../reconnectPorts.js'
 
 /**
- * Java와 같이 **라운드 상태 저장소는 진짜 구현**(`InMemoryRoundStateStore` +
+ * **라운드 상태 저장소는 진짜 구현**(`InMemoryRoundStateStore` +
  * `RoundSynchronizationService`)을 쓴다 — 순회 중 remove가 안전한지가 이 테스트의
  * 절반이라 가짜 목록으로는 검증되지 않는다.
  */
@@ -52,7 +52,7 @@ describe('OrphanedRoundStateSweeper', () => {
   })
 
   /**
-   * Java에 없는 케이스. 순서가 뒤집히면 이미 지운 방의 마감이 발화해 라운드 상태를
+   * 순서가 뒤집히면 이미 지운 방의 마감이 발화해 라운드 상태를
    * 다시 만든다 — 그래서 순서 자체를 고정한다.
    */
   it('cancelRoom → remove 순서로 회수한다', async () => {
@@ -119,7 +119,7 @@ describe('OrphanedRoundStateSweeper', () => {
     expect(scheduler.scheduledCount).toBe(1)
   })
 
-  /** 한 주기가 던져도 예약은 살아남아야 한다(Spring `@Scheduled`가 다음 주기에 재시도하듯). */
+  /** 한 주기가 던져도 예약은 살아남아야 한다 — 다음 주기에 재시도한다. */
   it('주기 실행이 던져도 onError로 흘리고 예약을 유지한다', async () => {
     const scheduler = new FakeSweepScheduler()
     const failures: unknown[] = []
@@ -153,7 +153,7 @@ class RecordingTimerCancel implements RoundTimerCancelPort {
   }
 }
 
-/** Java 테스트의 `FakeRoundDeadlineScheduler`와 같은 취지 — 발화 시점을 테스트가 쥔다. */
+/** 발화 시점을 테스트가 쥐는 마감 스케줄러 대역. */
 class FakeSweepScheduler implements SweepScheduler {
   intervalMs: number | null = null
   task: (() => void) | null = null

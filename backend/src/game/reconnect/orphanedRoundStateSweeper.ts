@@ -11,20 +11,20 @@ import type {
  */
 export const SWEEP_INTERVAL_MS = 5 * 60 * 1000
 
-/** 주기 실행 핸들. Java `ScheduledFuture` 자리. */
+/** 주기 실행 핸들. */
 export interface SweepSchedule {
   stop(): void
 }
 
 /**
- * 주기 실행 주입 시임 — Java의 `@Scheduled(fixedDelay=…, initialDelay=…)` 자리다.
+ * 주기 실행 주입 시임 — 테스트가 발화 시점을 쥔다.
  *
  * 이게 없으면 스윕 테스트가 실시간 sleep(5분!)에 기대야 한다. 시임을 두면
  * 테스트가 `sweep()`을 직접 부르거나 가짜 스케줄러의 작업을 직접 발화시켜
  * 결정적으로 검증한다(2.3 `DeadlineExecutor`와 같은 이유·같은 모양).
  */
 export interface SweepScheduler {
-  /** @param task 첫 실행은 `intervalMs` **뒤**다(Java의 initialDelay = 주기). */
+  /** @param task 첫 실행은 `intervalMs` **뒤**다. */
   every(intervalMs: number, task: () => void): SweepSchedule
 }
 
@@ -48,7 +48,7 @@ export interface OrphanedRoundStateSweeperOptions {
   readonly scheduler?: SweepScheduler
   /** 회수 관측 훅. */
   readonly onSwept?: (roomId: string) => void
-  /** 주기 실행이 던졌을 때(Java: Spring이 로그만 남기고 다음 주기에 재시도). */
+  /** 주기 실행이 던졌을 때 — 로그만 남기고 다음 주기에 재시도한다. */
   readonly onError?: (error: unknown) => void
 }
 
@@ -94,7 +94,7 @@ export class OrphanedRoundStateSweeper {
   start(): void {
     if (this.schedule !== null) return
     this.schedule = this.scheduler.every(this.intervalMs, () => {
-      // 한 주기가 던져도 예약은 살아남아야 한다 — Spring `@Scheduled`가 예외를
+      // 한 주기가 던져도 예약은 살아남아야 한다 — 예외를
       // 로그로 흘리고 다음 주기에 재시도하는 것과 같은 결과.
       void this.sweep().catch((error: unknown) => this.onError(error))
     })
