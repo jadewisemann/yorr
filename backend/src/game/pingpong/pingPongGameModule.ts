@@ -1,11 +1,9 @@
 import { z } from 'zod'
 import { DomainError } from '../../errors.js'
 import type { InboundEnvelope } from '../../ws/envelope.js'
-import type { WsErrorCode, WsRoomSnapshot } from '../../ws/protocol.js'
-import type { ClientSocket } from '../../ws/socket.js'
-import { isOpen } from '../../ws/socket.js'
+import type { WsRoomSnapshot } from '../../ws/protocol.js'
 import { PING_PONG } from '../catalog.js'
-import type { GameModule } from '../module.js'
+import { SocketGameModule, type SocketMembership } from '../socketGameModule.js'
 import type { PingPongGameService, PingPongGameStart } from './pingPongGameService.js'
 import type { PingPongState, PingPongSwingPayload } from './pingPongState.js'
 
@@ -17,13 +15,9 @@ import type { PingPongState, PingPongSwingPayload } from './pingPongState.js'
  * 출처다(PING_PONG은 2..2인·봇 없음).
  *
  * 게이트웨이는 `handle`의 예외를 로그만 남기고 삼키므로 **오류 응답은 모듈이
- * 직접 보내야 한다**(game-modules.md).
+ * 직접 보내야 한다**(game-modules.md) — 그 배관과 수명주기 위임은
+ * `SocketGameModule`에 있다.
  */
-
-/** 소켓 → 그 소켓이 앉아 있는 방·플레이어. `RoomSessionRegistry`가 만족한다. */
-export interface PingPongSocketMembership {
-  of(socket: ClientSocket): { readonly playerId: string; readonly roomId: string } | null
-}
 
 /**
  * 없는 필드는 0으로 관용한다(`{}` → `{inputSeq:0, clientTs:0}`) —
@@ -87,48 +81,22 @@ const hostStateSchema = z.object({
     .nullish(),
 })
 
-export class PingPongGameModule implements GameModule {
+export class PingPongGameModule extends SocketGameModule {
   readonly code = PING_PONG
 
   constructor(
     private readonly games: PingPongGameService<WsRoomSnapshot>,
-    private readonly sessions: PingPongSocketMembership,
-  ) {}
+    sessions: SocketMembership,
+  ) {
+    super(games, sessions)
+  }
 
   async start(roomCode: string, game: PingPongGameStart): Promise<void> {
     await this.games.start(roomCode, game)
   }
 
-  async reset(roomCode: string): Promise<void> {
-    await this.games.reset(roomCode)
-  }
-
   async reconnect(roomCode: string): Promise<WsRoomSnapshot> {
     return this.games.reconnect(roomCode)
-  }
-
-  async pause(roomCode: string): Promise<void> {
-    await this.games.pause(roomCode)
-  }
-
-  async resume(roomCode: string): Promise<void> {
-    await this.games.resume(roomCode)
-  }
-
-  async rehydrate(roomCode: string): Promise<void> {
-    await this.games.rehydrate(roomCode)
-  }
-
-  async removePlayer(roomCode: string, playerId: string): Promise<void> {
-    await this.games.removePlayer(roomCode, playerId)
-  }
-
-  async close(roomCode: string): Promise<void> {
-    await this.games.close(roomCode)
-  }
-
-  async hasState(roomCode: string): Promise<boolean> {
-    return this.games.hasState(roomCode)
   }
 
   /** 접두사가 벗겨진 이벤트명으로 판정한다. 탁구가 듣는 것은 이 둘뿐이다. */
@@ -136,53 +104,28 @@ export class PingPongGameModule implements GameModule {
     return eventType === 'swing' || eventType === 'ready' || eventType === 'host_state'
   }
 
-  async handle(socket: ClientSocket, message: InboundEnvelope): Promise<void> {
-    const member = this.sessions.of(socket)
-    // 봉투의 roomId와 실제 좌석이 어긋나면 남의 방 게임을 움직일 수 있다.
-    if (!member || !message.roomId || message.roomId !== member.roomId) {
-      this.sendError(socket, 'NOT_IN_ROOM', 'current room membership is required', message)
+  protected async dispatch(message: InboundEnvelope, playerId: string): Promise<void> {
+    const roomId = message.roomId as string
+    if (message.type === 'ready') {
+      await this.games.ready(roomId, playerId)
       return
     }
-    try {
-      if (message.type === 'ready') {
-        await this.games.ready(message.roomId, member.playerId)
-        return
-      }
-      if (message.type === 'host_state') {
-        // 파티 모드에서 대시보드가 판정한 상태(frontend ADR-0003). 발신자·version·roster
-        // 검증은 `hostReport`가 하므로 여기서는 모양만 본다.
-        await this.games.hostState(message.roomId, member.playerId, parseHostState(message.payload))
-        return
-      }
-      await this.games.swing(message.roomId, member.playerId, parseSwing(message.payload))
-    } catch (error) {
-      // 갈래가 계약이다: `DomainError`만 자기 코드를 싣고, 그 밖은 전부
-      // `invalid swing payload`로 뭉개진다 — payload 파싱 실패는 물론
-      // `game_state_busy`(락 경합)도 여기로 온다.
-      // 예외를 다시 던지지 않는다 — 응답을 보냈으면 소켓은 살아 있다.
-      const reason = error instanceof DomainError ? error.code : 'invalid swing payload'
-      this.sendError(socket, 'INVALID_MESSAGE', reason, message)
+    if (message.type === 'host_state') {
+      // 파티 모드에서 대시보드가 판정한 상태(frontend ADR-0003). 발신자·version·roster
+      // 검증은 `hostReport`가 하므로 여기서는 모양만 본다.
+      await this.games.hostState(roomId, playerId, parseHostState(message.payload))
+      return
     }
+    await this.games.swing(roomId, playerId, parseSwing(message.payload))
   }
 
-  /** `error` 봉투는 roomId·msgId를 싣지 않는다 — payload의 refMsgId로 짝을 맞춘다. */
-  private sendError(
-    socket: ClientSocket,
-    code: WsErrorCode,
-    message: string,
-    request: InboundEnvelope,
-  ): void {
-    if (!isOpen(socket)) return
-    const frame = JSON.stringify({
-      type: 'error',
-      ts: Date.now(),
-      payload: { code, message, refMsgId: request.msgId },
-    })
-    try {
-      socket.send(frame)
-    } catch {
-      // 죽은 소켓에 보내다 실패하는 것은 이 경로의 관심사가 아니다.
-    }
+  /**
+   * 갈래가 계약이다: `DomainError`만 자기 코드를 싣고, 그 밖은 전부
+   * `invalid swing payload`로 뭉개진다 — payload 파싱 실패는 물론 `game_state_busy`
+   * (락 경합)도 여기로 온다. 그래서 기본 판정(`CodedError`)보다 좁다.
+   */
+  protected override reasonFor(error: unknown): string {
+    return error instanceof DomainError ? error.code : 'invalid swing payload'
   }
 }
 

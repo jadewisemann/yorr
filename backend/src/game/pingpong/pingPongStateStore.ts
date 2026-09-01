@@ -1,45 +1,23 @@
 import type { Redis } from 'ioredis'
 import { ConflictError } from '../../errors.js'
-import { type LuaScript, registerLuaScripts, runLuaNumber } from '../../infra/lua.js'
-import { gameStateKey, roomKey } from '../../room/keys.js'
+import { gameStateKey } from '../../room/keys.js'
 import { PING_PONG } from '../catalog.js'
+import { RedisVersionedStateStore } from '../versionedStateStore.js'
 import type { PingPongStateStore } from './pingPongPorts.js'
 import type { PingPongState } from './pingPongState.js'
 
 /**
  * Redis 어댑터.
  *
- * 상태 하나가 JSON 문자열로 `room:{code}:game:PING_PONG:state`에 산다. duel과
- * 같은 패턴이다: SETNX 초기화 · 방 단위 락(5초 TTL, 2초 스핀) · 방 키 PTTL 복사 ·
- * **version이 늘지 않는 변이는 쓰지 않는다.**
+ * 상태 하나가 JSON 문자열로 `room:{code}:game:PING_PONG:state`에 산다. 락 전략과
+ * version 판정은 세 게임이 같아 `game/versionedStateStore.ts`에 있고, 여기 남는 것은
+ * 탁구만의 것이다: 저장 전후의 정규화, 그리고 **없음을 `undefined`로 돌려주는 계약**
+ * (다빈치·결투는 `null`이다).
  *
- * 락이 필요한 이유: 스윙과 마감 타임아웃이 같은 방의 같은 상태를 동시에 읽고
- * 쓴다. Node가 단일 스레드라도 `await` 사이에 다른 요청이 끼어들 수 있어 read →
- * mutate → write를 직렬화해야 "같은 공을 두 번 리턴"이 막힌다.
+ * 락이 필요한 이유: 스윙과 마감 타임아웃이 같은 방의 같은 상태를 동시에 읽고 쓴다.
+ * Node가 단일 스레드라도 `await` 사이에 다른 요청이 끼어들 수 있어 read → mutate →
+ * write를 직렬화해야 "같은 공을 두 번 리턴"이 막힌다.
  */
-
-const LOCK_TTL_MILLIS = 5_000
-const LOCK_WAIT_MILLIS = 2_000
-const LOCK_SPIN_MILLIS = 10
-
-/** 락 해제는 **내 토큰일 때만** — 만료된 뒤 남의 락을 지우지 않는다. */
-const UNLOCK: LuaScript = {
-  name: 'pingPongUnlock',
-  numberOfKeys: 1,
-  lua: `
-if redis.call('GET', KEYS[1]) == ARGV[1] then
-  return redis.call('DEL', KEYS[1])
-end
-return 0
-`,
-}
-
-const PING_PONG_STATE_SCRIPTS: readonly LuaScript[] = [UNLOCK]
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms)
-  })
 
 /**
  * JSON에서 되살린 상태를 정규화한다. **우리가 쓴 값만 들어온다**는 전제이지만,
@@ -57,70 +35,10 @@ const normalize = (value: PingPongState): PingPongState => {
   }
 }
 
-export class RedisPingPongStateStore implements PingPongStateStore {
-  constructor(private readonly redis: Redis) {
-    registerLuaScripts(redis, PING_PONG_STATE_SCRIPTS)
-  }
-
-  async initialize(roomId: string, state: PingPongState): Promise<void> {
-    const created = await this.redis.set(stateKey(roomId), serialize(state), 'NX')
-    if (created !== 'OK') throw new ConflictError('ping_pong_already_initialized')
-    await this.copyRoomTtl(roomId)
-  }
-
-  async find(roomId: string): Promise<PingPongState | undefined> {
-    const value = await this.redis.get(stateKey(roomId))
-    return value === null ? undefined : deserialize(value)
-  }
-
-  async mutate(
-    roomId: string,
-    mutation: (current: PingPongState) => PingPongState | null,
-  ): Promise<PingPongState | undefined> {
-    return this.withLock(roomId, async () => {
-      const key = stateKey(roomId)
-      const value = await this.redis.get(key)
-      if (value === null) return undefined
-      const current = deserialize(value)
-      const next = mutation(current)
-      // 규칙 함수는 "무시"를 같은 상태 반환으로 표현한다 — 그 경우 쓰지 않는다.
-      if (next === null || next.version === current.version) return undefined
-      await this.redis.set(key, serialize(next))
-      await this.copyRoomTtl(roomId)
-      return next
-    })
-  }
-
-  async remove(roomId: string): Promise<boolean> {
-    return (await this.redis.del(stateKey(roomId))) > 0
-  }
-
-  private async withLock<T>(roomId: string, action: () => Promise<T>): Promise<T> {
-    const lockKey = `${stateKey(roomId)}:lock`
-    const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    const deadline = Date.now() + LOCK_WAIT_MILLIS
-    while ((await this.redis.set(lockKey, token, 'PX', LOCK_TTL_MILLIS, 'NX')) !== 'OK') {
-      if (Date.now() >= deadline) throw new ConflictError('game_state_busy')
-      await sleep(LOCK_SPIN_MILLIS)
-    }
-    try {
-      return await action()
-    } finally {
-      await runLuaNumber(this.redis, UNLOCK, [lockKey], [token]).catch(() => 0)
-    }
-  }
-
-  /**
-   * 게임 상태는 방보다 오래 살아서는 안 된다 — 방 키의 남은 수명을 그대로 복사한다.
-   * 방 키에 TTL이 없으면(테스트가 직접 심은 방) 그냥 둔다.
-   */
-  private async copyRoomTtl(roomId: string): Promise<void> {
-    const ttl = await this.redis.pttl(roomKey(roomId))
-    if (ttl > 0) await this.redis.pexpire(stateKey(roomId), ttl)
-  }
+const stateKey = (roomId: string): string => {
+  if (roomId.trim().length === 0) throw new Error('roomId must not be blank')
+  return gameStateKey(roomId, PING_PONG)
 }
-
-const serialize = (state: PingPongState): string => JSON.stringify(state)
 
 const deserialize = (value: string): PingPongState => {
   try {
@@ -130,7 +48,37 @@ const deserialize = (value: string): PingPongState => {
   }
 }
 
-const stateKey = (roomId: string): string => {
-  if (roomId.trim().length === 0) throw new Error('roomId must not be blank')
-  return gameStateKey(roomId, PING_PONG)
+export class RedisPingPongStateStore implements PingPongStateStore {
+  private readonly store: RedisVersionedStateStore<PingPongState>
+
+  constructor(redis: Redis) {
+    this.store = new RedisVersionedStateStore(redis, {
+      stateKey,
+      parse: deserialize,
+      alreadyInitializedCode: 'ping_pong_already_initialized',
+      unlockScriptName: 'pingPongUnlock',
+      lockTtlMillis: 5_000,
+      lockWaitMillis: 2_000,
+      lockRetryMillis: 10,
+    })
+  }
+
+  async initialize(roomId: string, state: PingPongState): Promise<void> {
+    await this.store.initialize(roomId, state)
+  }
+
+  async find(roomId: string): Promise<PingPongState | undefined> {
+    return (await this.store.find(roomId)) ?? undefined
+  }
+
+  async mutate(
+    roomId: string,
+    mutation: (current: PingPongState) => PingPongState | null,
+  ): Promise<PingPongState | undefined> {
+    return (await this.store.mutate(roomId, mutation)) ?? undefined
+  }
+
+  async remove(roomId: string): Promise<boolean> {
+    return this.store.remove(roomId)
+  }
 }

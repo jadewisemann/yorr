@@ -30,6 +30,23 @@
 `RoomGameHooks`(WS 코어가 쓰는 부분집합)는 이 인터페이스의 `Pick`이라 모듈이
 그대로 들어간다.
 
+### 공통 뼈대
+
+WS 표면을 가진 세 게임(결투·다빈치·탁구)은 `SocketGameModule`을 상속한다
+(`src/game/socketGameModule.ts`). 기반이 갖고 있는 것은 수명주기 일곱 훅의 위임,
+멤버십·roomId 검사, `error` 봉투 전송이다. 게임이 채우는 자리는 넷뿐이다.
+
+| 자리 | 의미 |
+|---|---|
+| `handles(event)` | 이 게임이 듣는 이벤트 |
+| `dispatch(message, playerId)` | 접두사가 벗겨진 이벤트를 서비스로 넘긴다. 던지면 `INVALID_MESSAGE` |
+| `start` · `reconnect` | 인자가 게임마다 다르다(탁구는 START 결과 전체, 다빈치의 스냅샷은 보는 사람마다 다르다) |
+| `reasonFor` · `fallbackReason`(선택) | 실패를 무엇으로 답할지. 탁구는 락 경합을 뭉개려고 `DomainError`만 통과시킨다 |
+
+진행 중 상태의 저장소도 마찬가지로 `RedisVersionedStateStore`를 공유한다
+(SETNX 초기화 · 방 단위 락 · 방 키 TTL 복사 · version 비증가 갱신 폐기). 근거는
+[ADR-0007](../adr/0007-shared-game-module-skeleton.md).
+
 ### 레지스트리와 메시지 라우팅
 
 - 코드 정규화: `trim().toUpperCase()`. 미지의 코드 → `invalid_game_code`,

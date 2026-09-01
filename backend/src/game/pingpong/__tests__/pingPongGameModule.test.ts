@@ -4,7 +4,8 @@ import type { InboundEnvelope } from '../../../ws/envelope.js'
 import type { WsRoomSnapshot } from '../../../ws/protocol.js'
 import { type ClientSocket, SOCKET_OPEN } from '../../../ws/socket.js'
 import { GameModuleRegistry } from '../../module.js'
-import { PingPongGameModule, type PingPongSocketMembership } from '../pingPongGameModule.js'
+import type { SocketMembership } from '../../socketGameModule.js'
+import { PingPongGameModule } from '../pingPongGameModule.js'
 import type { PingPongGameService } from '../pingPongGameService.js'
 
 /**
@@ -44,7 +45,7 @@ const moduleUnderTest = (
       recorded.push({ kind: 'swing', playerId, payload })
     },
   } as unknown as PingPongGameService<WsRoomSnapshot>
-  const sessions: PingPongSocketMembership = {
+  const sessions: SocketMembership = {
     of: () => (options.member === undefined ? { playerId: PLAYER, roomId: ROOM } : options.member),
   }
   return { module: new PingPongGameModule(games, sessions), socket, recorded }

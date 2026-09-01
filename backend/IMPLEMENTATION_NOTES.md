@@ -106,3 +106,14 @@ knip이 지목한 미사용 export 592건을 제거했다. 대부분은 배럴(`
 존재해야 한다(`protocol.ts`의 `WsErrorCode` 주석이 그렇게 밝히고 있다). knip.json에서
 진입점으로 선언하고 `tools/quality/config.json`의 예외 목록에 근거를 적었다. 예외
 개수는 게이트가 감시하므로 늘리려면 상한을 함께 올려야 한다.
+
+## 2026-09-01 — 게임 모듈·상태 저장소 공통화(QUALITY.md 1단계 중복)
+
+세 게임이 같은 코드를 세 벌 갖고 있던 것을 `SocketGameModule`·`RedisVersionedStateStore`·
+`rosterScoreWriter`로 모았다. 근거와 대안은 ADR-0007에 있다.
+
+작업하면서 드러난 **갈라져 있던 판정 하나**를 남긴다. 탁구의 상태 저장소만 version
+판정이 `next.version === current.version`으로 "같으면 버린다"였고, 다빈치·결투는
+`next.version <= current.version`으로 "오르지 않으면 버린다"였다. 후자가 상위집합이라
+공통 구현은 `<=`를 쓴다 — 탁구에서 version이 **줄어드는** 갱신이 정상인 경로는 없고,
+검사 84건이 그대로 통과한다.

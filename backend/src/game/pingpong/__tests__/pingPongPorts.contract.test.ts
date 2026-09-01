@@ -8,7 +8,8 @@ import { type ClientSocket, SOCKET_OPEN } from '../../../ws/socket.js'
 import type { GameCompletionService } from '../../completion/index.js'
 import type { GameModule } from '../../module.js'
 import { InMemoryRoundDeadlineScheduler } from '../../round/index.js'
-import type { PingPongGameModule, PingPongSocketMembership } from '../pingPongGameModule.js'
+import type { SocketMembership } from '../../socketGameModule.js'
+import type { PingPongGameModule } from '../pingPongGameModule.js'
 import type { PingPongGameStart } from '../pingPongGameService.js'
 import type {
   PingPongBroadcaster,
@@ -46,10 +47,10 @@ describe('탁구 포트 ↔ 실제 구현 호환', () => {
     })
   })
 
-  it('RoomSessionRegistry가 PingPongPresence·PingPongSocketMembership을 만족한다', () => {
+  it('RoomSessionRegistry가 PingPongPresence·SocketMembership을 만족한다', () => {
     const real = new RoomSessionRegistry()
     const presence: PingPongPresence = real
-    const membership: PingPongSocketMembership = real
+    const membership: SocketMembership = real
     const socket = fakeSocket()
     real.join('room-a', socket, 'player-a', 'A')
 
