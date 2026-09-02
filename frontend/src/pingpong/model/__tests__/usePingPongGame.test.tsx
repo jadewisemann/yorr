@@ -8,6 +8,7 @@ import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import type { PingPongState } from '@/realtime/wsEvents'
 import type { ActiveRoomSession } from '@/store'
+import { pressKey } from '@/test/keys'
 
 vi.mock('@/pingpong/sounds', () => ({
   playRacketHit: vi.fn(),
@@ -68,6 +69,10 @@ function renderGame(options: Options = {}) {
   return { ...view, client, relayed: link.relayed }
 }
 
+/** 라켓이 공을 맞힌 프레임. 같은 id를 다시 보내 소리가 겹치지 않는지 본다. */
+const hit = (id: number, playerId: string): PingPongState =>
+  playingState({ lastEvent: { at: id, id, playerId, type: 'SMASH' } })
+
 const sentTypes = (client: FakeRealtimeClient) => client.sentMessages.map((message) => message.type)
 
 beforeEach(() => {
@@ -119,14 +124,11 @@ describe('usePingPongGame 스윙', () => {
   it('스페이스바로도 휘두르되 눌린 채 반복되는 입력은 흘린다', () => {
     const view = renderGame()
 
-    act(() => void window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter' })))
-    act(
-      () =>
-        void window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', repeat: true })),
-    )
+    pressKey('Enter')
+    pressKey('Space', { repeat: true })
     expect(sentTypes(view.client)).toEqual([])
 
-    act(() => void window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' })))
+    pressKey('Space')
     expect(sentTypes(view.client)).toEqual(['game.ping_pong.swing'])
   })
 })
@@ -168,20 +170,14 @@ describe('usePingPongGame 시계와 소리', () => {
   })
 
   it('새 이벤트에만 라켓 소리를 낸다', () => {
-    const view = renderGame({
-      state: playingState({ lastEvent: { at: 1, id: 1, playerId: P1, type: 'SMASH' } }),
-    })
+    const view = renderGame({ state: hit(1, P1) })
     expect(playRacketHit).toHaveBeenCalledOnce()
 
     // 같은 id의 프레임이 다시 와도 두 번 울리지 않는다.
-    view.rerender({
-      state: playingState({ lastEvent: { at: 1, id: 1, playerId: P1, type: 'SMASH' } }),
-    })
+    view.rerender({ state: hit(1, P1) })
     expect(playRacketHit).toHaveBeenCalledOnce()
 
-    view.rerender({
-      state: playingState({ lastEvent: { at: 2, id: 2, playerId: P2, type: 'NICE' } }),
-    })
+    view.rerender({ state: hit(2, P2) })
     expect(playRacketHit).toHaveBeenCalledTimes(2)
   })
 

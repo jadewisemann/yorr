@@ -5,6 +5,7 @@ import type {
   MotionGestureEvent,
   MotionGestureSnapshot,
 } from '@/yacht/input/motionTypes'
+import { dispatchMotion, installDeviceMotionEvent } from './motionEvents'
 
 const originalDeviceMotion = Object.getOwnPropertyDescriptor(window, 'DeviceMotionEvent')
 const originalSecureContext = Object.getOwnPropertyDescriptor(window, 'isSecureContext')
@@ -43,40 +44,16 @@ describe('MotionInputController', () => {
       configurable: true,
       value: Object.assign(function MockDeviceMotionEvent() {}, { requestPermission }),
     })
-    const addEventListener = vi.spyOn(window, 'addEventListener')
-    const availability: MotionAvailability[] = []
-    const controller = createController(availability)
 
-    controller.start()
-    expect(availability).toEqual(['permissionRequired'])
-    expect(addEventListener).not.toHaveBeenCalledWith('devicemotion', expect.any(Function))
-
-    await controller.requestPermission()
+    await expectListenerAfterConsent()
 
     expect(requestPermission).toHaveBeenCalledOnce()
-    expect(addEventListener).toHaveBeenCalledWith('devicemotion', expect.any(Function))
-    expect(availability).toContain('listening')
-    controller.destroy()
   })
 
   it('requestPermission API가 없는 브라우저도 사용자 확인 후 listener를 등록한다', async () => {
-    Object.defineProperty(window, 'DeviceMotionEvent', {
-      configurable: true,
-      value: function MockDeviceMotionEvent() {},
-    })
-    const addEventListener = vi.spyOn(window, 'addEventListener')
-    const availability: MotionAvailability[] = []
-    const controller = createController(availability)
+    installDeviceMotionEvent()
 
-    controller.start()
-    expect(availability).toEqual(['permissionRequired'])
-    expect(addEventListener).not.toHaveBeenCalledWith('devicemotion', expect.any(Function))
-
-    await controller.requestPermission()
-
-    expect(addEventListener).toHaveBeenCalledWith('devicemotion', expect.any(Function))
-    expect(availability).toContain('listening')
-    controller.destroy()
+    await expectListenerAfterConsent()
   })
 
   it('iOS에서 권한을 거부하면 listener 없이 탭 fallback 상태가 된다', async () => {
@@ -304,20 +281,24 @@ function setHidden(hidden: boolean) {
   Object.defineProperty(document, 'hidden', { configurable: true, value: hidden })
 }
 
-function installDeviceMotionEvent() {
-  Object.defineProperty(window, 'DeviceMotionEvent', {
-    configurable: true,
-    value: function MockDeviceMotionEvent() {},
-  })
-}
+/**
+ * 사용자 확인 전에는 창에 붙지 않고, 확인한 뒤에야 붙는다는 계약. iOS처럼
+ * `requestPermission`이 있는 브라우저와 없는 브라우저가 같은 흐름을 지나야 한다.
+ */
+async function expectListenerAfterConsent() {
+  const addEventListener = vi.spyOn(window, 'addEventListener')
+  const availability: MotionAvailability[] = []
+  const controller = createController(availability)
 
-function dispatchMotion(timeStamp: number, x: number, y: number) {
-  const event = Object.assign(new Event('devicemotion'), {
-    acceleration: { x, y, z: 0 },
-    accelerationIncludingGravity: null,
-  })
-  Object.defineProperty(event, 'timeStamp', { configurable: true, value: timeStamp })
-  window.dispatchEvent(event)
+  controller.start()
+  expect(availability).toEqual(['permissionRequired'])
+  expect(addEventListener).not.toHaveBeenCalledWith('devicemotion', expect.any(Function))
+
+  await controller.requestPermission()
+
+  expect(addEventListener).toHaveBeenCalledWith('devicemotion', expect.any(Function))
+  expect(availability).toContain('listening')
+  controller.destroy()
 }
 
 function createController(availability: MotionAvailability[]) {

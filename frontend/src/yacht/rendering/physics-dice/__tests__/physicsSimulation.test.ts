@@ -3,7 +3,9 @@ import * as THREE from 'three'
 import { beforeAll, expect, it, vi } from 'vitest'
 import { createBowl, createTray } from '@/yacht/rendering/physics-dice/arena'
 import { PHYSICS_DICE_CONFIG } from '@/yacht/rendering/physics-dice/config'
+import { releaseDiceFromBowl } from '@/yacht/rendering/physics-dice/diceFlight'
 import { createDiceInstances } from '@/yacht/rendering/physics-dice/diceInstances'
+import { seatDiceForShake } from '@/yacht/rendering/physics-dice/diceSeating'
 import { createPhysicsDiceRandom } from '@/yacht/rendering/physics-dice/random'
 import {
   diceTrajectoryIssueScore,
@@ -37,46 +39,22 @@ function simulate(seed: number) {
   const { bowlBody } = createBowl(scene, world)
   const { entries } = createDiceInstances(scene, world)
   const random = createPhysicsDiceRandom(seed)
-  const half = CONFIG.defaults.diceSize * SCENE.colliderHalfRatio * SCENE.bowlDiceScale
   const substepsPerFrame = Math.max(1, Math.round(CONFIG.defaults.simulationHz / RENDER_HZ))
 
   bowlBody.setTranslation(
     { x: SCENE.bowl.startX, y: SCENE.bowl.hoverY, z: SCENE.bowl.startZ },
     true,
   )
+  seatDiceForShake({
+    committedDice: [1, 1, 1, 1, 1],
+    entries,
+    held: NO_HELD,
+    heldOrder: [],
+    random,
+  })
+  // 굴림 화면은 씬을 세울 때 이 예측을 걸어 둔다. 검사도 같은 조건에서 재야 한다.
   entries.forEach((entry) => {
-    entry.collider.setShape(new RAPIER.Cuboid(half, half, half))
-    const angle = (entry.index / entries.length) * Math.PI * 2 - Math.PI / 2
-    const radius = SCENE.bowl.spawnRadius + (random.next() - 0.5) * SCENE.bowl.spawnJitter
-    entry.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true)
-    entry.body.setLinearDamping(CONFIG.defaults.linearDamping)
-    entry.body.setAngularDamping(CONFIG.defaults.angularDamping)
     entry.body.setSoftCcdPrediction(CONFIG.defaults.softCcdPrediction)
-    entry.body.setTranslation(
-      {
-        x: SCENE.bowl.startX + Math.cos(angle) * radius,
-        y: SCENE.bowl.hoverY + SCENE.bowl.spawnBaseY + random.next() * SCENE.bowl.spawnRangeY,
-        z: SCENE.bowl.startZ + Math.sin(angle) * radius,
-      },
-      true,
-    )
-    entry.body.setLinvel(
-      {
-        x: (random.next() - 0.5) * CONFIG.defaults.spawnLinearSpeed,
-        y: random.next() * CONFIG.defaults.spawnLiftSpeed,
-        z: (random.next() - 0.5) * CONFIG.defaults.spawnLinearSpeed,
-      },
-      true,
-    )
-    entry.body.setAngvel(
-      {
-        x: (random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
-        y: (random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
-        z: (random.next() - 0.5) * CONFIG.defaults.spawnAngularSpeed,
-      },
-      true,
-    )
-    entry.body.wakeUp()
   })
 
   let bowlAngvelSum = 0
@@ -162,35 +140,7 @@ function simulate(seed: number) {
     }
   }
 
-  bowlBody.setTranslation({ x: 10, y: -5, z: 0 }, true)
-  entries.forEach((entry, index) => {
-    entry.enteredTray = false
-    const fan = index - (entries.length - 1) / 2
-    const force = CONFIG.defaults.throwForce
-    const velocity = entry.body.linvel()
-    const targetX =
-      (SCENE.bowl.spillMinimumSpeed + random.next() * SCENE.bowl.spillRandomSpeed) *
-      force *
-      SCENE.bowl.spillForceMultiplier *
-      SCENE.bowl.spillDirectionX
-    entry.body.setLinvel(
-      {
-        x: targetX,
-        y: Math.max(velocity.y * 0.2, SCENE.bowl.spillLiftSpeed * force),
-        z: fan * SCENE.bowl.spillFanSpeed * force + (random.next() - 0.5) * SCENE.bowl.spillRandomZ,
-      },
-      true,
-    )
-    const angular = entry.body.angvel()
-    entry.body.setAngvel(
-      {
-        x: angular.x * 0.4,
-        y: angular.y * 0.4,
-        z: angular.z * 0.4,
-      },
-      true,
-    )
-  })
+  releaseDiceFromBowl({ bowlBody, entries, held: NO_HELD, random })
   const plannedTrajectory = planDiceTrajectory(world, entries, NO_HELD, seed)
   const trajectoryIssue = plannedTrajectory
     ? diceTrajectoryIssueScore(plannedTrajectory, entries, NO_HELD)

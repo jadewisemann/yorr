@@ -5,6 +5,7 @@ import { savePingPongAiResult } from '@/pingpong/api/pingPongAiResultApi'
 import type { LocalPingPongDifficulty, LocalPingPongMode } from '@/pingpong/domain/localGame'
 import { type TapPoint, useLocalPingPongGame } from '@/pingpong/model/useLocalPingPongGame'
 import { useAppStore } from '@/store'
+import { pressKey } from '@/test/keys'
 import { FakeResizeObserver } from '@/test/threeStubs'
 import { installFrameLoop, runFrames } from './frameHarness'
 import { sceneControl } from './sceneDouble'
@@ -153,14 +154,11 @@ describe('useLocalPingPongGame 입력', () => {
     const { game } = renderLocalGame({ mode: 'solo' })
     runFrames(30)
 
-    act(() => void window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ' })))
-    act(
-      () =>
-        void window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', repeat: true })),
-    )
+    pressKey('KeyQ')
+    pressKey('Space', { repeat: true })
     expect(game().feedback).toBeNull()
 
-    act(() => void window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' })))
+    pressKey('Space')
     expect(game().feedback).not.toBeNull()
   })
 

@@ -2,14 +2,13 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthCallbackPage } from '@/auth/screens/AuthCallbackPage'
 import { useAppStore } from '@/store'
+import { navigateSpy } from '@/test/routerDouble'
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
 const { exchangeLoginCode } = vi.hoisted(() => ({ exchangeLoginCode: vi.fn() }))
 
-vi.mock('@tanstack/react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  useNavigate: () => navigate,
-}))
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/test/routerDouble')).routerWithNavigateSpy(),
+)
 
 vi.mock('@/auth/api/authApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/auth/api/authApi')>()),
@@ -24,7 +23,7 @@ describe('AuthCallbackPage', () => {
   })
 
   afterEach(() => {
-    navigate.mockReset()
+    navigateSpy.mockReset()
     exchangeLoginCode.mockReset()
   })
 
@@ -42,7 +41,7 @@ describe('AuthCallbackPage', () => {
       expect(useAppStore.getState().authSession?.nickname).toBe('카카오회원')
     })
     expect(localStorage.getItem('yorr.auth-session')).toContain('token-1')
-    expect(navigate).toHaveBeenCalledWith({ to: '/', replace: true })
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/', replace: true })
   })
 
   it('exchanges the code only once even if the effect runs again', async () => {
@@ -55,7 +54,7 @@ describe('AuthCallbackPage', () => {
     const { rerender } = render(<AuthCallbackPage code="one-time-code" error={undefined} />)
     rerender(<AuthCallbackPage code="one-time-code" error={undefined} />)
 
-    await waitFor(() => expect(navigate).toHaveBeenCalled())
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalled())
     expect(exchangeLoginCode).toHaveBeenCalledTimes(1)
   })
 
@@ -67,7 +66,7 @@ describe('AuthCallbackPage', () => {
     })
     expect(exchangeLoginCode).not.toHaveBeenCalled()
     expect(useAppStore.getState().authSession).toBeNull()
-    expect(navigate).toHaveBeenCalledWith({ to: '/', replace: true })
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/', replace: true })
   })
 
   it('recovers when the code is already used or expired', async () => {
@@ -81,6 +80,6 @@ describe('AuthCallbackPage', () => {
       )
     })
     expect(useAppStore.getState().authSession).toBeNull()
-    expect(navigate).toHaveBeenCalledWith({ to: '/', replace: true })
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/', replace: true })
   })
 })

@@ -12,19 +12,15 @@ import { clearMockRoomSnapshot } from '@/mocks/mockRoomState'
 import { savePartyRoom } from '@/room/partyControllerStorage'
 import { LobbyPage } from '@/room/screens/LobbyPage'
 import { useAppStore } from '@/store'
+import { navigateSpy } from '@/test/routerDouble'
 
-const { navigate, prefetchPhysicsDiceWorld } = vi.hoisted(() => ({
-  navigate: vi.fn(),
-  prefetchPhysicsDiceWorld: vi.fn(),
-}))
+const { prefetchPhysicsDiceWorld } = vi.hoisted(() => ({ prefetchPhysicsDiceWorld: vi.fn() }))
 
 vi.mock('@/yacht/rendering/physics-dice/loadWorld', () => ({ prefetchPhysicsDiceWorld }))
 
-vi.mock('@tanstack/react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  useNavigate: () => navigate,
-  useBlocker: () => ({ status: 'idle' }),
-}))
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/test/routerDouble')).routerWithNavigateSpy(),
+)
 
 /**
  * `matches`만 있는 반쪽 스텁으로는 `useMediaQuery`가 change 리스너를 달다가 깨진다 —
@@ -43,7 +39,7 @@ function stubMatchMedia(matches: boolean) {
 
 describe('LobbyPage', () => {
   beforeEach(() => {
-    navigate.mockReset()
+    navigateSpy.mockReset()
     clearMockRoomSnapshot()
     prefetchPhysicsDiceWorld.mockReset()
     clearMockRoomSnapshot()
@@ -120,9 +116,9 @@ describe('LobbyPage', () => {
 
     await user.click(screen.getByRole('button', { name: '게임 시작' }))
 
-    await waitFor(() => expect(navigate).toHaveBeenCalled())
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalled())
     expect(useAppStore.getState().roomSnapshot?.phase).toBe('playing')
-    expect(navigate).toHaveBeenCalledWith({
+    expect(navigateSpy).toHaveBeenCalledWith({
       to: '/rooms/$roomId/game',
       params: { roomId: creatorSession.roomId },
       replace: true,
@@ -138,7 +134,7 @@ describe('LobbyPage', () => {
     expect(screen.getByRole('button', { name: '게임 시작' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: '게임 시작' }))
 
-    await waitFor(() => expect(navigate).toHaveBeenCalled())
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalled())
     expect(useAppStore.getState().roomSnapshot?.phase).toBe('playing')
   })
 
@@ -244,7 +240,7 @@ describe('LobbyPage', () => {
     await user.click(within(dialog).getByRole('button', { name: '나가기' }))
 
     await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
-    expect(navigate).toHaveBeenCalledWith({ to: '/', replace: true })
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/', replace: true })
     expect(sessionStorage.getItem('yorr.room-session')).toBeNull()
   })
 
@@ -257,12 +253,12 @@ describe('LobbyPage', () => {
     })
 
     await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({
+      expect(navigateSpy).toHaveBeenCalledWith({
         to: '/rooms/$roomId/game',
         params: { roomId: creatorSession.roomId },
         replace: true,
       }),
     )
-    expect(navigate).toHaveBeenCalledTimes(1)
+    expect(navigateSpy).toHaveBeenCalledTimes(1)
   })
 })

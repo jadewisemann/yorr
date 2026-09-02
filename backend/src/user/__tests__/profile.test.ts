@@ -6,13 +6,9 @@ import { type MemberUser, PLACEHOLDER_NICKNAME } from '../../auth/socialProfile.
 import { describeMysql, useMysql } from '../../infra/__tests__/mysqlHarness.js'
 import { runMigrations } from '../../infra/migrations/runner.js'
 import { InvalidNicknameError } from '../errors.js'
-import {
-  MysqlUserProfileStore,
-  UserNotFoundError,
-  type UserProfileRepository,
-  UserProfileService,
-} from '../profile.js'
+import { MysqlUserProfileStore, UserNotFoundError, UserProfileService } from '../profile.js'
 import { UserService } from '../session.js'
+import { FakeUserProfiles } from './fakeUserProfiles.js'
 
 /**
  * 회원 프로필 4종.
@@ -26,28 +22,6 @@ import { UserService } from '../session.js'
  * 2. `MysqlUserProfileStore` + 진짜 MySQL + 진짜 Redis — MySQL이 있을 때만.
  *    **DB 쪽 절반**(행이 실제로 바뀌는가·없는 회원 판정)이 여기서만 확인된다.
  */
-
-/** `users` 테이블을 대신하는 인메모리 저장소. */
-class FakeUserProfiles implements UserProfileRepository {
-  private readonly rows = new Map<string, MemberUser>()
-
-  seed(user: MemberUser): MemberUser {
-    this.rows.set(user.id, user)
-    return user
-  }
-
-  async findById(userId: string): Promise<MemberUser | undefined> {
-    return this.rows.get(userId)
-  }
-
-  async rename(userId: string, nickname: string): Promise<MemberUser> {
-    const current = this.rows.get(userId)
-    if (current === undefined) throw new UserNotFoundError()
-    const renamed: MemberUser = { ...current, nickname }
-    this.rows.set(userId, renamed)
-    return renamed
-  }
-}
 
 describeRedis('UserProfileService (인메모리 회원 저장소 + 진짜 Redis)', () => {
   const redis = useRedis()

@@ -4,14 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EntryPage } from '@/landing/screens/EntryPage'
 import { creatorSession } from '@/mocks/fixtures'
 import { useAppStore } from '@/store'
+import { navigateSpy } from '@/test/routerDouble'
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
 const { closeSession } = vi.hoisted(() => ({ closeSession: vi.fn().mockResolvedValue(undefined) }))
 
-vi.mock('@tanstack/react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  useNavigate: () => navigate,
-}))
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/test/routerDouble')).routerWithNavigateSpy(),
+)
 
 const { renameProfile } = vi.hoisted(() => ({ renameProfile: vi.fn() }))
 
@@ -78,7 +77,7 @@ async function openYachtPlayDialog() {
 
 describe('EntryPage', () => {
   beforeEach(() => {
-    navigate.mockReset()
+    navigateSpy.mockReset()
     closeSession.mockClear()
     renameProfile.mockReset()
     useAppStore.getState().reset()
@@ -102,7 +101,7 @@ describe('EntryPage', () => {
 
     await user.click(screen.getByRole('tab', { name: /탁구/ }))
 
-    expect(navigate).toHaveBeenCalledWith({
+    expect(navigateSpy).toHaveBeenCalledWith({
       to: '/',
       search: { game: 'pingpong' },
       replace: true,
@@ -144,7 +143,7 @@ describe('EntryPage', () => {
     await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
     await user.click(screen.getByRole('button', { name: /방 만들기/ }))
 
-    expect(navigate).toHaveBeenCalledWith({
+    expect(navigateSpy).toHaveBeenCalledWith({
       to: '/join',
       search: { code: undefined, game: 'yacht' },
     })
@@ -153,7 +152,7 @@ describe('EntryPage', () => {
   it('빠른 대전은 로그인한 사람만 대기열로 보낸다', async () => {
     const user = await openYachtPlayDialog()
     await user.click(screen.getByRole('button', { name: /온라인 대전/ }))
-    expect(navigate).not.toHaveBeenCalled()
+    expect(navigateSpy).not.toHaveBeenCalled()
     expect(screen.getByRole('dialog', { name: '로그인' })).toBeVisible()
 
     useAppStore.getState().signIn({
@@ -164,7 +163,7 @@ describe('EntryPage', () => {
     await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
     await user.click(screen.getByRole('button', { name: /온라인 대전/ }))
 
-    expect(navigate).toHaveBeenCalledWith({
+    expect(navigateSpy).toHaveBeenCalledWith({
       to: '/join',
       search: { code: undefined, game: 'yacht', mode: 'quick' },
     })
@@ -174,7 +173,7 @@ describe('EntryPage', () => {
     const user = await openPlayDialog(/탁구/, '탁구 플레이')
     await user.click(screen.getByRole('button', { name: /방 만들기/ }))
 
-    expect(navigate).toHaveBeenCalledWith({ to: '/party', search: { game: 'pingpong' } })
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/party', search: { game: 'pingpong' } })
   })
 
   it.each([
@@ -185,7 +184,7 @@ describe('EntryPage', () => {
     const user = await openPlayDialog(/탁구/, '탁구 플레이')
     await user.click(screen.getByRole('button', { name: /AI와 대전/ }))
 
-    expect(navigate).toHaveBeenCalledWith({ to: '/pingpong' })
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/pingpong' })
   })
 
   it('shows game-specific mode cards in the play dialog', async () => {
@@ -202,14 +201,14 @@ describe('EntryPage', () => {
     expect(duel.getByRole('button', { name: /파티 모드/ })).toBeVisible()
 
     await user.click(duel.getByRole('button', { name: /파티 모드/ }))
-    expect(navigate).toHaveBeenCalledWith({ to: '/party', search: { game: 'duel' } })
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/party', search: { game: 'duel' } })
   })
 
   it('처음 온 사람은 방을 만들지 않고 연습 모드로 바로 들어간다', async () => {
     const user = await openYachtPlayDialog()
     await user.click(screen.getByRole('button', { name: /튜토리얼/ }))
 
-    expect(navigate).toHaveBeenCalledWith({ to: '/tutorial' })
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/tutorial' })
   })
 
   it('locks the call to action for a game that has not shipped', async () => {
@@ -290,7 +289,7 @@ describe('EntryPage', () => {
     expect(input).toHaveValue('YORR64')
 
     await user.click(dialog.getByRole('button', { name: '코드로 참가' }))
-    expect(navigate).toHaveBeenCalledWith({ to: '/join', search: { code: 'YORR64' } })
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/join', search: { code: 'YORR64' } })
   })
 
   it('closes the code dialog again without joining', async () => {
@@ -301,7 +300,7 @@ describe('EntryPage', () => {
     await user.click(codeDialog().getByRole('button', { name: '코드 입력 닫기' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(navigate).not.toHaveBeenCalled()
+    expect(navigateSpy).not.toHaveBeenCalled()
   })
 
   it('asks before reconnecting a preserved room session', async () => {
@@ -318,7 +317,7 @@ describe('EntryPage', () => {
     await user.click(within(recovery).getByRole('button', { name: '다시 연결' }))
 
     expect(useAppStore.getState().roomResumeReason).toBeNull()
-    expect(navigate).toHaveBeenCalledWith({
+    expect(navigateSpy).toHaveBeenCalledWith({
       to: '/rooms/$roomId/lobby',
       params: { roomId: creatorSession.roomId },
     })

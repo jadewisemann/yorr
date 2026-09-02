@@ -8,20 +8,27 @@ import { renderAppHarness, resetAppTestState } from '@/test/harness'
 
 const lobbyPath = `/rooms/${creatorSession.roomId}/lobby`
 
+/** 대기실에 앉은 방장. 나가기 확인은 언제나 이 자리에서 시작한다. */
+async function openLobby() {
+  const harness = renderAppHarness({ initialPath: lobbyPath, session: creatorSession })
+  await screen.findByRole('heading', { name: '대기실' })
+  return harness
+}
+
+/** 방을 벗어나려다 뜬 확인 창에서 버튼 하나를 누른다. */
+async function answerExitPrompt(user: Awaited<ReturnType<typeof openLobby>>['user'], name: string) {
+  const dialog = await screen.findByRole('alertdialog', { name: '방에서 나갈까요?' })
+  await user.click(await within(dialog).findByRole('button', { name }))
+}
+
 describe('RoomExitGuard', () => {
   afterEach(() => resetAppTestState())
 
   it('방 밖으로 나가려는 이동을 가로채 확인을 받고, 머무르기를 고르면 방에 남는다', async () => {
-    const { router, user } = renderAppHarness({
-      initialPath: lobbyPath,
-      session: creatorSession,
-    })
-    await screen.findByRole('heading', { name: '대기실' })
+    const { router, user } = await openLobby()
 
     void router.navigate({ to: '/' })
-
-    const dialog = await screen.findByRole('alertdialog', { name: '방에서 나갈까요?' })
-    await user.click(await within(dialog).findByRole('button', { name: '머무르기' }))
+    await answerExitPrompt(user, '머무르기')
 
     expect(router.state.location.pathname).toBe(lobbyPath)
     expect(useAppStore.getState().roomSession).not.toBeNull()
@@ -29,16 +36,10 @@ describe('RoomExitGuard', () => {
   })
 
   it('확인하면 퇴장 처리 후 원래 가려던 곳으로 마저 보낸다', async () => {
-    const { router, user } = renderAppHarness({
-      initialPath: lobbyPath,
-      session: creatorSession,
-    })
-    await screen.findByRole('heading', { name: '대기실' })
+    const { router, user } = await openLobby()
 
     void router.navigate({ to: '/' })
-
-    const dialog = await screen.findByRole('alertdialog', { name: '방에서 나갈까요?' })
-    await user.click(await within(dialog).findByRole('button', { name: '나가기' }))
+    await answerExitPrompt(user, '나가기')
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
     expect(useAppStore.getState().roomSession).toBeNull()
@@ -50,26 +51,17 @@ describe('RoomExitGuard', () => {
         HttpResponse.json({ code: 'UNAVAILABLE' }, { status: 503 }),
       ),
     )
-    const { router, user } = renderAppHarness({
-      initialPath: lobbyPath,
-      session: creatorSession,
-    })
-    await screen.findByRole('heading', { name: '대기실' })
+    const { router, user } = await openLobby()
 
     void router.navigate({ to: '/' })
-    const dialog = await screen.findByRole('alertdialog', { name: '방에서 나갈까요?' })
-    await user.click(await within(dialog).findByRole('button', { name: '나가기' }))
+    await answerExitPrompt(user, '나가기')
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
     expect(useAppStore.getState().roomSession).toBeNull()
   })
 
   it('같은 방 안의 화면 전환(대기실 → 게임)은 막지 않는다', async () => {
-    const { router } = renderAppHarness({
-      initialPath: lobbyPath,
-      session: { ...creatorSession, snapshot: creatorSession.snapshot },
-    })
-    await screen.findByRole('heading', { name: '대기실' })
+    const { router } = await openLobby()
 
     void router.navigate({
       to: '/rooms/$roomId/game',

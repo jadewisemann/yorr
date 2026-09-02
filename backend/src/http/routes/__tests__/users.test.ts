@@ -3,11 +3,8 @@ import fastify, { type FastifyInstance } from 'fastify'
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../../test/redisHarness.js'
 import { type MemberUser, PLACEHOLDER_NICKNAME } from '../../../auth/socialProfile.js'
-import {
-  UserNotFoundError,
-  type UserProfileRepository,
-  UserProfileService,
-} from '../../../user/profile.js'
+import { FakeUserProfiles } from '../../../user/__tests__/fakeUserProfiles.js'
+import { UserProfileService } from '../../../user/profile.js'
 import { UserService } from '../../../user/session.js'
 import { registerUserRoutes } from '../users.js'
 
@@ -23,27 +20,6 @@ interface ProfileResponse {
   userId: string
   nickname: string
   profileImageUrl: string | null
-}
-
-class FakeUserProfiles implements UserProfileRepository {
-  private readonly rows = new Map<string, MemberUser>()
-
-  seed(user: MemberUser): MemberUser {
-    this.rows.set(user.id, user)
-    return user
-  }
-
-  async findById(userId: string): Promise<MemberUser | undefined> {
-    return this.rows.get(userId)
-  }
-
-  async rename(userId: string, nickname: string): Promise<MemberUser> {
-    const current = this.rows.get(userId)
-    if (current === undefined) throw new UserNotFoundError()
-    const renamed: MemberUser = { ...current, nickname }
-    this.rows.set(userId, renamed)
-    return renamed
-  }
 }
 
 describeRedis('프로필 REST', () => {

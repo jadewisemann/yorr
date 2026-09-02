@@ -2,24 +2,9 @@ import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
 import { useMotionRollInput } from '@/yacht/input/useMotionRollInput'
+import { dispatchMotion, installDeviceMotionEvent } from './motionEvents'
 
 const originalDeviceMotion = Object.getOwnPropertyDescriptor(window, 'DeviceMotionEvent')
-
-function installDeviceMotionEvent() {
-  Object.defineProperty(window, 'DeviceMotionEvent', {
-    configurable: true,
-    value: function MockDeviceMotionEvent() {},
-  })
-}
-
-function dispatchMotion(timeStamp: number, x: number, y: number) {
-  const event = Object.assign(new Event('devicemotion'), {
-    acceleration: { x, y, z: 0 },
-    accelerationIncludingGravity: null,
-  })
-  Object.defineProperty(event, 'timeStamp', { configurable: true, value: timeStamp })
-  window.dispatchEvent(event)
-}
 
 afterEach(() => {
   if (originalDeviceMotion) {

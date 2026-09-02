@@ -9,6 +9,7 @@ import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import { DUEL_FOUL, type DuelState } from '@/realtime/wsEvents'
 import type { ActiveRoomSession } from '@/store'
+import { pressKey } from '@/test/keys'
 import { FakeResizeObserver } from '@/test/threeStubs'
 
 vi.mock('@/duel/sounds', () => ({
@@ -156,14 +157,11 @@ describe('useDuelGame 뽑기', () => {
   it('스페이스바로도 뽑되 눌린 채 반복되는 입력은 흘린다', () => {
     const { client, game } = renderDuelGame(duelState({ phase: 'WAITING' }))
 
-    act(() => void window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter' })))
-    act(
-      () =>
-        void window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', repeat: true })),
-    )
+    pressKey('Enter')
+    pressKey('Space', { repeat: true })
     expect(drawPayloads(client)).toEqual([])
 
-    act(() => void window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' })))
+    pressKey('Space')
     expect(drawPayloads(client)).toEqual([{ inputSeq: 1, reactionMs: DUEL_FOUL }])
     expect(game().myShot).toMatchObject({ target: 'ground' })
   })

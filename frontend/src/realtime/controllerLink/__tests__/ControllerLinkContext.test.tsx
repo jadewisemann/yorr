@@ -70,6 +70,24 @@ function mountLink(role: ControllerLinkRole | null, session: RoomSession = parti
   return { client, received, sentSignals, channel: () => channel }
 }
 
+/** 대시보드가 건 협상까지 받아 RTC 연결 하나를 세운 컨트롤러. */
+async function connectedController() {
+  const link = mountLink('controller')
+  await waitFor(() => expect(link.channel().status).toBe('connecting'))
+  link.client.emitMessage(
+    serverMessage('ctrl.signaled', { from: dashboardSession.you, data: offer }),
+  )
+  await waitFor(() => expect(rtcConnections).toHaveLength(1))
+  return link
+}
+
+/** 대시보드 쪽에서 데이터 채널을 연다. */
+function attachChannel(label: string) {
+  const channel = new FakeDataChannel(label)
+  rtcConnections[0]?.fire('datachannel', { channel })
+  return channel
+}
+
 describe('ControllerLinkProvider', () => {
   beforeEach(() => {
     stubWebRtc()
@@ -111,15 +129,9 @@ describe('ControllerLinkProvider', () => {
   })
 
   it('링크로 온 릴레이를 서버에서 온 것과 같은 팬아웃에 흘린다', async () => {
-    const link = mountLink('controller')
-    await waitFor(() => expect(link.channel().status).toBe('connecting'))
-    link.client.emitMessage(
-      serverMessage('ctrl.signaled', { from: dashboardSession.you, data: offer }),
-    )
-    await waitFor(() => expect(rtcConnections).toHaveLength(1))
+    const link = await connectedController()
 
-    const channel = new FakeDataChannel('yorr.ctrl.pulse')
-    rtcConnections[0]?.fire('datachannel', { channel })
+    const channel = attachChannel('yorr.ctrl.pulse')
     channel.receive({ kind: 'relay', message: shake })
 
     await waitFor(() =>
@@ -138,14 +150,8 @@ describe('ControllerLinkProvider', () => {
 
   it('RTT가 갱신돼도 컨텍스트 값의 신원은 그대로다', async () => {
     // 값이 바뀌면 게임 중 2초마다 소비자의 콜백·effect가 재생성된다.
-    const link = mountLink('controller')
-    await waitFor(() => expect(link.channel().status).toBe('connecting'))
-    link.client.emitMessage(
-      serverMessage('ctrl.signaled', { from: dashboardSession.you, data: offer }),
-    )
-    await waitFor(() => expect(rtcConnections).toHaveLength(1))
-    const event = new FakeDataChannel('yorr.ctrl.event')
-    rtcConnections[0]?.fire('datachannel', { channel: event })
+    const link = await connectedController()
+    const event = attachChannel('yorr.ctrl.event')
     event.open()
     await waitFor(() => expect(link.channel().status).toBe('open'))
     const before = link.channel()
@@ -157,15 +163,9 @@ describe('ControllerLinkProvider', () => {
   })
 
   it('다른 방의 릴레이는 버린다', async () => {
-    const link = mountLink('controller')
-    await waitFor(() => expect(link.channel().status).toBe('connecting'))
-    link.client.emitMessage(
-      serverMessage('ctrl.signaled', { from: dashboardSession.you, data: offer }),
-    )
-    await waitFor(() => expect(rtcConnections).toHaveLength(1))
+    const link = await connectedController()
 
-    const channel = new FakeDataChannel('yorr.ctrl.pulse')
-    rtcConnections[0]?.fire('datachannel', { channel })
+    const channel = attachChannel('yorr.ctrl.pulse')
     channel.receive({
       kind: 'relay',
       message: { ...shake, roomId: 'OTHER1' },

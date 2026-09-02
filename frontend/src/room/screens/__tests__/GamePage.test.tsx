@@ -8,6 +8,7 @@ import {
 } from '@/mocks/fixtures'
 import { GamePage } from '@/room/screens/GamePage'
 import { useAppStore } from '@/store'
+import { navigateSpy } from '@/test/routerDouble'
 import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
 import type { PhysicsDiceSet } from '@/yacht/rendering/physics-dice/types'
 import { hideTutorial } from '@/yacht/tutorialPreference'
@@ -22,18 +23,15 @@ interface DiceSceneProps {
 const mocks = vi.hoisted(() => ({
   gestureCallback: null as ((event: MotionGestureEvent) => void) | null,
   motionAvailability: 'unsupported',
-  navigate: vi.fn(),
   realtimeListeners: new Set<(message: never) => void>(),
   requestPermission: vi.fn(),
   resetGesture: vi.fn(),
   sceneProps: null as DiceSceneProps | null,
 }))
 
-vi.mock('@tanstack/react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  useNavigate: () => mocks.navigate,
-  useBlocker: () => ({ status: 'idle' }),
-}))
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/test/routerDouble')).routerWithNavigateSpy(),
+)
 
 vi.mock('@/yacht/input/useMotionRollInput', () => ({
   useMotionRollInput: (callback: (event: MotionGestureEvent) => void) => {
@@ -109,7 +107,7 @@ describe('GamePage motion roll flow', () => {
     vi.useFakeTimers()
     mocks.gestureCallback = null
     mocks.motionAvailability = 'unsupported'
-    mocks.navigate.mockReset()
+    navigateSpy.mockReset()
     mocks.realtimeListeners.clear()
     mocks.requestPermission.mockReset()
     mocks.resetGesture.mockReset()
@@ -226,13 +224,13 @@ describe('GamePage motion roll flow', () => {
 
   it('방이 대기 상태로 돌아가면 게임 화면에 머무르지 않고 대기실로 옮긴다', async () => {
     render(<GamePage roomId={creatorSession.roomId} />)
-    mocks.navigate.mockReset()
+    navigateSpy.mockReset()
 
     await act(async () => {
       useAppStore.getState().replaceRoomSnapshot({ ...waitingRoomSnapshot })
     })
 
-    expect(mocks.navigate).toHaveBeenCalledWith({
+    expect(navigateSpy).toHaveBeenCalledWith({
       to: '/rooms/$roomId/lobby',
       params: { roomId: creatorSession.roomId },
       replace: true,
