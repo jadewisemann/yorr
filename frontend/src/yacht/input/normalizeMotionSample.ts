@@ -108,7 +108,11 @@ function normalizeAngle(angle: number) {
   return (((Math.round(angle / 90) * 90) % 360) + 360) % 360
 }
 
-function readOrientationAngle() {
+/**
+ * 화면이 몇 도 돌아가 있는가. `screen.orientation`이 없는 옛 브라우저를 위해
+ * `window.orientation`까지 본다 — 둘 다 없으면 세로(0)로 친다.
+ */
+export function readOrientationAngle() {
   const screenAngle = window.screen.orientation?.angle
   if (typeof screenAngle === 'number') return screenAngle
   const legacyAngle = (window as Window & { orientation?: number }).orientation

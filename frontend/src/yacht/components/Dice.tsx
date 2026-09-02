@@ -1,4 +1,5 @@
 import { cn } from '@/shared/cn'
+import { FACE_PIPS } from '@/yacht/domain/dice'
 
 type DiceProps = {
   value: 1 | 2 | 3 | 4 | 5 | 6
@@ -6,14 +7,6 @@ type DiceProps = {
   rolling?: boolean
   size?: 'sm' | 'md' | 'lg'
   className?: string
-}
-const dots: Record<DiceProps['value'], number[]> = {
-  1: [5],
-  2: [1, 9],
-  3: [1, 5, 9],
-  4: [1, 3, 7, 9],
-  5: [1, 3, 5, 7, 9],
-  6: [1, 3, 4, 6, 7, 9],
 }
 const sizes = { sm: 'size-14 p-2', md: 'size-18 p-3', lg: 'size-24 p-4' } as const
 
@@ -34,7 +27,7 @@ export function Dice({ className, held = false, rolling = false, size = 'md', va
       role="img"
       aria-label={`주사위 ${value}${held ? ', 킵됨' : ''}`}
     >
-      {dots[value].map((position) => (
+      {FACE_PIPS[value].map((position) => (
         <span
           key={position}
           className="size-2.5 place-self-center rounded-full bg-current"

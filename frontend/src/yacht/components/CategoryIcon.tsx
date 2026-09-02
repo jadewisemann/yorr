@@ -1,15 +1,7 @@
+import { FACE_PIPS } from '@/yacht/domain/dice'
 import type { YachtCategory } from '@/yacht/domain/scoring'
 
 const GRID = [6, 10, 14] as const
-
-const facePips: Record<1 | 2 | 3 | 4 | 5 | 6, number[]> = {
-  1: [5],
-  2: [1, 9],
-  3: [1, 5, 9],
-  4: [1, 3, 7, 9],
-  5: [1, 3, 5, 7, 9],
-  6: [1, 3, 4, 6, 7, 9],
-}
 
 const faceByCategory: Partial<Record<YachtCategory, 1 | 2 | 3 | 4 | 5 | 6>> = {
   ones: 1,
@@ -70,7 +62,7 @@ export function CategoryIcon({
 }) {
   const face = faceByCategory[category]
   const pips: Array<[number, number]> = face
-    ? facePips[face].map((position) => [
+    ? FACE_PIPS[face].map((position) => [
         GRID[(position - 1) % 3] as number,
         GRID[Math.ceil(position / 3) - 1] as number,
       ])

@@ -7,6 +7,19 @@ export type DiceIndex = 0 | 1 | 2 | 3 | 4
 
 export const NO_HELD_DICE: HeldDice = Object.freeze([false, false, false, false, false] as const)
 
+/**
+ * 눈 하나가 3×3 격자의 어느 칸에 찍히는지(1~9). 주사위 그림과 족보 아이콘이 같은 배치를
+ * 써야 같은 주사위로 보인다.
+ */
+export const FACE_PIPS: Record<DiceValue, number[]> = {
+  1: [5],
+  2: [1, 9],
+  3: [1, 5, 9],
+  4: [1, 3, 7, 9],
+  5: [1, 3, 5, 7, 9],
+  6: [1, 3, 4, 6, 7, 9],
+}
+
 export interface DiceRollRequest {
   requestId: string
   seed: number

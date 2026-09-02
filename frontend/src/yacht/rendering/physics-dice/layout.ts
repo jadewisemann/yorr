@@ -169,32 +169,47 @@ export function prepareLayoutEntries(
 ): LayoutEntry[] {
   const placements = planDicePlacements(entries, held, heldOrder, keepAll)
   return entries.map((entry) => {
-    const {
-      onKeepRail,
-      position: targetPosition,
-      scale: targetScale,
-      slotIndex,
-    } = placementOf(placements, entry.index)
-    const targetQuaternion = quaternionForTopValue(committedDice[entry.index])
-    entry.body.setBodyType(RAPIER.RigidBodyType.Fixed, true)
-    entry.body.setTranslation(targetPosition, true)
-    entry.body.setRotation(targetQuaternion, true)
+    const pinned = pinToPlacement(entry, placements, committedDice)
     entry.outline.visible = true
     return {
-      entry,
-      held: onKeepRail,
-      slotIndex,
-      targetPosition,
-      targetQuaternion,
-      targetScale,
-      fromPosition: entry.mesh.position.clone(),
-      fromQuaternion: entry.mesh.quaternion.clone(),
-      fromScale: entry.mesh.scale.x,
+      ...pinned,
       fromOutlinePosition: entry.outline.position.clone(),
       fromOutlineScale: entry.outline.scale.x,
       fromOutlineOpacity: entry.outline.material.opacity,
     }
   })
+}
+
+/**
+ * 자리를 정하고 **몸체를 그 자리에 못박은 뒤**, 애니메이션이 출발할 값을 함께 돌려준다.
+ * 물리는 여기서 끝난다 — 이후의 움직임은 보간이라 몸체가 다시 밀려나면 안 된다.
+ */
+function pinToPlacement(
+  entry: DieEntry,
+  placements: ReturnType<typeof planDicePlacements>,
+  dice: PhysicsDiceSet,
+) {
+  const {
+    onKeepRail,
+    position: targetPosition,
+    scale: targetScale,
+    slotIndex,
+  } = placementOf(placements, entry.index)
+  const targetQuaternion = quaternionForTopValue(dice[entry.index])
+  entry.body.setBodyType(RAPIER.RigidBodyType.Fixed, true)
+  entry.body.setTranslation(targetPosition, true)
+  entry.body.setRotation(targetQuaternion, true)
+  return {
+    entry,
+    held: onKeepRail,
+    slotIndex,
+    targetPosition,
+    targetQuaternion,
+    targetScale,
+    fromPosition: entry.mesh.position.clone(),
+    fromQuaternion: entry.mesh.quaternion.clone(),
+    fromScale: entry.mesh.scale.x,
+  }
 }
 
 export function updateLayoutEntries(entries: LayoutEntry[], progress: number) {
@@ -226,29 +241,7 @@ export function prepareAlignmentEntries(
   keepAll = false,
 ): AlignmentEntry[] {
   const placements = planDicePlacements(entries, held, heldOrder, keepAll)
-  return entries.map((entry) => {
-    const {
-      onKeepRail,
-      position: targetPosition,
-      scale: targetScale,
-      slotIndex,
-    } = placementOf(placements, entry.index)
-    const targetQuaternion = quaternionForTopValue(settledDice[entry.index])
-    entry.body.setBodyType(RAPIER.RigidBodyType.Fixed, true)
-    entry.body.setTranslation(targetPosition, true)
-    entry.body.setRotation(targetQuaternion, true)
-    return {
-      entry,
-      held: onKeepRail,
-      slotIndex,
-      targetPosition,
-      targetQuaternion,
-      targetScale,
-      fromPosition: entry.mesh.position.clone(),
-      fromQuaternion: entry.mesh.quaternion.clone(),
-      fromScale: entry.mesh.scale.x,
-    }
-  })
+  return entries.map((entry) => pinToPlacement(entry, placements, settledDice))
 }
 
 export function updateAlignmentEntries(entries: AlignmentEntry[], progress: number) {

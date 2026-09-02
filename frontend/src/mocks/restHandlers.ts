@@ -36,6 +36,13 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
     if (scenario === 'delay') await delay(options.delayMs ?? 300)
   }
 
+  /** mock이 아는 방은 하나뿐이다. 다른 코드로 오면 404로 돌려보낸다. */
+  function rejectUnknownRoom(roomCode: string | readonly string[] | undefined) {
+    return roomCode === MOCK_ROOM_ID
+      ? null
+      : HttpResponse.json({ code: 'ROOM_NOT_FOUND' }, { status: 404 })
+  }
+
   function unavailable() {
     return scenario === 'error'
       ? HttpResponse.json(
@@ -141,11 +148,8 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
     }),
     http.post('/api/v1/rooms/:roomCode/games', async ({ params }) => {
       await beforeResponse()
-      if (params.roomCode !== MOCK_ROOM_ID) {
-        return HttpResponse.json({ code: 'ROOM_NOT_FOUND' }, { status: 404 })
-      }
-      const failure = unavailable()
-      if (failure) return failure
+      const rejected = rejectUnknownRoom(params.roomCode) ?? unavailable()
+      if (rejected) return rejected
       const snapshot = createPlayingRoomSnapshot(Date.now() + MOCK_ROUND_DURATION_MS)
       saveMockRoomSnapshot(snapshot)
       return HttpResponse.json({
@@ -196,11 +200,8 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
     }),
     http.post('/api/v1/rooms/:roomCode/lobby', async ({ params }) => {
       await beforeResponse()
-      if (params.roomCode !== MOCK_ROOM_ID) {
-        return HttpResponse.json({ code: 'ROOM_NOT_FOUND' }, { status: 404 })
-      }
-      const failure = unavailable()
-      if (failure) return failure
+      const rejected = rejectUnknownRoom(params.roomCode) ?? unavailable()
+      if (rejected) return rejected
       clearMockRoomSnapshot()
       return new HttpResponse(null, { status: 204 })
     }),
@@ -214,11 +215,8 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
     }),
     http.delete('/api/v1/rooms/:roomCode/players/me', async ({ params }) => {
       await beforeResponse()
-      if (params.roomCode !== MOCK_ROOM_ID) {
-        return HttpResponse.json({ code: 'ROOM_NOT_FOUND' }, { status: 404 })
-      }
-      const failure = unavailable()
-      if (failure) return failure
+      const rejected = rejectUnknownRoom(params.roomCode) ?? unavailable()
+      if (rejected) return rejected
       clearMockRoomSnapshot()
       return new HttpResponse(null, { status: 204 })
     }),

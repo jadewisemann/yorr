@@ -1,13 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
-import {
-  type ReactNode,
-  type PointerEvent as ReactPointerEvent,
-  useEffect,
-  useEffectEvent,
-  useRef,
-  useState,
-} from 'react'
+import { type ReactNode, useEffect, useEffectEvent, useRef } from 'react'
 import { cn } from '@/shared/cn'
+import { useSheetDrag } from '@/shared/components/useSheetDrag'
 import { scrimVariants, sheetVariants } from '@/shared/motion'
 import { useDialogBackground } from '@/shared/useDialogBackground'
 
@@ -46,8 +40,18 @@ function keepFocusInSheet(event: KeyboardEvent, root: HTMLElement | null, close:
 
 export function BottomSheet({ children, className, onClose, open, title }: BottomSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null)
-  const [dragOffset, setDragOffset] = useState(0)
-  const dragStartRef = useRef<number | null>(null)
+  const {
+    dragOffset,
+    setDragOffset,
+    onPointerDown: handlePointerDown,
+    onPointerMove: handlePointerMove,
+    onPointerUp: handlePointerUp,
+  } = useSheetDrag({
+    downwardOnly: true,
+    onRelease: (offset) => {
+      if (offset > DISMISS_DISTANCE_PX) onClose()
+    },
+  })
 
   const close = useEffectEvent(onClose)
 
@@ -69,25 +73,7 @@ export function BottomSheet({ children, className, onClose, open, title }: Botto
 
   useEffect(() => {
     if (!open) setDragOffset(0)
-  }, [open])
-
-  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    dragStartRef.current = event.clientY
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-
-  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragStartRef.current === null) return
-    setDragOffset(Math.max(0, event.clientY - dragStartRef.current))
-  }
-
-  const handlePointerUp = () => {
-    if (dragStartRef.current === null) return
-    const shouldClose = dragOffset > DISMISS_DISTANCE_PX
-    dragStartRef.current = null
-    setDragOffset(0)
-    if (shouldClose) onClose()
-  }
+  }, [open, setDragOffset])
 
   return (
     <AnimatePresence>

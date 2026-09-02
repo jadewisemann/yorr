@@ -1,26 +1,13 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
-import { useAppStore } from '@/store'
 import { TutorialGuide } from '@/yacht/components/TutorialGuide'
-import {
-  createTutorialClient,
-  createTutorialSnapshot,
-  tutorialSession,
-} from '@/yacht/domain/tutorialGame'
+import { tutorialSession } from '@/yacht/domain/tutorialGame'
+import { useTutorialRoom } from '@/yacht/model/useTutorialRoom'
 import { GamePlay } from './GamePlay'
 
 export function TutorialPage() {
   const navigate = useNavigate()
-  const setConnectionStatus = useAppStore((state) => state.setConnectionStatus)
-  const [client] = useState(createTutorialClient)
-  const [snapshot] = useState(createTutorialSnapshot)
-
-  useEffect(() => {
-    client.connect()
-    setConnectionStatus('connected')
-    return () => setConnectionStatus('idle')
-  }, [client, setConnectionStatus])
+  const { client, snapshot } = useTutorialRoom()
 
   const leave = () => {
     void navigate({ to: '/' })

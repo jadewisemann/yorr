@@ -69,7 +69,7 @@
   "ratchets": {
     "unknownCast": 59,
     "_note": "지금 값을 바닥으로 잡는다. 줄이면 이 숫자도 함께 줄여 되돌아가지 못하게 한다. 남은 캐스트의 성격은 QUALITY.md 3단계에 적혀 있다.",
-    "duplication": 72
+    "duplication": 65
   },
   "coreModules": {
     "_note": "QUALITY.md 3절 (c)의 '핵심 순수 로직'. 커버리지 100%와 CRAP 절대 기준이 여기에 걸린다. 배선·인프라·렌더링 계층은 래칫으로만 관리한다.",

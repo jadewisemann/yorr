@@ -6,7 +6,7 @@ import type {
   MotionGestureEvent,
   MotionGestureSnapshot,
 } from '@/yacht/input/motionTypes'
-import { MotionSampleNormalizer } from '@/yacht/input/normalizeMotionSample'
+import { MotionSampleNormalizer, readOrientationAngle } from '@/yacht/input/normalizeMotionSample'
 import { loadStoredConfig, storeConfig } from './motionLabParams'
 import {
   createRecording,
@@ -49,13 +49,6 @@ function getPermissionRequest() {
   return typeof deviceMotionApi.requestPermission === 'function'
     ? deviceMotionApi.requestPermission.bind(deviceMotionApi)
     : null
-}
-
-function readOrientationAngle() {
-  const screenAngle = window.screen.orientation?.angle
-  if (typeof screenAngle === 'number') return screenAngle
-  const legacyAngle = (window as Window & { orientation?: number }).orientation
-  return typeof legacyAngle === 'number' ? legacyAngle : 0
 }
 
 function toVec(value: { x: number | null; y: number | null; z: number | null } | null) {

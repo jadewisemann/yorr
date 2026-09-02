@@ -1,12 +1,6 @@
-import {
-  type MouseEvent as ReactMouseEvent,
-  type ReactNode,
-  type PointerEvent as ReactPointerEvent,
-  useId,
-  useRef,
-  useState,
-} from 'react'
+import { type MouseEvent as ReactMouseEvent, type ReactNode, useId } from 'react'
 import { cn } from '@/shared/cn'
+import { useSheetDrag } from '@/shared/components/useSheetDrag'
 
 interface RecordPanelProps {
   children: ReactNode
@@ -28,25 +22,17 @@ export function RecordPanel({
   title,
 }: RecordPanelProps) {
   const sheetId = useId()
-  const dragStartRef = useRef<number | null>(null)
-  const [dragOffset, setDragOffset] = useState(0)
-
-  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    dragStartRef.current = event.clientY
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragStartRef.current === null) return
-    setDragOffset(event.clientY - dragStartRef.current)
-  }
-  const handlePointerUp = () => {
-    if (dragStartRef.current === null) return
-    const offset = dragOffset
-    dragStartRef.current = null
-    setDragOffset(0)
-    if (open && offset > DRAG_TOGGLE_DISTANCE_PX) onToggle(false)
-    if (!open && offset < -DRAG_TOGGLE_DISTANCE_PX) onToggle(true)
-  }
+  const {
+    dragOffset,
+    onPointerDown: handlePointerDown,
+    onPointerMove: handlePointerMove,
+    onPointerUp: handlePointerUp,
+  } = useSheetDrag({
+    onRelease: (offset) => {
+      if (open && offset > DRAG_TOGGLE_DISTANCE_PX) onToggle(false)
+      if (!open && offset < -DRAG_TOGGLE_DISTANCE_PX) onToggle(true)
+    },
+  })
 
   const handlePeekTap = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (open) return
