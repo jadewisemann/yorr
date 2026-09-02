@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DomainError } from '../../../errors.js'
 import type { InboundEnvelope } from '../../../ws/envelope.js'
 import type { WsRoomSnapshot } from '../../../ws/protocol.js'
-import { type ClientSocket, SOCKET_OPEN } from '../../../ws/socket.js'
+import { type FakeSocket, fakeSocket } from '../../__tests__/portDoubles.js'
 import { GameModuleRegistry } from '../../module.js'
 import type { SocketMembership } from '../../socketGameModule.js'
 import { PingPongGameModule } from '../pingPongGameModule.js'
@@ -132,19 +132,6 @@ describe('PingPongGameModule', () => {
     await broken.module.handle(broken.socket, inbound('swing', { inputSeq: 'x' }))
     expect(errorOf(broken.socket)?.message).toBe('invalid swing payload')
   })
-})
-
-interface FakeSocket extends ClientSocket {
-  readonly sent: string[]
-}
-
-const fakeSocket = (): FakeSocket => ({
-  readyState: SOCKET_OPEN,
-  sent: [],
-  send(data: string) {
-    this.sent.push(data)
-  },
-  close() {},
 })
 
 const errorOf = (

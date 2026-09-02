@@ -3,7 +3,8 @@ import { RoomBroadcaster } from '../../../ws/broadcaster.js'
 import type { WsRoomSnapshot } from '../../../ws/protocol.js'
 import { RoomSessionRegistry } from '../../../ws/registry.js'
 import type { RealtimeRoomSnapshotService } from '../../../ws/snapshot.js'
-import { type ClientSocket, SOCKET_OPEN } from '../../../ws/socket.js'
+import { SOCKET_OPEN } from '../../../ws/socket.js'
+import { fakeSocket } from '../../__tests__/portDoubles.js'
 import type { GameModule } from '../../module.js'
 import type { GameReconnectSnapshotService } from '../../reconnect/index.js'
 import {
@@ -141,17 +142,4 @@ describe('야추 포트 ↔ 실제 구현 호환', () => {
     const satisfied: YachtDiceGameModule extends GameModule ? true : false = true
     expect(satisfied).toBe(true)
   })
-})
-
-interface FakeSocket extends ClientSocket {
-  readonly sent: string[]
-}
-
-const fakeSocket = (): FakeSocket => ({
-  readyState: SOCKET_OPEN,
-  sent: [],
-  send(data: string) {
-    this.sent.push(data)
-  },
-  close() {},
 })

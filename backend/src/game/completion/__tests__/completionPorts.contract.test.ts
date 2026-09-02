@@ -3,8 +3,7 @@ import type { RoomService } from '../../../room/roomService.js'
 import { RoomBroadcaster } from '../../../ws/broadcaster.js'
 import { RoomSessionRegistry } from '../../../ws/registry.js'
 import type { RealtimeRoomSnapshotService } from '../../../ws/snapshot.js'
-import type { ClientSocket } from '../../../ws/socket.js'
-import { SOCKET_OPEN } from '../../../ws/socket.js'
+import { fakeSocket } from '../../__tests__/portDoubles.js'
 import type { GameCompletionPort } from '../../round/index.js'
 import { InMemoryRoundDeadlineScheduler } from '../../round/index.js'
 import type {
@@ -79,17 +78,4 @@ describe('게임 종료 포트 ↔ 실제 구현 호환', () => {
     const satisfied: GameCompletionService extends GameCompletionPort ? true : false = true
     expect(satisfied).toBe(true)
   })
-})
-
-interface FakeSocket extends ClientSocket {
-  readonly sent: string[]
-}
-
-const fakeSocket = (): FakeSocket => ({
-  readyState: SOCKET_OPEN,
-  sent: [],
-  send(data: string) {
-    this.sent.push(data)
-  },
-  close() {},
 })

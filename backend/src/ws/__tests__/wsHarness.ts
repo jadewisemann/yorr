@@ -160,6 +160,19 @@ export interface WsHandlerHarness {
   /** REST(`POST /rooms`)로 방과 좌석을 만든 상태 — WS join의 전제 조건이다. */
   openRoom(nickname?: string): Promise<{ roomCode: string; host: GuestSession }>
   enter(roomCode: string, guest: GuestSession): Promise<FakeSocket>
+  /** 이미 열린 방에 좌석 하나를 더 만든다(아직 소켓은 붙지 않았다). */
+  addGuest(roomCode: string, nickname?: string): Promise<GuestSession>
+  /**
+   * 호스트와 참가자가 각각 소켓으로 들어와 있는 방. 호스트 쪽은 받은 것을 비워 두므로
+   * 검사가 보는 것은 **그 뒤에 온 것**뿐이다.
+   */
+  enterPair(nickname?: string): Promise<{
+    roomCode: string
+    host: GuestSession
+    hostSocket: FakeSocket
+    guest: GuestSession
+    guestSocket: FakeSocket
+  }>
 }
 
 export function useWsHandler(redis: () => Redis): WsHandlerHarness {
@@ -228,6 +241,19 @@ export function useWsHandler(redis: () => Redis): WsHandlerHarness {
       await handler.message(socket, joinFrame(roomCode, { sessionToken: guest.sessionToken }))
       socket.clear()
       return socket
+    },
+    async addGuest(roomCode: string, nickname = '참가자') {
+      const guest = await users.createGuest(nickname)
+      await rooms.join(roomCode, { userId: guest.userId, nickname: guest.nickname, type: 'GUEST' })
+      return guest
+    },
+    async enterPair(nickname = '참가자') {
+      const { roomCode, host } = await this.openRoom()
+      const hostSocket = await this.enter(roomCode, host)
+      const guest = await this.addGuest(roomCode, nickname)
+      const guestSocket = await this.enter(roomCode, guest)
+      hostSocket.clear()
+      return { roomCode, host, hostSocket, guest, guestSocket }
     },
   }
 }

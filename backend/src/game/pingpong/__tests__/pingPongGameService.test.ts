@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { initial, POINT_COUNTDOWN_MILLIS, ready, serve, swing } from '../pingPongRules.js'
+import { initial, POINT_COUNTDOWN_MILLIS, serve, swing } from '../pingPongRules.js'
 import type { PingPongState } from '../pingPongState.js'
 import {
+  bothReady,
   type Harness,
   harness,
   manualExecutor,
   P1,
   P2,
+  p2NotReadyYet,
   ROOM,
   startResult,
 } from './pingPongHarness.js'
@@ -63,11 +65,7 @@ describe('PingPongGameService', () => {
   })
 
   it('경기 중 이탈은 몰수 → 점수 기록 → 종료 판정 순으로 이어진다', async () => {
-    let state = initial([P1, P2], 1_000)
-    state = swing(state, P1, 0, 1_100, 0.5)
-    state = ready(state, P1, 1_200)
-    state = swing(state, P2, 0, 1_300, 0.5)
-    state = ready(state, P2, 1_400)
+    const state = bothReady()
     test.states.state = serve(state, 4_000, 0.7)
 
     await test.service.removePlayer(ROOM, P1)
@@ -90,10 +88,7 @@ describe('PingPongGameService', () => {
   it('카운트다운 마감이 서브로 이어지고 다음 실점 마감을 예약한다', async () => {
     const timers = manualExecutor()
     const test2 = harness({ executor: timers.executor })
-    let state = initial([P1, P2], 1_000)
-    state = swing(state, P1, 0, 1_100, 0.5)
-    state = ready(state, P1, 1_200)
-    state = swing(state, P2, 0, 1_300, 0.5)
+    const state = p2NotReadyYet()
     test2.states.state = state
     test2.clock.value = 1_400
 
@@ -126,10 +121,7 @@ describe('PingPongGameService', () => {
   it('예약 시점과 version이 어긋난 마감은 아무것도 하지 않는다', async () => {
     const timers = manualExecutor()
     const test2 = harness({ executor: timers.executor })
-    let state = initial([P1, P2], 1_000)
-    state = swing(state, P1, 0, 1_100, 0.5)
-    state = ready(state, P1, 1_200)
-    state = swing(state, P2, 0, 1_300, 0.5)
+    const state = p2NotReadyYet()
     test2.states.state = state
     test2.clock.value = 1_400
 
@@ -146,11 +138,7 @@ describe('PingPongGameService', () => {
   })
 
   it('스윙은 클라이언트 시각으로 판정하되 120ms까지만 되감는다', async () => {
-    let state = initial([P1, P2], 1_000)
-    state = swing(state, P1, 0, 1_100, 0.5)
-    state = ready(state, P1, 1_200)
-    state = swing(state, P2, 0, 1_300, 0.5)
-    state = ready(state, P2, 1_400)
+    const state = bothReady()
     test.states.state = serve(state, 4_000, 0.7)
 
     // 서버 시각은 이상점을 200ms 지났지만(5_100) 클라가 찍은 4_900을 되감아 판정한다.
@@ -223,11 +211,7 @@ describe('PingPongGameService', () => {
   it('rehydrate는 진행 중 상태의 마감을 되살린다', async () => {
     const timers = manualExecutor()
     const test2 = harness({ executor: timers.executor })
-    let state = initial([P1, P2], 1_000)
-    state = swing(state, P1, 0, 1_100, 0.5)
-    state = ready(state, P1, 1_200)
-    state = swing(state, P2, 0, 1_300, 0.5)
-    state = ready(state, P2, 1_400)
+    const state = bothReady()
     test2.states.state = state
     expect(state.nextActionAt).toBeGreaterThan(0)
     test2.calls.length = 0
@@ -243,11 +227,7 @@ describe('PingPongGameService', () => {
   })
 
   it('rehydrate는 이미 끝난 판에서 던진다', async () => {
-    let state = initial([P1, P2], 1_000)
-    state = swing(state, P1, 0, 1_100, 0.5)
-    state = ready(state, P1, 1_200)
-    state = swing(state, P2, 0, 1_300, 0.5)
-    state = ready(state, P2, 1_400)
+    const state = bothReady()
     test.states.state = serve(state, 4_000, 0.7)
     // 경기 중 이탈 = 몰수 → FINISHED.
     await test.service.removePlayer(ROOM, P1)

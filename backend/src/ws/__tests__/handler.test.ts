@@ -1,5 +1,6 @@
 import { expect, it, vi } from 'vitest'
 import { describeRedis, useRedis } from '../../../test/redisHarness.js'
+import type { GameModule } from '../../game/module.js'
 import { envelope } from '../envelope.js'
 import { ACTIVE_GAME_GRACE_MS, EMPTY_LOBBY_GRACE_MS, GameSocketHandler } from '../handler.js'
 import { HeartbeatMonitor } from '../heartbeat.js'
@@ -9,6 +10,13 @@ import { FakeSocket, frame, joinFrame, stubModule, useWsHandler } from './wsHarn
 describeRedis('GameSocketHandler', () => {
   const redis = useRedis()
   const h = useWsHandler(redis)
+
+  /** 게임 모듈을 등록한 방에 호스트로 들어간다. 모듈 위임 검사들이 여기서 출발한다. */
+  const enterWith = async (module: GameModule) => {
+    h.games.register(module)
+    const { roomCode, host } = await h.openRoom()
+    return { roomCode, host, socket: await h.enter(roomCode, host) }
+  }
 
   it('연결 직후 sys.connected로 하트비트 규칙을 알린다', () => {
     const socket = new FakeSocket()
@@ -144,9 +152,7 @@ describeRedis('GameSocketHandler', () => {
 
   it('방의 게임 모듈에 접두사를 벗긴 이벤트로 넘긴다', async () => {
     const { module, handled } = stubModule({ events: ['dice.roll'] })
-    h.games.register(module)
-    const { roomCode, host } = await h.openRoom()
-    const socket = await h.enter(roomCode, host)
+    const { roomCode, socket } = await enterWith(module)
 
     await h.handler.message(
       socket,
@@ -168,9 +174,7 @@ describeRedis('GameSocketHandler', () => {
 
   it('다른 게임 네임스페이스·모르는 이벤트는 INVALID_MESSAGE다', async () => {
     const { module, handled } = stubModule({ events: ['dice.roll'] })
-    h.games.register(module)
-    const { roomCode, host } = await h.openRoom()
-    const socket = await h.enter(roomCode, host)
+    const { socket } = await enterWith(module)
 
     await h.handler.message(socket, frame('game.duel.dice.roll', {}, { msgId: 'cross' }))
     expect(socket.only()).toMatchObject({
@@ -202,12 +206,7 @@ describeRedis('GameSocketHandler', () => {
 
   /* -------------------------------------------------------------- 끊김·방 폐쇄 */
   it('대기실에서 끊기면 명단에서 빠지고 남은 사람이 player_left를 받는다', async () => {
-    const { roomCode, host } = await h.openRoom()
-    const hostSocket = await h.enter(roomCode, host)
-    const guest = await h.users.createGuest('참가자')
-    await h.rooms.join(roomCode, { userId: guest.userId, nickname: guest.nickname, type: 'GUEST' })
-    const guestSocket = await h.enter(roomCode, guest)
-    hostSocket.clear()
+    const { roomCode, host, hostSocket, guest, guestSocket } = await h.enterPair()
 
     await h.handler.closed(guestSocket)
 
@@ -221,11 +220,7 @@ describeRedis('GameSocketHandler', () => {
   })
 
   it('게임 중 끊김은 좌석을 남기고 presence.update{offline}만 보낸다', async () => {
-    const { roomCode, host } = await h.openRoom()
-    const hostSocket = await h.enter(roomCode, host)
-    const guest = await h.users.createGuest('참가자')
-    await h.rooms.join(roomCode, { userId: guest.userId, nickname: guest.nickname, type: 'GUEST' })
-    const guestSocket = await h.enter(roomCode, guest)
+    const { roomCode, hostSocket, guest, guestSocket } = await h.enterPair()
     h.registry.markPhase(roomCode, 'playing')
     hostSocket.clear()
 
@@ -243,9 +238,7 @@ describeRedis('GameSocketHandler', () => {
 
   it('대기실의 마지막 소켓이 빠지면 30초 유예를 준다', async () => {
     const { module, calls } = stubModule({ hasState: false })
-    h.games.register(module)
-    const { roomCode, host } = await h.openRoom()
-    const socket = await h.enter(roomCode, host)
+    const { roomCode, socket } = await enterWith(module)
 
     await h.handler.closed(socket)
 
@@ -258,9 +251,7 @@ describeRedis('GameSocketHandler', () => {
   /** 유예 기준은 phase가 아니라 "잃을 것이 있는지"다 — 30초는 앱 전환·화면 잠금에 너무 짧다. */
   it('진행 상태가 남아 있으면 10분 유예를 준다', async () => {
     const { module } = stubModule({ hasState: true })
-    h.games.register(module)
-    const { roomCode, host } = await h.openRoom()
-    const socket = await h.enter(roomCode, host)
+    const { roomCode, socket } = await enterWith(module)
 
     await h.handler.closed(socket)
 
@@ -271,9 +262,7 @@ describeRedis('GameSocketHandler', () => {
 
   it('유예 안에 아무도 안 돌아오면 방을 닫는다', async () => {
     const { module, calls } = stubModule({ hasState: true })
-    h.games.register(module)
-    const { roomCode, host } = await h.openRoom()
-    const socket = await h.enter(roomCode, host)
+    const { roomCode, socket } = await enterWith(module)
     await h.handler.closed(socket)
 
     await h.closeScheduler.fire(roomCode)
@@ -321,9 +310,7 @@ describeRedis('GameSocketHandler', () => {
    */
   it('게임 중 room.leave는 게임 모듈의 이탈 경로로 넘긴다', async () => {
     const { module, calls } = stubModule({ hasState: true })
-    h.games.register(module)
-    const { roomCode, host } = await h.openRoom()
-    const socket = await h.enter(roomCode, host)
+    const { roomCode, host, socket } = await enterWith(module)
     h.registry.markPhase(roomCode, 'playing')
 
     await h.handler.message(socket, frame('room.leave', {}, { msgId: 'leave-a' }))
@@ -336,12 +323,7 @@ describeRedis('GameSocketHandler', () => {
   })
 
   it('대기실 room.leave는 명단에서 빼고 player_left를 방에 알린다', async () => {
-    const { roomCode, host } = await h.openRoom()
-    const hostSocket = await h.enter(roomCode, host)
-    const guest = await h.users.createGuest('참가자')
-    await h.rooms.join(roomCode, { userId: guest.userId, nickname: guest.nickname, type: 'GUEST' })
-    const guestSocket = await h.enter(roomCode, guest)
-    hostSocket.clear()
+    const { roomCode, hostSocket, guest, guestSocket } = await h.enterPair()
 
     await h.handler.message(guestSocket, frame('room.leave', {}))
 

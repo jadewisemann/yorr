@@ -3,7 +3,8 @@ import { RoomBroadcaster } from '../../../ws/broadcaster.js'
 import type { WsRoomSnapshot } from '../../../ws/protocol.js'
 import { RoomSessionRegistry } from '../../../ws/registry.js'
 import type { RealtimeRoomSnapshotService } from '../../../ws/snapshot.js'
-import { type ClientSocket, SOCKET_OPEN } from '../../../ws/socket.js'
+import type { ClientSocket } from '../../../ws/socket.js'
+import { expectDeadlineFires, fakeSocket } from '../../__tests__/portDoubles.js'
 import type { GameCompletionService } from '../../completion/index.js'
 import type { GameModule } from '../../module.js'
 import { InMemoryRoundDeadlineScheduler } from '../../round/index.js'
@@ -54,17 +55,9 @@ describe('결투 포트 ↔ 실제 구현 호환', () => {
   })
 
   it('InMemoryRoundDeadlineScheduler가 DuelDeadlineScheduler를 만족한다(키가 version이어도)', async () => {
-    const real = new InMemoryRoundDeadlineScheduler()
-    const port: DuelDeadlineScheduler = real
-    const fired: number[] = []
+    const port: DuelDeadlineScheduler = new InMemoryRoundDeadlineScheduler()
 
-    port.schedule('room-a', 7, Date.now(), () => {
-      fired.push(7)
-    })
-    await new Promise((resolve) => setTimeout(resolve, 10))
-
-    expect(fired).toEqual([7])
-    port.cancelRoom('room-a')
+    await expectDeadlineFires(port)
   })
 
   it('타입 수준 대입: 완료 서비스·실시간 스냅샷·게임 모듈', () => {
@@ -78,17 +71,3 @@ describe('결투 포트 ↔ 실제 구현 호환', () => {
     expect([completion, snapshots, module].every((fn) => typeof fn === 'function')).toBe(true)
   })
 })
-
-interface FakeSocket extends ClientSocket {
-  readonly sent: string[]
-}
-
-const fakeSocket = (): FakeSocket => {
-  const sent: string[] = []
-  return {
-    readyState: SOCKET_OPEN,
-    sent,
-    send: (data: string) => sent.push(data),
-    close: () => {},
-  }
-}

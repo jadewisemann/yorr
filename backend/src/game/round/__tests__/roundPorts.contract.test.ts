@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { RoomService } from '../../../room/roomService.js'
 import { RoomBroadcaster } from '../../../ws/broadcaster.js'
 import { RoomSessionRegistry } from '../../../ws/registry.js'
-import type { ClientSocket } from '../../../ws/socket.js'
-import { SOCKET_OPEN } from '../../../ws/socket.js'
+import { fakeSocket } from '../../__tests__/portDoubles.js'
 import type { RoundBroadcaster, RoundPresence, RoundRoomService } from '../roundPorts.js'
 
 /**
@@ -58,17 +57,4 @@ describe('라운드 포트 ↔ 실제 구현 호환', () => {
     const satisfied: RoomService extends RoundRoomService ? true : false = true
     expect(satisfied).toBe(true)
   })
-})
-
-interface FakeSocket extends ClientSocket {
-  readonly sent: string[]
-}
-
-const fakeSocket = (): FakeSocket => ({
-  readyState: SOCKET_OPEN,
-  sent: [],
-  send(data: string) {
-    this.sent.push(data)
-  },
-  close() {},
 })

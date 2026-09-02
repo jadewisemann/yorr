@@ -1,6 +1,7 @@
 import { type DeadlineExecutor, InMemoryRoundDeadlineScheduler } from '../../round/index.js'
 import { PingPongGameService } from '../pingPongGameService.js'
 import type { PingPongStateStore } from '../pingPongPorts.js'
+import { initial, ready, swing } from '../pingPongRules.js'
 import type { PingPongPlayerNumbers, PingPongState } from '../pingPongState.js'
 
 /**
@@ -195,3 +196,19 @@ export const startResult = (hostId: string) => ({
     ],
   },
 })
+
+/**
+ * 두 사람이 스윙과 준비를 마쳐 카운트다운 직전까지 온 판.
+ * 서비스 검사 대부분이 이 상태에서 출발한다.
+ */
+export function bothReady(): PingPongState {
+  return ready(p2NotReadyYet(), P2, 1_400)
+}
+
+/** 위와 같되 P2의 준비만 아직이다 — `ready`가 무엇을 일으키는지 보는 검사용. */
+export function p2NotReadyYet(): PingPongState {
+  let state = initial([P1, P2], 1_000)
+  state = swing(state, P1, 0, 1_100, 0.5)
+  state = ready(state, P1, 1_200)
+  return swing(state, P2, 0, 1_300, 0.5)
+}

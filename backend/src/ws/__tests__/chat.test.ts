@@ -1,49 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../test/redisHarness.js'
-import { GameModuleRegistry } from '../../game/module.js'
-import type { RoomCloseScheduler } from '../../room/closeScheduler.js'
-import { RoomService } from '../../room/roomService.js'
-import { type GuestSession, UserService } from '../../user/session.js'
 import { RoomBroadcaster } from '../broadcaster.js'
 import { CHAT_RATE_LIMIT, CHAT_RATE_WINDOW_MS, ChatChannel } from '../chat.js'
-import type { OutboundEnvelope } from '../envelope.js'
-import { GameSocketHandler } from '../handler.js'
-import { HeartbeatMonitor } from '../heartbeat.js'
 import type { RoomMember } from '../registry.js'
-import { RoomSessionRegistry } from '../registry.js'
-import { RealtimeRoomSnapshotService } from '../snapshot.js'
-import type { ClientSocket } from '../socket.js'
+import { FakeSocket, frame, useWsHandler } from './wsHarness.js'
 
 /**
  * 텍스트 채팅 — 계약 문서는 docs/design/chat.md다. 실제 소켓 위 검증은
  * `gateway.test.ts`가 맡고, 여기서는 중계 규칙과 프로토콜 응답만 본다.
  */
-
-class FakeSocket implements ClientSocket {
-  readyState = 1
-  readonly sent: string[] = []
-
-  send(data: string): void {
-    this.sent.push(data)
-  }
-
-  close(): void {
-    this.readyState = 3
-  }
-
-  messages(): OutboundEnvelope[] {
-    return this.sent.map((raw) => JSON.parse(raw) as OutboundEnvelope)
-  }
-
-  only(): OutboundEnvelope {
-    expect(this.sent).toHaveLength(1)
-    return this.messages()[0] as OutboundEnvelope
-  }
-
-  clear(): void {
-    this.sent.length = 0
-  }
-}
 
 /* -------------------------------------------------------------- 중계 규칙(순수) */
 
@@ -115,65 +80,16 @@ describe('ChatChannel', () => {
 /* --------------------------------------------------------- 프로토콜 응답(핸들러) */
 
 describeRedis('chat.send(GameSocketHandler)', () => {
-  const redis = useRedis()
+  const ws = useWsHandler(useRedis())
 
-  let rooms: RoomService
-  let users: UserService
-  let registry: RoomSessionRegistry
-  let broadcaster: RoomBroadcaster
-  let handler: GameSocketHandler
-
-  const noopCloseScheduler: RoomCloseScheduler = {
-    schedule: () => {},
-    cancel: () => false,
-  }
-
-  beforeEach(() => {
-    rooms = new RoomService(redis())
-    users = new UserService(redis())
-    registry = new RoomSessionRegistry()
-    broadcaster = new RoomBroadcaster()
-    handler = new GameSocketHandler({
-      registry,
-      broadcaster,
-      snapshots: new RealtimeRoomSnapshotService(rooms, registry),
-      heartbeat: new HeartbeatMonitor({ startScheduler: false }),
-      users,
-      rooms,
-      closeScheduler: noopCloseScheduler,
-      games: new GameModuleRegistry(),
-    })
-  })
-
-  const frame = (type: string, payload: unknown, msgId?: string): string =>
-    JSON.stringify({ type, ts: Date.now(), payload, roomId: 'room-a', ...(msgId ? { msgId } : {}) })
-
-  const openRoom = async (): Promise<{ roomCode: string; host: GuestSession }> => {
-    const host = await users.createGuest('호스트')
-    const roomCode = await rooms.createRoom(6, host.userId, 'YACHT_DICE')
-    await rooms.join(roomCode, { userId: host.userId, nickname: host.nickname, type: 'GUEST' })
-    return { roomCode, host }
-  }
-
-  const enter = async (roomCode: string, guest: GuestSession): Promise<FakeSocket> => {
-    const socket = new FakeSocket()
-    await handler.message(
-      socket,
-      JSON.stringify({
-        type: 'room.join',
-        ts: Date.now(),
-        payload: { roomId: roomCode, sessionToken: guest.sessionToken },
-      }),
-    )
-    socket.clear()
-    return socket
-  }
+  const chatFrame = (type: string, payload: unknown, msgId?: string): string =>
+    frame(type, payload, { roomId: 'room-a', ...(msgId ? { msgId } : {}) })
 
   it('방에 들어온 사람의 말은 자기 자신을 포함한 방 전원에게 방송된다', async () => {
-    const { roomCode, host } = await openRoom()
-    const hostSocket = await enter(roomCode, host)
+    const { roomCode, host } = await ws.openRoom()
+    const hostSocket = await ws.enter(roomCode, host)
 
-    await handler.message(hostSocket, frame('chat.send', { text: '안녕하세요' }, 'chat-a'))
+    await ws.handler.message(hostSocket, chatFrame('chat.send', { text: '안녕하세요' }, 'chat-a'))
 
     expect(hostSocket.only()).toMatchObject({
       type: 'chat.message',
@@ -185,7 +101,7 @@ describeRedis('chat.send(GameSocketHandler)', () => {
   it('방에 들어오지 않은 소켓은 NOT_IN_ROOM으로 거절한다', async () => {
     const socket = new FakeSocket()
 
-    await handler.message(socket, frame('chat.send', { text: '누구세요' }, 'chat-b'))
+    await ws.handler.message(socket, chatFrame('chat.send', { text: '누구세요' }, 'chat-b'))
 
     expect(socket.only()).toMatchObject({
       type: 'error',
@@ -195,10 +111,10 @@ describeRedis('chat.send(GameSocketHandler)', () => {
 
   /** 도배와 잘못된 입력은 사용자가 고칠 방법이 달라서 코드를 나눈다. */
   it('도배는 RATE_LIMITED, 빈 줄은 INVALID_MESSAGE로 갈린다', async () => {
-    const { roomCode, host } = await openRoom()
-    const hostSocket = await enter(roomCode, host)
+    const { roomCode, host } = await ws.openRoom()
+    const hostSocket = await ws.enter(roomCode, host)
 
-    await handler.message(hostSocket, frame('chat.send', { text: '' }, 'chat-c'))
+    await ws.handler.message(hostSocket, chatFrame('chat.send', { text: '' }, 'chat-c'))
     expect(hostSocket.only()).toMatchObject({
       type: 'error',
       payload: { code: 'INVALID_MESSAGE', refMsgId: 'chat-c' },
@@ -206,7 +122,7 @@ describeRedis('chat.send(GameSocketHandler)', () => {
     hostSocket.clear()
 
     for (let index = 0; index <= CHAT_RATE_LIMIT; index += 1) {
-      await handler.message(hostSocket, frame('chat.send', { text: `줄 ${index}` }))
+      await ws.handler.message(hostSocket, chatFrame('chat.send', { text: `줄 ${index}` }))
     }
 
     expect(hostSocket.messages().at(-1)).toMatchObject({
