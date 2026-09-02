@@ -66,4 +66,14 @@ describe('useAuthSessionCheck', () => {
       expect(useAppStore.getState().authSession?.nickname).toBe('바뀐닉네임')
     })
   })
+
+  it('같은 화면에서 두 번 부르더라도 확인은 한 번만 한다', async () => {
+    useAppStore.getState().signIn(session)
+    verifySession.mockResolvedValue(session.nickname)
+
+    const { rerender } = renderHook(() => useAuthSessionCheck())
+    rerender()
+
+    await waitFor(() => expect(verifySession).toHaveBeenCalledOnce())
+  })
 })

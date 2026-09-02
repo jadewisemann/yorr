@@ -99,4 +99,17 @@ describe('useRollBroadcast', () => {
 
     expect(view.sentTypes()).toContain('game.yacht_dice.dice.shake')
   })
+
+  it('흔들림 릴레이는 최소 간격 안에서 겹쳐 나가지 않는다', () => {
+    const view = renderBroadcast()
+
+    view.result.current.broadcast.publishShake('left', 0.4)
+    // 같은 프레임에 이어 부른 두 번째는 간격에 걸려 나가지 않는다.
+    view.result.current.broadcast.publishShake('right', 0.6)
+
+    const shakes = view.client.sentMessages.filter(
+      (message) => message.type === 'game.yacht_dice.dice.shake',
+    )
+    expect(shakes).toHaveLength(1)
+  })
 })

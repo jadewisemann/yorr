@@ -241,6 +241,36 @@ describe('yachtGame reducer', () => {
       pendingRoll: null,
     })
   })
+
+  /**
+   * 각 전이는 **자기 국면에서만** 움직인다. 화면이 늦게 보낸 액션이 지나간 국면을
+   * 때리는 일이 실제로 있으므로, 리듀서가 그것을 그대로 흘려보내야 한다.
+   */
+  it('국면이 맞지 않는 액션은 상태를 그대로 돌려준다', () => {
+    const ready = createYachtGame(42)
+
+    // ready에서는 킵·동기화·족보 선택이 모두 할 일이 없다.
+    expect(yachtGameReducer(ready, { type: 'holdToggled', index: 0 })).toBe(ready)
+    expect(yachtGameReducer(ready, { type: 'heldSynced', held: NO_HELD_DICE })).toBe(ready)
+    expect(yachtGameReducer(ready, { type: 'categorySelected', category: 'choice' })).toBe(ready)
+    // 제출·다음 라운드도 마찬가지다.
+    expect(yachtGameReducer(ready, { type: 'submissionSucceeded' })).toBe(ready)
+    expect(yachtGameReducer(ready, { type: 'nextRoundStarted' })).toBe(ready)
+  })
+
+  it('족보를 고르기 전에는 제출할 것이 없다', () => {
+    const rolled = yachtGameReducer(
+      yachtGameReducer(createYachtGame(42), {
+        type: 'rollRequested',
+        requestId: 'roll-1',
+        rollCount: 1,
+        targetDice: serverDice,
+      }),
+      { type: 'rollCompleted', requestId: 'roll-1', dice: serverDice },
+    )
+
+    expect(getRoundSubmission(rolled)).toBeNull()
+  })
 })
 
 describe('restoreYachtGame', () => {

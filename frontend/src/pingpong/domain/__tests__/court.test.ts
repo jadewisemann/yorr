@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { ballY, FAR_Z, NEAR_Z, posToZ, TABLE_H, TABLE_LEN } from '@/pingpong/domain/court'
+import {
+  ballY,
+  FAR_Z,
+  NEAR_Z,
+  posToZ,
+  TABLE_H,
+  TABLE_LEN,
+  viewerDepth,
+  xToWorld,
+} from '@/pingpong/domain/court'
 
 describe('ping pong court depth', () => {
   it('uses the extended table depth for both geometry endpoints and ball travel', () => {
@@ -34,5 +43,17 @@ describe('ballY', () => {
 
   it('아웃과 네트는 서로 다른 낙하 곡선을 탄다', () => {
     expect(ballY(0.5, false, 'out', 0.2)).not.toBe(ballY(0.5, false, 'net', 0.2))
+  })
+
+  /** 정규 좌표(0~1)와 3D 월드 좌표를 잇는 두 변환. 렌더러가 이 값으로 라켓과 공을 놓는다. */
+  it('좌우 정규 좌표는 테이블 폭 위의 월드 좌표가 된다', () => {
+    expect(xToWorld(0.5)).toBe(0)
+    expect(xToWorld(1)).toBeGreaterThan(0)
+    expect(xToWorld(0)).toBe(-xToWorld(1))
+  })
+
+  it('보는 사람이 2번이면 앞뒤가 뒤집힌다', () => {
+    expect(viewerDepth(0.25, 1)).toBe(0.25)
+    expect(viewerDepth(0.25, 2)).toBe(0.75)
   })
 })

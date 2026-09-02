@@ -5,6 +5,7 @@ import {
   drawPenaltyMs,
   duelOutcome,
   impactDelayMs,
+  msLabel,
 } from '@/duel/domain/duel'
 import { DUEL_FOUL, DUEL_MISS, type DuelRound, type DuelState } from '@/realtime/wsEvents'
 
@@ -115,5 +116,23 @@ describe('duelOutcome', () => {
   it('쓰러진 사람이 없으면 남은 총알로 가른다', () => {
     expect(duelOutcome({ ...base, fallenId: undefined, myHp: 3, opponentHp: 1 })).toBe('won')
     expect(duelOutcome({ ...base, fallenId: undefined, myHp: 1, opponentHp: 3 })).toBe('lost')
+  })
+})
+
+describe('결과 문구', () => {
+  const state = (round: DuelState['lastRound']): DuelState =>
+    ({ lastRound: round }) as unknown as DuelState
+
+  it('상대가 떠난 라운드는 남은 사람의 승리로 읽힌다', () => {
+    expect(drawOutcome(state({ kind: 'FORFEIT' } as DuelRound), 'me')).toEqual({
+      label: '상대가 떠났다',
+      tone: 'win',
+    })
+  })
+
+  it('반칙과 얼어붙음은 시간 대신 이유를 보여 준다', () => {
+    expect(msLabel(DUEL_FOUL)).toBe('성급했다')
+    expect(msLabel(null)).toBe('얼어붙음')
+    expect(msLabel(231)).toBe('231ms')
   })
 })
