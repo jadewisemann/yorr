@@ -51,6 +51,30 @@ const FAULT_BAND = 0.04
 const EARLY_MARGIN = IDEAL_1 - WINDOW_1_LOW
 const LATE_MARGIN = WINDOW_1_HIGH - IDEAL_1
 
+/**
+ * 판정 창의 좌표 묶음. 규칙 검사가 **경계를 정확히 짚을 수 있도록** 공개한다 —
+ * 숫자를 검사에 다시 적으면 값이 바뀐 날 검사가 조용히 다른 것을 재게 된다.
+ */
+export const PING_PONG_WINDOWS = {
+  /** 이상점에서 이만큼까지는 이르게 쳐도 폴트가 아니다. */
+  earlyLimit: EARLY_MARGIN - FAULT_BAND,
+  faultBand: FAULT_BAND,
+  /** 늦은 쪽의 같은 여유. 창이 이상점을 가운데 두지 않으므로 값이 다르다. */
+  lateLimit: LATE_MARGIN - FAULT_BAND,
+  goodDistance: GOOD_DISTANCE,
+  ideal1: IDEAL_1,
+  ideal2: IDEAL_2,
+  miss1: MISS_1,
+  miss2: MISS_2,
+  perfectDistance: PERFECT_DISTANCE,
+  smashSpeed: SMASH_SPEED,
+  weakSpeed: WEAK_SPEED,
+  window1High: WINDOW_1_HIGH,
+  window1Low: WINDOW_1_LOW,
+  window2High: WINDOW_2_HIGH,
+  window2Low: WINDOW_2_LOW,
+} as const
+
 /** playerOrder 안의 좌석. 없으면 -1. */
 const seatOf = (state: PingPongState, playerId: string): number =>
   state.playerOrder.indexOf(playerId)
@@ -65,9 +89,16 @@ const event = (
   now: number,
 ): PingPongEvent => ({ id: version, type, playerId, at: now })
 
-/** 진행률 — direction에 따라 pos를 0→1로 정규화한다. */
+/**
+ * 진행률 — direction에 따라 pos를 0→1로 정규화한다.
+ *
+ * 아래 `direction > 0` 비교들은 `>= 0`으로 바꿔도 같다. `PingPongDirection`이
+ * `1 | -1`이라 0이 없기 때문이며, 그 자리마다 사유를 따로 적지 않고 여기 모은다.
+ */
+// Stryker disable EqualityOperator
 const progress = (pos: number, direction: PingPongDirection): number =>
   direction > 0 ? pos : 1 - pos
+// Stryker restore EqualityOperator
 
 /** `from → to`를 speed로 지나는 데 걸리는 시간(ms). 최소 1ms. */
 const duration = (from: number, to: number, speed: number): number =>
@@ -75,6 +106,7 @@ const duration = (from: number, to: number, speed: number): number =>
 
 /** 서브한 공을 아무도 치지 않았을 때의 실점 시각. */
 const missDeadline = (ball: PingPongBall, now: number): number =>
+  // Stryker disable next-line EqualityOperator: direction은 ±1뿐이다.
   now + duration(ball.pos, ball.direction > 0 ? MISS_1 : MISS_2, ball.speed)
 
 /**
@@ -83,9 +115,11 @@ const missDeadline = (ball: PingPongBall, now: number): number =>
  */
 const flightDeadline = (ball: PingPongBall, now: number): number => {
   let target: number
+  // Stryker disable EqualityOperator
   if (ball.fault === 'NET') target = 0.5
   else if (ball.fault === 'OUT') target = ball.direction > 0 ? 1.5 : -0.5
   else target = ball.direction > 0 ? MISS_1 : MISS_2
+  // Stryker restore EqualityOperator
   return now + duration(ball.pos, target, ball.speed)
 }
 
@@ -108,7 +142,7 @@ const ballX = (ball: PingPongBall): number => {
  * 창 안이지만 이상점에서 먼 스윙의 폴트 판정. 이르면 OUT, 늦으면 NET이다
  * (일찍 치면 라켓 각이 서서 넘어가고, 늦으면 눌려서 네트에 걸린다).
  */
-const faultOf = (distance: number, early: boolean): PingPongFault | undefined => {
+export const faultOf = (distance: number, early: boolean): PingPongFault | undefined => {
   const limit = (early ? EARLY_MARGIN : LATE_MARGIN) - FAULT_BAND
   if (distance <= limit) return undefined
   return early ? 'OUT' : 'NET'
@@ -139,6 +173,9 @@ export const serveReceiver = (
   const first = scores[playerOrder[0] as string] ?? 0
   const second = scores[playerOrder[1] as string] ?? 0
   const total = first + second
+  // Stryker disable next-line EqualityOperator,ArithmeticOperator: 이 자리에서 쓰는 것은
+  // 순번의 **홀짝**뿐이라(바로 아래 `% 2`) 20에서의 두 식은 같은 값을 주고, 20 이후로는
+  // 더하든 빼든 홀짝이 함께 움직인다. 어떤 검사로도 가를 수 없다.
   const serviceTurn = total < 20 ? Math.floor(total / 2) : 10 + (total - 20)
   return playerOrder[serviceTurn % 2] as string
 }
@@ -230,9 +267,11 @@ export const ready = (state: PingPongState, playerId: string, now: number): Ping
  */
 export const serve = (state: PingPongState, now: number, targetX: number): PingPongState => {
   if (state.phase !== 'COUNTDOWN') return state
+  // Stryker disable next-line StringLiteral: 명단에 없는 문자열이면 무엇이든 -1이 된다.
   const receiver = state.playerOrder.indexOf(state.serveReceiverId ?? '')
   const direction: PingPongDirection = receiver === 0 ? 1 : -1
   const ball: PingPongBall = {
+    // Stryker disable next-line EqualityOperator: direction은 ±1뿐이다.
     pos: direction > 0 ? 0 : 1,
     direction,
     speed: NORMAL_SPEED,
@@ -314,6 +353,7 @@ export const swing = (
 
   // 판정은 "친 순간"의 공 위치로 한다 — 궤적이 같으므로 재표현일 뿐이다.
   const current = ballAt(state.ball, now)
+  // Stryker disable next-line EqualityOperator: direction은 ±1뿐이다.
   const incoming = seat === 0 ? current.direction > 0 : current.direction < 0
   if (!incoming) {
     return { ...state, version: state.version + 1, lastInputSeq, ball: current }
@@ -333,6 +373,8 @@ export const swing = (
 
   const ideal = seat === 0 ? IDEAL_1 : IDEAL_2
   const distance = Math.abs(current.pos - ideal)
+  // Stryker disable next-line EqualityOperator: 이상점에 정확히 맞은 스윙은 거리가 0이라
+  // 이른 쪽으로 세든 늦은 쪽으로 세든 폴트가 나지 않는다 — 경계가 결과를 가르지 않는다.
   const early = seat === 0 ? current.pos < ideal : current.pos > ideal
   const fault = faultOf(distance, early)
   const direction: PingPongDirection = seat === 0 ? -1 : 1
@@ -369,6 +411,7 @@ export const expire = (state: PingPongState, now: number): PingPongState => {
   if (state.phase !== 'PLAYING') return state
   const ball = ballAt(state.ball, now)
   const scorer =
+    // Stryker disable next-line EqualityOperator: direction은 ±1뿐이다.
     ball.fault !== undefined ? (ball.direction < 0 ? 1 : 0) : ball.direction > 0 ? 1 : 0
   return point(state, scorer, ball, now)
 }

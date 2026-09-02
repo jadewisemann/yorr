@@ -31,6 +31,28 @@ const targetTile = (state: DavinciState, playerId: string): DavinciTile => {
   return tile
 }
 
+/**
+ * 상대 손패를 한 장만 남기고 전부 공개해 둔 판. 그 한 장을 맞히면 판이 끝난다 —
+ * 승부가 갈리는 자리를 보는 검사들이 여기서 출발한다.
+ */
+const oneTileLeft = (overrides: Partial<DavinciState> = {}) => {
+  const state = twoPlayerState()
+  const hand = tilesOf(state, GUEST)
+  const last = hand[0]
+  if (last === undefined) throw new Error('손패가 비었다')
+  return {
+    last,
+    state: {
+      ...state,
+      hands: {
+        ...state.hands,
+        [GUEST]: hand.map((tile) => (tile.id === last.id ? tile : { ...tile, revealed: true })),
+      },
+      ...overrides,
+    } satisfies DavinciState,
+  }
+}
+
 /** 맞혀서 결정 단계에 들어간 판. 그 뒤의 두 갈래(계속·멈춤)가 여기서 갈린다. */
 const afterHit = (): DavinciState => {
   const state = twoPlayerState()
@@ -371,21 +393,9 @@ describe('입력을 물리치는 조건', () => {
 
 describe('판이 끝나는 자리', () => {
   it('상대의 마지막 타일을 열면 그 자리에서 이긴다', () => {
-    const state = twoPlayerState()
-    let current = state
-    // 상대 손패를 하나만 남기고 전부 공개해 둔다.
-    const hand = tilesOf(state, GUEST)
-    const last = hand[0]
-    if (last === undefined) throw new Error('손패가 비었다')
-    current = {
-      ...state,
-      hands: {
-        ...state.hands,
-        [GUEST]: hand.map((tile) => (tile.id === last.id ? tile : { ...tile, revealed: true })),
-      },
-    }
+    const { last, state } = oneTileLeft()
 
-    const won = guess(current, HOST, 0, GUEST, last.id, last.number, NOW)
+    const won = guess(state, HOST, 0, GUEST, last.id, last.number, NOW)
 
     expect(won.phase).toBe('FINISHED')
     expect(won.winnerId).toBe(HOST)
@@ -487,21 +497,10 @@ describe('입력 번호와 버전', () => {
   })
 
   it('맞힌 사람까지 탈락한 상태에서도 승자를 적는다', () => {
-    const state = twoPlayerState()
-    const hand = tilesOf(state, GUEST)
-    const last = hand[0]
-    if (last === undefined) throw new Error('손패가 비었다')
     // 맞히는 사람이 이미 탈락 목록에 있는 어긋난 상태. 그래도 판은 끝나야 한다.
-    const odd: DavinciState = {
-      ...state,
-      eliminated: [HOST],
-      hands: {
-        ...state.hands,
-        [GUEST]: hand.map((tile) => (tile.id === last.id ? tile : { ...tile, revealed: true })),
-      },
-    }
+    const { last, state } = oneTileLeft({ eliminated: [HOST] })
 
-    const won = guess(odd, HOST, 0, GUEST, last.id, last.number, NOW)
+    const won = guess(state, HOST, 0, GUEST, last.id, last.number, NOW)
 
     expect(won.phase).toBe('FINISHED')
     expect(won.winnerId).toBe(HOST)

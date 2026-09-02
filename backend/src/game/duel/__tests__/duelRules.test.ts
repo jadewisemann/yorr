@@ -29,6 +29,19 @@ const P2 = 'player-2'
 
 const initial = (): DuelState => initialDuelState([P1, P2], 1_000, 2_000)
 
+/**
+ * 명단 자리 하나가 빈 상태.
+ *
+ * Redis에서 JSON으로 되돌아온 상태는 실제로 이런 모양일 수 있고, 그때 규칙이 조용히
+ * 이상한 판정을 내는 대신 던져야 한다. 타입은 두 자리가 다 찼다고 말하므로 여기서만
+ * 한 번 속이고, 검사들은 이 함수를 통해서만 그 상태를 만든다.
+ */
+const missingSeat = (seat: 0 | 1): DuelState => {
+  const order = [P1, P2]
+  order[seat] = undefined as unknown as string
+  return { ...initial(), playerOrder: order }
+}
+
 /** `lastRound`가 없는 프레임은 규칙 위반이다 — 테스트에서 옵셔널을 좁혀 쓴다. */
 const lastRound = (state: DuelState): DuelRound => {
   const round = state.lastRound
@@ -400,9 +413,7 @@ describe('DuelRules', () => {
     })
 
     it('명단의 두 번째 자리가 비어도 판정하지 않고 던진다', () => {
-      const broken: DuelState = { ...initial(), playerOrder: [P1, undefined as unknown as string] }
-
-      expect(() => forfeit(broken, P1, 2_000)).toThrow('duel_requires_two_players')
+      expect(() => forfeit(missingSeat(1), P1, 2_000)).toThrow('duel_requires_two_players')
     })
 
     it('이미 끝난 판과 방에 없는 사람의 이탈은 아무것도 하지 않는다', () => {
@@ -495,17 +506,8 @@ describe('DuelRules', () => {
 
     it('명단의 어느 자리가 비었든 똑같이 막는다', () => {
       // JSON으로 되돌아온 상태는 앞자리가 빌 수도 있다 — 두 자리를 각각 봐야 한다.
-      const noFirst: DuelState = {
-        ...initial(),
-        playerOrder: [undefined as unknown as string, P2],
-      }
-      const noSecond: DuelState = {
-        ...initial(),
-        playerOrder: [P1, undefined as unknown as string],
-      }
-
-      expect(() => forfeit(noFirst, P2, 2_000)).toThrow('duel_requires_two_players')
-      expect(() => forfeit(noSecond, P1, 2_000)).toThrow('duel_requires_two_players')
+      expect(() => forfeit(missingSeat(0), P2, 2_000)).toThrow('duel_requires_two_players')
+      expect(() => forfeit(missingSeat(1), P1, 2_000)).toThrow('duel_requires_two_players')
     })
   })
 })

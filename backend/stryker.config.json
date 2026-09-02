@@ -24,7 +24,8 @@
     "src/game/completion/gameResultCalculator.ts",
     "src/game/startRoster.ts",
     "src/game/duel/duelRules.ts",
-    "src/game/davinci/davinciRules.ts"
+    "src/game/davinci/davinciRules.ts",
+    "src/game/pingpong/pingPongRules.ts"
   ],
   "thresholds": {
     "high": 100,
@@ -32,5 +33,5 @@
     "break": 100
   },
   "tsconfigFile": "",
-  "_nextScope": "다음 차례는 탁구 규칙이다. 결투는 생존 30건, 다빈치는 46건에서 각각 0이 됐다. 두 번 다 걸린 것은 같은 성격이었다 — 시각과 값 계약(마감·판 번호·입력 번호), 국면과 상태가 어긋난 프레임, 조건 하나씩 짚기다."
+  "_nextScope": "게임 규칙 3종을 모두 넣어 12개 파일이 되었다. 다음으로 넓힐 후보는 상태 저장소와 어댑터인데, 그쪽은 Redis·MySQL을 타므로 순수 로직과 성격이 다르다 — 돌연변이가 검사 시간을 크게 늘린다는 점을 함께 재고 결정한다."
 }
