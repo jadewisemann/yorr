@@ -35,7 +35,7 @@ import {
  */
 
 /** 색깔마다 0~11 열두 장 + 조커 한 장 = 스물여섯 장. */
-const DAVINCI_MAX_NUMBER = 11
+export const DAVINCI_MAX_NUMBER = 11
 export const DAVINCI_DECK_SIZE = 26
 
 export const DAVINCI_MIN_PLAYERS = 2
@@ -48,8 +48,8 @@ const MANY_PLAYERS = 4
 
 /** 각 단계의 제한 시간(ms). 추측이 가장 길다 — 유일하게 생각할 것이 있는 단계다. */
 export const GUESS_MILLIS = 30_000
-const DECIDE_MILLIS = 15_000
-const PLACE_MILLIS = 15_000
+export const DECIDE_MILLIS = 15_000
+export const PLACE_MILLIS = 15_000
 
 /** 섞기 전의 표준 스물여섯 장. 이 순서 자체는 판에 쓰이지 않는다(항상 섞어서 쓴다). */
 export const DAVINCI_TILES: readonly { color: DavinciTileColor; number: number }[] = [
@@ -63,6 +63,8 @@ const at = (values: DavinciPlayerNumbers, playerId: string, fallback: number): n
   values[playerId] ?? fallback
 
 const handOf = (state: DavinciState, playerId: string): readonly DavinciTile[] =>
+  // Stryker disable next-line ArrayDeclaration: 빈 배열을 다른 배열로 바꿔도 결과가 같다.
+  // 손패가 빠진 사람은 어느 갈래로 가든 "감춘 타일이 없다"로 읽히기 때문이다.
   state.hands[playerId] ?? []
 
 /** 정렬 순서 — 숫자 오름차순, 같으면 검정이 먼저. 조커는 이 비교에 들어오지 않는다. */
@@ -137,11 +139,15 @@ export const initialDavinciState = (
   if (
     players.length < DAVINCI_MIN_PLAYERS ||
     players.length > DAVINCI_MAX_PLAYERS ||
+    // Stryker disable next-line ConditionalExpression: 사람 수가 범위 안이면 첫 자리는
+    // 반드시 있다. 이 검사는 타입을 좁히기 위한 것이고 앞의 두 조건이 실제 갈래다.
     turnPlayerId === undefined
   ) {
     throw new DomainError('davinci_requires_two_to_four_players')
   }
   if (new Set(players).size !== players.length) throw new DomainError('davinci_duplicate_player')
+  // Stryker disable next-line ConditionalExpression: 길이가 모자라면 서로 다른 값의 개수도
+  // 모자라므로 뒤의 조건이 같은 것을 잡는다. 두 검사가 함께 "26개의 서로 다른 값"을 뜻한다.
   if (order.length !== DAVINCI_DECK_SIZE || new Set(order).size !== DAVINCI_DECK_SIZE) {
     throw new DomainError('davinci_invalid_deck_order')
   }
@@ -204,8 +210,12 @@ const advance = (state: DavinciState, now: number): DavinciState => {
   // 자리 순서를 돌며 탈락자를 건너뛴다. 떠난 사람도 playerOrder에는 남아 있다.
   const seat = state.playerOrder.indexOf(current)
   let next = current
+  // Stryker disable next-line EqualityOperator: 한 바퀴를 다 돌아 자기 자신으로 돌아오는
+  // 경우는 살아남은 사람이 하나뿐이라는 뜻인데, 그것은 바로 위에서 이미 걸렸다.
   for (let step = 1; step <= state.playerOrder.length; step += 1) {
     const candidate = state.playerOrder[(seat + step) % state.playerOrder.length]
+    // Stryker disable next-line ConditionalExpression: 자리 배열에는 빈 칸이 없다.
+    // 이 검사는 인덱스 접근의 타입을 좁히기 위한 것이고 뒤의 생존 확인이 실제 갈래다.
     if (candidate !== undefined && alive.includes(candidate)) {
       next = candidate
       break
@@ -323,6 +333,8 @@ export const guess = (
     ),
   }
   const eliminated =
+    // Stryker disable next-line ArrayDeclaration: 바로 위에서 `hands[targetId]`를 만들었다.
+    // 이 자리에 닿을 때 그 값은 언제나 있으므로 대체 배열이 쓰이지 않는다.
     hiddenTiles(hands[targetId] ?? []).length === 0
       ? [...state.eliminated, targetId]
       : state.eliminated

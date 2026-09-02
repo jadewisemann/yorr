@@ -23,7 +23,8 @@
     "src/game/ranking/weeklyRankingCache.ts",
     "src/game/completion/gameResultCalculator.ts",
     "src/game/startRoster.ts",
-    "src/game/duel/duelRules.ts"
+    "src/game/duel/duelRules.ts",
+    "src/game/davinci/davinciRules.ts"
   ],
   "thresholds": {
     "high": 100,
@@ -31,5 +32,5 @@
     "break": 100
   },
   "tsconfigFile": "",
-  "_nextScope": "다음 차례는 다빈치·탁구 규칙이다. 결투를 넣어 보니 생존 30건이 나왔고 시각·값 계약과 어긋난 상태를 짚는 검사 스물넷으로 0이 됐다. 남은 둘도 같은 방식이 든다."
+  "_nextScope": "다음 차례는 탁구 규칙이다. 결투는 생존 30건, 다빈치는 46건에서 각각 0이 됐다. 두 번 다 걸린 것은 같은 성격이었다 — 시각과 값 계약(마감·판 번호·입력 번호), 국면과 상태가 어긋난 프레임, 조건 하나씩 짚기다."
 }
