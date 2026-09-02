@@ -1,7 +1,12 @@
-import { render } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
-import { createPlayingRoomSnapshot, creatorSession, participantSession } from '@/mocks/fixtures'
+import {
+  createPlayingRoomSnapshot,
+  creatorSession,
+  participantSession,
+  serverMessage,
+} from '@/mocks/fixtures'
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
 import type { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
@@ -99,4 +104,33 @@ export function SyncedGamePlay() {
       snapshot={roomSnapshot}
     />
   )
+}
+
+/**
+ * 활성 플레이어의 굴림 방송 하나. 관전자 화면 검사들이 "남의 주사위가 어떻게 비치는가"를
+ * 보려면 먼저 이것을 흘려보내야 한다.
+ */
+export function broadcastRoll(client: FakeRealtimeClient, rollCount: 1 | 2 | 3 = 1) {
+  act(() => {
+    client.emitMessage(
+      serverMessage(
+        'game.yacht_dice.dice.broadcast',
+        {
+          dice: [6, 5, 4, 3, 2],
+          held: [false, false, false, false, false],
+          playerId: creatorSession.you,
+          rollCount,
+          roundNumber: 1,
+        },
+        { roomId: participantSession.roomId },
+      ),
+    )
+  })
+}
+
+/** 굴리고, 굴림을 끝내고, 초이스 20점을 기록하는 한 턴. */
+export async function rollAndRecord(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: '굴리기' }))
+  await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+  await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
 }

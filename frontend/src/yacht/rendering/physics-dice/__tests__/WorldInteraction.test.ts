@@ -4,7 +4,7 @@ import { FakeResizeObserver } from '@/test/threeStubs'
 import { PHYSICS_DICE_CONFIG } from '@/yacht/rendering/physics-dice/config'
 import { keepSlotSpacing, resultCameraWidth } from '@/yacht/rendering/physics-dice/layout'
 import type { PhysicsDiceIndex, PhysicsHeldDice } from '@/yacht/rendering/physics-dice/types'
-import { FRAME_MS, rollRequest, useWorld } from './worldHarness'
+import { FRAME_MS, installWorld, rollRequest } from './worldHarness'
 
 // `vi.mock`은 부른 파일에만 걸린다 — 하네스로 옮길 수 없다.
 vi.mock('three', async (importOriginal) => {
@@ -15,7 +15,7 @@ vi.mock('three', async (importOriginal) => {
 const CONFIG = PHYSICS_DICE_CONFIG
 const SCENE = CONFIG.scene
 
-const { boot, runFrames, renderer, camera, diceMeshes, bowlGroup, pointerEventAt } = useWorld()
+const { boot, runFrames, renderer, camera, diceMeshes, bowlGroup, pointerEventAt } = installWorld()
 
 describe('PhysicsDiceWorld — 입력과 화면 변화', () => {
   describe('흔들림 펄스', () => {

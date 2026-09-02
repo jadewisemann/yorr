@@ -18,10 +18,12 @@ vi.mock('@/yacht/components/PhysicsDiceScene', () => import('./physicsDiceSceneD
 
 import { GamePlay } from '@/yacht/screens/GamePlay'
 import {
+  broadcastRoll,
   brokenSend,
   lastMsgId,
   renderGame,
   renderObserver,
+  rollAndRecord,
   withheldResponse,
 } from './gamePlayHarness'
 
@@ -90,21 +92,7 @@ describe('GamePlay', () => {
   it('ignores dice holds while another player owns the turn', async () => {
     const { client, user } = renderObserver()
 
-    act(() => {
-      client.emitMessage(
-        serverMessage(
-          'game.yacht_dice.dice.broadcast',
-          {
-            dice: [6, 5, 4, 3, 2],
-            held: [false, false, false, false, false],
-            playerId: creatorSession.you,
-            rollCount: 1,
-            roundNumber: 1,
-          },
-          { roomId: participantSession.roomId },
-        ),
-      )
-    })
+    broadcastRoll(client)
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
 
     await user.click(screen.getByRole('button', { name: '첫 주사위 킵' }))
@@ -114,21 +102,7 @@ describe('GamePlay', () => {
   it('mirrors the active player’s keeps to everyone else', async () => {
     const { client, user } = renderObserver()
 
-    act(() => {
-      client.emitMessage(
-        serverMessage(
-          'game.yacht_dice.dice.broadcast',
-          {
-            dice: [6, 5, 4, 3, 2],
-            held: [false, false, false, false, false],
-            playerId: creatorSession.you,
-            rollCount: 1,
-            roundNumber: 1,
-          },
-          { roomId: participantSession.roomId },
-        ),
-      )
-    })
+    broadcastRoll(client)
     await user.click(screen.getByRole('button', { name: '굴림 완료' }))
     expect(screen.getByText('킵 레일 · 비어 있음')).toBeVisible()
 
@@ -263,9 +237,7 @@ describe('GamePlay', () => {
     const client = withheldResponse(createRealtimeFixture(), 'game.yacht_dice.round.submit')
     const { user } = renderGame({ client })
 
-    await user.click(screen.getByRole('button', { name: '굴리기' }))
-    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
-    await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
+    await rollAndRecord(user)
     expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeDisabled()
 
     act(() => {
@@ -289,9 +261,7 @@ describe('GamePlay', () => {
   it('shows a waiting label instead of repeating my own turn after I submit', async () => {
     const { user } = renderGame()
 
-    await user.click(screen.getByRole('button', { name: '굴리기' }))
-    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
-    await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
+    await rollAndRecord(user)
 
     expect(await screen.findByText('제출 완료 · 대기 중')).toBeVisible()
     expect(screen.queryByText('내 턴이에요')).not.toBeInTheDocument()
@@ -301,9 +271,7 @@ describe('GamePlay', () => {
     const client = brokenSend(createRealtimeFixture(), 'game.yacht_dice.round.submit')
     const { user } = renderGame({ client })
 
-    await user.click(screen.getByRole('button', { name: '굴리기' }))
-    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
-    await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
+    await rollAndRecord(user)
 
     expect(await screen.findByText('점수를 기록하지 못했어요. 다시 시도해 주세요.')).toBeVisible()
     expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeEnabled()
@@ -322,21 +290,7 @@ describe('GamePlay', () => {
     const { client, rerender, user } = renderObserver(snapshot)
 
     for (let rollCount = 1; rollCount <= 3; rollCount += 1) {
-      act(() => {
-        client.emitMessage(
-          serverMessage(
-            'game.yacht_dice.dice.broadcast',
-            {
-              dice: [6, 5, 4, 3, 2],
-              held: [false, false, false, false, false],
-              playerId: creatorSession.you,
-              rollCount: rollCount as 1 | 2 | 3,
-              roundNumber: 1,
-            },
-            { roomId: participantSession.roomId },
-          ),
-        )
-      })
+      broadcastRoll(client, rollCount as 1 | 2 | 3)
       await user.click(screen.getByRole('button', { name: '굴림 완료' }))
     }
 
@@ -393,9 +347,7 @@ describe('GamePlay', () => {
     if (!snapshot.game) throw new Error('playing snapshot is missing game state')
     const { rerenderWith, user } = renderGame({ client, snapshot })
 
-    await user.click(screen.getByRole('button', { name: '굴리기' }))
-    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
-    await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
+    await rollAndRecord(user)
     expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeDisabled()
 
     rerenderWith({

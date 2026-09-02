@@ -1,194 +1,75 @@
-import { expect, it, vi } from 'vitest'
+import { expect, it } from 'vitest'
 import { saveSoundMuted } from '@/shared/audio/soundPreference'
+import { installAudioRecorder } from './audioRecorder'
+
+const YACHT_HERO = '/yacht.mp3'
+const YACHT_GAME = 'yacht_ingame.mp3'
+
+const track = installAudioRecorder()
 
 it('음소거 상태에서는 어떤 트랙도 재생하지 않는다', async () => {
-  vi.resetModules()
-  window.localStorage.clear()
   saveSoundMuted(true)
-  const audios: HTMLAudioElement[] = []
-  vi.stubGlobal(
-    'Audio',
-    vi.fn(function AudioMock(src?: string) {
-      const audio = document.createElement('audio')
-      if (src) audio.setAttribute('src', src)
-      audio.play = vi.fn(() => Promise.resolve())
-      audio.pause = vi.fn()
-      audios.push(audio)
-      return audio
-    }),
-  )
 
   const { playLandingSoundtrack } = await import('@/shared/audio/soundtrack')
   playLandingSoundtrack('yacht')
 
-  const yachtTrack = audios.find((audio) => audio.getAttribute('src')?.endsWith('/yacht.mp3'))
-  expect(yachtTrack?.play).not.toHaveBeenCalled()
-
-  window.localStorage.clear()
-  vi.unstubAllGlobals()
+  expect(track(YACHT_HERO)?.play).not.toHaveBeenCalled()
 })
 
 it('첫 조작에서 나중에 갈아탈 트랙까지 잠금을 풀어 둔다', async () => {
-  vi.resetModules()
-  window.localStorage.clear()
-  const audios: HTMLAudioElement[] = []
-  vi.stubGlobal(
-    'Audio',
-    vi.fn(function AudioMock(src?: string) {
-      const audio = document.createElement('audio')
-      if (src) audio.setAttribute('src', src)
-      audio.play = vi.fn(() => Promise.resolve())
-      audio.pause = vi.fn()
-      audios.push(audio)
-      return audio
-    }),
-  )
-
   const { playLandingSoundtrack, playGameSoundtrack } = await import('@/shared/audio/soundtrack')
   playLandingSoundtrack('yacht')
   document.dispatchEvent(new Event('pointerdown'))
 
-  const game = audios.find((audio) => audio.getAttribute('src')?.endsWith('yacht_ingame.mp3'))
-  expect(game?.play).toHaveBeenCalledOnce()
-  expect(game?.pause).toHaveBeenCalledOnce()
+  // 잠금 해제는 한 번 재생했다 멈추는 것으로 이뤄진다 — 그래서 아직 들리지 않는다.
+  expect(track(YACHT_GAME)?.play).toHaveBeenCalledOnce()
+  expect(track(YACHT_GAME)?.pause).toHaveBeenCalledOnce()
 
   playGameSoundtrack()
-  expect(game?.play).toHaveBeenCalledTimes(2)
-
-  vi.unstubAllGlobals()
+  expect(track(YACHT_GAME)?.play).toHaveBeenCalledTimes(2)
 })
 
-it('stops the game track before playing the one-shot result track', async () => {
-  vi.resetModules()
-  const audios: HTMLAudioElement[] = []
-  vi.stubGlobal(
-    'Audio',
-    vi.fn(function AudioMock(src?: string) {
-      const audio = document.createElement('audio')
-      if (src) audio.setAttribute('src', src)
-      audio.play = vi.fn(() => Promise.resolve())
-      audio.pause = vi.fn()
-      audios.push(audio)
-      return audio
-    }),
-  )
-
+it('결과 트랙을 틀기 전에 인게임 트랙을 멈춘다', async () => {
   const { playGameSoundtrack, playResultSoundtrack } = await import('@/shared/audio/soundtrack')
   playGameSoundtrack()
   playResultSoundtrack()
 
-  const game = audios.find((audio) => audio.getAttribute('src')?.endsWith('yacht_ingame.mp3'))
-  const result = audios.find((audio) => audio.getAttribute('src')?.endsWith('/result.mp3'))
-
-  expect(game?.pause).toHaveBeenCalledOnce()
-  expect(result?.play).toHaveBeenCalledOnce()
-  expect(result?.loop).toBe(false)
-
-  vi.unstubAllGlobals()
+  expect(track(YACHT_GAME)?.pause).toHaveBeenCalledOnce()
+  expect(track('/result.mp3')?.play).toHaveBeenCalledOnce()
+  // 결과 트랙은 한 번만 흐른다.
+  expect(track('/result.mp3')?.loop).toBe(false)
 })
 
 it('게임에 맞는 인게임 BGM을 재생한다', async () => {
-  vi.resetModules()
-  const audios: HTMLAudioElement[] = []
-  vi.stubGlobal(
-    'Audio',
-    vi.fn(function AudioMock(src?: string) {
-      const audio = document.createElement('audio')
-      if (src) audio.setAttribute('src', src)
-      audio.play = vi.fn(() => Promise.resolve())
-      audio.pause = vi.fn()
-      audios.push(audio)
-      return audio
-    }),
-  )
-
   const { playGameSoundtrack } = await import('@/shared/audio/soundtrack')
   playGameSoundtrack('PING_PONG')
 
-  const pingPong = audios.find((audio) =>
-    audio.getAttribute('src')?.endsWith('/ping-pong-ingame.mp3'),
-  )
-  expect(pingPong?.play).toHaveBeenCalledOnce()
-
-  vi.unstubAllGlobals()
+  expect(track('/ping-pong-ingame.mp3')?.play).toHaveBeenCalledOnce()
 })
 
-it('plays the matching hero track for the selected landing game', async () => {
-  vi.resetModules()
-  const audios: HTMLAudioElement[] = []
-  vi.stubGlobal(
-    'Audio',
-    vi.fn(function AudioMock(src?: string) {
-      const audio = document.createElement('audio')
-      if (src) audio.setAttribute('src', src)
-      audio.play = vi.fn(() => Promise.resolve())
-      audio.pause = vi.fn()
-      audios.push(audio)
-      return audio
-    }),
-  )
-
+it('고른 게임에 맞는 랜딩 트랙을 재생한다', async () => {
   const { playLandingSoundtrack } = await import('@/shared/audio/soundtrack')
   playLandingSoundtrack('yacht')
 
-  const yachtTrack = audios.find((audio) => audio.getAttribute('src')?.endsWith('/yacht.mp3'))
-  expect(yachtTrack?.play).toHaveBeenCalledOnce()
-
-  vi.unstubAllGlobals()
+  expect(track(YACHT_HERO)?.play).toHaveBeenCalledOnce()
 })
 
-it('retries the requested game track after direct invite autoplay is blocked', async () => {
-  vi.resetModules()
-  const audios: HTMLAudioElement[] = []
-  vi.stubGlobal(
-    'Audio',
-    vi.fn(function AudioMock(src?: string) {
-      const audio = document.createElement('audio')
-      if (src) audio.setAttribute('src', src)
-      audio.play = vi.fn(() => Promise.resolve())
-      audio.pause = vi.fn()
-      audios.push(audio)
-      return audio
-    }),
-  )
-
+it('초대 링크로 바로 들어와 자동 재생이 막히면 첫 조작에서 다시 시도한다', async () => {
   const { playGameSoundtrack } = await import('@/shared/audio/soundtrack')
   playGameSoundtrack()
   document.dispatchEvent(new Event('pointerdown'))
 
-  const landing = audios.find((audio) => audio.getAttribute('src')?.endsWith('/yacht.mp3'))
-  const game = audios.find((audio) => audio.getAttribute('src')?.endsWith('yacht_ingame.mp3'))
-
-  expect(landing?.pause).toHaveBeenCalledOnce()
-  expect(game?.play).toHaveBeenCalledTimes(2)
-
-  vi.unstubAllGlobals()
+  expect(track(YACHT_HERO)?.pause).toHaveBeenCalledOnce()
+  expect(track(YACHT_GAME)?.play).toHaveBeenCalledTimes(2)
 })
 
-it('setSoundtrackMuted pauses or resumes whatever track is currently playing', async () => {
-  vi.resetModules()
-  const audios: HTMLAudioElement[] = []
-  vi.stubGlobal(
-    'Audio',
-    vi.fn(function AudioMock(src?: string) {
-      const audio = document.createElement('audio')
-      if (src) audio.setAttribute('src', src)
-      audio.play = vi.fn(() => Promise.resolve())
-      audio.pause = vi.fn()
-      audios.push(audio)
-      return audio
-    }),
-  )
-
+it('음소거를 켜고 끄면 지금 흐르던 트랙이 멈췄다 이어진다', async () => {
   const { playGameSoundtrack, setSoundtrackMuted } = await import('@/shared/audio/soundtrack')
   playGameSoundtrack()
-  const game = audios.find((audio) => audio.getAttribute('src')?.endsWith('yacht_ingame.mp3'))
 
   setSoundtrackMuted(true)
-  expect(game?.pause).toHaveBeenCalled()
+  expect(track(YACHT_GAME)?.pause).toHaveBeenCalled()
 
   setSoundtrackMuted(false)
-  expect(game?.play).toHaveBeenCalledTimes(2)
-
-  vi.unstubAllGlobals()
+  expect(track(YACHT_GAME)?.play).toHaveBeenCalledTimes(2)
 })

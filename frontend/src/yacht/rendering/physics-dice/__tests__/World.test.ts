@@ -4,7 +4,7 @@ import { PHYSICS_DICE_CONFIG } from '@/yacht/rendering/physics-dice/config'
 import { keepSlotPosition, resultCameraWidth } from '@/yacht/rendering/physics-dice/layout'
 import { topFaceFromQuaternion } from '@/yacht/rendering/physics-dice/model'
 import type { PhysicsDiceSet, PhysicsHeldDice } from '@/yacht/rendering/physics-dice/types'
-import { FRAME_MS, NONE_HELD, rollRequest, useWorld } from './worldHarness'
+import { FRAME_MS, installWorld, NONE_HELD, rollRequest } from './worldHarness'
 
 // `vi.mock`은 부른 파일에만 걸린다 — 하네스로 옮길 수 없다.
 vi.mock('three', async (importOriginal) => {
@@ -25,7 +25,7 @@ const {
   topFaces,
   keepSlotBars,
   bowlGroup,
-} = useWorld()
+} = installWorld()
 
 describe('PhysicsDiceWorld — 수명주기와 굴림', () => {
   describe('초기화와 해제', () => {

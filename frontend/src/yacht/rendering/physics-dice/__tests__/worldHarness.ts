@@ -30,7 +30,7 @@ export function rollRequest(
  *
  * 헬퍼는 함수라 매 검사마다 다시 만들 필요가 없다 — 구조 분해해서 그대로 쓰면 된다.
  */
-export function useWorld() {
+export function installWorld() {
   const created: PhysicsDiceWorld[] = []
 
   function callbackSpies(): PhysicsDiceWorldCallbacks {

@@ -2,9 +2,9 @@ import { act, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RealtimeSync } from '@/app/RealtimeSync'
 import { creatorSession, serverMessage } from '@/mocks/fixtures'
-import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { useAppStore } from '@/store'
+import { mountSync } from './realtimeSyncHarness'
 
 describe('RealtimeSync — 세션과 연결', () => {
   beforeEach(() => {
@@ -13,13 +13,7 @@ describe('RealtimeSync — 세션과 연결', () => {
   })
 
   it('attaches the REST session and applies a server snapshot', async () => {
-    const client = createRealtimeFixture({ role: 'creator' })
-
-    render(
-      <RealtimeSync client={client}>
-        <div>app</div>
-      </RealtimeSync>,
-    )
+    const client = mountSync()
 
     await waitFor(() => expect(useAppStore.getState().connectionStatus).toBe('connected'))
     expect(client.sentMessages[0]).toMatchObject({
@@ -60,12 +54,7 @@ describe('RealtimeSync — 세션과 연결', () => {
   })
 
   it('re-sends room.join with the saved session on reconnect', async () => {
-    const client = createRealtimeFixture({ role: 'creator' })
-    render(
-      <RealtimeSync client={client}>
-        <div>app</div>
-      </RealtimeSync>,
-    )
+    const client = mountSync()
     await waitFor(() => expect(useAppStore.getState().connectionStatus).toBe('connected'))
     client.sentMessages.length = 0
 
@@ -109,13 +98,7 @@ describe('RealtimeSync — 세션과 연결', () => {
 
   it('does not auto-join a paused session until the user resumes it', async () => {
     useAppStore.getState().endSession('disconnected')
-    const client = createRealtimeFixture({ role: 'creator' })
-
-    render(
-      <RealtimeSync client={client}>
-        <div>app</div>
-      </RealtimeSync>,
-    )
+    const client = mountSync()
 
     expect(client.sentMessages).toHaveLength(0)
     expect(useAppStore.getState().connectionStatus).toBe('closed')
@@ -129,12 +112,7 @@ describe('RealtimeSync — 세션과 연결', () => {
     })
   })
   it('clears a closed or expired room instead of reconnecting forever', async () => {
-    const client = createRealtimeFixture({ role: 'creator' })
-    render(
-      <RealtimeSync client={client}>
-        <div>app</div>
-      </RealtimeSync>,
-    )
+    const client = mountSync()
 
     client.emitMessage(serverMessage('room.closed', { reason: 'server_shutdown' }))
 
@@ -143,12 +121,7 @@ describe('RealtimeSync — 세션과 연결', () => {
   })
 
   it('clears a saved token when the server rejects it as expired', async () => {
-    const client = createRealtimeFixture({ role: 'creator' })
-    render(
-      <RealtimeSync client={client}>
-        <div>app</div>
-      </RealtimeSync>,
-    )
+    const client = mountSync()
 
     client.emitMessage(
       serverMessage('error', { code: 'SESSION_EXPIRED', message: 'session expired' }),
@@ -159,12 +132,7 @@ describe('RealtimeSync — 세션과 연결', () => {
   })
 
   it('clears the session when the server says the room is gone', async () => {
-    const client = createRealtimeFixture({ role: 'creator' })
-    render(
-      <RealtimeSync client={client}>
-        <div>app</div>
-      </RealtimeSync>,
-    )
+    const client = mountSync()
 
     client.emitMessage(serverMessage('error', { code: 'ROOM_NOT_FOUND', message: 'room closed' }))
 
@@ -174,12 +142,7 @@ describe('RealtimeSync — 세션과 연결', () => {
   })
 
   it('인증이 깨진 세션도 붙잡지 않고 즉시 정리한다', async () => {
-    const client = createRealtimeFixture({ role: 'creator' })
-    render(
-      <RealtimeSync client={client}>
-        <div>app</div>
-      </RealtimeSync>,
-    )
+    const client = mountSync()
 
     client.emitMessage(serverMessage('error', { code: 'AUTH_FAILED', message: 'auth failed' }))
 
@@ -187,24 +150,14 @@ describe('RealtimeSync — 세션과 연결', () => {
   })
 
   it('되돌릴 수 있는 오류로는 세션을 버리지 않는다', () => {
-    const client = createRealtimeFixture({ role: 'creator' })
-    render(
-      <RealtimeSync client={client}>
-        <div>app</div>
-      </RealtimeSync>,
-    )
+    const client = mountSync()
 
     client.emitMessage(serverMessage('error', { code: 'RATE_LIMITED', message: 'slow down' }))
 
     expect(useAppStore.getState().roomSession?.sessionToken).toBe(creatorSession.sessionToken)
   })
   it('유예가 끝난 자리로의 재접속은 세션을 정리한다', async () => {
-    const client = createRealtimeFixture({ role: 'creator' })
-    render(
-      <RealtimeSync client={client}>
-        <div>app</div>
-      </RealtimeSync>,
-    )
+    const client = mountSync()
 
     client.emitMessage(
       serverMessage('error', { code: 'GAME_ALREADY_STARTED', message: 'seat reclaimed' }),
@@ -218,12 +171,7 @@ describe('RealtimeSync — 세션과 연결', () => {
     afterEach(() => vi.useRealTimers())
 
     it('서버가 알려준 주기로 heartbeat을 계속 보낸다', () => {
-      const client = createRealtimeFixture({ role: 'creator' })
-      render(
-        <RealtimeSync client={client}>
-          <div>app</div>
-        </RealtimeSync>,
-      )
+      const client = mountSync()
 
       act(() => vi.advanceTimersByTime(30_000))
 
@@ -231,12 +179,7 @@ describe('RealtimeSync — 세션과 연결', () => {
     })
 
     it('heartbeat 전송이 실패해도 앱을 멈추지 않는다', () => {
-      const client = createRealtimeFixture({ role: 'creator' })
-      render(
-        <RealtimeSync client={client}>
-          <div>app</div>
-        </RealtimeSync>,
-      )
+      const client = mountSync()
       vi.spyOn(client, 'send').mockImplementation(() => {
         throw new Error('socket is closed')
       })
@@ -246,12 +189,7 @@ describe('RealtimeSync — 세션과 연결', () => {
     })
 
     it('연결이 끊기면 잠시 뒤 스스로 다시 붙고 방에 다시 참가한다', () => {
-      const client = createRealtimeFixture({ role: 'creator' })
-      render(
-        <RealtimeSync client={client}>
-          <div>app</div>
-        </RealtimeSync>,
-      )
+      const client = mountSync()
       client.sentMessages.length = 0
 
       act(() => client.emitConnection('close'))
@@ -267,12 +205,7 @@ describe('RealtimeSync — 세션과 연결', () => {
     })
 
     it('재연결 대기 중 중복 close가 와도 연결 예약을 하나만 유지한다', () => {
-      const client = createRealtimeFixture({ role: 'creator' })
-      render(
-        <RealtimeSync client={client}>
-          <div>app</div>
-        </RealtimeSync>,
-      )
+      const client = mountSync()
       client.sentMessages.length = 0
 
       act(() => {
