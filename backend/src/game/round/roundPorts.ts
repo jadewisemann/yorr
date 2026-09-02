@@ -119,3 +119,25 @@ export interface ScoreRoundSubmissionPort<R> {
 export interface OpenCategoriesPort {
   openCategories(gameId: string, playerId: string): Promise<readonly string[]> | readonly string[]
 }
+
+/**
+ * 점수판이 바뀌었다는 통지 한 통.
+ *
+ * 시간 초과로 서버가 자동 확정할 때(`roundTimeoutResolver`)와 사람이 보낸 확정
+ * 요청에 답할 때(`roundTimerService`)가 **같은 모양**을 써야 한다. 클라이언트는
+ * 두 경우를 가르지 않고 점수판을 갈아 끼우기 때문이다. 요청에 답하는 쪽만
+ * `msgId`를 실어 어느 요청의 결과인지 알린다.
+ */
+export const scoreUpdateEnvelope = (params: {
+  readonly type: string
+  readonly ts: number
+  readonly roomId: string
+  readonly score: ConfirmedScore
+  readonly msgId?: string | undefined
+}): RoundOutboundEnvelope => ({
+  type: params.type,
+  ts: params.ts,
+  payload: { playerId: params.score.playerId, scoreboard: params.score.scoreboard },
+  roomId: params.roomId,
+  msgId: params.msgId,
+})

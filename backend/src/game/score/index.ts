@@ -12,6 +12,7 @@ export {
 } from './scoreBoardStore.js'
 export {
   DICE_COUNT,
+  diceCounts,
   isSatisfiedBy,
   isUpperCategory,
   SCORE_CATEGORIES,

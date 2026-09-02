@@ -3,7 +3,7 @@ import type { MemberUser } from '../auth/socialProfile.js'
 import { DomainError } from '../errors.js'
 import { inTransaction as runInTransaction } from '../infra/transaction.js'
 import { normalizeNickname } from './session.js'
-import { toMember, type UserRow } from './userRow.js'
+import { lockUserRow, toMember, type UserRow } from './userRow.js'
 
 /**
  * 회원이 자기 프로필을 보고 고치는 경로.
@@ -67,13 +67,7 @@ export class MysqlUserProfileStore implements UserProfileRepository {
 
   async rename(userId: string, nickname: string): Promise<MemberUser> {
     return this.inTransaction(async (conn) => {
-      // 행을 잠그고 읽는다 — 돌려주는 profileImageUrl이 방금 쓴 상태와 같아야 한다
-      // (같은 순간 로그인이 제공자 프로필을 채택할 수 있다).
-      const [rows] = await conn.query<UserRow[]>(
-        'SELECT id, nickname, profile_image_url FROM users WHERE id = ? FOR UPDATE',
-        [userId],
-      )
-      const row = rows[0]
+      const row = await lockUserRow(conn, userId)
       if (row === undefined) throw new UserNotFoundError()
       await conn.query('UPDATE users SET nickname = ?, updated_at = ? WHERE id = ?', [
         nickname,

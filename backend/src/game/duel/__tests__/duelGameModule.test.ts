@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { DomainError } from '../../../errors.js'
 import type { InboundEnvelope } from '../../../ws/envelope.js'
 import type { WsRoomSnapshot } from '../../../ws/protocol.js'
-import { type ClientSocket, SOCKET_OPEN } from '../../../ws/socket.js'
+import type { ClientSocket } from '../../../ws/socket.js'
+import { type FakeSocket, fakeSocket, lastFrame } from '../../__tests__/portDoubles.js'
 import { GameModuleRegistry } from '../../module.js'
 import { DuelGameModule } from '../duelGameModule.js'
 import type { DuelDrawPayload, DuelGameService } from '../duelGameService.js'
@@ -10,20 +11,6 @@ import type { DuelSessionLookup } from '../duelPorts.js'
 
 const ROOM = 'ROOM1'
 const PLAYER = 'player-1'
-
-interface FakeSocket extends ClientSocket {
-  readonly sent: unknown[]
-}
-
-const fakeSocket = (): FakeSocket => {
-  const sent: unknown[] = []
-  return {
-    readyState: SOCKET_OPEN,
-    sent,
-    send: (data: string) => sent.push(JSON.parse(data)),
-    close: () => {},
-  }
-}
 
 /** `roomId: null`은 **필드 자체가 없는** 봉투를 뜻한다(기본값은 현재 방). */
 const inbound = (payload: unknown, roomId: string | null = ROOM): InboundEnvelope => ({
@@ -45,7 +32,7 @@ describe('DuelGameModule', () => {
   let socket: FakeSocket
 
   const errorOf = (target: FakeSocket): { code: string; message: string; refMsgId?: string } => {
-    const frame = target.sent.at(-1) as { type: string; payload: Record<string, string> }
+    const frame = lastFrame(target)
     expect(frame.type).toBe('error')
     return frame.payload as unknown as { code: string; message: string; refMsgId?: string }
   }

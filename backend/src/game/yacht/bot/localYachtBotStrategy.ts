@@ -1,4 +1,4 @@
-import { calculateScore, DICE_COUNT, type ScoreCategory } from '../../score/index.js'
+import { calculateScore, DICE_COUNT, diceCounts, type ScoreCategory } from '../../score/index.js'
 import { BotDecisionError } from './botErrors.js'
 
 /**
@@ -43,12 +43,6 @@ const requireDice = (dice: readonly number[]): void => {
   }
 }
 
-const counts = (dice: readonly number[]): Map<number, number> => {
-  const result = new Map<number, number>()
-  for (const die of dice) result.set(die, (result.get(die) ?? 0) + 1)
-  return result
-}
-
 /**
  * 가장 긴 4연속 창(1-4 / 2-5 / 3-6)에 들어 있는 **서로 다른** 면들.
  * 동률이면 낮은 창이 이긴다.
@@ -70,7 +64,7 @@ const bestStraightWindow = (dice: readonly number[]): number[] => {
  * 잡을 페어가 없으므로 5·6만 남긴다.
  */
 const keepMostFrequentOrHigh = (dice: readonly number[]): boolean[] => {
-  const byFace = counts(dice)
+  const byFace = diceCounts(dice)
   let target = 0
   let targetCount = 0
   for (const [face, count] of byFace) {

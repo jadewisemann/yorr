@@ -1,4 +1,4 @@
-import type { FastifyError, FastifyInstance, FastifyReply } from 'fastify'
+import type { FastifyInstance, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import {
   calculateScoreCandidates,
@@ -9,6 +9,7 @@ import {
 import { DICE_COUNT, type ScoreBoard } from '../../game/score/index.js'
 import { SessionAuthenticationError } from '../../user/errors.js'
 import type { UserIdentity, UserService } from '../../user/session.js'
+import { sendEmptyClientErrors } from '../errorResponse.js'
 import { header } from '../memberAuth.js'
 
 export interface GameQueryRouteDependencies {
@@ -140,11 +141,7 @@ export const registerGameQueryRoutes = async (
    * 나가야 프레임워크 흔적(`{statusCode,error,message}`)이 계약처럼 굳지 않는다.
    */
   await app.register(async (scope) => {
-    scope.setErrorHandler((error: FastifyError, _request, reply) => {
-      const status = error.statusCode ?? 500
-      if (status < 500) return reply.code(status).send()
-      return reply.send(error)
-    })
+    sendEmptyClientErrors(scope)
 
     scope.post<{ Params: { gameId: string }; Body: unknown }>(
       '/games/:gameId/score-candidates',

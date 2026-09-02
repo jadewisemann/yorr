@@ -11,6 +11,7 @@ import type {
   RoundRoomSnapshot,
   ScoreRoundSubmissionOutcome,
 } from './roundPorts.js'
+import { scoreUpdateEnvelope } from './roundPorts.js'
 import type { RoundState, RoundSubmissionResult } from './roundState.js'
 import type { RoundSynchronizationService } from './roundSynchronizationService.js'
 import type { RoundTimeoutResolverPort } from './roundTimeoutResolver.js'
@@ -433,14 +434,17 @@ export class RoundTimerService {
     score: ConfirmedScore,
     requestMsgId: string | null,
   ): void {
-    this.broadcaster.broadcast(roomId, {
-      type: gameWsType(this.gameCode, 'score.update'),
-      ts: this.now(),
-      payload: { playerId: score.playerId, scoreboard: score.scoreboard },
+    this.broadcaster.broadcast(
       roomId,
-      // null이면 필드를 생략한다.
-      msgId: requestMsgId ?? undefined,
-    })
+      scoreUpdateEnvelope({
+        // null이면 필드를 생략한다.
+        msgId: requestMsgId ?? undefined,
+        roomId,
+        score,
+        ts: this.now(),
+        type: gameWsType(this.gameCode, 'score.update'),
+      }),
+    )
   }
 }
 

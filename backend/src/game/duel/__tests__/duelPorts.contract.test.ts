@@ -4,7 +4,11 @@ import type { WsRoomSnapshot } from '../../../ws/protocol.js'
 import { RoomSessionRegistry } from '../../../ws/registry.js'
 import type { RealtimeRoomSnapshotService } from '../../../ws/snapshot.js'
 import type { ClientSocket } from '../../../ws/socket.js'
-import { expectDeadlineFires, fakeSocket } from '../../__tests__/portDoubles.js'
+import {
+  expectDeadlineFires,
+  expectRegistryServesSeats,
+  fakeSocket,
+} from '../../__tests__/portDoubles.js'
 import type { GameCompletionService } from '../../completion/index.js'
 import type { GameModule } from '../../module.js'
 import { InMemoryRoundDeadlineScheduler } from '../../round/index.js'
@@ -44,14 +48,12 @@ describe('결투 포트 ↔ 실제 구현 호환', () => {
     const real = new RoomSessionRegistry()
     const presence: DuelPresence = real
     const lookup: DuelSessionLookup<ClientSocket> = real
-    const socket = fakeSocket()
-    real.join('room-a', socket, 'player-1', '요르')
 
-    presence.markPhase('room-a', 'playing')
-
-    expect(real.phaseOf('room-a')).toBe('playing')
-    expect(lookup.of(socket)?.playerId).toBe('player-1')
-    expect(lookup.of(fakeSocket())).toBeNull()
+    expectRegistryServesSeats({
+      markPlaying: (roomId) => presence.markPhase(roomId, 'playing'),
+      playerIdOf: (socket) => lookup.of(socket)?.playerId ?? null,
+      registry: real,
+    })
   })
 
   it('InMemoryRoundDeadlineScheduler가 DuelDeadlineScheduler를 만족한다(키가 version이어도)', async () => {

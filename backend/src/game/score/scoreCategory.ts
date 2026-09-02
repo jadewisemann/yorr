@@ -115,7 +115,8 @@ const validateDice = (dice: readonly number[]): void => {
   }
 }
 
-const counts = (dice: readonly number[]): Map<number, number> => {
+/** 면마다 몇 개인지. 족보 판정과 봇 전략이 함께 쓴다. */
+export const diceCounts = (dice: readonly number[]): Map<number, number> => {
   const result = new Map<number, number>()
   for (const die of dice) result.set(die, (result.get(die) ?? 0) + 1)
   return result
@@ -124,11 +125,11 @@ const counts = (dice: readonly number[]): Map<number, number> => {
 const containsFace = (dice: readonly number[], face: number): boolean => dice.includes(face)
 
 const isFourOfAKind = (dice: readonly number[]): boolean =>
-  [...counts(dice).values()].some((count) => count >= 4)
+  [...diceCounts(dice).values()].some((count) => count >= 4)
 
 /** 5개 동일은 **불충족**이다(정확히 2 + 3). 의도된 판정이자 계약이다. */
 const isFullHouse = (dice: readonly number[]): boolean => {
-  const values = [...counts(dice).values()]
+  const values = [...diceCounts(dice).values()]
   // 개수의 합이 항상 5라 "2와 3이 모두 있다"이면 종류는 반드시 둘이다. 그래서
   // `length === 2`를 흔드는 돌연변이는 결과를 바꾸지 못한다(등가).
   // Stryker disable next-line all
@@ -168,7 +169,7 @@ export const isSatisfiedBy = (category: ScoreCategory, dice: readonly number[]):
     case 'largeStraight':
       return hasRun(dice, 5)
     case 'yacht':
-      return counts(dice).size === 1
+      return diceCounts(dice).size === 1
   }
 }
 

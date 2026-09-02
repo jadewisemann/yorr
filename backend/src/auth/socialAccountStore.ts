@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolConnection } from 'mysql2/promise'
 import { inTransaction as runInTransaction } from '../infra/transaction.js'
-import { toMember, type UserRow } from '../user/userRow.js'
+import { lockUserRow, toMember, type UserRow } from '../user/userRow.js'
 import { DataIntegrityViolationError, isMysqlIntegrityViolation } from './errors.js'
 import { type MemberUser, PLACEHOLDER_NICKNAME, type SocialProvider } from './socialProfile.js'
 
@@ -105,11 +105,7 @@ export class MysqlSocialAccountStore implements SocialAccountRepository, SocialA
     profileImageUrl: string | null,
   ): Promise<MemberUser> {
     return this.inTransaction(async (conn) => {
-      const [rows] = await conn.query<UserRow[]>(
-        'SELECT id, nickname, profile_image_url FROM users WHERE id = ? FOR UPDATE',
-        [userId],
-      )
-      const row = rows[0]
+      const row = await lockUserRow(conn, userId)
       if (row === undefined) throw new Error(`user_not_found: ${userId}`)
       const current = toMember(row)
       // 호출자(SocialLoginService)가 이미 판정했지만, 트랜잭션 안에서 다시 본다 —

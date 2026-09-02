@@ -6,7 +6,7 @@ import {
 } from '../../game/pingpong/aiResultService.js'
 import { SessionAuthenticationError } from '../../user/errors.js'
 import type { UserService } from '../../user/session.js'
-import { sendCode } from '../errorResponse.js'
+import { sendCode, sendEmptyClientErrors } from '../errorResponse.js'
 
 /**
  * 로컬 AI 탁구 결과 REST.
@@ -97,11 +97,7 @@ export const registerPingPongAiRoutes = async (
       },
     )
 
-    scope.setErrorHandler((error: FastifyError, _request, reply) => {
-      const status = error.statusCode ?? 500
-      if (status < 500) return reply.code(status).send()
-      return reply.send(error)
-    })
+    sendEmptyClientErrors(scope)
 
     scope.post<{ Body: unknown }>('/games/ping-pong/ai-results', async (request, reply) => {
       const binding = bindPingPongAiResult(request.body)

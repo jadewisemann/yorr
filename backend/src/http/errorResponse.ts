@@ -1,4 +1,4 @@
-import type { FastifyReply } from 'fastify'
+import type { FastifyError, FastifyInstance, FastifyReply } from 'fastify'
 import { ConflictError, DomainError } from '../errors.js'
 
 /**
@@ -23,4 +23,23 @@ export const sendDomainError = (reply: FastifyReply, error: unknown): FastifyRep
     return sendCode(reply, status, error.code)
   }
   throw error
+}
+
+/**
+ * 4xx를 **빈 본문**으로 내보내는 오류 핸들러. 본문 없는 계산기 REST
+ * (`score-candidates`·`ping-pong/ai-results`)가 쓴다.
+ *
+ * 이 계약이 필요한 이유는 Fastify가 스스로 만드는 4xx 때문이다. JSON 파싱 실패나
+ * 미지원 Content-Type이 프레임워크 본문(`{statusCode,error,message}`)으로 나가면
+ * 그 모양이 계약처럼 굳는다. 5xx는 그대로 흘려보내 원래 오류가 로그에 남게 한다.
+ *
+ * 반드시 **캡슐화된 하위 스코프**에 걸어야 한다 — 방 REST 등 다른 경로의 오류
+ * 본문은 plain-text 코드이므로 여기 휘말리면 안 된다.
+ */
+export const sendEmptyClientErrors = (scope: FastifyInstance): void => {
+  scope.setErrorHandler((error: FastifyError, _request, reply) => {
+    const status = error.statusCode ?? 500
+    if (status < 500) return reply.code(status).send()
+    return reply.send(error)
+  })
 }

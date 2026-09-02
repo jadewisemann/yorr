@@ -7,6 +7,7 @@ import type {
   RoundRoomService,
   ScoreRoundSubmissionPort,
 } from './roundPorts.js'
+import { scoreUpdateEnvelope } from './roundPorts.js'
 import type { RoundState, RoundSubmissionResult } from './roundState.js'
 import type { RoundSynchronizationService } from './roundSynchronizationService.js'
 
@@ -217,11 +218,14 @@ export class RoundTimeoutResolver implements RoundTimeoutResolverPort {
   }
 
   private broadcastScoreUpdate(roomId: string, score: ConfirmedScore): void {
-    this.broadcaster.broadcast(roomId, {
-      type: gameWsType(this.gameCode, 'score.update'),
-      ts: this.now(),
-      payload: { playerId: score.playerId, scoreboard: score.scoreboard },
+    this.broadcaster.broadcast(
       roomId,
-    })
+      scoreUpdateEnvelope({
+        roomId,
+        score,
+        ts: this.now(),
+        type: gameWsType(this.gameCode, 'score.update'),
+      }),
+    )
   }
 }
