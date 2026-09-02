@@ -35,6 +35,14 @@ const rolled = (
   dice: readonly number[],
 ): RoundState => state.recordRoll(playerId, state.roundNumber, rollCount, held, dice)
 
+/** 봇이 선인 1라운드에서 첫 굴림까지 마친 상태. */
+const botTurnRolled = (dice: readonly number[]): RoundState =>
+  rolled(RoundState.start(1, ['bot-a', 'player-a']), 'bot-a', 1, NO_HELD, dice)
+
+/** 위와 같되 5 한 짝을 **두 번째 자리에** 이미 잡아 둔 상태 — 자리 유지 규칙을 보는 판이다. */
+const botTurnWithHeldPair = (): RoundState =>
+  botTurnRolled([5, 5, 2, 3, 4]).recordHold('bot-a', 1, [false, true, false, false, false])
+
 describe('YachtBotTurnCoordinator', () => {
   let rounds: FakeBotRounds
   let actions: RecordingBotActions
@@ -138,13 +146,7 @@ describe('YachtBotTurnCoordinator', () => {
   })
 
   it('다음 굴림 전에 킵 선택을 먼저 노출한다', async () => {
-    const state = rolled(
-      RoundState.start(1, ['bot-a', 'player-a']),
-      'bot-a',
-      1,
-      NO_HELD,
-      [6, 6, 2, 3, 4],
-    )
+    const state = botTurnRolled([6, 6, 2, 3, 4])
     rounds.current = state
     actions.holdResult = state.recordHold('bot-a', 1, [true, true, false, false, false])
 
@@ -161,13 +163,7 @@ describe('YachtBotTurnCoordinator', () => {
     // 정책은 "5를 한 개 남긴다"고만 말한다 — 앞자리(index 0)를 지목했지만 실제로
     // 잡혀 있는 것은 index 1이다. 자리를 옮기면 hold_changed가 한 번 더 나가므로
     // 코디네이터가 이미 잡힌 자리를 유지해야 한다.
-    const state = rolled(
-      RoundState.start(1, ['bot-a', 'player-a']),
-      'bot-a',
-      1,
-      NO_HELD,
-      [5, 5, 2, 3, 4],
-    ).recordHold('bot-a', 1, [false, true, false, false, false])
+    const state = botTurnWithHeldPair()
     rounds.current = state
     actions.rollResult = state
     coordinator = build({
@@ -186,13 +182,7 @@ describe('YachtBotTurnCoordinator', () => {
   })
 
   it('이미 킵된 주사위를 풀지 않고 중복을 하나 더 잡는다', async () => {
-    const state = rolled(
-      RoundState.start(1, ['bot-a', 'player-a']),
-      'bot-a',
-      1,
-      NO_HELD,
-      [5, 5, 2, 3, 4],
-    ).recordHold('bot-a', 1, [false, true, false, false, false])
+    const state = botTurnWithHeldPair()
     rounds.current = state
     actions.holdResult = state
     coordinator = build({
@@ -225,13 +215,7 @@ describe('YachtBotTurnCoordinator', () => {
   })
 
   it('Expectimax가 실패하면 폴백 정책으로 계속한다', async () => {
-    const state = rolled(
-      RoundState.start(1, ['bot-a', 'player-a']),
-      'bot-a',
-      1,
-      NO_HELD,
-      [6, 6, 2, 3, 4],
-    )
+    const state = botTurnRolled([6, 6, 2, 3, 4])
     rounds.current = state
     actions.holdResult = state
     const fallbacks: unknown[] = []
@@ -282,13 +266,7 @@ describe('YachtBotTurnCoordinator', () => {
   })
 
   it('킵 재사용 경로에서 굴림 직전에 턴이 넘어가면 아무것도 하지 않는다', async () => {
-    const state = rolled(
-      RoundState.start(1, ['bot-a', 'player-a']),
-      'bot-a',
-      1,
-      NO_HELD,
-      [5, 5, 2, 3, 4],
-    ).recordHold('bot-a', 1, [false, true, false, false, false])
+    const state = botTurnWithHeldPair()
     // 1회차 = TurnVersion 확인, 2회차 = 굴림 직전 재확인. 두 번째에 사람이 제출해
     // 턴이 넘어간 상태를 준다.
     const advanced = state.submit({

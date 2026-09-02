@@ -39,6 +39,17 @@ describe('RoundTimerService', () => {
   const SOLO = ['player-a']
   const DUO = ['player-a', 'player-b']
   /** 시계가 도는 방 = 사람이 둘 이상인 방(`UNTIMED_HUMAN_LIMIT`). */
+  /** 사람 하나 + 봇 하나. 기다리는 사람이 없으므로 화면에는 시계가 걸리지 않는다. */
+  const givenPracticeRoom = () => {
+    roomService.snapshot = {
+      gameId: 'game-a',
+      players: [
+        { playerId: 'player-a', kind: 'HUMAN' },
+        { playerId: 'bot-1', kind: 'BOT' },
+      ],
+    }
+  }
+
   const humanRoster = (playerIds: readonly string[]) =>
     playerIds.map((playerId) => ({ playerId, kind: 'HUMAN' }))
 
@@ -128,13 +139,7 @@ describe('RoundTimerService', () => {
    * `deadline: null`이 그대로 방송되고, 강제 진행 예약도 만들지 않는다.
    */
   it('사람이 혼자인 방에는 마감을 걸지 않는다', async () => {
-    roomService.snapshot = {
-      gameId: 'game-a',
-      players: [
-        { playerId: 'player-a', kind: 'HUMAN' },
-        { playerId: 'bot-1', kind: 'BOT' },
-      ],
-    }
+    givenPracticeRoom()
 
     const deadline = await timerService.start('room-a', RoundState.start(1, ['player-a', 'bot-1']))
 
@@ -156,13 +161,7 @@ describe('RoundTimerService', () => {
    * 화면에는 여전히 시계가 없다(`deadline: null`).
    */
   it('연습 방의 봇 턴은 화면에 시계 없이 폴백만 예약한다', async () => {
-    roomService.snapshot = {
-      gameId: 'game-a',
-      players: [
-        { playerId: 'player-a', kind: 'HUMAN' },
-        { playerId: 'bot-1', kind: 'BOT' },
-      ],
-    }
+    givenPracticeRoom()
 
     const deadline = await timerService.start('room-a', RoundState.start(1, ['bot-1', 'player-a']))
 
@@ -174,13 +173,7 @@ describe('RoundTimerService', () => {
 
   /** 시계가 없어도 판은 굴러간다 — 다음 턴은 제출·이탈이 밀어 준다. */
   it('연습 방에서도 제출하면 다음 턴이 시작된다', async () => {
-    roomService.snapshot = {
-      gameId: 'game-a',
-      players: [
-        { playerId: 'player-a', kind: 'HUMAN' },
-        { playerId: 'bot-1', kind: 'BOT' },
-      ],
-    }
+    givenPracticeRoom()
     const roster = ['player-a', 'bot-1']
     await synchronizationService.initialize('room-a', 1, roster)
     const advanced = await synchronizationService.expire('room-a', 1, 'player-a')
@@ -208,10 +201,7 @@ describe('RoundTimerService', () => {
   it('서버 대리 굴림 뒤에는 같은 턴에 시간을 다시 준다', async () => {
     const rolled = RoundState.start(1, DUO).recordRoll('player-a', 1, 1, noHeld(), STRAIGHT)
     timeoutResolver.resolution = autoRolledResolution(rolled)
-    await timerService.start('room-a', RoundState.start(1, DUO))
-    broadcaster.reset()
-
-    await scheduler.fire()
+    await startDuoTurnAndFire()
 
     // 턴 주인은 그대로다 — 남은 굴림을 직접 쓸 시간을 다시 준다.
     expect(onlyBroadcast().payload).toEqual({
@@ -226,10 +216,7 @@ describe('RoundTimerService', () => {
   it('마감 처리가 점수를 기록했으면 다음 플레이어의 턴을 시작한다', async () => {
     const nextTurn = rolled(RoundState.start(1, DUO)).submit(submission('player-a', 1)).state
     timeoutResolver.resolution = advancedResolution({ state: nextTurn, completedRound: null })
-    await timerService.start('room-a', RoundState.start(1, DUO))
-    broadcaster.reset()
-
-    await scheduler.fire()
+    await startDuoTurnAndFire()
 
     expect(onlyBroadcast().payload).toEqual({
       roundNumber: 1,
@@ -241,10 +228,7 @@ describe('RoundTimerService', () => {
 
   it('스테일 마감은 아무것도 방송하지 않는다', async () => {
     timeoutResolver.resolution = staleResolution()
-    await timerService.start('room-a', RoundState.start(1, DUO))
-    broadcaster.reset()
-
-    await scheduler.fire()
+    await startDuoTurnAndFire()
 
     expect(broadcaster.sent).toEqual([])
   })
@@ -448,6 +432,13 @@ describe('RoundTimerService', () => {
     const state = await store.findByRoomId('room-a')
     if (state === undefined) throw new Error('라운드 상태가 없다')
     return state
+  }
+
+  /** 2인 방의 첫 턴을 시작하고 방송을 비운 뒤 마감을 터뜨린다. */
+  const startDuoTurnAndFire = async () => {
+    await timerService.start('room-a', RoundState.start(1, DUO))
+    broadcaster.reset()
+    await scheduler.fire()
   }
 
   const onlyBroadcast = () => {

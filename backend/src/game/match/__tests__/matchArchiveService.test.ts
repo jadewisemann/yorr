@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { CompletionRoomSnapshot, MatchArchivePort, Ranking } from '../../completion/index.js'
+import type { MatchArchivePort } from '../../completion/index.js'
 import {
   DISPLAY_NICKNAME_LIMIT,
   FALLBACK_NICKNAME,
@@ -7,6 +7,7 @@ import {
   resolveDisplayNickname,
 } from '../matchArchiveService.js'
 import type { MatchArchiveStore, MatchRecord } from '../matchArchiveStore.js'
+import { FIXED_NOW, GAME_ID, ranking, room } from './matchFixtures.js'
 
 /**
  * 전적 보관 4종.
@@ -56,24 +57,6 @@ class FakeMatchArchiveStore implements MatchArchiveStore {
     return record
   }
 }
-
-const GAME_ID = 'game-1'
-const FIXED_NOW = new Date('2026-08-14T02:03:04.005Z')
-
-const room = (
-  players: readonly { playerId: string; nickname: string }[],
-): CompletionRoomSnapshot => ({
-  roomCode: 'ROOM01',
-  gameCode: 'YACHT_DICE',
-  gameId: GAME_ID,
-  players: players.map((player) => ({ ...player, kind: 'HUMAN' })),
-})
-
-const ranking = (rank: number, playerId: string, total: number): Ranking => ({
-  rank,
-  playerId,
-  total,
-})
 
 describe('MatchArchiveService (인메모리 저장소)', () => {
   let store: FakeMatchArchiveStore

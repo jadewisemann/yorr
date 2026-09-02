@@ -208,11 +208,8 @@ describeRedis('서버 배선 — 라우트와 관측', () => {
    * 잡고 있으면 여기서 바로 드러난다.
    */
   it('점수 확정 서비스가 서버의 Redis에 붙어 있다', async () => {
-    const instance = await h.build()
-    const url = await h.listen(instance)
-    const host = await h.enterRoom(instance, { nickname: '호스트' })
     // CONFIRM_SCORE Lua가 game:{id} ↔ 방 명단을 양방향으로 검증하므로 진짜 게임이 필요하다.
-    const client = await h.joined(url, host)
+    const { instance, host, client } = await h.soloRoom()
     const gameId = await h.startGame(instance, host)
 
     expect(await instance.rounds.scores.openCategories(gameId, host.id)).toHaveLength(12)
@@ -343,10 +340,7 @@ describeRedis('서버 배선 — 라우트와 관측', () => {
    * 자리다. 배선을 아예 빼면 `/actuator/prometheus`가 503이 되어 여기서 깨진다.
    */
   it('메트릭 게이지가 실제 방·소켓을 센다', async () => {
-    const instance = await h.build()
-    const url = await h.listen(instance)
-    const host = await h.enterRoom(instance, { nickname: '호스트' })
-    const client = await h.joined(url, host)
+    const { instance, host, client } = await h.soloRoom()
     await h.startGame(instance, host)
 
     const response = await instance.app.inject({ method: 'GET', url: '/actuator/prometheus' })

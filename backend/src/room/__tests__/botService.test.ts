@@ -1,3 +1,4 @@
+import type { Redis } from 'ioredis'
 import { expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../test/redisHarness.js'
 import { ConflictError, DomainError } from '../../errors.js'
@@ -26,12 +27,19 @@ const DASHBOARD = 'dashboard-1'
  * 동시 기록·봇만 삭제)을 진짜 Redis로 확인한다 — 조건 하나가 빠져도 텍스트
  * 비교는 통과할 수 있지만 이건 통과하지 못한다.
  */
+/** 명단에서 봇의 id를 꺼낸다. 봇은 방마다 하나만 붙이므로 처음 것이 곧 그 봇이다. */
+const botIdOf = (snapshot: { players: readonly { playerId: string; kind: string }[] }): string =>
+  snapshot.players.find((player) => player.kind === 'BOT')?.playerId ?? ''
+
+/** 방 서비스와 봇 서비스를 같은 Redis 위에 세운다. 세 스위트가 같은 조립을 쓴다. */
+const botServices = (redis: () => Redis): { rooms: RoomService; bots: BotParticipantService } => {
+  const rooms = new RoomService(redis())
+  return { rooms, bots: new BotParticipantService(redis(), rooms) }
+}
+
 describeRedis('BotParticipantService — 추가', () => {
   const redis = useRedis()
-  const services = (): { rooms: RoomService; bots: BotParticipantService } => {
-    const rooms = new RoomService(redis())
-    return { rooms, bots: new BotParticipantService(redis(), rooms) }
-  }
+  const services = () => botServices(redis)
 
   const givenLobby = async (
     capacity = 6,
@@ -61,7 +69,7 @@ describeRedis('BotParticipantService — 추가', () => {
 
     const snapshot = await bots.add(roomCode, HOST.userId)
 
-    const botId = snapshot.players.find((player) => player.kind === 'BOT')?.playerId ?? ''
+    const botId = botIdOf(snapshot)
     expect(botId).toMatch(/^bot-[0-9a-f-]{36}$/)
     expect(snapshot.players.find((player) => player.kind === 'BOT')?.nickname).toBe(
       `요르봇 ${botId.slice(-4).toUpperCase()}`,
@@ -119,8 +127,7 @@ describeRedis('BotParticipantService — 추가', () => {
 
   it('botId가 이미 있으면 bot_operation_failed(반환 5)', async () => {
     const { roomCode, bots } = await givenLobby()
-    const snapshot = await bots.add(roomCode, HOST.userId)
-    const botId = snapshot.players.find((player) => player.kind === 'BOT')?.playerId as string
+    const botId = botIdOf(await bots.add(roomCode, HOST.userId))
 
     // add()는 UUID를 새로 뽑으므로 중복 경로는 스크립트를 직접 불러 고정한다.
     const result = await runLuaNumber(redis(), BOT_ADD, roomKeyFamily(roomCode), [
@@ -137,10 +144,7 @@ describeRedis('BotParticipantService — 추가', () => {
 
 describeRedis('BotParticipantService — 삭제', () => {
   const redis = useRedis()
-  const services = (): { rooms: RoomService; bots: BotParticipantService } => {
-    const rooms = new RoomService(redis())
-    return { rooms, bots: new BotParticipantService(redis(), rooms) }
-  }
+  const services = () => botServices(redis)
 
   const givenRoomWithBot = async (): Promise<{
     roomCode: string
@@ -151,8 +155,7 @@ describeRedis('BotParticipantService — 삭제', () => {
     const { rooms, bots } = services()
     const roomCode = await rooms.createRoom(6, HOST.userId, 'YACHT_DICE')
     await rooms.join(roomCode, HOST)
-    const snapshot = await bots.add(roomCode, HOST.userId)
-    const botId = snapshot.players.find((player) => player.kind === 'BOT')?.playerId as string
+    const botId = botIdOf(await bots.add(roomCode, HOST.userId))
     return { roomCode, botId, rooms, bots }
   }
 
@@ -214,15 +217,18 @@ describeRedis('BotParticipantService — 파티 방과 방장 승계', () => {
   const redis = useRedis()
   const CONTROLLER = guest('phone-1', '폰1')
   const CONTROLLER_2 = guest('phone-2', '폰2')
-  const services = (): { rooms: RoomService; bots: BotParticipantService } => {
-    const rooms = new RoomService(redis())
-    return { rooms, bots: new BotParticipantService(redis(), rooms) }
+  const services = () => botServices(redis)
+
+  /** 대시보드가 연 파티 방에 컨트롤러들이 들어온 상태. 방장은 **처음 들어온 사람**이다. */
+  const givenPartyRoom = async (...controllers: UserIdentity[]) => {
+    const { rooms, bots } = services()
+    const roomCode = await rooms.createRoom(6, DASHBOARD, 'YACHT_DICE', 'PARTY')
+    for (const controller of controllers) await rooms.join(roomCode, controller)
+    return { roomCode, rooms, bots }
   }
 
   it('처음 들어온 컨트롤러가 방장이 되어 봇을 붙일 수 있다', async () => {
-    const { rooms, bots } = services()
-    const roomCode = await rooms.createRoom(6, DASHBOARD, 'YACHT_DICE', 'PARTY')
-    await rooms.join(roomCode, CONTROLLER)
+    const { roomCode, bots } = await givenPartyRoom(CONTROLLER)
 
     await bots.add(roomCode, CONTROLLER.userId)
 
@@ -230,9 +236,7 @@ describeRedis('BotParticipantService — 파티 방과 방장 승계', () => {
   })
 
   it('대시보드는 파티 방을 조작할 수 없다', async () => {
-    const { rooms, bots } = services()
-    const roomCode = await rooms.createRoom(6, DASHBOARD, 'YACHT_DICE', 'PARTY')
-    await rooms.join(roomCode, CONTROLLER)
+    const { roomCode, bots } = await givenPartyRoom(CONTROLLER)
 
     await expect(bots.add(roomCode, DASHBOARD)).rejects.toThrow(new ForbiddenError('host_only'))
   })
@@ -245,10 +249,7 @@ describeRedis('BotParticipantService — 파티 방과 방장 승계', () => {
   })
 
   it('방장이 아닌 컨트롤러는 조작할 수 없다', async () => {
-    const { rooms, bots } = services()
-    const roomCode = await rooms.createRoom(6, DASHBOARD, 'YACHT_DICE', 'PARTY')
-    await rooms.join(roomCode, CONTROLLER)
-    await rooms.join(roomCode, CONTROLLER_2)
+    const { roomCode, bots } = await givenPartyRoom(CONTROLLER, CONTROLLER_2)
 
     await expect(bots.add(roomCode, CONTROLLER_2.userId)).rejects.toThrow(
       new ForbiddenError('host_only'),
@@ -256,10 +257,7 @@ describeRedis('BotParticipantService — 파티 방과 방장 승계', () => {
   })
 
   it('방장이 나가면 승계받은 사람이 봇을 붙인다', async () => {
-    const { rooms, bots } = services()
-    const roomCode = await rooms.createRoom(6, DASHBOARD, 'YACHT_DICE', 'PARTY')
-    await rooms.join(roomCode, CONTROLLER)
-    await rooms.join(roomCode, CONTROLLER_2)
+    const { roomCode, rooms, bots } = await givenPartyRoom(CONTROLLER, CONTROLLER_2)
 
     await rooms.leave(roomCode, CONTROLLER.userId)
 
@@ -269,9 +267,7 @@ describeRedis('BotParticipantService — 파티 방과 방장 승계', () => {
   })
 
   it('봇은 방장을 이어받지 못한다 — 사람이 다 나가면 자리가 빈 채로 남는다', async () => {
-    const { rooms, bots } = services()
-    const roomCode = await rooms.createRoom(6, DASHBOARD, 'YACHT_DICE', 'PARTY')
-    await rooms.join(roomCode, CONTROLLER)
+    const { roomCode, rooms, bots } = await givenPartyRoom(CONTROLLER)
     await bots.add(roomCode, CONTROLLER.userId)
 
     await rooms.leave(roomCode, CONTROLLER.userId)

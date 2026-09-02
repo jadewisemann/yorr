@@ -196,5 +196,83 @@ export function useServer(redis: () => Redis) {
     startGame,
     mysqlDouble,
     weeklyRanking,
+    soloRoom,
+    twoPlayerGame,
+    rejoin,
+    scoredSoloGame,
+    restartInto,
+  }
+
+  /** 호스트 혼자 한 판을 시작해 첫 칸을 확정해 둔 상태. 종료 경로 검사들이 쓴다. */
+  async function scoredSoloGame(overrides: Record<string, string> = {}, extra: ServerOptions = {}) {
+    const room = await soloRoom(overrides, extra)
+    const gameId = await startGame(room.instance, room.host)
+    await room.instance.rounds.scores.confirm({
+      gameId,
+      playerId: room.host.id,
+      roundNumber: 1,
+      category: 'ones',
+      dice: [1, 1, 1, 2, 3],
+    })
+    return { ...room, gameId }
+  }
+
+  /**
+   * 소켓을 끊고 인스턴스를 닫은 뒤 **새 프로세스처럼** 다시 세운다. 부팅 복구가
+   * 무엇을 되살리는지 보는 검사들이 여기서 갈린다.
+   */
+  async function restartInto(
+    first: YorrServer,
+    sockets: { socket: { close(): void } }[],
+  ): Promise<YorrServer> {
+    for (const client of sockets) client.socket.close()
+    await first.close()
+    const second = await build()
+    await second.listen()
+    return second
+  }
+
+  /**
+   * 서버 하나를 세우고 호스트 한 사람이 방에 들어와 소켓까지 붙은 상태.
+   * 배선 검사 대부분이 여기서 출발한다.
+   */
+  async function soloRoom(
+    overrides: Record<string, string> = {},
+    extra: ServerOptions = {},
+  ): Promise<{
+    instance: YorrServer
+    url: string
+    host: Awaited<ReturnType<typeof enterRoom>>
+    client: Awaited<ReturnType<typeof joined>>
+  }> {
+    const instance = await build(overrides, extra)
+    const url = await listen(instance)
+    const host = await enterRoom(instance, { nickname: '호스트' })
+    return { instance, url, host, client: await joined(url, host) }
+  }
+
+  /**
+   * 사람 둘이 들어와 게임이 시작된 방. **연습 방은 마감이 null**이라 시계가 도는 것을
+   * 봐야 하는 검사는 두 사람이 필요하다.
+   */
+  async function twoPlayerGame(instance: YorrServer, url: string, gameCode = 'YACHT_DICE') {
+    const host = await enterRoom(instance, { nickname: '호스트' }, gameCode)
+    const guest = await enterRoom(instance, { nickname: '손님', room_id: host.room_id })
+    const hostClient = await joined(url, host)
+    const guestClient = await joined(url, { ...guest, room_id: host.room_id })
+    await startGame(instance, host)
+    return { host, guest, hostClient, guestClient }
+  }
+
+  /** 재시작한 인스턴스에 같은 토큰으로 돌아간다. `sys.reconnected`까지 기다린다. */
+  async function rejoin(instance: YorrServer, host: { room_id: string; token: string }) {
+    const port = (instance.app.server.address() as AddressInfo).port
+    const back = await connect(`ws://127.0.0.1:${port}/ws/v1/game`)
+    back.send({
+      type: 'room.join',
+      ts: Date.now(),
+      payload: { roomId: host.room_id, sessionToken: host.token },
+    })
+    return { back, reconnected: await back.await('sys.reconnected') }
   }
 }

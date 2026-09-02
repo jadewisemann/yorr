@@ -1,4 +1,3 @@
-import type { AddressInfo } from 'node:net'
 import { expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../test/redisHarness.js'
 import { RedisYachtDiceStateStore } from '../game/yacht/index.js'
@@ -62,24 +61,15 @@ describeRedis('서버 배선 — 게임 모듈과 라운드 진행', () => {
   it('재시작해도 진행 중이던 판을 같은 마감으로 이어간다', async () => {
     const first = await h.build()
     const url = await h.listen(first)
-    const host = await h.enterRoom(first, { nickname: '호스트' })
     // 사람 둘이어야 시계가 돈다(연습 방은 마감이 null이라 "되살렸다"를 구별할 수 없다).
-    const guest = await h.enterRoom(first, { nickname: '손님', room_id: host.room_id })
-    const hostClient = await h.joined(url, host)
-    const guestClient = await h.joined(url, { ...guest, room_id: host.room_id })
-    await h.startGame(first, host)
+    const { host, hostClient, guestClient } = await h.twoPlayerGame(first, url)
     await hostClient.await('game.yacht_dice.round.start')
 
     const deadlineBefore = first.rounds.timer.currentDeadline(host.room_id)
     expect(typeof deadlineBefore).toBe('number')
 
     // ── 재시작 ──────────────────────────────────────────────────────────────
-    hostClient.socket.close()
-    guestClient.socket.close()
-    await first.close()
-
-    const second = await h.build()
-    await second.listen()
+    const second = await h.restartInto(first, [hostClient, guestClient])
 
     // 방이 살아 있어야 한다. 예전 정책이었다면 여기서 방이 닫혀 있다.
     expect(await redis().hget(roomKey(host.room_id), 'phase')).toBe('PLAYING')
@@ -96,14 +86,7 @@ describeRedis('서버 배선 — 게임 모듈과 라운드 진행', () => {
      * 그리고 스냅샷의 `roundDeadline`이 **원래 값**이어야 한다. 최초 참가 경로로
      * 흘렀다면 `resume()`이 불려 새 25초로 덮였을 것이다.
      */
-    const secondUrl = `ws://127.0.0.1:${(second.app.server.address() as AddressInfo).port}/ws/v1/game`
-    const back = await h.connect(secondUrl)
-    back.send({
-      type: 'room.join',
-      ts: Date.now(),
-      payload: { roomId: host.room_id, sessionToken: host.token },
-    })
-    const rejoined = await back.await('sys.reconnected')
+    const { back, reconnected: rejoined } = await h.rejoin(second, host)
     expect(
       (rejoined.payload as { snapshot: { game?: { roundDeadline?: number } } }).snapshot.game
         ?.roundDeadline,
@@ -144,10 +127,7 @@ describeRedis('서버 배선 — 게임 모듈과 라운드 진행', () => {
    * 라운드 저장소(1라운드 상태 생성).
    */
   it('야추 모듈이 REST 게임 시작에 붙어 있다', async () => {
-    const instance = await h.build()
-    const url = await h.listen(instance)
-    const host = await h.enterRoom(instance, { nickname: '호스트' })
-    const client = await h.joined(url, host)
+    const { instance, host, client } = await h.soloRoom()
 
     expect(instance.games.byCode('YACHT_DICE')).toBeDefined()
     await h.startGame(instance, host)
@@ -180,32 +160,16 @@ describeRedis('서버 배선 — 게임 모듈과 라운드 진행', () => {
   ])('%s도 재시작 뒤 이어진다', async (gameCode, stateType) => {
     const first = await h.build()
     const url = await h.listen(first)
-    const host = await h.enterRoom(first, { nickname: '호스트' }, gameCode)
-    const guest = await h.enterRoom(first, { nickname: '손님', room_id: host.room_id })
-    const hostClient = await h.joined(url, host)
-    const guestClient = await h.joined(url, { ...guest, room_id: host.room_id })
-    await h.startGame(first, host)
+    const { host, hostClient, guestClient } = await h.twoPlayerGame(first, url, gameCode)
     await hostClient.await(stateType)
 
-    hostClient.socket.close()
-    guestClient.socket.close()
-    await first.close()
-
-    const second = await h.build()
-    await second.listen()
+    const second = await h.restartInto(first, [hostClient, guestClient])
 
     // 예전 정책(부팅 때 PLAYING 방 전부 닫기)이었다면 둘 다 여기서 깨진다.
     expect(await redis().hget(roomKey(host.room_id), 'phase')).toBe('PLAYING')
     expect(await redis().exists(`room:${host.room_id}:game:${gameCode}:state`)).toBe(1)
 
-    const secondUrl = `ws://127.0.0.1:${(second.app.server.address() as AddressInfo).port}/ws/v1/game`
-    const back = await h.connect(secondUrl)
-    back.send({
-      type: 'room.join',
-      ts: Date.now(),
-      payload: { roomId: host.room_id, sessionToken: host.token },
-    })
-    await back.await('sys.reconnected')
+    const { back } = await h.rejoin(second, host)
 
     back.socket.close()
   })
@@ -274,10 +238,7 @@ describeRedis('서버 배선 — 게임 모듈과 라운드 진행', () => {
    * 부르면 "타이머가 그 인스턴스를 받았는가"는 확인되지 않는다.
    */
   it('라운드 타이머의 턴 진행이 game.over까지 이어진다', async () => {
-    const instance = await h.build()
-    const url = await h.listen(instance)
-    const host = await h.enterRoom(instance, { nickname: '호스트' })
-    const client = await h.joined(url, host)
+    const { instance, host, client } = await h.soloRoom()
     await h.startGame(instance, host)
 
     // 마지막 라운드를 만든다 — 모듈은 12라운드로 시작하므로 총 1라운드로 다시 깐다.
@@ -323,18 +284,7 @@ describeRedis('서버 배선 — 게임 모듈과 라운드 진행', () => {
    */
   it('전적 보관과 랭킹 캐시 evict가 게임 종료 경로에 붙어 있다', async () => {
     const mysql = h.mysqlDouble()
-    const instance = await h.build({}, { mysql: mysql.pool })
-    const url = await h.listen(instance)
-    const host = await h.enterRoom(instance, { nickname: '호스트' })
-    const client = await h.joined(url, host)
-    const gameId = await h.startGame(instance, host)
-    await instance.rounds.scores.confirm({
-      gameId,
-      playerId: host.id,
-      roundNumber: 1,
-      category: 'ones',
-      dice: [1, 1, 1, 2, 3],
-    })
+    const { instance, host, client } = await h.scoredSoloGame({}, { mysql: mysql.pool })
 
     // 캐시를 채운다 — 같은 인자의 두 번째 조회는 MySQL로 내려가지 않아야 한다.
     expect(await h.weeklyRanking(instance)).toMatchObject({
@@ -358,17 +308,8 @@ describeRedis('서버 배선 — 게임 모듈과 라운드 진행', () => {
    * 것이 전적 한 줄보다 중요하다.
    */
   it('MySQL이 없어도 게임 종료가 진행된다', async () => {
-    const instance = await h.build({ DB_URL: 'jdbc:mysql://127.0.0.1:1/none' })
-    const url = await h.listen(instance)
-    const host = await h.enterRoom(instance, { nickname: '호스트' })
-    const client = await h.joined(url, host)
-    const gameId = await h.startGame(instance, host)
-    await instance.rounds.scores.confirm({
-      gameId,
-      playerId: host.id,
-      roundNumber: 1,
-      category: 'ones',
-      dice: [1, 1, 1, 2, 3],
+    const { instance, host, client } = await h.scoredSoloGame({
+      DB_URL: 'jdbc:mysql://127.0.0.1:1/none',
     })
 
     expect(await instance.completion.finishIfComplete(host.room_id, true)).toBe(true)

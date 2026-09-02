@@ -88,6 +88,22 @@ describeRedis('퀵매치', () => {
     return { userId, nickname, type: 'GUEST' }
   }
 
+  /**
+   * 두 사람이 같은 게임 대기열에 들어가 매칭되고, 그중 한 사람의 소켓만 붙은 상태.
+   * "둘 다 붙어야 시작한다"를 보는 검사들이 여기서 갈린다.
+   */
+  const matchedPair = async (
+    matches: QuickMatchService,
+    registry: RoomSessionRegistry,
+  ): Promise<{ first: UserIdentity; second: UserIdentity; roomId: string }> => {
+    const first = await user('player-a', 'A')
+    const second = await user('player-b', 'B')
+    await matches.enter(first, 'YACHT_DICE')
+    const roomId = (await matches.enter(second, 'YACHT_DICE')).roomId as string
+    registry.join(roomId, socket(), first.userId, first.nickname)
+    return { first, second, roomId }
+  }
+
   beforeEach(() => {
     harness = build()
   })
@@ -192,11 +208,7 @@ describeRedis('퀵매치', () => {
 
   it('매칭된 두 사람의 WS 소켓이 모두 붙은 뒤에야 시작한다', async () => {
     const { matches, rooms, registry, started } = harness
-    const first = await user('player-a', 'A')
-    const second = await user('player-b', 'B')
-    await matches.enter(first, 'YACHT_DICE')
-    const roomId = (await matches.enter(second, 'YACHT_DICE')).roomId as string
-    registry.join(roomId, socket(), first.userId, first.nickname)
+    const { first, second, roomId } = await matchedPair(matches, registry)
 
     // 한 명만 붙어 있으면 아무 일도 일어나지 않는다 — Redis 멤버십은 이미 2명이다.
     expect((await matches.status(first.userId)).status).toBe('MATCHED')
@@ -215,11 +227,7 @@ describeRedis('퀵매치', () => {
 
   it('닫히는 중인 소켓은 라이브가 아니다', async () => {
     const { matches, registry, started } = harness
-    const first = await user('player-a', 'A')
-    const second = await user('player-b', 'B')
-    await matches.enter(first, 'YACHT_DICE')
-    const roomId = (await matches.enter(second, 'YACHT_DICE')).roomId as string
-    registry.join(roomId, socket(), first.userId, first.nickname)
+    const { first, second, roomId } = await matchedPair(matches, registry)
     const closing = socket()
     registry.join(roomId, closing, second.userId, second.nickname)
     closing.readyState = 2 // CLOSING — 명단에서는 아직 online이다

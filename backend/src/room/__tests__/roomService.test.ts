@@ -240,6 +240,15 @@ describeRedis('RoomService — 게임 시작·되돌리기', () => {
   const redis = useRedis()
   const rooms = (): RoomService => new RoomService(redis())
 
+  /** 호스트 혼자 들어와 게임을 시작한 방. 되돌리기 검사들이 여기서 출발한다. */
+  const givenStartedRoom = async () => {
+    const service = rooms()
+    const roomCode = await service.createRoom(6, HOST.userId, 'YACHT_DICE')
+    await service.join(roomCode, HOST)
+    const { gameId } = await service.startGame(roomCode)
+    return { service, roomCode, gameId }
+  }
+
   it('시작하면 PLAYING·gameId·game 키가 생긴다', async () => {
     const service = rooms()
     const roomCode = await service.createRoom(6, HOST.userId, 'YACHT_DICE')
@@ -282,10 +291,7 @@ describeRedis('RoomService — 게임 시작·되돌리기', () => {
   })
 
   it('롤백은 자기 게임만 되돌린다', async () => {
-    const service = rooms()
-    const roomCode = await service.createRoom(6, HOST.userId, 'YACHT_DICE')
-    await service.join(roomCode, HOST)
-    const { gameId } = await service.startGame(roomCode)
+    const { service, roomCode, gameId } = await givenStartedRoom()
 
     expect(await service.rollbackStart(roomCode, 'another-game')).toBe(false)
     expect((await service.getSnapshot(roomCode)).phase).toBe('PLAYING')
@@ -298,10 +304,7 @@ describeRedis('RoomService — 게임 시작·되돌리기', () => {
   })
 
   it('준비 단계 취소는 방을 다시 열고 게임 키를 지운다', async () => {
-    const service = rooms()
-    const roomCode = await service.createRoom(6, HOST.userId, 'YACHT_DICE')
-    await service.join(roomCode, HOST)
-    const { gameId } = await service.startGame(roomCode)
+    const { service, roomCode, gameId } = await givenStartedRoom()
 
     expect(await service.cancelActiveGame(roomCode)).toBe(true)
 
@@ -333,10 +336,7 @@ describeRedis('RoomService — 게임 시작·되돌리기', () => {
   })
 
   it('gameId로도 방 스냅샷을 찾는다', async () => {
-    const service = rooms()
-    const roomCode = await service.createRoom(6, HOST.userId, 'YACHT_DICE')
-    await service.join(roomCode, HOST)
-    const { gameId } = await service.startGame(roomCode)
+    const { service, roomCode, gameId } = await givenStartedRoom()
 
     expect((await service.getGameSnapshot(gameId)).roomCode).toBe(roomCode)
     expect(await service.getGameSnapshot('없는-게임')).toMatchObject({

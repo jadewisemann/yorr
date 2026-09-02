@@ -3,9 +3,9 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { expect, it } from 'vitest'
 import { describeMysql, useMysql } from '../../../infra/__tests__/mysqlHarness.js'
 import { runMigrations } from '../../../infra/migrations/runner.js'
-import type { CompletionRoomSnapshot, Ranking } from '../../completion/index.js'
 import { MatchArchiveService } from '../matchArchiveService.js'
 import { MysqlMatchArchiveStore } from '../matchArchiveStore.js'
+import { FIXED_NOW, GAME_ID, ranking, room } from './matchFixtures.js'
 
 /**
  * 전적 보관의 MySQL 절반.
@@ -18,24 +18,6 @@ import { MysqlMatchArchiveStore } from '../matchArchiveStore.js'
  * ⚠️ `MYSQL_TEST_URL`이 없으면 **건너뛴다**(ADR-0005의 게이트). 로직 자체는
  * `matchArchiveService.test.ts`가 MySQL 없이 덮는다.
  */
-
-const GAME_ID = 'game-1'
-const FIXED_NOW = new Date('2026-08-14T02:03:04.005Z')
-
-const room = (
-  players: readonly { playerId: string; nickname: string }[],
-): CompletionRoomSnapshot => ({
-  roomCode: 'ROOM01',
-  gameCode: 'YACHT_DICE',
-  gameId: GAME_ID,
-  players: players.map((player) => ({ ...player, kind: 'HUMAN' })),
-})
-
-const ranking = (rank: number, playerId: string, total: number): Ranking => ({
-  rank,
-  playerId,
-  total,
-})
 
 describeMysql('MysqlMatchArchiveStore (실 MySQL)', () => {
   const mysqlPool = useMysql()
