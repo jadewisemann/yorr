@@ -90,10 +90,9 @@ export class RoomSessionRegistry {
 
   /** 대기실에서의 소켓 종료·명시 퇴장. @returns 빠진 멤버(원래 없었으면 null). */
   remove(socket: ClientSocket): RoomMember | null {
-    const member = this.bySocket.get(socket)
-    if (!member) return null
-    this.bySocket.delete(socket)
-    const members = this.rooms.get(member.roomId)
+    const detached = this.detach(socket)
+    if (!detached) return null
+    const { member, members } = detached
     if (members) {
       members.delete(member.playerId)
       if (members.size === 0) this.forgetRoom(member.roomId)
@@ -106,14 +105,26 @@ export class RoomSessionRegistry {
    * 이미 새 소켓으로 교체된 뒤 옛 소켓의 close가 도착하면 현재 멤버를 건드리지 않는다.
    */
   markOffline(socket: ClientSocket): RoomMember | null {
-    const member = this.bySocket.get(socket)
-    if (!member) return null
-    this.bySocket.delete(socket)
-    const members = this.rooms.get(member.roomId)
+    const detached = this.detach(socket)
+    if (!detached) return null
+    const { member, members } = detached
     if (!members || members.get(member.playerId) !== member) return null
     const offline: RoomMember = { ...member, status: 'offline', socket: null }
     members.set(member.playerId, offline)
     return offline
+  }
+
+  /**
+   * 소켓 매핑을 끊고, 그 멤버와 방 명단을 함께 돌려준다. 끊는 것까지가 두 종료 경로의
+   * 공통이고, 명단을 어떻게 할지가 갈리는 자리다.
+   */
+  private detach(
+    socket: ClientSocket,
+  ): { member: RoomMember; members: Map<string, RoomMember> | undefined } | null {
+    const member = this.bySocket.get(socket)
+    if (!member) return null
+    this.bySocket.delete(socket)
+    return { member, members: this.rooms.get(member.roomId) }
   }
 
   /**

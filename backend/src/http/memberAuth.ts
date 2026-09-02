@@ -4,6 +4,18 @@ import type { UserIdentity, UserService } from '../user/session.js'
 import { sendCode } from './errorResponse.js'
 
 /**
+ * 헤더 하나를 문자열로 읽는다. 같은 헤더가 중복되면 배열로 오므로 첫 값만 본다.
+ * 세 라우트 묶음이 같은 규약을 쓰므로 여기 한자리에 둔다.
+ */
+export const header = (
+  headers: Record<string, string | string[] | undefined>,
+  name: string,
+): string | undefined => {
+  const value = headers[name]
+  return Array.isArray(value) ? value[0] : value
+}
+
+/**
  * `Authorization: Bearer …`에서 토큰만 꺼낸다. 헤더가 없거나 형식이 다르면
  * `undefined`이며 **던지지 않는다** — 판정은 `authenticateSession`이 한다.
  *

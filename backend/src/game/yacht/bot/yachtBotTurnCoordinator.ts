@@ -166,7 +166,7 @@ export class YachtBotTurnCoordinator {
     const held = preserveHeldDiceIdentity(dice, state.activeHeld, decision.held)
     // 킵이 이미 원하는 모양이면 hold 이벤트를 내지 않는다 — 같은 값을 다시 보내면
     // 프론트에 의미 없는 hold_changed가 한 번 더 간다.
-    if (!sameHeld(held, state.activeHeld)) {
+    if (!sameList(held, state.activeHeld)) {
       const heldState = await this.actions.hold(
         roomId,
         botId,
@@ -284,8 +284,8 @@ const sameTurnVersion = (scheduled: RoundState, current: RoundState): boolean =>
   scheduled.roundNumber === current.roundNumber &&
   scheduled.activePlayerId === current.activePlayerId &&
   scheduled.activeRollCount === current.activeRollCount &&
-  sameNumbers(scheduled.activeDice, current.activeDice) &&
-  sameHeld(scheduled.activeHeld, current.activeHeld)
+  sameList(scheduled.activeDice, current.activeDice) &&
+  sameList(scheduled.activeHeld, current.activeHeld)
 
 /** 킵을 그대로 쓰고 다음 굴림으로 갈 때의 재확인 — dice·held는 보지 않는다. */
 const sameTurn = (before: RoundState, current: RoundState): boolean =>
@@ -294,12 +294,8 @@ const sameTurn = (before: RoundState, current: RoundState): boolean =>
   current.activePlayerId === before.activePlayerId &&
   current.activeRollCount === before.activeRollCount
 
-const sameNumbers = (left: readonly number[] | null, right: readonly number[] | null): boolean => {
-  if (left === null || right === null) return left === right
-  return left.length === right.length && left.every((value, index) => value === right[index])
-}
-
-const sameHeld = (left: readonly boolean[] | null, right: readonly boolean[] | null): boolean => {
+/** 주사위 눈과 킵 표시가 같은 판정을 쓴다 — 둘 다 자리별로 값이 같아야 같은 것이다. */
+const sameList = <T>(left: readonly T[] | null, right: readonly T[] | null): boolean => {
   if (left === null || right === null) return left === right
   return left.length === right.length && left.every((value, index) => value === right[index])
 }

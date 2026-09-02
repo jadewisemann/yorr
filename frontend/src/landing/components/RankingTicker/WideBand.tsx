@@ -1,34 +1,12 @@
 import { AnimatePresence } from 'motion/react'
-import { useEffect, useState } from 'react'
-import type { MyWeeklyRank, WeeklyRankingEntry } from '@/shared/api/rankingApi'
 import { cn } from '@/shared/cn'
 import { FullRanking } from './FullRanking'
 import { Chevron, EmptyNotice, EntryRow, RankingPanel, TickerLabel, TickerViewport } from './parts'
-import { PANEL_ID, useCloseOnEscape } from './shared'
+import { type BandProps, PANEL_ID, useBandDisclosure } from './shared'
 
-export function WideBand({
-  band,
-  entries,
-  loading,
-  myNickname,
-  myRank,
-  myUserId,
-}: {
-  band: WeeklyRankingEntry[]
-  entries: WeeklyRankingEntry[]
-  loading: boolean
-  myNickname: string | null
-  myRank: MyWeeklyRank | null
-  myUserId: string | null
-}) {
-  const [open, setOpen] = useState(false)
+export function WideBand({ band, entries, loading, myNickname, myRank, myUserId }: BandProps) {
+  const { open, setOpen } = useBandDisclosure(entries.length)
   const hidden = entries.length - band.length
-
-  useEffect(() => {
-    if (entries.length === 0) setOpen(false)
-  }, [entries.length])
-
-  useCloseOnEscape(open, () => setOpen(false))
 
   return (
     <div className="relative flex w-[69.4%] items-center gap-3">

@@ -12,6 +12,7 @@ import type { RoomBroadcaster } from '../../ws/broadcaster.js'
 import { envelope } from '../../ws/envelope.js'
 import type { RealtimeRoomSnapshotService } from '../../ws/snapshot.js'
 import { sendCode, sendDomainError } from '../errorResponse.js'
+import { header } from '../memberAuth.js'
 
 /** 대시보드 표시 이름. 참가자 목록에 오르지 않으므로 화면에 나오지 않는다(로그·관리용). */
 const DASHBOARD_NICKNAME = '대시보드'
@@ -52,15 +53,6 @@ interface Entrant {
 }
 
 const isBlank = (value: string | undefined | null): boolean => (value ?? '').trim().length === 0
-
-/** 헤더는 중복되면 배열로 온다 — 첫 값만 본다. */
-const header = (
-  headers: Record<string, string | string[] | undefined>,
-  name: string,
-): string | undefined => {
-  const value = headers[name]
-  return Array.isArray(value) ? value[0] : value
-}
 
 /**
  * 이 사람이 방을 조작할 수 있는 호스트인가.
@@ -176,12 +168,9 @@ export const registerRoomRoutes = async (
   )
 
   app.post<{ Params: { roomCode: string } }>('/rooms/:roomCode/games', async (request, reply) => {
-    const user = await authenticated(request.headers, reply)
-    if (!user) return reply
     const { roomCode } = request.params
-    const snapshot = await rooms.getSnapshot(roomCode)
-    if (snapshot.phase === null) return roomNotFound(reply)
-    if (!isHost(snapshot, user.userId)) return sendCode(reply, 403, 'host_only')
+    const snapshot = await hostOnly(request.headers, roomCode, reply)
+    if (!snapshot) return reply
     try {
       return reply.send(await lifecycle.start(roomCode))
     } catch (error) {
@@ -194,12 +183,9 @@ export const registerRoomRoutes = async (
    * phase(스냅샷) 기준이라 한 명만 대기실로 보낼 수 없다.
    */
   app.post<{ Params: { roomCode: string } }>('/rooms/:roomCode/lobby', async (request, reply) => {
-    const user = await authenticated(request.headers, reply)
-    if (!user) return reply
     const { roomCode } = request.params
-    const snapshot = await rooms.getSnapshot(roomCode)
-    if (snapshot.phase === null) return roomNotFound(reply)
-    if (!isHost(snapshot, user.userId)) return sendCode(reply, 403, 'host_only')
+    const snapshot = await hostOnly(request.headers, roomCode, reply)
+    if (!snapshot) return reply
     if (!(await lifecycle.returnToLobby(roomCode, snapshot))) {
       return sendCode(reply, 409, 'not_finished')
     }
@@ -209,6 +195,29 @@ export const registerRoomRoutes = async (
   await registerBotRoutes(app, deps, authenticated)
 
   /** 인증 실패는 401 + 본문 `invalid_guest_session`(방·봇 API의 문자열). */
+  /**
+   * 호스트만 할 수 있는 방 조작의 앞단. 통과하면 방 스냅샷을, 막히면 `null`을
+   * 돌려주며 **응답은 이미 보낸 상태다**(401·404·403 가운데 하나).
+   */
+  async function hostOnly(
+    headers: Record<string, string | string[] | undefined>,
+    roomCode: string,
+    reply: FastifyReply,
+  ): Promise<RoomSnapshot | null> {
+    const user = await authenticated(headers, reply)
+    if (!user) return null
+    const snapshot = await rooms.getSnapshot(roomCode)
+    if (snapshot.phase === null) {
+      roomNotFound(reply)
+      return null
+    }
+    if (!isHost(snapshot, user.userId)) {
+      sendCode(reply, 403, 'host_only')
+      return null
+    }
+    return snapshot
+  }
+
   async function authenticated(
     headers: Record<string, string | string[] | undefined>,
     reply: FastifyReply,

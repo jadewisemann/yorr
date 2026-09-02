@@ -1,4 +1,4 @@
-import type { ConnectionListener, MessageListener, RealtimeClient } from './realtimeClient'
+import { type ConnectionListener, type RealtimeClient, RealtimeListenerHub } from './realtimeClient'
 import type { ClientMessage, ClientMessageType, ServerMessage } from './wsEvents'
 
 type FakeMessageHandler<T extends ClientMessageType = ClientMessageType> = (
@@ -16,13 +16,12 @@ export interface FakeRealtimeOptions {
   strict?: boolean
 }
 
-export class FakeRealtimeClient implements RealtimeClient {
+export class FakeRealtimeClient extends RealtimeListenerHub implements RealtimeClient {
   readonly sentMessages: ClientMessage[] = []
-  private readonly messageListeners = new Set<MessageListener>()
-  private readonly connectionListeners = new Set<ConnectionListener>()
   private readonly options: FakeRealtimeOptions
 
   constructor(options: FakeRealtimeOptions = {}) {
+    super()
     this.options = options
   }
 
@@ -49,26 +48,16 @@ export class FakeRealtimeClient implements RealtimeClient {
     this.emitMessages(handler(message))
   }
 
-  deliverLocal(message: ServerMessage) {
-    this.emitMessage(message)
+  /**
+   * 검사가 서버 대신 밀어 넣는 구멍. 기반에서는 보호된 자리지만, 대역에서는 이것이
+   * 곧 쓰임새라 밖으로 연다.
+   */
+  override emitMessage(message: ServerMessage) {
+    super.emitMessage(message)
   }
 
-  onMessage(listener: MessageListener) {
-    this.messageListeners.add(listener)
-    return () => this.messageListeners.delete(listener)
-  }
-
-  onConnectionChange(listener: ConnectionListener) {
-    this.connectionListeners.add(listener)
-    return () => this.connectionListeners.delete(listener)
-  }
-
-  emitMessage(message: ServerMessage) {
-    for (const listener of this.messageListeners) listener(message)
-  }
-
-  emitConnection(event: Parameters<ConnectionListener>[0]) {
-    for (const listener of this.connectionListeners) listener(event)
+  override emitConnection(event: Parameters<ConnectionListener>[0]) {
+    super.emitConnection(event)
   }
 
   private emitMessages(messages: ServerMessage[]) {

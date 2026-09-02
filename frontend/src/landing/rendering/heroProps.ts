@@ -1,7 +1,15 @@
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { ACCENT, INK, IVORY, matte } from './heroMaterials'
-import type { SpinBob } from './heroScene'
+
+/**
+ * 소품이 `userData`에 심는 움직임. 프레임 루프(`heroScene`)가 이것을 읽어 자전과
+ * 위아래 흔들림을 준다 — 소품을 만드는 쪽이 값을 정하므로 타입도 여기 둔다.
+ */
+export interface SpinBob {
+  bob?: number
+  spin?: number
+}
 
 /**
  * 랜딩 히어로에 놓이는 게임별 소품. 장면 자체(카메라·조명·주사위 애니메이션)와 달리

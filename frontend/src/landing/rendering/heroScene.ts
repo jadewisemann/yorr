@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import type { GameKey } from '@/games'
 import { dsColorReader } from '@/styles/tokenFallbacks'
 import { ACCENT, matte, SLATE } from './heroMaterials'
-import { buildDavinci, buildFishing, buildPingpong, materialsOf } from './heroProps'
+import { buildDavinci, buildFishing, buildPingpong, materialsOf, type SpinBob } from './heroProps'
 
 export type { GameKey }
 
@@ -46,11 +46,6 @@ const PIP_LAYOUT: Record<PipCount, [number, number][]> = {
 }
 
 const FACE_ORDER: PipCount[] = [1, 6, 2, 5, 3, 4]
-
-export interface SpinBob {
-  bob?: number
-  spin?: number
-}
 
 /**
  * 면 하나의 텍스처. 민짜 단색이면 조명이 아무리 좋아도 면이 종이처럼 읽혀서,

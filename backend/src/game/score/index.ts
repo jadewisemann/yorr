@@ -2,8 +2,10 @@
  * 점수 파이프라인의 공개 표면. 2.7(게임 종료)·2.9(조회 REST)·3.1(야추 모듈)은
  * 여기만 import한다 — 내부 파일 경로에 의존하지 않는다.
  */
+
+export { readScoreBoard } from './readScoreBoard.js'
 export { createScoreBoard, type ScoreBoard } from './scoreBoard.js'
-export { scoreBoardFromHash, TOTAL_FIELD, UPPER_SUBTOTAL_FIELD } from './scoreBoardMapper.js'
+export { TOTAL_FIELD, UPPER_SUBTOTAL_FIELD } from './scoreBoardMapper.js'
 export {
   RedisScoreBoardStore,
   type ScoreBoardStore,

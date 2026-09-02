@@ -1,6 +1,7 @@
 import type { Pool, PoolConnection } from 'mysql2/promise'
 import type { MemberUser } from '../auth/socialProfile.js'
 import { DomainError } from '../errors.js'
+import { inTransaction as runInTransaction } from '../infra/transaction.js'
 import { normalizeNickname } from './session.js'
 import { toMember, type UserRow } from './userRow.js'
 
@@ -84,26 +85,12 @@ export class MysqlUserProfileStore implements UserProfileRepository {
   }
 
   /**
-   * `auth/socialAccountStore.ts`에 같은 모양의 헬퍼가 있다. 공통화하지 않은 것은
-   * 그 파일이 4.2의 것이고 두 저장소가 서로의 오류 승격 정책(제약 위반 →
-   * `DataIntegrityViolationError`)을 공유할 이유가 없기 때문이다 — 프로필 개명은
-   * 이미 정규화(1~20자)를 통과한 값만 쓰므로 길이 위반 갈래가 없다.
+   * 오류를 승격하지 않는다 — 프로필 개명은 이미 정규화(1~20자)를 통과한 값만 쓰므로
+   * 길이 위반 갈래가 없다. `auth/socialAccountStore.ts`는 같은 배선에 제약 위반 승격을
+   * 얹는다(`infra/transaction.ts`의 세 번째 인자).
    */
   private async inTransaction<T>(work: (conn: PoolConnection) => Promise<T>): Promise<T> {
-    const conn = await this.pool.getConnection()
-    try {
-      await conn.beginTransaction()
-      const result = await work(conn)
-      await conn.commit()
-      return result
-    } catch (error) {
-      await conn.rollback().catch(() => {
-        // 롤백 실패는 원래 오류를 가리지 않는다.
-      })
-      throw error
-    } finally {
-      conn.release()
-    }
+    return runInTransaction(this.pool, work)
   }
 }
 

@@ -5,6 +5,7 @@ import type { QuickMatchService } from '../../room/quickMatchService.js'
 import { SessionAuthenticationError } from '../../user/errors.js'
 import type { UserIdentity, UserService } from '../../user/session.js'
 import { sendCode } from '../errorResponse.js'
+import { header } from '../memberAuth.js'
 
 /**
  * 퀵매치 REST.
@@ -23,15 +24,6 @@ export interface QuickMatchRouteDependencies {
   readonly users: UserService
   readonly catalog: GameCatalog
   readonly matches: QuickMatchService
-}
-
-/** 헤더는 중복되면 배열로 온다 — 첫 값만 본다. */
-const header = (
-  headers: Record<string, string | string[] | undefined>,
-  name: string,
-): string | undefined => {
-  const value = headers[name]
-  return Array.isArray(value) ? value[0] : value
 }
 
 /** 인증 실패만 401 `unauthorized`. 나머지는 그대로 올려 500이 된다(GET·DELETE의 계약). */

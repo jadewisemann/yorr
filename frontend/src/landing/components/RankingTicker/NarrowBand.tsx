@@ -1,6 +1,4 @@
 import { AnimatePresence } from 'motion/react'
-import { useEffect, useState } from 'react'
-import type { MyWeeklyRank, WeeklyRankingEntry } from '@/shared/api/rankingApi'
 import { cn } from '@/shared/cn'
 import { FullRanking } from './FullRanking'
 import {
@@ -12,30 +10,10 @@ import {
   TickerLabel,
   TickerViewport,
 } from './parts'
-import { MIN_SCROLL_ENTRIES, PANEL_ID, useCloseOnEscape } from './shared'
+import { type BandProps, MIN_SCROLL_ENTRIES, PANEL_ID, useBandDisclosure } from './shared'
 
-export function NarrowBand({
-  band,
-  entries,
-  loading,
-  myNickname,
-  myRank,
-  myUserId,
-}: {
-  band: WeeklyRankingEntry[]
-  entries: WeeklyRankingEntry[]
-  loading: boolean
-  myNickname: string | null
-  myRank: MyWeeklyRank | null
-  myUserId: string | null
-}) {
-  const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    if (entries.length === 0) setOpen(false)
-  }, [entries.length])
-
-  useCloseOnEscape(open, () => setOpen(false))
+export function NarrowBand({ band, entries, loading, myNickname, myRank, myUserId }: BandProps) {
+  const { open, setOpen } = useBandDisclosure(entries.length)
 
   return (
     <div className="relative flex h-11 items-center gap-3 px-5">

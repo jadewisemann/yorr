@@ -20,12 +20,43 @@ export interface RealtimeClient {
   onConnectionChange(listener: ConnectionListener): () => void
 }
 
-export class WebSocketRealtimeClient implements RealtimeClient {
-  private socket: WebSocket | null = null
+/**
+ * 메시지·연결 리스너 명부. 진짜 클라이언트와 검사용 대역이 **같은 팬아웃**을 써야
+ * 소비자가 어느 전송을 타고 왔는지 몰라도 된다(`deliverLocal`을 둔 이유와 같다).
+ */
+export abstract class RealtimeListenerHub {
   private readonly messageListeners = new Set<MessageListener>()
   private readonly connectionListeners = new Set<ConnectionListener>()
 
-  constructor(private readonly endpoint = import.meta.env.VITE_WS_URL ?? '/ws/v1/game') {}
+  deliverLocal(message: ServerMessage) {
+    this.emitMessage(message)
+  }
+
+  onMessage(listener: MessageListener) {
+    this.messageListeners.add(listener)
+    return () => this.messageListeners.delete(listener)
+  }
+
+  onConnectionChange(listener: ConnectionListener) {
+    this.connectionListeners.add(listener)
+    return () => this.connectionListeners.delete(listener)
+  }
+
+  protected emitMessage(message: ServerMessage) {
+    for (const listener of this.messageListeners) listener(message)
+  }
+
+  protected emitConnection(event: Parameters<ConnectionListener>[0]) {
+    for (const listener of this.connectionListeners) listener(event)
+  }
+}
+
+export class WebSocketRealtimeClient extends RealtimeListenerHub implements RealtimeClient {
+  private socket: WebSocket | null = null
+
+  constructor(private readonly endpoint = import.meta.env.VITE_WS_URL ?? '/ws/v1/game') {
+    super()
+  }
 
   connect() {
     if (this.socket && this.socket.readyState < WebSocket.CLOSING) return
@@ -58,28 +89,6 @@ export class WebSocketRealtimeClient implements RealtimeClient {
       throw new Error('WebSocket is not connected')
     }
     this.socket.send(JSON.stringify(message))
-  }
-
-  deliverLocal(message: ServerMessage) {
-    this.emitMessage(message)
-  }
-
-  onMessage(listener: MessageListener) {
-    this.messageListeners.add(listener)
-    return () => this.messageListeners.delete(listener)
-  }
-
-  onConnectionChange(listener: ConnectionListener) {
-    this.connectionListeners.add(listener)
-    return () => this.connectionListeners.delete(listener)
-  }
-
-  private emitMessage(message: ServerMessage) {
-    for (const listener of this.messageListeners) listener(message)
-  }
-
-  private emitConnection(event: Parameters<ConnectionListener>[0]) {
-    for (const listener of this.connectionListeners) listener(event)
   }
 }
 

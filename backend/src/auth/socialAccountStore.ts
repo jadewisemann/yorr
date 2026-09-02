@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolConnection } from 'mysql2/promise'
+import { inTransaction as runInTransaction } from '../infra/transaction.js'
 import { toMember, type UserRow } from '../user/userRow.js'
 import { DataIntegrityViolationError, isMysqlIntegrityViolation } from './errors.js'
 import { type MemberUser, PLACEHOLDER_NICKNAME, type SocialProvider } from './socialProfile.js'
@@ -130,24 +131,13 @@ export class MysqlSocialAccountStore implements SocialAccountRepository, SocialA
     })
   }
 
+  /** 제약 위반은 도메인 오류로 올린다 — 닉네임 길이·유니크 충돌이 여기로 온다. */
   private async inTransaction<T>(work: (conn: PoolConnection) => Promise<T>): Promise<T> {
-    const conn = await this.pool.getConnection()
-    try {
-      await conn.beginTransaction()
-      const result = await work(conn)
-      await conn.commit()
-      return result
-    } catch (error) {
-      await conn.rollback().catch(() => {
-        // 롤백 실패는 원래 오류를 가리지 않는다.
-      })
-      if (isMysqlIntegrityViolation(error)) {
-        throw new DataIntegrityViolationError(messageOf(error), { cause: error })
-      }
-      throw error
-    } finally {
-      conn.release()
-    }
+    return runInTransaction(this.pool, work, (error) =>
+      isMysqlIntegrityViolation(error)
+        ? new DataIntegrityViolationError(messageOf(error), { cause: error })
+        : error,
+    )
   }
 }
 

@@ -8,10 +8,10 @@ import {
   roomKey,
   scoresKey,
 } from '../../room/keys.js'
+import { readScoreBoard } from './readScoreBoard.js'
 import type { ScoreBoard } from './scoreBoard.js'
-import { scoreBoardFromHash } from './scoreBoardMapper.js'
 import { isUpperCategory, type ScoreCategory } from './scoreCategory.js'
-import { ScoreConfirmationError, ScoreDomainError } from './scoreErrors.js'
+import { ScoreConfirmationError } from './scoreErrors.js'
 import { CONFIRM_SCORE, CONFIRM_SCORE_CODE, SCORE_SCRIPTS } from './scripts.js'
 
 /**
@@ -139,18 +139,14 @@ export class RedisScoreBoardStore implements ScoreBoardStore {
   }
 
   private async readScoreBoard(gameId: string, playerId: string): Promise<ScoreBoard> {
-    const stored = await this.redis.hgetall(gameScoreboardKey(gameId, playerId))
-    try {
-      return scoreBoardFromHash(stored)
-    } catch (error) {
-      if (error instanceof ScoreDomainError) {
-        throw new ScoreConfirmationError(
-          'STORE_FAILURE',
-          `Redis 점수판 값이 올바르지 않습니다: ${playerId}`,
-          { cause: error },
-        )
-      }
-      throw error
-    }
+    return readScoreBoard(
+      this.redis,
+      gameId,
+      playerId,
+      (id, cause) =>
+        new ScoreConfirmationError('STORE_FAILURE', `Redis 점수판 값이 올바르지 않습니다: ${id}`, {
+          cause,
+        }),
+    )
   }
 }

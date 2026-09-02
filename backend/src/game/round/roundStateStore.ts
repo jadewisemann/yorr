@@ -159,14 +159,9 @@ export class InMemoryRoundStateStore implements RoundStateStore {
     held: readonly boolean[],
     rolledDice: readonly number[],
   ): Promise<RoundState> {
-    validateRoomId(roomId)
-    return this.withRoomLock(roomId, () => {
-      const currentState = this.states.get(roomId)
-      if (currentState === undefined) throw notInitialized(roomId)
-      const result = currentState.recordRoll(playerId, roundNumber, rollCount, held, rolledDice)
-      this.states.set(roomId, result)
-      return result
-    })
+    return this.applyAtomically(roomId, (current) =>
+      current.recordRoll(playerId, roundNumber, rollCount, held, rolledDice),
+    )
   }
 
   async recordHoldAtomically(
@@ -175,11 +170,26 @@ export class InMemoryRoundStateStore implements RoundStateStore {
     roundNumber: number,
     held: readonly boolean[],
   ): Promise<RoundState> {
+    return this.applyAtomically(roomId, (current) =>
+      current.recordHold(playerId, roundNumber, held),
+    )
+  }
+
+  /**
+   * 락 안에서 read → 적용 → write. 초기화되지 않은 방이면 던진다.
+   *
+   * 굴림 기록과 홀드 기록이 같은 배선을 쓴다 — 다른 것은 어떤 전이를 적용하느냐뿐이라
+   * 그것만 인자로 받는다.
+   */
+  private async applyAtomically(
+    roomId: string,
+    apply: (current: RoundState) => RoundState,
+  ): Promise<RoundState> {
     validateRoomId(roomId)
     return this.withRoomLock(roomId, () => {
       const currentState = this.states.get(roomId)
       if (currentState === undefined) throw notInitialized(roomId)
-      const result = currentState.recordHold(playerId, roundNumber, held)
+      const result = apply(currentState)
       this.states.set(roomId, result)
       return result
     })

@@ -9,6 +9,7 @@ import {
 import { DICE_COUNT, type ScoreBoard } from '../../game/score/index.js'
 import { SessionAuthenticationError } from '../../user/errors.js'
 import type { UserIdentity, UserService } from '../../user/session.js'
+import { header } from '../memberAuth.js'
 
 export interface GameQueryRouteDependencies {
   readonly users: UserService
@@ -39,15 +40,6 @@ const sendQueryError = (reply: FastifyReply, error: unknown): FastifyReply => {
   if (!(error instanceof GameScoreQueryError)) throw error
   const [status, code] = ERROR_MAPPING[error.reason]
   return reply.code(status).send({ code, message: error.message } satisfies GameQueryErrorResponse)
-}
-
-/** 헤더는 중복되면 배열로 온다 — 첫 값만 본다. */
-const header = (
-  headers: Record<string, string | string[] | undefined>,
-  name: string,
-): string | undefined => {
-  const value = headers[name]
-  return Array.isArray(value) ? value[0] : value
 }
 
 /** 점수판 응답. 12키는 **생략하지 않고 `null`로** 싣는다. */
