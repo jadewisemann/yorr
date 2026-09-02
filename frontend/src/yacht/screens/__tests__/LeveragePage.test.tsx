@@ -5,8 +5,6 @@ import { useAppStore } from '@/store'
 import { createDiceSet } from '@/yacht/domain/dice'
 import { scoreCategory, type YachtCategory } from '@/yacht/domain/scoring'
 import { categoryLabel } from '@/yacht/domain/yachtCategoryView'
-import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
-import type { PhysicsDiceRollRequest, PhysicsDiceSet } from '@/yacht/rendering/physics-dice/types'
 import { LeveragePage } from '@/yacht/screens/LeveragePage'
 
 const mocks = vi.hoisted(() => ({ navigate: vi.fn() }))
@@ -16,38 +14,15 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   useNavigate: () => mocks.navigate,
 }))
 
-vi.mock('@/yacht/input/useMotionRollInput', () => ({
-  useMotionRollInput: (_onGestureEvent: (event: MotionGestureEvent) => void) => ({
-    availability: 'unsupported',
-    calibrated: true,
-    canConfirmThrow: false,
-    gestureState: 'idle',
-    inputMode: 'tap',
-    lastPulseDirection: null,
-    noiseRms: 0,
-    requestPermission: vi.fn(),
-    resetGesture: vi.fn(),
-    reversalCount: 0,
-  }),
-}))
+vi.mock(
+  '@/yacht/input/useMotionRollInput',
+  () => import('@/yacht/input/__tests__/motionRollInputDouble'),
+)
 
-vi.mock('@/yacht/components/PhysicsDiceScene', () => ({
-  PhysicsDiceScene: ({
-    onRollComplete,
-    request,
-  }: {
-    onRollComplete: (requestId: string, dice: PhysicsDiceSet) => void
-    request: PhysicsDiceRollRequest | null
-  }) => (
-    <div data-target={request?.targetDice.join(',') ?? ''} data-testid="dice-scene">
-      {request && (
-        <button onClick={() => onRollComplete(request.requestId, request.targetDice)} type="button">
-          굴림 완료
-        </button>
-      )}
-    </div>
-  ),
-}))
+vi.mock(
+  '@/yacht/components/PhysicsDiceScene',
+  () => import('@/yacht/screens/__tests__/physicsDiceSceneDouble'),
+)
 
 const categoryByLabel = new Map(
   Object.entries(categoryLabel).map(([category, label]) => [label, category as YachtCategory]),

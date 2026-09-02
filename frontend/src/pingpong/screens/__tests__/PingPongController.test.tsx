@@ -1,64 +1,63 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { waitingRoomSnapshot } from '@/mocks/fixtures'
+import { playingSnapshot, playingState } from '@/pingpong/__tests__/pingPongFixtures'
 import { PingPongController } from '@/pingpong/screens/PingPongController'
-import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
+import type { PingPongState } from '@/realtime/wsEvents'
 
-const state: PingPongState = {
-  ball: {
-    direction: 1,
-    fault: null,
-    faultFrom: 0,
-    launchedAt: 1_000,
-    pos: 0.5,
-    smash: true,
-    speed: 1.95,
-    x0: 0.5,
-    x1: 0.7,
-  },
+const state = playingState({
+  ball: { ...playingState().ball, smash: true },
   lastEvent: { at: 1_000, id: 3, playerId: 'player-1', type: 'SMASH' },
-  lastInputSeq: { 'player-1': 1, 'player-2': 1 },
-  nextActionAt: 2_000,
-  phase: 'PLAYING',
-  playerOrder: ['player-1', 'player-2'],
-  readyPlayerIds: ['player-1', 'player-2'],
   rally: 4,
-  scores: { 'player-1': 3, 'player-2': 2 },
-  serveReceiverId: 'player-1',
-  version: 3,
+})
+
+/** 준비 단계의 상태. 연습 스윙과 준비 완료를 보는 검사들이 여기서 갈린다. */
+const preparing = (overrides: Partial<PingPongState> = {}): PingPongState => ({
+  ...state,
+  lastEvent: null,
+  lastInputSeq: { 'player-1': -1, 'player-2': -1 },
+  phase: 'PREPARING',
+  rally: 0,
+  readyPlayerIds: [],
+  scores: { 'player-1': 0, 'player-2': 0 },
+  ...overrides,
+})
+
+type ControllerOverrides = {
+  nickname?: string
+  playerId?: string
+  onReady?: () => void
+  onTouchSwing?: () => void
+  permission?: 'unknown' | 'granted' | 'denied'
+  requestPermission?: () => Promise<void>
+  state?: PingPongState
 }
 
-const snapshot = {
-  ...waitingRoomSnapshot,
-  game: state,
-  gameCode: 'PING_PONG',
-  phase: 'playing',
-  players: [
-    { ...waitingRoomSnapshot.players[0], nickname: '나', playerId: 'player-1' },
-    { ...waitingRoomSnapshot.players[1], nickname: '상대', playerId: 'player-2' },
-  ],
-} as unknown as RoomSnapshot
+/** 컨트롤러 한 대. 검사마다 달라지는 것은 콜백·권한·상태뿐이다. */
+function renderController(overrides: ControllerOverrides = {}) {
+  const shown = overrides.state ?? state
+  render(
+    <PingPongController
+      clock={1_100}
+      error={null}
+      nickname={overrides.nickname ?? '나'}
+      onLeave={vi.fn()}
+      onReady={overrides.onReady ?? vi.fn()}
+      onTouchSwing={overrides.onTouchSwing ?? vi.fn()}
+      permission={overrides.permission ?? 'granted'}
+      playerId={overrides.playerId ?? 'player-1'}
+      requestPermission={overrides.requestPermission ?? vi.fn()}
+      snapshot={playingSnapshot(shown)}
+      state={shown}
+    />,
+  )
+}
 
 describe('@/pingpong/screens/PingPongController', () => {
   it('shows a paddle-only controller with feedback and combo instead of the court', async () => {
     const user = userEvent.setup()
     const onTouchSwing = vi.fn()
-    render(
-      <PingPongController
-        clock={1_100}
-        error={null}
-        nickname="나"
-        onLeave={vi.fn()}
-        onReady={vi.fn()}
-        onTouchSwing={onTouchSwing}
-        permission="granted"
-        playerId="player-1"
-        requestPermission={vi.fn()}
-        snapshot={snapshot}
-        state={state}
-      />,
-    )
+    renderController({ onTouchSwing: onTouchSwing })
 
     const paddle = screen.getByRole('button', { name: '휴대폰을 휘둘러 스윙' })
     expect(paddle).toBeVisible()
@@ -76,31 +75,12 @@ describe('@/pingpong/screens/PingPongController', () => {
   it('requires a confirmed practice swing before the player can become ready', async () => {
     const user = userEvent.setup()
     const onReady = vi.fn()
-    const preparingState: PingPongState = {
-      ...state,
+    const preparingState = preparing({
       lastEvent: { at: 1_000, id: 4, playerId: 'player-1', type: 'PRACTICE' },
       lastInputSeq: { 'player-1': 0, 'player-2': -1 },
-      phase: 'PREPARING',
-      rally: 0,
-      readyPlayerIds: [],
-      scores: { 'player-1': 0, 'player-2': 0 },
-    }
+    })
 
-    render(
-      <PingPongController
-        clock={1_100}
-        error={null}
-        nickname="나"
-        onLeave={vi.fn()}
-        onReady={onReady}
-        onTouchSwing={vi.fn()}
-        permission="granted"
-        playerId="player-1"
-        requestPermission={vi.fn()}
-        snapshot={{ ...snapshot, game: preparingState } as unknown as RoomSnapshot}
-        state={preparingState}
-      />,
-    )
+    renderController({ onReady: onReady, state: preparingState })
 
     expect(screen.getByRole('heading', { name: '연습 공을 쳐보세요' })).toBeVisible()
     expect(screen.getByText('스윙 감지 완료! 공을 맞혔어요')).toBeVisible()
@@ -114,31 +94,14 @@ describe('@/pingpong/screens/PingPongController', () => {
     const user = userEvent.setup()
     const requestPermission = vi.fn().mockResolvedValue(undefined)
     const onTouchSwing = vi.fn()
-    const preparingState: PingPongState = {
-      ...state,
-      lastEvent: null,
-      lastInputSeq: { 'player-1': -1, 'player-2': -1 },
-      phase: 'PREPARING',
-      rally: 0,
-      readyPlayerIds: [],
-      scores: { 'player-1': 0, 'player-2': 0 },
-    }
+    const preparingState = preparing()
 
-    render(
-      <PingPongController
-        clock={1_100}
-        error={null}
-        nickname="나"
-        onLeave={vi.fn()}
-        onReady={vi.fn()}
-        onTouchSwing={onTouchSwing}
-        permission="unknown"
-        playerId="player-1"
-        requestPermission={requestPermission}
-        snapshot={{ ...snapshot, game: preparingState } as unknown as RoomSnapshot}
-        state={preparingState}
-      />,
-    )
+    renderController({
+      onTouchSwing: onTouchSwing,
+      permission: 'unknown',
+      requestPermission: requestPermission,
+      state: preparingState,
+    })
 
     await user.click(screen.getByRole('button', { name: '연습 공 치기' }))
 
@@ -150,31 +113,9 @@ describe('@/pingpong/screens/PingPongController', () => {
   it('allows touch practice only as a sensor fallback', async () => {
     const user = userEvent.setup()
     const onTouchSwing = vi.fn()
-    const preparingState: PingPongState = {
-      ...state,
-      lastEvent: null,
-      lastInputSeq: { 'player-1': -1, 'player-2': -1 },
-      phase: 'PREPARING',
-      rally: 0,
-      readyPlayerIds: [],
-      scores: { 'player-1': 0, 'player-2': 0 },
-    }
+    const preparingState = preparing()
 
-    render(
-      <PingPongController
-        clock={1_100}
-        error={null}
-        nickname="나"
-        onLeave={vi.fn()}
-        onReady={vi.fn()}
-        onTouchSwing={onTouchSwing}
-        permission="denied"
-        playerId="player-1"
-        requestPermission={vi.fn()}
-        snapshot={{ ...snapshot, game: preparingState } as unknown as RoomSnapshot}
-        state={preparingState}
-      />,
-    )
+    renderController({ onTouchSwing: onTouchSwing, permission: 'denied', state: preparingState })
 
     expect(screen.getByText(/화면 터치 대체 조작/)).toBeVisible()
     await user.click(screen.getByRole('button', { name: '연습 공 치기' }))
@@ -182,21 +123,7 @@ describe('@/pingpong/screens/PingPongController', () => {
   })
 
   it('uses a red paddle and P2 identity for player 2', () => {
-    render(
-      <PingPongController
-        clock={1_100}
-        error={null}
-        nickname="이유정"
-        onLeave={vi.fn()}
-        onReady={vi.fn()}
-        onTouchSwing={vi.fn()}
-        permission="granted"
-        playerId="player-2"
-        requestPermission={vi.fn()}
-        snapshot={snapshot}
-        state={state}
-      />,
-    )
+    renderController({ nickname: '상대', playerId: 'player-2' })
 
     expect(screen.getByTestId('ping-pong-paddle-face')).toHaveAttribute('data-player-tone', 'red')
     expect(screen.getByText('P2')).toBeVisible()
@@ -210,7 +137,7 @@ describe('@/pingpong/screens/PingPongController', () => {
       rally: 0,
       scores: { 'player-1': 10, 'player-2': 10 },
     }
-    const { rerender } = render(
+    const clockAt2s = (shown: PingPongState) => (
       <PingPongController
         clock={2_000}
         error={null}
@@ -221,32 +148,15 @@ describe('@/pingpong/screens/PingPongController', () => {
         permission="granted"
         playerId="player-1"
         requestPermission={vi.fn()}
-        snapshot={{ ...snapshot, game: countdownState } as unknown as RoomSnapshot}
-        state={countdownState}
-      />,
+        snapshot={playingSnapshot(shown)}
+        state={shown}
+      />
     )
+    const { rerender } = render(clockAt2s(countdownState))
 
     expect(screen.getByText('듀스!')).toBeVisible()
 
-    const matchPointState: PingPongState = {
-      ...countdownState,
-      scores: { 'player-1': 11, 'player-2': 10 },
-    }
-    rerender(
-      <PingPongController
-        clock={2_000}
-        error={null}
-        nickname="P1"
-        onLeave={vi.fn()}
-        onReady={vi.fn()}
-        onTouchSwing={vi.fn()}
-        permission="granted"
-        playerId="player-1"
-        requestPermission={vi.fn()}
-        snapshot={{ ...snapshot, game: matchPointState } as unknown as RoomSnapshot}
-        state={matchPointState}
-      />,
-    )
+    rerender(clockAt2s({ ...countdownState, scores: { 'player-1': 11, 'player-2': 10 } }))
 
     expect(screen.getByText('매치 포인트!')).toBeVisible()
   })

@@ -24,11 +24,17 @@ function createControllableTask<T>() {
   return { pending, task }
 }
 
+/** 손으로 결말을 정하는 작업 하나를 붙인 훅. 상태 전이를 보는 검사들이 여기서 출발한다. */
+function renderTask(options?: { onSuccess?: (value: string) => void }) {
+  const { pending, task } = createControllableTask<string>()
+  const { result, rerender } = renderHook(() => useAsyncTask<[], string>(task, options))
+  return { pending, result, rerender }
+}
+
 describe('useAsyncTask', () => {
   it('idle → loading → success 순서로 상태를 옮기고 onSuccess를 한 번 부른다', async () => {
     const onSuccess = vi.fn()
-    const { pending, task } = createControllableTask<string>()
-    const { result } = renderHook(() => useAsyncTask<[], string>(task, { onSuccess }))
+    const { pending, result } = renderTask({ onSuccess })
 
     expect(result.current.isIdle).toBe(true)
 
@@ -51,8 +57,7 @@ describe('useAsyncTask', () => {
 
   it('실패하면 error 상태로 남기고 onSuccess는 부르지 않는다', async () => {
     const onSuccess = vi.fn()
-    const { pending, task } = createControllableTask<string>()
-    const { result } = renderHook(() => useAsyncTask<[], string>(task, { onSuccess }))
+    const { pending, result } = renderTask({ onSuccess })
 
     await act(async () => {
       const execution = result.current.execute()
@@ -67,8 +72,7 @@ describe('useAsyncTask', () => {
   })
 
   it('Error가 아닌 거부 이유도 Error로 감싼다', async () => {
-    const { pending, task } = createControllableTask<string>()
-    const { result } = renderHook(() => useAsyncTask<[], string>(task))
+    const { pending, result } = renderTask()
 
     await act(async () => {
       const execution = result.current.execute()
@@ -80,8 +84,7 @@ describe('useAsyncTask', () => {
   })
 
   it('새 요청은 앞선 요청을 중단하고, 중단된 요청의 성공·실패는 상태에 반영하지 않는다', async () => {
-    const { pending, task } = createControllableTask<string>()
-    const { result } = renderHook(() => useAsyncTask<[], string>(task))
+    const { pending, result } = renderTask()
 
     let first: Promise<string | undefined> | undefined
     let second: Promise<string | undefined> | undefined
@@ -113,8 +116,7 @@ describe('useAsyncTask', () => {
   })
 
   it('reset은 진행 중인 요청을 중단하고 idle로 되돌린다', async () => {
-    const { pending, task } = createControllableTask<string>()
-    const { result } = renderHook(() => useAsyncTask<[], string>(task))
+    const { pending, result } = renderTask()
 
     await act(async () => {
       const execution = result.current.execute()
@@ -158,13 +160,18 @@ describe('useAsyncTask', () => {
   })
 })
 
+/** `game:1` 키로 시작하는 조회 훅. 키가 바뀔 때의 거동을 보는 검사들이 쓴다. */
+function renderFetch() {
+  const query = vi.fn(async () => 'A')
+  const view = renderHook(({ key }: { key: string | null }) => useFetchEffect(key, query), {
+    initialProps: { key: 'game:1' as string | null },
+  })
+  return { query, ...view }
+}
+
 describe('useFetchEffect', () => {
   it('queryKey가 있으면 즉시 조회하고, key가 바뀌면 다시 조회한다', async () => {
-    const query = vi.fn(async () => 'A')
-    const { result, rerender } = renderHook(
-      ({ key }: { key: string | null }) => useFetchEffect(key, query),
-      { initialProps: { key: 'game:1' as string | null } },
-    )
+    const { query, result, rerender } = renderFetch()
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(query).toHaveBeenCalledOnce()
@@ -175,11 +182,7 @@ describe('useFetchEffect', () => {
   })
 
   it('queryKey가 null이면 조회하지 않고 이전 결과를 비운다', async () => {
-    const query = vi.fn(async () => 'A')
-    const { result, rerender } = renderHook(
-      ({ key }: { key: string | null }) => useFetchEffect(key, query),
-      { initialProps: { key: 'game:1' as string | null } },
-    )
+    const { query, result, rerender } = renderFetch()
     await waitFor(() => expect(result.current.data).toBe('A'))
 
     rerender({ key: null })

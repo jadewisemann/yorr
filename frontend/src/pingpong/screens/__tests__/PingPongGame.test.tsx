@@ -1,53 +1,17 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { waitingRoomSnapshot } from '@/mocks/fixtures'
+import { playingSnapshot, playingState } from '@/pingpong/__tests__/pingPongFixtures'
 import { PingPongGame } from '@/pingpong/screens/PingPongGame'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import type { RealtimeClient } from '@/realtime/realtimeClient'
-import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
 import type { ActiveRoomSession } from '@/store'
 
 vi.mock('@/pingpong/rendering/scene3d', () => ({
   createScene: () => ({ dispose: vi.fn(), render: vi.fn(), resize: vi.fn(), update: vi.fn() }),
 }))
 
-const state: PingPongState = {
-  ball: {
-    direction: 1,
-    fault: null,
-    faultFrom: 0,
-    launchedAt: 1_000,
-    pos: 0.5,
-    smash: false,
-    speed: 1.95,
-    x0: 0.5,
-    x1: 0.7,
-  },
-  lastEvent: null,
-  lastInputSeq: { 'player-1': 1, 'player-2': 1 },
-  nextActionAt: 2_000,
-  phase: 'PLAYING',
-  playerOrder: ['player-1', 'player-2'],
-  readyPlayerIds: ['player-1', 'player-2'],
-  rally: 2,
-  scores: { 'player-1': 3, 'player-2': 2 },
-  serveReceiverId: 'player-1',
-  version: 3,
-}
-
-function snapshotOf(game: PingPongState) {
-  return {
-    ...waitingRoomSnapshot,
-    game,
-    gameCode: 'PING_PONG',
-    phase: 'playing',
-    players: [
-      { ...waitingRoomSnapshot.players[0], nickname: '나', playerId: 'player-1' },
-      { ...waitingRoomSnapshot.players[1], nickname: '상대', playerId: 'player-2' },
-    ],
-  } as unknown as RoomSnapshot
-}
+const state = playingState()
 
 const session = {
   gameId: null,
@@ -77,7 +41,7 @@ function renderGame(game = state) {
         onLeaveRequest={vi.fn()}
         roomId="room-1"
         session={session}
-        snapshot={snapshotOf(game)}
+        snapshot={playingSnapshot(game)}
       />
     </RealtimeClientProvider>,
   )

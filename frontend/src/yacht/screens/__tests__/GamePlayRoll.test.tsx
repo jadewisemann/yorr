@@ -23,6 +23,8 @@ import { GamePlay } from '@/yacht/screens/GamePlay'
 import {
   brokenSend,
   lastMsgId,
+  remoteRoll,
+  remoteThrown,
   renderGame,
   renderObserver,
   SyncedGamePlay,
@@ -57,19 +59,7 @@ describe('GamePlay — 굴림', () => {
   it('plays the active player server roll for every other participant', () => {
     const { client } = renderObserver()
 
-    act(() => {
-      client.send(
-        buildClientMessage(
-          'game.yacht_dice.dice.roll',
-          {
-            held: [false, false, false, false, false],
-            rollCount: 1,
-            roundNumber: 1,
-          },
-          { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
-        ),
-      )
-    })
+    remoteRoll(client)
 
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-target', '6,5,4,3,2')
     expect(screen.getByTestId('dice-scene')).toHaveAttribute(
@@ -85,15 +75,7 @@ describe('GamePlay — 굴림', () => {
       const { client } = renderObserver()
       const requestId = 'roll-player-creator-1-1'
 
-      act(() => {
-        client.send(
-          buildClientMessage(
-            'game.yacht_dice.dice.roll',
-            { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
-            { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
-          ),
-        )
-      })
+      remoteRoll(client)
       expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', requestId)
 
       act(() => vi.advanceTimersByTime(2_000))
@@ -102,15 +84,7 @@ describe('GamePlay — 굴림', () => {
       act(() => vi.advanceTimersByTime(20_000))
       expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
 
-      act(() => {
-        client.emitMessage(
-          serverMessage(
-            'game.yacht_dice.dice.thrown',
-            { playerId: creatorSession.you, rollCount: 1, roundNumber: 1 },
-            { roomId: participantSession.roomId },
-          ),
-        )
-      })
+      remoteThrown(client)
       expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', requestId)
     } finally {
       vi.useRealTimers()
@@ -121,26 +95,10 @@ describe('GamePlay — 굴림', () => {
     const { client } = renderObserver()
     const requestId = 'roll-player-creator-1-1'
 
-    act(() => {
-      client.emitMessage(
-        serverMessage(
-          'game.yacht_dice.dice.thrown',
-          { playerId: creatorSession.you, rollCount: 1, roundNumber: 1 },
-          { roomId: participantSession.roomId },
-        ),
-      )
-    })
+    remoteThrown(client)
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', '')
 
-    act(() => {
-      client.send(
-        buildClientMessage(
-          'game.yacht_dice.dice.roll',
-          { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
-          { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
-        ),
-      )
-    })
+    remoteRoll(client)
 
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-request', requestId)
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-release', requestId)
@@ -149,15 +107,7 @@ describe('GamePlay — 굴림', () => {
   it('mirrors the roller shake pulses instead of running its own animation', () => {
     const { client } = renderObserver()
 
-    act(() => {
-      client.send(
-        buildClientMessage(
-          'game.yacht_dice.dice.roll',
-          { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
-          { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
-        ),
-      )
-    })
+    remoteRoll(client)
     expect(screen.getByTestId('dice-scene')).toHaveAttribute('data-follow', 'off')
 
     act(() => {

@@ -1,5 +1,6 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ReactNode } from 'react'
 import { vi } from 'vitest'
 import {
   createPlayingRoomSnapshot,
@@ -10,7 +11,7 @@ import {
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
 import type { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
-import type { ClientMessageType, RoomSnapshot } from '@/realtime/wsEvents'
+import { buildClientMessage, type ClientMessageType, type RoomSnapshot } from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
 import { GamePlay } from '@/yacht/screens/GamePlay'
 
@@ -128,9 +129,60 @@ export function broadcastRoll(client: FakeRealtimeClient, rollCount: 1 | 2 | 3 =
   })
 }
 
+/** 굴리고 굴림을 끝낸다. 킵과 기록은 그 다음 이야기라 검사마다 다르다. */
+export async function rollAndStop(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: '굴리기' }))
+  await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+}
+
+/** 관전자 화면을 다른 스냅샷으로 다시 그린다. 턴이 넘어온 순간을 보는 검사들이 쓴다. */
+export function rerenderObserver(
+  rerender: (ui: ReactNode) => void,
+  client: FakeRealtimeClient,
+  snapshot: RoomSnapshot,
+) {
+  const { snapshot: _participantSnapshot, ...observerSession } = participantSession
+  rerender(
+    <RealtimeClientProvider client={client}>
+      <GamePlay
+        onLeaveRequest={() => {}}
+        roomId={observerSession.roomId}
+        session={observerSession}
+        snapshot={snapshot}
+      />
+    </RealtimeClientProvider>,
+  )
+}
+
 /** 굴리고, 굴림을 끝내고, 초이스 20점을 기록하는 한 턴. */
 export async function rollAndRecord(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: '굴리기' }))
   await user.click(screen.getByRole('button', { name: '굴림 완료' }))
   await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
+}
+
+/** 관전자 화면에서 본 **다른 사람의 굴림 요청**. 대역이 이것을 받아 장면을 시작한다. */
+export function remoteRoll(client: FakeRealtimeClient) {
+  act(() => {
+    client.send(
+      buildClientMessage(
+        'game.yacht_dice.dice.roll',
+        { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
+        { roomId: participantSession.roomId, msgId: 'remote-roll-1' },
+      ),
+    )
+  })
+}
+
+/** 서버가 굴림 결과를 확정했다는 통지. 이것이 와야 관전자 장면이 주사위를 놓는다. */
+export function remoteThrown(client: FakeRealtimeClient) {
+  act(() => {
+    client.emitMessage(
+      serverMessage(
+        'game.yacht_dice.dice.thrown',
+        { playerId: creatorSession.you, rollCount: 1, roundNumber: 1 },
+        { roomId: participantSession.roomId },
+      ),
+    )
+  })
 }

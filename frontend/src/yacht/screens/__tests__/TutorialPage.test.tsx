@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppStore } from '@/store'
-import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
 import { TutorialPage } from '@/yacht/screens/TutorialPage'
 
 const mocks = vi.hoisted(() => ({ navigate: vi.fn() }))
@@ -12,20 +11,10 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   useNavigate: () => mocks.navigate,
 }))
 
-vi.mock('@/yacht/input/useMotionRollInput', () => ({
-  useMotionRollInput: (_onGestureEvent: (event: MotionGestureEvent) => void) => ({
-    availability: 'unsupported',
-    calibrated: true,
-    canConfirmThrow: false,
-    gestureState: 'idle',
-    inputMode: 'tap',
-    lastPulseDirection: null,
-    noiseRms: 0,
-    requestPermission: vi.fn(),
-    resetGesture: vi.fn(),
-    reversalCount: 0,
-  }),
-}))
+vi.mock(
+  '@/yacht/input/useMotionRollInput',
+  () => import('@/yacht/input/__tests__/motionRollInputDouble'),
+)
 
 vi.mock('@/yacht/components/PhysicsDiceScene', () => ({
   PhysicsDiceScene: () => <div data-testid="dice-scene" />,

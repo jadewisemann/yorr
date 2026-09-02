@@ -32,7 +32,7 @@ export const PhysicsDiceScene = ({
     data-testid="dice-scene"
   >
     {request && (
-      <button onClick={() => onRollComplete(request.requestId, [6, 5, 4, 3, 2])} type="button">
+      <button onClick={() => onRollComplete(request.requestId, request.targetDice)} type="button">
         굴림 완료
       </button>
     )}

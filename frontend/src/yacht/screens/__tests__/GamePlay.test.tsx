@@ -10,20 +10,20 @@ import {
   serverMessage,
 } from '@/mocks/fixtures'
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
-import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import { useAppStore } from '@/store'
 
 // `vi.mock`은 부른 파일에만 걸린다 — 하네스에 두면 이 스위트에는 대역이 서지 않는다.
 vi.mock('@/yacht/components/PhysicsDiceScene', () => import('./physicsDiceSceneDouble'))
 
-import { GamePlay } from '@/yacht/screens/GamePlay'
 import {
   broadcastRoll,
   brokenSend,
   lastMsgId,
   renderGame,
   renderObserver,
+  rerenderObserver,
   rollAndRecord,
+  rollAndStop,
   withheldResponse,
 } from './gamePlayHarness'
 
@@ -126,8 +126,7 @@ describe('GamePlay', () => {
   it('tells the server when keeps change between rolls', async () => {
     const { client, user } = renderGame()
 
-    await user.click(screen.getByRole('button', { name: '굴리기' }))
-    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await rollAndStop(user)
     await user.click(screen.getByRole('button', { name: '첫 주사위 킵' }))
 
     const hold = client.sentMessages.filter(
@@ -142,8 +141,7 @@ describe('GamePlay', () => {
 
     expect(screen.getByRole('button', { name: '초이스' })).toBeDisabled()
 
-    await user.click(screen.getByRole('button', { name: '굴리기' }))
-    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await rollAndStop(user)
 
     const sixes = screen.getByRole('button', { name: '식스 6점 기록' })
     const choice = screen.getByRole('button', { name: '초이스 20점 기록' })
@@ -171,8 +169,7 @@ describe('GamePlay', () => {
   it('records a category in one tap and then waits for the other players', async () => {
     const { user } = renderGame()
 
-    await user.click(screen.getByRole('button', { name: '굴리기' }))
-    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await rollAndStop(user)
 
     await user.click(screen.getByRole('button', { name: '초이스 20점 기록' }))
 
@@ -188,16 +185,14 @@ describe('GamePlay', () => {
     expect(await screen.findByText('내 차례!')).toBeVisible()
     expect(vibrate).toHaveBeenCalledTimes(1)
 
-    await user.click(screen.getByRole('button', { name: '굴리기' }))
-    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await rollAndStop(user)
     expect(vibrate).toHaveBeenCalledTimes(1)
   })
 
   it('asks for confirmation before recording a zero', async () => {
     const { user } = renderGame()
 
-    await user.click(screen.getByRole('button', { name: '굴리기' }))
-    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await rollAndStop(user)
 
     const zeroChip = screen
       .getAllByRole('button')
@@ -213,8 +208,7 @@ describe('GamePlay', () => {
   it('0점 확인을 취소하면 아무것도 기록하지 않고, 확정하면 그 족보로 기록한다', async () => {
     const { client, user } = renderGame()
 
-    await user.click(screen.getByRole('button', { name: '굴리기' }))
-    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await rollAndStop(user)
     await user.click(screen.getByRole('button', { name: '에이스 0점 기록' }))
     await user.click(screen.getByRole('button', { name: '취소' }))
 
@@ -286,7 +280,6 @@ describe('GamePlay', () => {
   it('closes the record panel once the turn moves away from the player I was watching', async () => {
     const snapshot = createPlayingRoomSnapshot(Date.now() + 30_000)
     if (!snapshot.game) throw new Error('playing snapshot is missing game state')
-    const { snapshot: _observerSnapshot, ...observerSession } = participantSession
     const { client, rerender, user } = renderObserver(snapshot)
 
     for (let rollCount = 1; rollCount <= 3; rollCount += 1) {
@@ -307,16 +300,7 @@ describe('GamePlay', () => {
         turnOrder: [creatorSession.you, participantSession.you],
       },
     }
-    rerender(
-      <RealtimeClientProvider client={client}>
-        <GamePlay
-          onLeaveRequest={() => {}}
-          roomId={observerSession.roomId}
-          session={observerSession}
-          snapshot={nextSnapshot}
-        />
-      </RealtimeClientProvider>,
-    )
+    rerenderObserver(rerender, client, nextSnapshot)
 
     expect(await screen.findByText('내 턴이에요')).toBeVisible()
     expect(screen.getByRole('button', { name: /전체 시트/ })).toHaveAttribute(
@@ -327,8 +311,7 @@ describe('GamePlay', () => {
   it('턴이 넘어가면 이전 턴에서 잡아 둔 킵과 주사위를 버린다', async () => {
     const { rerenderWith, user } = renderGame()
 
-    await user.click(screen.getByRole('button', { name: '굴리기' }))
-    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await rollAndStop(user)
     await user.click(screen.getByRole('button', { name: '첫 주사위 킵' }))
     expect(screen.getByText(/킵 레일 · 1\/5 · 합 6/)).toBeVisible()
 
@@ -367,8 +350,7 @@ describe('GamePlay', () => {
       },
     })
 
-    await user.click(screen.getByRole('button', { name: '굴리기' }))
-    await user.click(screen.getByRole('button', { name: '굴림 완료' }))
+    await rollAndStop(user)
     expect(screen.getByRole('button', { name: '초이스 20점 기록' })).toBeEnabled()
   })
 

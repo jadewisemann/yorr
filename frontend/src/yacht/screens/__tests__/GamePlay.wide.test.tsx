@@ -11,7 +11,6 @@ import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import { type ConnectionStatus, useAppStore } from '@/store'
 import type { MotionAvailability, MotionGestureState } from '@/yacht/input/motionTypes'
-import type { PhysicsDiceRollRequest, PhysicsDiceSet } from '@/yacht/rendering/physics-dice/types'
 import { GamePlay } from '@/yacht/screens/GamePlay'
 
 const WIDE_QUERY = '(min-width: 1024px)'
@@ -37,23 +36,10 @@ vi.mock('@/yacht/input/useMotionRollInput', () => ({
   }),
 }))
 
-vi.mock('@/yacht/components/PhysicsDiceScene', () => ({
-  PhysicsDiceScene: ({
-    onRollComplete,
-    request,
-  }: {
-    onRollComplete: (requestId: string, dice: PhysicsDiceSet) => void
-    request: PhysicsDiceRollRequest | null
-  }) => (
-    <div data-request={request?.requestId ?? ''} data-testid="dice-scene">
-      {request && (
-        <button onClick={() => onRollComplete(request.requestId, [6, 5, 4, 3, 2])} type="button">
-          굴림 완료
-        </button>
-      )}
-    </div>
-  ),
-}))
+vi.mock(
+  '@/yacht/components/PhysicsDiceScene',
+  () => import('@/yacht/screens/__tests__/physicsDiceSceneDouble'),
+)
 
 const { snapshot: _snapshot, ...session } = creatorSession
 

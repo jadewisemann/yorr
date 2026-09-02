@@ -74,36 +74,23 @@ describe('BottomSheet', () => {
 
   it('restores focus to the opener when it closes', async () => {
     const onClose = vi.fn()
-    const { rerender } = render(
+    const sheetWithOpener = (open: boolean) => (
       <>
         <button type="button">시트 열기</button>
-        <BottomSheet onClose={onClose} open={false} title="족보 선택">
+        <BottomSheet onClose={onClose} open={open} title="족보 선택">
           <button type="button">첫 버튼</button>
         </BottomSheet>
-      </>,
+      </>
     )
+    const { rerender } = render(sheetWithOpener(false))
 
     const opener = screen.getByRole('button', { name: '시트 열기' })
     opener.focus()
 
-    rerender(
-      <>
-        <button type="button">시트 열기</button>
-        <BottomSheet onClose={onClose} open title="족보 선택">
-          <button type="button">첫 버튼</button>
-        </BottomSheet>
-      </>,
-    )
+    rerender(sheetWithOpener(true))
     expect(opener).not.toHaveFocus()
 
-    rerender(
-      <>
-        <button type="button">시트 열기</button>
-        <BottomSheet onClose={onClose} open={false} title="족보 선택">
-          <button type="button">첫 버튼</button>
-        </BottomSheet>
-      </>,
-    )
+    rerender(sheetWithOpener(false))
     expect(opener).toHaveFocus()
   })
 
@@ -166,26 +153,19 @@ describe('BottomSheet', () => {
     const background = document.createElement('main')
     document.body.append(background)
 
-    const { rerender } = render(
-      <BottomSheet onClose={vi.fn()} open={false} title="족보 선택">
+    const sheet = (open: boolean) => (
+      <BottomSheet onClose={vi.fn()} open={open} title="족보 선택">
         <button type="button">첫 버튼</button>
-      </BottomSheet>,
+      </BottomSheet>
     )
+    const { rerender } = render(sheet(false))
     expect(background).not.toHaveAttribute('inert')
 
-    rerender(
-      <BottomSheet onClose={vi.fn()} open title="족보 선택">
-        <button type="button">첫 버튼</button>
-      </BottomSheet>,
-    )
+    rerender(sheet(true))
     expect(background).toHaveAttribute('inert')
     expect(document.body.style.overflow).toBe('hidden')
 
-    rerender(
-      <BottomSheet onClose={vi.fn()} open={false} title="족보 선택">
-        <button type="button">첫 버튼</button>
-      </BottomSheet>,
-    )
+    rerender(sheet(false))
     expect(background).not.toHaveAttribute('inert')
     expect(document.body.style.overflow).toBe('')
 

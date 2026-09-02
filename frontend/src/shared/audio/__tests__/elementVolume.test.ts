@@ -27,6 +27,17 @@ function stubAudioContext() {
   return { gain, resume }
 }
 
+/** 0%는 muted로도 막고, 그보다 크면 풀어야 한다 — 볼륨 속성이 읽기 전용인 기기의 계약이다. */
+function expectMutedAtZero(setElementVolume: (audio: HTMLAudioElement, level: number) => void) {
+  const audio = readOnlyVolumeAudio()
+
+  setElementVolume(audio, 0)
+  expect(audio.muted).toBe(true)
+
+  setElementVolume(audio, 0.5)
+  expect(audio.muted).toBe(false)
+}
+
 describe('setElementVolume', () => {
   beforeEach(() => {
     vi.unstubAllGlobals()
@@ -55,24 +66,12 @@ describe('setElementVolume', () => {
   it('0%는 GainNode와 별개로 muted로도 막는다', async () => {
     stubAudioContext()
     const { setElementVolume } = await loadModule()
-    const audio = readOnlyVolumeAudio()
-
-    setElementVolume(audio, 0)
-    expect(audio.muted).toBe(true)
-
-    setElementVolume(audio, 0.5)
-    expect(audio.muted).toBe(false)
+    expectMutedAtZero(setElementVolume)
   })
 
   it('Web Audio도 없으면 최소한 0%는 무음으로 만든다', async () => {
     vi.stubGlobal('AudioContext', undefined)
     const { setElementVolume } = await loadModule()
-    const audio = readOnlyVolumeAudio()
-
-    setElementVolume(audio, 0)
-    expect(audio.muted).toBe(true)
-
-    setElementVolume(audio, 0.5)
-    expect(audio.muted).toBe(false)
+    expectMutedAtZero(setElementVolume)
   })
 })
