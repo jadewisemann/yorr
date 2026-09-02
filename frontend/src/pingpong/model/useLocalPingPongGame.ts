@@ -17,6 +17,7 @@ import {
   restartLocalGame,
   swingLocalGame,
 } from '@/pingpong/domain/localGame'
+import { followCanvasSize } from '@/pingpong/rendering/canvasResize'
 import { createScene, type PingPongScene } from '@/pingpong/rendering/scene3d'
 import { useSwing } from '@/shared/useSwing'
 import { useAppStore } from '@/store'
@@ -123,13 +124,7 @@ export function useLocalPingPongGame({ difficulty, mode }: UseLocalPingPongGameO
       return
     }
 
-    const resize = () => {
-      const bounds = canvas.getBoundingClientRect()
-      scene.resize(bounds.width, bounds.height, Math.min(window.devicePixelRatio || 1, 2))
-    }
-    const observer = new ResizeObserver(resize)
-    observer.observe(canvas)
-    resize()
+    const stopFollowingSize = followCanvasSize(canvas, scene)
 
     let shownHud = hudOf(gameRef.current)
     let last = performance.now()
@@ -154,7 +149,7 @@ export function useLocalPingPongGame({ difficulty, mode }: UseLocalPingPongGameO
 
     return () => {
       cancelAnimationFrame(raf)
-      observer.disconnect()
+      stopFollowingSize()
       scene.dispose()
       if (labelTimerRef.current !== null) window.clearTimeout(labelTimerRef.current)
     }

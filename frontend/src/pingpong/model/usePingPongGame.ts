@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { type Fault, flightOf, flightProgress } from '@/pingpong/domain/court'
 import type { FrameState } from '@/pingpong/domain/frameState'
 import { type PlayerTracking, trackIncomingBall } from '@/pingpong/domain/playerTracking'
+import { followCanvasSize } from '@/pingpong/rendering/canvasResize'
 import { createScene, type PingPongScene } from '@/pingpong/rendering/scene3d'
 import { playRacketHit, playTableHit } from '@/pingpong/sounds'
 import { useControllerLink } from '@/realtime/controllerLink/ControllerLinkContext'
@@ -120,13 +121,7 @@ export function usePingPongGame({
     if (!court || !canvas) return
     const scene = createScene(canvas)
     sceneRef.current = scene
-    const resize = () => {
-      const bounds = canvas.getBoundingClientRect()
-      scene.resize(bounds.width, bounds.height, Math.min(window.devicePixelRatio || 1, 2))
-    }
-    const observer = new ResizeObserver(resize)
-    observer.observe(canvas)
-    resize()
+    const stopFollowingSize = followCanvasSize(canvas, scene)
 
     let raf = 0
     const frame = () => {
@@ -145,7 +140,7 @@ export function usePingPongGame({
     raf = requestAnimationFrame(frame)
     return () => {
       cancelAnimationFrame(raf)
-      observer.disconnect()
+      stopFollowingSize()
       scene.dispose()
       sceneRef.current = null
     }

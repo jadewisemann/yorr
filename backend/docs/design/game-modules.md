@@ -53,6 +53,13 @@ WS 표면을 가진 세 게임(결투·다빈치·탁구)은 `SocketGameModule`�
 (SETNX 초기화 · 방 단위 락 · 방 키 TTL 복사 · version 비증가 갱신 폐기). 근거는
 [ADR-0007](../adr/0007-shared-game-module-skeleton.md).
 
+마감을 **상태 안에** 지닌 두 게임(결투·다빈치)은 서비스 층도
+`ScheduledStateGameService`를 상속한다(`src/game/scheduledStateService.ts`). 기반이
+갖는 것은 `resume`·`rehydrate`·`pause`·`removePlayer`·`close`·`hasState`와 마감 예약뿐이고,
+게임은 `changed`·`timeout`·`forfeit`·`gameLabel`을 채운다. **탁구는 상속하지 않는다** —
+상태 없음을 `undefined`로 표현하고 이탈이 좌석·방 정리까지 함께 하므로 기반에 갈래만
+늘어난다. 근거는 [ADR-0008](../adr/0008-scheduled-state-service-skeleton.md).
+
 ### 레지스트리와 메시지 라우팅
 
 - 코드 정규화: `trim().toUpperCase()`. 미지의 코드 → `invalid_game_code`,

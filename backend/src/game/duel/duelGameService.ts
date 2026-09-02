@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto'
 import { ConflictError, DomainError } from '../../errors.js'
 import { gameWsType } from '../module.js'
+import { ScheduledStateGameService } from '../scheduledStateService.js'
 import { humanPlayersHostFirst } from '../startRoster.js'
 import { DUEL_CODE } from './duelCode.js'
 import type {
@@ -13,9 +14,9 @@ import type {
 } from './duelPorts.js'
 import {
   draw as applyDraw,
+  forfeit as applyForfeit,
   expire,
   finish,
-  forfeit,
   initialDuelState,
   MAX_WAIT_MILLIS,
   MIN_WAIT_MILLIS,
@@ -71,18 +72,20 @@ export type DuelSnapshot<S> = S | (S & { readonly game: DuelState })
  * 상태 전이는 전부 `states.mutate` 안의 순수 규칙 함수다. 이 클래스가 하는 일은
  * ① 시각·난수 주입 ② 방송 ③ 다음 마감 예약 ④ 종료 시 점수·완료 처리뿐이다.
  */
-export class DuelGameService<S> {
-  private readonly states: DuelStateStore
-  private readonly scheduler: DuelDeadlineScheduler
+export class DuelGameService<S> extends ScheduledStateGameService<DuelState> {
+  protected readonly states: DuelStateStore
+  protected readonly scheduler: DuelDeadlineScheduler
   private readonly broadcaster: DuelBroadcaster
   private readonly realtimeSnapshots: DuelRoomSnapshotPort<S>
   private readonly presence: DuelPresence
   private readonly completion: DuelCompletionPort
   private readonly scoreboard: DuelScoreboardPort
-  private readonly now: () => number
+  protected readonly now: () => number
   private readonly wait: () => number
+  protected readonly gameLabel = '결투'
 
   constructor(deps: DuelGameServiceDeps<S>, options: DuelGameServiceOptions = {}) {
+    super()
     this.states = deps.states
     this.scheduler = deps.scheduler
     this.broadcaster = deps.broadcaster
@@ -135,49 +138,6 @@ export class DuelGameService<S> {
     return this.snapshot(roomId, state)
   }
 
-  /** 타이머만 되살린다 — 상태는 그대로다. 종료된 결투는 예약하지 않는다. */
-  async resume(roomId: string): Promise<void> {
-    const state = await this.states.find(roomId)
-    if (state === null || state.phase === 'FINISHED') return
-    this.schedule(roomId, state)
-  }
-
-  /**
-   * 프로세스 재시작 후의 복구(deploy/PLAN.md PR 6).
-   *
-   * **결투는 예약 로직을 새로 만들 것이 없다.** 마감(`nextActionAt`)이 처음부터
-   * 상태 안의 절대 epoch ms이고 그 상태는 Redis에 있으므로, 되살리는 것은 `resume`과
-   * 같은 예약이다(이미 지난 마감은 예약기가 지연 0으로 깎아 즉시 발화한다).
-   * 야추만 마감이 프로세스 인메모리였고, 그것을 고친 것이 PR 6이다.
-   *
-   * `resume`과 다른 점은 **이어갈 수 없을 때 던진다**는 것뿐이다 — 부팅 복구에서는
-   * 조용히 넘어가면 상태만 살아 있고 턴이 멈춘 방이 남는다.
-   */
-  async rehydrate(roomId: string): Promise<void> {
-    const state = await this.states.find(roomId)
-    if (state === null) {
-      throw new Error(`진행 중이라던 방에 결투 상태가 없습니다: ${roomId}`)
-    }
-    if (state.phase === 'FINISHED') {
-      throw new Error(`결투가 이미 끝난 방입니다(종료 전이 실패): ${roomId}`)
-    }
-    this.schedule(roomId, state)
-  }
-
-  async pause(roomId: string): Promise<void> {
-    this.scheduler.cancelRoom(roomId)
-  }
-
-  /**
-   * 게임 중 이탈 — **forfeit만 적용한다.** 레지스트리·roster 제거는 호출자(WS
-   * 게이트웨이·라이프사이클) 몫이다(야추·탁구와 다르다).
-   */
-  async removePlayer(roomId: string, playerId: string): Promise<void> {
-    const now = this.now()
-    const next = await this.states.mutate(roomId, (current) => forfeit(current, playerId, now))
-    if (next !== null) await this.changed(roomId, next)
-  }
-
   /** 로비 복귀 — 상태를 버리고 대기실 스냅샷을 다시 뿌린다. */
   async reset(roomId: string): Promise<void> {
     this.scheduler.cancelRoom(roomId)
@@ -191,13 +151,9 @@ export class DuelGameService<S> {
     })
   }
 
-  async close(roomId: string): Promise<void> {
-    this.scheduler.cancelRoom(roomId)
-    await this.states.remove(roomId)
-  }
-
-  async hasState(roomId: string): Promise<boolean> {
-    return (await this.states.find(roomId)) !== null
+  /** 게임 중 이탈 — 레지스트리·roster 제거는 호출자 몫이다(야추·탁구와 다르다). */
+  protected forfeit(state: DuelState, playerId: string, now: number): DuelState | null {
+    return applyForfeit(state, playerId, now)
   }
 
   /**
@@ -206,7 +162,7 @@ export class DuelGameService<S> {
    * 기대 버전이 어긋나면 아무것도 하지 않는다 — 그 마감은 이미 지나간 상태의 것이고,
    * 지금 상태에는 자기 마감이 따로 예약돼 있다.
    */
-  private async timeout(roomId: string, expectedVersion: number): Promise<void> {
+  protected async timeout(roomId: string, expectedVersion: number): Promise<void> {
     const now = this.now()
     const wait = this.wait()
     const next = await this.states.mutate(roomId, (current) => {
@@ -223,7 +179,7 @@ export class DuelGameService<S> {
     if (next !== null) await this.changed(roomId, next)
   }
 
-  private async changed(roomId: string, state: DuelState): Promise<void> {
+  protected async changed(roomId: string, state: DuelState): Promise<void> {
     if (state.phase !== 'FINISHED') {
       // WAITING(새 라운드)에서만 방 스냅샷을 함께 보낸다 — 라운드 경계가 아닌
       // 프레임에서 스냅샷을 덧붙이면 진행 중 화면이 매번 재조립된다.
@@ -245,14 +201,6 @@ export class DuelGameService<S> {
     // 결투에 "점수판 완료"는 없다 — 종료 판정은 항상 강제다.
     await this.completion.finishIfComplete(roomId, true)
     await this.broadcast(roomId, state, true)
-  }
-
-  private schedule(roomId: string, state: DuelState): void {
-    if (state.phase === 'FINISHED' || state.nextActionAt <= 0) return
-    const version = state.version
-    this.scheduler.schedule(roomId, version, state.nextActionAt, () =>
-      this.timeout(roomId, version),
-    )
   }
 
   /** `game.duel.state`는 **DuelState를 그대로** 싣는다(래핑 없음 — 와이어 계약). */

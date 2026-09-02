@@ -7,6 +7,7 @@ import {
   localFrameState,
   swingLocalGame,
 } from '@/pingpong/domain/localGame'
+import { followCanvasSize } from '@/pingpong/rendering/canvasResize'
 import { createScene, type PingPongScene } from '@/pingpong/rendering/scene3d'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import { buildClientMessage, type PingPongState } from '@/realtime/wsEvents'
@@ -105,13 +106,7 @@ export function usePartyHostGame({ base, enabled, roomId }: UsePartyHostGameOpti
       return
     }
 
-    const resize = () => {
-      const bounds = canvas.getBoundingClientRect()
-      scene.resize(bounds.width, bounds.height, Math.min(window.devicePixelRatio || 1, 2))
-    }
-    const observer = new ResizeObserver(resize)
-    observer.observe(canvas)
-    resize()
+    const stopFollowingSize = followCanvasSize(canvas, scene)
 
     let last = performance.now()
     let shownPhase: LocalPingPongState['phase'] | null = null
@@ -137,7 +132,7 @@ export function usePartyHostGame({ base, enabled, roomId }: UsePartyHostGameOpti
 
     return () => {
       cancelAnimationFrame(raf)
-      observer.disconnect()
+      stopFollowingSize()
       scene.dispose()
     }
   }, [report, started])

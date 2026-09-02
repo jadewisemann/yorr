@@ -6,10 +6,7 @@
   "vitest": {
     "configFile": "vitest.config.ts"
   },
-  "reporters": [
-    "clear-text",
-    "json"
-  ],
+  "reporters": ["clear-text", "json"],
   "jsonReporter": {
     "fileName": "../tools/quality/.stryker.json"
   },
