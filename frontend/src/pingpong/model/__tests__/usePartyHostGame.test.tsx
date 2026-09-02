@@ -209,6 +209,15 @@ describe('usePartyHostGame 스윙 수신', () => {
     expect(host().hostState?.rally).toBe(2)
   })
 
+  it('판을 잡기 전에 온 스윙은 흘려보낸다', () => {
+    const { client, host } = renderHost({ base: pingPongState({ phase: 'PREPARING' }) })
+
+    // 준비 게이트가 끝나기 전이라 시뮬레이션이 아직 없다.
+    act(() => client.emitMessage(swung(P1)))
+
+    expect(host().hostState).toBeUndefined()
+  })
+
   it('탁구가 아닌 봉투는 흘려보낸다', () => {
     const { client, host } = renderHost()
     runFrames(50)
@@ -217,5 +226,27 @@ describe('usePartyHostGame 스윙 수신', () => {
     act(() => void vi.advanceTimersByTime(REPORT_INTERVAL_MS))
 
     expect(host().hostState?.rally).toBe(0)
+  })
+
+  it('이미 판을 잡은 뒤에는 같은 방을 다시 세우지 않는다', () => {
+    const { client, host, rerender } = renderHost()
+    runFrames(30)
+    const before = host().hostState?.rally
+
+    // 같은 방의 새 프레임이 와도 시뮬레이션을 처음부터 다시 만들지 않는다.
+    rerender({ base: pingPongState({ phase: 'PLAYING', version: 9 }) })
+    act(() => void vi.advanceTimersByTime(REPORT_INTERVAL_MS + FRAME_MS))
+
+    expect(host().hostState?.rally).toBe(before)
+    expect(reports(client).length).toBeGreaterThan(0)
+  })
+
+  it('WebGL을 얻지 못하면 판정도 세우지 않는다', () => {
+    sceneControl.failing = true
+    const { client } = renderHost()
+
+    runFrames(60)
+
+    expect(reports(client)).toEqual([])
   })
 })

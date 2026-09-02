@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { savePingPongAiResult } from '@/pingpong/api/pingPongAiResultApi'
 import type { LocalPingPongDifficulty, LocalPingPongMode } from '@/pingpong/domain/localGame'
 import { type TapPoint, useLocalPingPongGame } from '@/pingpong/model/useLocalPingPongGame'
+import { useAppStore } from '@/store'
 import { FakeResizeObserver } from '@/test/threeStubs'
 import { installFrameLoop, runFrames } from './frameHarness'
 import { sceneControl } from './sceneDouble'
@@ -176,12 +177,12 @@ describe('useLocalPingPongGame 입력', () => {
   })
 })
 
-describe('useLocalPingPongGame 전적 보고', () => {
-  /** 한 판이 끝날 때까지 굴린다. 봇 판단이 고정돼 있어 사람이 가만히 있으면 반드시 진다. */
-  function playUntilOver(phaseOf: () => string) {
-    for (let chunk = 0; chunk < 60 && phaseOf() !== 'over'; chunk += 1) runFrames(100)
-  }
+/** 한 판이 끝날 때까지 굴린다. 봇 판단이 고정돼 있어 사람이 가만히 있으면 반드시 진다. */
+function playUntilOver(phaseOf: () => string) {
+  for (let chunk = 0; chunk < 60 && phaseOf() !== 'over'; chunk += 1) runFrames(100)
+}
 
+describe('useLocalPingPongGame 전적 보고', () => {
   it('혼자 한 판이 끝나면 사람과 AI의 최종 점수를 한 번만 올린다', () => {
     const { game } = renderLocalGame({ mode: 'solo' })
 
@@ -207,5 +208,47 @@ describe('useLocalPingPongGame 전적 보고', () => {
     expect(game().hud.phase).toBe('over')
 
     expect(savePingPongAiResult).not.toHaveBeenCalled()
+  })
+
+  it('캔버스가 붙기 전에는 무대를 만들지 않는다', () => {
+    function Bare() {
+      useLocalPingPongGame({ difficulty: 'normal', mode: 'solo' })
+      return null
+    }
+    render(<Bare />)
+
+    expect(sceneControl.scenes).toHaveLength(0)
+  })
+
+  it('폰을 휘두르면 1번 라켓이 나간다', () => {
+    // 권한 요청이 없는 기기로 가장한다 — `useSwing`이 곧바로 듣기 시작한다.
+    vi.stubGlobal('DeviceMotionEvent', class {})
+    const { game } = renderLocalGame({ mode: 'solo' })
+    runFrames(30)
+
+    act(() => {
+      const motion = new Event('devicemotion') as DeviceMotionEvent & {
+        acceleration: { x: number; y: number; z: number }
+      }
+      Object.defineProperty(motion, 'acceleration', { value: { x: 40, y: 0, z: 0 } })
+      window.dispatchEvent(motion)
+    })
+
+    expect(game().feedback).not.toBeNull()
+  })
+
+  it('로그인이 바뀌어도 같은 판을 두 번 올리지 않는다', () => {
+    const { game } = renderLocalGame({ mode: 'solo' })
+    playUntilOver(() => game().hud.phase)
+    expect(savePingPongAiResult).toHaveBeenCalledOnce()
+
+    // 로그인 상태가 바뀌면 보고 콜백이 새로 만들어진다 — 그래도 한 번뿐이어야 한다.
+    act(() =>
+      useAppStore
+        .getState()
+        .signIn({ userId: 'member-1', nickname: '회원', sessionToken: 'token-1' }),
+    )
+
+    expect(savePingPongAiResult).toHaveBeenCalledOnce()
   })
 })
