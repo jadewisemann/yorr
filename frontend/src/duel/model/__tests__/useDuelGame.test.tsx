@@ -154,6 +154,39 @@ describe('useDuelGame 뽑기', () => {
     expect(game().sendError).toBe('연결을 확인한 뒤 다시 뽑아 주세요.')
   })
 
+  it('무대가 아직 붙지 않았으면 폭을 재지 않는다', () => {
+    // ref를 달지 않은 화면. 훅은 잴 것이 없으므로 기본 폭으로 서 있는다.
+    function Bare() {
+      useDuelGame({ roomId: ROOM_ID, session: SESSION, state: duelState({ phase: 'WAITING' }) })
+      return null
+    }
+    const client = new FakeRealtimeClient()
+
+    expect(() =>
+      render(
+        <RealtimeClientProvider client={client}>
+          <Bare />
+        </RealtimeClientProvider>,
+      ),
+    ).not.toThrow()
+    expect(FakeResizeObserver.instances).toHaveLength(0)
+  })
+
+  it('폰을 휘두르면 그것도 뽑기가 된다', () => {
+    vi.stubGlobal('DeviceMotionEvent', class {})
+    const { client } = renderDuelGame(duelState({ phase: 'WAITING' }))
+
+    act(() => {
+      const event = Object.assign(new Event('devicemotion'), {
+        acceleration: { x: 40, y: 40, z: 40 },
+        accelerationIncludingGravity: null,
+      })
+      window.dispatchEvent(event)
+    })
+
+    expect(drawPayloads(client)).toHaveLength(1)
+  })
+
   it('스페이스바로도 뽑되 눌린 채 반복되는 입력은 흘린다', () => {
     const { client, game } = renderDuelGame(duelState({ phase: 'WAITING' }))
 

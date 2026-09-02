@@ -114,9 +114,15 @@ describe('usePhysicsDiceWorld 적재', () => {
     expect(onError.mock.calls[0]?.[0]).toBeInstanceOf(Error)
   })
 
-  it('적재가 끝나기 전에 화면이 사라지면 월드를 세우지 않는다', async () => {
+  it('세우는 도중에 화면이 사라지면 월드를 잡아 두지 않는다', async () => {
     const release = worldControl.hold()
     const scene = mountScene()
+
+    // 적재는 끝나고 `init`을 기다리는 자리까지 진행시킨 뒤 떠난다.
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(worldControl.instances).toHaveLength(1)
 
     scene.unmount()
     await act(async () => {
@@ -124,8 +130,8 @@ describe('usePhysicsDiceWorld 적재', () => {
       await Promise.resolve()
     })
 
-    // 생성자는 이미 불렸지만 init을 기다리는 사이 떠났으므로 잡아 두지 않는다.
-    expect(worldControl.instances.every((world) => world.destroyed)).toBe(true)
+    expect(worldControl.last().destroyed).toBe(true)
+    expect(scene.view().loading).toBe(true)
   })
 
   it('적재가 끝나기 전에 화면이 사라지면 실패도 삼킨다', async () => {
