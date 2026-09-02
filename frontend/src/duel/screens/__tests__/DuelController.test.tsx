@@ -1,28 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { duelState, ME, RIVAL } from '@/duel/__tests__/duelFixtures'
 import { DRAW_PENALTY_MS } from '@/duel/domain/duel'
 import { DuelController } from '@/duel/screens/DuelController'
 import type { DuelState } from '@/realtime/wsEvents'
-
-const ME = 'me'
-const RIVAL = 'rival'
-
-function duelState(overrides: Partial<DuelState> = {}): DuelState {
-  return {
-    fouls: { [ME]: 0, [RIVAL]: 0 },
-    hp: { [ME]: 3, [RIVAL]: 3 },
-    lastInputSeq: {},
-    nextActionAt: 0,
-    phase: 'WAITING',
-    playerOrder: [ME, RIVAL],
-    reactions: {},
-    round: 1,
-    signalAt: 0,
-    version: 1,
-    ...overrides,
-  }
-}
 
 function renderController(state: DuelState, props: { permission?: 'denied' | 'granted' } = {}) {
   const onDraw = vi.fn()
