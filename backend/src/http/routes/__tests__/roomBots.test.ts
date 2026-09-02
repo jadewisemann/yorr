@@ -118,6 +118,19 @@ describeRedis('봇 REST', () => {
       headers: authHeaders(user.id, user.token),
     })
 
+  /** 봇 하나가 들어간 방과, 그 뒤의 방송을 받을 소켓 하나. */
+  const botWithListener = async (
+    instance: FastifyInstance,
+    broadcaster: RoomBroadcaster,
+    host: { id: string; token: string; room_id: string },
+  ) => {
+    const added = (await addBot(instance, host.room_id, host)).json() as RoomSnapshot
+    const botId = added.players.find((player) => player.kind === 'BOT')?.playerId as string
+    const listener = socket()
+    broadcaster.register(host.room_id, listener)
+    return { botId, listener }
+  }
+
   afterEach(async () => {
     await app?.close()
     app = undefined
@@ -157,10 +170,7 @@ describeRedis('봇 REST', () => {
   it('DELETE — 봇을 빼고 스냅샷을 돌려주며 다시 방송한다', async () => {
     const { app: instance, broadcaster } = await build()
     const host = await enterRoom(instance, { nickname: '호스트' })
-    const added = (await addBot(instance, host.room_id, host)).json() as RoomSnapshot
-    const botId = added.players.find((player) => player.kind === 'BOT')?.playerId as string
-    const listener = socket()
-    broadcaster.register(host.room_id, listener)
+    const { botId, listener } = await botWithListener(instance, broadcaster, host)
 
     const response = await removeBot(instance, host.room_id, botId, host)
 
@@ -188,10 +198,7 @@ describeRedis('봇 REST', () => {
     const { app: instance, broadcaster } = await build()
     const host = await enterRoom(instance, { nickname: '호스트' })
     const guest = await enterRoom(instance, { nickname: '참가자', room_id: host.room_id })
-    const added = (await addBot(instance, host.room_id, host)).json() as RoomSnapshot
-    const botId = added.players.find((player) => player.kind === 'BOT')?.playerId as string
-    const listener = socket()
-    broadcaster.register(host.room_id, listener)
+    const { botId, listener } = await botWithListener(instance, broadcaster, host)
 
     const add = await addBot(instance, host.room_id, guest)
     const remove = await removeBot(instance, host.room_id, botId, guest)

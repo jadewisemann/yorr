@@ -34,11 +34,26 @@ afterEach(async () => {
   app = null
 })
 
+/** 준비 상태 응답 한 통. 배포 게이트가 읽는 유일한 표면이다. */
+const health = (instance: FastifyInstance) =>
+  instance.inject({ method: 'GET', url: '/actuator/health' })
+
+/** 죽었다고 답하는 의존 하나. 이름과 오류 문구는 검사마다 다르다. */
+const failingProbe = (name: string, message: string) =>
+  new ReadinessService([
+    {
+      name,
+      run: () => {
+        throw new Error(message)
+      },
+    },
+  ])
+
 describe('/actuator', () => {
   it('의존 확인이 전부 통과하면 200 {"status":"UP"}이다', async () => {
     const instance = await startApp({ readiness: readyProbe() })
 
-    const response = await instance.inject({ method: 'GET', url: '/actuator/health' })
+    const response = await health(instance)
 
     expect(response.statusCode).toBe(200)
     expect(response.json()).toEqual({ status: 'UP' })
@@ -49,18 +64,9 @@ describe('/actuator', () => {
    * `up -d --wait`는 Redis·MySQL이 죽은 컨테이너를 성공으로 읽었다(PLAN.md 버그 B).
    */
   it('의존 하나라도 실패하면 503 {"status":"DOWN"}이다', async () => {
-    const instance = await startApp({
-      readiness: new ReadinessService([
-        {
-          name: 'redis',
-          run: () => {
-            throw new Error('죽었다')
-          },
-        },
-      ]),
-    })
+    const instance = await startApp({ readiness: failingProbe('redis', '죽었다') })
 
-    const response = await instance.inject({ method: 'GET', url: '/actuator/health' })
+    const response = await health(instance)
 
     expect(response.statusCode).toBe(503)
     expect(response.json()).toEqual({ status: 'DOWN' })
@@ -69,17 +75,10 @@ describe('/actuator', () => {
   /** 어느 의존이 죽었는지는 본문에 싣지 않는다 — 인증 없이 공개되는 표면이다. */
   it('DOWN 본문에 의존 이름이 새지 않는다', async () => {
     const instance = await startApp({
-      readiness: new ReadinessService([
-        {
-          name: 'mysql',
-          run: () => {
-            throw new Error('ECONNREFUSED 10.0.0.5:3306')
-          },
-        },
-      ]),
+      readiness: failingProbe('mysql', 'ECONNREFUSED 10.0.0.5:3306'),
     })
 
-    const response = await instance.inject({ method: 'GET', url: '/actuator/health' })
+    const response = await health(instance)
 
     expect(response.body).not.toContain('mysql')
     expect(response.body).not.toContain('10.0.0.5')
@@ -92,7 +91,7 @@ describe('/actuator', () => {
   it('판정기가 배선되지 않으면 200이 아니라 503이다', async () => {
     const instance = await startApp()
 
-    const response = await instance.inject({ method: 'GET', url: '/actuator/health' })
+    const response = await health(instance)
 
     expect(response.statusCode).toBe(503)
     expect(response.json()).toEqual({ status: 'DOWN' })

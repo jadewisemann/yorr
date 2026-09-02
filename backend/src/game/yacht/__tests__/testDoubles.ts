@@ -1,5 +1,6 @@
 import type { WsRoomSnapshot } from '../../../ws/protocol.js'
 import type { ClientSocket } from '../../../ws/socket.js'
+import { BroadcastRecorder } from '../../__tests__/recordingBroadcaster.js'
 import type { RoundState, TurnAdvanceInput } from '../../round/index.js'
 import {
   createScoreBoard,
@@ -51,30 +52,10 @@ export class FakeSocket implements ClientSocket {
   }
 }
 
-export interface RecordedBroadcast {
-  readonly roomId: string
-  readonly message: YachtOutboundEnvelope
-}
-
-export class RecordingBroadcaster implements YachtBroadcaster {
-  readonly sent: RecordedBroadcast[] = []
-
-  broadcast(roomId: string, message: YachtOutboundEnvelope): void {
-    this.sent.push({ roomId, message })
-  }
-
-  reset(): void {
-    this.sent.length = 0
-  }
-
-  messagesFor(roomId: string): YachtOutboundEnvelope[] {
-    return this.sent.filter((entry) => entry.roomId === roomId).map((entry) => entry.message)
-  }
-
-  typesFor(roomId: string): string[] {
-    return this.messagesFor(roomId).map((message) => message.type)
-  }
-
+export class RecordingBroadcaster
+  extends BroadcastRecorder<YachtOutboundEnvelope>
+  implements YachtBroadcaster
+{
   /** 이 방으로 나간 마지막 그 타입의 봉투. */
   lastOf(roomId: string, type: string): YachtOutboundEnvelope {
     const message = this.messagesFor(roomId)

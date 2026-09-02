@@ -21,6 +21,17 @@ async function answerExitPrompt(user: Awaited<ReturnType<typeof openLobby>>['use
   await user.click(await within(dialog).findByRole('button', { name }))
 }
 
+/** 나가기를 확정하면 홈으로 가고 방 세션이 사라진다 — 퇴장 REST의 성패와 무관하다. */
+async function expectLeavesToHome() {
+  const { router, user } = await openLobby()
+
+  void router.navigate({ to: '/' })
+  await answerExitPrompt(user, '나가기')
+
+  await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+  expect(useAppStore.getState().roomSession).toBeNull()
+}
+
 describe('RoomExitGuard', () => {
   afterEach(() => resetAppTestState())
 
@@ -36,13 +47,7 @@ describe('RoomExitGuard', () => {
   })
 
   it('확인하면 퇴장 처리 후 원래 가려던 곳으로 마저 보낸다', async () => {
-    const { router, user } = await openLobby()
-
-    void router.navigate({ to: '/' })
-    await answerExitPrompt(user, '나가기')
-
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
-    expect(useAppStore.getState().roomSession).toBeNull()
+    await expectLeavesToHome()
   })
 
   it('퇴장 REST가 실패해도 로컬 세션을 정리한다', async () => {
@@ -51,13 +56,7 @@ describe('RoomExitGuard', () => {
         HttpResponse.json({ code: 'UNAVAILABLE' }, { status: 503 }),
       ),
     )
-    const { router, user } = await openLobby()
-
-    void router.navigate({ to: '/' })
-    await answerExitPrompt(user, '나가기')
-
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
-    expect(useAppStore.getState().roomSession).toBeNull()
+    await expectLeavesToHome()
   })
 
   it('같은 방 안의 화면 전환(대기실 → 게임)은 막지 않는다', async () => {
