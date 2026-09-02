@@ -39,6 +39,15 @@ afterEach(() => {
   Reflect.deleteProperty(navigator, 'share')
 })
 
+/** 공유가 실패하는 상황. 실패 사유마다 화면이 무엇을 남기는지 갈린다. */
+async function shareFailing(reason: unknown) {
+  stubShare(vi.fn().mockRejectedValue(reason))
+  const user = userEvent.setup()
+  render(<InvitePopover onClose={() => undefined} open roomCode="AB12CD" />)
+
+  await user.click(screen.getByRole('button', { name: '공유하기' }))
+}
+
 describe('createInviteUrl', () => {
   it('방 코드를 쿼리에 안전하게 실어 준다', () => {
     expect(createInviteUrl('AB12CD')).toBe(`${window.location.origin}/join?code=AB12CD`)
@@ -121,21 +130,13 @@ describe('InvitePopover', () => {
   })
 
   it('사용자가 공유를 취소하면 아무 문구도 남기지 않는다', async () => {
-    stubShare(vi.fn().mockRejectedValue(new DOMException('cancelled', 'AbortError')))
-    const user = userEvent.setup()
-    render(<InvitePopover onClose={() => undefined} open roomCode="AB12CD" />)
-
-    await user.click(screen.getByRole('button', { name: '공유하기' }))
+    await shareFailing(new DOMException('cancelled', 'AbortError'))
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('공유를 열지 못하면 링크 복사로 우회하도록 알린다', async () => {
-    stubShare(vi.fn().mockRejectedValue(new Error('not allowed')))
-    const user = userEvent.setup()
-    render(<InvitePopover onClose={() => undefined} open roomCode="AB12CD" />)
-
-    await user.click(screen.getByRole('button', { name: '공유하기' }))
+    await shareFailing(new Error('not allowed'))
 
     expect(await screen.findByRole('status')).toHaveTextContent(
       '공유를 열지 못했어요. 링크 복사를 이용해 주세요.',

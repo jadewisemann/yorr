@@ -1,10 +1,4 @@
-import type {
-  Player,
-  RoomSnapshot,
-  ScoreBoard,
-  ServerMessage,
-  YachtCategory,
-} from '@/realtime/wsEvents'
+import type { Player, RoomSnapshot, ScoreBoard, YachtCategory } from '@/realtime/wsEvents'
 import { YACHT_CATEGORIES } from '@/realtime/wsEvents'
 import type { RoomSession } from '@/room/api/roomApi'
 
@@ -103,20 +97,4 @@ export const dashboardSession = {
   snapshot: waitingRoomSnapshot,
 } satisfies RoomSession
 
-export function serverMessage<T extends ServerMessage['type']>(
-  type: T,
-  payload: Extract<ServerMessage, { type: T }>['payload'],
-  options: {
-    roomId?: string | undefined
-    msgId?: string | undefined
-    ts?: number | undefined
-  } = {},
-): Extract<ServerMessage, { type: T }> {
-  return {
-    type,
-    ts: options.ts ?? 1_753_000_000_000,
-    payload,
-    ...(options.roomId === undefined ? {} : { roomId: options.roomId }),
-    ...(options.msgId === undefined ? {} : { msgId: options.msgId }),
-  } as Extract<ServerMessage, { type: T }>
-}
+export { buildServerMessage as serverMessage } from '@/realtime/wsEvents'

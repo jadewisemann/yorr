@@ -34,6 +34,15 @@ const throwMessage = buildClientMessage(
   { roomId: 'ROOM1' },
 )
 
+/** 대시보드가 폰 하나와 협상을 마친 뒤 열어 둔 두 채널(펄스·이벤트). */
+async function dashboardChannels() {
+  const { link, signals } = createLink('dashboard')
+  link.syncPeers(['phone-1'])
+  await vi.waitFor(() => expect(signals).toHaveLength(1))
+  const [pulse, event] = rtcConnections[0]?.channels ?? []
+  return { event, link, pulse }
+}
+
 describe('ControllerLink', () => {
   beforeEach(stubWebRtc)
 
@@ -55,12 +64,7 @@ describe('ControllerLink', () => {
   })
 
   it('펄스 채널만 unreliable이다', async () => {
-    const { link, signals } = createLink('dashboard')
-
-    link.syncPeers(['phone-1'])
-    await vi.waitFor(() => expect(signals).toHaveLength(1))
-
-    const [pulse, event] = rtcConnections[0]?.channels ?? []
+    const { event, pulse } = await dashboardChannels()
     expect(pulse?.init).toEqual({ ordered: false, maxRetransmits: 0 })
     expect(event?.init).toEqual({ ordered: false })
   })
@@ -97,10 +101,7 @@ describe('ControllerLink', () => {
   })
 
   it('흔들기는 펄스 채널, 던지기는 이벤트 채널로 나간다', async () => {
-    const { link, signals } = createLink('dashboard')
-    link.syncPeers(['phone-1'])
-    await vi.waitFor(() => expect(signals).toHaveLength(1))
-    const [pulse, event] = rtcConnections[0]?.channels ?? []
+    const { event, link, pulse } = await dashboardChannels()
     pulse?.open()
     event?.open()
 

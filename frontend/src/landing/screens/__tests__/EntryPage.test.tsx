@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EntryPage } from '@/landing/screens/EntryPage'
 import { creatorSession } from '@/mocks/fixtures'
 import { useAppStore } from '@/store'
+import { installMatchMedia } from '@/test/mediaQuery'
 import { navigateSpy } from '@/test/routerDouble'
 
 const { closeSession } = vi.hoisted(() => ({ closeSession: vi.fn().mockResolvedValue(undefined) }))
@@ -21,21 +22,7 @@ vi.mock('@/auth/api/authApi', async (importOriginal) => ({
 }))
 
 function useLayout(wide: boolean) {
-  Object.defineProperty(window, 'matchMedia', {
-    configurable: true,
-    writable: true,
-    value: (query: string) =>
-      ({
-        matches: wide,
-        media: query,
-        onchange: null,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      }) as unknown as MediaQueryList,
-  })
+  installMatchMedia(wide)
 }
 
 function codeDialog() {

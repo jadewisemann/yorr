@@ -7,6 +7,7 @@ import {
   TUTORIAL_PLAYER_ID,
   TUTORIAL_ROOM_ID,
 } from '@/yacht/domain/tutorialGame'
+import { rollLocalDice } from './localRoll'
 
 function sendAndCollect(
   client: ReturnType<typeof createTutorialClient>,
@@ -24,20 +25,9 @@ function rollAndRead(
   rollCount: 1 | 2 | 3,
   held: [boolean, boolean, boolean, boolean, boolean],
 ) {
-  let dice: readonly number[] | null = null
-  const stop = client.onMessage((message) => {
-    if (message.type === 'game.yacht_dice.dice.broadcast') dice = message.payload.dice
-  })
-  client.send(
-    buildClientMessage(
-      'game.yacht_dice.dice.roll',
-      { held, rollCount, roundNumber: 1 },
-      { roomId: TUTORIAL_ROOM_ID },
-    ),
-  )
-  stop()
+  const dice = rollLocalDice(client, { held, rollCount, roomId: TUTORIAL_ROOM_ID })
   if (!dice) throw new Error('연습 서버가 주사위를 돌려주지 않았다')
-  return dice as readonly number[]
+  return dice
 }
 
 const NONE: [boolean, boolean, boolean, boolean, boolean] = [false, false, false, false, false]

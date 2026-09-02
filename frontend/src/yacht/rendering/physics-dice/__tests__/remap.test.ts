@@ -72,6 +72,15 @@ describe('cubeAlignmentOffset', () => {
   })
 })
 
+/** 바닥판 하나만 있는 세계. 궤적 예측이 무엇을 보는지 재려면 이만큼이면 된다. */
+async function floorWorld() {
+  await RAPIER.init()
+  const world = new RAPIER.World({ x: 0, y: -19.2, z: 0 })
+  world.timestep = 1 / 480
+  world.createCollider(RAPIER.ColliderDesc.cuboid(4, 0.1, 4).setTranslation(0, -0.1, 0))
+  return world
+}
+
 describe('predictNaturalDice', () => {
   it('복제 시뮬 예측이 같은 월드의 실제 진행 결과와 일치한다', async () => {
     await RAPIER.init()
@@ -132,10 +141,7 @@ describe('predictNaturalDice', () => {
   })
 
   it('예측 결과가 스택이면 결정론적 분산을 적용한 후보를 선택한다', async () => {
-    await RAPIER.init()
-    const world = new RAPIER.World({ x: 0, y: -19.2, z: 0 })
-    world.timestep = 1 / 480
-    world.createCollider(RAPIER.ColliderDesc.cuboid(4, 0.1, 4).setTranslation(0, -0.1, 0))
+    const world = await floorWorld()
     const halfSize = ROLLING_HALF
     const entries: PredictableDie[] = [0, 1].map((index) => {
       const body = world.createRigidBody(
@@ -181,10 +187,7 @@ describe('predictNaturalDice', () => {
   })
 
   it('바닥에 모서리로 멈춘 주사위만 눌러 다시 정착시킨다', async () => {
-    await RAPIER.init()
-    const world = new RAPIER.World({ x: 0, y: -19.2, z: 0 })
-    world.timestep = 1 / 480
-    world.createCollider(RAPIER.ColliderDesc.cuboid(4, 0.1, 4).setTranslation(0, -0.1, 0))
+    const world = await floorWorld()
     const halfSize = ROLLING_HALF
     const angle = Math.PI / 4
     const body = world.createRigidBody(

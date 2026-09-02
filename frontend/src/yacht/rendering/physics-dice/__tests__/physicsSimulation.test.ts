@@ -63,6 +63,13 @@ function simulate(seed: number) {
   let bowlAltMin = Number.POSITIVE_INFINITY
   let bowlBottomClearanceMin = Number.POSITIVE_INFINITY
   let bowlAltMax = 0
+  // 아래 흔들기 루프는 화면의 `shakeBowlFrame`과 형태가 겹치지만 **같지 않다** —
+  // 무작위 임펄스를 빼고 그릇 높이를 고정한 단순 모델이고, 24개 seed의 임계값이
+  // 이 모델 위에서 잡혀 있다. 화면 함수로 갈아 끼우면 난수 소비 순서가 달라져
+  // 표본이 통째로 바뀌고, 그중 한두 개에서 주사위가 겹친 자세로 끝난다(궤적
+  // 문제 점수 2.3~3.0). 그것은 쏟는 힘의 분산을 손봐야 하는 별개의 과제이므로
+  // 여기서 함께 다루지 않는다. 복사본이 낡지 않게 하려면 그 과제와 함께 이
+  // 루프를 화면 함수로 옮겨야 한다.
   let lastKick = -1e9
   const shakeStrength = SCENE.bowl.shakeStrength
   const shakeSteps = Math.round(1.2 * CONFIG.defaults.simulationHz)

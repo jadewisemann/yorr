@@ -10,6 +10,17 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   useNavigate: () => navigate,
 }))
 
+/** 잘못된 코드로 막힌 화면에서 코드를 고쳐 다시 참가를 누른다. */
+async function retryWithCode(typed: string) {
+  const user = userEvent.setup()
+  render(<InvalidInvitePage initialCode="BAD!" />)
+  const input = screen.getByRole('textbox', { name: '초대 코드' })
+
+  await user.clear(input)
+  await user.type(input, typed)
+  await user.click(screen.getByRole('button', { name: '수정한 코드로 참가' }))
+}
+
 describe('InvalidInvitePage', () => {
   beforeEach(() => navigate.mockReset())
 
@@ -21,25 +32,13 @@ describe('InvalidInvitePage', () => {
   })
 
   it('고친 코드가 형식에 맞으면 그 코드로 참가 흐름을 다시 시작한다', async () => {
-    const user = userEvent.setup()
-    render(<InvalidInvitePage initialCode="BAD!" />)
-    const input = screen.getByRole('textbox', { name: '초대 코드' })
-
-    await user.clear(input)
-    await user.type(input, ' yorr64 ')
-    await user.click(screen.getByRole('button', { name: '수정한 코드로 참가' }))
+    await retryWithCode(' yorr64 ')
 
     expect(navigate).toHaveBeenCalledWith({ to: '/join', search: { code: 'YORR64' } })
   })
 
   it('여전히 형식에 맞지 않으면 이동하지 않고 이유를 남긴다', async () => {
-    const user = userEvent.setup()
-    render(<InvalidInvitePage initialCode="BAD!" />)
-    const input = screen.getByRole('textbox', { name: '초대 코드' })
-
-    await user.clear(input)
-    await user.type(input, 'ab')
-    await user.click(screen.getByRole('button', { name: '수정한 코드로 참가' }))
+    await retryWithCode('ab')
 
     expect(navigate).not.toHaveBeenCalled()
     expect(screen.getByRole('alert')).toBeVisible()

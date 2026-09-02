@@ -20,13 +20,15 @@ const session = { userId: 'u1', nickname: '느긋한 선장', sessionToken: 'tok
 
 const ORIGIN = `origin=${encodeURIComponent(globalThis.location.origin)}`
 
+/** 로그인하지 않은 상태의 계정 창 한 장. */
+function renderSignedOut() {
+  render(<AccountDialog layout="wide" onClose={vi.fn()} onSignOut={vi.fn()} open session={null} />)
+  return { assign: stubNavigation(), user: userEvent.setup() }
+}
+
 describe('로그인 수단 고르기', () => {
   it('제공자마다 그 제공자의 시작 주소로 페이지를 옮긴다', async () => {
-    const assign = stubNavigation()
-    const user = userEvent.setup()
-    render(
-      <AccountDialog layout="wide" onClose={vi.fn()} onSignOut={vi.fn()} open session={null} />,
-    )
+    const { assign, user } = renderSignedOut()
 
     await user.click(screen.getByRole('button', { name: '카카오로 계속하기' }))
     expect(assign).toHaveBeenCalledWith(`${API_BASE_URL}/auth/kakao/authorize?${ORIGIN}`)
@@ -36,11 +38,7 @@ describe('로그인 수단 고르기', () => {
   })
 
   it('다른 계정으로 로그인은 재인증을 요청한다 — 카카오 세션이 남아 동의 없이 통과하기 때문이다', async () => {
-    const assign = stubNavigation()
-    const user = userEvent.setup()
-    render(
-      <AccountDialog layout="wide" onClose={vi.fn()} onSignOut={vi.fn()} open session={null} />,
-    )
+    const { assign, user } = renderSignedOut()
 
     await user.click(screen.getByRole('button', { name: '다른 계정으로 로그인' }))
 

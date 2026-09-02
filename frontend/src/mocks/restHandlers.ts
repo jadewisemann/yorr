@@ -52,6 +52,18 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       : null
   }
 
+  /**
+   * 방을 떠나는 두 경로(대기실로 되돌리기·자기 자리 비우기)는 응답이 같다. 성공은
+   * 본문 없는 204이고, mock이 모르는 방이거나 오류 시나리오면 그쪽이 이긴다.
+   */
+  async function discardRoom(roomCode: string | readonly string[] | undefined) {
+    await beforeResponse()
+    const rejected = rejectUnknownRoom(roomCode) ?? unavailable()
+    if (rejected) return rejected
+    clearMockRoomSnapshot()
+    return new HttpResponse(null, { status: 204 })
+  }
+
   return [
     http.post('/api/v1/auth/session', async ({ request }) => {
       await beforeResponse()
@@ -198,13 +210,7 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       saveMockRoomSnapshot(updated)
       return HttpResponse.json(toRestRoomSnapshot(updated))
     }),
-    http.post('/api/v1/rooms/:roomCode/lobby', async ({ params }) => {
-      await beforeResponse()
-      const rejected = rejectUnknownRoom(params.roomCode) ?? unavailable()
-      if (rejected) return rejected
-      clearMockRoomSnapshot()
-      return new HttpResponse(null, { status: 204 })
-    }),
+    http.post('/api/v1/rooms/:roomCode/lobby', ({ params }) => discardRoom(params.roomCode)),
     http.post('/api/v1/games/:gameId/score-candidates', async ({ params, request }) => {
       await beforeResponse()
       if (params.gameId !== 'mock-game-id') {
@@ -213,13 +219,7 @@ export function createRestHandlers(options: RestHandlerOptions = {}) {
       const body = (await request.json()) as ScoreCandidatesRequest
       return unavailable() ?? HttpResponse.json({ candidates: calculateScoreCandidates(body.dice) })
     }),
-    http.delete('/api/v1/rooms/:roomCode/players/me', async ({ params }) => {
-      await beforeResponse()
-      const rejected = rejectUnknownRoom(params.roomCode) ?? unavailable()
-      if (rejected) return rejected
-      clearMockRoomSnapshot()
-      return new HttpResponse(null, { status: 204 })
-    }),
+    http.delete('/api/v1/rooms/:roomCode/players/me', ({ params }) => discardRoom(params.roomCode)),
     http.get('/api/v1/rankings/weekly', async ({ request }) => {
       await beforeResponse()
       const failure = unavailable()

@@ -37,6 +37,23 @@ function stubMatchMedia(matches: boolean) {
   )
 }
 
+type User = ReturnType<typeof userEvent.setup>
+
+/** 방을 벗어나려다 뜬 확인 창에서 버튼 하나를 누른다. */
+async function answerExitPrompt(user: User, name: string) {
+  await user.click(screen.getByRole('button', { name: '나가기' }))
+  const dialog = await screen.findByRole('alertdialog', { name: '방에서 나갈까요?' })
+  await user.click(within(dialog).getByRole('button', { name }))
+}
+
+/** 방장이 게임을 시작해 판이 열릴 때까지. */
+async function startGame(user: User) {
+  await user.click(screen.getByRole('button', { name: '게임 시작' }))
+
+  await waitFor(() => expect(navigateSpy).toHaveBeenCalled())
+  expect(useAppStore.getState().roomSnapshot?.phase).toBe('playing')
+}
+
 describe('LobbyPage', () => {
   beforeEach(() => {
     navigateSpy.mockReset()
@@ -114,10 +131,8 @@ describe('LobbyPage', () => {
     const user = userEvent.setup()
     render(<LobbyPage roomId={creatorSession.roomId} />)
 
-    await user.click(screen.getByRole('button', { name: '게임 시작' }))
+    await startGame(user)
 
-    await waitFor(() => expect(navigateSpy).toHaveBeenCalled())
-    expect(useAppStore.getState().roomSnapshot?.phase).toBe('playing')
     expect(navigateSpy).toHaveBeenCalledWith({
       to: '/rooms/$roomId/game',
       params: { roomId: creatorSession.roomId },
@@ -132,10 +147,8 @@ describe('LobbyPage', () => {
     render(<LobbyPage roomId={creatorSession.roomId} />)
 
     expect(screen.getByRole('button', { name: '게임 시작' })).toBeEnabled()
-    await user.click(screen.getByRole('button', { name: '게임 시작' }))
 
-    await waitFor(() => expect(navigateSpy).toHaveBeenCalled())
-    expect(useAppStore.getState().roomSnapshot?.phase).toBe('playing')
+    await startGame(user)
   })
 
   it('keeps a participant waiting for the host', () => {
@@ -223,9 +236,7 @@ describe('LobbyPage', () => {
     const user = userEvent.setup()
     render(<LobbyPage roomId={creatorSession.roomId} />)
 
-    await user.click(screen.getByRole('button', { name: '나가기' }))
-    const dialog = await screen.findByRole('alertdialog', { name: '방에서 나갈까요?' })
-    await user.click(within(dialog).getByRole('button', { name: '머무르기' }))
+    await answerExitPrompt(user, '머무르기')
 
     expect(screen.queryByRole('alertdialog', { name: '방에서 나갈까요?' })).not.toBeInTheDocument()
     expect(useAppStore.getState().roomSession).not.toBeNull()
@@ -235,9 +246,7 @@ describe('LobbyPage', () => {
     const user = userEvent.setup()
     render(<LobbyPage roomId={creatorSession.roomId} />)
 
-    await user.click(screen.getByRole('button', { name: '나가기' }))
-    const dialog = await screen.findByRole('alertdialog', { name: '방에서 나갈까요?' })
-    await user.click(within(dialog).getByRole('button', { name: '나가기' }))
+    await answerExitPrompt(user, '나가기')
 
     await waitFor(() => expect(useAppStore.getState().roomSession).toBeNull())
     expect(navigateSpy).toHaveBeenCalledWith({ to: '/', replace: true })

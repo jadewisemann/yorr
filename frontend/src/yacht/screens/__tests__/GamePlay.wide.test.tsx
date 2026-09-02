@@ -10,6 +10,7 @@ import {
 import { createRealtimeFixture } from '@/mocks/realtimeScenarios'
 import { RealtimeClientProvider } from '@/realtime/RealtimeClientContext'
 import { type ConnectionStatus, useAppStore } from '@/store'
+import { installMatchMedia } from '@/test/mediaQuery'
 import type { MotionAvailability, MotionGestureState } from '@/yacht/input/motionTypes'
 import { GamePlay } from '@/yacht/screens/GamePlay'
 
@@ -70,17 +71,7 @@ describe('GamePlay 데스크톱 레이아웃', () => {
     motion.availability = 'unsupported'
     motion.gestureState = 'idle'
     useAppStore.getState().reset()
-    window.matchMedia = ((query: string) =>
-      ({
-        matches: query === WIDE_QUERY,
-        media: query,
-        onchange: null,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      }) as unknown as MediaQueryList) as typeof window.matchMedia
+    installMatchMedia((query) => query === WIDE_QUERY)
   })
 
   it('점수표를 시트 대신 상시 패널로 두고 굴리기 CTA에 단축키를 병기한다', () => {

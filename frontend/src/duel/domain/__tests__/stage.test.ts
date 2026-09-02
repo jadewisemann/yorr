@@ -61,24 +61,27 @@ describe('buildStage', () => {
     expect(view.right.name).toBe('두번째')
   })
 
-  it('총알이 닿기 전에는 맞은 쪽 체력이 아직 깎이지 않는다', () => {
-    const shot = {
-      hp: { [ME]: 3, [RIVAL]: 2 },
-      lastRound: round({ hitId: RIVAL, shooterId: ME }),
-      phase: 'RESULT' as const,
-    }
+  /** 내가 부정출발한 판정 화면. 총알이 상대에게 가지 않는 갈래를 본다. */
+  const foulState = {
+    fouls: { [ME]: 1, [RIVAL]: 0 },
+    lastRound: round({ foulId: ME, kind: 'WARNING' as const }),
+    phase: 'RESULT' as const,
+    reactions: { [ME]: -1 },
+  }
 
+  /** 내가 쏴서 상대가 맞은 판정 화면. 총알이 닿기 전후를 함께 본다. */
+  const shot = {
+    hp: { [ME]: 3, [RIVAL]: 2 },
+    lastRound: round({ hitId: RIVAL, shooterId: ME }),
+    phase: 'RESULT' as const,
+  }
+
+  it('총알이 닿기 전에는 맞은 쪽 체력이 아직 깎이지 않는다', () => {
     expect(stage(shot).right.hp).toBe(3)
     expect(stage(shot, true).right.hp).toBe(2)
   })
 
   it('맞은 쪽은 총알이 닿은 뒤에 젖혀진다', () => {
-    const shot = {
-      hp: { [ME]: 3, [RIVAL]: 2 },
-      lastRound: round({ hitId: RIVAL, shooterId: ME }),
-      phase: 'RESULT' as const,
-    }
-
     expect(stage(shot).right.pose).toBe('ready')
     expect(stage(shot, true).right.pose).toBe('hit')
     expect(stage(shot, true).left.pose).toBe('draw')
@@ -214,12 +217,7 @@ describe('buildStage', () => {
   })
 
   it('부정출발 라운드에는 빗나감이 없다 — 서로를 겨누지 않았다', () => {
-    const view = stage({
-      fouls: { [ME]: 1, [RIVAL]: 0 },
-      lastRound: round({ foulId: ME, kind: 'WARNING' }),
-      phase: 'RESULT',
-      reactions: { [ME]: -1 },
-    })
+    const view = stage(foulState)
 
     expect(view.leftMiss).toBe(false)
     expect(view.rightMiss).toBe(false)
@@ -263,12 +261,7 @@ describe('buildStage', () => {
   })
 
   it('부정출발 라운드는 총알이 상대에게 가지 않는다', () => {
-    const view = stage({
-      fouls: { [ME]: 1, [RIVAL]: 0 },
-      lastRound: round({ foulId: ME, kind: 'WARNING' }),
-      phase: 'RESULT',
-      reactions: { [ME]: -1 },
-    })
+    const view = stage(foulState)
 
     expect(view.leftShot).toBe('ground')
     expect(view.rightShot).toBeNull()

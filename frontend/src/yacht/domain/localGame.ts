@@ -1,6 +1,6 @@
 import { FakeRealtimeClient } from '@/realtime/fakeRealtimeClient'
 import type { DiceSet, RoomSnapshot, ScoreBoard, ServerMessage } from '@/realtime/wsEvents'
-import { WS_PROTOCOL_VERSION } from '@/realtime/wsEvents'
+import { buildServerMessage, WS_PROTOCOL_VERSION } from '@/realtime/wsEvents'
 import type { ActiveRoomSession } from '@/store'
 import {
   type CategoryScores,
@@ -86,7 +86,7 @@ export function createLocalYachtClient(mode: LocalYachtMode) {
 
   return new FakeRealtimeClient({
     connectionMessages: [
-      serverMessage('sys.connected', {
+      buildServerMessage('sys.connected', {
         serverTs: Date.now(),
         protocolVersion: WS_PROTOCOL_VERSION,
         heartbeatIntervalMs: 15_000,
@@ -101,7 +101,7 @@ export function createLocalYachtClient(mode: LocalYachtMode) {
           roundNumber: message.payload.roundNumber,
         })
         return [
-          serverMessage(
+          buildServerMessage(
             'game.yacht_dice.dice.broadcast',
             {
               playerId,
@@ -115,7 +115,7 @@ export function createLocalYachtClient(mode: LocalYachtMode) {
         ]
       },
       'game.yacht_dice.dice.hold': (message) => [
-        serverMessage(
+        buildServerMessage(
           'game.yacht_dice.dice.hold_changed',
           {
             held: message.payload.held,
@@ -145,7 +145,7 @@ export function createLocalYachtClient(mode: LocalYachtMode) {
         dice = null
 
         const replies: ServerMessage[] = [
-          serverMessage(
+          buildServerMessage(
             'game.yacht_dice.score.update',
             { playerId, scoreboard: board },
             { roomId, msgId: message.msgId },
@@ -155,7 +155,7 @@ export function createLocalYachtClient(mode: LocalYachtMode) {
 
         if (roundNumber < mode.rounds) {
           replies.push(
-            serverMessage(
+            buildServerMessage(
               'game.yacht_dice.round.start',
               {
                 roundNumber: roundNumber + 1,
@@ -169,7 +169,7 @@ export function createLocalYachtClient(mode: LocalYachtMode) {
           return replies
         }
         replies.push(
-          serverMessage(
+          buildServerMessage(
             'game.yacht_dice.game.over',
             { rankings: [{ rank: 1, playerId, total: board.total }] },
             { roomId },
@@ -190,18 +190,4 @@ function recordedOnly(categories: ScoreBoard['categories']): CategoryScores {
   return Object.fromEntries(
     Object.entries(categories).filter(([, score]) => score !== null),
   ) as CategoryScores
-}
-
-function serverMessage<T extends ServerMessage['type']>(
-  type: T,
-  payload: Extract<ServerMessage, { type: T }>['payload'],
-  options: { msgId?: string | undefined; roomId?: string | undefined } = {},
-): Extract<ServerMessage, { type: T }> {
-  return {
-    type,
-    ts: Date.now(),
-    payload,
-    ...(options.roomId === undefined ? {} : { roomId: options.roomId }),
-    ...(options.msgId === undefined ? {} : { msgId: options.msgId }),
-  } as Extract<ServerMessage, { type: T }>
 }

@@ -12,6 +12,13 @@ function renderModal(onClose = vi.fn()) {
   return { ...view, onClose, user: userEvent.setup() }
 }
 
+/** 0점 확정 창 한 장. 열림 여부만 바꿔 가며 여닫는 동작을 본다. */
+const confirmModal = (open: boolean) => (
+  <Modal onClose={vi.fn()} open={open} title="0점으로 확정할까요?">
+    <button type="button">확정</button>
+  </Modal>
+)
+
 describe('Modal', () => {
   it('닫혀 있으면 아무것도 그리지 않는다', () => {
     render(
@@ -75,35 +82,20 @@ describe('Modal', () => {
   })
 
   it('닫히면 열기 버튼으로 포커스를 되돌린다', () => {
-    const { rerender } = render(
+    const withOpener = (open: boolean) => (
       <>
         <button type="button">0점 확정 열기</button>
-        <Modal onClose={vi.fn()} open={false} title="0점으로 확정할까요?">
-          <button type="button">확정</button>
-        </Modal>
-      </>,
+        {confirmModal(open)}
+      </>
     )
+    const { rerender } = render(withOpener(false))
     const opener = screen.getByRole('button', { name: '0점 확정 열기' })
     opener.focus()
 
-    rerender(
-      <>
-        <button type="button">0점 확정 열기</button>
-        <Modal onClose={vi.fn()} open title="0점으로 확정할까요?">
-          <button type="button">확정</button>
-        </Modal>
-      </>,
-    )
+    rerender(withOpener(true))
     expect(opener).not.toHaveFocus()
 
-    rerender(
-      <>
-        <button type="button">0점 확정 열기</button>
-        <Modal onClose={vi.fn()} open={false} title="0점으로 확정할까요?">
-          <button type="button">확정</button>
-        </Modal>
-      </>,
-    )
+    rerender(withOpener(false))
     expect(opener).toHaveFocus()
   })
 
@@ -111,26 +103,14 @@ describe('Modal', () => {
     const background = document.createElement('main')
     document.body.append(background)
 
-    const { rerender } = render(
-      <Modal onClose={vi.fn()} open={false} title="0점으로 확정할까요?">
-        <button type="button">확정</button>
-      </Modal>,
-    )
+    const { rerender } = render(confirmModal(false))
     expect(background).not.toHaveAttribute('inert')
 
-    rerender(
-      <Modal onClose={vi.fn()} open title="0점으로 확정할까요?">
-        <button type="button">확정</button>
-      </Modal>,
-    )
+    rerender(confirmModal(true))
     expect(background).toHaveAttribute('inert')
     expect(document.body.style.overflow).toBe('hidden')
 
-    rerender(
-      <Modal onClose={vi.fn()} open={false} title="0점으로 확정할까요?">
-        <button type="button">확정</button>
-      </Modal>,
-    )
+    rerender(confirmModal(false))
     expect(background).not.toHaveAttribute('inert')
     expect(document.body.style.overflow).toBe('')
 

@@ -113,6 +113,15 @@ const setup = (props: Partial<Parameters<typeof TutorialGuide>[0]> = {}) => {
 
 const heading = () => screen.getByRole('heading', { level: 2 }).textContent
 
+/** 안내를 다음 단계로 옮긴다. 단계는 프롭 조합으로만 결정된다. */
+const step = (
+  rerender: (ui: React.ReactElement) => void,
+  props: Partial<Parameters<typeof TutorialGuide>[0]>,
+) => {
+  rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...props} />)
+  return heading()
+}
+
 const atKeepAgain = {
   candidates: AFTER_SECOND_ROLL,
   keptValues: [6, 6],
@@ -172,19 +181,15 @@ describe('TutorialGuide', () => {
     )
     expect(heading()).toBe('나머지만 다시 굴려요')
 
-    rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atKeepAgain} />)
-    expect(heading()).toBe('6이 3개로 늘었어요')
+    expect(step(rerender, atKeepAgain)).toBe('6이 3개로 늘었어요')
 
-    rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atLastRoll} />)
-    expect(heading()).toBe('이제 마지막 한 번이 남았어요')
+    expect(step(rerender, atLastRoll)).toBe('이제 마지막 한 번이 남았어요')
     await user.click(screen.getByRole('button', { name: '흔들어서 던지기' }))
     expect(heading()).toBe('폰을 흔들어서 던져요')
 
-    rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atRecord} />)
-    expect(heading()).toBe('6이 4개 — 이건 포커예요!')
+    expect(step(rerender, atRecord)).toBe('6이 4개 — 이건 포커예요!')
 
-    rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atHandTour} />)
-    expect(heading()).toBe('에이스')
+    expect(step(rerender, atHandTour)).toBe('에이스')
   })
 
   it('두 번째 던지기가 날아가는 동안에는 단계를 옮기지 않는다', () => {
@@ -203,8 +208,7 @@ describe('TutorialGuide', () => {
     )
     expect(heading()).toBe('나머지만 다시 굴려요')
 
-    rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atKeepAgain} />)
-    expect(heading()).toBe('6이 3개로 늘었어요')
+    expect(step(rerender, atKeepAgain)).toBe('6이 3개로 늘었어요')
   })
 
   it('주사위가 날아가는 동안에는 백드롭을 걷어 굴러가는 주사위가 보이게 한다', () => {
@@ -217,9 +221,7 @@ describe('TutorialGuide', () => {
     const { rerender } = setup({ keptValues: [6, 6], rollCount: 1, rolled: true })
     expect(heading()).toBe('나머지만 다시 굴려요')
 
-    rerender(<TutorialGuide {...baseProps} onClose={vi.fn()} {...atKeepAgain} />)
-
-    expect(heading()).toBe('6이 3개로 늘었어요')
+    expect(step(rerender, atKeepAgain)).toBe('6이 3개로 늘었어요')
     expect(screen.getByRole('status')).toHaveTextContent('새로 나온 6 1개도 탭해서 킵해 보세요')
   })
 

@@ -1,3 +1,4 @@
+import { installMatchMedia } from './mediaQuery'
 import '@testing-library/jest-dom/vitest'
 import { cleanup, configure } from '@testing-library/react'
 import { MotionGlobalConfig } from 'motion/react'
@@ -58,21 +59,8 @@ Object.defineProperty(window, 'scrollTo', {
   value: vi.fn(),
 })
 
-Object.defineProperty(window, 'matchMedia', {
-  configurable: true,
-  writable: true,
-  value: (query: string) =>
-    ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }) as unknown as MediaQueryList,
-})
+// 어떤 질의에도 아니라고 답한다. 넓은 화면 갈래를 보는 검사가 각자 덮어쓴다.
+installMatchMedia(false)
 
 Object.defineProperty(window.HTMLMediaElement.prototype, 'play', {
   configurable: true,

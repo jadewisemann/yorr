@@ -165,7 +165,8 @@ describe('메시지 수신', () => {
     expect(messages).toEqual([joined])
   })
 
-  it('JSON으로 읽을 수 없는 프레임은 error 연결 이벤트로 올린다', () => {
+  /** 읽을 수 없는 프레임은 메시지로 올리지 않고 error 연결 이벤트가 된다. */
+  const expectUnreadableFrame = (frame: string | ArrayBuffer) => {
     const client = new WebSocketRealtimeClient('/ws')
     const messages: ServerMessage[] = []
     const events: string[] = []
@@ -173,24 +174,18 @@ describe('메시지 수신', () => {
     client.onConnectionChange((event) => events.push(event))
 
     client.connect()
-    lastSocket().receive('{not json')
+    lastSocket().receive(frame)
 
     expect(messages).toEqual([])
     expect(events).toEqual(['error'])
+  }
+
+  it('JSON으로 읽을 수 없는 프레임은 error 연결 이벤트로 올린다', () => {
+    expectUnreadableFrame('{not json')
   })
 
   it('binary 프레임은 메시지로 올리지 않고 error로 처리한다', () => {
-    const client = new WebSocketRealtimeClient('/ws')
-    const messages: ServerMessage[] = []
-    const events: string[] = []
-    client.onMessage((message) => messages.push(message))
-    client.onConnectionChange((event) => events.push(event))
-
-    client.connect()
-    lastSocket().receive(new ArrayBuffer(4))
-
-    expect(messages).toEqual([])
-    expect(events).toEqual(['error'])
+    expectUnreadableFrame(new ArrayBuffer(4))
   })
 
   it('구독 해지 함수는 리스너를 실제로 떼어낸다', () => {

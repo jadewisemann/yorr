@@ -10,6 +10,7 @@ import {
   LEVERAGE_ROUNDS,
 } from '@/yacht/domain/leverageGame'
 import { scoreCategory, type YachtCategory } from '@/yacht/domain/scoring'
+import { rollLocalDice } from './localRoll'
 
 const SEED = 20260805
 const YACHT_DICE: DiceSet = [5, 5, 5, 5, 5]
@@ -81,21 +82,12 @@ describe('레버리지 로컬 판', () => {
   })
 
   it('굴림은 시드 결정론이다 — 같은 시드면 같은 눈이 나온다', () => {
-    const roll = (client: ReturnType<typeof createLeverageClient>) => {
-      let dice: readonly number[] | null = null
-      const stop = client.onMessage((message) => {
-        if (message.type === 'game.yacht_dice.dice.broadcast') dice = message.payload.dice
+    const roll = (client: ReturnType<typeof createLeverageClient>) =>
+      rollLocalDice(client, {
+        held: [false, false, false, false, false],
+        rollCount: 1,
+        roomId: LEVERAGE_ROOM_ID,
       })
-      client.send(
-        buildClientMessage(
-          'game.yacht_dice.dice.roll',
-          { held: [false, false, false, false, false], rollCount: 1, roundNumber: 1 },
-          { roomId: LEVERAGE_ROOM_ID },
-        ),
-      )
-      stop()
-      return dice
-    }
 
     expect(roll(createLeverageClient(SEED))).toEqual(roll(createLeverageClient(SEED)))
   })

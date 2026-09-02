@@ -3,7 +3,6 @@ import * as THREE from 'three'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createKeepSlots } from '@/yacht/rendering/physics-dice/arena'
 import { PHYSICS_DICE_CONFIG } from '@/yacht/rendering/physics-dice/config'
-import { createDiceInstances } from '@/yacht/rendering/physics-dice/diceInstances'
 import {
   keepSlotPosition,
   keepSlotScale,
@@ -27,6 +26,7 @@ import type {
   PhysicsDiceSet,
   PhysicsHeldDice,
 } from '@/yacht/rendering/physics-dice/types'
+import { diceWorld } from './diceWorld'
 
 const SCENE = PHYSICS_DICE_CONFIG.scene
 const DICE: PhysicsDiceSet = [3, 6, 1, 5, 4]
@@ -37,9 +37,7 @@ beforeAll(async () => {
 })
 
 function setup() {
-  const scene = new THREE.Scene()
-  const world = new RAPIER.World({ x: 0, y: -18, z: 0 })
-  const { entries, geometries } = createDiceInstances(scene, world)
+  const { entries, geometries, scene, world } = diceWorld()
   const { keepSlotMaterials, keepSlots } = createKeepSlots(scene, geometries)
   return { entries, keepSlotMaterials, keepSlots, scene, world }
 }
@@ -122,11 +120,16 @@ describe('tiltedBowlPosition', () => {
   })
 })
 
+/** 3번·1번을 그 순서로 킵해 둔 상태. 줄 세우기 검사 둘이 여기서 갈린다. */
+const KEPT_THREE_AND_ONE: { held: PhysicsHeldDice; heldOrder: PhysicsDiceIndex[] } = {
+  held: [false, true, false, true, false],
+  heldOrder: [3, 1],
+}
+
 describe('lineUpDice', () => {
   it('킵한 주사위는 킵 순서대로 슬롯에, 남은 주사위는 가운데 정렬된 결과 줄에 놓는다', () => {
     const { entries, world } = setup()
-    const held: PhysicsHeldDice = [false, true, false, true, false]
-    const heldOrder: PhysicsDiceIndex[] = [3, 1]
+    const { held, heldOrder } = KEPT_THREE_AND_ONE
 
     lineUpDice(entries, held, heldOrder, DICE)
 
@@ -185,8 +188,7 @@ describe('lineUpDice', () => {
 
   it('keepAll이면 다섯 개가 전부 레일에 오르고, 이미 킵한 주사위는 자기 슬롯을 지킨다', () => {
     const { entries, world } = setup()
-    const held: PhysicsHeldDice = [false, true, false, true, false]
-    const heldOrder: PhysicsDiceIndex[] = [3, 1]
+    const { held, heldOrder } = KEPT_THREE_AND_ONE
 
     lineUpDice(entries, held, heldOrder, DICE, true)
 

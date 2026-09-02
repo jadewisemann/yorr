@@ -575,6 +575,27 @@ export function isServer<T extends ServerMessageType>(
   return msg.type === type
 }
 
+/**
+ * 서버가 보낼 봉투를 만든다. 서버 없이 도는 로컬 게임과 mock 시나리오가 쓴다 —
+ * 진짜 서버에서 오는 것과 **같은 모양**이어야 화면이 두 경우를 가르지 않는다.
+ *
+ * `roomId`·`msgId`는 값이 없으면 필드 자체를 넣지 않는다. 방 밖 메시지에
+ * `roomId: undefined`가 실리면 계약이 흐려지기 때문이다.
+ */
+export function buildServerMessage<T extends ServerMessage['type']>(
+  type: T,
+  payload: Extract<ServerMessage, { type: T }>['payload'],
+  opts: { roomId?: string | undefined; msgId?: string | undefined; ts?: number | undefined } = {},
+): Extract<ServerMessage, { type: T }> {
+  return {
+    type,
+    ts: opts.ts ?? Date.now(),
+    payload,
+    ...(opts.roomId === undefined ? {} : { roomId: opts.roomId }),
+    ...(opts.msgId === undefined ? {} : { msgId: opts.msgId }),
+  } as Extract<ServerMessage, { type: T }>
+}
+
 export function buildClientMessage<T extends ClientMessageType>(
   type: T,
   payload: Extract<ClientMessage, { type: T }>['payload'],

@@ -6,10 +6,25 @@ import { vi } from 'vitest'
  *
  * (음성 메시 테스트는 미디어 트랙·`<audio>`까지 필요해 자기 스텁을 따로 들고 있다.)
  */
+/** 이벤트 대상 노릇을 하는 최소 구현. 가짜 채널과 가짜 연결이 함께 쓴다. */
+class Listeners {
+  private readonly byType = new Map<string, Set<(event: unknown) => void>>()
+
+  add(type: string, listener: (event: unknown) => void) {
+    const set = this.byType.get(type) ?? new Set()
+    set.add(listener)
+    this.byType.set(type, set)
+  }
+
+  fire(type: string, event: unknown) {
+    for (const listener of this.byType.get(type) ?? []) listener(event)
+  }
+}
+
 export class FakeDataChannel {
   readyState = 'connecting'
   readonly sent: string[] = []
-  private readonly listeners = new Map<string, Set<(event: unknown) => void>>()
+  private readonly listeners = new Listeners()
 
   constructor(
     readonly label: string,
@@ -17,9 +32,7 @@ export class FakeDataChannel {
   ) {}
 
   addEventListener(type: string, listener: (event: unknown) => void) {
-    const set = this.listeners.get(type) ?? new Set()
-    set.add(listener)
-    this.listeners.set(type, set)
+    this.listeners.add(type, listener)
   }
 
   send(data: string) {
@@ -46,7 +59,7 @@ export class FakeDataChannel {
   }
 
   private fire(type: string, event: unknown) {
-    for (const listener of this.listeners.get(type) ?? []) listener(event)
+    this.listeners.fire(type, event)
   }
 }
 
@@ -69,7 +82,7 @@ export function stubWebRtc() {
       channels: FakeDataChannel[] = []
       remoteDescription: object | null = null
       connectionState = 'new'
-      private readonly listeners = new Map<string, Set<(event: unknown) => void>>()
+      private readonly listeners = new Listeners()
 
       addIceCandidate = vi.fn(async () => undefined)
       createOffer = vi.fn(async () => ({ sdp: 'offer-sdp', type: 'offer' as const }))
@@ -91,13 +104,11 @@ export function stubWebRtc() {
       }
 
       addEventListener(type: string, listener: (event: unknown) => void) {
-        const set = this.listeners.get(type) ?? new Set()
-        set.add(listener)
-        this.listeners.set(type, set)
+        this.listeners.add(type, listener)
       }
 
       fire(type: string, event: unknown) {
-        for (const listener of this.listeners.get(type) ?? []) listener(event)
+        this.listeners.fire(type, event)
       }
     },
   )
