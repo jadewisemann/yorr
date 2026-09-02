@@ -16,6 +16,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
+import { readMutationSummary } from './mutants.mjs'
 
 const REPO_ROOT = resolve(import.meta.dirname, '../..')
 const HERE = import.meta.dirname
@@ -94,20 +95,7 @@ for (const target of CONFIG.targets) {
   coverage[target.name] = readJson(join(REPO_ROOT, workspace, 'coverage/coverage-summary.json'))?.total ?? null
 }
 
-// Stryker의 JSON 리포트에서 살아남은 돌연변이를 센다. 커버리지가 아예 없는
-// 자리(NoCoverage)도 "테스트가 잡지 못한다"는 점에서 생존과 같이 다룬다.
-const strykerReport = readJson(join(HERE, '.stryker.json'))
-const mutation = strykerReport
-  ? (() => {
-      const mutants = Object.values(strykerReport.files ?? {}).flatMap((file) => file.mutants ?? [])
-      const count = (status) => mutants.filter((mutant) => mutant.status === status).length
-      return {
-        survived: count('Survived') + count('NoCoverage'),
-        killed: count('Killed'),
-        files: Object.keys(strykerReport.files ?? {}).length,
-      }
-    })()
-  : null
+const mutation = readMutationSummary()
 
 // ── 지표 집계 ────────────────────────────────────────────────────────────────
 
@@ -247,6 +235,9 @@ const metricRows = [
 // ── 출력 ─────────────────────────────────────────────────────────────────────
 
 const enforced = new Set(CONFIG.enforced ?? [])
+// 야간 잡이 자기 자리에서 강제하는 게이트. PR 게이트에는 측정값이 없으므로 여기서
+// 판정하지 않고, 표에만 "켜짐(야간)"으로 남긴다.
+const nightly = new Set(CONFIG.enforcedNightly ?? [])
 // 래칫은 "0"이 아니라 "지금보다 나빠지지 않기"를 강제한다. 절대 기준을 당장 걸 수
 // 없는 지표(계약 재설계를 기다리는 캐스트, 아직 덜 쪼갠 테스트 파일)를 방치하지 않고
 // 붙잡아 두는 장치다 — 값을 줄이면 상한도 함께 줄여 되돌아가지 못하게 한다.
@@ -267,6 +258,22 @@ const GATE_KEYS = {
   11: 'unknownCast',
 }
 
+/**
+ * 게이트마다 어떤 측정이 선행되어야 하는지. 여기에 없는 지표는 구조 분석만으로
+ * 판정되므로 `report.mjs`를 돌리는 것만으로 값이 갖춰진다.
+ */
+const GATE_INPUTS = {
+  coverage: {
+    ready: Object.values(coverage).every((total) => total !== null),
+    how: 'npm run quality:coverage',
+  },
+  crap: {
+    ready: metrics.targets.every((target) => target.coverageLoaded),
+    how: 'npm run quality:coverage',
+  },
+  mutation: { ready: mutation !== null, how: 'npm run quality:mutation' },
+}
+
 const pad = (text, width) => {
   // 한글은 터미널에서 두 칸을 차지한다. 그것을 세지 않으면 표가 어긋난다.
   const printed = [...String(text)].reduce((sum, ch) => sum + (/[ᄀ-ᇿ　-〿가-힯＀-￯]/.test(ch) ? 2 : 1), 0)
@@ -277,11 +284,17 @@ console.log('\n지표 현황 — QUALITY.md 11개 기준\n')
 console.log(`${pad('#', 3)}${pad('지표', 22)}${pad('목표', 17)}${pad('현재', 40)}${pad('위반', 8)}게이트`)
 console.log('─'.repeat(98))
 for (const row of metricRows) {
-  const gateOn = enforced.has(GATE_KEYS[row.id])
   const key = GATE_KEYS[row.id]
+  const gateOn = enforced.has(key)
   const limit = ratchets[key]
   const status = row.violations === null ? '—' : row.violations === 0 ? '충족' : `${row.violations}`
-  const gate = gateOn ? '켜짐' : limit === undefined ? '꺼짐' : `래칫 ≤${limit}`
+  const gate = gateOn
+    ? '켜짐'
+    : nightly.has(key)
+      ? '켜짐(야간)'
+      : limit === undefined
+        ? '꺼짐'
+        : `래칫 ≤${limit}`
   console.log(`${pad(row.id, 3)}${pad(row.name, 22)}${pad(row.goal, 17)}${pad(row.value, 40)}${pad(status, 8)}${gate}`)
 }
 console.log(`\n예외 목록: ${waiverCount}개 (상한 ${CONFIG.waivers.maxCount})`)
@@ -331,6 +344,14 @@ if (ARGS.has('--baseline')) {
 }
 
 if (ARGS.has('--gate')) {
+  // 켜진 게이트는 **측정값이 있어야** 뜻이 있다. 입력이 없으면 위반 0으로 보여 저절로
+  // 통과하므로, 없는 채로 넘기지 않고 무엇을 먼저 돌려야 하는지 알리며 멈춘다.
+  const missing = [...enforced].filter((key) => GATE_INPUTS[key] && !GATE_INPUTS[key].ready)
+  if (missing.length > 0) {
+    console.error('\n켜진 게이트의 측정값이 없다:')
+    for (const key of missing) console.error(`  ${key} — 먼저 ${GATE_INPUTS[key].how}를 돌린다.`)
+    process.exit(2)
+  }
   const failures = metricRows.filter((row) => enforced.has(GATE_KEYS[row.id]) && row.violations)
   const overRatchet = metricRows.filter((row) => {
     const limit = ratchets[GATE_KEYS[row.id]]

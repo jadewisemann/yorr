@@ -59,8 +59,12 @@
     "halstead",
     "explicitAny",
     "fileLines",
+    "crap"
+  ],
+  "enforcedNightly": [
     "mutation"
   ],
+  "_enforcedNightlyNote": "stryker 리포트는 커밋되지 않으므로 PR 게이트에는 측정값이 없다. 돌연변이는 stryker를 돌린 그 잡에서 tools/quality/mutation-gate.mjs가 강제한다.",
   "_enforcedNote": "QUALITY.md 5절의 단계에 따라 하나씩 추가한다. 키: cyclomatic·cognitive·halstead·fileLines·coverage·crap·mutation·deadCode·duplication·explicitAny·unknownCast",
   "ratchets": {
     "unknownCast": 59,

@@ -5,8 +5,10 @@
 # 전체를 봐야 미사용 export를 판정한다). 잡을 backend.yml에 넣으면 프론트만 바뀐
 # PR에서 돌지 않고, 양쪽에 넣으면 같은 분석을 두 번 돌린다.
 #
-# 커버리지를 여기서 측정하지 않는 이유: 각 패키지의 테스트 잡이 이미 자기 커버리지
-# 임계값을 강제한다. 여기서 또 돌리면 CI 시간만 두 배가 된다.
+# 커버리지를 여기서도 재는 이유(처음의 판단을 뒤집었다): CRAP 게이트가 켜지면서
+# 커버리지가 **게이트의 입력**이 되었다. 각 패키지 잡이 재는 커버리지 산출물은 이 잡의
+# 작업 공간에 없고, 없는 값을 0 위반으로 읽으면 게이트가 아니라 장식이 된다
+# (tools/quality/report.mjs의 GATE_INPUTS가 그 상태를 실패로 만든다).
 
 name: quality
 
@@ -50,7 +52,12 @@ jobs:
   gate:
     name: 지표 측정 · 게이트
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
+
+    env:
+      # ADR-0004: Redis 없이 도는 백엔드 테스트는 조용히 건너뛴 초록이 된다. 커버리지가
+      # 그만큼 낮게 나오면 CRAP 게이트가 없는 위반을 만들어 낸다.
+      REDIS_TEST_REQUIRED: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +71,15 @@ jobs:
             backend/package-lock.json
             frontend/package-lock.json
 
+      # 하네스가 테스트 파일마다 redis-server를 유닉스 소켓으로 띄운다(ADR-0004).
+      # 필요한 것은 데몬이 아니라 바이너리다.
+      - name: redis-server 바이너리 설치 (ADR-0004)
+        run: |
+          if ! command -v redis-server >/dev/null; then
+            sudo timeout 120s apt-get -o Acquire::Retries=3 update
+            sudo timeout 120s apt-get -o Acquire::Retries=3 install -y --no-install-recommends redis-server
+          fi
+
       # knip은 각 워크스페이스의 node_modules로 의존성을 해석한다. 설치하지 않으면
       # 모든 외부 import가 "미해결"로 보고되어 결과가 무의미해진다.
       - run: npm ci
@@ -72,8 +88,16 @@ jobs:
       - run: npm ci
         working-directory: frontend
 
-      # 게이트가 하나도 켜져 있지 않은 동안에도 표는 출력된다 — 지표가 어느 방향으로
-      # 움직이는지 PR마다 보이는 것이 이 잡의 절반이다.
+      # MySQL은 띄우지 않는다. 그 통합 테스트는 backend.yml이 서비스 컨테이너와 함께
+      # 돌리며, CRAP이 절대 기준으로 보는 핵심 모듈(순수 게임 로직)은 MySQL을 타지
+      # 않으므로 여기서 건너뛰어도 판정이 달라지지 않는다.
+      - run: npm test
+        working-directory: backend
+      - run: npm test
+        working-directory: frontend
+
+      # 아직 켜지지 않은 지표도 표에 함께 출력된다 — 지표가 어느 방향으로 움직이는지
+      # PR마다 보이는 것이 이 잡의 절반이다.
       - run: npm run quality:gate
 
   # ── 돌연변이 검사(야간·수동) ────────────────────────────────────────────────
@@ -108,14 +132,10 @@ jobs:
       - run: npm run test:mutation
         working-directory: backend
 
-      # 점수가 떨어졌는지는 사람이 본다 — 아직 게이트로 걸지 않는다(생존 45건).
-      - name: 요약
+      # 생존 0을 여기서 강제한다. stryker 리포트는 커밋되지 않아 PR 게이트에는 없으므로,
+      # 돌린 그 자리가 이 게이트의 유일한 자리다(QUALITY.md 5단계).
+      - name: 생존 돌연변이 게이트
         if: always()
-        working-directory: backend
         run: |
-          node -e '
-            const report = require("../tools/quality/.stryker.json")
-            const mutants = Object.values(report.files).flatMap((file) => file.mutants)
-            const count = (status) => mutants.filter((m) => m.status === status).length
-            console.log(`생존 ${count("Survived") + count("NoCoverage")} · 사멸 ${count("Killed")}`)
-          ' >> "$GITHUB_STEP_SUMMARY"
+          set -o pipefail
+          node tools/quality/mutation-gate.mjs | tee -a "$GITHUB_STEP_SUMMARY"

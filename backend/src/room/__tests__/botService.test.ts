@@ -73,10 +73,11 @@ describeRedis('BotParticipantService — 추가', () => {
 
     await bots.add(roomCode, HOST.userId)
 
+    // 키마다 EXPIRE가 걸리는 시각이 1ms씩 어긋나므로 대소를 따지면 순서에 따라
+    // 뒤집힌다. 확인해야 하는 것은 **가족이 함께 만료되는가**이므로 간격만 본다.
     const roomTtl = await redis().pttl(roomKey(roomCode))
     for (const key of [playersKey(roomCode), scoresKey(roomCode), botsKey(roomCode)]) {
-      expect(await redis().pttl(key)).toBeLessThanOrEqual(roomTtl)
-      expect(await redis().pttl(key)).toBeGreaterThan(roomTtl - 1000)
+      expect(Math.abs((await redis().pttl(key)) - roomTtl)).toBeLessThan(1_000)
     }
   })
 

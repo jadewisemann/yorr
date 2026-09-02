@@ -13,7 +13,8 @@
     "quality:coverage": "node tools/quality/report.mjs --coverage",
     "quality:baseline": "node tools/quality/report.mjs --coverage --baseline",
     "quality:gate": "node tools/quality/report.mjs --gate",
-    "quality:mutation": "npm --prefix backend run test:mutation"
+    "quality:mutation": "npm --prefix backend run test:mutation",
+    "quality:mutation:gate": "node tools/quality/mutation-gate.mjs"
   },
   "devDependencies": {
     "jscpd": "^5.1.1",
