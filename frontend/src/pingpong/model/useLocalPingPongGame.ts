@@ -49,7 +49,13 @@ function sameHud(left: HudState, right: HudState) {
   )
 }
 
-function tapPlayer(event: ReactPointerEvent<HTMLDivElement>, mode: LocalPingPongMode): 1 | 2 {
+/**
+ * 탭에서 필요한 것은 누른 x좌표와 그것을 받은 요소뿐이다. 이만큼만 요구하면 검사가 진짜
+ * 포인터 이벤트를 지어내지 않아도 되고, JSX의 `onPointerDown`에는 그대로 걸린다.
+ */
+export type TapPoint = Pick<ReactPointerEvent<HTMLElement>, 'clientX' | 'currentTarget'>
+
+function tapPlayer(event: TapPoint, mode: LocalPingPongMode): 1 | 2 {
   if (mode !== 'duo') return 1
   const bounds = event.currentTarget.getBoundingClientRect()
   return event.clientX - bounds.left < bounds.width / 2 ? 1 : 2
@@ -176,7 +182,7 @@ export function useLocalPingPongGame({ difficulty, mode }: UseLocalPingPongGameO
     setHud(hudOf(gameRef.current))
   }
 
-  const onTap = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const onTap = (event: TapPoint) => {
     swing(tapPlayer(event, mode))
   }
 

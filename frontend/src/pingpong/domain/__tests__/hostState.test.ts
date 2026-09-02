@@ -1,31 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { P1, P2, pingPongState } from '@/pingpong/__tests__/pingPongFixtures'
 import { playerNumberOf, toPingPongState } from '@/pingpong/domain/hostState'
 import { createLocalGame } from '@/pingpong/domain/localGame'
-import type { PingPongState } from '@/realtime/wsEvents'
 
-const P1 = 'player-1'
-const P2 = 'player-2'
-
-const base: PingPongState = {
-  version: 4,
-  phase: 'COUNTDOWN',
-  playerOrder: [P1, P2],
-  scores: { [P1]: 0, [P2]: 0 },
-  lastInputSeq: { [P1]: 3, [P2]: 5 },
-  readyPlayerIds: [P1, P2],
-  ball: {
-    pos: 0.5,
-    direction: 1,
-    speed: 1,
-    smash: false,
-    faultFrom: 0,
-    x0: 0.5,
-    x1: 0.5,
-    launchedAt: 0,
-  },
-  rally: 0,
-  nextActionAt: 0,
-}
+const base = pingPongState()
 
 const NOW = 1_753_000_000_000
 
