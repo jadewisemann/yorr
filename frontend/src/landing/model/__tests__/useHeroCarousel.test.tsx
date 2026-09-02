@@ -1,8 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { games } from '@/games'
-import { useHeroCarousel } from '@/landing/model/useHeroCarousel'
+import { type DragPoint, useHeroCarousel } from '@/landing/model/useHeroCarousel'
 
 const { reduceMotion } = vi.hoisted(() => ({ reduceMotion: { value: false } }))
 
@@ -12,17 +11,14 @@ vi.mock('motion/react', async (importOriginal) => ({
 }))
 
 /** 끌기 판정만 보는 최소 포인터 이벤트. 캡처는 화면이 아니라 훅의 관심사다. */
-const pointer = (
-  overrides: Partial<ReactPointerEvent<HTMLDivElement>> = {},
-): ReactPointerEvent<HTMLDivElement> =>
-  ({
-    button: 0,
-    buttons: 1,
-    clientX: 0,
-    currentTarget: { setPointerCapture: vi.fn() },
-    pointerId: 1,
-    ...overrides,
-  }) as unknown as ReactPointerEvent<HTMLDivElement>
+const pointer = (overrides: Partial<DragPoint> = {}): DragPoint => ({
+  button: 0,
+  buttons: 1,
+  clientX: 0,
+  currentTarget: { setPointerCapture: vi.fn() },
+  pointerId: 1,
+  ...overrides,
+})
 
 function renderCarousel(activeIndex = 0) {
   const onSelect = vi.fn()

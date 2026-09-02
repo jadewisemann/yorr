@@ -1,7 +1,6 @@
 import { animate, useMotionValue, useReducedMotion } from 'motion/react'
 import {
   type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -17,6 +16,21 @@ const DRAG_LIMIT_PX = 140
 const WHEEL_COOLDOWN_MS = 340
 const WHEEL_THRESHOLD = 18
 const SLIDE_DISTANCE_PCT = { narrow: 53.3, wide: 43.25 }
+
+/**
+ * 끌기 판정에 필요한 만큼의 포인터 이벤트.
+ *
+ * `PointerEvent<HTMLDivElement>` 전체를 요구하면 검사가 화면을 세우지 않고는 이 훅을
+ * 부를 수 없다. 실제로 보는 것은 다섯 가지뿐이라 그만큼만 받는다 — React의 이벤트가
+ * 이 구조를 그대로 만족하므로 호출부는 달라지지 않는다.
+ */
+export interface DragPoint {
+  button: number
+  buttons: number
+  clientX: number
+  currentTarget: { setPointerCapture(pointerId: number): void }
+  pointerId: number
+}
 
 interface UseHeroCarouselOptions {
   activeIndex: number
@@ -85,13 +99,13 @@ export function useHeroCarousel({ activeIndex, games, layout, onSelect }: UseHer
     step(delta > 0 ? 1 : -1)
   }
 
-  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = (event: DragPoint) => {
     if (event.button !== 0) return
     dragStartRef.current = event.clientX
     draggedRef.current = false
   }
 
-  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handlePointerMove = (event: DragPoint) => {
     if (dragStartRef.current === null) return
     if (event.buttons === 0) {
       handlePointerUp()
