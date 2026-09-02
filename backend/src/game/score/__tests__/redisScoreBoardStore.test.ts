@@ -300,4 +300,16 @@ describeRedis('RedisScoreBoardStore', () => {
     expect(state?.roundNumber).toBe(2)
     expect(state?.submittedPlayerIds).toEqual([])
   })
+
+  /**
+   * 점수판 해시에 규약을 어긴 값이 들어 있으면 **그 값을 그대로 흘려보내지 않고**
+   * STORE_FAILURE로 던진다. Redis는 문자열만 담으므로 이런 값이 물리적으로 가능하다.
+   */
+  it('점수판 값이 깨져 있으면 STORE_FAILURE로 던진다', async () => {
+    await setUp()
+    // 확정이 건드리지 않는 다른 칸을 깨 둔다 — 확정 뒤 점수판을 되읽는 자리에서 걸린다.
+    await redis().hset(gameScoreboardKey(GAME_ID, PLAYER_ID), 'ones', '숫자아님')
+
+    await expectReason(() => confirm(GAME_ID, 1, 'choice', 1, 2, 3, 4, 5), 'STORE_FAILURE')
+  })
 })

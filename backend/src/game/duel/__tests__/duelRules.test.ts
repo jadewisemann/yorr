@@ -32,6 +32,21 @@ const lastRound = (state: DuelState): DuelRound => {
   return round
 }
 
+/**
+ * P1이 라운드를 이긴 결과 프레임. P2는 얼어붙은 것으로 기록된다(만료).
+ * `hits`만큼 반복하면 P2의 체력이 그만큼 깎인다.
+ */
+const wonRounds = (hits: number): DuelState => {
+  let state = initial()
+  for (let hit = 0; hit < hits; hit += 1) {
+    const now = 5_000 + hit * 1_000
+    state = draw(signal(state, now), P1, hit + 1, 200, now + 200)
+    state = expire(state, now + 400)
+    if (!state.lastRound?.over && hit < hits - 1) state = nextRound(state, now + 600, 2_000)
+  }
+  return state
+}
+
 describe('DuelRules', () => {
   it('더 빨리 뽑은 쪽이 상대를 쏜다', () => {
     const signalled = signal(initial(), 5_000)
@@ -186,5 +201,65 @@ describe('DuelRules', () => {
     expect(compareDraw(FOUL, 200)).toBe(2)
     expect(compareDraw(MISS, MISS)).toBe(0)
     expect(compareDraw(FOUL, FOUL)).toBe(0)
+  })
+
+  /**
+   * 아래 다섯은 **잘못 불린 전이가 상태를 건드리지 않는다**는 계약이다. 서비스가 예약을
+   * 잘못 걸거나 늦게 도착한 마감이 지나간 국면을 때릴 때 여기서 막힌다.
+   */
+  /**
+   * 상태는 Redis에서 JSON으로 되돌아오므로 명단이 깨진 채 도착할 수 있다. 그때는 조용히
+   * 이상한 판정을 내지 말고 던져야 한다 — 저장소가 그 예외로 갱신을 버린다.
+   */
+  it('명단이 깨진 상태로는 판정하지 않고 던진다', () => {
+    const broken: DuelState = { ...initial(), playerOrder: [P1] }
+
+    expect(() => forfeit(broken, P1, 2_000)).toThrow('duel_requires_two_players')
+  })
+
+  it('두 사람이 아닌 명단으로는 판을 열 수 없다', () => {
+    expect(() => initialDuelState([P1], 1_000, 2_000)).toThrow('duel_requires_two_players')
+    expect(() => initialDuelState([P1, P2, 'player-3'], 1_000, 2_000)).toThrow(
+      'duel_requires_two_players',
+    )
+  })
+
+  it('방에 없는 사람의 뽑기는 무시한다', () => {
+    const signalled = signal(initial(), 5_000)
+
+    expect(draw(signalled, '구경꾼', 1, 200, 5_200)).toEqual(signalled)
+  })
+
+  it('이미 뽑은 사람의 두 번째 뽑기는 입력 번호만 남기고 기록을 덮지 않는다', () => {
+    const drawn = draw(signal(initial(), 5_000), P1, 1, 200, 5_200)
+
+    const again = draw(drawn, P1, 7, 150, 5_400)
+
+    // 번호는 올려 둔다 — 그래야 같은 입력이 다음 라운드에서 되살아나지 않는다.
+    expect(again.lastInputSeq[P1]).toBe(7)
+    expect(again.reactions).toEqual(drawn.reactions)
+    expect(again.version).toBe(drawn.version + 1)
+  })
+
+  it('신호 국면이 아닐 때의 만료는 아무것도 하지 않는다', () => {
+    const waiting = initial()
+
+    expect(expire(waiting, 9_000)).toEqual(waiting)
+  })
+
+  it('결과 국면이 아니거나 이미 끝난 판에서는 라운드를 넘기지도 끝내지도 않는다', () => {
+    const waiting = initial()
+    expect(nextRound(waiting, 9_000, 2_000)).toEqual(waiting)
+    expect(finish(waiting)).toEqual(waiting)
+
+    // KO가 난 라운드는 다음 라운드로 넘어가지 않고, 아직 안 끝난 라운드는 종료되지 않는다.
+    const ko = wonRounds(MAX_HP)
+    expect(ko.lastRound?.over).toBe(true)
+    expect(nextRound(ko, 9_000, 2_000)).toEqual(ko)
+
+    const midRound = wonRounds(1)
+    expect(midRound.phase).toBe('RESULT')
+    expect(midRound.lastRound?.over).toBe(false)
+    expect(finish(midRound)).toEqual(midRound)
   })
 })

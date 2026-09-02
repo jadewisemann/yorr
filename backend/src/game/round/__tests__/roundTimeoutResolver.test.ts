@@ -5,7 +5,7 @@ import type {
   ScoreRoundSubmissionOutcome,
   ScoreRoundSubmissionPort,
 } from '../roundPorts.js'
-import type { RoundSubmissionResult } from '../roundState.js'
+import { RoundState, type RoundSubmissionResult } from '../roundState.js'
 import { InMemoryRoundStateStore } from '../roundStateStore.js'
 import { RoundSynchronizationService } from '../roundSynchronizationService.js'
 import { RoundTimeoutResolver } from '../roundTimeoutResolver.js'
@@ -197,6 +197,61 @@ describe('RoundTimeoutResolver', () => {
     expect(messages).toHaveLength(1)
     return messages[0] as { type: string; payload: unknown }
   }
+
+  /**
+   * 기본 카테고리 선택기는 난수다. 주입하지 않았을 때도 **열린 칸 하나를 고른다**는
+   * 것만 고정한다 — 어느 칸인지는 규칙이 아니다.
+   */
+  it('선택기를 주입하지 않으면 열린 칸 가운데 하나를 스스로 고른다', async () => {
+    const defaulted = new RoundTimeoutResolver(
+      { synchronizationService, scoreRoundSubmission, openCategories, roomService, broadcaster },
+      { now: () => NOW },
+    )
+    await synchronizationService.initialize('room-a', 1, ['player-a', 'player-b'])
+    await synchronizationService.autoRoll('room-a', 1, 'player-a')
+    await synchronizationService.autoRoll('room-a', 1, 'player-a')
+    await synchronizationService.autoRoll('room-a', 1, 'player-a')
+
+    const resolution = await defaulted.resolve('room-a', 1, 'player-a')
+
+    expect(resolution.kind).toBe('ADVANCED')
+    const state = await store.findByRoomId('room-a')
+    expect(state?.activePlayerId).toBe('player-b')
+  })
+
+  it('굴림을 다 썼는데 주사위가 없으면 점수 없이 턴만 넘기고 알린다', async () => {
+    const degraded: string[] = []
+    const guarded = new RoundTimeoutResolver(
+      { synchronizationService, scoreRoundSubmission, openCategories, roomService, broadcaster },
+      {
+        now: () => NOW,
+        categoryPicker: (bound) => bound - 1,
+        onDegraded: (_roomId, reason) => void degraded.push(reason),
+      },
+    )
+    await synchronizationService.initialize('room-a', 1, ['player-a', 'player-b'])
+    // 굴림은 다 썼는데 주사위가 비어 있는 상태 — 정상 전이로는 만들 수 없다.
+    await store.remove('room-a')
+    await store.initialize(
+      'room-a',
+      RoundState.restore({
+        roundNumber: 1,
+        totalRounds: 12,
+        participantOrder: ['player-a', 'player-b'],
+        submissions: new Map(),
+        activePlayerIndex: 0,
+        activeRollCount: 3,
+        activeDice: null,
+        activeHeld: null,
+        finished: false,
+      }),
+    )
+
+    const resolution = await guarded.resolve('room-a', 1, 'player-a')
+
+    expect(resolution.kind).toBe('ADVANCED')
+    expect(degraded).toEqual(['no_dice_on_expired_turn'])
+  })
 })
 
 const SIXES = [6, 6, 6, 6, 6]

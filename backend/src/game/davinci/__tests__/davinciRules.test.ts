@@ -268,6 +268,66 @@ describe('조커', () => {
     expect(place(placing, HOST, 1, 99, NOW).version).toBe(placing.version)
     expect(place(placing, GUEST, 1, 0, NOW).version).toBe(placing.version)
   })
+
+  it('놓기 단계에서도 이미 쓴 입력 번호는 무시한다', () => {
+    const tile = tilesOf(withJokerDrawn(), GUEST)[0]
+    const placing = guess(withJokerDrawn(), HOST, 0, GUEST, tile?.id ?? '', 0, NOW)
+
+    expect(place(placing, HOST, 0, 2, NOW)).toBe(placing)
+  })
+
+  it('더미가 비었으면 틀린 사람이 자기 타일을 대신 공개한다', () => {
+    const empty: DavinciState = { ...twoPlayerState(), deck: [], drawn: null }
+
+    // 시간을 넘긴 턴은 "틀린 것"과 같게 다룬다.
+    const next = expire(empty, NOW + 1)
+
+    const revealed = tilesOf(next, HOST).filter((tile) => tile.revealed)
+    expect(revealed).toHaveLength(1)
+    expect(next.turnPlayerId).toBe(GUEST)
+  })
+
+  it('더미가 비었어도 맞히고 멈춘 턴에는 아무것도 공개하지 않는다', () => {
+    const state = twoPlayerState()
+    const empty: DavinciState = { ...state, deck: [], drawn: null }
+    const tile = tilesOf(empty, GUEST)[0]
+
+    const guessed = guess(empty, HOST, 0, GUEST, tile?.id ?? '', tile?.number ?? 0, NOW)
+    const stopped = decide(guessed, HOST, 1, 'STOP', NOW)
+
+    // 공개된 것은 맞힌 상대 타일 하나뿐이다 — 내 손패는 그대로다.
+    expect(tilesOf(stopped, HOST).filter((each) => each.revealed)).toHaveLength(0)
+    expect(stopped.turnPlayerId).toBe(GUEST)
+  })
+
+  it('공개할 타일도 없으면 그대로 턴만 넘긴다', () => {
+    const state = twoPlayerState()
+    const allRevealed: DavinciState = {
+      ...state,
+      deck: [],
+      drawn: null,
+      hands: {
+        ...state.hands,
+        [HOST]: tilesOf(state, HOST).map((tile) => ({ ...tile, revealed: true })),
+      },
+    }
+
+    // 손패가 전부 공개된 사람은 그 자리에서 탈락하고, 2인이면 판이 끝난다.
+    const next = expire(allRevealed, NOW + 1)
+
+    expect(next.phase).toBe('FINISHED')
+    expect(next.winnerId).toBe(GUEST)
+  })
+
+  it('상대가 이미 탈락했으면 턴을 넘기는 순간 판이 끝난다', () => {
+    const state = twoPlayerState()
+    const alone: DavinciState = { ...state, eliminated: [GUEST] }
+
+    const next = expire(alone, NOW + 1)
+
+    expect(next.phase).toBe('FINISHED')
+    expect(next.winnerId).toBe(HOST)
+  })
 })
 
 describe('승부', () => {
@@ -397,5 +457,70 @@ describe('시점', () => {
   it('표준 스물여섯 장이다 — 색마다 0~11과 조커 하나', () => {
     expect(DAVINCI_TILES).toHaveLength(DAVINCI_DECK_SIZE)
     expect(DAVINCI_TILES.filter((tile) => tile.number === DAVINCI_JOKER)).toHaveLength(2)
+  })
+})
+
+/**
+ * 아래는 **잘못 불린 전이가 상태를 건드리지 않는다**는 계약이다. 서비스가 늦게 도착한
+ * 입력이나 지나간 국면의 마감을 그대로 흘려보내므로, 규칙이 스스로 막아야 한다.
+ */
+describe('물리치는 갈래', () => {
+  const state = twoPlayerState()
+  const otherTile = (source: DavinciState, playerId: string): DavinciTile => {
+    const tile = tilesOf(source, playerId)[0]
+    if (tile === undefined) throw new Error('타일이 없다')
+    return tile
+  }
+
+  it('같은 사람이 두 번 앉거나 순열이 깨지면 판을 열지 않는다', () => {
+    expect(() => initialDavinciState([HOST, HOST], deckOrder(), NOW)).toThrow(
+      'davinci_duplicate_player',
+    )
+    // 인덱스가 타일 목록 밖이면 순열이 아니다.
+    const outOfRange = deckOrder().map((index) => (index === 0 ? DAVINCI_DECK_SIZE : index))
+    expect(() => initialDavinciState([HOST, GUEST], outOfRange, NOW)).toThrow(
+      'davinci_invalid_deck_order',
+    )
+  })
+
+  it('이미 부른 입력 번호와 남의 차례에 온 입력은 무시한다', () => {
+    const tile = otherTile(state, GUEST)
+    const guessed = guess(state, HOST, 0, GUEST, tile.id, tile.number, NOW)
+
+    // 결정 단계: 같은 번호 재전송과 남의 결정은 둘 다 그대로 돌려준다.
+    expect(decide(guessed, HOST, 0, 'STOP', NOW)).toBe(guessed)
+    expect(decide(guessed, GUEST, 5, 'STOP', NOW)).toBe(guessed)
+
+    // 추측 단계: 같은 번호 재전송은 무시한다.
+    expect(guess(guessed, HOST, 0, GUEST, tile.id, tile.number, NOW)).toBe(guessed)
+  })
+
+  it('탈락한 사람이나 부를 수 없는 숫자는 추측 대상이 되지 않는다', () => {
+    const tile = otherTile(state, GUEST)
+    expect(guess(state, HOST, 0, GUEST, tile.id, 99, NOW)).toBe(state)
+
+    const eliminated: DavinciState = { ...state, eliminated: [GUEST] }
+    expect(guess(eliminated, HOST, 0, GUEST, tile.id, tile.number, NOW)).toBe(eliminated)
+  })
+
+  it('놓기 단계가 아니거나 같은 입력 번호인 놓기는 무시한다', () => {
+    expect(place(state, HOST, 0, 0, NOW)).toBe(state)
+  })
+
+  it('이미 끝난 판과 방에 없는 사람의 이탈은 아무것도 하지 않는다', () => {
+    const finished: DavinciState = { ...state, phase: 'FINISHED' }
+    expect(forfeit(finished, HOST, NOW)).toBe(finished)
+    expect(forfeit(state, '구경꾼', NOW)).toBe(state)
+  })
+
+  it('내 차례가 아닌 사람이 나가면 판은 그 자리에 머문다', () => {
+    const three = initialDavinciState([HOST, GUEST, THIRD], deckOrder(), NOW)
+
+    const left = forfeit(three, GUEST, NOW)
+
+    // 차례는 그대로 HOST다 — 넘길 이유가 없다.
+    expect(left.turnPlayerId).toBe(HOST)
+    expect(left.eliminated).toContain(GUEST)
+    expect(left.phase).toBe('GUESSING')
   })
 })

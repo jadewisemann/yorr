@@ -103,6 +103,7 @@ describe('InMemoryRoundStateStore', () => {
     expect(
       await store.autoRollAtomically('MISSING', 1, 'player-a', [1, 1, 1, 1, 1]),
     ).toBeUndefined()
+    expect(await store.expireAtomically('MISSING', 1, 'player-a')).toBeUndefined()
 
     // 굴림을 다 쓴 턴도 빈 결과 — 호출자는 점수 기록으로 넘어간다.
     for (let rollCount = 1; rollCount <= 3; rollCount += 1) {

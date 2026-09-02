@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   expire,
   forfeit,
+  hostReport,
   initial,
   judgedAt,
   NORMAL_SPEED,
@@ -148,5 +149,120 @@ describe('PingPongRules', () => {
     expect(allReady.phase).toBe('COUNTDOWN')
     expect([...allReady.readyPlayerIds].sort()).toEqual([P1, P2])
     expect(allReady.nextActionAt).toBe(1_500 + POINT_COUNTDOWN_MILLIS)
+  })
+
+  /**
+   * 스윙 판정의 **무시·기록만 하는 갈래들**. 실제로 랠리가 이어지는 갈래보다 수가 많고,
+   * 하나라도 새면 "친 적 없는 스윙이 판을 바꾼다"가 된다.
+   */
+  it('내게 오는 공이 아니면 입력 번호만 남기고 공은 그대로 간다', () => {
+    const served = startMatch()
+
+    // 공은 P1에게 가는 중이다 — P2가 휘둘러도 라켓에 닿을 것이 없다.
+    const swung = swing(served, P2, 1, 4_500, 0.5)
+
+    expect(swung.ball.direction).toBe(served.ball.direction)
+    expect(swung.rally).toBe(served.rally)
+    expect(swung.lastInputSeq[P2]).toBe(1)
+    expect(swung.version).toBe(served.version + 1)
+  })
+
+  it('판정 창을 벗어난 스윙은 헛스윙으로 남고 공은 계속 날아간다', () => {
+    const served = startMatch()
+
+    // 4_200 = 서브 후 0.2초 → 공이 아직 창(0.72) 앞이다.
+    const tooEarly = swing(served, P1, 1, 4_200, 0.5)
+    expect(tooEarly.lastEvent?.type).toBe('TOO_EARLY')
+    expect(tooEarly.ball.direction).toBe(1)
+
+    // 5_090 = 창(1.06)을 지난 뒤.
+    const tooLate = swing(served, P1, 2, 5_090, 0.5)
+    expect(tooLate.lastEvent?.type).toBe('TOO_LATE')
+    expect(tooLate.ball.direction).toBe(1)
+  })
+
+  it('이상점에서 멀면 폴트가 되고 폴트 공은 네트나 테이블 밖에서 죽는다', () => {
+    const served = startMatch()
+
+    // 4_750 = 0.75 → 이상점(0.9)보다 이르고 창 안 → OUT.
+    const out = swing(served, P1, 1, 4_750, 0.5)
+    expect(out.lastEvent?.type).toBe('OUT')
+    expect(out.ball.fault).toBe('OUT')
+
+    // 5_030 = 1.03 → 이상점보다 늦고 창 안 → NET.
+    const net = swing(served, P1, 2, 5_030, 0.5)
+    expect(net.lastEvent?.type).toBe('NET')
+    expect(net.ball.fault).toBe('NET')
+
+    // 폴트 공이 죽는 순간 상대가 아니라 **친 사람의 상대**가 득점한다.
+    const scored = expire(net, net.nextActionAt)
+    expect(scored.scores[P2]).toBe(1)
+  })
+
+  it('폴트 공이 날아가는 동안의 스윙은 입력 번호만 남긴다', () => {
+    const net = swing(startMatch(), P1, 1, 5_030, 0.5)
+
+    const during = swing(net, P2, 1, 5_100, 0.5)
+
+    expect(during.ball).toEqual(net.ball)
+    expect(during.lastInputSeq[P2]).toBe(1)
+    expect(during.version).toBe(net.version + 1)
+  })
+
+  it('이상점에서 조금 벗어난 리턴은 등급만 낮아진다', () => {
+    const served = startMatch()
+
+    // 0.98 → 이상점(0.9)과의 거리 0.08. PERFECT(0.06)보다 멀고 GOOD(0.1) 안 → NICE.
+    const nice = swing(served, P1, 1, 4_980, 0.5)
+    expect(nice.lastEvent?.type).toBe('NICE')
+    expect(nice.ball.smash).toBe(false)
+
+    // 1.01 → 거리 0.11. GOOD 밖이지만 늦은 쪽 폴트 한계(0.12) 안 → OK.
+    const ok = swing(served, P1, 2, 5_010, 0.5)
+    expect(ok.lastEvent?.type).toBe('OK')
+  })
+
+  it('두 사람이 아닌 명단으로는 판을 열 수 없다', () => {
+    expect(() => initial([P1], 1_000)).toThrow('ping_pong_requires_two_players')
+  })
+
+  it('카운트다운이 아닐 때의 서브와 진행 중이 아닐 때의 만료는 아무것도 하지 않는다', () => {
+    const preparing = initial([P1, P2], 1_000)
+
+    expect(serve(preparing, 4_000, 0.7)).toBe(preparing)
+    expect(expire(preparing, 4_000)).toBe(preparing)
+  })
+
+  it('방에 없는 사람의 이탈과 이미 끝난 판의 이탈은 아무것도 하지 않는다', () => {
+    const state = initial([P1, P2], 1_000)
+    expect(forfeit(state, '구경꾼', 2_000)).toBe(state)
+
+    const finished = forfeit(state, P1, 2_000)
+    expect(forfeit(finished, P2, 3_000)).toBe(finished)
+  })
+
+  /**
+   * 대시보드 보고의 통과 조건 넷(`hostReport`). 하나라도 새면 플레이어가 자기 점수를
+   * 올리거나 끝난 판이 다시 열린다.
+   */
+  it('대시보드 보고는 보낸 사람·version·명단·종료 여부를 모두 통과해야 받아들여진다', () => {
+    const current = playingAtScore(3, 2)
+    const reported: PingPongState = { ...current, version: 2, scores: { [P1]: 4, [P2]: 2 } }
+
+    expect(hostReport(current, reported, 'dashboard-1')).toMatchObject({
+      version: 2,
+      scores: { [P1]: 4 },
+    })
+
+    // 1. 플레이어가 보낸 보고는 받지 않는다.
+    expect(hostReport(current, reported, P1)).toBeNull()
+    // 2. version이 늘지 않은 보고는 받지 않는다.
+    expect(hostReport(current, { ...reported, version: 1 }, 'dashboard-1')).toBeNull()
+    // 3. 명단을 바꾸는 보고는 받지 않는다.
+    expect(hostReport(current, { ...reported, playerOrder: [P2, P1] }, 'dashboard-1')).toBeNull()
+    expect(hostReport(current, { ...reported, playerOrder: [P1] }, 'dashboard-1')).toBeNull()
+    // 4. 끝난 판은 다시 열리지 않는다.
+    const finished = forfeit(current, P1, 2_000)
+    expect(hostReport(finished, { ...reported, version: 99 }, 'dashboard-1')).toBeNull()
   })
 })

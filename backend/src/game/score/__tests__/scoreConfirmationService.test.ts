@@ -131,6 +131,10 @@ describe('ScoreConfirmationService', () => {
     await expect(service.confirm(command(0, 'choice', [1, 2, 3, 4, 5]))).rejects.toThrow(
       /roundNumber/,
     )
+    // 빈 카테고리는 `scoreCategoryOf`가 아니라 여기서 먼저 걸린다.
+    await expect(
+      service.confirm({ ...command(1, 'choice', [1, 2, 3, 4, 5]), category: ' ' as ScoreCategory }),
+    ).rejects.toThrow(/category/)
     expect(store.category).toBeNull()
   })
 })

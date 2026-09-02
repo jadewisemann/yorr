@@ -119,6 +119,19 @@ describe('GameCompletionService', () => {
       expect.objectContaining({ roomId: ROOM, gameId: 'game-1', force: true }),
     ])
   })
+
+  /**
+   * 보관 어댑터를 주입하지 않으면 기본값(`noopMatchArchive`)이 쓰인다. 종료 경로는
+   * 그것을 부르고 **결과가 false여도 종료를 계속한다** — 전적 한 줄보다 결과 화면이 먼저다.
+   */
+  it('보관 어댑터가 없어도 종료는 끝까지 진행된다', async () => {
+    // 기본값은 아무것도 하지 않는 스텁이다. 그것이 false를 돌려줘도 종료는 계속된다 —
+    // 전적 한 줄보다 눈앞의 결과 화면이 먼저다.
+    const world = createWorld({ transitions: true, archive: null })
+
+    await expect(world.service.finishIfComplete(ROOM, true)).resolves.toBe(true)
+    expect(world.archived).toEqual([])
+  })
 })
 
 interface WorldOptions {
@@ -126,7 +139,8 @@ interface WorldOptions {
   readonly gameCode?: string
   readonly gameId?: string | null
   readonly room?: CompletionRoomSnapshot | null
-  readonly archive?: MatchArchivePort
+  /** `null`이면 어댑터를 주입하지 않는다 — 기본 스텁이 쓰이는 판을 만든다. */
+  readonly archive?: MatchArchivePort | null
   readonly onArchiveFailure?: (roomId: string, error: unknown) => void
   readonly onFinished?: (event: unknown) => void
 }
@@ -193,12 +207,17 @@ const createWorld = (options: WorldOptions) => {
           broadcasts.push(message)
         },
       },
-      matchArchive: options.archive ?? {
-        archive: (archivedRoom, rankings) => {
-          archived.push({ room: archivedRoom, rankings })
-          return true
-        },
-      },
+      // `archive: null`이면 키 자체를 뺀다 — 기본값(`noopMatchArchive`)이 쓰이는 판이다.
+      ...(options.archive === null
+        ? {}
+        : {
+            matchArchive: options.archive ?? {
+              archive: (archivedRoom: CompletionRoomSnapshot, rankings: readonly Ranking[]) => {
+                archived.push({ room: archivedRoom, rankings })
+                return true
+              },
+            },
+          }),
     },
     serviceOptions,
   )

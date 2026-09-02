@@ -248,6 +248,68 @@ describe('RoundState', () => {
     expect(held.activeRollCount).toBe(1)
     expect(held.activeDice).toEqual([1, 2, 3, 4, 5])
   })
+
+  /**
+   * 아래는 **깨진 값이 상태로 들어오지 못하게 막는** 자리다. 라운드 상태는 WS 입력과
+   * 저장소 복원 양쪽에서 만들어지므로, 검증이 새면 그 뒤의 판정이 전부 흔들린다.
+   */
+  it('라운드 번호와 총 라운드 수의 범위를 지킨다', () => {
+    expectReason(() => RoundState.start(0, ['player-a']), 'INVALID_ROUND')
+    expectReason(() => RoundState.start(1, ['player-a'], 0), 'INVALID_ROUND')
+    expectReason(() => RoundState.start(3, ['player-a'], 2), 'INVALID_ROUND')
+  })
+
+  it('참가자 명단은 비어 있을 수도, 빈 문자열을 담을 수도 없다', () => {
+    expectReason(() => RoundState.start(1, []), 'INVALID_PLAYER')
+    expectReason(() => RoundState.start(1, ['  ']), 'INVALID_PLAYER')
+  })
+
+  it('KEEP 배열과 주사위는 다섯 칸이어야 한다', () => {
+    const state = RoundState.start(1, ['player-a'])
+
+    expectReason(() => state.recordRoll('player-a', 1, 1, [true], [1, 2, 3, 4, 5]), 'INVALID_ROLL')
+    expectReason(() => state.recordRoll('player-a', 1, 1, noHeld(), [1, 2, 3]), 'INVALID_DICE')
+    expectReason(
+      () => state.recordRoll('player-a', 1, 1, noHeld(), [0, 2, 3, 4, 5]),
+      'INVALID_DICE',
+    )
+  })
+
+  /**
+   * 정상 전이로는 제출과 동시에 턴이 넘어가므로 이 자리에 닿지 않는다. 복원된 스냅샷이
+   * 같은 사람을 다시 활성으로 가리키는 경우가 이 방어선이 지키는 상황이다.
+   */
+  it('같은 사람이 한 라운드에 두 번 제출할 수 없다', () => {
+    const already = RoundState.restore({
+      roundNumber: 1,
+      totalRounds: 12,
+      participantOrder: ['player-a', 'player-b'],
+      submissions: new Map([['player-a', submission('player-a', 1)]]),
+      activePlayerIndex: 0,
+      activeRollCount: 1,
+      activeDice: [1, 2, 3, 4, 5],
+      activeHeld: noHeld(),
+      finished: false,
+    })
+
+    expectReason(() => already.submit(submission('player-a', 1)), 'ALREADY_SUBMITTED')
+  })
+
+  it('복원한 스냅샷의 턴 자리가 명단 밖이면 활성 플레이어를 묻는 순간 던진다', () => {
+    const broken = RoundState.restore({
+      roundNumber: 1,
+      totalRounds: 12,
+      participantOrder: ['player-a'],
+      submissions: new Map(),
+      activePlayerIndex: 5,
+      activeRollCount: 0,
+      activeDice: null,
+      activeHeld: null,
+      finished: false,
+    })
+
+    expectReason(() => broken.activePlayerId, 'INVALID_PLAYER')
+  })
 })
 
 const submission = (playerId: string, roundNumber: number): RoundSubmission =>

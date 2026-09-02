@@ -133,7 +133,12 @@ export const initialDavinciState = (
   order: readonly number[],
   now: number,
 ): DavinciState => {
-  if (players.length < DAVINCI_MIN_PLAYERS || players.length > DAVINCI_MAX_PLAYERS) {
+  const [turnPlayerId] = players
+  if (
+    players.length < DAVINCI_MIN_PLAYERS ||
+    players.length > DAVINCI_MAX_PLAYERS ||
+    turnPlayerId === undefined
+  ) {
     throw new DomainError('davinci_requires_two_to_four_players')
   }
   if (new Set(players).size !== players.length) throw new DomainError('davinci_duplicate_player')
@@ -165,8 +170,6 @@ export const initialDavinciState = (
   }
 
   const deck = shuffled.filter((tile) => !dealtIds.has(tile.id))
-  const [turnPlayerId] = players
-  if (turnPlayerId === undefined) throw new DomainError('davinci_requires_two_to_four_players')
   const [drawn, ...rest] = deck
 
   return {
