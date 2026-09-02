@@ -8,6 +8,7 @@ import type {
 import type { GameCompletionStore } from '../completionStore.js'
 import { GameCompletionService, type GameFinishedEvent } from '../gameCompletionService.js'
 import type { Ranking } from '../gameResultCalculator.js'
+import { TIED_RANKINGS } from './completionFixtures.js'
 
 const ROOM = 'ROOM1'
 
@@ -39,14 +40,7 @@ describe('GameCompletionService', () => {
       // phase(finished)는 스냅샷으로만 전달된다 — 이게 없으면 클라가 결과 화면으로 못 넘어간다.
       'game.yacht_dice.state.sync',
     ])
-    expect(world.broadcasts[0]?.payload).toEqual({
-      rankings: [
-        { rank: 1, playerId: 'player-b', total: 205 },
-        { rank: 2, playerId: 'player-a', total: 180 },
-        { rank: 2, playerId: 'player-c', total: 180 },
-        { rank: 4, playerId: 'player-d', total: 90 },
-      ],
-    })
+    expect(world.broadcasts[0]?.payload).toEqual({ rankings: TIED_RANKINGS })
     expect(world.broadcasts[1]?.payload).toEqual({ snapshot: { roomId: ROOM, phase: 'finished' } })
     expect(world.broadcasts.every((message) => message.roomId === ROOM)).toBe(true)
   })

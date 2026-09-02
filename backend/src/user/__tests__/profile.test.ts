@@ -23,6 +23,40 @@ import { FakeUserProfiles } from './fakeUserProfiles.js'
  *    **DB 쪽 절반**(행이 실제로 바뀌는가·없는 회원 판정)이 여기서만 확인된다.
  */
 
+/**
+ * 개명 두 종의 공통 계약. 저장소가 무엇이든 같아야 하므로 "지금 저장된 이름"을
+ * 읽는 방법만 인자로 받는다 — 파일 머리말이 밝히듯 인메모리 절반과 실 MySQL
+ * 절반이 둘 다 돌아야 dual-write가 지켜진다.
+ */
+interface RenameFixture {
+  readonly nicknameOf: () => Promise<string>
+  readonly users: UserService
+  readonly service: UserProfileService
+  readonly memberId: string
+  readonly sessionToken: string
+}
+
+async function expectRenameSyncsSession(fixture: RenameFixture) {
+  await fixture.service.rename(fixture.memberId, '새이름')
+
+  expect(await fixture.nicknameOf()).toBe('새이름')
+  // 세션까지 바뀌어야 화면과 방 명단에 바로 반영된다.
+  const session = await fixture.users.authenticateSession(fixture.sessionToken)
+  expect(session.nickname).toBe('새이름')
+  expect(session.type).toBe('MEMBER')
+}
+
+/** 사용자가 직접 이름을 정했으면 그 뒤로는 로그인해도 제공자 이름으로 덮이면 안 된다. */
+async function expectRenameLeavesPlaceholder(
+  fixture: Pick<RenameFixture, 'nicknameOf' | 'service' | 'memberId'>,
+) {
+  expect(await fixture.nicknameOf()).toBe(PLACEHOLDER_NICKNAME)
+
+  await fixture.service.rename(fixture.memberId, '내가정한이름')
+
+  expect(await fixture.nicknameOf()).not.toBe(PLACEHOLDER_NICKNAME)
+}
+
 describeRedis('UserProfileService (인메모리 회원 저장소 + 진짜 Redis)', () => {
   const redis = useRedis()
   let users: UserService
@@ -50,22 +84,20 @@ describeRedis('UserProfileService (인메모리 회원 저장소 + 진짜 Redis)
     return row
   }
 
-  it('닉네임을_바꾸면_DB와_세션이_함께_바뀐다', async () => {
-    await service.rename(member.id, '새이름')
-
-    expect((await stored()).nickname).toBe('새이름')
-    // 세션까지 바뀌어야 화면과 방 명단에 바로 반영된다.
-    expect((await users.authenticateSession(sessionToken)).nickname).toBe('새이름')
-    expect((await users.authenticateSession(sessionToken)).type).toBe('MEMBER')
+  const renameFixture = (): RenameFixture => ({
+    memberId: member.id,
+    nicknameOf: async () => (await stored()).nickname,
+    service,
+    sessionToken,
+    users,
   })
 
-  /** 사용자가 직접 이름을 정했으면 그 뒤로는 로그인해도 제공자 이름으로 덮이면 안 된다. */
+  it('닉네임을_바꾸면_DB와_세션이_함께_바뀐다', async () => {
+    await expectRenameSyncsSession(renameFixture())
+  })
+
   it('이름을_직접_정하면_더_이상_임시_이름이_아니다', async () => {
-    expect((await stored()).nickname).toBe(PLACEHOLDER_NICKNAME)
-
-    await service.rename(member.id, '내가정한이름')
-
-    expect((await stored()).nickname).not.toBe(PLACEHOLDER_NICKNAME)
+    await expectRenameLeavesPlaceholder(renameFixture())
   })
 
   it('빈_이름이나_너무_긴_이름은_거절한다', async () => {
@@ -168,23 +200,23 @@ describeMysql('MysqlUserProfileStore (실 MySQL + 진짜 Redis)', () => {
     return String(rows[0]?.nickname)
   }
 
-  it('닉네임을_바꾸면_DB와_세션이_함께_바뀐다', async () => {
+  const renameFixture = async (): Promise<RenameFixture> => {
     const { pool, users, service, member, sessionToken } = await signUp()
+    return {
+      memberId: member.id,
+      nicknameOf: () => nicknameOf(pool, member.id),
+      service,
+      sessionToken,
+      users,
+    }
+  }
 
-    await service.rename(member.id, '새이름')
-
-    expect(await nicknameOf(pool, member.id)).toBe('새이름')
-    expect((await users.authenticateSession(sessionToken)).nickname).toBe('새이름')
-    expect((await users.authenticateSession(sessionToken)).type).toBe('MEMBER')
+  it('닉네임을_바꾸면_DB와_세션이_함께_바뀐다', async () => {
+    await expectRenameSyncsSession(await renameFixture())
   })
 
   it('이름을_직접_정하면_더_이상_임시_이름이_아니다', async () => {
-    const { pool, service, member } = await signUp()
-    expect(await nicknameOf(pool, member.id)).toBe(PLACEHOLDER_NICKNAME)
-
-    await service.rename(member.id, '내가정한이름')
-
-    expect(await nicknameOf(pool, member.id)).not.toBe(PLACEHOLDER_NICKNAME)
+    await expectRenameLeavesPlaceholder(await renameFixture())
   })
 
   it('빈_이름이나_너무_긴_이름은_거절한다', async () => {

@@ -85,12 +85,20 @@ describe('PingPongGameService', () => {
     expect(test.scores).toEqual({ [P1]: 0, [P2]: 11 })
   })
 
-  it('카운트다운 마감이 서브로 이어지고 다음 실점 마감을 예약한다', async () => {
+  /**
+   * P2만 아직 준비를 누르지 않은 판. 준비를 누르면 카운트다운이 걸리므로 마감
+   * 예약을 보는 검사들이 여기서 출발한다. 시각은 예약 계산이 딱 떨어지도록 고정한다.
+   */
+  function countdownPending() {
     const timers = manualExecutor()
     const test2 = harness({ executor: timers.executor })
-    const state = p2NotReadyYet()
-    test2.states.state = state
+    test2.states.state = p2NotReadyYet()
     test2.clock.value = 1_400
+    return { test2, timers }
+  }
+
+  it('카운트다운 마감이 서브로 이어지고 다음 실점 마감을 예약한다', async () => {
+    const { test2, timers } = countdownPending()
 
     // 전원 ready → COUNTDOWN(version 5) 예약. 예약 키는 라운드가 아니라 version이다.
     await test2.service.ready(ROOM, P2)
@@ -119,11 +127,7 @@ describe('PingPongGameService', () => {
   })
 
   it('예약 시점과 version이 어긋난 마감은 아무것도 하지 않는다', async () => {
-    const timers = manualExecutor()
-    const test2 = harness({ executor: timers.executor })
-    const state = p2NotReadyYet()
-    test2.states.state = state
-    test2.clock.value = 1_400
+    const { test2, timers } = countdownPending()
 
     await test2.service.ready(ROOM, P2) // version 5 예약
     const scheduled = test2.calls.length

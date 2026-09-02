@@ -4,6 +4,7 @@ import type { InboundEnvelope } from '../../ws/envelope.js'
 import type { ClientSocket } from '../../ws/socket.js'
 import { DUEL, GameCatalog, YACHT_DICE } from '../catalog.js'
 import { type GameModule, GameModuleRegistry, gameWsType } from '../module.js'
+import { stubGameModule } from './portDoubles.js'
 
 /** 레지스트리 테스트용 게임 모듈 대역. */
 interface FakeModule {
@@ -13,22 +14,12 @@ interface FakeModule {
 
 const fakeModule = (code: string, events: string[] = ['dice.roll']): FakeModule => {
   const handled: { socket: ClientSocket; message: InboundEnvelope }[] = []
-  const module: GameModule = {
-    code,
-    start: async () => {},
-    reset: async () => {},
-    reconnect: async (roomCode) => ({ roomId: roomCode, phase: 'playing', players: [] }),
-    pause: async () => {},
-    resume: async () => {},
-    rehydrate: async () => {},
-    removePlayer: async () => {},
-    close: async () => {},
-    hasState: async () => false,
+  const module = stubGameModule(code, {
     handles: (eventType) => events.includes(eventType),
     handle: async (socket, message) => {
       handled.push({ socket, message })
     },
-  }
+  })
   return { module, handled }
 }
 

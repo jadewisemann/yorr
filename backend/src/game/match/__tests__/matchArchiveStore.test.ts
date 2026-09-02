@@ -10,8 +10,10 @@ import {
   GAME_ID,
   localAiMatch,
   mixedMatch,
+  participantsOf,
   ranking,
   room,
+  signUpMember,
   soloGuestMatch,
 } from './matchFixtures.js'
 
@@ -44,34 +46,8 @@ describeMysql('MysqlMatchArchiveStore (실 MySQL)', () => {
       pool,
       store,
       service: new MatchArchiveService(store, { now: () => FIXED_NOW }),
-      signUp: async (nickname: string) => {
-        const id = randomUUID()
-        const at = new Date('2026-08-01T00:00:00.000Z')
-        await pool.query(
-          'INSERT INTO users (id, nickname, profile_image_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-          [id, nickname, null, at, at],
-        )
-        return id
-      },
+      signUp: (nickname: string) => signUpMember(pool, nickname),
     }
-  }
-
-  interface ParticipantRow extends RowDataPacket {
-    readonly user_id: string | null
-    readonly player_id: string
-    readonly display_nickname: string
-    readonly total_score: number
-    readonly ranking: number
-  }
-
-  const participantsOf = async (pool: Pool, gameId: string): Promise<ParticipantRow[]> => {
-    const [rows] = await pool.query<ParticipantRow[]>(
-      `SELECT p.user_id, p.player_id, p.display_nickname, p.total_score, p.ranking
-         FROM match_participants p JOIN matches m ON m.id = p.match_id
-        WHERE m.game_id = ? ORDER BY p.ranking, p.player_id`,
-      [gameId],
-    )
-    return rows
   }
 
   const countMatches = async (pool: Pool): Promise<number> => {

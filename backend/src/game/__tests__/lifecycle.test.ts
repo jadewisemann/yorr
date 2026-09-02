@@ -7,6 +7,7 @@ import type { UserIdentity } from '../../user/session.js'
 import { DUEL, GameCatalog, YACHT_DICE } from '../catalog.js'
 import { GameLifecycleService } from '../lifecycle.js'
 import { type GameModule, GameModuleRegistry } from '../module.js'
+import { stubGameModule } from './portDoubles.js'
 
 const guest = (userId: string, nickname: string): UserIdentity => ({
   userId,
@@ -27,8 +28,7 @@ interface RecordingModule {
 const recordingModule = (code: string, onStart?: () => never): RecordingModule => {
   const started: { roomCode: string; game: GameStartResult }[] = []
   const calls: string[] = []
-  const module: GameModule = {
-    code,
+  const module = stubGameModule(code, {
     start: async (roomCode, game) => {
       started.push({ roomCode, game })
       calls.push('start')
@@ -37,18 +37,10 @@ const recordingModule = (code: string, onStart?: () => never): RecordingModule =
     reset: async (roomCode) => {
       calls.push(`reset:${roomCode}`)
     },
-    reconnect: async (roomCode) => ({ roomId: roomCode, phase: 'playing', players: [] }),
-    pause: async () => {},
-    resume: async () => {},
-    rehydrate: async () => {},
     removePlayer: async (roomCode, playerId) => {
       calls.push(`removePlayer:${roomCode}:${playerId}`)
     },
-    close: async () => {},
-    hasState: async () => false,
-    handles: () => false,
-    handle: async () => {},
-  }
+  })
   return { module, started, calls }
 }
 

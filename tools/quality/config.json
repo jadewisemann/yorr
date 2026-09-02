@@ -22,7 +22,7 @@
     "explicitAny": 0
   },
   "waivers": {
-    "maxCount": 5,
+    "maxCount": 8,
     "_note": "예외는 파일 단위로 명시하고 개수를 게이트가 감시한다. 늘리려면 여기 상한을 올려야 하고, 그 결정이 diff에 남는다.",
     "files": [
       {
@@ -49,6 +49,21 @@
         "file": "frontend/src/yacht/rendering/physics-dice/World.ts",
         "metric": "fileLines",
         "reason": "506줄(760에서 줄였다). 그릇 거동·주사위 방출·궤적 재생·결과 정렬·자리 이동·리사이즈 가라앉히기를 전부 밖으로 뺐고, 남은 것은 월드가 **자기 상태를 관리하는 부분**이다(필드 50여 개의 초기화·수명·프레임 루프). 여기서 더 쪼개면 상태와 그것을 만지는 코드가 갈라져 오히려 읽기 어려워진다. 남은 감축은 상태 자체를 몇 덩어리로 묶는 재설계이며, 시각 대조를 함께 세운 뒤에 한다."
+      },
+      {
+        "file": "backend/src/game/duel/duelGameModule.ts",
+        "metric": "duplication",
+        "reason": "다빈치 모듈과 겹치는 것은 규칙이 아니라 배선이다 — 생성자에서 자기 게임 서비스를 받아 두고 방 스냅샷으로 판을 여는 세 줄뿐이며, 두 게임의 서비스 타입이 서로 다르다. ADR-0007이 정한 대로 게임마다 자기 배선을 갖는 편이 낫다. 공통 상위 클래스를 하나 더 두면 코드 총량과 계층만 늘고 읽기는 어려워진다."
+      },
+      {
+        "file": "backend/src/game/duel/__tests__/duelPorts.contract.test.ts",
+        "metric": "duplication",
+        "reason": "포트 계약 검사는 **게임마다 자기 타입으로** 대입해 봐야 뜻이 있다. 다빈치 쪽과 형태가 같은 것은 타입 이름만 다르기 때문이며, 공통 절차(`expectRegistryServesSeats`·`expectDeadlineFires`)는 이미 뽑아 두었다. 남은 것은 대입 그 자체라 더 줄이면 검사의 요지가 사라진다."
+      },
+      {
+        "file": "frontend/src/yacht/rendering/physics-dice/__tests__/physicsSimulation.test.ts",
+        "metric": "duplication",
+        "reason": "그릇 흔들기 루프가 화면의 `shakeBowlFrame`과 형태만 겹친다(무작위 임펄스를 빼고 높이를 고정한 단순 모델). 화면 함수로 갈아 끼우면 난수 소비 순서가 달라져 24개 seed 표본이 통째로 바뀌고 한둘에서 주사위가 겹친 자세로 끝난다 — 쏟는 힘의 분산을 손봐야 하는 별개의 과제다. 검사 안에도 같은 사정을 주석으로 남겼다."
       }
     ]
   },
@@ -59,7 +74,8 @@
     "halstead",
     "explicitAny",
     "fileLines",
-    "crap"
+    "crap",
+    "duplication"
   ],
   "enforcedNightly": [
     "mutation"
@@ -67,9 +83,8 @@
   "_enforcedNightlyNote": "stryker 리포트는 커밋되지 않으므로 PR 게이트에는 측정값이 없다. 돌연변이는 stryker를 돌린 그 잡에서 tools/quality/mutation-gate.mjs가 강제한다.",
   "_enforcedNote": "QUALITY.md 5절의 단계에 따라 하나씩 추가한다. 키: cyclomatic·cognitive·halstead·fileLines·coverage·crap·mutation·deadCode·duplication·explicitAny·unknownCast",
   "ratchets": {
-    "unknownCast": 59,
-    "_note": "지금 값을 바닥으로 잡는다. 줄이면 이 숫자도 함께 줄여 되돌아가지 못하게 한다. 남은 캐스트의 성격은 QUALITY.md 3단계에 적혀 있다.",
-    "duplication": 65
+    "unknownCast": 57,
+    "_note": "지금 값을 바닥으로 잡는다. 줄이면 이 숫자도 함께 줄여 되돌아가지 못하게 한다. 남은 캐스트의 성격은 QUALITY.md 3단계에 적혀 있다."
   },
   "coreModules": {
     "_note": "QUALITY.md 3절 (c)의 '핵심 순수 로직'. 커버리지 100%와 CRAP 절대 기준이 여기에 걸린다. 배선·인프라·렌더링 계층은 래칫으로만 관리한다.",

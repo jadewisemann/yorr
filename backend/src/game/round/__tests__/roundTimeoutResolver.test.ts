@@ -99,12 +99,8 @@ describe('RoundTimeoutResolver', () => {
   it('굴림이 남지 않았으면 비어 있는 족보를 기록하고 턴을 넘긴다', async () => {
     await duoTurnWithNoRollsLeft()
 
-    const resolution = await resolver.resolve('room-a', 1, 'player-a')
+    await expectTurnPassedToB()
 
-    expect(resolution.kind).toBe('ADVANCED')
-    expect(resolution.kind === 'ADVANCED' && resolution.advanced.state.activePlayerId).toBe(
-      'player-b',
-    )
     // 남은 후보(choice·yacht) 중에서 골랐다 — 이미 기록한 칸을 덮어쓰지 않는다.
     expect(scoreRoundSubmission.confirmed).toEqual([
       { gameId: 'game-a', playerId: 'player-a', roundNumber: 1, category: 'yacht', dice: SIXES },
@@ -131,13 +127,8 @@ describe('RoundTimeoutResolver', () => {
     await duoTurnWithNoRollsLeft()
     scoreRoundSubmission.failure = new Error('redis unavailable')
 
-    const resolution = await resolver.resolve('room-a', 1, 'player-a')
-
     // 점수를 남기지 못해도 턴은 멈추지 않는다 — 게임이 여기서 굳으면 아무도 진행할 수 없다.
-    expect(resolution.kind).toBe('ADVANCED')
-    expect(resolution.kind === 'ADVANCED' && resolution.advanced.state.activePlayerId).toBe(
-      'player-b',
-    )
+    await expectTurnPassedToB()
     expect(broadcaster.typesFor('room-a')).toEqual([])
   })
 
@@ -184,6 +175,16 @@ describe('RoundTimeoutResolver', () => {
         held: NO_HELD,
       })
     }
+  }
+
+  /** 마감 처리가 턴을 다음 사람에게 넘겼는지. 점수를 남겼든 못 남겼든 같아야 한다. */
+  const expectTurnPassedToB = async () => {
+    const resolution = await resolver.resolve('room-a', 1, 'player-a')
+
+    expect(resolution.kind).toBe('ADVANCED')
+    expect(resolution.kind === 'ADVANCED' && resolution.advanced.state.activePlayerId).toBe(
+      'player-b',
+    )
   }
 
   /** 2인 방의 첫 턴에서 굴림 세 번을 다 쓴 상태. 마감 처리 검사 대부분이 여기서 출발한다. */

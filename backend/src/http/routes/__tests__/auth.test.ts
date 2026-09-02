@@ -1,6 +1,7 @@
 import fastify, { type FastifyInstance } from 'fastify'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../../test/redisHarness.js'
+import { expectKakaoAuthorizeRedirect } from '../../../auth/__tests__/oauthDoubles.js'
 import { authOptions } from '../../../auth/config.js'
 import { DataIntegrityViolationError } from '../../../auth/errors.js'
 import { GoogleOAuthClient } from '../../../auth/googleClient.js'
@@ -166,14 +167,9 @@ describeRedis('소셜 로그인 REST', () => {
   it('GET /auth/kakao/authorize — 동의 화면으로 302하고 state를 남긴다', async () => {
     const response = await app.inject({ method: 'GET', url: '/api/v1/auth/kakao/authorize' })
 
-    expect(response.statusCode).toBe(302)
-    const location = new URL(String(response.headers.location))
-    expect(location.origin + location.pathname).toBe('https://kauth.kakao.com/oauth/authorize')
-    expect(location.searchParams.get('client_id')).toBe('rest-api-key')
+    const location = await expectKakaoAuthorizeRedirect(response, redis())
+
     expect(location.searchParams.get('prompt')).toBeNull()
-    // 발급된 state가 실제로 Redis에 있어야 콜백이 통과한다.
-    const state = String(location.searchParams.get('state'))
-    expect(await redis().exists(`auth:oauth-state:${state}`)).toBe(1)
   })
 
   it('prompt는 제공자별 문자열이 정확히 맞을 때만 전달된다', async () => {

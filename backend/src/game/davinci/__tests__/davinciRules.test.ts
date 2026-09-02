@@ -14,34 +14,19 @@ import {
   scoreOf,
 } from '../davinciRules.js'
 import { DAVINCI_JOKER, type DavinciState, type DavinciTile, toView } from '../davinciState.js'
-
-const HOST = 'player-1'
-const GUEST = 'player-2'
-const THIRD = 'player-3'
-const NOW = 1_700_000_000_000
-
-/** `DAVINCI_TILES`의 인덱스 — 0~11이 검정, 12가 검정 조커, 13~24가 흰색, 25가 흰색 조커다. */
-const BLACK = (number: number): number => number
-const WHITE = (number: number): number => 13 + number
-const BLACK_JOKER = 12
-
-/** 앞에 놓고 싶은 타일만 지정하고 나머지는 남은 순서대로 채운 순열. */
-const deckOrder = (...front: readonly number[]): number[] => [
-  ...front,
-  ...Array.from({ length: DAVINCI_DECK_SIZE }, (_, index) => index).filter(
-    (index) => !front.includes(index),
-  ),
-]
-
-/** 2인 판: 앞 여덟 장이 손패(각 넷), 아홉 번째가 첫 턴에 뽑는 타일이다. */
-const twoPlayerState = (...front: readonly number[]): DavinciState =>
-  initialDavinciState([HOST, GUEST], deckOrder(...front), NOW)
-
-const tilesOf = (state: DavinciState, playerId: string): readonly DavinciTile[] =>
-  state.hands[playerId] ?? []
-
-const numbersOf = (state: DavinciState, playerId: string): number[] =>
-  tilesOf(state, playerId).map((tile) => tile.number)
+import {
+  BLACK,
+  BLACK_JOKER,
+  deckOrder,
+  GUEST,
+  HOST,
+  NOW,
+  numbersOf,
+  THIRD,
+  tilesOf,
+  twoPlayerState,
+  WHITE,
+} from './davinciFixtures.js'
 
 describe('타일 정렬', () => {
   it('숫자 오름차순으로, 같은 숫자면 검정이 왼쪽이다', () => {
@@ -457,70 +442,5 @@ describe('시점', () => {
   it('표준 스물여섯 장이다 — 색마다 0~11과 조커 하나', () => {
     expect(DAVINCI_TILES).toHaveLength(DAVINCI_DECK_SIZE)
     expect(DAVINCI_TILES.filter((tile) => tile.number === DAVINCI_JOKER)).toHaveLength(2)
-  })
-})
-
-/**
- * 아래는 **잘못 불린 전이가 상태를 건드리지 않는다**는 계약이다. 서비스가 늦게 도착한
- * 입력이나 지나간 국면의 마감을 그대로 흘려보내므로, 규칙이 스스로 막아야 한다.
- */
-describe('물리치는 갈래', () => {
-  const state = twoPlayerState()
-  const otherTile = (source: DavinciState, playerId: string): DavinciTile => {
-    const tile = tilesOf(source, playerId)[0]
-    if (tile === undefined) throw new Error('타일이 없다')
-    return tile
-  }
-
-  it('같은 사람이 두 번 앉거나 순열이 깨지면 판을 열지 않는다', () => {
-    expect(() => initialDavinciState([HOST, HOST], deckOrder(), NOW)).toThrow(
-      'davinci_duplicate_player',
-    )
-    // 인덱스가 타일 목록 밖이면 순열이 아니다.
-    const outOfRange = deckOrder().map((index) => (index === 0 ? DAVINCI_DECK_SIZE : index))
-    expect(() => initialDavinciState([HOST, GUEST], outOfRange, NOW)).toThrow(
-      'davinci_invalid_deck_order',
-    )
-  })
-
-  it('이미 부른 입력 번호와 남의 차례에 온 입력은 무시한다', () => {
-    const tile = otherTile(state, GUEST)
-    const guessed = guess(state, HOST, 0, GUEST, tile.id, tile.number, NOW)
-
-    // 결정 단계: 같은 번호 재전송과 남의 결정은 둘 다 그대로 돌려준다.
-    expect(decide(guessed, HOST, 0, 'STOP', NOW)).toBe(guessed)
-    expect(decide(guessed, GUEST, 5, 'STOP', NOW)).toBe(guessed)
-
-    // 추측 단계: 같은 번호 재전송은 무시한다.
-    expect(guess(guessed, HOST, 0, GUEST, tile.id, tile.number, NOW)).toBe(guessed)
-  })
-
-  it('탈락한 사람이나 부를 수 없는 숫자는 추측 대상이 되지 않는다', () => {
-    const tile = otherTile(state, GUEST)
-    expect(guess(state, HOST, 0, GUEST, tile.id, 99, NOW)).toBe(state)
-
-    const eliminated: DavinciState = { ...state, eliminated: [GUEST] }
-    expect(guess(eliminated, HOST, 0, GUEST, tile.id, tile.number, NOW)).toBe(eliminated)
-  })
-
-  it('놓기 단계가 아니거나 같은 입력 번호인 놓기는 무시한다', () => {
-    expect(place(state, HOST, 0, 0, NOW)).toBe(state)
-  })
-
-  it('이미 끝난 판과 방에 없는 사람의 이탈은 아무것도 하지 않는다', () => {
-    const finished: DavinciState = { ...state, phase: 'FINISHED' }
-    expect(forfeit(finished, HOST, NOW)).toBe(finished)
-    expect(forfeit(state, '구경꾼', NOW)).toBe(state)
-  })
-
-  it('내 차례가 아닌 사람이 나가면 판은 그 자리에 머문다', () => {
-    const three = initialDavinciState([HOST, GUEST, THIRD], deckOrder(), NOW)
-
-    const left = forfeit(three, GUEST, NOW)
-
-    // 차례는 그대로 HOST다 — 넘길 이유가 없다.
-    expect(left.turnPlayerId).toBe(HOST)
-    expect(left.eliminated).toContain(GUEST)
-    expect(left.phase).toBe('GUESSING')
   })
 })

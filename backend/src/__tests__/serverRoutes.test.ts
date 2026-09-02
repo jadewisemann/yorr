@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../test/redisHarness.js'
+import { expectKakaoAuthorizeRedirect } from '../auth/__tests__/oauthDoubles.js'
 import {
   SWEEP_INTERVAL_MS,
   type SweepSchedule,
@@ -287,13 +288,7 @@ describeRedis('서버 배선 — 라우트와 관측', () => {
       url: '/api/v1/auth/kakao/authorize',
     })
 
-    expect(response.statusCode).toBe(302)
-    const location = new URL(String(response.headers.location))
-    expect(location.origin + location.pathname).toBe('https://kauth.kakao.com/oauth/authorize')
-    expect(location.searchParams.get('client_id')).toBe('rest-api-key')
-    // state는 Redis에 실제로 발급돼 있어야 한다(스토어가 서버의 Redis에 붙었다는 증거).
-    const state = location.searchParams.get('state')
-    expect(await redis().exists(`auth:oauth-state:${state}`)).toBe(1)
+    await expectKakaoAuthorizeRedirect(response, redis())
   })
 
   /**

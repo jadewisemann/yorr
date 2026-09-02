@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { isRoundSyncError, type RoundSyncReason } from '../roundErrors.js'
 import { RoundSubmission } from '../roundSubmission.js'
+import { expectReason } from './testDoubles.js'
 
 describe('RoundSubmission', () => {
   it('주사위를 방어적으로 복사한다', () => {
@@ -37,13 +37,3 @@ describe('RoundSubmission', () => {
     )
   })
 })
-
-const expectReason = (action: () => unknown, reason: RoundSyncReason): void => {
-  try {
-    action()
-  } catch (error) {
-    expect(isRoundSyncError(error, reason)).toBe(true)
-    return
-  }
-  expect.unreachable(`expected ${reason}`)
-}

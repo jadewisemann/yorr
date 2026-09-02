@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { isRoundSyncError, type RoundSyncReason } from '../roundErrors.js'
 import { RoundState } from '../roundState.js'
 import { RoundSubmission } from '../roundSubmission.js'
+import { expectReason } from './testDoubles.js'
 
 /**  케이스 이름·의도를 그대로 옮겼다. */
 describe('RoundState', () => {
@@ -319,13 +319,3 @@ const noHeld = (): boolean[] => [false, false, false, false, false]
 
 const rolled = (state: RoundState): RoundState =>
   state.recordRoll(state.activePlayerId, state.roundNumber, 1, noHeld(), [1, 2, 3, 4, 5])
-
-const expectReason = (action: () => unknown, reason: RoundSyncReason): void => {
-  try {
-    action()
-  } catch (error) {
-    expect(isRoundSyncError(error, reason)).toBe(true)
-    return
-  }
-  expect.unreachable(`expected ${reason}`)
-}

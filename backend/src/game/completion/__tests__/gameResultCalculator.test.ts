@@ -6,6 +6,7 @@ import {
   type PlayerResult,
   rankTotals,
 } from '../gameResultCalculator.js'
+import { TIED_RANKINGS } from './completionFixtures.js'
 
 describe('calculateGameResult', () => {
   const score = (playerId: string, finalScore: number): PlayerFinalScore => ({
@@ -190,12 +191,7 @@ describe('rankTotals', () => {
       ]),
     )
 
-    expect(rankings).toEqual([
-      { rank: 1, playerId: 'player-b', total: 205 },
-      { rank: 2, playerId: 'player-a', total: 180 },
-      { rank: 2, playerId: 'player-c', total: 180 },
-      { rank: 4, playerId: 'player-d', total: 90 },
-    ])
+    expect(rankings).toEqual(TIED_RANKINGS)
   })
 
   it('빈 총점 맵이면 빈 순위다(예외 아님)', () => {

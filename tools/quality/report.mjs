@@ -58,6 +58,25 @@ const npx = (args, options) => run('npx', ['--no-install', ...args], options)
 
 // ── 측정 ─────────────────────────────────────────────────────────────────────
 
+/** import 블록의 한 줄로 볼 수 있는 모양들. 여러 줄로 흩어진 import까지 포함한다. */
+const IMPORT_LINE =
+  /^(?:import\s|export\s+(?:type\s+)?\{|\}\s*from\s+'[^']*'$|\}$|(?:type\s+)?[A-Za-z_$][\w$]*\s*,?$|'[^']*',?$)/
+
+/**
+ * import 문만으로 이루어진 조각인가.
+ *
+ * 중복 지표가 막으려는 사고는 **같은 규칙이 두 자리에 적혀 한쪽만 고쳐지는** 것이다.
+ * import 목록은 그 위험이 아니다 — 두 검사가 같은 것을 쓴다는 사실이 겹칠 뿐이고,
+ * 어긋나면 컴파일러가 먼저 잡는다. 그래서 이런 쌍은 세지 않는다.
+ */
+function isImportOnly(fragment) {
+  const lines = fragment
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+  return lines.some((line) => line.startsWith('import ')) && lines.every((line) => IMPORT_LINE.test(line))
+}
+
 process.stderr.write('구조 지표 측정 중…\n')
 run('node', [join(HERE, 'analyze.mjs'), '--out', join(HERE, '.metrics.json')])
 const metrics = readJson(join(HERE, '.metrics.json'))
@@ -107,6 +126,22 @@ const isCore = (file) => corePatterns.some((pattern) => pattern.test(file))
 
 const waived = (metric, file) =>
   CONFIG.waivers.files.some((entry) => entry.metric === metric && entry.file === file)
+/**
+ * 중복 쌍 걸러내기. 한쪽이라도 예외로 명시된 파일이면 세지 않는다 — jscpd의
+ * 경로에는 workspace 접두가 없으므로 접미 일치로 본다.
+ */
+if (jscpd) {
+  jscpd.duplicates = jscpd.duplicates.filter(
+    (pair) =>
+      !isImportOnly(pair.fragment) &&
+      !CONFIG.waivers.files.some(
+        (entry) =>
+          entry.metric === 'duplication' &&
+          (entry.file.endsWith(pair.firstFile.name) || entry.file.endsWith(pair.secondFile.name)),
+      ),
+  )
+}
+
 const allFiles = metrics.targets.flatMap((t) => t.files)
 const allFunctions = metrics.targets.flatMap((t) => t.functions)
 const laxity = metrics.targets.reduce(

@@ -1,3 +1,5 @@
+import type { Redis } from 'ioredis'
+import { expect } from 'vitest'
 import { SocialLoginError } from '../errors.js'
 import type { FetchLike } from '../oauthHttp.js'
 
@@ -41,4 +43,24 @@ export const reason = async (run: () => Promise<unknown>): Promise<string> => {
     throw error
   }
   throw new Error('SocialLoginError가 던져지지 않았다')
+}
+
+/**
+ * 카카오 동의 화면으로 넘기는 302 한 통.
+ *
+ * 발급된 state가 Redis에 실제로 남아 있어야 콜백이 통과한다 — 그 저장소가 서버의
+ * Redis에 붙었다는 증거이기도 하다. 라우트 단위 검사와 부팅 배선 검사가 같은
+ * 계약을 본다.
+ */
+export async function expectKakaoAuthorizeRedirect(
+  response: { statusCode: number; headers: { location?: unknown } },
+  redis: Redis,
+): Promise<URL> {
+  expect(response.statusCode).toBe(302)
+  const location = new URL(String(response.headers.location))
+  expect(location.origin + location.pathname).toBe('https://kauth.kakao.com/oauth/authorize')
+  expect(location.searchParams.get('client_id')).toBe('rest-api-key')
+  const state = String(location.searchParams.get('state'))
+  expect(await redis.exists(`auth:oauth-state:${state}`)).toBe(1)
+  return location
 }

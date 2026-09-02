@@ -1,6 +1,7 @@
 import { expect } from 'vitest'
 import type { RoomSessionRegistry } from '../../ws/registry.js'
 import { type ClientSocket, SOCKET_OPEN } from '../../ws/socket.js'
+import type { GameModule } from '../module.js'
 
 /** 보낸 것을 그대로 쌓아 두는 소켓. 포트 호환 검사가 전송을 확인하는 유일한 창이다. */
 export interface FakeSocket extends ClientSocket {
@@ -68,3 +69,23 @@ export function expectRegistryServesSeats(params: {
   expect(playerIdOf(socket)).toBe('player-1')
   expect(playerIdOf(fakeSocket())).toBeNull()
 }
+
+/**
+ * 아무것도 하지 않는 게임 모듈. 레지스트리·라이프사이클 검사는 훅 **몇 개만**
+ * 관찰하면 되므로 나머지는 여기서 조용히 채우고, 보려는 훅만 `overrides`로 덮는다.
+ */
+export const stubGameModule = (code: string, overrides: Partial<GameModule> = {}): GameModule => ({
+  code,
+  start: async () => {},
+  reset: async () => {},
+  reconnect: async (roomCode) => ({ roomId: roomCode, phase: 'playing', players: [] }),
+  pause: async () => {},
+  resume: async () => {},
+  rehydrate: async () => {},
+  removePlayer: async () => {},
+  close: async () => {},
+  hasState: async () => false,
+  handles: () => false,
+  handle: async () => {},
+  ...overrides,
+})

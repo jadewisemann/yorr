@@ -1,8 +1,8 @@
-import { randomUUID } from 'node:crypto'
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { expect, it } from 'vitest'
 import { describeMysql, useMysql } from '../../../infra/__tests__/mysqlHarness.js'
 import { runMigrations } from '../../../infra/migrations/runner.js'
+import { type ParticipantRow, signUpMember } from '../../match/__tests__/matchFixtures.js'
 import { MatchArchiveService, MysqlMatchArchiveStore } from '../../match/index.js'
 import { AI_PLAYER_ID, GUEST_NICKNAME, PingPongAiResultService } from '../aiResultService.js'
 
@@ -20,14 +20,6 @@ import { AI_PLAYER_ID, GUEST_NICKNAME, PingPongAiResultService } from '../aiResu
 
 const RESULT_ID = '4b72f136-f3c2-49c9-bfdb-290891fd8638'
 
-interface ParticipantRow extends RowDataPacket {
-  readonly user_id: string | null
-  readonly player_id: string
-  readonly display_nickname: string
-  readonly total_score: number
-  readonly ranking: number
-}
-
 describeMysql('탁구 AI 결과 보관 (실 MySQL)', () => {
   const mysqlPool = useMysql()
 
@@ -43,15 +35,7 @@ describeMysql('탁구 AI 결과 보관 (실 MySQL)', () => {
       service: new PingPongAiResultService(
         new MatchArchiveService(new MysqlMatchArchiveStore(pool)),
       ),
-      signUp: async (nickname: string) => {
-        const id = randomUUID()
-        const at = new Date('2026-08-01T00:00:00.000Z')
-        await pool.query(
-          'INSERT INTO users (id, nickname, profile_image_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-          [id, nickname, null, at, at],
-        )
-        return id
-      },
+      signUp: (nickname: string) => signUpMember(pool, nickname),
     }
   }
 
