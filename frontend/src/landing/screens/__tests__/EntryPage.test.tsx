@@ -43,6 +43,39 @@ function codeDialog() {
   return within(screen.getByRole('dialog', { name: '초대받은 방에 참가' }))
 }
 
+/** 게임 탭을 고르고 플레이 대화상자를 연다. 대화상자 안을 보는 검사들이 여기서 출발한다. */
+async function openPlayDialog(tab: RegExp, play: string) {
+  const user = userEvent.setup()
+  render(<EntryPage />)
+  await user.click(screen.getByRole('tab', { name: tab }))
+  await user.click(screen.getByRole('button', { name: play }))
+  return user
+}
+
+/** 회원으로 로그인한 채 화면을 그리고 계정 메뉴에서 로그아웃까지 누른다. */
+async function signOutFromAccountMenu() {
+  const user = userEvent.setup()
+  useAppStore
+    .getState()
+    .signIn({ userId: 'member-1', nickname: '카카오회원', sessionToken: 'token-1' })
+
+  render(<EntryPage />)
+  await user.click(screen.getByRole('button', { name: /카카오회원/ }))
+  await user.click(
+    within(screen.getByRole('dialog', { name: '내 계정' })).getByRole('button', {
+      name: '로그아웃',
+    }),
+  )
+}
+
+/** 요트 다이스의 플레이 대화상자를 연다 — 탭을 옮기지 않는 기본 게임이다. */
+async function openYachtPlayDialog() {
+  const user = userEvent.setup()
+  render(<EntryPage />)
+  await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
+  return user
+}
+
 describe('EntryPage', () => {
   beforeEach(() => {
     navigate.mockReset()
@@ -118,10 +151,7 @@ describe('EntryPage', () => {
   })
 
   it('빠른 대전은 로그인한 사람만 대기열로 보낸다', async () => {
-    const user = userEvent.setup()
-    render(<EntryPage />)
-
-    await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
+    const user = await openYachtPlayDialog()
     await user.click(screen.getByRole('button', { name: /온라인 대전/ }))
     expect(navigate).not.toHaveBeenCalled()
     expect(screen.getByRole('dialog', { name: '로그인' })).toBeVisible()
@@ -141,11 +171,7 @@ describe('EntryPage', () => {
   })
 
   it('opens the ping pong party dashboard from the primary play button', async () => {
-    const user = userEvent.setup()
-    render(<EntryPage />)
-
-    await user.click(screen.getByRole('tab', { name: /탁구/ }))
-    await user.click(screen.getByRole('button', { name: '탁구 플레이' }))
+    const user = await openPlayDialog(/탁구/, '탁구 플레이')
     await user.click(screen.getByRole('button', { name: /방 만들기/ }))
 
     expect(navigate).toHaveBeenCalledWith({ to: '/party', search: { game: 'pingpong' } })
@@ -155,23 +181,15 @@ describe('EntryPage', () => {
     ['narrow', false],
     ['wide', true],
   ])('opens ping pong AI play from the mode card (%s)', async (_layout, wide) => {
-    const user = userEvent.setup()
     useLayout(wide)
-    render(<EntryPage />)
-
-    await user.click(screen.getByRole('tab', { name: /탁구/ }))
-    await user.click(screen.getByRole('button', { name: '탁구 플레이' }))
+    const user = await openPlayDialog(/탁구/, '탁구 플레이')
     await user.click(screen.getByRole('button', { name: /AI와 대전/ }))
 
     expect(navigate).toHaveBeenCalledWith({ to: '/pingpong' })
   })
 
   it('shows game-specific mode cards in the play dialog', async () => {
-    const user = userEvent.setup()
-    render(<EntryPage />)
-
-    await user.click(screen.getByRole('tab', { name: /탁구/ }))
-    await user.click(screen.getByRole('button', { name: '탁구 플레이' }))
+    const user = await openPlayDialog(/탁구/, '탁구 플레이')
     const pingpong = within(screen.getByRole('dialog', { name: '탁구 시작하기' }))
     expect(pingpong.getByRole('button', { name: /AI와 대전/ })).toBeVisible()
     expect(pingpong.queryByRole('button', { name: /파티 모드/ })).not.toBeInTheDocument()
@@ -188,10 +206,7 @@ describe('EntryPage', () => {
   })
 
   it('처음 온 사람은 방을 만들지 않고 연습 모드로 바로 들어간다', async () => {
-    const user = userEvent.setup()
-    render(<EntryPage />)
-
-    await user.click(screen.getByRole('button', { name: '요트 다이스 플레이' }))
+    const user = await openYachtPlayDialog()
     await user.click(screen.getByRole('button', { name: /튜토리얼/ }))
 
     expect(navigate).toHaveBeenCalledWith({ to: '/tutorial' })
@@ -389,19 +404,9 @@ describe('EntryPage', () => {
   })
 
   it('signs out locally even when the server call fails', async () => {
-    const user = userEvent.setup()
     closeSession.mockRejectedValueOnce(new Error('network down'))
-    useAppStore
-      .getState()
-      .signIn({ userId: 'member-1', nickname: '카카오회원', sessionToken: 'token-1' })
 
-    render(<EntryPage />)
-    await user.click(screen.getByRole('button', { name: /카카오회원/ }))
-    await user.click(
-      within(screen.getByRole('dialog', { name: '내 계정' })).getByRole('button', {
-        name: '로그아웃',
-      }),
-    )
+    await signOutFromAccountMenu()
 
     expect(useAppStore.getState().authSession).toBeNull()
   })
@@ -454,19 +459,9 @@ describe('EntryPage', () => {
   })
 
   it('keeps the room session when signing out', async () => {
-    const user = userEvent.setup()
     useAppStore.getState().setRoomSession(creatorSession)
-    useAppStore
-      .getState()
-      .signIn({ userId: 'member-1', nickname: '카카오회원', sessionToken: 'token-1' })
 
-    render(<EntryPage />)
-    await user.click(screen.getByRole('button', { name: /카카오회원/ }))
-    await user.click(
-      within(screen.getByRole('dialog', { name: '내 계정' })).getByRole('button', {
-        name: '로그아웃',
-      }),
-    )
+    await signOutFromAccountMenu()
 
     expect(useAppStore.getState().authSession).toBeNull()
     expect(useAppStore.getState().roomSession).not.toBeNull()

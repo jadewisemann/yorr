@@ -1,4 +1,5 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, type RenderResult, render, screen, waitFor } from '@testing-library/react'
+import type { ComponentProps } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PhysicsDiceScene } from '@/yacht/components/PhysicsDiceScene'
 import type {
@@ -53,10 +54,36 @@ const request: PhysicsDiceRollRequest = {
 }
 const rolledDice = [6, 5, 4, 3, 2] as const
 
+type SceneProps = ComponentProps<typeof PhysicsDiceScene>
+
+/** 기본값은 "아직 굴리지 않은 장면"이다. 검사마다 달라지는 것만 덮어쓴다. */
+const sceneProps = (overrides: Partial<SceneProps> = {}): SceneProps => ({
+  dice: null,
+  held: request.held,
+  releaseRequestId: null,
+  request: null,
+  onRollComplete: vi.fn(),
+  ...overrides,
+})
+
+let lastView: RenderResult | null = null
+
+function renderScene(overrides: Partial<SceneProps> = {}) {
+  lastView = render(<PhysicsDiceScene {...sceneProps(overrides)} />)
+  return lastView
+}
+
+/** 방금 그린 장면을 새 props로 다시 그린다 — 같은 월드를 이어 쓰는 것이 이 검사들의 전제다. */
+function rerenderScene(overrides: Partial<SceneProps> = {}) {
+  if (!lastView) throw new Error('아직 그려지지 않았다')
+  lastView.rerender(<PhysicsDiceScene {...sceneProps(overrides)} />)
+}
+
 describe('PhysicsDiceScene', () => {
   beforeEach(() => {
     initState.promise = null
     worlds.length = 0
+    lastView = null
     vi.stubGlobal(
       'matchMedia',
       vi.fn().mockReturnValue({
@@ -69,28 +96,18 @@ describe('PhysicsDiceScene', () => {
 
   it('동일 request를 한 번만 시작하고 완료 callback도 중복 제거한다', async () => {
     const onRollComplete = vi.fn()
-    const view = render(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        releaseRequestId={null}
-        request={request}
-        onRollComplete={onRollComplete}
-      />,
-    )
+    renderScene({ request: request, onRollComplete: onRollComplete })
 
     await waitFor(() => expect(worlds).toHaveLength(1))
     await waitFor(() => expect(worlds[0]?.startRoll).toHaveBeenCalledOnce())
 
-    view.rerender(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        releaseRequestId={request.requestId}
-        request={request}
-        onRollComplete={onRollComplete}
-      />,
-    )
+    rerenderScene({
+      releaseRequestId: request.requestId,
+
+      request: request,
+
+      onRollComplete: onRollComplete,
+    })
     expect(worlds[0]?.startRoll).toHaveBeenCalledOnce()
     expect(worlds[0]?.pour).toHaveBeenCalledOnce()
 
@@ -101,7 +118,7 @@ describe('PhysicsDiceScene', () => {
     expect(onRollComplete).toHaveBeenCalledOnce()
     expect(onRollComplete).toHaveBeenCalledWith(request.requestId, rolledDice)
 
-    view.unmount()
+    lastView?.unmount()
     expect(worlds[0]?.destroy).toHaveBeenCalledOnce()
   })
 
@@ -110,28 +127,11 @@ describe('PhysicsDiceScene', () => {
     initState.promise = new Promise<void>((resolve) => {
       resolveInit = resolve
     })
-    const view = render(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        releaseRequestId={null}
-        request={null}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    renderScene()
     await waitFor(() => expect(worlds).toHaveLength(1))
     expect(screen.getByRole('status')).toHaveTextContent('3D 주사위 준비 중')
 
-    view.rerender(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        quality="high"
-        releaseRequestId={request.requestId}
-        request={request}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    rerenderScene({ quality: 'high', releaseRequestId: request.requestId, request: request })
     expect(worlds[0]?.startRoll).not.toHaveBeenCalled()
     expect(worlds[0]?.pour).not.toHaveBeenCalled()
 
@@ -149,15 +149,7 @@ describe('PhysicsDiceScene', () => {
       resolveInit = resolve
     })
 
-    render(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        releaseRequestId={null}
-        request={null}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    renderScene()
 
     expect(screen.getByRole('status')).toHaveTextContent('3D 주사위 준비 중')
     resolveInit?.()
@@ -165,53 +157,20 @@ describe('PhysicsDiceScene', () => {
   })
 
   it('엔진이 준비된 뒤 도착한 굴림도 한 번만 시작한다', async () => {
-    const view = render(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        releaseRequestId={null}
-        request={null}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    renderScene()
     await waitFor(() => expect(worlds).toHaveLength(1))
     await waitFor(() => expect(worlds[0]?.syncCommittedDice).toHaveBeenCalled())
     expect(worlds[0]?.startRoll).not.toHaveBeenCalled()
 
-    view.rerender(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        releaseRequestId={null}
-        request={request}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    rerenderScene({ request: request })
     expect(worlds[0]?.startRoll).toHaveBeenCalledWith(request)
 
-    view.rerender(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        releaseRequestId={null}
-        request={{ ...request }}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    rerenderScene({ request: { ...request } })
     expect(worlds[0]?.startRoll).toHaveBeenCalledOnce()
   })
 
   it('다섯 개를 모두 킵 레일에 올리는 규칙을 주사위 배치보다 먼저 전달한다', async () => {
-    const view = render(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        keepAll={false}
-        releaseRequestId={null}
-        request={null}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    renderScene({ keepAll: false })
     await waitFor(() => expect(worlds).toHaveLength(1))
     const world = worlds[0]
     if (!world) throw new Error('씬이 월드를 만들지 못했다')
@@ -222,16 +181,7 @@ describe('PhysicsDiceScene', () => {
       Number(world.syncCommittedDice.mock.invocationCallOrder[0]),
     )
 
-    view.rerender(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        keepAll
-        releaseRequestId={null}
-        request={null}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    rerenderScene({ keepAll: true })
     expect(world.setKeepAll).toHaveBeenLastCalledWith(true)
   })
 
@@ -239,18 +189,7 @@ describe('PhysicsDiceScene', () => {
     const onError = vi.fn()
     const onHeldToggle = vi.fn()
     const onPhaseChange = vi.fn()
-    render(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        releaseRequestId={null}
-        request={null}
-        onError={onError}
-        onHeldToggle={onHeldToggle}
-        onPhaseChange={onPhaseChange}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    renderScene({ onError: onError, onHeldToggle: onHeldToggle, onPhaseChange: onPhaseChange })
     await waitFor(() => expect(worlds).toHaveLength(1))
     const world = worlds[0]
     if (!world) return
@@ -268,15 +207,7 @@ describe('PhysicsDiceScene', () => {
   })
 
   it('엔진이 리사이즈 중이면 그 사실을 알린다', async () => {
-    render(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        releaseRequestId={null}
-        request={null}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    renderScene()
     await waitFor(() => expect(worlds).toHaveLength(1))
     const world = worlds[0]
     if (!world) return
@@ -290,72 +221,26 @@ describe('PhysicsDiceScene', () => {
   })
 
   it('확정된 주사위와 KEEP 상태가 바뀌면 엔진에 동기화한다', async () => {
-    const view = render(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        releaseRequestId={null}
-        request={null}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    renderScene()
     await waitFor(() => expect(worlds).toHaveLength(1))
     await waitFor(() => expect(worlds[0]?.syncCommittedDice).toHaveBeenCalled())
 
     const held = [true, false, false, false, false] as const
-    view.rerender(
-      <PhysicsDiceScene
-        dice={rolledDice}
-        held={held}
-        releaseRequestId={null}
-        request={null}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    rerenderScene({ dice: rolledDice, held: held })
     expect(worlds[0]?.syncCommittedDice).toHaveBeenLastCalledWith(rolledDice, held)
   })
 
   it('모션 추종 여부와 흔들림 펄스를 엔진에 전달한다', async () => {
-    const view = render(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        motionFollow={false}
-        motionPulse={null}
-        releaseRequestId={null}
-        request={null}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    renderScene({ motionFollow: false, motionPulse: null })
     await waitFor(() => expect(worlds).toHaveLength(1))
     await waitFor(() => expect(worlds[0]?.setMotionFollow).toHaveBeenCalledWith(false))
 
     const pulse: PhysicsDiceMotionPulse = { id: 1, direction: 'left', strength: 0.8 }
-    view.rerender(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        motionFollow
-        motionPulse={pulse}
-        releaseRequestId={null}
-        request={null}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    rerenderScene({ motionFollow: true, motionPulse: pulse })
     expect(worlds[0]?.setMotionFollow).toHaveBeenLastCalledWith(true)
     expect(worlds[0]?.applyShakePulse).toHaveBeenCalledWith('left', 0.8)
 
-    view.rerender(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        motionFollow
-        motionPulse={{ ...pulse }}
-        releaseRequestId={null}
-        request={null}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    rerenderScene({ motionFollow: true, motionPulse: { ...pulse } })
     expect(worlds[0]?.applyShakePulse).toHaveBeenCalledOnce()
   })
 
@@ -369,15 +254,7 @@ describe('PhysicsDiceScene', () => {
       }),
     )
 
-    render(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        releaseRequestId={null}
-        request={null}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    renderScene()
 
     expect(
       await screen.findByText('모션 감소 설정에 따라 간단한 주사위 화면을 사용합니다.'),
@@ -392,17 +269,7 @@ describe('PhysicsDiceScene', () => {
     const failure = new Error('rapier wasm 로드 실패')
     initState.promise = Promise.reject(failure)
 
-    render(
-      <PhysicsDiceScene
-        dice={null}
-        held={request.held}
-        releaseRequestId={null}
-        request={null}
-        onError={onError}
-        onHeldToggle={onHeldToggle}
-        onRollComplete={vi.fn()}
-      />,
-    )
+    renderScene({ onError: onError, onHeldToggle: onHeldToggle })
 
     expect(
       await screen.findByText('3D 엔진을 사용할 수 없어 간단한 주사위 화면으로 전환했습니다.'),

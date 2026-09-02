@@ -8,17 +8,27 @@ beforeEach(() => {
 })
 
 describe('LandingHeroCarousel', () => {
-  it('wide 레이아웃의 화살표로 게임을 넘긴다', () => {
+  /** 캐러셀 하나를 그리고, 넘김 요청을 받아 볼 `onSelect`를 함께 돌려준다. */
+  function renderCarousel(options: { activeIndex?: number; layout?: 'narrow' | 'wide' } = {}) {
     const onSelect = vi.fn()
-    render(
+    const view = render(
       <LandingHeroCarousel
-        activeIndex={0}
+        activeIndex={options.activeIndex ?? 0}
         games={games}
-        layout="wide"
+        layout={options.layout ?? 'wide'}
         onPlay={vi.fn()}
         onSelect={onSelect}
       />,
     )
+    return {
+      ...view,
+      onSelect,
+      region: () => screen.getByRole('region', { name: '게임 캐러셀' }),
+    }
+  }
+
+  it('wide 레이아웃의 화살표로 게임을 넘긴다', () => {
+    const { onSelect } = renderCarousel()
 
     fireEvent.click(screen.getByRole('button', { name: '다음 게임' }))
 
@@ -26,16 +36,7 @@ describe('LandingHeroCarousel', () => {
   })
 
   it('양 끝에서 반대편으로 감싼다', () => {
-    const onSelect = vi.fn()
-    const { rerender } = render(
-      <LandingHeroCarousel
-        activeIndex={0}
-        games={games}
-        layout="wide"
-        onPlay={vi.fn()}
-        onSelect={onSelect}
-      />,
-    )
+    const { onSelect, rerender } = renderCarousel()
 
     fireEvent.click(screen.getByRole('button', { name: '이전 게임' }))
     expect(onSelect).toHaveBeenCalledWith(games.length - 1)
@@ -54,16 +55,7 @@ describe('LandingHeroCarousel', () => {
   })
 
   it('wide에서는 양옆 이웃 카드를 눌러 바로 그 게임으로 넘어간다', () => {
-    const onSelect = vi.fn()
-    render(
-      <LandingHeroCarousel
-        activeIndex={0}
-        games={games}
-        layout="wide"
-        onPlay={vi.fn()}
-        onSelect={onSelect}
-      />,
-    )
+    const { onSelect } = renderCarousel()
 
     fireEvent.click(screen.getByRole('button', { name: `${gameAt(1).name} 선택` }))
     expect(onSelect).toHaveBeenCalledWith(1)
@@ -73,87 +65,43 @@ describe('LandingHeroCarousel', () => {
   })
 
   it('narrow의 이웃 카드는 누를 수 있는 물건이 아니다', () => {
-    render(
-      <LandingHeroCarousel
-        activeIndex={0}
-        games={games}
-        layout="narrow"
-        onPlay={vi.fn()}
-        onSelect={vi.fn()}
-      />,
-    )
+    renderCarousel({ layout: 'narrow' })
 
     expect(screen.queryByRole('button', { name: /선택$/ })).not.toBeInTheDocument()
   })
 
   it('좁은 레이아웃에도 화살표를 남긴다', () => {
-    const onSelect = vi.fn()
-    render(
-      <LandingHeroCarousel
-        activeIndex={0}
-        games={games}
-        layout="narrow"
-        onPlay={vi.fn()}
-        onSelect={onSelect}
-      />,
-    )
+    const { onSelect } = renderCarousel({ layout: 'narrow' })
 
     fireEvent.click(screen.getByRole('button', { name: '다음 게임' }))
     expect(onSelect).toHaveBeenCalledWith(1)
   })
 
   it('화살표 키로 좌우 게임을 넘긴다', () => {
-    const onSelect = vi.fn()
-    render(
-      <LandingHeroCarousel
-        activeIndex={1}
-        games={games}
-        layout="wide"
-        onPlay={vi.fn()}
-        onSelect={onSelect}
-      />,
-    )
+    const { onSelect, region } = renderCarousel({ activeIndex: 1 })
 
-    fireEvent.keyDown(screen.getByRole('region', { name: '게임 캐러셀' }), { key: 'ArrowRight' })
+    fireEvent.keyDown(region(), { key: 'ArrowRight' })
     expect(onSelect).toHaveBeenCalledWith(2)
 
-    fireEvent.keyDown(screen.getByRole('region', { name: '게임 캐러셀' }), { key: 'ArrowLeft' })
+    fireEvent.keyDown(region(), { key: 'ArrowLeft' })
     expect(onSelect).toHaveBeenCalledWith(0)
   })
 
   it('휠을 충분히 돌리면 한 칸 넘어가고, 쿨다운 안에서는 무시한다', () => {
-    const onSelect = vi.fn()
-    render(
-      <LandingHeroCarousel
-        activeIndex={1}
-        games={games}
-        layout="wide"
-        onPlay={vi.fn()}
-        onSelect={onSelect}
-      />,
-    )
-    const region = screen.getByRole('region', { name: '게임 캐러셀' })
+    const { onSelect, region } = renderCarousel({ activeIndex: 1 })
+    const stage = region()
 
-    fireEvent.wheel(region, { deltaY: 40, timeStamp: 0 })
+    fireEvent.wheel(stage, { deltaY: 40, timeStamp: 0 })
     expect(onSelect).toHaveBeenCalledWith(2)
 
-    fireEvent.wheel(region, { deltaY: 40, timeStamp: 100 })
+    fireEvent.wheel(stage, { deltaY: 40, timeStamp: 100 })
     expect(onSelect).toHaveBeenCalledTimes(1)
   })
 
   it('작은 휠 움직임은 문턱 아래라 무시한다', () => {
-    const onSelect = vi.fn()
-    render(
-      <LandingHeroCarousel
-        activeIndex={1}
-        games={games}
-        layout="wide"
-        onPlay={vi.fn()}
-        onSelect={onSelect}
-      />,
-    )
+    const { onSelect, region } = renderCarousel({ activeIndex: 1 })
 
-    fireEvent.wheel(screen.getByRole('region', { name: '게임 캐러셀' }), {
+    fireEvent.wheel(region(), {
       deltaY: 5,
       timeStamp: 0,
     })
@@ -162,26 +110,17 @@ describe('LandingHeroCarousel', () => {
   })
 
   it('충분히 끌었다 놓으면 옆 게임으로 넘어가고, 조금만 끌면 제자리로 돌아간다', () => {
-    const onSelect = vi.fn()
-    render(
-      <LandingHeroCarousel
-        activeIndex={1}
-        games={games}
-        layout="narrow"
-        onPlay={vi.fn()}
-        onSelect={onSelect}
-      />,
-    )
-    const region = screen.getByRole('region', { name: '게임 캐러셀' })
+    const { onSelect, region } = renderCarousel({ activeIndex: 1, layout: 'narrow' })
+    const stage = region()
 
-    fireEvent.pointerDown(region, { buttons: 1, clientX: 200, pointerId: 1 })
-    fireEvent.pointerMove(region, { buttons: 1, clientX: 100, pointerId: 1 })
-    fireEvent.pointerUp(region, { pointerId: 1 })
+    fireEvent.pointerDown(stage, { buttons: 1, clientX: 200, pointerId: 1 })
+    fireEvent.pointerMove(stage, { buttons: 1, clientX: 100, pointerId: 1 })
+    fireEvent.pointerUp(stage, { pointerId: 1 })
     expect(onSelect).toHaveBeenCalledWith(2)
 
-    fireEvent.pointerDown(region, { buttons: 1, clientX: 200, pointerId: 1 })
-    fireEvent.pointerMove(region, { buttons: 1, clientX: 190, pointerId: 1 })
-    fireEvent.pointerUp(region, { pointerId: 1 })
+    fireEvent.pointerDown(stage, { buttons: 1, clientX: 200, pointerId: 1 })
+    fireEvent.pointerMove(stage, { buttons: 1, clientX: 190, pointerId: 1 })
+    fireEvent.pointerUp(stage, { pointerId: 1 })
     expect(onSelect).toHaveBeenCalledTimes(1)
   })
 

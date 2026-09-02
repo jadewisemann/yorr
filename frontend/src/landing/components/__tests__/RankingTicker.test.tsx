@@ -51,6 +51,15 @@ const sevenEntries: Entry[] = [
   { rank: 7, userId: 'u7', nickname: '칠등', bestScore: 80 },
 ]
 
+/** 띠를 그리고 전체 보기를 눌러 팝업을 연다. 열린 뒤를 보는 검사들이 여기서 출발한다. */
+async function openPanel(layout: 'narrow' | 'wide') {
+  const user = userEvent.setup()
+  render(<RankingTicker layout={layout} />)
+  const toggle = await screen.findByRole('button', { name: /전체 보기/ })
+  await user.click(toggle)
+  return { toggle, user }
+}
+
 describe('RankingTicker · narrow', () => {
   it('순위·닉네임·점수를 보여준다', async () => {
     respondWith(twoEntries)
@@ -103,33 +112,12 @@ describe('RankingTicker · narrow', () => {
 
   it('띠를 누르면 띠에 없던 인원까지 팝업으로 펼친다', async () => {
     respondWith(sevenEntries)
-    const user = userEvent.setup()
-    render(<RankingTicker layout="narrow" />)
-
-    const toggle = await screen.findByRole('button', { name: '이번 주 요트랭킹 전체 보기' })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-
-    await user.click(toggle)
+    const { toggle } = await openPanel('narrow')
 
     const panel = screen.getByRole('list', { name: '이번 주 순위' })
     expect(panel).toHaveTextContent('육등')
     expect(panel).toHaveTextContent('칠등')
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-  })
-
-  it('팝업은 Escape로 닫힌다', async () => {
-    respondWith(fiveEntries)
-    const user = userEvent.setup()
-    render(<RankingTicker layout="narrow" />)
-
-    await user.click(await screen.findByRole('button', { name: '이번 주 요트랭킹 전체 보기' }))
-    expect(screen.getByRole('list', { name: '이번 주 순위' })).toBeInTheDocument()
-
-    await user.keyboard('{Escape}')
-
-    await waitFor(() =>
-      expect(screen.queryByRole('list', { name: '이번 주 순위' })).not.toBeInTheDocument(),
-    )
   })
 
   it('기록이 없으면 펼칠 것도 없어 탭 영역을 두지 않는다', async () => {
@@ -163,31 +151,12 @@ describe('RankingTicker · wide', () => {
 
   it('펼치면 전체 순위가 열로 정렬돼 보인다', async () => {
     respondWith(sevenEntries)
-    const user = userEvent.setup()
-    render(<RankingTicker layout="wide" />)
-
-    const toggle = await screen.findByRole('button', { name: /전체 보기/ })
-    await user.click(toggle)
+    const { toggle } = await openPanel('wide')
 
     const panel = screen.getByRole('list', { name: '이번 주 순위' })
     expect(panel).toHaveTextContent('육등')
     expect(panel).toHaveTextContent('칠등')
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-  })
-
-  it('Escape로 닫힌다', async () => {
-    respondWith(fiveEntries)
-    const user = userEvent.setup()
-    render(<RankingTicker layout="wide" />)
-
-    await user.click(await screen.findByRole('button', { name: /전체 보기/ }))
-    expect(screen.getByRole('list', { name: '이번 주 순위' })).toBeInTheDocument()
-
-    await user.keyboard('{Escape}')
-
-    await waitFor(() =>
-      expect(screen.queryByRole('list', { name: '이번 주 순위' })).not.toBeInTheDocument(),
-    )
   })
 
   it('기록이 없으면 펼치기 버튼을 두지 않는다', async () => {
@@ -199,15 +168,26 @@ describe('RankingTicker · wide', () => {
   })
 })
 
+describe('RankingTicker · 두 레이아웃 공통', () => {
+  it.each(['narrow', 'wide'] as const)('%s 팝업은 Escape로 닫힌다', async (layout) => {
+    respondWith(fiveEntries)
+    const { user } = await openPanel(layout)
+    expect(screen.getByRole('list', { name: '이번 주 순위' })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+
+    await waitFor(() =>
+      expect(screen.queryByRole('list', { name: '이번 주 순위' })).not.toBeInTheDocument(),
+    )
+  })
+})
+
 describe('RankingTicker · 내 순위', () => {
   it('목록에 내가 없으면 내 줄을 따로 잇는다', async () => {
     respondWith(fiveEntries)
     myRankIs(27)
     signIn('me')
-    const user = userEvent.setup()
-    render(<RankingTicker layout="wide" />)
-
-    await user.click(await screen.findByRole('button', { name: /전체 보기/ }))
+    await openPanel('wide')
 
     const mine = screen.getByRole('list', { name: '내 순위' })
     expect(mine).toHaveTextContent('27')
@@ -218,10 +198,7 @@ describe('RankingTicker · 내 순위', () => {
     respondWith(fiveEntries)
     myRankIs(2)
     signIn('u2')
-    const user = userEvent.setup()
-    render(<RankingTicker layout="wide" />)
-
-    await user.click(await screen.findByRole('button', { name: /전체 보기/ }))
+    await openPanel('wide')
 
     expect(screen.queryByRole('list', { name: '내 순위' })).not.toBeInTheDocument()
     expect(screen.getAllByText('이등')).toHaveLength(2)
@@ -231,20 +208,14 @@ describe('RankingTicker · 내 순위', () => {
     respondWith(fiveEntries)
     myRankIs(null)
     signIn('me')
-    const user = userEvent.setup()
-    render(<RankingTicker layout="wide" />)
-
-    await user.click(await screen.findByRole('button', { name: /전체 보기/ }))
+    await openPanel('wide')
 
     expect(screen.queryByRole('list', { name: '내 순위' })).not.toBeInTheDocument()
   })
 
   it('로그인하지 않으면 내 줄이 없다', async () => {
     respondWith(fiveEntries)
-    const user = userEvent.setup()
-    render(<RankingTicker layout="wide" />)
-
-    await user.click(await screen.findByRole('button', { name: /전체 보기/ }))
+    await openPanel('wide')
 
     expect(screen.queryByRole('list', { name: '내 순위' })).not.toBeInTheDocument()
   })
