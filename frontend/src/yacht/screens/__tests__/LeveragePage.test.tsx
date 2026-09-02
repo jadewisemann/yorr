@@ -2,17 +2,15 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppStore } from '@/store'
+import { navigateSpy } from '@/test/routerDouble'
 import { createDiceSet } from '@/yacht/domain/dice'
 import { scoreCategory, type YachtCategory } from '@/yacht/domain/scoring'
 import { categoryLabel } from '@/yacht/domain/yachtCategoryView'
 import { LeveragePage } from '@/yacht/screens/LeveragePage'
 
-const mocks = vi.hoisted(() => ({ navigate: vi.fn() }))
-
-vi.mock('@tanstack/react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  useNavigate: () => mocks.navigate,
-}))
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/test/routerDouble')).routerWithNavigateSpy(),
+)
 
 vi.mock(
   '@/yacht/input/useMotionRollInput',
@@ -58,7 +56,7 @@ async function rollOnce(user: ReturnType<typeof userEvent.setup>) {
 
 describe('레버리지 다이스 화면', () => {
   beforeEach(() => {
-    mocks.navigate.mockReset()
+    navigateSpy.mockReset()
     useAppStore.setState({ connectionStatus: 'idle' })
   })
 

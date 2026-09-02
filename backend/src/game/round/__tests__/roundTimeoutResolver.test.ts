@@ -97,8 +97,7 @@ describe('RoundTimeoutResolver', () => {
   })
 
   it('굴림이 남지 않았으면 비어 있는 족보를 기록하고 턴을 넘긴다', async () => {
-    await synchronizationService.initialize('room-a', 1, ['player-a', 'player-b'])
-    await rollThreeTimes()
+    await duoTurnWithNoRollsLeft()
 
     const resolution = await resolver.resolve('room-a', 1, 'player-a')
 
@@ -115,8 +114,7 @@ describe('RoundTimeoutResolver', () => {
   })
 
   it('유예 시간 안에 플레이어가 이미 제출했으면 아무것도 하지 않는다', async () => {
-    await synchronizationService.initialize('room-a', 1, ['player-a', 'player-b'])
-    await rollThreeTimes()
+    await duoTurnWithNoRollsLeft()
     await synchronizationService.submit('room-a', 'player-a', {
       roundNumber: 1,
       dice: SIXES,
@@ -130,8 +128,7 @@ describe('RoundTimeoutResolver', () => {
   })
 
   it('점수 저장이 실패해도 턴은 넘어간다', async () => {
-    await synchronizationService.initialize('room-a', 1, ['player-a', 'player-b'])
-    await rollThreeTimes()
+    await duoTurnWithNoRollsLeft()
     scoreRoundSubmission.failure = new Error('redis unavailable')
 
     const resolution = await resolver.resolve('room-a', 1, 'player-a')
@@ -148,8 +145,7 @@ describe('RoundTimeoutResolver', () => {
 
   /** 진행 중인 게임을 찾지 못하면 점수 없이 진행한다 — 여기서 멈추면 방이 얼어붙는다. */
   it('gameId가 없으면 점수 없이 턴을 넘긴다', async () => {
-    await synchronizationService.initialize('room-a', 1, ['player-a', 'player-b'])
-    await rollThreeTimes()
+    await duoTurnWithNoRollsLeft()
     roomService.snapshot = { gameId: null, players: [] }
 
     const resolution = await resolver.resolve('room-a', 1, 'player-a')
@@ -160,8 +156,7 @@ describe('RoundTimeoutResolver', () => {
   })
 
   it('남은 족보가 없으면 점수 없이 턴을 넘긴다', async () => {
-    await synchronizationService.initialize('room-a', 1, ['player-a', 'player-b'])
-    await rollThreeTimes()
+    await duoTurnWithNoRollsLeft()
     openCategories.categories = []
 
     const resolution = await resolver.resolve('room-a', 1, 'player-a')
@@ -172,8 +167,7 @@ describe('RoundTimeoutResolver', () => {
 
   /** 족보 조회 자체가 던져도(2.6이 Redis를 탄다) 진행은 멈추지 않는다. */
   it('족보 조회가 실패해도 점수 없이 턴을 넘긴다', async () => {
-    await synchronizationService.initialize('room-a', 1, ['player-a', 'player-b'])
-    await rollThreeTimes()
+    await duoTurnWithNoRollsLeft()
     openCategories.failure = new Error('redis unavailable')
 
     const resolution = await resolver.resolve('room-a', 1, 'player-a')
@@ -190,6 +184,12 @@ describe('RoundTimeoutResolver', () => {
         held: NO_HELD,
       })
     }
+  }
+
+  /** 2인 방의 첫 턴에서 굴림 세 번을 다 쓴 상태. 마감 처리 검사 대부분이 여기서 출발한다. */
+  const duoTurnWithNoRollsLeft = async () => {
+    await synchronizationService.initialize('room-a', 1, ['player-a', 'player-b'])
+    await rollThreeTimes()
   }
 
   const onlyBroadcast = () => {

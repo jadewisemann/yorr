@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ProviderConfig } from '../config.js'
 import { SocialLoginError } from '../errors.js'
 import { GoogleOAuthClient } from '../googleClient.js'
-import type { FetchLike } from '../oauthHttp.js'
+import { json, reason, stubFetch } from './oauthDoubles.js'
 
 /** 오류 일반화. */
 
@@ -14,33 +14,6 @@ const config = (overrides: Partial<ProviderConfig> = {}): ProviderConfig => ({
   redirectUri: REDIRECT_URI,
   ...overrides,
 })
-
-const stubFetch = (responses: Response[]): { fetch: FetchLike; bodies: string[] } => {
-  const bodies: string[] = []
-  const queue = [...responses]
-  return {
-    bodies,
-    fetch: async (url, init) => {
-      bodies.push(String(init?.body ?? ''))
-      const next = queue.shift()
-      if (next === undefined) throw new Error(`예상하지 않은 호출: ${url}`)
-      return next
-    },
-  }
-}
-
-const json = (body: unknown, status = 200): Response =>
-  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
-
-const reason = async (run: () => Promise<unknown>): Promise<string> => {
-  try {
-    await run()
-  } catch (error) {
-    if (error instanceof SocialLoginError) return error.reason
-    throw error
-  }
-  throw new Error('SocialLoginError가 던져지지 않았다')
-}
 
 describe('GoogleOAuthClient', () => {
   it('인가 주소에 필수 파라미터를 인코딩해 담는다', () => {
@@ -110,7 +83,7 @@ describe('GoogleOAuthClient', () => {
 
     await new GoogleOAuthClient(config(), { fetch }).fetchProfile('auth-code')
 
-    const form = new URLSearchParams(bodies[0])
+    const form = new URLSearchParams(bodies()[0])
     expect(form.get('client_secret')).toBe('secret')
     expect(form.get('redirect_uri')).toBe(REDIRECT_URI)
     expect(form.get('code')).toBe('auth-code')

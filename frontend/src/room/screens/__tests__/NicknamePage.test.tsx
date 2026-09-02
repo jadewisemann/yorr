@@ -4,17 +4,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NicknamePage } from '@/room/screens/NicknamePage'
 import { useAppStore } from '@/store'
 import { mockApiError } from '@/test/harness'
+import { navigateSpy } from '@/test/routerDouble'
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
-
-vi.mock('@tanstack/react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  useNavigate: () => navigate,
-}))
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/test/routerDouble')).routerWithNavigateSpy(),
+)
 
 describe('NicknamePage', () => {
   beforeEach(() => {
-    navigate.mockReset()
+    navigateSpy.mockReset()
     useAppStore.getState().reset()
   })
 
@@ -26,7 +24,7 @@ describe('NicknamePage', () => {
 
     await user.click(screen.getByRole('button', { name: '대기실 입장' }))
 
-    await waitFor(() => expect(navigate).toHaveBeenCalled())
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalled())
     expect(suggestion).toBeTruthy()
     expect(useAppStore.getState().roomSession).toMatchObject({
       roomId: 'YORR64',
@@ -37,7 +35,7 @@ describe('NicknamePage', () => {
       sessionToken: 'session-creator-64',
     })
     expect(useAppStore.getState().roomSnapshot).toBeNull()
-    expect(navigate).toHaveBeenCalledWith({
+    expect(navigateSpy).toHaveBeenCalledWith({
       to: '/rooms/$roomId/lobby',
       params: { roomId: 'YORR64' },
     })
@@ -52,7 +50,7 @@ describe('NicknamePage', () => {
     await user.type(input, '수상한 선장')
     await user.click(screen.getByRole('button', { name: '대기실 입장' }))
 
-    await waitFor(() => expect(navigate).toHaveBeenCalled())
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalled())
     const state = useAppStore.getState()
     expect(state.roomSession).toMatchObject({
       roomCode: 'YORR64',
@@ -75,7 +73,7 @@ describe('NicknamePage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       '닉네임에는 문자, 숫자, 공백만 사용할 수 있어요.',
     )
-    expect(navigate).not.toHaveBeenCalled()
+    expect(navigateSpy).not.toHaveBeenCalled()
   })
 
   it('뒤로 가기로 홈으로 돌아갈 수 있다', async () => {
@@ -84,7 +82,7 @@ describe('NicknamePage', () => {
 
     await user.click(screen.getByRole('button', { name: '뒤로 가기' }))
 
-    expect(navigate).toHaveBeenCalledWith({ to: '/' })
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/' })
   })
 
   it('들어갈 수 없는 방이면 다른 코드로 옮길 길을 함께 준다', async () => {
@@ -98,6 +96,6 @@ describe('NicknamePage', () => {
       '방이 가득 찼어요. 다른 초대 코드로 참가해 주세요.',
     )
     await user.click(screen.getByRole('button', { name: '다른 코드 입력' }))
-    expect(navigate).toHaveBeenCalledWith({ to: '/' })
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/' })
   })
 })

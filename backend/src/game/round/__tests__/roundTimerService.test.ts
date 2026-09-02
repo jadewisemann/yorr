@@ -234,12 +234,7 @@ describe('RoundTimerService', () => {
   })
 
   it('다음 라운드가 시작되기 전에 round.end를 알린다', async () => {
-    const completed = rolled(RoundState.start(1, SOLO)).submit(submission('player-a', 1))
-    timeoutResolver.resolution = advancedResolution(completed)
-    await timerService.start('room-a', RoundState.start(1, SOLO))
-    broadcaster.reset()
-
-    await scheduler.fire()
+    await advanceByTimeout()
 
     expect(broadcaster.typesFor('room-a')).toEqual([
       'game.yacht_dice.round.end',
@@ -253,12 +248,7 @@ describe('RoundTimerService', () => {
 
   /** 마감 처리로 들어온 점수는 resolver가 이미 방송했다. 여기서 또 쏘면 클라가 중복 반영한다. */
   it('마감 경로가 기록한 점수를 다시 방송하지 않는다', async () => {
-    const completed = rolled(RoundState.start(1, SOLO)).submit(submission('player-a', 1))
-    timeoutResolver.resolution = advancedResolution(completed)
-    await timerService.start('room-a', RoundState.start(1, SOLO))
-    broadcaster.reset()
-
-    await scheduler.fire()
+    await advanceByTimeout()
 
     expect(broadcaster.typesFor('room-a')).not.toContain('game.yacht_dice.score.update')
   })
@@ -432,6 +422,19 @@ describe('RoundTimerService', () => {
     const state = await store.findByRoomId('room-a')
     if (state === undefined) throw new Error('라운드 상태가 없다')
     return state
+  }
+
+  /**
+   * 1인 방의 첫 턴이 마감으로 넘어가는 흐름. resolver가 이미 점수를 기록하고
+   * 다음 라운드로 넘긴 상태를 돌려준다.
+   */
+  const advanceByTimeout = async () => {
+    const completed = rolled(RoundState.start(1, SOLO)).submit(submission('player-a', 1))
+    timeoutResolver.resolution = advancedResolution(completed)
+    await timerService.start('room-a', RoundState.start(1, SOLO))
+    broadcaster.reset()
+
+    await scheduler.fire()
   }
 
   /** 2인 방의 첫 턴을 시작하고 방송을 비운 뒤 마감을 터뜨린다. */

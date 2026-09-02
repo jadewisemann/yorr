@@ -5,14 +5,12 @@ import { createEmptyScoreBoard, creatorSession } from '@/mocks/fixtures'
 import type { RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
 import { roomApiClient } from '@/room/api/roomApi'
 import { useAppStore } from '@/store'
+import { navigateSpy } from '@/test/routerDouble'
 import { GameResult } from '@/yacht/screens/GameResult'
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
-
-vi.mock('@tanstack/react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  useNavigate: () => navigate,
-}))
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/test/routerDouble')).routerWithNavigateSpy(),
+)
 
 const { snapshot: _snapshot, ...hostSession } = creatorSession
 
@@ -47,7 +45,7 @@ if (!finishedGame) throw new Error('finished snapshot is missing game')
 
 describe('GameResult', () => {
   beforeEach(() => {
-    navigate.mockReset()
+    navigateSpy.mockReset()
     vi.restoreAllMocks()
     useAppStore.getState().reset()
     useAppStore.getState().setRoomSession(creatorSession)
@@ -109,7 +107,7 @@ describe('GameResult', () => {
 
     await user.click(screen.getByRole('button', { name: '나가기' }))
     expect(onLeaveRequest).toHaveBeenCalledOnce()
-    expect(navigate).not.toHaveBeenCalled()
+    expect(navigateSpy).not.toHaveBeenCalled()
   })
 
   it('blocks the lobby move for participants', () => {
@@ -202,7 +200,7 @@ describe('GameResult', () => {
       hostSession.roomCode,
       expect.objectContaining({ sessionToken: hostSession.sessionToken, userId: hostSession.you }),
     )
-    expect(navigate).not.toHaveBeenCalled()
+    expect(navigateSpy).not.toHaveBeenCalled()
   })
 
   describe('파티 모드 대시보드', () => {

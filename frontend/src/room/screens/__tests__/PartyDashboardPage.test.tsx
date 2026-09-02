@@ -8,13 +8,11 @@ import {
 } from '@/mocks/fixtures'
 import { PartyDashboardPage } from '@/room/screens/PartyDashboardPage'
 import { useAppStore } from '@/store'
+import { navigateSpy } from '@/test/routerDouble'
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
-
-vi.mock('@tanstack/react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  useNavigate: () => navigate,
-}))
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/test/routerDouble')).routerWithNavigateSpy(),
+)
 
 vi.mock('@/shared/audio/soundtrack', () => ({
   playLandingSoundtrack: vi.fn(() => () => {}),
@@ -22,7 +20,7 @@ vi.mock('@/shared/audio/soundtrack', () => ({
 
 describe('PartyDashboardPage', () => {
   beforeEach(() => {
-    navigate.mockReset()
+    navigateSpy.mockReset()
     vi.stubGlobal(
       'matchMedia',
       vi.fn().mockReturnValue({
@@ -105,7 +103,7 @@ describe('PartyDashboardPage', () => {
     render(<PartyDashboardPage gameKey="yacht" />)
 
     await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith(
+      expect(navigateSpy).toHaveBeenCalledWith(
         expect.objectContaining({ to: '/rooms/$roomId/game', replace: true }),
       ),
     )
@@ -119,7 +117,7 @@ describe('PartyDashboardPage', () => {
 
     render(<PartyDashboardPage gameKey="pingpong" />)
 
-    expect(navigate).not.toHaveBeenCalledWith(
+    expect(navigateSpy).not.toHaveBeenCalledWith(
       expect.objectContaining({ to: '/rooms/$roomId/game' }),
     )
   })

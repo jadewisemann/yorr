@@ -29,7 +29,35 @@ export interface Client {
   socket: WebSocket
   received: OutboundEnvelope[]
   send(message: unknown): void
-  await(type: string): Promise<OutboundEnvelope>
+  /** `nth`번째로 도착한 그 타입의 메시지. 같은 타입이 여러 번 오는 흐름(chat.message)에 쓴다. */
+  await(type: string, nth?: number): Promise<OutboundEnvelope>
+}
+
+/**
+ * 소켓 하나를 열고 받은 메시지를 순서대로 모은다. `origin`은 CORS 게이트를 보는
+ * 검사만 넘긴다 — 나머지는 기본 origin으로 붙는다.
+ */
+export async function connectSocket(url: string, origin?: string): Promise<Client> {
+  const socket = new WebSocket(url, origin ? { origin } : {})
+  const received: OutboundEnvelope[] = []
+  socket.on('message', (raw) => received.push(JSON.parse(raw.toString()) as OutboundEnvelope))
+  await new Promise<void>((resolve, reject) => {
+    socket.once('open', resolve)
+    socket.once('error', reject)
+  })
+  return {
+    socket,
+    received,
+    send: (message: unknown) => socket.send(JSON.stringify(message)),
+    await: async (type: string, nth = 1) => {
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const matched = received.filter((message) => message.type === type)
+        if (matched.length >= nth) return matched[nth - 1] as OutboundEnvelope
+        await new Promise((resolve) => setTimeout(resolve, 20))
+      }
+      throw new Error(`${type}을(를) 받지 못했다: ${received.map((m) => m.type).join(',')}`)
+    },
+  }
 }
 
 export interface Entrant {
@@ -65,28 +93,7 @@ export function useServer(redis: () => Redis) {
     return `ws://127.0.0.1:${port}/ws/v1/game`
   }
 
-  const connect = async (url: string): Promise<Client> => {
-    const socket = new WebSocket(url)
-    const received: OutboundEnvelope[] = []
-    socket.on('message', (raw) => received.push(JSON.parse(raw.toString()) as OutboundEnvelope))
-    await new Promise<void>((resolve, reject) => {
-      socket.once('open', resolve)
-      socket.once('error', reject)
-    })
-    return {
-      socket,
-      received,
-      send: (message) => socket.send(JSON.stringify(message)),
-      await: async (type) => {
-        for (let attempt = 0; attempt < 100; attempt += 1) {
-          const matched = received.find((message) => message.type === type)
-          if (matched !== undefined) return matched
-          await new Promise((resolve) => setTimeout(resolve, 20))
-        }
-        throw new Error(`${type}을(를) 받지 못했다: ${received.map((m) => m.type).join(',')}`)
-      },
-    }
-  }
+  const connect = connectSocket
 
   const enterRoom = async (
     instance: YorrServer,

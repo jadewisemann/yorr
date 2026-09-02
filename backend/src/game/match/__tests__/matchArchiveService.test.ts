@@ -7,7 +7,15 @@ import {
   resolveDisplayNickname,
 } from '../matchArchiveService.js'
 import type { MatchArchiveStore, MatchRecord } from '../matchArchiveStore.js'
-import { FIXED_NOW, GAME_ID, ranking, room } from './matchFixtures.js'
+import {
+  FIXED_NOW,
+  GAME_ID,
+  localAiMatch,
+  mixedMatch,
+  ranking,
+  room,
+  soloGuestMatch,
+} from './matchFixtures.js'
 
 /**
  * 전적 보관 4종.
@@ -88,13 +96,9 @@ describe('MatchArchiveService (인메모리 저장소)', () => {
   it('회원은_계정에_게스트는_이름만_남는다', async () => {
     const member = store.seedMember('member-1', '카카오회원')
 
-    const saved = await service.archive(
-      room([
-        { playerId: member, nickname: '방에서쓴이름' },
-        { playerId: 'guest-1', nickname: '지나가던손님' },
-      ]),
-      [ranking(1, member, 210), ranking(2, 'guest-1', 180)],
-    )
+    const { rankings, snapshot } = mixedMatch(member)
+
+    const saved = await service.archive(snapshot, rankings)
 
     expect(saved).toBe(true)
     const stored = store.only()
@@ -122,8 +126,7 @@ describe('MatchArchiveService (인메모리 저장소)', () => {
 
   /** 종료 방송이 두 번 일어나도 같은 판이 두 번 쌓이면 안 된다. */
   it('같은_게임은_한_번만_저장된다', async () => {
-    const snapshot = room([{ playerId: 'guest-1', nickname: '손님' }])
-    const rankings = [ranking(1, 'guest-1', 100)]
+    const { rankings, snapshot } = soloGuestMatch()
 
     expect(await service.archive(snapshot, rankings)).toBe(true)
     expect(await service.archive(snapshot, rankings)).toBe(false)
@@ -251,8 +254,7 @@ describe('MatchArchiveService (인메모리 저장소)', () => {
 
   /** 중복 판·검증 실패에도 캐시를 비운다. */
   it('랭킹 캐시는 중복 보관·빈 호출에도 비워진다', async () => {
-    const snapshot = room([{ playerId: 'guest-1', nickname: '손님' }])
-    const rankings = [ranking(1, 'guest-1', 100)]
+    const { rankings, snapshot } = soloGuestMatch()
 
     await service.archive(snapshot, rankings)
     await service.archive(snapshot, rankings)
@@ -307,15 +309,7 @@ describe('MatchArchiveService (인메모리 저장소)', () => {
   it('archiveParticipants는 방 없이도 같은 규칙으로 저장한다', async () => {
     const member = store.seedMember('member-1', '탁구회원')
 
-    const saved = await service.archiveParticipants({
-      gameId: 'local-1',
-      gameCode: 'PING_PONG',
-      roomCode: 'LOCAL_AI',
-      participants: [
-        { playerId: member, totalScore: 11, ranking: 1 },
-        { playerId: 'ping-pong-ai', displayNickname: 'AI', totalScore: 7, ranking: 2 },
-      ],
-    })
+    const saved = await service.archiveParticipants(localAiMatch('local-1', member))
 
     expect(saved).toBe(true)
     const stored = store.only()

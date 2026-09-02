@@ -3,6 +3,7 @@ import type { ProviderConfig } from '../config.js'
 import { SocialLoginError } from '../errors.js'
 import { KakaoOAuthClient } from '../kakaoClient.js'
 import type { FetchLike } from '../oauthHttp.js'
+import { json, reason, stubFetch } from './oauthDoubles.js'
 
 /**
  * Node 고유
@@ -17,41 +18,6 @@ const config = (overrides: Partial<ProviderConfig> = {}): ProviderConfig => ({
   redirectUri: REDIRECT_URI,
   ...overrides,
 })
-
-interface Call {
-  readonly url: string
-  readonly init: RequestInit | undefined
-}
-
-const stubFetch = (responses: Response[]): { fetch: FetchLike; calls: Call[] } => {
-  const calls: Call[] = []
-  const queue = [...responses]
-  return {
-    calls,
-    fetch: async (url, init) => {
-      calls.push({ url, init })
-      const next = queue.shift()
-      if (next === undefined) throw new Error(`예상하지 않은 호출: ${url}`)
-      return next
-    },
-  }
-}
-
-const json = (body: unknown, status = 200): Response =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
-
-const reason = async (run: () => Promise<unknown>): Promise<string> => {
-  try {
-    await run()
-  } catch (error) {
-    if (error instanceof SocialLoginError) return error.reason
-    throw error
-  }
-  throw new Error('SocialLoginError가 던져지지 않았다')
-}
 
 describe('KakaoOAuthClient', () => {
   /**

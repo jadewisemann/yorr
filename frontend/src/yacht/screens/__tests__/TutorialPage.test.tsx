@@ -2,14 +2,12 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppStore } from '@/store'
+import { navigateSpy } from '@/test/routerDouble'
 import { TutorialPage } from '@/yacht/screens/TutorialPage'
 
-const mocks = vi.hoisted(() => ({ navigate: vi.fn() }))
-
-vi.mock('@tanstack/react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  useNavigate: () => mocks.navigate,
-}))
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/test/routerDouble')).routerWithNavigateSpy(),
+)
 
 vi.mock(
   '@/yacht/input/useMotionRollInput',
@@ -22,7 +20,7 @@ vi.mock('@/yacht/components/PhysicsDiceScene', () => ({
 
 describe('TutorialPage', () => {
   beforeEach(() => {
-    mocks.navigate.mockReset()
+    navigateSpy.mockReset()
     useAppStore.setState({ connectionStatus: 'idle' })
   })
 
@@ -59,6 +57,6 @@ describe('TutorialPage', () => {
 
     await user.click(screen.getByRole('button', { name: '연습 그만두기' }))
 
-    expect(mocks.navigate).toHaveBeenCalledWith({ to: '/' })
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/' })
   })
 })

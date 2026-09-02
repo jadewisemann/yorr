@@ -5,7 +5,15 @@ import { describeMysql, useMysql } from '../../../infra/__tests__/mysqlHarness.j
 import { runMigrations } from '../../../infra/migrations/runner.js'
 import { MatchArchiveService } from '../matchArchiveService.js'
 import { MysqlMatchArchiveStore } from '../matchArchiveStore.js'
-import { FIXED_NOW, GAME_ID, ranking, room } from './matchFixtures.js'
+import {
+  FIXED_NOW,
+  GAME_ID,
+  localAiMatch,
+  mixedMatch,
+  ranking,
+  room,
+  soloGuestMatch,
+} from './matchFixtures.js'
 
 /**
  * 전적 보관의 MySQL 절반.
@@ -75,13 +83,9 @@ describeMysql('MysqlMatchArchiveStore (실 MySQL)', () => {
     const { pool, service, signUp } = await setUp()
     const member = await signUp('카카오회원')
 
-    const saved = await service.archive(
-      room([
-        { playerId: member, nickname: '방에서쓴이름' },
-        { playerId: 'guest-1', nickname: '지나가던손님' },
-      ]),
-      [ranking(1, member, 210), ranking(2, 'guest-1', 180)],
-    )
+    const { rankings, snapshot } = mixedMatch(member)
+
+    const saved = await service.archive(snapshot, rankings)
 
     expect(saved).toBe(true)
     const [rows] = await pool.query<RowDataPacket[]>(
@@ -109,8 +113,7 @@ describeMysql('MysqlMatchArchiveStore (실 MySQL)', () => {
 
   it('같은_게임은_한_번만_저장된다', async () => {
     const { pool, service } = await setUp()
-    const snapshot = room([{ playerId: 'guest-1', nickname: '손님' }])
-    const rankings = [ranking(1, 'guest-1', 100)]
+    const { rankings, snapshot } = soloGuestMatch()
 
     expect(await service.archive(snapshot, rankings)).toBe(true)
     expect(await service.archive(snapshot, rankings)).toBe(false)
@@ -168,8 +171,7 @@ describeMysql('MysqlMatchArchiveStore (실 MySQL)', () => {
   /** 사전 확인은 동시 호출에서 깨진다 — 최종 방어선이 `uk_matches_game`인지 본다. */
   it('동시에 두 번 보관해도 한 판만 남는다', async () => {
     const { pool, service } = await setUp()
-    const snapshot = room([{ playerId: 'guest-1', nickname: '손님' }])
-    const rankings = [ranking(1, 'guest-1', 100)]
+    const { rankings, snapshot } = soloGuestMatch()
 
     const results = await Promise.all([
       service.archive(snapshot, rankings),
@@ -225,15 +227,9 @@ describeMysql('MysqlMatchArchiveStore (실 MySQL)', () => {
     const { pool, service, signUp } = await setUp()
     const member = await signUp('탁구회원')
 
-    const saved = await service.archiveParticipants({
-      gameId: '1d61e930-cbea-41f3-935d-85fb95919e44',
-      gameCode: 'PING_PONG',
-      roomCode: 'LOCAL_AI',
-      participants: [
-        { playerId: member, totalScore: 11, ranking: 1 },
-        { playerId: 'ping-pong-ai', displayNickname: 'AI', totalScore: 7, ranking: 2 },
-      ],
-    })
+    const saved = await service.archiveParticipants(
+      localAiMatch('1d61e930-cbea-41f3-935d-85fb95919e44', member),
+    )
 
     expect(saved).toBe(true)
     const participants = await participantsOf(pool, '1d61e930-cbea-41f3-935d-85fb95919e44')
