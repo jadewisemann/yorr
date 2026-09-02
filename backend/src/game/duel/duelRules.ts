@@ -35,14 +35,14 @@ export const MISS = -2
 export const MIN_WAIT_MILLIS = 1_400
 export const MAX_WAIT_MILLIS = 4_600
 /** 한쪽이 먼저 뽑은 뒤, 상대가 뽑을 수 있는 마지막 유예. */
-const GRACE_MILLIS = 700
+export const GRACE_MILLIS = 700
 /** 신호 후 아무도 안 뽑으면 라운드를 무효로 넘긴다. */
-const FREEZE_MILLIS = 2_600
+export const FREEZE_MILLIS = 2_600
 
 /* 연출 시간 — 프런트 duel.ts의 CSS 애니메이션 길이와 맞춰야 한다. */
 /** 아무도 맞지 않은 라운드(TIE·경고)는 짧게 보여준다. */
-const TIE_HOLD_MILLIS = 1_650
-const RESULT_HOLD_MILLIS = 2_150
+export const TIE_HOLD_MILLIS = 1_650
+export const RESULT_HOLD_MILLIS = 2_150
 export const KO_HOLD_MILLIS = 2_900
 
 const copy = (values: DuelPlayerNumbers): Record<string, number> => ({ ...values })
@@ -219,6 +219,8 @@ export const forfeit = (state: DuelState, playerId: string, now: number): DuelSt
 export const compareDraw = (a: number, b: number): 0 | 1 | 2 => {
   const cleanA = a >= 0
   const cleanB = b >= 0
+  // Stryker disable next-line EqualityOperator: 같은 값은 바로 위에서 이미 0으로 갈렸다.
+  // `<`와 `<=`가 여기서 같은 뜻이므로 어느 검사로도 가를 수 없다(동치 돌연변이).
   if (cleanA && cleanB) return a === b ? 0 : a < b ? 1 : 2
   if (cleanA) return 1
   if (cleanB) return 2

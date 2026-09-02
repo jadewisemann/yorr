@@ -4,8 +4,10 @@ import {
   draw,
   expire,
   FOUL,
+  FREEZE_MILLIS,
   finish,
   forfeit,
+  GRACE_MILLIS,
   hold,
   initialDuelState,
   KO_HOLD_MILLIS,
@@ -13,7 +15,9 @@ import {
   MAX_HP,
   MISS,
   nextRound,
+  RESULT_HOLD_MILLIS,
   signal,
+  TIE_HOLD_MILLIS,
 } from '../duelRules.js'
 import type { DuelRound, DuelState } from '../duelState.js'
 
@@ -261,5 +265,247 @@ describe('DuelRules', () => {
     expect(midRound.phase).toBe('RESULT')
     expect(midRound.lastRound?.over).toBe(false)
     expect(finish(midRound)).toEqual(midRound)
+  })
+  /**
+   * 아래는 **시각과 값이 계약인 자리**들이다. 결투는 서버가 예약한 마감 하나로만
+   * 굴러가므로(`nextActionAt`), 그 값이 한 번 어긋나면 라운드가 통째로 멎거나
+   * 두 번 판정된다. 상태 전이가 맞아도 여기가 틀리면 게임이 되지 않는다.
+   */
+  describe('시각과 값', () => {
+    it('신호를 켜면 얼어붙기 마감이 그 자리에서 잡힌다', () => {
+      const signalled = signal(initial(), 5_000)
+
+      expect(signalled.signalAt).toBe(5_000)
+      expect(signalled.nextActionAt).toBe(5_000 + FREEZE_MILLIS)
+      expect(signalled.version).toBe(initial().version + 1)
+      expect(signalled.lastRound).toBeUndefined()
+    })
+
+    it('한쪽이 뽑으면 상대의 마감이 짧은 유예로 당겨진다', () => {
+      const signalled = signal(initial(), 5_000)
+
+      const drawn = draw(signalled, P1, 1, 200, 5_200)
+
+      expect(drawn.nextActionAt).toBe(5_200 + GRACE_MILLIS)
+      expect(drawn.version).toBe(signalled.version + 1)
+      // 원래 마감이 더 가까우면 그것을 지킨다 — 유예가 마감을 늘리면 안 된다.
+      const late = draw(signalled, P1, 1, 200, 5_000 + FREEZE_MILLIS - 100)
+      expect(late.nextActionAt).toBe(signalled.nextActionAt)
+    })
+
+    it('판정이 끝나면 연출 길이만큼 다음 마감이 밀린다', () => {
+      const signalled = signal(initial(), 5_000)
+      const shot = draw(draw(signalled, P1, 1, 180, 5_200), P2, 1, 240, 5_260)
+
+      expect(shot.nextActionAt).toBe(5_260 + RESULT_HOLD_MILLIS)
+
+      const tie = draw(draw(signalled, P1, 1, 200, 5_220), P2, 1, 200, 5_230)
+      expect(tie.nextActionAt).toBe(5_230 + TIE_HOLD_MILLIS)
+    })
+
+    it('연출 길이는 라운드의 성격마다 다르다', () => {
+      const ko = { hitId: P2, over: true } as DuelRound
+      const shot = { hitId: P2, over: false } as DuelRound
+      const tie = { hitId: null, over: false } as DuelRound
+
+      expect(hold(ko)).toBe(KO_HOLD_MILLIS)
+      expect(hold(shot)).toBe(RESULT_HOLD_MILLIS)
+      expect(hold(tie)).toBe(TIE_HOLD_MILLIS)
+      expect(RESULT_HOLD_MILLIS).toBeGreaterThan(TIE_HOLD_MILLIS)
+    })
+
+    it('다음 라운드의 신호는 받은 대기 시간만큼 뒤에 켜진다', () => {
+      const midRound = wonRounds(1)
+
+      const next = nextRound(midRound, 9_000, 2_000)
+
+      expect(next.nextActionAt).toBe(11_000)
+      expect(next.signalAt).toBe(0)
+      expect(next.round).toBe(midRound.round + 1)
+      expect(next.version).toBe(midRound.version + 1)
+    })
+
+    it('결투가 끝나면 더 기다릴 것이 없다', () => {
+      const ko = wonRounds(MAX_HP)
+
+      const finished = finish(ko)
+
+      expect(finished.nextActionAt).toBe(0)
+      expect(finished.version).toBe(ko.version + 1)
+      expect(forfeit(initial(), P1, 2_000).nextActionAt).toBe(0)
+    })
+  })
+
+  describe('반응 시간 판정', () => {
+    it('음수를 신고하면 부정출발이고, 0은 그대로 유효한 반응이다', () => {
+      const signalled = signal(initial(), 5_000)
+
+      // 클라이언트가 음수를 보냈다면 신호 전에 뽑았다는 뜻이다.
+      expect(draw(signalled, P1, 1, -5, 5_200).reactions[P1]).toBe(FOUL)
+      // 0ms는 경계이자 유효한 값이다 — 사람이 낼 수는 없어도 규칙이 접으면 안 된다.
+      expect(draw(signalled, P1, 1, 0, 5_200).reactions[P1]).toBe(0)
+    })
+
+    it('첫 뽑기는 입력 번호가 없어도 받아들인다', () => {
+      const signalled = signal(initial(), 5_000)
+      const fresh: DuelState = { ...signalled, lastInputSeq: {} }
+
+      const drawn = draw(fresh, P1, 0, 200, 5_200)
+
+      expect(drawn.reactions[P1]).toBe(200)
+      expect(drawn.lastInputSeq[P1]).toBe(0)
+    })
+
+    it('결과 국면에 들어온 뽑기는 번호만 남기고 판정을 건드리지 않는다', () => {
+      const midRound = wonRounds(1)
+
+      const late = draw(midRound, P2, 9, 100, 9_000)
+
+      expect(late.reactions).toEqual(midRound.reactions)
+      expect(late.lastInputSeq[P2]).toBe(9)
+      expect(late.version).toBe(midRound.version + 1)
+    })
+
+    it('compareDraw는 센티넬 경계에서 갈린다', () => {
+      // 0ms는 유효한 반응이다 — 부호로 가르므로 경계가 여기다.
+      expect(compareDraw(0, 1)).toBe(1)
+      expect(compareDraw(1, 0)).toBe(2)
+      expect(compareDraw(0, 0)).toBe(0)
+      expect(compareDraw(0, FOUL)).toBe(1)
+      expect(compareDraw(FOUL, 0)).toBe(2)
+    })
+  })
+
+  describe('부정출발과 몰수', () => {
+    it('두 번째 사람의 부정출발도 그 사람의 것으로 잡는다', () => {
+      const signalled = signal(initial(), 5_000)
+
+      // P1은 정상, P2가 신호 전 값을 신고했다.
+      const first = draw(signalled, P1, 1, 200, 5_200)
+      const resolved = draw(first, P2, 1, -1, 5_210)
+
+      expect(lastRound(resolved).foulId).toBe(P2)
+      expect(lastRound(resolved).kind).toBe('WARNING')
+      // 부정출발한 쪽만 값을 치른다 — 상대는 무피해다.
+      expect(resolved.hp).toEqual({ [P1]: MAX_HP, [P2]: MAX_HP })
+    })
+
+    it('명단의 두 번째 사람이 나가면 첫 번째가 살아남는다', () => {
+      const finished = forfeit(initial(), P2, 2_000)
+
+      expect(finished.hp).toEqual({ [P1]: MAX_HP, [P2]: 0 })
+      expect(lastRound(finished).shooterId).toBe(P1)
+      expect(lastRound(finished).over).toBe(true)
+      expect(finished.version).toBe(initial().version + 1)
+    })
+
+    it('명단의 두 번째 자리가 비어도 판정하지 않고 던진다', () => {
+      const broken: DuelState = { ...initial(), playerOrder: [P1, undefined as unknown as string] }
+
+      expect(() => forfeit(broken, P1, 2_000)).toThrow('duel_requires_two_players')
+    })
+
+    it('이미 끝난 판과 방에 없는 사람의 이탈은 아무것도 하지 않는다', () => {
+      const ko = finish(wonRounds(MAX_HP))
+
+      expect(forfeit(ko, P1, 9_000)).toEqual(ko)
+      expect(forfeit(initial(), '구경꾼', 9_000)).toEqual(initial())
+    })
+  })
+
+  describe('총알과 KO', () => {
+    it('마지막 총알을 맞은 쪽만 KO로 적히고 판이 끝난다', () => {
+      const twoHits = wonRounds(MAX_HP - 1)
+      expect(lastRound(twoHits).koId).toBeNull()
+      expect(lastRound(twoHits).over).toBe(false)
+
+      const ko = wonRounds(MAX_HP)
+      expect(lastRound(ko).koId).toBe(P2)
+      expect(lastRound(ko).over).toBe(true)
+      expect(ko.hp[P2]).toBe(0)
+    })
+
+    it('무승부 라운드는 아무도 쏘지 않고 판도 끝나지 않는다', () => {
+      const signalled = signal(initial(), 5_000)
+
+      const tie = draw(draw(signalled, P1, 1, 200, 5_220), P2, 1, 200, 5_230)
+
+      expect(lastRound(tie).shooterId).toBeNull()
+      expect(lastRound(tie).hitId).toBeNull()
+      expect(lastRound(tie).koId).toBeNull()
+      expect(lastRound(tie).over).toBe(false)
+      expect(lastRound(tie).number).toBe(signalled.round)
+    })
+
+    it('두 번째 사람이 이기면 첫 번째가 맞는다', () => {
+      const signalled = signal(initial(), 5_000)
+
+      const resolved = draw(draw(signalled, P1, 1, 240, 5_260), P2, 1, 180, 5_280)
+
+      expect(lastRound(resolved).shooterId).toBe(P2)
+      expect(lastRound(resolved).hitId).toBe(P1)
+      expect(resolved.hp).toEqual({ [P1]: MAX_HP - 1, [P2]: MAX_HP })
+    })
+  })
+  /**
+   * 아래는 **상태가 어긋난 채 도착했을 때** 규칙이 무엇을 하는지다. 상태는 Redis에서
+   * JSON으로 되돌아오고 서비스가 예약을 잘못 걸 수도 있으므로, 국면과 마지막 라운드가
+   * 서로 맞지 않는 프레임이 실제로 들어온다.
+   */
+  describe('어긋난 상태', () => {
+    it('결과가 남아 있어도 국면이 결과가 아니면 라운드를 넘기지 않는다', () => {
+      const midRound = wonRounds(1)
+      const mismatched: DuelState = { ...midRound, phase: 'WAITING' }
+
+      expect(nextRound(mismatched, 9_000, 2_000)).toEqual(mismatched)
+      expect(finish({ ...wonRounds(MAX_HP), phase: 'WAITING' })).toEqual({
+        ...wonRounds(MAX_HP),
+        phase: 'WAITING',
+      })
+    })
+
+    it('국면이 결과인데 마지막 라운드가 비어 있으면 그대로 둔다', () => {
+      const empty: DuelState = { ...initial(), phase: 'RESULT', lastRound: undefined }
+
+      expect(nextRound(empty, 9_000, 2_000)).toEqual(empty)
+      expect(finish(empty)).toEqual(empty)
+    })
+
+    it('판정이 끝난 뒤 아직 뽑지 않았던 사람의 뽑기도 번호만 남긴다', () => {
+      // 한쪽의 부정출발로 즉시 판정된 라운드. 상대의 반응은 비어 있다.
+      const fouled = draw(signal(initial(), 5_000), P1, 1, -1, 5_200)
+      expect(fouled.phase).toBe('RESULT')
+      expect(fouled.reactions[P2]).toBeUndefined()
+
+      const late = draw(fouled, P2, 1, 200, 5_300)
+
+      expect(late.reactions).toEqual(fouled.reactions)
+      expect(late.lastRound).toEqual(fouled.lastRound)
+      expect(late.lastInputSeq[P2]).toBe(1)
+    })
+
+    it('명단이 한 사람뿐이면 판정 자체를 하지 않는다', () => {
+      const broken: DuelState = { ...initial(), playerOrder: [P1] }
+
+      expect(() => forfeit(broken, P1, 2_000)).toThrow('duel_requires_two_players')
+      // 만료 판정도 같은 자리에서 막힌다 — 조용히 이상한 결과를 내지 않는다.
+      const signalled: DuelState = { ...signal(initial(), 5_000), playerOrder: [P1] }
+      expect(() => expire(signalled, 9_000)).toThrow('duel_requires_two_players')
+    })
+
+    it('명단의 어느 자리가 비었든 똑같이 막는다', () => {
+      // JSON으로 되돌아온 상태는 앞자리가 빌 수도 있다 — 두 자리를 각각 봐야 한다.
+      const noFirst: DuelState = {
+        ...initial(),
+        playerOrder: [undefined as unknown as string, P2],
+      }
+      const noSecond: DuelState = {
+        ...initial(),
+        playerOrder: [P1, undefined as unknown as string],
+      }
+
+      expect(() => forfeit(noFirst, P2, 2_000)).toThrow('duel_requires_two_players')
+      expect(() => forfeit(noSecond, P1, 2_000)).toThrow('duel_requires_two_players')
+    })
   })
 })

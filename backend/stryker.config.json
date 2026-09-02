@@ -10,7 +10,7 @@
   "jsonReporter": {
     "fileName": "../tools/quality/.stryker.json"
   },
-  "coverageAnalysis": "all",
+  "coverageAnalysis": "perTest",
   "timeoutMS": 60000,
   "concurrency": 2,
   "mutate": [
@@ -22,7 +22,8 @@
     "src/game/ranking/weeklyRankingResponse.ts",
     "src/game/ranking/weeklyRankingCache.ts",
     "src/game/completion/gameResultCalculator.ts",
-    "src/game/startRoster.ts"
+    "src/game/startRoster.ts",
+    "src/game/duel/duelRules.ts"
   ],
   "thresholds": {
     "high": 100,
@@ -30,5 +31,5 @@
     "break": 100
   },
   "tsconfigFile": "",
-  "_nextScope": "다음 차례는 게임 규칙 3종(davinciRules·duelRules·pingPongRules)이다. 넓혀 보니 생존 231건이 나왔고(탁구가 절반), 그것을 0으로 만드는 일은 규칙마다 경계 검사를 새로 쓰는 별도 작업이다."
+  "_nextScope": "다음 차례는 다빈치·탁구 규칙이다. 결투를 넣어 보니 생존 30건이 나왔고 시각·값 계약과 어긋난 상태를 짚는 검사 스물넷으로 0이 됐다. 남은 둘도 같은 방식이 든다."
 }
