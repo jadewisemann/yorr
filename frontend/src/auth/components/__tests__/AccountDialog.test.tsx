@@ -80,3 +80,19 @@ describe('닉네임 편집', () => {
     expect(await screen.findByRole('button', { name: '프로필 관리' })).toBeInTheDocument()
   })
 })
+
+describe('문의하기', () => {
+  it.each([
+    ['로그인 전', null],
+    ['로그인 후', session],
+  ])('%s에도 카카오톡 문의 링크가 새 탭으로 열린다', (_label, current) => {
+    render(
+      <AccountDialog layout="wide" onClose={vi.fn()} onSignOut={vi.fn()} open session={current} />,
+    )
+
+    const link = screen.getByRole('link', { name: '카카오톡으로 문의하기' })
+    expect(link).toHaveAttribute('href', 'http://pf.kakao.com/_hxgkxnX/chat')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+  })
+})
