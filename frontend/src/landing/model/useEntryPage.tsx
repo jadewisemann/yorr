@@ -5,6 +5,7 @@ import { AccountDialog } from '@/auth/components/AccountDialog'
 import { type GameKey, gameAt, gameIndexOf } from '@/games'
 import { LandingCodeDialog } from '@/landing/components/LandingCodeDialog'
 import { PlayModeDialog } from '@/landing/components/PlayModeDialog'
+import { SupportDialog } from '@/landing/components/SupportDialog'
 import { normalizeRoomCode } from '@/room/domain/roomCode'
 import { readSoundMuted, saveSoundMuted } from '@/shared/audio/soundPreference'
 import { playLandingSoundtrack, setSoundtrackMuted } from '@/shared/audio/soundtrack'
@@ -21,6 +22,7 @@ export function useEntryPage(gameKey: GameKey | undefined) {
   const [codeOpen, setCodeOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [playModeOpen, setPlayModeOpen] = useState(false)
+  const [supportOpen, setSupportOpen] = useState(false)
   const codeEntryRef = useRef<HTMLButtonElement>(null)
   const appNotice = useAppStore((state) => state.appNotice)
   const authSession = useAppStore((state) => state.authSession)
@@ -135,6 +137,8 @@ export function useEntryPage(gameKey: GameKey | undefined) {
     />
   )
 
+  const supportDialog = <SupportDialog onClose={() => setSupportOpen(false)} open={supportOpen} />
+
   return {
     accountOpen,
     activeIndex,
@@ -161,7 +165,10 @@ export function useEntryPage(gameKey: GameKey | undefined) {
     playModeDialog,
     roomSession,
     setAppNotice,
+    setSupportOpen,
     signOut,
+    supportDialog,
+    supportOpen,
     toggleSound,
     wide,
   }

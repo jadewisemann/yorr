@@ -8,8 +8,10 @@
 `EntryPage` 하나가 760px 기준 두 레이아웃(narrow/wide)을 가진다. 구성:
 `RankingTicker`(최상단) → 헤더(사운드·계정) → `LandingHeroCarousel`(+`LandingHeroCard`) →
 `LandingProgress`(01/05 카운터 + tablist) → 코드 참가 칩/팝오버 → `ActiveRoomBanner`(복귀).
-캔버스 밖 우하단에 `SupportFab`(카카오톡 문의, 쇼핑몰 채널톡식 떠 있는 버튼 — 뎁스 없이 첫
-화면에서 닿는다. 헤더 버튼과 같은 재질에 카카오 말풍선 모양만 있고 노란색은 쓰지 않는다).
+우하단에 떠 있는 `SupportFab`(카카오톡 문의, 쇼핑몰 채널톡식 — 뎁스 없이 첫 화면에서 닿는다.
+헤더 버튼과 같은 재질에 카카오 말풍선 모양만 있고 노란색은 쓰지 않는다). 누르면 바로 나가지
+않고 `SupportDialog`(이동할까요? 취소/이동하기)를 연다 — 버튼은 `<main>` 안, 모달은 다른
+다이얼로그처럼 main 바깥에 두어 inert 잠금이 버튼까지 덮는다.
 
 - 게임 카탈로그는 `src/games.ts`가 SSOT — 순서가 곧 01–05 인덱스이고, `live: true`
   (야추·탁구·석양)가 앞에 선다. 첫 칸들이 전부 잠긴 카드면 "할 게 없는 서비스"로 읽힌다.

@@ -54,17 +54,75 @@ describe('EntryPage', () => {
   })
   afterEach(() => vi.restoreAllMocks())
 
-  it.each([
-    ['narrow', false],
-    ['wide', true],
-  ])('%s 레이아웃에 떠 있는 카카오톡 문의 버튼이 새 탭으로 열린다', (_label, wide) => {
-    useLayout(wide)
-    render(<EntryPage />)
+  describe('카카오톡 문의', () => {
+    function stubOpen(result: Window | null = {} as Window) {
+      const open = vi.fn().mockReturnValue(result)
+      vi.stubGlobal('open', open)
+      return open
+    }
+    afterEach(() => vi.unstubAllGlobals())
 
-    const link = screen.getByRole('link', { name: '카카오톡으로 문의하기' })
-    expect(link).toHaveAttribute('href', 'http://pf.kakao.com/_hxgkxnX/chat')
-    expect(link).toHaveAttribute('target', '_blank')
-    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+    it.each([
+      ['narrow', false],
+      ['wide', true],
+    ])('%s 레이아웃의 떠 있는 버튼은 바로 나가지 않고 확인 모달을 연다', async (_label, wide) => {
+      useLayout(wide)
+      const open = stubOpen()
+      const user = userEvent.setup()
+      render(<EntryPage />)
+
+      await user.click(screen.getByRole('button', { name: '카카오톡으로 문의하기' }))
+
+      expect(screen.getByRole('dialog', { name: '카카오톡으로 이동할까요?' })).toBeInTheDocument()
+      expect(open).not.toHaveBeenCalled()
+      expect(screen.getByRole('main')).toHaveAttribute('inert')
+    })
+
+    it('이동하기는 새 탭으로 채널을 열고 모달을 닫는다', async () => {
+      const open = stubOpen()
+      const user = userEvent.setup()
+      render(<EntryPage />)
+      await user.click(screen.getByRole('button', { name: '카카오톡으로 문의하기' }))
+
+      await user.click(screen.getByRole('button', { name: '이동하기' }))
+
+      expect(open).toHaveBeenCalledWith(
+        'http://pf.kakao.com/_hxgkxnX/chat',
+        '_blank',
+        'noopener,noreferrer',
+      )
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('dialog', { name: '카카오톡으로 이동할까요?' }),
+        ).not.toBeInTheDocument(),
+      )
+      expect(screen.getByRole('main')).not.toHaveAttribute('inert')
+    })
+
+    it('취소와 백드롭은 나가지 않고 닫기만 한다', async () => {
+      const open = stubOpen()
+      const user = userEvent.setup()
+      render(<EntryPage />)
+      const fab = screen.getByRole('button', { name: '카카오톡으로 문의하기' })
+
+      await user.click(fab)
+      await user.click(screen.getByRole('button', { name: '취소' }))
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('dialog', { name: '카카오톡으로 이동할까요?' }),
+        ).not.toBeInTheDocument(),
+      )
+
+      await user.click(fab)
+      await user.click(screen.getByRole('button', { name: '모달 닫기' }))
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('dialog', { name: '카카오톡으로 이동할까요?' }),
+        ).not.toBeInTheDocument(),
+      )
+
+      expect(open).not.toHaveBeenCalled()
+    })
   })
 
   it('opens on the released game with its play call to action', () => {
@@ -344,7 +402,7 @@ describe('EntryPage', () => {
     expect(screen.getByRole('button', { name: '로그인' })).toBeVisible()
     expect(screen.getByRole('button', { name: '초대 코드로 참가' })).toBeVisible()
     expect(screen.queryByRole('button', { name: '방 코드로 참가' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /카카오/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '카카오로 계속하기' })).not.toBeInTheDocument()
   })
 
   it.each([
