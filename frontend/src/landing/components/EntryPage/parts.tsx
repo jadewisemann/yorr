@@ -197,10 +197,10 @@ export const KAKAO_SUPPORT_URL = 'http://pf.kakao.com/_hxgkxnX/chat'
 
 /*
  * 문의는 쇼핑몰 채널톡처럼 화면 우하단에 떠 있는 버튼이다 — 다이얼로그 안(한 뎁스)이나
- * 바닥 글자 링크(안 보인다)를 거쳐 여기로 왔다. 카카오 노란색을 쓰는 건 "카카오톡으로
- * 연결된다"는 걸 색 하나로 알리는 관용이라서다(auth.md의 브랜드 색 규칙은 헤더 로그인
- * 버튼 이야기고, 떠 있는 문의 버튼은 눈에 띄는 게 목적이다). 시트·모달(z-sheet/z-modal)
- * 아래, 콘텐츠 위에 놓는다.
+ * 바닥 글자 링크(안 보인다)를 거쳐 여기로 왔다. 겉은 헤더의 사운드·테마 버튼과 같은
+ * 재질(landing-well + hairline)로 랜딩에 섞이고, "카카오톡으로 연결된다"는 신호는 안쪽의
+ * 작은 노란 표식 하나로만 준다 — 버튼 전체를 노랗게 칠했을 땐 그것만 튀었다(auth.md의
+ * 브랜드 색 규칙과 같은 이유). 시트·모달(z-sheet/z-modal) 아래, 콘텐츠 위에 놓는다.
  */
 export function SupportFab({ layout }: { layout: 'narrow' | 'wide' }) {
   const wide = layout === 'wide'
@@ -208,14 +208,19 @@ export function SupportFab({ layout }: { layout: 'narrow' | 'wide' }) {
     <a
       aria-label="카카오톡으로 문의하기"
       className={cn(
-        'fixed right-[max(16px,env(safe-area-inset-right))] bottom-[max(16px,env(safe-area-inset-bottom))] z-banner flex min-h-tap items-center justify-center gap-2 rounded-full bg-kakao font-bold text-kakao-ink no-underline shadow-landing-cta transition-[scale,box-shadow] duration-150 ease-out hover:scale-105 focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable',
-        wide ? 'h-13 pr-5 pl-4 text-sm' : 'size-13',
+        'fixed right-[max(16px,env(safe-area-inset-right))] bottom-[max(16px,env(safe-area-inset-bottom))] z-banner flex items-center justify-center gap-2.5 rounded-full border border-landing-hairline-strong bg-landing-well text-sm font-semibold text-landing-text-muted shadow-landing-panel backdrop-blur-md transition-[color,border-color,scale] duration-150 ease-out hover:border-landing-accent/70 hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable',
+        wide ? 'h-12 pr-4.5 pl-2' : 'size-12',
       )}
       href={KAKAO_SUPPORT_URL}
       rel="noopener noreferrer"
       target="_blank"
     >
-      <KakaoBubble className="size-6" />
+      <span
+        aria-hidden="true"
+        className="grid size-8 flex-none place-items-center rounded-full bg-kakao text-kakao-ink"
+      >
+        <KakaoBubble className="size-4.5" />
+      </span>
       {wide && '문의하기'}
     </a>
   )
