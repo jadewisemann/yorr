@@ -5,7 +5,7 @@ import { Avatar } from '@/auth/components/AccountDialog/AccountMenu'
 import { useLeaveSession } from '@/room/api/useRoomApi'
 import { sessionScreenOf } from '@/room/domain/sessionFsm'
 import { cn } from '@/shared/cn'
-import { IconChat, IconMoon, IconSound, IconSun } from '@/shared/components/Icon'
+import { IconMoon, IconSound, IconSun } from '@/shared/components/Icon'
 import { selectSessionPhase, useAppStore } from '@/store'
 
 const codeEntry =
@@ -196,23 +196,35 @@ export function ActiveRoomBanner() {
 export const KAKAO_SUPPORT_URL = 'http://pf.kakao.com/_hxgkxnX/chat'
 
 /*
- * 문의 링크는 랜딩 바닥에 조용한 글자 링크로 둔다 — 다이얼로그 안에 넣으면 한 뎁스가
- * 생기고, 헤더에 아이콘을 더 세우면 좁은 화면에서 컨트롤이 넷으로 붐빈다. 카카오 브랜드
- * 색은 쓰지 않는다(auth.md: 브랜드 색은 로그인 수단을 고르는 자리 안에서만).
+ * 문의는 쇼핑몰 채널톡처럼 화면 우하단에 떠 있는 버튼이다 — 다이얼로그 안(한 뎁스)이나
+ * 바닥 글자 링크(안 보인다)를 거쳐 여기로 왔다. 카카오 노란색을 쓰는 건 "카카오톡으로
+ * 연결된다"는 걸 색 하나로 알리는 관용이라서다(auth.md의 브랜드 색 규칙은 헤더 로그인
+ * 버튼 이야기고, 떠 있는 문의 버튼은 눈에 띄는 게 목적이다). 시트·모달(z-sheet/z-modal)
+ * 아래, 콘텐츠 위에 놓는다.
  */
-export function SupportLink({ className }: { className?: string }) {
+export function SupportFab({ layout }: { layout: 'narrow' | 'wide' }) {
+  const wide = layout === 'wide'
   return (
     <a
+      aria-label="카카오톡으로 문의하기"
       className={cn(
-        'inline-flex min-h-tap items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-landing-text-muted underline-offset-2 transition-colors duration-150 ease-out hover:text-landing-text hover:underline focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable',
-        className,
+        'fixed right-[max(16px,env(safe-area-inset-right))] bottom-[max(16px,env(safe-area-inset-bottom))] z-banner flex min-h-tap items-center justify-center gap-2 rounded-full bg-kakao font-bold text-kakao-ink no-underline shadow-landing-cta transition-[scale,box-shadow] duration-150 ease-out hover:scale-105 focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable',
+        wide ? 'h-13 pr-5 pl-4 text-sm' : 'size-13',
       )}
       href={KAKAO_SUPPORT_URL}
       rel="noopener noreferrer"
       target="_blank"
     >
-      <IconChat className="size-3.5 flex-none" />
-      카카오톡 문의
+      <KakaoBubble className="size-6" />
+      {wide && '문의하기'}
     </a>
+  )
+}
+
+function KakaoBubble({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" className={className} fill="currentColor" viewBox="0 0 24 24">
+      <path d="M12 3C6.48 3 2 6.53 2 10.9c0 2.8 1.86 5.26 4.66 6.66l-1.13 4.16c-.08.3.26.55.52.38l4.9-3.25c.35.03.7.05 1.05.05 5.52 0 10-3.53 10-7.9S17.52 3 12 3z" />
+    </svg>
   )
 }

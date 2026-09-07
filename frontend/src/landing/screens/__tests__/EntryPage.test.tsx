@@ -57,11 +57,11 @@ describe('EntryPage', () => {
   it.each([
     ['narrow', false],
     ['wide', true],
-  ])('%s 레이아웃 바닥에 카카오톡 문의 링크가 새 탭으로 열린다', (_label, wide) => {
+  ])('%s 레이아웃에 떠 있는 카카오톡 문의 버튼이 새 탭으로 열린다', (_label, wide) => {
     useLayout(wide)
     render(<EntryPage />)
 
-    const link = screen.getByRole('link', { name: '카카오톡 문의' })
+    const link = screen.getByRole('link', { name: '카카오톡으로 문의하기' })
     expect(link).toHaveAttribute('href', 'http://pf.kakao.com/_hxgkxnX/chat')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
