@@ -16,9 +16,9 @@ interface ActionPanelProps {
   onPlace: (index: number) => void
   prompt: DavinciPrompt
   sendError: string | null
-  spectating: boolean
   targetName: string | null
-  turnName: string
+  /** 남의 차례에 보여 주는 한 줄 — 그 사람이 지금 무엇을 하고 있는가(`turnActivityMessage`). */
+  waitMessage: string
 }
 
 /**
@@ -36,9 +36,8 @@ export function ActionPanel({
   onPlace,
   prompt,
   sendError,
-  spectating,
   targetName,
-  turnName,
+  waitMessage,
 }: ActionPanelProps) {
   return (
     <section className="grid gap-2 pb-2">
@@ -82,9 +81,7 @@ export function ActionPanel({
       )}
 
       {prompt === 'wait' && (
-        <p className="m-0 py-3 text-center text-game-content-muted text-sm">
-          {spectating ? '판을 지켜보는 중이에요.' : `${turnName} 님이 부르는 중이에요.`}
-        </p>
+        <p className="m-0 py-3 text-center text-game-content-muted text-sm">{waitMessage}</p>
       )}
 
       {prompt === 'eliminated' && (

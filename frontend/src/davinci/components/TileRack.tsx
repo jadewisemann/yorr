@@ -33,13 +33,20 @@ export function TileRack({
     <section
       className={cn(
         'grid gap-2 rounded-card border px-3 py-2.5 transition-colors',
-        turn ? 'border-dv-turn/60 bg-dv-felt' : 'border-dv-line bg-dv-surface',
+        turn ? 'border-dv-turn/70 bg-dv-felt' : 'border-dv-line bg-dv-surface',
         eliminated && 'opacity-55',
       )}
     >
-      <header className="flex items-baseline justify-between gap-2">
-        <h3 className="m-0 truncate font-bold text-game-content text-sm">
-          {mine ? `${name} (나)` : name}
+      <header className="flex items-center justify-between gap-2">
+        <h3 className="m-0 flex min-w-0 items-center gap-1.5 font-bold text-game-content text-sm">
+          <span className="truncate">{mine ? `${name} (나)` : name}</span>
+          {/* 줄의 테두리 색만으로는 차례가 읽히지 않았다 — 2인 판에서 두 줄을 견줘야
+              알 수 있고, 4인 판에서는 스크롤로 한 줄만 보일 때 견줄 대상이 없다. */}
+          {turn && !eliminated && (
+            <span className="shrink-0 rounded-full bg-dv-turn px-1.5 py-0.5 font-bold text-2xs text-dv-white-ink">
+              {mine ? '내 차례' : '차례'}
+            </span>
+          )}
         </h3>
         <p className="m-0 shrink-0 font-mono text-2xs text-game-content-faint uppercase tracking-[0.18em]">
           {eliminated ? '탈락' : `감춘 ${hidden}장`}

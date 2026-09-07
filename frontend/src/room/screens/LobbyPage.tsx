@@ -115,7 +115,7 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
               loading={actions.botLoading}
               onAdd={() => void actions.addBot()}
               playerCount={snapshot?.players.length ?? 0}
-              visible={Boolean(snapshot && room.isHost && !room.duoGame)}
+              visible={Boolean(snapshot && room.isHost && room.supportsBots)}
             />
 
             {!snapshot && !room.controller && (

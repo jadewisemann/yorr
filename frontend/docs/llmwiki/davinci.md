@@ -2,7 +2,8 @@
 
 > SSOT: [`../../src/davinci/`](../../src/davinci/) — `screens/DavinciGame.tsx`(진입점) ·
 > `domain/davinci.ts`(시점에서 뽑아내는 파생 계산) · `model/useDavinciGame.ts`(입력·draft) ·
-> `components/Tile.tsx`·`TileRack.tsx`·`GuessPad.tsx`·`PlaceRail.tsx`(순수 표현)
+> `components/Tile.tsx`·`TileRack.tsx`·`GuessPad.tsx`·`PlaceRail.tsx`·`TurnBar.tsx`·
+> `TurnOrder.tsx`(순수 표현)
 >
 > 규칙의 정본은 서버다 — [backend/docs/design/games/davinci.md](../../../backend/docs/design/games/davinci.md).
 
@@ -65,6 +66,26 @@
 실측으로 확인한 사례가 있다. 결과 화면 제목을 `text-content`로 적었더니 라이트 테마
 브라우저에서 `#16171b`(사실상 배경색)로 렌더돼 제목이 보이지 않았다. 게임 캔버스 안의
 글자는 `text-game-content`(흰색 알파 고정)나 `dv-*`를 쓴다.
+
+## 차례와 단계는 위쪽 상태판이 말한다
+
+누구 차례인지는 화면 세 곳이 같은 값(`turnPlayerId`)을 다른 크기로 말한다.
+
+- **`TurnBar`** — 맨 위 카드. 내 차례면 카드째로 금색(`dv-turn`)이 되고, 남의 차례면
+  `{이름}의 차례`. 옆에 남은 초, 아래에 단계 배지(`phaseLabel`: 숫자 부르기 · 한 번 더
+  부를지 고르기 · 조커 자리 정하기)와 더미 수. 글자 한 줄로만 두었을 때는 2인 판에서 손패
+  두 줄의 테두리 색을 견줘야 차례를 알 수 있었고, 남의 차례에 "기다리라"는 신호가 작아
+  사람이 판이 멈춘 줄 알고 타일을 눌렀다(서버는 그 입력을 조용히 무시한다).
+- **`TurnOrder`** — 카드 아래 한 줄. `playerOrder` 순서대로 이름·감춘 수를 단 자리
+  칩이 늘어서고 차례인 자리를 밝힌다. 손패 줄에도 같은 정보가 있지만 4인 판에서는 줄이
+  스크롤로 넘쳐 "다음이 누구인가"를 셀 수 없다. 이 띠가 판 전체의 상태표다(탈락은
+  취소선).
+- **`TileRack`** — 차례인 줄의 이름 옆에 `차례`(내 줄은 `내 차례`) 배지. 테두리 색만
+  바꾸면 견줄 대상이 없을 때 읽히지 않는다.
+
+남의 차례에 하단 패널이 말하는 한 줄은 `turnActivityMessage` — 그 사람이 지금 숫자를
+부르는 중인지, 이어 부를지 고르는 중인지, 조커 자리를 정하는 중인지를 phase로 푼다.
+`phaseLabel`과 같은 구분을 문장으로 쓴 것이라 둘은 함께 고친다.
 
 ## 하단 패널은 `promptOf` 하나로 갈린다
 

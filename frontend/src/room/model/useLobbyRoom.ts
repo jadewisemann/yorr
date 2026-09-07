@@ -38,9 +38,13 @@ export function useLobbyRoom(roomId: string) {
   const matchingRoom = roomSession?.roomId === roomId
   const isHost = matchingRoom && isRoomHost(snapshot, roomSession.you)
   const capacity = snapshot?.capacity ?? 6
-  const duoGame =
-    isDuoGame(snapshot?.gameCode) || (matchingRoom && isDuoGame(roomSession?.gameCode))
-  const minPlayers = duoGame ? 2 : 1
+  const gameCode =
+    snapshot?.gameCode ?? (matchingRoom ? roomSession.gameCode : undefined) ?? 'YACHT_DICE'
+  // 시작 인원·봇 지원은 게임마다 다르고 서버 카탈로그가 판정한다 — 화면은 같은 표
+  // (`games.ts`)를 읽는다. "2인 게임인가"로 대신 갈랐더니 2~4인이지만 봇이 없는
+  // 다빈치 코드에서 봇 패널이 켜지고 혼자서도 시작 버튼이 켜져, 둘 다 서버 오류 문구로 끝났다.
+  const { minPlayers, supportsBots } = gameByCode(gameCode)
+  const duoGame = isDuoGame(gameCode)
   const controller = matchingRoom && isPartyRoom(roomSession.roomCode)
 
   useEffect(() => {
@@ -74,11 +78,11 @@ export function useLobbyRoom(roomId: string) {
     capacity,
     connectionStatus,
     controller,
-    duoGame,
-    gameCode: snapshot?.gameCode ?? roomSession?.gameCode ?? 'YACHT_DICE',
+    gameCode,
     isHost,
     minPlayers,
     session: matchingRoom && !roomResumeReason ? roomSession : null,
     snapshot,
+    supportsBots,
   }
 }

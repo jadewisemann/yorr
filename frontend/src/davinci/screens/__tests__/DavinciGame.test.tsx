@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { DavinciGame } from '@/davinci/screens/DavinciGame'
@@ -108,11 +108,25 @@ describe('DavinciGame', () => {
     expect(screen.queryByRole('button', { name: '검정 1' })).not.toBeInTheDocument()
   })
 
-  it('남의 차례에는 숫자 패드 대신 기다리라고 말한다', () => {
+  it('남의 차례에는 숫자 패드 대신 그 사람이 무엇을 하는지 말한다', () => {
     renderGame({ ...state, turnPlayerId: RIVAL })
 
     expect(screen.getByText('상대의 차례')).toBeInTheDocument()
+    expect(screen.getByText('상대 님이 타일을 고르고 숫자를 부르는 중이에요.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '부르기' })).not.toBeInTheDocument()
+  })
+
+  it('누구 차례이고 어느 단계인지 위쪽 상태판과 차례 순서에 함께 표시한다', () => {
+    renderGame({ ...state, phase: 'DECIDING', turnPlayerId: RIVAL })
+
+    expect(screen.getByText('한 번 더 부를지 고르기')).toBeInTheDocument()
+    const order = screen.getByRole('list', { name: '차례 순서' })
+    expect(within(order).getByRole('listitem', { current: true })).toHaveAccessibleName(
+      '상대, 감춘 타일 2장, 지금 차례',
+    )
+    expect(
+      within(order).getByRole('listitem', { name: '나 (나), 감춘 타일 2장' }),
+    ).toBeInTheDocument()
   })
 
   it('맞힌 뒤에는 이어 부를지 멈출지 고르게 한다', async () => {

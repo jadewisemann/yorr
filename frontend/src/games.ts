@@ -10,8 +10,20 @@ export interface Game {
   gameCode?: GameCode
   key: GameKey
   live: boolean
+  /**
+   * 방을 시작할 수 있는 최소 인원. 서버 `GAME_CATALOG`의 `minPlayers`와 같은 값이어야
+   * 한다 — 서버는 이 수 미만이면 시작을 거절하므로, 여기가 다르면 대기실이 켜 준 시작
+   * 버튼이 오류 문구로 끝난다.
+   */
+  minPlayers: number
   name: string
   players: string
+  /**
+   * 대기실에 봇 추가 패널을 둘지. 서버 `GAME_CATALOG`의 `supportsBots`와 같은 값이어야
+   * 한다 — 서버는 미지원 게임의 봇 요청을 409 `bots_not_supported`로 거절하므로,
+   * 여기가 `true`면 사람은 누를 때마다 오류 문구만 본다.
+   */
+  supportsBots: boolean
   tagline: string
 }
 
@@ -26,6 +38,8 @@ export const games: [Game, ...Game[]] = [
     gameCode: 'YACHT_DICE',
     control: '휴대폰 흔들기',
     live: true,
+    minPlayers: 1,
+    supportsBots: true,
   },
   {
     key: 'pingpong',
@@ -37,6 +51,8 @@ export const games: [Game, ...Game[]] = [
     gameCode: 'PING_PONG',
     control: '화면 탭 · 폰 스윙',
     live: true,
+    minPlayers: 2,
+    supportsBots: false,
   },
   {
     key: 'duel',
@@ -48,6 +64,8 @@ export const games: [Game, ...Game[]] = [
     gameCode: 'DUEL',
     control: '화면 탭 · 폰 휘두르기',
     live: true,
+    minPlayers: 2,
+    supportsBots: false,
   },
   {
     key: 'davinci',
@@ -59,6 +77,8 @@ export const games: [Game, ...Game[]] = [
     gameCode: 'DAVINCI_CODE',
     control: '화면 탭',
     live: true,
+    minPlayers: 2,
+    supportsBots: false,
   },
   {
     key: 'liars',
@@ -69,6 +89,8 @@ export const games: [Game, ...Game[]] = [
     duration: '약 6분',
     control: '화면 탭',
     live: false,
+    minPlayers: 2,
+    supportsBots: false,
   },
 ]
 

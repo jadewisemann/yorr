@@ -7,6 +7,7 @@ import {
   lastEventMessage,
   particle,
   promptOf,
+  turnActivityMessage,
 } from '@/davinci/domain/davinci'
 import { useDavinciGame } from '@/davinci/model/useDavinciGame'
 import { useSecondsLeft } from '@/davinci/model/useSecondsLeft'
@@ -52,6 +53,15 @@ export function DavinciGame({ onLeaveRequest, roomId, session, snapshot }: Davin
   const prompt = spectating ? 'wait' : promptOf(state, you)
   const others = state.playerOrder.filter((playerId) => playerId !== you)
   const myHand = state.hands[you] ?? []
+  const myTurn = state.turnPlayerId === you && !spectating
+  const seats = state.playerOrder.map((playerId) => ({
+    eliminated: isEliminated(state, playerId),
+    hidden: hiddenCount(state, playerId),
+    id: playerId,
+    mine: playerId === you && !spectating,
+    name: nameOf(playerId),
+    turn: state.turnPlayerId === playerId,
+  }))
 
   return (
     <GameCanvas className="flex flex-col gap-3 bg-dv-canvas px-4 pt-safe-top pb-safe-bottom">
@@ -60,7 +70,9 @@ export function DavinciGame({ onLeaveRequest, roomId, session, snapshot }: Davin
           <TurnBar
             deckCount={state.deckCount}
             message={lastEventMessage(state, nameOf)}
-            mine={state.turnPlayerId === you}
+            mine={myTurn}
+            phase={state.phase}
+            seats={seats}
             secondsLeft={secondsLeft}
             turnName={nameOf(state.turnPlayerId)}
           />
@@ -107,7 +119,7 @@ export function DavinciGame({ onLeaveRequest, roomId, session, snapshot }: Davin
       <ActionPanel
         drawn={state.drawn ?? null}
         drawnLabel={
-          state.turnPlayerId === you && !spectating
+          myTurn
             ? '내가 뽑은 타일'
             : `${nameOf(state.turnPlayerId)}${particle(nameOf(state.turnPlayerId), '이', '가')} 뽑은 타일`
         }
@@ -119,9 +131,8 @@ export function DavinciGame({ onLeaveRequest, roomId, session, snapshot }: Davin
         onPlace={place}
         prompt={prompt}
         sendError={sendError}
-        spectating={spectating}
         targetName={selection === null ? null : nameOf(selection.playerId)}
-        turnName={nameOf(state.turnPlayerId)}
+        waitMessage={turnActivityMessage(state, nameOf)}
       />
     </GameCanvas>
   )

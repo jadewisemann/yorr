@@ -163,6 +163,21 @@ describe('LobbyPage', () => {
     await waitFor(() => expect(screen.getByRole('region', { name: '참가자 2명' })).toBeVisible())
   })
 
+  it('봇을 지원하지 않는 게임의 대기실에는 봇 패널을 두지 않고 시작 인원도 그 게임 기준이다', () => {
+    useAppStore.getState().replaceRoomSnapshot({
+      ...waitingRoomSnapshot,
+      capacity: 4,
+      gameCode: 'DAVINCI_CODE',
+      players: [creatorPlayer],
+    })
+
+    render(<LobbyPage roomId={creatorSession.roomId} />)
+
+    expect(screen.queryByRole('region', { name: 'AI 봇 관리' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '게임 시작' })).toBeDisabled()
+    expect(screen.getByText('2명부터 시작할 수 있어요.')).toBeVisible()
+  })
+
   it('does not show bot controls to a participant', () => {
     useAppStore.getState().setRoomSession(participantSession)
 

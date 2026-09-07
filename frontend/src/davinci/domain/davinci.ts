@@ -1,5 +1,6 @@
 import {
   DAVINCI_JOKER,
+  type DavinciPhase,
   type DavinciTile,
   type DavinciView,
   type PlayerId,
@@ -107,6 +108,42 @@ export function promptOf(state: DavinciView | undefined, you: PlayerId): Davinci
   if (state.phase === 'DECIDING') return 'decide'
   if (state.phase === 'PLACING') return 'place'
   return 'guess'
+}
+
+const PHASE_LABELS: Record<DavinciPhase, string> = {
+  DECIDING: '한 번 더 부를지 고르기',
+  FINISHED: '판 끝',
+  GUESSING: '숫자 부르기',
+  PLACING: '조커 자리 정하기',
+}
+
+/**
+ * 지금 단계의 이름. 턴 표시줄의 배지에 들어간다 — "누구 차례"만 적으면 그 사람이 숫자를
+ * 고르는 중인지 조커 자리를 정하는 중인지 알 수 없어, 기다리는 사람이 화면이 멈춘 줄 안다.
+ */
+export function phaseLabel(phase: DavinciPhase): string {
+  return PHASE_LABELS[phase]
+}
+
+/**
+ * 차례인 사람이 지금 무엇을 하고 있는가 — 남의 차례에 하단 패널이 말하는 한 줄이다.
+ * `phaseLabel`과 같은 단계 구분을 문장으로 푼 것이라, 둘이 어긋나면 여기를 고친다.
+ */
+export function turnActivityMessage(
+  state: DavinciView,
+  nameOf: (playerId: PlayerId) => string,
+): string {
+  const name = nameOf(state.turnPlayerId)
+  switch (state.phase) {
+    case 'GUESSING':
+      return `${name} 님이 타일을 고르고 숫자를 부르는 중이에요.`
+    case 'DECIDING':
+      return `${name} 님이 맞혔어요. 한 번 더 부를지 고르는 중이에요.`
+    case 'PLACING':
+      return `${name} 님이 조커를 뽑아 놓을 자리를 고르는 중이에요.`
+    case 'FINISHED':
+      return '판이 끝났어요.'
+  }
 }
 
 /** 직전에 일어난 일 한 줄. 화면 위쪽 알림 자리에 그대로 들어간다. */
