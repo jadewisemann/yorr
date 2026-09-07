@@ -4,6 +4,7 @@ import {
   ActiveRoomBanner,
   CodeEntryRow,
   SoundToggle,
+  SupportLink,
   ThemeToggle,
 } from '@/landing/components/EntryPage/parts'
 import { LandingHeroCarousel } from '@/landing/components/LandingHeroCarousel'
@@ -18,11 +19,9 @@ const wordmarkTag =
   'font-mono font-bold tracking-[0.24em] whitespace-nowrap text-landing-text-muted uppercase'
 const noticeBase = 'm-0 text-center text-xs/[1.5] font-semibold text-landing-accent-text'
 
-const narrowFooter = {
-  filled:
-    'flex flex-none flex-col gap-2 px-5 pt-[clamp(10px,1.6vh,16px)] pb-[max(14px,env(safe-area-inset-bottom))]',
-  empty: 'flex-none pb-[max(14px,env(safe-area-inset-bottom))]',
-} as const
+// 바닥은 복귀 배너·알림이 없어도 문의 링크 한 줄은 항상 있다.
+const narrowFooter =
+  'flex flex-none flex-col items-center gap-1 px-5 pt-[clamp(6px,1.2vh,12px)] pb-[max(8px,env(safe-area-inset-bottom))]'
 
 interface EntryPageProps {
   gameKey?: GameKey | undefined
@@ -42,7 +41,6 @@ export function EntryPage({ gameKey }: EntryPageProps) {
     codeEntryRef,
     handleGameSelect,
     handlePlay,
-    hasFooter,
     playModeDialog,
     toggleSound,
     wide,
@@ -114,6 +112,7 @@ export function EntryPage({ gameKey }: EntryPageProps) {
                 </p>
               )}
             </div>
+            <SupportLink className="mt-auto" />
           </div>
         </GameCanvas>
         {codeDialog}
@@ -175,13 +174,14 @@ export function EntryPage({ gameKey }: EntryPageProps) {
           />
         </div>
 
-        <div className={narrowFooter[hasFooter ? 'filled' : 'empty']}>
+        <div className={narrowFooter}>
           <ActiveRoomBanner />
           {appNotice && (
             <p className={noticeBase} role="status">
               {appNotice}
             </p>
           )}
+          <SupportLink />
         </div>
       </GameCanvas>
       {codeDialog}

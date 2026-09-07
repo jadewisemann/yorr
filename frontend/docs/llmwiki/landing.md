@@ -7,7 +7,8 @@
 
 `EntryPage` 하나가 760px 기준 두 레이아웃(narrow/wide)을 가진다. 구성:
 `RankingTicker`(최상단) → 헤더(사운드·계정) → `LandingHeroCarousel`(+`LandingHeroCard`) →
-`LandingProgress`(01/05 카운터 + tablist) → 코드 참가 칩/팝오버 → `ActiveRoomBanner`(복귀).
+`LandingProgress`(01/05 카운터 + tablist) → 코드 참가 칩/팝오버 → `ActiveRoomBanner`(복귀) →
+`SupportLink`(카카오톡 문의, 바닥의 조용한 글자 링크 — 다이얼로그 뎁스 없이 첫 화면에서 닿는다).
 
 - 게임 카탈로그는 `src/games.ts`가 SSOT — 순서가 곧 01–05 인덱스이고, `live: true`
   (야추·탁구·석양)가 앞에 선다. 첫 칸들이 전부 잠긴 카드면 "할 게 없는 서비스"로 읽힌다.

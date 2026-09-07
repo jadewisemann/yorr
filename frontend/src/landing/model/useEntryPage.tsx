@@ -31,7 +31,6 @@ export function useEntryPage(gameKey: GameKey | undefined) {
   const [soundMuted, setSoundMuted] = useState(readSoundMuted)
 
   const game = gameAt(activeIndex)
-  const hasFooter = roomSession !== null || Boolean(appNotice)
 
   useEffect(() => {
     playLandingSoundtrack(game.key)
@@ -156,7 +155,6 @@ export function useEntryPage(gameKey: GameKey | undefined) {
     handleQuickMatch,
     handleSignOut,
     handleTutorial,
-    hasFooter,
     navigate,
     playModeDialog,
     roomSession,

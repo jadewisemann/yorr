@@ -54,6 +54,19 @@ describe('EntryPage', () => {
   })
   afterEach(() => vi.restoreAllMocks())
 
+  it.each([
+    ['narrow', false],
+    ['wide', true],
+  ])('%s 레이아웃 바닥에 카카오톡 문의 링크가 새 탭으로 열린다', (_label, wide) => {
+    useLayout(wide)
+    render(<EntryPage />)
+
+    const link = screen.getByRole('link', { name: '카카오톡 문의' })
+    expect(link).toHaveAttribute('href', 'http://pf.kakao.com/_hxgkxnX/chat')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+  })
+
   it('opens on the released game with its play call to action', () => {
     render(<EntryPage />)
 
