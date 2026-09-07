@@ -191,3 +191,52 @@ export function ActiveRoomBanner() {
     </section>
   )
 }
+
+/** 서비스 문의 창구 — 카카오톡 채널 1:1 채팅. */
+export const KAKAO_SUPPORT_URL = 'http://pf.kakao.com/_hxgkxnX/chat'
+
+/*
+ * 문의는 쇼핑몰 채널톡처럼 화면 우하단에 떠 있는 버튼이다 — 다이얼로그 안(한 뎁스)이나
+ * 바닥 글자 링크(안 보인다)를 거쳐 여기로 왔다. 겉은 헤더의 사운드·테마 버튼과 같은
+ * 재질(landing-well + hairline)로 랜딩에 섞이고, 카카오톡이라는 신호는 카카오 말풍선
+ * 모양 하나로 충분하다 — 노란색은 쓰지 않는다(auth.md의 브랜드 색 규칙과 같은 판단).
+ *
+ * 바로 링크가 아니라 확인 모달(`SupportDialog`)을 연다. 버튼은 `<main>` 안에 있어야
+ * 한다 — 어떤 다이얼로그든 열리면 useDialogBackground가 main에 inert를 걸어 이 버튼도
+ * 같이 잠긴다. 시트·모달(z-sheet/z-modal) 아래, 콘텐츠 위에 놓는다.
+ */
+export function SupportFab({
+  layout,
+  onOpen,
+  open,
+}: {
+  layout: 'narrow' | 'wide'
+  onOpen: () => void
+  open: boolean
+}) {
+  const wide = layout === 'wide'
+  return (
+    <button
+      aria-expanded={open}
+      aria-haspopup="dialog"
+      aria-label="카카오톡으로 문의하기"
+      className={cn(
+        'fixed right-[max(16px,env(safe-area-inset-right))] bottom-[max(16px,env(safe-area-inset-bottom))] z-banner flex cursor-pointer items-center justify-center gap-2.5 rounded-full border border-landing-hairline-strong bg-landing-well text-sm font-semibold text-landing-text-muted shadow-landing-panel backdrop-blur-md transition-[color,border-color,scale] duration-150 ease-out hover:border-landing-accent/70 hover:text-landing-text focus-visible:outline-3 focus-visible:outline-landing-accent focus-visible:outline-offset-2 pressable',
+        wide ? 'h-12 px-4' : 'size-12',
+      )}
+      onClick={onOpen}
+      type="button"
+    >
+      <KakaoBubble className="size-5 flex-none" />
+      {wide && '문의하기'}
+    </button>
+  )
+}
+
+function KakaoBubble({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" className={className} fill="currentColor" viewBox="0 0 24 24">
+      <path d="M12 3C6.48 3 2 6.53 2 10.9c0 2.8 1.86 5.26 4.66 6.66l-1.13 4.16c-.08.3.26.55.52.38l4.9-3.25c.35.03.7.05 1.05.05 5.52 0 10-3.53 10-7.9S17.52 3 12 3z" />
+    </svg>
+  )
+}

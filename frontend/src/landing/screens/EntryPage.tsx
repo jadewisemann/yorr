@@ -4,6 +4,7 @@ import {
   ActiveRoomBanner,
   CodeEntryRow,
   SoundToggle,
+  SupportFab,
   ThemeToggle,
 } from '@/landing/components/EntryPage/parts'
 import { LandingHeroCarousel } from '@/landing/components/LandingHeroCarousel'
@@ -44,6 +45,9 @@ export function EntryPage({ gameKey }: EntryPageProps) {
     handlePlay,
     hasFooter,
     playModeDialog,
+    setSupportOpen,
+    supportDialog,
+    supportOpen,
     toggleSound,
     wide,
   } = useEntryPage(gameKey)
@@ -115,10 +119,12 @@ export function EntryPage({ gameKey }: EntryPageProps) {
               )}
             </div>
           </div>
+          <SupportFab layout="wide" onOpen={() => setSupportOpen(true)} open={supportOpen} />
         </GameCanvas>
         {codeDialog}
         {accountDialog}
         {playModeDialog}
+        {supportDialog}
       </>
     )
   }
@@ -183,10 +189,12 @@ export function EntryPage({ gameKey }: EntryPageProps) {
             </p>
           )}
         </div>
+        <SupportFab layout="narrow" onOpen={() => setSupportOpen(true)} open={supportOpen} />
       </GameCanvas>
       {codeDialog}
       {accountDialog}
       {playModeDialog}
+      {supportDialog}
     </>
   )
 }
