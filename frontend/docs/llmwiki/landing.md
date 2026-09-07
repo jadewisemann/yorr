@@ -9,7 +9,7 @@
 `RankingTicker`(최상단) → 헤더(사운드·계정) → `LandingHeroCarousel`(+`LandingHeroCard`) →
 `LandingProgress`(01/05 카운터 + tablist) → 코드 참가 칩/팝오버 → `ActiveRoomBanner`(복귀).
 캔버스 밖 우하단에 `SupportFab`(카카오톡 문의, 쇼핑몰 채널톡식 떠 있는 버튼 — 뎁스 없이 첫
-화면에서 닿는다. 겉은 헤더 버튼과 같은 재질이고 카카오 노란색은 안쪽 작은 표식에만 쓴다).
+화면에서 닿는다. 헤더 버튼과 같은 재질에 카카오 말풍선 모양만 있고 노란색은 쓰지 않는다).
 
 - 게임 카탈로그는 `src/games.ts`가 SSOT — 순서가 곧 01–05 인덱스이고, `live: true`
   (야추·탁구·석양)가 앞에 선다. 첫 칸들이 전부 잠긴 카드면 "할 게 없는 서비스"로 읽힌다.
