@@ -194,7 +194,9 @@ test('keeps the practice game screen within 320px', async ({ page }) => {
   await useSimpleDiceRenderer(page)
   await page.goto('/tutorial')
 
-  await expect(page.getByRole('timer', { name: '남은 시간' })).toBeVisible()
+  // 연습 판에는 제한 시간이 없다(연습 방 시계 제거 — frontend/PLANS.md) — 판이 선 것은 굴리기 버튼으로 본다.
+  await expect(page.getByRole('button', { name: /^굴리기/ })).toBeVisible()
+  await expect(page.getByRole('timer', { name: '남은 시간' })).toHaveCount(0)
 
   await expectNoHorizontalOverflow(page, '연습 게임')
   await expectKoreanWordBreakProtected(page, '연습 게임')

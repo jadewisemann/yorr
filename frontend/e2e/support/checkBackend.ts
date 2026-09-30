@@ -12,10 +12,10 @@ export default async function checkBackend() {
       origin === DEPLOYED_DEV_ORIGIN
         ? [
             '배포 dev 서버가 내려간 상태면 로컬 백엔드로 우회할 수 있습니다:',
-            '  cd backend && docker compose up -d && ./gradlew bootRun',
-            '  VITE_BACKEND_ORIGIN=http://localhost:8080 npm run test:e2e:real',
+            '  cd backend && npm run build && npm start   # Redis·MySQL은 backend/README.md',
+            '  VITE_BACKEND_ORIGIN=http://127.0.0.1:8080 npm run test:e2e:real',
           ]
-        : ['로컬 백엔드를 먼저 띄우세요: cd backend && docker compose up -d && ./gradlew bootRun']
+        : ['로컬 백엔드를 먼저 띄우세요: cd backend && npm run build && npm start']
 
     throw new Error(
       [`real E2E 를 시작할 수 없습니다: 백엔드(${origin})가 응답하지 않습니다.`, ...guidance].join(

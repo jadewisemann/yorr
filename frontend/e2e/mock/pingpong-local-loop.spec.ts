@@ -22,11 +22,13 @@ test.describe('로컬 탁구 프레임 루프', () => {
         calls += 1
         return original.call(window, callback)
       }
-      await new Promise((resolve) => setTimeout(resolve, 600))
+      await new Promise((resolve) => setTimeout(resolve, 1_000))
       window.requestAnimationFrame = original
       return calls
     })
-    expect(frames).toBeGreaterThan(10)
+    // 루프가 **돈다**는 것만 본다. GPU 없는 CI 러너는 소프트웨어 GL이라 3D 코트가 초당 몇 장에
+    // 그친다(600ms에 4~7장 실측) — 프레임률 기준을 걸면 기계 성능을 재는 불안정한 테스트가 된다.
+    expect(frames).toBeGreaterThanOrEqual(3)
   })
 
   test('서브 카운트다운이 나타난다 — 루프만이 이 값을 올린다', async ({ page }) => {

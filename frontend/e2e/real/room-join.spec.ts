@@ -14,11 +14,11 @@ test('게스트가 초대 코드로 참가하면 양쪽 로비에 두 플레이�
     const guestPage = await guestContext.newPage()
     await joinRoom(guestPage, roomCode, guestNickname)
 
-    await expect(guestPage.getByText('현재 인원 2 / 최대 6명')).toBeVisible()
+    await expect(guestPage.getByRole('region', { name: '참가자 2명' })).toBeVisible()
     await expect(guestPage.getByText(hostNickname)).toBeVisible()
     await expect(guestPage.getByText(guestNickname)).toBeVisible()
 
-    await expect(hostPage.getByText('현재 인원 2 / 최대 6명')).toBeVisible()
+    await expect(hostPage.getByRole('region', { name: '참가자 2명' })).toBeVisible()
     await expect(hostPage.getByText(guestNickname)).toBeVisible()
   } finally {
     await guestContext.close()
