@@ -70,11 +70,16 @@
 ## 검증 명령
 
 ```bash
-npm run check        # biome lint + format
-npm run typecheck    # tsc
-npm test             # vitest
-npm run build        # tsc 빌드
+npm run check          # biome lint + format
+npm run typecheck      # tsc
+npm test               # vitest 단위 (CI는 test:coverage — 커버리지 래칫까지)
+npm run test:e2e       # 블랙박스 프로토콜 스위트 — 진짜 포트·소켓, 퍼저·장애 주입 포함
+npm run build          # tsc 빌드
 ```
+
+테스트 전략과 각 하네스가 지키는 불변식은 루트 [`TESTING.md`](../TESTING.md)에 있다.
+버그를 고칠 때는 먼저 실패하는 테스트를 쓰고, 수정을 되돌리면 그 테스트가 정말
+빨개지는지 확인한다.
 
 작업 범위에 필요한 검증만 실행한다. 게임 슬라이스가 끝나면 프론트의
 `npm run test:e2e:real`(frontend/, 이 서버를 띄운 채)로 계약을 검증한다.

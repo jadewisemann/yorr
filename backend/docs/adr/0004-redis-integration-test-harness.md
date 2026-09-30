@@ -58,3 +58,11 @@ PLANS.md 1.1은 Node 쪽 대응 방식을 정하도록 남겨 두었다.
 - 통합 테스트를 쓰는 스위트는 `describeRedis(...)` + `const redis = useRedis()`
   형태로 시작한다.
 - 개발 환경에 `redis-server` 바이너리가 필요하다 — README의 준비물에 기재.
+
+## 갱신 (2026-09-30) — 블랙박스 하네스는 FLUSHALL을 하지 않는다
+
+`test/blackbox`(루트 `TESTING.md`)도 같은 방식으로 파일마다 `redis-server`를 하나 띄운다
+(`startRedisServer`를 공유한다). 다른 점은 **서버 수명 동안 저장소를 지우지 않는다**는
+것이다. 살아 있는 서버 밑에서 FLUSHALL을 치는 일은 운영에서 일어나지 않는다. 테스트끼리는
+방 코드가 달라 서로를 건드리지 않는다. 같은 스위트가 `E2E_BASE_URL`로 배포된 스택에도
+돌아야 하므로, 테스트가 저장소를 직접 만지지 않는 편이 옳다.

@@ -156,10 +156,11 @@ cd backend
 npm run check        # lint + format
 npm run typecheck    # 타입 검사
 npm test             # 단위·통합 테스트
+npm run test:e2e     # 블랙박스 프로토콜 테스트 (퍼저·장애 주입 포함)
 npm run build        # 프로덕션 빌드
 ```
 
-Redis 통합 테스트는 `redis-server` 바이너리가 있어야 실행되며, 없으면 해당
+테스트 전략은 [TESTING.md](TESTING.md)에 있습니다. Redis 통합 테스트는 `redis-server` 바이너리가 있어야 실행되며, 없으면 해당
 스위트만 건너뜁니다.
 
 ## 문서

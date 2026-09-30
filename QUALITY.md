@@ -87,7 +87,7 @@
 | 소스 파일 수 | 268(테스트 포함) | 464 |
 | 비테스트 코드 라인 | 20,113 | 31,595 |
 | 테스트 파일 수 | 103 | 154 |
-| 커버리지 설정 | **없음**(`@vitest/coverage-v8` 미설치) | statements 96·branches 91·functions 96·lines 98 |
+| 커버리지 설정 | **있음**(2026-09-30 도입, 래칫 — 아래) | statements 96·branches 91·functions 96·lines 98 |
 | 인지 복잡도 규칙 | Biome `noExcessiveCognitiveComplexity`: **warn** | 동일하게 **warn** |
 | 순환 의존성 검사 | 없음 | `dpdm`으로 검사 |
 | 돌연변이·중복·죽은 코드 도구 | 없음 | 없음 |
@@ -113,7 +113,7 @@
 - 다만 `tsconfig`는 이미 `strict`·`noUncheckedIndexedAccess`·
   `exactOptionalPropertyTypes`가 모두 켜져 있어서 출발점이 나쁘지 않습니다.
 
-**커버리지** — `backend/`에는 커버리지 측정 자체가 없어서 현재 수치를 알 수 없습니다.
+**커버리지** — `backend/`는 2026-09-30에 측정을 시작했습니다. MySQL 없이 statements 90.1·branches 82.3·functions 88.6·lines 91.9이며, 이 값을 바닥으로 `vitest.config.ts`가 래칫을 겁니다. 지금 100%인 핵심 규칙 모듈 6개는 파일 단위 100%로 묶었습니다.
 `frontend/`는 96~98% 선이며, `World.ts`를 비롯한 렌더링·개발용 화면 여러 개를
 측정 대상에서 제외해 둔 상태입니다.
 
@@ -194,7 +194,7 @@ Node 백엔드로의 이식이 끝나 참조 구현으로서의 역할이 사라
 ### 0단계 — 계측 (게이트 없음)
 
 1. `tools/quality/` 분석기를 작성합니다.
-2. `backend/`에 `@vitest/coverage-v8`을 추가하고 커버리지 설정을 넣습니다.
+2. ✅ `backend/`에 `@vitest/coverage-v8`을 추가하고 커버리지 설정을 넣습니다(2026-09-30).
 3. `knip`·`jscpd`를 추가하고 설정 파일을 작성합니다.
 4. `npm run quality:report`로 11개 지표 전체의 **현재 수치**를 산출해
    `docs/quality-baseline.json`에 기록합니다.
