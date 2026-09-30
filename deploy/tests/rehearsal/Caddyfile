@@ -1,0 +1,10 @@
+# 배포 리허설 전용 — CI 러너에는 공인 IP가 없어 ACME 인증서를 받을 수 없다.
+# 인증서만 빼고 나머지(리버스 프록시 · WebSocket 업그레이드 통과)는 운영 Caddyfile과 같다.
+# 운영 Caddyfile 자체의 문법은 backend.yml `compose` 잡이 `caddy validate`로 따로 본다.
+{
+	auto_https off
+}
+
+:80 {
+	reverse_proxy backend:{$SERVER_PORT:8080}
+}

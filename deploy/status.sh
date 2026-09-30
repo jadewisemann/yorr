@@ -15,6 +15,9 @@ for candidate in \
   /usr/local/lib/yorr-deploy/converge \
   "$(dirname "$(readlink -f "$0")")/converge"; do
   [[ -n $candidate && -x $candidate ]] || continue
+  # 찾은 controller로 프로세스를 넘긴다. exec 뒤의 echo/exit는 "하나도 못 찾았을 때"의
+  # 폴백이지 exec 이후로 이어지는 코드가 아니다 — 그래서 SC2093은 여기서 오탐이다.
+  # shellcheck disable=SC2093
   exec "$candidate" status "$@"
 done
 

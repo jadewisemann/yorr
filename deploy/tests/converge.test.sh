@@ -50,7 +50,7 @@ setup() {
   git -C "$T/origin.git" symbolic-ref HEAD refs/heads/main
   git init -q "$T/seed" 2>/dev/null || true
   rm -rf "$T/seed"; mkdir -p "$T/seed/deploy"
-  cd "$T/seed"
+  cd "$T/seed" || exit 1
   git init -q -b main .
   git config user.email t@t; git config user.name t
   cp "$SRC/apply.sh" deploy/apply.sh; chmod +x deploy/apply.sh
@@ -61,7 +61,7 @@ setup() {
   git add -A; git commit -qm B
   REV_B=$(git rev-parse HEAD)
   git push -q "$T/origin.git" main
-  cd "$SP"
+  cd "$SP" || exit 1
   git clone -q "$T/origin.git" "$T/checkout"
   git -C "$T/checkout" config user.email t@t
   git -C "$T/checkout" config user.name t

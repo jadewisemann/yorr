@@ -1,0 +1,46 @@
+# 의존성 갱신 — 주 1회, 생태계마다 PR 하나로 묶는다.
+#
+# 1인 운영이라 PR 수가 곧 비용이다. minor·patch는 한 PR로 묶어 CI(블랙박스 스위트 ·
+# 배포 리허설 · 브라우저 E2E)가 한 번에 판정하게 하고, major는 깨질 수 있으므로 따로 온다.
+#
+# 워크플로의 액션은 커밋 SHA로 고정되어 있다(태그는 옮겨질 수 있다). Dependabot은 SHA와
+# 옆의 `# vX.Y.Z` 주석을 함께 올려 준다 — 고정을 손으로 관리하지 않아도 된다.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Seoul
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: chore
+
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 3
+    groups:
+      backend-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 3
+    groups:
+      frontend-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore

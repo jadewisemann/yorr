@@ -15,7 +15,7 @@
 |---|---|---|---|
 | 독립 하네스 여럿 | 단위 · 블랙박스 프로토콜 · 브라우저 E2E(mock) · 풀스택 E2E | `backend/src/**/__tests__` · `backend/test/blackbox` · `frontend/e2e/mock` · `frontend/e2e/real` | PR |
 | 짝 맞추기 | 진짜 백엔드(`node dist/main.js` + MySQL·Redis) 앞에서 진짜 프론트 빌드로 방 만들기·참가·시작 | `.github/workflows/fullstack.yml` | PR |
-| 출하물 시험 | 블랙박스 스위트는 `E2E_BASE_URL`만 바꾸면 배포된 스택(실제 이미지·compose·프록시)에 그대로 돈다 | `backend/test/blackbox/target.ts` | 수동 — CI 배포 리허설 잡은 다음 단계 |
+| 출하물 시험 | 배포 리허설이 호스트와 같은 arm64에서 호스트가 받을 **바로 그 이미지**를 운영 compose·같은 `apply.sh`로 띄우고, Caddy 너머에서 블랙박스 스위트를 `E2E_BASE_URL`로 돌린다. 통과한 digest에만 `:main`이 붙는다 | `deploy/tests/rehearsal.sh` · `.github/workflows/backend.yml`(`rehearsal` 잡) | PR·main |
 | 차등 테스트(SLT) | 야추 점수의 세 구현(서버·프론트·독립 오라클)을 7,776가지 주사위 × 12칸 **전수** 대조 | `backend/src/game/score/__tests__/scoringDifferential.test.ts` | PR |
 | 이상 상황 테스트 | 여정 하나의 Redis 명령 중 **N번째 하나만** 실패시킨다. 모든 N에 대해, 쓰기 전 실패와 쓰기 후 응답 유실 둘 다 | `backend/test/blackbox/anomaly.e2e.test.ts` | PR(4칸 간격) · 야간(전수) |
 | 퍼징 | 시드 하나에서 나오는 WS 프레임을 진행 중인 판에 쏟는다 | `backend/test/blackbox/robustness.e2e.test.ts` | PR 400프레임 · 야간 2만 |
