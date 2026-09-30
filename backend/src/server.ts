@@ -1,5 +1,5 @@
 import cors from '@fastify/cors'
-import fastify, { type FastifyInstance } from 'fastify'
+import fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify'
 import type { Redis } from 'ioredis'
 import type { Pool } from 'mysql2/promise'
 import { authOptions } from './auth/config.js'
@@ -117,7 +117,11 @@ export interface ServerOptions {
    * 넘기고, 통합 테스트는 자기 스키마를 가리키는 풀을 넘긴다.
    */
   readonly mysql?: Pool
-  readonly logger?: boolean
+  /**
+   * Fastify 로거 설정. 운영은 생략한다(`true`). 블랙박스 하네스는 `{ stream }`을 넘겨
+   * 로그를 모은다 — "핸들러 밖으로 새어 나온 예외가 0건"을 단정하는 유일한 창이다.
+   */
+  readonly logger?: FastifyServerOptions['logger']
   /**
    * 고아 라운드 상태 스윕(2.8)의 주기 실행 시임 — **테스트 전용**이다. 운영은
    * 생략해 실제 5분 타이머를 쓴다. 배선 회귀 테스트가 5분을 기다리지 않고

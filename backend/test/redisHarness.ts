@@ -29,12 +29,13 @@ if (!redisTestsEnabled && process.env.REDIS_TEST_REQUIRED === '1') {
 /** Redis가 없는 환경에서는 통합 스위트를 건너뛴다(단위 테스트는 계속 돈다). */
 export const describeRedis = redisTestsEnabled ? describe : describe.skip
 
-interface RedisServerHandle {
+export interface RedisServerHandle {
   readonly socketPath: string
   stop(): void
 }
 
-const startRedisServer = async (): Promise<RedisServerHandle> => {
+/** 이 파일 전용 `redis-server` 하나. 블랙박스 하네스는 FLUSHALL 없이 서버 수명 동안 쓴다. */
+export const startRedisServer = async (): Promise<RedisServerHandle> => {
   const dir = mkdtempSync(join(tmpdir(), 'yorr-redis-'))
   const socketPath = join(dir, 'r.sock')
   // port 0 = TCP 미개방. 영속화도 끈다 — 테스트마다 깨끗한 인메모리 인스턴스.
@@ -53,6 +54,8 @@ const startRedisServer = async (): Promise<RedisServerHandle> => {
       throw new Error(`redis-server가 기동 중 종료됐다(exit ${child.exitCode})`)
     }
     const probe = new Redis({ path: socketPath, lazyConnect: true, retryStrategy: () => null })
+    // 소켓 파일이 생기기 전의 ENOENT는 기다리는 중의 정상 실패다 — ioredis가 콘솔에 찍지 않게 한다.
+    probe.on('error', () => {})
     try {
       await probe.connect()
       await probe.ping()
