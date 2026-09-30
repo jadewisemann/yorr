@@ -1,0 +1,69 @@
+# 야간 심층 테스트 — PR에서는 짧게 도는 것을 길게 돈다(TESTING.md).
+#
+# - 프로토콜 퍼저: 매번 새 시드로 2만 프레임. 시드는 요약에 남긴다 — 실패하면 그 시드를
+#   `FUZZ_SEED`로 주고 로컬에서 같은 프레임을 같은 순서로 다시 돌린다.
+# - Redis 장애 주입: 여정의 **모든** 명령 위치에서(PR은 4칸 간격).
+#
+# 운영에 닿지 않는다 — 서버는 이 러너 안에서 뜨고 사라진다.
+name: nightly
+
+on:
+  schedule:
+    # 03:17 KST. 정각을 피한다(GitHub 스케줄러가 정각에 몰린다).
+    - cron: "17 18 * * *"
+  workflow_dispatch:
+    inputs:
+      fuzz_seed:
+        description: "퍼저 시드 (비우면 새로 뽑는다)"
+        required: false
+        default: ""
+      fuzz_iterations:
+        description: "퍼저 프레임 수"
+        required: false
+        default: "20000"
+
+permissions:
+  contents: read
+
+jobs:
+  deep:
+    name: 퍼저 · 장애 주입 전수
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      REDIS_TEST_REQUIRED: "1"
+      ANOMALY_STRIDE: "1"
+      FUZZ_ITERATIONS: ${{ inputs.fuzz_iterations || '20000' }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: redis-server 바이너리 설치 (ADR-0004)
+        run: |
+          sudo timeout 120s apt-get -o Acquire::Retries=3 update
+          sudo timeout 120s apt-get -o Acquire::Retries=3 install -y --no-install-recommends redis-server
+          redis-server --version
+
+      - run: npm ci
+
+      - name: 시드 정하기
+        env:
+          REQUESTED_SEED: ${{ inputs.fuzz_seed }}
+        run: |
+          seed="${REQUESTED_SEED:-$(od -An -N4 -tu4 /dev/urandom | tr -d ' ')}"
+          echo "FUZZ_SEED=$seed" >> "$GITHUB_ENV"
+          {
+            echo "## 야간 심층 테스트"
+            echo
+            echo "- 퍼저 시드: \`$seed\` · 프레임 ${FUZZ_ITERATIONS}개"
+            echo "- 재현: \`FUZZ_SEED=$seed FUZZ_ITERATIONS=${FUZZ_ITERATIONS} npm run test:e2e -- robustness\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - run: npm run test:e2e
