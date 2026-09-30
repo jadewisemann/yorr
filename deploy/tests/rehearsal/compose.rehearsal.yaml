@@ -1,0 +1,11 @@
+# 배포 리허설 전용 덮어쓰기 — 운영 compose.yaml 위에 `COMPOSE_FILE`로만 얹힌다
+# (deploy/tests/rehearsal.sh). 운영 경로에서는 절대 읽히지 않는다.
+#
+# 바꾸는 것은 Caddy 설정 하나다: 러너에는 공인 IP가 없어 인증서를 받을 수 없으므로 평문
+# :80으로 프록시한다. 이미지·서비스 목록·healthcheck·네트워크·볼륨은 운영 그대로다 —
+# 그래야 "리허설이 통과했다"가 "운영에서도 뜬다"를 뜻한다.
+services:
+  caddy:
+    volumes:
+      # 같은 컨테이너 경로이므로 운영 Caddyfile 마운트를 대체한다(compose 병합 규칙).
+      - ./tests/rehearsal/Caddyfile:/etc/caddy/Caddyfile:ro

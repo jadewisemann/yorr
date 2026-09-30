@@ -82,6 +82,16 @@
 - PR에서도 `image` 잡이 돈다 — push만 하지 않는다. Dockerfile 회귀를 배포
   시점이 아니라 리뷰 시점에 본다.
 
+> **갱신 메모 (2026-09-30) — `:main` 앞에 배포 리허설을 세웠다.** 잡이 다섯 개가
+> 됐다: `verify` · `compose` → `image`(`sha-<커밋>`만 발행) → `rehearsal` → `promote`
+> (`:main`). 리허설은 **ARM 러너**(`ubuntu-24.04-arm`)에서 돈다 — 아래 2번이 빌드에
+> ARM 러너를 쓰지 않은 이유는 그대로 옳다(빌드는 에뮬레이션 없이 x86에서 끝난다).
+> 리허설은 빌드가 아니라 **실행**이므로 호스트와 같은 아키텍처여야 뜻이 있다: 운영
+> compose·같은 `apply.sh`로 스택 전체를 띄워 Caddy 너머에서 블랙박스 스위트를 돌린다.
+> 이 저장소가 public이라 ARM 러너 비용이 없다. `promote`는 리허설한 매니페스트에 태그만
+> 붙이고(`imagetools create --prefer-index=false`) digest가 같은지 확인한다 — 다시
+> 빌드하면 리허설하지 않은 이미지가 `:main`이 된다. 상세는 operations.md 「CI 검사」.
+
 ### 2. arm64 이미지를 x86 러너에서 **에뮬레이션 없이** 만든다
 
 `backend/Dockerfile`은 `npm ci`·`tsc`·`npm ci --omit=dev`를 전부

@@ -77,9 +77,9 @@ jobs:
         working-directory: backend
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           # package.json engines: >=22.12
           node-version: "22"
@@ -143,7 +143,7 @@ jobs:
     name: deploy 설정·controller 검증
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: 배포 스크립트 문법
         working-directory: deploy
@@ -151,6 +151,30 @@ jobs:
           for script in converge apply.sh status.sh rollback.sh bootstrap.sh metrics.sh tests/*.sh tests/fake-docker; do
             bash -n "$script"
             echo "ok $script"
+          done
+
+      # `bash -n`은 문법만 본다. 따옴표 빠진 변수 · 실패를 삼키는 `cd` · 항상 참인 비교처럼
+      # **호스트에서만 드러나는** 결함은 shellcheck가 잡는다. 러너에 기본 설치되어 있다.
+      # 경고 이상만 본다 — 스타일 제안(info/style)으로 배포를 막지 않는다.
+      - name: shellcheck (배포 스크립트)
+        working-directory: deploy
+        run: |
+          shellcheck --version | sed -n 2p
+          shellcheck -S warning converge apply.sh status.sh rollback.sh bootstrap.sh metrics.sh tests/*.sh tests/fake-docker
+
+      # 운영 Caddyfile은 호스트에서 처음 읽힌다 — 문법이 깨지면 caddy가 재시작 루프에 빠지고
+      # 그동안 HTTPS 전체가 내려간다. 운영과 같은 이미지·같은 어댑터로 여기서 먼저 읽힌다.
+      # (리허설은 인증서를 받을 수 없어 평문 Caddyfile로 바꿔 띄우므로 이 파일을 보지 않는다.)
+      - name: Caddyfile 검증 (운영 · 리허설)
+        working-directory: deploy
+        run: |
+          caddy_image=$(sed -n 's/^ *image: *\(caddy:[^ ]*\).*/\1/p' compose.yaml)
+          echo "image=$caddy_image"
+          for file in Caddyfile tests/rehearsal/Caddyfile; do
+            docker run --rm -e PUBLIC_HOST=203.0.113.10 -e SERVER_PORT=8080 \
+              -v "$PWD/$file:/etc/caddy/Caddyfile:ro" "$caddy_image" \
+              caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+            echo "ok $file"
           done
 
       # PLAN.md §9의 실패 주입 표. git은 진짜, docker만 대역이다 —
@@ -207,17 +231,16 @@ jobs:
 
           rm -f .env
 
-  # ── 3. linux/arm64 이미지 → GHCR ─────────────────────────────────────────────
+  # ── 3. linux/arm64 이미지 (후보) ──────────────────────────────────────────────
   #
-  # **GHCR publish = Release Ready.** 호스트는 별도의 manifest DB도 deployment
-  # server도 보지 않고, "GHCR에 성공적으로 발행된 이미지"를 배포 가능한 릴리스의
-  # 증거로 쓴다(deploy/PLAN.md D2). 그래서 이 잡이 도달했다는 사실 자체가 계약이며,
-  # **검사 하나라도 통과하지 못한 커밋의 이미지는 여기 올라오면 안 된다.**
+  # **GHCR `:main` = Release Ready.** 호스트는 별도의 manifest DB도 deployment server도
+  # 보지 않고 `:main`이 가리키는 이미지를 배포 가능한 릴리스의 증거로 쓴다(deploy/PLAN.md
+  # D2). 그래서 이 잡은 `:main`을 **붙이지 않는다** — 불변 태그 `sha-<커밋>`만 올리고,
+  # 그 digest가 배포 리허설을 통과한 뒤에야 `promote` 잡이 `:main`을 옮긴다.
   #
-  # `needs`가 `[verify]`뿐이면 verify 성공 + compose 실패 + 이미지 발행이 성립한다.
-  # 그 조합은 정확히 배포를 깨뜨리는 조합이다: `compose.yaml`이 공개 주소·필수 변수의
-  # 정본이므로(그 파일은 이미지가 아니라 호스트 체크아웃에서 읽힌다) 문법이 깨진
-  # 커밋의 이미지가 "배포 가능"으로 표시된다.
+  # `needs`가 `[verify, compose]`인 이유: verify 성공 + compose 실패 + 이미지 발행이
+  # 성립하면 문법이 깨진 `compose.yaml`(호스트 체크아웃에서 읽히는 공개 주소·필수 변수의
+  # 정본)을 가진 커밋이 "배포 가능"으로 표시된다.
   image:
     name: linux/arm64 이미지
     needs: [verify, compose]
@@ -225,25 +248,29 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      # 리허설이 받을 참조. main은 GHCR의 digest, PR은 아티팩트로 넘긴 로컬 태그다.
+      ref: ${{ steps.candidate.outputs.ref }}
+      digest: ${{ steps.push.outputs.digest }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      # 러너는 x86이고 대상은 arm64다. **ARM 러너를 쓰지 않는 이유**(ADR-0006):
-      # Dockerfile이 컴파일·의존성 설치를 전부 `--platform=$BUILDPLATFORM`에서
-      # 끝내고 arm64 스테이지에는 `RUN`이 없다. 즉 arm64 명령이 실행되지 않으므로
-      # 에뮬레이션 비용이 0이고, GitHub의 ARM 러너(비공개 저장소는 유료)도 필요 없다.
+      # 러너는 x86이고 대상은 arm64다. **빌드에 ARM 러너를 쓰지 않는 이유**(ADR-0006):
+      # Dockerfile이 컴파일·의존성 설치를 전부 `--platform=$BUILDPLATFORM`에서 끝내고
+      # arm64 스테이지에는 `RUN`이 없어 에뮬레이션 비용이 0이다. (리허설은 ARM 러너에서
+      # **실행**한다 — 호스트와 같은 아키텍처에서 떠 봐야 하기 때문이다.)
       #
       # QEMU를 그래도 설치하는 것은 보험이다 — 누군가 런타임 스테이지에 `RUN`을
       # 넣었을 때 "exec format error"라는 알기 어려운 실패 대신 그냥 느리게 성공한다.
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
         with:
           platforms: arm64
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: GHCR 로그인
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -251,15 +278,12 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ghcr.io/${{ github.repository }}-backend
-          # `main`은 "지금 배포 가능한 것"(발견용), `sha-<커밋>`은 움직이지 않는
-          # 불변 태그다. 호스트는 `:main`으로 발견하고 **digest로 고정해 실행한다**
-          # (deploy/PLAN.md D3) — `:main`이 나중에 다른 이미지를 가리켜도 실행 중인
-          # 릴리스가 변하지 않는다.
+          # 불변 태그만 붙인다. `main`(발견용)은 리허설을 통과한 뒤 `promote`가 옮긴다.
+          # 호스트는 `:main`으로 발견하고 **digest로 고정해 실행한다**(deploy/PLAN.md D3).
           tags: |
-            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=sha-,format=short
 
       # `metadata-action`의 기본 라벨에 `org.opencontainers.image.revision`이 있다.
@@ -281,22 +305,38 @@ jobs:
             exit 1
           fi
           # `metadata-action`은 **이벤트와 무관하게 `github.sha`를 적는다.** PR 실행에서
-          # 그 값은 head 커밋이 아니라 머지 커밋이며, 그것이 이미지의 실제 내용이므로
-          # 옳다. 이미지를 발행하지 않는 PR에서는 어차피 계약이 걸리지 않는다.
+          # 그 값은 head 커밋이 아니라 머지 커밋이며, 그것이 이미지의 실제 내용이므로 옳다.
           if [[ $revision != "$GITHUB_SHA" ]]; then
             echo "::error::revision 라벨이 이 커밋과 다르다(값='$revision', 기대='$GITHUB_SHA')."
             exit 1
           fi
           echo "revision=$revision"
 
-      - id: build
-        uses: docker/build-push-action@v6
+      # PR: 발행하지 않고 이미지를 파일로 떠서 리허설 잡에 넘긴다.
+      - name: 빌드 (PR — 아티팩트로)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: ./backend
           file: ./backend/Dockerfile
           platforms: linux/arm64
-          # PR에서는 빌드만 한다(Dockerfile 회귀 검사).
-          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=docker,dest=${{ runner.temp }}/backend-image.tar
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      # main: `sha-<커밋>`만 발행한다. 리허설은 이 digest를 그대로 당겨 시험한다.
+      - id: push
+        name: 빌드·발행 (main — sha 태그만)
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: linux/arm64
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -305,50 +345,156 @@ jobs:
           # `docker pull`로만 쓰는 데 인덱스가 늘면 태그 다루기가 번거로워진다.
           provenance: false
 
-      - name: 배포 방법 안내
+      - id: candidate
+        name: 리허설에 넘길 참조
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          if [[ -n $DIGEST ]]; then
+            echo "ref=ghcr.io/${GITHUB_REPOSITORY}-backend@${DIGEST}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$(printf '%s\n' "$TAGS" | head -n1)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 이미지 아티팩트 (PR)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: backend-image
+          path: ${{ runner.temp }}/backend-image.tar
+          retention-days: 1
+          compression-level: 0
+
+  # ── 4. 배포 리허설 — 호스트와 같은 arm64에서, 호스트가 받을 바로 그 이미지로 ────────
+  #
+  # SQLite의 "test what you fly"다. 소스가 아니라 출하물을 시험한다: 운영과 같은
+  # compose·같은 `apply.sh`(up -d --wait)로 스택 전체를 띄우고, Caddy 너머에서 블랙박스
+  # 스위트를 돌리고, 재시작 뒤에도 healthy인지 보고, 컨테이너별 메모리·CPU를 잰다.
+  # 여기서 떨어진 이미지는 `:main`이 되지 않으므로 호스트에 닿지 않는다.
+  rehearsal:
+    name: 배포 리허설 (arm64 · compose · Caddy)
+    needs: [image]
+    # 공개 저장소라 ARM 러너가 무료다(ADR-0006 갱신 메모).
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # 블랙박스 스위트를 돌릴 도구(vitest·ws)만 필요하다. 서버는 컨테이너 안에 있다.
+      - name: 블랙박스 스위트 준비
+        working-directory: backend
+        run: npm ci
+
+      - name: 후보 이미지 받기 (PR — 아티팩트)
+        if: github.event_name == 'pull_request'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: backend-image
+          path: ${{ runner.temp }}
+
+      - name: 후보 이미지 적재 (PR)
+        if: github.event_name == 'pull_request'
+        run: docker load -i "$RUNNER_TEMP/backend-image.tar"
+
+      - name: GHCR 로그인 (main)
         if: github.event_name != 'pull_request'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 후보 이미지 받기 (main — 발행된 digest 그대로)
+        if: github.event_name != 'pull_request'
+        env:
+          REF: ${{ needs.image.outputs.ref }}
+        run: docker pull "$REF"
+
+      - name: 리허설
+        env:
+          REF: ${{ needs.image.outputs.ref }}
+          REHEARSAL_WORK: ${{ runner.temp }}/rehearsal
+          REHEARSAL_REPORT: ${{ runner.temp }}/rehearsal/report.md
+        run: |
+          mkdir -p "$REHEARSAL_WORK"
+          deploy/tests/rehearsal.sh "$REF"
+          cat "$REHEARSAL_REPORT" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 실패 자료
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rehearsal
+          path: ${{ runner.temp }}/rehearsal
+          retention-days: 7
+
+  # ── 5. `:main` 승격 — 리허설을 통과한 digest에만 ──────────────────────────────────
+  #
+  # 새로 빌드하지 않는다. 리허설이 시험한 **바로 그 매니페스트**에 태그만 붙인다
+  # (`--prefer-index=false` = 인덱스를 새로 만들지 않고 그대로 복사). 그래야 `:main`의
+  # digest가 리허설한 digest와 같다 — 아래에서 확인한다.
+  promote:
+    name: ":main 승격 (Release Ready)"
+    needs: [image, rehearsal]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ":main을 리허설한 digest로"
+        env:
+          REF: ${{ needs.image.outputs.ref }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          repo="ghcr.io/${GITHUB_REPOSITORY}-backend"
+          docker buildx imagetools create --prefer-index=false -t "$repo:main" "$REF"
+          promoted=$(docker buildx imagetools inspect "$repo:main" --format '{{json .Manifest}}' |
+            python3 -c 'import json,sys; print(json.load(sys.stdin)["digest"])')
+          if [[ $promoted != "$DIGEST" ]]; then
+            echo "::error::승격한 :main($promoted)이 리허설한 digest($DIGEST)와 다르다."
+            exit 1
+          fi
+          echo "main → $promoted"
+
+      - name: 배포 안내
+        env:
+          DIGEST: ${{ needs.image.outputs.digest }}
         run: |
           {
-            echo "## 이미지 준비 완료"
+            echo "## Release Ready — \`:main\` = \`${DIGEST}\`"
             echo
-            echo '```'
-            echo "${{ steps.meta.outputs.tags }}" | sed 's/^/tag: /'
-            echo "digest: ${{ steps.build.outputs.digest }}"
-            echo '```'
-            echo
-            echo "### 배포"
-            echo
-            echo "자동 배포 타이머가 켜져 있으면(\`yorr-auto-deploy.timer\`)"
-            echo "**할 일이 없다** — 호스트가 5분마다 보고 진행 중인 게임이 없을 때 배포한다."
-            echo "확인은 \`journalctl -u yorr-auto-deploy -f\`."
-            echo
-            echo "앞당기려면 **Actions → deploy → Run workflow**(태그 \`main\`)."
-            echo "그 버튼은 기다리지 않으므로 **진행 중인 게임을 끊는다.**"
-            echo "롤백은 같은 버튼에 \`sha-<커밋>\`을 넣는다."
-            echo
-            echo "러너가 죽었거나 타이머를 끈 상태라면 호스트에서:"
+            echo "리허설을 통과한 digest다. **할 일이 없다** — 호스트의 \`yorr-converge\` 타이머가"
+            echo "5분마다 \`:main\`을 보고, 게임 중인 사람이 없을 때 revision과 digest를 함께 배포한다."
+            echo "150초 안에 healthy가 되지 않으면 직전 릴리스로 되돌리고 자동 배포를 멈춘다(HALT)."
             echo
             echo '```bash'
-            echo "~/yorr/deploy/deploy.sh"
+            echo "/usr/local/lib/yorr-deploy/converge --dry-run   # 판단만"
+            echo "/usr/local/lib/yorr-deploy/converge             # 지금 한 번"
+            echo "deploy/status.sh                                # 무엇이 돌고 있는지"
+            echo "/usr/local/lib/yorr-deploy/converge rollback    # 직전 릴리스로 + HALT"
+            echo "/usr/local/lib/yorr-deploy/converge resume      # HALT 풀기"
             echo '```'
             echo
-            echo "스크립트 없이 손으로 할 때:"
-            echo
-            echo '```bash'
-            echo "cd ~/yorr && git pull      # deploy/compose.yaml은 이미지가 아니라 체크아웃에서 온다"
-            echo "cd deploy"
-            echo "docker compose pull backend"
-            echo "docker compose up -d backend"
-            echo "sleep 15 && docker compose ps && docker compose logs --tail 100 backend"
-            echo '```'
-            echo
-            echo "> \`git pull\`을 빼먹으면 **새 이미지가 옛 설정으로 뜬다.**"
-            echo "> 공개 주소(CORS 목록·콜백 세 개)의 정본이 \`deploy/compose.yaml\`이고,"
-            echo "> 그 파일은 호스트의 git 체크아웃에서 읽힌다 — 이미지에는 들어 있지 않다."
-            echo "> 실제로 주입되는 값은 \`docker compose config | grep CORS_\`로 확인한다."
-            echo
-            echo "> 워크플로가 직접 배포하지 않는 이유: 배포가 **진행 중 게임을 끊는다**."
-            echo "> WS 구독과 라운드 마감 타이머가 프로세스 인메모리다(DESIGN.md 원칙 8)."
-            echo "> 그래서 호스트가 당기고(게임이 없을 때만) GitHub은 밀지 않는다 —"
-            echo "> 배포 키가 저장소에 없고 22번 포트도 열지 않는다(ADR-0006 §3 갱신 메모)."
+            echo "절차 전체는 backend/docs/design/operations.md 「배포 (새 controller)」."
           } >> "$GITHUB_STEP_SUMMARY"

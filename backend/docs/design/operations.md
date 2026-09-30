@@ -256,15 +256,22 @@ main push ──────► verify ─► image ─► ghcr.io/jadewisemann/
 
 ### 배포 (새 controller)
 
-**평상시 할 일이 없다.** `main`에 push하면 CI가 이미지를 발행하고, 호스트의 5분 타이머가
-그것을 발견해 배포한다 — push에서 반영까지 보통 10분 안이다(CI 약 3분 + 타이머 최대 5분,
-`RandomizedDelaySec=60`).
+**평상시 할 일이 없다.** `main`에 push하면 CI가 이미지를 발행하고, 배포 리허설을 통과한
+digest에만 `:main`을 붙이며, 호스트의 5분 타이머가 그것을 발견해 배포한다 — push에서
+반영까지 보통 15분 안이다(CI 약 8분 + 타이머 최대 5분, `RandomizedDelaySec=60`).
 
 ```text
-main push → verify + deploy 설정·controller 검증 ─→ image ─→ GHCR :main 갱신
+main push → verify + deploy 설정·controller 검증 ─→ image(sha-<커밋>만 발행)
+                                                      │
+                          배포 리허설(arm64 · 같은 compose · Caddy 너머 블랙박스)
+                                                      │ 통과한 digest만
+                                         promote ─→ GHCR :main 갱신
                                                                     │ (5분 타이머)
                                         yorr-converge.service ◄──────┘
 ```
+
+**리허설에서 떨어진 이미지는 `:main`이 되지 않는다** — 호스트는 `:main`만 보므로 운영에
+닿지 않는다. 그 커밋의 `sha-<커밋>` 태그는 GHCR에 남지만 아무도 당기지 않는다.
 
 손으로 부르는 것도 같은 경로다.
 
@@ -431,12 +438,29 @@ docker 그룹에 있어야 한다(`id -nG`로 확인).
   필요하다. **MySQL 통합 테스트 45건이 처음으로 실제로 도는 자리다** — 지금까지
   전부 skip이었고 SQL이 실행된 적이 없다(ADR-0005).
 - 두 `*_TEST_REQUIRED` 스위치가 없으면 CI가 "조용히 건너뛴 초록"으로 거짓말한다.
-- **GHCR publish = Release Ready.** 호스트는 별도의 manifest DB도 deployment
-  server도 보지 않으므로, "GHCR에 발행된 이미지"가 곧 배포 가능한 릴리스의 증거다.
+- **GHCR `:main` = Release Ready.** 호스트는 별도의 manifest DB도 deployment
+  server도 보지 않으므로, "`:main`이 가리키는 이미지"가 곧 배포 가능한 릴리스의 증거다.
   그래서 `image` 잡은 `verify`와 `compose` **둘 다** 기다린다. 예전에는 `verify`만
   기다렸고, 그 상태에서는 `compose.yaml` 문법이 깨진 커밋의 이미지가 "배포 가능"으로
   표시될 수 있었다 — 그 파일은 이미지가 아니라 호스트 체크아웃에서 읽히는 공개
   주소·필수 변수의 정본이다.
+- **`image`는 `sha-<커밋>`만 발행하고 `:main`은 `promote`가 옮긴다.** 그 사이에
+  **배포 리허설**(`rehearsal` 잡, `deploy/tests/rehearsal.sh`)이 있다. 소스가 아니라
+  호스트가 받을 **바로 그 digest**를 호스트와 같은 linux/arm64 러너에서 운영
+  `compose.yaml` · 같은 `apply.sh`(`up -d --wait`)로 띄우고 — 빈 MySQL에 `migrate` →
+  Caddy 너머 readiness → 블랙박스 스위트(`E2E_BASE_URL=http://localhost`) → backend
+  재시작 뒤 다시 healthy → 삼켜진 예외 0건 — 컨테이너별 메모리·CPU를 잡 요약에 적는다.
+  PR에서는 발행 없이 이미지 파일을 아티팩트로 넘겨 같은 리허설을 돈다.
+  - 운영과 다른 것은 Caddy 설정 하나다(`tests/rehearsal/compose.rehearsal.yaml`): 러너에는
+    공인 IP가 없어 인증서를 받을 수 없으므로 평문 `:80`으로 프록시한다. 운영 Caddyfile
+    자체는 `compose` 잡이 운영과 같은 caddy 이미지로 `caddy validate` 한다.
+  - `promote`는 새로 빌드하지 않는다. `imagetools create --prefer-index=false`로 리허설한
+    매니페스트에 태그만 붙이고, `:main`의 digest가 리허설한 digest와 **같은지** 확인한다.
+  - 리허설이 떨어지면 `:main`은 직전 릴리스에 머문다. 원인을 고친 다음 커밋이 새
+    후보가 된다 — 호스트에서 할 일은 없다.
+- 배포 스크립트는 `bash -n`에 더해 `shellcheck -S warning`을 통과해야 한다. 워크플로의
+  액션은 커밋 SHA로 고정하고(`# vX.Y.Z` 주석), Dependabot(`.github/dependabot.yml`)이
+  주 1회 묶어서 올린다.
 - `image` 잡은 발행 전에 `org.opencontainers.image.revision` 라벨이 **실제로 그
   커밋을 가리키는지** 확인한다. 호스트 controller의 릴리스 발견이 그 라벨 하나에
   달려 있어서(이미지가 곧 release marker다), 라벨이 조용히 사라지면 배포가 조용히
