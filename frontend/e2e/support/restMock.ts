@@ -118,9 +118,10 @@ export async function mockRestApi(page: Page, options: RestMockOptions = {}): Pr
     const query =
       options.kakaoLoginOutcome === 'canceled' ? { error: 'canceled' } : { code: KAKAO_LOGIN_CODE }
     const target = `/auth/callback?${new URLSearchParams(query).toString()}`
-    // 실제 서버처럼 302로 돌려보낸다. 가로챈 HTML 안에서 `location.replace`로 옮기면 WebKit이
-    // 가끔 프레임 URL을 잃어(page.url() === '') 콜백 화면에 닿지 못했다(CI iPhone 프로필).
-    await route.fulfill({ status: 302, headers: { location: target } })
+    await route.fulfill({
+      contentType: 'text/html',
+      body: `<script>location.replace(${JSON.stringify(target)})</script>`,
+    })
   }
 
   async function handleAuthSession(route: Route, request: Request) {
