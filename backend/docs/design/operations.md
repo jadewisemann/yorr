@@ -412,8 +412,15 @@ docker 그룹에 있어야 한다(`id -nG`로 확인).
 
 ### CI 검사 (`verify` 잡)
 
-`npm ci` → `npm run check` → `npm run typecheck` → `npm test` → `npm run build`
-(backend/AGENTS.md 「검증 명령」과 같은 순서).
+`npm ci` → `npm run check` → `npm run typecheck` → `npm run test:coverage` →
+`npm run test:e2e` → `npm run build` (backend/AGENTS.md 「검증 명령」과 같은 순서).
+
+- `test:coverage`는 단위 스위트에 **커버리지 래칫**을 건다(`vitest.config.ts`). 바닥은
+  실측을 내림한 값이고, 지금 100%인 핵심 규칙 모듈은 파일 단위 100%로 묶여 있다.
+- `test:e2e`는 블랙박스 프로토콜 스위트다(루트 `TESTING.md`) — 진짜 포트·진짜 소켓으로
+  야추 한 판을 끝까지 두며 매 점수를 독립 오라클과 대조하고, 경계값·적대적 프레임·퍼저·
+  Redis 장애 주입·자원 누수를 본다. 같은 스위트가 `E2E_BASE_URL`로 배포된 스택에도 돈다.
+- 야간(`nightly.yml`)에 퍼저 2만 프레임(새 시드)과 장애 주입 전수를 돈다.
 
 - **`redis-server` 바이너리를 apt로 설치하고 `REDIS_TEST_REQUIRED=1`을 켠다.**
   service container가 아니라 바이너리인 이유는 ADR-0004의 기본 경로가 "테스트
