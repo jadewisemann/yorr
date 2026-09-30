@@ -13,7 +13,8 @@
 
 | SQLite 기법 | 여기서는 | 위치 | 언제 |
 |---|---|---|---|
-| 독립 하네스 여럿 | 단위 · 블랙박스 프로토콜 · 브라우저 E2E | `backend/src/**/__tests__` · `backend/test/blackbox` · `frontend/e2e` | PR |
+| 독립 하네스 여럿 | 단위 · 블랙박스 프로토콜 · 브라우저 E2E(mock) · 풀스택 E2E | `backend/src/**/__tests__` · `backend/test/blackbox` · `frontend/e2e/mock` · `frontend/e2e/real` | PR |
+| 짝 맞추기 | 진짜 백엔드(`node dist/main.js` + MySQL·Redis) 앞에서 진짜 프론트 빌드로 방 만들기·참가·시작 | `.github/workflows/fullstack.yml` | PR |
 | 출하물 시험 | 블랙박스 스위트는 `E2E_BASE_URL`만 바꾸면 배포된 스택(실제 이미지·compose·프록시)에 그대로 돈다 | `backend/test/blackbox/target.ts` | 수동 — CI 배포 리허설 잡은 다음 단계 |
 | 차등 테스트(SLT) | 야추 점수의 세 구현(서버·프론트·독립 오라클)을 7,776가지 주사위 × 12칸 **전수** 대조 | `backend/src/game/score/__tests__/scoringDifferential.test.ts` | PR |
 | 이상 상황 테스트 | 여정 하나의 Redis 명령 중 **N번째 하나만** 실패시킨다. 모든 N에 대해, 쓰기 전 실패와 쓰기 후 응답 유실 둘 다 | `backend/test/blackbox/anomaly.e2e.test.ts` | PR(4칸 간격) · 야간(전수) |
@@ -21,7 +22,7 @@
 | 경계값 | 상한·하한의 안쪽 한 칸과 바깥쪽 한 칸(닉네임 20/21, 정원 6/7, 채팅 200/201, 64KiB/+1 …) | `backend/test/blackbox/boundaries.e2e.test.ts` | PR |
 | 자원 누수 검사 | 서버를 띄워 방 20개를 돌리고 닫으면 소켓·리스너·ref 타이머 수가 시작 전과 같다 | `backend/test/blackbox/leaks.e2e.test.ts` | PR |
 | 회귀 테스트 | 버그 하나 = 먼저 실패하는 테스트 하나 | 예: `backend/src/ws/__tests__/gatewayFrameErrors.test.ts` | 항상 |
-| 커버리지 | 측정하고 임계값을 래칫으로 고정한다. 백엔드는 CI가 강제한다. 프론트는 임계값만 있고 CI는 아직 `npm test`만 돈다 | 각 `vitest.config.ts` | PR(백엔드) |
+| 커버리지 | 측정하고 실측 바닥을 래칫으로 고정한다. 백엔드·프론트 모두 CI가 강제한다 | 각 `vitest.config.ts` | PR |
 
 ## 블랙박스 스위트가 지키는 불변식
 
@@ -73,6 +74,12 @@ E2E_BASE_URL=http://localhost npm run test:e2e
 
 ## 찾아낸 것
 
+- **2026-09-30 — 320px에서 게임 헤더의 턴 표시가 사라져 있었다.** 채팅 버튼이 헤더에
+  들어오며 턴 라벨이 0px로 눌렸다. 브라우저 E2E의 narrow-width가 정확히 그 자리를 짚었지만
+  CI가 Playwright를 돌리지 않아 한 달간 아무도 몰랐다. 같은 공백에서 테스트 17개가 상해
+  있었다 — 이제 CI가 매 PR마다 돌린다.
+- **2026-09-30 — 프론트 커버리지 임계값이 한 번도 검사된 적이 없었다.** 96%라고 적혀
+  있었지만 실측은 82%(분기 77%)였다. 실측을 바닥으로 다시 걸고 CI가 강제한다.
 - **2026-09-30 — WS 프레임 하나로 프로세스가 죽었다.** 게이트웨이가 소켓 `error`를 구독하지
   않아 64KiB 초과나 깨진 UTF-8 한 프레임이 미처리 예외가 됐다. 인증 없이 누구나 보낼 수 있었다
   (#64). 경계값 스위트가 같은 공격을 배포된 스택에도 계속 보낸다.
