@@ -1,11 +1,21 @@
 import type { Server as HttpServer } from 'node:http'
 import { WebSocketServer } from 'ws'
-import type { GameSocketHandler, WsLogger } from './handler.js'
+import type { WsLogger } from './handler.js'
 import { WS_MAX_MESSAGE_BYTES } from './protocol.js'
 import type { ClientSocket } from './socket.js'
 
 export interface GameSocketGateway {
   close(): Promise<void>
+}
+
+/**
+ * 게이트웨이가 핸들러에 요구하는 표면. `GameSocketHandler`가 그대로 만족한다.
+ * 좁혀 둔 이유는 게이트웨이 자체(프레임 오류 격리 등)를 Redis 없이 테스트하기 위해서다.
+ */
+export interface SocketEventHandler {
+  connected(socket: ClientSocket): void
+  message(socket: ClientSocket, raw: unknown): Promise<void>
+  closed(socket: ClientSocket): Promise<void>
 }
 
 export interface GameSocketGatewayOptions {
@@ -28,6 +38,10 @@ const originAllowed = (origin: string | undefined, allowed: readonly string[]): 
   return allowed.includes('*') || allowed.includes(origin)
 }
 
+/** `ws`가 프레임 오류에 붙이는 코드(`WS_ERR_*`). 없으면 undefined. */
+const wsErrorCode = (error: Error): string | undefined =>
+  'code' in error && typeof error.code === 'string' ? error.code : undefined
+
 /**
  * `ws` 서버와 핸들러를 잇는 얇은 배선 — 여기에는 프로토콜 로직을 두지 않는다
  * (핸들러는 소켓 구현을 모르는 채로 단위 테스트된다).
@@ -38,7 +52,7 @@ const originAllowed = (origin: string | undefined, allowed: readonly string[]): 
  */
 export const attachGameSocketGateway = (
   server: HttpServer,
-  handler: GameSocketHandler,
+  handler: SocketEventHandler,
   options: GameSocketGatewayOptions = {},
 ): GameSocketGateway => {
   const allowedOrigins = options.allowedOrigins ?? []
@@ -52,6 +66,9 @@ export const attachGameSocketGateway = (
       done(false, 403, 'Forbidden')
     },
   })
+  // `ws`는 HTTP 서버의 'error'(예: 포트 충돌)를 자기 이름으로 다시 낸다. 구독자가 없으면
+  // 그 재발행이 예외가 되어, HTTP 쪽에서 처리된 오류가 프로세스를 한 번 더 죽인다.
+  wss.on('error', (error) => options.logger?.error({ reason: error.message }, 'WS 서버 오류'))
 
   wss.on('connection', (socket) => {
     const client = socket as unknown as ClientSocket
@@ -71,6 +88,16 @@ export const attachGameSocketGateway = (
     socket.on('message', (raw) => {
       const data = Array.isArray(raw) ? Buffer.concat(raw) : raw
       serialize(() => handler.message(client, data))
+    })
+    // **반드시 구독한다.** 상한 초과(1009)·깨진 UTF-8(1007) 같은 프레임 오류를 `ws`는 이
+    // 소켓의 'error'로 알리고 연결은 스스로 닫는다. 구독자가 없으면 EventEmitter가 그것을
+    // 예외로 던져 **프로세스 전체가 죽는다** — 인증 없이 프레임 하나로 가능했다
+    // (docs/design/realtime.md 「엔드포인트」). 정리는 뒤따르는 'close'가 한다.
+    socket.on('error', (error) => {
+      options.logger?.warn(
+        { code: wsErrorCode(error), reason: error.message },
+        '잘못된 WS 프레임 — 이 연결만 닫는다',
+      )
     })
     socket.on('close', () => {
       serialize(() => handler.closed(client))

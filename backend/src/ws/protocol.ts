@@ -24,7 +24,8 @@ export const WS_CLOSE_POLICY_VIOLATION = 1008
  * 인바운드 메시지 크기 상한. 8KB 기준에
  * 기대고 아무것도 정하지 않았지만, `ws`의 기본값은 100MB라 그대로 두면 소켓 하나가
  * 힙을 먹을 수 있다. 지금 가장 큰 메시지는 재접속 스냅샷(수 KB)이므로 넉넉히 64KB.
- * 초과 프레임은 `ws`가 close 1009로 끊는다.
+ * 초과 프레임은 `ws`가 close 1009로 끊는다 — 게이트웨이가 소켓 `error`를 구독한다는
+ * 전제에서다(`gateway.ts`).
  */
 export const WS_MAX_MESSAGE_BYTES = 64 * 1024
 
