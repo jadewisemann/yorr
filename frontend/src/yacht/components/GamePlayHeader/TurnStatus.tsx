@@ -58,10 +58,12 @@ export function TurnStatus({
             turnDotClass(isMyTurn, submitted, activePlayer !== undefined),
           )}
         />
-        <span className="truncate max-tiny:hidden">
+        {/* 긴 라벨은 640px부터다. 폰 폭(360~430px)에서는 헤더 버튼 넷과 타이머가 자리를 먹어
+            「내 턴이에요」가 잘린다 — 잘린 긴 말보다 온전한 짧은 말이 낫다. */}
+        <span className="truncate max-sm:hidden">
           {turnStatusLabel(isMyTurn, submitted, activePlayer?.nickname)}
         </span>
-        <span className="hidden truncate max-tiny:inline">
+        <span className="hidden truncate max-sm:inline">
           {shortTurnStatusLabel(isMyTurn, submitted, activePlayer?.nickname)}
         </span>
       </span>

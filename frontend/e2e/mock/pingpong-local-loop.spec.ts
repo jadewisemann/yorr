@@ -1,11 +1,15 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('로컬 탁구 프레임 루프', () => {
+  // 3D 첫 장면(15초)과 느린 게임 시계(25초)를 합치면 기본 30초를 넘는다.
+  test.describe.configure({ timeout: 60_000 })
+
   test('3D 코트가 서고 게임 시계가 흐른다', async ({ page }) => {
     await page.goto('/pingpong')
 
     const canvas = page.getByLabel('로컬 3D 탁구 코트')
-    await expect(canvas).toBeVisible()
+    // GPU 없는 러너의 소프트웨어 GL은 첫 장면을 세우는 데만 몇 초가 걸린다(webkit이 특히 느리다).
+    await expect(canvas).toBeVisible({ timeout: 15_000 })
 
     const backing = await canvas.evaluate((element) => {
       const node = element as HTMLCanvasElement
@@ -33,8 +37,10 @@ test.describe('로컬 탁구 프레임 루프', () => {
 
   test('서브 카운트다운이 나타난다 — 루프만이 이 값을 올린다', async ({ page }) => {
     await page.goto('/pingpong')
-    await expect(page.getByLabel('로컬 3D 탁구 코트')).toBeVisible()
+    await expect(page.getByLabel('로컬 3D 탁구 코트')).toBeVisible({ timeout: 15_000 })
 
-    await expect(page.locator('strong.text-\\[14vh\\]')).toBeVisible({ timeout: 6_000 })
+    // 게임 시계는 프레임이 올린다 — 소프트웨어 GL에서는 프레임이 드물어 같은 시계가 몇 배 느리게
+    // 흐른다. 여기서 보는 것은 "루프만이 이 값을 올린다"이지 속도가 아니다.
+    await expect(page.locator('strong.text-\\[14vh\\]')).toBeVisible({ timeout: 25_000 })
   })
 })

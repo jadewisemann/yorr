@@ -84,7 +84,10 @@ export function TooltipCoachmark({ onDone }: { onDone: () => void }) {
         onClick={onDone}
         type="button"
       />
-      <div className="absolute inset-x-6 top-1/2 z-[6] grid -translate-y-1/2 gap-2 rounded-card border border-border-strong bg-surface-raised/95 p-3.5 shadow-raised">
+      {/* 카드는 띠(z-10) **위**다. 트레이가 낮은 320×568에서는 가운데 놓인 카드가 아래 띠와
+          겹쳐, 빛나는 「킵 레일 설명」 버튼이 「알겠어요」를 덮어 누를 수 없었다. 빛나는 버튼은
+          카드를 닫은 뒤에도 그 자리에 있다 — 닫는 버튼이 가려지는 쪽이 더 나쁘다. */}
+      <div className="absolute inset-x-6 top-1/2 z-[11] grid -translate-y-1/2 gap-2 rounded-card border border-border-strong bg-surface-raised/95 p-3.5 shadow-raised">
         <p aria-live="polite" className="m-0 text-xs leading-relaxed text-content">
           지금 빛나는 동그라미 두 개를 눌러 보세요. 굴리기 횟수와 킵 레일 설명이 그 자리에서 나와요.
         </p>
