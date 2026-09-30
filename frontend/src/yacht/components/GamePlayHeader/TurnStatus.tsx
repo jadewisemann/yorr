@@ -50,10 +50,11 @@ export function TurnStatus({
         )}
         key={activePlayerId ?? 'sync'}
       >
+        {/* 320~359px에서는 점(8px+간격)을 빼고 글자에 자리를 준다 — 상태는 글자와 색이 싣는다. */}
         <span
           aria-hidden="true"
           className={cn(
-            'size-2 flex-none rounded-full transition-colors duration-(--ds-motion-base)',
+            'size-2 flex-none rounded-full transition-colors duration-(--ds-motion-base) max-tiny:hidden',
             turnDotClass(isMyTurn, submitted, activePlayer !== undefined),
           )}
         />
