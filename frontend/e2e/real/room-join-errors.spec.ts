@@ -6,7 +6,7 @@ test('존재하지 않는 방 코드는 참가를 막고 코드 수정 경로를
   await page.getByRole('textbox', { name: '닉네임' }).fill(uniqueNickname('walker'))
   await page.getByRole('button', { name: '대기실 입장' }).click()
 
-  await expect(page.getByRole('alert')).toHaveText(
+  await expect(page.getByRole('alert')).toContainText(
     '존재하지 않거나 더 이상 사용할 수 없는 방이에요.',
   )
   await expect(page.getByRole('button', { name: '다른 코드 입력' })).toBeVisible()
@@ -28,7 +28,7 @@ async function joinRoomExpectingError(page: import('@playwright/test').Page, roo
   await page.getByRole('textbox', { name: '닉네임' }).fill(uniqueNickname('late'))
   await page.getByRole('button', { name: '대기실 입장' }).click()
 
-  await expect(page.getByRole('alert')).toHaveText(
+  await expect(page.getByRole('alert')).toContainText(
     '방이 가득 찼어요. 다른 초대 코드로 참가해 주세요.',
   )
   await expect(page.getByRole('button', { name: '다른 코드 입력' })).toBeVisible()

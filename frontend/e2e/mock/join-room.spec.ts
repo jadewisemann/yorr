@@ -54,7 +54,8 @@ test('explains a missing room and offers another code without opening a socket',
   await page.getByRole('textbox', { name: '닉네임' }).fill(GUEST.nickname)
   await page.getByRole('button', { name: '대기실 입장' }).click()
 
-  await expect(page.getByRole('alert')).toHaveText(
+  // 안내 상자 안에 「다른 코드 입력」 버튼이 함께 든다(Alert 프리미티브) — 문구는 포함으로 본다.
+  await expect(page.getByRole('alert')).toContainText(
     '존재하지 않거나 더 이상 사용할 수 없는 방이에요.',
   )
   expect(rest.enterRoomBodies).toEqual([{ nickname: GUEST.nickname, room_id: 'ZZZZ99' }])
@@ -79,7 +80,7 @@ test('blocks joining a room whose game already started', async ({ page }) => {
 
   await joinRoomAsGuestExpectingFailure(page)
 
-  await expect(page.getByRole('alert')).toHaveText('이미 게임이 시작된 방에는 참가할 수 없어요.')
+  await expect(page.getByRole('alert')).toContainText('이미 게임이 시작된 방에는 참가할 수 없어요.')
   expect(server.connections).toBe(0)
 })
 

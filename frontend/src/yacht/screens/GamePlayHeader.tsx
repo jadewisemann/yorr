@@ -64,7 +64,12 @@ export function GamePlayHeader({
     <header
       className={cn(
         'flex flex-none items-center px-gutter',
-        wide ? 'h-[4.5rem] gap-4 border-b border-border' : 'h-[4.25rem] gap-3',
+        // 좁은 화면 헤더는 44px 버튼 넷 + 타이머가 폭을 거의 다 쓴다(채팅 버튼이 들어온 뒤).
+        // 턴 라벨이 짧은 말(`내 턴`) 한 줄을 받도록 400px 아래에서 간격을 좁히고, 360px
+        // 아래에서는 더 좁힌다 — 그대로 두면 320px에서 라벨이 0px로 눌려 사라졌다.
+        wide
+          ? 'h-[4.5rem] gap-4 border-b border-border'
+          : 'h-[4.25rem] gap-3 max-tray:gap-2 max-tiny:gap-1',
       )}
     >
       <h1 className="sr-only">

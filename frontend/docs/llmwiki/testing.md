@@ -63,14 +63,20 @@ E2E는 자체 페이크가 필요하다. 두 벌을 잇는 다리가 `e2e/suppor
 ## E2E (Playwright, 2단)
 
 - `npm run test:e2e` — **mock 단**: 서버 없이 프로덕션 빌드(`vite preview` :4306)의 UI
-  계약 검증. 13 스펙: smoke · landing · create/join · invalid-invite · lobby-realtime ·
+  계약 검증. 14 스펙: smoke · landing · create/join · invalid-invite · lobby-realtime ·
   game-flow · participant-view · disconnect · reconnect(자동 재입장 금지 포함) ·
-  auth-login · not-found · **narrow-width**(320px 강건성 — 스크린샷 대신 기하로 가로
-  넘침을 숫자 판정, 넘친 요소 이름까지 짚는다).
+  auth-login · not-found · pingpong-local-loop · **narrow-width**(320px 강건성 — 스크린샷
+  대신 기하로 가로 넘침을 숫자 판정, 넘친 요소 이름까지 짚는다). **CI가 매 PR마다 네
+  프로젝트 전부를 돌린다**(`frontend.yml`의 `e2e-mock`).
+  - 한동안 CI 밖에 있던 사이 17개가 조용히 상했다(2026-09-30). 대부분은 UI가 바뀌고
+    단언이 따라가지 못한 것이었지만, **320px에서 게임 헤더의 턴 라벨이 0px로 눌려 사라진**
+    진짜 회귀가 하나 섞여 있었다 — 채팅 버튼이 헤더에 들어오며 버튼 넷 + 타이머 + 간격이
+    폭을 다 먹었다. narrow-width가 정확히 그 자리를 짚었는데 아무도 돌리지 않았다.
 - `npm run test:e2e:real` — **실서버 단**: `globalSetup`(`checkBackend`)이 백엔드 미기동을
   30개 타임아웃 대신 원인+복구 명령 한 문장으로 즉시 실패시킨다. 방 격리 원칙: 테스트마다
-  자기 방을 새로 만들고 일회용으로 취급. 실측으로 발견한 계약 불일치(서버가 한글 닉네임
-  400 거부, 중복 닉네임 200 허용)가 주석으로 남아 있다.
+  자기 방을 새로 만들고 일회용으로 취급. **CI가 진짜 백엔드(`node dist/main.js` + MySQL·Redis)
+  앞에서 돌린다**(`.github/workflows/fullstack.yml`, chromium 한 프로젝트) — mock 단과 백엔드
+  블랙박스 스위트가 같은 오해를 공유해도 여기서는 두 쪽 코드가 실제로 맞물린다.
 - 프로젝트 4종: Pixel 7 · iPhone 15 · **mobile-320**(320×568 — 지원 하한이 검증 밖에
   있었다; iPhone SE 프로필은 webkit 강제라 view transition 겹침에서 렌더러가 죽어 Pixel
   프로필을 리사이즈해 쓴다) · desktop-chrome(760/1024px 분기 마크업 실행).
@@ -92,11 +98,8 @@ npx playwright show-report               # 기대/실제/diff 3장 비교
 ```
 
 - **baseline을 저장소에 넣지 않는다**(`.gitignore`). 폰트 렌더링이 기기마다 달라 남의
-  기계에서 뜬 이미지는 전부 어긋나고, 지켜 줄 CI도 없다 — 프론트 CI
-  (`.github/workflows/frontend.yml`)는 `check`·`typecheck`·`test`·`build`·
-  `check:cycles`만 돌리고 **Playwright를 실행하지 않는다**(브라우저 두 개를 내려받는
-  비용 대비 얻는 것이 적다고 판단했다. 구 Jenkins 파이프라인도 돌리지 않았다).
-  따라서 **한 기계 안의 before/after**로만 쓴다.
+  기계에서 뜬 이미지는 전부 어긋난다 — CI는 mock·real E2E를 돌리지만 시각 대조는 돌리지
+  않는다. 따라서 **한 기계 안의 before/after**로만 쓴다.
 - 대상은 `/__dev/components` 카탈로그를 **섹션 단위**로. 페이지 한 장으로 찍지 않는
   이유는 물리 주사위 렌더러·족보 음성 랩·마스코트 가이드가 매 프레임 달라서다 — 세 섹션은
   제외돼 있다.

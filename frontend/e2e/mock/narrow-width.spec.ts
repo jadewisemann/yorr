@@ -194,7 +194,9 @@ test('keeps the practice game screen within 320px', async ({ page }) => {
   await useSimpleDiceRenderer(page)
   await page.goto('/tutorial')
 
-  await expect(page.getByRole('timer', { name: '남은 시간' })).toBeVisible()
+  // 연습 판에는 제한 시간이 없다(연습 방 시계 제거 — frontend/PLANS.md) — 판이 선 것은 굴리기 버튼으로 본다.
+  await expect(page.getByRole('button', { name: /^굴리기/ })).toBeVisible()
+  await expect(page.getByRole('timer', { name: '남은 시간' })).toHaveCount(0)
 
   await expectNoHorizontalOverflow(page, '연습 게임')
   await expectKoreanWordBreakProtected(page, '연습 게임')
@@ -222,11 +224,11 @@ test('keeps the live game screen within 320px', async ({ page }) => {
   await expectNoHorizontalOverflow(page, '실전 게임')
   await expectKoreanWordBreakProtected(page, '실전 게임')
 
-  const narrow = (page.viewportSize()?.width ?? 0) < 360
-  expect(
-    await labelFit(page, narrow ? '내 턴' : '내 턴이에요'),
-    '헤더 턴 라벨이 제 칸을 넘거나 접혔다',
-  ).toEqual({ fits: true, lines: 1 })
+  // 이 스펙이 도는 400px 이하에서는 짧은 라벨만 보인다(긴 라벨은 640px부터).
+  expect(await labelFit(page, '내 턴'), '헤더 턴 라벨이 제 칸을 넘거나 접혔다').toEqual({
+    fits: true,
+    lines: 1,
+  })
 
   for (const reaction of ['like', 'laugh', 'shock', 'clap', 'gg']) {
     server.send('reaction.broadcast', { playerId: GUEST.id, reaction })

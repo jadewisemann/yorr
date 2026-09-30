@@ -2,13 +2,13 @@
 #
 # 왜 이 파일이 필요한가: 프론트 배포는 Vercel이 직접 한다(`npm run build`). 그
 # 빌드는 **타입 오류와 테스트 실패를 막지 않는다** — `tsc -b`가 걸러 주는 것까지가
-# 전부이고, biome·vitest는 거기서 돌지 않는다. 구 Jenkins 파이프라인이 하던 검사
-# 자리가 파이프라인 삭제와 함께 비어 있었다(operations.md 「구 파이프라인은 없다」).
+# 전부이고, biome·vitest는 거기서 돌지 않는다. 그리고 Vercel은 병합 즉시 배포하므로
+# 백엔드처럼 health 게이트가 없다 — **여기가 프론트의 유일한 관문이다.**
 #
-# **Playwright는 여기서 돌지 않는다.** mock E2E는 chromium + webkit 두 브라우저를
-# 내려받아야 하고(설치가 검사보다 오래 걸린다), 비주얼 대조는 baseline을 저장소에
-# 두지 않는 도구라 CI가 지킬 대상이 아니다(playwright.visual.config.ts). 필요해지면
-# 별개 잡으로 추가한다 — 그때 frontend/docs/llmwiki/testing.md의 서술도 함께 고친다.
+# Playwright mock E2E도 여기서 돈다. 한동안 CI 밖에 있었고, 그사이 17개가 조용히
+# 상했다(그중 하나는 320px에서 턴 표시가 사라진 진짜 회귀였다 — 2026-09-30). 비주얼
+# 대조(playwright.visual.config.ts)는 baseline을 저장소에 두지 않는 도구라 CI가 지킬
+# 대상이 아니다. 실제 백엔드와 붙여 보는 E2E는 fullstack.yml이다.
 
 name: frontend
 
@@ -59,8 +59,45 @@ jobs:
       # 순서·스크립트는 frontend/AGENTS.md 「검증 명령」과 같다.
       - run: npm run check
       - run: npm run typecheck
-      - run: npm test
+      # 단위·컴포넌트 + 커버리지 래칫(vitest.config.ts의 thresholds).
+      - run: npm run test:coverage
       # 프로덕션 빌드. vite.config.ts의 `assertSecureEndpoint`도 여기서 돈다 —
       # env가 없으면 상대경로 기본값이라 통과한다(운영 값은 Vercel이 준다).
       - run: npm run build
       - run: npm run check:cycles
+
+  e2e-mock:
+    name: Playwright mock E2E (chromium · webkit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # 네 프로젝트가 두 엔진을 쓴다: Pixel 7 · 320px · 데스크톱(chromium), iPhone 15(webkit).
+      - run: npx playwright install --with-deps chromium webkit
+
+      # 빌드 산출물(dist)을 preview 서버로 띄워 REST·WS를 페이지 안에서 가짜로 받는다.
+      - run: npm run test:e2e
+
+      - name: 실패 보고서
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-mock
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          retention-days: 7
