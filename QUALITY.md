@@ -113,7 +113,7 @@
 - 다만 `tsconfig`는 이미 `strict`·`noUncheckedIndexedAccess`·
   `exactOptionalPropertyTypes`가 모두 켜져 있어서 출발점이 나쁘지 않습니다.
 
-**커버리지** — `backend/`는 2026-09-30에 측정을 시작했습니다. MySQL 없이 statements 90.1·branches 82.3·functions 88.6·lines 91.9이며, 이 값을 바닥으로 `vitest.config.ts`가 래칫을 겁니다. 지금 100%인 핵심 규칙 모듈 6개는 파일 단위 100%로 묶었습니다.
+**커버리지** — `backend/`는 2026-09-30에 측정을 시작했습니다. MySQL 통합 테스트를 포함한 CI에서 statements 92.6·branches 84.6·functions 91.7·lines 94.5(MySQL 없이는 90.1·82.3·88.6·91.9)이며, 이 값을 바닥으로 `vitest.config.ts`가 래칫을 겁니다. 지금 100%인 핵심 규칙 모듈 6개는 파일 단위 100%로 묶었습니다.
 `frontend/`는 96~98% 선이며, `World.ts`를 비롯한 렌더링·개발용 화면 여러 개를
 측정 대상에서 제외해 둔 상태입니다.
 

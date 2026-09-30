@@ -3,10 +3,10 @@ import { defineConfig } from 'vitest/config'
 /**
  * 커버리지는 **래칫**이다 — 바닥은 실측값을 내림한 값이고 올릴 수만 있다(루트 TESTING.md).
  * MySQL 통합 테스트는 `MYSQL_TEST_URL`이 있을 때만 돌아서 저장소 코드만큼 수치가 달라진다.
- * 그래서 바닥을 환경별로 둔다 — CI는 MySQL을 켜고 돈다.
+ * 그래서 바닥을 환경별로 둔다 — CI는 MySQL을 켜고 돈다. 실측: 2026-09-30(#65 CI · 로컬).
  */
 const floor = process.env.MYSQL_TEST_URL
-  ? { statements: 89.4, branches: 82, functions: 88.1, lines: 91.3 }
+  ? { statements: 92.6, branches: 84.6, functions: 91.7, lines: 94.5 }
   : { statements: 90, branches: 82.3, functions: 88.6, lines: 91.9 }
 
 /** 지금 100%인 핵심 규칙 모듈 — 절대 기준으로 묶는다(QUALITY.md 3-(c)). 목록은 늘리기만 한다. */
