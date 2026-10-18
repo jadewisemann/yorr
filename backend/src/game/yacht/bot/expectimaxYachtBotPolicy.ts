@@ -35,8 +35,12 @@ const EARLY_SCORE_MARGIN = 0.15
 const ENCODE_BASE = DICE_COUNT + 1
 const ENCODE_SPACE = ENCODE_BASE ** FACE_COUNT
 
-/** 턴당 CPU 예산 기본값. 테스트가 성능 계약으로 고정한 1초다. */
-export const DEFAULT_SEARCH_BUDGET_MS = 1_000
+/**
+ * 턴당 CPU 예산 기본값. 넘기면 탐색을 버리고 폴백 전략으로 둔다 — 곧 이벤트 루프 점유의 상한이다.
+ * 무거운 결정의 실측 p99가 코어 하나에서 18ms, 0.5 vCore(Botkeep)에서 그 두 배쯤이다. 250ms는
+ * 정상 탐색이 닿지 않으면서 병리적 상황의 정지를 1초에서 4분의 1로 줄인다(yacht.md 「CPU 예산」).
+ */
+export const DEFAULT_SEARCH_BUDGET_MS = 250
 
 export type BotAction = 'HOLD' | 'SCORE'
 
@@ -316,8 +320,12 @@ export class ExpectimaxYachtBotPolicy {
 
     const bestScore = (diceCounts: readonly number[]): ScoreChoice => {
       const dice = expand(diceCounts)
-      // 스몰 스트레이트가 열려 있고 충족됐다면 초이스는 볼 필요가 없다 — 같은
-      // 주사위로 15점 이상이 보장되므로 항상 지배당한다. 탐색 폭을 줄이는 순수한 pruning이다.
+      // **규칙이다(가지치기가 아니다).** 스몰 스트레이트가 열려 있고 충족됐다면 초이스를
+      // 후보에서 뺀다. 평가기만 보면 초이스가 이길 때가 있지만(빈 판의 [3,4,5,6,6]은 효용이
+      // 3.4 높다) 초이스는 나중의 버림 칸으로 남겨 두는 것이 이 봇의 플레이 방식이다 —
+      // 이식한 테스트 「지켜낸 스몰을 기록한다」가 그 계약이다. 예전 주석은 이것을 "결정을
+      // 바꾸지 않는 순수한 pruning"이라 불렀는데 틀렸다. 오라클 차등 테스트가 그 차이를 잡았다
+      // (`__tests__/expectimaxOracle.test.ts`, `test/oracles/yachtBot.ts` 규칙 5).
       const choiceDominated =
         openCategories.includes('smallStraight') && isSatisfiedBy('smallStraight', dice)
       let best: ScoreChoice | null = null
