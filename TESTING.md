@@ -69,7 +69,11 @@ E2E_BASE_URL=http://localhost npm run test:e2e
    (`E2E_ALLOW_REMOTE=1`로만 풀린다). 퍼저와 장애 시나리오가 같은 스위트에 있기 때문이다.
 4. **CI에서 조용히 건너뛰지 않는다.** `REDIS_TEST_REQUIRED=1`·`MYSQL_TEST_REQUIRED=1`이
    켜진 곳에서는 의존이 없으면 건너뛰지 않고 실패한다.
-5. 새 계약 코드(오류 코드·메시지 타입)를 만들면 `backend/test/blackbox/contract.ts`의 사본도
+5. **Botkeep 드라이버는 같은 스위트로 검증한다.** `REDIS_TEST_DRIVER=mock`·`DB_TEST_DRIVER=sqlite`가
+   Redis·MySQL 통합 스위트를 인프로세스 구현(ioredis-mock · `node:sqlite`) 위에서 돌린다. 진짜
+   서버 위의 결과가 명세이고 인프로세스 구현은 그것을 통과해야 하는 쪽이다(ADR-0007).
+   번들 자체는 `.github/workflows/botkeep.yml`이 띄워 블랙박스 스위트를 돌린다.
+6. 새 계약 코드(오류 코드·메시지 타입)를 만들면 `backend/test/blackbox/contract.ts`의 사본도
    함께 고친다. 퍼저가 모르는 코드를 계약 위반으로 잡는다.
 
 ## 찾아낸 것

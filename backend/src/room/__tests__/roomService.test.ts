@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { describeRedis, useRedis } from '../../../test/redisHarness.js'
+import { describeRedis, redisClockFrozenInLua, useRedis } from '../../../test/redisHarness.js'
 import { ConflictError, DomainError } from '../../errors.js'
 import type { UserIdentity } from '../../user/session.js'
 import {
@@ -93,7 +93,7 @@ describeRedis('RoomService', () => {
     expect(await redis().hget(roomKey(roomCode), 'members')).toBe('1')
   })
 
-  it('참가 시 자식 키의 만료가 방 키에 맞춰진다', async () => {
+  it.runIf(redisClockFrozenInLua)('참가 시 자식 키의 만료가 방 키에 맞춰진다', async () => {
     const service = rooms()
     const roomCode = await service.createRoom(6, HOST.userId, 'YACHT_DICE')
     await service.join(roomCode, HOST)

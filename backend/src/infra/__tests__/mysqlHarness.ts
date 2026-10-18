@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import mysql, { type Connection, type Pool } from 'mysql2/promise'
 import { afterAll, afterEach, beforeAll, beforeEach, describe } from 'vitest'
+import { createSqlitePool } from '../sqlite.js'
 
 /**
  * MySQL 통합 테스트 하네스 — [ADR-0005](../../../docs/adr/0005-flyway-compatible-migration-runner.md).
@@ -19,8 +20,14 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe } from 'vitest'
  * 부분은 쓰지 않는다** — 실수로 운영/개발 스키마를 지우지 않기 위해서다.
  */
 const MYSQL_TEST_URL = process.env.MYSQL_TEST_URL
+/**
+ * `sqlite`이면 MySQL 대신 테스트마다 새 인메모리 SQLite 풀을 준다 — 같은 저장소
+ * 스위트가 Botkeep 배포의 DB(`infra/sqlite.ts`) 위에서도 도는지 확인한다.
+ */
+const DB_TEST_DRIVER = process.env.DB_TEST_DRIVER
+const sqliteMode = DB_TEST_DRIVER === 'sqlite'
 
-export const mysqlTestsEnabled = Boolean(MYSQL_TEST_URL)
+export const mysqlTestsEnabled = sqliteMode || Boolean(MYSQL_TEST_URL)
 
 if (!mysqlTestsEnabled && process.env.MYSQL_TEST_REQUIRED === '1') {
   throw new Error('MYSQL_TEST_REQUIRED=1인데 MYSQL_TEST_URL이 없다')
@@ -28,6 +35,9 @@ if (!mysqlTestsEnabled && process.env.MYSQL_TEST_REQUIRED === '1') {
 
 /** MySQL이 없는 환경에서는 통합 스위트를 건너뛴다(단위 테스트는 계속 돈다). */
 export const describeMysql = mysqlTestsEnabled ? describe : describe.skip
+
+/** Flyway 이력처럼 MySQL에만 있는 것을 보는 스위트. SQLite 모드에서는 건너뛴다. */
+export const describeMysqlOnly = MYSQL_TEST_URL && !sqliteMode ? describe : describe.skip
 
 interface ServerCredentials {
   readonly host: string
@@ -50,7 +60,24 @@ const credentials = (): ServerCredentials => {
  * 테스트 하나가 쓸 빈 스키마와 그 위의 풀을 준비한다. 반환된 함수는 테스트
  * 본문에서만 호출한다(`beforeEach` 이후에 값이 생긴다).
  */
-export const useMysql = (): (() => Pool) => {
+export const useMysql = (): (() => Pool) => (sqliteMode ? useSqlite() : useRealMysql())
+
+const useSqlite = (): (() => Pool) => {
+  let pool: Pool | undefined
+  beforeEach(() => {
+    pool = createSqlitePool(':memory:')
+  })
+  afterEach(async () => {
+    await pool?.end()
+    pool = undefined
+  })
+  return () => {
+    if (!pool) throw new Error('useMysql(): beforeEach 이전에는 풀이 없다')
+    return pool
+  }
+}
+
+const useRealMysql = (): (() => Pool) => {
   let admin: Connection | undefined
   let pool: Pool | undefined
   let schema: string | undefined

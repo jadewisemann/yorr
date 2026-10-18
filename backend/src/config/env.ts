@@ -38,6 +38,11 @@ const envSchema = z
   .object({
     SERVER_PORT: z.coerce.number().int().positive().default(8080),
     CORS_ALLOWED_ORIGINS: z.string().default('https://yorr.site'),
+    /**
+     * `memory`면 `redis-server` 대신 프로세스 안의 구현을 쓴다(`infra/memoryRedis.ts`).
+     * 재시작하면 진행 중인 방·게스트 세션이 사라진다 — Botkeep 단일 프로세스 배포용.
+     */
+    REDIS_DRIVER: z.enum(['tcp', 'memory']).default('tcp'),
     REDIS_HOST: z.string().default('localhost'),
     REDIS_PORT: z.coerce.number().int().positive().default(6379),
     REDIS_PASSWORD: z.string().default(''),
@@ -50,6 +55,9 @@ const envSchema = z
      * 적힌 쪽이 이기는 것이 안전하다. 셋을 계속 두는 이유는 `infra/mysql.ts`와
      * 로컬 `.env.example`이 그 모양을 쓰고 있어서다(DB_URL 미설정 = 기존 동작).
      */
+    /** `sqlite`면 MySQL 대신 Node 내장 SQLite 파일을 쓴다(`infra/sqlite.ts`). 아래 DB_*는 무시된다. */
+    DB_DRIVER: z.enum(['mysql', 'sqlite']).default('mysql'),
+    SQLITE_PATH: z.string().default('data/yorr.db'),
     DB_URL: z.string().default(''),
     DB_HOST: z.string().default('localhost'),
     DB_PORT: z.coerce.number().int().positive().default(3306),

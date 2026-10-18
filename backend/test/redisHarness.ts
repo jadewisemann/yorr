@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { Redis } from 'ioredis'
+import RedisMock from 'ioredis-mock'
 import { afterAll, beforeAll, beforeEach, describe } from 'vitest'
 
 /**
@@ -15,11 +16,20 @@ import { afterAll, beforeAll, beforeEach, describe } from 'vitest'
  * `REDIS_TEST_URL`이 있으면 그 서버를 대신 쓴다(CI의 service container 등).
  */
 const REDIS_TEST_URL = process.env.REDIS_TEST_URL
+/** `mock`이면 진짜 서버 대신 인프로세스 구현(ioredis-mock)을 쓴다 — Botkeep 단일 프로세스 배포용. */
+const REDIS_TEST_DRIVER = process.env.REDIS_TEST_DRIVER
+
+/**
+ * ioredis-mock은 Lua 실행 중에도 시각이 흐른다(진짜 Redis는 스크립트 동안 시각을 고정한다).
+ * 한 스크립트 안에서 건 만료끼리 ms 단위로 어긋날 수 있어, 그 정밀도를 보는 단언만 건너뛴다.
+ */
+export const redisClockFrozenInLua = REDIS_TEST_DRIVER !== 'mock'
 
 const hasRedisServerBinary = (): boolean =>
   spawnSync('redis-server', ['--version'], { stdio: 'ignore' }).status === 0
 
-export const redisTestsEnabled = Boolean(REDIS_TEST_URL) || hasRedisServerBinary()
+export const redisTestsEnabled =
+  REDIS_TEST_DRIVER === 'mock' || Boolean(REDIS_TEST_URL) || hasRedisServerBinary()
 
 // CI는 이 값을 켜서 "조용히 건너뛴 초록"을 막는다 — operations.md 참고.
 if (!redisTestsEnabled && process.env.REDIS_TEST_REQUIRED === '1') {
@@ -81,7 +91,9 @@ export const useRedis = (): (() => Redis) => {
   let client: Redis | undefined
 
   beforeAll(async () => {
-    if (REDIS_TEST_URL) {
+    if (REDIS_TEST_DRIVER === 'mock') {
+      client = new RedisMock() as unknown as Redis
+    } else if (REDIS_TEST_URL) {
       client = new Redis(REDIS_TEST_URL)
     } else {
       server = await startRedisServer()

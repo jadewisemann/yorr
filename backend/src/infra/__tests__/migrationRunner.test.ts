@@ -4,14 +4,14 @@ import { discoverMigrations } from '../migrations/discover.js'
 import { MigrationError } from '../migrations/error.js'
 import { DEFAULT_HISTORY_TABLE } from '../migrations/history.js'
 import { runMigrations, verifyMigrations } from '../migrations/runner.js'
-import { describeMysql, useMysql } from './mysqlHarness.js'
+import { describeMysqlOnly, useMysql } from './mysqlHarness.js'
 
 /**
  * 마이그레이션 러너의 통합 테스트 — 진짜 MySQL이 필요하다(ADR-0005).
  * `MYSQL_TEST_URL`이 없으면 통째로 건너뛴다. 순수 로직(버전 파싱·적용 순서·이력
  * 호환 판정·체크섬)은 MySQL 없이 도는 단위 테스트가 덮는다.
  */
-describeMysql('마이그레이션 러너 (실 MySQL)', () => {
+describeMysqlOnly('마이그레이션 러너 (실 MySQL)', () => {
   const mysqlPool = useMysql()
 
   const tables = async (pool: Pool): Promise<string[]> => {

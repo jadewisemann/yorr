@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { describeRedis, useRedis } from '../../../test/redisHarness.js'
+import { describeRedis, redisClockFrozenInLua, useRedis } from '../../../test/redisHarness.js'
 import { ConflictError, DomainError } from '../../errors.js'
 import { runLuaNumber } from '../../infra/lua.js'
 import type { UserIdentity } from '../../user/session.js'
@@ -68,7 +68,7 @@ describeRedis('BotParticipantService — 추가', () => {
     )
   })
 
-  it('봇을 추가해도 방 키 가족의 만료가 어긋나지 않는다', async () => {
+  it.runIf(redisClockFrozenInLua)('봇을 추가해도 방 키 가족의 만료가 어긋나지 않는다', async () => {
     const { roomCode, bots } = await givenLobby()
 
     await bots.add(roomCode, HOST.userId)

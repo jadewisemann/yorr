@@ -1,5 +1,8 @@
+import { mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
 import mysql, { type Pool } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
+import { createSqlitePool } from './sqlite.js'
 
 /**
  * MySQL은 계정·전적·랭킹 등 영속 기록 전용이다 — docs/design/persistence.md.
@@ -10,8 +13,13 @@ import type { Env } from '../config/env.js'
  * 풀은 태생이 lazy라 ioredis의 `lazyConnect`에 해당하는 옵션이 따로 없다 —
  * 첫 질의 전에는 커넥션을 열지 않으므로 **MySQL 없이도 서버 기동은 성공한다**.
  */
-export const createMysqlPool = (env: Env): Pool =>
-  mysql.createPool({
+export const createMysqlPool = (env: Env): Pool => {
+  if (env.DB_DRIVER === 'sqlite') {
+    // SQLite는 MySQL 풀과 달리 열 때 파일을 만든다 — 기동 시 디렉터리가 있어야 한다.
+    if (env.SQLITE_PATH !== ':memory:') mkdirSync(dirname(env.SQLITE_PATH), { recursive: true })
+    return createSqlitePool(env.SQLITE_PATH)
+  }
+  return mysql.createPool({
     host: env.DB_HOST,
     port: env.DB_PORT,
     database: env.DB_NAME,
@@ -28,6 +36,7 @@ export const createMysqlPool = (env: Env): Pool =>
     // 인젝션 피해 범위를 넓히는 multipleStatements를 상시로 켜지 않기 위해서다.
     multipleStatements: false,
   })
+}
 
 /** 풀을 만든 쪽이 닫는다. 주입받은 풀은 닫지 않는다(테스트 하네스가 소유자다). */
 export const closeMysqlPool = async (pool: Pool): Promise<void> => {

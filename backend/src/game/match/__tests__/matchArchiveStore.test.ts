@@ -3,6 +3,7 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { expect, it } from 'vitest'
 import { describeMysql, useMysql } from '../../../infra/__tests__/mysqlHarness.js'
 import { runMigrations } from '../../../infra/migrations/runner.js'
+import { isSqlitePool } from '../../../infra/sqlite.js'
 import type { CompletionRoomSnapshot, Ranking } from '../../completion/index.js'
 import { MatchArchiveService } from '../matchArchiveService.js'
 import { MysqlMatchArchiveStore } from '../matchArchiveStore.js'
@@ -169,6 +170,12 @@ describeMysql('MysqlMatchArchiveStore (실 MySQL)', () => {
       ranking(1, 'guest-1', 10),
     ])
 
+    if (isSqlitePool(pool)) {
+      // SQLite(Botkeep)는 ISO 8601 UTC 문자열로 적는다 — 같은 계약의 다른 표기다.
+      const [rows] = await pool.query<RowDataPacket[]>('SELECT finished_at FROM matches')
+      expect(rows[0]?.finished_at).toBe('2026-08-14T02:03:04.005Z')
+      return
+    }
     interface FinishedAtRow extends RowDataPacket {
       readonly wall: string
       readonly finished_at: Date

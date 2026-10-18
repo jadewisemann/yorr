@@ -1,4 +1,5 @@
 import type { Pool, PoolConnection } from 'mysql2/promise'
+import { isSqlitePool } from '../sqlite.js'
 import { discoverMigrations } from './discover.js'
 import { MigrationError } from './error.js'
 import {
@@ -31,6 +32,23 @@ export interface MigrationReport {
   readonly plan: MigrationPlan
   /** 이번 호출이 실제로 적용한 마이그레이션(`verifyMigrations`는 항상 빈 배열). */
   readonly applied: readonly string[]
+}
+
+/**
+ * SQLite(Botkeep 배포)에는 Flyway 이력이 없다. 스키마는 `createSqlitePool`이 열 때
+ * `CREATE TABLE IF NOT EXISTS`로 맞추므로 러너는 빈 보고서만 돌려준다.
+ */
+const SQLITE_REPORT: MigrationReport = {
+  plan: {
+    baselineVersion: null,
+    applied: [],
+    pending: [],
+    belowBaseline: [],
+    missingLocally: [],
+    checksumMismatches: [],
+    failed: [],
+  },
+  applied: [],
 }
 
 const resolve = (options: MigrationOptions) => ({
@@ -71,6 +89,7 @@ export const verifyMigrations = async (
   pool: Pool,
   options: MigrationOptions = {},
 ): Promise<MigrationReport> => {
+  if (isSqlitePool(pool)) return SQLITE_REPORT
   const { validateChecksums } = resolve(options)
   const conn = await pool.getConnection()
   try {
@@ -100,6 +119,7 @@ export const runMigrations = async (
   pool: Pool,
   options: MigrationOptions = {},
 ): Promise<MigrationReport> => {
+  if (isSqlitePool(pool)) return SQLITE_REPORT
   const { table, baselineVersion, validateChecksums } = resolve(options)
   const conn = await pool.getConnection()
   try {
