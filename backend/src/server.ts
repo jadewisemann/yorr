@@ -62,6 +62,7 @@ import {
 import { resumeGamesOnStartup } from './game/startupResume.js'
 import {
   BotTurnOrchestrator,
+  CooperativeYachtBotPolicy,
   ExpectimaxYachtBotPolicy,
   LocalYachtBotStrategy,
   RedisRoundDeadlineStore,
@@ -334,7 +335,11 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
         {
           rounds: roundSync,
           actions: yachtActions,
-          policy: new ExpectimaxYachtBotPolicy(new ScorecardValueEvaluator()),
+          // 탐색은 프로세스 전체에서 하나씩, 사이마다 이벤트 루프에 양보한다 — 여러 방의 봇 턴이
+          // 겹쳐도 다른 방의 메시지가 탐색 N개를 기다리지 않는다(cooperativeBotPolicy.ts).
+          policy: new CooperativeYachtBotPolicy(
+            new ExpectimaxYachtBotPolicy(new ScorecardValueEvaluator()),
+          ),
           strategy: new LocalYachtBotStrategy(),
           rooms,
           scores,
