@@ -1,8 +1,8 @@
-import type { Redis } from 'ioredis'
 import type { Pool } from 'mysql2/promise'
 import { expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../test/redisHarness.js'
 import { describeMysql, useMysql } from '../../infra/__tests__/mysqlHarness.js'
+import type { Redis } from '../../infra/memoryRedis.js'
 import {
   mysqlReadinessCheck,
   type ReadinessMysql,
@@ -23,7 +23,7 @@ import {
  * 있다는 사실과 `ping`이 응답한다는 사실은 다르고, readiness가 증명해야 하는 것은
  * 후자다.
  */
-describeRedis('readiness 포트 ↔ ioredis', () => {
+describeRedis('readiness 포트 ↔ MemoryRedis', () => {
   const redis = useRedis()
 
   it('Redis가 ReadinessRedis를 만족하고 PING이 실제로 돌아온다', async () => {

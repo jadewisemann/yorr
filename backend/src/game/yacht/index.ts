@@ -61,7 +61,7 @@ export {
   RedisYachtDiceStateStore,
   type RedisYachtDiceStateStoreOptions,
 } from './redisYachtDiceStateStore.js'
-export { YACHT_SCRIPTS, YACHT_UNLOCK_STATE } from './scripts.js'
+export { YACHT_UNLOCK_STATE } from './scripts.js'
 export {
   YachtDiceGameModule,
   type YachtDiceGameModuleDeps,

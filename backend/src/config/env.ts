@@ -39,14 +39,6 @@ const envSchema = z
     SERVER_PORT: z.coerce.number().int().positive().default(8080),
     CORS_ALLOWED_ORIGINS: z.string().default('https://yorr.site'),
     /**
-     * `memory`면 `redis-server` 대신 프로세스 안의 구현을 쓴다(`infra/memoryRedis.ts`).
-     * 재시작하면 진행 중인 방·게스트 세션이 사라진다 — Botkeep 단일 프로세스 배포용.
-     */
-    REDIS_DRIVER: z.enum(['tcp', 'memory']).default('tcp'),
-    REDIS_HOST: z.string().default('localhost'),
-    REDIS_PORT: z.coerce.number().int().positive().default(6379),
-    REDIS_PASSWORD: z.string().default(''),
-    /**
      * **운영 `.env`가 실제로 담고 있는 MySQL 좌표**다. JDBC URL 하나로 온다
      * (예: `jdbc:mysql://localhost:3306/yorr?useSSL=false&...`).
      *

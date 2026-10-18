@@ -1,14 +1,13 @@
 import type { AddressInfo } from 'node:net'
-import { Redis } from 'ioredis'
 import { afterAll, beforeAll, describe } from 'vitest'
 import { loadEnv } from '../../src/config/env.js'
+import { MemoryRedis } from '../../src/infra/memoryRedis.js'
 import { createServer, type YorrServer } from '../../src/server.js'
-import { redisTestsEnabled, startRedisServer } from '../redisHarness.js'
 
 /**
  * 블랙박스 스위트가 두드릴 서버. **두 모드가 같은 테스트를 돌린다.**
  *
- * - `in-process`(기본): 이 프로세스에 진짜 서버를 띄운다 — 진짜 포트, 진짜 redis-server.
+ * - `in-process`(기본): 이 프로세스에 진짜 서버를 띄운다 — 진짜 포트, 운영과 같은 인프로세스 저장소.
  *   REST는 `app.inject`가 아니라 `fetch`로, WS는 진짜 소켓으로 간다.
  * - `external`: `E2E_BASE_URL`의 서버. 배포 리허설이 CI에서 띄운 **실제 이미지·compose·
  *   프록시**를 그대로 두드린다(SQLite의 "test what you fly": 출하하는 산출물을 시험한다).
@@ -40,9 +39,8 @@ const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 
 export const targetMode: TargetMode = process.env.E2E_BASE_URL?.trim() ? 'external' : 'in-process'
 
-/** in-process 모드는 redis-server가 있어야 돈다. CI는 `REDIS_TEST_REQUIRED=1`로 건너뜀을 막는다. */
-export const describeTarget =
-  targetMode === 'external' || redisTestsEnabled ? describe : describe.skip
+/** 두 모드 모두 언제나 돈다 — in-process 서버도 저장소를 프로세스 안에 둔다. */
+export const describeTarget = describe
 
 /**
  * external 주소. **운영을 두드리지 않도록 루프백만 받는다** — 퍼저와 장애 시나리오가 같은
@@ -76,7 +74,7 @@ export interface InProcessTarget {
  * `stop()`은 서버만 닫는다 — 클라이언트는 넘긴 쪽이 닫는다. 장애 주입 테스트가 가짜가 아닌
  * **감싼** 클라이언트(`test/faults/faultyRedis.ts`)를 넘기는 자리다.
  */
-export const serveInProcess = async (redis: Redis): Promise<InProcessTarget> => {
+export const serveInProcess = async (redis: MemoryRedis): Promise<InProcessTarget> => {
   const logs: ServerLogLine[] = []
   // 포트 0 = 빈 포트 자동 할당. 스킴은 양수만 받으므로(운영 계약) 여기서만 덮어쓴다.
   const env = { ...loadEnv({ CORS_ALLOWED_ORIGINS: 'https://yorr.site' }), SERVER_PORT: 0 }
@@ -102,22 +100,17 @@ export const serveInProcess = async (redis: Redis): Promise<InProcessTarget> => 
 }
 
 /**
- * 이 프로세스에 진짜 서버 하나 — 자기 redis-server까지. `stop()`은 서버를 닫고 Redis까지
- * 내린다(누수 검사가 "시작 전과 같은 상태로 돌아왔는가"를 본다).
+ * 이 프로세스에 진짜 서버 하나 — 자기 저장소까지. `stop()`은 서버를 닫고 저장소의 회수
+ * 타이머까지 내린다(누수 검사가 "시작 전과 같은 상태로 돌아왔는가"를 본다).
  */
 export const startInProcessTarget = async (): Promise<InProcessTarget> => {
-  const redisServer = await startRedisServer()
-  const redis = new Redis({ path: redisServer.socketPath })
-  // `server.close()`는 끊긴 소켓들의 정리 작업이 끝나기를 기다리지 않는다. 그 꼬리가
-  // 내린 Redis에 쓰다 나는 EPIPE는 정리 순서의 부산물이므로 콘솔에 찍지 않는다.
-  redis.on('error', () => {})
+  const redis = new MemoryRedis()
   const served = await serveInProcess(redis)
   return {
     target: served.target,
     stop: async () => {
       await served.stop()
-      await redis.quit().catch(() => redis.disconnect())
-      redisServer.stop()
+      redis.disconnect()
     },
   }
 }

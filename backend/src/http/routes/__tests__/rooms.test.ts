@@ -1,7 +1,7 @@
-import type { Redis } from 'ioredis'
 import { afterAll, beforeEach, expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../../test/redisHarness.js'
 import { loadEnv } from '../../../config/env.js'
+import type { Redis } from '../../../infra/memoryRedis.js'
 import { playersKey, roomKey } from '../../../room/keys.js'
 import { RoomService } from '../../../room/roomService.js'
 import { createServer, type YorrServer } from '../../../server.js'

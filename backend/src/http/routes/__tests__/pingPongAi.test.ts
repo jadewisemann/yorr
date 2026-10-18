@@ -1,5 +1,4 @@
 import fastify, { type FastifyInstance } from 'fastify'
-import type { Redis } from 'ioredis'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../../test/redisHarness.js'
 import type { MatchArchiveInput } from '../../../game/match/index.js'
@@ -9,6 +8,7 @@ import {
   type PingPongAiResultArchive,
   PingPongAiResultService,
 } from '../../../game/pingpong/index.js'
+import type { Redis } from '../../../infra/memoryRedis.js'
 import { UserService } from '../../../user/session.js'
 import { registerPingPongAiRoutes } from '../pingPongAi.js'
 

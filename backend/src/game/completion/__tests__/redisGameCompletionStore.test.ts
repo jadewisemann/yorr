@@ -1,6 +1,6 @@
-import type { Redis } from 'ioredis'
 import { expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../../test/redisHarness.js'
+import type { Redis } from '../../../infra/memoryRedis.js'
 import { gameScoreboardKey, playersKey, roomKey, scoresKey } from '../../../room/keys.js'
 import { RoomService } from '../../../room/roomService.js'
 import { SCORE_CATEGORIES, TOTAL_FIELD, UPPER_SUBTOTAL_FIELD } from '../../score/index.js'
@@ -94,18 +94,13 @@ describeRedis('RedisGameCompletionStore', () => {
 
   /**
    * 동시에 여러 호출이 들어와도 true는 한 번만 나와야 한다 — 이 보장이 곧
-   * `game.over` 중복 방송 불가다. **연결 8개**로 건다 — 한 연결에 보내면
-   * 파이프라인이 직렬화돼 경합이 사라진다.
+   * `game.over` 중복 방송 불가다. 8건을 한꺼번에 띄워 같은 틱 안에서 경합시킨다.
    */
   it('동시 8건 중 한 호출만 전이한다', async () => {
     await seed()
     for (const playerId of PLAYERS) await fillScoreboard(playerId, 12)
 
-    // 재시도를 끈다 — 테스트가 끝나고 서버가 내려간 뒤 재접속을 시도하면
-    // 스위트 밖에서 ENOENT가 튄다.
-    const clients = Array.from({ length: 8 }, () =>
-      redis().duplicate({ retryStrategy: () => null }),
-    )
+    const clients = Array.from({ length: 8 }, () => redis().duplicate())
     try {
       await Promise.all(clients.map(async (client) => client.ping()))
       const results = await Promise.all(

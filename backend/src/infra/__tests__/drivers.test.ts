@@ -5,7 +5,6 @@ import { afterEach, expect, it } from 'vitest'
 import { loadEnv } from '../../config/env.js'
 import { runMigrations, verifyMigrations } from '../migrations/runner.js'
 import { closeMysqlPool, createMysqlPool } from '../mysql.js'
-import { createRedisClient } from '../redis.js'
 import { isSqlitePool } from '../sqlite.js'
 
 /** Botkeep 번들이 고르는 드라이버(ADR-0007)가 env 하나로 실제로 바뀌는지 본다. */
@@ -40,11 +39,4 @@ it('기본 DB 드라이버는 그대로 MySQL이다', async () => {
 
   expect(isSqlitePool(pool)).toBe(false)
   await closeMysqlPool(pool)
-})
-
-it('REDIS_DRIVER=memory면 서버 없이 바로 응답한다', async () => {
-  const redis = createRedisClient(loadEnv({ REDIS_DRIVER: 'memory' }))
-
-  expect(await redis.ping()).toBe('PONG')
-  redis.disconnect()
 })

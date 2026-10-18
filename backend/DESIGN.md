@@ -32,13 +32,15 @@
 6. **Redis는 실시간, MySQL은 영속.** 방·세션·진행 중 게임 상태·점수판은 Redis,
    계정·전적·주간 랭킹은 MySQL. 게임이 진행되는 동안 MySQL을 만지지 않는다 —
    MySQL 기록은 게임 종료(전적 보관) 시점에만 일어난다.
-   Botkeep 배포는 같은 역할 분리를 프로세스 안에서 지킨다: Redis 자리에 ioredis-mock,
-   MySQL 자리에 `node:sqlite`가 들어가고 저장소 코드는 같다
-   ([ADR-0007](docs/adr/0007-botkeep-single-process.md)). 그 배포에서는 재시작하면 Redis 쪽 상태가 사라진다.
-7. **동시성 있는 상태 전이는 Redis Lua로 원자적으로.** 정원·중복 참가·점수
-   확정·게임 종료 판정은 전부 Lua 스크립트 한 번으로 검증+갱신한다. 반환 코드가
-   곧 계약이다. 스크립트가 키 이름을 내부에서 조립하므로 **단일 Redis 노드
-   전제**다(클러스터 전환 시 별도 ADR).
+   "Redis"는 이제 서버가 아니라 프로세스 안의 저장소(`MemoryRedis`)다. Redis 명령 이름과
+   시맨틱을 그대로 흉내 내므로 저장소 코드는 Redis를 쓰던 모양 그대로이고, 영속화가
+   없어 **재시작하면 이 쪽 상태가 사라진다**([ADR-0007](docs/adr/0007-botkeep-single-process.md)).
+7. **동시성 있는 상태 전이는 원자적 스크립트 한 번으로.** 정원·중복 참가·점수
+   확정·게임 종료 판정은 전부 스크립트 한 번으로 검증+갱신한다. 반환 코드가
+   곧 계약이다. 스크립트는 Redis 시절의 Lua를 한 줄씩 옮긴 **동기 JS 함수**이고
+   (`AtomicScript`, `infra/memoryRedis.ts`), 도중에 `await`가 없어 Node의 단일
+   스레드에서 다른 명령이 끼어들지 못한다 — 그것이 원자성의 근거다
+   ([ADR-0007](docs/adr/0007-botkeep-single-process.md)).
 8. **단일 인스턴스 전제.** WS 구독, 라운드 마감 **타이머 발화**, 방 폐쇄 예약,
    오프라인 카운터, 주간 랭킹 캐시는 프로세스 인메모리다. 수평 확장은 이
    범위 밖이다.
@@ -115,7 +117,7 @@ Mobile / Desktop Browser
 | `user/` | 세션·게스트·프로필 |
 | `auth/` | 소셜 로그인(OAuth), 로그인 코드·state 스토어 |
 | `game/` | GameModule 인터페이스·레지스트리, 라운드 프레임워크, 점수 파이프라인, `game/yacht/` 등 게임별 모듈 |
-| `infra/` | Redis·MySQL 클라이언트 팩토리(인프로세스 드라이버 `memoryRedis.ts`·`sqlite.ts` 포함), Lua 스크립트 등록·호출 체계. 도메인 로직 금지 |
+| `infra/` | 인프로세스 저장소(`memoryRedis.ts` — Redis 명령 + 원자적 스크립트)와 DB 어댑터. 도메인 로직 금지 |
 | `errors.ts` | 도메인 오류의 공통 뿌리 `DomainError` — 메시지 자리에 **문자열 오류 코드**가 들어간다 |
 | `main.ts` / `server.ts` | 부팅·조립. 조립 순서 외의 로직 금지 |
 

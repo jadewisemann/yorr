@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import type { Redis } from 'ioredis'
 import { CodedError, ConflictError, DomainError } from '../errors.js'
-import { registerLuaScripts, runLuaNumber } from '../infra/lua.js'
+import type { Redis } from '../infra/memoryRedis.js'
+import { runAtomicNumber } from '../infra/memoryRedis.js'
 import { roomKeyFamily } from './keys.js'
 import type { RoomService } from './roomService.js'
-import { BOT_ADD, BOT_REMOVE, BOT_SCRIPTS } from './scripts.js'
+import { BOT_ADD, BOT_REMOVE } from './scripts.js'
 import type { RoomSnapshot } from './snapshot.js'
 
 /**
@@ -38,13 +38,11 @@ export class BotParticipantService {
   constructor(
     private readonly redis: Redis,
     private readonly rooms: RoomService,
-  ) {
-    registerLuaScripts(redis, BOT_SCRIPTS)
-  }
+  ) {}
 
   async add(roomCode: string, requesterId: string): Promise<RoomSnapshot> {
     const botId = newBotId()
-    const result = await runLuaNumber(this.redis, BOT_ADD, roomKeyFamily(roomCode), [
+    const result = await runAtomicNumber(this.redis, BOT_ADD, roomKeyFamily(roomCode), [
       requesterId,
       botId,
       botNickname(botId),
@@ -55,7 +53,7 @@ export class BotParticipantService {
   }
 
   async remove(roomCode: string, requesterId: string, botId: string): Promise<RoomSnapshot> {
-    const result = await runLuaNumber(this.redis, BOT_REMOVE, roomKeyFamily(roomCode), [
+    const result = await runAtomicNumber(this.redis, BOT_REMOVE, roomKeyFamily(roomCode), [
       requesterId,
       botId,
     ])

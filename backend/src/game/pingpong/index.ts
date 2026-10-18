@@ -72,7 +72,4 @@ export {
   type PingPongState,
   type PingPongSwingPayload,
 } from './pingPongState.js'
-export {
-  PING_PONG_STATE_SCRIPTS,
-  RedisPingPongStateStore,
-} from './pingPongStateStore.js'
+export { RedisPingPongStateStore } from './pingPongStateStore.js'

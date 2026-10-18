@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import type { Redis } from 'ioredis'
+import type { Redis } from '../infra/memoryRedis.js'
 
 /**
  * 콜백이 프론트로 넘기는 **일회용 교환 코드**.

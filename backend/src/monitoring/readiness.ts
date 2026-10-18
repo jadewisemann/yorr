@@ -140,7 +140,7 @@ const runWithTimeout = async (check: ReadinessCheck, timeoutMs: number): Promise
   }
 }
 
-/** `ioredis`의 `Redis`가 그대로 만족한다. 이 판정이 실제로 부르는 것은 `ping` 하나다. */
+/** `MemoryRedis`가 그대로 만족한다. 이 판정이 실제로 부르는 것은 `ping` 하나다. */
 export interface ReadinessRedis {
   ping(): Promise<unknown>
 }

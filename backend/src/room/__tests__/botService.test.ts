@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
-import { describeRedis, redisClockFrozenInLua, useRedis } from '../../../test/redisHarness.js'
+import { describeRedis, useRedis } from '../../../test/redisHarness.js'
 import { ConflictError, DomainError } from '../../errors.js'
-import { runLuaNumber } from '../../infra/lua.js'
+import { runAtomicNumber } from '../../infra/memoryRedis.js'
 import type { UserIdentity } from '../../user/session.js'
 import { BotParticipantService, ForbiddenError } from '../botService.js'
 import { botsKey, playersKey, roomKey, roomKeyFamily, scoresKey } from '../keys.js'
@@ -68,7 +68,7 @@ describeRedis('BotParticipantService — 추가', () => {
     )
   })
 
-  it.runIf(redisClockFrozenInLua)('봇을 추가해도 방 키 가족의 만료가 어긋나지 않는다', async () => {
+  it('봇을 추가해도 방 키 가족의 만료가 어긋나지 않는다', async () => {
     const { roomCode, bots } = await givenLobby()
 
     await bots.add(roomCode, HOST.userId)
@@ -122,7 +122,7 @@ describeRedis('BotParticipantService — 추가', () => {
     const botId = snapshot.players.find((player) => player.kind === 'BOT')?.playerId as string
 
     // add()는 UUID를 새로 뽑으므로 중복 경로는 스크립트를 직접 불러 고정한다.
-    const result = await runLuaNumber(redis(), BOT_ADD, roomKeyFamily(roomCode), [
+    const result = await runAtomicNumber(redis(), BOT_ADD, roomKeyFamily(roomCode), [
       HOST.userId,
       botId,
       '요르봇 중복',

@@ -1,8 +1,8 @@
-import type { Redis } from 'ioredis'
-import { registerLuaScripts, runLuaNumber } from '../../infra/lua.js'
+import type { Redis } from '../../infra/memoryRedis.js'
+import { runAtomicNumber } from '../../infra/memoryRedis.js'
 import { playersKey, roomKey, scoresKey } from '../../room/keys.js'
 import { SCORE_CATEGORIES } from '../score/index.js'
-import { COMPLETION_SCRIPTS, FINISH_IF_COMPLETE, FINISH_IF_COMPLETE_CODE } from './scripts.js'
+import { FINISH_IF_COMPLETE, FINISH_IF_COMPLETE_CODE } from './scripts.js'
 
 /**
  * 요트 정규룰 족보 수. 이만큼 기록되면 그 플레이어의 점수판은 꽉 찬 것이다.
@@ -42,13 +42,12 @@ export class RedisGameCompletionStore implements GameCompletionStore {
 
   constructor(redis: Redis) {
     this.redis = redis
-    registerLuaScripts(redis, COMPLETION_SCRIPTS)
   }
 
   async finishIfComplete(roomCode: string, gameId: string, force: boolean): Promise<boolean> {
     if (roomCode.trim().length === 0 || gameId.trim().length === 0) return false
 
-    const result = await runLuaNumber(
+    const result = await runAtomicNumber(
       this.redis,
       FINISH_IF_COMPLETE,
       [roomKey(roomCode), playersKey(roomCode)],

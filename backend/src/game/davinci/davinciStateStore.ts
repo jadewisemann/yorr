@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import type { Redis } from 'ioredis'
 import { ConflictError } from '../../errors.js'
-import { type LuaScript, registerLuaScripts, runLua } from '../../infra/lua.js'
+import type { AtomicScript, Redis } from '../../infra/memoryRedis.js'
 import { gameStateKey, roomKey } from '../../room/keys.js'
 import { DAVINCI_CODE } from './davinciCode.js'
 import type { DavinciState } from './davinciState.js'
@@ -40,18 +39,12 @@ const LOCK_WAIT_MILLIS = 2_000
 const LOCK_RETRY_MILLIS = 10
 
 /** 내가 잡은 락만 푼다 — TTL로 이미 넘어간 락을 남이 잡았을 때 그것까지 풀지 않게. */
-const DAVINCI_UNLOCK: LuaScript = {
+const DAVINCI_UNLOCK: AtomicScript = {
   name: 'davinciUnlock',
-  numberOfKeys: 1,
-  lua: `
-if redis.call('GET', KEYS[1]) == ARGV[1] then
-    return redis.call('DEL', KEYS[1])
-end
-return 0
-`,
+  run(r, [lock], [token]) {
+    return r.get(lock) === token ? r.del(lock) : 0
+  },
 }
-
-export const DAVINCI_SCRIPTS: readonly LuaScript[] = [DAVINCI_UNLOCK]
 
 const stateKey = (roomId: string): string => {
   if (roomId.trim().length === 0) throw new Error('roomId must not be blank')
@@ -68,7 +61,6 @@ export class RedisDavinciStateStore implements DavinciStateStore {
 
   constructor(redis: Redis) {
     this.redis = redis
-    registerLuaScripts(redis, DAVINCI_SCRIPTS)
   }
 
   async initialize(roomId: string, state: DavinciState): Promise<void> {
@@ -120,7 +112,7 @@ export class RedisDavinciStateStore implements DavinciStateStore {
     try {
       return await action()
     } finally {
-      await runLua(this.redis, DAVINCI_UNLOCK, [lockKey], [token]).catch(() => 0)
+      await this.redis.runAtomic(DAVINCI_UNLOCK, [lockKey], [token]).catch(() => 0)
     }
   }
 }

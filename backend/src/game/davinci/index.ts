@@ -65,7 +65,6 @@ export {
   toView,
 } from './davinciState.js'
 export {
-  DAVINCI_SCRIPTS,
   type DavinciStateStore,
   RedisDavinciStateStore,
 } from './davinciStateStore.js'

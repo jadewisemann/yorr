@@ -55,7 +55,6 @@ export {
   isDuelFinished,
 } from './duelState.js'
 export {
-  DUEL_SCRIPTS,
   type DuelStateStore,
   RedisDuelStateStore,
 } from './duelStateStore.js'

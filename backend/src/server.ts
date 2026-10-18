@@ -1,6 +1,5 @@
 import cors from '@fastify/cors'
 import fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify'
-import type { Redis } from 'ioredis'
 import type { Pool } from 'mysql2/promise'
 import { authOptions } from './auth/config.js'
 import { GoogleOAuthClient } from './auth/googleClient.js'
@@ -82,8 +81,8 @@ import { registerQuickMatchRoutes } from './http/routes/quickMatch.js'
 import { registerRankingRoutes } from './http/routes/ranking.js'
 import { registerRoomRoutes } from './http/routes/rooms.js'
 import { registerUserRoutes } from './http/routes/users.js'
+import { MemoryRedis, type Redis } from './infra/memoryRedis.js'
 import { closeMysqlPool, createMysqlPool } from './infra/mysql.js'
-import { createRedisClient } from './infra/redis.js'
 import {
   mysqlReadinessCheck,
   ReadinessService,
@@ -181,7 +180,7 @@ export interface YorrServer {
 }
 
 export const createServer = async (env: Env, options: ServerOptions = {}): Promise<YorrServer> => {
-  const redis = options.redis ?? createRedisClient(env)
+  const redis = options.redis ?? new MemoryRedis()
   const ownsRedis = options.redis === undefined
   // 풀 생성은 커넥션을 열지 않는다(infra/mysql.ts) — MySQL이 없어도 기동은 성공하고,
   // 실제 확인은 `main.ts`가 `verifyMigrations`로 한다.

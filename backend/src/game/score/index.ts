@@ -53,7 +53,7 @@ export {
   type ScoreRoundSubmissionResult,
   ScoreRoundSubmissionService,
 } from './scoreRoundSubmissionService.js'
-export { CONFIRM_SCORE, CONFIRM_SCORE_CODE, SCORE_SCRIPTS } from './scripts.js'
+export { CONFIRM_SCORE, CONFIRM_SCORE_CODE } from './scripts.js'
 export {
   calculateScore,
   calculateUpperBonus,

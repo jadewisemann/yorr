@@ -1,4 +1,4 @@
-import type { Redis } from 'ioredis'
+import type { Redis } from '../../infra/memoryRedis.js'
 import { roomKey } from '../../room/keys.js'
 import { YACHT_DICE } from '../catalog.js'
 import type { RoundDeadlineStore, StoredRoundDeadline } from '../round/index.js'

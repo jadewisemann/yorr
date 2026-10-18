@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
-import type { Redis } from 'ioredis'
+import type { Redis } from '../infra/memoryRedis.js'
 import { InvalidNicknameError, SessionAuthenticationError } from './errors.js'
 
 export type UserType = 'GUEST' | 'MEMBER'

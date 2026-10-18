@@ -1,6 +1,6 @@
-import type { Redis } from 'ioredis'
 import { expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../../test/redisHarness.js'
+import type { Redis } from '../../../infra/memoryRedis.js'
 import { gameKey, gameScoreboardKey, playersKey, roomKey } from '../../../room/keys.js'
 import {
   type GameScoreQueryReason,

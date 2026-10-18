@@ -1,4 +1,4 @@
-import type { Redis } from 'ioredis'
+import type { Redis } from '../../infra/memoryRedis.js'
 import { playersKey, scoresKey } from '../../room/keys.js'
 import type { PingPongScoreWriter } from './pingPongPorts.js'
 import type { PingPongPlayerNumbers } from './pingPongState.js'

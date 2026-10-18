@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
-import type { Redis } from 'ioredis'
 import { ConflictError } from '../../errors.js'
-import { registerLuaScripts, runLua } from '../../infra/lua.js'
+import type { Redis } from '../../infra/memoryRedis.js'
 import { gameStateKey, ROOM_KEY_PREFIX, roomKey } from '../../room/keys.js'
 import { YACHT_DICE } from '../catalog.js'
 import {
@@ -12,7 +11,7 @@ import {
   type RoundSubmissionResult,
   RoundSynchronizationError,
 } from '../round/index.js'
-import { YACHT_SCRIPTS, YACHT_UNLOCK_STATE } from './scripts.js'
+import { YACHT_UNLOCK_STATE } from './scripts.js'
 import { deserializeState, serializeState } from './yachtDiceStateSnapshot.js'
 
 /** 락 TTL. 이 안에서 read-modify-write(+점수 확정 Lua)가 끝난다는 전제다. */
@@ -63,7 +62,6 @@ export class RedisYachtDiceStateStore implements RoundStateStore {
 
   constructor(redis: Redis, options: RedisYachtDiceStateStoreOptions = {}) {
     this.redis = redis
-    registerLuaScripts(redis, YACHT_SCRIPTS)
     this.lockTtlMs = options.lockTtlMs ?? LOCK_TTL_MS
     this.lockWaitMs = options.lockWaitMs ?? LOCK_WAIT_MS
     this.lockRetryMs = options.lockRetryMs ?? LOCK_RETRY_MS
@@ -241,7 +239,7 @@ export class RedisYachtDiceStateStore implements RoundStateStore {
       }
       return await action()
     } finally {
-      await runLua(this.redis, YACHT_UNLOCK_STATE, [lockKey], [token]).catch(() => {
+      await this.redis.runAtomic(YACHT_UNLOCK_STATE, [lockKey], [token]).catch(() => {
         // 해제 실패는 삼킨다 — TTL이 5초 뒤에 같은 일을 한다. 여기서 던지면
         // 정상 처리된 전이의 결과를 잃는다.
       })
