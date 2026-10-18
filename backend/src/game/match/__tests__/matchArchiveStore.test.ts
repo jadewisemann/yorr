@@ -1,12 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { expect, it } from 'vitest'
-import { describeMysql, useMysql } from '../../../infra/__tests__/mysqlHarness.js'
-import { runMigrations } from '../../../infra/migrations/runner.js'
-import { isSqlitePool } from '../../../infra/sqlite.js'
+import { describeDb, useDb } from '../../../infra/__tests__/dbHarness.js'
+import type { Pool, RowDataPacket } from '../../../infra/sqlite.js'
 import type { CompletionRoomSnapshot, Ranking } from '../../completion/index.js'
 import { MatchArchiveService } from '../matchArchiveService.js'
-import { MysqlMatchArchiveStore } from '../matchArchiveStore.js'
+import { SqliteMatchArchiveStore } from '../matchArchiveStore.js'
 
 /**
  * 전적 보관의 MySQL 절반.
@@ -38,19 +36,18 @@ const ranking = (rank: number, playerId: string, total: number): Ranking => ({
   total,
 })
 
-describeMysql('MysqlMatchArchiveStore (실 MySQL)', () => {
-  const mysqlPool = useMysql()
+describeDb('SqliteMatchArchiveStore (SQLite)', () => {
+  const dbPool = useDb()
 
   /** 빈 스키마에 V1·V2를 적용하고 서비스를 조립한다. */
   const setUp = async (): Promise<{
     pool: Pool
-    store: MysqlMatchArchiveStore
+    store: SqliteMatchArchiveStore
     service: MatchArchiveService
     signUp: (nickname: string) => Promise<string>
   }> => {
-    const pool = mysqlPool()
-    await runMigrations(pool)
-    const store = new MysqlMatchArchiveStore(pool)
+    const pool = dbPool()
+    const store = new SqliteMatchArchiveStore(pool)
     return {
       pool,
       store,
@@ -170,24 +167,9 @@ describeMysql('MysqlMatchArchiveStore (실 MySQL)', () => {
       ranking(1, 'guest-1', 10),
     ])
 
-    if (isSqlitePool(pool)) {
-      // SQLite(Botkeep)는 ISO 8601 UTC 문자열로 적는다 — 같은 계약의 다른 표기다.
-      const [rows] = await pool.query<RowDataPacket[]>('SELECT finished_at FROM matches')
-      expect(rows[0]?.finished_at).toBe('2026-08-14T02:03:04.005Z')
-      return
-    }
-    interface FinishedAtRow extends RowDataPacket {
-      readonly wall: string
-      readonly finished_at: Date
-    }
-    const [rows] = await pool.query<FinishedAtRow[]>(
-      "SELECT DATE_FORMAT(finished_at, '%Y-%m-%d %H:%i:%s.%f') AS wall, finished_at FROM matches",
-    )
-    const row = rows[0]
-    if (row === undefined) throw new Error('보관된 판이 없다')
-    expect(row.wall).toBe('2026-08-14 02:03:04.005000')
-    // 같은 드라이버 설정(`timezone: 'Z'`)으로 읽으면 넣은 순간이 그대로 돌아온다.
-    expect(row.finished_at.toISOString()).toBe(FIXED_NOW.toISOString())
+    // ISO 8601 UTC 문자열로 적힌다 — 기간 질의가 문자열 비교로 시각을 비교하는 근거다.
+    const [rows] = await pool.query<RowDataPacket[]>('SELECT finished_at FROM matches')
+    expect(rows[0]?.finished_at).toBe('2026-08-14T02:03:04.005Z')
   })
 
   /** 사전 확인은 동시 호출에서 깨진다 — 최종 방어선이 `uk_matches_game`인지 본다. */

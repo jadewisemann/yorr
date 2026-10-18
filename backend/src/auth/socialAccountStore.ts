@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
+import type { Pool, PoolConnection, RowDataPacket } from '../infra/sqlite.js'
 import { DataIntegrityViolationError, isMysqlIntegrityViolation } from './errors.js'
 import { type MemberUser, PLACEHOLDER_NICKNAME, type SocialProvider } from './socialProfile.js'
 
@@ -64,7 +64,7 @@ const toMember = (row: UserRow): MemberUser => ({
  * MySQL 구현. 스키마는 Flyway V1(`users`·`social_accounts`)이고 전환기에는
  * 바꾸지 않는다(persistence.md 「전환기 스키마 동결」).
  */
-export class MysqlSocialAccountStore implements SocialAccountRepository, SocialAccountRegistrar {
+export class SqliteSocialAccountStore implements SocialAccountRepository, SocialAccountRegistrar {
   constructor(
     private readonly pool: Pool,
     /** 시각 주입 — 테스트가 시간을 고정한다. 풀의 `timezone: 'Z'`가 UTC로 적는다. */

@@ -1,13 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { beforeEach, expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../test/redisHarness.js'
 import { type MemberUser, PLACEHOLDER_NICKNAME } from '../../auth/socialProfile.js'
-import { describeMysql, useMysql } from '../../infra/__tests__/mysqlHarness.js'
-import { runMigrations } from '../../infra/migrations/runner.js'
+import { describeDb, useDb } from '../../infra/__tests__/dbHarness.js'
+import type { Pool, RowDataPacket } from '../../infra/sqlite.js'
 import { InvalidNicknameError } from '../errors.js'
 import {
-  MysqlUserProfileStore,
+  SqliteUserProfileStore,
   UserNotFoundError,
   type UserProfileRepository,
   UserProfileService,
@@ -23,7 +22,7 @@ import { UserService } from '../session.js'
  * 1. `UserProfileService` + **인메모리 회원 저장소 + 진짜 Redis** — 항상 돈다.
  *    dual-write에서 **세션 쪽 절반**과 순서·정규화 계약이 여기서 고정된다.
  *    이 스위트를 skip으로 두면 MySQL 없는 개발·CI에서 4.3이 통째로 검증되지 않는다.
- * 2. `MysqlUserProfileStore` + 진짜 MySQL + 진짜 Redis — MySQL이 있을 때만.
+ * 2. `SqliteUserProfileStore` + 진짜 MySQL + 진짜 Redis — MySQL이 있을 때만.
  *    **DB 쪽 절반**(행이 실제로 바뀌는가·없는 회원 판정)이 여기서만 확인된다.
  */
 
@@ -150,21 +149,20 @@ describeRedis('UserProfileService (인메모리 회원 저장소 + 진짜 Redis)
   })
 })
 
-describeMysql('MysqlUserProfileStore (실 MySQL + 진짜 Redis)', () => {
+describeDb('SqliteUserProfileStore (SQLite + 저장소)', () => {
   const redis = useRedis()
-  const mysqlPool = useMysql()
+  const dbPool = useDb()
 
   /** 공통 준비 — 빈 스키마에 V1을 적용하고 회원 1명을 넣는다. */
   const signUp = async (): Promise<{
     pool: Pool
     users: UserService
     service: UserProfileService
-    store: MysqlUserProfileStore
+    store: SqliteUserProfileStore
     member: MemberUser
     sessionToken: string
   }> => {
-    const pool = mysqlPool()
-    await runMigrations(pool)
+    const pool = dbPool()
     const member: MemberUser = {
       id: randomUUID(),
       nickname: PLACEHOLDER_NICKNAME,
@@ -176,7 +174,7 @@ describeMysql('MysqlUserProfileStore (실 MySQL + 진짜 Redis)', () => {
       [member.id, member.nickname, member.profileImageUrl, at, at],
     )
     const users = new UserService(redis())
-    const store = new MysqlUserProfileStore(pool)
+    const store = new SqliteUserProfileStore(pool)
     return {
       pool,
       users,

@@ -36,7 +36,7 @@ export class DataIntegrityViolationError extends Error {
   }
 }
 
-/** MySQL이 제약 위반으로 돌려주는 errno. mysql2는 `errno`에 그대로 담아 준다. */
+/** 제약 위반 errno(MySQL 번호). SQLite 어댑터가 제약 코드를 이 번호로 바꿔 던진다(infra/sqlite.ts). */
 const INTEGRITY_ERRNOS = new Set([
   1048, // ER_BAD_NULL_ERROR
   1062, // ER_DUP_ENTRY — (provider, provider_user_id) 유니크. 가입 경합의 신호다.

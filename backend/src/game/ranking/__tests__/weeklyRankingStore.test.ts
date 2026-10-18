@@ -1,11 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import type { Pool, ResultSetHeader } from 'mysql2/promise'
 import { expect, it } from 'vitest'
-import { describeMysql, useMysql } from '../../../infra/__tests__/mysqlHarness.js'
-import { runMigrations } from '../../../infra/migrations/runner.js'
+import { describeDb, useDb } from '../../../infra/__tests__/dbHarness.js'
+import type { Pool, ResultSetHeader } from '../../../infra/sqlite.js'
 import { YACHT_DICE } from '../../catalog.js'
 import { weeklyRankingResponse } from '../weeklyRankingResponse.js'
-import { MysqlWeeklyRankingStore } from '../weeklyRankingStore.js'
+import { SqliteWeeklyRankingStore } from '../weeklyRankingStore.js'
 
 /**
  * 이식: (캐시 3종 제외 — 그건
@@ -30,13 +29,12 @@ const TO = new Date('2026-08-09T15:00:00.000Z')
 const plusDays = (at: Date, days: number): Date =>
   new Date(at.getTime() + days * 24 * 60 * 60 * 1000)
 
-describeMysql('MysqlWeeklyRankingStore (실 MySQL)', () => {
-  const mysqlPool = useMysql()
+describeDb('SqliteWeeklyRankingStore (SQLite)', () => {
+  const dbPool = useDb()
 
-  const store = async (): Promise<{ pool: Pool; store: MysqlWeeklyRankingStore }> => {
-    const pool = mysqlPool()
-    await runMigrations(pool)
-    return { pool, store: new MysqlWeeklyRankingStore(pool) }
+  const store = async (): Promise<{ pool: Pool; store: SqliteWeeklyRankingStore }> => {
+    const pool = dbPool()
+    return { pool, store: new SqliteWeeklyRankingStore(pool) }
   }
 
   /** 회원 한 명. `users` 행이 있다는 것이 곧 "게스트가 아니다"의 정의다. */

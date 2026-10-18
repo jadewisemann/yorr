@@ -1,5 +1,5 @@
-import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 import { afterEach, expect, it } from 'vitest'
+import type { ResultSetHeader, RowDataPacket } from '../sqlite.js'
 import { createSqlitePool } from '../sqlite.js'
 
 /**
@@ -20,7 +20,7 @@ const insertUser = (conn: { query: typeof pool.query }, id: string) =>
 
 it('쓰기는 mysql2처럼 [ResultSetHeader]를 돌려준다', async () => {
   const [header] = await insertUser(pool, 'u1')
-  expect((header as ResultSetHeader).affectedRows).toBe(1)
+  expect((header as unknown as ResultSetHeader).affectedRows).toBe(1)
 })
 
 it('Date는 ISO 8601 UTC 문자열로 적힌다', async () => {

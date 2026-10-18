@@ -1,18 +1,21 @@
+import { mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite'
-import type { Pool } from 'mysql2/promise'
+import type { Env } from '../config/env.js'
 
 /**
- * MySQL 대신 쓰는 SQLite — Botkeep 단일 프로세스 배포용(deploy/botkeep/README.md).
+ * 영속 DB — Node 내장 SQLite 파일 하나([ADR-0007](../../docs/adr/0007-botkeep-single-process.md)).
+ * 계정·소셜 연동·전적·주간 랭킹을 담는다(docs/design/persistence.md).
  *
- * 저장소 코드(`Mysql*Store`)는 그대로 두고, 그들이 쓰는 mysql2 `Pool`의 **부분집합**만
- * Node 내장 `node:sqlite` 위에 흉내 낸다: `query`·`getConnection`·`beginTransaction`·
- * `commit`·`rollback`·`release`·`end`. 의존성은 하나도 늘지 않는다.
+ * 저장소(`Sqlite*Store`)는 MySQL 시절의 `Pool` 모양을 그대로 쓴다: `query`·`getConnection`·
+ * `beginTransaction`·`commit`·`rollback`·`release`·`end`. 그 모양을 여기서 정의하고
+ * `node:sqlite` 위에 구현한다. 의존성은 없다.
  *
- * 흉내 내는 계약:
+ * 계약:
  * - SELECT는 `[rows]`, 그 밖은 `[{ insertId, affectedRows }]`를 돌려준다.
  * - `Date` 파라미터는 ISO 8601 UTC 문자열로 적는다. 형식이 하나라 문자열 비교가 곧
- *   시각 비교다(`finished_at` 기간 질의). 풀의 `timezone: 'Z'`와 같은 기준이다.
- * - 제약 위반은 mysql2와 같은 `errno`로 바꿔 던진다 — `auth/errors.ts`와
+ *   시각 비교다(`finished_at` 기간 질의).
+ * - 제약 위반은 MySQL 시절과 같은 `errno`로 바꿔 던진다 — `auth/errors.ts`와
  *   `matchArchiveStore.ts`가 그 숫자로 판정한다.
  * - `FOR UPDATE`는 지운다. 대신 커넥션이 하나뿐이고 아래 잠금이 트랜잭션 전체를
  *   직렬화하므로 행 잠금보다 강하다.
@@ -20,6 +23,40 @@ import type { Pool } from 'mysql2/promise'
  * `DatabaseSync`는 커넥션 하나다. `await` 사이에 다른 요청의 질의가 끼어들면 남의
  * 트랜잭션 안에서 실행되므로, 모든 질의와 트랜잭션은 잠금 하나를 차례로 잡는다.
  */
+
+/** SELECT 한 행. 저장소가 `interface UserRow extends RowDataPacket`로 열 이름을 붙인다. */
+export interface RowDataPacket {
+  readonly [column: string]: unknown
+}
+
+/** 쓰기 결과. */
+export interface ResultSetHeader {
+  readonly insertId: number
+  readonly affectedRows: number
+}
+
+type QueryResult = readonly RowDataPacket[] | ResultSetHeader
+
+export interface PoolConnection {
+  query<T extends QueryResult = RowDataPacket[]>(
+    sql: string,
+    params?: readonly unknown[],
+  ): Promise<[T, undefined]>
+  beginTransaction(): Promise<void>
+  commit(): Promise<void>
+  rollback(): Promise<void>
+  release(): void
+}
+
+export interface Pool {
+  query<T extends QueryResult = RowDataPacket[]>(
+    sql: string,
+    params?: readonly unknown[],
+  ): Promise<[T, undefined]>
+  getConnection(): Promise<PoolConnection>
+  end(): Promise<void>
+}
+
 export const SQLITE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id                TEXT NOT NULL PRIMARY KEY CHECK (length(id) <= 36),
@@ -59,13 +96,7 @@ CREATE INDEX IF NOT EXISTS idx_match_participants_match ON match_participants (m
 CREATE INDEX IF NOT EXISTS idx_match_participants_user ON match_participants (user_id);
 `
 
-const SQLITE_POOL = Symbol.for('yorr.sqlitePool')
-
-/** Flyway 러너가 SQLite 풀을 건너뛰는 데 쓴다 — 스키마는 풀을 열 때 이미 적용된다. */
-export const isSqlitePool = (pool: unknown): boolean =>
-  typeof pool === 'object' && pool !== null && SQLITE_POOL in pool
-
-/** SQLite 확장 결과 코드 → mysql2 `errno`. */
+/** SQLite 확장 결과 코드 → MySQL 시절의 `errno`(저장소의 판정 코드가 그 숫자다). */
 const MYSQL_ERRNO_OF: Readonly<Record<number, number>> = {
   1555: 1062, // SQLITE_CONSTRAINT_PRIMARYKEY → ER_DUP_ENTRY
   2067: 1062, // SQLITE_CONSTRAINT_UNIQUE → ER_DUP_ENTRY
@@ -106,14 +137,25 @@ const createLock = () => {
   }
 }
 
+/**
+ * 파일은 **첫 질의 때** 연다 — MySQL 풀이 첫 질의 전까지 연결하지 않던 것과 같은 결이다.
+ * DB를 건드리지 않는 기동·테스트는 파일을 만들지 않는다.
+ */
 export const createSqlitePool = (path: string): Pool => {
-  const db = new DatabaseSync(path)
-  db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;')
-  db.exec(SQLITE_SCHEMA)
+  let opened: DatabaseSync | undefined
+  const open = (): DatabaseSync => {
+    if (opened !== undefined) return opened
+    if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true })
+    const db = new DatabaseSync(path)
+    db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;')
+    db.exec(SQLITE_SCHEMA)
+    opened = db
+    return db
+  }
   const acquire = createLock()
 
   const run = (sql: string, params: readonly unknown[] = []): [unknown, undefined] => {
-    const statement = db.prepare(sql.replace(/\s+FOR\s+UPDATE\s*$/i, ''))
+    const statement = open().prepare(sql.replace(/\s+FOR\s+UPDATE\s*$/i, ''))
     const values = params.map(toParameter)
     try {
       if (READS.test(sql)) return [statement.all(...values), undefined]
@@ -128,7 +170,6 @@ export const createSqlitePool = (path: string): Pool => {
   }
 
   const pool = {
-    [SQLITE_POOL]: true,
     async query(sql: string, params?: readonly unknown[]) {
       const release = await acquire()
       try {
@@ -141,21 +182,21 @@ export const createSqlitePool = (path: string): Pool => {
       const release = await acquire()
       let released = false
       // `db.isTransaction`은 Node 22.16부터라 직접 센다 — Botkeep의 Node 버전 폭을 넓힌다.
-      let open = false
+      let inTransaction = false
       const rollback = (): void => {
-        if (!open) return
-        db.exec('ROLLBACK')
-        open = false
+        if (!inTransaction) return
+        open().exec('ROLLBACK')
+        inTransaction = false
       }
       return {
         query: async (sql: string, params?: readonly unknown[]) => run(sql, params),
         beginTransaction: async () => {
-          db.exec('BEGIN IMMEDIATE')
-          open = true
+          open().exec('BEGIN IMMEDIATE')
+          inTransaction = true
         },
         commit: async () => {
-          db.exec('COMMIT')
-          open = false
+          open().exec('COMMIT')
+          inTransaction = false
         },
         rollback: async () => rollback(),
         release: () => {
@@ -169,9 +210,16 @@ export const createSqlitePool = (path: string): Pool => {
     },
     async end() {
       const release = await acquire()
-      db.close()
+      opened?.close()
+      opened = undefined
       release()
     },
   }
   return pool as unknown as Pool
 }
+
+/** env의 `SQLITE_PATH`로 만든다. 파일이 놓일 디렉터리는 열 때 만든다. */
+export const createDbPool = (env: Env): Pool => createSqlitePool(env.SQLITE_PATH)
+
+/** 풀을 만든 쪽이 닫는다. 주입받은 풀은 닫지 않는다(테스트 하네스가 소유자다). */
+export const closeDbPool = (pool: Pool): Promise<void> => pool.end()

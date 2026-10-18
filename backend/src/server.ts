@@ -1,11 +1,10 @@
 import cors from '@fastify/cors'
 import fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify'
-import type { Pool } from 'mysql2/promise'
 import { authOptions } from './auth/config.js'
 import { GoogleOAuthClient } from './auth/googleClient.js'
 import { KakaoOAuthClient } from './auth/kakaoClient.js'
 import { LoginCodeStore } from './auth/loginCodeStore.js'
-import { MysqlSocialAccountStore } from './auth/socialAccountStore.js'
+import { SqliteSocialAccountStore } from './auth/socialAccountStore.js'
 import { SocialLoginService } from './auth/socialLoginService.js'
 import { OAuthStateStore } from './auth/stateStore.js'
 import { allowedOrigins, type Env } from './config/env.js'
@@ -25,7 +24,7 @@ import {
   RedisDuelStateStore,
 } from './game/duel/index.js'
 import { GameLifecycleService } from './game/lifecycle.js'
-import { MatchArchiveService, MysqlMatchArchiveStore } from './game/match/index.js'
+import { MatchArchiveService, SqliteMatchArchiveStore } from './game/match/index.js'
 import { GameModuleRegistry } from './game/module.js'
 import {
   PingPongAiResultService,
@@ -37,7 +36,7 @@ import {
 import { GameScoreQueryService, RedisGameScoreQueryStore } from './game/query/index.js'
 import {
   CachingWeeklyRankingRepository,
-  MysqlWeeklyRankingStore,
+  SqliteWeeklyRankingStore,
   WeeklyRankingService,
 } from './game/ranking/index.js'
 import {
@@ -82,9 +81,10 @@ import { registerRankingRoutes } from './http/routes/ranking.js'
 import { registerRoomRoutes } from './http/routes/rooms.js'
 import { registerUserRoutes } from './http/routes/users.js'
 import { MemoryRedis, type Redis } from './infra/memoryRedis.js'
-import { closeMysqlPool, createMysqlPool } from './infra/mysql.js'
+import type { Pool } from './infra/sqlite.js'
+import { closeDbPool, createDbPool } from './infra/sqlite.js'
 import {
-  mysqlReadinessCheck,
+  dbReadinessCheck,
   ReadinessService,
   RealtimeGameMetrics,
   redisReadinessCheck,
@@ -93,7 +93,7 @@ import { BotParticipantService } from './room/botService.js'
 import { InMemoryRoomCloseScheduler } from './room/closeScheduler.js'
 import { QuickMatchService } from './room/quickMatchService.js'
 import { RoomService } from './room/roomService.js'
-import { MysqlUserProfileStore, UserProfileService } from './user/profile.js'
+import { SqliteUserProfileStore, UserProfileService } from './user/profile.js'
 import { UserService } from './user/session.js'
 import { RoomBroadcaster } from './ws/broadcaster.js'
 import { attachGameSocketGateway, type GameSocketGateway } from './ws/gateway.js'
@@ -111,11 +111,10 @@ export interface ServerOptions {
   /** 통합 테스트가 자기 Redis를 넘긴다. 없으면 env로 새로 만들고 종료 시 함께 닫는다. */
   readonly redis?: Redis
   /**
-   * MySQL 풀. Redis와 같은 규약이다 — 주입하면 **주입한 쪽이 닫는다**.
-   * `main.ts`는 기동 전 마이그레이션 확인(`verifyMigrations`)에 쓴 풀을 그대로
-   * 넘기고, 통합 테스트는 자기 스키마를 가리키는 풀을 넘긴다.
+   * DB 풀(SQLite). Redis와 같은 규약이다 — 주입하면 **주입한 쪽이 닫는다**.
+   * `main.ts`는 자기가 만든 풀을 넘기고, 통합 테스트는 인메모리 풀을 넘긴다.
    */
-  readonly mysql?: Pool
+  readonly db?: Pool
   /**
    * Fastify 로거 설정. 운영은 생략한다(`true`). 블랙박스 하네스는 `{ stream }`을 넘겨
    * 로그를 모은다 — "핸들러 밖으로 새어 나온 예외가 0건"을 단정하는 유일한 창이다.
@@ -182,10 +181,9 @@ export interface YorrServer {
 export const createServer = async (env: Env, options: ServerOptions = {}): Promise<YorrServer> => {
   const redis = options.redis ?? new MemoryRedis()
   const ownsRedis = options.redis === undefined
-  // 풀 생성은 커넥션을 열지 않는다(infra/mysql.ts) — MySQL이 없어도 기동은 성공하고,
-  // 실제 확인은 `main.ts`가 `verifyMigrations`로 한다.
-  const mysql = options.mysql ?? createMysqlPool(env)
-  const ownsMysql = options.mysql === undefined
+  // 풀 생성은 파일을 열지 않는다(infra/sqlite.ts) — 첫 질의 때 연다.
+  const db = options.db ?? createDbPool(env)
+  const ownsDb = options.db === undefined
 
   const users = new UserService(redis)
   const rooms = new RoomService(redis)
@@ -246,13 +244,13 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   )
 
   // ── 주간 랭킹(4.5) + 전적 보관(4.4) ──────────────────────────────────────
-  // 조립 순서가 곧 의존 방향이다: MySQL 저장소 → 캐시 데코레이터 → 서비스.
+  // 조립 순서가 곧 의존 방향이다: DB 저장소 → 캐시 데코레이터 → 서비스.
   // **캐시 인스턴스를 보관 서비스에 그대로 넘기는 것이 계약이다** — 새로 만들면
   // evict가 아무도 읽지 않는 캐시를 비우고, 랭킹은 다음 재시작까지 낡은 채로 남는다.
   // 이름이 다르므로(`evictAll` ↔ `invalidateAll`) 한 줄 어댑터가 필요하다.
-  const rankingCache = new CachingWeeklyRankingRepository(new MysqlWeeklyRankingStore(mysql))
+  const rankingCache = new CachingWeeklyRankingRepository(new SqliteWeeklyRankingStore(db))
   const rankings = new WeeklyRankingService(rankingCache)
-  const matchArchive = new MatchArchiveService(new MysqlMatchArchiveStore(mysql), {
+  const matchArchive = new MatchArchiveService(new SqliteMatchArchiveStore(db), {
     rankingCache: { invalidateAll: () => rankingCache.evictAll() },
     onArchived: (event) => app.log.info(event, '전적을 저장했습니다'),
     onDuplicate: (gameId) => app.log.info({ gameId }, '이미 저장된 판입니다'),
@@ -262,7 +260,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   // 라운드 타이머·듀얼·탁구가 **이 인스턴스**를 종료 판정으로 받는다. 예전에는
   // 항상 false를 돌려주는 경고 스텁이 있었고, 그 상태에서는 게임이 FINISHED가 돼도
   // `game.over`·`state.sync`가 나가지 않아 클라이언트가 결과 화면으로 넘어가지 못했다.
-  // 보관 실패는 여기서 삼켜 `onArchiveFailure`로 흐른다 — MySQL이 없어도 게임은 끝난다.
+  // 보관 실패는 여기서 삼켜 `onArchiveFailure`로 흐른다 — DB가 실패해도 게임은 끝난다.
   const completion = new GameCompletionService(
     {
       completionStore: new RedisGameCompletionStore(redis),
@@ -417,7 +415,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   )
 
   // ── 회원 프로필(4.3) · 퀵매치(3.5) ──────────────────────────────────────
-  const profiles = new UserProfileService(new MysqlUserProfileStore(mysql), users)
+  const profiles = new UserProfileService(new SqliteUserProfileStore(db), users)
   // 퀵매치의 자동 시작 조건은 "전원의 WS 소켓이 살아 있는가"다 — WS 게이트웨이와
   // **같은 레지스트리**여야 한다. 새로 만들면 그 조건이 영구히 거짓이 되어 자동
   // 시작이 조용히 안 된다(타입체크는 통과한다).
@@ -435,10 +433,10 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   // 때리면 모니터링이 부하 원인이 된다). **위에서 만든 그** 레지스트리·모듈
   // 레지스트리여야 한다 — 새로 만들면 게이지가 영구히 0인데 타입도 테스트도 통과한다.
   await registerHealthRoutes(app, {
-    // readiness는 **위에서 만든 그** Redis·MySQL을 두드린다 — 새 클라이언트를 만들면
+    // readiness는 **위에서 만든 그** 저장소·DB를 두드린다 — 새 클라이언트를 만들면
     // 애플리케이션이 쓰는 좌표가 아니라 다른 좌표를 검사하게 되고, 그때 health는
     // 아무것도 증명하지 않는다(게이지 배선과 같은 종류의 함정이다).
-    readiness: new ReadinessService([redisReadinessCheck(redis), mysqlReadinessCheck(mysql)], {
+    readiness: new ReadinessService([redisReadinessCheck(redis), dbReadinessCheck(db)], {
       onChanged: (result) =>
         result.ready
           ? app.log.info('readiness UP — 의존 확인이 전부 응답합니다')
@@ -486,9 +484,9 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
       })
       // 소셜 로그인(4.2). 제공자 설정이 비어 있어도 **라우트는 등록한다** — 미설정은
       // 404가 아니라 호출 시점의 503이 계약이다(docs/design/auth.md).
-      // 회원 저장소는 MySQL 하나로 조회·가입을 모두 만족한다(별도 트랜잭션 경계는
+      // 회원 저장소는 DB 하나로 조회·가입을 모두 만족한다(별도 트랜잭션 경계는
       // 저장소 안에 있다).
-      const accounts = new MysqlSocialAccountStore(mysql)
+      const accounts = new SqliteSocialAccountStore(db)
       const auth = authOptions(env)
       await registerAuthRoutes(api, {
         users,
@@ -576,7 +574,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
       await gateway.close()
       await app.close()
       if (ownsRedis) redis.disconnect()
-      if (ownsMysql) await closeMysqlPool(mysql)
+      if (ownsDb) await closeDbPool(db)
     },
   }
 }

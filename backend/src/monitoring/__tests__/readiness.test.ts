@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  mysqlReadinessCheck,
+  dbReadinessCheck,
   READINESS_CACHE_MS,
   type ReadinessCheck,
   type ReadinessFailure,
@@ -46,14 +46,14 @@ describe('ReadinessService', () => {
   it('하나만 실패해도 준비되지 않은 것이고, 실패한 이름을 남긴다', async () => {
     const service = new ReadinessService([
       countingCheck('redis').check,
-      countingCheck('mysql', 'fail').check,
+      countingCheck('db', 'fail').check,
     ])
 
     const result = await service.check()
 
     expect(result.ready).toBe(false)
-    expect(result.failures.map((failure) => failure.name)).toEqual(['mysql'])
-    expect(reasonOf(result.failures[0])).toBe('mysql 죽었다')
+    expect(result.failures.map((failure) => failure.name)).toEqual(['db'])
+    expect(reasonOf(result.failures[0])).toBe('db 죽었다')
   })
 
   it('확인이 동기로 던져도 실패로 잡는다', async () => {
@@ -165,10 +165,10 @@ describe('확인 두 개', () => {
     expect(ping).toHaveBeenCalledOnce()
   })
 
-  it('mysql 확인은 SELECT 1을 보낸다', async () => {
+  it('db 확인은 SELECT 1을 보낸다', async () => {
     const query = vi.fn(async () => [[{ 1: 1 }], []])
 
-    await mysqlReadinessCheck({ query }).run()
+    await dbReadinessCheck({ query }).run()
 
     expect(query).toHaveBeenCalledWith('SELECT 1')
   })

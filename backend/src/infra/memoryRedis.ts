@@ -163,20 +163,9 @@ export class RedisCore {
     return ms < 0 ? ms : Math.round(ms / 1000)
   }
 
-  persist(key: string): number {
-    const entry = this.live(key)
-    if (entry === undefined || entry.expiresAt === undefined) return 0
-    entry.expiresAt = undefined
-    return 1
-  }
-
   keys(pattern = '*'): string[] {
     const matcher = globToRegExp(pattern)
     return [...this.data.keys()].filter((key) => this.live(key) !== undefined && matcher.test(key))
-  }
-
-  dbsize(): number {
-    return this.keys().length
   }
 
   flushall(): 'OK' {
@@ -215,21 +204,6 @@ export class RedisCore {
     return value
   }
 
-  incrby(key: string, increment: Field): number {
-    const entry = this.live(key)
-    if (entry !== undefined && entry.type !== 'string') throw new Error(WRONGTYPE)
-    const current = entry === undefined ? 0 : Number(entry.value)
-    if (!Number.isInteger(current)) throw new Error('ERR value is not an integer or out of range')
-    const next = current + Number(increment)
-    if (entry === undefined) this.data.set(key, { type: 'string', value: String(next) })
-    else entry.value = String(next)
-    return next
-  }
-
-  incr(key: string): number {
-    return this.incrby(key, 1)
-  }
-
   // ── 해시 ──────────────────────────────────────────────────────────────────
 
   /** `HSET key field value [field value ...]` 또는 `HSET key { field: value }` → 새로 생긴 필드 수. */
@@ -257,11 +231,6 @@ export class RedisCore {
     return this.hash(key)?.get(String(field)) ?? null
   }
 
-  hmget(key: string, ...fields: Field[]): (string | null)[] {
-    const hash = this.hash(key)
-    return fields.map((field) => hash?.get(String(field)) ?? null)
-  }
-
   hgetall(key: string): Record<string, string> {
     return Object.fromEntries(this.hash(key) ?? [])
   }
@@ -285,10 +254,6 @@ export class RedisCore {
 
   hkeys(key: string): string[] {
     return [...(this.hash(key)?.keys() ?? [])]
-  }
-
-  hvals(key: string): string[] {
-    return [...(this.hash(key)?.values() ?? [])]
   }
 
   hincrby(key: string, field: Field, increment: Field): number {
@@ -359,15 +324,6 @@ export class RedisCore {
     this.dropIfEmpty(key, zset)
     return removed
   }
-
-  zscore(key: string, member: Field): string | null {
-    const score = this.zset(key)?.get(String(member))
-    return score === undefined ? null : String(score)
-  }
-
-  zcard(key: string): number {
-    return this.zset(key)?.size ?? 0
-  }
 }
 
 /**
@@ -436,14 +392,8 @@ export class MemoryRedis {
   async pttl(key: string) {
     return this.core.pttl(key)
   }
-  async persist(key: string) {
-    return this.core.persist(key)
-  }
   async keys(pattern?: string) {
     return this.core.keys(pattern)
-  }
-  async dbsize() {
-    return this.core.dbsize()
   }
   /** 커서를 흉내 내지 않는다 — 첫 호출에 전부 돌려주고 커서 '0'으로 끝낸다. */
   async scan(_cursor: Field, ...options: Field[]): Promise<[string, string[]]> {
@@ -463,20 +413,11 @@ export class MemoryRedis {
   async getdel(key: string) {
     return this.core.getdel(key)
   }
-  async incr(key: string) {
-    return this.core.incr(key)
-  }
-  async incrby(key: string, increment: Field) {
-    return this.core.incrby(key, increment)
-  }
   async hset(key: string, ...args: (Field | Record<string, Field>)[]) {
     return this.core.hset(key, ...args)
   }
   async hget(key: string, field: Field) {
     return this.core.hget(key, field)
-  }
-  async hmget(key: string, ...fields: Field[]) {
-    return this.core.hmget(key, ...fields)
   }
   async hgetall(key: string) {
     return this.core.hgetall(key)
@@ -493,9 +434,6 @@ export class MemoryRedis {
   async hkeys(key: string) {
     return this.core.hkeys(key)
   }
-  async hvals(key: string) {
-    return this.core.hvals(key)
-  }
   async hincrby(key: string, field: Field, increment: Field) {
     return this.core.hincrby(key, field, increment)
   }
@@ -511,22 +449,12 @@ export class MemoryRedis {
   async zremrangebyscore(key: string, min: Field, max: Field) {
     return this.core.zremrangebyscore(key, min, max)
   }
-  async zscore(key: string, member: Field) {
-    return this.core.zscore(key, member)
-  }
-  async zcard(key: string) {
-    return this.core.zcard(key)
-  }
   async ping(): Promise<'PONG'> {
     return 'PONG'
   }
   /** 같은 저장소를 보는 또 하나의 "연결". 프로세스 안이라 같은 객체다. */
   duplicate(): MemoryRedis {
     return this
-  }
-  async quit(): Promise<'OK'> {
-    this.disconnect()
-    return 'OK'
   }
   disconnect(): void {
     clearInterval(this.timer)

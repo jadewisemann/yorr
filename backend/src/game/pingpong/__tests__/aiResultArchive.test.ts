@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { expect, it } from 'vitest'
-import { describeMysql, useMysql } from '../../../infra/__tests__/mysqlHarness.js'
-import { runMigrations } from '../../../infra/migrations/runner.js'
-import { MatchArchiveService, MysqlMatchArchiveStore } from '../../match/index.js'
+import { describeDb, useDb } from '../../../infra/__tests__/dbHarness.js'
+import type { Pool, RowDataPacket } from '../../../infra/sqlite.js'
+import { MatchArchiveService, SqliteMatchArchiveStore } from '../../match/index.js'
 import { AI_PLAYER_ID, GUEST_NICKNAME, PingPongAiResultService } from '../aiResultService.js'
 
 /**
@@ -28,20 +27,19 @@ interface ParticipantRow extends RowDataPacket {
   readonly ranking: number
 }
 
-describeMysql('탁구 AI 결과 보관 (실 MySQL)', () => {
-  const mysqlPool = useMysql()
+describeDb('탁구 AI 결과 보관 (SQLite)', () => {
+  const dbPool = useDb()
 
   const setUp = async (): Promise<{
     pool: Pool
     service: PingPongAiResultService
     signUp: (nickname: string) => Promise<string>
   }> => {
-    const pool = mysqlPool()
-    await runMigrations(pool)
+    const pool = dbPool()
     return {
       pool,
       service: new PingPongAiResultService(
-        new MatchArchiveService(new MysqlMatchArchiveStore(pool)),
+        new MatchArchiveService(new SqliteMatchArchiveStore(pool)),
       ),
       signUp: async (nickname: string) => {
         const id = randomUUID()

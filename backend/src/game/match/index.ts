@@ -20,5 +20,5 @@ export {
   type MatchArchiveStore,
   type MatchParticipantRow,
   type MatchRecord,
-  MysqlMatchArchiveStore,
+  SqliteMatchArchiveStore,
 } from './matchArchiveStore.js'

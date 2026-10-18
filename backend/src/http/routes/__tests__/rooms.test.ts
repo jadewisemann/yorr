@@ -65,7 +65,7 @@ describeRedis('방 REST', () => {
 
   beforeEach(async () => {
     if (server) await server.close()
-    server = await createServer(loadEnv({ CORS_ALLOWED_ORIGINS: '*' }), {
+    server = await createServer(loadEnv({ CORS_ALLOWED_ORIGINS: '*', SQLITE_PATH: ':memory:' }), {
       redis: redis() as Redis,
       logger: false,
     })

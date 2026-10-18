@@ -5,12 +5,12 @@ export {
   renderGauges,
 } from './exposition.js'
 export {
-  mysqlReadinessCheck,
+  dbReadinessCheck,
   READINESS_CACHE_MS,
   READINESS_TIMEOUT_MS,
   type ReadinessCheck,
+  type ReadinessDb,
   type ReadinessFailure,
-  type ReadinessMysql,
   type ReadinessPort,
   type ReadinessRedis,
   type ReadinessResult,

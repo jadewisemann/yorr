@@ -1,4 +1,4 @@
-import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise'
+import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from '../../infra/sqlite.js'
 
 /**
  * 전적의 **쓰기 표면** — 보관에 필요한 것만 남긴 좁은 포트.
@@ -58,7 +58,7 @@ interface UserRow extends RowDataPacket {
  * MySQL 구현. 스키마는 Flyway V2(`matches`·`match_participants`)이고 전환기에는
  * 바꾸지 않는다(persistence.md 「전환기 스키마 동결」, ADR-0005).
  */
-export class MysqlMatchArchiveStore implements MatchArchiveStore {
+export class SqliteMatchArchiveStore implements MatchArchiveStore {
   constructor(private readonly pool: Pool) {}
 
   async findMemberNicknames(playerIds: readonly string[]): Promise<ReadonlyMap<string, string>> {

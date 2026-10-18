@@ -1,4 +1,4 @@
-import type { Pool, RowDataPacket } from 'mysql2/promise'
+import type { Pool, RowDataPacket } from '../../infra/sqlite.js'
 
 /**
  * 주간 집계 질의 3종.
@@ -85,7 +85,7 @@ interface CountRow extends RowDataPacket {
  * `finished_at DATETIME(6)`과 같은 기준으로 비교된다(4.1의 결정 — 이걸 놓치면
  * 개발 KST / 운영 UTC가 9시간 어긋난다).
  */
-export class MysqlWeeklyRankingStore implements WeeklyRankingRepository {
+export class SqliteWeeklyRankingStore implements WeeklyRankingRepository {
   constructor(private readonly pool: Pool) {}
 
   async findWeeklyBest(

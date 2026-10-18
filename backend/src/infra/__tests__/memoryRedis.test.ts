@@ -48,7 +48,6 @@ describe('만료', () => {
     core.set('k', '1')
     expect(core.pttl('none')).toBe(-2)
     expect(core.pttl('k')).toBe(-1)
-    expect(core.persist('k')).toBe(0)
   })
 
   it('0 이하로 만료를 걸면 즉시 지운다', () => {
@@ -90,18 +89,14 @@ describe('자료형', () => {
     expect(core.hset('h', { a: 1, b: 'x' })).toBe(2)
     expect(core.hset('h', 'a', 2)).toBe(0)
     expect(core.hgetall('h')).toEqual({ a: '2', b: 'x' })
-    expect(core.hmget('h', 'a', 'none')).toEqual(['2', null])
-    expect(core.hvals('h')).toEqual(['2', 'x'])
     expect(() => core.hset('h', 'odd')).toThrow(/wrong number/)
   })
 
   it('정수가 아닌 값은 증가시키지 않는다', () => {
     const core = new RedisCore()
-    core.set('s', 'abc')
     core.hset('h', 'f', 'abc')
-    expect(() => core.incr('s')).toThrow(/integer/)
     expect(() => core.hincrby('h', 'f', 1)).toThrow(/integer/)
-    expect(core.incrby('n', 5)).toBe(5)
+    expect(core.hincrby('h', 'n', 5)).toBe(5)
   })
 
   it('정렬 집합은 점수·멤버 순이고 범위 삭제를 받는다', () => {
@@ -109,9 +104,8 @@ describe('자료형', () => {
     core.zadd('z', 2, 'b', 1, 'c', 1, 'a')
     expect(core.zrange('z', 0, -1)).toEqual(['a', 'c', 'b'])
     expect(core.zrange('z', -2, -1)).toEqual(['c', 'b'])
-    expect(core.zscore('z', 'b')).toBe('2')
     expect(core.zremrangebyscore('z', '-inf', 1)).toBe(2)
-    expect(core.zcard('z')).toBe(1)
+    expect(core.zrange('z', 0, -1)).toEqual(['b'])
     expect(core.zrem('z', 'b')).toBe(1)
     expect(core.exists('z')).toBe(0)
   })
@@ -135,8 +129,8 @@ describe('원자적 스크립트', () => {
   const INCR_TWICE: AtomicScript = {
     name: 'incrTwice',
     run(r, [key]) {
-      const first = r.incr(key)
-      return r.incr(key) - first
+      const first = r.hincrby(key, 'n', 1)
+      return r.hincrby(key, 'n', 1) - first
     },
   }
 
@@ -144,11 +138,11 @@ describe('원자적 스크립트', () => {
     redis = new MemoryRedis()
     const client = redis
     const scripts = Array.from({ length: 500 }, () => runAtomicNumber(client, INCR_TWICE, ['k']))
-    const plain = Array.from({ length: 500 }, () => client.incr('k'))
+    const plain = Array.from({ length: 500 }, () => client.hincrby('k', 'n', 1))
 
     expect((await Promise.all(scripts)).every((gap) => gap === 1)).toBe(true)
     await Promise.all(plain)
-    expect(await client.get('k')).toBe('1500')
+    expect(await client.hget('k', 'n')).toBe('1500')
   })
 
   it('숫자가 아닌 반환은 계약 위반으로 던진다', async () => {

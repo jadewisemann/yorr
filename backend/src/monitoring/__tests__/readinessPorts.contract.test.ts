@@ -1,11 +1,11 @@
-import type { Pool } from 'mysql2/promise'
 import { expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../test/redisHarness.js'
-import { describeMysql, useMysql } from '../../infra/__tests__/mysqlHarness.js'
+import { describeDb, useDb } from '../../infra/__tests__/dbHarness.js'
 import type { Redis } from '../../infra/memoryRedis.js'
+import type { Pool } from '../../infra/sqlite.js'
 import {
-  mysqlReadinessCheck,
-  type ReadinessMysql,
+  dbReadinessCheck,
+  type ReadinessDb,
   type ReadinessRedis,
   ReadinessService,
   redisReadinessCheck,
@@ -38,15 +38,15 @@ describeRedis('readiness 포트 ↔ MemoryRedis', () => {
   })
 })
 
-describeMysql('readiness 포트 ↔ mysql2 Pool', () => {
-  const mysql = useMysql()
+describeDb('readiness 포트 ↔ SQLite Pool', () => {
+  const db = useDb()
 
-  it('Pool이 ReadinessMysql을 만족하고 SELECT 1이 실제로 돌아온다', async () => {
-    const real: Pool = mysql()
-    const port: ReadinessMysql = real
+  it('Pool이 ReadinessDb을 만족하고 SELECT 1이 실제로 돌아온다', async () => {
+    const real: Pool = db()
+    const port: ReadinessDb = real
 
     await expect(port.query('SELECT 1')).resolves.toBeDefined()
-    await expect(new ReadinessService([mysqlReadinessCheck(real)]).check()).resolves.toEqual({
+    await expect(new ReadinessService([dbReadinessCheck(real)]).check()).resolves.toEqual({
       ready: true,
       failures: [],
     })

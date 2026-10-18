@@ -77,7 +77,10 @@ export interface InProcessTarget {
 export const serveInProcess = async (redis: MemoryRedis): Promise<InProcessTarget> => {
   const logs: ServerLogLine[] = []
   // 포트 0 = 빈 포트 자동 할당. 스킴은 양수만 받으므로(운영 계약) 여기서만 덮어쓴다.
-  const env = { ...loadEnv({ CORS_ALLOWED_ORIGINS: 'https://yorr.site' }), SERVER_PORT: 0 }
+  const env = {
+    ...loadEnv({ CORS_ALLOWED_ORIGINS: 'https://yorr.site', SQLITE_PATH: ':memory:' }),
+    SERVER_PORT: 0,
+  }
   const server = await createServer(env, {
     redis,
     logger: {
