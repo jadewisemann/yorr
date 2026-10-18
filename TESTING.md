@@ -73,7 +73,10 @@ E2E_BASE_URL=http://localhost npm run test:e2e
 5. **테스트가 운영 DB 경로를 열지 않는다.** 서버를 띄우는 테스트는 `SQLITE_PATH: ':memory:'`를
    넘긴다. `node:sqlite`는 동기식이라, 여러 워커가 같은 파일을 잡으면 잠금을 기다리는 동안
    이벤트 루프 전체가 멈춘다.
-6. 새 계약 코드(오류 코드·메시지 타입)를 만들면 `backend/test/blackbox/contract.ts`의 사본도
+6. **봇 AI는 독립 오라클과 전수 대조한다.** 정책을 손대면 `expectimaxOracle.test.ts`(252 다중집합 ×
+   굴림 번호)와 예산 장애 주입 스윕이 함께 초록이어야 한다. 성능을 바꾸면 `npm run test:load`(필요하면
+   `systemd-run --user --scope -p CPUQuota=50% -p MemoryMax=512M`로 번들을 묶어서)를 다시 잰다.
+7. 새 계약 코드(오류 코드·메시지 타입)를 만들면 `backend/test/blackbox/contract.ts`의 사본도
    함께 고친다. 퍼저가 모르는 코드를 계약 위반으로 잡는다.
 
 ## 찾아낸 것

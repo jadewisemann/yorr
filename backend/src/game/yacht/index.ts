@@ -20,6 +20,7 @@ export {
   type BotTurnOrchestratorDeps,
   type BotTurnOrchestratorOptions,
   type BotTurnStep,
+  CooperativeYachtBotPolicy,
   DEFAULT_SEARCH_BUDGET_MS,
   ExpectimaxYachtBotPolicy,
   type ExpectimaxYachtBotPolicyOptions,
