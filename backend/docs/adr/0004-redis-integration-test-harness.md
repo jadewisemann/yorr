@@ -1,6 +1,6 @@
 # ADR-0004: Redis 통합 테스트는 로컬 redis-server 프로세스로 띄운다
 
-- 상태: accepted
+- 상태: superseded by [ADR-0007](0007-botkeep-single-process.md) (2026-10-18) — 아래는 당시 결정의 기록이다
 - 날짜: 2026-08-14
 
 ## 맥락

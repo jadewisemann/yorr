@@ -8,7 +8,7 @@ import { OAUTH_STATE_TTL_SECONDS, OAuthStateStore } from '../stateStore.js'
  *
  * **1회용 시맨틱이 계약이다.** state는 로그인 CSRF 방어(콜백 URL 재사용 차단),
  * 로그인 코드는 유출된 코드의 수명 제한이 목적이라 "두 번째는 반드시 실패"가
- * 지켜져야 의미가 있다. 그래서 모킹이 아니라 진짜 Redis로 고정한다.
+ * 지켜져야 의미가 있다. 그래서 모킹이 아니라 운영과 같은 저장소로 고정한다.
  */
 
 describeRedis('OAuthStateStore', () => {

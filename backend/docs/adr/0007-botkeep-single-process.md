@@ -1,12 +1,12 @@
-# ADR-0007: Botkeep에는 Redis·MySQL을 프로세스 안으로 넣은 번들 하나로 올린다
+# ADR-0007: Botkeep에 Node 프로세스 하나로 올린다 — Redis·MySQL을 프로세스 안으로
 
 - 상태: accepted
 - 날짜: 2026-10-18
-- 관련: [ADR-0004](0004-redis-integration-test-harness.md) · [ADR-0005](0005-flyway-compatible-migration-runner.md) · [ADR-0006](0006-github-actions-ghcr-arm64-single-host.md)
+- 대체: [ADR-0004](0004-redis-integration-test-harness.md) · [ADR-0005](0005-flyway-compatible-migration-runner.md) · [ADR-0006](0006-github-actions-ghcr-arm64-single-host.md)
 
 ## 맥락
 
-서버를 OCI 단일 호스트(ADR-0006, compose로 backend·Redis·MySQL·Caddy)에서
+서버를 OCI 단일 호스트(ADR-0006, compose로 backend·Redis·MySQL·Caddy·Alloy)에서
 [Botkeep](https://botkeep.cloud/) 무료(파운더) 플랜으로 옮긴다. 이 플랫폼의 제약은 다음과 같다
 (2026-10-18 공개 문서 기준).
 
@@ -15,59 +15,68 @@
 - RAM 512MB · 0.5 vCore · 디스크 1GB. 시스템 패키지를 설치할 수 있다고 가정하지 말라고
   안내한다(`redis-server` 바이너리를 기대할 수 없다).
 
-따라서 Redis와 영속 DB를 **Node 프로세스 안으로** 넣어야 한다.
+운영 데이터 이전은 요구 사항이 아니다(회원·전적을 새로 시작해도 된다고 확인했다).
 
 ## 결정
 
-1. **Redis → ioredis-mock** (`infra/memoryRedis.ts`, `REDIS_DRIVER=memory`).
-   Lua를 fengari로 실행하므로 기존 스크립트를 한 줄도 바꾸지 않는다.
-2. **MySQL → Node 내장 `node:sqlite`** (`infra/sqlite.ts`, `DB_DRIVER=sqlite`).
-   저장소(`Mysql*Store`)는 그대로 두고, 그들이 쓰는 mysql2 `Pool`의 부분집합만 흉내 낸다.
-   의존성이 늘지 않는다. 스키마는 풀을 열 때 `CREATE TABLE IF NOT EXISTS`로 맞추고,
-   Flyway 러너는 SQLite 풀을 건너뛴다.
-3. **배포물은 esbuild 번들 하나**(`npm run build:botkeep`). 런타임 의존성까지 전부
-   품으므로 Botkeep에서 `npm install`이 할 일이 없다. mysql2는 스텁으로 바꿔 끼운다.
-4. 기본 드라이버는 그대로 `tcp`·`mysql`이다. 번들만 배너에서 `memory`·`sqlite`를 깐다.
-   OCI 경로(compose·이미지·controller)는 지우지 않는다.
-
-### ADR-0004와의 관계
-
-ADR-0004는 ioredis-mock을 **테스트 도구로** 거절했다: 가짜가 검증 대상의 시맨틱을
-우리가 상상한 대로 구현하기 때문이다. 이 ADR은 그 판단을 뒤집지 않는다. 방향이 반대다:
-진짜 `redis-server` 위의 통합 스위트가 여전히 **명세**이고, ioredis-mock은 그 명세를
-통과해야 하는 **구현**이다. CI(`botkeep.yml`)가 같은 스위트를 `REDIS_TEST_DRIVER=mock`으로
-돌리고, 번들을 띄워 블랙박스 스위트까지 통과시킨다.
-
-## 확인한 것 (2026-10-18)
-
-- Redis 통합 스위트 30개 파일, 391건이 mock 위에서 통과했다. 실패 1종은 아래 「한계」의 시각 차이다.
-- 저장소 스위트(`DB_TEST_DRIVER=sqlite`)는 47건이 통과했다. Flyway 이력 전용 11건은 건너뛴다.
-- Lua 원자성(DESIGN.md 원칙 7): 스크립트 500건과 일반 명령 500건을 섞어도 스크립트 도중에
-  끼어든 명령이 없었다(`memoryRedis.test.ts`).
-- 번들(1.9MB) 위에서 블랙박스 스위트 33건이 통과했다. RSS는 기동 직후 약 91MB, 스위트를
-  여섯 번 돌린 뒤 약 139MB에서 멈췄다(힙 상한 96MB 측정, 운영은 128MB).
-
-## 한계
-
-- **재시작하면 방·게스트 세션·진행 중 게임이 사라진다.** Redis에 영속화가 없다. 회원·전적·
-  랭킹은 SQLite 파일이라 남는다. DESIGN.md 「재시작 가능성」(마감 시각 재무장)은 이 배포에서
-  의미가 없다.
-- ioredis-mock은 Lua 실행 중에도 시각이 흐른다. 한 스크립트에서 건 만료끼리 ms 단위로
-  어긋날 수 있다(자식 키가 방 키보다 몇 ms 늦게 사라진다). 그 정밀도를 보는 단언 2건은 mock
-  모드에서 건너뛴다(`redisClockFrozenInLua`).
-- ioredis-mock은 만료 키를 **다시 조회할 때만** 지운다. 그대로 두면 아무도 보지 않는 방 키가
-  쌓이므로 `memoryRedis.ts`가 만료를 건 키를 기억했다가 60초마다 회수한다.
-- SQLite는 커넥션 하나다. 모든 질의와 트랜잭션이 잠금 하나를 차례로 잡는다(`FOR UPDATE`보다
-  강하다). 질의는 동기라 이벤트 루프를 잠깐 막지만, 기록은 게임 종료와 로그인에서만 일어난다.
-- 기존 MySQL 데이터는 옮기지 않는다. 필요해지면 네 테이블을 덤프해 같은 열 이름으로 넣으면
-  된다(시각은 ISO 8601 UTC 문자열).
+1. **Redis → `MemoryRedis`**(`infra/memoryRedis.ts`). 코드가 실제로 쓰는 Redis 명령만
+   동기식으로 구현하고, ioredis와 같은 이름의 비동기 메서드를 내놓는다. 저장소 코드는 Redis를
+   쓰던 모양 그대로다. `ioredis`는 지운다.
+2. **Lua → `AtomicScript`.** 스크립트 18개를 같은 조건 순서의 동기 JS 함수로 옮겼다. 도중에
+   `await`가 없으므로 Node의 단일 스레드에서 다른 명령이 끼어들 수 없다 — 이것이 DESIGN.md
+   원칙 7(원자성)의 새 근거다.
+3. **MySQL → Node 내장 `node:sqlite`**(`infra/sqlite.ts`). 저장소가 쓰던 `Pool` 모양
+   (`query`·`getConnection`·트랜잭션)만 구현한다. 스키마는 파일을 처음 열 때
+   `CREATE TABLE IF NOT EXISTS`로 맞춘다. `mysql2`·Flyway 호환 러너·`db/migration`을 지운다.
+4. **배포물은 esbuild 번들 하나**(`npm run build:botkeep`). 런타임 의존성(fastify·ws·zod)을
+   전부 품어 Botkeep에서 `npm install`이 할 일이 없다. CI가 번들을 패널과 같은 명령으로 띄워
+   시험한 뒤 `botkeep` 브랜치에 커밋한다.
+5. **OCI 경로를 지운다** — Dockerfile·compose·Caddy·controller·systemd·Alloy·배포 리허설과
+   해당 워크플로. 되돌릴 일이 생기면 git 이력에서 꺼낸다.
 
 ## 검토한 대안
 
+- **ioredis-mock(fengari로 Lua 실행)**: 첫 시도였다. 기존 스크립트를 한 줄도 바꾸지 않고
+  Redis 통합 스위트 391건이 통과했다. 그러나 Lua 호출마다 상태를 새로 만들어 **빈 스크립트
+  한 번에 1.2ms**(일반 명령 0.002ms), **2,000번에 RSS 262MB**가 늘었다. 0.5 vCore에서 GC가
+  CPU를 잡아먹는 구조라 걷어 냈다. Lua 실행 중에 시각이 흘러 한 스크립트 안의 만료가 ms 단위로
+  어긋나는 문제도 있었다.
 - **`redis-server` 바이너리 동봉**: 플랫폼의 아키텍처·libc를 알 수 없고, 시스템 패키지를
   가정하지 말라는 안내와 충돌한다.
-- **외부 무료 관리형 DB(Upstash·TiDB Serverless 등)**: 코드 변경은 0이지만 WS 명령마다 Lua
-  왕복이 인터넷을 건넌다. 게임 지연이 직접 늘고, 외부 계정이 하나 더 생긴다.
+- **외부 무료 관리형 DB(Upstash·TiDB Serverless 등)**: 코드 변경은 0이지만 WS 명령마다 원자적
+  전이가 인터넷을 건넌다. 게임 지연이 직접 늘고 외부 계정이 하나 더 생긴다.
 - **Botkeep의 Redis·MySQL 슬롯**: 무료 플랜의 슬롯이 하나라 앱이 들어갈 자리가 없다.
-- **저장소를 SQLite 전용으로 다시 쓰기**: 결과는 같고 diff만 크다. mysql2 `Pool` 부분집합
-  흉내가 저장소와 기존 테스트를 그대로 살린다.
+- **MySQL 경로를 남겨 두고 드라이버로 고르기**: 처음엔 그렇게 했다. 두 경로를 모두 시험해야
+  하고 번들에서 mysql2를 스텁으로 빼야 했다. 돌아갈 계획이 없어 지웠다.
+
+### ADR-0004와의 관계
+
+ADR-0004는 "가짜 Redis는 검증 대상의 시맨틱을 우리가 상상한 대로 구현한다"며 인메모리 페이크를
+거절했다. 그 경고는 여전히 맞다. 달라진 것은 **가짜가 곧 운영 구현이 되었다**는 점이다 —
+테스트와 운영이 같은 `MemoryRedis`를 쓰므로 "테스트는 통과하는데 운영 Redis는 다르게 동작한다"는
+틈이 사라졌다. 남는 위험은 우리가 Redis 시맨틱을 잘못 옮긴 경우인데, 옮기기 전에 진짜
+`redis-server` 위에서 초록이던 통합 스위트 전체가 그대로 통과하는 것으로 확인했다.
+
+## 확인한 것 (2026-10-18)
+
+- 단위·통합 1,111건 통과, **건너뜀 0건**(이전에는 Redis·MySQL 서버가 없으면 11~49건을 건너뛰었다).
+  Lua 실행 중 시각이 흐르던 문제가 사라져 ioredis-mock 시절에 건너뛰던 TTL 정밀도 단언 2건도
+  되살렸다.
+- 원자성: 스크립트 500건과 일반 명령 500건을 섞어도 스크립트 도중에 끼어든 명령이 없다
+  (`memoryRedis.test.ts`).
+- 블랙박스 스위트 35건(장애 주입·누수 검사 포함) 통과, 번들 대상 33건 통과.
+- 실제 브라우저 E2E(`frontend/e2e/real`) 5건이 번들을 상대로 통과, 새어 나온 핸들러 예외 0건.
+- 번들 1.08MB. RSS는 기동 직후 79MB, 블랙박스 스위트를 여섯 번 돌린 뒤 95MB(힙 상한 128MB).
+- 커버리지 바닥을 하나로 합쳐 올렸다(statements 92.6 · branches 84.7 · functions 92 · lines 94.7).
+
+## 결과와 한계
+
+- **재시작하면 방·게스트 세션·진행 중 게임이 사라진다.** 회원·전적·랭킹은 SQLite 파일이라
+  남는다. 부팅 시 재무장(`startupResume`)은 되살릴 방이 없어 아무 일도 하지 않는다.
+- 단일 프로세스·단일 인스턴스다(DESIGN.md 원칙 8이 더 단단해졌다). 무중단 교체는 없다.
+- SQLite는 커넥션 하나다. 모든 질의·트랜잭션이 잠금 하나로 직렬화되고, 질의가 동기라
+  이벤트 루프를 잠깐 막는다. 기록이 게임 종료·로그인에서만 일어나 문제가 되지 않는다.
+- 장애 주입(`test/faults/faultyRedis.ts`)은 그대로 쓴다. 원자적 스크립트 한 번이 명령 하나로 센다.
+- 메트릭(`/actuator/prometheus`)은 남아 있지만 지금은 아무도 긁지 않는다.
+- `Redis*Store`·`redis` 같은 이름은 그대로 둔다 — "Redis 명령 모양의 저장소"라는 뜻으로 읽는다.
+  바꾸면 diff만 커지고 얻는 것이 없다.

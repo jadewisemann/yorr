@@ -6,7 +6,7 @@ import { initial, ready, swing } from '../pingPongRules.js'
 import { RedisPingPongStateStore } from '../pingPongStateStore.js'
 
 /**
- * 진짜 Redis로만 검증되는 것들: SETNX 이중 초기화 거부 · 방 TTL 복사 ·
+ * 운영과 같은 저장소로만 검증되는 것들: SETNX 이중 초기화 거부 · 방 TTL 복사 ·
  * **version 비증가 변이 무시** · 동시 변이 직렬화(방 락).
  */
 const ROOM = 'ROOMAA'

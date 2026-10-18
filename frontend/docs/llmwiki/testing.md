@@ -74,7 +74,7 @@ E2E는 자체 페이크가 필요하다. 두 벌을 잇는 다리가 `e2e/suppor
     폭을 다 먹었다. narrow-width가 정확히 그 자리를 짚었는데 아무도 돌리지 않았다.
 - `npm run test:e2e:real` — **실서버 단**: `globalSetup`(`checkBackend`)이 백엔드 미기동을
   30개 타임아웃 대신 원인+복구 명령 한 문장으로 즉시 실패시킨다. 방 격리 원칙: 테스트마다
-  자기 방을 새로 만들고 일회용으로 취급. **CI가 진짜 백엔드(`node dist/main.js` + MySQL·Redis)
+  자기 방을 새로 만들고 일회용으로 취급. **CI가 진짜 백엔드(Botkeep 번들)
   앞에서 돌린다**(`.github/workflows/fullstack.yml`, chromium 한 프로젝트) — mock 단과 백엔드
   블랙박스 스위트가 같은 오해를 공유해도 여기서는 두 쪽 코드가 실제로 맞물린다.
 - 프로젝트 4종: Pixel 7 · iPhone 15 · **mobile-320**(320×568 — 지원 하한이 검증 밖에

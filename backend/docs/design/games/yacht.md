@@ -20,7 +20,7 @@
 | `payloads.ts` | 인바운드 payload 파싱 |
 | `yachtWsTypes.ts` | `game.yacht_dice.<event>` 조립, 인바운드 이벤트 목록 |
 | `yachtPorts.ts` | 바깥 계층(ws·room·타이머·점수)을 잡는 좁은 포트 |
-| `scripts.ts` | 락 해제 Lua(토큰 비교) |
+| `scripts.ts` | 락 해제 스크립트(토큰 비교) |
 
 재접속 와이어 타입 `YachtDiceState`는 **`game/reconnect/`가 소유**한다(만드는 곳이
 거기 하나뿐이다). 야추 배럴은 3.2·배선의 편의를 위해 재수출만 한다.
@@ -120,7 +120,7 @@ roomId 검증(세션의 방과 일치) → payload 파싱 → [활성 플레이�
 ### 수명주기 (모듈 훅 → 프레임워크)
 
 ```text
-POST /rooms/{code}/games ─ GameLifecycleService ─ START Lua(phase PLAYING·gameId)
+POST /rooms/{code}/games ─ GameLifecycleService ─ START 스크립트(phase PLAYING·gameId)
                                                         │
                                               module.start(roomCode, game)
         상태 제거(방어) → initialize(라운드 1, host 우선) → registry.markPhase('playing')
@@ -152,14 +152,14 @@ POST /rooms/{code}/games ─ GameLifecycleService ─ START Lua(phase PLAYING·g
   (`YachtDiceState`)와는 다른 모양이다. **필드 이름·순서를 그대로
   유지한다** — 전환기에는 두 백엔드가 같은 키를 읽을 수 있어야 한다.
 - 모든 변이는 방 락(`…:state:lock`, SET NX PX, TTL 5초, 2초 스핀/10ms 간격,
-  토큰 비교 Lua 해제) 아래에서 read-modify-write. 대기 초과는
+  토큰 비교 스크립트 해제) 아래에서 read-modify-write. 대기 초과는
   `game_state_busy`. **동시 동일 굴림 2건 중 정확히 1건만 성공**하는 통합
   테스트가 락의 계약이다(락이 없으면 둘 다 `activeRollCount 0`을 읽어 둘 다 성공한다 —
   직렬화된 뒤에는 두 번째가 rollCount 연속성에 걸려 거부된다).
-- 왜 Lua 하나가 아니라 락인가: 전이가 JSON을 도메인 객체로 되살려 `RoundState`의
-  검증을 통과시키는 일이고, `submitAtomically`의 `beforeStateChange`가 **또 다른 Lua**
-  (CONFIRM_SCORE)다. Lua 안에서 Lua를 부를 수 없다(작업이
-  5초를 넘기면 상태+점수를 한 Lua로 합칠 것).
+- 왜 스크립트 하나가 아니라 락인가: 전이가 JSON을 도메인 객체로 되살려 `RoundState`의
+  검증을 통과시키는 일이고, `submitAtomically`의 `beforeStateChange`가 **또 다른 스크립트**
+  (CONFIRM_SCORE)다. Redis 시절에는 Lua 안에서 Lua를 부를 수 없어 이렇게 나눴다. 지금은
+  둘 다 동기 함수라 합칠 수 있지만, 계약이 바뀌지 않는 한 나눠 둔다.
 - 락 해제는 `finally`에서 **항상** 시도한다. 토큰 비교 덕분에 락을 못 잡고 나가는
   경로에서는 no-op이다 — 그게 토큰 비교의 두 번째 역할이다(첫째는 TTL 만료 후 남의
   락을 풀지 않는 것). 해제 실패는 삼킨다(TTL 5초가 같은 일을 한다).

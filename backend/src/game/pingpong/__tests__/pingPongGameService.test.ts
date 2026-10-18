@@ -399,7 +399,7 @@ describe('PingPongGameService', () => {
   })
 
   /**
-   * 부팅 재무장(deploy/PLAN.md PR 6). 탁구도 결투와 같아서 마감(`nextActionAt`)이 상태
+   * 부팅 재무장(옛 deploy/PLAN.md PR 6). 탁구도 결투와 같아서 마감(`nextActionAt`)이 상태
    * 안의 절대 시각이고 상태가 Redis에 있으므로 되살릴 것은 예약뿐이다. **여기서 마감을
    * 새로 계산하면 안 된다** — 공의 다음 사건 시각이 곧 마감이라 새 값을 주면 랠리가
    * 어긋난다.

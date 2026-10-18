@@ -11,9 +11,8 @@ import { SqliteWeeklyRankingStore } from '../weeklyRankingStore.js'
  * 데코레이터 단위 테스트로 옮겼다, `weeklyRankingCache.test.ts`).
  *
  * 주간 집계 질의는 스키마와 함께 움직인다 — `user_id` nullable(게스트)과 users 조인,
- * GROUP BY의 합이 맞아야 한다. **그 합은 실제 MySQL에서만 확인된다.** 그래서 이
- * 파일은 ADR-0005의 게이트 뒤에 있다(`MYSQL_TEST_URL`이 없으면 통째로 skip).
- * 주 경계 환산·동점 번호·캐시는 게이트 **밖**에서 돈다.
+ * GROUP BY의 합이 맞아야 한다. **그 합은 실제 DB에서만 확인된다** — 운영과 같은
+ * SQLite 어댑터를 인메모리로 연다(항상 돈다). 주 경계 환산·동점 번호·캐시는 DB 없이 돈다.
  *
  * 시각은 `finished_at`과 같은 기준(UTC)으로 직접 넣는다. 풀의 `timezone: 'Z'`가
  * Date → DATETIME(6) 변환을 UTC로 못박아 준다(4.1).

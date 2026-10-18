@@ -14,8 +14,8 @@ import { SqliteMatchArchiveStore } from '../matchArchiveStore.js'
  * 여기서만 확인되는 것: 제약이 실제로 멱등을 지키는가, `finished_at`이 **UTC
  * 벽시계**로 적히는가(4.5의 KST 주 경계 질의가 그 값에 기댄다).
  *
- * ⚠️ `MYSQL_TEST_URL`이 없으면 **건너뛴다**(ADR-0005의 게이트). 로직 자체는
- * `matchArchiveService.test.ts`가 MySQL 없이 덮는다.
+ * 운영과 같은 SQLite 어댑터를 인메모리로 연다(항상 돈다). 로직 자체는
+ * `matchArchiveService.test.ts`가 DB 없이 덮는다.
  */
 
 const GAME_ID = 'game-1'

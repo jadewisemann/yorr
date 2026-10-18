@@ -15,11 +15,11 @@ import { registerPingPongAiRoutes } from '../pingPongAi.js'
 /**
  * 이식: 전부 + 오류 표면.
  *
- * 세션은 **진짜 Redis**로 돈다 — 이 라우트의 계약 절반이 "헤더가 없으면 게스트,
+ * 세션은 **운영과 같은 저장소**로 돈다 — 이 라우트의 계약 절반이 "헤더가 없으면 게스트,
  * 있는데 틀리면 401"이고 그 판정은 세션 스토어를 지난다(`ranking.test.ts`·
  * `users.test.ts`와 같은 방식). MySQL은 이 환경에 없으므로 보관 포트만 기록용
  * 가짜로 바꿔 끼운다 — 라우트가 고정하는 것은 저장소가 아니라 **응답 계약**이고,
- * 실 MySQL 절반은 `game/pingpong/__tests__/aiResultArchive.test.ts`가 맡는다.
+ * 실제 DB 절반은 `game/pingpong/__tests__/aiResultArchive.test.ts`가 맡는다.
  */
 
 const RESULT_ID = '4b72f136-f3c2-49c9-bfdb-290891fd8638'

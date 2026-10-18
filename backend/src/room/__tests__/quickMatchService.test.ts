@@ -20,7 +20,7 @@ import { RoomService } from '../roomService.js'
 /**
  * 퀵매치 8종.
  *
- * **진짜 Redis + 진짜 `RoomService`/`UserService`/`RoomSessionRegistry`**를 쓴다.
+ * **운영과 같은 저장소 + 진짜 `RoomService`/`UserService`/`RoomSessionRegistry`**를 쓴다.
  * 계약의 핵심(락·큐 순서·티켓 TTL·소켓 생존 판정)이 전부 모킹 불가한 부분이라
  * 그렇게 해야 의미가 있다(ADR-0004).
  *

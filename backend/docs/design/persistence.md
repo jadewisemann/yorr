@@ -1,87 +1,61 @@
-# 영속성 (Redis / MySQL)
+# 영속성 (저장소 / DB)
 
 > 상위 원칙은 [DESIGN.md](../../DESIGN.md).
-> Redis 키 스킴 전체는 [rooms-and-sessions.md](rooms-and-sessions.md).
+> 키 스킴 전체는 [rooms-and-sessions.md](rooms-and-sessions.md).
+> 둘 다 프로세스 안에 있다 — [ADR-0007](../adr/0007-botkeep-single-process.md).
 
 ## 저장소 분리
 
 | 저장소 | 담는 것 | 특성 |
 |---|---|---|
-| Redis | 방, 세션(게스트·회원 공용), 진행 중 게임 상태, 점수판, 퀵매치 큐, OAuth state·로그인 코드 | 휘발 허용, TTL, Lua 원자성 |
-| MySQL | 계정(users), 소셜 연동(social_accounts), 전적(matches·match_participants) | 영속, 스키마 마이그레이션 |
+| 저장소(`MemoryRedis`) | 방, 세션(게스트·회원 공용), 진행 중 게임 상태, 점수판, 퀵매치 큐, OAuth state·로그인 코드 | **재시작하면 사라진다**, TTL, 원자적 스크립트 |
+| DB(SQLite `data/yorr.db`) | 계정(users), 소셜 연동(social_accounts), 전적(matches·match_participants) | 영속, 파일 하나 |
 
-경계 규칙: **게임이 진행되는 동안 MySQL을 만지지 않는다.** MySQL 쓰기는 게임
+저장소는 Redis 명령 이름과 시맨틱(문자열 값·TTL·빈 해시 삭제·WRONGTYPE)을 흉내 내는
+프로세스 안의 구현이다. 그래서 저장소 클래스 이름에 `Redis`가 남아 있다.
+
+경계 규칙: **게임이 진행되는 동안 DB를 만지지 않는다.** DB 쓰기는 게임
 종료 시점의 전적 보관(archive) 한 곳이고, 랭킹 집계는 그 기록을 읽는다.
 
-## MySQL 스키마 (Flyway V1·V2 — 전환기 스키마 동결)
+## DB 스키마
+
+정본은 `infra/sqlite.ts`의 `SQLITE_SCHEMA`다. 풀이 파일을 처음 열 때 `CREATE TABLE IF NOT
+EXISTS`로 맞춘다 — 마이그레이션 러너는 없다(MySQL 시절의 Flyway 호환 러너는 ADR-0007에서
+지웠다). 모양은 MySQL 시절 V1·V2와 같고, 길이 제한은 `CHECK (length(...) <= n)`으로 옮겼다.
 
 ```sql
--- V1: 계정. 게스트는 Redis에만 산다 — users는 회원의 경계다.
-users(id VARCHAR(36) PK,             -- UUID 문자열: 게스트 id와 호환(X-User-Id·roster 공용)
-      nickname VARCHAR(20) NOT NULL,
-      profile_image_url VARCHAR(500) NULL,
-      created_at, updated_at DATETIME(6) NOT NULL)
-social_accounts(id BIGINT AI PK,
-      user_id VARCHAR(36) NOT NULL FK→users,
-      provider VARCHAR(20) NOT NULL, provider_user_id VARCHAR(64) NOT NULL,
-      created_at DATETIME(6) NOT NULL,
+-- 계정. 게스트는 저장소에만 산다 — users는 회원의 경계다.
+users(id TEXT PK ≤36,                -- UUID 문자열: 게스트 id와 호환(X-User-Id·roster 공용)
+      nickname TEXT NOT NULL ≤20,
+      profile_image_url TEXT NULL ≤500,
+      created_at, updated_at TEXT NOT NULL)   -- ISO 8601 UTC
+social_accounts(id INTEGER PK AUTOINCREMENT,
+      user_id TEXT NOT NULL FK→users,
+      provider TEXT NOT NULL ≤20, provider_user_id TEXT NOT NULL ≤64,
+      created_at TEXT NOT NULL,
       UNIQUE(provider, provider_user_id),   -- find-or-register 경합의 최종 방어선
       INDEX(user_id))
 
--- V2: 전적
-matches(id BIGINT AI PK,
-      game_id VARCHAR(64) NOT NULL UNIQUE,  -- 중복 보관의 최종 방어선
-      game_code VARCHAR(32) NOT NULL, room_code VARCHAR(12) NOT NULL,
-      player_count INT NOT NULL,
-      finished_at DATETIME(6) NOT NULL,     -- UTC 벽시계
+-- 전적
+matches(id INTEGER PK AUTOINCREMENT,
+      game_id TEXT NOT NULL UNIQUE ≤64,     -- 중복 보관의 최종 방어선
+      game_code TEXT NOT NULL ≤32, room_code TEXT NOT NULL ≤12,
+      player_count INTEGER NOT NULL,
+      finished_at TEXT NOT NULL,            -- ISO 8601 UTC
       INDEX(finished_at))
-match_participants(id BIGINT AI PK,
-      match_id BIGINT NOT NULL FK→matches,
-      user_id VARCHAR(36) NULL FK→users,    -- NULL = 게스트(랭킹 제외, 기록은 보존)
-      player_id VARCHAR(64) NOT NULL,
-      display_nickname VARCHAR(20) NOT NULL,-- 당시 표시 이름 동결
-      total_score INT NOT NULL, ranking INT NOT NULL,
+match_participants(id INTEGER PK AUTOINCREMENT,
+      match_id INTEGER NOT NULL FK→matches,
+      user_id TEXT NULL FK→users,           -- NULL = 게스트(랭킹 제외, 기록은 보존)
+      player_id TEXT NOT NULL ≤64,
+      display_nickname TEXT NOT NULL ≤20,   -- 당시 표시 이름 동결
+      total_score INTEGER NOT NULL, ranking INTEGER NOT NULL,
       INDEX(match_id), INDEX(user_id))
 ```
 
-- Flyway 설정 중 계약인 것: `baseline-on-migrate: true` + **`baseline-version: 0`**
-  (기본값 1이면 V1이 적용된 것으로 오인되어 건너뛴다).
-
-## 마이그레이션
-
-Node 쪽 도구는 **Flyway 이력 테이블 위에서 도는 자체 러너**다
-([ADR-0005](../adr/0005-flyway-compatible-migration-runner.md), `src/infra/migrations/`).
-새 의존성 없음 — `flyway_schema_history`를 그대로 읽고 쓴다.
-
-- SQL은 `backend/db/migration/`. **V1·V2는 한 글자도 고치지 않는다** — 체크섬이
-  내용에서 나오는데 운영 DB의 `flyway_schema_history`에 그 값이 이미 적혀 있다.
-- 체크섬은 Flyway와 같은 값이다: 줄 종결자를 뺀 각 줄의 UTF-8 바이트에 대한
-  CRC32(signed int). 줄 종결자 종류·파일 끝 개행·BOM에 영향받지 않는다.
-- 버전 판정도 Flyway와 같다: 숫자 단위 비교, `1` == `1.0`, baseline **이하**는
-  적용 대상이 아니다.
-
-**스키마의 주인은 이 저장소다.** 새 마이그레이션은 V3부터 여기에 추가한다.
-이미 적용된 V1·V2만 손대지 않으면 된다.
-
-**적용과 기동은 갈라 둔다.** 관례가 아니라 안전 장치다 — 기동이 스키마를 바꾸면
-"부팅했더니 스키마가 바뀌어 있었다"가 되고, 롤백한 이미지가 앞서 나간 스키마를
-만나게 된다.
-
-| 진입점 | 하는 일 | 쓰는 곳 |
-|---|---|---|
-| `verifyMigrations(pool)` | **읽기 전용 확인.** 이력 테이블조차 만들지 않는다. 미적용 마이그레이션·실패 이력 행이 있으면 던진다 | 서버 기동 |
-| `runMigrations(pool)` | 밀린 것을 실제로 적용 | 배포의 `migrate` 잡(`deploy/compose.yaml`, bootstrap 프로파일), 빈 개발 DB, 통합 테스트 |
-
-그러므로 **마이그레이션을 추가한 배포는 `migrate`를 먼저 돌려야 한다.** 그러지
-않으면 새 이미지가 `verifyMigrations`에서 죽는다.
-
-- 체크섬 불일치는 기본적으로 **보고만** 한다(`validateChecksums: true`로 승격).
-  우리 계산이 어긋났을 때 운영 부팅이 막히는 형태로 드러나면 안 된다.
-- 이력에는 있는데 파일이 없는 것(`missingLocally`)은 던지지 않는다 — DB가 앞서
-  나간 상태이고 남는 테이블이 질의를 깨뜨리지는 않는다. 경고 로그로 남긴다.
-- MySQL DDL은 암묵 커밋이라 롤백이 없다. 실패한 마이그레이션은 Flyway와 같이
-  `success = 0`으로 이력에 남고, 복구는 사람이 스키마를 확인하고 그 행을 지우는
-  것이다.
+- **시각은 `Date.toISOString()` 한 형식으로만 적는다.** 형식이 하나라 문자열 비교가 곧
+  시각 비교이고, 주간 랭킹의 기간 질의(`finished_at >= ? AND < ?`)가 그 위에 선다.
+- 스키마를 바꾸려면 `SQLITE_SCHEMA`를 고친다. `IF NOT EXISTS`는 **새 테이블만** 만든다 —
+  기존 테이블에 열을 더하는 변경은 `ALTER TABLE`을 같은 자리에 함께 적어야 한다.
 
 ## 프로필 (users) — dual-write 불변식
 
@@ -89,9 +63,9 @@ Node 쪽 도구는 **Flyway 이력 테이블 위에서 도는 자체 러너**다
 
 | 저장소 | 값 | 역할 | 수명 |
 |---|---|---|---|
-| MySQL `users.nickname` | **정본** | 영구 프로필 | 계정 수명 |
-| Redis `user:{id}.nickname` | 사본 | 인증·화면·방 명단이 실제로 읽는 값 | 세션 TTL(회원 30일 슬라이딩) |
-| MySQL `match_participants.display_nickname` | 스냅샷 | 그 판에 보였던 이름 | 영구, **불변** |
+| DB `users.nickname` | **정본** | 영구 프로필 | 계정 수명 |
+| 저장소 `user:{id}.nickname` | 사본 | 인증·화면·방 명단이 실제로 읽는 값 | 세션 TTL(회원 30일 슬라이딩) |
+| DB `match_participants.display_nickname` | 스냅샷 | 그 판에 보였던 이름 | 영구, **불변** |
 
 - **개명은 두 곳을 함께 쓴다(dual-write).** DB만 고치면 다시 로그인하기 전까지
   방 명단에 옛 이름이 남고, 세션만 고치면 세션이 만료되는 순간 되돌아간다.
@@ -128,15 +102,14 @@ Node 쪽 도구는 **Flyway 이력 테이블 위에서 도는 자체 러너**다
 
 | 파일 |
 |---|
-| `user/profile.ts` — `UserProfileService`·`UserProfileRepository`·`MysqlUserProfileStore`·`UserNotFoundError` |
+| `user/profile.ts` — `UserProfileService`·`UserProfileRepository`·`SqliteUserProfileStore`·`UserNotFoundError` |
 | `http/routes/users.ts` — `registerUserRoutes` |
 
 - 세션 쪽은 좁은 포트(`SessionNicknameWriter`)로만 잡는다. `UserService`가
-  구조적으로 이를 만족하므로 배선은 그대로이고, MySQL 없는 환경에서도 라우트
-  계약을 시험할 수 있다.
+  구조적으로 이를 만족하므로 배선은 그대로이고, DB 없이도 라우트 계약을 시험할 수 있다.
 - 테스트: `user/__tests__/profile.test.ts`가
-  `UserProfileServiceIntegrationTest` 4종을 **두 벌** 돌린다 — 인메모리 저장소 +
-  진짜 Redis(항상), 실 MySQL + 진짜 Redis(`MYSQL_TEST_URL`이 있을 때만).
+  `UserProfileServiceIntegrationTest` 4종을 **두 벌** 돌린다 — 인메모리 저장소와
+  인메모리 SQLite(`useDb`). 둘 다 항상 돈다.
   `http/routes/__tests__/users.test.ts`가 401·403·400·404·500 표면과 dual-write를
   고정한다.
 
@@ -177,11 +150,11 @@ Node 쪽 도구는 **Flyway 이력 테이블 위에서 도는 자체 러너**다
 - `MatchArchiveService`는 2.7의 `MatchArchivePort`를 **구조적으로** 만족한다 —
   배선에서 `noopMatchArchive`를 이 인스턴스로 바꾸는 것 외에 다른 변경이 없다.
 - 저장소를 포트로 뒤집은 이유는 4.3과 같다: 판정 로직(멱등·닉네임·회원 분기·시계)이
-  MySQL 없이 시험돼야 한다. 이식된 테스트(4.4):
+  DB 없이 시험돼야 한다. 이식된 테스트(4.4):
   `game/match/__tests__/matchArchiveService.test.ts`가
   `MatchArchiveServiceIntegrationTest`의 `MatchArchiveService` 4종을 인메모리 저장소로
   **항상** 돌리고, `matchArchiveStore.test.ts`가 같은 4종 + 제약·동시 보관·UTC 벽시계를
-  실 MySQL에서(`MYSQL_TEST_URL`이 있을 때만) 확인한다.
+  인메모리 SQLite에서 확인한다(항상 돈다).
 
 ## 주간 랭킹 (WeeklyRankingService)
 
@@ -268,26 +241,22 @@ rank 번호는 응답 조립 시 부여(동점 공동·다음 순위 건너뜀 �
 | `http/routes/ranking.ts` — `registerRankingRoutes` |
 
 - 집계 질의 인터페이스를 **전적 패키지가 아니라 랭킹 모듈**에 둔다. 읽는 쪽이 소유하면 보관(쓰기)과 랭킹(읽기)이 서로의
-  파일을 건드리지 않고 같은 테이블을 나눠 쓴다 — 결합은 Flyway V2 스키마 하나다.
+  파일을 건드리지 않고 같은 테이블을 나눠 쓴다 — 결합은 `SQLITE_SCHEMA`의 전적 테이블 하나다.
 - 이식된 테스트(4.5): 주 경계(초·밀리초 단위)·동점 번호·캐시 키·evict·limit
-  클램프·REST 표면은 **MySQL 없이** 돈다(`Intl` 대조 포함). 실 MySQL이 필요한
-  것은 집계 SQL 자체(게스트 제외·GROUP BY·현재 닉네임·반개구간)뿐이고
-  `MYSQL_TEST_URL`이 있을 때만 돈다.
+  클램프·REST 표면은 **DB 없이** 돈다(`Intl` 대조 포함). 집계 SQL 자체(게스트 제외·
+  GROUP BY·현재 닉네임·반개구간)는 인메모리 SQLite에서 확인한다.
 
 ## 클라이언트
 
-- Redis: `ioredis`, lazyConnect. Lua는 `defineCommand`로 등록해 스크립트
-  단위로 테스트한다. 반환 코드 매핑은 각 설계 문서의 표가 계약이다.
-- MySQL: `mysql2/promise` 풀(`infra/mysql.ts`, `createMysqlPool`/`closeMysqlPool`).
-  ORM 미도입(ADR-0003) — 필요 쿼리는 전적 보관 insert 2종 + 랭킹 select 3종 +
-  계정 CRUD 소수라 raw SQL로 충분하다. 쿼리가 늘어나면 재검토.
-- 풀은 태생이 lazy라 ioredis의 `lazyConnect`에 해당하는 옵션이 없다 — 첫 질의
-  전에는 커넥션을 열지 않으므로 **MySQL 없이도 서버 기동은 성공한다**.
-- **`timezone: 'Z'`가 계약이다.** `DATETIME(6)`은 UTC 벽시계인데(위의
-  `finished_at`) mysql2 기본값 `'local'`은 Date ↔ DATETIME 변환에 프로세스 TZ를
-  쓴다. 개발 컨테이너는 Asia/Seoul, 운영은 UTC라 그대로 두면 같은 코드가 환경마다
-  9시간 어긋난 값을 쓴다. 그래서
-  드라이버 쪽에서도 못박는다.
-- `multipleStatements`는 끈다. 마이그레이션 SQL은 러너가 문장 단위로 잘라
-  보낸다(ADR-0005) — 마이그레이션 한 곳 때문에 애플리케이션 풀 전체에 인젝션
-  피해 범위를 넓히지 않는다.
+- 저장소: `infra/memoryRedis.ts`. 동기 명령 집합(`RedisCore`) 위에 ioredis 모양의 비동기
+  겉면(`MemoryRedis`)을 얹었다. 동시성 있는 전이는 `AtomicScript`(동기 함수 하나)로 한 번에
+  검증+갱신한다 — 도중에 `await`가 없으므로 다른 명령이 끼어들지 않는다. 반환 코드 매핑은
+  각 설계 문서의 표가 계약이다. 만료는 접근할 때 확인하고 60초마다 회수한다.
+- DB: `infra/sqlite.ts`(`createDbPool`/`closeDbPool`). Node 내장 `node:sqlite` 위에
+  `query`·`getConnection`·트랜잭션만 있는 작은 풀을 구현했다. ORM 미도입(ADR-0003) — 필요
+  쿼리는 전적 보관 insert 2종 + 랭킹 select 3종 + 계정 CRUD 소수라 raw SQL로 충분하다.
+- 풀은 **첫 질의 때 파일을 연다** — DB를 건드리지 않는 기동·테스트는 파일을 만들지 않는다.
+- `DatabaseSync`는 커넥션 하나라 모든 질의·트랜잭션이 잠금 하나를 차례로 잡는다
+  (`FOR UPDATE`는 지우고 그보다 강한 직렬화로 대신한다). 질의가 동기라 이벤트 루프를 잠깐
+  막지만 DB 기록은 게임 종료·로그인에서만 일어난다.
+- 제약 위반은 MySQL 시절의 `errno`(1062 등)로 바꿔 던진다 — 저장소의 판정 코드가 그 숫자다.

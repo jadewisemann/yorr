@@ -1,6 +1,6 @@
 # ADR-0005: 마이그레이션은 Flyway 이력 테이블 위에서 자체 러너로 돌린다
 
-- 상태: accepted
+- 상태: superseded by [ADR-0007](0007-botkeep-single-process.md) (2026-10-18) — 아래는 당시 결정의 기록이다
 - 날짜: 2026-08-14
 
 ## 맥락

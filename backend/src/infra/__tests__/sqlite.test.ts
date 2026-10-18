@@ -3,7 +3,7 @@ import type { ResultSetHeader, RowDataPacket } from '../sqlite.js'
 import { createSqlitePool } from '../sqlite.js'
 
 /**
- * 저장소 스위트(`DB_TEST_DRIVER=sqlite`)가 덮지 않는, 어댑터 자신의 계약만 본다.
+ * 저장소 스위트(`useDb`)가 덮지 않는, 어댑터 자신의 계약만 본다.
  * 같은 판을 두 번 보관하는 경합·제약 위반 승격은 저장소 스위트가 이미 확인한다.
  */
 const pool = createSqlitePool(':memory:')

@@ -1,12 +1,10 @@
 /**
  * Readiness 판정 — `/actuator/health`가 뜻하는 것을 "프로세스가 HTTP를 받는다"에서
  * **"이 인스턴스가 실제 요청을 처리할 준비가 되었다"**로 올린다
- * ([`deploy/PLAN.md`](../../../deploy/PLAN.md) PR 1).
+ * (옛 `옛 deploy/PLAN.md` PR 1 — git 이력).
  *
- * 이 한 곳을 고치면 세 소비자가 함께 올라간다: 이미지의 `HEALTHCHECK`
- * (`backend/Dockerfile`), 배포 게이트(`docker compose up -d --wait`), 그리고 호스트
- * 밖의 외부 uptime 체크. 그래서 배포 재설계에서 이것이 선행 조건이다 — `--wait`는
- * 자기가 기다리는 health가 진짜가 아니면 crash 루프를 성공으로 읽는다.
+ * 소비자는 CI의 번들 리허설(UP을 기다린 뒤 스위트를 돌린다)과 외부 uptime 체크다.
+ * 기다리는 health가 진짜가 아니면 crash 루프를 성공으로 읽는다.
  *
  * 응답 형식은 바꾸지 않는다: 준비됐으면 200 `{"status":"UP"}`, 아니면 503
  * `{"status":"DOWN"}`이다. **어느 의존이 죽었는지는 본문에 싣지 않는다** — 인증 없이

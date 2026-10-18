@@ -246,7 +246,7 @@ export class GameSocketHandler {
     const previous = this.deps.registry.find(roomId, identity.playerId)
     const playing = this.deps.registry.phaseOf(roomId) === 'playing'
     /*
-     * **재시작 뒤 자기 자리로 돌아오는 경로**(deploy/PLAN.md PR 6).
+     * **재시작 뒤 자기 자리로 돌아오는 경로**(옛 deploy/PLAN.md PR 6).
      *
      * 좌석 레지스트리는 프로세스 메모리라 재시작에 함께 사라진다. 그래서 재접속
      * 판정을 레지스트리만으로 하면, 프로세스가 죽었다 살아난 뒤의 첫 `room.join`이

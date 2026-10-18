@@ -5,7 +5,7 @@ import { GameQueryDomainError, GameScoreQueryError } from './queryErrors.js'
 
 /**
  * 조회 스토어가 쓰는 명령은 이 둘뿐이다(읽기 전용). `MemoryRedis`가 구조적으로
- * 만족하므로 그대로 넘길 수 있고, 테스트는 진짜 Redis에 위임하면서 읽기 사이에
+ * 만족하므로 그대로 넘길 수 있고, 테스트는 운영과 같은 저장소에 위임하면서 읽기 사이에
  * 실제 쓰기를 끼워 넣는 얇은 래퍼를 넘겨 **재시도 경합을 재현**한다
  * (가짜 응답을 만들지 않는다 — 값은 전부 Redis에서 온다).
  */

@@ -36,9 +36,9 @@ export const registerHealthRoutes = async (
   deps: ActuatorRouteDependencies = {},
 ): Promise<void> => {
   // 예전에는 상수 `{status:'UP'}`이었다. 그때 이 엔드포인트는 "프로세스가 HTTP를
-  // 받는다"까지만 증명했고, Redis·MySQL이 둘 다 죽어도 UP을 냈다 —
-  // 이미지 `HEALTHCHECK`·배포 게이트·외부 uptime 체크가 그 한계를 함께 물려받았다
-  // (deploy/PLAN.md PR 1). 지금은 readiness다.
+  // 받는다"까지만 증명했고, 의존이 다 죽어도 UP을 냈다 —
+  // 배포 게이트·외부 uptime 체크가 그 한계를 함께 물려받았다
+  // (옛 deploy/PLAN.md PR 1). 지금은 readiness다.
   //
   // 본문 형식은 계약이라 그대로 둔다: 200 `{"status":"UP"}` / 503 `{"status":"DOWN"}`.
   // **어느 의존이 죽었는지는 싣지 않는다** — 인증 없이 공개되는 표면이다.

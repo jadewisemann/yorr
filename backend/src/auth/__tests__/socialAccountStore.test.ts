@@ -6,8 +6,8 @@ import { SqliteSocialAccountStore } from '../socialAccountStore.js'
 import { PLACEHOLDER_NICKNAME } from '../socialProfile.js'
 
 /**
- * MySQL 구현의 통합 테스트 — 진짜 MySQL이 필요하다(ADR-0005의 게이트를 그대로
- * 쓴다: `MYSQL_TEST_URL`이 없으면 통째로 skip). 여기서만 확인할 수 있는 것은
+ * SQLite 구현의 통합 테스트 — 운영과 같은 어댑터를 인메모리로 연다(항상 돈다).
+ * 여기서만 확인할 수 있는 것은
  * **제약이 실제로 무엇을 막는가**다: `(provider, provider_user_id)` 유니크가
  * 두 번째 가입을 막고, 그 실패가 `DataIntegrityViolationError`로 올라온다.
  */

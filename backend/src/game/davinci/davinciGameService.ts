@@ -194,7 +194,7 @@ export class DavinciGameService<S, K = unknown> {
   }
 
   /**
-   * 프로세스 재시작 후의 복구(deploy/PLAN.md PR 6). 마감(`nextActionAt`)이 상태 안의
+   * 프로세스 재시작 후의 복구(옛 deploy/PLAN.md PR 6). 마감(`nextActionAt`)이 상태 안의
    * 절대 epoch ms이고 그 상태는 Redis에 있으므로 되살리는 것은 `resume`과 같은 예약이다
    * (이미 지난 마감은 예약기가 지연 0으로 깎아 즉시 발화한다).
    *

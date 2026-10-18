@@ -45,7 +45,7 @@ const authHeaders = (userId: string, token: string): Record<string, string> => (
 /**
  * 봇 REST.
  *
- * 진짜 Redis와 진짜 브로드캐스터를 쓴다 — 계약의 절반이 Lua 반환 코드 →
+ * 운영과 같은 저장소와 진짜 브로드캐스터를 쓴다 — 계약의 절반이 Lua 반환 코드 →
  * 상태 코드 매핑이라
  * 모킹하면 그 매핑을 테스트가 스스로 정의해 버린다.
  *

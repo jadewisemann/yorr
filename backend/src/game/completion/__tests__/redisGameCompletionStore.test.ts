@@ -13,7 +13,7 @@ const PLAYERS = ['player-1', 'player-2'] as const
 /**
  * 게임 종료 전이는 이 Lua 하나에 달려 있다 — 여기가 틀리면 게임이 안 끝나거나
  * (무한 라운드) 진행 중인 게임이 끝나버린다. 두 경우 모두 상태가 통째로 꼬이므로
- * **진짜 Redis**로 검증한다(모킹으로는 원자성·동시성을 볼 수 없다).
+ * **운영과 같은 저장소**로 검증한다(모킹으로는 원자성·동시성을 볼 수 없다).
  */
 describeRedis('RedisGameCompletionStore', () => {
   const redis = useRedis()
