@@ -77,7 +77,10 @@ E2E_BASE_URL=http://localhost npm run test:e2e
    `describe` 하나를 `backend/src/__tests__/regressions/pr<번호>.test.ts`에 둔다. 단위 테스트가 수정의
    경계를 보고, 회귀 테스트는 그 지적이 실제 모듈 조합에서 다시 일어나지 않는지 본다. 수정을 하나씩
    되돌리는 변이 시험으로 각 테스트가 빨개지는지 확인한다.
-7. 새 계약 코드(오류 코드·메시지 타입)를 만들면 `backend/test/blackbox/contract.ts`의 사본도
+7. **봇 AI는 독립 오라클과 전수 대조한다.** 정책을 손대면 `expectimaxOracle.test.ts`(252 다중집합 ×
+   굴림 번호)와 예산 장애 주입 스윕이 함께 초록이어야 한다. 성능을 바꾸면 `npm run test:load`(필요하면
+   `systemd-run --user --scope -p CPUQuota=50% -p MemoryMax=512M`로 번들을 묶어서)를 다시 잰다.
+8. 새 계약 코드(오류 코드·메시지 타입)를 만들면 `backend/test/blackbox/contract.ts`의 사본도
    함께 고친다. 퍼저가 모르는 코드를 계약 위반으로 잡는다.
 
 ## 찾아낸 것
