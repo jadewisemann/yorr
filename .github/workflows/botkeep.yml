@@ -33,7 +33,7 @@ permissions:
 
 jobs:
   bundle:
-    name: 인프로세스 드라이버 · 번들 리허설
+    name: 번들 리허설
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -50,16 +50,8 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
+      # 단위·통합 테스트는 backend.yml이 돈다. 여기서는 출하물만 본다.
       - run: npm ci
-
-      # Redis·MySQL 통합 스위트를 Botkeep의 드라이버(ioredis-mock · node:sqlite) 위에서 돌린다.
-      # 서버 바이너리가 없어도 skip되지 않는다 — 두 드라이버 모두 프로세스 안에 있다.
-      - name: 단위 + 통합 (memory Redis · SQLite)
-        env:
-          REDIS_TEST_DRIVER: mock
-          DB_TEST_DRIVER: sqlite
-        run: npm test
-
       - run: npm run build:botkeep
 
       # Botkeep 패널에 넣을 시작 명령과 **같은 명령**으로 띄운다(npm을 거치지 않는다 — README).

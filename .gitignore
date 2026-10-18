@@ -26,6 +26,5 @@ Thumbs.db
 # Local planning and reference materials
 /docs/
 /.dev.md
-deploy/tests/work/
 deploy/botkeep/out/
 deploy/botkeep/server.*
