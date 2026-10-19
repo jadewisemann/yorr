@@ -122,6 +122,11 @@ export class YachtBotTurnCoordinator {
     const board = await this.scores.scoreBoard(gameId, botId)
     const decision = await this.decide(event.roomId, board, state, dice)
 
+    // 정책은 탐색 큐에서 기다릴 수 있다(CooperativeYachtBotPolicy). 그 사이 타임아웃이나 사람이
+    // 턴을 넘겼다면 낡은 상태로 행동하지 않는다 — 결정 **뒤에** 다시 읽어 같은 턴인지 본다.
+    const afterDecision = await this.rounds.findByRoomId(event.roomId)
+    if (afterDecision === undefined || !sameTurnVersion(state, afterDecision)) return ignoredStep
+
     if (decision.action === 'SCORE' || state.activeRollCount === MAX_ROLL_COUNT) {
       return this.submit(event.roomId, gameId, botId, state, dice, decision)
     }
