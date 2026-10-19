@@ -7,6 +7,14 @@
 > 형식: `## YYYY-MM-DD - 주제` 아래에 불릿. 최신이 위.
 >
 
+## 2026-10-19 - PR #81 ocr 리뷰에서 확인한 것
+
+- **Actions의 기본 셸에는 pipefail이 없다.** `shell:`을 지정하지 않은 단계는 `bash -e {0}`로 돌고,
+  `shell: bash`를 써야 `-eo pipefail`이 붙는다. 야간 부하 측정이 `npm run test:load | tee`라 테스트가
+  실패해도 초록이었다. 실패 경로가 있는 파이프에는 `shell: bash`나 `PIPESTATUS`를 쓴다.
+- **큐가 가득 찬 폴백은 경고가 아니다.** 설계된 부하 차단이 "탐색 실패" warn으로 쏟아져 진짜 실패를
+  묻었다. `policyFallbackLog`가 큐 거절은 debug로 내린다.
+
 ## 2026-10-19 - open-code-review(delegation) 리뷰에서 확인한 결함
 
 - **키 상한이 원자적 스크립트를 반쯤 끊었다.** 상한을 새 키마다 따로 판정해서, JOIN이 `players`를

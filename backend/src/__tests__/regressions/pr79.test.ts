@@ -35,7 +35,11 @@ import {
   AccumulatingScoreBoardStore,
   roomWith,
 } from '../../game/yacht/bot/__tests__/botTestDoubles.js'
-import { BotQueueFullError } from '../../game/yacht/bot/botErrors.js'
+import {
+  BotQueueFullError,
+  BotSearchBudgetError,
+  policyFallbackLog,
+} from '../../game/yacht/bot/botErrors.js'
 import type { YachtBotPolicy } from '../../game/yacht/bot/botPorts.js'
 import { CooperativeYachtBotPolicy } from '../../game/yacht/bot/cooperativeBotPolicy.js'
 import { ExpectimaxYachtBotPolicy } from '../../game/yacht/bot/expectimaxYachtBotPolicy.js'
@@ -686,5 +690,46 @@ describe('지적 7 — 탐색이 몰려도 어느 방의 봇도 멈추지 않는
     // 큐가 실제로 넘쳤고, 넘친 탐색은 폴백으로 처리됐다.
     expect(fallbacks.some((error) => error instanceof BotQueueFullError)).toBe(true)
     expect(shared.queued).toBe(0)
+  })
+})
+
+describe('ocr(#81): 큐 거절 로그 — 설계된 부하 차단은 경고가 아니다', () => {
+  it('큐가 가득 찬 폴백은 debug, 진짜 탐색 실패는 warn이다', () => {
+    expect(policyFallbackLog(new BotQueueFullError(8)).level).toBe('debug')
+    expect(policyFallbackLog(new BotSearchBudgetError(250, 300)).level).toBe('warn')
+    expect(policyFallbackLog(new Error('정책 버그')).level).toBe('warn')
+    expect(policyFallbackLog('원시값').level).toBe('warn')
+  })
+})
+
+describe('ocr(#81): 야간 부하 측정 — 실패를 파이프가 삼키지 않는다', () => {
+  /**
+   * shell을 지정하지 않은 단계는 pipefail 없는 `bash -e`로 돈다. 그 단계를 그대로 꺼내 실패하는
+   * 명령으로 바꿔 끼우고, 단계가 실패로 끝나는지와 요약이 남는지 본다.
+   */
+  it('test:load가 실패하면 단계도 실패하고, 요약 줄은 남는다', () => {
+    const workflow = readFileSync(
+      join(import.meta.dirname, '..', '..', '..', '..', '.github', 'workflows', 'nightly.yml'),
+      'utf8',
+    )
+    const step = /- name: 봇 부하 응답성\n([\s\S]*?)(?=\n {6}- |\n*$)/.exec(workflow)?.[1] ?? ''
+    expect(step).toMatch(/shell: bash/)
+    const run = /run: \|\n((?: {10}.*\n?)+)/.exec(step)?.[1]?.replace(/^ {10}/gm, '') ?? ''
+    expect(run).toContain('npm run test:load')
+
+    const dir = tempDir()
+    const summary = join(dir, 'summary.md')
+    const fake = run.replace(
+      'npm run test:load',
+      `sh -c 'echo "[bot-load] {\\"p99\\":999}" >&2; exit 1'`,
+    )
+    // Actions가 `shell: bash`에 쓰는 바로 그 호출이다.
+    const result = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', fake], {
+      cwd: dir,
+      env: { ...process.env, GITHUB_STEP_SUMMARY: summary },
+      encoding: 'utf8',
+    })
+    expect(result.status).toBe(1)
+    expect(readFileSync(summary, 'utf8')).toContain('- [bot-load]')
   })
 })

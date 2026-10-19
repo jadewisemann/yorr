@@ -79,4 +79,12 @@ jobs:
         env:
           LOAD_ROOMS: "30"
           LOAD_SECONDS: "60"
-        run: npm run test:load 2>&1 | tee load.log && grep '\[bot-load\]' load.log | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
+        # shell을 지정하지 않으면 Actions는 pipefail 없는 `bash -e`로 돈다 — 그러면 테스트가 실패해도
+        # 파이프 끝의 tee가 0을 내 단계가 초록이 된다. 요약은 실패해도 남기고, 종료 코드는 테스트의 것이다.
+        shell: bash
+        run: |
+          set +e
+          npm run test:load 2>&1 | tee load.log
+          status=${PIPESTATUS[0]}
+          grep '\[bot-load\]' load.log | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"

@@ -44,3 +44,14 @@ export class BotQueueFullError extends BotDecisionError {
     super(`bot search queue is full (${limit} waiting or running)`)
   }
 }
+
+/**
+ * 폴백 로그의 수준과 문구. 큐가 가득 찬 것은 **설계된 부하 차단**이라 경고가 아니다 — 경고로 두면
+ * 바쁠 때마다 쏟아져 진짜 탐색 실패(예산 초과·정책 버그)가 묻힌다.
+ */
+export const policyFallbackLog = (
+  error: unknown,
+): { readonly level: 'debug' | 'warn'; readonly message: string } =>
+  error instanceof BotQueueFullError
+    ? { level: 'debug', message: '봇 탐색 큐가 가득 차 폴백 정책으로 둡니다' }
+    : { level: 'warn', message: 'Expectimax 탐색 실패 — 폴백 정책으로 전환' }

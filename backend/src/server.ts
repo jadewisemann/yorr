@@ -65,6 +65,7 @@ import {
   CooperativeYachtBotPolicy,
   ExpectimaxYachtBotPolicy,
   LocalYachtBotStrategy,
+  policyFallbackLog,
   RedisRoundDeadlineStore,
   RedisYachtDiceStateStore,
   ScorecardValueEvaluator,
@@ -345,11 +346,13 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
           scores,
         },
         {
-          onPolicyFallback: (roomId, state, error) =>
-            app.log.warn(
+          onPolicyFallback: (roomId, state, error) => {
+            const { level, message } = policyFallbackLog(error)
+            app.log[level](
               { roomId, round: state.roundNumber, player: state.activePlayerId, error },
-              'Expectimax 탐색 실패 — 폴백 정책으로 전환',
-            ),
+              message,
+            )
+          },
         },
       ),
       broadcaster,
