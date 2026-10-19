@@ -65,7 +65,7 @@ import {
   CooperativeYachtBotPolicy,
   ExpectimaxYachtBotPolicy,
   LocalYachtBotStrategy,
-  policyFallbackLog,
+  logPolicyFallback,
   RedisRoundDeadlineStore,
   RedisYachtDiceStateStore,
   ScorecardValueEvaluator,
@@ -346,13 +346,12 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
           scores,
         },
         {
-          onPolicyFallback: (roomId, state, error) => {
-            const { level, message } = policyFallbackLog(error)
-            app.log[level](
-              { roomId, round: state.roundNumber, player: state.activePlayerId, error },
-              message,
-            )
-          },
+          onPolicyFallback: (roomId, state, error) =>
+            logPolicyFallback(
+              app.log,
+              { roomId, round: state.roundNumber, player: state.activePlayerId },
+              error,
+            ),
         },
       ),
       broadcaster,

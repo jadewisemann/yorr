@@ -55,3 +55,13 @@ export const policyFallbackLog = (
   error instanceof BotQueueFullError
     ? { level: 'debug', message: '봇 탐색 큐가 가득 차 폴백 정책으로 둡니다' }
     : { level: 'warn', message: 'Expectimax 탐색 실패 — 폴백 정책으로 전환' }
+
+/** 폴백 로그를 남긴다. 배선(`server.ts`)이 이것 하나만 부르게 해 판정과 기록을 함께 시험한다. */
+export const logPolicyFallback = (
+  log: Readonly<Record<'debug' | 'warn', (fields: object, message: string) => void>>,
+  fields: object,
+  error: unknown,
+): void => {
+  const { level, message } = policyFallbackLog(error)
+  log[level]({ ...fields, error }, message)
+}

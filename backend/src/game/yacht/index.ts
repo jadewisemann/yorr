@@ -26,6 +26,7 @@ export {
   type ExpectimaxYachtBotPolicyOptions,
   HOLD_SELECTION_DELAY_MS,
   LocalYachtBotStrategy,
+  logPolicyFallback,
   policyFallbackLog,
   ROLL_RESULT_DELAY_MS,
   ScorecardValueEvaluator,

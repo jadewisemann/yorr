@@ -8,6 +8,7 @@ export {
   BotDecisionError,
   BotQueueFullError,
   BotSearchBudgetError,
+  logPolicyFallback,
   policyFallbackLog,
 } from './botErrors.js'
 export type {

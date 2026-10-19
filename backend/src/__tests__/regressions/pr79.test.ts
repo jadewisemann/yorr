@@ -38,6 +38,7 @@ import {
 import {
   BotQueueFullError,
   BotSearchBudgetError,
+  logPolicyFallback,
   policyFallbackLog,
 } from '../../game/yacht/bot/botErrors.js'
 import type { YachtBotPolicy } from '../../game/yacht/bot/botPorts.js'
@@ -699,6 +700,22 @@ describe('ocr(#81): 큐 거절 로그 — 설계된 부하 차단은 경고가 �
     expect(policyFallbackLog(new BotSearchBudgetError(250, 300)).level).toBe('warn')
     expect(policyFallbackLog(new Error('정책 버그')).level).toBe('warn')
     expect(policyFallbackLog('원시값').level).toBe('warn')
+  })
+
+  it('배선이 부르는 logPolicyFallback이 그 수준으로 기록한다', () => {
+    const lines: [string, object, string][] = []
+    const log = {
+      debug: (fields: object, message: string) => lines.push(['debug', fields, message]),
+      warn: (fields: object, message: string) => lines.push(['warn', fields, message]),
+    }
+    const full = new BotQueueFullError(8)
+    const budget = new BotSearchBudgetError(250, 300)
+    logPolicyFallback(log, { roomId: 'R1' }, full)
+    logPolicyFallback(log, { roomId: 'R1' }, budget)
+    expect(lines).toEqual([
+      ['debug', { roomId: 'R1', error: full }, '봇 탐색 큐가 가득 차 폴백 정책으로 둡니다'],
+      ['warn', { roomId: 'R1', error: budget }, 'Expectimax 탐색 실패 — 폴백 정책으로 전환'],
+    ])
   })
 })
 
