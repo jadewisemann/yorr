@@ -1,0 +1,11 @@
+{
+  "name": "yorr-botkeep",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --max-old-space-size=128 --max-semi-space-size=2 --disable-warning=ExperimentalWarning yorr.mjs"
+  }
+}
