@@ -17,7 +17,11 @@ const count = Number(process.argv[3] ?? '10')
 const raw = new ExpectimaxYachtBotPolicy(new ScorecardValueEvaluator(), {
   budgetMs: Number.POSITIVE_INFINITY,
 })
-const policy: YachtBotPolicy = mode === 'cooperative' ? new CooperativeYachtBotPolicy(raw) : raw
+// 측정은 탐색 10개가 **전부** 도는 상황이어야 하므로 큐 상한은 푼다(상한은 단위 테스트가 본다).
+const policy: YachtBotPolicy =
+  mode === 'cooperative'
+    ? new CooperativeYachtBotPolicy(raw, undefined, Number.POSITIVE_INFINITY)
+    : raw
 const board = createScoreBoard({}, 0, 0, 0)
 
 const server = net.createServer((socket) =>
@@ -27,7 +31,9 @@ const server = net.createServer((socket) =>
     for (let index = 0; index < count; index += 1) {
       // 굴림 1 = 가장 깊은 탐색. 주사위를 조금씩 달리해 메모가 겹치지 않게 한다.
       const dice = [1 + (index % 6), 2, 3, 5, 6]
-      setTimeout(() => void policy.decide(board, dice, 1), 20)
+      setTimeout(() => {
+        Promise.resolve(policy.decide(board, dice, 1)).catch(() => {})
+      }, 20)
     }
   }),
 )
