@@ -66,9 +66,7 @@ const parsePhase = (value: string | undefined): RoomPhase => {
  * 않는다(예외는 게임 모듈의 퇴장 경로 — docs/design/rooms-and-sessions.md).
  */
 export class RoomService {
-  constructor(private readonly redis: Redis) {
-    // 등록은 멱등이라 같은 클라이언트를 공유하는 서비스가 여럿이어도 안전하다.
-  }
+  constructor(private readonly redis: Redis) {}
 
   /** 코드 충돌 시 CREATE가 0을 돌려주므로 성공할 때까지 다시 뽑는다. */
   async createRoom(

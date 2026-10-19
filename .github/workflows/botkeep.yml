@@ -73,34 +73,7 @@ jobs:
           E2E_BASE_URL: http://localhost:18080
         run: npm run test:e2e
 
-      # 재시작해도 방이 남는가 — SIGTERM에 스냅샷을 쓰고(main.ts) 다시 뜰 때 읽는다.
-      # 패널의 재시작·재배포가 진행 중인 방과 게스트 세션을 지우지 않는다는 계약이다.
-      - name: 재시작 뒤 방 유지 (저장소 스냅샷)
-        working-directory: deploy/botkeep/out
-        run: |
-          set -euo pipefail
-          start=$(node -p "require('./package.json').scripts.start")
-          kill -TERM "$(cat ../server.pid)"
-          while kill -0 "$(cat ../server.pid)" 2>/dev/null; do sleep 0.2; done
-          boot() {
-            SERVER_PORT=18080 nohup $start >> ../server.log 2>&1 &
-            echo $! > ../server.pid
-            for _ in $(seq 1 30); do curl -fsS localhost:18080/actuator/health >/dev/null 2>&1 && return 0; sleep 1; done
-            return 1
-          }
-          boot
-          room=$(curl -fsS -X POST "localhost:18080/api/v1/rooms?game_code=YACHT_DICE" \
-            -H 'content-type: application/json' -d '{"nickname":"restart"}' |
-            node -p 'JSON.parse(require("fs").readFileSync(0)).room_id')
-          kill -TERM "$(cat ../server.pid)"
-          while kill -0 "$(cat ../server.pid)" 2>/dev/null; do sleep 0.2; done
-          test -s data/store.json
-          boot
-          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "localhost:18080/api/v1/rooms?game_code=YACHT_DICE" \
-            -H 'content-type: application/json' -d "{\"nickname\":\"guest\",\"room_id\":\"$room\"}")
-          echo "재시작 뒤 방 $room 참가: $code"
-          test "$code" = 200
-
+      # 재시작 단계보다 **먼저** 잰다 — 그 뒤의 프로세스는 스위트를 겪지 않은 새 프로세스다.
       - name: 메모리 보고
         if: always()
         run: |
@@ -118,6 +91,39 @@ jobs:
             echo "| RSS 최고치 | ${hwm} MB |"
             echo "| 플랜 한도 | 512 MB |"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # 재시작해도 방이 남는가 — SIGTERM에 스냅샷을 쓰고(main.ts) 다시 뜰 때 읽는다.
+      # 패널의 재시작·재배포가 진행 중인 방과 게스트 세션을 지우지 않는다는 계약이다.
+      - name: 재시작 뒤 방 유지 (저장소 스냅샷)
+        working-directory: deploy/botkeep/out
+        run: |
+          set -euo pipefail
+          start=$(node -p "require('./package.json').scripts.start")
+          # SIGTERM 뒤 10초 안에 내려가야 한다. 안 내려가면 그것이 원인이므로 timeout 취소로 숨기지 않는다.
+          stop() {
+            kill -TERM "$(cat ../server.pid)"
+            for _ in $(seq 1 50); do kill -0 "$(cat ../server.pid)" 2>/dev/null || return 0; sleep 0.2; done
+            echo "::error::SIGTERM 뒤 10초 안에 종료되지 않았다"
+            return 1
+          }
+          stop
+          boot() {
+            SERVER_PORT=18080 nohup $start >> ../server.log 2>&1 &
+            echo $! > ../server.pid
+            for _ in $(seq 1 30); do curl -fsS localhost:18080/actuator/health >/dev/null 2>&1 && return 0; sleep 1; done
+            return 1
+          }
+          boot
+          room=$(curl -fsS -X POST "localhost:18080/api/v1/rooms?game_code=YACHT_DICE" \
+            -H 'content-type: application/json' -d '{"nickname":"restart"}' |
+            node -p 'JSON.parse(require("fs").readFileSync(0)).room_id')
+          stop
+          test -s data/store.json
+          boot
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "localhost:18080/api/v1/rooms?game_code=YACHT_DICE" \
+            -H 'content-type: application/json' -d "{\"nickname\":\"guest\",\"room_id\":\"$room\"}")
+          echo "재시작 뒤 방 $room 참가: $code"
+          test "$code" = 200
 
       - name: 서버 로그 (실패 시)
         if: failure()
@@ -138,6 +144,8 @@ jobs:
     needs: [bundle]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # 멈춘 push가 6시간(기본값) 동안 러너와 concurrency 그룹을 잡지 않게 한다.
+    timeout-minutes: 5
     permissions:
       contents: write
 

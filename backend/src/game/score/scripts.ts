@@ -62,6 +62,7 @@ const confirmGuard = (
 
 export const CONFIRM_SCORE: AtomicScript = {
   name: 'yorrGameConfirmScore',
+  creates: [3, 4],
   keys: 6,
   args: 8,
   run(r, keys, args) {

@@ -75,15 +75,15 @@ interface CountRow extends RowDataPacket {
 }
 
 /**
- * MySQL 구현. 스키마는 Flyway V1(`users`)·V2(`matches`·`match_participants`)이고
- * 전환기에는 바꾸지 않는다(persistence.md 「전환기 스키마 동결」).
+ * SQLite 구현. 스키마(`users`·`matches`·`match_participants`)는 `infra/sqlite.ts`의
+ * `SQLITE_SCHEMA`다(persistence.md 「DB 스키마」).
  *
  * `auth/socialAccountStore.ts`·`user/profile.ts`와 같은 결이다: 풀을 주입받고,
  * 풀을 닫지 않고, 행 → 도메인 변환을 이 파일 안에서 끝낸다.
  *
- * 시각 파라미터는 `Date`로 넘긴다. 풀의 `timezone: 'Z'`가 UTC 벽시계로 적어 주므로
- * `finished_at DATETIME(6)`과 같은 기준으로 비교된다(4.1의 결정 — 이걸 놓치면
- * 개발 KST / 운영 UTC가 9시간 어긋난다).
+ * 시각 파라미터는 `Date`로 넘긴다. 어댑터가 ISO 8601 UTC 문자열로 적고 `finished_at`도 같은
+ * 형식이라 **문자열 비교가 곧 시각 비교**다. 형식이 둘로 갈리면(예: 로컬 시각 문자열) 개발 KST /
+ * 운영 UTC가 9시간 어긋나 주간 경계가 틀어진다.
  */
 export class SqliteWeeklyRankingStore implements WeeklyRankingRepository {
   constructor(private readonly pool: Pool) {}

@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { loadEnv } from './config/env.js'
 import { MemoryRedis } from './infra/memoryRedis.js'
 import { closeDbPool, createDbPool } from './infra/sqlite.js'
-import { loadStoreSnapshot, saveStoreSnapshot } from './infra/storeSnapshot.js'
+import { loadStoreSnapshot, saveStoreSnapshotIfChanged } from './infra/storeSnapshot.js'
 import { createServer } from './server.js'
 
 if (existsSync('.env')) process.loadEnvFile('.env')
@@ -25,10 +25,17 @@ if (loaded?.kind === 'restored') {
   )
 }
 
+/** 저장이 이보다 오래 걸리면 경고로 남긴다 — 그만큼 이벤트 루프가 멈췄다는 뜻이다. */
+const SLOW_SNAPSHOT_MS = 100
+
 const saveSnapshot = (): void => {
   if (snapshotPath === '') return
   try {
-    saveStoreSnapshot(redis, snapshotPath)
+    const result = saveStoreSnapshotIfChanged(redis, snapshotPath)
+    if (result.kind === 'written') {
+      const level = result.ms >= SLOW_SNAPSHOT_MS ? 'warn' : 'debug'
+      server.app.log[level](result, '저장소 스냅샷을 썼습니다')
+    }
   } catch (error) {
     // 쓰기 실패가 서버를 죽이지 않는다 — 다음 주기에 다시 쓴다.
     server.app.log.error({ error }, '저장소 스냅샷을 쓰지 못했습니다')

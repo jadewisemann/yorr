@@ -44,7 +44,7 @@ export interface MatchRecord {
   readonly gameId: string
   readonly gameCode: string
   readonly roomCode: string
-  /** UTC 벽시계로 저장된다 — 풀의 `timezone: 'Z'`가 그것을 보장한다(4.1). */
+  /** ISO 8601 UTC 문자열로 저장된다 — 어댑터의 `toISOString()`이 그것을 보장한다(infra/sqlite.ts). */
   readonly finishedAt: Date
   readonly participants: readonly MatchParticipantRow[]
 }
@@ -55,8 +55,8 @@ interface UserRow extends RowDataPacket {
 }
 
 /**
- * MySQL 구현. 스키마는 Flyway V2(`matches`·`match_participants`)이고 전환기에는
- * 바꾸지 않는다(persistence.md 「전환기 스키마 동결」, ADR-0005).
+ * SQLite 구현. 스키마(`matches`·`match_participants`)는 `infra/sqlite.ts`의 `SQLITE_SCHEMA`다
+ * (persistence.md 「DB 스키마」).
  */
 export class SqliteMatchArchiveStore implements MatchArchiveStore {
   constructor(private readonly pool: Pool) {}

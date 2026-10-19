@@ -1,4 +1,14 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -16,7 +26,11 @@ import * as scoreScripts from '../../game/score/scripts.js'
 import * as memoryRedisModule from '../../infra/memoryRedis.js'
 import { type AtomicScript, MemoryRedis, OOM_MESSAGE } from '../../infra/memoryRedis.js'
 import { createSqlitePool, type Pool, type PoolConnection } from '../../infra/sqlite.js'
-import { loadStoreSnapshot, saveStoreSnapshot } from '../../infra/storeSnapshot.js'
+import {
+  loadStoreSnapshot,
+  saveStoreSnapshot,
+  saveStoreSnapshotIfChanged,
+} from '../../infra/storeSnapshot.js'
 import { gameStateKey } from '../../room/keys.js'
 import { RoomService } from '../../room/roomService.js'
 import * as roomScripts from '../../room/scripts.js'
@@ -441,4 +455,134 @@ describe('지적 9 — 잠금 해제는 한 구현이고, 어느 저장소도 �
       expect(await redis.get(store.lockKey)).toBe('intruder')
     })
   }
+})
+
+/**
+ * 여기부터는 open-code-review(delegation 모드) 리뷰의 지적이다. 리뷰어 셋이 따로 번호를 매겨 이름으로 부른다.
+ */
+describe('ocr: 빌드 경로 — 공백·한글이 든 경로에서도 번들이 만들어진다', () => {
+  it('`바탕 화면` 같은 경로에 둔 저장소에서 build-botkeep이 성공한다', { timeout: 60_000 }, () => {
+    // 백엔드를 그런 이름의 디렉터리 아래에 심볼릭 링크로 걸고, 스크립트가 그 경로를 그대로 보게
+    // `--preserve-symlinks-main`으로 실행한다. 예전에는 `URL.pathname`(퍼센트 인코딩)을 esbuild에
+    // 넘겨 "Could not resolve"로 실패했다.
+    const backendRoot = join(import.meta.dirname, '..', '..', '..')
+    const parent = join(tempDir(), '바탕 화면')
+    mkdirSync(parent)
+    symlinkSync(backendRoot, join(parent, 'backend'))
+    const result = spawnSync(
+      process.execPath,
+      ['--preserve-symlinks-main', join(parent, 'backend', 'scripts', 'build-botkeep.mjs')],
+      { encoding: 'utf8' },
+    )
+    expect(result.status, result.stderr).toBe(0)
+    expect(statSync(join(parent, 'deploy', 'botkeep', 'out', 'yorr.mjs')).size).toBeGreaterThan(0)
+  })
+})
+
+describe('ocr: 스크립트 OOM — 키 상한에서 스크립트가 반쯤 쓰고 멈추지 않는다', () => {
+  /** 상한까지 채운 저장소 위에 방 하나. 남는 자리 수를 `free`로 정한다. */
+  const nearlyFull = async (free: number) => {
+    const redis = memory({ maxKeys: 4 + free })
+    const rooms = new RoomService(redis)
+    const roomCode = await rooms.createRoom(4, 'host', 'YACHT_DICE')
+    await rooms.join(roomCode, { userId: 'host', nickname: '호스트' } as never)
+    // 방 키 셋(room·players·scores) + 채움 키로 상한까지.
+    for (let index = 0; (await redis.keys()).length < 4 + free; index += 1) {
+      await redis.set(`filler:${index}`, '1')
+    }
+    return { redis, rooms, roomCode }
+  }
+
+  it('JOIN이 새 키 둘(players·scores) 중 하나만 만들 자리가 있으면 아무것도 쓰지 않는다', async () => {
+    // 방 키 + 채움 키 + 빈자리 하나. 예전에는 players만 만들고 scores에서 던져, 점수 행 없고
+    // TTL도 없는 참가자가 남았다(다시 JOIN하면 4 "중복"이라 고쳐지지도 않았다).
+    const redis = memory({ maxKeys: 3 })
+    const rooms = new RoomService(redis)
+    const roomCode = await rooms.createRoom(4, 'host', 'YACHT_DICE')
+    await redis.set('filler', '1')
+    const before = redis.core.snapshot()
+
+    await expect(rooms.join(roomCode, { userId: 'u1', nickname: '손님' } as never)).rejects.toThrow(
+      OOM_MESSAGE,
+    )
+    expect(redis.core.snapshot()).toEqual(before)
+  })
+
+  it('CONFIRM_SCORE가 점수판·제출 이력을 만들 자리가 없으면 아무것도 쓰지 않는다', async () => {
+    const redis = memory({ maxKeys: 6 })
+    await redis.hset('game:G1', 'roomCode', 'ROOM1')
+    await redis.hset('room:ROOM1', 'gameId', 'G1', 'phase', 'PLAYING')
+    await redis.hset('room:ROOM1:players', 'p', '손님')
+    await redis.hset('room:ROOM1:scores', 'p', '0')
+    await redis.set('filler', '1') // 자리 하나만 남는다 — 점수판·제출 이력 둘이 필요하다.
+    const before = redis.core.snapshot()
+    const keys = [
+      'game:G1',
+      'room:ROOM1',
+      'room:ROOM1:players',
+      'game:G1:scoreboard:p',
+      'game:G1:score-submissions:p',
+      'room:ROOM1:scores',
+    ]
+    const args = ['ROOM1', 'G1', 'p', '1', 'ones', '3', '1', 'sig-1']
+
+    await expect(redis.runAtomic(scoreScripts.CONFIRM_SCORE, keys, args)).rejects.toThrow(
+      OOM_MESSAGE,
+    )
+    expect(redis.core.snapshot()).toEqual(before)
+
+    // 자리가 생기면 같은 요청이 처음 요청처럼 성공한다(예전에는 6 CATEGORY_ALREADY_USED였다).
+    await redis.del('filler')
+    expect(await redis.runAtomic(scoreScripts.CONFIRM_SCORE, keys, args)).toBe(0)
+    expect(await redis.hget('room:ROOM1:scores', 'p')).toBe('3')
+  })
+
+  it('이미 있는 키만 건드리는 스크립트(LEAVE)는 상한에서도 돈다 — 나가서 자리를 비울 수 있어야 한다', async () => {
+    const { redis, rooms, roomCode } = await nearlyFull(0)
+    expect(await redis.set('one-more', '1').catch((error: Error) => error.message)).toBe(
+      OOM_MESSAGE,
+    )
+    await expect(rooms.leave(roomCode, 'host')).resolves.toBeDefined()
+    expect(await redis.exists(`room:${roomCode}`)).toBe(0)
+  })
+})
+
+describe('ocr: 스냅샷 간격 — 스냅샷 간격에 상한이 있다', () => {
+  it('2^31-1ms를 넘는 값(Node가 1ms로 바꾼다)은 기동 전에 거절한다', () => {
+    expect(() => loadEnv({ STORE_SNAPSHOT_INTERVAL_MS: '3000000000' })).toThrow()
+    expect(() => loadEnv({ STORE_SNAPSHOT_INTERVAL_MS: '3600001' })).toThrow()
+    expect(loadEnv({ STORE_SNAPSHOT_INTERVAL_MS: '3600000' }).STORE_SNAPSHOT_INTERVAL_MS).toBe(
+      3_600_000,
+    )
+  })
+})
+
+describe('ocr: 변경 없는 스냅샷 — 바뀐 것이 없으면 스냅샷을 다시 쓰지 않는다', () => {
+  it('쓰기 명령이 없으면 건너뛰고, 명령·원자적 스크립트가 오면 다시 쓴다', async () => {
+    const path = join(tempDir(), 'store.json')
+    const redis = memory()
+    await redis.set('a', '1')
+    expect(saveStoreSnapshotIfChanged(redis, path)).toMatchObject({ kind: 'written', entries: 1 })
+    expect(saveStoreSnapshotIfChanged(redis, path)).toEqual({ kind: 'unchanged' })
+    // 읽기는 바꾸지 않는다.
+    await redis.get('a')
+    await redis.hgetall('h')
+    expect(saveStoreSnapshotIfChanged(redis, path)).toEqual({ kind: 'unchanged' })
+
+    await redis.hset('h', 'f', '1')
+    expect(saveStoreSnapshotIfChanged(redis, path)).toMatchObject({ kind: 'written', entries: 2 })
+    const rooms = new RoomService(redis)
+    await rooms.createRoom(4, 'host', 'YACHT_DICE')
+    expect(saveStoreSnapshotIfChanged(redis, path)).toMatchObject({ kind: 'written', entries: 3 })
+  })
+
+  it('스냅샷을 들인 직후에는 다시 쓰지 않는다(읽은 파일과 같다)', async () => {
+    const path = join(tempDir(), 'store.json')
+    const source = memory()
+    await source.set('a', '1')
+    saveStoreSnapshot(source, path)
+    const target = memory()
+    loadStoreSnapshot(target, path)
+    expect(saveStoreSnapshotIfChanged(target, path)).toEqual({ kind: 'unchanged' })
+  })
 })

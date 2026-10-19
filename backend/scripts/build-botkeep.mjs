@@ -5,6 +5,7 @@
 //
 //   npm run build:botkeep
 import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 
 const outDir = new URL('../../deploy/botkeep/out/', import.meta.url)
@@ -20,8 +21,9 @@ await rm(outDir, { recursive: true, force: true })
 await mkdir(outDir, { recursive: true })
 
 const result = await build({
-  entryPoints: [new URL('../src/main.ts', import.meta.url).pathname],
-  outfile: new URL('yorr.mjs', outDir).pathname,
+  // `URL.pathname`은 퍼센트 인코딩이라 공백·한글이 든 경로에서 esbuild가 파일을 못 찾는다.
+  entryPoints: [fileURLToPath(new URL('../src/main.ts', import.meta.url))],
+  outfile: fileURLToPath(new URL('yorr.mjs', outDir)),
   bundle: true,
   platform: 'node',
   target: 'node22',

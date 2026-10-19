@@ -12,7 +12,9 @@ const envSchema = z.object({
    * `STORE_SNAPSHOT_INTERVAL_MS`마다 쓰고 기동 때 읽는다. 빈 문자열이면 끈다.
    */
   STORE_SNAPSHOT_PATH: z.string().default('data/store.json'),
-  STORE_SNAPSHOT_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
+  // 1시간 상한: Node는 2^31-1ms보다 큰 지연을 1ms로 바꾼다 — "사실상 끄기"로 큰 값을 넣으면 오히려
+  // 1ms마다 저장한다. 끄려면 STORE_SNAPSHOT_PATH를 비운다.
+  STORE_SNAPSHOT_INTERVAL_MS: z.coerce.number().int().positive().max(3_600_000).default(60_000),
   // 소셜 로그인. 이름·기본값은 운영 `.env`에 들어 있는 것 그대로다.
   // 값이 비어 있어도 서버는 뜬다 — 로그인 엔드포인트를 호출할 때만 거절한다.
   /** 로그인을 끝낸 사용자를 되돌려 보낼 **프론트** 주소(제공자 콘솔 등록값이 아니다). */

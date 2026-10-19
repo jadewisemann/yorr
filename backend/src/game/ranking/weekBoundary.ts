@@ -46,8 +46,8 @@ export interface WeekBoundary {
  * `at`이 속한 주의 경계. 월요일 당일이면 그 날 00:00 자신이 시작이고,
  * 00:00 정각은 **새 주에 속한다**(반개구간 `[from, to)`).
  *
- * 돌려주는 `from`·`to`는 순간(`Date`)이다. 풀이 `timezone: 'Z'`이므로 그대로
- * `finished_at DATETIME(6)`(UTC 벽시계)과 비교된다.
+ * 돌려주는 `from`·`to`는 순간(`Date`)이다. DB 어댑터가 ISO 8601 UTC 문자열로 적으므로 그대로
+ * `finished_at`(같은 형식)과 비교된다.
  */
 export const weekBoundaryOf = (at: Date): WeekBoundary => {
   // KST 벽시계를 UTC 게터로 읽기 위해 오프셋만큼 옮긴 값. 이 시각의 `getUTC*`가

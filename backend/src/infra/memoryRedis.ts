@@ -158,11 +158,48 @@ export class RedisCore {
    * (`noeviction`). 이미 있는 키를 덮어쓰는 것은 키 수를 늘리지 않으므로 막지 않는다.
    */
   private create(key: string, entry: Entry): void {
+    if (this.scriptCreates !== null && !this.data.has(key)) {
+      if (!this.scriptCreates.keys.has(key)) {
+        throw new Error(
+          `${this.scriptCreates.script}: 만든다고 선언하지 않은 키를 만들었다 — ${key}`,
+        )
+      }
+      this.data.set(key, entry)
+      return
+    }
     if (!this.data.has(key) && this.data.size >= this.maxKeys) {
       this.sweep()
       if (this.data.size >= this.maxKeys) throw new Error(OOM_MESSAGE)
     }
     this.data.set(key, entry)
+  }
+
+  /**
+   * 원자적 스크립트를 도는 동안 그 스크립트가 만들어도 되는 키들. 상한은 실행 **전에** 이미
+   * 판정했으므로(`runAdmitted`) 이 키들은 상한 없이 만든다. 이 밖의 키를 만들면 선언이 틀린 것이다.
+   */
+  private scriptCreates: { readonly script: string; readonly keys: ReadonlySet<string> } | null =
+    null
+
+  /**
+   * 스크립트를 들이기 전에 상한을 판정한다. 스크립트가 **새로 만들 수 있다고 선언한 키** 중 아직 없는
+   * 것만큼 자리가 있어야 하고, 없으면 아무것도 쓰기 전에 던진다 — 쓰다가 중간에 OOM으로 멈추면 앞의
+   * 쓰기만 남는다(점수 행 없는 참가자, 제출 이력 없는 점수). 새 키를 만들지 않는 스크립트(LEAVE 등)는
+   * 상한에서도 돈다 — 나가서 자리를 비울 수 있어야 한다. 들인 스크립트는 끝까지 돈다(Redis도 쓰기를
+   * 시작한 스크립트는 끝낸다).
+   */
+  runAdmitted<R>(script: string, creatable: readonly string[], run: () => R): R {
+    const missing = new Set(creatable.filter((key) => this.live(key) === undefined)).size
+    if (missing > 0 && this.data.size + missing > this.maxKeys) {
+      this.sweep()
+      if (this.data.size + missing > this.maxKeys) throw new Error(OOM_MESSAGE)
+    }
+    this.scriptCreates = { script, keys: new Set(creatable) }
+    try {
+      return run()
+    } finally {
+      this.scriptCreates = null
+    }
   }
 
   private zset(key: string): Map<string, number> | undefined {
@@ -507,6 +544,11 @@ export interface AtomicScript<R = number> {
   /** 키·인자 개수(최대 8). 호출이 이와 다르면 실행하지 않고 던진다. */
   readonly keys: number
   readonly args: number
+  /**
+   * 새로 만들 수 있는 키의 **자리 번호**(0부터). 상한 판정이 이것으로 실행 전에 끝난다. 여기 없는
+   * 키를 만들면 실행 중에 던진다 — 선언이 곧 계약이고, 통합 스위트가 그것을 검증한다. 없으면 [].
+   */
+  readonly creates?: readonly number[]
   /** 키·인자는 구조 분해로 이름 붙여 받는다 — Lua의 `KEYS[1]`보다 어긋나기 어렵다. */
   run(redis: RedisCore, keys: Slots, args: Slots): R
 }
@@ -538,16 +580,26 @@ export class MemoryRedis {
     this.timer.unref()
   }
 
+  /**
+   * 쓰기 명령(원자적 스크립트 포함)이 들어온 횟수. 스냅샷이 "지난번 이후 바뀐 게 없으면 건너뛴다"를
+   * 판정하는 데 쓴다. 실제로 바뀌었는지가 아니라 **바뀔 수 있는 명령이 왔는지**를 센다 — 놓치는
+   * 쪽보다 한 번 더 쓰는 쪽이 안전하다. 만료로 사라지는 키는 세지 않는다: 스냅샷의 만료가 절대
+   * 시각이라 다시 들일 때 걸러진다.
+   */
+  changes = 0
+
   /** 원자적 스크립트 한 번. 명령 하나로 센다(장애 주입이 여기를 끊을 수 있다). */
   async runAtomic<R>(
     script: AtomicScript<R>,
     keys: readonly string[],
     args: readonly (string | number)[] = [],
   ): Promise<R> {
-    return script.run(
-      this.core,
-      toSlots(script.name, 'keys', script.keys, keys),
-      toSlots(script.name, 'args', script.args, args),
+    this.changes += 1
+    const keySlots = toSlots(script.name, 'keys', script.keys, keys)
+    const argSlots = toSlots(script.name, 'args', script.args, args)
+    const creatable = (script.creates ?? []).map((index) => keys[index] as string)
+    return this.core.runAdmitted(script.name, creatable, () =>
+      script.run(this.core, keySlots, argSlots),
     )
   }
 
@@ -555,12 +607,15 @@ export class MemoryRedis {
     return this.core.exists(...keys)
   }
   async del(...keys: string[]) {
+    this.changes += 1
     return this.core.del(...keys)
   }
   async expire(key: string, seconds: Field) {
+    this.changes += 1
     return this.core.expire(key, seconds)
   }
   async pexpire(key: string, milliseconds: Field) {
+    this.changes += 1
     return this.core.pexpire(key, milliseconds)
   }
   async ttl(key: string) {
@@ -579,18 +634,22 @@ export class MemoryRedis {
     return ['0', this.core.keys(pattern)]
   }
   async flushall() {
+    this.changes += 1
     return this.core.flushall()
   }
   async get(key: string) {
     return this.core.get(key)
   }
   async set(key: string, value: Field, ...options: Field[]) {
+    this.changes += 1
     return this.core.set(key, value, ...options)
   }
   async getdel(key: string) {
+    this.changes += 1
     return this.core.getdel(key)
   }
   async hset(key: string, ...args: (Field | Record<string, Field>)[]) {
+    this.changes += 1
     return this.core.hset(key, ...args)
   }
   async hget(key: string, field: Field) {
@@ -600,6 +659,7 @@ export class MemoryRedis {
     return this.core.hgetall(key)
   }
   async hdel(key: string, ...fields: Field[]) {
+    this.changes += 1
     return this.core.hdel(key, ...fields)
   }
   async hexists(key: string, field: Field) {
@@ -612,18 +672,22 @@ export class MemoryRedis {
     return this.core.hkeys(key)
   }
   async hincrby(key: string, field: Field, increment: Field) {
+    this.changes += 1
     return this.core.hincrby(key, field, increment)
   }
   async zadd(key: string, ...args: Field[]) {
+    this.changes += 1
     return this.core.zadd(key, ...args)
   }
   async zrange(key: string, start: Field, stop: Field) {
     return this.core.zrange(key, start, stop)
   }
   async zrem(key: string, ...members: Field[]) {
+    this.changes += 1
     return this.core.zrem(key, ...members)
   }
   async zremrangebyscore(key: string, min: Field, max: Field) {
+    this.changes += 1
     return this.core.zremrangebyscore(key, min, max)
   }
   async ping(): Promise<'PONG'> {

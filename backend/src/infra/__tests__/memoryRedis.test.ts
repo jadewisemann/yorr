@@ -227,6 +227,7 @@ describe('키 수 상한 (maxmemory noeviction)', () => {
     const CREATE_TWO: AtomicScript = {
       name: 'createTwo',
       keys: 1,
+      creates: [0],
       args: 0,
       run(r, [key]) {
         return r.hset(key, 'f', '1')
@@ -269,6 +270,7 @@ describe('원자적 스크립트', () => {
   const INCR_TWICE: AtomicScript = {
     name: 'incrTwice',
     keys: 1,
+    creates: [0],
     args: 0,
     run(r, [key]) {
       const first = r.hincrby(key, 'n', 1)
@@ -309,6 +311,7 @@ describe('원자적 스크립트', () => {
     const SET_TTL: AtomicScript = {
       name: 'setTtl',
       keys: 1,
+      creates: [0],
       args: 1,
       run(r, [key], [ttl]) {
         ran.push(ttl)
@@ -324,5 +327,52 @@ describe('원자적 스크립트', () => {
     expect(ran).toEqual([])
     expect(await redis.exists('k')).toBe(0)
     await expect(redis.runAtomic(SET_TTL, ['k'], [60])).resolves.toBe(1)
+  })
+})
+
+describe('스크립트의 키 생성 선언', () => {
+  it('선언하지 않은 키를 만들면 던진다 — 상한 판정이 그 선언에 기대기 때문이다', async () => {
+    const redis = new MemoryRedis()
+    const sneaky: AtomicScript = {
+      name: 'sneaky',
+      keys: 1,
+      args: 0,
+      creates: [0],
+      run(r, [declared]) {
+        r.hset(declared, 'f', '1')
+        return r.hset(`${declared}:hidden`, 'f', '1')
+      },
+    }
+    await expect(redis.runAtomic(sneaky, ['k'])).rejects.toThrow(/선언하지 않은 키.*k:hidden/)
+    redis.disconnect()
+  })
+
+  it('상한에서 만들 키가 모자라면 실행 전에 거절하고, 만들지 않는 스크립트는 그대로 돈다', async () => {
+    const redis = new MemoryRedis({ maxKeys: 1 })
+    await redis.set('existing', '1')
+    const ran: string[] = []
+    const creates: AtomicScript = {
+      name: 'creates',
+      keys: 1,
+      args: 0,
+      creates: [0],
+      run(r, [key]) {
+        ran.push('creates')
+        return r.hset(key, 'f', '1')
+      },
+    }
+    const touches: AtomicScript = {
+      name: 'touches',
+      keys: 1,
+      args: 0,
+      run(r, [key]) {
+        ran.push('touches')
+        return r.pexpire(key, 1_000)
+      },
+    }
+    await expect(redis.runAtomic(creates, ['new'])).rejects.toThrow(OOM_MESSAGE)
+    await expect(redis.runAtomic(touches, ['existing'])).resolves.toBe(1)
+    expect(ran).toEqual(['touches'])
+    redis.disconnect()
   })
 })

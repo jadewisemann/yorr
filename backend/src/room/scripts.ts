@@ -11,6 +11,7 @@ import type { AtomicScript } from '../infra/memoryRedis.js'
 /** KEYS: room / ARGV: capacity, hostId, gameCode, ttlSeconds, mode → 0 충돌(재시도) · 1 생성 */
 export const CREATE: AtomicScript = {
   name: 'yorrRoomCreate',
+  creates: [0],
   keys: 1,
   args: 5,
   run(r, [room], [capacity, hostId, gameCode, ttlSeconds, mode]) {
@@ -44,6 +45,7 @@ export const CREATE: AtomicScript = {
  */
 export const JOIN: AtomicScript = {
   name: 'yorrRoomJoin',
+  creates: [1, 2],
   keys: 4,
   args: 2,
   run(r, [room, players, scores, bots], [userId, nickname]) {
@@ -157,6 +159,7 @@ export const TOUCH: AtomicScript = {
  */
 export const START: AtomicScript = {
   name: 'yorrRoomStart',
+  creates: [2],
   keys: 4,
   args: 3,
   run(r, [room, players, game, bots], [gameId, roomCode, minPlayers]) {
@@ -225,6 +228,7 @@ export const CANCEL_ACTIVE_GAME: AtomicScript = {
  */
 export const RETURN_TO_LOBBY: AtomicScript = {
   name: 'yorrRoomReturnToLobby',
+  creates: [2],
   keys: 4,
   args: 0,
   run(r, [room, players, scores, bots]) {
@@ -255,6 +259,7 @@ export const RETURN_TO_LOBBY: AtomicScript = {
  */
 export const BOT_ADD: AtomicScript = {
   name: 'yorrRoomBotAdd',
+  creates: [1, 2, 3],
   keys: 4,
   args: 4,
   run(r, [room, players, scores, bots], [requesterId, botId, nickname, marker]) {
