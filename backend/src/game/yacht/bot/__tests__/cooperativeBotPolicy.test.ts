@@ -2,6 +2,7 @@ import { fork } from 'node:child_process'
 import net from 'node:net'
 import { describe, expect, it } from 'vitest'
 import { createScoreBoard } from '../../../score/index.js'
+import { BotQueueFullError } from '../botErrors.js'
 import type { YachtBotPolicy } from '../botPorts.js'
 import { CooperativeYachtBotPolicy } from '../cooperativeBotPolicy.js'
 import { type BotDecision, scoreDecision } from '../expectimaxYachtBotPolicy.js'
@@ -112,6 +113,30 @@ describe('CooperativeYachtBotPolicy', () => {
     ])
     expect(calls).toEqual([1, 2, 3, 4])
     expect(queue.queued).toBe(0)
+  })
+
+  it('대기가 상한을 넘으면 기다리지 않고 즉시 거절한다 — 코디네이터가 바로 폴백한다', async () => {
+    const inner = controllable()
+    const queue = new CooperativeYachtBotPolicy(inner.policy, undefined, 2)
+    const accepted = [
+      queue.decide(board, [1, 1, 1, 1, 1], 1),
+      queue.decide(board, [2, 2, 2, 2, 2], 1),
+    ]
+    const rejected = queue.decide(board, [3, 3, 3, 3, 3], 1)
+    await expect(rejected).rejects.toBeInstanceOf(BotQueueFullError)
+    expect(queue.queued).toBe(2)
+
+    for (let index = 0; index < 2; index += 1) {
+      await settle()
+      inner.gates[index]?.resolve()
+    }
+    await Promise.all(accepted)
+    // 비면 다시 받는다.
+    const again = queue.decide(board, [4, 4, 4, 4, 4], 1)
+    await settle()
+    inner.gates[2]?.resolve()
+    await expect(again).resolves.toMatchObject({ expectedUtility: 44444 })
+    expect(inner.events.filter((event) => event.startsWith('start'))).toHaveLength(3)
   })
 
   it('입력을 바꾸지 않고 그대로 넘긴다', async () => {

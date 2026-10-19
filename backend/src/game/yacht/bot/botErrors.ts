@@ -34,3 +34,13 @@ export class BotSearchBudgetError extends BotDecisionError {
     this.elapsedMs = elapsedMs
   }
 }
+
+/**
+ * 탐색 큐(`CooperativeYachtBotPolicy`)가 가득 찼다. 기다리지 않고 거절해 코디네이터가 곧바로
+ * 폴백 전략으로 두게 한다 — 줄이 길면 뒤쪽 봇은 탐색을 시작하기도 전에 턴 마감에 가까워진다.
+ */
+export class BotQueueFullError extends BotDecisionError {
+  constructor(readonly limit: number) {
+    super(`bot search queue is full (${limit} waiting or running)`)
+  }
+}

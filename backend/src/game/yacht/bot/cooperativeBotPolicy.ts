@@ -1,4 +1,5 @@
 import type { ScoreBoard } from '../../score/index.js'
+import { BotQueueFullError } from './botErrors.js'
 import type { YachtBotPolicy } from './botPorts.js'
 import type { BotDecision } from './expectimaxYachtBotPolicy.js'
 
@@ -20,7 +21,14 @@ import type { BotDecision } from './expectimaxYachtBotPolicy.js'
  * 메모리 수십 MB와 수명·오류 전파·테스트 대역을 더한다. 막히는 길이를 줄이는 것은 이 큐로 충분하다.
  *
  * 한 탐색의 실패는 그 호출만 거절한다 — 큐는 다음 탐색으로 계속 간다(코디네이터가 폴백한다).
+ *
+ * **대기에는 상한이 있다**(`maxQueued`, 기본 8). 예산은 탐색 하나의 시간만 묶으므로, 줄이 길면 뒤쪽
+ * 봇은 탐색을 시작하기도 전에 수백 ms를 기다린다. 상한을 넘으면 기다리지 않고 `BotQueueFullError`로
+ * 즉시 거절해 그 봇은 폴백 전략(마이크로초급)으로 둔다. 기다리는 동안 상태가 바뀌는 경우는
+ * 코디네이터가 결정 뒤에 턴을 다시 읽어 막는다.
  */
+export const DEFAULT_MAX_QUEUED_SEARCHES = 8
+
 export class CooperativeYachtBotPolicy implements YachtBotPolicy {
   private tail: Promise<void> = Promise.resolve()
   private pending = 0
@@ -30,6 +38,7 @@ export class CooperativeYachtBotPolicy implements YachtBotPolicy {
     /** 양보 한 번. 테스트가 바꿔 끼운다. */
     private readonly yieldToEventLoop: () => Promise<void> = () =>
       new Promise((resolve) => setImmediate(resolve)),
+    private readonly maxQueued: number = DEFAULT_MAX_QUEUED_SEARCHES,
   ) {}
 
   /** 아직 끝나지 않은 탐색 수(대기 중 + 실행 중). 관측용. */
@@ -38,6 +47,7 @@ export class CooperativeYachtBotPolicy implements YachtBotPolicy {
   }
 
   decide(board: ScoreBoard, dice: readonly number[], rollCount: number): Promise<BotDecision> {
+    if (this.pending >= this.maxQueued) return Promise.reject(new BotQueueFullError(this.maxQueued))
     this.pending += 1
     const run = this.tail
       .then(this.yieldToEventLoop)
