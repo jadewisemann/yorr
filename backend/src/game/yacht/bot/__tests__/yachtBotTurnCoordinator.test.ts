@@ -224,6 +224,50 @@ describe('YachtBotTurnCoordinator', () => {
     expect(actions.rolls).toHaveLength(0)
   })
 
+  /**
+   * 정책은 큐(`CooperativeYachtBotPolicy`)에서 기다릴 수 있다. 그 사이 타임아웃이나 사람이 턴을
+   * 넘겼다면, 결정 전에 읽은 상태로 행동하면 안 된다 — 결정 **뒤에** 다시 읽어 같은 턴인지 본다.
+   */
+  for (const [name, mutate] of [
+    ['굴림이 늘었다', (state: RoundState) => rolled(state, 'bot-a', 2, NO_HELD, [1, 1, 1, 1, 1])],
+    [
+      '턴이 넘어갔다',
+      (state: RoundState) =>
+        state.submit({
+          playerId: 'bot-a',
+          roundNumber: 1,
+          dice: [6, 6, 2, 3, 4],
+          category: 'choice',
+        }).state,
+    ],
+    ['게임이 사라졌다', () => undefined],
+  ] as const) {
+    it(`결정하는 동안 ${name}면 아무것도 하지 않는다`, async () => {
+      const state = rolled(
+        RoundState.start(1, ['bot-a', 'player-a']),
+        'bot-a',
+        1,
+        NO_HELD,
+        [6, 6, 2, 3, 4],
+      )
+      rounds.current = state
+      actions.holdResult = state
+      const changed = (mutate as (s: RoundState) => RoundState | undefined)(state)
+      coordinator = build({
+        decide: () => {
+          // 정책이 큐에서 기다리는 동안 저장소의 상태가 바뀐다.
+          rounds.current = changed
+          return holdDecision([true, true, false, false, false], 1)
+        },
+      })
+
+      expect(await coordinator.playIfCurrent({ roomId: ROOM, state })).toBe(false)
+      expect(actions.holds).toHaveLength(0)
+      expect(actions.rolls).toHaveLength(0)
+      expect(actions.submits).toHaveLength(0)
+    })
+  }
+
   it('Expectimax가 실패하면 폴백 정책으로 계속한다', async () => {
     const state = rolled(
       RoundState.start(1, ['bot-a', 'player-a']),

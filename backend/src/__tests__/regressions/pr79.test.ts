@@ -22,7 +22,32 @@ import { SqliteMatchArchiveStore } from '../../game/match/matchArchiveStore.js'
 import { initial as initialPingPong } from '../../game/pingpong/pingPongRules.js'
 import { RedisPingPongStateStore } from '../../game/pingpong/pingPongStateStore.js'
 import { SqliteWeeklyRankingStore } from '../../game/ranking/weeklyRankingStore.js'
+import {
+  InMemoryRoundStateStore,
+  type RoundSubmissionResult,
+  RoundSynchronizationService,
+  seededDieRoller,
+} from '../../game/round/index.js'
+import { ScoreConfirmationService, ScoreRoundSubmissionService } from '../../game/score/index.js'
 import * as scoreScripts from '../../game/score/scripts.js'
+import { FakeRoundTimer, RecordingBroadcaster } from '../../game/yacht/__tests__/testDoubles.js'
+import {
+  AccumulatingScoreBoardStore,
+  roomWith,
+} from '../../game/yacht/bot/__tests__/botTestDoubles.js'
+import {
+  BotQueueFullError,
+  BotSearchBudgetError,
+  logPolicyFallback,
+  policyFallbackLog,
+} from '../../game/yacht/bot/botErrors.js'
+import type { YachtBotPolicy } from '../../game/yacht/bot/botPorts.js'
+import { CooperativeYachtBotPolicy } from '../../game/yacht/bot/cooperativeBotPolicy.js'
+import { ExpectimaxYachtBotPolicy } from '../../game/yacht/bot/expectimaxYachtBotPolicy.js'
+import { LocalYachtBotStrategy } from '../../game/yacht/bot/localYachtBotStrategy.js'
+import { ScorecardValueEvaluator } from '../../game/yacht/bot/scorecardValueEvaluator.js'
+import { YachtBotTurnCoordinator } from '../../game/yacht/bot/yachtBotTurnCoordinator.js'
+import { YachtTurnActionService } from '../../game/yacht/yachtTurnActionService.js'
 import * as memoryRedisModule from '../../infra/memoryRedis.js'
 import { type AtomicScript, MemoryRedis, OOM_MESSAGE } from '../../infra/memoryRedis.js'
 import { createSqlitePool, type Pool, type PoolConnection } from '../../infra/sqlite.js'
@@ -584,5 +609,144 @@ describe('ocr: 변경 없는 스냅샷 — 바뀐 것이 없으면 스냅샷을 
     const target = memory()
     loadStoreSnapshot(target, path)
     expect(saveStoreSnapshotIfChanged(target, path)).toEqual({ kind: 'unchanged' })
+  })
+})
+
+describe('지적 7 — 탐색이 몰려도 어느 방의 봇도 멈추지 않는다', () => {
+  /**
+   * 큐 하나를 여러 방이 공유한다(운영과 같다). 탐색 하나가 무겁게 걸리도록 느린 정책을 넣고 방
+   * 여러 개를 동시에 굴린다. 상한을 넘은 탐색은 즉시 폴백으로 둬야 하고, 기다린 탐색은 그 사이
+   * 바뀐 턴에 행동하면 안 된다 — 둘 중 하나라도 어긋나면 어떤 방은 12라운드를 끝내지 못한다.
+   */
+  it('방 6개 × 봇 2명이 큐 하나(상한 2)를 나눠 써도 전부 12라운드를 끝낸다', {
+    timeout: 120_000,
+  }, async () => {
+    const busy = (ms: number): void => {
+      const end = performance.now() + ms
+      while (performance.now() < end) {}
+    }
+    const raw = new ExpectimaxYachtBotPolicy(new ScorecardValueEvaluator())
+    const slow: YachtBotPolicy = {
+      decide: (board, dice, rollCount) => {
+        busy(5)
+        return raw.decide(board, dice, rollCount)
+      },
+    }
+    const shared = new CooperativeYachtBotPolicy(slow, undefined, 2)
+    const fallbacks: unknown[] = []
+
+    const playRoom = async (room: string, seed: number) => {
+      const game = `game-${room}`
+      const bots = ['bot-a', 'bot-b']
+      const rounds = new RoundSynchronizationService(new InMemoryRoundStateStore(), {
+        dieRoller: seededDieRoller(seed),
+      })
+      const scoreStore = new AccumulatingScoreBoardStore()
+      const scores = new ScoreConfirmationService(scoreStore)
+      const rooms = {
+        getSnapshot: async () =>
+          roomWith(
+            game,
+            bots.map((playerId) => ({ playerId, kind: 'BOT' as const })),
+          ),
+      }
+      const submissions = new ScoreRoundSubmissionService<RoundSubmissionResult>(
+        rounds,
+        scores,
+        rooms,
+      )
+      const actions = new YachtTurnActionService({
+        rounds,
+        timers: new FakeRoundTimer(),
+        broadcaster: new RecordingBroadcaster(),
+        submissions,
+      })
+      const coordinator = new YachtBotTurnCoordinator(
+        { rounds, actions, policy: shared, strategy: new LocalYachtBotStrategy(), rooms, scores },
+        { onPolicyFallback: (_roomId, _state, error) => fallbacks.push(error) },
+      )
+      await rounds.initialize(room, 1, bots)
+      for (let steps = 0; steps < 300; steps += 1) {
+        const state = await rounds.findByRoomId(room)
+        if (state === undefined || state.finished) break
+        await coordinator.playIfCurrent({ roomId: room, state })
+      }
+      const finished = await rounds.findByRoomId(room)
+      const boards = await Promise.all(bots.map((botId) => scoreStore.findScoreBoard(game, botId)))
+      return { finished, boards }
+    }
+
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, index) => playRoom(`ROOM${index}`, 1000 + index)),
+    )
+    for (const [index, { finished, boards }] of results.entries()) {
+      expect(finished?.finished, `ROOM${index}`).toBe(true)
+      for (const board of boards) {
+        expect(
+          Object.values(board.categories).every((score) => score !== null),
+          `ROOM${index}`,
+        ).toBe(true)
+      }
+    }
+    // 큐가 실제로 넘쳤고, 넘친 탐색은 폴백으로 처리됐다.
+    expect(fallbacks.some((error) => error instanceof BotQueueFullError)).toBe(true)
+    expect(shared.queued).toBe(0)
+  })
+})
+
+describe('ocr(#81): 큐 거절 로그 — 설계된 부하 차단은 경고가 아니다', () => {
+  it('큐가 가득 찬 폴백은 debug, 진짜 탐색 실패는 warn이다', () => {
+    expect(policyFallbackLog(new BotQueueFullError(8)).level).toBe('debug')
+    expect(policyFallbackLog(new BotSearchBudgetError(250, 300)).level).toBe('warn')
+    expect(policyFallbackLog(new Error('정책 버그')).level).toBe('warn')
+    expect(policyFallbackLog('원시값').level).toBe('warn')
+  })
+
+  it('배선이 부르는 logPolicyFallback이 그 수준으로 기록한다', () => {
+    const lines: [string, object, string][] = []
+    const log = {
+      debug: (fields: object, message: string) => lines.push(['debug', fields, message]),
+      warn: (fields: object, message: string) => lines.push(['warn', fields, message]),
+    }
+    const full = new BotQueueFullError(8)
+    const budget = new BotSearchBudgetError(250, 300)
+    logPolicyFallback(log, { roomId: 'R1' }, full)
+    logPolicyFallback(log, { roomId: 'R1' }, budget)
+    expect(lines).toEqual([
+      ['debug', { roomId: 'R1', error: full }, '봇 탐색 큐가 가득 차 폴백 정책으로 둡니다'],
+      ['warn', { roomId: 'R1', error: budget }, 'Expectimax 탐색 실패 — 폴백 정책으로 전환'],
+    ])
+  })
+})
+
+describe('ocr(#81): 야간 부하 측정 — 실패를 파이프가 삼키지 않는다', () => {
+  /**
+   * shell을 지정하지 않은 단계는 pipefail 없는 `bash -e`로 돈다. 그 단계를 그대로 꺼내 실패하는
+   * 명령으로 바꿔 끼우고, 단계가 실패로 끝나는지와 요약이 남는지 본다.
+   */
+  it('test:load가 실패하면 단계도 실패하고, 요약 줄은 남는다', () => {
+    const workflow = readFileSync(
+      join(import.meta.dirname, '..', '..', '..', '..', '.github', 'workflows', 'nightly.yml'),
+      'utf8',
+    )
+    const step = /- name: 봇 부하 응답성\n([\s\S]*?)(?=\n {6}- |\n*$)/.exec(workflow)?.[1] ?? ''
+    expect(step).toMatch(/shell: bash/)
+    const run = /run: \|\n((?: {10}.*\n?)+)/.exec(step)?.[1]?.replace(/^ {10}/gm, '') ?? ''
+    expect(run).toContain('npm run test:load')
+
+    const dir = tempDir()
+    const summary = join(dir, 'summary.md')
+    const fake = run.replace(
+      'npm run test:load',
+      `sh -c 'echo "[bot-load] {\\"p99\\":999}" >&2; exit 1'`,
+    )
+    // Actions가 `shell: bash`에 쓰는 바로 그 호출이다.
+    const result = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', fake], {
+      cwd: dir,
+      env: { ...process.env, GITHUB_STEP_SUMMARY: summary },
+      encoding: 'utf8',
+    })
+    expect(result.status).toBe(1)
+    expect(readFileSync(summary, 'utf8')).toContain('- [bot-load]')
   })
 })

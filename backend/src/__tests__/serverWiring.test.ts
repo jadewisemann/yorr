@@ -11,7 +11,7 @@ import {
   type SweepSchedule,
   type SweepScheduler,
 } from '../game/reconnect/index.js'
-import { RedisYachtDiceStateStore } from '../game/yacht/index.js'
+import { CooperativeYachtBotPolicy, RedisYachtDiceStateStore } from '../game/yacht/index.js'
 import { MemoryRedis } from '../infra/memoryRedis.js'
 import type { Pool } from '../infra/sqlite.js'
 import { loadStoreSnapshot, saveStoreSnapshot } from '../infra/storeSnapshot.js'
@@ -966,5 +966,14 @@ describeRedis('서버 배선', () => {
     expect(response.body).toContain('yorr_game_participants_active{game="YACHT_DICE"} 1')
 
     client.socket.close()
+  })
+
+  /**
+   * 봇 탐색이 운영 배선에서 큐를 지나는지 본다. `policy:`를 원복하면 이 단언이 깨진다 —
+   * 큐가 빠져도 타입·단위 테스트는 전부 통과하고 굶김 회귀만 조용히 돌아온다.
+   */
+  it('봇 탐색이 운영 배선에서 CooperativeYachtBotPolicy를 지난다', async () => {
+    const instance = await build()
+    expect(instance.botPolicy).toBeInstanceOf(CooperativeYachtBotPolicy)
   })
 })

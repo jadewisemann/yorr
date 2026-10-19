@@ -60,3 +60,42 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - run: npm run test:e2e
+
+      # 봇 AI 심층 — PR보다 많은 판·전 구간 스윕(src/game/yacht/bot/__tests__).
+      - name: 봇 정책 오라클 대조 · 장애 주입 전수 · 대량 시뮬레이션
+        env:
+          BOT_ORACLE_SEED: ${{ env.FUZZ_SEED }}
+          BOT_ORACLE_BOARDS: "60"
+          BOT_ORACLE_DEEP_BOARDS: "18"
+          BOT_FUZZ_SEED: ${{ env.FUZZ_SEED }}
+          BOT_FUZZ_ITERATIONS: "3000"
+          BOT_SWEEP_STRIDE: "1"
+          BOT_SIM_SEED: ${{ env.FUZZ_SEED }}
+          BOT_SIM_GAMES: "300"
+        run: npx vitest run src/game/yacht/bot
+
+      # 봇 부하 아래의 응답성 — 방 30개 × 봇 5명이 도는 동안 무관한 소켓의 ping 왕복을 잰다.
+      - name: 봇 부하 응답성
+        # 앞선 심층 테스트가 실패해도 진단(p99·굴림 수)은 남긴다 — 기본 조건은 success()다.
+        if: ${{ !cancelled() }}
+        env:
+          LOAD_ROOMS: "30"
+          LOAD_SECONDS: "60"
+        # shell을 지정하지 않으면 Actions는 pipefail 없는 `bash -e`로 돈다 — 그러면 테스트가 실패해도
+        # 파이프 끝의 tee가 0을 내 단계가 초록이 된다. 요약은 실패해도 남기고, 종료 코드는 테스트의 것이다.
+        shell: bash
+        run: |
+          set +e
+          npm run test:load 2>&1 | tee load.log
+          status=${PIPESTATUS[0]}
+          grep '\[bot-load\]' load.log | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: 부하 로그 업로드
+        # 리포트 줄이 없을 때 실패 원인을 볼 수 있게 항상 올린다.
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: bot-load-log
+          path: backend/load.log
+          if-no-files-found: ignore

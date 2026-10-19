@@ -4,7 +4,13 @@
  * 조립 순서 = 의존 방향: 평가기 → 정책·폴백 → 코디네이터 → 오케스트레이터.
  * 배선 조각은 docs/design/games/yacht.md 「봇 배선」에 있다.
  */
-export { BotDecisionError, BotSearchBudgetError } from './botErrors.js'
+export {
+  BotDecisionError,
+  BotQueueFullError,
+  BotSearchBudgetError,
+  logPolicyFallback,
+  policyFallbackLog,
+} from './botErrors.js'
 export type {
   YachtBotActions,
   YachtBotFallbackStrategy,
@@ -22,6 +28,7 @@ export {
   THROW_DELAY_MS,
   TURN_START_DELAY_MS,
 } from './botTurnOrchestrator.js'
+export { CooperativeYachtBotPolicy } from './cooperativeBotPolicy.js'
 export {
   type BotAction,
   type BotDecision,

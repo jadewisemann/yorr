@@ -62,11 +62,14 @@ import {
 import { resumeGamesOnStartup } from './game/startupResume.js'
 import {
   BotTurnOrchestrator,
+  CooperativeYachtBotPolicy,
   ExpectimaxYachtBotPolicy,
   LocalYachtBotStrategy,
+  logPolicyFallback,
   RedisRoundDeadlineStore,
   RedisYachtDiceStateStore,
   ScorecardValueEvaluator,
+  type YachtBotPolicy,
   YachtBotTurnCoordinator,
   YachtDiceGameModule,
   YachtTurnActionService,
@@ -174,6 +177,11 @@ export interface YorrServer {
   sweeper: OrphanedRoundStateSweeper
   /** 주간 랭킹(4.5). 상위 목록 캐시는 4.4의 보관 서비스가 evict하는 **그** 인스턴스다. */
   rankings: WeeklyRankingService
+  /**
+   * 봇 탐색 정책. 운영은 `CooperativeYachtBotPolicy`로 감싼 인스턴스다 — 배선 회귀
+   * 테스트가 큐 래핑이 빠졌는지 확인하는 창이다.
+   */
+  botPolicy: YachtBotPolicy
   listen(): Promise<void>
   close(): Promise<void>
 }
@@ -328,22 +336,28 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     broadcaster,
     submissions: scoreSubmissions,
   })
+  // 탐색은 프로세스 전체에서 하나씩, 사이마다 이벤트 루프에 양보한다 — 여러 방의 봇 턴이
+  // 겹쳐도 다른 방의 메시지가 탐색 N개를 기다리지 않는다(cooperativeBotPolicy.ts).
+  const botPolicy = new CooperativeYachtBotPolicy(
+    new ExpectimaxYachtBotPolicy(new ScorecardValueEvaluator()),
+  )
   yachtBots = new BotTurnOrchestrator(
     {
       coordinator: new YachtBotTurnCoordinator(
         {
           rounds: roundSync,
           actions: yachtActions,
-          policy: new ExpectimaxYachtBotPolicy(new ScorecardValueEvaluator()),
+          policy: botPolicy,
           strategy: new LocalYachtBotStrategy(),
           rooms,
           scores,
         },
         {
           onPolicyFallback: (roomId, state, error) =>
-            app.log.warn(
-              { roomId, round: state.roundNumber, player: state.activePlayerId, error },
-              'Expectimax 탐색 실패 — 폴백 정책으로 전환',
+            logPolicyFallback(
+              app.log,
+              { roomId, round: state.roundNumber, player: state.activePlayerId },
+              error,
             ),
         },
       ),
@@ -536,6 +550,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     completion,
     sweeper,
     rankings,
+    botPolicy,
     listen: async () => {
       /*
        * 부팅 재무장(PR 6). **`app.listen()`보다 먼저다** — 요청을 받기 시작한 뒤에
