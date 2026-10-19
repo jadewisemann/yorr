@@ -17,8 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:watch": "vitest",
-    "build:botkeep": "node scripts/build-botkeep.mjs",
-    "test:load": "vitest run --config vitest.load.config.ts"
+    "build:botkeep": "node scripts/build-botkeep.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",

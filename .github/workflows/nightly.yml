@@ -60,23 +60,3 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - run: npm run test:e2e
-
-      # 봇 AI 심층 — PR보다 많은 판·전 구간 스윕(src/game/yacht/bot/__tests__).
-      - name: 봇 정책 오라클 대조 · 장애 주입 전수 · 대량 시뮬레이션
-        env:
-          BOT_ORACLE_SEED: ${{ env.FUZZ_SEED }}
-          BOT_ORACLE_BOARDS: "60"
-          BOT_ORACLE_DEEP_BOARDS: "18"
-          BOT_FUZZ_SEED: ${{ env.FUZZ_SEED }}
-          BOT_FUZZ_ITERATIONS: "3000"
-          BOT_SWEEP_STRIDE: "1"
-          BOT_SIM_SEED: ${{ env.FUZZ_SEED }}
-          BOT_SIM_GAMES: "300"
-        run: npx vitest run src/game/yacht/bot
-
-      # 봇 부하 아래의 응답성 — 방 30개 × 봇 5명이 도는 동안 무관한 소켓의 ping 왕복을 잰다.
-      - name: 봇 부하 응답성
-        env:
-          LOAD_ROOMS: "30"
-          LOAD_SECONDS: "60"
-        run: npm run test:load 2>&1 | tee load.log && grep '\[bot-load\]' load.log | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"

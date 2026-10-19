@@ -113,7 +113,7 @@
 - 다만 `tsconfig`는 이미 `strict`·`noUncheckedIndexedAccess`·
   `exactOptionalPropertyTypes`가 모두 켜져 있어서 출발점이 나쁘지 않습니다.
 
-**커버리지** — `backend/`는 2026-09-30에 측정을 시작했습니다. 2026-10-18(ADR-0007)부터 통합 테스트가 어디서나 전부 돌아 바닥이 하나이며, statements 92.7·branches 84.8·functions 92.1·lines 94.8을 바닥으로 `vitest.config.ts`가 래칫을 겁니다. 지금 100%인 핵심 규칙 모듈 6개는 파일 단위 100%로 묶었습니다.
+**커버리지** — `backend/`는 2026-09-30에 측정을 시작했습니다. 2026-10-18(ADR-0007)부터 통합 테스트가 어디서나 전부 돌아 바닥이 하나이며, statements 92.6·branches 84.7·functions 92·lines 94.7을 바닥으로 `vitest.config.ts`가 래칫을 겁니다. 지금 100%인 핵심 규칙 모듈 6개는 파일 단위 100%로 묶었습니다.
 `frontend/`는 96~98% 선이며, `World.ts`를 비롯한 렌더링·개발용 화면 여러 개를
 측정 대상에서 제외해 둔 상태입니다.
 

@@ -22,7 +22,6 @@ export {
   THROW_DELAY_MS,
   TURN_START_DELAY_MS,
 } from './botTurnOrchestrator.js'
-export { CooperativeYachtBotPolicy } from './cooperativeBotPolicy.js'
 export {
   type BotAction,
   type BotDecision,
