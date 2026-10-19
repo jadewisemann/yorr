@@ -1,5 +1,5 @@
 import type { ScoreBoard } from '../../score/index.js'
-import { BotQueueFullError } from './botErrors.js'
+import { BotDecisionError, BotQueueFullError } from './botErrors.js'
 import type { YachtBotPolicy } from './botPorts.js'
 import type { BotDecision } from './expectimaxYachtBotPolicy.js'
 
@@ -29,6 +29,16 @@ import type { BotDecision } from './expectimaxYachtBotPolicy.js'
  */
 export const DEFAULT_MAX_QUEUED_SEARCHES = 8
 
+/**
+ * 탐색 하나가 이 시간 안에 settle되지 않으면 그 호출을 거절하고 큐를 푼다.
+ *
+ * 큐는 포트 뒤에 **비동기·외부 실행 구현**이 올 수 있게 설계됐다. 그런 구현이 죽은 워커
+ * 등으로 영영 settle되지 않으면 `pending`이 회수되지 않아, 상한(8)개가 그렇게 되면 이후
+ * **모든 방의 봇**이 조용히 폴백으로만 돈다. 정상 예산(기본 250ms)보다 넉넉히 잡아
+ * 정상 탐색을 자르지 않으면서 마지막 회수 수단이 된다.
+ */
+export const DEFAULT_SETTLE_TIMEOUT_MS = 60_000
+
 export class CooperativeYachtBotPolicy implements YachtBotPolicy {
   private tail: Promise<void> = Promise.resolve()
   private pending = 0
@@ -39,6 +49,8 @@ export class CooperativeYachtBotPolicy implements YachtBotPolicy {
     private readonly yieldToEventLoop: () => Promise<void> = () =>
       new Promise((resolve) => setImmediate(resolve)),
     private readonly maxQueued: number = DEFAULT_MAX_QUEUED_SEARCHES,
+    /** 위 {@link DEFAULT_SETTLE_TIMEOUT_MS} 참고. 테스트가 짧게 바꿔 끼운다. */
+    private readonly settleTimeoutMs: number = DEFAULT_SETTLE_TIMEOUT_MS,
   ) {}
 
   /** 아직 끝나지 않은 탐색 수(대기 중 + 실행 중). 관측용. */
@@ -49,17 +61,34 @@ export class CooperativeYachtBotPolicy implements YachtBotPolicy {
   decide(board: ScoreBoard, dice: readonly number[], rollCount: number): Promise<BotDecision> {
     if (this.pending >= this.maxQueued) return Promise.reject(new BotQueueFullError(this.maxQueued))
     this.pending += 1
-    const run = this.tail
+    const work = this.tail
       .then(this.yieldToEventLoop)
       .then(() => this.inner.decide(board, dice, rollCount))
-      .finally(() => {
-        this.pending -= 1
-      })
-    // 실패가 큐를 끊지 않게 꼬리에는 결과를 버린 약속을 둔다.
+    const run = this.withSettleTimeout(work)
+    // 실패·시간 초과가 큐를 끊지 않게 꼬리에는 결과를 버린 약속을 둔다. 시간 초과면
+    // settle되지 않은 탐색은 버리고 다음 탐색을 시작한다 — pending도 함께 회수된다.
     this.tail = run.then(
       () => undefined,
       () => undefined,
     )
-    return run
+    return run.finally(() => {
+      this.pending -= 1
+    })
+  }
+
+  /** 내부 정책이 영영 settle되지 않아도 큐가 막히지 않게 상한을 둔다. */
+  private withSettleTimeout(work: Promise<BotDecision>): Promise<BotDecision> {
+    let timer!: NodeJS.Timeout
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () =>
+          reject(
+            new BotDecisionError(`bot search did not settle within ${this.settleTimeoutMs}ms`),
+          ),
+        this.settleTimeoutMs,
+      )
+      timer.unref()
+    })
+    return Promise.race([work, timeout]).finally(() => clearTimeout(timer))
   }
 }

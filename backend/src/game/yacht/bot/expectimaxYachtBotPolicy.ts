@@ -21,7 +21,7 @@ import type { ScorecardValueEvaluator } from './scorecardValueEvaluator.js'
  *
  * Node는 단일 스레드라 탐색이 도는
  * 동안 **관계없는 다른 방들의 WS 메시지·하트비트·라운드 마감이 그 뒤에 줄을 선다.**
- * 그래서 1초를 테스트 단정이 아니라 **런타임 불변식**으로 승격시켰다: 예산을 넘기면
+ * 그래서 탐색 시간 상한(기본 250ms)을 테스트 단정이 아니라 **런타임 불변식**으로 승격시켰다: 예산을 넘기면
  * {@link BotSearchBudgetError}로 스스로 중단하고 코디네이터가
  * `LocalYachtBotStrategy`(탐색 없음)로 내려간다. 근거·대안 비교는
  * docs/design/games/yacht.md 「봇 스택 — CPU 예산과 이벤트 루프」에 있다.

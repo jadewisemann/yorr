@@ -76,6 +76,8 @@ jobs:
 
       # 봇 부하 아래의 응답성 — 방 30개 × 봇 5명이 도는 동안 무관한 소켓의 ping 왕복을 잰다.
       - name: 봇 부하 응답성
+        # 앞선 심층 테스트가 실패해도 진단(p99·굴림 수)은 남긴다 — 기본 조건은 success()다.
+        if: ${{ !cancelled() }}
         env:
           LOAD_ROOMS: "30"
           LOAD_SECONDS: "60"
@@ -88,3 +90,12 @@ jobs:
           status=${PIPESTATUS[0]}
           grep '\[bot-load\]' load.log | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
+
+      - name: 부하 로그 업로드
+        # 리포트 줄이 없을 때 실패 원인을 볼 수 있게 항상 올린다.
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: bot-load-log
+          path: backend/load.log
+          if-no-files-found: ignore

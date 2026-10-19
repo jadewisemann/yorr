@@ -343,9 +343,11 @@ const simulateSolo = (
 describe('대량 시뮬레이션', () => {
   const seed = seedFromEnv('BOT_SIM_SEED')
   const games = iterationsFromEnv('BOT_SIM_GAMES', 30)
+  // 야간은 판 수를 늘리므로 timeout도 함께 늘린다 — 고정값이면 느린 러너에서 시간 초과한다.
+  const simTimeoutMs = Math.max(180_000, games * 2_000)
 
   it(`정책은 ${games}판 모두 12칸을 한 번씩 채우고 폴백보다 잘 둔다 (seed=${seed})`, {
-    timeout: 180_000,
+    timeout: simTimeoutMs,
   }, () => {
     const local = new LocalYachtBotStrategy()
     const localDecide = (

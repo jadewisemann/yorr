@@ -131,7 +131,8 @@ export class YachtBotTurnCoordinator {
       return this.submit(event.roomId, gameId, botId, state, dice, decision)
     }
     if (state.activeRollCount < MAX_ROLL_COUNT) {
-      return this.holdOrRoll(event.roomId, botId, state, dice, decision)
+      // 방금 읽은 상태를 그대로 넘긴다 — 가드와 이 호출 사이에 await가 없어 다시 읽을 창이 없다.
+      return this.holdOrRoll(event.roomId, botId, state, dice, decision, afterDecision)
     }
     return ignoredStep
   }
@@ -167,6 +168,8 @@ export class YachtBotTurnCoordinator {
     state: RoundState,
     dice: readonly number[],
     decision: BotDecision,
+    /** 결정 뒤 다시 읽어 같은 턴임을 확인한 상태. 굴림 직전에 재사용한다. */
+    current: RoundState,
   ): Promise<BotTurnStep> {
     const held = preserveHeldDiceIdentity(dice, state.activeHeld, decision.held)
     // 킵이 이미 원하는 모양이면 hold 이벤트를 내지 않는다 — 같은 값을 다시 보내면
@@ -180,10 +183,9 @@ export class YachtBotTurnCoordinator {
       )
       return observationStep(heldState)
     }
-    // 킵을 그대로 쓰고 바로 다음 굴림으로 간다. 그 사이에 상태가 바뀌었을 수 있으니
-    // (사람의 요청·타임아웃) rollCount를 **다시 읽어** 연속성을 맞춘다.
-    const current = await this.rounds.findByRoomId(roomId)
-    if (current === undefined || !sameTurn(state, current)) return ignoredStep
+    // 호출자가 결정 뒤에 읽어 둔 상태를 그대로 쓴다. 이 경로에는 사이에 await가 없어
+    // (hold 이벤트를 내는 경로는 위에서 observation으로 끝난다) 다시 읽을 이유가 없다.
+    if (!sameTurn(state, current)) return ignoredStep
     const rolled = await this.actions.roll(
       roomId,
       botId,

@@ -3,6 +3,8 @@ import {
   isUpperCategory,
   SCORE_CATEGORIES,
   type ScoreBoard,
+  UPPER_BONUS_SCORE,
+  UPPER_BONUS_THRESHOLD,
 } from '../../src/game/score/index.js'
 import { YACHT_CATEGORIES, type YachtCategory } from '../oracles/yacht.js'
 import { createPrng, type Prng } from './prng.js'
@@ -24,8 +26,10 @@ export const boardFrom = (
   const upperSubtotal = Object.entries(filled)
     .filter(([category]) => isUpperCategory(category as YachtCategory))
     .reduce((sum, [, score]) => sum + (score ?? 0), 0)
-  const total = Object.values(filled).reduce<number>((sum, score) => sum + (score ?? 0), 0)
-  const board = createScoreBoard(filled, upperSubtotal, upperSubtotal >= 63 ? 35 : 0, total)
+  const upperBonus = upperSubtotal >= UPPER_BONUS_THRESHOLD ? UPPER_BONUS_SCORE : 0
+  const total =
+    Object.values(filled).reduce<number>((sum, score) => sum + (score ?? 0), 0) + upperBonus
+  const board = createScoreBoard(filled, upperSubtotal, upperBonus, total)
   return {
     name,
     board,
@@ -51,8 +55,16 @@ export const plausibleScore = (category: YachtCategory, prng: Prng): number => {
 /** 시드 하나로 정해지는 무작위 판. 열린 칸이 최소 하나는 남는다. */
 export const randomBoard = (seed: number): NamedBoard => {
   const prng = createPrng(seed)
-  const filledCount = prng.int(0, 11)
-  const shuffled = [...YACHT_CATEGORIES].sort(() => prng.next() - 0.5)
+  const filledCount = prng.int(0, YACHT_CATEGORIES.length - 1)
+  // 비교 함수 기반 sort는 전순서가 아니고 엔진 구현에 따라 PRNG 소비 순서가 달라진다 —
+  // 시드 재현 계약을 지키려면 명시적인 피셔-예이츠를 쓴다.
+  const shuffled = [...YACHT_CATEGORIES]
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swap = prng.int(0, index)
+    const current = shuffled[index] as YachtCategory
+    shuffled[index] = shuffled[swap] as YachtCategory
+    shuffled[swap] = current
+  }
   const filled: Partial<Record<YachtCategory, number>> = {}
   for (const category of shuffled.slice(0, filledCount)) {
     filled[category] = plausibleScore(category, prng)

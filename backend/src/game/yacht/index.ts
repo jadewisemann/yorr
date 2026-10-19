@@ -15,6 +15,7 @@ export { createYachtDiceState, type YachtDiceState } from '../reconnect/index.js
  */
 export {
   BotDecisionError,
+  BotQueueFullError,
   BotSearchBudgetError,
   BotTurnOrchestrator,
   type BotTurnOrchestratorDeps,

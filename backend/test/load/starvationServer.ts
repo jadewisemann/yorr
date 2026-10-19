@@ -24,16 +24,36 @@ const policy: YachtBotPolicy =
     : raw
 const board = createScoreBoard({}, 0, 0, 0)
 
+const startSearches = (): void => {
+  for (let index = 0; index < count; index += 1) {
+    // 굴림 1 = 가장 깊은 탐색. 주사위를 조금씩 달리해 메모가 겹치지 않게 한다.
+    const dice = [1 + (index % 6), 2, 3, 5, 6]
+    setTimeout(() => {
+      // 동기 정책은 `Promise.resolve`의 인자 평가 중에 던진다 — 그 예외가 타이머 밖으로
+      // 새면 자식 프로세스가 죽고 부모는 에코를 기다리다 시간 초과한다.
+      try {
+        Promise.resolve(policy.decide(board, dice, 1)).catch((error: unknown) => {
+          process.stderr.write(`[starvation] search failed: ${String(error)}\n`)
+        })
+      } catch (error) {
+        process.stderr.write(`[starvation] search threw: ${String(error)}\n`)
+      }
+    }, 20)
+  }
+}
+
+const buffers = new WeakMap<net.Socket, string>()
 const server = net.createServer((socket) =>
   socket.on('data', (data) => {
+    // 에코는 바이트 단위 그대로 돌려준다(왕복 측정용).
     socket.write(data)
-    if (data.toString() !== 'go') return
-    for (let index = 0; index < count; index += 1) {
-      // 굴림 1 = 가장 깊은 탐색. 주사위를 조금씩 달리해 메모가 겹치지 않게 한다.
-      const dice = [1 + (index % 6), 2, 3, 5, 6]
-      setTimeout(() => {
-        Promise.resolve(policy.decide(board, dice, 1)).catch(() => {})
-      }, 20)
+    // TCP는 바이트 스트림이라 `go`가 쪼개지거나 다른 입력과 합쳐질 수 있다.
+    // 개행으로 프레이밍해 완성된 줄만 처리한다.
+    const pending = (buffers.get(socket) ?? '') + data.toString()
+    const lines = pending.split('\n')
+    buffers.set(socket, lines.pop() ?? '')
+    for (const line of lines) {
+      if (line === 'go') startSearches()
     }
   }),
 )

@@ -139,6 +139,23 @@ describe('CooperativeYachtBotPolicy', () => {
     expect(inner.events.filter((event) => event.startsWith('start'))).toHaveLength(3)
   })
 
+  it('settle되지 않는 탐색은 상한 뒤 거절하고 큐를 푼다', async () => {
+    let calls = 0
+    const inner: YachtBotPolicy = {
+      decide: () => {
+        calls += 1
+        // 첫 탐색은 영영 settle되지 않는다 — 죽은 워커·끊긴 외부 실행을 흉내 낸다.
+        if (calls === 1) return new Promise<BotDecision>(() => {})
+        return scoreDecision('choice', 7)
+      },
+    }
+    const queue = new CooperativeYachtBotPolicy(inner, undefined, 8, 20)
+    await expect(queue.decide(board, DICE, 1)).rejects.toThrow(/did not settle/)
+    expect(queue.queued).toBe(0)
+    // 꼬리가 풀렸으므로 다음 탐색은 정상적으로 돈다.
+    await expect(queue.decide(board, DICE, 1)).resolves.toMatchObject({ expectedUtility: 7 })
+  })
+
   it('입력을 바꾸지 않고 그대로 넘긴다', async () => {
     let seen: unknown[] = []
     const queue = new CooperativeYachtBotPolicy({
@@ -172,7 +189,8 @@ const maxRoundTripWhileSearching = async (mode: 'naive' | 'cooperative'): Promis
     const echo = (payload: string) =>
       new Promise<void>((resolve) => {
         socket.once('data', () => resolve())
-        socket.write(payload)
+        // 서버는 개행으로 프레이밍한다 — TCP 분할과 무관하게 한 메시지로 조립된다.
+        socket.write(`${payload}\n`)
       })
     // 첫 탐색의 JIT 예열이 측정에 섞이지 않게 한 번 돌려 둔다.
     await echo('go')

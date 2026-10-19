@@ -149,8 +149,10 @@ describe('봇 정책 ↔ 오라클 (전수)', () => {
   // 굴림 1은 탐색이 가장 깊어(리롤 2회) 한 판에 수 초가 든다. PR에서는 경계 판 둘만,
   // 야간은 `BOT_ORACLE_DEEP_BOARDS`로 늘린다.
   const deep = edgeBoards().slice(0, iterationsFromEnv('BOT_ORACLE_DEEP_BOARDS', 2))
+  // 야간은 판 수를 늘리므로 timeout도 함께 늘린다 — 고정값이면 느린 러너에서 시간 초과한다.
+  const deepTimeoutMs = Math.max(120_000, deep.length * 30_000)
   for (const named of deep) {
-    it(`${named.name}: 굴림 1에서 252가지 전부 일치한다`, { timeout: 120_000 }, () => {
+    it(`${named.name}: 굴림 1에서 252가지 전부 일치한다`, { timeout: deepTimeoutMs }, () => {
       expectNoMismatch(compareBoard(named, [1]))
     })
   }
@@ -159,7 +161,8 @@ describe('봇 정책 ↔ 오라클 (전수)', () => {
 describe('봇 정책 ↔ 오라클 (시드 고정 무작위 판)', () => {
   const seed = seedFromEnv('BOT_ORACLE_SEED')
   const boards = iterationsFromEnv('BOT_ORACLE_BOARDS', 6)
-  it(`판 ${boards}개 × 굴림 2·3 (seed=${seed})`, { timeout: 120_000 }, () => {
+  const boardsTimeoutMs = Math.max(120_000, boards * 10_000)
+  it(`판 ${boards}개 × 굴림 2·3 (seed=${seed})`, { timeout: boardsTimeoutMs }, () => {
     const prng = createPrng(seed)
     const mismatches: string[] = []
     for (let index = 0; index < boards; index += 1) {

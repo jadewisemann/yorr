@@ -265,6 +265,12 @@ poll 단계(I/O)로 넘어가므로, 같은 시점에 만료된 탐색 N개는 �
 `BotQueueFullError`로 거절해 그 봇을 폴백 전략으로 두고, 코디네이터는 **결정 뒤에 턴을 다시 읽어**
 그 사이 타임아웃이나 사람이 턴을 넘겼으면 아무것도 하지 않는다.
 
+**settle 보장**(2026-10-19, 같은 리뷰). 큐는 포트 뒤에 비동기·외부 실행 구현이 올 수 있게
+설계됐다. 그런 구현이 죽은 워커 등으로 영영 settle되지 않으면 `pending`이 회수되지 않아,
+상한(8)개가 그렇게 되면 이후 **모든 방의 봇**이 조용히 폴백으로만 돈다. 그래서 한 탐색이
+`DEFAULT_SETTLE_TIMEOUT_MS`(60초) 안에 끝나지 않으면 그 호출을 `BotDecisionError`로 거절하고
+큐의 꼬리를 푼다. 정상 예산(250ms)보다 넉넉한 값이라 정상 탐색은 자르지 않는다.
+
 **결정 3 — 예산 250ms**(예전 1초). `ExpectimaxYachtBotPolicy`는 메모 미스마다 경과 시간을 보고
 예산을 넘기면 `BotSearchBudgetError`로 스스로 중단하고, 코디네이터가 `LocalYachtBotStrategy`
 (마이크로초급)로 내려간다. 큐가 있어도 탐색 하나는 끊기지 않으므로 이것이 이벤트 루프 점유의
@@ -305,6 +311,9 @@ MB와 엔트리 파일 경로(`src`/`dist`/번들)·수명·오류 전파·테�
   `yachtBots?.onRoundStarted(event)`).
 - `close()`에서 `yachtBots.stop()`을 부른다. 지연 예약은 `unref`돼 프로세스를 잡지 않지만
   테스트에서는 스위트 간 누수가 된다(2.3의 `deadlineScheduler.stop()`과 같은 이유).
+- `createServer`는 조립한 `botPolicy`를 돌려준다. `serverWiring.test.ts`가
+  `CooperativeYachtBotPolicy`인지 확인해, 큐 래핑을 원복해도 타입·단위 테스트만 초록인
+  상태를 막는다.
 
 ## 배선 (단일 인스턴스 공유가 계약)
 
