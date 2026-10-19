@@ -8,7 +8,7 @@
 
 | 저장소 | 담는 것 | 특성 |
 |---|---|---|
-| 저장소(`MemoryRedis`) | 방, 세션(게스트·회원 공용), 진행 중 게임 상태, 점수판, 퀵매치 큐, OAuth state·로그인 코드 | **재시작하면 사라진다**, TTL, 원자적 스크립트 |
+| 저장소(`MemoryRedis`) | 방, 세션(게스트·회원 공용), 진행 중 게임 상태, 점수판, 퀵매치 큐, OAuth state·로그인 코드 | TTL, 원자적 스크립트, 키 수 상한, 스냅샷(정상 종료 + 60초마다)으로 재시작을 넘긴다 |
 | DB(SQLite `data/yorr.db`) | 계정(users), 소셜 연동(social_accounts), 전적(matches·match_participants) | 영속, 파일 하나 |
 
 저장소는 Redis 명령 이름과 시맨틱(문자열 값·TTL·빈 해시 삭제·WRONGTYPE)을 흉내 내는

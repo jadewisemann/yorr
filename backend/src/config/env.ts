@@ -7,6 +7,12 @@ const envSchema = z.object({
   CORS_ALLOWED_ORIGINS: z.string().default('https://yorr.site'),
   /** 영속 DB 파일(`infra/sqlite.ts`). 작업 디렉터리 기준이며 첫 질의 때 만든다. */
   SQLITE_PATH: z.string().default('data/yorr.db'),
+  /**
+   * 저장소(방·세션·진행 중 게임) 스냅샷 파일(`infra/storeSnapshot.ts`). 정상 종료와
+   * `STORE_SNAPSHOT_INTERVAL_MS`마다 쓰고 기동 때 읽는다. 빈 문자열이면 끈다.
+   */
+  STORE_SNAPSHOT_PATH: z.string().default('data/store.json'),
+  STORE_SNAPSHOT_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
   // 소셜 로그인. 이름·기본값은 운영 `.env`에 들어 있는 것 그대로다.
   // 값이 비어 있어도 서버는 뜬다 — 로그인 엔드포인트를 호출할 때만 거절한다.
   /** 로그인을 끝낸 사용자를 되돌려 보낼 **프론트** 주소(제공자 콘솔 등록값이 아니다). */

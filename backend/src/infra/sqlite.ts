@@ -147,8 +147,14 @@ export const createSqlitePool = (path: string): Pool => {
     if (opened !== undefined) return opened
     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true })
     const db = new DatabaseSync(path)
-    db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;')
-    db.exec(SQLITE_SCHEMA)
+    try {
+      db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;')
+      db.exec(SQLITE_SCHEMA)
+    } catch (error) {
+      // 열다 만 핸들을 남기지 않는다 — 그러지 않으면 질의·헬스체크마다 핸들이 하나씩 샌다.
+      db.close()
+      throw error
+    }
     opened = db
     return db
   }
@@ -183,10 +189,15 @@ export const createSqlitePool = (path: string): Pool => {
       let released = false
       // `db.isTransaction`은 Node 22.16부터라 직접 센다 — Botkeep의 Node 버전 폭을 넓힌다.
       let inTransaction = false
+      // ROLLBACK이 던져도(예: COMMIT 실패로 SQLite가 이미 되돌려 "no transaction is active")
+      // 트랜잭션은 끝난 것으로 본다. 상태를 남기면 release가 또 ROLLBACK을 시도한다.
       const rollback = (): void => {
         if (!inTransaction) return
-        open().exec('ROLLBACK')
-        inTransaction = false
+        try {
+          open().exec('ROLLBACK')
+        } finally {
+          inTransaction = false
+        }
       }
       return {
         query: async (sql: string, params?: readonly unknown[]) => run(sql, params),
@@ -202,9 +213,15 @@ export const createSqlitePool = (path: string): Pool => {
         release: () => {
           if (released) return
           released = true
-          // 커밋도 롤백도 안 하고 돌려준 트랜잭션이 다음 사용자에게 새지 않게 한다.
-          rollback()
-          release()
+          // 커밋도 롤백도 안 하고 돌려준 트랜잭션이 다음 사용자에게 새지 않게 한다. 되돌리기가
+          // 실패해도 **잠금은 반드시 푼다** — 못 풀면 그 뒤의 모든 질의가 영원히 기다린다.
+          try {
+            rollback()
+          } catch {
+            // 이미 끝난 트랜잭션이다. 원래 오류는 저장소가 들고 있다.
+          } finally {
+            release()
+          }
         },
       }
     },

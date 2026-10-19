@@ -42,5 +42,5 @@ npm run build        # 프로덕션 빌드 (dist/)
 npm run build:botkeep  # Botkeep 배포 번들 (../deploy/botkeep/out/)
 ```
 
-DB는 `data/yorr.db`(SQLite)에 생긴다. 방·세션·진행 중 게임은 프로세스 안에만 있어
-재시작하면 사라진다([ADR-0007](docs/adr/0007-botkeep-single-process.md)).
+DB는 `data/yorr.db`(SQLite)에 생긴다. 방·세션·진행 중 게임은 프로세스 안의 저장소에 있고,
+종료 때와 60초마다 `data/store.json`으로 스냅샷을 남겨 재시작을 넘긴다([ADR-0007](docs/adr/0007-botkeep-single-process.md)).

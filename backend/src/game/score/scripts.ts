@@ -62,6 +62,8 @@ const confirmGuard = (
 
 export const CONFIRM_SCORE: AtomicScript = {
   name: 'yorrGameConfirmScore',
+  keys: 6,
+  args: 8,
   run(r, keys, args) {
     const refused = confirmGuard(r, keys, args)
     if (refused !== null) return refused

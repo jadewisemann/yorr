@@ -17,6 +17,8 @@
 |---|---|---|
 | `SERVER_PORT` | `8080` | 리슨 포트. 패널이 할당한다. 번들은 `SERVER_PORT`가 없고 `PORT`만 있으면 그 값을 쓴다 |
 | `SQLITE_PATH` | `data/yorr.db` | 영속 DB 파일(작업 디렉터리 기준). 첫 질의 때 디렉터리째 만든다 |
+| `STORE_SNAPSHOT_PATH` | `data/store.json` | 저장소 스냅샷 파일. 빈 문자열이면 끈다(재시작마다 방·세션이 사라진다) |
+| `STORE_SNAPSHOT_INTERVAL_MS` | `60000` | 주기적 스냅샷 간격. 비정상 종료 시 잃는 최대 구간이다 |
 | `CORS_ALLOWED_ORIGINS` | `https://yorr.site` | REST·WS 공용 허용 출처(콤마 목록). 기본값이 운영 전용인 것이 fail-safe 설계다. **정확 일치**이며 패턴이 아니다 — `allowedOrigins()`가 공백과 끝의 `/`만 정규화한다(브라우저의 `Origin`에는 경로가 없다). **소셜 로그인의 복귀 출처 목록도 이것이다**([auth.md](auth.md) 「복귀 출처」) — 새 프론트 주소를 열 때 손댈 곳이 여기 하나인 이유다 |
 | `AUTH_FRONTEND_REDIRECT_URI` | `http://localhost:5173/auth/callback` | 로그인 콜백 후 프론트 복귀. 운영은 `https://yorr.site/auth/callback` |
 | `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET`(선택) / `KAKAO_REDIRECT_URI` | `""` / `""` / localhost 콜백 | 카카오 OAuth |
@@ -28,7 +30,7 @@ Redis·MySQL 좌표(`REDIS_*`·`DB_*`·`DB_URL`)는 **더 이상 읽지 않는�
 프로퍼티처럼 동작하는 하드코딩 상수(설정 아님 — 바꾸면 계약 변경):
 프로토콜 버전 1, 하트비트 30s/타임아웃 90s, 방 TTL 40분, 빈 방 유예 30s/게임 중
 10분, 턴 25s+유예 1s, 오프라인 허용 2턴, 게스트 24h/회원 30d, 스위퍼 5분,
-저장소 만료 키 회수 60초.
+저장소 만료 키 회수 60초, 저장소 키 수 상한 10만(넘으면 새 키 거절).
 
 ## 부팅 배선 (`server.ts` / `main.ts`)
 
@@ -79,8 +81,8 @@ JSON `AUTH_FAILED`)이 곧 "배선됐는가"의 판정이다.
    `OrphanedRoundStateSweeper.start()`(5분 주기) → `app.listen(SERVER_PORT)`
    - **재무장이 `app.listen`보다 먼저인 것이 계약이다.** 요청을 받기 시작한 뒤에
      되살리면 그 사이 도착한 재접속이 아직 비어 있는 마감을 보고 실패한다.
-   - 저장소가 프로세스 안에 있는 지금은 재시작하면 되살릴 방이 없어 이 단계가 아무 일도
-     하지 않는다. 저장소가 다시 프로세스 밖으로 나가면(영속화) 그대로 다시 의미를 갖는다.
+   - 저장소는 `main.ts`가 `createServer`보다 먼저 스냅샷에서 들여 둔다(`infra/storeSnapshot.ts`).
+     그래야 이 단계가 되살릴 방을 본다.
    - 스위퍼는 프로세스가 살아 있는 동안 생기는 고아 라운드 상태를 치운다.
 
 ### 종료 훅 (`server.close()`, SIGTERM·SIGINT)
@@ -183,11 +185,15 @@ JSON `AUTH_FAILED`)이 곧 "배선됐는가"의 판정이다.
 배포 이력이고, 패널에서 이전 커밋을 고르는 것이 롤백이다. 패널의 Redeploy는 GitHub 변경을
 당기지 않는다 — GitHub 탭에서 당긴 뒤 재시작한다.
 
-### 재시작은 진행 중 게임을 끊는다
+### 재시작과 저장소 스냅샷
 
-저장소가 프로세스 안에 있으므로 재시작하면 **방·게스트 세션·진행 중 게임이 사라진다**(회원·
-전적·랭킹은 SQLite에 남는다). 단일 인스턴스라 무중단 교체도 없다. 사람이 없는 시간에
-재시작한다.
+`main.ts`가 SIGTERM·SIGINT를 받으면 서버를 닫은 **뒤** 저장소를 `STORE_SNAPSHOT_PATH`(기본
+`data/store.json`)에 쓰고, 그 사이에도 `STORE_SNAPSHOT_INTERVAL_MS`(기본 60초)마다 쓴다. 기동하면
+읽어 들이고 부팅 재무장이 진행 중이던 판을 같은 마감으로 되살린다. 그래서 패널의 재시작·재배포가
+방과 게스트 세션을 지우지 않는다(`botkeep.yml`의 「재시작 뒤 방 유지」가 번들로 확인한다). 소켓은
+끊기므로 클라이언트는 재접속 절차로 돌아온다. 비정상 종료(강제 kill·OOM)면 마지막 스냅샷 이후만 잃는다.
+
+단일 인스턴스라 무중단 교체는 없다 — 재시작하는 몇 초 동안 접속이 끊긴다.
 
 ### 프론트 도메인 전환 (`*.vercel.app` → `https://yorr.site`)
 

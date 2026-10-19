@@ -31,6 +31,8 @@ import type { AtomicScript } from '../../infra/memoryRedis.js'
  */
 export const FINISH_IF_COMPLETE: AtomicScript = {
   name: 'yorrGameFinishIfComplete',
+  keys: 2,
+  args: 3,
   run(r, [room, players], [gameId, force, requiredCategories]) {
     if (r.exists(room) === 0) return 0
     if (r.hget(room, 'phase') !== 'PLAYING') return 0

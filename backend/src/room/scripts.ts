@@ -11,6 +11,8 @@ import type { AtomicScript } from '../infra/memoryRedis.js'
 /** KEYS: room / ARGV: capacity, hostId, gameCode, ttlSeconds, mode → 0 충돌(재시도) · 1 생성 */
 export const CREATE: AtomicScript = {
   name: 'yorrRoomCreate',
+  keys: 1,
+  args: 5,
   run(r, [room], [capacity, hostId, gameCode, ttlSeconds, mode]) {
     if (r.exists(room) === 1) return 0
     r.hset(
@@ -42,6 +44,8 @@ export const CREATE: AtomicScript = {
  */
 export const JOIN: AtomicScript = {
   name: 'yorrRoomJoin',
+  keys: 4,
+  args: 2,
   run(r, [room, players, scores, bots], [userId, nickname]) {
     if (r.exists(room) === 0) return 0
     if (r.hget(room, 'phase') !== 'LOBBY') return 2
@@ -73,6 +77,8 @@ export const JOIN: AtomicScript = {
  */
 export const LEAVE: AtomicScript = {
   name: 'yorrRoomLeave',
+  keys: 4,
+  args: 1,
   run(r, [room, players, scores, bots], [playerId]) {
     if (r.exists(room) === 0) return -1
     if (r.hdel(players, playerId) === 0) return -1
@@ -97,6 +103,8 @@ export const LEAVE: AtomicScript = {
 /** KEYS: room, players, scores, bots → 항상 1(멱등). 게임 키까지 지운다. */
 export const CLOSE: AtomicScript = {
   name: 'yorrRoomClose',
+  keys: 4,
+  args: 0,
   run(r, [room, players, scores, bots]) {
     const gameId = r.hget(room, 'gameId')
     if (gameId !== null) {
@@ -119,6 +127,8 @@ export const CLOSE: AtomicScript = {
  */
 export const TOUCH: AtomicScript = {
   name: 'yorrRoomTouch',
+  keys: 4,
+  args: 1,
   run(r, [room, players, scores, bots], [ttlSeconds]) {
     if (r.exists(room) === 0) return 0
     r.expire(room, ttlSeconds)
@@ -147,6 +157,8 @@ export const TOUCH: AtomicScript = {
  */
 export const START: AtomicScript = {
   name: 'yorrRoomStart',
+  keys: 4,
+  args: 3,
   run(r, [room, players, game, bots], [gameId, roomCode, minPlayers]) {
     if (r.exists(room) === 0) return 0
     if (r.hget(room, 'phase') !== 'LOBBY') return 0
@@ -171,6 +183,8 @@ export const START: AtomicScript = {
  */
 export const ROLLBACK_START: AtomicScript = {
   name: 'yorrRoomRollbackStart',
+  keys: 2,
+  args: 1,
   run(r, [room, game], [gameId]) {
     if (r.hget(room, 'phase') !== 'PLAYING') return 0
     if (r.hget(room, 'gameId') !== gameId) return 0
@@ -189,6 +203,8 @@ export const ROLLBACK_START: AtomicScript = {
  */
 export const CANCEL_ACTIVE_GAME: AtomicScript = {
   name: 'yorrRoomCancelActiveGame',
+  keys: 1,
+  args: 0,
   run(r, [room]) {
     if (r.exists(room) === 0) return 0
     if (r.hget(room, 'phase') !== 'PLAYING') return 0
@@ -209,6 +225,8 @@ export const CANCEL_ACTIVE_GAME: AtomicScript = {
  */
 export const RETURN_TO_LOBBY: AtomicScript = {
   name: 'yorrRoomReturnToLobby',
+  keys: 4,
+  args: 0,
   run(r, [room, players, scores, bots]) {
     if (r.exists(room) === 0) return 0
     if (r.hget(room, 'phase') !== 'FINISHED') return 0
@@ -237,6 +255,8 @@ export const RETURN_TO_LOBBY: AtomicScript = {
  */
 export const BOT_ADD: AtomicScript = {
   name: 'yorrRoomBotAdd',
+  keys: 4,
+  args: 4,
   run(r, [room, players, scores, bots], [requesterId, botId, nickname, marker]) {
     if (r.exists(room) === 0) return 0
     if (r.hget(room, 'phase') !== 'LOBBY') return 2
@@ -267,6 +287,8 @@ export const BOT_ADD: AtomicScript = {
  */
 export const BOT_REMOVE: AtomicScript = {
   name: 'yorrRoomBotRemove',
+  keys: 4,
+  args: 2,
   run(r, [room, players, scores, bots], [requesterId, botId]) {
     if (r.exists(room) === 0) return 0
     if (r.hget(room, 'phase') !== 'LOBBY') return 2

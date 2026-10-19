@@ -1,6 +1,6 @@
 import { ConflictError } from '../../errors.js'
 import type { Redis } from '../../infra/memoryRedis.js'
-import { type AtomicScript, runAtomicNumber } from '../../infra/memoryRedis.js'
+import { runAtomicNumber, UNLOCK_IF_OWNER } from '../../infra/memoryRedis.js'
 import { gameStateKey, roomKey } from '../../room/keys.js'
 import { PING_PONG } from '../catalog.js'
 import type { PingPongStateStore } from './pingPongPorts.js'
@@ -21,14 +21,6 @@ import type { PingPongState } from './pingPongState.js'
 const LOCK_TTL_MILLIS = 5_000
 const LOCK_WAIT_MILLIS = 2_000
 const LOCK_SPIN_MILLIS = 10
-
-/** 락 해제는 **내 토큰일 때만** — 만료된 뒤 남의 락을 지우지 않는다. */
-const UNLOCK: AtomicScript = {
-  name: 'pingPongUnlock',
-  run(r, [lock], [token]) {
-    return r.get(lock) === token ? r.del(lock) : 0
-  },
-}
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {
@@ -98,7 +90,7 @@ export class RedisPingPongStateStore implements PingPongStateStore {
     try {
       return await action()
     } finally {
-      await runAtomicNumber(this.redis, UNLOCK, [lockKey], [token]).catch(() => 0)
+      await runAtomicNumber(this.redis, UNLOCK_IF_OWNER, [lockKey], [token]).catch(() => 0)
     }
   }
 

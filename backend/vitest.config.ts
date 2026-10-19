@@ -5,7 +5,7 @@ import { defineConfig } from 'vitest/config'
  * 이제 모든 통합 테스트가 어디서나 돈다(저장소·DB가 프로세스 안이다) — 바닥이 하나다.
  * 실측: 2026-10-18(ADR-0007 이후).
  */
-const floor = { statements: 92.6, branches: 84.7, functions: 92, lines: 94.7 }
+const floor = { statements: 92.7, branches: 85.1, functions: 92.2, lines: 94.8 }
 
 /** 지금 100%인 핵심 규칙 모듈 — 절대 기준으로 묶는다(QUALITY.md 3-(c)). 목록은 늘리기만 한다. */
 const FULLY_COVERED = [

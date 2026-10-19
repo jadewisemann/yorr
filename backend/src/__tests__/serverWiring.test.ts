@@ -1,4 +1,7 @@
+import { mkdtempSync, rmSync } from 'node:fs'
 import type { AddressInfo } from 'node:net'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
 import { WebSocket } from 'ws'
 import { describeRedis, useRedis } from '../../test/redisHarness.js'
@@ -9,7 +12,9 @@ import {
   type SweepScheduler,
 } from '../game/reconnect/index.js'
 import { RedisYachtDiceStateStore } from '../game/yacht/index.js'
+import { MemoryRedis } from '../infra/memoryRedis.js'
 import type { Pool } from '../infra/sqlite.js'
+import { loadStoreSnapshot, saveStoreSnapshot } from '../infra/storeSnapshot.js'
 import { roomKey } from '../room/keys.js'
 import { createServer, type ServerOptions, type YorrServer } from '../server.js'
 import type { OutboundEnvelope } from '../ws/envelope.js'
@@ -59,7 +64,7 @@ describeRedis('서버 배선', () => {
       }),
       SERVER_PORT: 0,
     }
-    server = await createServer(env, { ...extra, redis: redis(), logger: false })
+    server = await createServer(env, { redis: redis(), ...extra, logger: false })
     return server
   }
 
@@ -297,6 +302,55 @@ describeRedis('서버 배선', () => {
     ).toBe(deadlineBefore)
 
     back.socket.close()
+  })
+
+  /**
+   * 위 재시작은 두 서버가 **같은 저장소 객체**를 공유했다. 실제 재시작은 프로세스가 바뀌므로
+   * 저장소도 새로 생긴다 — 스냅샷 파일로 쓰고 **새 저장소로 읽은 뒤에도** 같은 마감으로 이어져야
+   * `main.ts`의 스냅샷 배선이 의미가 있다(ADR-0007 갱신).
+   */
+  it('스냅샷으로 저장소를 새로 들여 재시작해도 판이 같은 마감으로 이어진다', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'yorr-restart-'))
+    const path = join(dir, 'store.json')
+    const before = new MemoryRedis()
+    const after = new MemoryRedis()
+    try {
+      const first = await build({}, { redis: before })
+      const url = await listen(first)
+      const host = await enterRoom(first, { nickname: '호스트' })
+      const guest = await enterRoom(first, { nickname: '손님', room_id: host.room_id })
+      const hostClient = await joined(url, host)
+      const guestClient = await joined(url, { ...guest, room_id: host.room_id })
+      await startGame(first, host)
+      await hostClient.await('game.yacht_dice.round.start')
+      const deadlineBefore = first.rounds.timer.currentDeadline(host.room_id)
+
+      hostClient.socket.close()
+      guestClient.socket.close()
+      await first.close()
+      saveStoreSnapshot(before, path)
+      expect(loadStoreSnapshot(after, path).kind).toBe('restored')
+
+      const second = await build({}, { redis: after })
+      await second.listen()
+      expect(await after.hget(roomKey(host.room_id), 'phase')).toBe('PLAYING')
+      expect(second.rounds.timer.currentDeadline(host.room_id)).toBe(deadlineBefore)
+
+      // 세션도 스냅샷에 있다 — 같은 토큰으로 자기 자리로 돌아온다.
+      const secondUrl = `ws://127.0.0.1:${(second.app.server.address() as AddressInfo).port}/ws/v1/game`
+      const back = await connect(secondUrl)
+      back.send({
+        type: 'room.join',
+        ts: Date.now(),
+        payload: { roomId: host.room_id, sessionToken: host.token },
+      })
+      await back.await('sys.reconnected')
+      back.socket.close()
+    } finally {
+      before.disconnect()
+      after.disconnect()
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 
   /**

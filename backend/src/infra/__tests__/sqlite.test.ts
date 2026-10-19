@@ -1,3 +1,6 @@
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
 import type { ResultSetHeader, RowDataPacket } from '../sqlite.js'
 import { createSqlitePool } from '../sqlite.js'
@@ -101,4 +104,67 @@ it('제약 위반이 아닌 오류는 errno 없이 그대로 던진다', async (
 it('boolean 파라미터는 0/1로 적는다', async () => {
   const [rows] = await pool.query<RowDataPacket[]>('SELECT ? AS t, ? AS f', [true, false])
   expect(rows[0]).toEqual({ t: 1, f: 0 })
+})
+
+/** 잠금이 풀렸는지 — 풀리지 않았으면 질의가 영원히 기다리므로 시간 상한을 걸어 본다. */
+const queryWithin = async (target: typeof pool, ms: number): Promise<'ok' | 'stuck'> =>
+  Promise.race([
+    target.query('SELECT 1').then(() => 'ok' as const),
+    new Promise<'stuck'>((resolve) => setTimeout(() => resolve('stuck'), ms)),
+  ])
+
+it('SQLite가 이미 끝낸 트랜잭션을 돌려줘도 잠금이 풀린다', async () => {
+  const conn = await pool.getConnection()
+  await conn.beginTransaction()
+  await insertUser(conn, 'u1')
+  // COMMIT 실패(SQLITE_FULL 등)로 SQLite가 스스로 되돌린 상황을 만든다 — 어댑터는 모른다.
+  await conn.query('ROLLBACK')
+  await expect(conn.rollback()).rejects.toThrow(/no transaction/)
+  conn.release()
+
+  expect(await queryWithin(pool, 1_000)).toBe('ok')
+})
+
+it('되돌리지 않은 채 release에서 ROLLBACK이 실패해도 잠금이 풀린다', async () => {
+  const conn = await pool.getConnection()
+  await conn.beginTransaction()
+  await conn.query('ROLLBACK')
+  expect(() => conn.release()).not.toThrow()
+
+  expect(await queryWithin(pool, 1_000)).toBe('ok')
+})
+
+it('지연된 FK 위반으로 COMMIT이 실패하면 되돌리고 다음 질의로 계속 간다', async () => {
+  const conn = await pool.getConnection()
+  await conn.beginTransaction()
+  await conn.query('PRAGMA defer_foreign_keys = ON')
+  await conn.query(
+    'INSERT INTO social_accounts (user_id, provider, provider_user_id, created_at) VALUES (?, ?, ?, ?)',
+    ['ghost', 'KAKAO', '1', new Date(0)],
+  )
+  await expect(conn.commit()).rejects.toThrow(/FOREIGN KEY/)
+  await conn.rollback()
+  conn.release()
+
+  const [rows] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) AS n FROM social_accounts')
+  expect(rows[0]?.n).toBe(0)
+})
+
+it('열다 실패한 DB 핸들을 남기지 않는다', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'yorr-sqlite-bad-'))
+  const path = join(dir, 'not-a-db.sqlite')
+  writeFileSync(path, 'this is not a sqlite database file at all, just text '.repeat(200))
+  const broken = createSqlitePool(path)
+  const openFds = (): number => readdirSync('/proc/self/fd').length
+  try {
+    await expect(broken.query('SELECT 1')).rejects.toThrow()
+    const before = openFds()
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      await expect(broken.query('SELECT 1')).rejects.toThrow(/not a database/)
+    }
+    expect(openFds()).toBeLessThanOrEqual(before)
+  } finally {
+    await broken.end()
+    rmSync(dir, { recursive: true, force: true })
+  }
 })

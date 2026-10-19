@@ -14,7 +14,7 @@
  * - 타입이 다른 키에 명령을 보내면 `WRONGTYPE`으로 던진다.
  * - 만료는 접근할 때 확인하고, 아무도 다시 보지 않는 키는 주기적으로 회수한다.
  *
- * 영속화는 없다 — 재시작하면 방·세션·진행 중 게임이 사라진다. 회원·전적은 SQLite에 있다.
+ * 재시작을 넘기는 것은 스냅샷이다(`snapshot`/`restore`, 파일 I/O는 `storeSnapshot.ts`). 회원·전적은 SQLite에 있다.
  */
 
 type Entry =
@@ -25,6 +25,28 @@ type Entry =
 type Field = string | number
 
 const WRONGTYPE = 'WRONGTYPE Operation against a key holding the wrong kind of value'
+const NOT_INTEGER = 'ERR value is not an integer or out of range'
+/** Redis `maxmemory` + `noeviction`의 자리 — 새 키를 만들 수 없을 때의 오류 문구도 같다. */
+export const OOM_MESSAGE = "OOM command not allowed when used memory > 'maxmemory'."
+
+/**
+ * 키 수 상한 기본값. 게스트 세션 하나가 키 2개(약 0.5KB)라 10만 개면 힙 수십 MB다 — 번들의 힙
+ * 상한 128MB 안에서 다른 것들과 함께 산다. 넘으면 새 키를 거절한다(기존 키 갱신은 된다).
+ * 인증 없는 게스트 생성을 반복하는 클라이언트가 프로세스를 OOM으로 죽이지 못하게 하는 장치다.
+ */
+export const DEFAULT_MAX_KEYS = 100_000
+
+/** Redis처럼 정수만 받는다. `''`·`'1.5'`·`'abc'`를 0이나 NaN으로 삼키지 않는다. */
+const integer = (value: Field): number => {
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) throw new Error(NOT_INTEGER)
+    return value
+  }
+  if (!/^-?\d+$/.test(value)) throw new Error(NOT_INTEGER)
+  const parsed = Number(value)
+  if (!Number.isSafeInteger(parsed)) throw new Error(NOT_INTEGER)
+  return parsed
+}
 
 const globToRegExp = (pattern: string): RegExp => {
   let source = ''
@@ -53,11 +75,56 @@ const parseScoreBound = (value: Field): number => {
   return Number(value)
 }
 
+/**
+ * 스냅샷 한 줄. 만료는 **절대 시각**(epoch ms)으로 적는다 — 내려가 있던 시간도 TTL에서 빠져야
+ * 한다(Redis RDB와 같다).
+ */
+export type SnapshotEntry =
+  | { readonly k: string; readonly t: 's'; readonly v: string; readonly e?: number }
+  | {
+      readonly k: string
+      readonly t: 'h'
+      readonly v: readonly [string, string][]
+      readonly e?: number
+    }
+  | {
+      readonly k: string
+      readonly t: 'z'
+      readonly v: readonly [string, number][]
+      readonly e?: number
+    }
+
+const isPair = <V>(value: unknown, isValue: (item: unknown) => item is V): value is [string, V] =>
+  Array.isArray(value) && value.length === 2 && typeof value[0] === 'string' && isValue(value[1])
+const isString = (value: unknown): value is string => typeof value === 'string'
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value)
+
+/** 스냅샷 한 줄의 모양을 검사한다. 하나라도 틀리면 스냅샷 전체를 믿지 않는다. */
+const parseEntry = (raw: unknown): SnapshotEntry => {
+  if (typeof raw !== 'object' || raw === null) throw new Error('스냅샷 항목이 객체가 아니다')
+  const { k, t, v, e } = raw as Record<string, unknown>
+  if (typeof k !== 'string') throw new Error('스냅샷 키가 문자열이 아니다')
+  if (e !== undefined && !isFiniteNumber(e)) throw new Error(`스냅샷 만료가 숫자가 아니다: ${k}`)
+  const expiry = e === undefined ? {} : { e }
+  if (t === 's' && isString(v)) return { k, t, v, ...expiry }
+  if (t === 'h' && Array.isArray(v) && v.every((pair) => isPair(pair, isString))) {
+    return { k, t, v: v as [string, string][], ...expiry }
+  }
+  if (t === 'z' && Array.isArray(v) && v.every((pair) => isPair(pair, isFiniteNumber))) {
+    return { k, t, v: v as [string, number][], ...expiry }
+  }
+  throw new Error(`스냅샷 항목의 모양이 틀렸다: ${k}`)
+}
+
 /** 동기 명령 집합. 원자적 스크립트(`AtomicScript.run`)가 이것을 받는다. */
 export class RedisCore {
   private readonly data = new Map<string, Entry>()
 
-  constructor(private readonly now: () => number = Date.now) {}
+  constructor(
+    private readonly now: () => number = Date.now,
+    private readonly maxKeys: number = DEFAULT_MAX_KEYS,
+  ) {}
 
   // ── 내부 ──────────────────────────────────────────────────────────────────
 
@@ -82,8 +149,20 @@ export class RedisCore {
     const existing = this.hash(key)
     if (existing !== undefined) return existing
     const value = new Map<string, string>()
-    this.data.set(key, { type: 'hash', value })
+    this.create(key, { type: 'hash', value })
     return value
+  }
+
+  /**
+   * **새** 키를 만든다. 상한에 닿으면 만료 키를 먼저 회수하고, 그래도 넘으면 거절한다
+   * (`noeviction`). 이미 있는 키를 덮어쓰는 것은 키 수를 늘리지 않으므로 막지 않는다.
+   */
+  private create(key: string, entry: Entry): void {
+    if (!this.data.has(key) && this.data.size >= this.maxKeys) {
+      this.sweep()
+      if (this.data.size >= this.maxKeys) throw new Error(OOM_MESSAGE)
+    }
+    this.data.set(key, entry)
   }
 
   private zset(key: string): Map<string, number> | undefined {
@@ -103,6 +182,46 @@ export class RedisCore {
   /** 비어 버린 해시·정렬 집합은 키째 지운다 — Redis와 같다. */
   private dropIfEmpty(key: string, container: Map<string, unknown>): void {
     if (container.size === 0) this.data.delete(key)
+  }
+
+  /** 살아 있는 키 전부를 스냅샷 줄로. 만료된 키는 싣지 않는다. */
+  snapshot(): SnapshotEntry[] {
+    const now = this.now()
+    const entries: SnapshotEntry[] = []
+    for (const [k, entry] of this.data) {
+      if (entry.expiresAt !== undefined && entry.expiresAt <= now) continue
+      const e = entry.expiresAt === undefined ? {} : { e: entry.expiresAt }
+      if (entry.type === 'string') entries.push({ k, t: 's', v: entry.value, ...e })
+      else if (entry.type === 'hash') entries.push({ k, t: 'h', v: [...entry.value], ...e })
+      else entries.push({ k, t: 'z', v: [...entry.value], ...e })
+    }
+    return entries
+  }
+
+  /**
+   * 스냅샷을 **빈 저장소에** 들인다(기동 시 한 번). 모양을 먼저 전부 검사하고 나서 쓰므로, 틀린
+   * 줄이 하나라도 있으면 아무것도 들이지 않고 던진다. 그 사이 만료된 키는 버린다. 들인 수를 돌려준다.
+   */
+  restore(raw: readonly unknown[]): number {
+    if (this.data.size > 0) throw new Error('스냅샷은 빈 저장소에만 들인다')
+    const now = this.now()
+    const live = raw
+      .map(parseEntry)
+      // 그 사이 만료된 키와, 빈 해시·정렬 집합(Redis에는 없는 상태)은 버린다. 빈 문자열은 값이다.
+      .filter((entry) => entry.e === undefined || entry.e > now)
+      .filter((entry) => entry.t === 's' || entry.v.length > 0)
+    // 쓰기 전에 상한을 본다 — 중간에 OOM으로 멈춰 반쯤 들인 저장소가 남지 않게.
+    if (live.length > this.maxKeys) throw new Error(OOM_MESSAGE)
+    let restored = 0
+    for (const entry of live) {
+      const expiresAt = entry.e
+      if (entry.t === 's') this.create(entry.k, { type: 'string', value: entry.v, expiresAt })
+      else if (entry.t === 'h')
+        this.create(entry.k, { type: 'hash', value: new Map(entry.v), expiresAt })
+      else this.create(entry.k, { type: 'zset', value: new Map(entry.v), expiresAt })
+      restored += 1
+    }
+    return restored
   }
 
   /** 만료된 키를 지금 지운다. 회수한 수를 돌려준다. */
@@ -138,7 +257,7 @@ export class RedisCore {
   pexpire(key: string, milliseconds: Field): number {
     const entry = this.live(key)
     if (entry === undefined) return 0
-    const ms = Number(milliseconds)
+    const ms = integer(milliseconds)
     if (ms <= 0) {
       this.data.delete(key)
       return 1
@@ -148,7 +267,7 @@ export class RedisCore {
   }
 
   expire(key: string, seconds: Field): number {
-    return this.pexpire(key, Number(seconds) * 1000)
+    return this.pexpire(key, integer(seconds) * 1000)
   }
 
   pttl(key: string): number {
@@ -181,21 +300,34 @@ export class RedisCore {
 
   /** `SET key value [EX s | PX ms] [NX | XX]` → 'OK' · 조건 불충족이면 null. TTL은 새로 정한다. */
   set(key: string, value: Field, ...options: Field[]): 'OK' | null {
+    const { expiresAt, condition } = this.parseSetOptions(options)
+    const exists = this.live(key) !== undefined
+    if ((condition === 'NX' && exists) || (condition === 'XX' && !exists)) return null
+    const entry: Entry = { type: 'string', value: String(value), expiresAt }
+    if (exists) this.data.set(key, entry)
+    else this.create(key, entry)
+    return 'OK'
+  }
+
+  private parseSetOptions(options: readonly Field[]): {
+    expiresAt: number | undefined
+    condition: 'NX' | 'XX' | null
+  } {
     let expiresAt: number | undefined
-    let onlyIfMissing = false
-    let onlyIfPresent = false
+    let condition: 'NX' | 'XX' | null = null
     for (let i = 0; i < options.length; i += 1) {
       const option = String(options[i]).toUpperCase()
-      if (option === 'EX') expiresAt = this.now() + Number(options[++i]) * 1000
-      else if (option === 'PX') expiresAt = this.now() + Number(options[++i])
-      else if (option === 'NX') onlyIfMissing = true
-      else if (option === 'XX') onlyIfPresent = true
-      else throw new Error(`지원하지 않는 SET 옵션: ${option}`)
+      if (option === 'EX' || option === 'PX') {
+        const amount = integer(options[i + 1] ?? '')
+        i += 1
+        expiresAt = this.now() + (option === 'EX' ? amount * 1000 : amount)
+      } else if (option === 'NX' || option === 'XX') {
+        condition = option
+      } else {
+        throw new Error(`지원하지 않는 SET 옵션: ${option}`)
+      }
     }
-    const exists = this.live(key) !== undefined
-    if ((onlyIfMissing && exists) || (onlyIfPresent && !exists)) return null
-    this.data.set(key, { type: 'string', value: String(value), expiresAt })
-    return 'OK'
+    return { expiresAt, condition }
   }
 
   getdel(key: string): string | null {
@@ -257,10 +389,12 @@ export class RedisCore {
   }
 
   hincrby(key: string, field: Field, increment: Field): number {
+    // 인자부터 본다 — 틀린 인자로 빈 해시가 생기면 안 된다.
+    const step = integer(increment)
     const hash = this.hashForWrite(key)
     const current = Number(hash.get(String(field)) ?? '0')
     if (!Number.isInteger(current)) throw new Error('ERR hash value is not an integer')
-    const next = current + Number(increment)
+    const next = current + step
     hash.set(String(field), String(next))
     return next
   }
@@ -268,16 +402,24 @@ export class RedisCore {
   // ── 정렬 집합 ─────────────────────────────────────────────────────────────
 
   zadd(key: string, ...args: Field[]): number {
+    if (args.length === 0 || args.length % 2 !== 0) {
+      throw new Error("ERR wrong number of arguments for 'zadd' command")
+    }
+    const pairs: [number, string][] = []
+    for (let i = 0; i < args.length; i += 2) {
+      const score = Number(args[i])
+      if (Number.isNaN(score)) throw new Error('ERR value is not a valid float')
+      pairs.push([score, String(args[i + 1])])
+    }
     let zset = this.zset(key)
     if (zset === undefined) {
       zset = new Map()
-      this.data.set(key, { type: 'zset', value: zset })
+      this.create(key, { type: 'zset', value: zset })
     }
     let added = 0
-    for (let i = 0; i < args.length; i += 2) {
-      const member = String(args[i + 1])
+    for (const [score, member] of pairs) {
       if (!zset.has(member)) added += 1
-      zset.set(member, Number(args[i]))
+      zset.set(member, score)
     }
     return added
   }
@@ -290,14 +432,18 @@ export class RedisCore {
       .map(([member]) => member)
   }
 
+  /** Redis `ZRANGE`의 색인 규칙 그대로: 음수는 끝에서, 범위를 벗어나면 잘라내고, 비면 []. */
   zrange(key: string, start: Field, stop: Field): string[] {
     const members = this.sorted(key)
     const length = members.length
-    let from = Number(start)
-    let to = Number(stop)
-    if (from < 0) from = Math.max(length + from, 0)
-    if (to < 0) to = length + to
-    return members.slice(from, Math.min(to, length - 1) + 1)
+    let from = integer(start)
+    let to = integer(stop)
+    if (from < 0) from += length
+    if (to < 0) to += length
+    if (from < 0) from = 0
+    if (to >= length) to = length - 1
+    if (from > to || from >= length) return []
+    return members.slice(from, to + 1)
   }
 
   zrem(key: string, ...members: Field[]): number {
@@ -338,8 +484,19 @@ export type Slots = readonly [string, string, string, string, string, string, st
 
 const SLOT_COUNT = 8
 
-const toSlots = (values: readonly (string | number)[]): Slots => {
-  if (values.length > SLOT_COUNT) throw new Error(`스크립트 자리는 ${SLOT_COUNT}칸까지다`)
+/**
+ * 선언한 개수와 **정확히** 같아야 한다(Lua의 `numberOfKeys`와 같은 계약). 남는 자리는 빈 문자열로
+ * 채우지만, 선언보다 적게 넘기면 그 빈 문자열이 진짜 값처럼 쓰이므로(예: TTL `''`) 여기서 거절한다.
+ */
+const toSlots = (
+  script: string,
+  kind: 'keys' | 'args',
+  expected: number,
+  values: readonly (string | number)[],
+): Slots => {
+  if (values.length !== expected) {
+    throw new Error(`${script}: ${kind} ${expected}개가 필요한데 ${values.length}개를 받았다`)
+  }
   const slots = values.map(String)
   while (slots.length < SLOT_COUNT) slots.push('')
   return slots as unknown as Slots
@@ -347,8 +504,24 @@ const toSlots = (values: readonly (string | number)[]): Slots => {
 
 export interface AtomicScript<R = number> {
   readonly name: string
+  /** 키·인자 개수(최대 8). 호출이 이와 다르면 실행하지 않고 던진다. */
+  readonly keys: number
+  readonly args: number
   /** 키·인자는 구조 분해로 이름 붙여 받는다 — Lua의 `KEYS[1]`보다 어긋나기 어렵다. */
   run(redis: RedisCore, keys: Slots, args: Slots): R
+}
+
+/**
+ * 토큰 비교 후 삭제 — "내가 잡은 잠금일 때만 푼다". 그냥 DEL하면 TTL로 이미 풀린 뒤 남이 다시 잡은
+ * 잠금을 지운다. 상태 저장소들(야추·결투·다빈치·탁구)과 퀵매치가 함께 쓴다.
+ */
+export const UNLOCK_IF_OWNER: AtomicScript = {
+  name: 'unlockIfOwner',
+  keys: 1,
+  args: 1,
+  run(r, [lock], [token]) {
+    return r.get(lock) === token ? r.del(lock) : 0
+  },
 }
 
 /**
@@ -359,8 +532,8 @@ export class MemoryRedis {
   readonly core: RedisCore
   private readonly timer: ReturnType<typeof setInterval>
 
-  constructor(options: { now?: () => number; sweepIntervalMs?: number } = {}) {
-    this.core = new RedisCore(options.now)
+  constructor(options: { now?: () => number; sweepIntervalMs?: number; maxKeys?: number } = {}) {
+    this.core = new RedisCore(options.now, options.maxKeys)
     this.timer = setInterval(() => this.core.sweep(), options.sweepIntervalMs ?? 60_000)
     this.timer.unref()
   }
@@ -371,7 +544,11 @@ export class MemoryRedis {
     keys: readonly string[],
     args: readonly (string | number)[] = [],
   ): Promise<R> {
-    return script.run(this.core, toSlots(keys), toSlots(args))
+    return script.run(
+      this.core,
+      toSlots(script.name, 'keys', script.keys, keys),
+      toSlots(script.name, 'args', script.args, args),
+    )
   }
 
   async exists(...keys: string[]) {

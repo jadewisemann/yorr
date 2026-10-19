@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { ConflictError } from '../../errors.js'
-import type { AtomicScript, Redis } from '../../infra/memoryRedis.js'
+import { type Redis, UNLOCK_IF_OWNER } from '../../infra/memoryRedis.js'
 import { gameStateKey, roomKey } from '../../room/keys.js'
 import { DUEL_CODE } from './duelCode.js'
 import type { DuelState } from './duelState.js'
@@ -37,14 +37,6 @@ export interface DuelStateStore {
 const LOCK_TTL_MILLIS = 5_000
 const LOCK_WAIT_MILLIS = 2_000
 const LOCK_RETRY_MILLIS = 10
-
-/** 내가 잡은 락만 푼다 — TTL로 이미 넘어간 락을 남이 잡았을 때 그것까지 풀지 않게. */
-const DUEL_UNLOCK: AtomicScript = {
-  name: 'duelUnlock',
-  run(r, [lock], [token]) {
-    return r.get(lock) === token ? r.del(lock) : 0
-  },
-}
 
 const stateKey = (roomId: string): string => {
   if (roomId.trim().length === 0) throw new Error('roomId must not be blank')
@@ -117,7 +109,7 @@ export class RedisDuelStateStore implements DuelStateStore {
     try {
       return await action()
     } finally {
-      await this.redis.runAtomic(DUEL_UNLOCK, [lockKey], [token]).catch(() => 0)
+      await this.redis.runAtomic(UNLOCK_IF_OWNER, [lockKey], [token]).catch(() => 0)
     }
   }
 }

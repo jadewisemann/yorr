@@ -73,6 +73,34 @@ jobs:
           E2E_BASE_URL: http://localhost:18080
         run: npm run test:e2e
 
+      # 재시작해도 방이 남는가 — SIGTERM에 스냅샷을 쓰고(main.ts) 다시 뜰 때 읽는다.
+      # 패널의 재시작·재배포가 진행 중인 방과 게스트 세션을 지우지 않는다는 계약이다.
+      - name: 재시작 뒤 방 유지 (저장소 스냅샷)
+        working-directory: deploy/botkeep/out
+        run: |
+          set -euo pipefail
+          start=$(node -p "require('./package.json').scripts.start")
+          kill -TERM "$(cat ../server.pid)"
+          while kill -0 "$(cat ../server.pid)" 2>/dev/null; do sleep 0.2; done
+          boot() {
+            SERVER_PORT=18080 nohup $start >> ../server.log 2>&1 &
+            echo $! > ../server.pid
+            for _ in $(seq 1 30); do curl -fsS localhost:18080/actuator/health >/dev/null 2>&1 && return 0; sleep 1; done
+            return 1
+          }
+          boot
+          room=$(curl -fsS -X POST "localhost:18080/api/v1/rooms?game_code=YACHT_DICE" \
+            -H 'content-type: application/json' -d '{"nickname":"restart"}' |
+            node -p 'JSON.parse(require("fs").readFileSync(0)).room_id')
+          kill -TERM "$(cat ../server.pid)"
+          while kill -0 "$(cat ../server.pid)" 2>/dev/null; do sleep 0.2; done
+          test -s data/store.json
+          boot
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "localhost:18080/api/v1/rooms?game_code=YACHT_DICE" \
+            -H 'content-type: application/json' -d "{\"nickname\":\"guest\",\"room_id\":\"$room\"}")
+          echo "재시작 뒤 방 $room 참가: $code"
+          test "$code" = 200
+
       - name: 메모리 보고
         if: always()
         run: |
