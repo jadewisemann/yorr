@@ -21,18 +21,18 @@
     "test:load": "vitest run --config vitest.load.config.ts"
   },
   "dependencies": {
-    "@fastify/cors": "^11.0.1",
-    "fastify": "^5.2.1",
-    "ws": "^8.18.0",
-    "zod": "^4.0.0"
+    "@fastify/cors": "^11.3.1",
+    "fastify": "^5.12.7",
+    "ws": "^8.22.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.5",
+    "@biomejs/biome": "^2.5.15",
     "@types/node": "^22.10.0",
-    "@types/ws": "^8.5.13",
+    "@types/ws": "^8.18.2",
     "@vitest/coverage-v8": "^4.1.10",
     "esbuild": "^0.28.2",
-    "tsx": "^4.19.2",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   }
