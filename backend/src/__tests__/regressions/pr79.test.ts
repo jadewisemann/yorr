@@ -12,7 +12,27 @@ import { SqliteMatchArchiveStore } from '../../game/match/matchArchiveStore.js'
 import { initial as initialPingPong } from '../../game/pingpong/pingPongRules.js'
 import { RedisPingPongStateStore } from '../../game/pingpong/pingPongStateStore.js'
 import { SqliteWeeklyRankingStore } from '../../game/ranking/weeklyRankingStore.js'
+import {
+  InMemoryRoundStateStore,
+  type RoundSubmissionResult,
+  RoundSynchronizationService,
+  seededDieRoller,
+} from '../../game/round/index.js'
+import { ScoreConfirmationService, ScoreRoundSubmissionService } from '../../game/score/index.js'
 import * as scoreScripts from '../../game/score/scripts.js'
+import { FakeRoundTimer, RecordingBroadcaster } from '../../game/yacht/__tests__/testDoubles.js'
+import {
+  AccumulatingScoreBoardStore,
+  roomWith,
+} from '../../game/yacht/bot/__tests__/botTestDoubles.js'
+import { BotQueueFullError } from '../../game/yacht/bot/botErrors.js'
+import type { YachtBotPolicy } from '../../game/yacht/bot/botPorts.js'
+import { CooperativeYachtBotPolicy } from '../../game/yacht/bot/cooperativeBotPolicy.js'
+import { ExpectimaxYachtBotPolicy } from '../../game/yacht/bot/expectimaxYachtBotPolicy.js'
+import { LocalYachtBotStrategy } from '../../game/yacht/bot/localYachtBotStrategy.js'
+import { ScorecardValueEvaluator } from '../../game/yacht/bot/scorecardValueEvaluator.js'
+import { YachtBotTurnCoordinator } from '../../game/yacht/bot/yachtBotTurnCoordinator.js'
+import { YachtTurnActionService } from '../../game/yacht/yachtTurnActionService.js'
 import * as memoryRedisModule from '../../infra/memoryRedis.js'
 import { type AtomicScript, MemoryRedis, OOM_MESSAGE } from '../../infra/memoryRedis.js'
 import { createSqlitePool, type Pool, type PoolConnection } from '../../infra/sqlite.js'
@@ -441,4 +461,86 @@ describe('지적 9 — 잠금 해제는 한 구현이고, 어느 저장소도 �
       expect(await redis.get(store.lockKey)).toBe('intruder')
     })
   }
+})
+
+describe('지적 7 — 탐색이 몰려도 어느 방의 봇도 멈추지 않는다', () => {
+  /**
+   * 큐 하나를 여러 방이 공유한다(운영과 같다). 탐색 하나가 무겁게 걸리도록 느린 정책을 넣고 방
+   * 여러 개를 동시에 굴린다. 상한을 넘은 탐색은 즉시 폴백으로 둬야 하고, 기다린 탐색은 그 사이
+   * 바뀐 턴에 행동하면 안 된다 — 둘 중 하나라도 어긋나면 어떤 방은 12라운드를 끝내지 못한다.
+   */
+  it('방 6개 × 봇 2명이 큐 하나(상한 2)를 나눠 써도 전부 12라운드를 끝낸다', {
+    timeout: 120_000,
+  }, async () => {
+    const busy = (ms: number): void => {
+      const end = performance.now() + ms
+      while (performance.now() < end) {}
+    }
+    const raw = new ExpectimaxYachtBotPolicy(new ScorecardValueEvaluator())
+    const slow: YachtBotPolicy = {
+      decide: (board, dice, rollCount) => {
+        busy(5)
+        return raw.decide(board, dice, rollCount)
+      },
+    }
+    const shared = new CooperativeYachtBotPolicy(slow, undefined, 2)
+    const fallbacks: unknown[] = []
+
+    const playRoom = async (room: string, seed: number) => {
+      const game = `game-${room}`
+      const bots = ['bot-a', 'bot-b']
+      const rounds = new RoundSynchronizationService(new InMemoryRoundStateStore(), {
+        dieRoller: seededDieRoller(seed),
+      })
+      const scoreStore = new AccumulatingScoreBoardStore()
+      const scores = new ScoreConfirmationService(scoreStore)
+      const rooms = {
+        getSnapshot: async () =>
+          roomWith(
+            game,
+            bots.map((playerId) => ({ playerId, kind: 'BOT' as const })),
+          ),
+      }
+      const submissions = new ScoreRoundSubmissionService<RoundSubmissionResult>(
+        rounds,
+        scores,
+        rooms,
+      )
+      const actions = new YachtTurnActionService({
+        rounds,
+        timers: new FakeRoundTimer(),
+        broadcaster: new RecordingBroadcaster(),
+        submissions,
+      })
+      const coordinator = new YachtBotTurnCoordinator(
+        { rounds, actions, policy: shared, strategy: new LocalYachtBotStrategy(), rooms, scores },
+        { onPolicyFallback: (_roomId, _state, error) => fallbacks.push(error) },
+      )
+      await rounds.initialize(room, 1, bots)
+      for (let steps = 0; steps < 300; steps += 1) {
+        const state = await rounds.findByRoomId(room)
+        if (state === undefined || state.finished) break
+        await coordinator.playIfCurrent({ roomId: room, state })
+      }
+      const finished = await rounds.findByRoomId(room)
+      const boards = await Promise.all(bots.map((botId) => scoreStore.findScoreBoard(game, botId)))
+      return { finished, boards }
+    }
+
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, index) => playRoom(`ROOM${index}`, 1000 + index)),
+    )
+    for (const [index, { finished, boards }] of results.entries()) {
+      expect(finished?.finished, `ROOM${index}`).toBe(true)
+      for (const board of boards) {
+        expect(
+          Object.values(board.categories).every((score) => score !== null),
+          `ROOM${index}`,
+        ).toBe(true)
+      }
+    }
+    // 큐가 실제로 넘쳤고, 넘친 탐색은 폴백으로 처리됐다.
+    expect(fallbacks.some((error) => error instanceof BotQueueFullError)).toBe(true)
+    expect(shared.queued).toBe(0)
+  })
 })
