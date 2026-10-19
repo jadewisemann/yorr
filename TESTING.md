@@ -73,7 +73,11 @@ E2E_BASE_URL=http://localhost npm run test:e2e
 5. **테스트가 운영 DB 경로를 열지 않는다.** 서버를 띄우는 테스트는 `SQLITE_PATH: ':memory:'`를
    넘긴다. `node:sqlite`는 동기식이라, 여러 워커가 같은 파일을 잡으면 잠금을 기다리는 동안
    이벤트 루프 전체가 멈춘다.
-6. 새 계약 코드(오류 코드·메시지 타입)를 만들면 `backend/test/blackbox/contract.ts`의 사본도
+6. **리뷰 지적은 회귀 테스트로 남긴다.** SQLite가 티켓마다 `tkt-*.test`를 두듯, 지적 하나에
+   `describe` 하나를 `backend/src/__tests__/regressions/pr<번호>.test.ts`에 둔다. 단위 테스트가 수정의
+   경계를 보고, 회귀 테스트는 그 지적이 실제 모듈 조합에서 다시 일어나지 않는지 본다. 수정을 하나씩
+   되돌리는 변이 시험으로 각 테스트가 빨개지는지 확인한다.
+7. 새 계약 코드(오류 코드·메시지 타입)를 만들면 `backend/test/blackbox/contract.ts`의 사본도
    함께 고친다. 퍼저가 모르는 코드를 계약 위반으로 잡는다.
 
 ## 찾아낸 것
