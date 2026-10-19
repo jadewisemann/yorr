@@ -198,7 +198,7 @@ export class PingPongGameService<S extends object> {
   }
 
   /**
-   * 프로세스 재시작 후의 복구(deploy/PLAN.md PR 6).
+   * 프로세스 재시작 후의 복구(옛 deploy/PLAN.md PR 6).
    *
    * 탁구도 결투와 같다 — 마감(`nextActionAt`)이 상태 안의 절대 epoch ms이고 상태가
    * Redis에 있으므로 되살릴 것은 예약뿐이다. **여기서 마감을 새로 계산하면 안 된다**:

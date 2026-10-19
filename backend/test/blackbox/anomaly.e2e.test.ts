@@ -1,8 +1,7 @@
-import { Redis } from 'ioredis'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { MemoryRedis } from '../../src/infra/memoryRedis.js'
 import { type FaultMode, faultyRedis } from '../faults/faultyRedis.js'
 import { iterationsFromEnv } from '../fuzz/prng.js'
-import { type RedisServerHandle, redisTestsEnabled, startRedisServer } from '../redisHarness.js'
 import { leaveAll, seatedRoom } from './players.js'
 import { serveInProcess, type Target, targetMode } from './target.js'
 import { setDefaultWaitMs } from './ws.js'
@@ -22,8 +21,7 @@ import { greedyStrategy, YachtGame } from './yachtDriver.js'
  *
  * PR에서는 `ANOMALY_STRIDE`(기본 4)칸씩 건너뛰며 돌고, 야간 실행이 1로 전수를 돈다.
  */
-const describeInProcess =
-  targetMode === 'in-process' && redisTestsEnabled ? describe : describe.skip
+const describeInProcess = targetMode === 'in-process' ? describe : describe.skip
 
 const journey = async (target: Target): Promise<void> => {
   const seats = await seatedRoom(target, 2)
@@ -37,8 +35,7 @@ const journey = async (target: Target): Promise<void> => {
 }
 
 describeInProcess('Redis 장애 주입 스윕 (in-process)', () => {
-  let redisServer: RedisServerHandle | undefined
-  let raw: Redis | undefined
+  let raw: MemoryRedis | undefined
   const unhandled: string[] = []
   let current = 'setup'
   const recordUnhandled = (reason: unknown): void => {
@@ -46,9 +43,7 @@ describeInProcess('Redis 장애 주입 스윕 (in-process)', () => {
   }
 
   beforeAll(async () => {
-    redisServer = await startRedisServer()
-    raw = new Redis({ path: redisServer.socketPath })
-    raw.on('error', () => {})
+    raw = new MemoryRedis()
     process.on('unhandledRejection', recordUnhandled)
     // 장애 뒤에는 응답이 "오지 않는" 것이 정상이다 — 기다리는 시간을 줄여 스윕을 짧게 한다.
     setDefaultWaitMs(1_000)
@@ -57,12 +52,11 @@ describeInProcess('Redis 장애 주입 스윕 (in-process)', () => {
   afterAll(async () => {
     process.off('unhandledRejection', recordUnhandled)
     setDefaultWaitMs(5_000)
-    await raw?.quit().catch(() => raw?.disconnect())
-    redisServer?.stop()
+    raw?.disconnect()
   })
 
   it('여정의 N번째 Redis 명령 하나만 실패시켜도 프로세스가 살고, 걷히면 다시 일한다', async () => {
-    const redis = raw as Redis
+    const redis = raw as MemoryRedis
     const stride = iterationsFromEnv('ANOMALY_STRIDE', 4)
 
     // 장애 없이 한 번 — 몇 개의 명령을 지나가는지 센다.

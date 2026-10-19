@@ -1,4 +1,4 @@
-import type { Redis } from 'ioredis'
+import type { Redis } from '../../src/infra/memoryRedis.js'
 
 /**
  * Redis 장애 주입 — SQLite가 "N번째 malloc·N번째 I/O만 실패시키기"를 모든 N에 대해 반복하는

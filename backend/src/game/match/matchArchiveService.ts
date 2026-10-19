@@ -46,8 +46,8 @@ export interface MatchArchivedEvent {
 
 export interface MatchArchiveServiceOptions {
   /**
-   * 보관 시각. **UTC 벽시계로 저장된다** — `Date`는 순간(instant)이고 UTC로 적는
-   * 것은 풀의 `timezone: 'Z'`다. 주입 가능한 이유는 주간 랭킹의 KST 주 경계
+   * 보관 시각. **UTC로 저장된다** — `Date`는 순간(instant)이고 ISO 8601 UTC 문자열로 적는
+   * 것은 DB 어댑터다(infra/sqlite.ts). 주입 가능한 이유는 주간 랭킹의 KST 주 경계
    * 계산이 이 값을 기준으로 시험되기 때문이다.
    */
   readonly now?: () => Date

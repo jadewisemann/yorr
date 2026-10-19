@@ -14,8 +14,8 @@
 | SQLite 기법 | 여기서는 | 위치 | 언제 |
 |---|---|---|---|
 | 독립 하네스 여럿 | 단위 · 블랙박스 프로토콜 · 브라우저 E2E(mock) · 풀스택 E2E | `backend/src/**/__tests__` · `backend/test/blackbox` · `frontend/e2e/mock` · `frontend/e2e/real` | PR |
-| 짝 맞추기 | 진짜 백엔드(`node dist/main.js` + MySQL·Redis) 앞에서 진짜 프론트 빌드로 방 만들기·참가·시작 | `.github/workflows/fullstack.yml` | PR |
-| 출하물 시험 | 배포 리허설이 호스트와 같은 arm64에서 호스트가 받을 **바로 그 이미지**를 운영 compose·같은 `apply.sh`로 띄우고, Caddy 너머에서 블랙박스 스위트를 `E2E_BASE_URL`로 돌린다. 통과한 digest에만 `:main`이 붙는다 | `deploy/tests/rehearsal.sh` · `.github/workflows/backend.yml`(`rehearsal` 잡) | PR·main |
+| 짝 맞추기 | 진짜 백엔드(**Botkeep 번들 그대로**) 앞에서 진짜 프론트 빌드로 방 만들기·참가·시작 | `.github/workflows/fullstack.yml` | PR |
+| 출하물 시험 | Botkeep에 올라갈 **바로 그 번들**을 패널과 같은 시작 명령으로 띄우고 블랙박스 스위트를 `E2E_BASE_URL`로 돌린다. 통과한 번들만 `botkeep` 브랜치에 올라간다 | `.github/workflows/botkeep.yml` | PR·main |
 | 차등 테스트(SLT) | 야추 점수의 세 구현(서버·프론트·독립 오라클)을 7,776가지 주사위 × 12칸 **전수** 대조 | `backend/src/game/score/__tests__/scoringDifferential.test.ts` | PR |
 | 이상 상황 테스트 | 여정 하나의 Redis 명령 중 **N번째 하나만** 실패시킨다. 모든 N에 대해, 쓰기 전 실패와 쓰기 후 응답 유실 둘 다 | `backend/test/blackbox/anomaly.e2e.test.ts` | PR(4칸 간격) · 야간(전수) |
 | 퍼징 | 시드 하나에서 나오는 WS 프레임을 진행 중인 판에 쏟는다 | `backend/test/blackbox/robustness.e2e.test.ts` | PR 400프레임 · 야간 2만 |
@@ -45,7 +45,7 @@ WebSocket만 쓴다. 그래서 같은 테스트가 in-process 서버와 배포�
 
 ```bash
 cd backend
-npm test                 # 단위 (Redis 통합은 redis-server가 있어야 돈다)
+npm test                 # 단위 + 통합 (저장소·DB가 프로세스 안이라 전부 돈다)
 npm run test:coverage    # 단위 + 커버리지 임계값
 npm run test:e2e         # 블랙박스 — in-process 서버를 띄운다
 
@@ -67,9 +67,17 @@ E2E_BASE_URL=http://localhost npm run test:e2e
    생성기가 바뀌면 다른 프레임을 낸다. 영구 회귀 테스트는 프레임 자체여야 한다.
 3. **`E2E_BASE_URL`에 운영 주소를 넣지 않는다.** 하네스는 루프백이 아닌 주소를 거절한다
    (`E2E_ALLOW_REMOTE=1`로만 풀린다). 퍼저와 장애 시나리오가 같은 스위트에 있기 때문이다.
-4. **CI에서 조용히 건너뛰지 않는다.** `REDIS_TEST_REQUIRED=1`·`MYSQL_TEST_REQUIRED=1`이
-   켜진 곳에서는 의존이 없으면 건너뛰지 않고 실패한다.
-5. 새 계약 코드(오류 코드·메시지 타입)를 만들면 `backend/test/blackbox/contract.ts`의 사본도
+4. **건너뛰는 테스트를 만들지 않는다.** 저장소(`MemoryRedis`)와 DB(인메모리 SQLite)가 프로세스
+   안에 있어 통합 테스트에 외부 준비물이 없다(ADR-0007). 환경에 따라 건너뛰는 스위트는 "조용한
+   초록"의 출처였으므로 다시 들이지 않는다.
+5. **테스트가 운영 DB 경로를 열지 않는다.** 서버를 띄우는 테스트는 `SQLITE_PATH: ':memory:'`를
+   넘긴다. `node:sqlite`는 동기식이라, 여러 워커가 같은 파일을 잡으면 잠금을 기다리는 동안
+   이벤트 루프 전체가 멈춘다.
+6. **리뷰 지적은 회귀 테스트로 남긴다.** SQLite가 티켓마다 `tkt-*.test`를 두듯, 지적 하나에
+   `describe` 하나를 `backend/src/__tests__/regressions/pr<번호>.test.ts`에 둔다. 단위 테스트가 수정의
+   경계를 보고, 회귀 테스트는 그 지적이 실제 모듈 조합에서 다시 일어나지 않는지 본다. 수정을 하나씩
+   되돌리는 변이 시험으로 각 테스트가 빨개지는지 확인한다.
+7. 새 계약 코드(오류 코드·메시지 타입)를 만들면 `backend/test/blackbox/contract.ts`의 사본도
    함께 고친다. 퍼저가 모르는 코드를 계약 위반으로 잡는다.
 
 ## 찾아낸 것

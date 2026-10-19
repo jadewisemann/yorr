@@ -1,24 +1,39 @@
-import type { LuaScript } from '../infra/lua.js'
+import type { AtomicScript } from '../infra/memoryRedis.js'
 
 /**
- * 방 상태 전이 Lua. 반환 코드가 곧 계약이므로 조건 순서를 바꾸지 않는다
- * (docs/design/rooms-and-sessions.md 「Lua 스크립트」).
+ * 방 상태 전이 스크립트. 반환 코드가 곧 계약이므로 조건 순서를 바꾸지 않는다
+ * (docs/design/rooms-and-sessions.md 「원자적 스크립트」). Lua 원문을 한 줄씩 옮긴 것이다
+ * — `run`은 동기 함수라 도중에 다른 명령이 끼어들지 않는다(infra/memoryRedis.ts).
  *
- * CLOSE·TOUCH는 참가자 수가 가변이라 게임 키 이름을 스크립트 안에서 조립한다 —
- * **단일 Redis 노드 전제**(클러스터로 가면 참가자별 삭제를 애플리케이션으로 올려야 한다).
+ * CLOSE·TOUCH는 참가자 수가 가변이라 게임 키 이름을 스크립트 안에서 조립한다.
  */
 
 /** KEYS: room / ARGV: capacity, hostId, gameCode, ttlSeconds, mode → 0 충돌(재시도) · 1 생성 */
-export const CREATE: LuaScript = {
+export const CREATE: AtomicScript = {
   name: 'yorrRoomCreate',
-  numberOfKeys: 1,
-  lua: `
-if redis.call('EXISTS', KEYS[1]) == 1 then return 0 end
-redis.call('HSET', KEYS[1], 'capacity', ARGV[1], 'members', '0', 'phase', 'LOBBY',
-    'hostId', ARGV[2], 'gameCode', ARGV[3], 'mode', ARGV[5])
-redis.call('EXPIRE', KEYS[1], ARGV[4])
-return 1
-`,
+  creates: [0],
+  keys: 1,
+  args: 5,
+  run(r, [room], [capacity, hostId, gameCode, ttlSeconds, mode]) {
+    if (r.exists(room) === 1) return 0
+    r.hset(
+      room,
+      'capacity',
+      capacity,
+      'members',
+      '0',
+      'phase',
+      'LOBBY',
+      'hostId',
+      hostId,
+      'gameCode',
+      gameCode,
+      'mode',
+      mode,
+    )
+    r.expire(room, ttlSeconds)
+    return 1
+  },
 }
 
 /**
@@ -28,29 +43,29 @@ return 1
  * 들어오면서 **주인 없는 방의 방장을 이어받는다** — 파티 방의 대시보드는 명단에
  * 없고, 방장이 나간 방은 hostId가 비어 있다. 둘 다 "다음에 들어온 사람이 방장"으로 풀린다.
  */
-export const JOIN: LuaScript = {
+export const JOIN: AtomicScript = {
   name: 'yorrRoomJoin',
-  numberOfKeys: 4,
-  lua: `
-if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
-if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 2 end
-if redis.call('HEXISTS', KEYS[2], ARGV[1]) == 1 then return 4 end
-if redis.call('HLEN', KEYS[2]) >= tonumber(redis.call('HGET', KEYS[1], 'capacity')) then return 3 end
-redis.call('HSET', KEYS[2], ARGV[1], ARGV[2])
-redis.call('HSET', KEYS[3], ARGV[1], '0')
-redis.call('HINCRBY', KEYS[1], 'members', 1)
-local host = redis.call('HGET', KEYS[1], 'hostId')
-if not host or host == '' or redis.call('HEXISTS', KEYS[2], host) == 0 then
-    redis.call('HSET', KEYS[1], 'hostId', ARGV[1])
-end
-local ttl = redis.call('PTTL', KEYS[1])
-if ttl > 0 then
-    redis.call('PEXPIRE', KEYS[2], ttl)
-    redis.call('PEXPIRE', KEYS[3], ttl)
-    if redis.call('EXISTS', KEYS[4]) == 1 then redis.call('PEXPIRE', KEYS[4], ttl) end
-end
-return 1
-`,
+  creates: [1, 2],
+  keys: 4,
+  args: 2,
+  run(r, [room, players, scores, bots], [userId, nickname]) {
+    if (r.exists(room) === 0) return 0
+    if (r.hget(room, 'phase') !== 'LOBBY') return 2
+    if (r.hexists(players, userId) === 1) return 4
+    if (r.hlen(players) >= Number(r.hget(room, 'capacity'))) return 3
+    r.hset(players, userId, nickname)
+    r.hset(scores, userId, '0')
+    r.hincrby(room, 'members', 1)
+    const host = r.hget(room, 'hostId')
+    if (!host || r.hexists(players, host) === 0) r.hset(room, 'hostId', userId)
+    const ttl = r.pttl(room)
+    if (ttl > 0) {
+      r.pexpire(players, ttl)
+      r.pexpire(scores, ttl)
+      if (r.exists(bots) === 1) r.pexpire(bots, ttl)
+    }
+    return 1
+  },
 }
 
 /**
@@ -62,58 +77,47 @@ return 1
  * 후보는 **사람만** — 봇에게 넘기면 아무도 조작할 수 없다. 참가자가 hash라 입장
  * 순서가 없으므로 **누가 실행해도 같은 결과**인 playerId 오름차순 첫 번째를 쓴다.
  */
-export const LEAVE: LuaScript = {
+export const LEAVE: AtomicScript = {
   name: 'yorrRoomLeave',
-  numberOfKeys: 4,
-  lua: `
-if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
-if redis.call('HDEL', KEYS[2], ARGV[1]) == 0 then return -1 end
-redis.call('HDEL', KEYS[3], ARGV[1])
-redis.call('HDEL', KEYS[4], ARGV[1])
-local members = redis.call('HINCRBY', KEYS[1], 'members', -1)
-if members <= 0 and redis.call('HGET', KEYS[1], 'mode') ~= 'PARTY' then
-    redis.call('DEL', KEYS[1])
-    redis.call('DEL', KEYS[2])
-    redis.call('DEL', KEYS[3])
-    redis.call('DEL', KEYS[4])
-    return 0
-end
-if redis.call('HGET', KEYS[1], 'hostId') == ARGV[1] then
-    local heir = ''
-    local remaining = redis.call('HKEYS', KEYS[2])
-    table.sort(remaining)
-    for i = 1, #remaining do
-        if redis.call('HEXISTS', KEYS[4], remaining[i]) == 0 then
-            heir = remaining[i]
-            break
-        end
-    end
-    redis.call('HSET', KEYS[1], 'hostId', heir)
-end
-return 1
-`,
+  keys: 4,
+  args: 1,
+  run(r, [room, players, scores, bots], [playerId]) {
+    if (r.exists(room) === 0) return -1
+    if (r.hdel(players, playerId) === 0) return -1
+    r.hdel(scores, playerId)
+    r.hdel(bots, playerId)
+    const members = r.hincrby(room, 'members', -1)
+    if (members <= 0 && r.hget(room, 'mode') !== 'PARTY') {
+      r.del(room, players, scores, bots)
+      return 0
+    }
+    if (r.hget(room, 'hostId') === playerId) {
+      const heir = r
+        .hkeys(players)
+        .sort()
+        .find((candidate) => r.hexists(bots, candidate) === 0)
+      r.hset(room, 'hostId', heir ?? '')
+    }
+    return 1
+  },
 }
 
 /** KEYS: room, players, scores, bots → 항상 1(멱등). 게임 키까지 지운다. */
-export const CLOSE: LuaScript = {
+export const CLOSE: AtomicScript = {
   name: 'yorrRoomClose',
-  numberOfKeys: 4,
-  lua: `
-local gameId = redis.call('HGET', KEYS[1], 'gameId')
-if gameId then
-    local players = redis.call('HKEYS', KEYS[2])
-    for i = 1, #players do
-        redis.call('DEL', 'game:' .. gameId .. ':scoreboard:' .. players[i])
-        redis.call('DEL', 'game:' .. gameId .. ':score-submissions:' .. players[i])
-    end
-    redis.call('DEL', 'game:' .. gameId)
-end
-redis.call('DEL', KEYS[1])
-redis.call('DEL', KEYS[2])
-redis.call('DEL', KEYS[3])
-redis.call('DEL', KEYS[4])
-return 1
-`,
+  keys: 4,
+  args: 0,
+  run(r, [room, players, scores, bots]) {
+    const gameId = r.hget(room, 'gameId')
+    if (gameId !== null) {
+      for (const player of r.hkeys(players)) {
+        r.del(`game:${gameId}:scoreboard:${player}`, `game:${gameId}:score-submissions:${player}`)
+      }
+      r.del(`game:${gameId}`)
+    }
+    r.del(room, players, scores, bots)
+    return 1
+  },
 }
 
 /**
@@ -123,28 +127,28 @@ return 1
  * 플레이 중인 방도 정해진 시각에 사라지고, 남은 사람은 계속 노는데 신규 참가만
  * 404가 나는 상태가 된다.
  */
-export const TOUCH: LuaScript = {
+export const TOUCH: AtomicScript = {
   name: 'yorrRoomTouch',
-  numberOfKeys: 4,
-  lua: `
-if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
-redis.call('EXPIRE', KEYS[1], ARGV[1])
-local ttl = redis.call('PTTL', KEYS[1])
-if ttl <= 0 then return 1 end
-redis.call('PEXPIRE', KEYS[2], ttl)
-redis.call('PEXPIRE', KEYS[3], ttl)
-if redis.call('EXISTS', KEYS[4]) == 1 then redis.call('PEXPIRE', KEYS[4], ttl) end
-local gameId = redis.call('HGET', KEYS[1], 'gameId')
-if gameId then
-    redis.call('PEXPIRE', 'game:' .. gameId, ttl)
-    local players = redis.call('HKEYS', KEYS[2])
-    for i = 1, #players do
-        redis.call('PEXPIRE', 'game:' .. gameId .. ':scoreboard:' .. players[i], ttl)
-        redis.call('PEXPIRE', 'game:' .. gameId .. ':score-submissions:' .. players[i], ttl)
-    end
-end
-return 1
-`,
+  keys: 4,
+  args: 1,
+  run(r, [room, players, scores, bots], [ttlSeconds]) {
+    if (r.exists(room) === 0) return 0
+    r.expire(room, ttlSeconds)
+    const ttl = r.pttl(room)
+    if (ttl <= 0) return 1
+    r.pexpire(players, ttl)
+    r.pexpire(scores, ttl)
+    if (r.exists(bots) === 1) r.pexpire(bots, ttl)
+    const gameId = r.hget(room, 'gameId')
+    if (gameId !== null) {
+      r.pexpire(`game:${gameId}`, ttl)
+      for (const player of r.hkeys(players)) {
+        r.pexpire(`game:${gameId}:scoreboard:${player}`, ttl)
+        r.pexpire(`game:${gameId}:score-submissions:${player}`, ttl)
+      }
+    }
+    return 1
+  },
 }
 
 /**
@@ -153,24 +157,26 @@ return 1
  * **실패 사유 구분 불가가 계약이다** — 호출부는 전부 `game_not_ready`로 뭉갠다.
  * 인원 검사는 `HLEN players`라 봇도 정원을 채운다.
  */
-export const START: LuaScript = {
+export const START: AtomicScript = {
   name: 'yorrRoomStart',
-  numberOfKeys: 4,
-  lua: `
-if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
-if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 0 end
-if redis.call('HLEN', KEYS[2]) < tonumber(ARGV[3]) then return 0 end
-local gameCode = redis.call('HGET', KEYS[1], 'gameCode')
-if not gameCode then return 0 end
-redis.call('HSET', KEYS[1], 'phase', 'PLAYING', 'gameId', ARGV[1])
-redis.call('HSET', KEYS[3], 'roomCode', ARGV[2], 'gameCode', gameCode)
-local ttl = redis.call('PTTL', KEYS[1])
-if ttl > 0 then
-    redis.call('PEXPIRE', KEYS[3], ttl)
-    if redis.call('EXISTS', KEYS[4]) == 1 then redis.call('PEXPIRE', KEYS[4], ttl) end
-end
-return 1
-`,
+  creates: [2],
+  keys: 4,
+  args: 3,
+  run(r, [room, players, game, bots], [gameId, roomCode, minPlayers]) {
+    if (r.exists(room) === 0) return 0
+    if (r.hget(room, 'phase') !== 'LOBBY') return 0
+    if (r.hlen(players) < Number(minPlayers)) return 0
+    const gameCode = r.hget(room, 'gameCode')
+    if (gameCode === null) return 0
+    r.hset(room, 'phase', 'PLAYING', 'gameId', gameId)
+    r.hset(game, 'roomCode', roomCode, 'gameCode', gameCode)
+    const ttl = r.pttl(room)
+    if (ttl > 0) {
+      r.pexpire(game, ttl)
+      if (r.exists(bots) === 1) r.pexpire(bots, ttl)
+    }
+    return 1
+  },
 }
 
 /**
@@ -178,17 +184,18 @@ return 1
  *
  * 모듈 초기화가 실패했을 때 **자기 게임만** 되돌린다 — gameId가 일치할 때만.
  */
-export const ROLLBACK_START: LuaScript = {
+export const ROLLBACK_START: AtomicScript = {
   name: 'yorrRoomRollbackStart',
-  numberOfKeys: 2,
-  lua: `
-if redis.call('HGET', KEYS[1], 'phase') ~= 'PLAYING' then return 0 end
-if redis.call('HGET', KEYS[1], 'gameId') ~= ARGV[1] then return 0 end
-redis.call('HSET', KEYS[1], 'phase', 'LOBBY')
-redis.call('HDEL', KEYS[1], 'gameId')
-redis.call('DEL', KEYS[2])
-return 1
-`,
+  keys: 2,
+  args: 1,
+  run(r, [room, game], [gameId]) {
+    if (r.hget(room, 'phase') !== 'PLAYING') return 0
+    if (r.hget(room, 'gameId') !== gameId) return 0
+    r.hset(room, 'phase', 'LOBBY')
+    r.hdel(room, 'gameId')
+    r.del(game)
+    return 1
+  },
 }
 
 /**
@@ -197,18 +204,19 @@ return 1
  * 본 경기 전 준비 단계가 취소됐을 때 방을 다시 대기실로 연다. gameId를 인자로
  * 받지 않는 이유는 준비 중 이탈 경로가 방 코드만 알고 있기 때문이다.
  */
-export const CANCEL_ACTIVE_GAME: LuaScript = {
+export const CANCEL_ACTIVE_GAME: AtomicScript = {
   name: 'yorrRoomCancelActiveGame',
-  numberOfKeys: 1,
-  lua: `
-if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
-if redis.call('HGET', KEYS[1], 'phase') ~= 'PLAYING' then return 0 end
-local gameId = redis.call('HGET', KEYS[1], 'gameId')
-redis.call('HSET', KEYS[1], 'phase', 'LOBBY')
-redis.call('HDEL', KEYS[1], 'gameId')
-if gameId then redis.call('DEL', 'game:' .. gameId) end
-return 1
-`,
+  keys: 1,
+  args: 0,
+  run(r, [room]) {
+    if (r.exists(room) === 0) return 0
+    if (r.hget(room, 'phase') !== 'PLAYING') return 0
+    const gameId = r.hget(room, 'gameId')
+    r.hset(room, 'phase', 'LOBBY')
+    r.hdel(room, 'gameId')
+    if (gameId !== null) r.del(`game:${gameId}`)
+    return 1
+  },
 }
 
 /**
@@ -218,25 +226,24 @@ return 1
  * 매달려 있어서 초기화하지 않으면 다음 게임 순위에 지난 게임 점수가 얹힌다.
  * 점수판(`game:{id}:scoreboard:*`)은 결과 조회용으로 남긴다.
  */
-export const RETURN_TO_LOBBY: LuaScript = {
+export const RETURN_TO_LOBBY: AtomicScript = {
   name: 'yorrRoomReturnToLobby',
-  numberOfKeys: 4,
-  lua: `
-if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
-if redis.call('HGET', KEYS[1], 'phase') ~= 'FINISHED' then return 0 end
-redis.call('HSET', KEYS[1], 'phase', 'LOBBY')
-redis.call('HDEL', KEYS[1], 'gameId')
-local players = redis.call('HKEYS', KEYS[2])
-for i = 1, #players do
-    redis.call('HSET', KEYS[3], players[i], '0')
-end
-local ttl = redis.call('PTTL', KEYS[1])
-if ttl > 0 then
-    redis.call('PEXPIRE', KEYS[3], ttl)
-    if redis.call('EXISTS', KEYS[4]) == 1 then redis.call('PEXPIRE', KEYS[4], ttl) end
-end
-return 1
-`,
+  creates: [2],
+  keys: 4,
+  args: 0,
+  run(r, [room, players, scores, bots]) {
+    if (r.exists(room) === 0) return 0
+    if (r.hget(room, 'phase') !== 'FINISHED') return 0
+    r.hset(room, 'phase', 'LOBBY')
+    r.hdel(room, 'gameId')
+    for (const player of r.hkeys(players)) r.hset(scores, player, '0')
+    const ttl = r.pttl(room)
+    if (ttl > 0) {
+      r.pexpire(scores, ttl)
+      if (r.exists(bots) === 1) r.pexpire(bots, ttl)
+    }
+    return 1
+  },
 }
 
 /**
@@ -250,28 +257,30 @@ return 1
  * 검증을 전부 통과한 뒤에야 세 키(players·scores·bots)를 함께 쓴다 — 봇 행은
  * 사람 행과 같은 정규 행이고, `bots` 해시만이 "이 행은 봇"의 유일한 근거다.
  */
-export const BOT_ADD: LuaScript = {
+export const BOT_ADD: AtomicScript = {
   name: 'yorrRoomBotAdd',
-  numberOfKeys: 4,
-  lua: `
-if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
-if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 2 end
-if redis.call('HGET', KEYS[1], 'hostId') ~= ARGV[1] then return 3 end
-if redis.call('HEXISTS', KEYS[2], ARGV[1]) == 0 then return 3 end
-if redis.call('HLEN', KEYS[2]) >= tonumber(redis.call('HGET', KEYS[1], 'capacity')) then return 4 end
-if redis.call('HEXISTS', KEYS[2], ARGV[2]) == 1 then return 5 end
-redis.call('HSET', KEYS[2], ARGV[2], ARGV[3])
-redis.call('HSET', KEYS[3], ARGV[2], '0')
-redis.call('HSET', KEYS[4], ARGV[2], ARGV[4])
-redis.call('HINCRBY', KEYS[1], 'members', 1)
-local ttl = redis.call('PTTL', KEYS[1])
-if ttl > 0 then
-    redis.call('PEXPIRE', KEYS[2], ttl)
-    redis.call('PEXPIRE', KEYS[3], ttl)
-    redis.call('PEXPIRE', KEYS[4], ttl)
-end
-return 1
-`,
+  creates: [1, 2, 3],
+  keys: 4,
+  args: 4,
+  run(r, [room, players, scores, bots], [requesterId, botId, nickname, marker]) {
+    if (r.exists(room) === 0) return 0
+    if (r.hget(room, 'phase') !== 'LOBBY') return 2
+    if (r.hget(room, 'hostId') !== requesterId) return 3
+    if (r.hexists(players, requesterId) === 0) return 3
+    if (r.hlen(players) >= Number(r.hget(room, 'capacity'))) return 4
+    if (r.hexists(players, botId) === 1) return 5
+    r.hset(players, botId, nickname)
+    r.hset(scores, botId, '0')
+    r.hset(bots, botId, marker)
+    r.hincrby(room, 'members', 1)
+    const ttl = r.pttl(room)
+    if (ttl > 0) {
+      r.pexpire(players, ttl)
+      r.pexpire(scores, ttl)
+      r.pexpire(bots, ttl)
+    }
+    return 1
+  },
 }
 
 /**
@@ -281,34 +290,19 @@ return 1
  * **bots 해시에서 HDEL이 성공해야만** 명단·점수를 지운다 — 이 API로 사람을
  * 쫓아낼 수 없게 하는 조건이다(권한 검사가 아니라 대상 검사).
  */
-export const BOT_REMOVE: LuaScript = {
+export const BOT_REMOVE: AtomicScript = {
   name: 'yorrRoomBotRemove',
-  numberOfKeys: 4,
-  lua: `
-if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
-if redis.call('HGET', KEYS[1], 'phase') ~= 'LOBBY' then return 2 end
-if redis.call('HGET', KEYS[1], 'hostId') ~= ARGV[1] then return 3 end
-if redis.call('HEXISTS', KEYS[2], ARGV[1]) == 0 then return 3 end
-if redis.call('HDEL', KEYS[4], ARGV[2]) == 0 then return 4 end
-redis.call('HDEL', KEYS[2], ARGV[2])
-redis.call('HDEL', KEYS[3], ARGV[2])
-redis.call('HINCRBY', KEYS[1], 'members', -1)
-return 1
-`,
+  keys: 4,
+  args: 2,
+  run(r, [room, players, scores, bots], [requesterId, botId]) {
+    if (r.exists(room) === 0) return 0
+    if (r.hget(room, 'phase') !== 'LOBBY') return 2
+    if (r.hget(room, 'hostId') !== requesterId) return 3
+    if (r.hexists(players, requesterId) === 0) return 3
+    if (r.hdel(bots, botId) === 0) return 4
+    r.hdel(players, botId)
+    r.hdel(scores, botId)
+    r.hincrby(room, 'members', -1)
+    return 1
+  },
 }
-
-/** 봇 참가자 스크립트 — `BotParticipantService`가 등록한다. */
-export const BOT_SCRIPTS: readonly LuaScript[] = [BOT_ADD, BOT_REMOVE]
-
-export const ROOM_SCRIPTS: readonly LuaScript[] = [
-  CREATE,
-  JOIN,
-  LEAVE,
-  CLOSE,
-  TOUCH,
-  START,
-  ROLLBACK_START,
-  CANCEL_ACTIVE_GAME,
-  RETURN_TO_LOBBY,
-  ...BOT_SCRIPTS,
-]

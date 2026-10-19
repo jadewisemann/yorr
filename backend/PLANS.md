@@ -8,6 +8,19 @@
 > `frontend/src/room/api/*.ts`다. 서버가 임의로 바꾸지 않으며, 바꾸는 변경은
 > 아래에 절을 만들어 근거를 남긴다.
 
+## Botkeep 이전 — 저장소·DB를 프로세스 안으로 (2026-10-18, 완료)
+
+OCI 단일 호스트에서 Botkeep 무료 플랜(512MB · 0.5 vCore · 슬롯 1개)으로 옮긴다.
+결정과 근거는 [ADR-0007](docs/adr/0007-botkeep-single-process.md). **와이어 계약 변경 없음** —
+프론트 브라우저 E2E(e2e/real)가 번들을 상대로 그대로 통과했다.
+
+- [x] Redis → `MemoryRedis` + Lua 18개 → 동기 JS `AtomicScript`. `ioredis` 삭제
+- [x] MySQL → `node:sqlite`. `mysql2`·Flyway 러너·`db/migration`·`migrate.ts` 삭제
+- [x] 단일 번들(`npm run build:botkeep`) + `botkeep.yml`(번들 리허설 → `botkeep` 브랜치)
+- [x] OCI 배포물(Dockerfile·compose·Caddy·controller·systemd·Alloy) 삭제
+- [ ] Botkeep 패널에서 외부 HTTP·WS 유입 확인, 도메인 연결
+- [ ] 프론트 `vercel.json` rewrite 대상과 `VITE_API_BASE_URL`·`VITE_WS_URL`을 새 도메인으로
+
 ## 연습 방 시계 제거 — 계약 변경 1건 (2026-08-21, 완료)
 
 > 이 저장소에서 **와이어 계약을 의도적으로 넓힌 첫 변경**이다. 원칙(「프론트엔드
@@ -154,15 +167,11 @@
   `tier`를 아예 싣지 않는다. 경계·K·시작점은 `game/rating/tier.ts` 상수 한 곳이
   유일한 출처다.
 
-### 스키마 — 마이그레이션 V3
+### 스키마 — 테이블 2개 추가
 
-`db/migration/V3__create_rating_tables.sql`에 테이블 2개를 만든다. 이미 적용된
-V1·V2는 손대지 않는다 — 운영 DB의 이력에 그 체크섬이 이미 적혀 있다
-([persistence.md](docs/design/persistence.md) 「마이그레이션」).
-
-**적용은 배포의 `migrate` 잡이 한다.** 기동 경로는 스키마를 바꾸지 않으므로,
-V3를 담은 이미지를 올리기 전에 `docker compose run --rm migrate`를 먼저 돌려야
-한다. 그러지 않으면 새 이미지가 `verifyMigrations`에서 죽는다.
+`infra/sqlite.ts`의 `SQLITE_SCHEMA`에 테이블 2개를 `CREATE TABLE IF NOT EXISTS`로 더한다
+([persistence.md](docs/design/persistence.md) 「DB 스키마」). 새 테이블이라 기존 DB 파일에도
+풀을 열 때 그대로 생긴다. (2026-10-18 갱신: 원래 계획은 Flyway V3였다 — ADR-0007.)
 
 - `user_game_stats` — 현재값 집계. `(user_id, game_code)` PK에
   `rating`·`rated_games`·`wins`·`losses`·`draws`·`plays`·`updated_at`.
@@ -175,12 +184,12 @@ V3를 담은 이미지를 올리기 전에 `docker compose run --rm migrate`를 
 
 - 진입점은 `MatchArchiveService.archive` **내부**다(게임 종료 순서 ⑤). 회원
   참가자를 골라 현재 레이팅을 읽고 계산해 두 테이블에 쓰되, `matches` INSERT와
-  **같은 MySQL 트랜잭션**으로 묶는다 — `matches.game_id` UNIQUE에 걸려 보관이
+  **같은 DB 트랜잭션**으로 묶는다 — `matches.game_id` UNIQUE에 걸려 보관이
   실패하면 레이팅도 함께 구르므로, 별도 멱등 장치 없이 이중 반영이 차단된다.
 - 실패 정책은 보관과 동일하다: 예외는 `onArchiveFailure`로 흘리고 **게임 종료
   방송을 막지 않는다.**
-- 새 모듈은 `src/game/rating/` — `eloCalculator.ts`(순수 함수, MySQL 없이 전부
-  테스트), `tier.ts`(경계 상수), `ratingStore.ts`(포트 + MySQL 구현, 보관과
+- 새 모듈은 `src/game/rating/` — `eloCalculator.ts`(순수 함수, DB 없이 전부
+  테스트), `tier.ts`(경계 상수), `ratingStore.ts`(포트 + SQLite 구현, 보관과
   트랜잭션 커넥션 공유), 공개 표면 `index.ts`. `game/ranking/`과 같은 3층
   관용이다.
 - **주간 랭킹은 건드리지 않는다.** `WeeklyRankingService`의 `YACHT_DICE`
@@ -208,7 +217,7 @@ V3를 담은 이미지를 올리기 전에 `docker compose run --rm migrate`를 
 
 ### 진행 순서 (PR 4개, 각각 독립 배포 가능)
 
-1. **백엔드 기반**: V3 + `game/rating/` + 보관 트랜잭션 훅. 화면 변화 없이
+1. **백엔드 기반**: 스키마 2개 + `game/rating/` + 보관 트랜잭션 훅. 화면 변화 없이
    데이터부터 쌓는다 — 다음 단계 전에 실데이터로 티어 경계를 점검할 수 있다.
 2. **조회 REST + 내 전적 UI**: `/users/me/stats`·`/users/me/matches`와 계정
    다이얼로그의 「내 전적」 활성화.
@@ -222,8 +231,8 @@ V3를 담은 이미지를 올리기 전에 `docker compose run --rm migrate`를 
 
 - 단위: `eloCalculator`(쌍별 계산·동순위 0.5·회원 필터·K 분배·허용 목록 밖
   무시), `tier` 경계값, 보관 실패 시 레이팅 미반영(같은 트랜잭션).
-- 통합: `MYSQL_TEST_REQUIRED=1`로 V3 적용과 집계 SQL을 검증한다 — 기존 전적
-  통합 테스트와 같은 조건이라 CI(mysql:8.0 service)에서 돈다.
+- 통합: 새 테이블과 집계 SQL을 인메모리 SQLite(`useDb`)에서 검증한다 — 기존 전적
+  통합 테스트와 같은 조건이라 어디서나 돈다.
 - 티어 해시: 입장 시 기록, 방 키 가족과 만료 동행, 비대상 게임에서 생략.
 
 ## 하위 시스템 상태
@@ -231,43 +240,40 @@ V3를 담은 이미지를 올리기 전에 `docker compose run --rm migrate`를 
 | 하위 시스템 | 설계 문서 | 상태 |
 |---|---|---|
 | WS 게이트웨이·envelope·하트비트 | realtime.md | ✅ 코어 + 게임 dispatch |
-| 세션·게스트·회원 | rooms-and-sessions.md | ✅ 세션·인증 + 프로필 REST. 프로필의 MySQL 통합 6건은 `MYSQL_TEST_URL` 부재로 **미실행** |
-| 방·Lua·파티·폐쇄 수명 | rooms-and-sessions.md | ✅ 키·Lua 9종·스냅샷·REST·폐쇄 스케줄러. 고아 방 청소는 부팅 재무장(`game/startupResume.ts`)이 대신한다 |
-| 봇 참가자 | rooms-and-sessions.md | ✅ ADD/REMOVE Lua·REST·supportsBots 게이트·`state.sync` |
-| 퀵매치 | rooms-and-sessions.md | ✅ 큐·락(토큰 CAS 해제 Lua)·최장 대기 host·롤백, WS 소켓 생존 조건 자동 시작, 티켓 소비·FINISHED 자기 치유, REST 3종 |
+| 세션·게스트·회원 | rooms-and-sessions.md | ✅ 세션·인증 + 프로필 REST. 프로필 DB 통합 6건은 인메모리 SQLite에서 돈다(ADR-0007) |
+| 방·Lua·파티·폐쇄 수명 | rooms-and-sessions.md | ✅ 키·원자적 스크립트 9종·스냅샷·REST·폐쇄 스케줄러. 고아 방 청소는 부팅 재무장(`game/startupResume.ts`)이 대신한다 |
+| 봇 참가자 | rooms-and-sessions.md | ✅ ADD/REMOVE 스크립트·REST·supportsBots 게이트·`state.sync` |
+| 퀵매치 | rooms-and-sessions.md | ✅ 큐·락(토큰 CAS 해제 스크립트)·최장 대기 host·롤백, WS 소켓 생존 조건 자동 시작, 티켓 소비·FINISHED 자기 치유, REST 3종 |
 | 게임 모듈 프레임워크 | game-modules.md | ✅ 레지스트리 dispatch(접두사 검증·스트립·교차 네임스페이스 거부)·`GameLifecycleService`(start 실패 시 롤백). 정원·minPlayers·supportsBots는 카탈로그가 유일한 출처 |
 | 라운드·타이머·타임아웃 | game-modules.md | ✅ 도메인·마감 스케줄러·스토어 포트 + 타이머·타임아웃 해소·동기화 서비스. 바깥 계층은 좁은 포트로 역전한다 |
-| 점수 확정·조회 | game-modules.md | ✅ 점수 도메인·CONFIRM_SCORE Lua(반환 코드 10종)·확정 서비스·라운드 원자 결합 + 게임 종료·랭킹 + 조회 REST |
+| 점수 확정·조회 | game-modules.md | ✅ 점수 도메인·CONFIRM_SCORE 스크립트(반환 코드 10종)·확정 서비스·라운드 원자 결합 + 게임 종료·랭킹 + 조회 REST |
 | 재접속 스냅샷·스위퍼 | reconnect.md | ✅ 재접속 스냅샷(rollCount·dice·held 동봉, scores는 Map→객체 정규화) + `OrphanedRoundStateSweeper`(5분, cancel→remove) |
 | 야추 (+봇) | games/yacht.md | 🚧 모듈·`RedisYachtDiceStateStore`·`YachtTurnActionService`·dice 릴레이 비대칭·`markPhase('playing')` + 봇 스택(지연 4종·세대 가드·TurnVersion·Expectimax 예산 강제·Local 폴백·2봇 완주), 총 120건. **프론트 e2e:real 미검증** |
 | 석양이 진다 | games/duel.md | 🚧 `DuelRules`(판정·파울·캡)·상태 스토어(version 비증가 무시)·version 키 스케줄링·forfeit·점수=잔탄. **프론트 e2e:real 미검증** |
 | 다빈치 코드 | games/davinci.md | 🚧 규칙·상태·좌석별 유니캐스트·WS 모듈·점수 기록, 단위 62건(2026-08-29) |
-| 탁구 (+AI 결과) | games/pingpong.md | 🚧 규칙(궤적·판정 창·judgedAt)·상태 스토어·서비스·모듈 + AI 결과 REST(게스트는 `user_id` NULL). **프론트 e2e:real 미검증** · 실 MySQL 3건 미실행. **파티 방에서는 랠리를 시뮬레이션하지 않는다**(아래 절) |
+| 탁구 (+AI 결과) | games/pingpong.md | 🚧 규칙(궤적·판정 창·judgedAt)·상태 스토어·서비스·모듈 + AI 결과 REST(게스트는 `user_id` NULL). **프론트 e2e:real 미검증** · DB 통합 3건은 인메모리 SQLite에서 돈다. **파티 방에서는 랠리를 시뮬레이션하지 않는다**(아래 절) |
 | 텍스트 채팅 | chat.md | ✅ `chat.send`/`chat.message` 중계. 음성 시그널링을 대체했다(아래 절) |
 | 컨트롤러 링크 시그널링 | controller-signal.md | 🚧 `ctrl.signal`/`ctrl.signaled` 유니캐스트 릴레이 추가 중(아래 절). 서버는 `data`를 열지 않는다 |
-| 소셜 로그인·프로필 | auth.md | ✅ authorize/callback/session/me/logout, state·로그인 코드 1회용, kakao·google, 가입 경합 재조회. MySQL 통합 6건은 `MYSQL_TEST_URL` 부재로 **미실행** |
-| 전적·주간 랭킹 | persistence.md | ✅ MySQL 풀·Flyway 호환 러너 + 전적 보관(멱등·닉네임 우선순위·users로 회원 판정) + 주간 랭킹(KST 경계·집계·캐시·REST). **MySQL 집계·저장 통합 22건은 `MYSQL_TEST_URL`·docker 부재로 미실행 — SQL 문법조차 미검증** |
+| 소셜 로그인·프로필 | auth.md | ✅ authorize/callback/session/me/logout, state·로그인 코드 1회용, kakao·google, 가입 경합 재조회. DB 통합 6건은 인메모리 SQLite에서 돈다 |
+| 전적·주간 랭킹 | persistence.md | ✅ SQLite 풀(`infra/sqlite.ts`) + 전적 보관(멱등·닉네임 우선순위·users로 회원 판정) + 주간 랭킹(KST 경계·집계·캐시·REST). DB 집계·저장 통합 22건이 인메모리 SQLite에서 돈다 |
 | 유저 전적·레이팅 (야추) | persistence.md(승격 예정) | 🆕 **계획만 수립, 구현 미착수** — 아래 절. 게임별 Elo·티어 6단·`Player.tier` 넓히기·REST 2개 |
-| 모니터링·배포 | operations.md | 🚧 게이지 2종(`prom-client` 없이 텍스트 노출, 16건) + 배포 파이프라인(Dockerfile arm64 크로스 빌드·compose 전체 스택·GHA+GHCR, [ADR-0006](docs/adr/0006-github-actions-ghcr-arm64-single-host.md)). **이미지 실빌드·arm64 실기동·MySQL 통합 48건 미검증** |
+| 모니터링·배포 | operations.md | ✅ 게이지 2종(`prom-client` 없이 텍스트 노출, 16건) + Botkeep 번들 배포([ADR-0007](docs/adr/0007-botkeep-single-process.md)) — CI가 번들을 패널과 같은 명령으로 띄워 블랙박스·브라우저 E2E를 통과시킨 뒤 `botkeep` 브랜치에 올린다. **Botkeep 패널에서의 실기동(외부 HTTP·WS 유입)은 미확인** |
 
 ✅ 구현·테스트 완료 · 🚧 진행 중 또는 미검증 항목 있음 · 🆕 계획만 있음
 
 ## 리스크
 
-- **Lua 스크립트.** 원자성 시맨틱과 반환 코드가 계약이다 — 스크립트를 손볼 때는
+- **원자적 스크립트.** 원자성 시맨틱과 반환 코드가 계약이다 — 스크립트를 손볼 때는
   동시성 통합 테스트(동시 제출 16건·완료 8건·동일 변이 2건 등)를 함께 본다.
-  키 이름을 스크립트 안에서 조립하는 부분은 **단일 Redis 노드 전제**다.
+  `run`에 `await`를 넣는 순간 원자성이 깨진다(타입이 막지 못한다).
 - **타이머·스케줄러.** 마감 슬롯 선등록 레이스(과거 실사고), 세대 가드, 25s+1s
   유예, 발화-취소 경합이 전부 테스트로 고정돼 있다. 프로세스 재시작 시 마감
-  유실은 해결됐다 — 마감 시각이 Redis에 있고(`game/round/deadlineStore.ts`)
-  부팅 재무장이 그 값으로 되살린다(`game/startupResume.ts`). 재무장은 방마다
-  fail-closed이고 Yacht·Duel·PingPong 셋을 모두 검증한다
-  ([`deploy/PLAN.md`](../deploy/PLAN.md) PR 6).
-- **통합 테스트 인프라.** Redis 의존 계약(Lua·TTL·동시성)은 모킹으로 검증할 수
-  없다. Redis는 로컬 `redis-server`를 띄우고([ADR-0004](docs/adr/0004-redis-integration-test-harness.md)),
-  MySQL은 `MYSQL_TEST_URL`이 있을 때만 돈다([ADR-0005](docs/adr/0005-flyway-compatible-migration-runner.md)).
-  **MySQL 통합 스위트가 실제로 돈 적이 거의 없다** — 위 상태 표의 미실행 항목들이
-  그것이다.
+  유실은 저장소가 프로세스 밖에 있던 시절에 해결했다(`game/startupResume.ts`). 지금은
+  저장소가 프로세스 안이지만 스냅샷(정상 종료 + 60초마다)으로 재시작을 넘어 남고, 부팅 재무장이
+  그 위에서 판을 되살린다. 비정상 종료면 마지막 스냅샷 이후만 잃는다(ADR-0007).
+- **통합 테스트 인프라.** 테스트와 운영이 같은 인프로세스 저장소·SQLite 어댑터를 쓴다
+  (ADR-0007). 남는 위험은 Redis·MySQL 시맨틱을 잘못 옮긴 경우인데, 옮기기 전에 진짜 서버
+  위에서 초록이던 통합 스위트 전체가 그대로 통과하는 것으로 확인했다.
 - **단일 프로세스 제약.** WS 구독·타이머·폐쇄 예약·랭킹 캐시가 인메모리다.
   수평 확장은 범위 밖 — 필요해지면 별도 ADR.
 - **오류 표면의 비일관성이 계약이다.** plain-text 코드 문자열, API마다 다른 401

@@ -1,54 +1,57 @@
 import { existsSync } from 'node:fs'
 import { loadEnv } from './config/env.js'
-import { verifyMigrations } from './infra/migrations/index.js'
-import { closeMysqlPool, createMysqlPool } from './infra/mysql.js'
+import { MemoryRedis } from './infra/memoryRedis.js'
+import { closeDbPool, createDbPool } from './infra/sqlite.js'
+import { loadStoreSnapshot, saveStoreSnapshotIfChanged } from './infra/storeSnapshot.js'
 import { createServer } from './server.js'
 
 if (existsSync('.env')) process.loadEnvFile('.env')
 
 const env = loadEnv()
-// 풀은 여기서 만들어 `createServer`에 넘긴다 — 기동 확인과 애플리케이션이 같은 좌표를
-// 봐야 하고, 확인이 서버 조립보다 먼저여야 한다. 주입한 쪽이 닫는 규약이므로
-// 종료 훅도 여기 있다.
-const mysql = createMysqlPool(env)
-const server = await createServer(env, { mysql })
+// 풀과 저장소는 여기서 만들어 `createServer`에 넘긴다 — 주입한 쪽이 닫는 규약이므로 종료 훅도
+// 여기 있다. 저장소는 `listen()`의 부팅 재무장보다 **먼저** 스냅샷을 들여야 한다.
+const db = createDbPool(env)
+const redis = new MemoryRedis()
+const snapshotPath = env.STORE_SNAPSHOT_PATH.trim()
+const loaded = snapshotPath === '' ? null : loadStoreSnapshot(redis, snapshotPath)
+const server = await createServer(env, { db, redis })
 
-/**
- * 전환기 계약: **Node는 스키마를 바꾸지 않는다.** 읽기 전용 확인만 하고, 밀린
- * 마이그레이션·실패 이력이 있으면 던져서 프로세스를 죽인다(ADR-0005).
- * 배포 검증이 HTTP 헬스체크가 아니라 `sleep 15` + 컨테이너 Running 확인뿐이라
- * **기동 실패는 exit≠0으로만 드러난다**(docs/design/operations.md).
- *
- * `server.listen()`이 아니라 여기 있는 이유: `listen()`은 통합 테스트
- * (`ws/__tests__/gateway.test.ts`)가 실제로 부르는 경로다. 거기에 MySQL 왕복을
- * 넣으면 DB 없는 개발·CI 환경의 WS 테스트가 전부 깨진다.
- */
-try {
-  const { plan } = await verifyMigrations(mysql)
-  if (plan.missingLocally.length > 0) {
-    // DB가 우리보다 앞서 나간 상태다. 우리 질의를 깨뜨리지는 않으므로 경고만 남긴다.
-    server.app.log.warn(
-      { scripts: plan.missingLocally.map((entry) => entry.script) },
-      'DB 이력에는 있는데 db/migration에 없는 마이그레이션이 있습니다',
-    )
-  }
-  if (plan.checksumMismatches.length > 0) {
-    server.app.log.warn(
-      { scripts: plan.checksumMismatches.map((mismatch) => mismatch.script) },
-      '마이그레이션 체크섬이 이력과 다릅니다',
-    )
-  }
-} catch (error) {
-  server.app.log.error({ error }, '마이그레이션 확인 실패 — 기동을 중단합니다')
-  await server.close()
-  await closeMysqlPool(mysql)
-  process.exit(1)
+if (loaded?.kind === 'restored') {
+  server.app.log.info({ entries: loaded.entries }, '저장소 스냅샷을 들였습니다')
+} else if (loaded?.kind === 'corrupt') {
+  server.app.log.error(
+    { error: loaded.error, movedTo: loaded.movedTo },
+    '저장소 스냅샷이 손상돼 빈 저장소로 시작합니다',
+  )
 }
+
+/** 저장이 이보다 오래 걸리면 경고로 남긴다 — 그만큼 이벤트 루프가 멈췄다는 뜻이다. */
+const SLOW_SNAPSHOT_MS = 100
+
+const saveSnapshot = (): void => {
+  if (snapshotPath === '') return
+  try {
+    const result = saveStoreSnapshotIfChanged(redis, snapshotPath)
+    if (result.kind === 'written') {
+      const level = result.ms >= SLOW_SNAPSHOT_MS ? 'warn' : 'debug'
+      server.app.log[level](result, '저장소 스냅샷을 썼습니다')
+    }
+  } catch (error) {
+    // 쓰기 실패가 서버를 죽이지 않는다 — 다음 주기에 다시 쓴다.
+    server.app.log.error({ error }, '저장소 스냅샷을 쓰지 못했습니다')
+  }
+}
+const snapshotTimer = setInterval(saveSnapshot, env.STORE_SNAPSHOT_INTERVAL_MS)
+snapshotTimer.unref()
 
 const shutdown = async (signal: string): Promise<void> => {
   server.app.log.info({ signal }, '서버를 종료합니다')
+  clearInterval(snapshotTimer)
   await server.close()
-  await closeMysqlPool(mysql)
+  // 서버를 닫은 **뒤에** 쓴다 — 마지막 요청까지 반영된 상태가 남는다.
+  saveSnapshot()
+  redis.disconnect()
+  await closeDbPool(db)
   process.exit(0)
 }
 

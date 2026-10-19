@@ -1,21 +1,20 @@
 import { randomUUID } from 'node:crypto'
-import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { expect, it } from 'vitest'
-import { describeMysql, useMysql } from '../../../infra/__tests__/mysqlHarness.js'
-import { runMigrations } from '../../../infra/migrations/runner.js'
-import { MatchArchiveService, MysqlMatchArchiveStore } from '../../match/index.js'
+import { describeDb, useDb } from '../../../infra/__tests__/dbHarness.js'
+import type { Pool, RowDataPacket } from '../../../infra/sqlite.js'
+import { MatchArchiveService, SqliteMatchArchiveStore } from '../../match/index.js'
 import { AI_PLAYER_ID, GUEST_NICKNAME, PingPongAiResultService } from '../aiResultService.js'
 
 /**
- * AI 결과의 **실 MySQL 절반** — 여기서만 확인되는 것 두 가지다:
+ * AI 결과의 **실제 DB 절반** — 여기서만 확인되는 것 두 가지다:
  *
  * 1. `resultId`(= `matches.game_id`)의 UNIQUE 제약이 **중복 보고를 실제로 막는가**.
  *    서버가 판을 진행하지 않는 경로라 이 제약이 멱등의 전부다.
  * 2. **게스트의 행에 `user_id`가 없는가**(→ 주간 랭킹 질의에 걸리지 않는다). 회원
  *    판정은 users 테이블 조회이므로 그 테이블이 있어야 판정이 성립한다.
  *
- * ⚠️ `MYSQL_TEST_URL`이 없으면 **건너뛴다**(ADR-0005의 게이트). 점수 재검증·UUID·
- * 게스트/회원 분기 로직은 `aiResultService.test.ts`가 MySQL 없이 덮는다.
+ * 운영과 같은 SQLite 어댑터를 인메모리로 연다(항상 돈다). 점수 재검증·UUID·
+ * 게스트/회원 분기 로직은 `aiResultService.test.ts`가 DB 없이 덮는다.
  */
 
 const RESULT_ID = '4b72f136-f3c2-49c9-bfdb-290891fd8638'
@@ -28,20 +27,19 @@ interface ParticipantRow extends RowDataPacket {
   readonly ranking: number
 }
 
-describeMysql('탁구 AI 결과 보관 (실 MySQL)', () => {
-  const mysqlPool = useMysql()
+describeDb('탁구 AI 결과 보관 (SQLite)', () => {
+  const dbPool = useDb()
 
   const setUp = async (): Promise<{
     pool: Pool
     service: PingPongAiResultService
     signUp: (nickname: string) => Promise<string>
   }> => {
-    const pool = mysqlPool()
-    await runMigrations(pool)
+    const pool = dbPool()
     return {
       pool,
       service: new PingPongAiResultService(
-        new MatchArchiveService(new MysqlMatchArchiveStore(pool)),
+        new MatchArchiveService(new SqliteMatchArchiveStore(pool)),
       ),
       signUp: async (nickname: string) => {
         const id = randomUUID()

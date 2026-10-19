@@ -33,7 +33,7 @@ export interface GameModule {
   resume(roomCode: string): Promise<void>
 
   /**
-   * **프로세스 재시작 후** 진행 중이던 판을 이어간다(deploy/PLAN.md PR 6).
+   * **프로세스 재시작 후** 진행 중이던 판을 이어간다(옛 deploy/PLAN.md PR 6).
    *
    * `resume`과 갈라 두는 이유는 마감 시각을 어디서 가져오느냐가 다르기 때문이다.
    * `resume`은 "모두 접속이 끊겨 멈춰 둔 시계를 다시 켠다"이므로 새 시간을 주는 것이

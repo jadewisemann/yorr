@@ -1,6 +1,6 @@
-import type { Redis } from 'ioredis'
 import { ConflictError } from '../../errors.js'
-import { type LuaScript, registerLuaScripts, runLuaNumber } from '../../infra/lua.js'
+import type { Redis } from '../../infra/memoryRedis.js'
+import { runAtomicNumber, UNLOCK_IF_OWNER } from '../../infra/memoryRedis.js'
 import { gameStateKey, roomKey } from '../../room/keys.js'
 import { PING_PONG } from '../catalog.js'
 import type { PingPongStateStore } from './pingPongPorts.js'
@@ -21,20 +21,6 @@ import type { PingPongState } from './pingPongState.js'
 const LOCK_TTL_MILLIS = 5_000
 const LOCK_WAIT_MILLIS = 2_000
 const LOCK_SPIN_MILLIS = 10
-
-/** 락 해제는 **내 토큰일 때만** — 만료된 뒤 남의 락을 지우지 않는다. */
-const UNLOCK: LuaScript = {
-  name: 'pingPongUnlock',
-  numberOfKeys: 1,
-  lua: `
-if redis.call('GET', KEYS[1]) == ARGV[1] then
-  return redis.call('DEL', KEYS[1])
-end
-return 0
-`,
-}
-
-export const PING_PONG_STATE_SCRIPTS: readonly LuaScript[] = [UNLOCK]
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {
@@ -58,9 +44,7 @@ const normalize = (value: PingPongState): PingPongState => {
 }
 
 export class RedisPingPongStateStore implements PingPongStateStore {
-  constructor(private readonly redis: Redis) {
-    registerLuaScripts(redis, PING_PONG_STATE_SCRIPTS)
-  }
+  constructor(private readonly redis: Redis) {}
 
   async initialize(roomId: string, state: PingPongState): Promise<void> {
     const created = await this.redis.set(stateKey(roomId), serialize(state), 'NX')
@@ -106,7 +90,7 @@ export class RedisPingPongStateStore implements PingPongStateStore {
     try {
       return await action()
     } finally {
-      await runLuaNumber(this.redis, UNLOCK, [lockKey], [token]).catch(() => 0)
+      await runAtomicNumber(this.redis, UNLOCK_IF_OWNER, [lockKey], [token]).catch(() => 0)
     }
   }
 

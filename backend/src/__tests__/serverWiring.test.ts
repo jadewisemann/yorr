@@ -1,5 +1,7 @@
+import { mkdtempSync, rmSync } from 'node:fs'
 import type { AddressInfo } from 'node:net'
-import type { Pool } from 'mysql2/promise'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
 import { WebSocket } from 'ws'
 import { describeRedis, useRedis } from '../../test/redisHarness.js'
@@ -10,6 +12,9 @@ import {
   type SweepScheduler,
 } from '../game/reconnect/index.js'
 import { RedisYachtDiceStateStore } from '../game/yacht/index.js'
+import { MemoryRedis } from '../infra/memoryRedis.js'
+import type { Pool } from '../infra/sqlite.js'
+import { loadStoreSnapshot, saveStoreSnapshot } from '../infra/storeSnapshot.js'
 import { roomKey } from '../room/keys.js'
 import { createServer, type ServerOptions, type YorrServer } from '../server.js'
 import type { OutboundEnvelope } from '../ws/envelope.js'
@@ -23,13 +28,13 @@ import type { OutboundEnvelope } from '../ws/envelope.js'
  * 레지스트리라 자동 시작이 영구 거짓, **운영 라운드 저장소가 인메모리**라 재시작마다
  * 진행 중 게임 소실). 특히 라운드 타이머는 **새 `RoomBroadcaster`·`RoomSessionRegistry`를
  * 넘겨도 조용히 성공한다** — 방송이 아무도 없는 곳으로 나갈 뿐이다. 그래서 여기서는
- * `createServer`가 돌려준 인스턴스로 **진짜 소켓·진짜 Redis까지 효과가 도달하는지**를 본다.
+ * `createServer`가 돌려준 인스턴스로 **진짜 소켓·운영과 같은 저장소까지 효과가 도달하는지**를 본다.
  *
  * 판정 기준은 "타입이 맞는가"가 아니라 **"배선을 빼면 이 테스트가 깨지는가"** 다.
  *
- * MySQL은 이 환경에 없다. 그래서 MySQL을 타는 배선(4.3 프로필·4.4 전적 보관·4.5 랭킹)은
- * 두 갈래로 확인한다: ① 라우트 등록·인증 게이트는 MySQL을 건드리지 않는 지점까지,
- * ② 저장소를 실제로 타는 경로는 **풀 대역**(`mysqlDouble`)을 주입해 질의 자체를 관측한다.
+ * DB를 타는 배선(4.3 프로필·4.4 전적 보관·4.5 랭킹)은
+ * 두 갈래로 확인한다: ① 라우트 등록·인증 게이트는 DB를 건드리지 않는 지점까지,
+ * ② 저장소를 실제로 타는 경로는 **풀 대역**(`dbDouble`)을 주입해 질의 자체를 관측한다.
  * 없는 것을 있다고 만들지 않으면서, "배선이 빠지면 질의가 아예 없다"를 볼 수 있다.
  */
 describeRedis('서버 배선', () => {
@@ -41,15 +46,25 @@ describeRedis('서버 배선', () => {
     server = undefined
   })
 
+  /**
+   * 열 수 없는 DB 경로 — `/dev/null`은 파일이라 그 아래 디렉터리를 만들면 즉시 ENOTDIR다.
+   * (`/proc` 아래는 쓰지 않는다: Node의 재귀 mkdirSync가 거기서 끝나지 않는다.)
+   */
+  const UNOPENABLE_DB = '/dev/null/yorr.db'
+
   const build = async (
     overrides: Record<string, string> = {},
     extra: ServerOptions = {},
   ): Promise<YorrServer> => {
     const env = {
-      ...loadEnv({ CORS_ALLOWED_ORIGINS: 'https://yorr.site', ...overrides }),
+      ...loadEnv({
+        CORS_ALLOWED_ORIGINS: 'https://yorr.site',
+        SQLITE_PATH: ':memory:',
+        ...overrides,
+      }),
       SERVER_PORT: 0,
     }
-    server = await createServer(env, { ...extra, redis: redis(), logger: false })
+    server = await createServer(env, { redis: redis(), ...extra, logger: false })
     return server
   }
 
@@ -142,11 +157,11 @@ describeRedis('서버 배선', () => {
   }
 
   /**
-   * MySQL 풀 대역. **행 모양만 흉내내고 아무 것도 검증하지 않는다** — 여기서 보는
+   * DB 풀 대역. **행 모양만 흉내내고 아무 것도 검증하지 않는다** — 여기서 보는
    * 것은 "배선이 저장소까지 닿았는가"(= 질의가 실제로 떠났는가)뿐이다. 실 스키마
-   * 검증은 `MYSQL_TEST_URL`이 있는 환경의 저장소 테스트가 한다.
+   * 검증은 저장소 테스트(`useDb`)가 한다.
    */
-  const mysqlDouble = () => {
+  const dbDouble = () => {
     const queries: string[] = []
     const answer = (sql: string): unknown => {
       if (sql.startsWith('INSERT INTO matches (')) return { insertId: 1 }
@@ -170,7 +185,7 @@ describeRedis('서버 배선', () => {
     return {
       queries,
       pool: { query, getConnection: async () => connection } as unknown as Pool,
-      /** 주간 상위 목록 질의가 MySQL로 내려간 횟수 — 캐시 히트는 여기 안 잡힌다. */
+      /** 주간 상위 목록 질의가 DB로 내려간 횟수 — 캐시 히트는 여기 안 잡힌다. */
       weeklyQueries: (): number =>
         queries.filter((sql) => sql.includes('GROUP BY p.user_id')).length,
       archived: (): boolean => queries.some((sql) => sql.startsWith('INSERT INTO matches (')),
@@ -224,7 +239,7 @@ describeRedis('서버 배선', () => {
   })
 
   /**
-   * **부팅 재무장이 실제로 판을 이어가는가**(deploy/PLAN.md PR 6).
+   * **부팅 재무장이 실제로 판을 이어가는가**(옛 deploy/PLAN.md PR 6).
    *
    * 이 저장소에서 배포가 게임을 끊어 온 이유는 라운드 상태가 아니라 **마감 시각**이었다.
    * 상태는 진작 Redis에 있었지만 마감은 프로세스 인메모리 Map이었고, 되살릴 방법이
@@ -290,6 +305,55 @@ describeRedis('서버 배선', () => {
   })
 
   /**
+   * 위 재시작은 두 서버가 **같은 저장소 객체**를 공유했다. 실제 재시작은 프로세스가 바뀌므로
+   * 저장소도 새로 생긴다 — 스냅샷 파일로 쓰고 **새 저장소로 읽은 뒤에도** 같은 마감으로 이어져야
+   * `main.ts`의 스냅샷 배선이 의미가 있다(ADR-0007 갱신).
+   */
+  it('스냅샷으로 저장소를 새로 들여 재시작해도 판이 같은 마감으로 이어진다', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'yorr-restart-'))
+    const path = join(dir, 'store.json')
+    const before = new MemoryRedis()
+    const after = new MemoryRedis()
+    try {
+      const first = await build({}, { redis: before })
+      const url = await listen(first)
+      const host = await enterRoom(first, { nickname: '호스트' })
+      const guest = await enterRoom(first, { nickname: '손님', room_id: host.room_id })
+      const hostClient = await joined(url, host)
+      const guestClient = await joined(url, { ...guest, room_id: host.room_id })
+      await startGame(first, host)
+      await hostClient.await('game.yacht_dice.round.start')
+      const deadlineBefore = first.rounds.timer.currentDeadline(host.room_id)
+
+      hostClient.socket.close()
+      guestClient.socket.close()
+      await first.close()
+      saveStoreSnapshot(before, path)
+      expect(loadStoreSnapshot(after, path).kind).toBe('restored')
+
+      const second = await build({}, { redis: after })
+      await second.listen()
+      expect(await after.hget(roomKey(host.room_id), 'phase')).toBe('PLAYING')
+      expect(second.rounds.timer.currentDeadline(host.room_id)).toBe(deadlineBefore)
+
+      // 세션도 스냅샷에 있다 — 같은 토큰으로 자기 자리로 돌아온다.
+      const secondUrl = `ws://127.0.0.1:${(second.app.server.address() as AddressInfo).port}/ws/v1/game`
+      const back = await connect(secondUrl)
+      back.send({
+        type: 'room.join',
+        ts: Date.now(),
+        payload: { roomId: host.room_id, sessionToken: host.token },
+      })
+      await back.await('sys.reconnected')
+      back.socket.close()
+    } finally {
+      before.disconnect()
+      after.disconnect()
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  /**
    * **(a) 운영 라운드 상태 저장소는 Redis다.**
    *
    * 타입으로는 `InMemoryRoundStateStore`(2.4의 테스트 시드)도 그대로 들어맞으므로
@@ -343,7 +407,7 @@ describeRedis('서버 배선', () => {
   })
 
   /**
-   * **세 게임을 모두 검증한다**(deploy/PLAN.md PR 6). 야추만 고치면 절반이다 —
+   * **세 게임을 모두 검증한다**(옛 deploy/PLAN.md PR 6). 야추만 고치면 절반이다 —
    * 결투·탁구도 재시작 뒤 이어져야 하고, 그 둘은 마감(`nextActionAt`)이 처음부터
    * 상태 안의 절대 시각이라 되살릴 것이 예약뿐이다. 즉 이 테스트가 보는 것은
    * "부팅 재무장이 야추만 부르고 있지 않은가"다.
@@ -492,15 +556,15 @@ describeRedis('서버 배선', () => {
 
   /**
    * **(c) 전적 보관(4.4)** + **(g) 랭킹 캐시 evict(4.5)** — 둘 다 게임 종료 경로에서
-   * 확인한다. 판정은 MySQL 풀 대역이 받은 질의다:
+   * 확인한다. 판정은 DB 풀 대역이 받은 질의다:
    *
    * - `noopMatchArchive` 스텁이 남아 있으면 `INSERT INTO matches`가 **아예 없다**.
-   * - 캐시가 배선되지 않았으면 상위 목록 두 번째 조회가 MySQL로 다시 내려간다(1 → 2).
+   * - 캐시가 배선되지 않았으면 상위 목록 두 번째 조회가 DB로 다시 내려간다(1 → 2).
    * - evict가 **다른 인스턴스**를 비우면 종료 후 조회가 여전히 캐시에서 답한다(2가 안 된다).
    */
   it('전적 보관과 랭킹 캐시 evict가 게임 종료 경로에 붙어 있다', async () => {
-    const mysql = mysqlDouble()
-    const instance = await build({}, { mysql: mysql.pool })
+    const db = dbDouble()
+    const instance = await build({}, { db: db.pool })
     const url = await listen(instance)
     const host = await enterRoom(instance, { nickname: '호스트' })
     const client = await joined(url, host)
@@ -513,29 +577,29 @@ describeRedis('서버 배선', () => {
       dice: [1, 1, 1, 2, 3],
     })
 
-    // 캐시를 채운다 — 같은 인자의 두 번째 조회는 MySQL로 내려가지 않아야 한다.
+    // 캐시를 채운다 — 같은 인자의 두 번째 조회는 DB로 내려가지 않아야 한다.
     expect(await weeklyRanking(instance)).toMatchObject({
       entries: [{ rank: 1, userId: 'member-1', bestScore: 42 }],
     })
     await weeklyRanking(instance)
-    expect(mysql.weeklyQueries()).toBe(1)
+    expect(db.weeklyQueries()).toBe(1)
 
     expect(await instance.completion.finishIfComplete(host.room_id, true)).toBe(true)
 
-    expect(mysql.archived()).toBe(true)
+    expect(db.archived()).toBe(true)
     await weeklyRanking(instance)
-    expect(mysql.weeklyQueries()).toBe(2)
+    expect(db.weeklyQueries()).toBe(2)
 
     client.socket.close()
   })
 
   /**
-   * **(c) MySQL이 없어도 기동·종료는 성공한다.** 풀은 lazy이고(4.1) 보관 실패는
+   * **(c) DB를 열 수 없어도 기동·종료는 성공한다.** 풀은 lazy이고 보관 실패는
    * 2.7이 삼켜 `onArchiveFailure`로 흘린다 — 눈앞의 사용자가 결과 화면으로 넘어가는
    * 것이 전적 한 줄보다 중요하다.
    */
-  it('MySQL이 없어도 게임 종료가 진행된다', async () => {
-    const instance = await build({ DB_URL: 'jdbc:mysql://127.0.0.1:1/none' })
+  it('DB를 열 수 없어도 게임 종료가 진행된다', async () => {
+    const instance = await build({ SQLITE_PATH: UNOPENABLE_DB })
     const url = await listen(instance)
     const host = await enterRoom(instance, { nickname: '호스트' })
     const client = await joined(url, host)
@@ -557,7 +621,7 @@ describeRedis('서버 배선', () => {
   /**
    * **(e) 라우트 4개가 등록되어 있다.** 등록 전에는 전부 **404 + 빈 본문**이므로,
    * 각 API의 고유한 인증·검증 응답이 곧 "배선됐는가"의 판정이 된다. 여기서 고른
-   * 지점은 모두 MySQL을 건드리기 **전**에 답이 정해지는 곳이다.
+   * 지점은 모두 DB을 건드리기 **전**에 답이 정해지는 곳이다.
    */
   it('조회·프로필·퀵매치·랭킹 라우트가 등록되어 있다', async () => {
     const instance = await build()
@@ -810,7 +874,7 @@ describeRedis('서버 배선', () => {
     })
     expect(unconfigured.statusCode).toBe(503)
 
-    // 세션 교환·확인·로그아웃은 MySQL을 타지 않는다(Redis만).
+    // 세션 교환·확인·로그아웃은 DB를 타지 않는다(저장소만).
     const exchange = await instance.app.inject({
       method: 'POST',
       url: '/api/v1/auth/session',
@@ -848,16 +912,15 @@ describeRedis('서버 배선', () => {
   })
 
   /**
-   * 기동 경로는 MySQL을 **건드리지 않는다**. `verifyMigrations`가 `listen()`에 들어가면
-   * DB 없는 개발·CI 환경에서 WS 통합 테스트가 전부 깨진다(그래서 `main.ts`에 있다).
+   * 기동 경로는 DB를 **건드리지 않는다**(파일은 첫 질의 때 연다).
    *
-   * 그러나 **readiness는 MySQL을 요구한다**(PR 1). 기동과 준비가 다른 사건이라는 것이
-   * 이 두 단정의 요점이다: 닿지 않는 MySQL을 가리켜도 리슨은 성공하고, 같은 상태에서
+   * 그러나 **readiness는 DB를 요구한다**(PR 1). 기동과 준비가 다른 사건이라는 것이
+   * 이 두 단정의 요점이다: 열 수 없는 DB를 가리켜도 리슨은 성공하고, 같은 상태에서
    * `/actuator/health`는 503을 낸다. 그래서 배포 게이트가 반쯤 죽은 인스턴스를
    * 성공으로 읽지 않는다.
    */
-  it('listen()은 MySQL을 요구하지 않지만 readiness는 요구한다', async () => {
-    const instance = await build({ DB_URL: 'jdbc:mysql://127.0.0.1:1/none' })
+  it('listen()은 DB를 요구하지 않지만 readiness는 요구한다', async () => {
+    const instance = await build({ SQLITE_PATH: UNOPENABLE_DB })
 
     await expect(listen(instance)).resolves.toContain('ws://127.0.0.1:')
 
@@ -867,22 +930,22 @@ describeRedis('서버 배선', () => {
   })
 
   /**
-   * readiness가 **그** Redis·MySQL을 받았는지 본다. 새 클라이언트를 만들어 넘기면
+   * readiness가 **그** 저장소·DB를 받았는지 본다. 새 클라이언트를 만들어 넘기면
    * 애플리케이션이 쓰지 않는 좌표를 검사하게 되고, 그때 health는 아무것도 증명하지
    * 않는다 — 게이지 배선과 같은 종류의 조용한 실패다.
    *
-   * MySQL은 이 환경에 없으므로 `SELECT 1`에 응답하는 풀 대역을 주입한다: readiness가
+   * `SELECT 1`에 응답하는 풀 대역을 주입한다: readiness가
    * 주입받은 풀을 실제로 두드리면(=배선이 살아 있으면) 질의가 관측되고 판정이 UP이 된다.
    */
-  it('readiness가 주입받은 Redis·MySQL을 실제로 두드린다', async () => {
-    const mysql = mysqlDouble()
-    const instance = await build({}, { mysql: mysql.pool })
+  it('readiness가 주입받은 저장소·DB를 실제로 두드린다', async () => {
+    const db = dbDouble()
+    const instance = await build({}, { db: db.pool })
 
     const health = await instance.app.inject({ method: 'GET', url: '/actuator/health' })
 
     expect(health.statusCode).toBe(200)
     expect(health.json()).toEqual({ status: 'UP' })
-    expect(mysql.queries).toContain('SELECT 1')
+    expect(db.queries).toContain('SELECT 1')
   })
 
   /**

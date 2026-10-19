@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from 'node:crypto'
-import type { Redis } from 'ioredis'
 import { ConflictError, DomainError } from '../errors.js'
-import { registerLuaScripts, runLuaNumber } from '../infra/lua.js'
+import type { Redis } from '../infra/memoryRedis.js'
+import { runAtomicNumber } from '../infra/memoryRedis.js'
 import type { UserIdentity } from '../user/session.js'
 import {
   botsKey,
@@ -20,7 +20,6 @@ import {
   LEAVE,
   RETURN_TO_LOBBY,
   ROLLBACK_START,
-  ROOM_SCRIPTS,
   START,
   TOUCH,
 } from './scripts.js'
@@ -67,10 +66,7 @@ const parsePhase = (value: string | undefined): RoomPhase => {
  * 않는다(예외는 게임 모듈의 퇴장 경로 — docs/design/rooms-and-sessions.md).
  */
 export class RoomService {
-  constructor(private readonly redis: Redis) {
-    // 등록은 멱등이라 같은 클라이언트를 공유하는 서비스가 여럿이어도 안전하다.
-    registerLuaScripts(redis, ROOM_SCRIPTS)
-  }
+  constructor(private readonly redis: Redis) {}
 
   /** 코드 충돌 시 CREATE가 0을 돌려주므로 성공할 때까지 다시 뽑는다. */
   async createRoom(
@@ -83,7 +79,7 @@ export class RoomService {
     if (gameCode.trim().length === 0) throw new DomainError('invalid_game_code')
     for (;;) {
       const roomCode = randomRoomCode()
-      const created = await runLuaNumber(
+      const created = await runAtomicNumber(
         this.redis,
         CREATE,
         [roomKey(roomCode)],
@@ -120,7 +116,7 @@ export class RoomService {
    * `userId`·`sessionToken`은 호출부가 이미 쥐고 있는 값이라 스냅샷만 돌려준다.
    */
   async join(roomCode: string, user: UserIdentity): Promise<RoomSnapshot> {
-    const result = await runLuaNumber(this.redis, JOIN, roomKeyFamily(roomCode), [
+    const result = await runAtomicNumber(this.redis, JOIN, roomKeyFamily(roomCode), [
       user.userId,
       user.nickname,
     ])
@@ -132,7 +128,7 @@ export class RoomService {
 
   /** @returns 방·좌석이 있었는지(없으면 false = 404 경로). */
   async leave(roomCode: string, playerId: string): Promise<boolean> {
-    const result = await runLuaNumber(this.redis, LEAVE, roomKeyFamily(roomCode), [playerId])
+    const result = await runAtomicNumber(this.redis, LEAVE, roomKeyFamily(roomCode), [playerId])
     return result >= 0
   }
 
@@ -141,12 +137,12 @@ export class RoomService {
    * 방이 남는데, 그때 이 메서드가 정리한다. 이미 없는 방을 닫아도 안전하다.
    */
   async close(roomCode: string): Promise<void> {
-    await runLuaNumber(this.redis, CLOSE, roomKeyFamily(roomCode))
+    await runAtomicNumber(this.redis, CLOSE, roomKeyFamily(roomCode))
   }
 
   /** 활동이 있었음을 알려 방 키 가족의 수명을 함께 다시 센다. 없는 방은 무해. */
   async touch(roomCode: string): Promise<void> {
-    await runLuaNumber(this.redis, TOUCH, roomKeyFamily(roomCode), [ROOM_TTL_SECONDS])
+    await runAtomicNumber(this.redis, TOUCH, roomKeyFamily(roomCode), [ROOM_TTL_SECONDS])
   }
 
   async getSnapshot(roomCode: string): Promise<RoomSnapshot> {
@@ -182,7 +178,7 @@ export class RoomService {
   async startGame(roomCode: string, minPlayers = 1): Promise<GameStartResult> {
     if (minPlayers < 1) throw new DomainError('invalid_min_players')
     const gameId = randomUUID()
-    const result = await runLuaNumber(
+    const result = await runAtomicNumber(
       this.redis,
       START,
       [roomKey(roomCode), playersKey(roomCode), gameKey(gameId), botsKey(roomCode)],
@@ -193,7 +189,7 @@ export class RoomService {
   }
 
   async rollbackStart(roomCode: string, gameId: string): Promise<boolean> {
-    const result = await runLuaNumber(
+    const result = await runAtomicNumber(
       this.redis,
       ROLLBACK_START,
       [roomKey(roomCode), gameKey(gameId)],
@@ -203,13 +199,13 @@ export class RoomService {
   }
 
   async cancelActiveGame(roomCode: string): Promise<boolean> {
-    const result = await runLuaNumber(this.redis, CANCEL_ACTIVE_GAME, [roomKey(roomCode)])
+    const result = await runAtomicNumber(this.redis, CANCEL_ACTIVE_GAME, [roomKey(roomCode)])
     return result === 1
   }
 
   /** @returns 이 호출이 실제로 대기실로 되돌렸는지. 이미 대기실이면 false(멱등). */
   async returnToLobby(roomCode: string): Promise<boolean> {
-    const result = await runLuaNumber(this.redis, RETURN_TO_LOBBY, roomKeyFamily(roomCode))
+    const result = await runAtomicNumber(this.redis, RETURN_TO_LOBBY, roomKeyFamily(roomCode))
     return result === 1
   }
 

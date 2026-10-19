@@ -1,24 +1,22 @@
-import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { expect, it } from 'vitest'
-import { describeMysql, useMysql } from '../../infra/__tests__/mysqlHarness.js'
-import { runMigrations } from '../../infra/migrations/runner.js'
+import { describeDb, useDb } from '../../infra/__tests__/dbHarness.js'
+import type { Pool, RowDataPacket } from '../../infra/sqlite.js'
 import { DataIntegrityViolationError } from '../errors.js'
-import { MysqlSocialAccountStore } from '../socialAccountStore.js'
+import { SqliteSocialAccountStore } from '../socialAccountStore.js'
 import { PLACEHOLDER_NICKNAME } from '../socialProfile.js'
 
 /**
- * MySQL 구현의 통합 테스트 — 진짜 MySQL이 필요하다(ADR-0005의 게이트를 그대로
- * 쓴다: `MYSQL_TEST_URL`이 없으면 통째로 skip). 여기서만 확인할 수 있는 것은
+ * SQLite 구현의 통합 테스트 — 운영과 같은 어댑터를 인메모리로 연다(항상 돈다).
+ * 여기서만 확인할 수 있는 것은
  * **제약이 실제로 무엇을 막는가**다: `(provider, provider_user_id)` 유니크가
  * 두 번째 가입을 막고, 그 실패가 `DataIntegrityViolationError`로 올라온다.
  */
-describeMysql('MysqlSocialAccountStore (실 MySQL)', () => {
-  const mysqlPool = useMysql()
+describeDb('SqliteSocialAccountStore (SQLite)', () => {
+  const dbPool = useDb()
 
-  const store = async (): Promise<{ pool: Pool; store: MysqlSocialAccountStore }> => {
-    const pool = mysqlPool()
-    await runMigrations(pool)
-    return { pool, store: new MysqlSocialAccountStore(pool) }
+  const store = async (): Promise<{ pool: Pool; store: SqliteSocialAccountStore }> => {
+    const pool = dbPool()
+    return { pool, store: new SqliteSocialAccountStore(pool) }
   }
 
   it('가입은 회원과 소셜 연결을 함께 만든다', async () => {
@@ -80,10 +78,9 @@ describeMysql('MysqlSocialAccountStore (실 MySQL)', () => {
   })
 
   it('created_at·updated_at은 UTC 벽시계로 적힌다', async () => {
-    const pool = mysqlPool()
-    await runMigrations(pool)
+    const pool = dbPool()
     const at = new Date('2026-08-14T01:02:03.000Z')
-    const accounts = new MysqlSocialAccountStore(pool, () => at)
+    const accounts = new SqliteSocialAccountStore(pool, () => at)
 
     const user = await accounts.register('KAKAO', 'utc-1', '시계', null)
 

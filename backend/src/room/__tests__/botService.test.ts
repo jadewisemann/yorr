@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../test/redisHarness.js'
 import { ConflictError, DomainError } from '../../errors.js'
-import { runLuaNumber } from '../../infra/lua.js'
+import { runAtomicNumber } from '../../infra/memoryRedis.js'
 import type { UserIdentity } from '../../user/session.js'
 import { BotParticipantService, ForbiddenError } from '../botService.js'
 import { botsKey, playersKey, roomKey, roomKeyFamily, scoresKey } from '../keys.js'
@@ -23,7 +23,7 @@ const DASHBOARD = 'dashboard-1'
  *
  * Lua **텍스트**를 문자열로 대조하지 않는다. 텍스트는 옮기면서
  * 이미 1:1로 옮겼으므로, 여기서는 그 텍스트가 지키려던 **동작**(검증 순서·세 키
- * 동시 기록·봇만 삭제)을 진짜 Redis로 확인한다 — 조건 하나가 빠져도 텍스트
+ * 동시 기록·봇만 삭제)을 운영과 같은 저장소로 확인한다 — 조건 하나가 빠져도 텍스트
  * 비교는 통과할 수 있지만 이건 통과하지 못한다.
  */
 describeRedis('BotParticipantService — 추가', () => {
@@ -122,7 +122,7 @@ describeRedis('BotParticipantService — 추가', () => {
     const botId = snapshot.players.find((player) => player.kind === 'BOT')?.playerId as string
 
     // add()는 UUID를 새로 뽑으므로 중복 경로는 스크립트를 직접 불러 고정한다.
-    const result = await runLuaNumber(redis(), BOT_ADD, roomKeyFamily(roomCode), [
+    const result = await runAtomicNumber(redis(), BOT_ADD, roomKeyFamily(roomCode), [
       HOST.userId,
       botId,
       '요르봇 중복',

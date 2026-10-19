@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import type { Redis } from 'ioredis'
 import { ConflictError, DomainError } from '../errors.js'
 import type { GameCatalog } from '../game/catalog.js'
-import { type LuaScript, registerLuaScripts, runLuaNumber } from '../infra/lua.js'
+import type { Redis } from '../infra/memoryRedis.js'
+import { runAtomicNumber, UNLOCK_IF_OWNER } from '../infra/memoryRedis.js'
 import type { UserIdentity, UserService } from '../user/session.js'
 import { roomKey } from './keys.js'
 import type { RoomService } from './roomService.js'
@@ -51,22 +51,6 @@ export const quickMatchMarkerKey = (roomCode: string): string => `${roomKey(room
 
 /** 세션 해시. `user/session.ts`의 것과 같은 이름이며 그쪽은 내부 헬퍼다. */
 const userKey = (userId: string): string => `user:${userId}`
-
-/**
- * KEYS: lock / ARGV: token → 지운 개수(내 토큰이 아니면 0).
- *
- * 락을 그냥 DEL하면 TTL로 이미 풀린 뒤 남이 잡은 락을 지운다.
- */
-export const QUICK_MATCH_UNLOCK: LuaScript = {
-  name: 'yorrQuickMatchUnlock',
-  numberOfKeys: 1,
-  lua: `
-if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end
-return 0
-`,
-}
-
-export const QUICK_MATCH_SCRIPTS: readonly LuaScript[] = [QUICK_MATCH_UNLOCK]
 
 export type QuickMatchStatus = 'NOT_QUEUED' | 'WAITING' | 'MATCHED' | 'PLAYING'
 
@@ -138,7 +122,6 @@ export class QuickMatchService {
     this.presence = deps.presence
     this.games = deps.games
     this.now = options.now ?? (() => Date.now())
-    registerLuaScripts(this.redis, QUICK_MATCH_SCRIPTS)
   }
 
   /**
@@ -235,7 +218,7 @@ export class QuickMatchService {
       for (const player of players) await this.markMatched(player.userId, roomId, gameCode)
       await this.redis.set(quickMatchMarkerKey(roomId), '1', 'EX', ROOM_TTL_SECONDS)
     } finally {
-      await runLuaNumber(this.redis, QUICK_MATCH_UNLOCK, [lockKey], [token])
+      await runAtomicNumber(this.redis, UNLOCK_IF_OWNER, [lockKey], [token])
     }
   }
 

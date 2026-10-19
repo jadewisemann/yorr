@@ -16,7 +16,7 @@ import type { MatchArchiveStore, MatchRecord } from '../matchArchiveStore.js'
  *
  * 1. 이 파일 — 인메모리 저장소. **항상 돈다.** 멱등 판정·닉네임 우선순위·회원/게스트
  *    분기·시계 주입이 여기서 고정된다. 실제로 틀리는 로직이 전부 여기 있다.
- * 2. `matchArchiveStore.test.ts` — 실 MySQL. 스키마·제약(`game_id` UNIQUE,
+ * 2. `matchArchiveStore.test.ts` — 실제 DB. 스키마·제약(`game_id` UNIQUE,
  *    `user_id` nullable + FK)과 `finished_at`의 UTC 벽시계가 거기서만 확인된다.
  */
 

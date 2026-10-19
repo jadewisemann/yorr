@@ -1,11 +1,11 @@
-import type { Redis } from 'ioredis'
 import { expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../../test/redisHarness.js'
+import type { Redis } from '../../../infra/memoryRedis.js'
 import { roomKey } from '../../../room/keys.js'
 import { RedisRoundDeadlineStore } from '../redisRoundDeadlineStore.js'
 
 /**
- * 마감 시각 영속화의 저장소 계약(deploy/PLAN.md PR 6).
+ * 마감 시각 영속화의 저장소 계약(옛 deploy/PLAN.md PR 6).
  *
  * **모킹으로 검증할 수 없는 것만 둔다**(ADR-0004): 방 키 PTTL 복사, 라운드 번호가
  * 일치할 때만 지우는 조건 삭제, 그리고 손상된 값을 만났을 때의 동작. 마지막 것이

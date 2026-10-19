@@ -1,7 +1,7 @@
-import type { Redis } from 'ioredis'
 import { expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../../test/redisHarness.js'
 import { ConflictError } from '../../../errors.js'
+import type { Redis } from '../../../infra/memoryRedis.js'
 import { gameStateKey, roomKey } from '../../../room/keys.js'
 import {
   isRoundSyncError,

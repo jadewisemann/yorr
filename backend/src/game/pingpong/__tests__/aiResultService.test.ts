@@ -20,7 +20,7 @@ import {
  *
  * MySQL은 이 환경에 없으므로 보관 포트를 기록용 가짜로 바꿔 끼운다. 이 티켓에서
  * 조용히 틀릴 수 있는 것은 저장소가 아니라 **점수 재검증·UUID·게스트/회원 분기**이고,
- * 셋 다 MySQL 없이 여기서 전부 돈다(실 MySQL 절반은 `aiResultArchive.test.ts`).
+ * 셋 다 MySQL 없이 여기서 전부 돈다(실제 DB 절반은 `aiResultArchive.test.ts`).
  */
 
 const RESULT_ID = 'e848355a-78a1-4297-a492-754a124c6b16'

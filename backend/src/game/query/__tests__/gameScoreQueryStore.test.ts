@@ -1,6 +1,6 @@
-import type { Redis } from 'ioredis'
 import { expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../../test/redisHarness.js'
+import type { Redis } from '../../../infra/memoryRedis.js'
 import { gameKey, gameScoreboardKey, playersKey, roomKey } from '../../../room/keys.js'
 import {
   type GameScoreQueryReason,
@@ -14,7 +14,7 @@ const PLAYER_A = 'player-a'
 const PLAYER_B = 'player-b'
 
 /**
- * "읽는 사이 게임이 바뀐다"를 **진짜 Redis** 위에서 만든다 — 읽기 사이에 실제
+ * "읽는 사이 게임이 바뀐다"를 **운영과 같은 저장소** 위에서 만든다 — 읽기 사이에 실제
  * 쓰기를 끼워 넣는 래퍼로 인터리빙을 낸다. 값이 전부 Redis에서 나오므로 스토어가
  * 스스로 계약을 정의해 버리는 문제가 없다.
  */

@@ -6,7 +6,7 @@ import {
 } from '../startupResume.js'
 
 /**
- * 부팅 재무장의 정책(deploy/PLAN.md PR 6).
+ * 부팅 재무장의 정책(옛 deploy/PLAN.md PR 6).
  *
  * 이 스위트가 고정하는 것은 **fail-closed**다. 예전 정책(`closeUnrecoverableGamesOnStartup`)은
  * 진행 중이던 방을 전부 닫았고, 그것이 "배포가 게임을 끊는다"의 전부였다. 되살리기가

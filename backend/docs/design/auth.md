@@ -94,7 +94,7 @@
 덮어쓴다 → **계정당 라이브 세션 1개**(재로그인 = 이전 토큰 무효화).
 게스트가 로그인해도 게스트 id가 회원 id로 승격되지는 않는다 — 별개 신원이다.
 
-## 가입·연동 규칙 (MySQL)
+## 가입·연동 규칙 (DB)
 
 - `social_accounts(provider, provider_user_id)` 유니크가 연동의 정본. 조회는
   user eager 로딩.
@@ -109,10 +109,11 @@
   이름도 플레이스홀더면 채택할 것이 없으므로 쓰기를 하지 않는다.
 - 한 사용자에 제공자 여러 개 연동 가능(1:N). email 컬럼 없음(kakao 심사 이슈).
 - 제약 위반의 갈래는 **유니크만이 아니다.** 제약 위반 예외
-  하나로 잡던 자리를 Node는 `DataIntegrityViolationError`로 옮겼고, MySQL errno
-  (1062 유니크 · 1406 길이 · 1452 FK …)를 그 갈래로 승격한다. 승격 지점은
+  하나로 잡던 자리를 Node는 `DataIntegrityViolationError`로 옮겼고, 제약 errno
+  (1062 유니크 · 3819 길이 CHECK · 1452 FK … — SQLite 어댑터가 MySQL 시절 번호로 바꿔 준다)를
+  그 갈래로 승격한다. 승격 지점은
   저장소(`auth/socialAccountStore.ts`)이고 판정은 서비스에 있다 — 서비스는
-  mysql2를 몰라야 인메모리 가짜로 경합 분기를 시험할 수 있다.
+  DB 드라이버를 몰라야 인메모리 가짜로 경합 분기를 시험할 수 있다.
 
 ## 구현 위치 (Node)
 
@@ -168,11 +169,10 @@
   토큰 교환 폼 내용, secret 공백 시 미전송(kakao), 닉네임 폴백 3단, 20자 절단,
   id 부재, **제공자 오류 본문 비전파**, 타임아웃.
 - `auth/__tests__/stores.test.ts` — state·로그인 코드의 1회용 시맨틱(동시 소비
-  포함)과 TTL, state가 담아 둔 복귀 주소. 진짜 Redis.
+  포함)과 TTL, state가 담아 둔 복귀 주소. 운영과 같은 저장소.
 - `auth/__tests__/returnTo.test.ts` — 복귀 출처 결정(목록 통과·미등록 무시·`*`
   거절·경로는 설정값에서·끝의 `/` 정규화).
-- `auth/__tests__/socialAccountStore.test.ts` — MySQL 게이트(`MYSQL_TEST_URL`)
-  안에서만 도는 통합: 한 트랜잭션 가입, 유니크 위반, 롤백으로 유령 회원 없음,
+- `auth/__tests__/socialAccountStore.test.ts` — 인메모리 SQLite(`useDb`) 위의 통합(항상 돈다): 한 트랜잭션 가입, 유니크 위반, 롤백으로 유령 회원 없음,
   제공자별 독립, 플레이스홀더일 때만 채택, UTC 벽시계.
 - `http/routes/__tests__/auth.test.ts` — authorize 302/503, prompt 문자열 정확
   일치, 콜백 전 구간(성공·canceled·invalid_state·재사용·code 부재·제공자 실패),

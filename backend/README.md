@@ -16,14 +16,15 @@ YORR의 API 및 실시간 게임 서버다. 진행 중인 계약 변경과 하�
 
 ## 기술 스택
 
-Node.js ≥ 22.12 · TypeScript · Fastify · ws · ioredis · mysql2 · zod ·
-Vitest · Biome (선정 근거: [ADR-0003](docs/adr/0003-node-fastify-stack.md))
+Node.js ≥ 22.13 · TypeScript · Fastify · ws · zod · `node:sqlite` ·
+Vitest · Biome (선정 근거: [ADR-0003](docs/adr/0003-node-fastify-stack.md),
+저장소·DB를 프로세스 안에 둔 이유: [ADR-0007](docs/adr/0007-botkeep-single-process.md))
 
 ## 시작하기
 
 ```bash
 cd backend
-cp .env.example .env   # 필요한 값만 채우면 된다 — 백본은 Redis·MySQL 없이도 뜬다
+cp .env.example .env   # 필요한 값만 채우면 된다 — 외부 Redis·DB가 필요 없다
 npm ci
 npm run dev
 ```
@@ -36,11 +37,10 @@ npm run dev
 ```bash
 npm run check        # biome lint + format
 npm run typecheck    # tsc
-npm test             # vitest
+npm test             # vitest (통합 테스트 포함 — 건너뛰는 것이 없다)
 npm run build        # 프로덕션 빌드 (dist/)
+npm run build:botkeep  # Botkeep 배포 번들 (../deploy/botkeep/out/)
 ```
 
-Redis 통합 테스트는 `redis-server` 바이너리를 찾아 테스트 파일마다 하나씩
-띄운다([ADR-0004](docs/adr/0004-redis-integration-test-harness.md)). 바이너리가
-없으면 해당 스위트만 건너뛴다 — 이미 띄워 둔 Redis를 쓰려면 `REDIS_TEST_URL`,
-건너뛰기를 실패로 만들려면 `REDIS_TEST_REQUIRED=1`.
+DB는 `data/yorr.db`(SQLite)에 생긴다. 방·세션·진행 중 게임은 프로세스 안의 저장소에 있고,
+종료 때와 60초마다 `data/store.json`으로 스냅샷을 남겨 재시작을 넘긴다([ADR-0007](docs/adr/0007-botkeep-single-process.md)).

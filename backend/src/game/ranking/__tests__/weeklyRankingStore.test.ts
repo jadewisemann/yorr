@@ -1,20 +1,18 @@
 import { randomUUID } from 'node:crypto'
-import type { Pool, ResultSetHeader } from 'mysql2/promise'
 import { expect, it } from 'vitest'
-import { describeMysql, useMysql } from '../../../infra/__tests__/mysqlHarness.js'
-import { runMigrations } from '../../../infra/migrations/runner.js'
+import { describeDb, useDb } from '../../../infra/__tests__/dbHarness.js'
+import type { Pool, ResultSetHeader } from '../../../infra/sqlite.js'
 import { YACHT_DICE } from '../../catalog.js'
 import { weeklyRankingResponse } from '../weeklyRankingResponse.js'
-import { MysqlWeeklyRankingStore } from '../weeklyRankingStore.js'
+import { SqliteWeeklyRankingStore } from '../weeklyRankingStore.js'
 
 /**
  * 이식: (캐시 3종 제외 — 그건
  * 데코레이터 단위 테스트로 옮겼다, `weeklyRankingCache.test.ts`).
  *
  * 주간 집계 질의는 스키마와 함께 움직인다 — `user_id` nullable(게스트)과 users 조인,
- * GROUP BY의 합이 맞아야 한다. **그 합은 실제 MySQL에서만 확인된다.** 그래서 이
- * 파일은 ADR-0005의 게이트 뒤에 있다(`MYSQL_TEST_URL`이 없으면 통째로 skip).
- * 주 경계 환산·동점 번호·캐시는 게이트 **밖**에서 돈다.
+ * GROUP BY의 합이 맞아야 한다. **그 합은 실제 DB에서만 확인된다** — 운영과 같은
+ * SQLite 어댑터를 인메모리로 연다(항상 돈다). 주 경계 환산·동점 번호·캐시는 DB 없이 돈다.
  *
  * 시각은 `finished_at`과 같은 기준(UTC)으로 직접 넣는다. 풀의 `timezone: 'Z'`가
  * Date → DATETIME(6) 변환을 UTC로 못박아 준다(4.1).
@@ -30,13 +28,12 @@ const TO = new Date('2026-08-09T15:00:00.000Z')
 const plusDays = (at: Date, days: number): Date =>
   new Date(at.getTime() + days * 24 * 60 * 60 * 1000)
 
-describeMysql('MysqlWeeklyRankingStore (실 MySQL)', () => {
-  const mysqlPool = useMysql()
+describeDb('SqliteWeeklyRankingStore (SQLite)', () => {
+  const dbPool = useDb()
 
-  const store = async (): Promise<{ pool: Pool; store: MysqlWeeklyRankingStore }> => {
-    const pool = mysqlPool()
-    await runMigrations(pool)
-    return { pool, store: new MysqlWeeklyRankingStore(pool) }
+  const store = async (): Promise<{ pool: Pool; store: SqliteWeeklyRankingStore }> => {
+    const pool = dbPool()
+    return { pool, store: new SqliteWeeklyRankingStore(pool) }
   }
 
   /** 회원 한 명. `users` 행이 있다는 것이 곧 "게스트가 아니다"의 정의다. */

@@ -1,5 +1,5 @@
-import type { Redis } from 'ioredis'
-import { registerLuaScripts, runLuaNumber } from '../../infra/lua.js'
+import type { Redis } from '../../infra/memoryRedis.js'
+import { runAtomicNumber } from '../../infra/memoryRedis.js'
 import {
   gameKey,
   gameScoreboardKey,
@@ -12,7 +12,7 @@ import type { ScoreBoard } from './scoreBoard.js'
 import { scoreBoardFromHash } from './scoreBoardMapper.js'
 import { isUpperCategory, type ScoreCategory } from './scoreCategory.js'
 import { ScoreConfirmationError, ScoreDomainError } from './scoreErrors.js'
-import { CONFIRM_SCORE, CONFIRM_SCORE_CODE, SCORE_SCRIPTS } from './scripts.js'
+import { CONFIRM_SCORE, CONFIRM_SCORE_CODE } from './scripts.js'
 
 /**
  * 점수판 저장소 포트.
@@ -46,7 +46,6 @@ export class RedisScoreBoardStore implements ScoreBoardStore {
 
   constructor(redis: Redis) {
     this.redis = redis
-    registerLuaScripts(redis, SCORE_SCRIPTS)
   }
 
   async confirmScore(
@@ -62,7 +61,7 @@ export class RedisScoreBoardStore implements ScoreBoardStore {
       throw new ScoreConfirmationError('GAME_NOT_FOUND', `게임을 찾을 수 없습니다: ${gameId}`)
     }
 
-    const result = await runLuaNumber(
+    const result = await runAtomicNumber(
       this.redis,
       CONFIRM_SCORE,
       [

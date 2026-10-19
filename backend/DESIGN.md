@@ -29,13 +29,18 @@
    계약을 구현하는 쪽이며, 계약 변경은 프론트와 함께 결정한다. 알려진 결함
    (야추 타입 결합 등)도 그대로 구현한다 — 서버가 조용히 조이면 프론트가 깨진다.
    계약을 바꾸는 변경은 [PLANS.md](PLANS.md)에 절을 만들어 근거를 남긴다.
-6. **Redis는 실시간, MySQL은 영속.** 방·세션·진행 중 게임 상태·점수판은 Redis,
-   계정·전적·주간 랭킹은 MySQL. 게임이 진행되는 동안 MySQL을 만지지 않는다 —
-   MySQL 기록은 게임 종료(전적 보관) 시점에만 일어난다.
-7. **동시성 있는 상태 전이는 Redis Lua로 원자적으로.** 정원·중복 참가·점수
-   확정·게임 종료 판정은 전부 Lua 스크립트 한 번으로 검증+갱신한다. 반환 코드가
-   곧 계약이다. 스크립트가 키 이름을 내부에서 조립하므로 **단일 Redis 노드
-   전제**다(클러스터 전환 시 별도 ADR).
+6. **저장소는 실시간, DB는 영속.** 방·세션·진행 중 게임 상태·점수판은 저장소(Redis
+   명령을 흉내 내는 `MemoryRedis`), 계정·전적·주간 랭킹은 DB(SQLite 파일 하나). 게임이
+   진행되는 동안 DB를 만지지 않는다 — DB 기록은 게임 종료(전적 보관) 시점에만 일어난다.
+   저장소는 정상 종료 때와 60초마다 스냅샷 파일(`data/store.json`)로 쓰고 기동 때 읽는다(`infra/storeSnapshot.ts`) — 재시작해도 방·세션·진행 중 게임이 이어지고,
+   비정상 종료면 마지막 스냅샷 이후(최대 한 주기)만 잃는다
+   ([ADR-0007](docs/adr/0007-botkeep-single-process.md)).
+7. **동시성 있는 상태 전이는 원자적 스크립트 한 번으로.** 정원·중복 참가·점수
+   확정·게임 종료 판정은 전부 스크립트 한 번으로 검증+갱신한다. 반환 코드가
+   곧 계약이다. 스크립트는 Redis 시절의 Lua를 한 줄씩 옮긴 **동기 JS 함수**이고
+   (`AtomicScript`, `infra/memoryRedis.ts`), 도중에 `await`가 없어 Node의 단일
+   스레드에서 다른 명령이 끼어들지 못한다 — 그것이 원자성의 근거다
+   ([ADR-0007](docs/adr/0007-botkeep-single-process.md)).
 8. **단일 인스턴스 전제.** WS 구독, 라운드 마감 **타이머 발화**, 방 폐쇄 예약,
    오프라인 카운터, 주간 랭킹 캐시는 프로세스 인메모리다. 수평 확장은 이
    범위 밖이다.
@@ -57,23 +62,24 @@ Mobile / Desktop Browser
         └── WS   /ws/v1/game  ── 인증·구독·브로드캐스트·게임 진행·텍스트 채팅
                   │
                   ▼
-          Node.js Backend (이 저장소)   ←  GET /actuator/health · /actuator/prometheus
-             │           │
-             ▼           ▼
-           Redis       MySQL
-   방·세션·게임 상태·점수판   계정·소셜 연동·전적·주간 랭킹
+          Node.js 프로세스 하나 (이 저장소)   ←  GET /actuator/health · /actuator/prometheus
+             │                  │
+             ▼                  ▼
+     MemoryRedis (프로세스 안)   SQLite 파일 (data/yorr.db)
+   방·세션·게임 상태·점수판      계정·소셜 연동·전적·주간 랭킹
 ```
 
 - WebSocket 연결(소켓↔방 구독)은 프로세스 인메모리로만 관리한다. 멤버십·점수·
-  phase 등 진짜 상태는 Redis가 가진다. 서버 재시작 시 소켓은 끊기지만 방 상태는
+  phase 등 진짜 상태는 저장소(`MemoryRedis`)가 가진다. 저장소는 프로세스 안에 있지만
+  스냅샷으로 재시작을 넘어 남는다(ADR-0007). 서버 재시작 시 소켓은 끊기지만 방 상태는
   살아 있고, 클라이언트는 재접속 절차로 복귀한다.
-- **라운드 마감 시각도 Redis에 있다.** 부팅 시 진행 중이던 방을 그 마감으로 되살리고
+- **라운드 마감 시각도 저장소에 있다.** 부팅 시 스냅샷을 들인 뒤 진행 중이던 방을 그 마감으로 되살리고
   (`game/startupResume.ts`), 되살릴 수 없는 방만 닫는다. 예전에는 마감이 프로세스
   인메모리 Map에만 있어 `PLAYING` 방을 **전부** 닫는 것이 유일한 방어였고
   (`StaleRoomCleaner`), 같은 이유로 재시작 후 진행 중이던 야추 방에 재접속하면
   스냅샷 생성이 `DEADLINE_NOT_FOUND`로 반드시 실패했다. 마감 시각이 처음부터 절대
   벽시계 epoch ms였으므로 영속화에 의미 변화가 없었다
-  ([PLAN.md](../deploy/PLAN.md) PR 6).
+  (OCI 배포 시절 계획 PR 6).
   - 좌석 레지스트리는 여전히 프로세스 인메모리다. 그래서 재시작 뒤의 첫 `room.join`은
     **방 명단(Redis)** 을 근거로 자기 자리를 되찾는다 — 레지스트리만 보면 자기 방인데도
     새 참가로 보여 `GAME_ALREADY_STARTED`로 거절된다.
@@ -94,7 +100,7 @@ Mobile / Desktop Browser
 | 인증·계정 | [docs/design/auth.md](docs/design/auth.md) | 세션 모델, 소셜 로그인(OAuth), 프로필 |
 | 텍스트 채팅 | [docs/design/chat.md](docs/design/chat.md) | chat.send 중계, 거절 코드 분기, 도배 한도 |
 | 컨트롤러 링크 시그널링 | [docs/design/controller-signal.md](docs/design/controller-signal.md) | `ctrl.signal` 유니캐스트 릴레이, 대시보드가 닿는 이유, TURN 미배포 |
-| 영속성 | [docs/design/persistence.md](docs/design/persistence.md) | Redis/MySQL 분리, 스키마, 전적 보관, 주간 랭킹 |
+| 영속성 | [docs/design/persistence.md](docs/design/persistence.md) | 저장소/DB 분리, 스키마, 전적 보관, 주간 랭킹 |
 | 운영 | [docs/design/operations.md](docs/design/operations.md) | 환경변수, 모니터링, 배포 파이프라인 계약 |
 
 ## 코드 구조
@@ -112,7 +118,7 @@ Mobile / Desktop Browser
 | `user/` | 세션·게스트·프로필 |
 | `auth/` | 소셜 로그인(OAuth), 로그인 코드·state 스토어 |
 | `game/` | GameModule 인터페이스·레지스트리, 라운드 프레임워크, 점수 파이프라인, `game/yacht/` 등 게임별 모듈 |
-| `infra/` | Redis·MySQL 클라이언트 팩토리, Lua 스크립트 등록·호출 체계. 도메인 로직 금지 |
+| `infra/` | 인프로세스 저장소(`memoryRedis.ts` — Redis 명령 + 원자적 스크립트)와 DB 어댑터. 도메인 로직 금지 |
 | `errors.ts` | 도메인 오류의 공통 뿌리 `DomainError` — 메시지 자리에 **문자열 오류 코드**가 들어간다 |
 | `main.ts` / `server.ts` | 부팅·조립. 조립 순서 외의 로직 금지 |
 
@@ -141,12 +147,8 @@ Mobile / Desktop Browser
 
 ## 운영 계약 (변경 시 배포 파이프라인과 함께)
 
-- 헬스체크: `GET /actuator/health` → `{"status":"UP"}`.
-  ⚠️ **지금 이 응답은 상수다**(`http/routes/health.ts:26`) — Redis와 MySQL이 죽어도
-  `UP`이다. 즉 liveness에 가깝고 readiness가 아니며, 이미지의 `HEALTHCHECK`와 외부
-  uptime 체크가 같은 한계를 물려받는다. Redis `PING` + MySQL `SELECT 1` + 5초 캐시로
-  바꾸는 것이 [`deploy/PLAN.md`](../deploy/PLAN.md) PR 1이고, 경로와 응답 모양은
-  그대로 유지한다(실패 시 503).
+- 헬스체크: `GET /actuator/health` → `{"status":"UP"}`, 실패 시 503 `{"status":"DOWN"}`.
+  저장소 `PING` + DB `SELECT 1` + 5초 캐시로 판정한다(`monitoring/readiness.ts`).
 - 메트릭: `GET /actuator/prometheus` — `yorr_rooms_active`,
   `yorr_game_participants_active{game=...}` ([operations.md](docs/design/operations.md))
 - REST base: `/api/v1`, WebSocket: `/ws/v1/game`, 기본 포트 8080

@@ -110,7 +110,7 @@ shooterId·hitId·koId·foulId는 애노테이션 없는 중첩 레코드라 **`
 ## 저장·스케줄링
 
 - `RedisDuelStateStore`: 야추 스토어와 동일 패턴(SETNX init
-  `duel_already_initialized`, 5초 락 + 토큰 비교 해제 Lua, 방 TTL 복사) +
+  `duel_already_initialized`, 5초 락 + 토큰 비교 해제 스크립트, 방 TTL 복사) +
   **version이 안 오른 변이는 버린다**(no-op 규칙 함수 = 무브로드캐스트).
   같은 값 비교가 아니라 `<=`로 좁혔다 — 오래된 스냅샷이 새 판정을 덮는
   경로를 구조적으로 막는다.

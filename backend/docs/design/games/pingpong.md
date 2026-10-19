@@ -84,7 +84,7 @@ lastEvent{id(=version), type, playerId, at}
 | 3 | `room.player_left` 방송 | `room.player_left` 방송 |
 | 4 | `scheduler.cancelRoom` | forfeit 변이 → `scheduler.cancelRoom` |
 | 5 | `states.remove` | 최종 점수 기록(roster 잔존자만) |
-| 6 | **`rooms.cancelActiveGame`**(CANCEL_ACTIVE_GAME Lua) | `finishIfComplete(force=true)` |
+| 6 | **`rooms.cancelActiveGame`**(CANCEL_ACTIVE_GAME 스크립트) | `finishIfComplete(force=true)` |
 | 7 | `markPhase('waiting')` | `game.ping_pong.state` 방송 |
 | 8 | `game.ping_pong.state.sync` 방송 | `game.ping_pong.state.sync` 방송 |
 
@@ -104,7 +104,7 @@ duel과 동일 패턴: `RedisPingPongStateStore` SETNX init
 규칙이 특히 중요하다([game-modules.md](../game-modules.md)의 레이스 회귀).
 
 - 락은 `SET NX PX 5000` + 10ms 스핀(2초 상한, 초과 시 `game_state_busy`)이고
-  해제는 **내 토큰일 때만** 지우는 Lua(`PING_PONG_STATE_SCRIPTS`)다. Node가 단일
+  해제는 **내 토큰일 때만** 지우는 원자적 스크립트(`UNLOCK`)다. Node가 단일
   스레드라도 `await` 사이에 같은 방의 다른 스윙·마감이 끼어들 수 있어 "읽기 →
   변이 → 쓰기"를 직렬화해야 같은 공을 두 번 리턴하지 않는다.
 - 스케줄러의 두 번째 인자는 라운드 번호가 아니라 **version**이다(1부터 증가하므로
@@ -124,7 +124,7 @@ duel과 동일 패턴: `RedisPingPongStateStore` SETNX init
 | `pingPongState.ts` | 상태·공·이벤트 타입(와이어 모양 그대로) |
 | `pingPongRules.ts` | **순수 함수만** — 궤적·판정 창·`judgedAt`·서브 로테이션·득점·몰수 |
 | `pingPongPorts.ts` | 바깥 계층(브로드캐스터·레지스트리·스케줄러·스냅샷·종료·방·점수 기록)의 좁은 포트 + 상태 저장소 포트 |
-| `pingPongStateStore.ts` | Redis 어댑터(SETNX·방 락·TTL 복사·unlock Lua) |
+| `pingPongStateStore.ts` | Redis 어댑터(SETNX·방 락·TTL 복사·unlock 스크립트) |
 | `pingPongScoreWriter.ts` | 종료 시 `room:{code}:scores` 기록(roster 필터) |
 | `pingPongGameService.ts` | 진행 순서의 권위(방송·스냅샷 동봉·취소 시퀀스) |
 | `pingPongGameModule.ts` | `GameModule` 구현 — 라우팅(`swing`·`ready`)·멤버십 검증·오류 응답 |
@@ -215,11 +215,11 @@ roomCode: "LOCAL_AI"})`. `resultId`는 **클라이언트가 만드는 UUID**이�
 
 ### 이식한 테스트
 
-| 파일 | 덮는 것 | MySQL |
+| 파일 | 덮는 것 | DB |
 |---|---|---|
 | `game/pingpong/__tests__/aiResultService.test.ts` | 점수 재검증·보관 인자·순위·UUID 정규화·본문 바인딩 | 불필요 |
-| `http/routes/__tests__/pingPongAi.test.ts` | REST 계약·오류 표면·파서 캡슐화(세션은 진짜 Redis) | 불필요 |
-| `game/pingpong/__tests__/aiResultArchive.test.ts` | `game_id` UNIQUE로 중복 보고 차단 · 게스트 행의 `user_id` NULL | **필요**(`MYSQL_TEST_URL` 없으면 skip) |
+| `http/routes/__tests__/pingPongAi.test.ts` | REST 계약·오류 표면·파서 캡슐화(세션은 운영과 같은 저장소) | 불필요 |
+| `game/pingpong/__tests__/aiResultArchive.test.ts` | `game_id` UNIQUE로 중복 보고 차단 · 게스트 행의 `user_id` NULL | 인메모리 SQLite(항상 돈다) |
 
 ## 이식할 대표 테스트
 
@@ -238,7 +238,7 @@ inputSeq 무시 / 실점 시 상대 득점·서브 유지(2점 규칙) / 서브 
 | `__tests__/pingPongGameService.test.ts` | 취소 순서 + 시작/몰수/서브 마감/스테일 예약/판정 시각 |
 | `__tests__/pingPongGameModule.test.ts` | 라우팅·멤버십 검증·오류 매핑 |
 | `__tests__/pingPongPorts.contract.test.ts` | 좁은 포트 ↔ 실제 구현 대입 가능성 |
-| `__tests__/redisPingPongStateStore.test.ts` | 진짜 Redis: SETNX·TTL 복사·version 비증가 무시·동시 변이·NON_NULL |
+| `__tests__/redisPingPongStateStore.test.ts` | 운영과 같은 저장소: SETNX·TTL 복사·version 비증가 무시·동시 변이·NON_NULL |
 
 **시간 판정 테스트는 실시간 sleep을 쓰지 않는다.** 규칙은 시각을 인자로 받고,
 서비스는 `now` 시임을 받고, 마감 예약은 `DeadlineExecutor`를 테스트가 직접

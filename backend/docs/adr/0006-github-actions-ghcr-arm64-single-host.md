@@ -1,6 +1,6 @@
 # ADR-0006: 배포는 GitHub Actions → GHCR → OCI ARM64 단일 호스트로 옮긴다
 
-- 상태: accepted
+- 상태: superseded by [ADR-0007](0007-botkeep-single-process.md) (2026-10-18) — 아래는 당시 결정의 기록이다
 - 날짜: 2026-08-14
 
 ## 맥락

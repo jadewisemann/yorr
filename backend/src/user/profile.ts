@@ -1,6 +1,6 @@
-import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
 import type { MemberUser } from '../auth/socialProfile.js'
 import { DomainError } from '../errors.js'
+import type { Pool, PoolConnection, RowDataPacket } from '../infra/sqlite.js'
 import { normalizeNickname } from './session.js'
 
 /**
@@ -56,13 +56,12 @@ const toMember = (row: UserRow): MemberUser => ({
 })
 
 /**
- * MySQL 구현. 스키마는 Flyway V1(`users`)이고 전환기에는 바꾸지 않는다
- * (persistence.md 「전환기 스키마 동결」).
+ * SQLite 구현. 스키마(`users`)는 `infra/sqlite.ts`의 `SQLITE_SCHEMA`다(persistence.md 「DB 스키마」).
  */
-export class MysqlUserProfileStore implements UserProfileRepository {
+export class SqliteUserProfileStore implements UserProfileRepository {
   constructor(
     private readonly pool: Pool,
-    /** 시각 주입 — 테스트가 시간을 고정한다. 풀의 `timezone: 'Z'`가 UTC로 적는다. */
+    /** 시각 주입 — 테스트가 시간을 고정한다. 어댑터가 Date를 ISO 8601 UTC 문자열로 적는다(infra/sqlite.ts). */
     private readonly now: () => Date = () => new Date(),
   ) {}
 

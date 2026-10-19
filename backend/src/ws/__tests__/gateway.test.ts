@@ -22,7 +22,10 @@ describeRedis('WebSocket 게이트웨이', () => {
 
   const start = async (): Promise<string> => {
     // 포트 0 = 빈 포트 자동 할당. 스킴은 양수만 받으므로(운영 계약) 여기서만 덮어쓴다.
-    const env = { ...loadEnv({ CORS_ALLOWED_ORIGINS: 'https://yorr.site' }), SERVER_PORT: 0 }
+    const env = {
+      ...loadEnv({ CORS_ALLOWED_ORIGINS: 'https://yorr.site', SQLITE_PATH: ':memory:' }),
+      SERVER_PORT: 0,
+    }
     server = await createServer(env, { redis: redis(), logger: false })
     await server.listen()
     const { port } = server.app.server.address() as AddressInfo

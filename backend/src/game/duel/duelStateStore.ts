@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import type { Redis } from 'ioredis'
 import { ConflictError } from '../../errors.js'
-import { type LuaScript, registerLuaScripts, runLua } from '../../infra/lua.js'
+import { type Redis, UNLOCK_IF_OWNER } from '../../infra/memoryRedis.js'
 import { gameStateKey, roomKey } from '../../room/keys.js'
 import { DUEL_CODE } from './duelCode.js'
 import type { DuelState } from './duelState.js'
@@ -39,20 +38,6 @@ const LOCK_TTL_MILLIS = 5_000
 const LOCK_WAIT_MILLIS = 2_000
 const LOCK_RETRY_MILLIS = 10
 
-/** 내가 잡은 락만 푼다 — TTL로 이미 넘어간 락을 남이 잡았을 때 그것까지 풀지 않게. */
-const DUEL_UNLOCK: LuaScript = {
-  name: 'duelUnlock',
-  numberOfKeys: 1,
-  lua: `
-if redis.call('GET', KEYS[1]) == ARGV[1] then
-    return redis.call('DEL', KEYS[1])
-end
-return 0
-`,
-}
-
-export const DUEL_SCRIPTS: readonly LuaScript[] = [DUEL_UNLOCK]
-
 const stateKey = (roomId: string): string => {
   if (roomId.trim().length === 0) throw new Error('roomId must not be blank')
   return gameStateKey(roomId, DUEL_CODE)
@@ -68,7 +53,6 @@ export class RedisDuelStateStore implements DuelStateStore {
 
   constructor(redis: Redis) {
     this.redis = redis
-    registerLuaScripts(redis, DUEL_SCRIPTS)
   }
 
   async initialize(roomId: string, state: DuelState): Promise<void> {
@@ -125,7 +109,7 @@ export class RedisDuelStateStore implements DuelStateStore {
     try {
       return await action()
     } finally {
-      await runLua(this.redis, DUEL_UNLOCK, [lockKey], [token]).catch(() => 0)
+      await this.redis.runAtomic(UNLOCK_IF_OWNER, [lockKey], [token]).catch(() => 0)
     }
   }
 }

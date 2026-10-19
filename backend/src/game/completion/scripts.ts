@@ -1,7 +1,7 @@
-import type { LuaScript } from '../../infra/lua.js'
+import type { AtomicScript } from '../../infra/memoryRedis.js'
 
 /**
- * 게임 종료 전이 Lua. 판정과 전이가 한 연산이어야 `game.over`가 정확히 한 번
+ * 게임 종료 전이 스크립트(Lua 원문을 옮긴 것). 판정과 전이가 한 연산이어야 `game.over`가 정확히 한 번
  * 나간다(docs/design/game-modules.md 「게임 종료」).
  *
  * KEYS
@@ -29,34 +29,30 @@ import type { LuaScript } from '../../infra/lua.js'
  * - `force='1'`은 라운드 상한 도달(타임아웃으로 빈 칸이 남아도 끝내는 안전망)과
  *   duel·pingpong(자체 종료 판정)이 쓴다.
  */
-export const FINISH_IF_COMPLETE: LuaScript = {
+export const FINISH_IF_COMPLETE: AtomicScript = {
   name: 'yorrGameFinishIfComplete',
-  numberOfKeys: 2,
-  lua: `
-if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
-if redis.call('HGET', KEYS[1], 'phase') ~= 'PLAYING' then return 0 end
-if redis.call('HGET', KEYS[1], 'gameId') ~= ARGV[1] then return 0 end
+  keys: 2,
+  args: 3,
+  run(r, [room, players], [gameId, force, requiredCategories]) {
+    if (r.exists(room) === 0) return 0
+    if (r.hget(room, 'phase') !== 'PLAYING') return 0
+    if (r.hget(room, 'gameId') !== gameId) return 0
 
-if ARGV[2] ~= '1' then
-    local players = redis.call('HKEYS', KEYS[2])
-    if #players == 0 then return 0 end
-    for i = 1, #players do
-        local fields = redis.call('HKEYS', 'game:' .. ARGV[1] .. ':scoreboard:' .. players[i])
-        local recorded = 0
-        for j = 1, #fields do
-            if string.sub(fields[j], 1, 1) ~= '_' then recorded = recorded + 1 end
-        end
-        if recorded < tonumber(ARGV[3]) then return 0 end
-    end
-end
+    if (force !== '1') {
+      const playerIds = r.hkeys(players)
+      if (playerIds.length === 0) return 0
+      for (const playerId of playerIds) {
+        const recorded = r
+          .hkeys(`game:${gameId}:scoreboard:${playerId}`)
+          .filter((field) => !field.startsWith('_')).length
+        if (recorded < Number(requiredCategories)) return 0
+      }
+    }
 
-redis.call('HSET', KEYS[1], 'phase', 'FINISHED')
-return 1
-`,
+    r.hset(room, 'phase', 'FINISHED')
+    return 1
+  },
 }
-
-/** 이 하위 시스템이 등록하는 스크립트 전부. */
-export const COMPLETION_SCRIPTS: readonly LuaScript[] = [FINISH_IF_COMPLETE]
 
 /** 반환 코드 상수 — 숫자 리터럴로 비교하지 않는다. */
 export const FINISH_IF_COMPLETE_CODE = {

@@ -46,3 +46,10 @@ WebSocket은 Fastify 플러그인(`@fastify/websocket`) 대신 `ws`를 HTTP 서�
 - Lua 스크립트는 `ioredis`의 `defineCommand`로 이식한다 — 원자성 시맨틱 유지가
   계약이다(PLANS.md 리스크 참고).
 - `tsx`는 개발 전용이다. 프로덕션은 반드시 `npm run build` 산출물(`dist/`)을 실행한다.
+
+## 갱신 (2026-10-18) — ioredis·mysql2를 지웠다
+
+[ADR-0007](0007-botkeep-single-process.md)이 Redis와 MySQL을 프로세스 안으로 넣으면서 이 표의 두
+줄이 바뀌었다. Redis 자리는 `infra/memoryRedis.ts`(Redis 명령 모양의 인메모리 저장소 + 동기 JS
+원자적 스크립트), MySQL 자리는 Node 내장 `node:sqlite`다. 런타임 의존성은 fastify·
+@fastify/cors·ws·zod 넷이다. Node 22 + Fastify + ws의 결정은 그대로다.

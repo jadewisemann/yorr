@@ -1,0 +1,188 @@
+# Botkeep 배포물 — deploy/botkeep/README.md
+#
+# Botkeep에는 Docker가 없다. GitHub 브랜치를 가져와 시작 명령을 실행할 뿐이다. 그래서
+# 출하물은 이미지가 아니라 **파일 두 개**(`yorr.mjs` 번들 + `package.json`)이고, 그것을
+# `botkeep` 브랜치에 커밋한다. 패널의 GitHub 탭에서 그 브랜치를 당기면 배포가 끝난다.
+#
+# backend.yml의 "test what you fly"를 그대로 따른다: 소스가 아니라 **번들을** 띄우고
+# 블랙박스 스위트를 그 위에 돌린다. 여기서 떨어진 번들은 `botkeep` 브랜치에 닿지 않는다.
+
+name: botkeep
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - backend/**
+      - deploy/botkeep/**
+      - .github/workflows/botkeep.yml
+  push:
+    branches: [main]
+    paths:
+      - backend/**
+      - deploy/botkeep/**
+      - .github/workflows/botkeep.yml
+  workflow_dispatch: {}
+
+concurrency:
+  group: botkeep-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    name: 번들 리허설
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          # 번들의 engines 하한(>=22.13)과 같은 줄을 시험한다 — node:sqlite가 플래그 없이 도는 최소선.
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # 단위·통합 테스트는 backend.yml이 돈다. 여기서는 출하물만 본다.
+      - run: npm ci
+      - run: npm run build:botkeep
+
+      # Botkeep 패널에 넣을 시작 명령과 **같은 명령**으로 띄운다(npm을 거치지 않는다 — README).
+      - name: 번들 기동
+        working-directory: deploy/botkeep/out
+        run: |
+          start=$(node -p "require('./package.json').scripts.start")
+          SERVER_PORT=18080 nohup $start > ../server.log 2>&1 &
+          echo $! > ../server.pid
+          for _ in $(seq 1 30); do
+            curl -fsS localhost:18080/actuator/health && exit 0
+            sleep 1
+          done
+          cat ../server.log
+          exit 1
+
+      - name: 블랙박스 스위트 (번들 대상)
+        env:
+          E2E_BASE_URL: http://localhost:18080
+        run: npm run test:e2e
+
+      # 재시작 단계보다 **먼저** 잰다 — 그 뒤의 프로세스는 스위트를 겪지 않은 새 프로세스다.
+      - name: 메모리 보고
+        if: always()
+        run: |
+          pid=$(cat ../deploy/botkeep/server.pid 2>/dev/null) || exit 0
+          rss=$(awk '/VmRSS/ {print int($2/1024)}' "/proc/$pid/status")
+          hwm=$(awk '/VmHWM/ {print int($2/1024)}' "/proc/$pid/status")
+          size=$(du -k ../deploy/botkeep/out/yorr.mjs | cut -f1)
+          {
+            echo "## Botkeep 번들"
+            echo
+            echo "| 항목 | 값 |"
+            echo "|---|---|"
+            echo "| 번들 크기 | ${size} KB |"
+            echo "| RSS (스위트 직후) | ${rss} MB |"
+            echo "| RSS 최고치 | ${hwm} MB |"
+            echo "| 플랜 한도 | 512 MB |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # 재시작해도 방이 남는가 — SIGTERM에 스냅샷을 쓰고(main.ts) 다시 뜰 때 읽는다.
+      # 패널의 재시작·재배포가 진행 중인 방과 게스트 세션을 지우지 않는다는 계약이다.
+      - name: 재시작 뒤 방 유지 (저장소 스냅샷)
+        working-directory: deploy/botkeep/out
+        run: |
+          set -euo pipefail
+          start=$(node -p "require('./package.json').scripts.start")
+          # SIGTERM 뒤 10초 안에 내려가야 한다. 안 내려가면 그것이 원인이므로 timeout 취소로 숨기지 않는다.
+          stop() {
+            kill -TERM "$(cat ../server.pid)"
+            for _ in $(seq 1 50); do kill -0 "$(cat ../server.pid)" 2>/dev/null || return 0; sleep 0.2; done
+            echo "::error::SIGTERM 뒤 10초 안에 종료되지 않았다"
+            return 1
+          }
+          stop
+          boot() {
+            SERVER_PORT=18080 nohup $start >> ../server.log 2>&1 &
+            echo $! > ../server.pid
+            for _ in $(seq 1 30); do curl -fsS localhost:18080/actuator/health >/dev/null 2>&1 && return 0; sleep 1; done
+            return 1
+          }
+          boot
+          room=$(curl -fsS -X POST "localhost:18080/api/v1/rooms?game_code=YACHT_DICE" \
+            -H 'content-type: application/json' -d '{"nickname":"restart"}' |
+            node -p 'JSON.parse(require("fs").readFileSync(0)).room_id')
+          stop
+          test -s data/store.json
+          boot
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "localhost:18080/api/v1/rooms?game_code=YACHT_DICE" \
+            -H 'content-type: application/json' -d "{\"nickname\":\"guest\",\"room_id\":\"$room\"}")
+          echo "재시작 뒤 방 $room 참가: $code"
+          test "$code" = 200
+
+      - name: 서버 로그 (실패 시)
+        if: failure()
+        run: cat ../deploy/botkeep/server.log || true
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: botkeep
+          path: |
+            deploy/botkeep/out/yorr.mjs
+            deploy/botkeep/out/package.json
+          retention-days: 7
+
+  # main에서만, 리허설을 통과한 번들을 `botkeep` 브랜치에 커밋한다. 소스는 들어가지 않는다.
+  # force push 하지 않는다 — 브랜치 이력이 곧 배포 이력이고, 패널에서 이전 커밋을 고르면 롤백이다.
+  publish:
+    name: botkeep 브랜치 갱신
+    needs: [bundle]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # 멈춘 push가 6시간(기본값) 동안 러너와 concurrency 그룹을 잡지 않게 한다.
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: botkeep
+          path: ${{ runner.temp }}/botkeep
+
+      - name: 커밋
+        env:
+          OUT: ${{ runner.temp }}/botkeep
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin botkeep >/dev/null; then
+            git switch botkeep
+          else
+            git switch --orphan botkeep
+          fi
+          # 번들만 남긴다. 런타임이 만드는 data/(SQLite)는 Botkeep 쪽에만 있고 여기엔 없다.
+          git rm -rq --ignore-unmatch . >/dev/null
+          cp "$OUT/yorr.mjs" "$OUT/package.json" .
+          printf 'data/\nnode_modules/\n' > .gitignore
+          git add yorr.mjs package.json .gitignore
+          if git diff --cached --quiet; then
+            echo "번들이 바뀌지 않았다 — 커밋하지 않는다."
+            exit 0
+          fi
+          git commit -q -m "chore: botkeep 번들 ${GITHUB_SHA::7}"
+          git push origin botkeep
+          {
+            echo "## botkeep 브랜치 갱신 — \`${GITHUB_SHA::7}\`"
+            echo
+            echo "Botkeep 패널 → GitHub 탭에서 \`botkeep\` 브랜치를 당긴 뒤 재시작한다."
+          } >> "$GITHUB_STEP_SUMMARY"

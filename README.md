@@ -44,10 +44,10 @@ YORR는 별도 앱 설치 없이 모바일 브라우저에서 즐기는 멀티�
 | Frontend | React 19, TypeScript, Vite, TanStack Router, Zustand |
 | UI · 그래픽 | Tailwind CSS 4, Motion, Three.js, Rapier |
 | Backend | Node.js 22, TypeScript, Fastify, ws |
-| Data | MySQL 8, Redis 7 |
+| Data | SQLite(Node 내장 `node:sqlite`), 프로세스 안의 Redis 호환 저장소 |
 | Realtime | WebSocket, WebRTC |
 | Test | Vitest, Testing Library, Playwright, MSW |
-| Infra | Docker Compose, GitHub Actions, Vercel, Prometheus |
+| Infra | Botkeep(백엔드), Vercel(프론트), GitHub Actions |
 
 ## 시스템 아키텍처
 
@@ -58,11 +58,11 @@ Mobile / Desktop Browser
         ├── WebSocket ──────────────┤
         └── WebRTC DataChannel      │
              휴대폰 ↔ 큰 화면        ▼
-             (파티 모드)   Node 백엔드
+             (파티 모드)   Node 백엔드 (프로세스 하나)
                              │              │
                              ▼              ▼
-                          MySQL           Redis
-                      계정·전적·랭킹   방·세션·게임 상태
+                     SQLite 파일      인메모리 저장소
+                    계정·전적·랭킹   방·세션·게임 상태
 ```
 
 서버가 방과 게임 상태의 최종 권위자이며, 클라이언트는 WebSocket 이벤트와 재접속
@@ -85,11 +85,10 @@ Mobile / Desktop Browser
 │   └── DESIGN.md          # 프론트엔드 설계 정본(source of truth)
 ├── backend/               # Node.js + TypeScript API 및 실시간 게임 서버
 │   ├── src/               # 애플리케이션 코드
-│   ├── db/                # DB 마이그레이션
 │   ├── docs/              # 설계 문서(design) · 의사결정 기록(adr)
 │   ├── DESIGN.md          # 시스템 설계 정본(source of truth)
 │   └── PLANS.md           # 마이그레이션 단계·상태 표
-├── deploy/                # 운영용 Docker Compose·Caddy 설정
+├── deploy/botkeep/        # Botkeep 배포 안내 (번들은 CI가 botkeep 브랜치에 올린다)
 └── AGENTS.md              # 에이전트 작업·Git 협업 규칙
 ```
 
@@ -97,14 +96,13 @@ Mobile / Desktop Browser
 
 ### 준비 사항
 
-- Node.js 22.12 이상과 npm
-- Docker 및 Docker Compose
+- Node.js 22.13 이상과 npm (백엔드의 DB가 Node 내장 SQLite다)
 
 ### 1. 백엔드 실행
 
 ```bash
 cd backend
-cp .env.example .env   # 필요한 값만 채우면 됩니다 — 백본은 Redis·MySQL 없이도 뜹니다
+cp .env.example .env   # 필요한 값만 채우면 됩니다 — 외부 Redis·DB 없이 혼자 뜹니다
 npm ci
 npm run dev
 ```
@@ -160,8 +158,7 @@ npm run test:e2e     # 블랙박스 프로토콜 테스트 (퍼저·장애 주�
 npm run build        # 프로덕션 빌드
 ```
 
-테스트 전략은 [TESTING.md](TESTING.md)에 있습니다. Redis 통합 테스트는 `redis-server` 바이너리가 있어야 실행되며, 없으면 해당
-스위트만 건너뜁니다.
+테스트 전략은 [TESTING.md](TESTING.md)에 있습니다. 저장소와 DB가 프로세스 안에 있어 통합 테스트도 별도 준비 없이 전부 돕니다.
 
 ## 문서
 

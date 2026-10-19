@@ -7,7 +7,7 @@
  * ## 왜 존을 코드에 고정하는가
  * 인프라의 `TZ` 환경변수에 맡기면 개발 컨테이너(Asia/Seoul)와 운영(UTC)이
  * 서로 다른 주를 세게 된다 —
- * `infra/mysql.ts`가 `timezone: 'Z'`로 막아 둔 것과 **같은 종류의 스큐**다.
+ * `infra/sqlite.ts`가 시각을 UTC ISO 문자열로만 적는 이유와 **같은 종류의 스큐**다.
  *
  * ## 왜 시간대 DB(`Intl`) 대신 +9 고정인가
  * 이 계산에 들어오는 시각은 "지금"과 "지금 + 7일"뿐이다. 대한민국은 현재
@@ -46,8 +46,8 @@ export interface WeekBoundary {
  * `at`이 속한 주의 경계. 월요일 당일이면 그 날 00:00 자신이 시작이고,
  * 00:00 정각은 **새 주에 속한다**(반개구간 `[from, to)`).
  *
- * 돌려주는 `from`·`to`는 순간(`Date`)이다. 풀이 `timezone: 'Z'`이므로 그대로
- * `finished_at DATETIME(6)`(UTC 벽시계)과 비교된다.
+ * 돌려주는 `from`·`to`는 순간(`Date`)이다. DB 어댑터가 ISO 8601 UTC 문자열로 적으므로 그대로
+ * `finished_at`(같은 형식)과 비교된다.
  */
 export const weekBoundaryOf = (at: Date): WeekBoundary => {
   // KST 벽시계를 UTC 게터로 읽기 위해 오프셋만큼 옮긴 값. 이 시각의 `getUTC*`가

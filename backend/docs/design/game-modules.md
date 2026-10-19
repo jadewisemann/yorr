@@ -25,7 +25,7 @@
 세 값을 직접 들고 있지만(기본 1 / 6 / true), 우리는 `game/catalog.ts`의
 `GAME_CATALOG`가 유일한 출처이고 레지스트리가 그 표를 흡수해
 `registry.require(code)`로 돌려준다 — 모듈이 다시 선언하면 방 생성 정원(REST)과
-시작 인원(Lua ARGV)이 두 곳으로 갈라진다. 게임 슬라이스는 카탈로그 행만 채운다.
+시작 인원(스크립트 ARGV)이 두 곳으로 갈라진다. 게임 슬라이스는 카탈로그 행만 채운다.
 
 `RoomGameHooks`(WS 코어가 쓰는 부분집합)는 이 인터페이스의 `Pick`이라 모듈이
 그대로 들어간다.
@@ -53,13 +53,13 @@
 
 ### GameLifecycleService
 
-- `start(roomCode)`: 스냅샷 → 게임 결정(카탈로그 metadata + 모듈) → **Lua START**
+- `start(roomCode)`: 스냅샷 → 게임 결정(카탈로그 metadata + 모듈) → **스크립트 START**
   (phase/gameId 전이, minPlayers 검증) → `module.start`. 모듈이 던지면
   **ROLLBACK_START(gameId)** 후 재throw — 자기 게임만 되돌린다.
 - 모듈이 없는 게임은 START까지만 하고 그대로 성공한다(되돌릴 상태가 없다).
 - 배선: 생성자의 세 번째 인자가 레지스트리이며 **WS 게이트웨이와 같은 인스턴스**를
   넘겨야 한다. 기본값은 빈 레지스트리(= 모듈 훅 없음)다.
-- `returnToLobby`: Lua RETURN_TO_LOBBY가 성공했을 때만 `module.reset`
+- `returnToLobby`: 스크립트 RETURN_TO_LOBBY가 성공했을 때만 `module.reset`
   (RETURN_TO_LOBBY는 **FINISHED에서만** 통과한다).
 - `removePlayer(roomCode, gameCode, playerId)`: REST 퇴장(`DELETE
   /rooms/{code}/players/me`)의 게임 중 경로. 게임 코드를 먼저 검증하고 모듈에 위임한다.
@@ -79,7 +79,7 @@
   activeDice와 완전 일치해야 함** — 불일치는 INVALID_DICE) · `expire`(무득점
   진행) · `withoutParticipant`(활성 플레이어는 직접 제거 불가 — 먼저 expire).
 - 마지막 참가자가 끝나면 `complete`: 라운드 < totalRounds면 다음 라운드,
-  아니면 `finished=true`(라운드 캡 안전망 — 진짜 종료 권위는 Redis Lua).
+  아니면 `finished=true`(라운드 캡 안전망 — 진짜 종료 권위는 원자적 스크립트).
 - 검증 순서 계약: `GAME_ALREADY_FINISHED` → `ROUND_MISMATCH` →
   `PLAYER_NOT_IN_ROUND` → `NOT_ACTIVE_PLAYER`.
 - WS 오류 매핑: PLAYER_NOT_IN_ROUND→`NOT_IN_ROOM`, NOT_ACTIVE_PLAYER·
@@ -116,8 +116,8 @@ recordRoll을 타므로 함께 막힌다) ③ 제출 기록은 이탈로 지워�
 - 완료된 게임은 스테일 턴으로 취급한다 — 취소 직전에 발화한 타이머가 끝난
   게임을 되살릴 수 없다.
 - **포트는 전부 async다.** 인메모리 맵 안에서 동기로
-  원자성을 얻지만 여기서는 `beforeStateChange`가 Redis Lua(점수 확정)라 동기일
-  수 없다. Node가 단일 스레드라도 콜백을 await하는 순간 같은 방의 다른 제출이
+  원자성을 얻지만 여기서는 `beforeStateChange`가 저장소의 원자적 스크립트(점수 확정)라
+  비동기 포트 뒤에 있다. Node가 단일 스레드라도 콜백을 await하는 순간 같은 방의 다른 제출이
   끼어들 수 있으므로, **인메모리 구현은 방 단위 프라미스 락으로 "검증 → 콜백 →
   커밋" 구간을 직렬화**한다(Redis 어댑터는 방 락이 같은 역할). 이 직렬화가
   "두 개의 마지막 제출이 라운드를 두 번 완료하지 못한다"는 포트 계약이다.
@@ -258,11 +258,11 @@ WS round.submit{roundNumber, dice, category}
              → 방 스냅샷에서 현재 gameId 조회(없으면 GAME_NOT_FOUND, 확정 시도 안 함)
              → 카테고리 파싱, 서버가 YachtScoreCalculator로 점수 재계산
                (클라이언트 점수는 와이어에 존재하지도 않는다)
-             → CONFIRM_SCORE Lua (아래) — 실패 시 throw → 라운드 상태 무변화
+             → CONFIRM_SCORE 스크립트 (아래) — 실패 시 throw → 라운드 상태 무변화
  → RoundTimerService.advanceTurn (score.update → round.end → 종료 판정/다음 턴)
 ```
 
-### CONFIRM_SCORE Lua
+### CONFIRM_SCORE 스크립트
 
 KEYS: game:{id} / room:{code} / :players / scoreboard:{p} / score-submissions:{p}
 / :scores. ARGV: roomCode, gameId, playerId, roundNumber, category, score,
@@ -316,7 +316,7 @@ KEYS: game:{id} / room:{code} / :players / scoreboard:{p} / score-submissions:{p
 | `scoreCategory.ts` | 12종 목록·상단 판정·족보 충족 판정 |
 | `yachtScoreCalculator.ts` | 점수·상단 소계·보너스 (순수 함수) |
 | `scoreBoard.ts` | 12키 정규화·동결, 빈 칸 열거 |
-| `scripts.ts` | **CONFIRM_SCORE Lua** + 반환 코드 상수 |
+| `scripts.ts` | **CONFIRM_SCORE 스크립트** + 반환 코드 상수 |
 | `scoreBoardStore.ts` · `scoreBoardMapper.ts` | 포트 + Redis 어댑터, 해시↔점수판 |
 | `scoreConfirmationService.ts` | 서버 재계산 + 시그니처 |
 | `scoreRoundSubmissionService.ts` | 라운드 제출과 점수 확정의 원자 결합 |
@@ -334,7 +334,7 @@ KEYS: game:{id} / room:{code} / :players / scoreboard:{p} / score-submissions:{p
 
 - `GameCompletionService.finishIfComplete(roomId, force)`:
   ① 방 스냅샷 조회 — 방이 없거나 `gameId`가 비면 저장소를 부르지도 않고 false
-  ② Lua **FINISH_IF_COMPLETE** CAS — 실패면 **아무 부수효과 없음**(이 CAS가
+  ② 스크립트 **FINISH_IF_COMPLETE** CAS — 실패면 **아무 부수효과 없음**(이 CAS가
   `game.over` 정확히 1회의 구조적 보장; 동시 8건 호출 테스트 있음)
   ③ 스케줄러 cancelRoom ④ 레지스트리 FINISHED ⑤ 랭킹 계산 ⑥ 전적
   보관(archive) — **실패해도 삼킨다**(종료를 막지 않음) ⑦ `game.<code>.game.over
@@ -343,7 +343,7 @@ KEYS: game:{id} / room:{code} / :players / scoreboard:{p} / score-submissions:{p
   - ③을 ②보다 먼저 하면 **진행 중인 게임의 타이머가 멈춘다** — 취소는 반드시
     전이가 성사된 뒤다. 네임스페이스는 방 스냅샷의 `gameCode`를 쓴다.
 
-### FINISH_IF_COMPLETE Lua
+### FINISH_IF_COMPLETE 스크립트
 
 KEYS: 1 `room:{roomCode}` · 2 `room:{roomCode}:players` /
 ARGV: 1 gameId · 2 force(`'1'`이면 완료 검사 생략) · 3 필요한 기록 칸 수(12)
@@ -357,7 +357,7 @@ ARGV: 1 gameId · 2 force(`'1'`이면 완료 검사 생략) · 3 필요한 기�
   같다. 사유를 나누면 "왜 안 끝났나"를 호출자가 해석하려 든다.
 - 완료는 **`_` 비접두 필드 12개 이상**으로 센다(점수판 집계 3필드가 `_` 접두인 것과
   짝이다). 점수판 키(`game:{gameId}:scoreboard:{playerId}`)는 참가자 수가 가변이라
-  스크립트 안에서 조립한다 — 단일 Redis 노드 전제.
+  스크립트 안에서 조립한다 — 저장소가 프로세스 하나에 있다는 전제.
 - force=true는 라운드 캡 도달(타임아웃 구멍이 있어도 종료)과 duel·pingpong(자체
   종료 판정)이 쓴다.
 - 랭킹: 총점 내림차순·playerId 오름차순, **동점 공동 순위 + 다음 순위 건너뜀**
@@ -368,7 +368,7 @@ ARGV: 1 gameId · 2 force(`'1'`이면 완료 검사 생략) · 3 필요한 기�
 
 | 파일 | 역할 |
 |---|---|
-| `scripts.ts` | **FINISH_IF_COMPLETE Lua** + 반환 코드 상수 |
+| `scripts.ts` | **FINISH_IF_COMPLETE 스크립트** + 반환 코드 상수 |
 | `completionStore.ts` | 포트 + Redis 어댑터(전이 CAS, 총점 읽기) |
 | `gameResultCalculator.ts` | `rankTotals`(방송용) · `calculateGameResult`(2.9 `/results`용: 승자·동점 표시) |
 | `completionPorts.ts` | 바깥 계층(브로드캐스터·레지스트리·방·스냅샷·스케줄러·전적)의 좁은 포트 + **전적 보관 no-op 스텁** |
@@ -451,7 +451,7 @@ POST /games/{gameId}/score-candidates  { dice:[5개] } → { candidates: {12키:
 | `../../http/routes/gameQueries.ts` | 이유 코드 → HTTP 상태·JSON 오류 봉투 |
 
 - 스토어는 `hget`·`hgetall` 둘만 쓰는 좁은 포트(`ReadOnlyRedis`)를 받는다.
-  ioredis `Redis`가 구조적으로 만족하고, 테스트는 진짜 Redis에 위임하면서
+  `MemoryRedis`가 구조적으로 만족하고, 테스트는 운영과 같은 저장소에 위임하면서
   읽기 사이에 실제 쓰기를 끼워 넣어 **재시도 경합을 모킹 없이 재현**한다.
 
 ## 불변식

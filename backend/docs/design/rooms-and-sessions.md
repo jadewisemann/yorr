@@ -104,19 +104,19 @@ phase가 **대문자**고, 키가 `roomCode`며, 플레이어에 `score`가 있�
 | `quick-match:user:{userId}` | HASH | status, gameCode, roomId | 대기 5분 / 매칭 후 40분 |
 | `quick-match:lock:{gameCode}` | STRING | 락 토큰 | 5초 |
 
-- 방 코드: 대문자+숫자 36진 6자, SecureRandom, CREATE Lua의 EXISTS 경합으로
+- 방 코드: 대문자+숫자 36진 6자, SecureRandom, CREATE 스크립트의 EXISTS 경합으로
   충돌 시 재시도.
 - 방 목록 열거는 `SCAN room:*`(KEYS 금지) 후 `:`가 붙은 자식 키를 걸러낸다.
 - 점수판은 미제출 카테고리 필드를 저장하지 않는다 — 값 `0`(기록하고 버림)과
   "아직 안 냄"(null)을 구분하기 위해서다. `_` 접두사는 메타 필드 규약이며 게임
-  종료 판정 Lua가 이 규약으로 기록 수를 센다.
+  종료 판정 스크립트가 이 규약으로 기록 수를 센다.
 
-## Lua 스크립트 (원자성 계약)
+## 원자적 스크립트 (원자성 계약)
 
-반환 코드가 곧 계약이다. 이식 시 **스크립트 텍스트와 반환 코드 의미를 그대로**
-옮기고 동시성 테스트를 함께 둔다. 전체 텍스트는
-`RoomCreateService`·`RoomValidationService`·`BotParticipantService`·
-`RedisScoreBoardStore`·`RedisGameCompletionStore` 참고. 요지:
+반환 코드가 곧 계약이다. 스크립트는 Redis 시절의 Lua를 **조건 순서와 반환 코드 의미를
+그대로** 옮긴 동기 JS 함수(`AtomicScript`)이고, 도중에 `await`가 없어 다른 명령이 끼어들지
+않는다([ADR-0007](../adr/0007-botkeep-single-process.md)). 본문은 `room/scripts.ts`·
+`game/score/scripts.ts`·`game/completion/scripts.ts`와 각 상태 저장소의 잠금 해제다. 요지:
 
 | 스크립트 | 검증 → 변경 | 반환 |
 |---|---|---|
@@ -134,7 +134,7 @@ phase가 **대문자**고, 키가 `roomCode`며, 플레이어에 `score`가 있�
 | 락 해제(공용) | GET==token이면 DEL | 만료 후 재획득된 락을 이전 주인이 못 푼다 |
 
 CLOSE·TOUCH·게임 종료 판정은 키 이름을 스크립트 안에서 문자열 조립한다 —
-**단일 Redis 노드 전제**(클러스터 이전 시 애플리케이션 레벨로 끌어올려야 함).
+저장소가 프로세스 하나에 있다는 전제다(나누어 두면 애플리케이션 레벨로 끌어올려야 함).
 
 ## Phase 상태기계
 
@@ -153,7 +153,7 @@ WS 계층은 LOBBY를 `waiting`으로 매핑해 내보낸다.
 
 - 대시보드(빅스크린)가 `party=true`로 방을 열고 QR을 띄우면 폰(컨트롤러)들이
   참가한다. 대시보드는 roster 밖·host 아님. **첫 컨트롤러가 host가 된다**
-  (JOIN Lua의 host 승계 조항).
+  (JOIN 스크립트의 host 승계 조항).
 - LEAVE는 PARTY 방을 members 0이 되어도 삭제하지 않는다(대시보드는 members에
   안 세니까). 파티 방의 소멸 경로는 대시보드 소켓 종료 후 유예 close 또는 TTL.
 - 사람이 다 나가 host가 빈 문자열이 되면 다음 참가자가 승계한다(봇은 승계
@@ -199,7 +199,7 @@ WS 계층은 LOBBY를 `waiting`으로 매핑해 내보낸다.
 |---|---|
 | `quick-match:queue:{gameCode}` | ZSET, score = enqueue ms. **오름차순 = 오래 기다린 순**이고 그 첫 항목이 host다. TTL 없음 — 매칭 시도마다 `ZREMRANGEBYSCORE 0 (now-5분)`으로 청소한다 |
 | `quick-match:user:{userId}` | 티켓 HASH(status·gameCode·roomId). 대기 5분 → 매칭 후 방과 같은 40분. **`UserService.clearRoom`이 이 키를 함께 지운다** — 방을 떠나면 티켓도 사라진다는 뜻이고, 이 규약 때문에 키 이름을 바꿀 수 없다 |
-| `quick-match:lock:{gameCode}` | `SET NX EX 5` 토큰. 해제는 **토큰 비교 후 삭제하는 Lua**(`yorrQuickMatchUnlock`) — 그냥 DEL하면 TTL로 이미 풀린 뒤 남이 잡은 락을 지운다. 락을 못 잡은 호출은 **조용히 돌아간다**(잡은 쪽이 내 큐 항목까지 함께 본다) |
+| `quick-match:lock:{gameCode}` | `SET NX EX 5` 토큰. 해제는 **토큰 비교 후 삭제하는 스크립트**(`yorrQuickMatchUnlock`) — 그냥 DEL하면 TTL로 이미 풀린 뒤 남이 잡은 락을 지운다. 락을 못 잡은 호출은 **조용히 돌아간다**(잡은 쪽이 내 큐 항목까지 함께 본다) |
 | `room:{code}:quick-match` | 자동 시작 마커 `"1"`, 방과 같은 40분 |
 
 - 매칭 순서가 계약이다: 만료 대기자 청소 → 최장 대기 N명 → 세션 확인(만료자
@@ -231,7 +231,7 @@ WS 계층은 LOBBY를 `waiting`으로 매핑해 내보낸다.
   (`clearRoom`). 정리 후에도 **gameCode는 실어 보낸다** — 프론트가 직전에 기다린
   게임으로 화면을 되돌린다.
 - 그래서 끝난 판의 티켓이 새 퀵매치를 막지 않는다(`enter`가 먼저 이 경로를 탄다).
-- 알려진 한계(코드에 명시): 매칭+방 생성이 한 Lua가 아니라 중간 크래시 시 방이
+- 알려진 한계(코드에 명시): 매칭+방 생성이 한 스크립트가 아니라 중간 크래시 시 방이
   고아가 될 수 있다. 락이 5초 TTL이라 큐 자체는 막히지 않는다.
 
 ## 봇 (roster 관점)
@@ -240,10 +240,10 @@ WS 계층은 LOBBY를 `waiting`으로 매핑해 내보낸다.
 - 봇은 roster·scores의 정규 행이라 정원과 START의 minPlayers를 채운다.
   `room:{code}:bots` 해시가 "이 행은 봇" 마커이자 제거 권한의 근거다.
 - LOBBY에서만, host만 추가/제거 가능. `supportsBots`가 false인 게임(DUEL,
-  PING_PONG)은 Lua 진입 전에 409 `bots_not_supported`. 이 값의 정본은 게임
+  PING_PONG)은 스크립트 진입 전에 409 `bots_not_supported`. 이 값의 정본은 게임
   메타데이터(`game/catalog.ts` → Phase 2.1에서 `GameModule`)이며 방 쪽에 복제하지 않는다.
 - host 판정은 방 조작 API 공통 규약과 같은 **2중 검증**이다(`hostId` 일치 +
-  roster 존재). 검증은 전부 Lua 안에 있다 — 미리 읽고 판단하면 읽기와 쓰기
+  roster 존재). 검증은 전부 스크립트 안에 있다 — 미리 읽고 판단하면 읽기와 쓰기
   사이에 게임이 시작되는 경합이 생긴다.
 - host 승계에서 제외된다. WS 스냅샷에서 항상 `online`.
 - 성공하면 **응답(REST 스냅샷)과 별개로 방 전원에게 `state.sync`**(WS 스냅샷)를
@@ -261,9 +261,9 @@ WS 계층은 LOBBY를 `waiting`으로 매핑해 내보낸다.
 - **REST가 방 상태의 유일한 변경 경로다.** WS는 방 멤버십·phase를 바꾸지 않는다
   (예외: PLAYING 중 WS `room.leave`·오프라인 자동 퇴장은 게임 모듈 경로로
   `roomService.leave`를 부른다).
-- **정원·중복 참가 판정은 Redis Lua에서 원자적으로.** 같은 게스트의 재참가는
+- **정원·중복 참가 판정은 원자적 스크립트에서.** 같은 게스트의 재참가는
   인원을 늘리지 않는다. 프론트의 사전 확인은 UX일 뿐이다.
-- **오래된 게임 매핑으로 현재 방 점수를 바꿀 수 없다.** 점수 확정 Lua가
+- **오래된 게임 매핑으로 현재 방 점수를 바꿀 수 없다.** 점수 확정 스크립트가
   game↔room 양방향 매핑·PLAYING·참가자 여부를 같은 스크립트에서 먼저 검증한다
   ([game-modules.md](game-modules.md)).
 - 방 키 가족(방·players·scores·bots·game·scoreboard·submissions)은 **같은

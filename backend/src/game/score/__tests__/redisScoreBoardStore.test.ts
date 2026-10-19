@@ -1,6 +1,6 @@
-import type { Redis } from 'ioredis'
 import { expect, it } from 'vitest'
 import { describeRedis, useRedis } from '../../../../test/redisHarness.js'
+import type { Redis } from '../../../infra/memoryRedis.js'
 import {
   gameKey,
   gameScoreboardKey,
@@ -30,7 +30,7 @@ const GAME_ID = 'game-1'
 const PLAYER_ID = 'player-1'
 
 /**
- * **진짜 Redis**에서만
+ * **운영과 같은 저장소**에서만
  * 의미가 있는 것들(Lua 원자성·멱등 재시도·동시 요청·TTL·양방향 매핑)만 여기 둔다.
  */
 describeRedis('RedisScoreBoardStore', () => {

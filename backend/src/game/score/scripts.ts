@@ -1,7 +1,7 @@
-import type { LuaScript } from '../../infra/lua.js'
+import type { AtomicScript, RedisCore, Slots } from '../../infra/memoryRedis.js'
 
 /**
- * 점수 확정 Lua. 반환 코드가 곧 계약이므로 가드 사다리의 **순서도** 바꾸지 않는다
+ * 점수 확정 스크립트(Lua 원문을 옮긴 것). 반환 코드가 곧 계약이므로 가드 사다리의 **순서도** 바꾸지 않는다
  * (DESIGN.md 원칙 7, docs/design/game-modules.md 「CONFIRM_SCORE Lua」).
  *
  * KEYS
@@ -41,56 +41,67 @@ import type { LuaScript } from '../../infra/lua.js'
  * - TTL은 `game:{id}`의 PTTL로 점수판·제출 이력을 정렬한다. 방 키 가족이 함께
  *   만료돼야 반쪽 상태가 남지 않는다.
  */
-export const CONFIRM_SCORE: LuaScript = {
-  name: 'yorrGameConfirmScore',
-  numberOfKeys: 6,
-  lua: `
-local mappedRoom = redis.call('HGET', KEYS[1], 'roomCode')
-if not mappedRoom then return 1 end
-if mappedRoom ~= ARGV[1] then return 2 end
-if redis.call('EXISTS', KEYS[2]) == 0 then return 7 end
-if redis.call('HGET', KEYS[2], 'gameId') ~= ARGV[2] then return 8 end
-if redis.call('HGET', KEYS[2], 'phase') ~= 'PLAYING' then return 9 end
-if redis.call('HEXISTS', KEYS[3], ARGV[3]) == 0 then return 3 end
-
-local previous = redis.call('HGET', KEYS[5], ARGV[4])
-if previous then
-    if previous == ARGV[8] then return 5 end
-    return 4
-end
-if redis.call('HEXISTS', KEYS[4], ARGV[5]) == 1 then return 6 end
-
-local score = tonumber(ARGV[6])
-local upperSubtotal = tonumber(redis.call('HGET', KEYS[4], '_upperSubtotal') or '0')
-local upperBonus = tonumber(redis.call('HGET', KEYS[4], '_upperBonus') or '0')
-local total = tonumber(redis.call('HGET', KEYS[4], '_total') or '0')
-
-if ARGV[7] == '1' then
-    upperSubtotal = upperSubtotal + score
-end
-local nextBonus = 0
-if upperSubtotal >= 63 then nextBonus = 35 end
-total = total + score + nextBonus - upperBonus
-
-redis.call('HSET', KEYS[4],
-    ARGV[5], ARGV[6],
-    '_upperSubtotal', tostring(upperSubtotal),
-    '_upperBonus', tostring(nextBonus),
-    '_total', tostring(total))
-redis.call('HSET', KEYS[5], ARGV[4], ARGV[8])
-redis.call('HSET', KEYS[6], ARGV[3], tostring(total))
-
-local ttl = redis.call('PTTL', KEYS[1])
-if ttl > 0 then
-    redis.call('PEXPIRE', KEYS[4], ttl)
-    redis.call('PEXPIRE', KEYS[5], ttl)
-end
-return 0
-`,
+/** 가드 사다리 — 실패면 그 코드, 통과면 null. **순서가 계약이다.** */
+const confirmGuard = (
+  r: RedisCore,
+  [game, room, players, scoreboard, submissions]: Slots,
+  [roomCode, gameId, playerId, roundNumber, category, , , signature]: Slots,
+): number | null => {
+  const mappedRoom = r.hget(game, 'roomCode')
+  if (mappedRoom === null) return 1
+  if (mappedRoom !== roomCode) return 2
+  if (r.exists(room) === 0) return 7
+  if (r.hget(room, 'gameId') !== gameId) return 8
+  if (r.hget(room, 'phase') !== 'PLAYING') return 9
+  if (r.hexists(players, playerId) === 0) return 3
+  const previous = r.hget(submissions, roundNumber)
+  if (previous !== null) return previous === signature ? 5 : 4
+  if (r.hexists(scoreboard, category) === 1) return 6
+  return null
 }
 
-/** 이 하위 시스템이 등록하는 스크립트 전부. */
-export const SCORE_SCRIPTS: readonly LuaScript[] = [CONFIRM_SCORE]
+export const CONFIRM_SCORE: AtomicScript = {
+  name: 'yorrGameConfirmScore',
+  creates: [3, 4],
+  keys: 6,
+  args: 8,
+  run(r, keys, args) {
+    const refused = confirmGuard(r, keys, args)
+    if (refused !== null) return refused
+
+    const [game, , , scoreboard, submissions, scores] = keys
+    const [, , playerId, roundNumber, category, scoreText, isUpper, signature] = args
+    const score = Number(scoreText)
+    let upperSubtotal = Number(r.hget(scoreboard, '_upperSubtotal') ?? '0')
+    const upperBonus = Number(r.hget(scoreboard, '_upperBonus') ?? '0')
+    let total = Number(r.hget(scoreboard, '_total') ?? '0')
+
+    if (isUpper === '1') upperSubtotal += score
+    const nextBonus = upperSubtotal >= 63 ? 35 : 0
+    total = total + score + nextBonus - upperBonus
+
+    r.hset(
+      scoreboard,
+      category,
+      scoreText,
+      '_upperSubtotal',
+      String(upperSubtotal),
+      '_upperBonus',
+      String(nextBonus),
+      '_total',
+      String(total),
+    )
+    r.hset(submissions, roundNumber, signature)
+    r.hset(scores, playerId, String(total))
+
+    const ttl = r.pttl(game)
+    if (ttl > 0) {
+      r.pexpire(scoreboard, ttl)
+      r.pexpire(submissions, ttl)
+    }
+    return 0
+  },
+}
 
 /** 반환 코드 상수 — 스토어가 이유 코드로 옮길 때 쓴다(숫자 리터럴 금지). */
 export const CONFIRM_SCORE_CODE = {

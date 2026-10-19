@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { redisTestsEnabled } from '../redisHarness.js'
 import { startGame } from './http.js'
 import { leaveAll, seatedRoom } from './players.js'
 import { escapedHandlerErrors, startInProcessTarget, targetMode } from './target.js'
@@ -12,8 +11,7 @@ import { escapedHandlerErrors, startInProcessTarget, targetMode } from './target
  * 운영 코드의 타이머는 전부 `unref()`라 여기 잡히지 않는다 — 여기서 보는 것은 닫히지 않은
  * 소켓·리스너와, 누군가 실수로 ref로 남긴 타이머다. in-process에서만 의미가 있다.
  */
-const describeInProcess =
-  targetMode === 'in-process' && redisTestsEnabled ? describe : describe.skip
+const describeInProcess = targetMode === 'in-process' ? describe : describe.skip
 
 const resourceCounts = (): Record<string, number> => {
   const counts: Record<string, number> = {}
@@ -42,8 +40,13 @@ describeInProcess('자원 누수 (in-process)', () => {
     expect(escapedHandlerErrors(target)).toEqual([])
     await stop()
 
-    const same = (): boolean => JSON.stringify(resourceCounts()) === JSON.stringify(before)
-    await settle(same)
-    expect(resourceCounts()).toEqual(before)
+    // 누수 = 시작 전보다 **늘어난** 자원이다. 같음을 요구하지 않는 이유: 시작 시점에 vitest
+    // 내부의 일시 타이머가 하나 떠 있다가 곧 사라진다 — 그것이 줄어든 것은 누수가 아니다.
+    const grown = (): Record<string, number> =>
+      Object.fromEntries(
+        Object.entries(resourceCounts()).filter(([kind, count]) => count > (before[kind] ?? 0)),
+      )
+    await settle(() => Object.keys(grown()).length === 0)
+    expect(grown()).toEqual({})
   })
 })

@@ -632,7 +632,7 @@ describe('YachtDiceGameModule', () => {
   })
 
   /**
-   * `rehydrate`가 `resume`과 갈라져 있는 것이 계약이다(deploy/PLAN.md PR 6).
+   * `rehydrate`가 `resume`과 갈라져 있는 것이 계약이다(옛 deploy/PLAN.md PR 6).
    *
    * `resume`은 **새 25초**를 준다(멈춰 둔 시계를 다시 켜는 경로 — 그때 원래 마감을
    * 되살리면 돌아온 사람의 턴이 그 자리에서 만료된다). `rehydrate`는 **저장된 마감**을

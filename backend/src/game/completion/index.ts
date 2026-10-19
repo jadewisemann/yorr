@@ -36,7 +36,6 @@ export {
   rankTotals,
 } from './gameResultCalculator.js'
 export {
-  COMPLETION_SCRIPTS,
   FINISH_IF_COMPLETE,
   FINISH_IF_COMPLETE_CODE,
 } from './scripts.js'

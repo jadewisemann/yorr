@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import type { Redis } from 'ioredis'
+import type { Redis } from '../infra/memoryRedis.js'
 
 /**
  * OAuth `state` 보관소.

@@ -1,10 +1,10 @@
-import type { Redis } from 'ioredis'
+import type { Redis } from '../../infra/memoryRedis.js'
 import { roomKey } from '../../room/keys.js'
 import { YACHT_DICE } from '../catalog.js'
 import type { RoundDeadlineStore, StoredRoundDeadline } from '../round/index.js'
 
 /**
- * 턴 마감 시각의 운영 저장소 — deploy/PLAN.md PR 6.
+ * 턴 마감 시각의 운영 저장소 — 옛 deploy/PLAN.md PR 6.
  *
  * 키 스킴은 라운드 상태 키와 같은 가족이다(`room:{code}:game:YACHT_DICE:…`) —
  * 같은 방의 게임 데이터가 한 접두사 아래 모여 있어야 진단할 때 헤매지 않는다.

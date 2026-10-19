@@ -146,7 +146,7 @@ export class DuelGameService<S> {
   }
 
   /**
-   * 프로세스 재시작 후의 복구(deploy/PLAN.md PR 6).
+   * 프로세스 재시작 후의 복구(옛 deploy/PLAN.md PR 6).
    *
    * **결투는 예약 로직을 새로 만들 것이 없다.** 마감(`nextActionAt`)이 처음부터
    * 상태 안의 절대 epoch ms이고 그 상태는 Redis에 있으므로, 되살리는 것은 `resume`과

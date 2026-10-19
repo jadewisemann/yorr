@@ -1,12 +1,10 @@
 /**
  * Readiness 판정 — `/actuator/health`가 뜻하는 것을 "프로세스가 HTTP를 받는다"에서
  * **"이 인스턴스가 실제 요청을 처리할 준비가 되었다"**로 올린다
- * ([`deploy/PLAN.md`](../../../deploy/PLAN.md) PR 1).
+ * (옛 `옛 deploy/PLAN.md` PR 1 — git 이력).
  *
- * 이 한 곳을 고치면 세 소비자가 함께 올라간다: 이미지의 `HEALTHCHECK`
- * (`backend/Dockerfile`), 배포 게이트(`docker compose up -d --wait`), 그리고 호스트
- * 밖의 외부 uptime 체크. 그래서 배포 재설계에서 이것이 선행 조건이다 — `--wait`는
- * 자기가 기다리는 health가 진짜가 아니면 crash 루프를 성공으로 읽는다.
+ * 소비자는 CI의 번들 리허설(UP을 기다린 뒤 스위트를 돌린다)과 외부 uptime 체크다.
+ * 기다리는 health가 진짜가 아니면 crash 루프를 성공으로 읽는다.
  *
  * 응답 형식은 바꾸지 않는다: 준비됐으면 200 `{"status":"UP"}`, 아니면 503
  * `{"status":"DOWN"}`이다. **어느 의존이 죽었는지는 본문에 싣지 않는다** — 인증 없이
@@ -20,10 +18,8 @@ export const READINESS_CACHE_MS = 5_000
 /**
  * 확인 하나에 주는 시간.
  *
- * 상한이 필요한 이유는 성능이 아니라 **의미**다. ioredis는 오프라인 큐가 기본값이라
- * Redis가 죽어 있으면 `ping()`이 거부되지 않고 **큐에 쌓여 매달린다**. 상한이 없으면
- * 그 요청은 영원히 대기하고, 컨테이너 `HEALTHCHECK`는 자기 타임아웃(5초)으로 잘려
- * "판정 없음"이 된다. 여기서 끊으면 같은 상황이 **명시적인 DOWN**이 된다.
+ * 상한이 필요한 이유는 성능이 아니라 **의미**다. 매달린 확인은 헬스체크 쪽 타임아웃으로
+ * 잘려 "판정 없음"이 된다. 여기서 끊으면 같은 상황이 **명시적인 DOWN**이 된다.
  */
 export const READINESS_TIMEOUT_MS = 2_000
 
@@ -140,7 +136,7 @@ const runWithTimeout = async (check: ReadinessCheck, timeoutMs: number): Promise
   }
 }
 
-/** `ioredis`의 `Redis`가 그대로 만족한다. 이 판정이 실제로 부르는 것은 `ping` 하나다. */
+/** `MemoryRedis`가 그대로 만족한다. 이 판정이 실제로 부르는 것은 `ping` 하나다. */
 export interface ReadinessRedis {
   ping(): Promise<unknown>
 }
@@ -154,21 +150,18 @@ export const redisReadinessCheck = (redis: ReadinessRedis): ReadinessCheck => ({
   run: () => redis.ping(),
 })
 
-/** `mysql2/promise`의 `Pool`이 그대로 만족한다. */
-export interface ReadinessMysql {
+/** `infra/sqlite.ts`의 `Pool`이 그대로 만족한다. */
+export interface ReadinessDb {
   query(sql: string): Promise<unknown>
 }
 
 /**
- * MySQL은 계정·소셜 연동·전적·주간 랭킹을 담는다. 진행 중인 게임은 MySQL 없이도
- * 굴러가지만(상태가 Redis에 있다) **로그인과 랭킹은 즉시 실패한다.** 그래서 여기서는
+ * DB는 계정·소셜 연동·전적·주간 랭킹을 담는다. 진행 중인 게임은 DB 없이도
+ * 굴러가지만(상태가 저장소에 있다) **로그인과 랭킹은 즉시 실패한다.** 그래서 여기서는
  * DOWN으로 본다: readiness는 "게임이 안 끊겼다"가 아니라 "이 인스턴스가 자기 계약을
  * 전부 이행할 수 있다"는 뜻이다.
- *
- * 배포가 이 판정 때문에 막히지는 않는다. 새 릴리스가 못 뜨는 것과 인프라가 죽은 것은
- * 다른 사건이므로 controller의 preflight가 둘을 나눠 다룬다(PLAN.md D6).
  */
-export const mysqlReadinessCheck = (mysql: ReadinessMysql): ReadinessCheck => ({
-  name: 'mysql',
-  run: () => mysql.query('SELECT 1'),
+export const dbReadinessCheck = (db: ReadinessDb): ReadinessCheck => ({
+  name: 'db',
+  run: () => db.query('SELECT 1'),
 })
