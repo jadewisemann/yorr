@@ -11,7 +11,6 @@
   "backend/PLANS.md": 9487,
   "backend/src/game/davinci/davinciRules.ts": 5994,
   "backend/src/game/pingpong/pingPongRules.ts": 5925,
-  "backend/src/game/round/roundTimerService.ts": 6463,
   "backend/src/game/yacht/yachtDiceGameModule.ts": 5427,
   "backend/src/server.ts": 7514,
   "backend/src/ws/handler.ts": 7671,

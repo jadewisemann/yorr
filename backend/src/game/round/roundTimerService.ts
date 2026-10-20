@@ -2,6 +2,7 @@ import { YACHT_DICE } from '../catalog.js'
 import { gameWsType } from '../module.js'
 import type { RoundDeadlineScheduler } from './deadlineScheduler.js'
 import type { RoundDeadlineStore } from './deadlineStore.js'
+import { removePlayerFromRound } from './roundPlayerRemoval.js'
 import type {
   ConfirmedScore,
   GameCompletionPort,
@@ -9,78 +10,38 @@ import type {
   RoundPresence,
   RoundRoomService,
   RoundRoomSnapshot,
-  ScoreRoundSubmissionOutcome,
 } from './roundPorts.js'
-import type { RoundState, RoundSubmissionResult } from './roundState.js'
+import type { RoundState } from './roundState.js'
 import type { RoundSynchronizationService } from './roundSynchronizationService.js'
 import type { RoundTimeoutResolverPort } from './roundTimeoutResolver.js'
+import type {
+  RoundStartedEvent,
+  RoundTimerServiceDeps,
+  RoundTimerServiceOptions,
+  TurnAdvanceInput,
+} from './roundTimerPorts.js'
+import {
+  EXPIRY_GRACE_MS,
+  isBot,
+  isUntimedRoom,
+  MAX_OFFLINE_TURNS,
+  ROUND_DURATION_MS,
+} from './roundTiming.js'
 
-/** 한 턴에 주어지는 시간. 클라이언트에는 이 마감 시각을 그대로 알린다. */
-export const ROUND_DURATION_MS = 25_000
-
-/**
- * 강제 진행을 마감 시각보다 이만큼 늦춘다.
- *
- * 마감 처리 자체는 서버가 한다(`RoundTimeoutResolver`). 다만 플레이어가 마감 직전에
- * 누른 round.submit이 아직 날아오는 중일 수 있고, 그 요청이 NOT_YOUR_TURN으로
- * 거절되면 본인이 고른 족보 대신 서버가 고른 족보가 기록된다. 왕복 시간과 클라
- * 시계 오차를 흡수할 만큼만 준다.
- */
-export const EXPIRY_GRACE_MS = 1_000
-
-/** 오프라인 상태로 자기 턴을 이 횟수째 맞으면 스킵 대신 자동 퇴장시킨다. */
-export const MAX_OFFLINE_TURNS = 2
-
-/**
- * 사람이 이 수 이하인 방은 **시계를 걸지 않는다**(연습 방).
- *
- * 턴 제한의 목적은 한 사람이 멈춰 있을 때 나머지가 무한정 기다리지 않게 하는 것이다.
- * 봇만 데리고 혼자 하는 방에는 기다리는 사람이 없으므로 그 목적이 사라진다 —
- * 25초는 족보를 따져 보는 사람에게 재촉이기만 하다. 봇은 자기 턴을 스스로 진행하므로
- * (`BotTurnOrchestrator`) 시계 없이도 판이 앞으로 간다.
- *
- * 여기 걸리면 `round.start`의 `deadline`이 **null로 나간다** — 프론트는 그때 타이머를
- * 그리지 않는다(`frontend/src/realtime/wsEvents.ts`의 `RoundStartPayload`).
- */
-export const UNTIMED_HUMAN_LIMIT = 1
-
-/** 봇 오케스트레이터(3.2)가 구독하는 턴 시작 알림. */
-export interface RoundStartedEvent {
-  readonly roomId: string
-  readonly state: RoundState
-}
-
-/** 타이머가 `advanceTurn`으로 받는 것. 타임아웃 경로는 `score: null`로 들어온다. */
-export type TurnAdvanceInput = ScoreRoundSubmissionOutcome<RoundSubmissionResult>
-
-export interface RoundTimerServiceDeps {
-  readonly timeoutResolver: RoundTimeoutResolverPort
-  readonly deadlineScheduler: RoundDeadlineScheduler
-  /**
-   * 마감 시각의 **영속 사본**(PR 6). 예약기가 인메모리인 것은 그대로다 —
-   * 여기 저장되는 것은 "언제 마감인가"라는 데이터이고, 발화 책임은 여전히 이
-   * 프로세스에 있다(DESIGN.md 원칙 8).
-   *
-   * ⚠️ 운영은 `RedisRoundDeadlineStore`다. `InMemoryRoundDeadlineStore`를 넣어도
-   * 타입이 맞고 테스트가 전부 통과하지만, 그 순간 재시작마다 진행 중 게임이 사라지는
-   * 예전 동작으로 조용히 돌아간다.
-   */
-  readonly deadlineStore: RoundDeadlineStore
-  readonly broadcaster: RoundBroadcaster
-  readonly gameCompletion: GameCompletionPort
-  readonly synchronizationService: RoundSynchronizationService
-  readonly presence: RoundPresence
-  readonly roomService: RoundRoomService
-}
-
-export interface RoundTimerServiceOptions {
-  readonly now?: () => number
-  readonly gameCode?: string
-  /** 라운드 시작을 알리는 훅. */
-  readonly onRoundStarted?: (event: RoundStartedEvent) => void
-  /** 종료 전이 실패처럼 "진행은 멈추지만 예외는 아닌" 상황의 관측 훅. */
-  readonly onWarning?: (roomId: string, reason: string) => void
-}
+export type {
+  RoundStartedEvent,
+  RoundTimerServiceDeps,
+  RoundTimerServiceOptions,
+  TurnAdvanceInput,
+} from './roundTimerPorts.js'
+// 상수·명단 판정은 roundTiming.ts가 정본이다. 기존 소비자(테스트·봇)가 이 파일에서
+// 가져가므로 여기서 re-export한다.
+export {
+  EXPIRY_GRACE_MS,
+  MAX_OFFLINE_TURNS,
+  ROUND_DURATION_MS,
+  UNTIMED_HUMAN_LIMIT,
+} from './roundTiming.js'
 
 interface ActiveDeadline {
   readonly roundNumber: number
@@ -332,51 +293,22 @@ export class RoundTimerService {
     await this.start(roomId, round.state)
   }
 
-  /**
-   * 게임 중 이탈 확정의 단일 경로 — 명시적 나가기(REST·WS room.leave)와 오프라인
-   * {@link MAX_OFFLINE_TURNS}턴 자동 퇴장이 전부 여기로 모인다.
-   *
-   * 명단(레지스트리·Redis) 제거 → `room.player_left` 방송 → 턴 순서 제거 순으로
-   * 정리한다. 이미 빠진 플레이어에게는 방송하지 않는다(멱등) — REST 나가기와 소켓
-   * 종료가 연달아 도착해도 안전하다.
-   */
   async removePlayer(roomId: string, playerId: string): Promise<void> {
-    this.clearOfflineMisses(roomId, playerId)
-    const removed = this.presence.removePlayer(roomId, playerId)
-    await this.roomService.leave(roomId, playerId)
-    if (removed !== null) {
-      this.broadcaster.broadcast(roomId, {
-        // 방 이벤트는 게임 네임스페이스가 붙지 않는다.
-        type: 'room.player_left',
-        ts: this.now(),
-        payload: { playerId },
-        roomId,
-      })
-    }
-
-    const state = await this.synchronizationService.findByRoomId(roomId)
-    if (state === undefined || state.finished || !state.participantIds.has(playerId)) {
-      return
-    }
-    if (state.participantOrder.length === 1) {
-      // 마지막 참가자까지 나갔다 — 이어갈 턴이 없으니 라운드 상태와 타이머를 통째로 버린다.
-      await this.cancelRoom(roomId)
-      await this.synchronizationService.remove(roomId)
-      return
-    }
-    if (state.activePlayerId === playerId) {
-      // 진행 중인 자기 턴은 만료 경로로 넘겨 라운드 완료·게임 종료 판정을 한 곳에 유지한다.
-      const expired = await this.synchronizationService.expire(roomId, state.roundNumber, playerId)
-      const updated = await this.synchronizationService.removeParticipant(roomId, playerId)
-      if (expired !== undefined && updated !== undefined) {
-        await this.advanceTurn(roomId, {
-          score: null,
-          round: { state: updated, completedRound: expired.completedRound },
-        })
-      }
-      return
-    }
-    await this.synchronizationService.removeParticipant(roomId, playerId)
+    return removePlayerFromRound(
+      {
+        broadcaster: this.broadcaster,
+        now: this.now,
+        presence: this.presence,
+        roomService: this.roomService,
+        synchronizationService: this.synchronizationService,
+        advanceTurn: (targetRoomId, input) => this.advanceTurn(targetRoomId, input),
+        cancelRoom: (targetRoomId) => this.cancelRoom(targetRoomId),
+        clearOfflineMisses: (targetRoomId, targetPlayerId) =>
+          this.clearOfflineMisses(targetRoomId, targetPlayerId),
+      },
+      roomId,
+      playerId,
+    )
   }
 
   private async expireTurn(
@@ -442,21 +374,4 @@ export class RoundTimerService {
       msgId: requestMsgId ?? undefined,
     })
   }
-}
-
-/** 방 명단이 근거다 — 명단에 없으면 봇이 아니다(사람으로 보고 오프라인 판정을 태운다). */
-function isBot(room: RoundRoomSnapshot | null, playerId: string): boolean {
-  return (
-    room?.players.some((player) => player.playerId === playerId && player.kind === 'BOT') ?? false
-  )
-}
-
-/**
- * 봇을 뺀 사람 수로 판정한다 — 방 스냅샷을 못 읽었으면(비정상) 시계를 건다.
- * 판단이 안 서는 쪽에서는 **기존 동작**으로 떨어지는 것이 안전하다.
- */
-function isUntimedRoom(room: RoundRoomSnapshot | null): boolean {
-  if (room === null) return false
-  const humans = room.players.filter((player) => player.kind !== 'BOT').length
-  return humans <= UNTIMED_HUMAN_LIMIT
 }
