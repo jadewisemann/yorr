@@ -54,13 +54,17 @@
       }
     },
     {
-      "includes": [
-        "src/__tests__/regressions/pr79.test.ts",
-        "src/__tests__/serverWiring.test.ts",
-        "src/game/yacht/__tests__/yachtDiceGameModule.test.ts",
-        "src/infra/memoryRedis.ts",
-        "src/ws/__tests__/handler.test.ts"
-      ],
+      "includes": ["**/__tests__/**", "test/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noExcessiveLinesPerFile": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/infra/memoryRedis.ts"],
       "linter": {
         "rules": {
           "style": {
