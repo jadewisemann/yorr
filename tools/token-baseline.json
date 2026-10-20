@@ -9,7 +9,6 @@
   "backend/docs/design/rooms-and-sessions.md": 7638,
   "backend/IMPLEMENTATION_NOTES.md": 5874,
   "backend/PLANS.md": 9487,
-  "backend/src/game/yacht/yachtDiceGameModule.ts": 5427,
   "backend/src/server.ts": 7514,
   "backend/src/ws/handler.ts": 7671,
   "frontend/.dev.md": 27716,
