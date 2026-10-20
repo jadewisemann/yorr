@@ -1,12 +1,24 @@
 import { DomainError } from '../../errors.js'
 import {
+  DAVINCI_DECK_SIZE,
+  DAVINCI_MAX_PLAYERS,
+  DAVINCI_MIN_PLAYERS,
+  DAVINCI_TILES,
+  DECIDE_MILLIS,
+  GUESS_MILLIS,
+  HAND_SIZE_FEW,
+  HAND_SIZE_MANY,
+  MANY_PLAYERS,
+} from './davinciConstants.js'
+import { at, handOf, survivors } from './davinciHelpers.js'
+import {
   DAVINCI_JOKER,
   type DavinciEvent,
-  type DavinciPlayerNumbers,
   type DavinciState,
   type DavinciTile,
-  type DavinciTileColor,
 } from './davinciState.js'
+import { compareTiles, hiddenTiles, isGuessableNumber } from './davinciTiles.js'
+import { advance, concludeTurn, placeDrawn, timedOut } from './davinciTurnFlow.js'
 
 /**
  * 다빈치 코드 규칙 — **순수 함수라 네트워크·Redis·연출을 전혀 모른다**
@@ -34,82 +46,31 @@ import {
  *    통째로 멈춘다. 추측을 넘기면 틀린 것과 같게 처리된다.
  */
 
-/** 색깔마다 0~11 열두 장 + 조커 한 장 = 스물여섯 장. */
-export const DAVINCI_MAX_NUMBER = 11
-export const DAVINCI_DECK_SIZE = 26
+// 상수·타일 목록은 davinciConstants.ts가 정본이다. 기존 소비자가 이 파일에서
+// 가져가므로 여기서 re-export한다.
+export {
+  DAVINCI_DECK_SIZE,
+  DAVINCI_MAX_NUMBER,
+  DAVINCI_MAX_PLAYERS,
+  DAVINCI_MIN_PLAYERS,
+  DAVINCI_TILES,
+  DECIDE_MILLIS,
+  GUESS_MILLIS,
+  HAND_SIZE_FEW,
+  HAND_SIZE_MANY,
+  MANY_PLAYERS,
+  PLACE_MILLIS,
+} from './davinciConstants.js'
 
-export const DAVINCI_MIN_PLAYERS = 2
-export const DAVINCI_MAX_PLAYERS = 4
-
-/** 4인이면 세 장, 2~3인이면 네 장 — 정식 규칙 그대로다. */
-export const HAND_SIZE_FEW = 4
-export const HAND_SIZE_MANY = 3
-export const MANY_PLAYERS = 4
-
-/** 각 단계의 제한 시간(ms). 추측이 가장 길다 — 유일하게 생각할 것이 있는 단계다. */
-export const GUESS_MILLIS = 30_000
-export const DECIDE_MILLIS = 15_000
-export const PLACE_MILLIS = 15_000
-
-/** 섞기 전의 표준 스물여섯 장. 이 순서 자체는 판에 쓰이지 않는다(항상 섞어서 쓴다). */
-export const DAVINCI_TILES: readonly { color: DavinciTileColor; number: number }[] = [
-  ...(['BLACK', 'WHITE'] as const).flatMap((color) => [
-    ...Array.from({ length: DAVINCI_MAX_NUMBER + 1 }, (_, number) => ({ color, number })),
-    { color, number: DAVINCI_JOKER },
-  ]),
-]
-
-const at = (values: DavinciPlayerNumbers, playerId: string, fallback: number): number =>
-  values[playerId] ?? fallback
-
-const handOf = (state: DavinciState, playerId: string): readonly DavinciTile[] =>
-  state.hands[playerId] ?? []
-
-/** 정렬 순서 — 숫자 오름차순, 같으면 검정이 먼저. 조커는 이 비교에 들어오지 않는다. */
-export const compareTiles = (
-  left: { color: DavinciTileColor; number: number },
-  right: { color: DavinciTileColor; number: number },
-): number => {
-  if (left.number !== right.number) return left.number - right.number
-  if (left.color === right.color) return 0
-  return left.color === 'BLACK' ? -1 : 1
-}
-
-/**
- * 새 타일이 들어갈 자리 — **규칙이 허용하는 가장 왼쪽**이다.
- *
- * 조커는 어떤 숫자로도 통하므로 비교에서 건너뛴다. 그래서 조커 옆은 자리가 두 곳
- * 이상 열리는데, 그때마다 사람에게 묻지 않고 왼쪽으로 붙인다 — 조커가 오른쪽으로
- * 밀려도 조커의 자리는 그대로 보이므로, 이미 놓인 조커가 흘리는 정보는 늘지 않는다.
- */
-export const insertIndexOf = (
-  hand: readonly DavinciTile[],
-  tile: { color: DavinciTileColor; number: number },
-): number => {
-  let index = 0
-  for (const [position, other] of hand.entries()) {
-    if (other.number === DAVINCI_JOKER) continue
-    if (compareTiles(other, tile) <= 0) index = position + 1
-  }
-  return index
-}
-
-const insertAt = (
-  hand: readonly DavinciTile[],
-  tile: DavinciTile,
-  index: number,
-): DavinciTile[] => [...hand.slice(0, index), tile, ...hand.slice(index)]
-
-export const isGuessableNumber = (value: number): boolean =>
-  value === DAVINCI_JOKER || (Number.isInteger(value) && value >= 0 && value <= DAVINCI_MAX_NUMBER)
-
-const hiddenTiles = (hand: readonly DavinciTile[]): DavinciTile[] =>
-  hand.filter((tile) => !tile.revealed)
-
-const survivors = (
-  playerOrder: readonly string[],
-  eliminated: readonly string[],
-): readonly string[] => playerOrder.filter((playerId) => !eliminated.includes(playerId))
+// 타일 순서·자리 규칙은 davinciTiles.ts가 정본이다. 기존 소비자(테스트·서비스)가
+// 이 파일에서 가져가므로 여기서 re-export한다.
+export {
+  compareTiles,
+  hiddenTiles,
+  insertAt,
+  insertIndexOf,
+  isGuessableNumber,
+} from './davinciTiles.js'
 
 /**
  * 판의 결과 점수 — **맞힌 타일 수 + 끝까지 감춰 낸 타일 수**.
@@ -184,78 +145,6 @@ export const initialDavinciState = (
     lastInputSeq,
     nextActionAt: now + GUESS_MILLIS,
   }
-}
-
-/** 다음 턴으로 넘긴다 — 탈락 정리·승부 확인·다음 사람 뽑기까지 한 곳에서 한다. */
-const advance = (state: DavinciState, now: number): DavinciState => {
-  const current = state.turnPlayerId
-  const wiped = hiddenTiles(handOf(state, current)).length === 0
-  const eliminated =
-    wiped && !state.eliminated.includes(current) ? [...state.eliminated, current] : state.eliminated
-
-  const alive = survivors(state.playerOrder, eliminated)
-  if (alive.length <= 1) {
-    return { ...state, phase: 'FINISHED', eliminated, winnerId: alive[0] ?? null, nextActionAt: 0 }
-  }
-
-  // 자리 순서를 돌며 탈락자를 건너뛴다. 떠난 사람도 playerOrder에는 남아 있다.
-  const seat = state.playerOrder.indexOf(current)
-  let next = current
-  for (let step = 1; step <= state.playerOrder.length; step += 1) {
-    const candidate = state.playerOrder[(seat + step) % state.playerOrder.length]
-    if (candidate !== undefined && alive.includes(candidate)) {
-      next = candidate
-      break
-    }
-  }
-
-  const [drawn, ...rest] = state.deck
-  return {
-    ...state,
-    phase: 'GUESSING',
-    turnPlayerId: next,
-    eliminated,
-    deck: rest,
-    drawn: drawn ?? null,
-    turn: state.turn + 1,
-    nextActionAt: now + GUESS_MILLIS,
-  }
-}
-
-/**
- * 턴을 끝내며 들고 있던 타일을 손에 넣는다.
- *
- * @param reveal 공개하며 넣는가(틀렸거나 시간을 넘긴 경우) 감춘 채 넣는가(맞히고 멈춘 경우).
- *
- * 조커는 자리를 사람이 고르므로 여기서 끝내지 않고 `PLACING`으로 넘어간다 —
- * 공개된 조커도 마찬가지다. 놓인 자리가 다음 추론의 재료라 공개 여부와 상관없이
- * 본인이 정해야 한다.
- */
-const concludeTurn = (state: DavinciState, reveal: boolean, now: number): DavinciState => {
-  const playerId = state.turnPlayerId
-  const drawn = state.drawn
-
-  if (drawn === null) {
-    // 더미가 비어 뽑지 못한 턴 — 틀렸으면 자기 타일을 대신 공개한다(위 「손본 세 가지」 2).
-    if (!reveal) return advance(state, now)
-    const hand = handOf(state, playerId)
-    const target = hand.find((tile) => !tile.revealed)
-    if (target === undefined) return advance(state, now)
-    const hands = {
-      ...state.hands,
-      [playerId]: hand.map((tile) => (tile.id === target.id ? { ...tile, revealed: true } : tile)),
-    }
-    return advance({ ...state, hands }, now)
-  }
-
-  const tile: DavinciTile = reveal ? { ...drawn, revealed: true } : drawn
-  if (tile.number === DAVINCI_JOKER) {
-    return { ...state, phase: 'PLACING', drawn: tile, nextActionAt: now + PLACE_MILLIS }
-  }
-
-  const hand = handOf(state, playerId)
-  const hands = { ...state.hands, [playerId]: insertAt(hand, tile, insertIndexOf(hand, tile)) }
-  return advance({ ...state, hands, drawn: null }, now)
 }
 
 const guessEvent = (
@@ -370,16 +259,6 @@ export const decide = (
   }
 }
 
-/** 들고 있던 조커를 `index` 자리에 넣고 턴을 넘긴다. 자리 검증까지 여기서 한다. */
-const placeDrawn = (state: DavinciState, index: number, now: number): DavinciState => {
-  const drawn = state.drawn
-  if (drawn === null) return state
-  const hand = handOf(state, state.turnPlayerId)
-  if (!Number.isInteger(index) || index < 0 || index > hand.length) return state
-  const hands = { ...state.hands, [state.turnPlayerId]: insertAt(hand, drawn, index) }
-  return advance({ ...state, hands, drawn: null }, now)
-}
-
 /** 조커를 놓는다. `index`는 삽입 자리(0부터 손패 길이까지). */
 export const place = (
   state: DavinciState,
@@ -395,21 +274,6 @@ export const place = (
   const next = placeDrawn({ ...state, lastInputSeq: seq }, index, now)
   if (next.phase === 'PLACING') return state
   return { ...next, version: state.version + 1 }
-}
-
-/**
- * 마감이 지났을 때의 다음 상태. **어느 갈래로 가든 턴은 반드시 움직인다.**
- *
- * 움직이지 않으면 `nextActionAt`이 그대로 남고, 이미 지난 마감으로 예약이 다시 걸려
- * 즉시 발화한다 — 제자리를 도는 무한 루프가 된다. 그래서 조커를 놓지 못한 경우
- * (`PLACING`인데 들고 있는 타일이 없는, 있어서는 안 되는 상태)에도 턴을 넘긴다.
- */
-const timedOut = (state: DavinciState, now: number): DavinciState => {
-  if (state.phase !== 'PLACING') return concludeTurn(state, state.phase === 'GUESSING', now)
-  // 고르지 않았으면 가장 오른쪽에 놓는다 — 그 자리는 조커를 최댓값으로 보이게 하므로,
-  // 시간을 흘려서 얻는 이득이 없다.
-  const placed = placeDrawn(state, handOf(state, state.turnPlayerId).length, now)
-  return placed.phase === 'PLACING' ? advance({ ...state, drawn: null }, now) : placed
 }
 
 /**
