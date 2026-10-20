@@ -224,16 +224,6 @@
           }
         }
       }
-    },
-    {
-      "includes": ["src/landing/rendering/heroScene.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": "off"
-          }
-        }
-      }
     }
   ]
 }
