@@ -23,6 +23,15 @@
       "preset": "recommended",
       "complexity": {
         "noExcessiveCognitiveComplexity": "warn"
+      },
+      "style": {
+        "noExcessiveLinesPerFile": {
+          "level": "error",
+          "options": {
+            "maxLines": 500,
+            "skipBlankLines": true
+          }
+        }
       }
     }
   },
@@ -40,6 +49,22 @@
         "rules": {
           "complexity": {
             "noExcessiveCognitiveComplexity": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/__tests__/regressions/pr79.test.ts",
+        "src/__tests__/serverWiring.test.ts",
+        "src/game/yacht/__tests__/yachtDiceGameModule.test.ts",
+        "src/infra/memoryRedis.ts",
+        "src/ws/__tests__/handler.test.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noExcessiveLinesPerFile": "off"
           }
         }
       }

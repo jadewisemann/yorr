@@ -8,7 +8,9 @@
   },
   "scripts": {
     "hooks:install": "git config core.hooksPath .githooks",
-    "check:tokens": "node tools/check-file-tokens.mjs"
+    "check:tokens": "node tools/check-file-tokens.mjs --all",
+    "check:loc": "node tools/check-loc-ratchet.mjs",
+    "check:tokens:staged": "node tools/check-file-tokens.mjs"
   },
   "devDependencies": {
     "js-tiktoken": "^1.0.21"

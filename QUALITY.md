@@ -211,6 +211,18 @@ Node 백엔드로의 이식이 끝나 참조 구현으로서의 역할이 사라
 - **파일당 500줄**: 비테스트 위반 6개와 테스트 위반 8개를 분할한 뒤 게이트를 켭니다.
   `handler.ts`와 `server.ts`는 책임 분리가 자연스럽고, 렌더링 3종은 씬 구성·물리·
   입력으로 나눌 수 있습니다.
+  **게이트는 켰다(2026-10-20).** Biome `style/noExcessiveLinesPerFile`
+  (error, `maxLines: 500`, `skipBlankLines: true`)을 `backend/biome.json`·
+  `frontend/biome.json`에 넣었으므로 `npm run check`와 CI가 함께 막는다.
+  아직 분할하지 않은 11개 파일은 각 설정의 `overrides`에서 파일 단위로 규칙을
+  껐고, `tools/check-loc-ratchet.mjs`가 세 가지를 강제한다 — 상한값이 500에서
+  올라가지 않았는지, 예외가 `MAX_EXCEPTIONS`를 넘지 않는지, 예외 파일이 500줄
+  이하로 줄어 더 이상 예외일 이유가 없지는 않은지. 마지막 항목 때문에 예외는
+  줄어들기만 한다.
+  **토큰 상한도 같은 방식이다(2026-10-20).** `tools/check-file-tokens.mjs`가
+  파일당 5,000토큰(cl100k)을 재고, 이미 넘던 44개 파일은
+  `tools/token-baseline.json`에 현재 값으로 고정했다. 기준선 파일은 그 값을
+  넘지 못하고, 5,000 이하로 줄면 목록에서 지워야 한다.
 - **중복 코드**: `jscpd` 기준선을 확인하고 위반을 제거한 뒤 게이트를 켭니다.
 - **죽은 코드**: `knip` 결과를 정리한 뒤 게이트를 켭니다. 프레임워크 진입점 등
   정당한 예외는 설정 파일에 명시합니다.

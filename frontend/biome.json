@@ -39,6 +39,15 @@
       "complexity": {
         "noImportantStyles": "off",
         "noExcessiveCognitiveComplexity": "warn"
+      },
+      "style": {
+        "noExcessiveLinesPerFile": {
+          "level": "error",
+          "options": {
+            "maxLines": 500,
+            "skipBlankLines": true
+          }
+        }
       }
     }
   },
@@ -192,6 +201,23 @@
                 ]
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/styles/tokens.css",
+        "src/landing/rendering/heroScene.ts",
+        "src/pingpong/rendering/scene3d.ts",
+        "src/yacht/rendering/physics-dice/World.ts",
+        "src/yacht/rendering/physics-dice/__tests__/World.test.ts",
+        "src/yacht/screens/__tests__/GamePlay.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noExcessiveLinesPerFile": "off"
           }
         }
       }
