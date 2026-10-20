@@ -1,7 +1,45 @@
+import type {
+  DavinciDecidePayload,
+  DavinciGuessPayload,
+  DavinciPlacePayload,
+  DavinciView,
+} from '@/davinci/realtime/messages'
+import type { DuelDrawPayload, DuelState } from '@/duel/realtime/messages'
 import type { GameCode } from '@/games'
+import type {
+  PingPongHostStatePayload,
+  PingPongReadyPayload,
+  PingPongState,
+  PingPongSwingPayload,
+  PingPongSwungPayload,
+} from '@/pingpong/realtime/messages'
 import type { DiceSet, HeldDice } from '@/yacht/domain/dice'
 import type { YachtCategory } from '@/yacht/domain/scoring'
+import type {
+  DiceBroadcastPayload,
+  DiceHoldChangedPayload,
+  DiceHoldPayload,
+  DiceRollPayload,
+  DiceShakenPayload,
+  DiceShakePayload,
+  DiceThrownPayload,
+  DiceThrowPayload,
+  GameOverPayload,
+  RoundEndPayload,
+  RoundStartPayload,
+  RoundSubmitPayload,
+  ScoreUpdatePayload,
+  StatePatchPayload,
+} from '@/yacht/realtime/messages'
 
+// ── 게임별 와이어 메시지 ──────────────────────────────────────────────────
+// 계약의 정본은 이 파일이다. 게임이 늘면서 600줄에 가까워져 게임별 파일로 나눴지만,
+// 소비자는 여전히 `@/realtime/wsEvents` 하나만 보면 된다 — 그게 정본이라는 뜻이다.
+export type * from '@/davinci/realtime/messages'
+export { DAVINCI_JOKER } from '@/davinci/realtime/messages'
+export type * from '@/duel/realtime/messages'
+export { DUEL_FOUL, DUEL_MISS } from '@/duel/realtime/messages'
+export type * from '@/pingpong/realtime/messages'
 export type { DiceSet, DiceValue, HeldDice } from '@/yacht/domain/dice'
 export type { YachtCategory, YachtLowerCategory, YachtUpperCategory } from '@/yacht/domain/scoring'
 export {
@@ -9,6 +47,7 @@ export {
   UPPER_BONUS_THRESHOLD,
   YACHT_CATEGORIES,
 } from '@/yacht/domain/scoring'
+export type * from '@/yacht/realtime/messages'
 
 export const WS_PROTOCOL_VERSION = 1 as const
 
@@ -56,200 +95,6 @@ export interface GameState {
   rollCount: number
   dice?: DiceSet
   held?: HeldDice
-}
-
-export type PingPongPhase = 'PREPARING' | 'COUNTDOWN' | 'PLAYING' | 'FINISHED'
-export type PingPongFault = 'OUT' | 'NET'
-export type PingPongEventType =
-  | 'READY'
-  | 'PRACTICE'
-  | 'PLAYER_READY'
-  | 'SERVE'
-  | 'TOO_EARLY'
-  | 'TOO_LATE'
-  | 'OK'
-  | 'NICE'
-  | 'SMASH'
-  | 'OUT'
-  | 'NET'
-  | 'POINT'
-  | 'GAME_OVER'
-  | 'OPPONENT_LEFT'
-
-export interface PingPongBallState {
-  pos: number
-  direction: 1 | -1
-  speed: number
-  smash: boolean
-  fault?: PingPongFault | null
-  faultFrom: number
-  x0: number
-  x1: number
-  launchedAt: number
-}
-
-export interface PingPongEvent {
-  id: number
-  type: PingPongEventType
-  playerId?: PlayerId | null
-  at: number
-}
-
-export interface PingPongState {
-  version: number
-  phase: PingPongPhase
-  playerOrder: PlayerId[]
-  scores: Record<PlayerId, number>
-  lastInputSeq: Record<PlayerId, number>
-  readyPlayerIds: PlayerId[]
-  ball: PingPongBallState
-  rally: number
-  serveReceiverId?: PlayerId | null
-  nextActionAt: number
-  lastEvent?: PingPongEvent | null
-}
-
-export interface PingPongSwingPayload {
-  inputSeq: number
-  clientTs: number
-}
-
-export type PingPongReadyPayload = Record<string, never>
-
-/**
- * C→S: **파티 모드에서 대시보드가 판정한 상태**(ADR-0003). 서버는 랠리를 다시 계산하지
- * 않고 검증만 한 뒤 방에 `game.ping_pong.state`로 뿌리고, `FINISHED`면 보고된 점수로
- * 완료 경로를 탄다.
- *
- * 서버가 보는 것 넷: 보낸 사람이 플레이어가 **아닐 것**(대시보드는 명단에 없다),
- * `version`이 증가할 것, `playerOrder`가 서버 것과 같을 것, 끝난 판이 아닐 것.
- * 그 밖의 판정은 하지 않는다 — 그것이 이 계약의 뜻이다.
- */
-export type PingPongHostStatePayload = PingPongState
-
-/**
- * S→C: 링크가 없는 폰의 스윙을 **대시보드에게 전달**하는 방송. 파티 모드에서만 나간다.
- *
- * 방 전체 방송인 이유는 서버가 대시보드를 특정하지 않기 때문이고, 컨트롤러는 이 메시지를
- * 무시하면 된다. 이것이 있어야 **링크가 없어도 파티 탁구가 성립한다**(ADR-0003).
- */
-export interface PingPongSwungPayload {
-  playerId: PlayerId
-  inputSeq: number
-  clientTs: number
-}
-
-export type DuelPhase = 'WAITING' | 'SIGNAL' | 'RESULT' | 'FINISHED'
-export type DuelRoundKind = 'SHOT' | 'TIE' | 'WARNING' | 'SELF_SHOT' | 'FORFEIT'
-
-export const DUEL_FOUL = -1
-export const DUEL_MISS = -2
-
-export interface DuelRound {
-  number: number
-  kind: DuelRoundKind
-  shooterId?: PlayerId | null
-  hitId?: PlayerId | null
-  koId?: PlayerId | null
-  foulId?: PlayerId | null
-  over: boolean
-  at: number
-}
-
-export interface DuelState {
-  version: number
-  phase: DuelPhase
-  playerOrder: PlayerId[]
-  hp: Record<PlayerId, number>
-  fouls: Record<PlayerId, number>
-  reactions: Record<PlayerId, number>
-  lastInputSeq: Record<PlayerId, number>
-  round: number
-  signalAt: number
-  nextActionAt: number
-  lastRound?: DuelRound | null
-}
-
-export interface DuelDrawPayload {
-  inputSeq: number
-  reactionMs: number
-}
-
-export type DavinciTileColor = 'BLACK' | 'WHITE'
-export type DavinciPhase = 'GUESSING' | 'DECIDING' | 'PLACING' | 'FINISHED'
-export type DavinciEventKind = 'GUESS' | 'TIMEOUT' | 'FORFEIT'
-export type DavinciDecision = 'CONTINUE' | 'STOP'
-
-/** 조커의 숫자 자리. 실제 타일 숫자는 0~11이라 음수와 겹치지 않는다. */
-export const DAVINCI_JOKER = -1
-
-/**
- * 타일 하나. **색은 처음부터 보이고 숨는 것은 숫자뿐**이라, `number`가 null이면
- * "아직 아무도 못 맞힌 남의 타일"이라는 뜻이다.
- *
- * `id`는 서버가 섞은 뒤 붙인 자리 번호(`T0`~`T25`)라 숫자를 되짚을 수 없다 —
- * 추측을 보낼 때 타일을 가리키는 값이기도 하다.
- */
-export interface DavinciTile {
-  id: string
-  color: DavinciTileColor
-  number: number | null
-  revealed: boolean
-}
-
-export interface DavinciEvent {
-  kind: DavinciEventKind
-  actorId: PlayerId
-  targetId?: PlayerId | null
-  tileId?: string | null
-  number?: number | null
-  correct: boolean
-  at: number
-}
-
-/**
- * S→C: **보는 사람마다 다른** 판의 모습.
- *
- * 다른 게임의 상태 방송과 갈리는 유일한 지점이다. 서버는 이 게임에서만 방 전체에
- * 같은 프레임을 쏘지 않고 좌석마다 숫자를 깎아 따로 보낸다 — 감춘 숫자를 한 프레임에
- * 실으면 개발자 도구를 연 사람이 판을 다 알게 된다.
- */
-export interface DavinciView {
-  version: number
-  phase: DavinciPhase
-  playerOrder: PlayerId[]
-  turnPlayerId: PlayerId
-  hands: Record<PlayerId, DavinciTile[]>
-  deckCount: number
-  /** 이번 턴에 뽑아 아직 손에 넣지 않은 타일. 색은 모두에게, 숫자는 뽑은 사람에게만. */
-  drawn?: DavinciTile | null
-  turn: number
-  eliminated: PlayerId[]
-  winnerId?: PlayerId | null
-  /** 맞혀서 공개시킨 상대 타일 수. 점수의 절반이다. */
-  hits: Record<PlayerId, number>
-  lastInputSeq: Record<PlayerId, number>
-  nextActionAt: number
-  lastEvent?: DavinciEvent | null
-}
-
-export interface DavinciGuessPayload {
-  inputSeq: number
-  targetId: PlayerId
-  tileId: string
-  /** 0~11, 조커는 {@link DAVINCI_JOKER}. */
-  number: number
-}
-
-export interface DavinciDecidePayload {
-  inputSeq: number
-  decision: DavinciDecision
-}
-
-/** `index`는 손패 왼쪽부터의 삽입 자리(0부터 손패 길이까지). */
-export interface DavinciPlacePayload {
-  inputSeq: number
-  index: number
 }
 
 export interface ScoreBoard {
@@ -412,75 +257,6 @@ export interface ControllerSignalPayload {
 export interface ControllerSignaledPayload {
   from: PlayerId
   data: ControllerLinkSignal
-}
-
-export interface RoundStartPayload {
-  roundNumber: number
-  /** epoch ms. null이면 이 턴에는 제한 시간이 없다(`GameState.roundDeadline` 참고). */
-  deadline: number | null
-  activePlayerId: PlayerId
-  turnOrder: PlayerId[]
-}
-export interface RoundSubmitPayload {
-  roundNumber: number
-  dice: DiceSet
-  category: YachtCategory
-}
-export interface RoundEndPayload {
-  roundNumber: number
-  submitted: PlayerId[]
-}
-export interface DiceRollPayload {
-  roundNumber: number
-  rollCount: 1 | 2 | 3
-  held: readonly [boolean, boolean, boolean, boolean, boolean]
-}
-export interface DiceHoldPayload {
-  roundNumber: number
-  held: readonly [boolean, boolean, boolean, boolean, boolean]
-}
-export interface DiceHoldChangedPayload {
-  playerId: PlayerId
-  roundNumber: number
-  held: readonly [boolean, boolean, boolean, boolean, boolean]
-}
-export interface DiceShakePayload {
-  roundNumber: number
-  direction: 'left' | 'right'
-  strength: number
-}
-export interface DiceShakenPayload {
-  playerId: PlayerId
-  roundNumber: number
-  direction: 'left' | 'right'
-  strength: number
-}
-export interface DiceThrowPayload {
-  roundNumber: number
-  rollCount: 1 | 2 | 3
-}
-export interface DiceThrownPayload {
-  playerId: PlayerId
-  roundNumber: number
-  rollCount: 1 | 2 | 3
-}
-export interface DiceBroadcastPayload {
-  playerId: PlayerId
-  roundNumber: number
-  rollCount: 1 | 2 | 3
-  dice: DiceSet
-  held: readonly [boolean, boolean, boolean, boolean, boolean]
-  auto?: boolean
-}
-export interface ScoreUpdatePayload {
-  playerId: PlayerId
-  scoreboard: ScoreBoard
-}
-export interface GameOverPayload {
-  rankings: Array<{ rank: number; playerId: PlayerId; total: number }>
-}
-export interface StatePatchPayload {
-  changes: Partial<GameState>
 }
 
 export type WsErrorCode =
