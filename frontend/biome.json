@@ -226,7 +226,7 @@
       }
     },
     {
-      "includes": ["src/landing/rendering/heroScene.ts", "src/pingpong/rendering/scene3d.ts"],
+      "includes": ["src/landing/rendering/heroScene.ts"],
       "linter": {
         "rules": {
           "style": {
