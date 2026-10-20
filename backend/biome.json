@@ -62,16 +62,6 @@
           }
         }
       }
-    },
-    {
-      "includes": ["src/infra/memoryRedis.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": "off"
-          }
-        }
-      }
     }
   ]
 }
