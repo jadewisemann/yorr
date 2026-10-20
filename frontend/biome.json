@@ -226,11 +226,7 @@
       }
     },
     {
-      "includes": [
-        "src/landing/rendering/heroScene.ts",
-        "src/pingpong/rendering/scene3d.ts",
-        "src/yacht/rendering/physics-dice/World.ts"
-      ],
+      "includes": ["src/landing/rendering/heroScene.ts", "src/pingpong/rendering/scene3d.ts"],
       "linter": {
         "rules": {
           "style": {
