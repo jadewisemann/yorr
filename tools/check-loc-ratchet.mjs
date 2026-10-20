@@ -75,6 +75,14 @@ for (const pkg of PACKAGES) {
   }
 }
 
+// 범위 제외로 인정하는 glob. 이 목록에 없는 glob이 설정에 나타나면 실패한다.
+// 그렇지 않으면 `"src/**"` 같은 한 줄로 저장소 전체의 규칙을 조용히 끌 수 있다.
+// 테스트·CSS는 줄 수가 의미 없는 부류라는 3절 (b)의 결정을 코드로 옮긴 것이다.
+const ALLOWED_SCOPE_PATTERNS = {
+  backend: ['**/__tests__/**', 'test/**'],
+  frontend: ['**/__tests__/**', '**/*.test.{ts,tsx}', 'e2e/**', '**/*.css'],
+}
+
 // --- 2. 예외: 범위 제외와 파일 예외를 나눈다 --------------------------------
 const scopePatterns = [] // { pkg, pattern, regexp }
 const fileExceptions = new Map() // `${pkg}/{path}` -> { pkg, include }
@@ -83,11 +91,27 @@ for (const pkg of PACKAGES) {
   for (const override of configs[pkg].overrides ?? []) {
     if (override.linter?.rules?.style?.noExcessiveLinesPerFile !== 'off') continue
     for (const include of override.includes ?? []) {
-      if (include.includes('*')) {
-        scopePatterns.push({ pkg, pattern: include, regexp: patternToRegExp(include) })
-      } else {
+      if (!include.includes('*')) {
         fileExceptions.set(`${pkg}/${include.replace(/^\.\//, '')}`, { pkg, include })
+        continue
       }
+      if (!ALLOWED_SCOPE_PATTERNS[pkg].includes(include)) {
+        fail([
+          `${pkg}/biome.json: 허용되지 않은 범위 제외 glob이다 — ${include}`,
+          `허용: ${ALLOWED_SCOPE_PATTERNS[pkg].join(', ')}`,
+          '이 목록을 넓히려면 QUALITY.md 3절 (b)의 결정을 먼저 바꿔라.',
+        ])
+      }
+      scopePatterns.push({ pkg, pattern: include, regexp: patternToRegExp(include) })
+    }
+  }
+}
+
+// 설정에서 사라진 허용 glob도 알린다 — 테스트가 다시 규칙 대상이 된 경우다.
+for (const pkg of PACKAGES) {
+  for (const pattern of ALLOWED_SCOPE_PATTERNS[pkg]) {
+    if (!scopePatterns.some((entry) => entry.pkg === pkg && entry.pattern === pattern)) {
+      fail([`${pkg}/biome.json: 범위 제외 glob이 빠졌다 — ${pattern}`])
     }
   }
 }
