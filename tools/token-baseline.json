@@ -9,7 +9,6 @@
   "backend/docs/design/rooms-and-sessions.md": 7638,
   "backend/IMPLEMENTATION_NOTES.md": 5874,
   "backend/PLANS.md": 9487,
-  "backend/src/ws/handler.ts": 7671,
   "frontend/.dev.md": 27716,
   "frontend/docs/llmwiki/code-rationale.md": 15005,
   "frontend/docs/llmwiki/controller-link.md": 5096,

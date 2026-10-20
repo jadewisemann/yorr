@@ -1,27 +1,27 @@
-import { z } from 'zod'
 import type { GameModuleRegistry, RoomGameHooks } from '../game/module.js'
 import type { RoomCloseScheduler } from '../room/closeScheduler.js'
 import type { RoomService } from '../room/roomService.js'
-import type { RoomSnapshot } from '../room/snapshot.js'
-import { SessionAuthenticationError } from '../user/errors.js'
 import type { UserService } from '../user/session.js'
 import type { RoomBroadcaster } from './broadcaster.js'
-import { ChatChannel, chatSendPayloadSchema } from './chat.js'
+import { ChatChannel } from './chat.js'
 import { ControllerSignalChannel, controllerSignalPayloadSchema } from './controllerSignal.js'
 import { envelope, type InboundEnvelope, parseInbound } from './envelope.js'
 import type { HeartbeatMonitor } from './heartbeat.js'
 import {
-  CHAT_TEXT_MAX_LENGTH,
   HEARTBEAT_INTERVAL_MS,
   type PlayerStatus,
-  REACTION_TYPES,
-  type ReactionType,
-  toWsPhase,
   WS_CLOSE_POLICY_VIOLATION,
   WS_PROTOCOL_VERSION,
   type WsErrorCode,
 } from './protocol.js'
-import { type RoomMember, type RoomSessionRegistry, toWsPlayer } from './registry.js'
+import type { RoomSessionRegistry } from './registry.js'
+import { handleRoomJoin, type JoinDeps } from './roomJoin.js'
+import {
+  handleChatSend,
+  handleReactionSend,
+  handleRoomReady,
+  type RoomMessageDeps,
+} from './roomMessages.js'
 import type { RealtimeRoomSnapshotService } from './snapshot.js'
 import { type ClientSocket, isOpen } from './socket.js'
 
@@ -58,32 +58,6 @@ export interface GameSocketHandlerDependencies {
   readonly logger?: WsLogger
 }
 
-const roomJoinPayloadSchema = z.object({
-  roomId: z.string().nullish(),
-  nickname: z.string().nullish(),
-  sessionToken: z.string().nullish(),
-})
-
-const roomReadyPayloadSchema = z.object({ ready: z.boolean().nullish() })
-
-const reactionSendPayloadSchema = z.object({ reaction: z.unknown() })
-
-interface Identity {
-  readonly playerId: string
-  readonly sessionToken: string
-  readonly nickname: string
-}
-
-/**
- * Redis 명단에 이 사람의 자리가 있는지. 좌석 레지스트리(프로세스 메모리)와 달리
- * 재시작을 견디는 근거다 — 재무장한 판으로 돌아오는 판정에 쓴다.
- */
-const hasSeat = (room: RoomSnapshot, playerId: string): boolean =>
-  room.players.some((player) => player.playerId === playerId)
-
-const isReaction = (value: unknown): value is ReactionType =>
-  REACTION_TYPES.includes(value as ReactionType)
-
 /**
  * WebSocket 게이트웨이.
  *
@@ -109,6 +83,12 @@ export class GameSocketHandler {
   /** 컨트롤러 링크 시그널링 릴레이(docs/design/controller-signal.md). 상태가 없다. */
   private readonly controllerSignal: ControllerSignalChannel
 
+  /** 방 레벨 메시지(ready·reaction·chat) — 게임과 무관한 셋을 한 자리에 모아 둔다. */
+  private readonly roomMessages: RoomMessageDeps
+
+  /** `room.join` — 인증·재접속 판정·이전 소켓 교체. */
+  private readonly join: JoinDeps
+
   constructor(private readonly deps: GameSocketHandlerDependencies) {
     this.log = deps.logger ?? silentLogger
     this.chat = new ChatChannel({ broadcaster: deps.broadcaster })
@@ -116,6 +96,27 @@ export class GameSocketHandler {
       registry: deps.registry,
       send: (socket, message) => this.send(socket, message),
     })
+    this.roomMessages = {
+      broadcaster: deps.broadcaster,
+      chat: this.chat,
+      registry: deps.registry,
+      sendError: (socket, code, text, ref) => this.sendError(socket, code, text, ref),
+    }
+    this.join = {
+      broadcaster: deps.broadcaster,
+      closeScheduler: deps.closeScheduler,
+      games: deps.games,
+      log: this.log,
+      registry: deps.registry,
+      rooms: deps.rooms,
+      snapshots: deps.snapshots,
+      users: deps.users,
+      send: (socket, message) => this.send(socket, message),
+      sendError: (socket, code, text, ref) => this.sendError(socket, code, text, ref),
+      game: (roomId) => this.game(roomId),
+      broadcastPresence: (roomId, playerId, status) =>
+        this.broadcastPresence(roomId, playerId, status),
+    }
     this.moduleless = {
       pause: async () => {},
       resume: async () => {},
@@ -154,16 +155,16 @@ export class GameSocketHandler {
       case 'sys.ping':
         return this.handleSysPing(socket)
       case 'room.join':
-        return this.handleRoomJoin(socket, message)
+        return handleRoomJoin(this.join, socket, message)
       case 'room.leave':
         return this.handleRoomLeave(socket)
       case 'room.ready':
-        return this.handleRoomReady(socket, message)
+        return handleRoomReady(this.roomMessages, socket, message)
       case 'reaction.send':
-        return this.handleReactionSend(socket, message)
+        return handleReactionSend(this.roomMessages, socket, message)
       // 채팅은 방 레벨이라 게임 네임스페이스(game.<code>.*) 접두사가 없다.
       case 'chat.send':
-        return this.handleChatSend(socket, message)
+        return handleChatSend(this.roomMessages, socket, message)
       case 'ctrl.signal':
         return this.handleControllerSignal(socket, message)
       default:
@@ -198,183 +199,6 @@ export class GameSocketHandler {
    * `room.join` = 인증 + 구독. 처리 순서 자체가 계약이다
    * (docs/design/realtime.md 「인증·구독」).
    */
-  private async handleRoomJoin(socket: ClientSocket, message: InboundEnvelope): Promise<void> {
-    const parsed = roomJoinPayloadSchema.safeParse(message.payload)
-    if (!parsed.success) {
-      this.sendError(socket, 'INVALID_MESSAGE', 'room.join payload가 올바르지 않습니다.', message)
-      return
-    }
-    const roomId = parsed.data.roomId ?? ''
-    if (roomId.trim().length === 0) {
-      this.sendError(socket, 'INVALID_MESSAGE', 'roomId가 필요합니다.', message)
-      return
-    }
-
-    // 인메모리 유령 방 방지: Redis에 없는 방에는 아무도 등록하지 않는다.
-    const room = await this.deps.rooms.getSnapshot(roomId)
-    if (room.phase === null) {
-      this.sendError(
-        socket,
-        'ROOM_NOT_FOUND',
-        '방이 종료됐습니다. 홈에서 새로 시작해 주세요.',
-        message,
-      )
-      return
-    }
-    this.deps.registry.registerGame(roomId, room.gameCode)
-    this.deps.registry.markPhase(roomId, toWsPhase(room.phase))
-
-    let identity: Identity
-    try {
-      identity = await this.resolveIdentity(parsed.data)
-    } catch (error) {
-      // 만료를 INVALID_MESSAGE로 뭉개면 클라이언트가 세션 종료로 다루지 않아
-      // 대기실에서 안내 없이 멈춘다 — 두 실패는 반드시 구분된다.
-      if (error instanceof SessionAuthenticationError) {
-        this.sendError(
-          socket,
-          'SESSION_EXPIRED',
-          '입장 정보가 만료됐습니다. 방에 다시 참가해 주세요.',
-          message,
-        )
-        return
-      }
-      this.sendError(socket, 'INVALID_MESSAGE', '닉네임이 올바르지 않습니다.', message)
-      return
-    }
-
-    const previous = this.deps.registry.find(roomId, identity.playerId)
-    const playing = this.deps.registry.phaseOf(roomId) === 'playing'
-    /*
-     * **재시작 뒤 자기 자리로 돌아오는 경로**(옛 deploy/PLAN.md PR 6).
-     *
-     * 좌석 레지스트리는 프로세스 메모리라 재시작에 함께 사라진다. 그래서 재접속
-     * 판정을 레지스트리만으로 하면, 프로세스가 죽었다 살아난 뒤의 첫 `room.join`이
-     * **자기 방인데도 새 참가로 보여 `GAME_ALREADY_STARTED`로 거절된다.** 그러면 마감
-     * 시각을 되살려 놓아도 아무도 그 판으로 돌아올 수 없어 재무장이 무의미해진다.
-     *
-     * 방 명단은 Redis에 있다 — 그것이 "이 사람에게 자리가 있다"의 영속 근거다.
-     * 진행 중인 방에만 적용하는 이유: 대기실은 지금도 새 참가로 정상 처리되므로
-     * 바꿀 이유가 없고, 바꾸면 `room.joined`·`room.player_joined`가 나가지 않는
-     * 차이만 생긴다.
-     */
-    const reseating = !previous && playing && hasSeat(room, identity.playerId)
-    if (playing && !previous && !reseating) {
-      this.sendError(
-        socket,
-        'GAME_ALREADY_STARTED',
-        '이미 시작된 게임에는 새로 참가할 수 없습니다.',
-        message,
-      )
-      return
-    }
-
-    const self = this.deps.registry.join(roomId, socket, identity.playerId, identity.nickname)
-    this.disconnectPreviousSocket(previous, socket)
-
-    // 자리를 되찾는 경우도 재접속 경로다. 최초 참가 경로로 보내면 `resume()`이
-    // 불려 **되살린 마감이 새 25초로 덮인다** — 재무장이 헛일이 된다.
-    if (previous || reseating) {
-      await this.completeReconnect(socket, message, roomId, identity.playerId)
-      return
-    }
-    await this.completeFirstJoin(socket, roomId, identity, self)
-  }
-
-  /**
-   * 재접속: 좌석·host를 유지한 채 소켓만 갈아끼웠다. `room.joined`·`player_joined`는
-   * 나가지 않고 스냅샷 하나로 동기화 기준점을 다시 잡는다.
-   */
-  private async completeReconnect(
-    socket: ClientSocket,
-    message: InboundEnvelope,
-    roomId: string,
-    playerId: string,
-  ): Promise<void> {
-    this.deps.broadcaster.register(roomId, socket)
-    let snapshot: unknown
-    try {
-      snapshot = await this.game(roomId).reconnect(roomId, playerId)
-    } catch (error) {
-      this.log.error({ error, roomId, playerId }, '재접속 상태 스냅샷 생성 실패')
-      this.deps.broadcaster.unregister(socket)
-      this.sendError(
-        socket,
-        'INTERNAL',
-        '게임 상태를 복원하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-        message,
-      )
-      return
-    }
-    this.send(socket, envelope('sys.reconnected', { snapshot }, { roomId, msgId: message.msgId }))
-    this.broadcastPresence(roomId, playerId, 'online')
-    this.log.info({ playerId, roomId }, 'room.reconnected')
-  }
-
-  /**
-   * 최초 참가: ① 본인에게 `room.joined` → ② 방에 `room.player_joined`(본인은 아직
-   * 팬아웃 밖이라 못 받는다) → ③ 팬아웃 등록 → ④ 폐쇄 예약 취소 시 타이머 재개.
-   */
-  private async completeFirstJoin(
-    socket: ClientSocket,
-    roomId: string,
-    identity: Identity,
-    self: RoomMember,
-  ): Promise<void> {
-    const snapshot = await this.deps.snapshots.snapshot(roomId)
-    this.send(
-      socket,
-      envelope(
-        'room.joined',
-        { you: identity.playerId, sessionToken: identity.sessionToken, snapshot },
-        { roomId },
-      ),
-    )
-    this.deps.broadcaster.broadcast(
-      roomId,
-      envelope('room.player_joined', { player: toWsPlayer(self) }, { roomId }),
-    )
-    this.deps.broadcaster.register(roomId, socket)
-    // 취소할 예약이 있었다 = 방금 전까지 아무도 없었다 → 그때 끊어둔 마감 타이머를 다시 건다.
-    if (this.deps.closeScheduler.cancel(roomId)) await this.game(roomId).resume(roomId)
-    this.log.info({ playerId: identity.playerId, roomId, host: self.host }, 'room.join')
-  }
-
-  /**
-   * 신원 확정. `sessionToken`이 있으면 그 세션(payload nickname은 무시),
-   * 없으면 새 게스트를 발급한다.
-   */
-  private async resolveIdentity(payload: {
-    nickname?: string | null | undefined
-    sessionToken?: string | null | undefined
-  }): Promise<Identity> {
-    const token = payload.sessionToken
-    if (token && token.trim().length > 0) {
-      const user = await this.deps.users.authenticateSession(token)
-      return { playerId: user.userId, sessionToken: token, nickname: user.nickname }
-    }
-    const guest = await this.deps.users.createGuest(payload.nickname)
-    return {
-      playerId: guest.userId,
-      sessionToken: guest.sessionToken,
-      nickname: guest.nickname,
-    }
-  }
-
-  /** 같은 사람의 이전 소켓은 진다: 팬아웃 해제 → `sys.disconnect` → close 1008. */
-  private disconnectPreviousSocket(previous: RoomMember | null, replacement: ClientSocket): void {
-    const old = previous?.socket
-    if (!old || old === replacement) return
-    this.deps.broadcaster.unregister(old)
-    if (!isOpen(old)) return
-    this.send(old, envelope('sys.disconnect', { reason: 'replaced_by_new_session' }))
-    try {
-      old.close(WS_CLOSE_POLICY_VIOLATION)
-    } catch (error) {
-      this.log.warn({ error }, '교체된 이전 소켓 정리 실패')
-    }
-  }
-
   /* -------------------------------------------------------- room.leave / ready */
 
   /**
@@ -394,123 +218,6 @@ export class GameSocketHandler {
       return
     }
     await this.leaveRoom(socket)
-  }
-
-  /**
-   * `room.ready`는 **서버가 상태를 저장하지 않는다** — 본인 포함 방 전체에
-   * 릴레이만 한다(서버 확인 이벤트로 각자 UI를 갱신).
-   */
-  private handleRoomReady(socket: ClientSocket, message: InboundEnvelope): void {
-    const parsed = roomReadyPayloadSchema.safeParse(message.payload)
-    if (!parsed.success) {
-      this.sendError(socket, 'INVALID_MESSAGE', 'room.ready payload가 올바르지 않습니다.', message)
-      return
-    }
-    const me = this.deps.registry.of(socket)
-    if (!me) {
-      this.sendError(socket, 'NOT_IN_ROOM', '방에 입장한 뒤에만 준비할 수 있습니다.', message)
-      return
-    }
-    this.deps.broadcaster.broadcast(
-      me.roomId,
-      envelope(
-        'room.ready_changed',
-        { playerId: me.playerId, ready: parsed.data.ready ?? false },
-        { roomId: me.roomId },
-      ),
-    )
-  }
-
-  /** `reaction.send` → `reaction.broadcast`. 본인도 받는다. 레이트 리밋은 없다. */
-  private handleReactionSend(socket: ClientSocket, message: InboundEnvelope): void {
-    const parsed = reactionSendPayloadSchema.safeParse(message.payload)
-    if (!parsed.success) {
-      this.sendError(
-        socket,
-        'INVALID_MESSAGE',
-        'reaction.send payload가 올바르지 않습니다.',
-        message,
-      )
-      return
-    }
-    const reaction = parsed.data.reaction
-    if (reaction === null || reaction === undefined) {
-      this.sendError(socket, 'INVALID_MESSAGE', 'reaction 종류가 필요합니다.', message)
-      return
-    }
-    if (!isReaction(reaction)) {
-      this.sendError(
-        socket,
-        'INVALID_MESSAGE',
-        'reaction.send payload가 올바르지 않습니다.',
-        message,
-      )
-      return
-    }
-    const me = this.deps.registry.of(socket)
-    if (!me) {
-      this.sendError(
-        socket,
-        'NOT_IN_ROOM',
-        '방에 입장한 뒤에만 리액션을 보낼 수 있습니다.',
-        message,
-      )
-      return
-    }
-    this.deps.broadcaster.broadcast(
-      me.roomId,
-      envelope('reaction.broadcast', { playerId: me.playerId, reaction }, { roomId: me.roomId }),
-    )
-  }
-
-  /* -------------------------------------------------------------------- chat.* */
-
-  /**
-   * `chat.send` → 방 전원에게 `chat.message`. 거절 사유마다 코드가 갈린다: 빈 줄·길이
-   * 초과는 `INVALID_MESSAGE`, 도배는 `RATE_LIMITED`다 — 사용자가 고칠 방법이 다르므로
-   * (글을 바꾸는 것과 잠시 기다리는 것) 하나로 뭉개지 않는다.
-   *
-   * 검사 순서는 다른 방 레벨 메시지와 같다(payload 검증 → 멤버십) — 방 밖에서 깨진
-   * payload를 보내면 `NOT_IN_ROOM`이 아니라 `INVALID_MESSAGE`가 나간다.
-   */
-  private handleChatSend(socket: ClientSocket, message: InboundEnvelope): void {
-    const parsed = chatSendPayloadSchema.safeParse(message.payload)
-    if (!parsed.success) {
-      this.sendError(socket, 'INVALID_MESSAGE', 'chat.send payload가 올바르지 않습니다.', message)
-      return
-    }
-    const me = this.deps.registry.of(socket)
-    if (!me) {
-      this.sendError(
-        socket,
-        'NOT_IN_ROOM',
-        '방에 입장한 뒤에만 메시지를 보낼 수 있습니다.',
-        message,
-      )
-      return
-    }
-    const rejection = this.chat.send(me, parsed.data.text)
-    if (rejection === 'empty') {
-      this.sendError(socket, 'INVALID_MESSAGE', '보낼 내용이 필요합니다.', message)
-      return
-    }
-    if (rejection === 'too_long') {
-      this.sendError(
-        socket,
-        'INVALID_MESSAGE',
-        `메시지는 ${CHAT_TEXT_MAX_LENGTH}자까지 보낼 수 있습니다.`,
-        message,
-      )
-      return
-    }
-    if (rejection === 'rate_limited') {
-      this.sendError(
-        socket,
-        'RATE_LIMITED',
-        '메시지를 너무 빠르게 보내고 있습니다. 잠시 후 다시 시도해 주세요.',
-        message,
-      )
-    }
   }
 
   /** 이 소켓의 사람이 누구였는지 아는 동안 도배 한도 기록을 버린다. */
