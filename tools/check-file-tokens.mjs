@@ -38,6 +38,17 @@ try {
 
 // 잠금 파일·생성물은 사람이 읽는 코드가 아니므로 제외한다.
 const EXCLUDED_PATH = /(^|\/)(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb)$|(^|\/)(dist|coverage|playwright-report|test-results|node_modules|deploy\/botkeep\/out)\//
+
+/**
+ * 테스트는 토큰 검사에서 뺀다 — 줄 수 규칙(QUALITY.md 3절 (b))과 같은 이유다.
+ *
+ * 표 기반 테스트는 행이 늘어나는 것이 곧 커버리지이고, 분할하면 한 시나리오의
+ * 준비·실행·검증이 여러 파일로 흩어진다. 테스트가 길다는 사실은 읽기 어렵다는
+ * 뜻이 아니다. CSS도 같은 성격(토큰·레시피가 한 파일에 모이는 설계)이라 뺀다.
+ */
+const EXCLUDED_TEST_OR_CSS =
+  /(^|\/)(__tests__|e2e|test)\/|\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs)$|\.css$/
+
 const BINARY_EXT = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.bmp',
   '.woff', '.woff2', '.ttf', '.otf', '.eot',
@@ -48,7 +59,8 @@ const BINARY_EXT = new Set([
 const git = (args, options = {}) =>
   execFileSync('git', args, { encoding: 'buffer', ...options })
 
-const isExcluded = (path) => EXCLUDED_PATH.test(path) || path === BASELINE_PATH
+const isExcluded = (path) =>
+  EXCLUDED_PATH.test(path) || EXCLUDED_TEST_OR_CSS.test(path) || path === BASELINE_PATH
 
 const isBinary = (path, content) => {
   const dot = path.lastIndexOf('.')

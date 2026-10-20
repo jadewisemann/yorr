@@ -52,7 +52,9 @@
 
 - 스테이징된 파일이 **5,000 토큰**(cl100k) 초과 — 파일 하나가 LLM 컨텍스트를
   통째로 먹지 않게 하려는 장치다. 이미 넘던 파일은 `tools/token-baseline.json`에
-  현재 값으로 고정되어 있고, 그 값보다 커지면 막힌다.
+  현재 값으로 고정되어 있고, 그 값보다 커지면 막힌다. 테스트·CSS는 검사하지
+  않는다(테스트는 길어지는 것이 정상이고, CSS는 토큰·레시피가 한 파일에 모인다).
+
 - 파일이 **500줄**(비공백) 초과 — Biome `style/noExcessiveLinesPerFile`이 정본이고,
   `tools/check-loc-ratchet.mjs`가 예외 목록을 함께 지킨다(`QUALITY.md` 1단계).
 

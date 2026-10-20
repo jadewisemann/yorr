@@ -110,8 +110,8 @@ npm run hooks:install
 
 `pre-commit`은 스테이징된 파일이 **5,000 토큰(cl100k)** 을 넘거나 **500줄(비공백)**
 을 넘으면 커밋을 막습니다. 파일 하나가 LLM 컨텍스트를 통째로 먹거나 읽기 어려워지는
-것을 막는 장치입니다. 잠금 파일과 생성물·바이너리는 토큰 검사에서 제외하며, 정당한
-예외라면 `git commit --no-verify`로 우회할 수 있습니다.
+것을 막는 장치입니다. 잠금 파일·생성물·바이너리와 **테스트·CSS**는 토큰 검사에서
+제외하며, 정당한 예외라면 `git commit --no-verify`로 우회할 수 있습니다.
 
 이미 상한을 넘던 파일은 `tools/token-baseline.json`과 `biome.json`의 `overrides`에
 기준선으로 고정되어 있습니다. 두 목록 모두 **줄어들기만** 하도록 `npm run check:tokens`와
