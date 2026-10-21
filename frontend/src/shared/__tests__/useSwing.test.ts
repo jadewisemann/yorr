@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { useSwing } from '../useSwing'
+import { advanceSwing, type SwingState, useSwing } from '../useSwing'
 
 const originalDeviceMotion = Object.getOwnPropertyDescriptor(window, 'DeviceMotionEvent')
 
@@ -87,3 +87,56 @@ function motionEvent(x: number) {
     accelerationIncludingGravity: null,
   }) as DeviceMotionEvent
 }
+
+/**
+ * 스윙 판정 규칙 — 히스테리시스(놓아야 다시 무장)와 쿨다운.
+ *
+ * 훅이 아니라 순수 함수로 시험한다: 이 규칙이 깨지면 "한 번 흔들었는데 두 번
+ * 굴러간다" 또는 "세게 흔들어도 안 굴러간다"가 되는데, 이벤트를 흉내내면 그 두
+ * 증상이 구분되지 않는다.
+ */
+describe('advanceSwing', () => {
+  const THRESHOLD = 14
+  const fresh = (): SwingState => ({ armed: true, lastSwingAt: 0 })
+  const sample = (magnitude: number, now: number) => ({ magnitude, threshold: THRESHOLD, now })
+
+  it('임계값 미만은 스윙이 아니다', () => {
+    const state = fresh()
+    expect(advanceSwing(state, sample(THRESHOLD - 0.1, 1_000))).toBe(false)
+    // 임계값에 도달하면 발화한다(경계 포함 — "이 이상이면 스윙").
+    expect(advanceSwing(state, sample(THRESHOLD, 1_000))).toBe(true)
+  })
+
+  it('임계값을 넘으면 발화하고 무장이 풀린다', () => {
+    const state = fresh()
+    expect(advanceSwing(state, sample(THRESHOLD + 1, 1_000))).toBe(true)
+    expect(state.armed).toBe(false)
+    expect(state.lastSwingAt).toBe(1_000)
+  })
+
+  it('무장이 풀린 동안에는 다시 발화하지 않는다 — 한 번의 흔들림은 한 번', () => {
+    const state = fresh()
+    advanceSwing(state, sample(40, 1_000))
+    // 계속 세게 흔들어도(놓지 않았으므로) 두 번째는 없다.
+    expect(advanceSwing(state, sample(40, 1_100))).toBe(false)
+    expect(advanceSwing(state, sample(60, 1_200))).toBe(false)
+  })
+
+  it('충분히 놓으면 다시 무장한다', () => {
+    const state = fresh()
+    advanceSwing(state, sample(40, 1_000))
+    expect(advanceSwing(state, sample(THRESHOLD * 0.45 - 0.1, 1_100))).toBe(false)
+    expect(state.armed).toBe(true)
+    expect(advanceSwing(state, sample(40, 1_400))).toBe(true)
+  })
+
+  it('쿨다운 안의 두 번째 스윙은 버린다', () => {
+    const state = fresh()
+    expect(advanceSwing(state, sample(40, 1_000))).toBe(true)
+    // 놓아서 무장은 됐지만 쿨다운이 남았다.
+    advanceSwing(state, sample(1, 1_050))
+    expect(advanceSwing(state, sample(40, 1_150))).toBe(false)
+    // 쿨다운이 지나면 발화한다.
+    expect(advanceSwing(state, sample(40, 1_300))).toBe(true)
+  })
+})
