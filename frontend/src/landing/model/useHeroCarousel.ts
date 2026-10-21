@@ -92,32 +92,42 @@ export function useHeroCarousel({ activeIndex, games, layout, onSelect }: UseHer
   }
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragStartRef.current === null) return
+    if (dragStartRef.current === null) {
+      return
+    }
     if (event.buttons === 0) {
       handlePointerUp()
       return
     }
 
     const raw = event.clientX - dragStartRef.current
+    // 손가락 흔들림 몇 px에 카드가 넘어가면 탭을 영영 못 한다(터치 슬롭과 같은 8px).
+    if (!draggedRef.current && Math.abs(raw) < DRAG_ACTIVATION_PX) {
+      return
+    }
     if (!draggedRef.current) {
-      if (Math.abs(raw) < DRAG_ACTIVATION_PX) return
       draggedRef.current = true
       event.currentTarget.setPointerCapture(event.pointerId)
     }
 
-    const offset = Math.max(-DRAG_LIMIT_PX, Math.min(DRAG_LIMIT_PX, raw))
+    const offset = clampDrag(raw)
     setDragOffset(offset)
     slideAnim.current?.stop()
     trackX.set(offset)
   }
 
   const handlePointerUp = () => {
-    if (dragStartRef.current === null) return
+    if (dragStartRef.current === null) {
+      return
+    }
     dragStartRef.current = null
-    if (!draggedRef.current) return
+    if (!draggedRef.current) {
+      return
+    }
 
     const travelled = dragOffset
     setDragOffset(0)
+    // 한 칸을 넘길 만큼 끌지 않았으면 제자리로 돌아간다.
     if (Math.abs(travelled) < STEP_DISTANCE_PX[layout]) {
       slideAnim.current?.stop()
       slideAnim.current = animate(trackX, 0, ENTER)
@@ -150,6 +160,11 @@ export function useHeroCarousel({ activeIndex, games, layout, onSelect }: UseHer
     trackX,
     wide,
   }
+}
+
+/** 드래그 오프셋을 한 칸 폭 안으로 자른다 — 더 끌어도 트랙이 따라오지 않는다. */
+function clampDrag(raw: number): number {
+  return Math.max(-DRAG_LIMIT_PX, Math.min(DRAG_LIMIT_PX, raw))
 }
 
 function keyboardStep(event: globalThis.KeyboardEvent) {

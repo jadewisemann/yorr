@@ -7,13 +7,10 @@ import {
   IDEAL1,
   IDEAL2,
   NEAR_Z,
-  NET_H,
-  NET_OVERHANG,
   PERFECT_D,
   posToZ,
   TABLE_H,
   TABLE_LEN,
-  TABLE_THICK,
   TABLE_W,
   viewerDepth,
   W1_HI,
@@ -32,6 +29,7 @@ import {
   poseMascot,
   posePaddle,
 } from './scenePuppets'
+import { buildTable } from './sceneTable'
 import {
   blobTexture,
   floorTexture,
@@ -128,62 +126,16 @@ export function createScene(canvas: HTMLCanvasElement): PingPongScene {
     scene.add(wall)
   }
 
-  const topSide = keepM(new THREE.MeshStandardMaterial({ color: 0x0d3f66, roughness: 0.6 }))
-  const topFace = keepM(
-    new THREE.MeshStandardMaterial({ map: texTable, roughness: 0.34, metalness: 0.04 }),
-  )
-  const tableTop = new THREE.Mesh(keepG(new THREE.BoxGeometry(TABLE_W, TABLE_THICK, TABLE_LEN)), [
-    topSide,
-    topSide,
-    topFace,
-    topSide,
-    topSide,
-    topSide,
-  ])
-  tableTop.position.y = TABLE_H - TABLE_THICK / 2
-  scene.add(tableTop)
-
-  const legMat = keepM(
-    new THREE.MeshStandardMaterial({ color: 0x161c27, roughness: 0.7, metalness: 0.25 }),
-  )
-  const legGeo = keepG(new THREE.BoxGeometry(0.06, TABLE_H - TABLE_THICK, 0.06))
-  for (const sx of [-1, 1])
-    for (const sz of [-1, 1]) {
-      const leg = new THREE.Mesh(legGeo, legMat)
-      leg.position.set(
-        sx * (TABLE_W / 2 - 0.13),
-        (TABLE_H - TABLE_THICK) / 2,
-        sz * (TABLE_LEN / 2 - 0.2),
-      )
-      scene.add(leg)
-    }
-  const beamGeo = keepG(new THREE.BoxGeometry(TABLE_W - 0.3, 0.04, 0.04))
-  for (const sz of [-1, 1]) {
-    const beam = new THREE.Mesh(beamGeo, legMat)
-    beam.position.set(0, 0.36, sz * (TABLE_LEN / 2 - 0.2))
-    scene.add(beam)
-  }
-
-  const netW = TABLE_W + NET_OVERHANG * 2
-  const net = new THREE.Mesh(
-    keepG(new THREE.PlaneGeometry(netW, NET_H)),
-    keepM(
-      new THREE.MeshBasicMaterial({
-        map: texNet,
-        transparent: true,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-      }),
+  buildTable({
+    scene,
+    keepG,
+    keepM,
+    texTable,
+    texNet,
+    legMat: keepM(
+      new THREE.MeshStandardMaterial({ color: 0x161c27, roughness: 0.7, metalness: 0.25 }),
     ),
-  )
-  net.position.set(0, TABLE_H + NET_H / 2, 0)
-  scene.add(net)
-  const postGeo = keepG(new THREE.CylinderGeometry(0.012, 0.012, NET_H + 0.03, 10))
-  for (const sx of [-1, 1]) {
-    const post = new THREE.Mesh(postGeo, legMat)
-    post.position.set((sx * netW) / 2, TABLE_H + (NET_H + 0.03) / 2, 0)
-    scene.add(post)
-  }
+  })
 
   const P1_COLOR = 0x2b8fe0 // 가까운쪽(P1) 파랑 — 기존 2D 색 유지
   const P2_COLOR = 0xe2513c // 먼쪽(P2) 빨강
