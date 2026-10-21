@@ -286,7 +286,7 @@ describe('맞힌 뒤의 선택', () => {
   }
 
   it('계속하면 같은 사람의 추측 차례가 이어진다', () => {
-    const next = decide(opened(), HOST, 1, 'CONTINUE', NOW)
+    const next = decide(opened(), { playerId: HOST, inputSeq: 1, decision: 'CONTINUE', now: NOW })
     expect(next.phase).toBe('GUESSING')
     expect(next.turnPlayerId).toBe(HOST)
   })
@@ -294,7 +294,7 @@ describe('맞힌 뒤의 선택', () => {
   it('멈추면 뽑아 둔 타일을 감춘 채 넣고 턴을 넘긴다', () => {
     const before = opened()
     const drawnId = before.drawn?.id
-    const next = decide(before, HOST, 1, 'STOP', NOW)
+    const next = decide(before, { playerId: HOST, inputSeq: 1, decision: 'STOP', now: NOW })
     expect(next.turnPlayerId).toBe(GUEST)
     expect(tilesOf(next, HOST).find((tile) => tile.id === drawnId)?.revealed).toBe(false)
     expect(next.drawn?.id).not.toBe(drawnId)
@@ -342,7 +342,7 @@ describe('조커', () => {
       number: 0,
       now: NOW,
     })
-    const next = place(placing, HOST, 1, 2, NOW)
+    const next = place(placing, { playerId: HOST, inputSeq: 1, index: 2, now: NOW })
     expect(next.phase).toBe('GUESSING')
     expect(next.turnPlayerId).toBe(GUEST)
     expect(numbersOf(next, HOST)[2]).toBe(DAVINCI_JOKER)
@@ -358,8 +358,12 @@ describe('조커', () => {
       number: 0,
       now: NOW,
     })
-    expect(place(placing, HOST, 1, 99, NOW).version).toBe(placing.version)
-    expect(place(placing, GUEST, 1, 0, NOW).version).toBe(placing.version)
+    expect(place(placing, { playerId: HOST, inputSeq: 1, index: 99, now: NOW }).version).toBe(
+      placing.version,
+    )
+    expect(place(placing, { playerId: GUEST, inputSeq: 1, index: 0, now: NOW }).version).toBe(
+      placing.version,
+    )
   })
 })
 
@@ -378,7 +382,7 @@ describe('승부', () => {
       })
       seq += 1
       if (state.phase === 'DECIDING') {
-        state = decide(state, HOST, seq, 'CONTINUE', NOW)
+        state = decide(state, { playerId: HOST, inputSeq: seq, decision: 'CONTINUE', now: NOW })
         seq += 1
       }
     }

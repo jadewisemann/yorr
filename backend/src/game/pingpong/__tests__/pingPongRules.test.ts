@@ -24,9 +24,9 @@ const P2 = 'player-2'
 /** 판 시작까지 — 연습 → ready → 전원 ready → 서브. */
 const startMatch = (): PingPongState => {
   let state = initial([P1, P2], 1_000)
-  state = swing(state, P1, 0, 1_100, 0.5)
+  state = swing(state, { playerId: P1, inputSeq: 0, now: 1_100, targetX: 0.5 })
   state = ready(state, P1, 1_200)
-  state = swing(state, P2, 0, 1_300, 0.5)
+  state = swing(state, { playerId: P2, inputSeq: 0, now: 1_300, targetX: 0.5 })
   state = ready(state, P2, 1_400)
   return serve(state, 4_000, 0.7)
 }
@@ -66,8 +66,8 @@ describe('PingPongRules', () => {
     const served = startMatch()
 
     // 4_900 = 서브 후 0.9초 → 공이 정확히 이상점(0.9)에 있다.
-    const smashed = swing(served, P1, 1, 4_900, 0.3)
-    const duplicate = swing(smashed, P1, 1, 4_901, 0.4)
+    const smashed = swing(served, { playerId: P1, inputSeq: 1, now: 4_900, targetX: 0.3 })
+    const duplicate = swing(smashed, { playerId: P1, inputSeq: 1, now: 4_901, targetX: 0.4 })
 
     expect(smashed.ball.direction).toBe(-1)
     expect(smashed.ball.smash).toBe(true)
@@ -137,13 +137,13 @@ describe('PingPongRules', () => {
     const ignoredReady = ready(state, P1, 1_100)
     expect(ignoredReady).toBe(state)
 
-    const p1Practiced = swing(state, P1, 0, 1_200, 0.5)
+    const p1Practiced = swing(state, { playerId: P1, inputSeq: 0, now: 1_200, targetX: 0.5 })
     expect(p1Practiced.lastEvent?.type).toBe('PRACTICE')
     const p1Ready = ready(p1Practiced, P1, 1_300)
     expect(p1Ready.phase).toBe('PREPARING')
     expect(p1Ready.readyPlayerIds).toEqual([P1])
 
-    const p2Practiced = swing(p1Ready, P2, 0, 1_400, 0.5)
+    const p2Practiced = swing(p1Ready, { playerId: P2, inputSeq: 0, now: 1_400, targetX: 0.5 })
     const allReady = ready(p2Practiced, P2, 1_500)
     expect(allReady.phase).toBe('COUNTDOWN')
     expect([...allReady.readyPlayerIds].sort()).toEqual([P1, P2])

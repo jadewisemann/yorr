@@ -19,6 +19,7 @@ export {
 export {
   RedisScoreBoardStore,
   type ScoreBoardStore,
+  type ScoreConfirmation,
 } from './scoreBoardStore.js'
 export {
   DICE_COUNT,

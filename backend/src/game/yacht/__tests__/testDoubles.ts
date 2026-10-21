@@ -6,6 +6,7 @@ import {
   type ScoreBoard,
   type ScoreBoardStore,
   type ScoreCategory,
+  type ScoreConfirmation,
   ScoreConfirmationError,
 } from '../../score/index.js'
 import type {
@@ -155,14 +156,14 @@ export class FakeScoreBoardStore implements ScoreBoardStore {
   /** 설정하면 `confirmScore`가 던진다 — 점수 저장 실패 경로 재현. */
   failure: Error | null = null
 
-  async confirmScore(
-    gameId: string,
-    playerId: string,
-    roundNumber: number,
-    category: ScoreCategory,
-    score: number,
-    requestSignature: string,
-  ): Promise<ScoreBoard> {
+  async confirmScore({
+    gameId,
+    playerId,
+    roundNumber,
+    category,
+    score,
+    requestSignature,
+  }: ScoreConfirmation): Promise<ScoreBoard> {
     if (this.failure !== null) throw this.failure
     this.confirmed.push({
       gameId,

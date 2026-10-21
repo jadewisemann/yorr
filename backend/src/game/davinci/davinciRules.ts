@@ -236,13 +236,16 @@ export const guess = (state: DavinciState, input: GuessInput): DavinciState => {
 export type DavinciDecision = 'CONTINUE' | 'STOP'
 
 /** 맞힌 뒤의 선택 — 한 번 더 부를지, 뽑은 타일을 감춘 채 넣고 턴을 넘길지. */
-export const decide = (
-  state: DavinciState,
-  playerId: string,
-  inputSeq: number,
-  decision: DavinciDecision,
-  now: number,
-): DavinciState => {
+/** 결정 한 번의 입력 묶음 — 이름으로 읽기 위해 객체로 받는다. */
+export interface DecideInput {
+  readonly playerId: string
+  readonly inputSeq: number
+  readonly decision: DavinciDecision
+  readonly now: number
+}
+
+export const decide = (state: DavinciState, input: DecideInput): DavinciState => {
+  const { playerId, inputSeq, decision, now } = input
   if (state.phase !== 'DECIDING' || state.turnPlayerId !== playerId) return state
   if (inputSeq <= at(state.lastInputSeq, playerId, -1)) return state
 
@@ -263,13 +266,16 @@ export const decide = (
 }
 
 /** 조커를 놓는다. `index`는 삽입 자리(0부터 손패 길이까지). */
-export const place = (
-  state: DavinciState,
-  playerId: string,
-  inputSeq: number,
-  index: number,
-  now: number,
-): DavinciState => {
+/** 조커 배치 한 번의 입력 묶음. */
+export interface PlaceInput {
+  readonly playerId: string
+  readonly inputSeq: number
+  readonly index: number
+  readonly now: number
+}
+
+export const place = (state: DavinciState, input: PlaceInput): DavinciState => {
+  const { playerId, inputSeq, index, now } = input
   if (state.phase !== 'PLACING' || state.turnPlayerId !== playerId) return state
   if (inputSeq <= at(state.lastInputSeq, playerId, -1)) return state
 

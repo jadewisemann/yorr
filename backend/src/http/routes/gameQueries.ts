@@ -70,31 +70,37 @@ const scoreCandidatesRequestSchema = z.object({
  * `server.ts`가 `/api/v1` 프리픽스 안에서 등록한다. 라우트 등록만 export하고
  * 배선은 하지 않는다(다른 슬라이스와 같은 관용).
  */
+/**
+ * 인증 실패는 401 + JSON `AUTH_FAILED`(방 REST의 `invalid_guest_session`이 아니다).
+ * 라우트 함수 밖에 두는 이유는 중첩을 줄이고, 이 오류 모양을 이 파일 하나가
+ * 소유한다는 사실을 드러내기 위해서다.
+ */
+const authenticateOrFail = async (
+  users: UserService,
+  headers: Record<string, string | string[] | undefined>,
+  reply: FastifyReply,
+): Promise<UserIdentity | null> => {
+  try {
+    return await users.authenticate(header(headers, 'x-user-id'), header(headers, 'authorization'))
+  } catch (error) {
+    if (!(error instanceof SessionAuthenticationError)) throw error
+    reply.code(401).send({
+      code: 'AUTH_FAILED',
+      message: '유효하지 않은 사용자 세션입니다.',
+    } satisfies GameQueryErrorResponse)
+    return null
+  }
+}
+
 export const registerGameQueryRoutes = async (
   app: FastifyInstance,
   deps: GameQueryRouteDependencies,
 ): Promise<void> => {
-  const { users, queries } = deps
-
-  /** 인증 실패는 401 + JSON `AUTH_FAILED`(방 REST의 `invalid_guest_session`이 아니다). */
-  const authenticated = async (
+  const { queries } = deps
+  const authenticated = (
     headers: Record<string, string | string[] | undefined>,
     reply: FastifyReply,
-  ): Promise<UserIdentity | null> => {
-    try {
-      return await users.authenticate(
-        header(headers, 'x-user-id'),
-        header(headers, 'authorization'),
-      )
-    } catch (error) {
-      if (!(error instanceof SessionAuthenticationError)) throw error
-      reply.code(401).send({
-        code: 'AUTH_FAILED',
-        message: '유효하지 않은 사용자 세션입니다.',
-      } satisfies GameQueryErrorResponse)
-      return null
-    }
-  }
+  ) => authenticateOrFail(deps.users, headers, reply)
 
   app.get<{ Params: { roomId: string } }>('/rooms/:roomId/scores', async (request, reply) => {
     const requester = await authenticated(request.headers, reply)

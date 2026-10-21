@@ -82,14 +82,14 @@ export class ScoreConfirmationService {
       throw new ScoreConfirmationError('INVALID_DICE', messageOf(error), { cause: error })
     }
 
-    const scoreboard = await this.scoreBoardStore.confirmScore(
-      command.gameId,
-      command.playerId,
-      command.roundNumber,
+    const scoreboard = await this.scoreBoardStore.confirmScore({
+      gameId: command.gameId,
+      playerId: command.playerId,
+      roundNumber: command.roundNumber,
       category,
       score,
-      requestSignatureOf(category, dice),
-    )
+      requestSignature: requestSignatureOf(category, dice),
+    })
     return {
       gameId: command.gameId,
       playerId: command.playerId,

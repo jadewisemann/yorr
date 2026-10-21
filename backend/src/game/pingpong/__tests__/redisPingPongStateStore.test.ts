@@ -56,7 +56,9 @@ describeRedis('RedisPingPongStateStore', () => {
     expect(await store.mutate(ROOM, () => null)).toBeUndefined()
     expect(await store.find(ROOM)).toEqual(state)
 
-    const next = await store.mutate(ROOM, (current) => swing(current, P1, 0, 1_200, 0.5))
+    const next = await store.mutate(ROOM, (current) =>
+      swing(current, { playerId: P1, inputSeq: 0, now: 1_200, targetX: 0.5 }),
+    )
     expect(next?.version).toBe(2)
     expect((await store.find(ROOM))?.lastEvent?.type).toBe('PRACTICE')
   })
@@ -66,8 +68,12 @@ describeRedis('RedisPingPongStateStore', () => {
 
     // 두 사람이 같은 순간에 연습 스윙을 보낸다 — 둘 다 반영되고 version이 2 늘어야 한다.
     await Promise.all([
-      store.mutate(ROOM, (current) => swing(current, P1, 0, 1_100, 0.5)),
-      store.mutate(ROOM, (current) => swing(current, P2, 0, 1_100, 0.5)),
+      store.mutate(ROOM, (current) =>
+        swing(current, { playerId: P1, inputSeq: 0, now: 1_100, targetX: 0.5 }),
+      ),
+      store.mutate(ROOM, (current) =>
+        swing(current, { playerId: P2, inputSeq: 0, now: 1_100, targetX: 0.5 }),
+      ),
     ])
 
     const state = await store.find(ROOM)
@@ -77,7 +83,7 @@ describeRedis('RedisPingPongStateStore', () => {
 
   it('폴트 없는 공은 fault 필드를 아예 싣지 않는다(NON_NULL 계약)', async () => {
     let state = initial([P1, P2], 1_000)
-    state = swing(state, P1, 0, 1_100, 0.5)
+    state = swing(state, { playerId: P1, inputSeq: 0, now: 1_100, targetX: 0.5 })
     await store.initialize(ROOM, state)
 
     const raw = (await redis().get(gameStateKey(ROOM, PING_PONG))) as string

@@ -13,6 +13,7 @@ import {
   type ScoreBoard,
   type ScoreBoardStore,
   type ScoreCategory,
+  type ScoreConfirmation,
   UPPER_BONUS_SCORE,
   UPPER_BONUS_THRESHOLD,
 } from '../../../score/index.js'
@@ -186,13 +187,7 @@ export class FakeBotScores implements YachtBotScoreLookup {
 export class AccumulatingScoreBoardStore implements ScoreBoardStore {
   private readonly byPlayer = new Map<string, Map<ScoreCategory, number>>()
 
-  async confirmScore(
-    _gameId: string,
-    playerId: string,
-    _roundNumber: number,
-    category: ScoreCategory,
-    score: number,
-  ): Promise<ScoreBoard> {
+  async confirmScore({ playerId, category, score }: ScoreConfirmation): Promise<ScoreBoard> {
     const scores = this.byPlayer.get(playerId) ?? new Map<ScoreCategory, number>()
     this.byPlayer.set(playerId, scores)
     if (scores.has(category)) {

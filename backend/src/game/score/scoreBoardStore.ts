@@ -20,15 +20,24 @@ import { CONFIRM_SCORE, CONFIRM_SCORE_CODE } from './scripts.js'
  * 구현이 하는 일은 "저장"이 아니라 **확정**이다 — 중복·순서·보너스 판정을
  * 전부 원자적으로 끝내고 최종 점수판을 돌려준다.
  */
+/**
+ * 점수 확정 한 건의 입력.
+ *
+ * 값 여섯이 항상 함께 다니고(순서를 틀리면 다른 칸에 다른 점수가 들어간다) 이름이
+ * 전부 짧은 문자열이라, 위치 인자로 넘기면 읽을 때 의미를 알 수 없다.
+ */
+export interface ScoreConfirmation {
+  readonly gameId: string
+  readonly playerId: string
+  readonly roundNumber: number
+  readonly category: ScoreCategory
+  readonly score: number
+  /** 같은 요청의 재시도인지 판별하는 지문(`requestSignatureOf`). */
+  readonly requestSignature: string
+}
+
 export interface ScoreBoardStore {
-  confirmScore(
-    gameId: string,
-    playerId: string,
-    roundNumber: number,
-    category: ScoreCategory,
-    score: number,
-    requestSignature: string,
-  ): Promise<ScoreBoard>
+  confirmScore(confirmation: ScoreConfirmation): Promise<ScoreBoard>
 
   /** 확정된 점수만 담긴 현재 점수판. 아직 기록하지 않은 족보는 값이 null이다. */
   findScoreBoard(gameId: string, playerId: string): Promise<ScoreBoard>
@@ -48,14 +57,14 @@ export class RedisScoreBoardStore implements ScoreBoardStore {
     this.redis = redis
   }
 
-  async confirmScore(
-    gameId: string,
-    playerId: string,
-    roundNumber: number,
-    category: ScoreCategory,
-    score: number,
-    requestSignature: string,
-  ): Promise<ScoreBoard> {
+  async confirmScore({
+    gameId,
+    playerId,
+    roundNumber,
+    category,
+    score,
+    requestSignature,
+  }: ScoreConfirmation): Promise<ScoreBoard> {
     const roomCode = await this.redis.hget(gameKey(gameId), 'roomCode')
     if (roomCode === null || roomCode.trim().length === 0) {
       throw new ScoreConfirmationError('GAME_NOT_FOUND', `게임을 찾을 수 없습니다: ${gameId}`)

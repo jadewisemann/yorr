@@ -6,7 +6,7 @@ import {
   type RoundSubmissionResult,
 } from '../../round/index.js'
 import { createScoreBoard, type ScoreBoard } from '../scoreBoard.js'
-import type { ScoreBoardStore } from '../scoreBoardStore.js'
+import type { ScoreBoardStore, ScoreConfirmation } from '../scoreBoardStore.js'
 import type { ScoreCategory } from '../scoreCategory.js'
 import { ScoreConfirmationService } from '../scoreConfirmationService.js'
 import { isScoreConfirmationError, ScoreConfirmationError } from '../scoreErrors.js'
@@ -58,14 +58,14 @@ class ScriptedScoreBoardStore implements ScoreBoardStore {
   scoreboard: ScoreBoard = createScoreBoard({}, 0, 0, 0)
   observe: (() => Promise<readonly string[]>) | null = null
 
-  async confirmScore(
-    gameId: string,
-    playerId: string,
-    roundNumber: number,
-    category: ScoreCategory,
-    score: number,
-    requestSignature: string,
-  ): Promise<ScoreBoard> {
+  async confirmScore({
+    gameId,
+    playerId,
+    roundNumber,
+    category,
+    score,
+    requestSignature,
+  }: ScoreConfirmation): Promise<ScoreBoard> {
     const submittedAtConfirmTime = this.observe === null ? [] : await this.observe()
     this.calls.push({
       gameId,
