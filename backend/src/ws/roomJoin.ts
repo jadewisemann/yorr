@@ -26,6 +26,8 @@ const roomJoinPayloadSchema = z.object({
   sessionToken: z.string().nullish(),
 })
 
+type RoomJoinPayload = z.infer<typeof roomJoinPayloadSchema>
+
 export interface Identity {
   readonly playerId: string
   readonly sessionToken: string
@@ -72,49 +74,9 @@ export async function handleRoomJoin(
   socket: ClientSocket,
   message: InboundEnvelope,
 ): Promise<void> {
-  const parsed = roomJoinPayloadSchema.safeParse(message.payload)
-  if (!parsed.success) {
-    deps.sendError(socket, 'INVALID_MESSAGE', 'room.join payload가 올바르지 않습니다.', message)
-    return
-  }
-  const roomId = parsed.data.roomId ?? ''
-  if (roomId.trim().length === 0) {
-    deps.sendError(socket, 'INVALID_MESSAGE', 'roomId가 필요합니다.', message)
-    return
-  }
-
-  // 인메모리 유령 방 방지: Redis에 없는 방에는 아무도 등록하지 않는다.
-  const room = await deps.rooms.getSnapshot(roomId)
-  if (room.phase === null) {
-    deps.sendError(
-      socket,
-      'ROOM_NOT_FOUND',
-      '방이 종료됐습니다. 홈에서 새로 시작해 주세요.',
-      message,
-    )
-    return
-  }
-  deps.registry.registerGame(roomId, room.gameCode)
-  deps.registry.markPhase(roomId, toWsPhase(room.phase))
-
-  let identity: Identity
-  try {
-    identity = await resolveIdentity(deps, parsed.data)
-  } catch (error) {
-    // 만료를 INVALID_MESSAGE로 뭉개면 클라이언트가 세션 종료로 다루지 않아
-    // 대기실에서 안내 없이 멈춘다 — 두 실패는 반드시 구분된다.
-    if (error instanceof SessionAuthenticationError) {
-      deps.sendError(
-        socket,
-        'SESSION_EXPIRED',
-        '입장 정보가 만료됐습니다. 방에 다시 참가해 주세요.',
-        message,
-      )
-      return
-    }
-    deps.sendError(socket, 'INVALID_MESSAGE', '닉네임이 올바르지 않습니다.', message)
-    return
-  }
+  const request = await admitJoinRequest(deps, socket, message)
+  if (request === null) return
+  const { roomId, room, identity } = request
 
   const previous = deps.registry.find(roomId, identity.playerId)
   const playing = deps.registry.phaseOf(roomId) === 'playing'
@@ -152,6 +114,76 @@ export async function handleRoomJoin(
     return
   }
   await completeFirstJoin({ deps, socket, message, roomId, identity, self })
+}
+
+/**
+ * 입장 요청의 검증과 신원 확정. 실패하면 **응답을 보내고 null**을 돌려준다.
+ *
+ * 왜 함수로 뺐나: payload 검증 → 방 존재 → 좌석 등록 → 신원 확인이 한 흐름인데
+ * 각 단계가 실패 시 응답을 보내고 빠져나간다. `handleRoomJoin`에 두면 분기마다
+ * `return`이 흩어져 "어디까지 통과했나"를 놓치기 쉽다.
+ */
+async function admitJoinRequest(
+  deps: JoinDeps,
+  socket: ClientSocket,
+  message: InboundEnvelope,
+): Promise<{ roomId: string; room: RoomSnapshot; identity: Identity } | null> {
+  const parsed = roomJoinPayloadSchema.safeParse(message.payload)
+  if (!parsed.success) {
+    deps.sendError(socket, 'INVALID_MESSAGE', 'room.join payload가 올바르지 않습니다.', message)
+    return null
+  }
+  const roomId = parsed.data.roomId ?? ''
+  if (roomId.trim().length === 0) {
+    deps.sendError(socket, 'INVALID_MESSAGE', 'roomId가 필요합니다.', message)
+    return null
+  }
+
+  // 인메모리 유령 방 방지: Redis에 없는 방에는 아무도 등록하지 않는다.
+  const room = await deps.rooms.getSnapshot(roomId)
+  if (room.phase === null) {
+    deps.sendError(
+      socket,
+      'ROOM_NOT_FOUND',
+      '방이 종료됐습니다. 홈에서 새로 시작해 주세요.',
+      message,
+    )
+    return null
+  }
+  deps.registry.registerGame(roomId, room.gameCode)
+  deps.registry.markPhase(roomId, toWsPhase(room.phase))
+
+  const identity = await resolveJoinIdentity(deps, socket, message, parsed.data)
+  return identity === null ? null : { roomId, room, identity }
+}
+
+/**
+ * 신원 확정 — 만료와 닉네임 오류를 **구분해서** 알린다.
+ *
+ * 만료를 INVALID_MESSAGE로 뭉개면 클라이언트가 세션 종료로 다루지 않아 대기실에서
+ * 안내 없이 멈춘다.
+ */
+async function resolveJoinIdentity(
+  deps: JoinDeps,
+  socket: ClientSocket,
+  message: InboundEnvelope,
+  payload: RoomJoinPayload,
+): Promise<Identity | null> {
+  try {
+    return await resolveIdentity(deps, payload)
+  } catch (error) {
+    if (error instanceof SessionAuthenticationError) {
+      deps.sendError(
+        socket,
+        'SESSION_EXPIRED',
+        '입장 정보가 만료됐습니다. 방에 다시 참가해 주세요.',
+        message,
+      )
+      return null
+    }
+    deps.sendError(socket, 'INVALID_MESSAGE', '닉네임이 올바르지 않습니다.', message)
+    return null
+  }
 }
 
 /**
