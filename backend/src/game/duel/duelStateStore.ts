@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { setTimeout as delay } from 'node:timers/promises'
 import { ConflictError } from '../../errors.js'
 import { type Redis, UNLOCK_IF_OWNER } from '../../infra/memoryRedis.js'
 import { gameStateKey, roomKey } from '../../room/keys.js'
@@ -42,11 +43,6 @@ const stateKey = (roomId: string): string => {
   if (roomId.trim().length === 0) throw new Error('roomId must not be blank')
   return gameStateKey(roomId, DUEL_CODE)
 }
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms)
-  })
 
 export class RedisDuelStateStore implements DuelStateStore {
   private readonly redis: Redis
@@ -104,7 +100,7 @@ export class RedisDuelStateStore implements DuelStateStore {
     const deadline = Date.now() + LOCK_WAIT_MILLIS
     while ((await this.redis.set(lockKey, token, 'PX', LOCK_TTL_MILLIS, 'NX')) !== 'OK') {
       if (Date.now() >= deadline) throw new ConflictError('game_state_busy')
-      await sleep(LOCK_RETRY_MILLIS)
+      await delay(LOCK_RETRY_MILLIS)
     }
     try {
       return await action()

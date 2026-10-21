@@ -1,9 +1,10 @@
 import { z } from 'zod'
 import { CodedError } from '../../errors.js'
 import type { GameStartResult } from '../../room/roomService.js'
-import { envelope, type InboundEnvelope } from '../../ws/envelope.js'
+import type { InboundEnvelope } from '../../ws/envelope.js'
 import type { WsErrorCode, WsRoomSnapshot } from '../../ws/protocol.js'
-import { type ClientSocket, isOpen } from '../../ws/socket.js'
+import type { ClientSocket } from '../../ws/socket.js'
+import { DelegatingGameModule, sendModuleError } from '../delegatingGameModule.js'
 import type { GameModule } from '../module.js'
 import { DAVINCI_CODE } from './davinciCode.js'
 import type { DavinciGameService } from './davinciGameService.js'
@@ -35,49 +36,26 @@ const placePayloadSchema = z.object({
 
 const HANDLED = new Set(['guess', 'decide', 'place'])
 
-export class DavinciGameModule implements GameModule {
+export class DavinciGameModule
+  extends DelegatingGameModule<DavinciGameService<WsRoomSnapshot, ClientSocket>>
+  implements GameModule
+{
   readonly code = DAVINCI_CODE
 
   constructor(
-    private readonly games: DavinciGameService<WsRoomSnapshot, ClientSocket>,
+    games: DavinciGameService<WsRoomSnapshot, ClientSocket>,
     private readonly sessions: DavinciSessionLookup<ClientSocket>,
-  ) {}
+  ) {
+    super(games)
+  }
 
   async start(roomCode: string, game: GameStartResult): Promise<void> {
     await this.games.start(roomCode, game.snapshot)
   }
 
-  async reset(roomCode: string): Promise<void> {
-    await this.games.reset(roomCode)
-  }
-
   /** 재접속 스냅샷은 **그 사람 시점**이다 — 남의 감춘 숫자는 실리지 않는다. */
   async reconnect(roomCode: string, playerId: string): Promise<WsRoomSnapshot> {
     return this.games.reconnect(roomCode, playerId)
-  }
-
-  async pause(roomCode: string): Promise<void> {
-    await this.games.pause(roomCode)
-  }
-
-  async resume(roomCode: string): Promise<void> {
-    await this.games.resume(roomCode)
-  }
-
-  async rehydrate(roomCode: string): Promise<void> {
-    await this.games.rehydrate(roomCode)
-  }
-
-  async removePlayer(roomCode: string, playerId: string): Promise<void> {
-    await this.games.removePlayer(roomCode, playerId)
-  }
-
-  async close(roomCode: string): Promise<void> {
-    await this.games.close(roomCode)
-  }
-
-  async hasState(roomCode: string): Promise<boolean> {
-    return this.games.hasState(roomCode)
   }
 
   handles(eventType: string): boolean {
@@ -118,18 +96,12 @@ export class DavinciGameModule implements GameModule {
     }
   }
 
-  /** `error` 봉투에는 roomId·msgId를 싣지 않는다 — payload의 refMsgId로 짝을 맞춘다. */
   private sendError(
     socket: ClientSocket,
     code: WsErrorCode,
     message: string,
     request: InboundEnvelope,
   ): void {
-    if (!isOpen(socket)) return
-    try {
-      socket.send(JSON.stringify(envelope('error', { code, message, refMsgId: request.msgId })))
-    } catch {
-      // 죽은 소켓 하나가 판을 멈추게 하지 않는다(게이트웨이의 close 경로가 정리한다).
-    }
+    sendModuleError(socket, code, message, request)
   }
 }

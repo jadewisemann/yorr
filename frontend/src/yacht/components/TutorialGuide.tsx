@@ -5,18 +5,10 @@ import { Card, GuideTextButton } from '@/yacht/components/TutorialGuide/GuideCar
 import { lessonFor } from '@/yacht/components/TutorialGuide/lessons'
 import { HandScore } from '@/yacht/components/TutorialGuide/openHandLessons'
 import { nextOf, stepFromPlay } from '@/yacht/components/TutorialGuide/steps'
-import type { CategoryScores } from '@/yacht/domain/scoring'
+import type { TurnProgress } from '@/yacht/model/gamePlayView'
 import { dimsAroundHole, spotlightFor, useSpotlight } from '@/yacht/model/useSpotlight'
 
-interface TutorialGuideProps {
-  rolling: boolean
-  rolled: boolean
-  keptValues: number[]
-  submitted: boolean
-  rollCount: number
-  candidates: CategoryScores
-  motionNoticeVisible: boolean
-  wide: boolean
+interface TutorialGuideProps extends TurnProgress {
   onClose: () => void
 }
 

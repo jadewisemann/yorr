@@ -3,8 +3,8 @@ import { DomainError } from '../../errors.js'
 import type { InboundEnvelope } from '../../ws/envelope.js'
 import type { WsErrorCode, WsRoomSnapshot } from '../../ws/protocol.js'
 import type { ClientSocket } from '../../ws/socket.js'
-import { isOpen } from '../../ws/socket.js'
 import { PING_PONG } from '../catalog.js'
+import { DelegatingGameModule, sendModuleError } from '../delegatingGameModule.js'
 import type { GameModule } from '../module.js'
 import type { PingPongGameService, PingPongGameStart } from './pingPongGameService.js'
 import type { PingPongState, PingPongSwingPayload } from './pingPongState.js'
@@ -87,48 +87,25 @@ const hostStateSchema = z.object({
     .nullish(),
 })
 
-export class PingPongGameModule implements GameModule {
+export class PingPongGameModule
+  extends DelegatingGameModule<PingPongGameService<WsRoomSnapshot>>
+  implements GameModule
+{
   readonly code = PING_PONG
 
   constructor(
-    private readonly games: PingPongGameService<WsRoomSnapshot>,
+    games: PingPongGameService<WsRoomSnapshot>,
     private readonly sessions: PingPongSocketMembership,
-  ) {}
+  ) {
+    super(games)
+  }
 
   async start(roomCode: string, game: PingPongGameStart): Promise<void> {
     await this.games.start(roomCode, game)
   }
 
-  async reset(roomCode: string): Promise<void> {
-    await this.games.reset(roomCode)
-  }
-
   async reconnect(roomCode: string): Promise<WsRoomSnapshot> {
     return this.games.reconnect(roomCode)
-  }
-
-  async pause(roomCode: string): Promise<void> {
-    await this.games.pause(roomCode)
-  }
-
-  async resume(roomCode: string): Promise<void> {
-    await this.games.resume(roomCode)
-  }
-
-  async rehydrate(roomCode: string): Promise<void> {
-    await this.games.rehydrate(roomCode)
-  }
-
-  async removePlayer(roomCode: string, playerId: string): Promise<void> {
-    await this.games.removePlayer(roomCode, playerId)
-  }
-
-  async close(roomCode: string): Promise<void> {
-    await this.games.close(roomCode)
-  }
-
-  async hasState(roomCode: string): Promise<boolean> {
-    return this.games.hasState(roomCode)
   }
 
   /** 접두사가 벗겨진 이벤트명으로 판정한다. 탁구가 듣는 것은 이 둘뿐이다. */
@@ -165,24 +142,13 @@ export class PingPongGameModule implements GameModule {
     }
   }
 
-  /** `error` 봉투는 roomId·msgId를 싣지 않는다 — payload의 refMsgId로 짝을 맞춘다. */
   private sendError(
     socket: ClientSocket,
     code: WsErrorCode,
     message: string,
     request: InboundEnvelope,
   ): void {
-    if (!isOpen(socket)) return
-    const frame = JSON.stringify({
-      type: 'error',
-      ts: Date.now(),
-      payload: { code, message, refMsgId: request.msgId },
-    })
-    try {
-      socket.send(frame)
-    } catch {
-      // 죽은 소켓에 보내다 실패하는 것은 이 경로의 관심사가 아니다.
-    }
+    sendModuleError(socket, code, message, request)
   }
 }
 

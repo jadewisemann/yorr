@@ -7,6 +7,14 @@
 > 형식: `## YYYY-MM-DD - 주제` 아래에 불릿. 최신이 위.
 >
 
+## 2026-10-21 - 중복 정리 (모듈 위임·헤더·sleep·glob)
+
+- 게임 모듈 셋의 수명주기 위임 7개와 `error` 봉투 조립을
+  `game/delegatingGameModule.ts`로 모았다(근거는 game-modules.md 「위임 베이스」).
+- `sleep` 3벌 → `node:timers/promises`의 `delay`, `header()` 3벌 → `src/http/headers.ts`.
+- `check-loc-ratchet.mjs`의 자체 glob 변환기 → `node:path`의 `matchesGlob`
+  (957개 파일 × glob 5종으로 판정이 같음을 확인, Node 22.5+).
+
 ## 2026-10-19 - PR #81 ocr 리뷰에서 확인한 것
 
 - **Actions의 기본 셸에는 pipefail이 없다.** `shell:`을 지정하지 않은 단계는 `bash -e {0}`로 돌고,

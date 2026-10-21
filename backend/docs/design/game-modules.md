@@ -30,6 +30,20 @@
 `RoomGameHooks`(WS 코어가 쓰는 부분집합)는 이 인터페이스의 `Pick`이라 모듈이
 그대로 들어간다.
 
+### 위임 베이스 (`DelegatingGameModule`)
+
+결투·다빈치·탁구의 수명주기 훅 7개는 본문이
+`await this.games.<같은 이름>(roomCode)` 한 줄이었다. `game/delegatingGameModule.ts`가
+그 위임과 `sendModuleError`(`error` 봉투 조립)를 한 번만 갖고, 모듈은 `code`·`start`·
+`reconnect`·`handles`·`handle`만 채운다.
+
+- **`GameModule`을 implements하지 않는다** — 계약의 일부만 채우므로 전체를
+  선언하면 빠진 훅이 조용히 통과한다. 서브클래스가 붙인다.
+- 서비스 타입은 제네릭(`S extends DelegatingGameService`) — 서브클래스가 자기
+  서비스의 고유 메서드(`draw`·`guess`·`swing` …)를 그대로 쓴다.
+- **훅 이름 = 서비스 메서드 이름** 규약에 기댄다. 다르게 불러야 하면 상속을
+  포기하고 손으로 쓴다 — 어댑터를 두면 위임을 두 번 추적해야 한다.
+
 ### 레지스트리와 메시지 라우팅
 
 - 코드 정규화: `trim().toUpperCase()`. 미지의 코드 → `invalid_game_code`,
