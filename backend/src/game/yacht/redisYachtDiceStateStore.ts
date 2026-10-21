@@ -5,6 +5,7 @@ import { type Redis, UNLOCK_IF_OWNER } from '../../infra/memoryRedis.js'
 import { gameStateKey, ROOM_KEY_PREFIX, roomKey } from '../../room/keys.js'
 import { YACHT_DICE } from '../catalog.js'
 import {
+  type RoundRoll,
   type RoundState,
   type RoundStateStore,
   type RoundSubmission,
@@ -97,16 +98,9 @@ export class RedisYachtDiceStateStore implements RoundStateStore {
     })
   }
 
-  async recordRollAtomically(
-    roomId: string,
-    playerId: string,
-    roundNumber: number,
-    rollCount: number,
-    held: readonly boolean[],
-    rolledDice: readonly number[],
-  ): Promise<RoundState> {
+  async recordRollAtomically(roomId: string, roll: RoundRoll): Promise<RoundState> {
     return this.mutateRequired(roomId, (current) => {
-      const next = current.recordRoll(playerId, roundNumber, rollCount, held, rolledDice)
+      const next = current.recordRoll(roll)
       return { state: next, result: next }
     })
   }

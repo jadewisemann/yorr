@@ -103,14 +103,13 @@ describe('ScoreRoundSubmissionService', () => {
 
   const startRound = async (...participants: string[]): Promise<void> => {
     await rounds.initialize(ROOM_ID, RoundState.start(1, participants))
-    await rounds.recordRollAtomically(
-      ROOM_ID,
-      participants[0] as string,
-      1,
-      1,
-      [false, false, false, false, false],
-      [1, 1, 1, 1, 1],
-    )
+    await rounds.recordRollAtomically(ROOM_ID, {
+      playerId: participants[0] as string,
+      roundNumber: 1,
+      rollCount: 1,
+      held: [false, false, false, false, false],
+      rolledDice: [1, 1, 1, 1, 1],
+    })
   }
 
   beforeEach(() => {

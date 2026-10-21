@@ -140,15 +140,14 @@ export class DavinciGameService<S, K = unknown> {
     if (!isGuessableNumber(payload.number)) throw new DomainError('invalid_davinci_guess')
     const now = this.now()
     const next = await this.states.mutate(roomId, (current) =>
-      applyGuess(
-        current,
+      applyGuess(current, {
         playerId,
-        payload.inputSeq,
-        payload.targetId,
-        payload.tileId,
-        payload.number,
+        inputSeq: payload.inputSeq,
+        targetId: payload.targetId,
+        tileId: payload.tileId,
+        number: payload.number,
         now,
-      ),
+      }),
     )
     if (next !== null) await this.changed(roomId, next)
   }

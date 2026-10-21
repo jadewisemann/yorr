@@ -244,8 +244,8 @@ const resolve = (
   const foulId = foulSide(reactions, first, second)
   const round =
     foulId === null
-      ? shootout(state, reactions, hp, first, second, now)
-      : penalty(state, hp, fouls, foulId, now)
+      ? shootout({ state, reactions, hp, first, second, now })
+      : penalty({ state, hp, fouls, foulId, now })
 
   return {
     ...state,
@@ -268,13 +268,15 @@ const resolve = (
  * 대신 파울을 쓴다"는 계산이 생기기 때문이다 — 부정출발은 값을 치르는 선택이 아니라
  * 하면 안 되는 일이어야 한다.
  */
-const penalty = (
-  state: DuelState,
-  hp: Record<string, number>,
-  fouls: Record<string, number>,
-  foulId: string,
-  now: number,
-): DuelRound => {
+interface PenaltyInput {
+  readonly state: DuelState
+  readonly hp: Record<string, number>
+  readonly fouls: Record<string, number>
+  readonly foulId: string
+  readonly now: number
+}
+
+const penalty = ({ state, hp, fouls, foulId, now }: PenaltyInput): DuelRound => {
   const count = at(fouls, foulId, 0) + 1
   fouls[foulId] = count
   if (count < MAX_FOULS) {
@@ -303,14 +305,16 @@ const penalty = (
 }
 
 /** 정상 승부 — 더 빨리 뽑은 쪽이 상대를 쏜다. */
-const shootout = (
-  state: DuelState,
-  reactions: DuelPlayerNumbers,
-  hp: Record<string, number>,
-  first: string,
-  second: string,
-  now: number,
-): DuelRound => {
+interface ShootoutInput {
+  readonly state: DuelState
+  readonly reactions: DuelPlayerNumbers
+  readonly hp: Record<string, number>
+  readonly first: string
+  readonly second: string
+  readonly now: number
+}
+
+const shootout = ({ state, reactions, hp, first, second, now }: ShootoutInput): DuelRound => {
   const winner = compareDraw(at(reactions, first, MISS), at(reactions, second, MISS))
   if (winner === 0) {
     return {

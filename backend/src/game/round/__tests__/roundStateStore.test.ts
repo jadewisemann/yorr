@@ -31,14 +31,26 @@ describe('InMemoryRoundStateStore', () => {
     const store = new InMemoryRoundStateStore()
 
     await expect(
-      store.recordRollAtomically('ROOM1', 'player-a', 1, 1, noHeld, [1, 2, 3, 4, 5]),
+      store.recordRollAtomically('ROOM1', {
+        playerId: 'player-a',
+        roundNumber: 1,
+        rollCount: 1,
+        held: noHeld,
+        rolledDice: [1, 2, 3, 4, 5],
+      }),
     ).rejects.toSatisfy((error: unknown) => isRoundSyncError(error, 'ROUND_NOT_INITIALIZED'))
   })
 
   it('beforeStateChange가 실패하면 라운드 상태는 변하지 않는다', async () => {
     const store = new InMemoryRoundStateStore()
     await seed(store)
-    await store.recordRollAtomically('ROOM1', 'player-a', 1, 1, noHeld, [1, 2, 3, 4, 5])
+    await store.recordRollAtomically('ROOM1', {
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: noHeld,
+      rolledDice: [1, 2, 3, 4, 5],
+    })
 
     await expect(
       store.submitAtomically('ROOM1', submission('player-a'), async () => {
@@ -56,7 +68,13 @@ describe('InMemoryRoundStateStore', () => {
   it('beforeStateChange는 검증 통과 후에만, 커밋 전에 한 번 돈다', async () => {
     const store = new InMemoryRoundStateStore()
     await seed(store)
-    await store.recordRollAtomically('ROOM1', 'player-a', 1, 1, noHeld, [1, 2, 3, 4, 5])
+    await store.recordRollAtomically('ROOM1', {
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: noHeld,
+      rolledDice: [1, 2, 3, 4, 5],
+    })
     const seen: Array<string | undefined> = []
 
     // 남의 턴 제출은 콜백까지 가지 않는다.
@@ -79,7 +97,13 @@ describe('InMemoryRoundStateStore', () => {
   it('같은 방의 동시 제출을 직렬화한다', async () => {
     const store = new InMemoryRoundStateStore()
     await seed(store, ['player-a'])
-    await store.recordRollAtomically('ROOM1', 'player-a', 1, 1, noHeld, [1, 2, 3, 4, 5])
+    await store.recordRollAtomically('ROOM1', {
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: noHeld,
+      rolledDice: [1, 2, 3, 4, 5],
+    })
     const slowCallback = () => new Promise<void>((resolve) => setImmediate(resolve))
 
     const [first, second] = await Promise.allSettled([
@@ -106,7 +130,13 @@ describe('InMemoryRoundStateStore', () => {
 
     // 굴림을 다 쓴 턴도 빈 결과 — 호출자는 점수 기록으로 넘어간다.
     for (let rollCount = 1; rollCount <= 3; rollCount += 1) {
-      await store.recordRollAtomically('ROOM1', 'player-a', 1, rollCount, noHeld, [1, 2, 3, 4, 5])
+      await store.recordRollAtomically('ROOM1', {
+        playerId: 'player-a',
+        roundNumber: 1,
+        rollCount: rollCount,
+        held: noHeld,
+        rolledDice: [1, 2, 3, 4, 5],
+      })
     }
     expect(await store.autoRollAtomically('ROOM1', 1, 'player-a', [1, 1, 1, 1, 1])).toBeUndefined()
   })
@@ -114,7 +144,13 @@ describe('InMemoryRoundStateStore', () => {
   it('끝난 게임은 스테일 턴으로 취급한다', async () => {
     const store = new InMemoryRoundStateStore()
     await seed(store, ['player-a'], 1)
-    await store.recordRollAtomically('ROOM1', 'player-a', 1, 1, noHeld, [1, 2, 3, 4, 5])
+    await store.recordRollAtomically('ROOM1', {
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: noHeld,
+      rolledDice: [1, 2, 3, 4, 5],
+    })
     await store.submitAtomically('ROOM1', submission('player-a'), () => {})
 
     expect((await store.findByRoomId('ROOM1'))?.finished).toBe(true)
@@ -125,7 +161,13 @@ describe('InMemoryRoundStateStore', () => {
   it('참가자 제거는 상태가 있을 때만 값을 준다', async () => {
     const store = new InMemoryRoundStateStore()
     await seed(store, ['player-a', 'player-b', 'player-c'])
-    await store.recordRollAtomically('ROOM1', 'player-a', 1, 1, noHeld, [1, 2, 3, 4, 5])
+    await store.recordRollAtomically('ROOM1', {
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: noHeld,
+      rolledDice: [1, 2, 3, 4, 5],
+    })
     await store.submitAtomically('ROOM1', submission('player-a'), () => {})
 
     expect(await store.removeParticipantAtomically('MISSING', 'player-a')).toBeUndefined()

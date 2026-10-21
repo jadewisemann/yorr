@@ -67,8 +67,18 @@ const isProduction = (file) =>
   !/\.d\.ts$/.test(file) &&
   !/(^|\/)(dist|coverage|node_modules)\//.test(file)
 
-const ALL_SOURCES = git(['ls-files', ...PACKAGES.map((pkg) => `${pkg}/src`)])
-  .split('\n')
+// 추적 중인 파일 + 아직 add하지 않은 새 파일을 **모두** 본다. `ls-files`만 쓰면
+// 작업 중인 새 파일이 게이트를 통째로 빠져나가고, 커밋 훅에서야 처음 걸린다
+// (그때는 기준선을 이미 쓴 뒤라 "새 위반"으로 보인다).
+const ALL_SOURCES = git([
+  'ls-files',
+  '--cached',
+  '--others',
+  '--exclude-standard',
+  '-z',
+  ...PACKAGES.map((pkg) => `${pkg}/src`),
+])
+  .split('\0')
   .filter(Boolean)
 const files = ALL_SOURCES.filter(isProduction)
 

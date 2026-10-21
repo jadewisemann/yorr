@@ -137,7 +137,14 @@ describe('추측', () => {
 
   it('맞히면 그 타일이 공개되고 계속할지 고르는 단계로 간다', () => {
     const tile = targetTile()
-    const next = guess(state, HOST, 0, GUEST, tile.id, tile.number, NOW)
+    const next = guess(state, {
+      playerId: HOST,
+      inputSeq: 0,
+      targetId: GUEST,
+      tileId: tile.id,
+      number: tile.number,
+      now: NOW,
+    })
     expect(next.phase).toBe('DECIDING')
     expect(tilesOf(next, GUEST)[0]?.revealed).toBe(true)
     expect(next.hits[HOST]).toBe(1)
@@ -148,7 +155,14 @@ describe('추측', () => {
   it('틀리면 뽑아 둔 타일이 공개된 채 손에 들어가고 턴이 넘어간다', () => {
     const tile = targetTile()
     const drawn = state.drawn
-    const next = guess(state, HOST, 0, GUEST, tile.id, tile.number + 1, NOW)
+    const next = guess(state, {
+      playerId: HOST,
+      inputSeq: 0,
+      targetId: GUEST,
+      tileId: tile.id,
+      number: tile.number + 1,
+      now: NOW,
+    })
     expect(next.phase).toBe('GUESSING')
     expect(next.turnPlayerId).toBe(GUEST)
     expect(next.turn).toBe(state.turn + 1)
@@ -159,30 +173,74 @@ describe('추측', () => {
 
   it('공개된 타일은 다시 부를 수 없다', () => {
     const tile = targetTile()
-    const revealed = guess(state, HOST, 0, GUEST, tile.id, tile.number, NOW)
+    const revealed = guess(state, {
+      playerId: HOST,
+      inputSeq: 0,
+      targetId: GUEST,
+      tileId: tile.id,
+      number: tile.number,
+      now: NOW,
+    })
     const again = guess(
       { ...revealed, phase: 'GUESSING' },
-      HOST,
-      1,
-      GUEST,
-      tile.id,
-      tile.number,
-      NOW,
+      {
+        playerId: HOST,
+        inputSeq: 1,
+        targetId: GUEST,
+        tileId: tile.id,
+        number: tile.number,
+        now: NOW,
+      },
     )
     expect(again.version).toBe(revealed.version)
   })
 
   it('자기 차례가 아니거나 자기 타일을 부르면 무시한다', () => {
     const tile = targetTile()
-    expect(guess(state, GUEST, 0, HOST, tile.id, 1, NOW).version).toBe(state.version)
+    expect(
+      guess(state, {
+        playerId: GUEST,
+        inputSeq: 0,
+        targetId: HOST,
+        tileId: tile.id,
+        number: 1,
+        now: NOW,
+      }).version,
+    ).toBe(state.version)
     const mine = tilesOf(state, HOST)[0]
-    expect(guess(state, HOST, 0, HOST, mine?.id ?? '', 1, NOW).version).toBe(state.version)
+    expect(
+      guess(state, {
+        playerId: HOST,
+        inputSeq: 0,
+        targetId: HOST,
+        tileId: mine?.id ?? '',
+        number: 1,
+        now: NOW,
+      }).version,
+    ).toBe(state.version)
   })
 
   it('이미 처리한 inputSeq는 무시한다', () => {
     const tile = targetTile()
-    const first = guess(state, HOST, 3, GUEST, tile.id, tile.number, NOW)
-    const replay = guess({ ...first, phase: 'GUESSING' }, HOST, 3, GUEST, tile.id, 0, NOW)
+    const first = guess(state, {
+      playerId: HOST,
+      inputSeq: 3,
+      targetId: GUEST,
+      tileId: tile.id,
+      number: tile.number,
+      now: NOW,
+    })
+    const replay = guess(
+      { ...first, phase: 'GUESSING' },
+      {
+        playerId: HOST,
+        inputSeq: 3,
+        targetId: GUEST,
+        tileId: tile.id,
+        number: 0,
+        now: NOW,
+      },
+    )
     expect(replay.version).toBe(first.version)
   })
 
@@ -201,7 +259,14 @@ describe('추측', () => {
     )
     // 상대의 첫 타일은 B5이므로 0은 유효하지만 틀린 추측이다.
     const tile = tilesOf(sorted, GUEST)[0]
-    const next = guess(sorted, HOST, 0, GUEST, tile?.id ?? '', 0, NOW)
+    const next = guess(sorted, {
+      playerId: HOST,
+      inputSeq: 0,
+      targetId: GUEST,
+      tileId: tile?.id ?? '',
+      number: 0,
+      now: NOW,
+    })
     expect(numbersOf(next, HOST)).toEqual([0, 1, 2, 3, 4])
   })
 })
@@ -210,7 +275,14 @@ describe('맞힌 뒤의 선택', () => {
   const opened = (): DavinciState => {
     const state = twoPlayerState()
     const tile = tilesOf(state, GUEST)[0]
-    return guess(state, HOST, 0, GUEST, tile?.id ?? '', tile?.number ?? 0, NOW)
+    return guess(state, {
+      playerId: HOST,
+      inputSeq: 0,
+      targetId: GUEST,
+      tileId: tile?.id ?? '',
+      number: tile?.number ?? 0,
+      now: NOW,
+    })
   }
 
   it('계속하면 같은 사람의 추측 차례가 이어진다', () => {
@@ -248,14 +320,28 @@ describe('조커', () => {
     const state = withJokerDrawn()
     expect(state.drawn?.number).toBe(DAVINCI_JOKER)
     const tile = tilesOf(state, GUEST)[0]
-    const next = guess(state, HOST, 0, GUEST, tile?.id ?? '', 0, NOW)
+    const next = guess(state, {
+      playerId: HOST,
+      inputSeq: 0,
+      targetId: GUEST,
+      tileId: tile?.id ?? '',
+      number: 0,
+      now: NOW,
+    })
     expect(next.phase).toBe('PLACING')
     expect(next.turnPlayerId).toBe(HOST)
   })
 
   it('고른 자리에 들어가고 턴이 넘어간다', () => {
     const tile = tilesOf(withJokerDrawn(), GUEST)[0]
-    const placing = guess(withJokerDrawn(), HOST, 0, GUEST, tile?.id ?? '', 0, NOW)
+    const placing = guess(withJokerDrawn(), {
+      playerId: HOST,
+      inputSeq: 0,
+      targetId: GUEST,
+      tileId: tile?.id ?? '',
+      number: 0,
+      now: NOW,
+    })
     const next = place(placing, HOST, 1, 2, NOW)
     expect(next.phase).toBe('GUESSING')
     expect(next.turnPlayerId).toBe(GUEST)
@@ -264,7 +350,14 @@ describe('조커', () => {
 
   it('손패 밖의 자리는 무시한다', () => {
     const tile = tilesOf(withJokerDrawn(), GUEST)[0]
-    const placing = guess(withJokerDrawn(), HOST, 0, GUEST, tile?.id ?? '', 0, NOW)
+    const placing = guess(withJokerDrawn(), {
+      playerId: HOST,
+      inputSeq: 0,
+      targetId: GUEST,
+      tileId: tile?.id ?? '',
+      number: 0,
+      now: NOW,
+    })
     expect(place(placing, HOST, 1, 99, NOW).version).toBe(placing.version)
     expect(place(placing, GUEST, 1, 0, NOW).version).toBe(placing.version)
   })
@@ -275,7 +368,14 @@ describe('승부', () => {
     let state = twoPlayerState()
     let seq = 0
     for (const tile of tilesOf(state, GUEST)) {
-      state = guess(state, HOST, seq, GUEST, tile.id, tile.number, NOW)
+      state = guess(state, {
+        playerId: HOST,
+        inputSeq: seq,
+        targetId: GUEST,
+        tileId: tile.id,
+        number: tile.number,
+        now: NOW,
+      })
       seq += 1
       if (state.phase === 'DECIDING') {
         state = decide(state, HOST, seq, 'CONTINUE', NOW)
@@ -290,7 +390,14 @@ describe('승부', () => {
   it('점수는 맞힌 수와 끝까지 감춘 타일 수의 합이다', () => {
     const state = twoPlayerState()
     const tile = tilesOf(state, GUEST)[0]
-    const next = guess(state, HOST, 0, GUEST, tile?.id ?? '', tile?.number ?? 0, NOW)
+    const next = guess(state, {
+      playerId: HOST,
+      inputSeq: 0,
+      targetId: GUEST,
+      tileId: tile?.id ?? '',
+      number: tile?.number ?? 0,
+      now: NOW,
+    })
     expect(scoreOf(next, HOST)).toBe(1 + 4)
     expect(scoreOf(next, GUEST)).toBe(0 + 3)
   })
@@ -309,7 +416,14 @@ describe('제한 시간', () => {
   it('멈춤을 넘기면 감춘 채 넣고 턴을 넘긴다', () => {
     const state = twoPlayerState()
     const tile = tilesOf(state, GUEST)[0]
-    const deciding = guess(state, HOST, 0, GUEST, tile?.id ?? '', tile?.number ?? 0, NOW)
+    const deciding = guess(state, {
+      playerId: HOST,
+      inputSeq: 0,
+      targetId: GUEST,
+      tileId: tile?.id ?? '',
+      number: tile?.number ?? 0,
+      now: NOW,
+    })
     const drawnId = deciding.drawn?.id
     const next = expire(deciding, NOW + 1)
     expect(next.turnPlayerId).toBe(GUEST)

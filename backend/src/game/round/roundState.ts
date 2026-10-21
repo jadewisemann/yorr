@@ -8,6 +8,20 @@ export const DEFAULT_TOTAL_ROUNDS = 12
 
 const NO_HELD: readonly boolean[] = Object.freeze([false, false, false, false, false])
 
+/**
+ * 굴림 한 번의 입력 묶음 — 어느 플레이어가 몇 번째 굴림에서 무엇을 굴렸는가.
+ *
+ * 값 네 개(`roundNumber`·`rollCount`·`held`·`rolledDice`)는 항상 함께 다니므로
+ * 따로 넘기면 순서를 틀릴 수 있다. 포트·구현·호출부가 이 한 타입을 공유한다.
+ */
+export interface RoundRoll {
+  readonly playerId: string
+  readonly roundNumber: number
+  readonly rollCount: number
+  readonly held: readonly boolean[]
+  readonly rolledDice: readonly number[]
+}
+
 /** 라운드 하나가 끝났을 때의 결과 요약. */
 export interface RoundCompletion {
   readonly roundNumber: number
@@ -197,14 +211,8 @@ export class RoundState {
    * 굴림 하나를 기록한다. rollCount는 정확히 1씩만 올라가고(중복·건너뛰기 거부),
    * held로 표시된 자리는 **이전 주사위 값을 유지**한다.
    */
-  recordRoll(
-    playerId: string,
-    submittedRoundNumber: number,
-    rollCount: number,
-    held: readonly boolean[],
-    rolledDice: readonly number[],
-  ): RoundState {
-    this.validateCurrentPlayer(playerId, submittedRoundNumber)
+  recordRoll({ playerId, roundNumber, rollCount, held, rolledDice }: RoundRoll): RoundState {
+    this.validateCurrentPlayer(playerId, roundNumber)
     if (rollCount < 1 || rollCount > MAX_ROLL_COUNT || rollCount !== this.activeRollCount + 1) {
       throw new RoundSynchronizationError(
         'INVALID_ROLL',
@@ -270,13 +278,13 @@ export class RoundState {
         `no rolls left to auto roll for round ${this.roundNumber}`,
       )
     }
-    return this.recordRoll(
-      this.activePlayerId,
-      this.roundNumber,
-      this.activeRollCount + 1,
-      this.activeHeld ?? NO_HELD,
+    return this.recordRoll({
+      playerId: this.activePlayerId,
+      roundNumber: this.roundNumber,
+      rollCount: this.activeRollCount + 1,
+      held: this.activeHeld ?? NO_HELD,
       rolledDice,
-    )
+    })
   }
 
   /** 제출 dice는 서버가 굴린 `activeDice`와 **완전히 일치**해야 한다. */

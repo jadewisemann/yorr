@@ -171,15 +171,18 @@ const guessEvent = (
  * **상태를 그대로 돌려준다** — 스토어가 version 비증가를 보고 방송도 재예약도 하지
  * 않는다(결투 `draw`와 같은 관용).
  */
-export const guess = (
-  state: DavinciState,
-  playerId: string,
-  inputSeq: number,
-  targetId: string,
-  tileId: string,
-  number: number,
-  now: number,
-): DavinciState => {
+/** 추측 한 번의 입력 묶음 — 인자 일곱 개를 이름으로 읽기 위해 객체로 받는다. */
+export interface GuessInput {
+  readonly playerId: string
+  readonly inputSeq: number
+  readonly targetId: string
+  readonly tileId: string
+  readonly number: number
+  readonly now: number
+}
+
+export const guess = (state: DavinciState, input: GuessInput): DavinciState => {
+  const { playerId, inputSeq, targetId, tileId, number, now } = input
   if (state.phase !== 'GUESSING' || state.turnPlayerId !== playerId) return state
   if (inputSeq <= at(state.lastInputSeq, playerId, -1)) return state
   if (targetId === playerId || !state.playerOrder.includes(targetId)) return state

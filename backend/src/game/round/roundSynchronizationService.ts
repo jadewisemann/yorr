@@ -107,14 +107,13 @@ export class RoundSynchronizationService {
     playerId: string,
     payload: DiceRollPayload,
   ): Promise<RoundState> {
-    return this.store.recordRollAtomically(
-      roomId,
+    return this.store.recordRollAtomically(roomId, {
       playerId,
-      payload.roundNumber,
-      payload.rollCount,
-      payload.held,
-      this.rollDice(),
-    )
+      roundNumber: payload.roundNumber,
+      rollCount: payload.rollCount,
+      held: payload.held,
+      rolledDice: this.rollDice(),
+    })
   }
 
   /** 굴림 사이에 바꾼 KEEP을 서버 상태에 반영한다. 관전자 방송·자동 굴림이 이 값을 쓴다. */
