@@ -304,15 +304,15 @@ export function diceTrajectoryIssueScore(
   )
   return (
     overlapScore +
-    finalPoseIssueScore(
-      finalPoses,
+    finalPoseIssueScore({
+      poses: finalPoses,
       entries,
       held,
       colliderWidth,
       visualWidth,
       horizontalThresholdSq,
       verticalThreshold,
-    )
+    })
   )
 }
 
@@ -344,15 +344,26 @@ function frameOverlapScore(
   return score
 }
 
-function finalPoseIssueScore(
-  poses: DiceTrajectoryPose[],
-  entries: PredictableDie[],
-  held: PhysicsHeldDice,
-  colliderWidth: number,
-  visualWidth: number,
-  horizontalThresholdSq: number,
-  verticalThreshold: number,
-) {
+/** 마지막 자세 판정의 재료 — 치수·임계값이 항상 함께 계산돼 다닌다. */
+interface FinalPoseInput {
+  readonly poses: DiceTrajectoryPose[]
+  readonly entries: PredictableDie[]
+  readonly held: PhysicsHeldDice
+  readonly colliderWidth: number
+  readonly visualWidth: number
+  readonly horizontalThresholdSq: number
+  readonly verticalThreshold: number
+}
+
+function finalPoseIssueScore({
+  poses,
+  entries,
+  held,
+  colliderWidth,
+  visualWidth,
+  horizontalThresholdSq,
+  verticalThreshold,
+}: FinalPoseInput) {
   let score = 0
   for (let a = 0; a < entries.length; a += 1) {
     const entryA = entries[a]

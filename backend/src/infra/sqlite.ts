@@ -184,47 +184,7 @@ export const createSqlitePool = (path: string): Pool => {
         release()
       }
     },
-    async getConnection() {
-      const release = await acquire()
-      let released = false
-      // `db.isTransaction`은 Node 22.16부터라 직접 센다 — Botkeep의 Node 버전 폭을 넓힌다.
-      let inTransaction = false
-      // ROLLBACK이 던져도(예: COMMIT 실패로 SQLite가 이미 되돌려 "no transaction is active")
-      // 트랜잭션은 끝난 것으로 본다. 상태를 남기면 release가 또 ROLLBACK을 시도한다.
-      const rollback = (): void => {
-        if (!inTransaction) return
-        try {
-          open().exec('ROLLBACK')
-        } finally {
-          inTransaction = false
-        }
-      }
-      return {
-        query: async (sql: string, params?: readonly unknown[]) => run(sql, params),
-        beginTransaction: async () => {
-          open().exec('BEGIN IMMEDIATE')
-          inTransaction = true
-        },
-        commit: async () => {
-          open().exec('COMMIT')
-          inTransaction = false
-        },
-        rollback: async () => rollback(),
-        release: () => {
-          if (released) return
-          released = true
-          // 커밋도 롤백도 안 하고 돌려준 트랜잭션이 다음 사용자에게 새지 않게 한다. 되돌리기가
-          // 실패해도 **잠금은 반드시 푼다** — 못 풀면 그 뒤의 모든 질의가 영원히 기다린다.
-          try {
-            rollback()
-          } catch {
-            // 이미 끝난 트랜잭션이다. 원래 오류는 저장소가 들고 있다.
-          } finally {
-            release()
-          }
-        },
-      }
-    },
+    getConnection: () => acquireTransaction(acquire, open, run),
     async end() {
       const release = await acquire()
       opened?.close()
@@ -240,3 +200,64 @@ export const createDbPool = (env: Env): Pool => createSqlitePool(env.SQLITE_PATH
 
 /** 풀을 만든 쪽이 닫는다. 주입받은 풀은 닫지 않는다(테스트 하네스가 소유자다). */
 export const closeDbPool = (pool: Pool): Promise<void> => pool.end()
+
+type TransactionConnection = {
+  query(sql: string, params?: readonly unknown[]): Promise<[unknown, undefined]>
+  beginTransaction(): Promise<void>
+  commit(): Promise<void>
+  rollback(): Promise<void>
+  release(): void
+}
+
+/**
+ * 트랜잭션 하나가 쓸 커넥션 — `acquire`로 잠금을 잡고, `release`가 반드시 푼다.
+ *
+ * 왜 함수로 뺐나: `getConnection`이 롤백 상태(`inTransaction`)를 클로저로 들고
+ * 커밋·롤백·해제 세 경로에서 같은 불변식을 지켜야 한다. 인라인으로 두면 이 규칙이
+ * 중첩된 객체 리터럴 안에 묻히고, 잠금을 못 푸는 실수가 눈에 띄지 않는다.
+ */
+const acquireTransaction = async (
+  acquire: () => Promise<() => void>,
+  open: () => DatabaseSync,
+  run: (sql: string, params?: readonly unknown[]) => [unknown, undefined],
+): Promise<TransactionConnection> => {
+  const release = await acquire()
+  let released = false
+  // `db.isTransaction`은 Node 22.16부터라 직접 센다 — Botkeep의 Node 버전 폭을 넓힌다.
+  let inTransaction = false
+  // ROLLBACK이 던져도(예: COMMIT 실패로 SQLite가 이미 되돌려 "no transaction is active")
+  // 트랜잭션은 끝난 것으로 본다. 상태를 남기면 release가 또 ROLLBACK을 시도한다.
+  const rollback = (): void => {
+    if (!inTransaction) return
+    try {
+      open().exec('ROLLBACK')
+    } finally {
+      inTransaction = false
+    }
+  }
+  return {
+    query: async (sql, params) => run(sql, params),
+    beginTransaction: async () => {
+      open().exec('BEGIN IMMEDIATE')
+      inTransaction = true
+    },
+    commit: async () => {
+      open().exec('COMMIT')
+      inTransaction = false
+    },
+    rollback: async () => rollback(),
+    release: () => {
+      if (released) return
+      released = true
+      // 커밋도 롤백도 안 하고 돌려준 트랜잭션이 다음 사용자에게 새지 않게 한다. 되돌리기가
+      // 실패해도 **잠금은 반드시 푼다** — 못 풀면 그 뒤의 모든 질의가 영원히 기다린다.
+      try {
+        rollback()
+      } catch {
+        // 이미 끝난 트랜잭션이다. 원래 오류는 저장소가 들고 있다.
+      } finally {
+        release()
+      }
+    },
+  }
+}

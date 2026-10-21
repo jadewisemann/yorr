@@ -59,13 +59,23 @@ const MODE = args.includes('--write-baseline')
 const git = (gitArgs) =>
   execFileSync('git', gitArgs, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
 
-/** 테스트·생성물은 대상이 아니다(TESTING.md·QUALITY.md 3절 (b)와 같은 이유). */
+/**
+ * 테스트·생성물·**개발용 화면**은 대상이 아니다.
+ *
+ * - 테스트·생성물: TESTING.md·QUALITY.md 3절 (b)와 같은 이유.
+ * - `app/dev/*`: 프로덕션 번들에 들어가지 않고(`router.tsx`가 dev 전용 라우트로만
+ *   참조) 커버리지 측정에서도 빠져 있다. 카탈로그·모션랩 같은 화면은 **일부러**
+ *   한 파일에 조작 패널과 미리보기를 모은 것이라, 함수 길이 기준을 들이대면
+ *   "실험 도구를 읽기 좋게 유지하라"는 요구가 아니라 쪼개라는 요구가 된다.
+ *   대신 이 파일들은 커버리지·번들 크기 어느 쪽으로도 출하물에 영향을 주지 않는다.
+ */
 const isProduction = (file) =>
   /\.(ts|tsx)$/.test(file) &&
   !/(^|\/)(__tests__|test|e2e)\//.test(file) &&
   !/\.(test|spec|stories)\.(ts|tsx)$/.test(file) &&
   !/\.d\.ts$/.test(file) &&
-  !/(^|\/)(dist|coverage|node_modules)\//.test(file)
+  !/(^|\/)(dist|coverage|node_modules)\//.test(file) &&
+  !/(^|\/)src\/app\/dev\//.test(file)
 
 // 추적 중인 파일 + 아직 add하지 않은 새 파일을 **모두** 본다. `ls-files`만 쓰면
 // 작업 중인 새 파일이 게이트를 통째로 빠져나가고, 커밋 훅에서야 처음 걸린다
