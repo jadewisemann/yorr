@@ -126,7 +126,12 @@ export class DuelGameService<S> {
     if (!Number.isFinite(payload.reactionMs)) throw new DomainError('invalid_duel_draw')
     const now = this.now()
     const next = await this.states.mutate(roomId, (current) =>
-      applyDraw(current, playerId, payload.inputSeq, payload.reactionMs, now),
+      applyDraw(current, {
+        playerId,
+        inputSeq: payload.inputSeq,
+        reportedMs: payload.reactionMs,
+        now,
+      }),
     )
     if (next !== null) await this.changed(roomId, next)
   }

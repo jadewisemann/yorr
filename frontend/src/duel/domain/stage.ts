@@ -156,7 +156,7 @@ function fighter({
     ms: playerId === you || settled ? (state.reactions[playerId] ?? null) : null,
     name,
     outfit,
-    pose: poseOf(playerId, round, settled, impact, shot !== null),
+    pose: poseOf(playerId, round, settled, { impact, drew: shot !== null }),
   }
 }
 
@@ -189,8 +189,7 @@ function poseOf(
   playerId: string,
   round: DuelRound | null,
   settled: boolean,
-  impact: boolean,
-  drew: boolean,
+  { impact, drew }: { readonly impact: boolean; readonly drew: boolean },
 ): Pose {
   if (!settled || !round) return drew ? 'draw' : 'ready'
   if (impact && round.koId === playerId) return 'dead'

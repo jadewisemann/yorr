@@ -108,13 +108,17 @@ export const signal = (state: DuelState, now: number): DuelState => {
  * 잡아 "신호보다 늦게 도착했는데 더 빠른 기록"은 깎는다. 더 빠르게 신고하는 조작까지는
  * 막지 못하는데, 친구끼리 하는 파티 게임이라 지연 공정성을 택했다.
  */
-export const draw = (
-  state: DuelState,
-  playerId: string,
-  inputSeq: number,
-  reportedMs: number,
-  now: number,
-): DuelState => {
+/** 뽑기 한 번의 입력 묶음 — 이름으로 읽기 위해 객체로 받는다. */
+export interface DrawInput {
+  readonly playerId: string
+  readonly inputSeq: number
+  /** 클라이언트가 신호를 본 순간부터 잰 값. 음수면 신호 전에 뽑았다는 신고다. */
+  readonly reportedMs: number
+  readonly now: number
+}
+
+export const draw = (state: DuelState, input: DrawInput): DuelState => {
+  const { playerId, inputSeq, reportedMs, now } = input
   if (!state.playerOrder.includes(playerId)) return state
   if (inputSeq <= at(state.lastInputSeq, playerId, -1)) return state
 

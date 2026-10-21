@@ -93,7 +93,7 @@ export class RedisScoreBoardStore implements ScoreBoardStore {
       ],
     )
 
-    this.raiseIfFailed(result, gameId, playerId, roundNumber, category)
+    this.raiseIfFailed(result, { gameId, playerId, roundNumber, category, score, requestSignature })
     return this.readScoreBoard(gameId, playerId)
   }
 
@@ -104,10 +104,7 @@ export class RedisScoreBoardStore implements ScoreBoardStore {
   /** 반환 코드 → 이유 코드. 0과 5(멱등 재시도)만 통과시킨다. */
   private raiseIfFailed(
     result: number,
-    gameId: string,
-    playerId: string,
-    roundNumber: number,
-    category: ScoreCategory,
+    { gameId, playerId, roundNumber, category }: ScoreConfirmation,
   ): void {
     switch (result) {
       case CONFIRM_SCORE_CODE.SUCCESS:
