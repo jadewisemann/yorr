@@ -45,6 +45,45 @@ const isHost = (snapshot: RoomSnapshot, userId: string): boolean =>
  */
 const roomNotFound = (reply: FastifyReply): FastifyReply => sendCode(reply, 404, 'room_not_found')
 
+type Authenticated = (
+  headers: Record<string, string | string[] | undefined>,
+  reply: FastifyReply,
+) => Promise<UserIdentity | null>
+
+/**
+ * 호스트만 부를 수 있는 방 전이 — 시작과 대기실 복귀가 같은 검증 순서를 쓴다.
+ * 방이 없으면 404, 호스트가 아니면 403. `action`이 던지면 `onError`가 옮긴다.
+ */
+const hostTransition = (
+  deps: RoomRouteDependencies & {
+    readonly authenticated: Authenticated
+  },
+
+  action: (roomCode: string, snapshot: RoomSnapshot) => Promise<unknown>,
+  onError: (reply: FastifyReply, error: unknown) => FastifyReply,
+) => {
+  return async (
+    request: {
+      headers: Record<string, string | string[] | undefined>
+      params: { roomCode: string }
+    },
+    reply: FastifyReply,
+  ): Promise<unknown> => {
+    const user = await deps.authenticated(request.headers, reply)
+    if (!user) return reply
+    const { roomCode } = request.params
+    const snapshot = await deps.rooms.getSnapshot(roomCode)
+    if (snapshot.phase === null) return roomNotFound(reply)
+    if (!isHost(snapshot, user.userId)) return sendCode(reply, 403, 'host_only')
+    try {
+      const result = await action(roomCode, snapshot)
+      return result === undefined ? reply.code(204).send() : reply.send(result)
+    } catch (error) {
+      return onError(reply, error)
+    }
+  }
+}
+
 export const registerRoomRoutes = async (
   app: FastifyInstance,
   deps: RoomRouteDependencies,
@@ -87,36 +126,33 @@ export const registerRoomRoutes = async (
     },
   )
 
-  app.post<{ Params: { roomCode: string } }>('/rooms/:roomCode/games', async (request, reply) => {
-    const user = await authenticated(request.headers, reply)
-    if (!user) return reply
-    const { roomCode } = request.params
-    const snapshot = await rooms.getSnapshot(roomCode)
-    if (snapshot.phase === null) return roomNotFound(reply)
-    if (!isHost(snapshot, user.userId)) return sendCode(reply, 403, 'host_only')
-    try {
-      return reply.send(await lifecycle.start(roomCode))
-    } catch (error) {
-      return sendConflictOnly(reply, error)
-    }
-  })
+  app.post<{ Params: { roomCode: string } }>(
+    '/rooms/:roomCode/games',
+    hostTransition(
+      { ...deps, authenticated },
+      (roomCode) => lifecycle.start(roomCode),
+      sendConflictOnly,
+    ),
+  )
 
   /**
    * 끝난 게임을 대기실로 되돌린다. 방 전체가 한 번에 옮겨간다 — 화면 전환이
    * phase(스냅샷) 기준이라 한 명만 대기실로 보낼 수 없다.
    */
-  app.post<{ Params: { roomCode: string } }>('/rooms/:roomCode/lobby', async (request, reply) => {
-    const user = await authenticated(request.headers, reply)
-    if (!user) return reply
-    const { roomCode } = request.params
-    const snapshot = await rooms.getSnapshot(roomCode)
-    if (snapshot.phase === null) return roomNotFound(reply)
-    if (!isHost(snapshot, user.userId)) return sendCode(reply, 403, 'host_only')
-    if (!(await lifecycle.returnToLobby(roomCode, snapshot))) {
-      return sendCode(reply, 409, 'not_finished')
-    }
-    return reply.code(204).send()
-  })
+  app.post<{ Params: { roomCode: string } }>(
+    '/rooms/:roomCode/lobby',
+    hostTransition(
+      { ...deps, authenticated },
+      async (roomCode, snapshot) => {
+        if (await lifecycle.returnToLobby(roomCode, snapshot)) return undefined
+        throw new ConflictError('not_finished')
+      },
+      (reply, error) =>
+        error instanceof ConflictError
+          ? sendCode(reply, 409, error.code)
+          : sendConflictOnly(reply, error),
+    ),
+  )
 
   await registerBotRoutes(app, deps, authenticated)
 

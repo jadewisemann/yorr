@@ -84,63 +84,18 @@ export const registerAuthRoutes = async (
      * 설정이 없으면 리다이렉트할 곳도 없다 — 브라우저가 **직접 여는 주소**라
      * 상태 코드로만 알린다(503, 빈 본문).
      */
-    app.get(`/auth/${route.path}/authorize`, async (request, reply) => {
-      const query = request.query as AuthorizeQuery
-      const prompt = first(query.prompt)
-      // 로그인을 **시작한 출처**로 되돌아가기 위한 값. 프론트가 자기 origin을 넘기고
-      // 목록에 있는 것만 통과한다(`auth/returnTo.ts`). 없으면 설정값 그대로다.
-      const returnUrl = resolveReturnUrl(deps.options, first(query.origin))
-      try {
-        // 순서가 계약이다: state를 먼저 발급하고 URL을 만든다. 미설정 제공자에서는
-        // 쓰이지 않는 state가 하나 남지만 5분 뒤 사라진다(동작 계약은 503 그대로).
-        const url = route.authorizeUrl(
-          deps,
-          await deps.state.issue(returnUrl),
-          prompt === route.reauthPrompt,
-        )
-        return redirect(reply, url)
-      } catch (error) {
-        if (!(error instanceof SocialLoginError)) throw error
-        request.log.error({ err: error, provider: route.provider }, '로그인을 시작할 수 없습니다')
-        return reply.code(503).send()
-      }
-    })
+    app.get(`/auth/${route.path}/authorize`, async (request, reply) =>
+      startAuthorization(deps, route, request, reply),
+    )
 
     /**
      * 제공자가 사용자를 되돌려 보내는 지점. **사람이 브라우저로 도착하는 곳이라
      * JSON을 돌려주지 않는다** — 성공이든 실패든 프론트 화면으로 302로 보내고,
      * 실패는 `?error=<reason>`으로 알린다.
      */
-    app.get(`/auth/${route.path}/callback`, async (request, reply) => {
-      const query = request.query as CallbackQuery
-      // **error 검사보다 먼저 소비한다** — 실패 응답도 로그인을 시작한 출처로
-      // 돌아가야 하고, 그 주소를 아는 곳이 state뿐이다. 사유 우선순위는 그대로다
-      // (아래 validateCallback이 error를 먼저 본다). 달라지는 것은 취소된 콜백도
-      // state를 태운다는 점뿐인데, 취소한 사용자는 authorize부터 다시 시작하므로
-      // 그 state를 쓸 곳이 없다.
-      const returnUrl = await deps.state.consume(first(query.state))
-      const returnTo = returnUrl ?? deps.options.frontendRedirectUri
-      try {
-        const code = validateCallback(query, returnUrl)
-        const profile = await route.fetchProfile(deps, code)
-        const user = await deps.logins.loginOrRegister(
-          route.provider,
-          profile.providerUserId,
-          profile.nickname,
-          profile.profileImageUrl,
-        )
-        const sessionToken = await deps.users.openMemberSession(user.id, user.nickname)
-        const loginCode = await deps.loginCodes.issue(sessionToken)
-        return redirect(reply, frontendUrl(returnTo, 'code', loginCode))
-      } catch (error) {
-        if (!(error instanceof SocialLoginError)) throw error
-        request.log.warn(
-          { err: error, provider: route.provider, reason: error.reason },
-          '소셜 로그인 실패',
-        )
-        return redirect(reply, frontendUrl(returnTo, 'error', error.reason))
-      }
-    })
+    app.get(`/auth/${route.path}/callback`, async (request, reply) =>
+      finishAuthorization(deps, route, request, reply),
+    )
   }
 
   /** 콜백이 넘긴 일회용 코드를 세션 토큰으로 바꾼다. 코드는 한 번만 쓸 수 있다. */
@@ -235,3 +190,71 @@ const frontendUrl = (returnTo: string, name: string, value: string): string => {
 /** 같은 이름이 두 번 오면 Fastify가 배열로 준다 — 첫 값만 본다. */
 const first = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value
+
+/** 설정이 없으면 리다이렉트할 곳도 없다 — 브라우저가 **직접 여는 주소**라 상태 코드로만 알린다. */
+const startAuthorization = async (
+  deps: AuthRouteDependencies,
+  route: ProviderRoute,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<FastifyReply> => {
+  const query = request.query as AuthorizeQuery
+  const prompt = first(query.prompt)
+  // 로그인을 **시작한 출처**로 되돌아가기 위한 값. 프론트가 자기 origin을 넘기고
+  // 목록에 있는 것만 통과한다(`auth/returnTo.ts`). 없으면 설정값 그대로다.
+  const returnUrl = resolveReturnUrl(deps.options, first(query.origin))
+  try {
+    // 순서가 계약이다: state를 먼저 발급하고 URL을 만든다. 미설정 제공자에서는
+    // 쓰이지 않는 state가 하나 남지만 5분 뒤 사라진다(동작 계약은 503 그대로).
+    const url = route.authorizeUrl(
+      deps,
+      await deps.state.issue(returnUrl),
+      prompt === route.reauthPrompt,
+    )
+    return redirect(reply, url)
+  } catch (error) {
+    if (!(error instanceof SocialLoginError)) throw error
+    request.log.error({ err: error, provider: route.provider }, '로그인을 시작할 수 없습니다')
+    return reply.code(503).send()
+  }
+}
+
+/**
+ * 제공자가 사용자를 되돌려 보내는 지점. **사람이 브라우저로 도착하는 곳이라 JSON을
+ * 돌려주지 않는다** — 성공이든 실패든 프론트 화면으로 302로 보내고, 실패는
+ * `?error=<reason>`으로 알린다.
+ */
+const finishAuthorization = async (
+  deps: AuthRouteDependencies,
+  route: ProviderRoute,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<FastifyReply> => {
+  const query = request.query as CallbackQuery
+  // **error 검사보다 먼저 소비한다** — 실패 응답도 로그인을 시작한 출처로 돌아가야
+  // 하고, 그 주소를 아는 곳이 state뿐이다. 사유 우선순위는 그대로다(validateCallback이
+  // error를 먼저 본다). 달라지는 것은 취소된 콜백도 state를 태운다는 점뿐인데,
+  // 취소한 사용자는 authorize부터 다시 시작하므로 그 state를 쓸 곳이 없다.
+  const returnUrl = await deps.state.consume(first(query.state))
+  const returnTo = returnUrl ?? deps.options.frontendRedirectUri
+  try {
+    const code = validateCallback(query, returnUrl)
+    const profile = await route.fetchProfile(deps, code)
+    const user = await deps.logins.loginOrRegister(
+      route.provider,
+      profile.providerUserId,
+      profile.nickname,
+      profile.profileImageUrl,
+    )
+    const sessionToken = await deps.users.openMemberSession(user.id, user.nickname)
+    const loginCode = await deps.loginCodes.issue(sessionToken)
+    return redirect(reply, frontendUrl(returnTo, 'code', loginCode))
+  } catch (error) {
+    if (!(error instanceof SocialLoginError)) throw error
+    request.log.warn(
+      { err: error, provider: route.provider, reason: error.reason },
+      '소셜 로그인 실패',
+    )
+    return redirect(reply, frontendUrl(returnTo, 'error', error.reason))
+  }
+}

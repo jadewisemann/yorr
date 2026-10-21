@@ -42,6 +42,14 @@ const observationStep = (state: RoundState): BotTurnStep => ({
   state,
 })
 
+/** 봇의 한 수 — 방·봇·라운드 상태·굴린 주사위. 네 값이 항상 함께 다닌다. */
+interface BotTurn {
+  readonly roomId: string
+  readonly botId: string
+  readonly state: RoundState
+  readonly dice: readonly number[]
+}
+
 export interface YachtBotTurnCoordinatorDeps {
   readonly rounds: YachtBotRoundLookup
   readonly actions: YachtBotActions
@@ -128,24 +136,18 @@ export class YachtBotTurnCoordinator {
     if (afterDecision === undefined || !sameTurnVersion(state, afterDecision)) return ignoredStep
 
     if (decision.action === 'SCORE' || state.activeRollCount === MAX_ROLL_COUNT) {
-      return this.submit(event.roomId, gameId, botId, state, dice, decision)
+      return this.submit({ roomId: event.roomId, botId, state, dice }, gameId, decision)
     }
     if (state.activeRollCount < MAX_ROLL_COUNT) {
       // 방금 읽은 상태를 그대로 넘긴다 — 가드와 이 호출 사이에 await가 없어 다시 읽을 창이 없다.
-      return this.holdOrRoll(event.roomId, botId, state, dice, decision, afterDecision)
+      return this.holdOrRoll({ roomId: event.roomId, botId, state, dice }, decision, afterDecision)
     }
     return ignoredStep
   }
 
-  /** 점수 확정으로 턴을 마무리한다. 카테고리가 없으면 폴백 전략이 고른다. */
-  private async submit(
-    roomId: string,
-    gameId: string,
-    botId: string,
-    state: RoundState,
-    dice: readonly number[],
-    decision: BotDecision,
-  ): Promise<BotTurnStep> {
+  /** 봇의 한 수가 공유하는 문맥 — 어느 방의 누구이고, 어떤 상태에서 무엇을 굴렸나. */
+  private async submit(turn: BotTurn, gameId: string, decision: BotDecision): Promise<BotTurnStep> {
+    const { roomId, botId, state, dice } = turn
     const category =
       decision.category ??
       this.strategy.chooseCategory(dice, await this.scores.openCategories(gameId, botId))
@@ -163,14 +165,12 @@ export class YachtBotTurnCoordinator {
 
   /** 킵을 바꿔야 하면 바꾸고 관찰로 돌아가고, 이미 맞으면 바로 다음 굴림으로 간다. */
   private async holdOrRoll(
-    roomId: string,
-    botId: string,
-    state: RoundState,
-    dice: readonly number[],
+    turn: BotTurn,
     decision: BotDecision,
     /** 결정 뒤 다시 읽어 같은 턴임을 확인한 상태. 굴림 직전에 재사용한다. */
     current: RoundState,
   ): Promise<BotTurnStep> {
+    const { roomId, botId, state, dice } = turn
     const held = preserveHeldDiceIdentity(dice, state.activeHeld, decision.held)
     // 킵이 이미 원하는 모양이면 hold 이벤트를 내지 않는다 — 같은 값을 다시 보내면
     // 프론트에 의미 없는 hold_changed가 한 번 더 간다.
