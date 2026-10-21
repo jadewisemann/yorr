@@ -83,68 +83,19 @@ export function Arena({
 
       <SignalLamp phase={phase} round={round} />
 
-      <div className="absolute" style={{ left: 12, top: 62 }}>
-        <Plate align="left" fighter={left} maxFouls={maxFouls} maxHp={maxHp} />
-      </div>
-      <div className="absolute" style={{ right: 12, top: 62 }}>
-        <Plate align="right" fighter={right} maxFouls={maxFouls} maxHp={maxHp} />
-      </div>
+      <Plates left={left} right={right} maxHp={maxHp} maxFouls={maxFouls} />
+      <Gunslingers left={left} right={right} leftShot={leftShot} rightShot={rightShot} />
 
-      <div
-        className="absolute"
-        style={{ bottom: '28%', left: '17%', transform: 'translateX(-50%)' }}
-      >
-        <Gunslinger
-          fired={leftShot !== null}
-          height="var(--gs-h)"
-          outfit={left.outfit}
-          pose={left.pose}
-        />
-      </div>
-      <div
-        className="absolute"
-        style={{ bottom: '28%', right: '17%', transform: 'translateX(50%)' }}
-      >
-        <Gunslinger
-          fired={rightShot !== null}
-          flip
-          height="var(--gs-h)"
-          outfit={right.outfit}
-          pose={right.pose}
-        />
-      </div>
-
-      {(leftShot === 'opponent' || rightShot === 'opponent') && (
-        <div
-          className="pointer-events-none absolute"
-          style={{
-            bottom: 'calc(28% + var(--gs-h) * 0.5)',
-            height: 0,
-            left: `${BULLET_TRACK_INSET * 100}%`,
-            right: `${BULLET_TRACK_INSET * 100}%`,
-          }}
-        >
-          {leftShot === 'opponent' && (
-            <Bullet
-              clash={clash}
-              color={left.outfit.rim}
-              dir="r"
-              flightMs={flightMs}
-              miss={leftMiss}
-            />
-          )}
-          {rightShot === 'opponent' && (
-            <Bullet
-              clash={clash}
-              color={right.outfit.rim}
-              dir="l"
-              flightMs={flightMs}
-              miss={rightMiss}
-            />
-          )}
-          {clash && <Clash delayMs={Math.round(flightMs * 0.42)} />}
-        </div>
-      )}
+      <BulletTrack
+        clash={clash}
+        flightMs={flightMs}
+        left={left}
+        leftMiss={leftMiss}
+        leftShot={leftShot}
+        right={right}
+        rightMiss={rightMiss}
+        rightShot={rightShot}
+      />
       {leftShot === 'ground' && <FoulDust delayMs={flightMs} selfShot={selfShot} side={1} />}
       {rightShot === 'ground' && <FoulDust delayMs={flightMs} selfShot={selfShot} side={2} />}
       {settled && !tie && winner !== 0 && <ImpactFlash delayMs={impactDelayMs} winner={winner} />}
@@ -174,6 +125,103 @@ export function Arena({
       )}
 
       {children}
+    </div>
+  )
+}
+
+/** 좌우 체력·파울 표시. 대칭이라 한 컴포넌트가 두 번 그린다. */
+function Plates({
+  left,
+  right,
+  maxHp,
+  maxFouls,
+}: Pick<ArenaProps, 'left' | 'right' | 'maxHp' | 'maxFouls'>) {
+  return (
+    <>
+      <div className="absolute" style={{ left: 12, top: 62 }}>
+        <Plate align="left" fighter={left} maxFouls={maxFouls} maxHp={maxHp} />
+      </div>
+      <div className="absolute" style={{ right: 12, top: 62 }}>
+        <Plate align="right" fighter={right} maxFouls={maxFouls} maxHp={maxHp} />
+      </div>
+    </>
+  )
+}
+
+/** 총잡이 두 명 — 발사 여부만 다르다. */
+function Gunslingers({
+  left,
+  right,
+  leftShot,
+  rightShot,
+}: Pick<ArenaProps, 'left' | 'right' | 'leftShot' | 'rightShot'>) {
+  return (
+    <>
+      <div
+        className="absolute"
+        style={{ bottom: '28%', left: '17%', transform: 'translateX(-50%)' }}
+      >
+        <Gunslinger
+          fired={leftShot !== null}
+          height="var(--gs-h)"
+          outfit={left.outfit}
+          pose={left.pose}
+        />
+      </div>
+      <div
+        className="absolute"
+        style={{ bottom: '28%', right: '17%', transform: 'translateX(50%)' }}
+      >
+        <Gunslinger
+          fired={rightShot !== null}
+          flip
+          height="var(--gs-h)"
+          outfit={right.outfit}
+          pose={right.pose}
+        />
+      </div>
+    </>
+  )
+}
+
+/** 총알 궤적 — 양쪽이 상대를 향해 쐈을 때만 그린다. */
+function BulletTrack({
+  clash,
+  flightMs,
+  left,
+  leftMiss,
+  leftShot,
+  right,
+  rightMiss,
+  rightShot,
+}: Pick<
+  ArenaProps,
+  'clash' | 'flightMs' | 'left' | 'leftMiss' | 'leftShot' | 'right' | 'rightMiss' | 'rightShot'
+>) {
+  if (leftShot !== 'opponent' && rightShot !== 'opponent') return null
+  return (
+    <div
+      className="pointer-events-none absolute"
+      style={{
+        bottom: 'calc(28% + var(--gs-h) * 0.5)',
+        height: 0,
+        left: `${BULLET_TRACK_INSET * 100}%`,
+        right: `${BULLET_TRACK_INSET * 100}%`,
+      }}
+    >
+      {leftShot === 'opponent' && (
+        <Bullet clash={clash} color={left.outfit.rim} dir="r" flightMs={flightMs} miss={leftMiss} />
+      )}
+      {rightShot === 'opponent' && (
+        <Bullet
+          clash={clash}
+          color={right.outfit.rim}
+          dir="l"
+          flightMs={flightMs}
+          miss={rightMiss}
+        />
+      )}
+      {clash && <Clash delayMs={Math.round(flightMs * 0.42)} />}
     </div>
   )
 }

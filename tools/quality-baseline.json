@@ -33,7 +33,7 @@
     "backend/src/ws/registry.ts\u0000halsteadDifficulty\u0000-": 102,
     "frontend/src/davinci/model/useDavinciGame.ts\u0000functionLines\u0000useDavinciGame": 92,
     "frontend/src/davinci/screens/DavinciGame.tsx\u0000functionLines\u0000DavinciGame": 97,
-    "frontend/src/duel/components/Arena.tsx\u0000functionLines\u0000Arena": 136,
+    "frontend/src/duel/components/Arena.tsx\u0000functionLines\u0000Arena": 87,
     "frontend/src/duel/components/Arena/scenery.tsx\u0000functionLines\u0000Wasteland": 119,
     "frontend/src/duel/model/useDuelGame.ts\u0000functionLines\u0000useDuelGame": 115,
     "frontend/src/duel/model/useDuelGame.ts\u0000nesting\u0000useDuelGame": 5,
