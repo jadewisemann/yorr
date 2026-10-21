@@ -19,32 +19,55 @@ function apply(snapshot: RoomSnapshot, message: ServerMessage): RoomSnapshot {
 
   switch (message.type) {
     case 'game.yacht_dice.score.update':
-      return {
-        ...snapshot,
-        game: {
-          ...game,
-          scores: { ...game.scores, [message.payload.playerId]: message.payload.scoreboard },
-        },
-      }
+      return withScore(game, snapshot, message.payload)
     case 'game.yacht_dice.round.start':
-      return {
-        ...snapshot,
-        game: {
-          ...game,
-          activePlayerId: message.payload.activePlayerId,
-          roundDeadline: message.payload.deadline,
-          roundNumber: message.payload.roundNumber,
-          turnOrder: message.payload.turnOrder,
-          rollCount: 0,
-        },
-      }
+      return withRoundStart(game, snapshot, message.payload)
     case 'game.yacht_dice.game.over':
-      return {
-        ...snapshot,
-        phase: 'finished',
-        game: { ...game, rankings: message.payload.rankings },
-      }
+      return withGameOver(game, snapshot, message.payload)
     default:
       return snapshot
   }
+}
+
+/** 점수 갱신 — 한 사람의 점수판만 바꾸고 나머지는 그대로 둔다. */
+function withScore(
+  game: NonNullable<RoomSnapshot['game']>,
+  snapshot: RoomSnapshot,
+  payload: Extract<ServerMessage, { type: 'game.yacht_dice.score.update' }>['payload'],
+): RoomSnapshot {
+  return {
+    ...snapshot,
+    game: {
+      ...game,
+      scores: { ...game.scores, [payload.playerId]: payload.scoreboard },
+    },
+  }
+}
+
+/** 새 라운드 — 굴림 횟수는 0으로 돌아간다. */
+function withRoundStart(
+  game: NonNullable<RoomSnapshot['game']>,
+  snapshot: RoomSnapshot,
+  payload: Extract<ServerMessage, { type: 'game.yacht_dice.round.start' }>['payload'],
+): RoomSnapshot {
+  return {
+    ...snapshot,
+    game: {
+      ...game,
+      activePlayerId: payload.activePlayerId,
+      roundDeadline: payload.deadline,
+      roundNumber: payload.roundNumber,
+      turnOrder: payload.turnOrder,
+      rollCount: 0,
+    },
+  }
+}
+
+/** 판 종료 — 순위를 싣고 phase를 finished로 못 박는다. */
+function withGameOver(
+  game: NonNullable<RoomSnapshot['game']>,
+  snapshot: RoomSnapshot,
+  payload: Extract<ServerMessage, { type: 'game.yacht_dice.game.over' }>['payload'],
+): RoomSnapshot {
+  return { ...snapshot, phase: 'finished', game: { ...game, rankings: payload.rankings } }
 }
