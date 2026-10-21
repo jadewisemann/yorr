@@ -16,10 +16,10 @@
 | 독립 하네스 여럿 | 단위 · 블랙박스 프로토콜 · 브라우저 E2E(mock) · 풀스택 E2E | `backend/src/**/__tests__` · `backend/test/blackbox` · `frontend/e2e/mock` · `frontend/e2e/real` | PR |
 | 짝 맞추기 | 진짜 백엔드(**Botkeep 번들 그대로**) 앞에서 진짜 프론트 빌드로 방 만들기·참가·시작 | `.github/workflows/fullstack.yml` | PR |
 | 출하물 시험 | Botkeep에 올라갈 **바로 그 번들**을 패널과 같은 시작 명령으로 띄우고 블랙박스 스위트를 `E2E_BASE_URL`로 돌린다. 통과한 번들만 `botkeep` 브랜치에 올라간다 | `.github/workflows/botkeep.yml` | PR·main |
-| 차등 테스트(SLT) | 야추 점수의 세 구현(서버·프론트·독립 오라클)을 7,776가지 주사위 × 12칸 **전수** 대조 | `backend/src/game/score/__tests__/scoringDifferential.test.ts` | PR |
+| 차등 테스트(SLT) | 야추 점수의 세 구현(서버·프론트·독립 오라클)을 7,776가지 주사위 × 12칸 **전수** 대조. 같은 기법을 다빈치 턴 흐름에도 적용한다 — 손패 모양 × 더미 유무의 모든 조합을 돌려 "어느 갈래로 가든 턴이 움직인다"를 단언 | `backend/src/game/score/__tests__/scoringDifferential.test.ts` · `backend/src/game/davinci/__tests__/davinciTurnFlow.test.ts` | PR |
 | 이상 상황 테스트 | 여정 하나의 Redis 명령 중 **N번째 하나만** 실패시킨다. 모든 N에 대해, 쓰기 전 실패와 쓰기 후 응답 유실 둘 다 | `backend/test/blackbox/anomaly.e2e.test.ts` | PR(4칸 간격) · 야간(전수) |
 | 퍼징 | 시드 하나에서 나오는 WS 프레임을 진행 중인 판에 쏟는다 | `backend/test/blackbox/robustness.e2e.test.ts` | PR 400프레임 · 야간 2만 |
-| 경계값 | 상한·하한의 안쪽 한 칸과 바깥쪽 한 칸(닉네임 20/21, 정원 6/7, 채팅 200/201, 64KiB/+1 …) | `backend/test/blackbox/boundaries.e2e.test.ts` | PR |
+| 경계값 | 상한·하한의 안쪽 한 칸과 바깥쪽 한 칸(닉네임 20/21, 정원 6/7, 채팅 200/201, 64KiB/+1 …). 순수 계산(판정 창·거리 등급·인덱스 범위)에도 같은 방식으로 적용한다 | `backend/test/blackbox/boundaries.e2e.test.ts` · `backend/src/game/pingpong/__tests__/pingPongCourtMath.test.ts` · `backend/src/game/yacht/__tests__/payloads.test.ts` | PR |
 | 자원 누수 검사 | 서버를 띄워 방 20개를 돌리고 닫으면 소켓·리스너·ref 타이머 수가 시작 전과 같다 | `backend/test/blackbox/leaks.e2e.test.ts` | PR |
 | 회귀 테스트 | 버그 하나 = 먼저 실패하는 테스트 하나 | 예: `backend/src/ws/__tests__/gatewayFrameErrors.test.ts` | 항상 |
 | 커버리지 | 측정하고 실측 바닥을 래칫으로 고정한다. 백엔드·프론트 모두 CI가 강제한다 | 각 `vitest.config.ts` | PR |
@@ -84,6 +84,13 @@ E2E_BASE_URL=http://localhost npm run test:e2e
    함께 고친다. 퍼저가 모르는 코드를 계약 위반으로 잡는다.
 
 ## 찾아낸 것
+
+- **2026-10-21 — 커버리지의 구멍은 "테스트가 없는 파일"이었다.** 다빈치 상태 저장소
+  (`davinciStateStore.ts`)는 결투·탁구에 있는 계약 테스트가 **아예 없었고**, 탁구의
+  궤적·판정 창(`pingPongCourtMath.ts`)과 야추 payload 관용 규칙(`payloads.ts`)도
+  마찬가지였다. 남은 갭이 어려운 분기라기보다 **손대지 않은 파일**이라, SQLite 기법
+  가운데 경계값·전수 대조·표 기반을 그대로 적용해 statements 93.86→94.56,
+  branches 86.08→87.96으로 올렸다(1,235→1,333 테스트). 100% 파일은 81개다.
 
 - **2026-09-30 — 320px에서 게임 헤더의 턴 표시가 사라져 있었다.** 채팅 버튼이 헤더에
   들어오며 턴 라벨이 0px로 눌렸다. 브라우저 E2E의 narrow-width가 정확히 그 자리를 짚었지만
