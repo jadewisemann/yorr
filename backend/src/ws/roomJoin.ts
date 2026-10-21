@@ -148,23 +148,33 @@ export async function handleRoomJoin(
   // 자리를 되찾는 경우도 재접속 경로다. 최초 참가 경로로 보내면 `resume()`이
   // 불려 **되살린 마감이 새 25초로 덮인다** — 재무장이 헛일이 된다.
   if (previous || reseating) {
-    await completeReconnect(deps, socket, message, roomId, identity.playerId)
+    await completeReconnect({ deps, socket, message, roomId, identity })
     return
   }
-  await completeFirstJoin(deps, socket, roomId, identity, self)
+  await completeFirstJoin({ deps, socket, message, roomId, identity, self })
 }
 
 /**
  * 재접속: 좌석·host를 유지한 채 소켓만 갈아끼웠다. `room.joined`·`player_joined`는
  * 나가지 않고 스냅샷 하나로 동기화 기준점을 다시 잡는다.
  */
-async function completeReconnect(
-  deps: JoinDeps,
-  socket: ClientSocket,
-  message: InboundEnvelope,
-  roomId: string,
-  playerId: string,
-): Promise<void> {
+/** 접속 하나의 문맥 — 다섯 값을 위치로 넘기면 어느 것이 무엇인지 읽을 수 없다. */
+interface JoinContext {
+  readonly deps: JoinDeps
+  readonly socket: ClientSocket
+  readonly message: InboundEnvelope
+  readonly roomId: string
+  readonly identity: Identity
+}
+
+async function completeReconnect({
+  deps,
+  socket,
+  message,
+  roomId,
+  identity,
+}: JoinContext): Promise<void> {
+  const playerId = identity.playerId
   deps.broadcaster.register(roomId, socket)
   let snapshot: unknown
   try {
@@ -189,13 +199,13 @@ async function completeReconnect(
  * 최초 참가: ① 본인에게 `room.joined` → ② 방에 `room.player_joined`(본인은 아직
  * 팬아웃 밖이라 못 받는다) → ③ 팬아웃 등록 → ④ 폐쇄 예약 취소 시 타이머 재개.
  */
-async function completeFirstJoin(
-  deps: JoinDeps,
-  socket: ClientSocket,
-  roomId: string,
-  identity: Identity,
-  self: RoomMember,
-): Promise<void> {
+async function completeFirstJoin({
+  deps,
+  socket,
+  roomId,
+  identity,
+  self,
+}: JoinContext & { readonly self: RoomMember }): Promise<void> {
   const snapshot = await deps.snapshots.snapshot(roomId)
   deps.send(
     socket,
