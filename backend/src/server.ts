@@ -1,9 +1,9 @@
 import cors from '@fastify/cors'
 import fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify'
 import { createBaseServices, registerHealthWiring } from './composition/baseServices.js'
-import { registerGameModules } from './composition/games.js'
 import { createServerLifecycle } from './composition/lifecycle.js'
 import { assembleQueryWiring } from './composition/queries.js'
+import { assembleRoomServices, registerGameModuleWiring } from './composition/roomServices.js'
 import { assembleRoundWiring, type RoundWiring } from './composition/rounds.js'
 import { allowedOrigins, type Env } from './config/env.js'
 import type { GameCompletionService } from './game/completion/index.js'
@@ -14,9 +14,6 @@ import type { YachtBotPolicy } from './game/yacht/index.js'
 import { registerApiRoutes } from './http/apiRoutes.js'
 import type { Redis } from './infra/memoryRedis.js'
 import type { Pool } from './infra/sqlite.js'
-import { BotParticipantService } from './room/botService.js'
-import { QuickMatchService } from './room/quickMatchService.js'
-import { SqliteUserProfileStore, UserProfileService } from './user/profile.js'
 import type { RoomBroadcaster } from './ws/broadcaster.js'
 import { attachGameSocketGateway, type GameSocketGateway } from './ws/gateway.js'
 import { GameSocketHandler } from './ws/handler.js'
@@ -104,32 +101,23 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     ...(options.sweepScheduler === undefined ? {} : { sweepScheduler: options.sweepScheduler }),
   })
 
-  registerGameModules(games, {
-    redis,
-    registry,
-    broadcaster,
-    snapshots,
-    deadlineScheduler: rounds.deadlines,
+  registerGameModuleWiring({
+    games,
+    base,
+    rounds,
     completion,
-    rooms,
-    rounds: rounds.synchronization,
-    timers: rounds.timer,
     yachtActions: roundAssembly.yachtActions,
     reconnectSnapshots,
   })
 
-  // ── 회원 프로필(4.3) · 퀵매치(3.5) ──────────────────────────────────────
-  const profiles = new UserProfileService(new SqliteUserProfileStore(db), users)
-  // 퀵매치의 자동 시작 조건은 "전원의 WS 소켓이 살아 있는가"다 — WS 게이트웨이와
-  // **같은 레지스트리**여야 한다. 새로 만들면 그 조건이 영구히 거짓이 되어 자동
-  // 시작이 조용히 안 된다(타입체크는 통과한다).
-  const quickMatches = new QuickMatchService({
+  const { profiles, quickMatches, bots } = assembleRoomServices({
     redis,
-    rooms,
+    db,
     users,
+    rooms,
     catalog,
-    presence: registry,
-    games: lifecycle,
+    registry,
+    lifecycle,
   })
 
   await app.register(cors, { origin: allowedOrigins(env) })
@@ -150,7 +138,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     queries: gameQueries,
     profiles,
     quickMatches,
-    bots: new BotParticipantService(redis, rooms),
+    bots,
     broadcaster,
     snapshots,
     rankings,

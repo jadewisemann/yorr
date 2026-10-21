@@ -89,7 +89,10 @@ export const registerRoomRoutes = async (
   deps: RoomRouteDependencies,
 ): Promise<void> => {
   const { users, rooms, catalog, lifecycle } = deps
-
+  const authenticated = (
+    headers: Record<string, string | string[] | undefined>,
+    reply: FastifyReply,
+  ) => authenticateGuest(users, headers, reply)
   const entry = createRoomEntry({ users, rooms, catalog, log: app.log })
 
   app.post<{ Body: EnterRoomBody; Querystring: { game_code?: string; party?: string } }>(
@@ -113,16 +116,11 @@ export const registerRoomRoutes = async (
     async (request, reply) => {
       const user = await authenticated(request.headers, reply)
       if (!user) return reply
-      const { roomCode } = request.params
-      const snapshot = await rooms.getSnapshot(roomCode)
-      if (!(await rooms.leave(roomCode, user.userId))) return roomNotFound(reply)
-      await users.clearRoom(user.userId)
-      // 게임 중 명시적 퇴장: 뒤따르는 소켓 close는 끊김과 구분되지 않으므로 여기서
-      // WS 명단·턴 순서까지 정리해야 "나가도 오프라인으로 방에 남는" 문제가 없다.
-      if (snapshot.phase === 'PLAYING') {
-        await lifecycle.removePlayer(roomCode, snapshot.gameCode, user.userId)
-      }
-      return reply.code(204).send()
+      return leaveRoom(
+        { users, rooms, lifecycle },
+        { roomCode: request.params.roomCode, userId: user.userId },
+        reply,
+      )
     },
   )
 
@@ -155,22 +153,40 @@ export const registerRoomRoutes = async (
   )
 
   await registerBotRoutes(app, deps, authenticated)
+}
 
-  /** 인증 실패는 401 + 본문 `invalid_guest_session`(방·봇 API의 문자열). */
-  async function authenticated(
-    headers: Record<string, string | string[] | undefined>,
-    reply: FastifyReply,
-  ): Promise<UserIdentity | null> {
-    try {
-      return await users.authenticate(
-        header(headers, 'x-user-id'),
-        header(headers, 'authorization'),
-      )
-    } catch (error) {
-      if (!(error instanceof SessionAuthenticationError)) throw error
-      sendCode(reply, 401, error.code)
-      return null
-    }
+/**
+ * 게임 중 명시적 퇴장 — REST로 나가는 경로.
+ *
+ * 뒤따르는 소켓 close는 **끊김과 구분되지 않으므로**, 여기서 WS 명단·턴 순서까지
+ * 정리해야 "나가도 오프라인으로 방에 남는" 문제가 없다.
+ */
+const leaveRoom = async (
+  deps: Pick<RoomRouteDependencies, 'users' | 'rooms' | 'lifecycle'>,
+  { roomCode, userId }: { readonly roomCode: string; readonly userId: string },
+  reply: FastifyReply,
+): Promise<FastifyReply> => {
+  const snapshot = await deps.rooms.getSnapshot(roomCode)
+  if (!(await deps.rooms.leave(roomCode, userId))) return roomNotFound(reply)
+  await deps.users.clearRoom(userId)
+  if (snapshot.phase === 'PLAYING') {
+    await deps.lifecycle.removePlayer(roomCode, snapshot.gameCode, userId)
+  }
+  return reply.code(204).send()
+}
+
+/** 인증 실패는 401 + 본문 `invalid_guest_session`(방·봇 API의 문자열). */
+const authenticateGuest = async (
+  users: UserService,
+  headers: Record<string, string | string[] | undefined>,
+  reply: FastifyReply,
+): Promise<UserIdentity | null> => {
+  try {
+    return await users.authenticate(header(headers, 'x-user-id'), header(headers, 'authorization'))
+  } catch (error) {
+    if (!(error instanceof SessionAuthenticationError)) throw error
+    sendCode(reply, 401, error.code)
+    return null
   }
 }
 
