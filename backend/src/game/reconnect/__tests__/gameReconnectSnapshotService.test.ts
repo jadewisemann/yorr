@@ -52,8 +52,20 @@ describe('GameReconnectSnapshotService', () => {
    */
   it('현재 턴의 굴림 진행(rollCount·dice·held)을 싣는다', async () => {
     const twoRollsIn = RoundState.start(4, ['player-a', 'player-b'])
-      .recordRoll('player-a', 4, 1, noHeld, [6, 6, 3, 2, 1])
-      .recordRoll('player-a', 4, 2, [true, true, false, false, false], [1, 1, 5, 4, 4])
+      .recordRoll({
+        playerId: 'player-a',
+        roundNumber: 4,
+        rollCount: 1,
+        held: noHeld,
+        rolledDice: [6, 6, 3, 2, 1],
+      })
+      .recordRoll({
+        playerId: 'player-a',
+        roundNumber: 4,
+        rollCount: 2,
+        held: [true, true, false, false, false],
+        rolledDice: [1, 1, 5, 4, 4],
+      })
     const service = snapshotService({
       round: twoRollsIn,
       deadline: Date.parse('2026-07-29T08:00:25Z'),

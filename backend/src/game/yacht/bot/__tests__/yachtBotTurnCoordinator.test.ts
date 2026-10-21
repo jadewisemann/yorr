@@ -33,7 +33,14 @@ const rolled = (
   rollCount: number,
   held: readonly boolean[],
   dice: readonly number[],
-): RoundState => state.recordRoll(playerId, state.roundNumber, rollCount, held, dice)
+): RoundState =>
+  state.recordRoll({
+    playerId: playerId,
+    roundNumber: state.roundNumber,
+    rollCount: rollCount,
+    held: held,
+    rolledDice: dice,
+  })
 
 describe('YachtBotTurnCoordinator', () => {
   let rounds: FakeBotRounds

@@ -246,14 +246,13 @@ describeRedis('RedisScoreBoardStore', () => {
   const startedRoundStore = async (): Promise<InMemoryRoundStateStore> => {
     const store = new InMemoryRoundStateStore()
     await store.initialize(ROOM_CODE, RoundState.start(1, [PLAYER_ID]))
-    await store.recordRollAtomically(
-      ROOM_CODE,
-      PLAYER_ID,
-      1,
-      1,
-      [false, false, false, false, false],
-      [1, 2, 3, 4, 5],
-    )
+    await store.recordRollAtomically(ROOM_CODE, {
+      playerId: PLAYER_ID,
+      roundNumber: 1,
+      rollCount: 1,
+      held: [false, false, false, false, false],
+      rolledDice: [1, 2, 3, 4, 5],
+    })
     return store
   }
 

@@ -80,15 +80,6 @@ export function opponentsOf(state: DavinciView | undefined, you: PlayerId): Play
   )
 }
 
-export function canTarget(
-  state: DavinciView | undefined,
-  you: PlayerId,
-  playerId: PlayerId,
-  tile: DavinciTile,
-): boolean {
-  return isMyTurn(state, you) && state?.phase === 'GUESSING' && playerId !== you && !tile.revealed
-}
-
 export type DavinciPrompt =
   | 'guess'
   | 'decide'

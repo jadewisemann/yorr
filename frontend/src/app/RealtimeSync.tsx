@@ -10,6 +10,7 @@ import {
 } from '@/realtime/wsEvents'
 import { MAX_RECONNECT_ATTEMPTS, RECONNECT_DELAY_MS } from '@/room/connectSequence'
 import { useAppStore } from '@/store'
+import { createMessageDispatcher } from './messageDispatch'
 
 interface RealtimeSyncProps {
   children: ReactNode
@@ -69,9 +70,25 @@ export function RealtimeSync({ children, client }: RealtimeSyncProps) {
       }, RECONNECT_DELAY_MS)
     }
 
+    const dispatch = createMessageDispatcher({
+      startHeartbeat,
+      keepGameState,
+      applyRoomJoined,
+      applyPlayerJoined,
+      applyPlayerLeft,
+      applyPresenceUpdate,
+      applyScoreUpdate,
+      applyRoundStart,
+      applyDiceBroadcast,
+      applyGameOver,
+      applyModuleGameState: (payload, gameCode, store) =>
+        applyModuleGameState(payload, gameCode, store),
+      applyServerError,
+    })
+
     const unsubscribeMessage = client.onMessage((message) => {
       if (!active) return
-      applyServerMessage(message, startHeartbeat)
+      dispatch(message, useAppStore.getState())
       if (isRoomReadyMessage(message)) {
         reconnectAttempts = 0
         useAppStore.getState().setConnectionStatus('connected')
@@ -141,68 +158,6 @@ function keepGameState(snapshot: RoomSnapshot, current: RoomSnapshot | null): Ro
   }
   if (snapshot.game) return snapshot
   return { ...snapshot, game: current.game }
-}
-
-function applyServerMessage(message: ServerMessage, startHeartbeat: (intervalMs: number) => void) {
-  const store = useAppStore.getState()
-
-  switch (message.type) {
-    case 'sys.connected':
-      startHeartbeat(message.payload.heartbeatIntervalMs)
-      return
-    case 'room.joined':
-      applyRoomJoined(message.payload, store)
-      return
-    case 'sys.reconnected':
-    case 'state.sync':
-    case 'game.yacht_dice.state.sync':
-    case 'game.ping_pong.state.sync':
-    case 'game.duel.state.sync':
-    case 'game.davinci_code.state.sync':
-      store.replaceRoomSnapshot(keepGameState(message.payload.snapshot, store.roomSnapshot))
-      return
-    case 'room.player_joined':
-      applyPlayerJoined(message.payload, store)
-      return
-    case 'room.player_left':
-      applyPlayerLeft(message.payload, store)
-      return
-    case 'presence.update':
-      applyPresenceUpdate(message.payload, store)
-      return
-    case 'game.yacht_dice.score.update':
-      applyScoreUpdate(message.payload, store)
-      return
-    case 'game.yacht_dice.round.start':
-      applyRoundStart(message.payload, store)
-      return
-    case 'game.yacht_dice.dice.broadcast':
-      applyDiceBroadcast(message, store)
-      return
-    case 'game.yacht_dice.game.over':
-    case 'game.ping_pong.game.over':
-    case 'game.duel.game.over':
-    case 'game.davinci_code.game.over':
-      applyGameOver(message.payload, store)
-      return
-    case 'game.ping_pong.state':
-      applyModuleGameState(message.payload, 'PING_PONG', store)
-      return
-    case 'game.duel.state':
-      applyModuleGameState(message.payload, 'DUEL', store)
-      return
-    case 'game.davinci_code.state':
-      applyModuleGameState(message.payload, 'DAVINCI_CODE', store)
-      return
-    case 'room.closed':
-      store.endSession('room_closed')
-      return
-    case 'error':
-      applyServerError(message.payload, store)
-      return
-    default:
-      return
-  }
 }
 
 function applyModuleGameState(

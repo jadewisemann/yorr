@@ -208,10 +208,6 @@ export function storeConfig(config: MotionGestureConfig) {
   } catch {}
 }
 
-export function isDefaultValue(key: MotionParamKey, value: number) {
-  return value === MOTION_GESTURE_CONFIG[key]
-}
-
 const sortedKeys = Object.keys(MOTION_GESTURE_CONFIG).sort() as MotionParamKey[]
 
 function formatTsNumber(value: number) {

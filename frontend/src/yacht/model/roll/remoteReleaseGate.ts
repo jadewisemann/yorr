@@ -41,5 +41,3 @@ export function createRemoteReleaseGate() {
     },
   }
 }
-
-export type RemoteReleaseGate = ReturnType<typeof createRemoteReleaseGate>

@@ -206,7 +206,13 @@ describe('RoundTimerService', () => {
   })
 
   it('서버 대리 굴림 뒤에는 같은 턴에 시간을 다시 준다', async () => {
-    const rolled = RoundState.start(1, DUO).recordRoll('player-a', 1, 1, noHeld(), STRAIGHT)
+    const rolled = RoundState.start(1, DUO).recordRoll({
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: noHeld(),
+      rolledDice: STRAIGHT,
+    })
     timeoutResolver.resolution = autoRolledResolution(rolled)
     await timerService.start('room-a', RoundState.start(1, DUO))
     broadcaster.reset()
@@ -636,7 +642,13 @@ const submission = (playerId: string, roundNumber: number): RoundSubmission =>
   new RoundSubmission(playerId, roundNumber, STRAIGHT, 'smallStraight')
 
 const rolled = (state: RoundState): RoundState =>
-  state.recordRoll(state.activePlayerId, state.roundNumber, 1, noHeld(), STRAIGHT)
+  state.recordRoll({
+    playerId: state.activePlayerId,
+    roundNumber: state.roundNumber,
+    rollCount: 1,
+    held: noHeld(),
+    rolledDice: STRAIGHT,
+  })
 
 const score = (playerId: string): ConfirmedScore => ({
   playerId,

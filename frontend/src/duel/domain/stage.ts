@@ -50,24 +50,14 @@ export function buildStage({
   const pending = state.phase === 'SIGNAL' && state.reactions[you] !== undefined
   const settled = state.phase === 'RESULT'
 
-  const shotOf = (playerId: string): ShotTarget | null => {
-    if (playerId === you && youShot) return youShot
-    if (!settled) return null
-    const reaction = state.reactions[playerId]
-    if (reaction === undefined || reaction === DUEL_MISS) return null
-    return round?.foulId === playerId ? 'ground' : 'opponent'
-  }
-
-  const leftShot = shotOf(you)
-  const rightShot = shotOf(opponentId)
-
-  const fighter = (playerId: string, name: string, outfit: Outfit, shot: ShotTarget | null) => ({
-    fouls: state.fouls[playerId] ?? 0,
-    hp: (state.hp[playerId] ?? 0) + (settled && !impact && round?.hitId === playerId ? 1 : 0),
-    ms: playerId === you || settled ? (state.reactions[playerId] ?? null) : null,
-    name,
-    outfit,
-    pose: poseOf(playerId, round, settled, impact, shot !== null),
+  const leftShot = shotOf({ state, playerId: you, you, youShot, settled, round })
+  const rightShot = shotOf({
+    state,
+    playerId: opponentId,
+    you,
+    youShot: null,
+    settled,
+    round,
   })
 
   const [leftMiss, rightMiss] = missedSides(
@@ -83,7 +73,17 @@ export function buildStage({
     clash: settled && round?.kind === 'TIE' && leftShot === 'opponent' && rightShot === 'opponent',
     foulSide: settled ? sideOf(round?.foulId, you, opponentId) : 0,
     ko: settled && !!round?.over,
-    left: fighter(you, youName, OUTFIT_LEFT, leftShot),
+    left: fighter({
+      state,
+      playerId: you,
+      name: youName,
+      outfit: OUTFIT_LEFT,
+      shot: leftShot,
+      you,
+      settled,
+      impact,
+      round,
+    }),
     leftMiss,
     leftShot,
     miss:
@@ -95,12 +95,68 @@ export function buildStage({
         : null,
     pending,
     phase: arenaPhaseOf(state.phase, pending),
-    right: fighter(opponentId, opponentName, OUTFIT_RIGHT, rightShot),
+    right: fighter({
+      state,
+      playerId: opponentId,
+      name: opponentName,
+      outfit: OUTFIT_RIGHT,
+      shot: rightShot,
+      you,
+      settled,
+      impact,
+      round,
+    }),
     rightMiss,
     rightShot,
     selfShot: round?.kind === 'SELF_SHOT',
     tie: settled && round?.kind === 'TIE',
     winner: winnerSide,
+  }
+}
+
+interface ShotInput {
+  readonly state: DuelState
+  readonly playerId: string
+  readonly you: string
+  readonly youShot: ShotTarget | null
+  readonly settled: boolean
+  readonly round: DuelRound | null
+}
+
+/** 이 자리가 어디로 쐈는가. 내가 이미 쐈으면 그 값이, 정산 뒤에는 반응이 근거다. */
+function shotOf({ state, playerId, you, youShot, settled, round }: ShotInput): ShotTarget | null {
+  if (playerId === you && youShot) return youShot
+  if (!settled) return null
+  const reaction = state.reactions[playerId]
+  if (reaction === undefined || reaction === DUEL_MISS) return null
+  return round?.foulId === playerId ? 'ground' : 'opponent'
+}
+
+interface FighterInput extends Omit<ShotInput, 'youShot'> {
+  readonly name: string
+  readonly outfit: Outfit
+  readonly shot: ShotTarget | null
+  readonly impact: boolean
+}
+
+function fighter({
+  state,
+  playerId,
+  you,
+  name,
+  outfit,
+  shot,
+  settled,
+  impact,
+  round,
+}: FighterInput): Fighter {
+  return {
+    fouls: state.fouls[playerId] ?? 0,
+    hp: (state.hp[playerId] ?? 0) + (settled && !impact && round?.hitId === playerId ? 1 : 0),
+    ms: playerId === you || settled ? (state.reactions[playerId] ?? null) : null,
+    name,
+    outfit,
+    pose: poseOf(playerId, round, settled, impact, shot !== null),
   }
 }
 

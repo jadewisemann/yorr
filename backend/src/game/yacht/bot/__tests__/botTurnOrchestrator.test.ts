@@ -92,7 +92,13 @@ describe('BotTurnOrchestrator', () => {
   it('킵 선택 뒤 같은 턴을 이어가기 전에 기다린다', async () => {
     const state = RoundState.start(1, ['bot-a', 'player-a'])
     const held = state
-      .recordRoll('bot-a', 1, 1, NO_HELD, [6, 6, 2, 3, 4])
+      .recordRoll({
+        playerId: 'bot-a',
+        roundNumber: 1,
+        rollCount: 1,
+        held: NO_HELD,
+        rolledDice: [6, 6, 2, 3, 4],
+      })
       .recordHold('bot-a', 1, [true, true, false, false, false])
     const orchestrator = new BotTurnOrchestrator(
       {
@@ -124,7 +130,13 @@ describe('BotTurnOrchestrator', () => {
 
   it('봇 굴림 뒤 dice.thrown을 알려 원격 주사위를 놓게 한다', async () => {
     const state = RoundState.start(1, ['bot-a', 'player-a'])
-    const rolled = state.recordRoll('bot-a', 1, 1, NO_HELD, [6, 6, 2, 3, 4])
+    const rolled = state.recordRoll({
+      playerId: 'bot-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: NO_HELD,
+      rolledDice: [6, 6, 2, 3, 4],
+    })
     const orchestrator = new BotTurnOrchestrator(
       {
         coordinator: {
@@ -155,7 +167,13 @@ describe('BotTurnOrchestrator', () => {
 
   it('굴림 관찰 지연은 턴 시작 지연과 다르다', () => {
     const state = RoundState.start(1, ['bot-a', 'player-a'])
-    const afterRoll = state.recordRoll('bot-a', 1, 1, NO_HELD, [6, 6, 2, 3, 4])
+    const afterRoll = state.recordRoll({
+      playerId: 'bot-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: NO_HELD,
+      rolledDice: [6, 6, 2, 3, 4],
+    })
     const orchestrator = new BotTurnOrchestrator(
       { coordinator: coordinatorFor(), broadcaster },
       { executor },
@@ -172,7 +190,13 @@ describe('BotTurnOrchestrator', () => {
     // 굴림은 안에서 timers.start → onRoundStarted를 다시 부른다 = 세대가 올라간다.
     // 자기 세대로 예약하면 thrown이 항상 스테일로 버려지는데, 그 회귀를 잡는다.
     const state = RoundState.start(1, ['bot-a', 'player-a'])
-    const rolled = state.recordRoll('bot-a', 1, 1, NO_HELD, [6, 6, 2, 3, 4])
+    const rolled = state.recordRoll({
+      playerId: 'bot-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: NO_HELD,
+      rolledDice: [6, 6, 2, 3, 4],
+    })
     let orchestrator: BotTurnOrchestrator | null = null
     orchestrator = new BotTurnOrchestrator(
       {

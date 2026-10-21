@@ -1,5 +1,5 @@
 import { RoundSynchronizationError } from './roundErrors.js'
-import type { RoundState, RoundSubmissionResult } from './roundState.js'
+import type { RoundRoll, RoundState, RoundSubmissionResult } from './roundState.js'
 import type { RoundSubmission } from './roundSubmission.js'
 
 /**
@@ -28,14 +28,7 @@ export interface RoundStateStore {
     beforeStateChange: () => void | Promise<void>,
   ): Promise<RoundSubmissionResult>
 
-  recordRollAtomically(
-    roomId: string,
-    playerId: string,
-    roundNumber: number,
-    rollCount: number,
-    held: readonly boolean[],
-    rolledDice: readonly number[],
-  ): Promise<RoundState>
+  recordRollAtomically(roomId: string, roll: RoundRoll): Promise<RoundState>
 
   /** 굴림 사이에 활성 플레이어가 바꾼 KEEP을 저장한다. */
   recordHoldAtomically(
@@ -151,19 +144,12 @@ export class InMemoryRoundStateStore implements RoundStateStore {
     })
   }
 
-  async recordRollAtomically(
-    roomId: string,
-    playerId: string,
-    roundNumber: number,
-    rollCount: number,
-    held: readonly boolean[],
-    rolledDice: readonly number[],
-  ): Promise<RoundState> {
+  async recordRollAtomically(roomId: string, roll: RoundRoll): Promise<RoundState> {
     validateRoomId(roomId)
     return this.withRoomLock(roomId, () => {
       const currentState = this.states.get(roomId)
       if (currentState === undefined) throw notInitialized(roomId)
-      const result = currentState.recordRoll(playerId, roundNumber, rollCount, held, rolledDice)
+      const result = currentState.recordRoll(roll)
       this.states.set(roomId, result)
       return result
     })

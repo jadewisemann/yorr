@@ -45,7 +45,13 @@ describeRedis('RedisYachtDiceStateStore', () => {
   it('게임별 상태를 Redis에서 그대로 되살린다', async () => {
     const store = await seed()
 
-    await store.recordRollAtomically(ROOM, 'player-a', 1, 1, HELD, DICE)
+    await store.recordRollAtomically(ROOM, {
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: HELD,
+      rolledDice: DICE,
+    })
 
     const state = await store.findByRoomId(ROOM)
     expect(state?.activeRollCount).toBe(1)
@@ -57,7 +63,13 @@ describeRedis('RedisYachtDiceStateStore', () => {
     const store = await seed()
     const roll = async (): Promise<boolean> => {
       try {
-        await store.recordRollAtomically(ROOM, 'player-a', 1, 1, HELD, DICE)
+        await store.recordRollAtomically(ROOM, {
+          playerId: 'player-a',
+          roundNumber: 1,
+          rollCount: 1,
+          held: HELD,
+          rolledDice: DICE,
+        })
         return true
       } catch {
         return false
@@ -97,7 +109,13 @@ describeRedis('RedisYachtDiceStateStore', () => {
     expect(afterInit).toBeLessThanOrEqual(60_000)
 
     await client.pexpire(roomKey(ROOM), 120_000)
-    await store.recordRollAtomically(ROOM, 'player-a', 1, 1, HELD, DICE)
+    await store.recordRollAtomically(ROOM, {
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: HELD,
+      rolledDice: DICE,
+    })
 
     const afterWrite = await client.pttl(stateKey())
     expect(afterWrite).toBeGreaterThan(60_000)
@@ -107,7 +125,13 @@ describeRedis('RedisYachtDiceStateStore', () => {
   it('방 키에 TTL이 없으면 상태 키도 무기한이다(스위퍼가 걷어간다)', async () => {
     const store = await seed()
 
-    await store.recordRollAtomically(ROOM, 'player-a', 1, 1, HELD, DICE)
+    await store.recordRollAtomically(ROOM, {
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: HELD,
+      rolledDice: DICE,
+    })
 
     // -1 = 키는 있고 TTL은 없음.
     expect(await redis().pttl(stateKey())).toBe(-1)
@@ -115,7 +139,13 @@ describeRedis('RedisYachtDiceStateStore', () => {
 
   it('제출까지 담긴 스냅샷이 라운드트립한다', async () => {
     const store = await seed({ players: ['player-a', 'player-b'] })
-    await store.recordRollAtomically(ROOM, 'player-a', 1, 1, HELD, DICE)
+    await store.recordRollAtomically(ROOM, {
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: HELD,
+      rolledDice: DICE,
+    })
 
     const result: RoundSubmissionResult = await store.submitAtomically(
       ROOM,
@@ -138,7 +168,13 @@ describeRedis('RedisYachtDiceStateStore', () => {
 
   it('beforeStateChange가 던지면 상태는 무변화이고 락은 풀린다', async () => {
     const store = await seed()
-    await store.recordRollAtomically(ROOM, 'player-a', 1, 1, HELD, DICE)
+    await store.recordRollAtomically(ROOM, {
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: HELD,
+      rolledDice: DICE,
+    })
 
     await expect(
       store.submitAtomically(ROOM, new RoundSubmission('player-a', 1, DICE, 'choice'), () => {
@@ -163,7 +199,13 @@ describeRedis('RedisYachtDiceStateStore', () => {
 
     let thrown: unknown
     try {
-      await store.recordRollAtomically(ROOM, 'player-a', 1, 1, HELD, DICE)
+      await store.recordRollAtomically(ROOM, {
+        playerId: 'player-a',
+        roundNumber: 1,
+        rollCount: 1,
+        held: HELD,
+        rolledDice: DICE,
+      })
     } catch (error) {
       thrown = error
     }
@@ -177,7 +219,13 @@ describeRedis('RedisYachtDiceStateStore', () => {
   it('성공 경로는 락을 남기지 않는다', async () => {
     const store = await seed()
 
-    await store.recordRollAtomically(ROOM, 'player-a', 1, 1, HELD, DICE)
+    await store.recordRollAtomically(ROOM, {
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: HELD,
+      rolledDice: DICE,
+    })
 
     expect(await redis().exists(`${stateKey()}:lock`)).toBe(0)
   })
@@ -188,7 +236,13 @@ describeRedis('RedisYachtDiceStateStore', () => {
     expect(await store.findByRoomId('GHOST')).toBeUndefined()
     let thrown: unknown
     try {
-      await store.recordRollAtomically('GHOST', 'player-a', 1, 1, HELD, DICE)
+      await store.recordRollAtomically('GHOST', {
+        playerId: 'player-a',
+        roundNumber: 1,
+        rollCount: 1,
+        held: HELD,
+        rolledDice: DICE,
+      })
     } catch (error) {
       thrown = error
     }

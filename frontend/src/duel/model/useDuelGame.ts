@@ -1,7 +1,7 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   type DuelInputSource,
-  drawPenaltyMs,
+  decideDraw,
   flightMs,
   impactDelayMs,
   type ShotTarget,
@@ -9,7 +9,7 @@ import {
 } from '@/duel/domain/duel'
 import { playGunHit, playGunShot } from '@/duel/sounds'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
-import { buildClientMessage, DUEL_FOUL, type DuelState } from '@/realtime/wsEvents'
+import { buildClientMessage, type DuelState } from '@/realtime/wsEvents'
 import { useSwing } from '@/shared/useSwing'
 import type { ActiveRoomSession } from '@/store'
 
@@ -126,15 +126,11 @@ export function useDuelGame({ roomId, session, state }: UseDuelGameOptions) {
       if (!current) return
       if (current.phase !== 'WAITING' && current.phase !== 'SIGNAL') return
       if (current.reactions[session.you] !== undefined) return
-      const early = current.phase === 'WAITING' || signalSeenAt.current === null
-      const measured = early
-        ? DUEL_FOUL
-        : Math.round(performance.now() - (signalSeenAt.current ?? 0))
-      const penalty = drawPenaltyMs(measured, source)
+      const decision = decideDraw(current.phase, signalSeenAt.current, performance.now(), source)
       setMyShot({
         firedAtMs: performance.now(),
         round: current.round,
-        target: early ? 'ground' : 'opponent',
+        target: decision.target,
       })
       soundedRound.current = current.round
       playGunShot()
@@ -145,7 +141,10 @@ export function useDuelGame({ roomId, session, state }: UseDuelGameOptions) {
           client.send(
             buildClientMessage(
               'game.duel.draw',
-              { inputSeq: ++inputSeq.current, reactionMs: measured + penalty },
+              {
+                inputSeq: ++inputSeq.current,
+                reactionMs: decision.reactionMs + decision.penaltyMs,
+              },
               { roomId },
             ),
           )
@@ -156,7 +155,7 @@ export function useDuelGame({ roomId, session, state }: UseDuelGameOptions) {
         }
       }
 
-      penaltyTimer.current = sendAfter(penalty, send)
+      penaltyTimer.current = sendAfter(decision.penaltyMs, send)
     },
     [client, roomId, session.you],
   )

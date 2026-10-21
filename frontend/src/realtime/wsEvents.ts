@@ -339,8 +339,6 @@ export type ServerMessage =
   | WsEnvelope<'game.duel.state', DuelState>
   | WsEnvelope<'game.davinci_code.state', DavinciView>
 
-export type WsMessage = ClientMessage | ServerMessage
-
 export type ClientMessageType = ClientMessage['type']
 export type ServerMessageType = ServerMessage['type']
 
