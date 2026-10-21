@@ -24,12 +24,20 @@ export interface ScoreBoard {
  * 입력은 방어적으로 복사하고 결과는 동결한다 — 호출부가 넘긴 맵을 나중에 바꿔도
  * 점수판은 변하지 않고, 점수판을 통해 상태를 되고칠 수도 없다.
  */
-export const createScoreBoard = (
-  categories: Readonly<Record<string, number | null | undefined>>,
-  upperSubtotal: number,
-  upperBonus: number,
-  total: number,
-): ScoreBoard => {
+/** 점수판 하나의 재료 — 네 값이 함께여야 '한 사람의 점수판'이 된다. */
+export interface ScoreBoardInput {
+  readonly categories: Readonly<Record<string, number | null | undefined>>
+  readonly upperSubtotal: number
+  readonly upperBonus: number
+  readonly total: number
+}
+
+export const createScoreBoard = ({
+  categories,
+  upperSubtotal,
+  upperBonus,
+  total,
+}: ScoreBoardInput): ScoreBoard => {
   if (categories === null || categories === undefined) {
     throw new ScoreDomainError('카테고리별 점수는 null일 수 없습니다.')
   }
@@ -59,7 +67,8 @@ export const createScoreBoard = (
 }
 
 /** 아직 아무것도 기록하지 않은 점수판(= Redis에 해시가 없는 상태의 표현). */
-export const emptyScoreBoard = (): ScoreBoard => createScoreBoard({}, 0, 0, 0)
+export const emptyScoreBoard = (): ScoreBoard =>
+  createScoreBoard({ categories: {}, upperSubtotal: 0, upperBonus: 0, total: 0 })
 
 /**
  * 아직 비어 있는 칸을 **선언 순서대로** 돌려준다. 마감 시각에 서버가 대신 기록할

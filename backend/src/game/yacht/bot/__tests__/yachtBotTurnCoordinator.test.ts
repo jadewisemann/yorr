@@ -69,7 +69,7 @@ describe('YachtBotTurnCoordinator', () => {
       ]),
     )
     scores = new FakeBotScores()
-    scores.board = createScoreBoard({}, 0, 0, 0)
+    scores.board = createScoreBoard({ categories: {}, upperSubtotal: 0, upperBonus: 0, total: 0 })
     coordinator = build()
   })
 

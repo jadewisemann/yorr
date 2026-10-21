@@ -22,7 +22,7 @@ const policy: YachtBotPolicy =
   mode === 'cooperative'
     ? new CooperativeYachtBotPolicy(raw, undefined, Number.POSITIVE_INFINITY)
     : raw
-const board = createScoreBoard({}, 0, 0, 0)
+const board = createScoreBoard({ categories: {}, upperSubtotal: 0, upperBonus: 0, total: 0 })
 
 const startSearches = (): void => {
   for (let index = 0; index < count; index += 1) {

@@ -32,10 +32,10 @@ export const scoreBoardFromHash = (stored: Readonly<Record<string, string>>): Sc
   for (const category of SCORE_CATEGORIES) {
     categories[category] = integerValue(stored[category], null)
   }
-  return createScoreBoard(
+  return createScoreBoard({
     categories,
-    integerValue(stored[UPPER_SUBTOTAL_FIELD], 0) ?? 0,
-    integerValue(stored[UPPER_BONUS_FIELD], 0) ?? 0,
-    integerValue(stored[TOTAL_FIELD], 0) ?? 0,
-  )
+    upperSubtotal: integerValue(stored[UPPER_SUBTOTAL_FIELD], 0) ?? 0,
+    upperBonus: integerValue(stored[UPPER_BONUS_FIELD], 0) ?? 0,
+    total: integerValue(stored[TOTAL_FIELD], 0) ?? 0,
+  })
 }

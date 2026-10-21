@@ -73,12 +73,18 @@ interface DicePlacement {
   slotIndex: number
 }
 
-function planDicePlacements(
-  entries: DieEntry[],
-  held: PhysicsHeldDice,
-  heldOrder: PhysicsDiceIndex[],
-  keepAll: boolean,
-) {
+/**
+ * 배치 계산의 공통 입력 — 네 값이 항상 함께 다니고, `keepAll`만 자주 바뀐다.
+ * 따로 넘기면 순서를 틀려도 타입이 같아 컴파일러가 잡지 못한다.
+ */
+export interface DiceLayoutInput {
+  readonly entries: DieEntry[]
+  readonly held: PhysicsHeldDice
+  readonly heldOrder: PhysicsDiceIndex[]
+  readonly keepAll?: boolean
+}
+
+function planDicePlacements({ entries, held, heldOrder, keepAll = false }: DiceLayoutInput) {
   const railOrder = keepAll
     ? [...heldOrder, ...entries.map((entry) => entry.index).filter((index) => !held[index])]
     : heldOrder
@@ -135,14 +141,9 @@ export function positionKeepSlots(
   })
 }
 
-export function lineUpDice(
-  entries: DieEntry[],
-  held: PhysicsHeldDice,
-  heldOrder: PhysicsDiceIndex[],
-  committedDice: PhysicsDiceSet,
-  keepAll = false,
-) {
-  const placements = planDicePlacements(entries, held, heldOrder, keepAll)
+export function lineUpDice(input: DiceLayoutInput, committedDice: PhysicsDiceSet) {
+  const { entries } = input
+  const placements = planDicePlacements(input)
   entries.forEach((entry) => {
     const { onKeepRail, position, scale } = placementOf(placements, entry.index)
     const targetQuaternion = quaternionForTopValue(committedDice[entry.index])
@@ -161,13 +162,11 @@ export function lineUpDice(
 }
 
 export function prepareLayoutEntries(
-  entries: DieEntry[],
-  held: PhysicsHeldDice,
-  heldOrder: PhysicsDiceIndex[],
+  input: DiceLayoutInput,
   committedDice: PhysicsDiceSet,
-  keepAll = false,
 ): LayoutEntry[] {
-  const placements = planDicePlacements(entries, held, heldOrder, keepAll)
+  const { entries } = input
+  const placements = planDicePlacements(input)
   return entries.map((entry) => {
     const {
       onKeepRail,
@@ -219,13 +218,11 @@ export function updateLayoutEntries(entries: LayoutEntry[], progress: number) {
 }
 
 export function prepareAlignmentEntries(
-  entries: DieEntry[],
-  held: PhysicsHeldDice,
-  heldOrder: PhysicsDiceIndex[],
+  input: DiceLayoutInput,
   settledDice: PhysicsDiceSet,
-  keepAll = false,
 ): AlignmentEntry[] {
-  const placements = planDicePlacements(entries, held, heldOrder, keepAll)
+  const { entries } = input
+  const placements = planDicePlacements(input)
   return entries.map((entry) => {
     const {
       onKeepRail,
