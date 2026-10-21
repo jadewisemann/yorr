@@ -15,10 +15,10 @@ import { QuickCategoryStrip } from '@/yacht/components/GamePlay/QuickCategoryStr
 import { ZeroScoreModal } from '@/yacht/components/GamePlay/ZeroScoreModal'
 import { ScoreSheet } from '@/yacht/components/ScoreSheet'
 import { TurnStrip } from '@/yacht/components/TurnStrip'
-import type { CategoryScores, YachtCategory } from '@/yacht/domain/scoring'
+import type { YachtCategory } from '@/yacht/domain/scoring'
 import { canOfferMotion } from '@/yacht/input/motionTypes'
 import { scoreRecordTitle, scoreSheetHint } from '@/yacht/model/gamePlayLabels'
-import { buildGamePlayView } from '@/yacht/model/gamePlayView'
+import { buildGamePlayView, type TurnProgress } from '@/yacht/model/gamePlayView'
 import { useCountdown } from '@/yacht/model/useCountdown'
 import {
   useGamePlayChrome,
@@ -41,17 +41,6 @@ interface GamePlayProps {
   guide?: (progress: TurnProgress) => ReactNode
   leverageCategory?: YachtCategory | null
   forceController?: boolean
-}
-
-export interface TurnProgress {
-  rolled: boolean
-  keptValues: number[]
-  rolling: boolean
-  submitted: boolean
-  rollCount: number
-  candidates: CategoryScores
-  motionNoticeVisible: boolean
-  wide: boolean
 }
 
 /*

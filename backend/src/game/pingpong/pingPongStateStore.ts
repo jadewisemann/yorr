@@ -1,3 +1,4 @@
+import { setTimeout as delay } from 'node:timers/promises'
 import { ConflictError } from '../../errors.js'
 import type { Redis } from '../../infra/memoryRedis.js'
 import { runAtomicNumber, UNLOCK_IF_OWNER } from '../../infra/memoryRedis.js'
@@ -21,11 +22,6 @@ import type { PingPongState } from './pingPongState.js'
 const LOCK_TTL_MILLIS = 5_000
 const LOCK_WAIT_MILLIS = 2_000
 const LOCK_SPIN_MILLIS = 10
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms)
-  })
 
 /**
  * JSON에서 되살린 상태를 정규화한다. **우리가 쓴 값만 들어온다**는 전제이지만,
@@ -85,7 +81,7 @@ export class RedisPingPongStateStore implements PingPongStateStore {
     const deadline = Date.now() + LOCK_WAIT_MILLIS
     while ((await this.redis.set(lockKey, token, 'PX', LOCK_TTL_MILLIS, 'NX')) !== 'OK') {
       if (Date.now() >= deadline) throw new ConflictError('game_state_busy')
-      await sleep(LOCK_SPIN_MILLIS)
+      await delay(LOCK_SPIN_MILLIS)
     }
     try {
       return await action()

@@ -20,7 +20,8 @@
 //
 // 사용: `node tools/check-loc-ratchet.mjs` (전체) / `--staged` (커밋 전 검사)
 import { execFileSync } from 'node:child_process'
-import { readFileSync, existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { matchesGlob } from 'node:path'
 
 const PACKAGES = ['backend', 'frontend']
 const LIMIT = 500
@@ -35,18 +36,10 @@ const fail = (lines) => {
 
 const nonBlankLines = (text) => text.split('\n').filter((l) => l.trim() !== '').length
 
-// Biome의 includes 패턴 중 이 설정이 실제로 쓰는 형태만 지원한다:
-// `**/x`, `x/**`, `*.ext`, `{a,b}`, 그리고 그 조합.
-const patternToRegExp = (pattern) => {
-  const source = pattern
-    .replace(/[.+^$()|[\]\\]/g, '\\$&')
-    .replace(/\{([^}]+)\}/g, (_, alternates) => `(?:${alternates.split(',').join('|')})`)
-    .replace(/\*\*/g, '\0')
-    .replace(/\*/g, '[^/]*')
-    .replace(/\0\//g, '(?:.*/)?')
-    .replace(/\0/g, '.*')
-  return new RegExp(`^${source}$`)
-}
+// 범위 제외 glob 판정은 `node:path`의 `matchesGlob`(Node 22.5+)에 맡긴다. 예전에는
+// 이 설정이 쓰는 형태(`**/x`·`x/**`·`*.ext`·`{a,b}`)만 지원하는 변환기를 직접
+// 들고 있었는데, 저장소 전체 957개 파일에서 두 판정이 완전히 같음을 확인하고
+// 지웠다 — Biome의 glob 의미론과 갈라질 위험을 직접 관리하지 않아도 된다.
 
 // --- 1. 규칙이 실제로 켜져 있는지 -------------------------------------------
 const configs = {}
@@ -84,7 +77,7 @@ const ALLOWED_SCOPE_PATTERNS = {
 }
 
 // --- 2. 예외: 범위 제외와 파일 예외를 나눈다 --------------------------------
-const scopePatterns = [] // { pkg, pattern, regexp }
+const scopePatterns = [] // { pkg, pattern }
 const fileExceptions = new Map() // `${pkg}/{path}` -> { pkg, include }
 
 for (const pkg of PACKAGES) {
@@ -102,7 +95,7 @@ for (const pkg of PACKAGES) {
           '이 목록을 넓히려면 QUALITY.md 3절 (b)의 결정을 먼저 바꿔라.',
         ])
       }
-      scopePatterns.push({ pkg, pattern: include, regexp: patternToRegExp(include) })
+      scopePatterns.push({ pkg, pattern: include })
     }
   }
 }
@@ -119,7 +112,7 @@ for (const pkg of PACKAGES) {
 const isScopeExcluded = (file) => {
   const [pkg, ...rest] = file.split('/')
   const relative = rest.join('/')
-  return scopePatterns.some((entry) => entry.pkg === pkg && entry.regexp.test(relative))
+  return scopePatterns.some((entry) => entry.pkg === pkg && matchesGlob(relative, entry.pattern))
 }
 
 if (fileExceptions.size > MAX_FILE_EXCEPTIONS) {

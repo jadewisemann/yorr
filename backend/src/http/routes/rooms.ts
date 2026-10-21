@@ -12,6 +12,7 @@ import type { RoomBroadcaster } from '../../ws/broadcaster.js'
 import { envelope } from '../../ws/envelope.js'
 import type { RealtimeRoomSnapshotService } from '../../ws/snapshot.js'
 import { sendCode, sendDomainError } from '../errorResponse.js'
+import { header } from '../headers.js'
 
 /** 대시보드 표시 이름. 참가자 목록에 오르지 않으므로 화면에 나오지 않는다(로그·관리용). */
 const DASHBOARD_NICKNAME = '대시보드'
@@ -52,15 +53,6 @@ interface Entrant {
 }
 
 const isBlank = (value: string | undefined | null): boolean => (value ?? '').trim().length === 0
-
-/** 헤더는 중복되면 배열로 온다 — 첫 값만 본다. */
-const header = (
-  headers: Record<string, string | string[] | undefined>,
-  name: string,
-): string | undefined => {
-  const value = headers[name]
-  return Array.isArray(value) ? value[0] : value
-}
 
 /**
  * 이 사람이 방을 조작할 수 있는 호스트인가.
