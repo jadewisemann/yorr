@@ -3,9 +3,17 @@ import type { Env } from '../config/env.js'
 import { GameCatalog } from '../game/catalog.js'
 import { GameLifecycleService } from '../game/lifecycle.js'
 import { GameModuleRegistry } from '../game/module.js'
+import { registerHealthRoutes } from '../http/routes/health.js'
 import { MemoryRedis, type Redis } from '../infra/memoryRedis.js'
 import type { Pool } from '../infra/sqlite.js'
 import { createDbPool } from '../infra/sqlite.js'
+import {
+  dbReadinessCheck,
+  type ReadinessResult,
+  ReadinessService,
+  RealtimeGameMetrics,
+  redisReadinessCheck,
+} from '../monitoring/index.js'
 import { InMemoryRoomCloseScheduler } from '../room/closeScheduler.js'
 import { RoomService } from '../room/roomService.js'
 import { UserService } from '../user/session.js'
@@ -95,4 +103,47 @@ export const createBaseServices = ({
     heartbeat,
     closeScheduler,
   }
+}
+
+/**
+ * 상태 엔드포인트 등록 — readiness와 게이지.
+ *
+ * 왜 분리했나: readiness 실패 로그가 삼항 + 중첩 객체라 `createServer`의 중첩을
+ * 한 겹 올렸다. 그리고 이 함수가 지켜야 하는 규칙이 있다 — **주입받은 그 인스턴스**를
+ * 검사해야 한다. 새 클라이언트를 만들면 애플리케이션이 쓰는 좌표가 아니라 다른
+ * 좌표를 검사하게 되고, 그때 health는 아무것도 증명하지 않는다.
+ */
+export const registerHealthWiring = async (
+  app: FastifyInstance,
+  deps: {
+    readonly redis: Redis
+    readonly db: Pool
+    readonly registry: RoomSessionRegistry
+    readonly games: GameModuleRegistry
+  },
+): Promise<void> => {
+  await registerHealthRoutes(app, {
+    readiness: new ReadinessService([redisReadinessCheck(deps.redis), dbReadinessCheck(deps.db)], {
+      onChanged: (result) => logReadiness(app, result),
+    }),
+    // 게이지는 WS 레지스트리의 인메모리 상태만 본다 — 스크레이프마다 Redis를 때리면
+    // 모니터링이 부하 원인이 된다.
+    metrics: new RealtimeGameMetrics({ presence: deps.registry, games: deps.games }),
+  })
+}
+
+const logReadiness = (app: FastifyInstance, result: ReadinessResult): void => {
+  if (result.ready) {
+    app.log.info('readiness UP — 의존 확인이 전부 응답합니다')
+    return
+  }
+  app.log.error(
+    {
+      failed: result.failures.map((failure) => ({
+        name: failure.name,
+        reason: failure.reason instanceof Error ? failure.reason.message : String(failure.reason),
+      })),
+    },
+    'readiness DOWN — /actuator/health가 503을 냅니다',
+  )
 }

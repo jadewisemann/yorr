@@ -7,7 +7,7 @@ import type { YachtBotPolicy } from '../botPorts.js'
 import { CooperativeYachtBotPolicy } from '../cooperativeBotPolicy.js'
 import { type BotDecision, scoreDecision } from '../expectimaxYachtBotPolicy.js'
 
-const board = createScoreBoard({}, 0, 0, 0)
+const board = createScoreBoard({ categories: {}, upperSubtotal: 0, upperBonus: 0, total: 0 })
 const DICE = [1, 2, 3, 4, 5]
 
 const deferred = <T>() => {

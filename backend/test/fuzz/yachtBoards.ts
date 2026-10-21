@@ -29,7 +29,12 @@ export const boardFrom = (
   const upperBonus = upperSubtotal >= UPPER_BONUS_THRESHOLD ? UPPER_BONUS_SCORE : 0
   const total =
     Object.values(filled).reduce<number>((sum, score) => sum + (score ?? 0), 0) + upperBonus
-  const board = createScoreBoard(filled, upperSubtotal, upperBonus, total)
+  const board = createScoreBoard({
+    categories: filled,
+    upperSubtotal,
+    upperBonus,
+    total,
+  })
   return {
     name,
     board,

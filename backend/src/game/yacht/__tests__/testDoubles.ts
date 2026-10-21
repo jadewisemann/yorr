@@ -173,11 +173,16 @@ export class FakeScoreBoardStore implements ScoreBoardStore {
       score,
       signature: requestSignature,
     })
-    return createScoreBoard({ [category]: score }, 0, 0, score)
+    return createScoreBoard({
+      categories: { [category]: score },
+      upperSubtotal: 0,
+      upperBonus: 0,
+      total: score,
+    })
   }
 
   async findScoreBoard(): Promise<ScoreBoard> {
-    return createScoreBoard({}, 0, 0, 0)
+    return createScoreBoard({ categories: {}, upperSubtotal: 0, upperBonus: 0, total: 0 })
   }
 
   failWith(reason: 'STORE_FAILURE', message = 'redis unavailable'): void {

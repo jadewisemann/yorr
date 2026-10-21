@@ -10,7 +10,12 @@ import { ScorecardValueEvaluator } from '../scorecardValueEvaluator.js'
  */
 
 const boardWith = (filled: Readonly<Record<string, number>>, upperSubtotal: number): ScoreBoard =>
-  createScoreBoard(filled, upperSubtotal, 0, upperSubtotal)
+  createScoreBoard({
+    categories: filled,
+    upperSubtotal: upperSubtotal,
+    upperBonus: 0,
+    total: upperSubtotal,
+  })
 
 describe('ScorecardValueEvaluator', () => {
   const evaluator = new ScorecardValueEvaluator()

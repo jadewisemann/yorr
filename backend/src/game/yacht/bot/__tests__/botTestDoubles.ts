@@ -166,7 +166,12 @@ export class FakeBotRooms implements YachtBotRoomService {
 
 /** `ScoreConfirmationService`의 조회 둘. */
 export class FakeBotScores implements YachtBotScoreLookup {
-  board: ScoreBoard = createScoreBoard({}, 0, 0, 0)
+  board: ScoreBoard = createScoreBoard({
+    categories: {},
+    upperSubtotal: 0,
+    upperBonus: 0,
+    total: 0,
+  })
   open: readonly ScoreCategory[] | null = null
 
   async scoreBoard(): Promise<ScoreBoard> {
@@ -212,7 +217,12 @@ const boardOf = (scores: ReadonlyMap<ScoreCategory, number>): ScoreBoard => {
     if (isUpperCategory(category)) upperSubtotal += score
   }
   const upperBonus = upperSubtotal >= UPPER_BONUS_THRESHOLD ? UPPER_BONUS_SCORE : 0
-  return createScoreBoard(categories, upperSubtotal, upperBonus, total + upperBonus)
+  return createScoreBoard({
+    categories: categories,
+    upperSubtotal: upperSubtotal,
+    upperBonus: upperBonus,
+    total: total + upperBonus,
+  })
 }
 
 /** `RoundRoomSnapshot` 한 줄 생성기. `kind`는 1.6의 `room:{code}:bots` 마커에서 온 값이다. */

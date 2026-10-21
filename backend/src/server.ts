@@ -1,37 +1,25 @@
 import cors from '@fastify/cors'
 import fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify'
-import { createBaseServices } from './composition/baseServices.js'
+import { createBaseServices, registerHealthWiring } from './composition/baseServices.js'
 import { registerGameModules } from './composition/games.js'
 import { createServerLifecycle } from './composition/lifecycle.js'
+import { assembleQueryWiring } from './composition/queries.js'
 import { assembleRoundWiring, type RoundWiring } from './composition/rounds.js'
 import { allowedOrigins, type Env } from './config/env.js'
 import type { GameCompletionService } from './game/completion/index.js'
 import type { GameModuleRegistry } from './game/module.js'
-import { GameScoreQueryService, RedisGameScoreQueryStore } from './game/query/index.js'
 import type { WeeklyRankingService } from './game/ranking/index.js'
-import {
-  GameReconnectSnapshotService,
-  OrphanedRoundStateSweeper,
-  type SweepScheduler,
-} from './game/reconnect/index.js'
+import type { OrphanedRoundStateSweeper, SweepScheduler } from './game/reconnect/index.js'
 import type { YachtBotPolicy } from './game/yacht/index.js'
 import { registerApiRoutes } from './http/apiRoutes.js'
-import { registerHealthRoutes } from './http/routes/health.js'
 import type { Redis } from './infra/memoryRedis.js'
 import type { Pool } from './infra/sqlite.js'
-import {
-  dbReadinessCheck,
-  ReadinessService,
-  RealtimeGameMetrics,
-  redisReadinessCheck,
-} from './monitoring/index.js'
 import { BotParticipantService } from './room/botService.js'
 import { QuickMatchService } from './room/quickMatchService.js'
 import { SqliteUserProfileStore, UserProfileService } from './user/profile.js'
 import type { RoomBroadcaster } from './ws/broadcaster.js'
 import { attachGameSocketGateway, type GameSocketGateway } from './ws/gateway.js'
 import { GameSocketHandler } from './ws/handler.js'
-import type { WsRoomSnapshot } from './ws/protocol.js'
 import type { RoomSessionRegistry } from './ws/registry.js'
 
 export interface ServerOptions {
@@ -107,24 +95,14 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   })
   const { rounds, completion, rankings, botPolicy, matchArchive } = roundAssembly
 
-  // ── 조회(2.9) · 재접속 스냅샷(2.8) ───────────────────────────────────────
-  const gameQueries = new GameScoreQueryService(new RedisGameScoreQueryStore(redis))
-  const reconnectSnapshots = new GameReconnectSnapshotService<WsRoomSnapshot>({
-    realtimeSnapshots: snapshots,
-    roundStates: rounds.synchronization,
-    deadlines: rounds.timer,
-    scoreboards: gameQueries,
+  const { gameQueries, reconnectSnapshots, sweeper } = assembleQueryWiring({
+    app,
+    redis,
+    rooms,
+    snapshots,
+    rounds,
+    ...(options.sweepScheduler === undefined ? {} : { sweepScheduler: options.sweepScheduler }),
   })
-  // 스위퍼는 라운드 상태가 Redis에 살기 시작한 지금부터 실전에서 필요하다 —
-  // 인메모리 시절에는 재시작에 상태가 함께 사라져 고아가 생기지 않았다.
-  const sweeper = new OrphanedRoundStateSweeper(
-    { roundStates: rounds.synchronization, timers: rounds.timer, rooms },
-    {
-      ...(options.sweepScheduler === undefined ? {} : { scheduler: options.sweepScheduler }),
-      onSwept: (roomId) => app.log.info({ roomId }, '방이 사라진 라운드 상태를 회수했습니다'),
-      onError: (error) => app.log.error({ error }, '고아 라운드 상태 스윕 실패'),
-    },
-  )
 
   registerGameModules(games, {
     redis,
@@ -158,29 +136,8 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   // 게이지 수집은 WS 레지스트리의 인메모리 상태만 본다(스크레이프마다 Redis를
   // 때리면 모니터링이 부하 원인이 된다). **위에서 만든 그** 레지스트리·모듈
   // 레지스트리여야 한다 — 새로 만들면 게이지가 영구히 0인데 타입도 테스트도 통과한다.
-  await registerHealthRoutes(app, {
-    // readiness는 **위에서 만든 그** 저장소·DB를 두드린다 — 새 클라이언트를 만들면
-    // 애플리케이션이 쓰는 좌표가 아니라 다른 좌표를 검사하게 되고, 그때 health는
-    // 아무것도 증명하지 않는다(게이지 배선과 같은 종류의 함정이다).
-    readiness: new ReadinessService([redisReadinessCheck(redis), dbReadinessCheck(db)], {
-      onChanged: (result) =>
-        result.ready
-          ? app.log.info('readiness UP — 의존 확인이 전부 응답합니다')
-          : app.log.error(
-              {
-                failed: result.failures.map((failure) => ({
-                  name: failure.name,
-                  reason:
-                    failure.reason instanceof Error
-                      ? failure.reason.message
-                      : String(failure.reason),
-                })),
-              },
-              'readiness DOWN — /actuator/health가 503을 냅니다',
-            ),
-    }),
-    metrics: new RealtimeGameMetrics({ presence: registry, games }),
-  })
+  await registerHealthWiring(app, { redis, db, registry, games })
+
   await registerApiRoutes({
     app,
     env,

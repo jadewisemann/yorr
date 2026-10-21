@@ -55,7 +55,12 @@ interface ConfirmCall {
 class ScriptedScoreBoardStore implements ScoreBoardStore {
   readonly calls: ConfirmCall[] = []
   failure: ScoreConfirmationError | null = null
-  scoreboard: ScoreBoard = createScoreBoard({}, 0, 0, 0)
+  scoreboard: ScoreBoard = createScoreBoard({
+    categories: {},
+    upperSubtotal: 0,
+    upperBonus: 0,
+    total: 0,
+  })
   observe: (() => Promise<readonly string[]>) | null = null
 
   async confirmScore({
@@ -126,7 +131,12 @@ describe('ScoreRoundSubmissionService', () => {
 
   it('라운드 제출을 기록하기 전에 점수를 확정한다', async () => {
     await startRound('player-a', 'player-b')
-    store.scoreboard = createScoreBoard({ choice: 5 }, 0, 0, 5)
+    store.scoreboard = createScoreBoard({
+      categories: { choice: 5 },
+      upperSubtotal: 0,
+      upperBonus: 0,
+      total: 5,
+    })
 
     const result = await service.submit(ROOM_ID, 'player-a', payload())
 
@@ -158,7 +168,12 @@ describe('ScoreRoundSubmissionService', () => {
     expect(afterFailure?.submittedPlayerIds).toEqual([])
 
     store.failure = null
-    store.scoreboard = createScoreBoard({ choice: 5 }, 0, 0, 5)
+    store.scoreboard = createScoreBoard({
+      categories: { choice: 5 },
+      upperSubtotal: 0,
+      upperBonus: 0,
+      total: 5,
+    })
     const retried = await service.submit(ROOM_ID, 'player-a', payload())
 
     expect(retried.round.completedRound).not.toBeNull()

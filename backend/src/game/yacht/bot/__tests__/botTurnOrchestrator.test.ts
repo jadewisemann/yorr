@@ -58,7 +58,7 @@ describe('BotTurnOrchestrator', () => {
     actions = new RecordingBotActions()
     rooms = new FakeBotRooms(roomWith('game-a', [{ playerId: 'bot-a', kind: 'BOT' }]))
     scores = new FakeBotScores()
-    scores.board = createScoreBoard({}, 0, 0, 0)
+    scores.board = createScoreBoard({ categories: {}, upperSubtotal: 0, upperBonus: 0, total: 0 })
   })
 
   it('방 하나에서 마지막으로 예약된 상태만 실행한다', async () => {

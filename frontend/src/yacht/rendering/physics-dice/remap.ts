@@ -63,8 +63,12 @@ export function predictNaturalDice(
   held: PhysicsHeldDice,
 ): PhysicsDiceSet | null {
   return (
-    simulateDiceTrajectory(world.takeSnapshot(), world.timestep, entries, held, 0, 0)
-      ?.naturalDice ?? null
+    simulateDiceTrajectory(world.takeSnapshot(), world.timestep, {
+      entries,
+      held,
+      seed: 0,
+      attempt: 0,
+    })?.naturalDice ?? null
   )
 }
 
@@ -77,7 +81,7 @@ export function planDiceTrajectory(
   const snapshot = world.takeSnapshot()
   let best: { plan: DiceTrajectoryPlan; issueScore: number } | null = null
   for (let attempt = 0; attempt < MAX_TRAJECTORY_ATTEMPTS; attempt += 1) {
-    const plan = simulateDiceTrajectory(snapshot, world.timestep, entries, held, seed, attempt)
+    const plan = simulateDiceTrajectory(snapshot, world.timestep, { entries, held, seed, attempt })
     if (!plan) continue
     const issueScore = diceTrajectoryIssueScore(plan, entries, held)
     if (issueScore === 0) return plan
@@ -86,13 +90,21 @@ export function planDiceTrajectory(
   return best?.plan ?? null
 }
 
+/**
+ * 시뮬레이션 한 번의 입력 — 같은 주사위·같은 시드에서 같은 결과가 나와야 하므로
+ * 이 다섯 값이 함께 다닌다.
+ */
+interface SimulationInput {
+  readonly entries: PredictableDie[]
+  readonly held: PhysicsHeldDice
+  readonly seed: number
+  readonly attempt: number
+}
+
 function simulateDiceTrajectory(
   snapshot: Uint8Array,
   timestep: number,
-  entries: PredictableDie[],
-  held: PhysicsHeldDice,
-  seed: number,
-  attempt: number,
+  { entries, held, seed, attempt }: SimulationInput,
 ): DiceTrajectoryPlan | null {
   let clone: RAPIER.World | null = null
   try {
@@ -100,7 +112,7 @@ function simulateDiceTrajectory(
     clone.timestep = timestep
     const bodies = entries.map((entry) => clone?.getRigidBody(entry.body.handle))
     if (bodies.some((body) => !body)) return null
-    applyRetrySpread(bodies, entries, held, seed, attempt)
+    applyRetrySpread(bodies, { entries, held, seed, attempt })
     const rolling: TrayOccupant[] = []
     entries.forEach((entry, slot) => {
       const body = bodies[slot]
@@ -122,7 +134,7 @@ function simulateDiceTrajectory(
       if (stableSteps >= stableTarget) {
         if (
           floorAssists < MAX_FLOOR_ASSISTS &&
-          pressStandingDice(bodies, entries, held, seed, attempt, floorAssists)
+          pressStandingDice(bodies, { entries, held, seed, attempt }, floorAssists)
         ) {
           floorAssists += 1
           stableSteps = 0
@@ -183,10 +195,7 @@ function createTrajectoryPlan(
 
 function pressStandingDice(
   bodies: Array<RAPIER.RigidBody | undefined>,
-  entries: PredictableDie[],
-  held: PhysicsHeldDice,
-  seed: number,
-  attempt: number,
+  { entries, held, seed, attempt }: SimulationInput,
   assist: number,
 ) {
   const width = PHYSICS_DICE_CONFIG.defaults.diceSize * PHYSICS_DICE_CONFIG.scene.bowlDiceScale
@@ -227,10 +236,7 @@ function pressStandingDice(
 
 function applyRetrySpread(
   bodies: Array<RAPIER.RigidBody | undefined>,
-  entries: PredictableDie[],
-  held: PhysicsHeldDice,
-  seed: number,
-  attempt: number,
+  { entries, held, seed, attempt }: SimulationInput,
 ) {
   if (attempt === 0) return
   const rollingSlots = entries

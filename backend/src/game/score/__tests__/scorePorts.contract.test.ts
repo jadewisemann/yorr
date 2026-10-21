@@ -24,11 +24,16 @@ import {
  */
 class StubScoreBoardStore implements ScoreBoardStore {
   async confirmScore(): Promise<ScoreBoard> {
-    return createScoreBoard({ choice: 5 }, 0, 0, 5)
+    return createScoreBoard({
+      categories: { choice: 5 },
+      upperSubtotal: 0,
+      upperBonus: 0,
+      total: 5,
+    })
   }
 
   async findScoreBoard(): Promise<ScoreBoard> {
-    return createScoreBoard({}, 0, 0, 0)
+    return createScoreBoard({ categories: {}, upperSubtotal: 0, upperBonus: 0, total: 0 })
   }
 }
 

@@ -124,13 +124,13 @@ describe('봇 정책 속성 퍼저', () => {
   })
 
   it('입력이 틀리면 결정 대신 BotDecisionError를 던진다', () => {
-    const board = createScoreBoard({}, 0, 0, 0)
-    const full = createScoreBoard(
-      Object.fromEntries(SCORE_CATEGORIES.map((category) => [category, 0])),
-      0,
-      0,
-      0,
-    )
+    const board = createScoreBoard({ categories: {}, upperSubtotal: 0, upperBonus: 0, total: 0 })
+    const full = createScoreBoard({
+      categories: Object.fromEntries(SCORE_CATEGORIES.map((category) => [category, 0])),
+      upperSubtotal: 0,
+      upperBonus: 0,
+      total: 0,
+    })
     const invalid: [ScoreBoard, number[], number][] = [
       [board, [1, 2, 3, 4], 1],
       [board, [1, 2, 3, 4, 5, 6], 1],
@@ -169,7 +169,7 @@ describe('예산 장애 주입 스윕', () => {
   const cases: { name: string; board: ScoreBoard; dice: number[]; rollCount: number }[] = [
     {
       name: '빈 판·굴림 1(가장 깊은 탐색)',
-      board: createScoreBoard({}, 0, 0, 0),
+      board: createScoreBoard({ categories: {}, upperSubtotal: 0, upperBonus: 0, total: 0 }),
       dice: [1, 3, 3, 5, 6],
       rollCount: 1,
     },
@@ -321,7 +321,12 @@ const simulateSolo = (
   let slowest = 0
   for (let round = 0; round < 12; round += 1) {
     const sheet = oracleSheet(recorded)
-    const board = createScoreBoard(recorded, sheet.upperSubtotal, sheet.upperBonus, sheet.total)
+    const board = createScoreBoard({
+      categories: recorded,
+      upperSubtotal: sheet.upperSubtotal,
+      upperBonus: sheet.upperBonus,
+      total: sheet.total,
+    })
     let dice = randomDice(prng)
     for (let rollCount = 1; ; rollCount += 1) {
       const startedAt = performance.now()

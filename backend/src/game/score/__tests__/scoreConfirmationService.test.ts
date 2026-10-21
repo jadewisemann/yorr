@@ -21,7 +21,12 @@ const expectReason = async (
 
 /** 호출을 기록하는 점수판 저장소 대역. */
 class CapturingScoreBoardStore implements ScoreBoardStore {
-  scoreboard: ScoreBoard = createScoreBoard({}, 0, 0, 0)
+  scoreboard: ScoreBoard = createScoreBoard({
+    categories: {},
+    upperSubtotal: 0,
+    upperBonus: 0,
+    total: 0,
+  })
   roundNumber = 0
   category: ScoreCategory | null = null
   score = 0
@@ -67,7 +72,12 @@ describe('ScoreConfirmationService', () => {
   })
 
   it('점수를 서버가 재계산하고 갱신된 점수판을 돌려준다', async () => {
-    store.scoreboard = createScoreBoard({ fullHouse: 19 }, 0, 0, 19)
+    store.scoreboard = createScoreBoard({
+      categories: { fullHouse: 19 },
+      upperSubtotal: 0,
+      upperBonus: 0,
+      total: 19,
+    })
 
     const result = await service.confirm(command(3, 'fullHouse', [3, 3, 3, 5, 5]))
 
@@ -81,7 +91,12 @@ describe('ScoreConfirmationService', () => {
   })
 
   it('희생한 칸은 0점으로 확정한다', async () => {
-    store.scoreboard = createScoreBoard({ yacht: 0 }, 0, 0, 0)
+    store.scoreboard = createScoreBoard({
+      categories: { yacht: 0 },
+      upperSubtotal: 0,
+      upperBonus: 0,
+      total: 0,
+    })
 
     const result = await service.confirm(command(1, 'yacht', [1, 2, 3, 4, 5]))
 
@@ -96,7 +111,12 @@ describe('ScoreConfirmationService', () => {
   })
 
   it('아직 비어 있는 칸만 열거한다', async () => {
-    store.scoreboard = createScoreBoard({ yacht: 0, fullHouse: 19 }, 0, 0, 19)
+    store.scoreboard = createScoreBoard({
+      categories: { yacht: 0, fullHouse: 19 },
+      upperSubtotal: 0,
+      upperBonus: 0,
+      total: 19,
+    })
 
     const open = await service.openCategories('game-1', 'player-1')
 
