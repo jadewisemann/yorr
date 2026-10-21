@@ -251,9 +251,9 @@ describe('PingPongGameService', () => {
 
   it('경기 중 이탈은 몰수 → 점수 기록 → 종료 판정 순으로 이어진다', async () => {
     let state = initial([P1, P2], 1_000)
-    state = swing(state, P1, 0, 1_100, 0.5)
+    state = swing(state, { playerId: P1, inputSeq: 0, now: 1_100, targetX: 0.5 })
     state = ready(state, P1, 1_200)
-    state = swing(state, P2, 0, 1_300, 0.5)
+    state = swing(state, { playerId: P2, inputSeq: 0, now: 1_300, targetX: 0.5 })
     state = ready(state, P2, 1_400)
     test.states.state = serve(state, 4_000, 0.7)
 
@@ -278,9 +278,9 @@ describe('PingPongGameService', () => {
     const timers = manualExecutor()
     const test2 = harness({ executor: timers.executor })
     let state = initial([P1, P2], 1_000)
-    state = swing(state, P1, 0, 1_100, 0.5)
+    state = swing(state, { playerId: P1, inputSeq: 0, now: 1_100, targetX: 0.5 })
     state = ready(state, P1, 1_200)
-    state = swing(state, P2, 0, 1_300, 0.5)
+    state = swing(state, { playerId: P2, inputSeq: 0, now: 1_300, targetX: 0.5 })
     test2.states.state = state
     test2.clock.value = 1_400
 
@@ -314,16 +314,21 @@ describe('PingPongGameService', () => {
     const timers = manualExecutor()
     const test2 = harness({ executor: timers.executor })
     let state = initial([P1, P2], 1_000)
-    state = swing(state, P1, 0, 1_100, 0.5)
+    state = swing(state, { playerId: P1, inputSeq: 0, now: 1_100, targetX: 0.5 })
     state = ready(state, P1, 1_200)
-    state = swing(state, P2, 0, 1_300, 0.5)
+    state = swing(state, { playerId: P2, inputSeq: 0, now: 1_300, targetX: 0.5 })
     test2.states.state = state
     test2.clock.value = 1_400
 
     await test2.service.ready(ROOM, P2) // version 5 예약
     const scheduled = test2.calls.length
     // 그 사이 연습 스윙이 하나 더 들어와 version이 6이 됐다면 그 예약은 스테일이다.
-    test2.states.state = swing(test2.states.state as PingPongState, P1, 1, 1_450, 0.5)
+    test2.states.state = swing(test2.states.state as PingPongState, {
+      playerId: P1,
+      inputSeq: 1,
+      now: 1_450,
+      targetX: 0.5,
+    })
 
     test2.clock.value = 1_400 + POINT_COUNTDOWN_MILLIS
     await timers.fire()
@@ -334,9 +339,9 @@ describe('PingPongGameService', () => {
 
   it('스윙은 클라이언트 시각으로 판정하되 120ms까지만 되감는다', async () => {
     let state = initial([P1, P2], 1_000)
-    state = swing(state, P1, 0, 1_100, 0.5)
+    state = swing(state, { playerId: P1, inputSeq: 0, now: 1_100, targetX: 0.5 })
     state = ready(state, P1, 1_200)
-    state = swing(state, P2, 0, 1_300, 0.5)
+    state = swing(state, { playerId: P2, inputSeq: 0, now: 1_300, targetX: 0.5 })
     state = ready(state, P2, 1_400)
     test.states.state = serve(state, 4_000, 0.7)
 
@@ -411,9 +416,9 @@ describe('PingPongGameService', () => {
     const timers = manualExecutor()
     const test2 = harness({ executor: timers.executor })
     let state = initial([P1, P2], 1_000)
-    state = swing(state, P1, 0, 1_100, 0.5)
+    state = swing(state, { playerId: P1, inputSeq: 0, now: 1_100, targetX: 0.5 })
     state = ready(state, P1, 1_200)
-    state = swing(state, P2, 0, 1_300, 0.5)
+    state = swing(state, { playerId: P2, inputSeq: 0, now: 1_300, targetX: 0.5 })
     state = ready(state, P2, 1_400)
     test2.states.state = state
     expect(state.nextActionAt).toBeGreaterThan(0)
@@ -431,9 +436,9 @@ describe('PingPongGameService', () => {
 
   it('rehydrate는 이미 끝난 판에서 던진다', async () => {
     let state = initial([P1, P2], 1_000)
-    state = swing(state, P1, 0, 1_100, 0.5)
+    state = swing(state, { playerId: P1, inputSeq: 0, now: 1_100, targetX: 0.5 })
     state = ready(state, P1, 1_200)
-    state = swing(state, P2, 0, 1_300, 0.5)
+    state = swing(state, { playerId: P2, inputSeq: 0, now: 1_300, targetX: 0.5 })
     state = ready(state, P2, 1_400)
     test.states.state = serve(state, 4_000, 0.7)
     // 경기 중 이탈 = 몰수 → FINISHED.

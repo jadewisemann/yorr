@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createScoreBoard, type ScoreBoard } from '../scoreBoard.js'
-import type { ScoreBoardStore } from '../scoreBoardStore.js'
+import type { ScoreBoardStore, ScoreConfirmation } from '../scoreBoardStore.js'
 import type { ScoreCategory } from '../scoreCategory.js'
 import {
   type ScoreConfirmationCommand,
@@ -27,14 +27,12 @@ class CapturingScoreBoardStore implements ScoreBoardStore {
   score = 0
   requestSignature = ''
 
-  async confirmScore(
-    _gameId: string,
-    _playerId: string,
-    roundNumber: number,
-    category: ScoreCategory,
-    score: number,
-    requestSignature: string,
-  ): Promise<ScoreBoard> {
+  async confirmScore({
+    roundNumber,
+    category,
+    score,
+    requestSignature,
+  }: ScoreConfirmation): Promise<ScoreBoard> {
     this.roundNumber = roundNumber
     this.category = category
     this.score = score

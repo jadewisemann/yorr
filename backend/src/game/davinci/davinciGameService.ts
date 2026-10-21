@@ -160,7 +160,12 @@ export class DavinciGameService<S, K = unknown> {
     }
     const now = this.now()
     const next = await this.states.mutate(roomId, (current) =>
-      applyDecide(current, playerId, payload.inputSeq, payload.decision, now),
+      applyDecide(current, {
+        playerId,
+        inputSeq: payload.inputSeq,
+        decision: payload.decision,
+        now,
+      }),
     )
     if (next !== null) await this.changed(roomId, next)
   }
@@ -173,7 +178,12 @@ export class DavinciGameService<S, K = unknown> {
     }
     const now = this.now()
     const next = await this.states.mutate(roomId, (current) =>
-      applyPlace(current, playerId, payload.inputSeq, payload.index, now),
+      applyPlace(current, {
+        playerId,
+        inputSeq: payload.inputSeq,
+        index: payload.index,
+        now,
+      }),
     )
     if (next !== null) await this.changed(roomId, next)
   }
