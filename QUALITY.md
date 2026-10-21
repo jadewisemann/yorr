@@ -173,32 +173,40 @@ Node 백엔드로의 이식이 끝나 참조 구현으로서의 역할이 사라
 
 ## 4. 도구 선정
 
-| 지표 | 채택 도구 | 비고 |
+> **2026-10-21 갱신.** 계획과 달라진 이유는 셋이다. ① TypeScript 7(Go 포트)에
+> `createSourceFile`이 없어 **의존성 없는 토큰 스캐너**로 대체했다(요건은 같은 입력→
+> 같은 숫자, 절대값 정밀도는 Biome이 맡는다). ② 직접 잰 **인지 복잡도가 Biome과
+> 갈려**(근사 60건 vs 0건) Biome을 정본으로 남겼다. ③ `knip`·`jscpd`·Stryker는 새
+> 의존성이라 들이지 않았다 — 게이트가 이미 죽은 export·중복을 잡는다.
+
+| 지표 | 도구 | 상태 |
 |---|---|---|
-| 인지 복잡도 | Biome `complexity/noExcessiveCognitiveComplexity` | 이미 설치되어 있으며 `warn`에서 `error`로 올리고 상한 옵션을 22로 설정합니다. 옵션 키 이름은 도입 시 Biome 2.5 문서에서 확인합니다. |
-| 사이클로매틱 복잡도 | 자체 분석기 (TypeScript Compiler API) | Biome에는 해당 규칙이 없습니다. ESLint 코어의 `complexity` 규칙을 쓰려면 ESLint 체계를 새로 들여와야 하는데, Biome을 쓰는 저장소에 린터를 이중으로 두는 비용이 큽니다. |
-| 할스테드 난이도 | 자체 분석기 (동일) | `ts-complex`(2018)·`typhonjs-escomplex`(2018)·`codehawk-cli`(2023)는 모두 유지 보수가 멈추었고 최신 TS 문법 지원이 불확실합니다. 저장소가 이미 `typescript` 의존성을 갖고 있으므로 컴파일러 API로 직접 계산하는 편이 안전합니다. |
-| CRAP | 자체 분석기 + Vitest 커버리지 리포트 | 함수별 사이클로매틱 복잡도와 함수별 커버리지를 결합해 계산합니다. |
-| 파일당 라인 수 | 자체 분석기 (동일) | |
-| 테스트 커버리지 | Vitest + `@vitest/coverage-v8` | `frontend/`에 이미 있고 `backend/`에 새로 추가합니다. |
-| 생존 돌연변이 | `@stryker-mutator/core` 10 + `@stryker-mutator/vitest-runner` | |
-| 죽은 코드 | `knip` 6 | 미사용 파일·export·의존성을 한 번에 다룹니다. `ts-prune`은 2021년 이후 정지 상태입니다. |
-| 중복 코드 | `jscpd` 5 | |
-| `any` / `unknown` | Biome `suspicious/noExplicitAny`(error) + 자체 스캔 | `as unknown as`와 `biome-ignore` 억제는 Biome 규칙으로 잡히지 않으므로 별도 스캔이 필요합니다. |
+| 인지 복잡도 | Biome `complexity/noExcessiveCognitiveComplexity` | **켬** `error`/22 |
+| 사이클로매틱 | `check-code-quality.mjs` | **켬** 22 (기준선 203) |
+| 할스테드 난이도 | 동일, 파일별 토큰 근사 | **켬** 80 |
+| 파일당 라인 수 | Biome + `check-loc-ratchet.mjs` | **켬** 500 |
+| 함수 길이 / 매개변수 / 중첩 | `check-code-quality.mjs` | **켬** 80 / 5 / 4 |
+| 중복 코드 | 동일, 40줄 창·파일 간 | **켬** 0건 |
+| 죽은 export | 동일, 테스트도 소비자 | **켬** 11건 |
+| 커버리지 | Vitest + `@vitest/coverage-v8` | **켬** 래칫 |
+| CRAP | 커버리지 + 사이클로매틱 | 계획 — 100%면 같아진다(아래) |
+| 생존 돌연변이 | `@stryker-mutator/*` | 계획 — 의존성 판단 필요 |
+| `any` / `unknown` | Biome + 자체 스캔 | 계획 — `: any` 0건, `unknown` 310건 |
 
 ### 자체 분석기에 관하여
 
-`tools/quality/` 아래에 TypeScript Compiler API를 사용하는 분석기 하나를 둡니다.
-파일을 순회하며 함수별로 사이클로매틱 복잡도·인지 복잡도·할스테드 지표·라인 수를
-계산하고, Vitest가 만든 `coverage-final.json`의 함수별 실행 정보와 결합해 CRAP까지
-산출한 뒤, 위반 목록과 JSON 리포트를 함께 출력합니다.
+`tools/check-code-quality.mjs`가 그 자리다. **완전한 파서가 아니라** "선언 헤더 +
+중괄호 균형"으로 함수 경계를 찾는 스캐너라 일부 문법에서 경계를 놓칠 수 있다.
+**거짓 통과보다 거짓 실패**로 기울였다 — 놓친 것은 아무도 못 보고, 잘못 잡힌 것은
+즉시 드러난다.
 
-여기서 짚어 둘 점이 하나 있습니다. **CRAP은 커버리지가 100%일 때 사이클로매틱
-복잡도와 같아집니다.** 정의가 `복잡도² × (1 − 커버리지)³ + 복잡도`이므로 커버리지가
-1이면 뒤쪽 항이 사라지기 때문입니다. 즉 지표 5번과 1번을 달성하면 6번은 자동으로
-따라옵니다. CRAP 기준이 실제로 의미를 갖는 구간은 커버리지를 100%로 끌어올리는
-과도기뿐이며, 그 기간 동안 "복잡한데 테스트되지 않은 함수"를 우선순위 순으로
-드러내 주는 역할을 합니다.
+위반은 `tools/quality-baseline.json`에 **파일+규칙+이름**으로 고정한다(값이 아니라
+존재). 새 자리만 막히고, `--write-baseline`이 늘어난 위반을 나열하므로 PR diff가
+리뷰 자리다.
+
+**CRAP은 커버리지가 100%면 사이클로매틱과 같아진다**(`복잡도² × (1 − 커버리지)³ +
+복잡도`). 1번·5번을 달성하면 6번은 따라온다. CRAP이 의미를 갖는 구간은 100%로
+올리는 과도기뿐이고, 그동안 "복잡한데 테스트되지 않은 함수"를 드러낸다.
 
 ---
 
@@ -206,12 +214,12 @@ Node 백엔드로의 이식이 끝나 참조 구현으로서의 역할이 사라
 
 ### 0단계 — 계측 (게이트 없음)
 
-1. `tools/quality/` 분석기를 작성합니다.
-2. ✅ `backend/`에 `@vitest/coverage-v8`을 추가하고 커버리지 설정을 넣습니다(2026-09-30).
-3. `knip`·`jscpd`를 추가하고 설정 파일을 작성합니다.
-4. `npm run quality:report`로 11개 지표 전체의 **현재 수치**를 산출해
-   `docs/quality-baseline.json`에 기록합니다.
-5. 이 기준선을 보고 3절의 결정 사항을 확정합니다.
+1. ✅ `tools/check-code-quality.mjs` 분석기를 작성했다(2026-10-21).
+2. ✅ `backend/`에 `@vitest/coverage-v8`을 추가하고 커버리지 설정을 넣었다(2026-09-30).
+3. ⬜ `knip`·`jscpd` — 도입하지 않았다. 죽은 export·중복은 1번이 이미 기준선으로 잡는다.
+4. ✅ `node tools/check-code-quality.mjs --report`로 수치를 산출하고
+   `tools/quality-baseline.json`에 기록했다.
+5. ✅ 기준선을 보고 3절의 결정 사항을 확정했다.
 
 이 단계는 아직 아무것도 막지 않습니다. 실제 위반 규모를 모르는 상태에서 일정을
 추정하면 반드시 틀리기 때문에, 숫자를 먼저 확보합니다.

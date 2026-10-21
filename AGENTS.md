@@ -58,11 +58,16 @@
 - 파일이 **500줄**(비공백) 초과 — Biome `style/noExcessiveLinesPerFile`이 정본이고,
   `tools/check-loc-ratchet.mjs`가 예외 목록을 함께 지킨다(`QUALITY.md` 1단계).
 
+- 복잡도·중복·죽은 export — `tools/check-code-quality.mjs`가 QUALITY.md 4절의 상한
+  (사이클로매틱 22·할스테드 80·함수 80줄·매개변수 5·중첩 4·중복 40줄·죽은 export 0)을
+  `tools/quality-baseline.json`과 대조한다. 인지 복잡도는 Biome이 `error`/22로 맡는다.
+
 두 기준선 모두 `npm run check:tokens`·`npm run check:loc`으로 전체를 검사하며,
 CI(`quality.yml`)가 스테이징되지 않은 파일까지 같은 기준으로 본다. 기준선은
 줄어들기만 한다 — 파일이 상한 아래로 내려오면 목록에서 지워야 한다.
+복잡도 게이트는 `npm run check:quality`이고, 자기 테스트는 `npm run test:quality`다.
 
-둘 다 우회하기 전에 책임 단위로 나눌 수 있는지 먼저 본다.
+셋 다 우회하기 전에 책임 단위로 나눌 수 있는지 먼저 본다.
 
 ## Pull Request
 

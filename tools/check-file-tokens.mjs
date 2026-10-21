@@ -60,7 +60,12 @@ const git = (args, options = {}) =>
   execFileSync('git', args, { encoding: 'buffer', ...options })
 
 const isExcluded = (path) =>
-  EXCLUDED_PATH.test(path) || EXCLUDED_TEST_OR_CSS.test(path) || path === BASELINE_PATH
+  EXCLUDED_PATH.test(path) ||
+  EXCLUDED_TEST_OR_CSS.test(path) ||
+  path === BASELINE_PATH ||
+  // 품질 기준선은 **생성물 장부**다 — 파일 경로와 수치만 든 데이터라 읽을 코드가
+  // 아니고, 항목이 늘면 토큰도 비례해 는다. `--write-baseline`이 정본이다.
+  path === 'tools/quality-baseline.json'
 
 const isBinary = (path, content) => {
   const dot = path.lastIndexOf('.')
