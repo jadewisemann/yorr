@@ -5,15 +5,13 @@ import { buildClientMessage, type Player, type ReactionType } from '@/realtime/w
 import { resolveRovingKey } from '@/shared/rovingFocus'
 import { FLIGHT_MS, type Flying, MAX_FLYING, REACTIONS } from '@/yacht/domain/reactions'
 
-export function useReactionDock(players: Player[]) {
+/**
+ * 날아가는 리액션 목록. 서버 방송을 받아 하나씩 띄우고 `FLIGHT_MS` 뒤에 걷는다 —
+ * 최대 `MAX_FLYING` 개만 남겨 화면이 넘치지 않게 한다.
+ */
+function useFlyingReactions(players: Player[]) {
   const client = useRealtimeClient()
-  const pickerId = useId()
-  const [open, setOpen] = useState(false)
   const [flying, setFlying] = useState<Flying[]>([])
-  const dockRef = useRef<HTMLDivElement | null>(null)
-  const triggerRef = useRef<HTMLButtonElement | null>(null)
-  const chipsRef = useRef<(HTMLButtonElement | null)[]>([])
-  const [focusedChip, setFocusedChip] = useState(0)
   const playersRef = useRef(players)
   useLayoutEffect(() => {
     playersRef.current = players
@@ -22,35 +20,54 @@ export function useReactionDock(players: Player[]) {
 
   useEffect(() => {
     const timers = new Set<ReturnType<typeof setTimeout>>()
-
     const unsubscribe = client.onMessage((message) => {
       if (message.type !== 'reaction.broadcast') return
-      const { playerId, reaction } = message.payload
-      const id = nextIdRef.current++
-      const known = REACTIONS.find((candidate) => candidate.type === reaction)
-      setFlying((current) => [
-        ...current.slice(-(MAX_FLYING - 1)),
-        {
-          emoji: known?.emoji ?? '💬',
-          id,
-          label: known?.label ?? '',
-          nickname:
-            playersRef.current.find((player) => player.playerId === playerId)?.nickname ?? '',
-        },
-      ])
+      const { id, item } = describeReaction(
+        message.payload,
+        playersRef.current,
+        nextIdRef.current++,
+      )
+      setFlying((current) => [...current.slice(-(MAX_FLYING - 1)), item])
       timers.add(
-        setTimeout(
-          () => setFlying((current) => current.filter((item) => item.id !== id)),
-          FLIGHT_MS,
-        ),
+        setTimeout(() => {
+          setFlying((current) => current.filter((entry) => entry.id !== id))
+        }, FLIGHT_MS),
       )
     })
-
     return () => {
       unsubscribe()
       for (const timer of timers) clearTimeout(timer)
     }
   }, [client])
+
+  return flying
+}
+
+/** 방송 하나를 화면에 띄울 항목으로. 모르는 리액션은 말풍선으로 대신한다. */
+function describeReaction(
+  payload: { playerId: string; reaction: ReactionType },
+  players: Player[],
+  id: number,
+): { id: number; item: Flying } {
+  const known = REACTIONS.find((candidate) => candidate.type === payload.reaction)
+  return {
+    id,
+    item: {
+      emoji: known?.emoji ?? '💬',
+      id,
+      label: known?.label ?? '',
+      nickname: players.find((player) => player.playerId === payload.playerId)?.nickname ?? '',
+    },
+  }
+}
+
+/** 열림·닫힘과 포커스 이동. 바깥 클릭·Escape로 닫고, 닫을 때 트리거로 포커스를 돌린다. */
+function useDockDisclosure() {
+  const [open, setOpen] = useState(false)
+  const [focusedChip, setFocusedChip] = useState(0)
+  const dockRef = useRef<HTMLDivElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const chipsRef = useRef<(HTMLButtonElement | null)[]>([])
 
   const close = useCallback((restoreFocus: boolean) => {
     setOpen(false)
@@ -59,20 +76,7 @@ export function useReactionDock(players: Player[]) {
 
   useEffect(() => {
     if (!open) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close(true)
-    }
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (target instanceof Node && dockRef.current?.contains(target)) return
-      close(false)
-    }
-    document.addEventListener('keydown', onKeyDown)
-    document.addEventListener('pointerdown', onPointerDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      document.removeEventListener('pointerdown', onPointerDown)
-    }
+    return bindDismiss({ close, dockRef })
   }, [close, open])
 
   useEffect(() => {
@@ -80,12 +84,6 @@ export function useReactionDock(players: Player[]) {
     setFocusedChip(0)
     chipsRef.current[0]?.focus()
   }, [open])
-
-  const send = (reaction: ReactionType) => {
-    try {
-      client.send(buildClientMessage('reaction.send', { reaction }))
-    } catch {}
-  }
 
   const handleChipKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const next = resolveRovingKey(event.key, focusedChip, REACTIONS.length)
@@ -99,13 +97,46 @@ export function useReactionDock(players: Player[]) {
     chipsRef,
     close,
     dockRef,
-    flying,
     focusedChip,
     handleChipKeyDown,
     open,
-    pickerId,
-    send,
     setOpen,
     triggerRef,
   }
+}
+
+function bindDismiss(options: {
+  close: (restoreFocus: boolean) => void
+  dockRef: { current: HTMLDivElement | null }
+}) {
+  const { close, dockRef } = options
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') close(true)
+  }
+  const onPointerDown = (event: PointerEvent) => {
+    const target = event.target
+    if (target instanceof Node && dockRef.current?.contains(target)) return
+    close(false)
+  }
+  document.addEventListener('keydown', onKeyDown)
+  document.addEventListener('pointerdown', onPointerDown)
+  return () => {
+    document.removeEventListener('keydown', onKeyDown)
+    document.removeEventListener('pointerdown', onPointerDown)
+  }
+}
+
+export function useReactionDock(players: Player[]) {
+  const client = useRealtimeClient()
+  const pickerId = useId()
+  const disclosure = useDockDisclosure()
+  const flying = useFlyingReactions(players)
+
+  const send = (reaction: ReactionType) => {
+    try {
+      client.send(buildClientMessage('reaction.send', { reaction }))
+    } catch {}
+  }
+
+  return { ...disclosure, flying, pickerId, send }
 }
