@@ -366,14 +366,14 @@ export class PhysicsDiceWorld {
       time,
     )
     this.trajectoryFrameIndex = step.frameIndex
-    const impacts = detectTrajectoryImpacts(
+    const impacts = detectTrajectoryImpacts({
+      entries: this.entries,
+      falling: this.fallingDice,
+      held: this.held,
+      lastImpactAt: this.lastImpactAt,
       step,
-      this.entries,
-      this.held,
-      this.fallingDice,
-      this.lastImpactAt,
       time,
-    )
+    })
     for (const impact of impacts) this.callbacks.onDiceImpact?.(impact.index, impact.strength)
     applyTrajectoryPose(step, this.entries, this.held)
     if (step.elapsed < trajectory.durationSeconds) return

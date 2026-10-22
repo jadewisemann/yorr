@@ -131,25 +131,41 @@ const KEYWORDS = new Set([
   'const', 'let', 'var', 'function', 'class', 'import', 'export', 'super', 'this',
 ])
 
-/** 헤더의 괄호 안에서 쉼표로 나눈 매개변수 수(구조 분해는 1개로 센다). */
+/**
+ * 헤더의 괄호 안에서 쉼표로 나눈 매개변수 수(구조 분해는 1개로 센다).
+ *
+ * 쉼표를 세면 안 되는 자리가 셋이다: 타입 인자(`Record<string, number>`), 화살표 함수
+ * 타입(`cb: () => void`), 끝 쉼표. 이것을 세면 멀쩡한 함수가 위반으로 잡혀 게이트가
+ * 거짓말을 한다(실제로 `recordOnly`가 4개인데 6개로 보고됐다).
+ */
 const parametersOf = (code, headerStart, bodyStart) => {
   const open = code.indexOf('(', headerStart)
   if (open === -1 || open > bodyStart) return 0
-  let depth = 0
-  let count = 1
-  let hasContent = false
-  for (let index = open; index < bodyStart; index += 1) {
+  const segments = []
+  let current = ''
+  // 여는 '('는 이미 지났으므로 깊이 1에서 시작한다.
+  let depth = 1
+  let angle = 0
+  for (let index = open + 1; index < bodyStart; index += 1) {
     const char = code[index]
+    const previous = code[index - 1]
     if (char === '(' || char === '[' || char === '{') depth += 1
     else if (char === ')' || char === ']' || char === '}') {
       depth -= 1
       if (depth === 0) break
-    } else if (depth === 1) {
-      if (char === ',') count += 1
-      if (char.trim() !== '') hasContent = true
+    } else if (depth === 1 && char === '<' && /[\w$>)]/.test(previous ?? '')) angle += 1
+    else if (depth === 1 && char === '>' && previous !== '=' && angle > 0) angle -= 1
+    else if (depth === 1 && char === ',' && angle === 0) {
+      segments.push(current)
+      current = ''
+      continue
     }
+    if (depth >= 1) current += char
   }
-  return hasContent ? count : 0
+  segments.push(current)
+  // 끝 쉼표가 만든 빈 조각은 매개변수가 아니다.
+  const filled = segments.filter((segment) => segment.trim() !== '')
+  return filled.length
 }
 
 /** 함수 목록. `typeRanges`는 인터페이스·타입 리터럴 안의 시그니처를 거르는 데 쓴다. */

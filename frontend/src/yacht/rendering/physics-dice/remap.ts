@@ -141,12 +141,26 @@ function simulateDiceTrajectory(
           continue
         }
         captureFinalFrame(frames, bodies, elapsed)
-        return createTrajectoryPlan(attempt, elapsed, floorAssists, frames, bodies, true)
+        return createTrajectoryPlan({
+          attempt,
+          bodies,
+          durationSeconds: elapsed,
+          floorAssists,
+          frames,
+          settled: true,
+        })
       }
     }
     const elapsed = maxSteps * clone.timestep
     captureFinalFrame(frames, bodies, elapsed)
-    return createTrajectoryPlan(attempt, elapsed, floorAssists, frames, bodies, false)
+    return createTrajectoryPlan({
+      attempt,
+      bodies,
+      durationSeconds: elapsed,
+      floorAssists,
+      frames,
+      settled: false,
+    })
   } catch {
     return null
   } finally {
@@ -179,14 +193,23 @@ function captureFinalFrame(
   if (frames.at(-1)?.atSeconds !== atSeconds) captureTrajectoryFrame(frames, bodies, atSeconds)
 }
 
-function createTrajectoryPlan(
-  attempt: number,
-  durationSeconds: number,
-  floorAssists: number,
-  frames: DiceTrajectoryFrame[],
-  bodies: Array<RAPIER.RigidBody | undefined>,
-  settled: boolean,
-): DiceTrajectoryPlan {
+interface TrajectoryPlanInput {
+  attempt: number
+  durationSeconds: number
+  floorAssists: number
+  frames: DiceTrajectoryFrame[]
+  bodies: Array<RAPIER.RigidBody | undefined>
+  settled: boolean
+}
+
+function createTrajectoryPlan({
+  attempt,
+  durationSeconds,
+  floorAssists,
+  frames,
+  bodies,
+  settled,
+}: TrajectoryPlanInput): DiceTrajectoryPlan {
   const naturalDice = bodies.map((body) =>
     body ? topFaceFromQuaternion(body.rotation()) : 1,
   ) as unknown as PhysicsDiceSet
