@@ -105,6 +105,20 @@ export class Box {
     const code = 'export const f = (): number => {\n  return 1\n}\n'
     assert.equal(functionsOf(code)[0].parameters, 0)
   })
+
+  it('타입 인자·화살표 타입·끝 쉼표의 쉼표는 매개변수가 아니다', () => {
+    const code = `const recordOnly = (
+  state: PingPongState,
+  playerId: string,
+  lastInputSeq: Record<string, number>,
+  now: number,
+): PingPongState | undefined => {
+  return state.phase ? undefined : state.phase
+}
+`
+    const [entry] = functionsOf(code)
+    assert.equal(entry.parameters, 4)
+  })
 })
 
 describe('cyclomaticOf', () => {

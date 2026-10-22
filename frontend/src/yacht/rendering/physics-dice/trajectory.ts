@@ -77,14 +77,23 @@ export interface TrajectoryImpact {
  * 하강 중이던 주사위가 상승으로 뒤집히는 순간을 착지로 본다. 80ms 안의 반복은 하나로 센다.
  * `falling`·`lastImpactAt`을 제자리에서 갱신한다(호출자가 상태를 소유한다).
  */
-export function detectTrajectoryImpacts(
-  step: TrajectoryStep,
-  entries: DieEntry[],
-  held: PhysicsHeldDice,
-  falling: boolean[],
-  lastImpactAt: number[],
-  time: number,
-): TrajectoryImpact[] {
+export interface ImpactScan {
+  step: TrajectoryStep
+  entries: DieEntry[]
+  held: PhysicsHeldDice
+  falling: boolean[]
+  lastImpactAt: number[]
+  time: number
+}
+
+export function detectTrajectoryImpacts({
+  step,
+  entries,
+  held,
+  falling,
+  lastImpactAt,
+  time,
+}: ImpactScan): TrajectoryImpact[] {
   const span = step.to.atSeconds - step.from.atSeconds
   if (span <= 0) return []
   const impacts: TrajectoryImpact[] = []
