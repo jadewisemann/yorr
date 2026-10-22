@@ -204,14 +204,28 @@ const DECISION =
 export const cyclomaticOf = (code) => 1 + (code.match(DECISION) ?? []).length
 
 /** 중첩 깊이 최대값. */
+/**
+ * 중첩 깊이 최대값 — **제어 흐름 블록만** 센다.
+ *
+ * 중괄호를 전부 세면 객체 리터럴·JSX 표현식·타입 리터럴이 깊이로 잡혀, 분기가 하나도
+ * 없는 함수가 위반이 된다(실제로 `createRemoteReleaseGate`가 5로 잡혔다 — 객체 메서드
+ * 두 겹일 뿐이다). 그래서 `if`·`for`·`while`·`switch`·`try`·`catch`·`finally`·`else`·`do`
+ * 뒤에 열리는 블록만 깊이에 넣는다.
+ */
+const CONTROL_BLOCK = /\b(?:if|for|while|switch|try|catch|finally|else|do)\b[^{]*$/
+
 export const nestingOf = (code) => {
-  let depth = 0
+  const stack = []
   let max = 0
-  for (const char of code) {
+  for (let index = 0; index < code.length; index += 1) {
+    const char = code[index]
     if (char === '{') {
-      depth += 1
-      max = Math.max(max, depth)
-    } else if (char === '}') depth = Math.max(0, depth - 1)
+      const before = code.slice(Math.max(0, index - 200), index)
+      stack.push(CONTROL_BLOCK.test(before) ? 'control' : 'other')
+      max = Math.max(max, stack.filter((kind) => kind === 'control').length)
+    } else if (char === '}') {
+      stack.pop()
+    }
   }
   return max
 }

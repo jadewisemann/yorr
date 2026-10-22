@@ -137,9 +137,15 @@ describe('cyclomaticOf', () => {
 })
 
 describe('nestingOf', () => {
-  it('중괄호 깊이의 최대값이다', () => {
-    assert.equal(nestingOf('{ a { b { c } } }'), 3)
+  it('제어 블록의 중첩 깊이를 센다', () => {
     assert.equal(nestingOf('if (a) { if (b) { x } }'), 2)
+    assert.equal(nestingOf('for (;;) { while (a) { if (b) { x } } }'), 3)
+    assert.equal(nestingOf('try { x } catch (e) { y }'), 1)
+  })
+
+  it('객체 리터럴·블록 아닌 중괄호는 세지 않는다', () => {
+    assert.equal(nestingOf('const a = { b: { c: 1 } }'), 0)
+    assert.equal(nestingOf('return () => ({ a: 1 })'), 0)
   })
 
   it('평평하면 0이다', () => {
