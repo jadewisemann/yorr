@@ -83,13 +83,13 @@ export function useRollIncoming(options: UseRollIncomingOptions) {
         playerId: message.payload.playerId,
         roundNumber: message.payload.roundNumber,
       })
-      const seed = animationSeedForRoll(
+      const seed = animationSeedForRoll({
         roomId,
-        message.payload.playerId,
-        message.payload.roundNumber,
-        message.payload.rollCount,
-        message.payload.dice,
-      )
+        playerId: message.payload.playerId,
+        roundNumber: message.payload.roundNumber,
+        rollCount: message.payload.rollCount,
+        dice: message.payload.dice,
+      })
       setLocal(applyBroadcast(message, { forced, requestId, seed }))
       if (ownRoll && forced) {
         showToast(`시간이 지나 서버가 ${message.payload.rollCount}번째 주사위를 굴렸어요.`)

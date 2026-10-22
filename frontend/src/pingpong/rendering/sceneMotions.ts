@@ -68,8 +68,8 @@ function updatePlayers(stage: Stage, s: FrameState) {
 
   const t = performance.now() / 1000
   const react = clamp(s.shake * (s.ballSmash ? 1 : 0.55), 0, 1)
-  poseMascot(stage.p1Mascot, s.p1X, s.p1Swing, react, t)
-  poseMascot(stage.p2Mascot, s.p2X, s.p2Swing, react, t)
+  poseMascot(stage.p1Mascot, { react, swing: s.p1Swing, time: t, xNorm: s.p1X })
+  poseMascot(stage.p2Mascot, { react, swing: s.p2Swing, time: t, xNorm: s.p2X })
   stage.p1Shadow.position.x = stage.p1Mascot.root.position.x
   stage.p2Shadow.position.x = stage.p2Mascot.root.position.x
 }
