@@ -22,16 +22,10 @@ import {
   ScoreRoundSubmissionService,
 } from '../game/score/index.js'
 import {
-  BotTurnOrchestrator,
-  CooperativeYachtBotPolicy,
-  ExpectimaxYachtBotPolicy,
-  LocalYachtBotStrategy,
-  logPolicyFallback,
+  type BotTurnOrchestrator,
   RedisRoundDeadlineStore,
   RedisYachtDiceStateStore,
-  ScorecardValueEvaluator,
   type YachtBotPolicy,
-  YachtBotTurnCoordinator,
   YachtTurnActionService,
 } from '../game/yacht/index.js'
 import type { Redis } from '../infra/memoryRedis.js'
@@ -40,6 +34,7 @@ import type { RoomService } from '../room/roomService.js'
 import type { RoomBroadcaster } from '../ws/broadcaster.js'
 import type { RoomSessionRegistry } from '../ws/registry.js'
 import type { RealtimeRoomSnapshotService } from '../ws/snapshot.js'
+import { assembleBotWiring } from './botWiring.js'
 
 /**
  * 라운드 진행(2.5)·점수 확정(2.6)·랭킹(4.5)·전적(4.4)·게임 종료(2.7)·야추 봇(3.2)의 조립.
@@ -130,7 +125,7 @@ export function assembleRoundWiring({
   })
 
   // 봇 오케스트레이터(3.2)와 타이머는 순환한다(봇 → 행동 서비스 → 타이머 → 봇).
-  // 순환은 늦은 바인딩으로 끊는다.
+  // 순환은 늦은 바인딩으로 끊는다 — 타이머가 먼저 만들어지고, 그 콜백이 나중에 채워진다.
   let yachtBots: BotTurnOrchestrator | null = null
   const roundTimer = new RoundTimerService(
     {
@@ -157,41 +152,16 @@ export function assembleRoundWiring({
     broadcaster,
     submissions: scoreSubmissions,
   })
-  // 탐색은 프로세스 전체에서 하나씩, 사이마다 이벤트 루프에 양보한다 — 여러 방의 봇 턴이
-  // 겹쳐도 다른 방의 메시지가 탐색 N개를 기다리지 않는다(cooperativeBotPolicy.ts).
-  const botPolicy = new CooperativeYachtBotPolicy(
-    new ExpectimaxYachtBotPolicy(new ScorecardValueEvaluator()),
-  )
-  yachtBots = new BotTurnOrchestrator(
-    {
-      coordinator: new YachtBotTurnCoordinator(
-        {
-          rounds: roundSync,
-          actions: yachtActions,
-          policy: botPolicy,
-          strategy: new LocalYachtBotStrategy(),
-          rooms,
-          scores,
-        },
-        {
-          onPolicyFallback: (roomId, state, error) =>
-            logPolicyFallback(
-              app.log,
-              { roomId, round: state.roundNumber, player: state.activePlayerId },
-              error,
-            ),
-        },
-      ),
-      broadcaster,
-    },
-    {
-      onError: (error, event) =>
-        app.log.warn(
-          { error, roomId: event.roomId, round: event.state.roundNumber },
-          'AI 봇 행동 실패 — 라운드 타이머 폴백으로 진행',
-        ),
-    },
-  )
+  const botWiring = assembleBotWiring({
+    app,
+    broadcaster,
+    completion,
+    rooms,
+    roundSync,
+    scores,
+    yachtActions,
+  })
+  yachtBots = botWiring.orchestrator
 
   return {
     rounds: {
@@ -205,7 +175,7 @@ export function assembleRoundWiring({
     },
     completion,
     rankings,
-    botPolicy,
+    botPolicy: botWiring.botPolicy,
     yachtActions,
     matchArchive,
     stopDeadlines: () => deadlineScheduler.stop(),

@@ -8,7 +8,7 @@
     "duplicateLines": 40
   },
   "violations": {
-    "backend/src/composition/rounds.ts\u0000functionLines\u0000assembleRoundWiring": 116,
+    "backend/src/composition/rounds.ts\u0000functionLines\u0000assembleRoundWiring": 91,
     "backend/src/game/davinci/davinciGameService.ts\u0000halsteadDifficulty\u0000-": 110,
     "backend/src/game/davinci/davinciRules.ts\u0000halsteadDifficulty\u0000-": 90,
     "backend/src/game/duel/duelGameService.ts\u0000halsteadDifficulty\u0000-": 92,
@@ -25,7 +25,6 @@
     "backend/src/game/yacht/yachtDiceGameModule.ts\u0000halsteadDifficulty\u0000-": 93,
     "backend/src/http/routes/rooms.ts\u0000halsteadDifficulty\u0000-": 87,
     "backend/src/room/quickMatchService.ts\u0000halsteadDifficulty\u0000-": 103,
-    "backend/src/server.ts\u0000functionLines\u0000createServer": 126,
     "backend/src/ws/handler.ts\u0000halsteadDifficulty\u0000-": 91,
     "backend/src/ws/registry.ts\u0000halsteadDifficulty\u0000-": 102,
     "frontend/src/davinci/model/useDavinciGame.ts\u0000functionLines\u0000useDavinciGame": 92,
