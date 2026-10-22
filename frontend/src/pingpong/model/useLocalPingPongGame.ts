@@ -86,7 +86,7 @@ export function useLocalPingPongGame({ difficulty, mode }: UseLocalPingPongGameO
 
   const swing = useCallback(
     (player: 1 | 2, motion = false) => {
-      showFeedback(swingLocalGame(gameRef.current, player, performance.now(), motion))
+      showFeedback(swingLocalGame(gameRef.current, { motion, now: performance.now(), player }))
     },
     [showFeedback],
   )

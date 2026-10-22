@@ -34,7 +34,7 @@ describe('local ping pong game', () => {
     game.ball.pos = 0.9
     game.ball.x = 0.65
 
-    const feedback = swingLocalGame(game, 1, 300, false, highRandom)
+    const feedback = swingLocalGame(game, { now: 300, player: 1, random: highRandom })
 
     expect(feedback).toEqual({ kind: 'smash', text: '스매시! 💥' })
     expect(game.ball.dir).toBe(-1)

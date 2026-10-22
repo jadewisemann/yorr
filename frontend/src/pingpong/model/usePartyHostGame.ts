@@ -91,7 +91,7 @@ export function usePartyHostGame({ base, enabled, roomId }: UsePartyHostGameOpti
       if (!game || !current) return
       const player = playerNumberOf(current, message.payload.playerId)
       if (!player) return
-      swingLocalGame(game, player, performance.now(), true)
+      swingLocalGame(game, { motion: true, now: performance.now(), player })
     })
   }, [client, enabled])
 
