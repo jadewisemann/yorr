@@ -1,23 +1,11 @@
-import { useNavigate } from '@tanstack/react-router'
-import { type FormEvent, useEffect, useRef, useState } from 'react'
-import {
-  generateNickname,
-  NICKNAME_MAX_LENGTH,
-  readSavedNickname,
-  resolveNickname,
-  saveNickname,
-} from '@/auth/nickname'
-import { type GameKey, gameByKey } from '@/games'
-import { useCreateRoom, useJoinRoom } from '@/room/api/useRoomApi'
-import { savePartyRoom } from '@/room/partyControllerStorage'
-import { toUserError } from '@/shared/api/userError'
-import { playLandingSoundtrack } from '@/shared/audio/soundtrack'
+import { NICKNAME_MAX_LENGTH } from '@/auth/nickname'
+import type { GameKey } from '@/games'
+import { useNicknameEntry } from '@/room/model/useNicknameEntry'
 import { Alert } from '@/shared/components/Alert'
 import { Button } from '@/shared/components/Button'
 import { IconBack } from '@/shared/components/Icon'
 import { Screen } from '@/shared/components/Screen'
 import { TextField } from '@/shared/components/TextField'
-import { useAppStore } from '@/store'
 
 interface NicknamePageProps {
   gameKey?: GameKey | undefined
@@ -53,69 +41,8 @@ const intents = {
 } as const
 
 export function NicknamePage({ gameKey, mode, party = false, roomCode }: NicknamePageProps) {
-  const navigate = useNavigate()
-  const createRoom = useCreateRoom()
-  const joinRoom = useJoinRoom()
-  const startQuickMatch = useAppStore((state) => state.startQuickMatch)
-  const waitingForMatch = useAppStore((state) => state.quickMatch !== null)
-  const authSession = useAppStore((state) => state.authSession)
-  const [suggestion] = useState(generateNickname)
-  const [nickname, setNickname] = useState(() => authSession?.nickname ?? readSavedNickname() ?? '')
-  const [validationError, setValidationError] = useState<string | null>(null)
-  const submittingRef = useRef(false)
-  const quick = mode === 'quick'
-  const copy = intents[roomCode ? 'join' : quick ? 'quick' : 'create']
-  const task = roomCode ? joinRoom : createRoom
-  const selectedGame = gameByKey(gameKey)
-  const userError = task.error ? toUserError(task.error) : null
-  const signInRequired = quick && !authSession
-
-  useEffect(() => playLandingSoundtrack(selectedGame.key), [selectedGame.key])
-
-  useEffect(() => {
-    if (userError?.clearsSession) useAppStore.getState().reset()
-  }, [userError])
-
-  const enterRoom = async (resolvedNickname: string) => {
-    submittingRef.current = true
-    try {
-      const session = roomCode
-        ? await joinRoom.execute(roomCode, { nickname: resolvedNickname })
-        : await createRoom.execute({
-            nickname: resolvedNickname,
-            gameCode: selectedGame.gameCode ?? 'YACHT_DICE',
-          })
-      if (!session) return
-
-      if (party) savePartyRoom(session.roomCode)
-      saveNickname(resolvedNickname)
-      await navigate({
-        to: '/rooms/$roomId/lobby',
-        params: { roomId: session.roomId },
-      })
-    } finally {
-      submittingRef.current = false
-    }
-  }
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (submittingRef.current || signInRequired || waitingForMatch) return
-    const resolved = resolveNickname(nickname, suggestion)
-    setValidationError(resolved.error)
-    if (resolved.error) return
-
-    if (quick) {
-      saveNickname(resolved.nickname)
-      startQuickMatch({
-        gameCode: selectedGame.gameCode ?? 'YACHT_DICE',
-        nickname: resolved.nickname,
-      })
-      return
-    }
-
-    void enterRoom(resolved.nickname)
-  }
+  const entry = useNicknameEntry({ gameKey, mode, party, roomCode })
+  const copy = intents[roomCode ? 'join' : entry.quick ? 'quick' : 'create']
 
   return (
     <Screen className="relative max-w-2xl overflow-hidden">
@@ -130,7 +57,7 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
         <button
           aria-label="뒤로 가기"
           className="grid size-11 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-content transition-colors hover:bg-surface-raised focus-ring pressable"
-          onClick={() => void navigate({ to: '/' })}
+          onClick={entry.goHome}
           type="button"
         >
           <IconBack className="size-4.5" />
@@ -156,35 +83,32 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
 
       <form
         className="relative mt-8 flex min-h-0 flex-1 flex-col gap-4"
-        onSubmit={handleSubmit}
+        onSubmit={entry.handleSubmit}
         noValidate
       >
         <TextField
           label={<span className="sr-only">닉네임</span>}
-          value={nickname}
-          placeholder={suggestion}
+          value={entry.nickname}
+          placeholder={entry.suggestion}
           helpText={
             <>
-              비워두면 <span className="font-semibold text-content">{suggestion}</span>
+              비워두면 <span className="font-semibold text-content">{entry.suggestion}</span>
               (으)로 입장해요 · 한글·영문·숫자 1~{NICKNAME_MAX_LENGTH}자
             </>
           }
-          errorMessage={validationError}
+          errorMessage={entry.validationError}
           maxLength={NICKNAME_MAX_LENGTH + 1}
           autoComplete="nickname"
-          disabled={task.isLoading}
-          onChange={(event) => {
-            setNickname(event.target.value)
-            setValidationError(null)
-          }}
+          disabled={entry.task.isLoading}
+          onChange={(event) => entry.handleNicknameChange(event.target.value)}
         />
         <div className="mt-auto grid gap-3">
-          {signInRequired && (
+          {entry.signInRequired && (
             <Alert tone="danger">
               빠른 대전은 로그인이 필요해요. 홈에서 로그인한 뒤 다시 시도해 주세요.
             </Alert>
           )}
-          {!roomCode && !quick && (
+          {!roomCode && !entry.quick && (
             <Alert className="flex items-center gap-2">
               <span
                 aria-hidden="true"
@@ -195,16 +119,12 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
               방을 만든 사람이 호스트가 돼요
             </Alert>
           )}
-          {userError && (
+          {entry.userError && (
             <Alert className="grid gap-2 text-left" tone="danger">
               {/* role은 Alert가 든다 — 여기 또 적으면 이중으로 읽힌다 */}
-              <p className="m-0">{userError.message}</p>
-              {userError.canChangeRoom && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => void navigate({ to: '/' })}
-                >
+              <p className="m-0">{entry.userError.message}</p>
+              {entry.userError.canChangeRoom && (
+                <Button type="button" variant="secondary" onClick={entry.goHome}>
                   {roomCode ? '다른 코드 입력' : '홈으로'}
                 </Button>
               )}
@@ -212,12 +132,12 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
           )}
           <Button
             className="w-full"
-            disabled={signInRequired}
-            loading={task.isLoading}
+            disabled={entry.signInRequired}
+            loading={entry.task.isLoading}
             size="cta"
             type="submit"
           >
-            {task.isLoading ? copy.busy : copy.cta}
+            {entry.task.isLoading ? copy.busy : copy.cta}
           </Button>
         </div>
       </form>
