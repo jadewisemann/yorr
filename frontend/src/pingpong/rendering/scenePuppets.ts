@@ -224,13 +224,16 @@ export function makeMascot(accentColor: number, z: number, facing: -1 | 1, mats:
   return { root, body, arm, ears, facing }
 }
 
-export function poseMascot(
-  m: Mascot,
-  xNorm: number,
-  swing: number,
-  react: number,
-  t: number,
-): void {
+/** 마스코트 자세 한 프레임 — 위치·기울기·반응을 한 묶음으로 받는다. */
+export interface MascotPose {
+  xNorm: number
+  swing: number
+  react: number
+  time: number
+}
+
+export function poseMascot(m: Mascot, pose: MascotPose): void {
+  const { xNorm, react, swing, time: t } = pose
   const x = xToWorld(lerp(0.5, xNorm, 0.55))
   m.root.position.x = x
   m.body.rotation.y = clamp(m.facing * (xToWorld(xNorm) - x) * 0.5, -0.3, 0.3)

@@ -60,11 +60,39 @@ const { snapshot: _snapshot, ...session } = creatorSession
 
 it('derives the same animation seed from the same server roll', () => {
   const dice = [6, 5, 4, 3, 2] as const
-  expect(animationSeedForRoll('ROOM', 'player-a', 2, 3, dice)).toBe(
-    animationSeedForRoll('ROOM', 'player-a', 2, 3, dice),
+  expect(
+    animationSeedForRoll({
+      dice,
+      playerId: 'player-a',
+      rollCount: 3,
+      roomId: 'ROOM',
+      roundNumber: 2,
+    }),
+  ).toBe(
+    animationSeedForRoll({
+      dice,
+      playerId: 'player-a',
+      rollCount: 3,
+      roomId: 'ROOM',
+      roundNumber: 2,
+    }),
   )
-  expect(animationSeedForRoll('ROOM', 'player-a', 2, 2, dice)).not.toBe(
-    animationSeedForRoll('ROOM', 'player-a', 2, 3, dice),
+  expect(
+    animationSeedForRoll({
+      dice,
+      playerId: 'player-a',
+      rollCount: 2,
+      roomId: 'ROOM',
+      roundNumber: 2,
+    }),
+  ).not.toBe(
+    animationSeedForRoll({
+      dice,
+      playerId: 'player-a',
+      rollCount: 3,
+      roomId: 'ROOM',
+      roundNumber: 2,
+    }),
   )
 })
 
