@@ -2,9 +2,8 @@ import cors from '@fastify/cors'
 import fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify'
 import { createBaseServices, registerHealthWiring } from './composition/baseServices.js'
 import { createServerLifecycle } from './composition/lifecycle.js'
-import { assembleQueryWiring } from './composition/queries.js'
-import { assembleRoomServices, registerGameModuleWiring } from './composition/roomServices.js'
-import { assembleRoundWiring, type RoundWiring } from './composition/rounds.js'
+import type { RoundWiring } from './composition/rounds.js'
+import { assembleRuntime } from './composition/runtime.js'
 import { allowedOrigins, type Env } from './config/env.js'
 import type { GameCompletionService } from './game/completion/index.js'
 import type { GameModuleRegistry } from './game/module.js'
@@ -14,10 +13,15 @@ import type { YachtBotPolicy } from './game/yacht/index.js'
 import { registerApiRoutes } from './http/apiRoutes.js'
 import type { Redis } from './infra/memoryRedis.js'
 import type { Pool } from './infra/sqlite.js'
+import type { InMemoryRoomCloseScheduler } from './room/closeScheduler.js'
+import type { RoomService } from './room/roomService.js'
+import type { UserService } from './user/session.js'
 import type { RoomBroadcaster } from './ws/broadcaster.js'
 import { attachGameSocketGateway, type GameSocketGateway } from './ws/gateway.js'
 import { GameSocketHandler } from './ws/handler.js'
+import type { HeartbeatMonitor } from './ws/heartbeat.js'
 import type { RoomSessionRegistry } from './ws/registry.js'
+import type { RealtimeRoomSnapshotService } from './ws/snapshot.js'
 
 export interface ServerOptions {
   /** 통합 테스트가 자기 Redis를 넘긴다. 없으면 env로 새로 만들고 종료 시 함께 닫는다. */
@@ -78,54 +82,23 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     ...(options.redis === undefined ? {} : { redis: options.redis }),
     ...(options.db === undefined ? {} : { db: options.db }),
   })
-  const { redis, ownsRedis, db, ownsDb, users, rooms, catalog } = base
-  const { games, lifecycle, registry, broadcaster, snapshots, heartbeat, closeScheduler } = base
+  const { redis, ownsRedis, db, ownsDb, users, rooms, registry, broadcaster, snapshots } = base
 
-  const roundAssembly = assembleRoundWiring({
+  const runtime = assembleRuntime({
     app,
-    broadcaster,
+    base,
+    redis,
     db,
-    redis,
+    rooms,
     registry,
-    rooms,
+    broadcaster,
     snapshots,
-  })
-  const { rounds, completion, rankings, botPolicy, matchArchive } = roundAssembly
-
-  const { gameQueries, reconnectSnapshots, sweeper } = assembleQueryWiring({
-    app,
-    redis,
-    rooms,
-    snapshots,
-    rounds,
     ...(options.sweepScheduler === undefined ? {} : { sweepScheduler: options.sweepScheduler }),
   })
+  const { roundAssembly, rounds, queries, roomServices } = runtime
+  const { completion, rankings, botPolicy, matchArchive } = roundAssembly
 
-  registerGameModuleWiring({
-    games,
-    base,
-    rounds,
-    completion,
-    yachtActions: roundAssembly.yachtActions,
-    reconnectSnapshots,
-  })
-
-  const { profiles, quickMatches, bots } = assembleRoomServices({
-    redis,
-    db,
-    users,
-    rooms,
-    catalog,
-    registry,
-    lifecycle,
-  })
-
-  await app.register(cors, { origin: allowedOrigins(env) })
-  // 게이지 수집은 WS 레지스트리의 인메모리 상태만 본다(스크레이프마다 Redis를
-  // 때리면 모니터링이 부하 원인이 된다). **위에서 만든 그** 레지스트리·모듈
-  // 레지스트리여야 한다 — 새로 만들면 게이지가 영구히 0인데 타입도 테스트도 통과한다.
-  await registerHealthWiring(app, { redis, db, registry, games })
-
+  await registerInfrastructure({ app, env, redis, db, registry, games: base.games })
   await registerApiRoutes({
     app,
     env,
@@ -133,12 +106,12 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     db,
     users,
     rooms,
-    catalog,
-    lifecycle,
-    queries: gameQueries,
-    profiles,
-    quickMatches,
-    bots,
+    catalog: base.catalog,
+    lifecycle: base.lifecycle,
+    queries: queries.gameQueries,
+    profiles: roomServices.profiles,
+    quickMatches: roomServices.quickMatches,
+    bots: roomServices.bots,
     broadcaster,
     snapshots,
     rankings,
@@ -146,22 +119,7 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
   })
 
   await app.ready()
-  const gateway = attachGameSocketGateway(
-    app.server,
-    new GameSocketHandler({
-      registry,
-      broadcaster,
-      snapshots,
-      heartbeat,
-      users,
-      rooms,
-      closeScheduler,
-      games,
-      logger: app.log,
-    }),
-    { logger: app.log, allowedOrigins: allowedOrigins(env) },
-  )
-
+  const gateway = attachSocketGateway({ ...base, app, env })
   const serverLifecycle = createServerLifecycle({
     app,
     env,
@@ -170,12 +128,12 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     ownsRedis,
     ownsDb,
     rooms,
-    games,
+    games: base.games,
     completion,
     gateway,
-    heartbeat,
-    closeScheduler,
-    sweeper,
+    heartbeat: base.heartbeat,
+    closeScheduler: base.closeScheduler,
+    sweeper: queries.sweeper,
     stopRoundWork: () => {
       roundAssembly.stopDeadlines()
       roundAssembly.stopBots()
@@ -188,11 +146,64 @@ export const createServer = async (env: Env, options: ServerOptions = {}): Promi
     registry,
     broadcaster,
     rounds,
-    games,
+    games: base.games,
     completion,
-    sweeper,
+    sweeper: queries.sweeper,
     rankings,
     botPolicy,
     ...serverLifecycle,
   }
+}
+
+/** CORS와 헬스 게이지. 게이지는 **위에서 만든 그** 레지스트리·모듈을 봐야 한다. */
+interface InfrastructureDeps {
+  app: FastifyInstance
+  env: Env
+  redis: Redis
+  db: Pool
+  registry: RoomSessionRegistry
+  games: GameModuleRegistry
+}
+
+async function registerInfrastructure(deps: InfrastructureDeps) {
+  const { app, env, redis, db, registry, games } = deps
+  await app.register(cors, { origin: allowedOrigins(env) })
+  // 게이지 수집은 WS 레지스트리의 인메모리 상태만 본다(스크레이프마다 Redis를
+  // 때리면 모니터링이 부하 원인이 된다). 새로 만들면 게이지가 영구히 0인데
+  // 타입도 테스트도 통과한다.
+  await registerHealthWiring(app, { redis, db, registry, games })
+}
+
+interface GatewayDeps {
+  app: FastifyInstance
+  env: Env
+  registry: RoomSessionRegistry
+  broadcaster: RoomBroadcaster
+  snapshots: RealtimeRoomSnapshotService
+  heartbeat: HeartbeatMonitor
+  users: UserService
+  rooms: RoomService
+  closeScheduler: InMemoryRoomCloseScheduler
+  games: GameModuleRegistry
+}
+
+/** 게이트웨이 부착. WS 핸들러가 방·게임·스냅샷의 **그** 인스턴스를 받는다. */
+function attachSocketGateway(deps: GatewayDeps) {
+  const { app, env, registry, broadcaster, snapshots, heartbeat, users, rooms, closeScheduler } =
+    deps
+  return attachGameSocketGateway(
+    app.server,
+    new GameSocketHandler({
+      registry,
+      broadcaster,
+      snapshots,
+      heartbeat,
+      users,
+      rooms,
+      closeScheduler,
+      games: deps.games,
+      logger: app.log,
+    }),
+    { logger: app.log, allowedOrigins: allowedOrigins(env) },
+  )
 }
