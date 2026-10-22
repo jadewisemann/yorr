@@ -2,13 +2,9 @@ import { useCallback, useEffect } from 'react'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import type { GameState, PlayerId, ServerMessage } from '@/realtime/wsEvents'
 import type { HeldDice } from '@/yacht/domain/dice'
-import {
-  createYachtGame,
-  type YachtGameAction,
-  type YachtGameState,
-  yachtGameReducer,
-} from '@/yacht/domain/yachtGame'
+import type { YachtGameAction, YachtGameState } from '@/yacht/domain/yachtGame'
 import { animationSeedForRoll, rollAnimationMode } from './animation'
+import { applyBroadcast, isRemoteHoldChange, isRemoteShake, isRemoteThrow } from './incomingChecks'
 import { isCurrentDiceBroadcast, turnAwareErrorMessage } from './messages'
 import type { RollPresentationAction } from './presentation'
 import type { RollTracking } from './tracking'
@@ -52,20 +48,13 @@ interface UseRollIncomingOptions {
   you: PlayerId
 }
 
-export function useRollIncoming({
-  activePlayerId,
-  currentGame,
-  dispatch,
-  feedback,
-  present,
-  publishThrow,
-  roomId,
-  roundNumber,
-  setLocal,
-  showToast,
-  tracking,
-  you,
-}: UseRollIncomingOptions) {
+/**
+ * 서버가 보내는 굴림 관련 메시지를 로컬 판·연출·추적기에 잇는다.
+ * "이 메시지가 이 화면의 것인가"는 [`incomingChecks`](./incomingChecks.ts)가 판정한다.
+ */
+export function useRollIncoming(options: UseRollIncomingOptions) {
+  const { activePlayerId, currentGame, dispatch, feedback, present, roomId, roundNumber } = options
+  const { publishThrow, setLocal, showToast, tracking, you } = options
   const realtimeClient = useRealtimeClient()
 
   const handleBroadcast = useCallback(
@@ -94,28 +83,14 @@ export function useRollIncoming({
         playerId: message.payload.playerId,
         roundNumber: message.payload.roundNumber,
       })
-      setLocal((state) =>
-        yachtGameReducer(
-          state.roundNumber === message.payload.roundNumber
-            ? state
-            : createYachtGame(state.seed, message.payload.roundNumber),
-          {
-            type: 'rollRequested',
-            forced,
-            held: message.payload.held as HeldDice,
-            requestId,
-            rollCount: message.payload.rollCount,
-            seed: animationSeedForRoll(
-              roomId,
-              message.payload.playerId,
-              message.payload.roundNumber,
-              message.payload.rollCount,
-              message.payload.dice,
-            ),
-            targetDice: message.payload.dice,
-          },
-        ),
+      const seed = animationSeedForRoll(
+        roomId,
+        message.payload.playerId,
+        message.payload.roundNumber,
+        message.payload.rollCount,
+        message.payload.dice,
       )
+      setLocal(applyBroadcast(message, { forced, requestId, seed }))
       if (ownRoll && forced) {
         showToast(`시간이 지나 서버가 ${message.payload.rollCount}번째 주사위를 굴렸어요.`)
       }
@@ -140,54 +115,35 @@ export function useRollIncoming({
     ],
   )
 
+  const remoteContext = { activePlayerId, roomId, roundNumber, you }
+
   const handleShaken = useCallback(
     (message: DiceShakenMessage) => {
-      if (
-        message.roomId !== roomId ||
-        message.payload.roundNumber !== roundNumber ||
-        message.payload.playerId !== activePlayerId ||
-        message.payload.playerId === you ||
-        !tracking.remote.rolling
-      ) {
-        return
-      }
+      if (!isRemoteShake(message, remoteContext, tracking.remote.rolling)) return
       present({ type: 'remoteShakeStarted' })
       feedback.pulse(message.payload.direction, message.payload.strength, 'remote')
     },
-    [activePlayerId, feedback.pulse, roomId, roundNumber, you, tracking.remote.rolling, present],
+    [feedback.pulse, remoteContext, tracking.remote.rolling, present],
   )
 
   const handleThrown = useCallback(
     (message: DiceThrownMessage) => {
-      if (
-        message.roomId !== roomId ||
-        message.payload.roundNumber !== roundNumber ||
-        message.payload.playerId !== activePlayerId ||
-        message.payload.playerId === you
-      ) {
-        return
-      }
+      if (!isRemoteThrow(message, remoteContext)) return
       const releaseNow = tracking.remote.throwObserved({
         rollCount: message.payload.rollCount,
         roundNumber: message.payload.roundNumber,
       })
       if (releaseNow) present({ type: 'released', requestId: releaseNow })
     },
-    [activePlayerId, roomId, roundNumber, you, tracking.remote.throwObserved, present],
+    [remoteContext, tracking.remote.throwObserved, present],
   )
 
   const handleHeldChanged = useCallback(
     (message: DiceHoldChangedMessage) => {
-      if (
-        message.roomId === roomId &&
-        message.payload.roundNumber === roundNumber &&
-        message.payload.playerId === activePlayerId &&
-        message.payload.playerId !== you
-      ) {
-        dispatch({ type: 'heldSynced', held: message.payload.held as HeldDice })
-      }
+      if (!isRemoteHoldChange(message, remoteContext)) return
+      dispatch({ type: 'heldSynced', held: message.payload.held as HeldDice })
     },
-    [activePlayerId, dispatch, roomId, roundNumber, you],
+    [dispatch, remoteContext],
   )
 
   const handleError = useCallback(
