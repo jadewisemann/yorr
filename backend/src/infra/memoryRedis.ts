@@ -16,9 +16,13 @@
  *
  * 재시작을 넘기는 것은 스냅샷이다(`snapshot`/`restore`, 파일 I/O는 `storeSnapshot.ts`). 회원·전적은 SQLite에 있다.
  *
- * 구현은 셋으로 나뉜다.
+ * 구현은 다섯으로 나뉜다.
  * - [`redisTypes.ts`](./redisTypes.ts) — 값 모델·상수·스냅샷 파서
- * - [`redisCore.ts`](./redisCore.ts) — 동기 명령 집합(`RedisCore`)
+ * - [`redisKeyspace.ts`](./redisKeyspace.ts) — 상태와 만료·상한·스크립트 선언 규칙
+ * - [`redisStrings.ts`](./redisStrings.ts) · [`redisHashes.ts`](./redisHashes.ts) ·
+ *   [`redisZsets.ts`](./redisZsets.ts) · [`redisKeyCommands.ts`](./redisKeyCommands.ts) — 타입별 명령
+ * - [`redisSnapshot.ts`](./redisSnapshot.ts) — 스냅샷 저장·복원과 만료 회수
+ * - [`redisCore.ts`](./redisCore.ts) — 동기 명령 표면(`RedisCore`)
  * - 이 파일 — 원자적 스크립트 계약과 ioredis 모양의 비동기 겉면(`MemoryRedis`)
  */
 import { RedisCore } from './redisCore.js'
