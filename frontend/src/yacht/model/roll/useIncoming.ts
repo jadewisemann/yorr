@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import type { GameState, PlayerId, ServerMessage } from '@/realtime/wsEvents'
 import type { HeldDice } from '@/yacht/domain/dice'
@@ -115,7 +115,11 @@ export function useRollIncoming(options: UseRollIncomingOptions) {
     ],
   )
 
-  const remoteContext = { activePlayerId, roomId, roundNumber, you }
+  // 콜백 의존성에 그대로 들어가므로 렌더마다 새 객체를 만들면 매번 리스너를 다시 건다.
+  const remoteContext = useMemo(
+    () => ({ activePlayerId, roomId, roundNumber, you }),
+    [activePlayerId, roomId, roundNumber, you],
+  )
 
   const handleShaken = useCallback(
     (message: DiceShakenMessage) => {
