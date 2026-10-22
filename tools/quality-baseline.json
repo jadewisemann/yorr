@@ -64,8 +64,6 @@
     "frontend/src/room/components/InvitePopover.tsx\u0000functionLines\u0000InvitePopover": 88,
     "frontend/src/room/components/QuickMatchOverlay.tsx\u0000functionLines\u0000QuickMatchOverlay": 111,
     "frontend/src/room/components/QuickMatchOverlay.tsx\u0000nesting\u0000QuickMatchOverlay": 6,
-    "frontend/src/room/model/useLobbyRoom.ts\u0000cyclomatic\u0000useLobbyRoom": 33,
-    "frontend/src/room/model/useLobbyRoom.ts\u0000nesting\u0000useLobbyRoom": 5,
     "frontend/src/room/screens/GamePage.tsx\u0000cyclomatic\u0000GamePage": 33,
     "frontend/src/room/screens/GamePage.tsx\u0000functionLines\u0000GamePage": 82,
     "frontend/src/room/screens/GamePage.tsx\u0000nesting\u0000GamePage": 5,
