@@ -22,7 +22,7 @@ export interface MatBag {
   geo<T extends THREE.BufferGeometry>(g: T): T
 }
 
-interface Paddle {
+export interface Paddle {
   group: THREE.Group
   facing: -1 | 1
   baseZ: number
@@ -81,7 +81,7 @@ const ARM_HIT_X = -2.1
 const ARM_HIT_Y = 0.1
 const ARM_HIT_Z = 0.85
 
-interface Mascot {
+export interface Mascot {
   root: THREE.Group
   body: THREE.Group
   arm: THREE.Group
