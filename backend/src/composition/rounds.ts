@@ -101,15 +101,8 @@ export function assembleRoundWiring({
   snapshots,
 }: RoundAssemblyDeps): RoundAssembly {
   const roundCore = assembleRoundCore({ app, broadcaster, redis, rooms })
-  const {
-    roundStates,
-    roundSync,
-    scores,
-    scoreSubmissions,
-    deadlineScheduler,
-    deadlineStore,
-    timeoutResolver,
-  } = roundCore
+  const { roundStates, roundSync, scores, scoreSubmissions, deadlineScheduler, deadlineStore } =
+    roundCore
 
   const { rankings, matchArchive } = assembleRankingWiring({ app, db })
 
@@ -124,44 +117,14 @@ export function assembleRoundWiring({
     deadlineScheduler,
   })
 
-  // 봇 오케스트레이터(3.2)와 타이머는 순환한다(봇 → 행동 서비스 → 타이머 → 봇).
-  // 순환은 늦은 바인딩으로 끊는다 — 타이머가 먼저 만들어지고, 그 콜백이 나중에 채워진다.
-  let yachtBots: BotTurnOrchestrator | null = null
-  const roundTimer = new RoundTimerService(
-    {
-      timeoutResolver,
-      deadlineScheduler,
-      deadlineStore,
-      broadcaster,
-      gameCompletion: completion,
-      synchronizationService: roundSync,
-      presence: registry,
-      roomService: rooms,
-    },
-    {
-      onWarning: (roomId, reason) => app.log.warn({ roomId, reason }, '라운드 진행 중단'),
-      onRoundStarted: (event) => yachtBots?.onRoundStarted(event),
-    },
-  )
-
-  // 봇과 사람이 **같은** 행동 서비스를 지나야 한다(3.1이 그 경계로 만들었다) —
-  // 봇만 별도 인스턴스를 쓰면 방송·검증 경로가 갈라진다.
-  const yachtActions = new YachtTurnActionService({
-    rounds: roundSync,
-    timers: roundTimer,
-    broadcaster,
-    submissions: scoreSubmissions,
-  })
-  const botWiring = assembleBotWiring({
+  const { roundTimer, yachtActions, botPolicy, stopBots } = assembleTurnWiring({
     app,
     broadcaster,
     completion,
+    registry,
     rooms,
-    roundSync,
-    scores,
-    yachtActions,
+    roundCore,
   })
-  yachtBots = botWiring.orchestrator
 
   return {
     rounds: {
@@ -175,11 +138,11 @@ export function assembleRoundWiring({
     },
     completion,
     rankings,
-    botPolicy: botWiring.botPolicy,
+    botPolicy,
     yachtActions,
     matchArchive,
     stopDeadlines: () => deadlineScheduler.stop(),
-    stopBots: () => yachtBots?.stop(),
+    stopBots,
   }
 }
 
@@ -237,6 +200,70 @@ function assembleRoundCore({
     deadlineScheduler,
     deadlineStore,
     timeoutResolver,
+  }
+}
+
+/**
+ * 라운드 타이머 + 야추 행동 서비스 + 봇(3.2)의 조립.
+ *
+ * 봇 오케스트레이터와 타이머는 순환한다(봇 → 행동 서비스 → 타이머 → 봇).
+ * 순환은 늦은 바인딩으로 끊는다 — 타이머가 먼저 만들어지고, 그 콜백이 나중에 채워진다.
+ */
+function assembleTurnWiring({
+  app,
+  broadcaster,
+  completion,
+  registry,
+  rooms,
+  roundCore,
+}: Pick<RoundAssemblyDeps, 'app' | 'broadcaster' | 'registry' | 'rooms'> & {
+  readonly completion: GameCompletionService
+  readonly roundCore: ReturnType<typeof assembleRoundCore>
+}) {
+  const { roundSync, scores, scoreSubmissions, deadlineScheduler, deadlineStore, timeoutResolver } =
+    roundCore
+  let yachtBots: BotTurnOrchestrator | null = null
+  const roundTimer = new RoundTimerService(
+    {
+      timeoutResolver,
+      deadlineScheduler,
+      deadlineStore,
+      broadcaster,
+      gameCompletion: completion,
+      synchronizationService: roundSync,
+      presence: registry,
+      roomService: rooms,
+    },
+    {
+      onWarning: (roomId, reason) => app.log.warn({ roomId, reason }, '라운드 진행 중단'),
+      onRoundStarted: (event) => yachtBots?.onRoundStarted(event),
+    },
+  )
+
+  // 봇과 사람이 **같은** 행동 서비스를 지나야 한다(3.1이 그 경계로 만들었다) —
+  // 봇만 별도 인스턴스를 쓰면 방송·검증 경로가 갈라진다.
+  const yachtActions = new YachtTurnActionService({
+    rounds: roundSync,
+    timers: roundTimer,
+    broadcaster,
+    submissions: scoreSubmissions,
+  })
+  const botWiring = assembleBotWiring({
+    app,
+    broadcaster,
+    completion,
+    rooms,
+    roundSync,
+    scores,
+    yachtActions,
+  })
+  yachtBots = botWiring.orchestrator
+
+  return {
+    botPolicy: botWiring.botPolicy,
+    roundTimer,
+    stopBots: () => yachtBots?.stop(),
+    yachtActions,
   }
 }
 
