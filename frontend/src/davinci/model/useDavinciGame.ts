@@ -38,25 +38,13 @@ const draftKeyOf = (state: DavinciView | undefined): string =>
 const emptyDraft = (key: string): Draft => ({ key, number: null, selection: null })
 
 /**
- * 다빈치 코드의 입력 계층.
- *
- * 서버가 판정하는 것은 셋뿐이라(`guess`·`decide`·`place`) 훅이 하는 일도 셋이다:
- * ① 아직 보내지 않은 선택(타일·숫자)을 들고 있기 ② 봉투를 만들어 보내기
- * ③ **턴이 바뀌면 선택을 버리기**.
- *
- * ③을 빠뜨리면 지난 턴에 고른 타일이 다음 턴에도 선택된 것처럼 보이고, 그 사이 그
- * 타일이 공개됐다면 서버가 조용히 무시하는 추측을 사람이 눈치채지 못한 채 보낸다.
+ * 서버로 가는 세 봉투(`guess`·`decide`·`place`). 입력 순번을 붙여 보내고, 실패하면
+ * 다시 시도하라는 안내를 남긴다.
  */
-export function useDavinciGame({ roomId, state, you }: UseDavinciGameOptions) {
+function useDavinciCommands(roomId: string) {
   const client = useRealtimeClient()
   const inputSeq = useRef(0)
-  const [draft, setDraft] = useState<Draft>(() => emptyDraft(draftKeyOf(state)))
   const [sendError, setSendError] = useState<string | null>(null)
-
-  // 렌더 중에 비교해 버린다 — `useEffect`로 한 프레임 늦게 지우면 그 프레임 동안
-  // 지난 턴의 선택이 새 판 위에 선택된 것처럼 남는다(duel `useImpactDelay`와 같은 자리).
-  const key = draftKeyOf(state)
-  if (draft.key !== key) setDraft(emptyDraft(key))
 
   const send = useCallback(
     (message: ClientMessage) => {
@@ -70,22 +58,23 @@ export function useDavinciGame({ roomId, state, you }: UseDavinciGameOptions) {
     [client],
   )
 
-  const guess = useCallback(() => {
-    const { number, selection } = draft
-    if (selection === null || number === null) return
-    send(
-      buildClientMessage(
-        'game.davinci_code.guess',
-        {
-          inputSeq: ++inputSeq.current,
-          targetId: selection.playerId,
-          tileId: selection.tileId,
-          number,
-        },
-        { roomId },
-      ),
-    )
-  }, [draft, roomId, send])
+  const guess = useCallback(
+    (selection: TileSelection, number: number) => {
+      send(
+        buildClientMessage(
+          'game.davinci_code.guess',
+          {
+            inputSeq: ++inputSeq.current,
+            targetId: selection.playerId,
+            tileId: selection.tileId,
+            number,
+          },
+          { roomId },
+        ),
+      )
+    },
+    [roomId, send],
+  )
 
   const decide = useCallback(
     (decision: DavinciDecision) => {
@@ -113,6 +102,18 @@ export function useDavinciGame({ roomId, state, you }: UseDavinciGameOptions) {
     [roomId, send],
   )
 
+  return { decide, guess, place, sendError }
+}
+
+/** 아직 보내지 않은 선택. 턴·단계가 바뀌면 렌더 중에 비운다. */
+function useDraft(state: DavinciView | undefined, you: PlayerId) {
+  const [draft, setDraft] = useState<Draft>(() => emptyDraft(draftKeyOf(state)))
+
+  // 렌더 중에 비교해 버린다 — `useEffect`로 한 프레임 늦게 지우면 그 프레임 동안
+  // 지난 턴의 선택이 새 판 위에 선택된 것처럼 남는다(duel `useImpactDelay`와 같은 자리).
+  const key = draftKeyOf(state)
+  if (draft.key !== key) setDraft(emptyDraft(key))
+
   const selectTile = useCallback(
     (playerId: PlayerId, tileId: string) => {
       if (state?.turnPlayerId !== you) return
@@ -127,6 +128,29 @@ export function useDavinciGame({ roomId, state, you }: UseDavinciGameOptions) {
   const selectNumber = useCallback((value: number) => {
     setDraft((current) => ({ ...current, number: value }))
   }, [])
+
+  return { draft, selectNumber, selectTile }
+}
+
+/**
+ * 다빈치 코드의 입력 계층.
+ *
+ * 서버가 판정하는 것은 셋뿐이라(`guess`·`decide`·`place`) 훅이 하는 일도 셋이다:
+ * ① 아직 보내지 않은 선택(타일·숫자)을 들고 있기 ② 봉투를 만들어 보내기
+ * ③ **턴이 바뀌면 선택을 버리기**.
+ *
+ * ③을 빠뜨리면 지난 턴에 고른 타일이 다음 턴에도 선택된 것처럼 보이고, 그 사이 그
+ * 타일이 공개됐다면 서버가 조용히 무시하는 추측을 사람이 눈치채지 못한 채 보낸다.
+ */
+export function useDavinciGame({ roomId, state, you }: UseDavinciGameOptions) {
+  const { draft, selectNumber, selectTile } = useDraft(state, you)
+  const { decide, guess: sendGuess, place, sendError } = useDavinciCommands(roomId)
+
+  const guess = useCallback(() => {
+    const { number, selection } = draft
+    if (selection === null || number === null) return
+    sendGuess(selection, number)
+  }, [draft, sendGuess])
 
   return {
     decide,
