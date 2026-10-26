@@ -9,7 +9,6 @@
   },
   "violations": {
     "backend/src/game/davinci/davinciGameService.ts\u0000halsteadDifficulty\u0000-": 110,
-    "backend/src/game/round/roundTimerService.ts\u0000halsteadDifficulty\u0000-": 88,
     "backend/src/game/yacht/bot/expectimaxYachtBotPolicy.ts\u0000halsteadDifficulty\u0000-": 109,
     "backend/src/game/yacht/bot/yachtBotTurnCoordinator.ts\u0000halsteadDifficulty\u0000-": 104,
     "backend/src/game/yacht/redisYachtDiceStateStore.ts\u0000halsteadDifficulty\u0000-": 87,
