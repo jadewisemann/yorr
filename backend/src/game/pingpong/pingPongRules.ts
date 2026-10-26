@@ -7,12 +7,10 @@ import {
   IDEAL_1,
   IDEAL_2,
   MAX_ROLLBACK_MILLIS,
-  missDeadline,
   NORMAL_SPEED,
   POINT_COUNTDOWN_MILLIS,
   progress,
   returnKind,
-  WIN_SCORE,
   WINDOW_1_HIGH,
   WINDOW_1_LOW,
   WINDOW_2_HIGH,
@@ -23,7 +21,6 @@ import type {
   PingPongDirection,
   PingPongEvent,
   PingPongEventType,
-  PingPongPhase,
   PingPongPlayerNumbers,
   PingPongState,
 } from './pingPongState.js'
@@ -39,6 +36,9 @@ import { isPingPongFinished } from './pingPongState.js'
  * 프레임을 보내지 않아도 클라이언트가 같은 공을 그린다(DESIGN.md 원칙 2).
  *
  * 좌우(x)는 `x0 → x1` 선형 보간이고 진행률 0.5가 네트 통과 지점이다.
+ *
+ * **점수·서브·종료는 `pingPongScoring.ts`가 맡는다** — 이 파일은 입력이 왔을 때
+ * 상태가 어떻게 바뀌는가(준비·스윙)만 안다.
  */
 
 /** playerOrder 안의 좌석. 없으면 -1. */
@@ -55,8 +55,8 @@ const event = (
   now: number,
 ): PingPongEvent => ({ id: version, type, playerId, at: now })
 
-// 공의 궤적·판정 창·등급은 pingPongCourtMath.ts가 정본이다. 기존 소비자가 이
-// 파일에서 가져가므로 여기서 re-export한다.
+// 공의 궤적·판정 창·등급은 pingPongCourtMath.ts가, 득점·서브·종료는
+// pingPongScoring.ts가 정본이다. 기존 소비자가 이 파일에서 가져가므로 re-export한다.
 export {
   ballAt,
   IDEAL_1,
@@ -73,22 +73,7 @@ export {
   WINDOW_2_HIGH,
   WINDOW_2_LOW,
 } from './pingPongCourtMath.js'
-
-/**
- * 실제 탁구의 서브 교대 규칙. 상태가 서브권이 아니라 **"다음 서브를 받을 사람"**
- * 을 저장하므로 같은 인덱스를 2점 동안 유지한 뒤 바꾼다. 10:10(합계 20)부터는
- * 매 점마다 바뀐다.
- */
-export const serveReceiver = (
-  playerOrder: readonly string[],
-  scores: PingPongPlayerNumbers,
-): string => {
-  const first = scores[playerOrder[0] as string] ?? 0
-  const second = scores[playerOrder[1] as string] ?? 0
-  const total = first + second
-  const serviceTurn = total < 20 ? Math.floor(total / 2) : 10 + (total - 20)
-  return playerOrder[serviceTurn % 2] as string
-}
+export { expire, forfeit, serve, serveReceiver } from './pingPongScoring.js'
 
 /**
  * 스윙을 판정할 시각. 메시지가 **도착한** 순간으로 재면 업링크 지연이 통째로
@@ -168,36 +153,6 @@ export const ready = (state: PingPongState, playerId: string, now: number): Ping
     readyPlayerIds,
     nextActionAt: everyoneReady ? now + POINT_COUNTDOWN_MILLIS : 0,
     lastEvent: event(version, 'PLAYER_READY', playerId, now),
-  }
-}
-
-/**
- * 카운트다운 만료 → 서브. 공은 리시버의 **반대쪽 끝**에서 출발한다.
- * @param targetX 좌우 목표점(서버 RNG). 클라이언트가 정하지 않는다.
- */
-export const serve = (state: PingPongState, now: number, targetX: number): PingPongState => {
-  if (state.phase !== 'COUNTDOWN') return state
-  const receiver = state.playerOrder.indexOf(state.serveReceiverId ?? '')
-  const direction: PingPongDirection = receiver === 0 ? 1 : -1
-  const ball: PingPongBall = {
-    pos: direction > 0 ? 0 : 1,
-    direction,
-    speed: NORMAL_SPEED,
-    smash: false,
-    faultFrom: 0,
-    x0: 0.5,
-    x1: targetX,
-    launchedAt: now,
-  }
-  const version = state.version + 1
-  return {
-    ...state,
-    version,
-    phase: 'PLAYING',
-    ball,
-    rally: 0,
-    nextActionAt: missDeadline(ball, now),
-    lastEvent: event(version, 'SERVE', state.serveReceiverId as string, now),
   }
 }
 
@@ -309,65 +264,6 @@ export const swing = (state: PingPongState, input: SwingInput): PingPongState =>
     rally: fault === undefined ? state.rally + 1 : state.rally,
     nextActionAt: flightDeadline(returned, now),
     lastEvent: event(version, type, playerId, now),
-  }
-}
-
-/**
- * 마감. 폴트 공은 **친 쪽의 상대**가 득점하고(공이 상대에게 가던 중이므로
- * direction으로 되짚는다), 폴트 없는 공은 **받지 못한 쪽의 상대**가 득점한다.
- */
-export const expire = (state: PingPongState, now: number): PingPongState => {
-  if (state.phase !== 'PLAYING') return state
-  const ball = ballAt(state.ball, now)
-  const scorer =
-    ball.fault !== undefined ? (ball.direction < 0 ? 1 : 0) : ball.direction > 0 ? 1 : 0
-  return point(state, scorer, ball, now)
-}
-
-/**
- * 이탈 몰수 — 남은 사람이 {@link WIN_SCORE}로 즉시 이긴다.
- * **PREPARING 중 이탈은 이 경로로 오지 않는다**(시작도 안 한 매치를 이겼다고 주지
- * 않는다 — `pingPongGameService.ts`의 취소 시퀀스).
- */
-export const forfeit = (state: PingPongState, playerId: string, now: number): PingPongState => {
-  const loser = seatOf(state, playerId)
-  if (loser < 0 || state.phase === 'FINISHED') return state
-  const winnerId = state.playerOrder[loser === 0 ? 1 : 0] as string
-  const version = state.version + 1
-  return {
-    ...state,
-    version,
-    phase: 'FINISHED',
-    scores: { ...state.scores, [winnerId]: WIN_SCORE },
-    serveReceiverId: undefined,
-    nextActionAt: 0,
-    lastEvent: event(version, 'OPPONENT_LEFT', winnerId, now),
-  }
-}
-
-/** 11점 선취 + **2점 차**(듀스). 아니면 다음 서브를 위한 COUNTDOWN으로 되돌아간다. */
-const point = (
-  state: PingPongState,
-  scorer: number,
-  ball: PingPongBall,
-  now: number,
-): PingPongState => {
-  const scorerId = state.playerOrder[scorer] as string
-  const score = (state.scores[scorerId] ?? 0) + 1
-  const scores: Record<string, number> = { ...state.scores, [scorerId]: score }
-  const opponentScore = scores[state.playerOrder[scorer === 0 ? 1 : 0] as string] ?? 0
-  const version = state.version + 1
-  const finished = score >= WIN_SCORE && score - opponentScore >= 2
-  const phase: PingPongPhase = finished ? 'FINISHED' : 'COUNTDOWN'
-  return {
-    ...state,
-    version,
-    phase,
-    scores,
-    ball,
-    serveReceiverId: finished ? undefined : serveReceiver(state.playerOrder, scores),
-    nextActionAt: finished ? 0 : now + POINT_COUNTDOWN_MILLIS,
-    lastEvent: event(version, finished ? 'GAME_OVER' : 'POINT', scorerId, now),
   }
 }
 
