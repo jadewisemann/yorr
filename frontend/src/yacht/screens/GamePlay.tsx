@@ -1,37 +1,22 @@
 import type { ReactNode } from 'react'
-import { useChat } from '@/realtime/chat/ChatContext'
-import { ChatOverlay } from '@/realtime/chat/ChatOverlay'
-import { ChatPanel } from '@/realtime/chat/ChatPanel'
 import type { RoomSnapshot } from '@/realtime/wsEvents'
-import { isPartyRoom } from '@/room/partyControllerStorage'
-import { AudioPopover } from '@/shared/components/AudioPopover'
-import { ToastHost, useToast } from '@/shared/components/ToastHost'
-import { useWideLayout } from '@/shared/useWideLayout'
-import { type ActiveRoomSession, useAppStore } from '@/store'
-import { GameHelpModal } from '@/yacht/components/GameHelpModal'
-import { GamePlayActions } from '@/yacht/components/GamePlay/GamePlayActions'
+import type { ActiveRoomSession } from '@/store'
 import { GamePlayBoard } from '@/yacht/components/GamePlay/GamePlayBoard'
-import { QuickCategoryStrip } from '@/yacht/components/GamePlay/QuickCategoryStrip'
-import { ZeroScoreModal } from '@/yacht/components/GamePlay/ZeroScoreModal'
-import { ScoreSheet } from '@/yacht/components/ScoreSheet'
 import { TurnStrip } from '@/yacht/components/TurnStrip'
 import type { YachtCategory } from '@/yacht/domain/scoring'
-import { canOfferMotion } from '@/yacht/input/motionTypes'
 import { scoreRecordTitle, scoreSheetHint } from '@/yacht/model/gamePlayLabels'
-import { buildGamePlayView, type TurnProgress } from '@/yacht/model/gamePlayView'
-import { useCountdown } from '@/yacht/model/useCountdown'
+import type { TurnProgress } from '@/yacht/model/gamePlayView'
 import {
-  useGamePlayChrome,
-  useMyTurnAlert,
-  useRoundStartNotice,
-  useShortcuts,
-  vibrateForMyTurn,
-} from '@/yacht/model/useGamePlayChrome'
-import { useGamePlayRoll } from '@/yacht/model/useGamePlayRoll'
-import { useGamePlaySubmission } from '@/yacht/model/useGamePlaySubmission'
-import { GameControllerPad } from './GameController'
-import { GameDiceTray } from './GameDiceTray'
-import { GamePlayHeader } from './GamePlayHeader'
+  GamePlayActionsSlot,
+  GamePlayChatOverlay,
+  GamePlayChatPanel,
+  GamePlayDiceScene,
+  GamePlayHeaderSlot,
+  GamePlayOverlays,
+  GamePlayQuickStrip,
+  GamePlayScoreSheet,
+} from './GamePlaySlots'
+import { turnProgressOf, useGamePlayScreen } from './useGamePlayScreen'
 
 interface GamePlayProps {
   roomId: string
@@ -44,10 +29,8 @@ interface GamePlayProps {
 }
 
 /*
- * 200줄 기준선 초과(원칙 7)를 알고 유지한다 — 훅은 이미 model/로 전부 나가 있고
- * (파일에 생 useState/useEffect가 0개다) 남은 것은 조립뿐이다. 게임판·폰 컨트롤러·
- * 대시보드 세 형태가 같은 상태에서 갈라지는 분기가 이 화면의 사양이라, 쪼개면
- * "어떤 조건에서 무엇이 보이나"를 세 파일을 오가며 읽게 된다.
+ * 상태는 `useGamePlayScreen` 한 곳에서 만들고, 이 화면은 그것을 게임판의 구획(헤더·턴 줄·
+ * 주사위·채팅·버튼·점수표)에 나눠 꽂기만 한다. 넓은/좁은 화면의 갈림은 여기서 한눈에 보인다.
  */
 export function GamePlay({
   forceController = false,
@@ -58,303 +41,40 @@ export function GamePlay({
   session,
   snapshot,
 }: GamePlayProps) {
-  const wide = useWideLayout()
-  const connectionStatus = useAppStore((state) => state.connectionStatus)
-  const { message: toastMessage, showToast } = useToast()
-  const chat = useChat()
-
-  const game = snapshot.game
-  const roundNumber = game?.roundNumber ?? 1
-  const activePlayerId = game?.activePlayerId
-  const isMyTurn = activePlayerId === session.you
-  const roundDeadline = game?.roundDeadline ?? null
-  const countdownMs = useCountdown(roundDeadline)
-  /**
-   * 시계가 없는 판(봇만 있는 연습 방)은 서버가 마감을 null로 내려보낸다 —
-   * 그때는 남은 시간이 0이 아니라 **없는 것**이라 헤더가 타이머를 아예 그리지 않는다.
-   */
-  const remainingMs = roundDeadline === null ? null : countdownMs
-
-  const canPlay = session.membershipRole !== 'dashboard'
-
-  const controller = forceController || (!wide && canPlay && isPartyRoom(session.roomCode))
-
-  const roll = useGamePlayRoll({
-    canPlay,
-    game,
-    roomId,
-    showToast,
-    you: session.you,
-  })
-  const {
-    canHold,
-    canPick,
-    canRoll,
-    dispatch,
-    keptCount,
-    local,
-    releaseAll,
-    roll: handleRoll,
-    rolling,
-    submitted,
-    submitting,
-  } = roll
-
-  const {
-    activePlayer,
-    candidates,
-    leaderLabel,
-    myBoard,
-    openCategories,
-    rolled,
-    sheetPlayers,
-    turnPlayers,
-  } = buildGamePlayView({
-    dice: local.dice,
-    game,
-    leverageCategory,
-    players: snapshot.players,
-    you: session.you,
-  })
-
-  const {
-    audioButtonRef,
-    audioOpen,
-    chatOpen,
-    closeSheet,
-    helpOpen,
-    setAudioOpen,
-    setChatOpen,
-    setHelpOpen,
-    setSheetOpen,
-    setTurnCallout,
-    setZeroConfirm,
-    sheetOpen,
-    soundMuted,
-    toggleSound,
-    turnCallout,
-    zeroConfirm,
-  } = useGamePlayChrome({
-    activePlayerId,
-    phase: local.phase,
-    rollCount: local.rollCount,
-    setRollMuted: roll.feedback.setMuted,
-    submitted,
-    wide,
-  })
-  const { submitCategory } = useGamePlaySubmission({
-    activePlayerId,
-    dice: local.dice,
-    dispatch,
-    myBoard,
-    onSucceeded: closeSheet,
-    roomId,
-    roundNumber,
-    showToast,
-    you: session.you,
-  })
-
-  const pickCategory = (category: YachtCategory) => {
-    if (!canPick) return
-    if ((candidates[category] ?? 0) === 0) {
-      setZeroConfirm(category)
-      return
-    }
-    submitCategory(category)
-  }
-
-  useMyTurnAlert({
-    isMyTurn: isMyTurn && !submitted,
-    onAlert: () => {
-      setTurnCallout(Date.now())
-      vibrateForMyTurn()
-    },
-  })
-
-  useRoundStartNotice({
-    roundNumber,
-    onNotice: () => {
-      if (isMyTurn || !activePlayer) return
-      showToast(`라운드 ${roundNumber} 시작 — ${activePlayer.nickname}의 턴이에요`)
-    },
-  })
-
-  useShortcuts(wide && isMyTurn, { onRoll: handleRoll, dispatch })
-
-  const turnStrip = (
-    <TurnStrip activePlayerId={activePlayerId} players={turnPlayers} you={session.you} />
-  )
-
-  const diceScene = controller ? (
-    <GameControllerPad activePlayer={activePlayer} isMyTurn={isMyTurn} roll={roll} />
-  ) : (
-    <GameDiceTray
-      activePlayer={activePlayer}
-      guided={guide !== undefined}
-      isMyTurn={isMyTurn}
-      onTurnCalloutDone={() => setTurnCallout(null)}
-      roll={roll}
-      roundNumber={roundNumber}
-      turnCallout={turnCallout}
-      wide={wide}
-    />
-  )
-
-  /*
-   * 넓은 화면에서는 오른쪽 열에 채팅을 상주시킨다 — 점수표 옆에 자리가 있고, 대화를 보려고
-   * 판 위에 창을 띄우면 그때마다 주사위가 가려진다. 좁은 화면은 그 자리가 없어 창을 쓴다.
-   */
-  const chatPanel = wide ? (
-    <ChatPanel
-      chat={chat}
-      className="h-56 flex-none rounded-none border-0 border-t border-border bg-transparent"
-      you={session.you}
-    />
-  ) : null
-
-  /*
-   * 좁은 화면에서는 새 말만 잠깐 띄운다 — 판 위에 대화를 상주시키면 주사위를 계속 가리고,
-   * 창을 열어야만 보이면 굴리는 중에 오간 말을 놓친다. 지나간 대화와 입력은 헤더 버튼이 여는
-   * 시트가 맡는다.
-   *
-   * z-banner인 이유: 턴·족보 연출(`EffectCallout`, z-20)이 같은 자리에 뜬다. 아래에 깔리면
-   * 연출 글자가 말풍선을 가로질러 둘 다 못 읽는다 — 4초 동안은 대화가 위에 있는 편이 낫다.
-   */
-  const chatOverlay = wide ? null : (
-    <ChatOverlay
-      chat={chat}
-      onToggle={setChatOpen}
-      open={chatOpen}
-      peekClassName="absolute inset-x-gutter z-banner"
-      you={session.you}
-    />
-  )
-
-  const header = (
-    <GamePlayHeader
-      activePlayer={activePlayer}
-      activePlayerId={activePlayerId}
-      connectionStatus={connectionStatus}
-      isMyTurn={isMyTurn}
-      leaderLabel={leaderLabel}
-      onHelp={() => setHelpOpen(true)}
-      onLeave={onLeaveRequest}
-      audioButtonRef={audioButtonRef}
-      onOpenAudio={() => setAudioOpen(true)}
-      chatUnread={chat.unread}
-      onOpenChat={() => setChatOpen(true)}
-      remainingMs={remainingMs}
-      roundNumber={roundNumber}
-      soundMuted={soundMuted}
-      submitted={submitted}
-      wide={wide}
-    />
-  )
-
-  const zeroModal = (
-    <ZeroScoreModal
-      category={zeroConfirm}
-      onCancel={() => setZeroConfirm(null)}
-      onConfirm={() => {
-        const category = zeroConfirm
-        setZeroConfirm(null)
-        if (category) submitCategory(category)
-      }}
-    />
-  )
-
-  const quickStrip = (
-    <QuickCategoryStrip
-      canPick={canPick}
-      candidates={candidates}
-      categories={openCategories}
-      leverageCategory={leverageCategory}
-      onPick={pickCategory}
-      rolled={rolled}
-    />
-  )
-
-  const canReleaseAll = keptCount > 0 && canHold
-
-  const actions = (
-    <GamePlayActions
-      activePlayerName={activePlayer?.nickname}
-      canReleaseAll={canReleaseAll}
-      canRoll={canRoll}
-      isMyTurn={isMyTurn}
-      onReleaseAll={releaseAll}
-      onRoll={handleRoll}
-      rolling={rolling}
-      submitted={submitted}
-      submitting={submitting}
-      wide={wide}
-    />
-  )
-
-  const scoreSheet = (className: string, header?: ReactNode) => (
-    <ScoreSheet
-      activePlayerId={activePlayerId}
-      candidates={candidates}
-      canPick={canPick}
-      className={className}
-      {...(wide ? { 'data-tutorial': 'sheet' } : {})}
-      header={header}
-      leverageCategory={leverageCategory}
-      onPick={pickCategory}
-      players={sheetPlayers}
-      you={session.you}
-    />
-  )
-
-  const activePlayerName = activePlayer?.nickname
-  const sheetHint = scoreSheetHint(isMyTurn, rolled, activePlayerName)
-  const recordTitle = scoreRecordTitle(isMyTurn, activePlayerName)
+  const screen = useGamePlayScreen({ forceController, leverageCategory, roomId, session, snapshot })
+  const { chrome, turn, view, wide } = screen
+  const activePlayerName = view.activePlayer?.nickname
 
   return (
     <>
       <GamePlayBoard
-        actions={actions}
-        chatOverlay={chatOverlay}
-        chatPanel={chatPanel}
-        connectionStatus={connectionStatus}
-        diceScene={diceScene}
-        guideOverlay={guide?.({
-          rolled,
-          keptValues: local.dice ? local.dice.filter((_value, index) => local.held[index]) : [],
-          rolling,
-          submitted,
-          rollCount: local.rollCount,
-          candidates,
-          motionNoticeVisible: canOfferMotion(roll.motion.availability),
-          wide,
-        })}
-        header={header}
-        onSheetToggle={setSheetOpen}
-        openCount={openCategories.length}
+        actions={<GamePlayActionsSlot screen={screen} />}
+        chatOverlay={wide ? null : <GamePlayChatOverlay screen={screen} />}
+        chatPanel={wide ? <GamePlayChatPanel screen={screen} /> : null}
+        connectionStatus={screen.connectionStatus}
+        diceScene={<GamePlayDiceScene guided={guide !== undefined} screen={screen} />}
+        guideOverlay={guide?.(turnProgressOf(screen))}
+        header={<GamePlayHeaderSlot onLeave={onLeaveRequest} screen={screen} />}
+        onSheetToggle={chrome.setSheetOpen}
+        openCount={view.openCategories.length}
         players={snapshot.players}
-        quickStrip={quickStrip}
-        recordTitle={recordTitle}
-        scoreSheet={scoreSheet}
-        sheetHint={sheetHint}
-        sheetOpen={sheetOpen}
-        turnStrip={turnStrip}
+        quickStrip={<GamePlayQuickStrip screen={screen} />}
+        recordTitle={scoreRecordTitle(turn.isMyTurn, activePlayerName)}
+        scoreSheet={(className, header) => (
+          <GamePlayScoreSheet className={className} header={header} screen={screen} />
+        )}
+        sheetHint={scoreSheetHint(turn.isMyTurn, view.rolled, activePlayerName)}
+        sheetOpen={chrome.sheetOpen}
+        turnStrip={
+          <TurnStrip
+            activePlayerId={turn.activePlayerId}
+            players={view.turnPlayers}
+            you={session.you}
+          />
+        }
         wide={wide}
       />
-
-      <ToastHost message={toastMessage} />
-      <AudioPopover
-        anchorRef={audioButtonRef}
-        muted={soundMuted}
-        onClose={() => setAudioOpen(false)}
-        onToggleMute={toggleSound}
-        open={audioOpen}
-      />
-      {zeroModal}
-      <GameHelpModal
-        onClose={() => setHelpOpen(false)}
-        open={helpOpen}
-        timed={roundDeadline !== null}
-      />
+      <GamePlayOverlays screen={screen} />
     </>
   )
 }
