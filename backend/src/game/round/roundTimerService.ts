@@ -2,6 +2,7 @@ import { YACHT_DICE } from '../catalog.js'
 import { gameWsType } from '../module.js'
 import type { RoundDeadlineScheduler } from './deadlineScheduler.js'
 import type { RoundDeadlineStore } from './deadlineStore.js'
+import { OfflineTurns } from './roundOfflineTurns.js'
 import { removePlayerFromRound } from './roundPlayerRemoval.js'
 import type {
   ConfirmedScore,
@@ -9,7 +10,6 @@ import type {
   RoundBroadcaster,
   RoundPresence,
   RoundRoomService,
-  RoundRoomSnapshot,
 } from './roundPorts.js'
 import type { RoundState } from './roundState.js'
 import type { RoundSynchronizationService } from './roundSynchronizationService.js'
@@ -20,13 +20,7 @@ import type {
   RoundTimerServiceOptions,
   TurnAdvanceInput,
 } from './roundTimerPorts.js'
-import {
-  EXPIRY_GRACE_MS,
-  isBot,
-  isUntimedRoom,
-  MAX_OFFLINE_TURNS,
-  ROUND_DURATION_MS,
-} from './roundTiming.js'
+import { armTurn } from './roundTurnClock.js'
 
 export type {
   RoundStartedEvent,
@@ -74,8 +68,7 @@ export class RoundTimerService {
   private readonly onWarning: (roomId: string, reason: string) => void
 
   private readonly activeDeadlines = new Map<string, ActiveDeadline>()
-  /** roomId → (playerId → 오프라인으로 맞은 자기 턴 수). 재접속하면 지운다. */
-  private readonly offlineMisses = new Map<string, Map<string, number>>()
+  private readonly offlineTurns: OfflineTurns
 
   constructor(deps: RoundTimerServiceDeps, options: RoundTimerServiceOptions = {}) {
     this.timeoutResolver = deps.timeoutResolver
@@ -90,6 +83,13 @@ export class RoundTimerService {
     this.gameCode = options.gameCode ?? YACHT_DICE
     this.onRoundStarted = options.onRoundStarted ?? (() => {})
     this.onWarning = options.onWarning ?? (() => {})
+    this.offlineTurns = new OfflineTurns({
+      presence: deps.presence,
+      synchronizationService: deps.synchronizationService,
+      removePlayer: (targetRoomId, targetPlayerId) =>
+        this.removePlayer(targetRoomId, targetPlayerId),
+      advanceTurn: (targetRoomId, input) => this.advanceTurn(targetRoomId, input),
+    })
   }
 
   /**
@@ -156,52 +156,22 @@ export class RoundTimerService {
      * 정말로 돌아오지 않는 사람은 어차피 걸러진다: 되살린 마감이 발화하면 평소의 만료
      * 경로가 돌고, 그 다음 턴은 `start`를 지나므로 그때 오프라인 판정을 받는다.
      */
-    if (restored === null && this.isOffline(room, roomId, state.activePlayerId)) {
-      await this.handleOfflineTurn(roomId, state)
+    if (restored === null && this.offlineTurns.isOffline(room, roomId, state.activePlayerId)) {
+      await this.offlineTurns.handle(roomId, state)
       return null
     }
     // 턴이 시작될 때마다 방 수명을 다시 센다. 이게 없으면 TTL이 "생성 후 40분"이라,
     // 한 판이 그보다 길어지는 순간(6인 × 12라운드면 충분히 가능) 플레이 중인 방이 사라진다.
     await this.roomService.touch(roomId)
 
-    const roundNumber = state.roundNumber
-    const activePlayerId = state.activePlayerId
-    const deadline = restored
-      ? restored.deadline
-      : isUntimedRoom(room)
-        ? null
-        : this.now() + ROUND_DURATION_MS
-    this.activeDeadlines.set(roomId, { roundNumber, deadline })
-    // 되살리는 경우는 이미 저장된 값이므로 다시 쓰지 않는다 — 같은 값을 쓰는 왕복이고,
-    // 부팅 때 방 수만큼 불필요한 왕복이 늘어난다.
-    if (restored === null) await this.deadlineStore.save(roomId, { roundNumber, deadline })
-    /*
-     * 예약은 **사람에게 보이는 마감과 별개**다.
-     *
-     * - 시계가 있는 방: 마감 그대로 예약한다(강제 진행만 EXPIRY_GRACE_MS 뒤로 미룬다).
-     * - 연습 방의 사람 턴: 예약하지 않는다. 이게 "제한 시간 없음"의 전부다.
-     * - 연습 방의 **봇 턴: 화면에는 시계가 없어도 예약은 남긴다.** 봇 스텝의 예외는
-     * 삼켜지고 라운드 타이머가 유일한 폴백이기 때문이다
-     * (docs/design/games/yacht.md 「실패 격리」). 이게 없으면 봇 굴림이 한 번
-     * 실패한 연습 방은 아무도 깨우지 못해 영원히 멈춘다.
-     */
-    const expireAt =
-      deadline ?? (isBot(room, activePlayerId) ? this.now() + ROUND_DURATION_MS : null)
-    if (expireAt !== null) {
-      this.deadlineScheduler.schedule(roomId, roundNumber, expireAt + EXPIRY_GRACE_MS, () =>
-        this.expireTurn(roomId, roundNumber, activePlayerId),
-      )
-    }
-    this.broadcaster.broadcast(roomId, {
-      type: gameWsType(this.gameCode, 'round.start'),
-      ts: this.now(),
-      payload: {
-        roundNumber,
-        deadline,
-        activePlayerId,
-        turnOrder: [...state.participantOrder],
-      },
+    const deadline = await armTurn(this.clockPorts(), {
       roomId,
+      state,
+      room,
+      restored,
+      remember: (targetRoomId, roundNumber, nextDeadline) => {
+        this.activeDeadlines.set(targetRoomId, { roundNumber, deadline: nextDeadline })
+      },
     })
     this.onRoundStarted({ roomId, state })
     return deadline
@@ -220,16 +190,13 @@ export class RoundTimerService {
   async cancelRoom(roomId: string): Promise<void> {
     this.deadlineScheduler.cancelRoom(roomId)
     this.activeDeadlines.delete(roomId)
-    this.offlineMisses.delete(roomId)
+    this.offlineTurns.forgetRoom(roomId)
     await this.deadlineStore.removeRoom(roomId)
   }
 
   /** 재접속 복귀 시 호출 — 오프라인 결석 횟수를 처음부터 다시 센다. */
   clearOfflineMisses(roomId: string, playerId: string): void {
-    const misses = this.offlineMisses.get(roomId)
-    if (misses === undefined) return
-    misses.delete(playerId)
-    if (misses.size === 0) this.offlineMisses.delete(roomId)
+    this.offlineTurns.clear(roomId, playerId)
   }
 
   /**
@@ -332,34 +299,6 @@ export class RoundTimerService {
     }
   }
 
-  /** 명단에 없는 플레이어(비정상 상태)도 오프라인으로 본다 — 연결이 없다는 사실은 같다. */
-  private isOffline(room: RoundRoomSnapshot | null, roomId: string, playerId: string): boolean {
-    // 봇은 소켓이 없다 — 명단으로 판정하면 매 턴 오프라인 스킵되어 봇이 플레이할 수 없다.
-    if (isBot(room, playerId)) return false
-    const member = this.presence.find(roomId, playerId)
-    return member === null || member.status === 'offline'
-  }
-
-  private async handleOfflineTurn(roomId: string, state: RoundState): Promise<void> {
-    const playerId = state.activePlayerId
-    let misses = this.offlineMisses.get(roomId)
-    if (misses === undefined) {
-      misses = new Map()
-      this.offlineMisses.set(roomId, misses)
-    }
-    const count = (misses.get(playerId) ?? 0) + 1
-    misses.set(playerId, count)
-
-    if (count >= MAX_OFFLINE_TURNS) {
-      await this.removePlayer(roomId, playerId)
-      return
-    }
-    const expired = await this.synchronizationService.expire(roomId, state.roundNumber, playerId)
-    if (expired !== undefined) {
-      await this.advanceTurn(roomId, { score: null, round: expired })
-    }
-  }
-
   private broadcastScoreUpdate(
     roomId: string,
     score: ConfirmedScore,
@@ -373,5 +312,17 @@ export class RoundTimerService {
       // null이면 필드를 생략한다.
       msgId: requestMsgId ?? undefined,
     })
+  }
+
+  private clockPorts() {
+    return {
+      deadlineScheduler: this.deadlineScheduler,
+      deadlineStore: this.deadlineStore,
+      broadcaster: this.broadcaster,
+      now: this.now,
+      gameCode: this.gameCode,
+      onExpire: (roomId: string, roundNumber: number, activePlayerId: string) =>
+        this.expireTurn(roomId, roundNumber, activePlayerId),
+    }
   }
 }
