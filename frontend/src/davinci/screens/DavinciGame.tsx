@@ -2,13 +2,14 @@ import { ActionPanel } from '@/davinci/components/DavinciGame/ActionPanel'
 import { TileRack } from '@/davinci/components/TileRack'
 import { TurnBar } from '@/davinci/components/TurnBar'
 import {
+  type DavinciPrompt,
   hiddenCount,
   isEliminated,
   lastEventMessage,
   particle,
   promptOf,
 } from '@/davinci/domain/davinci'
-import { useDavinciGame } from '@/davinci/model/useDavinciGame'
+import { type TileSelection, useDavinciGame } from '@/davinci/model/useDavinciGame'
 import { useSecondsLeft } from '@/davinci/model/useSecondsLeft'
 import type { DavinciView, RoomSnapshot } from '@/realtime/wsEvents'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'
@@ -20,6 +21,56 @@ interface DavinciGameProps {
   roomId: string
   session: ActiveRoomSession
   snapshot: RoomSnapshot
+}
+
+interface RacksProps {
+  nameOf: (playerId: string) => string
+  prompt: DavinciPrompt
+  selectTile: (playerId: string, tileId: string) => void
+  selection: TileSelection | null
+  spectating: boolean
+  state: DavinciView
+  you: string
+}
+
+/** 상대들의 줄과 (관전이 아니면) 내 줄. 추측할 차례에만 상대 타일을 고를 수 있다. */
+function Racks({ nameOf, prompt, selectTile, selection, spectating, state, you }: RacksProps) {
+  const others = state.playerOrder.filter((playerId) => playerId !== you)
+  return (
+    <>
+      {others.map((playerId) => (
+        <TileRack
+          eliminated={isEliminated(state, playerId)}
+          hidden={hiddenCount(state, playerId)}
+          key={playerId}
+          name={nameOf(playerId)}
+          onSelectTile={
+            prompt === 'guess' && !isEliminated(state, playerId)
+              ? (tileId) => selectTile(playerId, tileId)
+              : undefined
+          }
+          selectedTileId={selection?.playerId === playerId ? selection.tileId : null}
+          tiles={state.hands[playerId] ?? []}
+          turn={state.turnPlayerId === playerId}
+        />
+      ))}
+      {!spectating && (
+        <TileRack
+          eliminated={isEliminated(state, you)}
+          hidden={hiddenCount(state, you)}
+          mine
+          name={nameOf(you)}
+          tiles={state.hands[you] ?? []}
+          turn={state.turnPlayerId === you}
+        />
+      )}
+    </>
+  )
+}
+
+/** 뽑은 타일 위 이름표 — 내 차례면 "내가", 아니면 그 사람 이름에 맞는 조사를 붙인다. */
+function drawnLabelOf(mine: boolean, turnName: string) {
+  return mine ? '내가 뽑은 타일' : `${turnName}${particle(turnName, '이', '가')} 뽑은 타일`
 }
 
 /**
@@ -50,7 +101,6 @@ export function DavinciGame({ onLeaveRequest, roomId, session, snapshot }: Davin
   // 대시보드는 판의 당사자가 아니다 — 감춘 숫자를 하나도 받지 않으므로 관전만 한다.
   const spectating = session.membershipRole === 'dashboard' || !state.playerOrder.includes(you)
   const prompt = spectating ? 'wait' : promptOf(state, you)
-  const others = state.playerOrder.filter((playerId) => playerId !== you)
   const myHand = state.hands[you] ?? []
 
   return (
@@ -75,42 +125,24 @@ export function DavinciGame({ onLeaveRequest, roomId, session, snapshot }: Davin
           `min-h-full`이라 4인 판에서는 그대로 넘쳐 스크롤된다. */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="grid min-h-full content-end gap-2">
-          {others.map((playerId) => (
-            <TileRack
-              eliminated={isEliminated(state, playerId)}
-              hidden={hiddenCount(state, playerId)}
-              key={playerId}
-              name={nameOf(playerId)}
-              onSelectTile={
-                prompt === 'guess' && !isEliminated(state, playerId)
-                  ? (tileId) => selectTile(playerId, tileId)
-                  : undefined
-              }
-              selectedTileId={selection?.playerId === playerId ? selection.tileId : null}
-              tiles={state.hands[playerId] ?? []}
-              turn={state.turnPlayerId === playerId}
-            />
-          ))}
-          {!spectating && (
-            <TileRack
-              eliminated={isEliminated(state, you)}
-              hidden={hiddenCount(state, you)}
-              mine
-              name={nameOf(you)}
-              tiles={myHand}
-              turn={state.turnPlayerId === you}
-            />
-          )}
+          <Racks
+            nameOf={nameOf}
+            prompt={prompt}
+            selectTile={selectTile}
+            selection={selection}
+            spectating={spectating}
+            state={state}
+            you={you}
+          />
         </div>
       </div>
 
       <ActionPanel
         drawn={state.drawn ?? null}
-        drawnLabel={
-          state.turnPlayerId === you && !spectating
-            ? '내가 뽑은 타일'
-            : `${nameOf(state.turnPlayerId)}${particle(nameOf(state.turnPlayerId), '이', '가')} 뽑은 타일`
-        }
+        drawnLabel={drawnLabelOf(
+          state.turnPlayerId === you && !spectating,
+          nameOf(state.turnPlayerId),
+        )}
         hand={myHand}
         number={number}
         onDecide={decide}
