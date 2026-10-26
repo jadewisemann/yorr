@@ -1,4 +1,4 @@
-import type { LocalPingPongDifficulty } from './localGame'
+import type { LocalPingPongDifficulty } from './localTypes'
 
 /**
  * 로컬 탁구의 **상대(봇) 성향 표**. 난이도별 실패 확률·폴트 허용 폭·스매시 반격률.

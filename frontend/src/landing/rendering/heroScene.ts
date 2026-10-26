@@ -2,13 +2,13 @@ import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import type { GameKey } from '@/games'
 import { buildDavinci, buildFishing, buildPingpong, materialsOf } from './heroObjects'
-import { FACE_ORDER, HERO_PALETTE, matte, pipTexture, type SpinBob } from './heroTextures'
+import { buildDuel, buildLiars, buildYacht } from './heroSceneObjects'
+import { createHeroStage } from './heroStage'
+import type { SpinBob } from './heroTextures'
 
 export type { GameKey }
 
 const MIN_FRAME_S = 1 / 30
-
-const SLATE = 0x24252a
 
 export interface HeroSceneOptions {
   container: HTMLElement
@@ -16,13 +16,20 @@ export interface HeroSceneOptions {
   reducedMotion?: boolean
 }
 
+/**
+ * 랜딩 히어로의 Three.js 장면 — **수명과 매 프레임 연출**.
+ *
+ * 무대(렌더러·조명·바닥·재질)는 `heroStage.ts`, 게임별 오브젝트는 `heroObjects.ts`가
+ * 정본이다. 이 클래스는 루프·리사이즈·포커스(보일 때만 렌더)·정리와 입장/패럴랙스
+ * 애니메이션만 갖는다.
+ */
 export class HeroScene {
   private readonly container: HTMLElement
   private readonly reducedMotion: boolean
   private readonly renderer: THREE.WebGLRenderer
-  private readonly scene = new THREE.Scene()
-  private readonly camera = new THREE.PerspectiveCamera(20, 1, 0.1, 200)
-  private readonly stage = new THREE.Group()
+  private readonly scene: THREE.Scene
+  private readonly camera: THREE.PerspectiveCamera
+  private readonly stage: THREE.Group
   private readonly clock = new THREE.Clock()
   private readonly diceMaterials: THREE.MeshStandardMaterial[]
   private readonly accentDiceMaterials: THREE.MeshStandardMaterial[]
@@ -44,57 +51,13 @@ export class HeroScene {
     this.reducedMotion =
       reducedMotion ?? window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-    const portrait = window.innerHeight > window.innerWidth
-    this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: !portrait })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    this.renderer.shadowMap.enabled = true
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
-    /* 하이라이트를 굴려 접는 필름 톤 — 매트 재질에서도 밝은 면이 종이처럼 하얗게
-       타지 않게 한다. 노출은 어두운 카드(다크)와 밝은 카드(라이트) 양쪽 실측으로 잡았다. */
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = 1.12
-    const canvas = this.renderer.domElement
-    canvas.setAttribute('aria-hidden', 'true')
-    canvas.style.cssText = 'display:block;width:100%;height:100%'
-    container.appendChild(canvas)
-
-    this.camera.position.set(0, 0.4, 9)
-
-    /* 3점 조명 — 은은한 하늘빛(hemisphere) 위에 따뜻한 키, 차가운 필, 뒤에서 실루엣을
-       따는 림. 림이 없으면 다크 카드에서 오브젝트의 어두운 면이 배경에 통째로 묻힌다. */
-    this.scene.add(new THREE.HemisphereLight(0xe6e5e1, 0x17181b, 1.35))
-    const key = new THREE.DirectionalLight(0xfff2e0, 1.1)
-    key.position.set(3.5, 5.5, 5)
-    key.castShadow = true
-    key.shadow.mapSize.set(1024, 1024)
-    key.shadow.camera.near = 1
-    key.shadow.camera.far = 30
-    key.shadow.bias = -0.0004
-    this.scene.add(key)
-    const fill = new THREE.DirectionalLight(0xbcc4d4, 0.35)
-    fill.position.set(-6, -2, -4)
-    this.scene.add(fill)
-    const rim = new THREE.DirectionalLight(0xffffff, 0.6)
-    rim.position.set(-4, 4, -7)
-    this.scene.add(rim)
-
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(40, 40),
-      new THREE.ShadowMaterial({ opacity: 0.16 }),
-    )
-    floor.rotation.x = -Math.PI / 2
-    floor.position.y = -3.1
-    floor.receiveShadow = true
-    this.scene.add(floor)
-    this.scene.add(this.stage)
-
-    /* 두 벌이 텍스처를 공유한다 — accent 벌은 같은 맵에 color 틴트만 곱해
-       레드 바디·검은 눈이 된다(야추의 "킵 = 레드" 문법을 히어로에 재현). */
-    const faceTextures = FACE_ORDER.map(pipTexture)
-    this.diceMaterials = faceTextures.map((map) => matte(0xffffff, { map, roughness: 0.42 }))
-    this.accentDiceMaterials = faceTextures.map((map) =>
-      matte(HERO_PALETTE.accent, { map, roughness: 0.42 }),
-    )
+    const parts = createHeroStage(container)
+    this.renderer = parts.renderer
+    this.scene = parts.scene
+    this.camera = parts.camera
+    this.stage = parts.stage
+    this.diceMaterials = parts.diceMaterials
+    this.accentDiceMaterials = parts.accentDiceMaterials
 
     this.setGame(game)
 
@@ -168,6 +131,7 @@ export class HeroScene {
     this.syncLoop()
   }
 
+  /** 숨김·일시정지에는 루프를 완전히 멈춘다(배터리·GPU 점유). */
   private syncLoop() {
     if (this.paused || document.hidden) {
       this.renderer.setAnimationLoop(null)
@@ -253,7 +217,7 @@ export class HeroScene {
     this.object = null
   }
 
-  private die(size: number, tone: 'ivory' | 'accent' = 'ivory') {
+  private die = (size: number, tone: 'ivory' | 'accent' = 'ivory') => {
     let geometry = this.dieGeometries.get(size)
     if (!geometry) {
       // 모서리 반경 8% — 실물 주사위의 라운드. 각진 Box는 콘크리트 블록으로 읽혔다.
@@ -273,9 +237,9 @@ export class HeroScene {
   private build(game: GameKey): THREE.Group {
     switch (game) {
       case 'liars':
-        return this.buildLiars()
+        return buildLiars(this.die)
       case 'duel':
-        return this.buildDuel()
+        return buildDuel()
       case 'pingpong':
         return buildPingpong()
       case 'fishing':
@@ -283,90 +247,7 @@ export class HeroScene {
       case 'davinci':
         return buildDavinci()
       default:
-        return this.buildYacht()
+        return buildYacht(this.die)
     }
-  }
-
-  private buildYacht() {
-    const group = new THREE.Group()
-    const spots: [number, number, number][] = [
-      [-2.1, 0.3, 0.4],
-      [-0.7, -0.5, -0.6],
-      [0.6, 0.55, 0.2],
-      [1.9, -0.35, -0.3],
-      [0.1, -1.35, 0.8],
-    ]
-    spots.forEach(([x, y, z], index) => {
-      // 가운데 큰 주사위 하나만 레드 — 야추의 "킵한 주사위 = 레드" 문법이자 화면의 브랜드 점.
-      const mesh = this.die(index === 2 ? 1.5 : 1.2, index === 2 ? 'accent' : 'ivory')
-      mesh.position.set(x, y, z)
-      mesh.userData = { spin: 0.12 + index * 0.05 } satisfies SpinBob
-      group.add(mesh)
-    })
-    return group
-  }
-
-  private buildLiars() {
-    const group = new THREE.Group()
-    const cup = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.15, 0.85, 2.1, 48, 1, true),
-      matte(SLATE, { side: THREE.DoubleSide }),
-    )
-    cup.position.set(1.5, 0.1, 0)
-    cup.rotation.z = -0.28
-    group.add(cup)
-    const dice: [number, number, number, number][] = [
-      [-1.6, -0.5, 0.3, 1.2],
-      [-0.4, 0.4, -0.4, 1.05],
-      [-1.1, 0.9, 0.6, 0.85],
-    ]
-    dice.forEach(([x, y, z, size], index) => {
-      const mesh = this.die(size)
-      mesh.position.set(x, y, z)
-      mesh.userData = { spin: 0.1 + index * 0.06 } satisfies SpinBob
-      group.add(mesh)
-    })
-    return group
-  }
-
-  private buildDuel() {
-    const group = new THREE.Group()
-    const drum = new THREE.Group()
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 0.72, 48), matte(SLATE))
-    body.castShadow = true
-    body.receiveShadow = true
-    drum.add(body)
-    for (let index = 0; index < 6; index += 1) {
-      const angle = (index / 6) * Math.PI * 2
-      const chamber = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.26, 0.26, 0.78, 24),
-        matte(0x0d0e10),
-      )
-      chamber.position.set(Math.cos(angle) * 0.72, 0, Math.sin(angle) * 0.72)
-      drum.add(chamber)
-      if (index < 2) {
-        const round = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.22, 0.22, 0.84, 20),
-          matte(HERO_PALETTE.accent),
-        )
-        round.position.copy(chamber.position)
-        drum.add(round)
-      }
-    }
-    drum.rotation.set(Math.PI / 2.35, 0, 0.2)
-    drum.position.set(0.5, 0.15, 0)
-    drum.userData = { spin: 0.42 } satisfies SpinBob
-    group.add(drum)
-
-    const cartridge = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.2, 0.5, 8, 20),
-      matte(HERO_PALETTE.accent),
-    )
-    cartridge.position.set(-1.9, -0.5, 0.6)
-    cartridge.rotation.z = 1.1
-    cartridge.castShadow = true
-    cartridge.userData = { bob: 0.9 } satisfies SpinBob
-    group.add(cartridge)
-    return group
   }
 }

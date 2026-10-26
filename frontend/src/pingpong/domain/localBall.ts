@@ -7,8 +7,8 @@ import {
   WEAK_SPEED,
 } from './court'
 import { BOT } from './localBot'
-import type { LocalFeedback, LocalPingPongState } from './localGame'
 import { clamp, lerp, type RandomSource, randomBetween } from './localMath'
+import type { LocalFeedback, LocalPingPongState } from './localTypes'
 import { trackIncomingBall } from './playerTracking'
 
 /**
