@@ -52,6 +52,8 @@
 
 `ConnectionBanner → GamePlayHeader → TurnStrip → (GameDiceTray | GameControllerPad) →
 guide? → GamePlayActions → RecordPanel(모바일) / ScoreSheet(1024px↑ 우측)`.
+화면 상태는 `screens/useGamePlayScreen.ts`가 모으고, 각 구획은 `screens/GamePlaySlots.tsx`가
+그린다. `GamePlay.tsx`는 둘을 이어 붙이는 자리만 남는다.
 
 - **레이아웃이 바뀌어도 트리 한 벌만 쓴다.** 넓이별로 다른 트리를 반환하면 React가 주사위
   영역을 언마운트해 rapier 월드와 WebGL 컨텍스트가 통째로 재생성된다.
