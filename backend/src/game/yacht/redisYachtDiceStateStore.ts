@@ -42,7 +42,7 @@ interface Change<T> {
  *
  * 2.4가 정의한 `RoundStateStore` 포트를 Redis로 구현한다. 인메모리 구현이
  * **방 단위 프라미스 체인 락**으로 얻던 "검증 → 콜백 → 커밋" 원자성을, 여기서는
- * **Redis 방 락**(`…:state:lock`, SET NX PX, 토큰 비교 해제)으로 얻는다.
+ * **Redis 방 락**(상태 키에 잠금 접미사를 붙인 키, SET NX PX, 토큰 비교 해제)으로 얻는다.
  *
  * 왜 Lua 하나가 아니라 락인가: 상태 전이가 JSON 스냅샷을 도메인 객체로 되살려
  * `RoundState`의 검증을 통과시키는 일이고, `submitAtomically`의 `beforeStateChange`가
@@ -214,7 +214,7 @@ export class RedisYachtDiceStateStore implements RoundStateStore {
   }
 
   private withLock<T>(roomId: string, action: () => Promise<T>): Promise<T> {
-    return this.lock.withLock(`${stateKey(roomId)}:lock`, action)
+    return this.lock.withLock(stateKey(roomId), action)
   }
 
   private serialize(state: RoundState): string {
