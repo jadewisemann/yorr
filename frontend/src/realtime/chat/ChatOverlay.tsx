@@ -59,28 +59,11 @@ const OPEN_PANEL =
   'fixed inset-x-0 top-0 z-sheet h-[62svh] rounded-b-panel border-b border-border bg-surface-overlay px-gutter pt-[max(0.75rem,env(safe-area-inset-top))] pb-4 shadow-overlay'
 
 /**
- * 좁은 화면 게임판 위의 채팅. 판 **위에 얹히기만 하고 껍데기를 두르지 않는다** — 카드나
- * 시트로 감싸면 주사위 판 위에 UI 층이 하나 더 생겨 화면이 무거워진다. 자리를 알려 주는 것은
- * 배경 그라데이션 하나뿐이고, 그 위에 말풍선과 입력칸이 바로 놓인다.
- *
- * 두 모습이 **같은 자리에서 이어진다.**
- * - 접힘: 새 말만 4초 떠 있다 사라진다. 굴리는 중에 오간 말을 놓치지 않으면서 판을 계속
- *   가리지도 않는 사이가 여기다.
- * - 펼침: 지난 대화와 입력칸이 그대로 아래로 이어져 내려온다. 떠 있던 말풍선을 눌러 열면
- *   방금 본 줄이 그 자리에 남아 있어 어디서 온 창인지 눈으로 따라갈 수 있고, 입력칸이 화면
- *   위쪽에 놓여 키보드가 올라와도 가리지 않는다.
- *
- * 접힘 상태에서는 **읽음 처리를 하지 않는다**: 떠 있는 4초를 놓친 사람에게는 안 읽은 말이
- * 맞고, 그 수를 헤더 배지가 들고 있어야 한다. 펼치면 `ChatBody`가 읽음으로 바꾼다.
- *
- * 접힌 대화는 스크린리더에 읽히지 않는다 — 펼친 목록의 `role="log"`가 같은 말을 이미 읽어
- * 주므로 여기서 또 읽으면 새 말마다 두 번 들린다.
+ * 접힘 상태에 떠 있을 새 말. 이미 본 줄을 기억해 두고 새로 온 줄만 `LINGER_MS` 동안 띄운다.
  */
-export function ChatOverlay({ chat, onToggle, open, peekClassName, you }: ChatOverlayProps) {
-  const { lines } = chat
+function usePeekQueue(lines: ChatLine[]) {
   const [pending, setPending] = useState<Pending[]>([])
   const seenRef = useRef<Set<string> | null>(null)
-  const close = useEffectEvent(() => onToggle(false))
 
   useEffect(() => {
     /*
@@ -117,50 +100,58 @@ export function ChatOverlay({ chat, onToggle, open, peekClassName, you }: ChatOv
     return () => clearTimeout(timer)
   }, [pending])
 
-  useEffect(() => {
-    if (!open) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [open])
+  return pending
+}
 
-  if (open) {
-    return (
-      <motion.section
-        animate={{ opacity: 1, y: 0 }}
-        aria-label="채팅"
-        className={cn('pointer-events-none flex flex-col gap-2', OPEN_PANEL)}
-        initial={{ opacity: 0, y: -10 }}
-        transition={ENTER}
-      >
-        <div className="pointer-events-auto flex flex-none justify-end">
-          <button
-            className="-my-1 -mr-1 inline-flex min-h-tap cursor-pointer items-center rounded-card border-0 bg-transparent px-2 text-xs font-semibold text-content-muted transition-colors hover:text-content focus-ring focus-visible:outline-offset-2"
-            onClick={() => onToggle(false)}
-            type="button"
-          >
-            닫기
-          </button>
-        </div>
-        <ChatBody
-          active
-          chat={chat}
-          className="pointer-events-auto min-h-0 flex-1"
-          lineVariant="toast"
-          /* 최근 말이 입력칸 바로 위에 오도록 아래부터 채운다 — 대화가 짧아도 위에 붕 뜨지 않는다. */
-          listClassName="min-h-0 flex-1 content-end"
-          you={you}
-        />
-      </motion.section>
-    )
-  }
+interface OpenChatProps {
+  chat: RoomChat
+  onClose: () => void
+  you: PlayerId
+}
 
+function OpenChat({ chat, onClose, you }: OpenChatProps) {
+  return (
+    <motion.section
+      animate={{ opacity: 1, y: 0 }}
+      aria-label="채팅"
+      className={cn('pointer-events-none flex flex-col gap-2', OPEN_PANEL)}
+      initial={{ opacity: 0, y: -10 }}
+      transition={ENTER}
+    >
+      <div className="pointer-events-auto flex flex-none justify-end">
+        <button
+          className="-my-1 -mr-1 inline-flex min-h-tap cursor-pointer items-center rounded-card border-0 bg-transparent px-2 text-xs font-semibold text-content-muted transition-colors hover:text-content focus-ring focus-visible:outline-offset-2"
+          onClick={onClose}
+          type="button"
+        >
+          닫기
+        </button>
+      </div>
+      <ChatBody
+        active
+        chat={chat}
+        className="pointer-events-auto min-h-0 flex-1"
+        lineVariant="toast"
+        /* 최근 말이 입력칸 바로 위에 오도록 아래부터 채운다 — 대화가 짧아도 위에 붕 뜨지 않는다. */
+        listClassName="min-h-0 flex-1 content-end"
+        you={you}
+      />
+    </motion.section>
+  )
+}
+
+interface PeekChatProps {
+  className?: string | undefined
+  onOpen: () => void
+  pending: Pending[]
+  you: PlayerId
+}
+
+function PeekChat({ className, onOpen, pending, you }: PeekChatProps) {
   return (
     <div
       aria-live="polite"
-      className={cn('pointer-events-none top-20 grid grid-cols-1 gap-1.5', peekClassName)}
+      className={cn('pointer-events-none top-20 grid grid-cols-1 gap-1.5', className)}
       role="status"
     >
       <AnimatePresence initial={false}>
@@ -192,7 +183,7 @@ export function ChatOverlay({ chat, onToggle, open, peekClassName, you }: ChatOv
               exit={{ opacity: 0, y: -6, transition: EXIT }}
               initial={{ opacity: 0, y: -6 }}
               key={line.messageId}
-              onClick={() => onToggle(true)}
+              onClick={onOpen}
               transition={ENTER}
             >
               <ChatLineRow className="max-w-full" line={line} variant="toast" you={you} />
@@ -201,6 +192,44 @@ export function ChatOverlay({ chat, onToggle, open, peekClassName, you }: ChatOv
         })}
       </AnimatePresence>
     </div>
+  )
+}
+
+/**
+ * 좁은 화면 게임판 위의 채팅. 판 **위에 얹히기만 하고 껍데기를 두르지 않는다** — 카드나
+ * 시트로 감싸면 주사위 판 위에 UI 층이 하나 더 생겨 화면이 무거워진다. 자리를 알려 주는 것은
+ * 배경 그라데이션 하나뿐이고, 그 위에 말풍선과 입력칸이 바로 놓인다.
+ *
+ * 두 모습이 **같은 자리에서 이어진다.**
+ * - 접힘: 새 말만 4초 떠 있다 사라진다. 굴리는 중에 오간 말을 놓치지 않으면서 판을 계속
+ *   가리지도 않는 사이가 여기다.
+ * - 펼침: 지난 대화와 입력칸이 그대로 아래로 이어져 내려온다. 떠 있던 말풍선을 눌러 열면
+ *   방금 본 줄이 그 자리에 남아 있어 어디서 온 창인지 눈으로 따라갈 수 있고, 입력칸이 화면
+ *   위쪽에 놓여 키보드가 올라와도 가리지 않는다.
+ *
+ * 접힘 상태에서는 **읽음 처리를 하지 않는다**: 떠 있는 4초를 놓친 사람에게는 안 읽은 말이
+ * 맞고, 그 수를 헤더 배지가 들고 있어야 한다. 펼치면 `ChatBody`가 읽음으로 바꾼다.
+ *
+ * 접힌 대화는 스크린리더에 읽히지 않는다 — 펼친 목록의 `role="log"`가 같은 말을 이미 읽어
+ * 주므로 여기서 또 읽으면 새 말마다 두 번 들린다.
+ */
+export function ChatOverlay({ chat, onToggle, open, peekClassName, you }: ChatOverlayProps) {
+  const pending = usePeekQueue(chat.lines)
+  const close = useEffectEvent(() => onToggle(false))
+
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [open])
+
+  if (open) return <OpenChat chat={chat} onClose={() => onToggle(false)} you={you} />
+
+  return (
+    <PeekChat className={peekClassName} onOpen={() => onToggle(true)} pending={pending} you={you} />
   )
 }
 
