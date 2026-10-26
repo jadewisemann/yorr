@@ -28,3 +28,6 @@ Thumbs.db
 /.dev.md
 deploy/botkeep/out/
 deploy/botkeep/server.*
+
+# Agent worktrees (per-session, disposable — node_modules 포함)
+.claude/worktrees/
