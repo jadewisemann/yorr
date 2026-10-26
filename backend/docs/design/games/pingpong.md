@@ -53,8 +53,7 @@ lastEvent{id(=version), type, playerId, at}
 `판정시각 = max(now-120ms, min(now, clientTs))` — 이상점→네트 밴드 폭이
 0.12(정상 속도 기준 120ms)라 업링크 지연이 완벽한 스윙을 네트로 만든다.
 미래 timestamp는 now로, 과거는 120ms까지만 롤백(죽은 공을 쳤다고 주장 불가).
-알려진 잔여 구멍(클라이언트 시계가 느리면 공짜 롤백)과 개선안(벽시계 대신
-상태 기준 경과시간)은 `pingPongRules.ts` 주석에 있다.
+잔여 구멍(느린 클라 시계의 공짜 롤백)과 개선안은 `pingPongRules.ts` 주석에 있다.
 
 ## 준비 게이트·서브·득점
 
@@ -128,7 +127,9 @@ duel과 동일 패턴: `RedisPingPongStateStore` SETNX init
 | `pingPongPorts.ts` | 바깥 계층(브로드캐스터·레지스트리·스케줄러·스냅샷·종료·방·점수 기록)의 좁은 포트 + 상태 저장소 포트 |
 | `pingPongStateStore.ts` | Redis 어댑터(SETNX·방 락·TTL 복사·unlock 스크립트) |
 | `pingPongScoreWriter.ts` | 종료 시 `room:{code}:scores` 기록(roster 필터) |
-| `pingPongGameService.ts` | 진행 순서의 권위(방송·스냅샷 동봉·취소 시퀀스) |
+| `pingPongGameService.ts` | 입력 판정(스윙·준비·보고) |
+| `pingPongProgress.ts` | 방송·예약·정산·방 정리 |
+| `pingPongResume.ts` | 재접속·재개·부팅 복구 |
 | `pingPongGameModule.ts` | `GameModule` 구현 — 라우팅(`swing`·`ready`)·멤버십 검증·오류 응답 |
 | `index.ts` | 공개 표면(배럴). 배선과 4.6은 여기만 import한다 |
 
