@@ -70,13 +70,29 @@ function highPassMagnitude(sample: MotionVector, gravity: MotionVector) {
   return Math.sqrt(dx * dx + dy * dy + dz * dz)
 }
 
-export function useSwing({
-  onSwing,
-  enabled = true,
-  threshold = DEFAULT_THRESHOLD,
-}: UseSwingOptions) {
-  const [permission, setPermission] = useState<SwingPermission>('unknown')
+type DeviceMotionApi = typeof DeviceMotionEvent & {
+  requestPermission?: () => Promise<'granted' | 'denied'>
+}
 
+function deviceMotionApi() {
+  return window.DeviceMotionEvent as DeviceMotionApi | undefined
+}
+
+/** iOS는 사용자 제스처 안에서 권한을 물어야 한다. 묻는 API가 없으면 이미 허용된 것이다. */
+async function askMotionPermission(deviceMotion: DeviceMotionApi): Promise<'granted' | 'denied'> {
+  try {
+    if (typeof deviceMotion.requestPermission !== 'function') return 'granted'
+    return (await deviceMotion.requestPermission()) === 'granted' ? 'granted' : 'denied'
+  } catch {
+    return 'denied'
+  }
+}
+
+/**
+ * devicemotion 구독. 콜백·활성·임계값은 ref로 들어 리스너를 갈아 끼우지 않는다 —
+ * 스윙 판정 상태(무장·쿨다운·중력 추정)가 렌더마다 끊기면 안 된다.
+ */
+function useMotionListener({ onSwing, enabled, threshold }: Required<UseSwingOptions>) {
   const onSwingRef = useRef(onSwing)
   const enabledRef = useRef(enabled)
   const thresholdRef = useRef(threshold)
@@ -120,12 +136,19 @@ export function useSwing({
     listening.current = false
   }, [handleMotion])
 
+  return { startListening, stopListening }
+}
+
+export function useSwing({
+  onSwing,
+  enabled = true,
+  threshold = DEFAULT_THRESHOLD,
+}: UseSwingOptions) {
+  const [permission, setPermission] = useState<SwingPermission>('unknown')
+  const { startListening, stopListening } = useMotionListener({ onSwing, enabled, threshold })
+
   useEffect(() => {
-    const deviceMotion = window.DeviceMotionEvent as
-      | (typeof DeviceMotionEvent & {
-          requestPermission?: () => Promise<'granted' | 'denied'>
-        })
-      | undefined
+    const deviceMotion = deviceMotionApi()
     if (!deviceMotion) {
       setPermission('unsupported')
       return
@@ -138,31 +161,14 @@ export function useSwing({
   }, [startListening, stopListening])
 
   const requestPermission = useCallback(async () => {
-    const deviceMotion = window.DeviceMotionEvent as
-      | (typeof DeviceMotionEvent & {
-          requestPermission?: () => Promise<'granted' | 'denied'>
-        })
-      | undefined
+    const deviceMotion = deviceMotionApi()
     if (!deviceMotion) {
       setPermission('unsupported')
       return
     }
-    try {
-      if (typeof deviceMotion.requestPermission === 'function') {
-        const res = await deviceMotion.requestPermission()
-        if (res === 'granted') {
-          startListening()
-          setPermission('granted')
-        } else {
-          setPermission('denied')
-        }
-      } else {
-        startListening()
-        setPermission('granted')
-      }
-    } catch {
-      setPermission('denied')
-    }
+    const result = await askMotionPermission(deviceMotion)
+    if (result === 'granted') startListening()
+    setPermission(result)
   }, [startListening])
 
   return { permission, requestPermission }
