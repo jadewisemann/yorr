@@ -126,60 +126,74 @@ export function createLocalYachtClient(mode: LocalYachtMode) {
         ),
       ],
       'game.yacht_dice.round.submit': (message) => {
-        const { category, dice: submitted, roundNumber } = message.payload
-        const score =
-          mode.score?.({
-            category,
-            dice: submitted,
-            roundNumber,
-            used: recordedCategories(board),
-          }) ?? scoreCategory(submitted, category)
-        const categories = { ...board.categories, [category]: score }
-        const summary = calculateScoreSummary(recordedOnly(categories))
-        board = {
-          categories,
-          upperSubtotal: summary.upperSubtotal,
-          upperBonus: summary.upperBonus,
-          total: summary.total,
-        }
+        const { roundNumber } = message.payload
+        board = scoredBoard(mode, board, message.payload)
         dice = null
-
-        const replies: ServerMessage[] = [
+        return [
           serverMessage(
             'game.yacht_dice.score.update',
             { playerId, scoreboard: board },
             { roomId, msgId: message.msgId },
           ),
+          ...afterSubmitMessages(mode, roundNumber, board.total),
         ]
-        if (mode.rounds === undefined) return replies
-
-        if (roundNumber < mode.rounds) {
-          replies.push(
-            serverMessage(
-              'game.yacht_dice.round.start',
-              {
-                roundNumber: roundNumber + 1,
-                deadline: null,
-                activePlayerId: playerId,
-                turnOrder: [playerId],
-              },
-              { roomId },
-            ),
-          )
-          return replies
-        }
-        replies.push(
-          serverMessage(
-            'game.yacht_dice.game.over',
-            { rankings: [{ rank: 1, playerId, total: board.total }] },
-            { roomId },
-          ),
-        )
-        return replies
       },
       'sys.ping': () => [],
     },
   })
+}
+
+/** 제출한 칸을 채운 새 점수판. mode.score가 있으면 그 점수를, 없으면 규칙대로 계산한다. */
+function scoredBoard(
+  mode: LocalYachtMode,
+  board: ScoreBoard,
+  submission: { category: YachtCategory; dice: DiceSet; roundNumber: number },
+): ScoreBoard {
+  const { category, dice, roundNumber } = submission
+  const score =
+    mode.score?.({ category, dice, roundNumber, used: recordedCategories(board) }) ??
+    scoreCategory(dice, category)
+  const categories = { ...board.categories, [category]: score }
+  const summary = calculateScoreSummary(recordedOnly(categories))
+  return {
+    categories,
+    upperSubtotal: summary.upperSubtotal,
+    upperBonus: summary.upperBonus,
+    total: summary.total,
+  }
+}
+
+/**
+ * 기록 뒤에 이어지는 진행 메시지. 라운드 수가 정해진 판(레버리지)만 다음 라운드를 열거나
+ * 끝낸다 — 튜토리얼처럼 정하지 않은 판은 점수 기록에서 멈춘다.
+ */
+function afterSubmitMessages(
+  { playerId, roomId, rounds }: LocalYachtMode,
+  roundNumber: number,
+  total: number,
+): ServerMessage[] {
+  if (rounds === undefined) return []
+  if (roundNumber < rounds) {
+    return [
+      serverMessage(
+        'game.yacht_dice.round.start',
+        {
+          roundNumber: roundNumber + 1,
+          deadline: null,
+          activePlayerId: playerId,
+          turnOrder: [playerId],
+        },
+        { roomId },
+      ),
+    ]
+  }
+  return [
+    serverMessage(
+      'game.yacht_dice.game.over',
+      { rankings: [{ rank: 1, playerId, total }] },
+      { roomId },
+    ),
+  ]
 }
 
 function recordedCategories(board: ScoreBoard): YachtCategory[] {
