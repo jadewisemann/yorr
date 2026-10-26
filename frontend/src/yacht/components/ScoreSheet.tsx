@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import type { PlayerId } from '@/realtime/wsEvents'
 import { cn } from '@/shared/cn'
 import { Tooltip } from '@/shared/components/Tooltip'
@@ -25,6 +25,39 @@ interface ScoreSheetProps {
   onPick: (category: YachtCategory) => void
   players: ScoreSheetPlayer[]
   you: PlayerId
+}
+
+/** 스크롤해도 위에 붙어 있는 머리 — 바깥에서 넣는 header와 열 이름(족보 · 플레이어) 줄. */
+function SheetHead({
+  activePlayerId,
+  columns,
+  header,
+  players,
+}: Pick<ScoreSheetProps, 'activePlayerId' | 'header' | 'players'> & { columns: CSSProperties }) {
+  return (
+    <div className="sticky top-0 z-sticky bg-canvas">
+      {header}
+      <div className="grid min-h-9 items-center gap-1 border-b border-border px-3" style={columns}>
+        <span className="flex items-center gap-1.5 text-2xs font-bold tracking-[0.08em] text-content-muted uppercase">
+          족보
+          <Tooltip
+            align="start"
+            content="내 차례에 굴리면 내 열에 미리보기 점수가 떠요. 그 숫자를 탭하면 바로 기록됩니다."
+            label="점수 기록 방법"
+          />
+        </span>
+        {players.map((player) => (
+          <span className="justify-self-center" key={player.playerId}>
+            <PlayerBadge
+              active={player.playerId === activePlayerId}
+              nickname={player.nickname}
+              size="sm"
+            />
+          </span>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 /*
@@ -94,31 +127,12 @@ export function ScoreSheet({
       // biome-ignore lint/a11y/noNoninteractiveTabindex: 스크롤 영역은 포커스를 받아야 한다
       tabIndex={0}
     >
-      <div className="sticky top-0 z-sticky bg-canvas">
-        {header}
-        <div
-          className="grid min-h-9 items-center gap-1 border-b border-border px-3"
-          style={columns}
-        >
-          <span className="flex items-center gap-1.5 text-2xs font-bold tracking-[0.08em] text-content-muted uppercase">
-            족보
-            <Tooltip
-              align="start"
-              content="내 차례에 굴리면 내 열에 미리보기 점수가 떠요. 그 숫자를 탭하면 바로 기록됩니다."
-              label="점수 기록 방법"
-            />
-          </span>
-          {players.map((player) => (
-            <span className="justify-self-center" key={player.playerId}>
-              <PlayerBadge
-                active={player.playerId === activePlayerId}
-                nickname={player.nickname}
-                size="sm"
-              />
-            </span>
-          ))}
-        </div>
-      </div>
+      <SheetHead
+        activePlayerId={activePlayerId}
+        columns={columns}
+        header={header}
+        players={players}
+      />
 
       {YACHT_UPPER_CATEGORIES.map(renderCategoryRow)}
       {metaRow(`소계 / ${UPPER_BONUS_THRESHOLD}`, meta.subtotal, {
