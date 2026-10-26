@@ -1,11 +1,23 @@
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { PHYSICS_DICE_CONFIG } from './config'
+import { collectFacePips } from './pips'
+import { roundedRectRingGeometry } from './roundedRect'
 import type { PhysicsDiceValue } from './types'
+
+/**
+ * 물리 주사위의 **메시 조립** — 지오메트리·재질·한 개의 주사위 그룹, 그리고 자세
+ * (어느 면이 위인가) 계산.
+ *
+ * 순수 도형 조작은 두 파일로 갈랐다:
+ * - `roundedRect.ts` — 선택 테두리용 링과 둥근 사각형 경로
+ * - `pips.ts` — 면별 눈금 좌표와 인스턴스 변환
+ *
+ * 이 파일은 그것들을 엮어 Three.js 객체를 만들고, 쿼터니언↔면 값 변환을 맡는다.
+ */
 
 const BASE_SIZE = PHYSICS_DICE_CONFIG.scene.baseDiceSize
 const UP = new THREE.Vector3(0, 1, 0)
-const PIP_FORWARD = new THREE.Vector3(0, 0, 1)
 
 const FACE_NORMALS: ReadonlyArray<{ value: PhysicsDiceValue; normal: THREE.Vector3 }> = [
   { value: 1, normal: new THREE.Vector3(0, 1, 0) },
@@ -15,40 +27,6 @@ const FACE_NORMALS: ReadonlyArray<{ value: PhysicsDiceValue; normal: THREE.Vecto
   { value: 3, normal: new THREE.Vector3(0, 0, 1) },
   { value: 4, normal: new THREE.Vector3(0, 0, -1) },
 ]
-
-const PIPS: Record<PhysicsDiceValue, ReadonlyArray<readonly [number, number]>> = {
-  1: [[0, 0]],
-  2: [
-    [-1, -1],
-    [1, 1],
-  ],
-  3: [
-    [-1, -1],
-    [0, 0],
-    [1, 1],
-  ],
-  4: [
-    [-1, -1],
-    [1, -1],
-    [-1, 1],
-    [1, 1],
-  ],
-  5: [
-    [-1, -1],
-    [1, -1],
-    [0, 0],
-    [-1, 1],
-    [1, 1],
-  ],
-  6: [
-    [-1, -1],
-    [1, -1],
-    [-1, 0],
-    [1, 0],
-    [-1, 1],
-    [1, 1],
-  ],
-}
 
 export interface PhysicsDiceGeometries {
   body: RoundedBoxGeometry
@@ -102,6 +80,7 @@ export function createPhysicsDiceMaterials(): PhysicsDiceMaterials {
   }
 }
 
+/** 한 개의 주사위 그룹 — 몸통 + 면별 눈금 인스턴스. */
 export function createDieModel(
   index: number,
   materials: PhysicsDiceMaterials,
@@ -116,6 +95,7 @@ export function createDieModel(
   group.add(body)
 
   const matrices: Record<'dark' | 'red', THREE.Matrix4[]> = { dark: [], red: [] }
+  // 1면만 빨강 — 나머지는 검정. 면 법선과 두 축은 `pips.ts`가 좌표로 쓴다.
   collectFacePips(
     matrices.red,
     1,
@@ -171,7 +151,8 @@ export function createDieModel(
   return group
 }
 
-export function quaternionForTopValue(value: PhysicsDiceValue) {
+/** 면 값이 위로 오도록 하는 회전. */
+export function quaternionForTopValue(value: PhysicsDiceValue): THREE.Quaternion {
   const rotations: Record<PhysicsDiceValue, readonly [number, number, number]> = {
     1: [0, 0, 0],
     2: [0, 0, Math.PI / 2],
@@ -189,6 +170,7 @@ export function faceNormalForValue(value: PhysicsDiceValue): THREE.Vector3 {
   return face.normal.clone()
 }
 
+/** 이 회전에서 위(+Y)를 향한 면. 정렬이 가장 큰 법선이 이긴다. */
 export function topFaceFromQuaternion(rotation: THREE.QuaternionLike): PhysicsDiceValue {
   const quaternion = new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w)
   return FACE_NORMALS.reduce(
@@ -198,56 +180,4 @@ export function topFaceFromQuaternion(rotation: THREE.QuaternionLike): PhysicsDi
     },
     { value: 1 as PhysicsDiceValue, alignment: -Infinity },
   ).value
-}
-
-function collectFacePips(
-  target: THREE.Matrix4[],
-  value: PhysicsDiceValue,
-  normal: THREE.Vector3,
-  axisA: THREE.Vector3,
-  axisB: THREE.Vector3,
-) {
-  for (const [column, row] of PIPS[value]) {
-    const transform = new THREE.Object3D()
-    transform.position.copy(normal).multiplyScalar(BASE_SIZE / 2 + 0.0065)
-    transform.position.addScaledVector(axisA, column * BASE_SIZE * 0.232)
-    transform.position.addScaledVector(axisB, row * BASE_SIZE * 0.232)
-    transform.quaternion.setFromUnitVectors(PIP_FORWARD, normal)
-    transform.updateMatrix()
-    target.push(transform.matrix.clone())
-  }
-}
-
-function roundedRectRingGeometry(
-  outerHalf: number,
-  innerHalf: number,
-  outerRadius: number,
-  innerRadius: number,
-) {
-  const shape = roundedRectPath(new THREE.Shape(), outerHalf, outerRadius)
-  const hole = new THREE.Path()
-  hole.moveTo(-innerHalf + innerRadius, -innerHalf)
-  hole.quadraticCurveTo(-innerHalf, -innerHalf, -innerHalf, -innerHalf + innerRadius)
-  hole.lineTo(-innerHalf, innerHalf - innerRadius)
-  hole.quadraticCurveTo(-innerHalf, innerHalf, -innerHalf + innerRadius, innerHalf)
-  hole.lineTo(innerHalf - innerRadius, innerHalf)
-  hole.quadraticCurveTo(innerHalf, innerHalf, innerHalf, innerHalf - innerRadius)
-  hole.lineTo(innerHalf, -innerHalf + innerRadius)
-  hole.quadraticCurveTo(innerHalf, -innerHalf, innerHalf - innerRadius, -innerHalf)
-  hole.lineTo(-innerHalf + innerRadius, -innerHalf)
-  shape.holes.push(hole)
-  return new THREE.ShapeGeometry(shape, 6)
-}
-
-function roundedRectPath<T extends THREE.Path>(path: T, half: number, radius: number): T {
-  path.moveTo(-half + radius, -half)
-  path.lineTo(half - radius, -half)
-  path.quadraticCurveTo(half, -half, half, -half + radius)
-  path.lineTo(half, half - radius)
-  path.quadraticCurveTo(half, half, half - radius, half)
-  path.lineTo(-half + radius, half)
-  path.quadraticCurveTo(-half, half, -half, half - radius)
-  path.lineTo(-half, -half + radius)
-  path.quadraticCurveTo(-half, -half, -half + radius, -half)
-  return path
 }
