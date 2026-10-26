@@ -1,10 +1,28 @@
 import { DomainError } from '../../errors.js'
+import {
+  ballAt,
+  ballX,
+  faultOf,
+  flightDeadline,
+  IDEAL_1,
+  IDEAL_2,
+  MAX_ROLLBACK_MILLIS,
+  missDeadline,
+  NORMAL_SPEED,
+  POINT_COUNTDOWN_MILLIS,
+  progress,
+  returnKind,
+  WIN_SCORE,
+  WINDOW_1_HIGH,
+  WINDOW_1_LOW,
+  WINDOW_2_HIGH,
+  WINDOW_2_LOW,
+} from './pingPongCourtMath.js'
 import type {
   PingPongBall,
   PingPongDirection,
   PingPongEvent,
   PingPongEventType,
-  PingPongFault,
   PingPongPhase,
   PingPongPlayerNumbers,
   PingPongState,
@@ -23,34 +41,6 @@ import { isPingPongFinished } from './pingPongState.js'
  * 좌우(x)는 `x0 → x1` 선형 보간이고 진행률 0.5가 네트 통과 지점이다.
  */
 
-export const NORMAL_SPEED = 1.0
-export const SMASH_SPEED = 1.95
-export const WEAK_SPEED = 0.82
-export const WIN_SCORE = 11
-/** 득점 후·전원 ready 후 다음 서브까지의 시간. */
-export const POINT_COUNTDOWN_MILLIS = 2_600
-/** 스윙을 과거로 되감을 수 있는 최대 폭 ({@link judgedAt} 참고). */
-export const MAX_ROLLBACK_MILLIS = 120
-
-/* ── 판정 창 (player 0 기준. player 1은 `1 - v` 미러) ───────────────────── */
-
-/** 이상점 — 여기서 정확히 치면 스매시다. */
-const IDEAL_1 = 0.9
-const WINDOW_1_LOW = 0.72
-const WINDOW_1_HIGH = 1.06
-/** 여기까지 오면 놓친 것으로 마감된다(라켓 뒤). */
-const MISS_1 = 1.1
-const IDEAL_2 = 1 - IDEAL_1
-const WINDOW_2_LOW = 1 - WINDOW_1_HIGH
-const WINDOW_2_HIGH = 1 - WINDOW_1_LOW
-const MISS_2 = 1 - MISS_1
-const PERFECT_DISTANCE = 0.06
-const GOOD_DISTANCE = 0.1
-/** 창 끝에서 이만큼은 폴트 — 창 안이라도 이상점에서 멀면 OUT/NET이다. */
-const FAULT_BAND = 0.04
-const EARLY_MARGIN = IDEAL_1 - WINDOW_1_LOW
-const LATE_MARGIN = WINDOW_1_HIGH - IDEAL_1
-
 /** playerOrder 안의 좌석. 없으면 -1. */
 const seatOf = (state: PingPongState, playerId: string): number =>
   state.playerOrder.indexOf(playerId)
@@ -65,67 +55,24 @@ const event = (
   now: number,
 ): PingPongEvent => ({ id: version, type, playerId, at: now })
 
-/** 진행률 — direction에 따라 pos를 0→1로 정규화한다. */
-const progress = (pos: number, direction: PingPongDirection): number =>
-  direction > 0 ? pos : 1 - pos
-
-/** `from → to`를 speed로 지나는 데 걸리는 시간(ms). 최소 1ms. */
-const duration = (from: number, to: number, speed: number): number =>
-  Math.max(1, Math.round((Math.abs(to - from) / speed) * 1_000))
-
-/** 서브한 공을 아무도 치지 않았을 때의 실점 시각. */
-const missDeadline = (ball: PingPongBall, now: number): number =>
-  now + duration(ball.pos, ball.direction > 0 ? MISS_1 : MISS_2, ball.speed)
-
-/**
- * 리턴한 공의 마감 시각. 폴트 공은 상대 라켓까지 가지 않는다 — NET은 네트
- * (진행률 0.5)에서, OUT은 테이블 밖(±0.5)에서 죽는다.
- */
-const flightDeadline = (ball: PingPongBall, now: number): number => {
-  let target: number
-  if (ball.fault === 'NET') target = 0.5
-  else if (ball.fault === 'OUT') target = ball.direction > 0 ? 1.5 : -0.5
-  else target = ball.direction > 0 ? MISS_1 : MISS_2
-  return now + duration(ball.pos, target, ball.speed)
-}
-
-/**
- * `now` 시점으로 공을 전진시킨다. 궤적이 같으므로 `pos`·`launchedAt`만 옮기는
- * 재표현이고 상태 변화가 아니다.
- */
-export const ballAt = (ball: PingPongBall, now: number): PingPongBall => {
-  const elapsed = Math.max(0, now - ball.launchedAt) / 1_000
-  return { ...ball, pos: ball.pos + ball.direction * ball.speed * elapsed, launchedAt: now }
-}
-
-/** 현재 좌우 위치 — `x0 → x1` 보간을 진행률로 잘라낸다. */
-const ballX = (ball: PingPongBall): number => {
-  const p = progress(ball.pos, ball.direction)
-  return ball.x0 + (ball.x1 - ball.x0) * Math.max(0, Math.min(1, p))
-}
-
-/**
- * 창 안이지만 이상점에서 먼 스윙의 폴트 판정. 이르면 OUT, 늦으면 NET이다
- * (일찍 치면 라켓 각이 서서 넘어가고, 늦으면 눌려서 네트에 걸린다).
- */
-const faultOf = (distance: number, early: boolean): PingPongFault | undefined => {
-  const limit = (early ? EARLY_MARGIN : LATE_MARGIN) - FAULT_BAND
-  if (distance <= limit) return undefined
-  return early ? 'OUT' : 'NET'
-}
-
-/** 리턴의 성격 — 폴트가 있으면 그것이 이기고, 없으면 이상점과의 거리로 등급이 갈린다. */
-const returnKind = (
-  distance: number,
-  fault: PingPongFault | undefined,
-): { readonly speed: number; readonly smash: boolean; readonly type: PingPongEventType } => {
-  // 폴트 공도 속도가 다르다: OUT은 세게 넘어가고 NET은 눌려서 약하다.
-  if (fault === 'OUT') return { speed: NORMAL_SPEED, smash: false, type: 'OUT' }
-  if (fault === 'NET') return { speed: WEAK_SPEED, smash: false, type: 'NET' }
-  if (distance <= PERFECT_DISTANCE) return { speed: SMASH_SPEED, smash: true, type: 'SMASH' }
-  if (distance <= GOOD_DISTANCE) return { speed: NORMAL_SPEED, smash: false, type: 'NICE' }
-  return { speed: WEAK_SPEED, smash: false, type: 'OK' }
-}
+// 공의 궤적·판정 창·등급은 pingPongCourtMath.ts가 정본이다. 기존 소비자가 이
+// 파일에서 가져가므로 여기서 re-export한다.
+export {
+  ballAt,
+  IDEAL_1,
+  IDEAL_2,
+  MAX_ROLLBACK_MILLIS,
+  missDeadline,
+  NORMAL_SPEED,
+  POINT_COUNTDOWN_MILLIS,
+  SMASH_SPEED,
+  WEAK_SPEED,
+  WIN_SCORE,
+  WINDOW_1_HIGH,
+  WINDOW_1_LOW,
+  WINDOW_2_HIGH,
+  WINDOW_2_LOW,
+} from './pingPongCourtMath.js'
 
 /**
  * 실제 탁구의 서브 교대 규칙. 상태가 서브권이 아니라 **"다음 서브를 받을 사람"**

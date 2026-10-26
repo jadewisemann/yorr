@@ -1,0 +1,7 @@
+#!/bin/sh
+# 저장소 훅은 `npm run hooks:install`(내부적으로 core.hooksPath 지정)로 켠다.
+# 검사 항목과 근거는 각 스크립트의 머리말에 있다.
+set -e
+
+node tools/check-file-tokens.mjs
+node tools/check-loc-ratchet.mjs --staged

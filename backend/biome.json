@@ -23,6 +23,15 @@
       "preset": "recommended",
       "complexity": {
         "noExcessiveCognitiveComplexity": "warn"
+      },
+      "style": {
+        "noExcessiveLinesPerFile": {
+          "level": "error",
+          "options": {
+            "maxLines": 500,
+            "skipBlankLines": true
+          }
+        }
       }
     }
   },
@@ -40,6 +49,16 @@
         "rules": {
           "complexity": {
             "noExcessiveCognitiveComplexity": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/__tests__/**", "test/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noExcessiveLinesPerFile": "off"
           }
         }
       }

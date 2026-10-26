@@ -89,6 +89,7 @@ Mobile / Desktop Browser
 │   ├── DESIGN.md          # 시스템 설계 정본(source of truth)
 │   └── PLANS.md           # 마이그레이션 단계·상태 표
 ├── deploy/botkeep/        # Botkeep 배포 안내 (번들은 CI가 botkeep 브랜치에 올린다)
+├── tools/                 # 저장소 공통 개발 도구 (커밋 훅·품질 래칫)
 └── AGENTS.md              # 에이전트 작업·Git 협업 규칙
 ```
 
@@ -97,6 +98,24 @@ Mobile / Desktop Browser
 ### 준비 사항
 
 - Node.js 22.13 이상과 npm (백엔드의 DB가 Node 내장 SQLite다)
+
+### 0. 저장소 공통 도구
+
+커밋 훅을 켭니다. 한 번만 실행하면 됩니다.
+
+```bash
+npm install
+npm run hooks:install
+```
+
+`pre-commit`은 스테이징된 파일이 **5,000 토큰(cl100k)** 을 넘거나 **500줄(비공백)**
+을 넘으면 커밋을 막습니다. 파일 하나가 LLM 컨텍스트를 통째로 먹거나 읽기 어려워지는
+것을 막는 장치입니다. 잠금 파일·생성물·바이너리와 **테스트·CSS**는 토큰 검사에서
+제외하며, 정당한 예외라면 `git commit --no-verify`로 우회할 수 있습니다.
+
+이미 상한을 넘던 파일은 `tools/token-baseline.json`과 `biome.json`의 `overrides`에
+기준선으로 고정되어 있습니다. 두 목록 모두 **줄어들기만** 하도록 `npm run check:tokens`와
+`npm run check:loc`이 검사하며, 같은 검사가 CI(`quality.yml`)에서도 돕니다.
 
 ### 1. 백엔드 실행
 

@@ -1,129 +1,14 @@
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import type { GameKey } from '@/games'
-import { dsColorReader } from '@/styles/tokenFallbacks'
+import { buildDavinci, buildFishing, buildPingpong, materialsOf } from './heroObjects'
+import { FACE_ORDER, HERO_PALETTE, matte, pipTexture, type SpinBob } from './heroTextures'
 
 export type { GameKey }
 
 const MIN_FRAME_S = 1 / 30
 
-const IVORY = 0xf4f1e8
-const INK = 0x0b0b0c
-const ACCENT = 0xe53935
 const SLATE = 0x24252a
-
-type PipCount = 1 | 2 | 3 | 4 | 5 | 6
-
-const PIP_LAYOUT: Record<PipCount, [number, number][]> = {
-  1: [[0.5, 0.5]],
-  2: [
-    [0.28, 0.28],
-    [0.72, 0.72],
-  ],
-  3: [
-    [0.26, 0.26],
-    [0.5, 0.5],
-    [0.74, 0.74],
-  ],
-  4: [
-    [0.29, 0.29],
-    [0.71, 0.29],
-    [0.29, 0.71],
-    [0.71, 0.71],
-  ],
-  5: [
-    [0.28, 0.28],
-    [0.72, 0.28],
-    [0.5, 0.5],
-    [0.28, 0.72],
-    [0.72, 0.72],
-  ],
-  6: [
-    [0.29, 0.24],
-    [0.71, 0.24],
-    [0.29, 0.5],
-    [0.71, 0.5],
-    [0.29, 0.76],
-    [0.71, 0.76],
-  ],
-}
-
-const FACE_ORDER: PipCount[] = [1, 6, 2, 5, 3, 4]
-
-interface SpinBob {
-  bob?: number
-  spin?: number
-}
-
-/**
- * 면 하나의 텍스처. 민짜 단색이면 조명이 아무리 좋아도 면이 종이처럼 읽혀서,
- * 위가 살짝 밝은 세로 그라디언트(면의 방향감)와 가장자리 비네팅(모서리로 말려
- * 들어가는 느낌), 눈의 안쪽 그림자(파인 홈)를 겹친다. 눈 하나 = fill 한 번의
- * 계약은 유지한다(heroScene.test가 21회를 센다) — 셰이딩은 전부 fillRect와
- * 그라디언트 fillStyle로만 얹는다.
- */
-function pipTexture(pips: PipCount) {
-  const size = 512
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const context = canvas.getContext('2d')
-  if (!context) throw new Error('주사위 텍스처를 그릴 수 없습니다.')
-  const color = dsColorReader()
-  context.fillStyle = color('--ds-color-physics-die')
-  context.fillRect(0, 0, size, size)
-
-  const sheen = context.createLinearGradient(0, 0, 0, size)
-  sheen.addColorStop(0, 'rgb(255 255 255 / 45%)')
-  sheen.addColorStop(0.45, 'rgb(255 255 255 / 0%)')
-  context.fillStyle = sheen
-  context.fillRect(0, 0, size, size)
-
-  const vignette = context.createRadialGradient(
-    size / 2,
-    size / 2,
-    size * 0.3,
-    size / 2,
-    size / 2,
-    size * 0.72,
-  )
-  vignette.addColorStop(0, 'rgb(0 0 0 / 0%)')
-  vignette.addColorStop(1, 'rgb(0 0 0 / 14%)')
-  context.fillStyle = vignette
-  context.fillRect(0, 0, size, size)
-
-  const pipRadius = size * 0.075
-  for (const [x, y] of PIP_LAYOUT[pips]) {
-    const pip = context.createRadialGradient(
-      x * size - pipRadius * 0.3,
-      y * size - pipRadius * 0.3,
-      pipRadius * 0.15,
-      x * size,
-      y * size,
-      pipRadius,
-    )
-    pip.addColorStop(0, color('--ds-color-physics-pip'))
-    pip.addColorStop(0.8, color('--ds-color-physics-pip'))
-    pip.addColorStop(1, 'rgb(0 0 0 / 45%)')
-    context.fillStyle = pip
-    context.beginPath()
-    context.arc(x * size, y * size, pipRadius, 0, Math.PI * 2)
-    context.fill()
-  }
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.anisotropy = 8
-  return texture
-}
-
-/**
- * 매트 표면 하나로 통일한다 — metalness 0(환경맵이 없어 금속은 검게 죽는다),
- * roughness는 재질감만 가른다. 예전 Lambert의 플라스틱 같은 명암 단절이
- * Standard의 완만한 falloff로 바뀌는 것이 이 함수의 존재 이유다.
- */
-function matte(color: number, options: THREE.MeshStandardMaterialParameters = {}) {
-  return new THREE.MeshStandardMaterial({ color, metalness: 0, roughness: 0.55, ...options })
-}
 
 export interface HeroSceneOptions {
   container: HTMLElement
@@ -207,7 +92,9 @@ export class HeroScene {
        레드 바디·검은 눈이 된다(야추의 "킵 = 레드" 문법을 히어로에 재현). */
     const faceTextures = FACE_ORDER.map(pipTexture)
     this.diceMaterials = faceTextures.map((map) => matte(0xffffff, { map, roughness: 0.42 }))
-    this.accentDiceMaterials = faceTextures.map((map) => matte(ACCENT, { map, roughness: 0.42 }))
+    this.accentDiceMaterials = faceTextures.map((map) =>
+      matte(HERO_PALETTE.accent, { map, roughness: 0.42 }),
+    )
 
     this.setGame(game)
 
@@ -460,7 +347,7 @@ export class HeroScene {
       if (index < 2) {
         const round = new THREE.Mesh(
           new THREE.CylinderGeometry(0.22, 0.22, 0.84, 20),
-          matte(ACCENT),
+          matte(HERO_PALETTE.accent),
         )
         round.position.copy(chamber.position)
         drum.add(round)
@@ -471,7 +358,10 @@ export class HeroScene {
     drum.userData = { spin: 0.42 } satisfies SpinBob
     group.add(drum)
 
-    const cartridge = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.5, 8, 20), matte(ACCENT))
+    const cartridge = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.2, 0.5, 8, 20),
+      matte(HERO_PALETTE.accent),
+    )
     cartridge.position.set(-1.9, -0.5, 0.6)
     cartridge.rotation.z = 1.1
     cartridge.castShadow = true
@@ -479,98 +369,4 @@ export class HeroScene {
     group.add(cartridge)
     return group
   }
-}
-
-function materialsOf(mesh: THREE.Mesh): THREE.Material[] {
-  return Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-}
-
-function paddle(color: number) {
-  const group = new THREE.Group()
-  const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.13, 48), matte(color))
-  blade.rotation.x = Math.PI / 2
-  group.add(blade)
-  const grip = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.9, 8, 16), matte(0x202125))
-  grip.position.y = -1.25
-  group.add(grip)
-  return group
-}
-
-/** 세워 둔 타일 넉 장 — 검정·흰색이 섞이고 가운데 한 장만 앞으로 넘어와 있다. */
-function buildDavinci() {
-  const group = new THREE.Group()
-  const tiles: [number, number, number, number][] = [
-    [-2.1, -0.1, 0, INK],
-    [-0.7, 0.05, 0, IVORY],
-    [0.7, 0.05, 0, INK],
-    [2.1, -0.1, 0, IVORY],
-  ]
-  tiles.forEach(([x, y, z, color], index) => {
-    const tile = new THREE.Mesh(new RoundedBoxGeometry(1.05, 1.7, 0.34, 4, 0.12), matte(color))
-    tile.castShadow = true
-    tile.receiveShadow = true
-    tile.position.set(x, y, z)
-    tile.rotation.set(0, index % 2 === 0 ? 0.12 : -0.12, index % 2 === 0 ? 0.05 : -0.05)
-    group.add(tile)
-  })
-  // 방금 맞혀 눕힌 한 장 — 판이 어디로 굴러가는지 보여 주는 레드 점이다.
-  const opened = new THREE.Mesh(new RoundedBoxGeometry(1.05, 1.7, 0.34, 4, 0.12), matte(ACCENT))
-  opened.position.set(0, -1.35, 1.1)
-  opened.rotation.set(-1.15, 0, 0.08)
-  opened.userData = { bob: 0.5 } satisfies SpinBob
-  group.add(opened)
-  return group
-}
-
-function buildPingpong() {
-  const group = new THREE.Group()
-  const near = paddle(0xe53935)
-  near.position.set(-1.5, 0.2, 0)
-  near.rotation.set(0.2, 0.5, 0.25)
-  group.add(near)
-  const far = paddle(INK)
-  far.position.set(1.6, -0.1, -0.6)
-  far.rotation.set(-0.15, -0.6, -0.3)
-  group.add(far)
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.34, 32, 32), matte(ACCENT))
-  ball.position.set(0.1, 1.1, 0.7)
-  ball.userData = { bob: 1 } satisfies SpinBob
-  group.add(ball)
-  return group
-}
-
-function buildFishing() {
-  const group = new THREE.Group()
-  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.11, 4.4, 20), matte(IVORY))
-  rod.position.set(-0.6, 0.4, 0)
-  rod.rotation.z = 0.55
-  group.add(rod)
-  const hook = new THREE.Mesh(
-    new THREE.TorusGeometry(0.5, 0.08, 16, 48, Math.PI * 1.35),
-    matte(ACCENT),
-  )
-  hook.position.set(1.35, -1.1, 0)
-  hook.rotation.z = -0.4
-  hook.userData = { bob: 0.6 } satisfies SpinBob
-  group.add(hook)
-  const line = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.5, 8), matte(0x82838a))
-  line.position.set(1.32, -0.2, 0)
-  group.add(line)
-  // 실물 낚시찌의 상하 투톤 — 위 레드·아래 아이보리. 반구 둘이 한 구를 이룬다.
-  const bobber = new THREE.Group()
-  const bobberTop = new THREE.Mesh(
-    new THREE.SphereGeometry(0.42, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2),
-    matte(ACCENT),
-  )
-  bobberTop.castShadow = true
-  const bobberBottom = new THREE.Mesh(
-    new THREE.SphereGeometry(0.42, 32, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
-    matte(IVORY),
-  )
-  bobber.add(bobberTop, bobberBottom)
-  bobber.position.set(-1.9, -1.5, 0.6)
-  bobber.rotation.z = -0.25
-  bobber.userData = { bob: 1.3 } satisfies SpinBob
-  group.add(bobber)
-  return group
 }

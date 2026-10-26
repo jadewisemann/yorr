@@ -1,0 +1,63 @@
+# 품질 게이트 중 **저장소 공통** 부분 — 어느 패키지에도 속하지 않는 검사만 둔다.
+#
+# 파일당 500줄 상한 자체는 backend.yml·frontend.yml의 `npm run check`(Biome)가
+# 이미 강제한다. 이 워크플로가 맡는 것은 두 래칫의 **장부**다.
+#
+#   - 500줄: 예외가 늘어나지 않았는지, 예외로 남은 파일이 아직 상한을 넘는지,
+#     상한값이 조용히 올라가지 않았는지.
+#   - 5000토큰: 기준선(tools/token-baseline.json)보다 커진 파일이 없는지. 로컬
+#     pre-commit은 스테이징된 파일만 재므로, 기준선이 낡는 것은 여기서만 잡힌다.
+# 근거: QUALITY.md 6절의 "예외 목록의 침식" 경고.
+
+name: quality
+
+# 경로 필터를 두지 않는다. 래칫은 "이번에 뭘 건드렸나"가 아니라 "지금 상태가
+# 기준선 안인가"를 재는 검사라서, 어떤 파일이 바뀌어도 돌아야 의미가 있다.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  loc-ratchet:
+    name: 500줄 상한 · 예외 래칫
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      # 의존성이 필요 없다 — Biome 설정과 파일 줄 수만 읽는다.
+      - run: node tools/check-loc-ratchet.mjs
+
+  token-ratchet:
+    name: 5000토큰 상한 · 기준선 래칫
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      # --all이라야 기준선이 낡았는지(파일이 줄었는데 목록에 남았는지)까지 본다.
+      - run: npm run check:tokens
