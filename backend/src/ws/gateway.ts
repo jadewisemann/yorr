@@ -1,5 +1,5 @@
 import type { Server as HttpServer } from 'node:http'
-import { WebSocketServer } from 'ws'
+import { type WebSocket, WebSocketServer } from 'ws'
 import type { WsLogger } from './handler.js'
 import { WS_MAX_MESSAGE_BYTES } from './protocol.js'
 import type { ClientSocket } from './socket.js'
@@ -50,6 +50,66 @@ const wsErrorCode = (error: Error): string | undefined =>
  * (docs/design/realtime.md) 핸들러가 Redis를 await하는 사이 다음 메시지가
  * 끼어들면 그 순서가 깨진다.
  */
+/**
+ * 소켓 하나의 처리 큐 — 한 소켓의 메시지는 **도착 순서대로 하나씩** 처리한다.
+ *
+ * 직렬화가 필요한 이유: 핸들러가 `await`를 하면 같은 소켓의 다음 메시지가 끼어들어
+ * `inputSeq` 순서가 뒤집힌다. 예외는 여기서 삼킨다 — 여기까지 온 것은 버그이고,
+ * 소켓 하나 때문에 프로세스를 죽이지는 않는다.
+ */
+const runGuarded = async (
+  task: () => Promise<void>,
+  logger: GameSocketGatewayOptions['logger'],
+): Promise<void> => {
+  try {
+    await task()
+  } catch (error) {
+    logger?.error({ error }, 'WS 메시지 처리 실패')
+  }
+}
+
+const createSerializer = (logger: GameSocketGatewayOptions['logger']) => {
+  let queue: Promise<void> = Promise.resolve()
+  return (task: () => Promise<void>): void => {
+    queue = queue.then(() => runGuarded(task, logger))
+  }
+}
+
+/**
+ * 소켓 하나의 배선 — 메시지 직렬화·프레임 오류·종료.
+ *
+ * 왜 함수로 뺐나: 세 구독이 한 클로저(`serialize`)를 공유해야 해서 `wss.on` 핸들러
+ * 안에 있어야 했고, 그 결과 게이트웨이 전체가 세 겹으로 중첩됐다. 여기로 옮기면
+ * **어떤 이벤트를 왜 구독하는가**만 남는다.
+ */
+const wireSocket = (
+  socket: WebSocket,
+  handler: SocketEventHandler,
+  logger: GameSocketGatewayOptions['logger'],
+): void => {
+  const client = socket as unknown as ClientSocket
+  const serialize = createSerializer(logger)
+
+  handler.connected(client)
+  socket.on('message', (raw) => {
+    const data = Array.isArray(raw) ? Buffer.concat(raw) : raw
+    serialize(() => handler.message(client, data))
+  })
+  // **반드시 구독한다.** 상한 초과(1009)·깨진 UTF-8(1007) 같은 프레임 오류를 `ws`는 이
+  // 소켓의 'error'로 알리고 연결은 스스로 닫는다. 구독자가 없으면 EventEmitter가 그것을
+  // 예외로 던져 **프로세스 전체가 죽는다** — 인증 없이 프레임 하나로 가능했다
+  // (docs/design/realtime.md 「엔드포인트」). 정리는 뒤따르는 'close'가 한다.
+  socket.on('error', (error) => {
+    logger?.warn(
+      { code: wsErrorCode(error), reason: error.message },
+      '잘못된 WS 프레임 — 이 연결만 닫는다',
+    )
+  })
+  socket.on('close', () => {
+    serialize(() => handler.closed(client))
+  })
+}
+
 export const attachGameSocketGateway = (
   server: HttpServer,
   handler: SocketEventHandler,
@@ -70,39 +130,7 @@ export const attachGameSocketGateway = (
   // 그 재발행이 예외가 되어, HTTP 쪽에서 처리된 오류가 프로세스를 한 번 더 죽인다.
   wss.on('error', (error) => options.logger?.error({ reason: error.message }, 'WS 서버 오류'))
 
-  wss.on('connection', (socket) => {
-    const client = socket as unknown as ClientSocket
-    let queue: Promise<void> = Promise.resolve()
-    const serialize = (task: () => Promise<void>): void => {
-      queue = queue.then(async () => {
-        try {
-          await task()
-        } catch (error) {
-          // 여기까지 온 예외는 버그다 — 소켓 하나 때문에 프로세스를 죽이지는 않는다.
-          options.logger?.error({ error }, 'WS 메시지 처리 실패')
-        }
-      })
-    }
-
-    handler.connected(client)
-    socket.on('message', (raw) => {
-      const data = Array.isArray(raw) ? Buffer.concat(raw) : raw
-      serialize(() => handler.message(client, data))
-    })
-    // **반드시 구독한다.** 상한 초과(1009)·깨진 UTF-8(1007) 같은 프레임 오류를 `ws`는 이
-    // 소켓의 'error'로 알리고 연결은 스스로 닫는다. 구독자가 없으면 EventEmitter가 그것을
-    // 예외로 던져 **프로세스 전체가 죽는다** — 인증 없이 프레임 하나로 가능했다
-    // (docs/design/realtime.md 「엔드포인트」). 정리는 뒤따르는 'close'가 한다.
-    socket.on('error', (error) => {
-      options.logger?.warn(
-        { code: wsErrorCode(error), reason: error.message },
-        '잘못된 WS 프레임 — 이 연결만 닫는다',
-      )
-    })
-    socket.on('close', () => {
-      serialize(() => handler.closed(client))
-    })
-  })
+  wss.on('connection', (socket) => wireSocket(socket, handler, options.logger))
 
   return {
     close: () =>

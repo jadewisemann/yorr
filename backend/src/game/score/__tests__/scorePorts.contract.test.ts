@@ -24,11 +24,16 @@ import {
  */
 class StubScoreBoardStore implements ScoreBoardStore {
   async confirmScore(): Promise<ScoreBoard> {
-    return createScoreBoard({ choice: 5 }, 0, 0, 5)
+    return createScoreBoard({
+      categories: { choice: 5 },
+      upperSubtotal: 0,
+      upperBonus: 0,
+      total: 5,
+    })
   }
 
   async findScoreBoard(): Promise<ScoreBoard> {
-    return createScoreBoard({}, 0, 0, 0)
+    return createScoreBoard({ categories: {}, upperSubtotal: 0, upperBonus: 0, total: 0 })
   }
 }
 
@@ -42,14 +47,13 @@ it('RoundSynchronizationService(2.5)가 우리 라운드 제출 포트를 만족
   )
 
   await store.initialize('room-a', RoundState.start(1, ['player-a']))
-  await store.recordRollAtomically(
-    'room-a',
-    'player-a',
-    1,
-    1,
-    [false, false, false, false, false],
-    [1, 1, 1, 1, 1],
-  )
+  await store.recordRollAtomically('room-a', {
+    playerId: 'player-a',
+    roundNumber: 1,
+    rollCount: 1,
+    held: [false, false, false, false, false],
+    rolledDice: [1, 1, 1, 1, 1],
+  })
   const result = await service.submit('room-a', 'player-a', {
     roundNumber: 1,
     dice: [1, 1, 1, 1, 1],

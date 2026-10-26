@@ -1,28 +1,30 @@
-import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
+import { type RefObject, useCallback, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
-import { buildClientMessage, type GameState, type PlayerId } from '@/realtime/wsEvents'
+import type { GameState, PlayerId } from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
-import { type DiceIndex, type DiceSet, NO_HELD_DICE, toggleHeldDie } from '@/yacht/domain/dice'
-import { isRecorded } from '@/yacht/domain/yachtCategoryView'
+
 import {
   createYachtGame,
   getPendingRoll,
-  MAX_ROLLS,
   restoreYachtGame,
   type YachtGameAction,
   yachtGameReducer,
 } from '@/yacht/domain/yachtGame'
-import type { MotionGestureEvent } from '@/yacht/input/motionTypes'
 import { useMotionRollInput } from '@/yacht/input/useMotionRollInput'
-import type { RollInputMode } from './roll/animation'
+import { rollAvailabilityOf } from './roll/availability'
 import { latestGameState } from './roll/messages'
-import { IDLE_ROLL_PRESENTATION, rollPresentationReducer } from './roll/presentation'
+import {
+  IDLE_ROLL_PRESENTATION,
+  type RollPresentation,
+  rollPresentationReducer,
+} from './roll/presentation'
 import { createRollTracking } from './roll/tracking'
 import { useRollBroadcast } from './roll/useBroadcast'
+import { useDiceActions } from './roll/useDiceActions'
 import { useRollFeedback } from './roll/useFeedback'
+import { useRollGesture, useTapRelease } from './roll/useGesture'
 import { useRollIncoming } from './roll/useIncoming'
-
-const TAP_RELEASE_DELAY_MS = 600
+import { useRollRequest, useTurnReset } from './roll/useRollRequest'
 
 interface UseGamePlayRollOptions {
   game: GameState | undefined
@@ -32,16 +34,11 @@ interface UseGamePlayRollOptions {
   canPlay: boolean
 }
 
-export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGamePlayRollOptions) {
-  const realtimeClient = useRealtimeClient()
-  const connectionStatus = useAppStore((state) => state.connectionStatus)
-  const renderedGameRef = useRef(game)
-
-  const roundNumber = game?.roundNumber ?? 1
-  const activePlayerId = game?.activePlayerId
-  const isMyTurn = activePlayerId === you
-  const activeBoard = activePlayerId ? game?.scores[activePlayerId] : undefined
-
+/**
+ * 이 화면이 들고 있는 로컬 굴림 판. 서버가 준 굴림 상태에서 복원하고, 라운드가 바뀌면
+ * 렌더 중에 새 판으로 갈아 끼운다.
+ */
+function useLocalRollGame(game: GameState | undefined, roundNumber: number) {
   const [local, setLocal] = useState(() =>
     restoreYachtGame(Date.now() >>> 0, roundNumber, {
       rollCount: game?.rollCount ?? 0,
@@ -49,23 +46,6 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
       held: game?.held ?? null,
     }),
   )
-  const [presentation, present] = useReducer(rollPresentationReducer, IDLE_ROLL_PRESENTATION)
-  const {
-    inputMode: rollInputMode,
-    releaseRequestId,
-    remoteShaking,
-    requesting: requestingRoll,
-  } = presentation
-  const feedback = useRollFeedback()
-
-  const trackingRef = useRef(createRollTracking())
-  const activePlayerRef = useRef(activePlayerId)
-  const rollSequenceRef = useRef(0)
-  const inputModeRef = useRef(rollInputMode)
-  useLayoutEffect(() => {
-    renderedGameRef.current = game
-    inputModeRef.current = rollInputMode
-  })
 
   const resetLocalFor = useCallback(
     (round: number) => setLocal((state) => createYachtGame(state.seed, round)),
@@ -74,199 +54,190 @@ export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGa
 
   if (local.roundNumber !== roundNumber) resetLocalFor(roundNumber)
 
-  useEffect(() => {
-    if (activePlayerRef.current === activePlayerId) return
-    activePlayerRef.current = activePlayerId
-    const acceptedRollTurn = trackingRef.current.takeAcceptedTurn()
-    const diceForThisTurnAlreadyArrived =
-      acceptedRollTurn?.playerId === activePlayerId && acceptedRollTurn?.roundNumber === roundNumber
-    if (!diceForThisTurnAlreadyArrived) resetLocalFor(roundNumber)
-    present({ type: 'turnReset' })
-    trackingRef.current.reset()
-  }, [activePlayerId, resetLocalFor, roundNumber])
-
   const dispatch = useCallback((action: YachtGameAction) => {
     setLocal((state) => yachtGameReducer(state, action))
   }, [])
 
-  const submitted = local.phase === 'roundComplete'
-  const submitting = local.phase === 'submitting'
-  const rollsLeft = MAX_ROLLS - local.rollCount
-  const keptCount = local.held.filter(Boolean).length
-  const allKept = local.dice !== null && keptCount === 5
-  const locked = connectionStatus === 'reconnecting' || connectionStatus === 'closed' || !isMyTurn
-  const canRoll =
-    !locked &&
-    !submitted &&
-    !requestingRoll &&
-    !allKept &&
-    rollsLeft > 0 &&
-    (local.phase === 'ready' || local.phase === 'choosing')
-  const rolling = local.phase === 'rolling' || requestingRoll
-  const canHold = !locked && !submitted && local.phase === 'choosing' && local.rollCount < MAX_ROLLS
-  const canPick = !locked && !submitting && local.phase === 'choosing'
-  const lastRollInPlay = local.rollCount >= MAX_ROLLS
-  const currentRollNumber =
-    local.phase === 'rolling' ? local.rollCount : Math.min(MAX_ROLLS, local.rollCount + 1)
-  const settledRollCount = local.phase === 'rolling' ? local.rollCount - 1 : local.rollCount
+  return { dispatch, local, resetLocalFor, setLocal }
+}
+
+/**
+ * 굴림 연출 상태와, 메시지 처리기·콜백이 읽는 최신값 ref. ref는 렌더가 커밋된 뒤에
+ * 갱신하므로 처리기는 마지막으로 그려진 판과 입력 방식을 본다.
+ */
+function useRollPresentation(game: GameState | undefined) {
+  const renderedGameRef = useRef(game)
+  const [presentation, present] = useReducer(rollPresentationReducer, IDLE_ROLL_PRESENTATION)
+  const trackingRef = useRef(createRollTracking())
+  const inputModeRef = useRef(presentation.inputMode)
+  useLayoutEffect(() => {
+    renderedGameRef.current = game
+    inputModeRef.current = presentation.inputMode
+  })
+  return { inputModeRef, present, presentation, renderedGameRef, tracking: trackingRef.current }
+}
+
+type RollRequestOptions = Parameters<typeof useRollRequest>[0]
+type RollIncomingOptions = Parameters<typeof useRollIncoming>[0]
+
+/**
+ * 서버 왕복 — 굴림 요청을 보내고, 돌아온 결과·남의 굴림 신호를 로컬 판에 반영한다.
+ * currentGame은 렌더된 판과 스토어의 최신 스냅숏 중 라운드가 앞선 쪽을 고른다.
+ */
+function useRollServerFlow({
+  canRoll,
+  inputModeRef,
+  local,
+  renderedGameRef,
+  ...incoming
+}: Omit<RollIncomingOptions, 'currentGame'> &
+  Pick<RollRequestOptions, 'canRoll' | 'inputModeRef' | 'local'> & {
+    renderedGameRef: RefObject<GameState | undefined>
+  }) {
+  const realtimeClient = useRealtimeClient()
+  const { present, roomId, roundNumber, showToast, tracking } = incoming
+  const beginRoll = useRollRequest({
+    canRoll,
+    inputModeRef,
+    local,
+    present,
+    realtimeClient,
+    roomId,
+    roundNumber,
+    showToast,
+    tracking,
+  })
+
+  useRollIncoming({
+    ...incoming,
+    currentGame: () =>
+      latestGameState(renderedGameRef.current, useAppStore.getState().roomSnapshot?.game),
+  })
+  return beginRoll
+}
+
+type RollGestureOptions = Parameters<typeof useRollGesture>[0]
+type DiceActionsOptions = Parameters<typeof useDiceActions>[0]
+
+/**
+ * 플레이어가 직접 하는 조작. 굴리는 두 길 — 흔들기(모션)와 탭 — 은 결국 같은 beginRoll로
+ * 모이고, 킵·던짐·완료는 useDiceActions가 맡는다. 굴림이 끝나면 제스처 인식기를 되돌린다.
+ */
+function useRollControls({
+  canPlay,
+  rollInputMode,
+  activeBoard,
+  canHold,
+  dispatch,
+  isMyTurn,
+  publishHeld,
+  releaseRequestId,
+  ...gesture
+}: RollGestureOptions &
+  Omit<DiceActionsOptions, 'pendingRoll' | 'resetGesture'> & {
+    canPlay: boolean
+    rollInputMode: RollPresentation['inputMode']
+  }) {
+  const { beginRoll, feedback, local, present, publishThrow } = gesture
+  const handleGestureEvent = useRollGesture(gesture)
+  const motion = useMotionRollInput(handleGestureEvent, canPlay)
+  const pendingRoll = getPendingRoll(local)
+
+  useTapRelease({ local, present, publishThrow, rollInputMode })
+
+  const roll = useCallback(() => beginRoll('tap'), [beginRoll])
+
+  const actions = useDiceActions({
+    activeBoard,
+    canHold,
+    dispatch,
+    feedback,
+    isMyTurn,
+    local,
+    pendingRoll,
+    present,
+    publishHeld,
+    publishThrow,
+    releaseRequestId,
+    resetGesture: motion.resetGesture,
+  })
+  return { ...actions, motion, pendingRoll, roll }
+}
+
+export function useGamePlayRoll({ canPlay, game, roomId, showToast, you }: UseGamePlayRollOptions) {
+  const connectionStatus = useAppStore((state) => state.connectionStatus)
+
+  const roundNumber = game?.roundNumber ?? 1
+  const activePlayerId = game?.activePlayerId
+  const isMyTurn = activePlayerId === you
+  const activeBoard = activePlayerId ? game?.scores[activePlayerId] : undefined
+
+  const { dispatch, local, resetLocalFor, setLocal } = useLocalRollGame(game, roundNumber)
+  const { inputModeRef, present, presentation, renderedGameRef, tracking } =
+    useRollPresentation(game)
+  const {
+    inputMode: rollInputMode,
+    releaseRequestId,
+    remoteShaking,
+    requesting: requestingRoll,
+  } = presentation
+  const feedback = useRollFeedback()
+
+  useTurnReset({ activePlayerId, present, resetLocalFor, roundNumber, tracking })
+
+  const availability = rollAvailabilityOf({ connectionStatus, isMyTurn, local, requestingRoll })
+  const { canHold, canRoll } = availability
 
   const { publishHeld, publishShake, publishThrow } = useRollBroadcast(roomId, roundNumber)
 
-  const beginRoll = useCallback(
-    (inputMode: RollInputMode) => {
-      if (!canRoll) return
-      rollSequenceRef.current += 1
-      const requestId = `r${roundNumber}-${rollSequenceRef.current}`
-      const msgId = `roll-${roundNumber}-${local.rollCount + 1}-${Date.now()}`
-      present({ type: 'requested', inputMode })
-      inputModeRef.current = inputMode
-      trackingRef.current.requested({ inputMode, msgId, requestId })
-      try {
-        realtimeClient.send(
-          buildClientMessage(
-            'game.yacht_dice.dice.roll',
-            {
-              held: local.held,
-              rollCount: (local.rollCount + 1) as 1 | 2 | 3,
-              roundNumber,
-            },
-            { roomId, msgId },
-          ),
-        )
-      } catch {
-        trackingRef.current.settle()
-        present({ type: 'requestFailed' })
-        showToast('주사위를 요청하지 못했어요. 연결 상태를 확인해 주세요.')
-      }
-    },
-    [canRoll, local.held, local.rollCount, realtimeClient, roomId, roundNumber, showToast],
-  )
-
-  useRollIncoming({
+  const beginRoll = useRollServerFlow({
     activePlayerId,
-    currentGame: () =>
-      latestGameState(renderedGameRef.current, useAppStore.getState().roomSnapshot?.game),
+    canRoll,
     dispatch,
     feedback,
+    inputModeRef,
+    local,
     present,
     publishThrow,
+    renderedGameRef,
     roomId,
     roundNumber,
     setLocal,
     showToast,
-    tracking: trackingRef.current,
+    tracking,
     you,
   })
 
-  const handleGestureEvent = useCallback(
-    (event: MotionGestureEvent) => {
-      switch (event.type) {
-        case 'shakePulse':
-          feedback.pulse(event.direction, event.strength, 'local')
-          publishShake(event.direction, event.strength)
-          return
-        case 'shakeStarted':
-          feedback.armed()
-          beginRoll('motion')
-          return
-        case 'throwDetected': {
-          const request = getPendingRoll(local)
-          if (inputModeRef.current !== 'motion') return
-          if (!request) {
-            trackingRef.current.queueMotionRelease()
-            return
-          }
-          feedback.thrown()
-          present({ type: 'released', requestId: request.requestId })
-          publishThrow(local.rollCount)
-          return
-        }
-        case 'shakeArmed':
-        case 'gestureCancelled':
-          return
-      }
-    },
-    [beginRoll, feedback, local, publishShake, publishThrow],
-  )
-
-  const motion = useMotionRollInput(handleGestureEvent, canPlay)
-  const pendingRoll = getPendingRoll(local)
-
-  useEffect(() => {
-    if (!pendingRoll || (rollInputMode !== 'tap' && rollInputMode !== 'auto')) return
-    const timeout = setTimeout(() => {
-      present({ type: 'released', requestId: pendingRoll.requestId })
-      if (rollInputMode === 'tap') publishThrow(local.rollCount)
-    }, TAP_RELEASE_DELAY_MS)
-    return () => clearTimeout(timeout)
-  }, [local.rollCount, pendingRoll, publishThrow, rollInputMode])
-
-  const roll = useCallback(() => beginRoll('tap'), [beginRoll])
-
-  const confirmThrow = useCallback(() => {
-    if (!pendingRoll || releaseRequestId === pendingRoll.requestId) return
-    feedback.thrown()
-    present({ type: 'released', requestId: pendingRoll.requestId })
-    publishThrow(local.rollCount)
-  }, [feedback, local.rollCount, pendingRoll, publishThrow, releaseRequestId])
-
-  const completeRoll = useCallback(
-    (requestId: string, _dice: DiceSet) => {
-      const completedDice = pendingRoll?.requestId === requestId ? pendingRoll.targetDice : null
-      if (!completedDice) return
-      dispatch({ type: 'rollCompleted', requestId, dice: completedDice })
-      present({ type: 'completed' })
-      if (isMyTurn) motion.resetGesture('roll-complete')
-      feedback.highlightSpecialHand(completedDice, (candidate) =>
-        isRecorded(activeBoard?.categories[candidate]),
-      )
-    },
-    [activeBoard, dispatch, feedback, isMyTurn, motion, pendingRoll],
-  )
-
-  const toggleHeld = useCallback(
-    (index: DiceIndex) => {
-      if (!canHold) return
-      dispatch({ type: 'holdToggled', index })
-      publishHeld(toggleHeldDie(local.held, index))
-    },
-    [canHold, dispatch, local.held, publishHeld],
-  )
-
-  const releaseAll = useCallback(() => {
-    local.held.forEach((isHeld, index) => {
-      if (isHeld) dispatch({ type: 'holdToggled', index: index as DiceIndex })
-    })
-    publishHeld(NO_HELD_DICE)
-  }, [dispatch, local.held, publishHeld])
-
-  return {
-    allKept,
+  // completeRoll · confirmThrow · motion · pendingRoll · releaseAll · roll · toggleHeld
+  const controls = useRollControls({
+    activeBoard,
+    beginRoll,
     canHold,
     canPlay,
-    canPick,
-    canRoll,
-    completeRoll,
-    confirmThrow,
-    currentRollNumber,
     dispatch,
-    lastRollInPlay,
-    keptCount,
-    local,
-    motion,
     feedback,
-    pendingRoll,
-    releaseAll,
+    inputModeRef,
+    isMyTurn,
+    local,
+    present,
+    publishHeld,
+    publishShake,
+    publishThrow,
+    releaseRequestId,
+    rollInputMode,
+    tracking,
+  })
+
+  return {
+    ...availability,
+    ...controls,
+    canPlay,
+    dispatch,
+    local,
+    feedback,
     releaseRequestId,
     remoteShaking,
-    roll,
     rollInputMode,
-    rolling,
-    rollsLeft,
-    settledRollCount,
-    submitting,
-    submitted,
-    toggleHeld,
   }
 }
 

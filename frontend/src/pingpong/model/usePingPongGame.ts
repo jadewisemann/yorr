@@ -1,14 +1,19 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { type Fault, flightOf, flightProgress } from '@/pingpong/domain/court'
-import type { FrameState } from '@/pingpong/domain/frameState'
-import { type PlayerTracking, trackIncomingBall } from '@/pingpong/domain/playerTracking'
-import { createScene, type PingPongScene } from '@/pingpong/rendering/scene3d'
-import { playRacketHit, playTableHit } from '@/pingpong/sounds'
+import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { PingPongScene } from '@/pingpong/rendering/scene3d'
+import { mountSceneLoop } from '@/pingpong/rendering/sceneLoop'
 import { useControllerLink } from '@/realtime/controllerLink/ControllerLinkContext'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
 import { buildClientMessage, type PingPongState } from '@/realtime/wsEvents'
 import { useSwing } from '@/shared/useSwing'
 import type { ActiveRoomSession } from '@/store'
+import {
+  canControl,
+  canSwing,
+  renderSceneFrame,
+  useRacketSound,
+  useTableSound,
+  viewerFor,
+} from './frameState'
 
 interface UsePingPongGameOptions {
   court: boolean
@@ -18,29 +23,24 @@ interface UsePingPongGameOptions {
   state: PingPongState | undefined
 }
 
-export function usePingPongGame({
-  court,
-  dashboard,
-  roomId,
-  session,
-  state,
-}: UsePingPongGameOptions) {
+/** 이벤트 경로와 렌더 루프가 읽는 최신 값. 렌더마다 layout effect가 맞춰 둔다. */
+interface LiveRefs {
+  stateRef: RefObject<PingPongState | undefined>
+  viewerRef: RefObject<1 | 2>
+}
+
+interface CommandOptions {
+  dashboard: boolean
+  roomId: string
+  stateRef: LiveRefs['stateRef']
+}
+
+/** 스윙·준비 전송. 실패하면 다시 해 보라는 안내를 남기고, 성공하면 지운다. */
+function usePingPongCommands({ dashboard, roomId, stateRef }: CommandOptions) {
   const client = useRealtimeClient()
   const controllerLink = useControllerLink()
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const sceneRef = useRef<PingPongScene | null>(null)
-  const trackingRef = useRef({ p1X: 0.5, p2X: 0.5 })
-  const stateRef = useRef(state)
-  const viewerRef = useRef<1 | 2>(1)
   const inputSeq = useRef(0)
-  const soundedEvent = useRef(0)
-  const [clock, setClock] = useState(Date.now())
   const [sendError, setSendError] = useState<string | null>(null)
-
-  useLayoutEffect(() => {
-    stateRef.current = state
-    viewerRef.current = viewerFor(state, session.you)
-  })
 
   /**
    * 스윙은 **링크를 먼저 시도한다.** 파티 모드에서는 이 신호가 가야 할 곳이 서버가 아니라
@@ -64,7 +64,7 @@ export function usePingPongGame({
     } catch {
       setSendError('연결을 확인한 뒤 다시 스윙해 주세요.')
     }
-  }, [client, controllerLink, dashboard, roomId])
+  }, [client, controllerLink, dashboard, roomId, stateRef])
 
   const ready = useCallback(() => {
     if (dashboard || stateRef.current?.phase !== 'PREPARING') return
@@ -74,8 +74,64 @@ export function usePingPongGame({
     } catch {
       setSendError('연결을 확인한 뒤 다시 준비해 주세요.')
     }
-  }, [client, dashboard, roomId])
+  }, [client, dashboard, roomId, stateRef])
 
+  return { ready, sendError, swing }
+}
+
+interface CourtOptions extends LiveRefs {
+  canvasRef: RefObject<HTMLCanvasElement | null>
+  court: boolean
+  dashboard: boolean
+}
+
+/** 코트를 보여 주는 화면이면 3D 무대를 세우고 서버 상태를 매 프레임 그린다. */
+function useCourtScene({ canvasRef, court, dashboard, stateRef, viewerRef }: CourtOptions) {
+  const sceneRef = useRef<PingPongScene | null>(null)
+  const trackingRef = useRef({ p1X: 0.5, p2X: 0.5 })
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!court || !canvas) return
+    const loop = mountSceneLoop(canvas, (scene) => {
+      const current = stateRef.current
+      if (current)
+        renderSceneFrame({
+          scene,
+          state: current,
+          viewer: viewerRef.current,
+          now: Date.now(),
+          tracking: trackingRef.current,
+          split: dashboard,
+        })
+    })
+    sceneRef.current = loop.scene
+    return () => {
+      loop.stop()
+      sceneRef.current = null
+    }
+  }, [canvasRef, court, dashboard, stateRef, viewerRef])
+}
+
+export function usePingPongGame({
+  court,
+  dashboard,
+  roomId,
+  session,
+  state,
+}: UsePingPongGameOptions) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const stateRef = useRef(state)
+  const viewerRef = useRef<1 | 2>(1)
+  const soundedEvent = useRef(0)
+  const [clock, setClock] = useState(Date.now())
+
+  useLayoutEffect(() => {
+    stateRef.current = state
+    viewerRef.current = viewerFor(state, session.you)
+  })
+
+  const { ready, sendError, swing } = usePingPongCommands({ dashboard, roomId, stateRef })
   const { permission, requestPermission } = useSwing({
     onSwing: swing,
     enabled: canControl(dashboard, state),
@@ -96,132 +152,9 @@ export function usePingPongGame({
     return () => window.removeEventListener('keydown', onKey)
   }, [swing])
 
-  useEffect(() => {
-    const event = state?.lastEvent
-    if (!event || event.id === soundedEvent.current) return
-    soundedEvent.current = event.id
-    playRacketHit(event.type)
-  }, [state?.lastEvent])
-
-  useEffect(() => {
-    const ball = state?.ball
-    if (!ball || ball.fault || state?.phase !== 'PLAYING') return
-    const elapsed = Math.max(0, Date.now() - ball.launchedAt) / 1_000
-    const currentPos = ball.pos + ball.direction * ball.speed * elapsed
-    const start = flightProgress(currentPos, ball.direction)
-    const delay = ((flightOf(ball.smash).bounceAt - start) / ball.speed) * 1_000
-    if (delay < 0) return
-    const timeoutId = window.setTimeout(playTableHit, delay)
-    return () => window.clearTimeout(timeoutId)
-  }, [state?.ball, state?.phase])
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!court || !canvas) return
-    const scene = createScene(canvas)
-    sceneRef.current = scene
-    const resize = () => {
-      const bounds = canvas.getBoundingClientRect()
-      scene.resize(bounds.width, bounds.height, Math.min(window.devicePixelRatio || 1, 2))
-    }
-    const observer = new ResizeObserver(resize)
-    observer.observe(canvas)
-    resize()
-
-    let raf = 0
-    const frame = () => {
-      const current = stateRef.current
-      if (current)
-        renderSceneFrame(
-          scene,
-          current,
-          viewerRef.current,
-          Date.now(),
-          trackingRef.current,
-          dashboard,
-        )
-      raf = requestAnimationFrame(frame)
-    }
-    raf = requestAnimationFrame(frame)
-    return () => {
-      cancelAnimationFrame(raf)
-      observer.disconnect()
-      scene.dispose()
-      sceneRef.current = null
-    }
-  }, [court, dashboard])
+  useRacketSound(state, soundedEvent)
+  useTableSound(state)
+  useCourtScene({ canvasRef, court, dashboard, stateRef, viewerRef })
 
   return { canvasRef, clock, permission, ready, requestPermission, sendError, swing }
-}
-
-function currentBall(state: PingPongState, now: number) {
-  const source = state.ball
-  const elapsed = state.phase === 'PLAYING' ? Math.max(0, now - source.launchedAt) / 1_000 : 0
-  const pos = source.pos + source.direction * source.speed * elapsed
-  const progress = Math.max(0, Math.min(1, source.direction > 0 ? pos : 1 - pos))
-  return {
-    ...source,
-    pos,
-    x: source.x0 + (source.x1 - source.x0) * progress,
-    faultFrom: source.fault ? source.faultFrom : flightProgress(pos, source.direction),
-  }
-}
-
-function viewerFor(state: PingPongState | undefined, playerId: string): 1 | 2 {
-  return state?.playerOrder.indexOf(playerId) === 1 ? 2 : 1
-}
-
-function canControl(dashboard: boolean, state: PingPongState | undefined) {
-  return !dashboard && canSwing(state)
-}
-
-function canSwing(state: PingPongState | undefined) {
-  return state?.phase === 'PREPARING' || state?.phase === 'PLAYING'
-}
-
-function renderSceneFrame(
-  scene: PingPongScene,
-  state: PingPongState,
-  viewer: 1 | 2,
-  now: number,
-  tracking: PlayerTracking,
-  split: boolean,
-) {
-  const rendered = createFrameState(state, viewer, now, tracking, split)
-  scene.update(rendered)
-  scene.render(rendered)
-}
-
-function createFrameState(
-  state: PingPongState,
-  viewer: 1 | 2,
-  now: number,
-  tracking: PlayerTracking,
-  split: boolean,
-): FrameState {
-  const ball = currentBall(state, now)
-  trackIncomingBall(tracking, ball.direction, ball.x)
-  const eventAge = state.lastEvent ? now - state.lastEvent.at : Number.POSITIVE_INFINITY
-  const swingAmount = eventAge < 260 ? 1 - eventAge / 260 : 0
-  const eventPlayer = state.lastEvent?.playerId
-  const fault = ball.fault?.toLowerCase() as Fault | undefined
-  const falling = state.phase === 'COUNTDOWN' && ball.fault && state.lastEvent
-  return {
-    split,
-    viewer,
-    playing: state.phase === 'PLAYING',
-    ballPos: ball.pos,
-    ballDir: ball.direction,
-    ballX: ball.x,
-    ballSmash: ball.smash,
-    ballHit: false,
-    ballFault: fault ?? null,
-    ballFaultFrom: ball.faultFrom,
-    ballFall: falling ? Math.min(1.2, eventAge / 1_000) : 0,
-    p1X: tracking.p1X,
-    p2X: tracking.p2X,
-    p1Swing: eventPlayer === state.playerOrder[0] ? swingAmount : 0,
-    p2Swing: eventPlayer === state.playerOrder[1] ? swingAmount : 0,
-    shake: state.lastEvent?.type === 'SMASH' && eventAge < 190 ? 1 - eventAge / 190 : 0,
-  }
 }

@@ -39,12 +39,20 @@ const ROOM_PHASES: ReadonlySet<string> = new Set(['LOBBY', 'PLAYING', 'FINISHED'
 
 const isBlank = (value: string | null | undefined): boolean => (value ?? '').trim().length === 0
 
-const createSnapshot = (
-  roomId: string,
-  gameId: string,
-  phase: RoomPhase,
-  scoreboards: ReadonlyMap<string, ScoreBoard>,
-): GameScoreSnapshot => {
+/** 조회 스냅샷 하나의 재료 — 네 값이 함께여야 '같은 시점의 판'이 된다. */
+interface SnapshotInput {
+  readonly roomId: string
+  readonly gameId: string
+  readonly phase: RoomPhase
+  readonly scoreboards: ReadonlyMap<string, ScoreBoard>
+}
+
+const createSnapshot = ({
+  roomId,
+  gameId,
+  phase,
+  scoreboards,
+}: SnapshotInput): GameScoreSnapshot => {
   if (isBlank(roomId)) throw new GameQueryDomainError('roomId must not be blank')
   if (isBlank(gameId)) throw new GameQueryDomainError('gameId must not be blank')
   if (scoreboards.size === 0) throw new GameQueryDomainError('scoreboards must not be empty')
@@ -110,7 +118,7 @@ export class RedisGameScoreQueryStore implements GameScoreQueryStore {
     }
 
     try {
-      return createSnapshot(roomId, gameId, phase, scoreboards)
+      return createSnapshot({ roomId, gameId, phase, scoreboards })
     } catch (error) {
       if (error instanceof GameQueryDomainError) {
         throw new GameScoreQueryError('STORE_FAILURE', error.message, { cause: error })

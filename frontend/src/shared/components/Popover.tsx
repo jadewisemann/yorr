@@ -1,16 +1,10 @@
-import { AnimatePresence, motion } from 'motion/react'
-import {
-  type ReactNode,
-  type RefObject,
-  useEffect,
-  useEffectEvent,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react'
+import { AnimatePresence, type MotionStyle, motion } from 'motion/react'
+import { type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from 'react'
 import { cn } from '@/shared/cn'
-import { popVariants, scrimVariants } from '@/shared/motion'
+import { DialogScrim } from '@/shared/components/DialogScrim'
+import { popVariants } from '@/shared/motion'
 import { useDialogBackground } from '@/shared/useDialogBackground'
+import { useDialogFocus } from '@/shared/useDialogFocus'
 import { type Placement, placeByAnchor, TAIL_HALF } from './popoverPlacement'
 
 export function PopoverHeader({ children, onClose }: { children: ReactNode; onClose: () => void }) {
@@ -39,21 +33,13 @@ interface PopoverProps {
   width?: number | undefined
 }
 
-export function Popover({
-  anchorRef,
-  children,
-  className,
-  focusSelector = 'input, button',
-  label,
-  onClose,
-  open,
-  width,
-}: PopoverProps) {
-  const panelRef = useRef<HTMLDivElement>(null)
-  const close = useEffectEvent(onClose)
+/** 앵커가 있으면 그 기준 배치를 재고, 창 크기·스크롤이 바뀔 때마다 다시 잰다. */
+function useAnchorPlacement(
+  anchorRef: RefObject<HTMLElement | null> | undefined,
+  open: boolean,
+  width: number | undefined,
+) {
   const [placement, setPlacement] = useState<Placement | null>(null)
-
-  useDialogBackground(open)
 
   useLayoutEffect(() => {
     const anchor = anchorRef?.current
@@ -68,38 +54,62 @@ export function Popover({
     }
   }, [anchorRef, open, width])
 
-  useEffect(() => {
-    if (!open) return
-    const previousFocus = document.activeElement as HTMLElement | null
-    panelRef.current?.querySelector<HTMLElement>(focusSelector)?.focus()
+  return anchorRef ? placement : null
+}
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      previousFocus?.focus()
-    }
-  }, [focusSelector, open])
+function panelStyle(placed: Placement | null): MotionStyle {
+  if (!placed) return { transformOrigin: 'top right' }
+  return {
+    bottom: placed.bottom,
+    left: placed.left,
+    top: placed.top,
+    transformOrigin: `${placed.tailLeft}px ${placed.flipped ? 'bottom' : 'top'}`,
+    width: placed.width,
+  }
+}
 
-  const placed = anchorRef ? placement : null
+function PopoverTail({ placed }: { placed: Placement | null }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'absolute size-3.5 rotate-45 border-landing-hairline-strong bg-surface-raised',
+        placed?.flipped ? '-bottom-[7px] border-r border-b' : '-top-[7px] border-t border-l',
+        !placed && 'right-13',
+      )}
+      style={placed ? { left: placed.tailLeft - TAIL_HALF } : undefined}
+    />
+  )
+}
+
+export function Popover({
+  anchorRef,
+  children,
+  className,
+  focusSelector = 'input, button',
+  label,
+  onClose,
+  open,
+  width,
+}: PopoverProps) {
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  useDialogBackground(open)
+  const placed = useAnchorPlacement(anchorRef, open, width)
+  useDialogFocus(open, {
+    initialFocus: (selector = focusSelector) =>
+      panelRef.current?.querySelector<HTMLElement>(selector),
+    onKeyDown: (event) => {
+      if (event.key === 'Escape') onClose()
+    },
+    selector: focusSelector,
+  })
 
   return (
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-modal">
-          <motion.button
-            animate="visible"
-            aria-label="배경을 눌러 닫기"
-            className="absolute inset-0 cursor-default border-0 bg-scrim"
-            exit="exit"
-            initial="hidden"
-            onClick={onClose}
-            tabIndex={-1}
-            type="button"
-            variants={scrimVariants}
-          />
+          <DialogScrim label="배경을 눌러 닫기" onClose={onClose} />
           <motion.div
             animate="visible"
             aria-label={label}
@@ -114,30 +124,10 @@ export function Popover({
             initial="hidden"
             ref={panelRef}
             role="dialog"
-            style={
-              placed
-                ? {
-                    bottom: placed.bottom,
-                    left: placed.left,
-                    top: placed.top,
-                    transformOrigin: `${placed.tailLeft}px ${placed.flipped ? 'bottom' : 'top'}`,
-                    width: placed.width,
-                  }
-                : { transformOrigin: 'top right' }
-            }
+            style={panelStyle(placed)}
             variants={popVariants}
           >
-            <span
-              aria-hidden="true"
-              className={cn(
-                'absolute size-3.5 rotate-45 border-landing-hairline-strong bg-surface-raised',
-                placed?.flipped
-                  ? '-bottom-[7px] border-r border-b'
-                  : '-top-[7px] border-t border-l',
-                !placed && 'right-13',
-              )}
-              style={placed ? { left: placed.tailLeft - TAIL_HALF } : undefined}
-            />
+            <PopoverTail placed={placed} />
             {placed ? (
               <div
                 className="overflow-y-auto overscroll-contain"

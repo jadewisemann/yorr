@@ -8,7 +8,11 @@ import {
   PingPongPreparationController,
   usesTouchFallback,
 } from '@/pingpong/components/PingPongController/PreparationController'
-import type { ControllerView, PaddleTone } from '@/pingpong/components/PingPongController/types'
+import type {
+  ControllerView,
+  PaddleTone,
+  PlayerSlot,
+} from '@/pingpong/components/PingPongController/types'
 import { pingPongSituation, playerEventLabel, playerSituationLabel } from '@/pingpong/feedback'
 import type { PingPongState, RoomSnapshot } from '@/realtime/wsEvents'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'
@@ -65,6 +69,70 @@ function controllerView(
   }
 }
 
+function RallyScoreboard({
+  p1,
+  p2,
+  state,
+}: {
+  p1: PlayerSlot
+  p2: PlayerSlot
+  state: PingPongState
+}) {
+  return (
+    <section className="mt-4 flex flex-none items-center justify-between rounded-card border border-border bg-surface-veil px-4 py-3">
+      <ControllerScore
+        label={p1.label}
+        score={state.scores[p1.id] ?? 0}
+        tag={p1.tag}
+        tone={p1.tone}
+      />
+      <div className="text-center">
+        <span className="block font-mono text-2xs tracking-[0.14em] text-game-content-faint">
+          RALLY
+        </span>
+        <strong className="font-mono text-2xl">{state.rally}</strong>
+      </div>
+      <ControllerScore
+        label={p2.label}
+        score={state.scores[p2.id] ?? 0}
+        tag={p2.tag}
+        tone={p2.tone}
+      />
+    </section>
+  )
+}
+
+/** 스윙 입력 수단 안내 — 센서 켜기·연결됨·터치 대체 — 와 전송 오류. */
+function SwingInputStatus({
+  error,
+  onTouchSwing,
+  permission,
+  requestPermission,
+}: Pick<PingPongControllerProps, 'error' | 'onTouchSwing' | 'permission' | 'requestPermission'>) {
+  return (
+    <section className="mt-3 grid flex-none gap-2 text-center">
+      {permission === 'unknown' && (
+        <PingPongButton onClick={() => void requestPermission()}>폰 스윙 켜기</PingPongButton>
+      )}
+      {permission === 'granted' && (
+        <p className="m-0 text-sm font-bold text-pp-accent-text" role="status">
+          모션 스윙 연결됨 · 휴대폰을 휘둘러 주세요
+        </p>
+      )}
+      {usesTouchFallback(permission) && (
+        <PingPongButton onClick={onTouchSwing} tone="neutral">
+          화면을 눌러 스윙 · 대체 조작
+        </PingPongButton>
+      )}
+      {error && (
+        <p className="m-0 text-sm text-red-300" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  )
+}
+
 export function PingPongController({
   clock,
   error,
@@ -113,26 +181,7 @@ export function PingPongController({
         <GameChromeButton onClick={onLeave}>나가기</GameChromeButton>
       </header>
 
-      <section className="mt-4 flex flex-none items-center justify-between rounded-card border border-border bg-surface-veil px-4 py-3">
-        <ControllerScore
-          label={p1.label}
-          score={state.scores[p1.id] ?? 0}
-          tag={p1.tag}
-          tone={p1.tone}
-        />
-        <div className="text-center">
-          <span className="block font-mono text-2xs tracking-[0.14em] text-game-content-faint">
-            RALLY
-          </span>
-          <strong className="font-mono text-2xl">{state.rally}</strong>
-        </div>
-        <ControllerScore
-          label={p2.label}
-          score={state.scores[p2.id] ?? 0}
-          tag={p2.tag}
-          tone={p2.tone}
-        />
-      </section>
+      <RallyScoreboard p1={p1} p2={p2} state={state} />
 
       <ControllerArena
         onTouchSwing={usesTouchFallback(permission) ? onTouchSwing : undefined}
@@ -141,26 +190,12 @@ export function PingPongController({
         view={view}
       />
 
-      <section className="mt-3 grid flex-none gap-2 text-center">
-        {permission === 'unknown' && (
-          <PingPongButton onClick={() => void requestPermission()}>폰 스윙 켜기</PingPongButton>
-        )}
-        {permission === 'granted' && (
-          <p className="m-0 text-sm font-bold text-pp-accent-text" role="status">
-            모션 스윙 연결됨 · 휴대폰을 휘둘러 주세요
-          </p>
-        )}
-        {usesTouchFallback(permission) && (
-          <PingPongButton onClick={onTouchSwing} tone="neutral">
-            화면을 눌러 스윙 · 대체 조작
-          </PingPongButton>
-        )}
-        {error && (
-          <p className="m-0 text-sm text-red-300" role="alert">
-            {error}
-          </p>
-        )}
-      </section>
+      <SwingInputStatus
+        error={error}
+        onTouchSwing={onTouchSwing}
+        permission={permission}
+        requestPermission={requestPermission}
+      />
     </ControllerScreen>
   )
 }

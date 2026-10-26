@@ -128,7 +128,7 @@ describe('lineUpDice', () => {
     const held: PhysicsHeldDice = [false, true, false, true, false]
     const heldOrder: PhysicsDiceIndex[] = [3, 1]
 
-    lineUpDice(entries, held, heldOrder, DICE)
+    lineUpDice({ entries, held, heldOrder }, DICE)
 
     expect(entries[3]?.mesh.position.x).toBeCloseTo(keepSlotPosition(0).x, 6)
     expect(entries[1]?.mesh.position.x).toBeCloseTo(keepSlotPosition(1).x, 6)
@@ -145,7 +145,7 @@ describe('lineUpDice', () => {
     const { entries, world } = setup()
     const held: PhysicsHeldDice = [true, false, false, false, true]
 
-    lineUpDice(entries, held, [0, 4], DICE)
+    lineUpDice({ entries: entries, held: held, heldOrder: [0, 4] }, DICE)
 
     entries.forEach((entry) => {
       expect(topFaceFromQuaternion(entry.mesh.quaternion)).toBe(DICE[entry.index])
@@ -162,7 +162,7 @@ describe('lineUpDice', () => {
     const { entries, world } = setup()
     const held: PhysicsHeldDice = [true, false, false, false, false]
 
-    lineUpDice(entries, held, [0], DICE)
+    lineUpDice({ entries: entries, held: held, heldOrder: [0] }, DICE)
 
     expect(entries[0]?.outline.material.opacity).toBeGreaterThan(0.5)
     expect(entries[1]?.outline.material.opacity).toBeLessThan(0.2)
@@ -177,7 +177,7 @@ describe('lineUpDice', () => {
     const { entries, world } = setup()
     const held: PhysicsHeldDice = [false, false, true, false, false]
 
-    lineUpDice(entries, held, [], DICE)
+    lineUpDice({ entries: entries, held: held, heldOrder: [] }, DICE)
 
     expect(entries[2]?.mesh.position.x).toBeCloseTo(keepSlotPosition(0).x, 6)
     world.free()
@@ -188,7 +188,7 @@ describe('lineUpDice', () => {
     const held: PhysicsHeldDice = [false, true, false, true, false]
     const heldOrder: PhysicsDiceIndex[] = [3, 1]
 
-    lineUpDice(entries, held, heldOrder, DICE, true)
+    lineUpDice({ entries, held, heldOrder, keepAll: true }, DICE)
 
     const expectedSlotOf = [2, 1, 3, 0, 4]
     entries.forEach((entry) => {
@@ -205,11 +205,11 @@ describe('lineUpDice', () => {
 describe('킵 전환 애니메이션', () => {
   it('물리는 즉시 목표로 고정하고 화면만 이전 자세에서 목표로 보간한다', () => {
     const { entries, world } = setup()
-    lineUpDice(entries, NONE_HELD, [], DICE)
+    lineUpDice({ entries: entries, held: NONE_HELD, heldOrder: [] }, DICE)
     const before = entries.map((entry) => entry.mesh.position.clone())
     const held: PhysicsHeldDice = [false, false, true, false, false]
 
-    const layout = prepareLayoutEntries(entries, held, [2], DICE)
+    const layout = prepareLayoutEntries({ entries: entries, held: held, heldOrder: [2] }, DICE)
 
     expect(entries[2]?.body.translation().x).toBeCloseTo(keepSlotPosition(0).x, 5)
     updateLayoutEntries(layout, 0)
@@ -229,9 +229,9 @@ describe('킵 전환 애니메이션', () => {
 
   it('전환 중에도 목표를 넘어서지 않는다 — 튀어 오르는 오버슈트가 없다', () => {
     const { entries, world } = setup()
-    lineUpDice(entries, NONE_HELD, [], DICE)
+    lineUpDice({ entries: entries, held: NONE_HELD, heldOrder: [] }, DICE)
     const held: PhysicsHeldDice = [false, false, true, false, false]
-    const layout = prepareLayoutEntries(entries, held, [2], DICE)
+    const layout = prepareLayoutEntries({ entries: entries, held: held, heldOrder: [2] }, DICE)
     const from = entries[2]?.mesh.position.clone() ?? new THREE.Vector3()
     const target = keepSlotPosition(0)
     const span = target.distanceTo(from)
@@ -253,7 +253,10 @@ describe('결과 정렬 애니메이션', () => {
       entry.mesh.position.set(entry.index * 0.4 - 1, 1.4, -1.8)
     })
 
-    const alignment = prepareAlignmentEntries(entries, held, [4], DICE)
+    const alignment = prepareAlignmentEntries(
+      { entries: entries, held: held, heldOrder: [4] },
+      DICE,
+    )
     updateAlignmentEntries(alignment, SCENE.alignment.lineUpEnd)
 
     const rolling = [entries[0], entries[1], entries[2], entries[3]]
@@ -276,7 +279,10 @@ describe('결과 정렬 애니메이션', () => {
     })
     entries[4]?.mesh.position.setY(keepSlotPosition(0).y)
 
-    const alignment = prepareAlignmentEntries(entries, held, [4], DICE)
+    const alignment = prepareAlignmentEntries(
+      { entries: entries, held: held, heldOrder: [4] },
+      DICE,
+    )
     updateAlignmentEntries(alignment, SCENE.alignment.lineUpEnd / 2)
 
     expect(entries[0]?.mesh.position.y).toBeGreaterThan(resultCenterY() + 0.2)
@@ -288,7 +294,10 @@ describe('결과 정렬 애니메이션', () => {
     const { entries, world } = setup()
     const held: PhysicsHeldDice = [false, false, false, false, true]
 
-    const alignment = prepareAlignmentEntries(entries, held, [4], DICE)
+    const alignment = prepareAlignmentEntries(
+      { entries: entries, held: held, heldOrder: [4] },
+      DICE,
+    )
     updateAlignmentEntries(alignment, SCENE.alignment.lineUpEnd * 0.1)
 
     expect(entries[0]?.outline.visible).toBe(false)
@@ -304,7 +313,10 @@ describe('결과 정렬 애니메이션', () => {
 
   it('진행도 1을 넘겨도 lineUpEnd 상태에서 더 움직이지 않는다', () => {
     const { entries, world } = setup()
-    const alignment = prepareAlignmentEntries(entries, NONE_HELD, [], DICE)
+    const alignment = prepareAlignmentEntries(
+      { entries: entries, held: NONE_HELD, heldOrder: [] },
+      DICE,
+    )
 
     updateAlignmentEntries(alignment, 1)
     const settled = entries.map((entry) => entry.mesh.position.clone())

@@ -41,45 +41,15 @@ export function GameDiceTray({
   turnCallout,
   wide,
 }: GameDiceTrayProps) {
-  const [coachOpen, setCoachOpen] = useState(() => !guided && !isTutorialHidden())
-  const [motionPanelOpen, setMotionPanelOpen] = useState(() => !coachOpen)
-  const {
-    allKept,
-    canHold,
-    canPlay,
-    canRoll,
-    completeRoll,
-    confirmThrow,
-    currentRollNumber,
-    keptCount,
-    lastRollInPlay,
-    local,
-    motion,
-    feedback,
-    pendingRoll,
-    releaseRequestId,
-    remoteShaking,
-    roll: handleRoll,
-    rollInputMode,
-    rollsLeft,
-    settledRollCount,
-    submitted,
-    toggleHeld,
-  } = roll
-
-  const rolled = local.dice !== null
+  const panels = useTrayPanels(guided)
+  const { canPlay, motion, settledRollCount } = roll
   const motionOfferable = canPlay && canOfferMotion(motion.availability)
-  const activePlayerName = activePlayer?.nickname
-  const trayLabel = diceTrayLabel({ activePlayerName, currentRollNumber, isMyTurn })
-  const statusText = diceTrayStatus({
-    activePlayerName,
-    allKept,
+  const { keptText, statusText, trayLabel } = trayTexts({
+    activePlayerName: activePlayer?.nickname,
     isMyTurn,
-    rolled,
+    roll,
     roundNumber,
-    submitted,
   })
-  const keptText = keptRailLabel(keepRailState(local, keptCount, lastRollInPlay), rollsLeft)
 
   return (
     <div
@@ -95,43 +65,113 @@ export function GameDiceTray({
         {trayLabel}
       </div>
       <TrayTopBand
-        coachOpen={coachOpen}
-        onOpenMotionPanel={() => setMotionPanelOpen(true)}
+        coachOpen={panels.coachOpen}
+        onOpenMotionPanel={panels.openMotionPanel}
         settledRollCount={settledRollCount}
-        showMotionChip={motionOfferable && !motionPanelOpen}
+        showMotionChip={motionOfferable && !panels.motionPanelOpen}
       />
       <TrayBottomBand
-        coachOpen={coachOpen}
+        coachOpen={panels.coachOpen}
         keptText={keptText}
         statusText={statusText}
         wide={wide}
       />
-      <PhysicsDiceScene
-        dice={local.dice}
-        held={local.held}
-        keepAll={lastRollInPlay}
-        motionFollow={rollInputMode === 'motion' || remoteShaking}
-        motionPulse={feedback.motionPulse}
-        onDiceImpact={feedback.diceImpact}
-        onError={feedback.physicsError}
-        {...(canHold ? { onHeldToggle: toggleHeld } : {})}
-        onPhaseChange={feedback.phaseChanged}
-        onRollComplete={completeRoll}
-        releaseRequestId={releaseRequestId}
-        request={pendingRoll}
+      <TrayDiceScene roll={roll} />
+      <TapToRollButton roll={roll} />
+      <TrayCallouts
+        feedback={roll.feedback}
+        onTurnCalloutDone={onTurnCalloutDone}
+        turnCallout={turnCallout}
       />
-      {canRoll && local.dice === null && !pendingRoll && (
-        <button
-          aria-label="주사위 굴리기"
-          className="absolute inset-0 z-[4] grid cursor-pointer place-items-center border-0 bg-transparent focus-ring focus-visible:-outline-offset-4"
-          onClick={handleRoll}
-          type="button"
-        >
-          <span className="text-2xs font-bold tracking-[0.1em] text-content-faint uppercase">
-            탭해서 굴리기
-          </span>
-        </button>
-      )}
+      <ThrowNowButton roll={roll} />
+      <TrayOnboarding canPlay={canPlay} motion={motion} panels={panels} />
+    </div>
+  )
+}
+
+interface TrayTextInput {
+  activePlayerName: string | undefined
+  isMyTurn: boolean
+  roll: GamePlayRoll
+  roundNumber: number
+}
+
+/** 트레이 왼쪽 위 라벨, 아래 띠의 상태 문구와 남긴 주사위 문구. */
+function trayTexts({ activePlayerName, isMyTurn, roll, roundNumber }: TrayTextInput) {
+  const { local } = roll
+  return {
+    keptText: keptRailLabel(
+      keepRailState(local, roll.keptCount, roll.lastRollInPlay),
+      roll.rollsLeft,
+    ),
+    statusText: diceTrayStatus({
+      activePlayerName,
+      allKept: roll.allKept,
+      isMyTurn,
+      rolled: local.dice !== null,
+      roundNumber,
+      submitted: roll.submitted,
+    }),
+    trayLabel: diceTrayLabel({
+      activePlayerName,
+      currentRollNumber: roll.currentRollNumber,
+      isMyTurn,
+    }),
+  }
+}
+
+type TrayPanels = ReturnType<typeof useTrayPanels>
+
+/**
+ * 트레이 위 안내 두 겹의 열림 상태. 첫 판 코치마크가 떠 있는 동안은 흔들기 권한 안내를
+ * 미뤘다가, 코치마크를 닫는 순간 이어서 연다 — 둘이 같은 자리에 겹쳐 뜨지 않게 한다.
+ */
+function useTrayPanels(guided: boolean) {
+  const [coachOpen, setCoachOpen] = useState(() => !guided && !isTutorialHidden())
+  const [motionPanelOpen, setMotionPanelOpen] = useState(() => !coachOpen)
+  return {
+    closeMotionPanel: () => setMotionPanelOpen(false),
+    coachOpen,
+    finishCoach: () => {
+      hideTutorial()
+      setCoachOpen(false)
+      setMotionPanelOpen(true)
+    },
+    motionPanelOpen,
+    openMotionPanel: () => setMotionPanelOpen(true),
+  }
+}
+
+function TrayDiceScene({ roll }: { roll: GamePlayRoll }) {
+  const { canHold, completeRoll, feedback, lastRollInPlay, local, toggleHeld } = roll
+  return (
+    <PhysicsDiceScene
+      dice={local.dice}
+      held={local.held}
+      keepAll={lastRollInPlay}
+      motionFollow={roll.rollInputMode === 'motion' || roll.remoteShaking}
+      motionPulse={feedback.motionPulse}
+      onDiceImpact={feedback.diceImpact}
+      onError={feedback.physicsError}
+      {...(canHold ? { onHeldToggle: toggleHeld } : {})}
+      onPhaseChange={feedback.phaseChanged}
+      onRollComplete={completeRoll}
+      releaseRequestId={roll.releaseRequestId}
+      request={roll.pendingRoll}
+    />
+  )
+}
+
+interface TrayCalloutsProps {
+  feedback: GamePlayRoll['feedback']
+  onTurnCalloutDone: () => void
+  turnCallout: number | null
+}
+
+/** 족보 연출과 "내 차례!" 연출 — 둘 다 key가 바뀔 때마다 처음부터 다시 뜬다. */
+function TrayCallouts({ feedback, onTurnCalloutDone, turnCallout }: TrayCalloutsProps) {
+  return (
+    <>
       {feedback.rollHighlight && (
         <RollResultCallout
           hand={feedback.rollHighlight.hand}
@@ -142,33 +182,62 @@ export function GameDiceTray({
       {turnCallout !== null && (
         <EffectCallout key={turnCallout} onDone={onTurnCalloutDone} text="내 차례!" tier={2} />
       )}
-      {pendingRoll && rollInputMode === 'motion' && (
-        <Button
-          className="absolute top-14 right-3 z-20 shadow-raised"
-          disabled={releaseRequestId !== null}
-          onClick={confirmThrow}
-        >
-          지금 던지기
-        </Button>
-      )}
-      {motionOfferable && motionPanelOpen && (
+    </>
+  )
+}
+
+interface TrayOnboardingProps {
+  canPlay: boolean
+  motion: GamePlayRoll['motion']
+  panels: TrayPanels
+}
+
+/** 첫 판 코치마크와 흔들기 권한 안내 — 어느 쪽이 먼저 뜨는지는 `useTrayPanels`가 정한다. */
+function TrayOnboarding({ canPlay, motion, panels }: TrayOnboardingProps) {
+  const motionOfferable = canPlay && canOfferMotion(motion.availability)
+  return (
+    <>
+      {motionOfferable && panels.motionPanelOpen && (
         <div className="absolute inset-x-3 top-3 z-30">
           <MotionPermissionPanel
             availability={motion.availability}
-            onClose={() => setMotionPanelOpen(false)}
+            onClose={panels.closeMotionPanel}
             onRequestPermission={motion.requestPermission}
           />
         </div>
       )}
-      {canPlay && coachOpen && (
-        <TooltipCoachmark
-          onDone={() => {
-            hideTutorial()
-            setCoachOpen(false)
-            setMotionPanelOpen(true)
-          }}
-        />
-      )}
-    </div>
+      {canPlay && panels.coachOpen && <TooltipCoachmark onDone={panels.finishCoach} />}
+    </>
+  )
+}
+
+/** 아직 한 번도 굴리지 않은 트레이는 전체가 굴리기 버튼이다. */
+function TapToRollButton({ roll }: { roll: GamePlayRoll }) {
+  if (!roll.canRoll || roll.local.dice !== null || roll.pendingRoll) return null
+  return (
+    <button
+      aria-label="주사위 굴리기"
+      className="absolute inset-0 z-[4] grid cursor-pointer place-items-center border-0 bg-transparent focus-ring focus-visible:-outline-offset-4"
+      onClick={roll.roll}
+      type="button"
+    >
+      <span className="text-2xs font-bold tracking-[0.1em] text-content-faint uppercase">
+        탭해서 굴리기
+      </span>
+    </button>
+  )
+}
+
+/** 흔들기로 굴리는 중이면 흔들기를 끝내지 않고도 바로 던질 수 있다. */
+function ThrowNowButton({ roll }: { roll: GamePlayRoll }) {
+  if (!roll.pendingRoll || roll.rollInputMode !== 'motion') return null
+  return (
+    <Button
+      className="absolute top-14 right-3 z-20 shadow-raised"
+      disabled={roll.releaseRequestId !== null}
+      onClick={roll.confirmThrow}
+    >
+      지금 던지기
+    </Button>
   )
 }

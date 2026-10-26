@@ -260,11 +260,20 @@ export class PhysicsDiceWorld {
     this.container.replaceChildren()
   }
 
+  private layoutInput() {
+    return {
+      entries: this.entries,
+      held: this.held,
+      heldOrder: this.heldOrder,
+      keepAll: this.keepAll,
+    }
+  }
+
   private lineUpDice() {
     this.layoutAnimating = false
     this.cameraHorizontal = resultCameraWidth()
     this.bowlRig.hide()
-    placeDice(this.entries, this.held, this.heldOrder, this.committedDice, this.keepAll)
+    placeDice(this.layoutInput(), this.committedDice)
     positionKeepSlots(this.keepSlots, this.occupiedKeepSlots(), this.keepSlotMaterials)
     this.resize()
   }
@@ -313,13 +322,7 @@ export class PhysicsDiceWorld {
     this.layoutStartedAt = performance.now()
     this.cameraHorizontal = resultCameraWidth()
     this.bowlRig.hide()
-    this.layoutEntries = prepareLayoutEntries(
-      this.entries,
-      this.held,
-      this.heldOrder,
-      this.committedDice,
-      this.keepAll,
-    )
+    this.layoutEntries = prepareLayoutEntries(this.layoutInput(), this.committedDice)
     this.resize()
     this.invalidate()
   }
@@ -363,14 +366,14 @@ export class PhysicsDiceWorld {
       time,
     )
     this.trajectoryFrameIndex = step.frameIndex
-    const impacts = detectTrajectoryImpacts(
+    const impacts = detectTrajectoryImpacts({
+      entries: this.entries,
+      falling: this.fallingDice,
+      held: this.held,
+      lastImpactAt: this.lastImpactAt,
       step,
-      this.entries,
-      this.held,
-      this.fallingDice,
-      this.lastImpactAt,
       time,
-    )
+    })
     for (const impact of impacts) this.callbacks.onDiceImpact?.(impact.index, impact.strength)
     applyTrajectoryPose(step, this.entries, this.held)
     if (step.elapsed < trajectory.durationSeconds) return
@@ -385,13 +388,7 @@ export class PhysicsDiceWorld {
     this.callbacks.onPhaseChange('aligning')
     this.alignmentStartedAt = time
     this.settledDice = [...this.request.targetDice]
-    this.alignmentEntries = prepareAlignmentEntries(
-      this.entries,
-      this.held,
-      this.heldOrder,
-      this.settledDice,
-      this.keepAll,
-    )
+    this.alignmentEntries = prepareAlignmentEntries(this.layoutInput(), this.settledDice)
     positionKeepSlots(
       this.keepSlots,
       Math.min(this.heldOrder.length, this.occupiedKeepSlots()),

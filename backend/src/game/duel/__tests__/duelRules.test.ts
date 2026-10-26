@@ -36,8 +36,8 @@ describe('DuelRules', () => {
   it('더 빨리 뽑은 쪽이 상대를 쏜다', () => {
     const signalled = signal(initial(), 5_000)
 
-    const first = draw(signalled, P1, 1, 180, 5_200)
-    const resolved = draw(first, P2, 1, 240, 5_260)
+    const first = draw(signalled, { playerId: P1, inputSeq: 1, reportedMs: 180, now: 5_200 })
+    const resolved = draw(first, { playerId: P2, inputSeq: 1, reportedMs: 240, now: 5_260 })
 
     expect(resolved.phase).toBe('RESULT')
     expect(lastRound(resolved).kind).toBe('SHOT')
@@ -49,8 +49,8 @@ describe('DuelRules', () => {
   it('같은 밀리초는 무승부이고 아무도 총알을 잃지 않는다', () => {
     const signalled = signal(initial(), 5_000)
 
-    const first = draw(signalled, P1, 1, 200, 5_220)
-    const resolved = draw(first, P2, 1, 200, 5_230)
+    const first = draw(signalled, { playerId: P1, inputSeq: 1, reportedMs: 200, now: 5_220 })
+    const resolved = draw(first, { playerId: P2, inputSeq: 1, reportedMs: 200, now: 5_230 })
 
     expect(lastRound(resolved).kind).toBe('TIE')
     expect(lastRound(resolved).hitId).toBeNull()
@@ -59,7 +59,7 @@ describe('DuelRules', () => {
 
   /** 첫 부정출발은 상대를 무피해로 두고 경고만 남긴다 — 손떨림 한 번에 체력을 깎지 않는다. */
   it('첫 부정출발은 경고만 남긴다', () => {
-    const fouled = draw(initial(), P1, 1, 120, 2_000)
+    const fouled = draw(initial(), { playerId: P1, inputSeq: 1, reportedMs: 120, now: 2_000 })
 
     expect(lastRound(fouled).kind).toBe('WARNING')
     expect(lastRound(fouled).foulId).toBe(P1)
@@ -69,9 +69,13 @@ describe('DuelRules', () => {
 
   /** 두 번째 부정출발은 총알이 남아 있어도 그 자리에서 결투를 끝낸다. */
   it('두 번째 부정출발은 즉시 결투를 잃는다', () => {
-    const warned = nextRound(draw(initial(), P1, 1, -1, 2_000), 3_000, 1_500)
+    const warned = nextRound(
+      draw(initial(), { playerId: P1, inputSeq: 1, reportedMs: -1, now: 2_000 }),
+      3_000,
+      1_500,
+    )
 
-    const selfShot = draw(warned, P1, 2, -1, 3_400)
+    const selfShot = draw(warned, { playerId: P1, inputSeq: 2, reportedMs: -1, now: 3_400 })
 
     expect(lastRound(selfShot).kind).toBe('SELF_SHOT')
     expect(lastRound(selfShot).hitId).toBe(P1)
@@ -87,7 +91,7 @@ describe('DuelRules', () => {
   /** 경고는 라운드를 넘어 누적된다 — 라운드마다 두 번씩 기회를 주는 게 아니다. */
   it('경고는 라운드 간 누적된다', () => {
     const signalled = signal(initial(), 5_000)
-    const fouled = draw(signalled, P1, 1, -1, 5_100)
+    const fouled = draw(signalled, { playerId: P1, inputSeq: 1, reportedMs: -1, now: 5_100 })
 
     expect(lastRound(fouled).kind).toBe('WARNING')
     expect(fouled.fouls[P1]).toBe(1)
@@ -100,7 +104,7 @@ describe('DuelRules', () => {
 
   /** 신호 전 입력은 payload가 어떤 ms를 신고해도 부정출발이다 — 판정 권한은 서버에 있다. */
   it('신호 전 draw는 항상 부정출발이다', () => {
-    const fouled = draw(initial(), P2, 1, 999, 2_000)
+    const fouled = draw(initial(), { playerId: P2, inputSeq: 1, reportedMs: 999, now: 2_000 })
 
     expect(fouled.reactions[P2]).toBe(FOUL)
   })
@@ -109,7 +113,7 @@ describe('DuelRules', () => {
   it('신고한 반응 시간은 서버 경과시간으로 깎인다', () => {
     const signalled = signal(initial(), 5_000)
 
-    const drawn = draw(signalled, P1, 1, 900, 5_400)
+    const drawn = draw(signalled, { playerId: P1, inputSeq: 1, reportedMs: 900, now: 5_400 })
 
     expect(drawn.reactions[P1]).toBe(400)
   })
@@ -127,7 +131,7 @@ describe('DuelRules', () => {
   /** 한쪽만 뽑고 유예가 끝나면 얼어붙은 쪽이 그대로 맞는다. */
   it('얼어붙은 쪽이 총알을 맞는다', () => {
     const signalled = signal(initial(), 5_000)
-    const drawn = draw(signalled, P1, 1, 200, 5_200)
+    const drawn = draw(signalled, { playerId: P1, inputSeq: 1, reportedMs: 200, now: 5_200 })
 
     const resolved = expire(drawn, drawn.nextActionAt)
 
@@ -140,8 +144,18 @@ describe('DuelRules', () => {
     for (let round = 0; round < MAX_HP; round += 1) {
       const signalAt = 5_000 + round * 10_000
       state = signal(state, signalAt)
-      state = draw(state, P1, round + 1, 180, signalAt + 200)
-      state = draw(state, P2, round + 1, 300, signalAt + 320)
+      state = draw(state, {
+        playerId: P1,
+        inputSeq: round + 1,
+        reportedMs: 180,
+        now: signalAt + 200,
+      })
+      state = draw(state, {
+        playerId: P2,
+        inputSeq: round + 1,
+        reportedMs: 300,
+        now: signalAt + 320,
+      })
       if (!lastRound(state).over) state = nextRound(state, signalAt + 4_000, 1_500)
     }
 
@@ -158,9 +172,9 @@ describe('DuelRules', () => {
 
   it('같은 입력 시퀀스는 무시된다', () => {
     const signalled = signal(initial(), 5_000)
-    const drawn = draw(signalled, P1, 1, 200, 5_200)
+    const drawn = draw(signalled, { playerId: P1, inputSeq: 1, reportedMs: 200, now: 5_200 })
 
-    const repeated = draw(drawn, P1, 1, 100, 5_300)
+    const repeated = draw(drawn, { playerId: P1, inputSeq: 1, reportedMs: 100, now: 5_300 })
 
     expect(repeated).toEqual(drawn)
   })

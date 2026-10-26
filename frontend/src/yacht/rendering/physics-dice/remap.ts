@@ -63,8 +63,12 @@ export function predictNaturalDice(
   held: PhysicsHeldDice,
 ): PhysicsDiceSet | null {
   return (
-    simulateDiceTrajectory(world.takeSnapshot(), world.timestep, entries, held, 0, 0)
-      ?.naturalDice ?? null
+    simulateDiceTrajectory(world.takeSnapshot(), world.timestep, {
+      entries,
+      held,
+      seed: 0,
+      attempt: 0,
+    })?.naturalDice ?? null
   )
 }
 
@@ -77,7 +81,7 @@ export function planDiceTrajectory(
   const snapshot = world.takeSnapshot()
   let best: { plan: DiceTrajectoryPlan; issueScore: number } | null = null
   for (let attempt = 0; attempt < MAX_TRAJECTORY_ATTEMPTS; attempt += 1) {
-    const plan = simulateDiceTrajectory(snapshot, world.timestep, entries, held, seed, attempt)
+    const plan = simulateDiceTrajectory(snapshot, world.timestep, { entries, held, seed, attempt })
     if (!plan) continue
     const issueScore = diceTrajectoryIssueScore(plan, entries, held)
     if (issueScore === 0) return plan
@@ -86,13 +90,21 @@ export function planDiceTrajectory(
   return best?.plan ?? null
 }
 
+/**
+ * 시뮬레이션 한 번의 입력 — 같은 주사위·같은 시드에서 같은 결과가 나와야 하므로
+ * 이 다섯 값이 함께 다닌다.
+ */
+interface SimulationInput {
+  readonly entries: PredictableDie[]
+  readonly held: PhysicsHeldDice
+  readonly seed: number
+  readonly attempt: number
+}
+
 function simulateDiceTrajectory(
   snapshot: Uint8Array,
   timestep: number,
-  entries: PredictableDie[],
-  held: PhysicsHeldDice,
-  seed: number,
-  attempt: number,
+  { entries, held, seed, attempt }: SimulationInput,
 ): DiceTrajectoryPlan | null {
   let clone: RAPIER.World | null = null
   try {
@@ -100,7 +112,7 @@ function simulateDiceTrajectory(
     clone.timestep = timestep
     const bodies = entries.map((entry) => clone?.getRigidBody(entry.body.handle))
     if (bodies.some((body) => !body)) return null
-    applyRetrySpread(bodies, entries, held, seed, attempt)
+    applyRetrySpread(bodies, { entries, held, seed, attempt })
     const rolling: TrayOccupant[] = []
     entries.forEach((entry, slot) => {
       const body = bodies[slot]
@@ -122,19 +134,33 @@ function simulateDiceTrajectory(
       if (stableSteps >= stableTarget) {
         if (
           floorAssists < MAX_FLOOR_ASSISTS &&
-          pressStandingDice(bodies, entries, held, seed, attempt, floorAssists)
+          pressStandingDice(bodies, { entries, held, seed, attempt }, floorAssists)
         ) {
           floorAssists += 1
           stableSteps = 0
           continue
         }
         captureFinalFrame(frames, bodies, elapsed)
-        return createTrajectoryPlan(attempt, elapsed, floorAssists, frames, bodies, true)
+        return createTrajectoryPlan({
+          attempt,
+          bodies,
+          durationSeconds: elapsed,
+          floorAssists,
+          frames,
+          settled: true,
+        })
       }
     }
     const elapsed = maxSteps * clone.timestep
     captureFinalFrame(frames, bodies, elapsed)
-    return createTrajectoryPlan(attempt, elapsed, floorAssists, frames, bodies, false)
+    return createTrajectoryPlan({
+      attempt,
+      bodies,
+      durationSeconds: elapsed,
+      floorAssists,
+      frames,
+      settled: false,
+    })
   } catch {
     return null
   } finally {
@@ -167,14 +193,23 @@ function captureFinalFrame(
   if (frames.at(-1)?.atSeconds !== atSeconds) captureTrajectoryFrame(frames, bodies, atSeconds)
 }
 
-function createTrajectoryPlan(
-  attempt: number,
-  durationSeconds: number,
-  floorAssists: number,
-  frames: DiceTrajectoryFrame[],
-  bodies: Array<RAPIER.RigidBody | undefined>,
-  settled: boolean,
-): DiceTrajectoryPlan {
+interface TrajectoryPlanInput {
+  attempt: number
+  durationSeconds: number
+  floorAssists: number
+  frames: DiceTrajectoryFrame[]
+  bodies: Array<RAPIER.RigidBody | undefined>
+  settled: boolean
+}
+
+function createTrajectoryPlan({
+  attempt,
+  durationSeconds,
+  floorAssists,
+  frames,
+  bodies,
+  settled,
+}: TrajectoryPlanInput): DiceTrajectoryPlan {
   const naturalDice = bodies.map((body) =>
     body ? topFaceFromQuaternion(body.rotation()) : 1,
   ) as unknown as PhysicsDiceSet
@@ -183,10 +218,7 @@ function createTrajectoryPlan(
 
 function pressStandingDice(
   bodies: Array<RAPIER.RigidBody | undefined>,
-  entries: PredictableDie[],
-  held: PhysicsHeldDice,
-  seed: number,
-  attempt: number,
+  { entries, held, seed, attempt }: SimulationInput,
   assist: number,
 ) {
   const width = PHYSICS_DICE_CONFIG.defaults.diceSize * PHYSICS_DICE_CONFIG.scene.bowlDiceScale
@@ -227,10 +259,7 @@ function pressStandingDice(
 
 function applyRetrySpread(
   bodies: Array<RAPIER.RigidBody | undefined>,
-  entries: PredictableDie[],
-  held: PhysicsHeldDice,
-  seed: number,
-  attempt: number,
+  { entries, held, seed, attempt }: SimulationInput,
 ) {
   if (attempt === 0) return
   const rollingSlots = entries
@@ -304,15 +333,15 @@ export function diceTrajectoryIssueScore(
   )
   return (
     overlapScore +
-    finalPoseIssueScore(
-      finalPoses,
+    finalPoseIssueScore({
+      poses: finalPoses,
       entries,
       held,
       colliderWidth,
       visualWidth,
       horizontalThresholdSq,
       verticalThreshold,
-    )
+    })
   )
 }
 
@@ -344,15 +373,26 @@ function frameOverlapScore(
   return score
 }
 
-function finalPoseIssueScore(
-  poses: DiceTrajectoryPose[],
-  entries: PredictableDie[],
-  held: PhysicsHeldDice,
-  colliderWidth: number,
-  visualWidth: number,
-  horizontalThresholdSq: number,
-  verticalThreshold: number,
-) {
+/** 마지막 자세 판정의 재료 — 치수·임계값이 항상 함께 계산돼 다닌다. */
+interface FinalPoseInput {
+  readonly poses: DiceTrajectoryPose[]
+  readonly entries: PredictableDie[]
+  readonly held: PhysicsHeldDice
+  readonly colliderWidth: number
+  readonly visualWidth: number
+  readonly horizontalThresholdSq: number
+  readonly verticalThreshold: number
+}
+
+function finalPoseIssueScore({
+  poses,
+  entries,
+  held,
+  colliderWidth,
+  visualWidth,
+  horizontalThresholdSq,
+  verticalThreshold,
+}: FinalPoseInput) {
   let score = 0
   for (let a = 0; a < entries.length; a += 1) {
     const entryA = entries[a]

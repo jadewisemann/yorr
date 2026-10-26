@@ -108,13 +108,17 @@ export const signal = (state: DuelState, now: number): DuelState => {
  * 잡아 "신호보다 늦게 도착했는데 더 빠른 기록"은 깎는다. 더 빠르게 신고하는 조작까지는
  * 막지 못하는데, 친구끼리 하는 파티 게임이라 지연 공정성을 택했다.
  */
-export const draw = (
-  state: DuelState,
-  playerId: string,
-  inputSeq: number,
-  reportedMs: number,
-  now: number,
-): DuelState => {
+/** 뽑기 한 번의 입력 묶음 — 이름으로 읽기 위해 객체로 받는다. */
+export interface DrawInput {
+  readonly playerId: string
+  readonly inputSeq: number
+  /** 클라이언트가 신호를 본 순간부터 잰 값. 음수면 신호 전에 뽑았다는 신고다. */
+  readonly reportedMs: number
+  readonly now: number
+}
+
+export const draw = (state: DuelState, input: DrawInput): DuelState => {
+  const { playerId, inputSeq, reportedMs, now } = input
   if (!state.playerOrder.includes(playerId)) return state
   if (inputSeq <= at(state.lastInputSeq, playerId, -1)) return state
 
@@ -244,8 +248,8 @@ const resolve = (
   const foulId = foulSide(reactions, first, second)
   const round =
     foulId === null
-      ? shootout(state, reactions, hp, first, second, now)
-      : penalty(state, hp, fouls, foulId, now)
+      ? shootout({ state, reactions, hp, first, second, now })
+      : penalty({ state, hp, fouls, foulId, now })
 
   return {
     ...state,
@@ -268,13 +272,15 @@ const resolve = (
  * 대신 파울을 쓴다"는 계산이 생기기 때문이다 — 부정출발은 값을 치르는 선택이 아니라
  * 하면 안 되는 일이어야 한다.
  */
-const penalty = (
-  state: DuelState,
-  hp: Record<string, number>,
-  fouls: Record<string, number>,
-  foulId: string,
-  now: number,
-): DuelRound => {
+interface PenaltyInput {
+  readonly state: DuelState
+  readonly hp: Record<string, number>
+  readonly fouls: Record<string, number>
+  readonly foulId: string
+  readonly now: number
+}
+
+const penalty = ({ state, hp, fouls, foulId, now }: PenaltyInput): DuelRound => {
   const count = at(fouls, foulId, 0) + 1
   fouls[foulId] = count
   if (count < MAX_FOULS) {
@@ -303,14 +309,16 @@ const penalty = (
 }
 
 /** 정상 승부 — 더 빨리 뽑은 쪽이 상대를 쏜다. */
-const shootout = (
-  state: DuelState,
-  reactions: DuelPlayerNumbers,
-  hp: Record<string, number>,
-  first: string,
-  second: string,
-  now: number,
-): DuelRound => {
+interface ShootoutInput {
+  readonly state: DuelState
+  readonly reactions: DuelPlayerNumbers
+  readonly hp: Record<string, number>
+  readonly first: string
+  readonly second: string
+  readonly now: number
+}
+
+const shootout = ({ state, reactions, hp, first, second, now }: ShootoutInput): DuelRound => {
   const winner = compareDraw(at(reactions, first, MISS), at(reactions, second, MISS))
   if (winner === 0) {
     return {

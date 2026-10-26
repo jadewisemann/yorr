@@ -22,7 +22,7 @@ export interface MatBag {
   geo<T extends THREE.BufferGeometry>(g: T): T
 }
 
-interface Paddle {
+export interface Paddle {
   group: THREE.Group
   facing: -1 | 1
   baseZ: number
@@ -81,7 +81,7 @@ const ARM_HIT_X = -2.1
 const ARM_HIT_Y = 0.1
 const ARM_HIT_Z = 0.85
 
-interface Mascot {
+export interface Mascot {
   root: THREE.Group
   body: THREE.Group
   arm: THREE.Group
@@ -89,14 +89,9 @@ interface Mascot {
   facing: -1 | 1
 }
 
-export function makeMascot(accentColor: number, z: number, facing: -1 | 1, mats: MatBag): Mascot {
-  const root = new THREE.Group()
-  const body = new THREE.Group()
-  root.add(body)
-
+/** 몸통·배·다리. 몸의 아래 절반이다. */
+function addTrunk(body: THREE.Group, mats: MatBag) {
   const g = mats.geo
-  const accent = mats.accent(accentColor)
-
   const torso = new THREE.Mesh(g(new THREE.SphereGeometry(0.35, 20, 14)), mats.fur)
   torso.scale.set(1.06, 0.96, 0.98)
   torso.position.y = 0.7
@@ -118,7 +113,11 @@ export function makeMascot(accentColor: number, z: number, facing: -1 | 1, mats:
     foot.position.set(s * 0.145, 0.065, 0.05)
     body.add(foot)
   }
+}
 
+/** 머리와 얼굴 — 주둥이·코·눈(반짝임)·볼. */
+function addHead(body: THREE.Group, mats: MatBag) {
+  const g = mats.geo
   const head = new THREE.Mesh(g(new THREE.SphereGeometry(0.36, 24, 16)), mats.fur)
   head.scale.set(1.02, 0.97, 0.99)
   head.position.y = 1.25
@@ -149,9 +148,12 @@ export function makeMascot(accentColor: number, z: number, facing: -1 | 1, mats:
     cheek.position.set(s * 0.22, 1.12, 0.255)
     body.add(cheek)
   }
+}
 
-  const earGeo = g(new THREE.SphereGeometry(0.105, 12, 8))
-  const earInGeo = g(new THREE.SphereGeometry(0.057, 8, 6))
+/** 귀 한 쌍. 자세에서 따로 까딱이도록 축(pivot)째 돌려준다. */
+function addEars(body: THREE.Group, mats: MatBag): THREE.Group[] {
+  const earGeo = mats.geo(new THREE.SphereGeometry(0.105, 12, 8))
+  const earInGeo = mats.geo(new THREE.SphereGeometry(0.057, 8, 6))
   const ears: THREE.Group[] = []
   for (const s of [-1, 1]) {
     const pivot = new THREE.Group()
@@ -167,13 +169,21 @@ export function makeMascot(accentColor: number, z: number, facing: -1 | 1, mats:
     pivot.add(inner)
     ears.push(pivot)
   }
+  return ears
+}
 
-  const band = new THREE.Mesh(g(new THREE.TorusGeometry(0.325, 0.03, 6, 20)), accent)
+/** 진영 색 머리띠. */
+function addBand(body: THREE.Group, mats: MatBag, accent: THREE.Material) {
+  const band = new THREE.Mesh(mats.geo(new THREE.TorusGeometry(0.325, 0.03, 6, 20)), accent)
   band.rotation.x = Math.PI / 2
   band.scale.set(1.02, 0.99, 1) // 회전 전 기준: y 가 앞뒤(깊이)
   band.position.y = 1.4
   body.add(band)
+}
 
+/** 두 팔. 오른팔(라켓 쥔 팔)만 돌려준다 — 스윙 자세가 움직이는 것은 그쪽뿐이다. */
+function addArms(body: THREE.Group, mats: MatBag, accent: THREE.Material): THREE.Group {
+  const g = mats.geo
   const upperGeo = g(new THREE.CapsuleGeometry(0.075, 0.22, 3, 8))
   const pawGeo = g(new THREE.SphereGeometry(0.085, 10, 8))
   const cuffGeo = g(new THREE.TorusGeometry(0.075, 0.022, 5, 12))
@@ -199,7 +209,12 @@ export function makeMascot(accentColor: number, z: number, facing: -1 | 1, mats:
 
   const arm = mkArm(1)
   arm.rotation.set(ARM_REST_X, 0, ARM_REST_Z)
+  return arm
+}
 
+/** 손에 쥔 라켓. 손목 각을 세워 팔 끝에 붙인다. */
+function addHeldPaddle(arm: THREE.Group, accentColor: number, mats: MatBag) {
+  const g = mats.geo
   const grip = new THREE.Group()
   grip.position.set(0, -0.31, 0.02)
   grip.rotation.set(WRIST_X, 0, 0)
@@ -217,6 +232,20 @@ export function makeMascot(accentColor: number, z: number, facing: -1 | 1, mats:
   const rim = new THREE.Mesh(g(new THREE.TorusGeometry(0.077, 0.0055, 5, 20)), mats.wood)
   rim.position.y = 0.16
   grip.add(rim)
+}
+
+export function makeMascot(accentColor: number, z: number, facing: -1 | 1, mats: MatBag): Mascot {
+  const root = new THREE.Group()
+  const body = new THREE.Group()
+  root.add(body)
+
+  const accent = mats.accent(accentColor)
+  addTrunk(body, mats)
+  addHead(body, mats)
+  const ears = addEars(body, mats)
+  addBand(body, mats, accent)
+  const arm = addArms(body, mats, accent)
+  addHeldPaddle(arm, accentColor, mats)
 
   root.position.set(0, 0, z)
   root.rotation.y = facing < 0 ? Math.PI : 0 // 상대를 바라보게
@@ -224,13 +253,16 @@ export function makeMascot(accentColor: number, z: number, facing: -1 | 1, mats:
   return { root, body, arm, ears, facing }
 }
 
-export function poseMascot(
-  m: Mascot,
-  xNorm: number,
-  swing: number,
-  react: number,
-  t: number,
-): void {
+/** 마스코트 자세 한 프레임 — 위치·기울기·반응을 한 묶음으로 받는다. */
+export interface MascotPose {
+  xNorm: number
+  swing: number
+  react: number
+  time: number
+}
+
+export function poseMascot(m: Mascot, pose: MascotPose): void {
+  const { xNorm, react, swing, time: t } = pose
   const x = xToWorld(lerp(0.5, xNorm, 0.55))
   m.root.position.x = x
   m.body.rotation.y = clamp(m.facing * (xToWorld(xNorm) - x) * 0.5, -0.3, 0.3)

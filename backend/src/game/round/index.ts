@@ -39,6 +39,7 @@ export {
   DEFAULT_TOTAL_ROUNDS,
   MAX_ROLL_COUNT,
   type RoundCompletion,
+  type RoundRoll,
   RoundState,
   type RoundStateProps,
   type RoundSubmissionResult,

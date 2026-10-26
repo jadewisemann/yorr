@@ -22,6 +22,7 @@ import {
 } from './court'
 import type { FrameState } from './frameState'
 import { trackIncomingBall } from './playerTracking'
+import { swingQualityOf } from './swingQuality'
 
 const POINT_COUNTDOWN_MS = 2_600
 const SWING_MS = 260
@@ -303,14 +304,18 @@ export function advanceLocalGame(
   return null
 }
 
-function prepareReturn(
-  state: LocalPingPongState,
-  player: 1 | 2,
-  distance: number,
-  early: boolean,
-  now: number,
-  random: RandomSource,
-): LocalFeedback | null {
+interface ReturnShot {
+  player: 1 | 2
+  /** 이상적인 타격 지점과의 거리. */
+  distance: number
+  /** 공이 아직 이상 지점에 오기 전에 쳤는가. */
+  early: boolean
+  now: number
+  random: RandomSource
+}
+
+function prepareReturn(state: LocalPingPongState, shot: ReturnShot): LocalFeedback | null {
+  const { player, distance, early, now, random } = shot
   const ball = state.ball
   ball.dir = player === 1 ? -1 : 1
   ball.hit = false
@@ -328,21 +333,17 @@ function prepareReturn(
   }
 
   state.rally += 1
-  if (distance <= PERFECT_D) {
+  const quality = swingQualityOf(distance, { good: GOOD_D, perfect: PERFECT_D })
+  if (quality.kind === 'smash') {
     ball.speed = SMASH_SPEED
     ball.smash = true
     state.flashAt = now
     state.shakeAt = now
-    return { kind: 'smash', text: '스매시! 💥' }
+    return quality
   }
-  if (distance <= GOOD_D) {
-    ball.speed = NORMAL_SPEED
-    ball.smash = false
-    return { kind: 'nice', text: '퍼펙트!' }
-  }
-  ball.speed = WEAK_SPEED
   ball.smash = false
-  return { kind: 'ok', text: '굿!' }
+  ball.speed = quality.kind === 'nice' ? NORMAL_SPEED : WEAK_SPEED
+  return quality
 }
 
 function swingP1(state: LocalPingPongState, now: number, random: RandomSource) {
@@ -352,7 +353,13 @@ function swingP1(state: LocalPingPongState, now: number, random: RandomSource) {
   state.p1SwingAt = now
   if (ball.pos < W1_LO) return { kind: 'miss', text: '너무 빨라요' } as const
   if (ball.pos > W1_HI) return { kind: 'miss', text: '너무 늦었어요' } as const
-  return prepareReturn(state, 1, Math.abs(ball.pos - IDEAL1), ball.pos < IDEAL1, now, random)
+  return prepareReturn(state, {
+    distance: Math.abs(ball.pos - IDEAL1),
+    early: ball.pos < IDEAL1,
+    now,
+    player: 1,
+    random,
+  })
 }
 
 function swingP2(state: LocalPingPongState, now: number, random: RandomSource) {
@@ -362,16 +369,25 @@ function swingP2(state: LocalPingPongState, now: number, random: RandomSource) {
   state.p2SwingAt = now
   if (ball.pos > W2_HI) return { kind: 'miss', text: '너무 빨라요' } as const
   if (ball.pos < W2_LO) return { kind: 'miss', text: '너무 늦었어요' } as const
-  return prepareReturn(state, 2, Math.abs(ball.pos - IDEAL2), ball.pos > IDEAL2, now, random)
+  return prepareReturn(state, {
+    distance: Math.abs(ball.pos - IDEAL2),
+    early: ball.pos > IDEAL2,
+    now,
+    player: 2,
+    random,
+  })
 }
 
-export function swingLocalGame(
-  state: LocalPingPongState,
-  player: 1 | 2,
-  now: number,
-  motion = false,
-  random: RandomSource = Math.random,
-): LocalFeedback | null {
+export interface LocalSwing {
+  player: 1 | 2
+  now: number
+  /** 모션 입력은 스윙 잠금을 무시한다(제스처가 이미 한 번만 발생한다). */
+  motion?: boolean
+  random?: RandomSource
+}
+
+export function swingLocalGame(state: LocalPingPongState, swing: LocalSwing): LocalFeedback | null {
+  const { player, now, motion = false, random = Math.random } = swing
   if (state.phase !== 'playing' || state.ball.fault) return null
   const lastSwing = player === 1 ? state.p1SwingAt : state.p2SwingAt
   if (!motion && now - lastSwing < SWING_LOCK_MS) return null

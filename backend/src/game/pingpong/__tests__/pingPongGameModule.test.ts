@@ -17,7 +17,7 @@ const ROOM = 'room-a'
 const PLAYER = 'player-1'
 
 interface Recorded {
-  readonly kind: 'swing' | 'ready'
+  readonly kind: 'swing' | 'ready' | 'host_state'
   readonly playerId: string
   readonly payload?: unknown
 }
@@ -39,6 +39,10 @@ const moduleUnderTest = (
       if (options.throws !== undefined) throw options.throws
       recorded.push({ kind: 'ready', playerId })
     },
+    hostState: async (_roomId: string, playerId: string, payload: unknown) => {
+      if (options.throws !== undefined) throw options.throws
+      recorded.push({ kind: 'host_state', playerId, payload })
+    },
     swing: async (_roomId: string, playerId: string, payload: unknown) => {
       if (options.throws !== undefined) throw options.throws
       recorded.push({ kind: 'swing', playerId, payload })
@@ -59,11 +63,12 @@ const inbound = (type: string, payload: unknown, roomId = ROOM): InboundEnvelope
 })
 
 describe('PingPongGameModule', () => {
-  it('swing·ready만 처리하고 다른 이벤트는 넘기지 않는다', () => {
+  it('swing·ready·host_state만 처리하고 다른 이벤트는 넘기지 않는다', () => {
     const { module } = moduleUnderTest()
 
     expect(module.handles('swing')).toBe(true)
     expect(module.handles('ready')).toBe(true)
+    expect(module.handles('host_state')).toBe(true)
     expect(module.handles('dice.roll')).toBe(false)
     expect(module.handles('game.ping_pong.swing')).toBe(false)
   })
@@ -95,6 +100,103 @@ describe('PingPongGameModule', () => {
     expect(recorded).toEqual([
       { kind: 'swing', playerId: PLAYER, payload: { inputSeq: 0, clientTs: 0 } },
     ])
+  })
+
+  it('ready는 서비스에 그대로 넘긴다', async () => {
+    const { module, socket, recorded } = moduleUnderTest()
+
+    await module.handle(socket, inbound('ready', {}))
+
+    expect(recorded).toEqual([{ kind: 'ready', playerId: PLAYER }])
+    expect(socket.sent).toEqual([])
+  })
+
+  /**
+   * `host_state` — 파티 모드에서 대시보드가 판정한 상태(frontend ADR-0003).
+   *
+   * 이 경로의 계약은 **null을 undefined로 바꾸는 것**이다. 상태 타입은
+   * `?: T | undefined`라 null이 그대로 들어가면 저장·재접속 스냅샷에서 "없는 필드"가
+   * 아니라 `"fault": null`이 되어 와이어 계약이 조용히 달라진다.
+   */
+  describe('host_state', () => {
+    const ball = {
+      pos: 0.4,
+      direction: 1,
+      speed: 1,
+      smash: false,
+      faultFrom: 0,
+      x0: 0.5,
+      x1: 0.5,
+      launchedAt: 1_000,
+    }
+    const base = {
+      version: 7,
+      phase: 'PLAYING',
+      playerOrder: [PLAYER, 'player-2'],
+      scores: { [PLAYER]: 3, 'player-2': 5 },
+      lastInputSeq: { [PLAYER]: 1, 'player-2': 2 },
+      readyPlayerIds: [PLAYER, 'player-2'],
+      rally: 4,
+      nextActionAt: 2_000,
+    }
+
+    it('세 선택 필드가 null이면 아예 싣지 않는다', async () => {
+      const { module, socket, recorded } = moduleUnderTest()
+
+      await module.handle(
+        socket,
+        inbound('host_state', {
+          ...base,
+          ball: { ...ball, fault: null },
+          serveReceiverId: null,
+          lastEvent: null,
+        }),
+      )
+
+      const payload = recorded[0]?.payload as Record<string, unknown>
+      expect(payload).not.toHaveProperty('serveReceiverId')
+      expect(payload).not.toHaveProperty('lastEvent')
+      expect(payload.ball).not.toHaveProperty('fault')
+    })
+
+    it('세 선택 필드가 값이면 그대로 싣는다', async () => {
+      const { module, socket, recorded } = moduleUnderTest()
+      const lastEvent = { id: 1, type: 'SMASH', playerId: PLAYER, at: 1_500 }
+
+      await module.handle(
+        socket,
+        inbound('host_state', {
+          ...base,
+          ball: { ...ball, fault: 'OUT' },
+          serveReceiverId: 'player-2',
+          lastEvent,
+        }),
+      )
+
+      const payload = recorded[0]?.payload as Record<string, unknown>
+      expect(payload.serveReceiverId).toBe('player-2')
+      expect(payload.lastEvent).toEqual(lastEvent)
+      expect(payload.ball).toMatchObject({ fault: 'OUT' })
+    })
+
+    it('빠진 선택 필드도 undefined로 남는다(null이 되지 않는다)', async () => {
+      const { module, socket, recorded } = moduleUnderTest()
+
+      await module.handle(socket, inbound('host_state', { ...base, ball }))
+
+      const payload = recorded[0]?.payload as Record<string, unknown>
+      expect(payload).not.toHaveProperty('serveReceiverId')
+      expect(payload).not.toHaveProperty('lastEvent')
+    })
+
+    it('모양이 어긋나면 INVALID_MESSAGE로 답하고 예외를 밖으로 내보내지 않는다', async () => {
+      const { module, socket, recorded } = moduleUnderTest()
+
+      await module.handle(socket, inbound('host_state', { version: 'nope' }))
+
+      expect(recorded).toEqual([])
+      expect(errorOf(socket)?.code).toBe('INVALID_MESSAGE')
+    })
   })
 
   it('좌석이 없거나 roomId가 어긋나면 NOT_IN_ROOM으로 답한다', async () => {

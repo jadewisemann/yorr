@@ -41,33 +41,10 @@ interface ArenaProps {
   children?: ReactNode
 }
 
-export function Arena({
-  phase,
-  round,
-  maxHp,
-  maxFouls,
-  left,
-  right,
-  leftShot,
-  rightShot,
-  leftMiss,
-  rightMiss,
-  miss,
-  clash,
-  flightMs,
-  impactDelayMs,
-  winner,
-  tie,
-  foulSide,
-  selfShot,
-  ko,
-  pending,
-  hint,
-  actLabel,
-  fxKey,
-  children,
-}: ArenaProps) {
-  const settled = phase === 'result' && !pending
+type ArenaStage = Omit<ArenaProps, 'children'>
+
+export function Arena({ children, ...stage }: ArenaProps) {
+  const { fxKey, impactDelayMs, leftShot, phase, rightShot } = stage
   const shots = leftShot !== null || rightShot !== null
 
   return (
@@ -81,15 +58,95 @@ export function Arena({
     >
       <Wasteland phase={phase} />
 
-      <SignalLamp phase={phase} round={round} />
+      <SignalLamp phase={phase} round={stage.round} />
 
+      <Plates {...stage} />
+      <Gunslingers {...stage} />
+
+      <ShotEffects {...stage} />
+
+      <Headline
+        actLabel={stage.actLabel}
+        landMs={impactDelayMs}
+        foulSide={stage.foulSide}
+        hint={stage.hint}
+        ko={stage.ko}
+        left={stage.left}
+        maxFouls={stage.maxFouls}
+        pending={stage.pending}
+        phase={phase}
+        right={stage.right}
+        selfShot={stage.selfShot}
+        tie={stage.tie}
+        winner={stage.winner}
+      />
+
+      {phase === 'result' && <ResultTimes {...stage} />}
+
+      {children}
+    </div>
+  )
+}
+
+/** 총알이 남기는 것 — 궤적·땅에 박힌 흙먼지·명중 섬광·빗나감 비아냥. */
+function ShotEffects(stage: ArenaStage) {
+  const { flightMs, impactDelayMs, leftShot, miss, rightShot, selfShot, tie, winner } = stage
+  const settled = stage.phase === 'result' && !stage.pending
+  return (
+    <>
+      <BulletTrack {...stage} />
+      {leftShot === 'ground' && <FoulDust delayMs={flightMs} selfShot={selfShot} side={1} />}
+      {rightShot === 'ground' && <FoulDust delayMs={flightMs} selfShot={selfShot} side={2} />}
+      {settled && !tie && winner !== 0 && <ImpactFlash delayMs={impactDelayMs} winner={winner} />}
+      {miss && <Taunt delayMs={impactDelayMs} side={miss.side} taunt={miss.taunt} />}
+    </>
+  )
+}
+
+/** 결과 국면의 양쪽 반응 시간. */
+function ResultTimes({
+  impactDelayMs,
+  left,
+  right,
+  tie,
+  winner,
+}: Pick<ArenaProps, 'impactDelayMs' | 'left' | 'right' | 'tie' | 'winner'>) {
+  return (
+    <>
+      <TimeTag landMs={impactDelayMs} ms={left.ms} side="left" tie={tie} won={winner === 1} />
+      <TimeTag landMs={impactDelayMs} ms={right.ms} side="right" tie={tie} won={winner === 2} />
+    </>
+  )
+}
+
+/** 좌우 체력·파울 표시. 대칭이라 한 컴포넌트가 두 번 그린다. */
+function Plates({
+  left,
+  right,
+  maxHp,
+  maxFouls,
+}: Pick<ArenaProps, 'left' | 'right' | 'maxHp' | 'maxFouls'>) {
+  return (
+    <>
       <div className="absolute" style={{ left: 12, top: 62 }}>
         <Plate align="left" fighter={left} maxFouls={maxFouls} maxHp={maxHp} />
       </div>
       <div className="absolute" style={{ right: 12, top: 62 }}>
         <Plate align="right" fighter={right} maxFouls={maxFouls} maxHp={maxHp} />
       </div>
+    </>
+  )
+}
 
+/** 총잡이 두 명 — 발사 여부만 다르다. */
+function Gunslingers({
+  left,
+  right,
+  leftShot,
+  rightShot,
+}: Pick<ArenaProps, 'left' | 'right' | 'leftShot' | 'rightShot'>) {
+  return (
+    <>
       <div
         className="absolute"
         style={{ bottom: '28%', left: '17%', transform: 'translateX(-50%)' }}
@@ -113,67 +170,48 @@ export function Arena({
           pose={right.pose}
         />
       </div>
+    </>
+  )
+}
 
-      {(leftShot === 'opponent' || rightShot === 'opponent') && (
-        <div
-          className="pointer-events-none absolute"
-          style={{
-            bottom: 'calc(28% + var(--gs-h) * 0.5)',
-            height: 0,
-            left: `${BULLET_TRACK_INSET * 100}%`,
-            right: `${BULLET_TRACK_INSET * 100}%`,
-          }}
-        >
-          {leftShot === 'opponent' && (
-            <Bullet
-              clash={clash}
-              color={left.outfit.rim}
-              dir="r"
-              flightMs={flightMs}
-              miss={leftMiss}
-            />
-          )}
-          {rightShot === 'opponent' && (
-            <Bullet
-              clash={clash}
-              color={right.outfit.rim}
-              dir="l"
-              flightMs={flightMs}
-              miss={rightMiss}
-            />
-          )}
-          {clash && <Clash delayMs={Math.round(flightMs * 0.42)} />}
-        </div>
+/** 총알 궤적 — 양쪽이 상대를 향해 쐈을 때만 그린다. */
+function BulletTrack({
+  clash,
+  flightMs,
+  left,
+  leftMiss,
+  leftShot,
+  right,
+  rightMiss,
+  rightShot,
+}: Pick<
+  ArenaProps,
+  'clash' | 'flightMs' | 'left' | 'leftMiss' | 'leftShot' | 'right' | 'rightMiss' | 'rightShot'
+>) {
+  if (leftShot !== 'opponent' && rightShot !== 'opponent') return null
+  return (
+    <div
+      className="pointer-events-none absolute"
+      style={{
+        bottom: 'calc(28% + var(--gs-h) * 0.5)',
+        height: 0,
+        left: `${BULLET_TRACK_INSET * 100}%`,
+        right: `${BULLET_TRACK_INSET * 100}%`,
+      }}
+    >
+      {leftShot === 'opponent' && (
+        <Bullet clash={clash} color={left.outfit.rim} dir="r" flightMs={flightMs} miss={leftMiss} />
       )}
-      {leftShot === 'ground' && <FoulDust delayMs={flightMs} selfShot={selfShot} side={1} />}
-      {rightShot === 'ground' && <FoulDust delayMs={flightMs} selfShot={selfShot} side={2} />}
-      {settled && !tie && winner !== 0 && <ImpactFlash delayMs={impactDelayMs} winner={winner} />}
-      {miss && <Taunt delayMs={impactDelayMs} side={miss.side} taunt={miss.taunt} />}
-
-      <Headline
-        actLabel={actLabel}
-        landMs={impactDelayMs}
-        foulSide={foulSide}
-        hint={hint}
-        ko={ko}
-        left={left}
-        maxFouls={maxFouls}
-        pending={pending}
-        phase={phase}
-        right={right}
-        selfShot={selfShot}
-        tie={tie}
-        winner={winner}
-      />
-
-      {phase === 'result' && (
-        <>
-          <TimeTag landMs={impactDelayMs} ms={left.ms} side="left" tie={tie} won={winner === 1} />
-          <TimeTag landMs={impactDelayMs} ms={right.ms} side="right" tie={tie} won={winner === 2} />
-        </>
+      {rightShot === 'opponent' && (
+        <Bullet
+          clash={clash}
+          color={right.outfit.rim}
+          dir="l"
+          flightMs={flightMs}
+          miss={rightMiss}
+        />
       )}
-
-      {children}
+      {clash && <Clash delayMs={Math.round(flightMs * 0.42)} />}
     </div>
   )
 }

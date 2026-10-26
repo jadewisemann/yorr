@@ -11,6 +11,21 @@ import { isRecorded } from '@/yacht/domain/yachtCategoryView'
 import { scoreLeaderLabel } from './gamePlayLabels'
 import { toMatrixPlayers, toTurnStripPlayers } from './playerViews'
 
+/**
+ * 진행 중인 턴의 화면 상태 묶음. `GamePlay`가 튜토리얼 가이드(`guide` prop)에 넘기고,
+ * `TutorialGuide`가 그대로 받는다 — 컴포넌트마다 다시 선언하지 않는다.
+ */
+export interface TurnProgress {
+  rolled: boolean
+  keptValues: number[]
+  rolling: boolean
+  submitted: boolean
+  rollCount: number
+  candidates: CategoryScores
+  motionNoticeVisible: boolean
+  wide: boolean
+}
+
 interface GamePlayViewInput {
   dice: DiceSet | null
   game: GameState | undefined

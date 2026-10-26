@@ -6,6 +6,8 @@
  * 귀에 들리는 결과를 좌우하므로, 계산과 상수를 한자리에 모아 두는 편이 조정하기 쉽다.
  */
 import {
+  CALLOUT_MARGIN_MS,
+  CALLOUT_MS,
   ECHO,
   EDGE_MAX_MS,
   EDGE_RATIO,

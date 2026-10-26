@@ -75,27 +75,24 @@ export interface AuthenticatedApiCallOptions extends ApiCallOptions {
 
 export class HttpRoomApiClient {
   createRoom(request: CreateRoomRequest, options?: ApiCallOptions) {
-    return enterRoom(
-      { nickname: request.nickname },
-      'host',
+    return enterRoom({
+      body: { nickname: request.nickname },
+      membershipRole: 'host',
       options,
-      request.gameCode ?? 'YACHT_DICE',
-    )
+      gameCode: request.gameCode ?? 'YACHT_DICE',
+    })
   }
 
   createPartyRoom(gameCode: GameCode, options?: ApiCallOptions) {
-    return enterRoom({}, 'dashboard', options, gameCode, true)
+    return enterRoom({ body: {}, membershipRole: 'dashboard', options, gameCode, party: true })
   }
 
   joinRoom(roomCode: string, request: JoinRoomRequest, options?: ApiCallOptions) {
-    return enterRoom(
-      {
-        nickname: request.nickname,
-        room_id: roomCode,
-      },
-      'participant',
+    return enterRoom({
+      body: { nickname: request.nickname, room_id: roomCode },
+      membershipRole: 'participant',
       options,
-    )
+    })
   }
 
   getGame(gameId: string, options?: ApiCallOptions) {
@@ -153,13 +150,16 @@ export class HttpRoomApiClient {
 
 export const roomApiClient = new HttpRoomApiClient()
 
-function enterRoom(
-  request: EnterRoomRequest,
-  membershipRole: RoomMembershipRole,
-  options?: ApiCallOptions,
-  gameCode?: GameCode,
-  party = false,
-) {
+interface EnterRoomOptions {
+  body: EnterRoomRequest
+  membershipRole: RoomMembershipRole
+  options?: ApiCallOptions | undefined
+  gameCode?: GameCode | undefined
+  party?: boolean | undefined
+}
+
+/** 방 생성·입장·파티방 열기가 같은 경로를 쓴다 — 역할과 쿼리만 다르다. */
+function enterRoom({ body, membershipRole, options, gameCode, party = false }: EnterRoomOptions) {
   const sessionToken = readAuthSession()?.sessionToken
   const search = new URLSearchParams()
   if (gameCode) search.set('game_code', gameCode)
@@ -167,7 +167,7 @@ function enterRoom(
   const query = search.toString()
   return apiRequest<unknown>(query ? `/rooms?${query}` : '/rooms', {
     method: 'POST',
-    body: JSON.stringify(sessionToken ? { ...request, session_token: sessionToken } : request),
+    body: JSON.stringify(sessionToken ? { ...body, session_token: sessionToken } : body),
     ...requestSignal(options),
   }).then((response) => toRoomSession(response, membershipRole))
 }

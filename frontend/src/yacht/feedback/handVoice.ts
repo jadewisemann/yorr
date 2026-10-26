@@ -10,6 +10,7 @@ export const HAND_VOICE_SOURCE: Record<SpecialHand, string> = {
 }
 
 const VOICE_VOLUME = 0.9
+const GESTURE_EVENTS = ['pointerdown', 'touchend', 'keydown'] as const
 
 export interface HandVoice {
   dispose(): void
@@ -24,41 +25,41 @@ function resolveAudioContext(): AudioContextConstructor | null {
   return scope.AudioContext ?? scope.webkitAudioContext ?? null
 }
 
+/** 오디오 그래프 — 컨텍스트와 볼륨 노드. 브라우저가 막으면 조용히 null이 된다. */
+interface AudioGraph {
+  context: AudioContext
+  master: GainNode
+}
+
+function openAudioGraph(): AudioGraph | null {
+  const Constructor = resolveAudioContext()
+  if (!Constructor) return null
+  try {
+    const context = new Constructor()
+    const master = context.createGain()
+    master.gain.value = VOICE_VOLUME
+    master.connect(context.destination)
+    return { context, master }
+  } catch {
+    return null
+  }
+}
+
+/** 특수 족보 음성 재생기. 파일은 처음 만들 때 미리 받아 둔다. */
 export function createHandVoice({ muted = false }: { muted?: boolean } = {}): HandVoice {
   let isMuted = muted
   let disposed = false
-  let context: AudioContext | null = null
-  let master: GainNode | null = null
+  let graph = openAudioGraph()
   let playing: AudioBufferSourceNode | null = null
   const buffers = new Map<SpecialHand, AudioBuffer>()
 
-  const Constructor = resolveAudioContext()
-  if (Constructor) {
-    try {
-      context = new Constructor()
-      master = context.createGain()
-      master.gain.value = VOICE_VOLUME
-      master.connect(context.destination)
-    } catch {
-      context = null
-    }
-  }
-
-  const preload = async (target: AudioContext) => {
-    await Promise.all(
-      SPECIAL_HANDS_BY_RANK.map(async (hand) => {
-        try {
-          const response = await fetch(HAND_VOICE_SOURCE[hand])
-          const buffer = await target.decodeAudioData(await response.arrayBuffer())
-          if (!disposed) buffers.set(hand, buffer)
-        } catch {}
-      }),
-    )
-  }
-  if (context) void preload(context)
+  if (graph) void preload(graph.context, buffers, () => disposed)
 
   const unlock = () => {
-    if (context?.state === 'suspended') void context.resume().catch(() => undefined)
+    if (graph?.context.state === 'suspended') void graph.context.resume().catch(() => undefined)
+  }
+  for (const type of GESTURE_EVENTS) {
+    document.addEventListener(type, unlock, { passive: true })
   }
 
   const stop = () => {
@@ -70,49 +71,77 @@ export function createHandVoice({ muted = false }: { muted?: boolean } = {}): Ha
     playing = null
   }
 
-  const gestureEvents = ['pointerdown', 'touchend', 'keydown'] as const
-  for (const type of gestureEvents) {
-    document.addEventListener(type, unlock, { passive: true })
+  const play = (hand: SpecialHand) => {
+    const current = graph
+    if (isMuted || !current) return
+    const buffer = buffers.get(hand)
+    if (!buffer) return
+    stop()
+    current.master.gain.value = VOICE_VOLUME * effectsLevel()
+    const source = startSource(current, buffer, {
+      isCurrent: () => playing === source,
+      onEnded: () => {
+        if (playing === source) playing = null
+      },
+    })
+    playing = source
   }
 
   return {
     dispose() {
       disposed = true
-      for (const type of gestureEvents) document.removeEventListener(type, unlock)
+      for (const type of GESTURE_EVENTS) document.removeEventListener(type, unlock)
       stop()
       buffers.clear()
-      void context?.close().catch(() => undefined)
-      context = null
-      master = null
+      void graph?.context.close().catch(() => undefined)
+      graph = null
     },
-    play(hand) {
-      if (isMuted || !context || !master) return
-      master.gain.value = VOICE_VOLUME * effectsLevel()
-      const buffer = buffers.get(hand)
-      if (!buffer) return
-      stop()
-      const source = context.createBufferSource()
-      source.buffer = buffer
-      source.connect(master)
-      source.onended = () => {
-        if (playing === source) playing = null
-      }
-      playing = source
-
-      if (context.state === 'running') {
-        source.start()
-        return
-      }
-      void context
-        .resume()
-        .then(() => {
-          if (playing === source) source.start()
-        })
-        .catch(() => undefined)
-    },
+    play,
     setMuted(next) {
       isMuted = next
       if (next) stop()
     },
   }
+}
+
+async function preload(
+  context: AudioContext,
+  buffers: Map<SpecialHand, AudioBuffer>,
+  isDisposed: () => boolean,
+) {
+  await Promise.all(
+    SPECIAL_HANDS_BY_RANK.map(async (hand) => {
+      try {
+        const response = await fetch(HAND_VOICE_SOURCE[hand])
+        const buffer = await context.decodeAudioData(await response.arrayBuffer())
+        if (!isDisposed()) buffers.set(hand, buffer)
+      } catch {}
+    }),
+  )
+}
+
+/**
+ * 재생 시작. 컨텍스트가 잠들어 있으면(자동재생 정책) 깨운 뒤 시작한다 —
+ * 깨우는 사이에 다른 음성이 끼어들었으면 시작하지 않는다.
+ */
+function startSource(
+  graph: AudioGraph,
+  buffer: AudioBuffer,
+  handlers: { isCurrent: () => boolean; onEnded: () => void },
+): AudioBufferSourceNode {
+  const source = graph.context.createBufferSource()
+  source.buffer = buffer
+  source.connect(graph.master)
+  source.onended = handlers.onEnded
+  if (graph.context.state === 'running') {
+    source.start()
+    return source
+  }
+  void graph.context
+    .resume()
+    .then(() => {
+      if (handlers.isCurrent()) source.start()
+    })
+    .catch(() => undefined)
+  return source
 }

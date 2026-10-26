@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   DRAW_PENALTY_MS,
+  decideDraw,
   drawOutcome,
   drawPenaltyMs,
   duelOutcome,
@@ -115,5 +116,35 @@ describe('duelOutcome', () => {
   it('쓰러진 사람이 없으면 남은 총알로 가른다', () => {
     expect(duelOutcome({ ...base, fallenId: undefined, myHp: 3, opponentHp: 1 })).toBe('won')
     expect(duelOutcome({ ...base, fallenId: undefined, myHp: 1, opponentHp: 3 })).toBe('lost')
+  })
+})
+
+describe('decideDraw', () => {
+  it('신호 전 입력은 부정출발이다 — 서버도 그 값을 부정출발로 판정한다', () => {
+    const decision = decideDraw('WAITING', null, 5_000, 'swing')
+
+    expect(decision.early).toBe(true)
+    expect(decision.reactionMs).toBe(DUEL_FOUL)
+    expect(decision.target).toBe('ground')
+    // 부정출발은 반응 시간이 아니므로 입력 수단 페널티를 얹지 않는다.
+    expect(decision.penaltyMs).toBe(0)
+  })
+
+  it('SIGNAL인데 신호 시각이 없으면 역시 이른 것이다', () => {
+    expect(decideDraw('SIGNAL', null, 5_000, 'swing').early).toBe(true)
+  })
+
+  it('신호를 본 뒤에는 경과 시간을 반올림해 보낸다', () => {
+    const decision = decideDraw('SIGNAL', 5_000, 5_187.6, 'swing')
+
+    expect(decision.early).toBe(false)
+    expect(decision.reactionMs).toBe(188)
+    expect(decision.target).toBe('opponent')
+  })
+
+  it('입력 수단에 따라 발사 지연이 붙는다', () => {
+    expect(decideDraw('SIGNAL', 5_000, 5_180, 'swing').penaltyMs).toBe(0)
+    expect(decideDraw('SIGNAL', 5_000, 5_180, 'tap').penaltyMs).toBe(DRAW_PENALTY_MS.tap)
+    expect(decideDraw('SIGNAL', 5_000, 5_180, 'key').penaltyMs).toBe(DRAW_PENALTY_MS.key)
   })
 })

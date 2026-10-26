@@ -5,3 +5,6 @@ set -e
 
 node tools/check-file-tokens.mjs
 node tools/check-loc-ratchet.mjs --staged
+# 복잡도·중복·죽은 export. 전체를 스캔하지만 수 초면 끝나고, 기준선에 없는
+# 새 위반만 막는다 — 부분 스테이징에서도 "지금 상태"를 재는 편이 정확하다.
+node tools/check-code-quality.mjs

@@ -23,36 +23,54 @@ const POUR_BASE_VOLUME = 0.7
 
 onFirstGesture(() => primeAudio([shake, pour, ...hits]))
 
+const play = (audio: HTMLAudioElement, baseVolume: number) => {
+  setElementVolume(audio, baseVolume * effectsLevel())
+  void audio.play().catch(() => undefined)
+}
+
+const pauseAll = () => {
+  shake.pause()
+  pour.pause()
+  for (const audio of hits) audio.pause()
+}
+
+const vibrate = (pattern: VibratePattern) => {
+  if (document.hidden || typeof navigator.vibrate !== 'function') return
+  navigator.vibrate(pattern)
+}
+
+/** 흔들기 루프를 멈추는 타이머. 펄스가 올 때마다 다시 걸어, 마지막 펄스 뒤 잠시만 더 울린다. */
+function createShakeIdleStop() {
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  const clear = () => {
+    if (timer === null) return
+    clearTimeout(timer)
+    timer = null
+  }
+
+  return {
+    clear,
+    restart() {
+      clear()
+      timer = setTimeout(() => {
+        timer = null
+        shake.pause()
+      }, SHAKE_IDLE_STOP_MS)
+    },
+  }
+}
+
 export function createRollFeedback({ muted = false }: { muted?: boolean } = {}) {
   let lastShakeAt = 0
   let phase: PhysicsDicePhase = 'idle'
   let isMuted = muted
-  let shakeIdleTimer: ReturnType<typeof setTimeout> | null = null
-
-  const play = (audio: HTMLAudioElement, baseVolume: number) => {
-    setElementVolume(audio, baseVolume * effectsLevel())
-    void audio.play().catch(() => undefined)
-  }
-
-  const clearShakeIdle = () => {
-    if (shakeIdleTimer === null) return
-    clearTimeout(shakeIdleTimer)
-    shakeIdleTimer = null
-  }
+  const shakeIdle = createShakeIdleStop()
 
   const keepShakeSounding = () => {
     if (phase !== 'shaking' || isMuted) return
     if (shake.paused) play(shake, SHAKE_BASE_VOLUME)
-    clearShakeIdle()
-    shakeIdleTimer = setTimeout(() => {
-      shakeIdleTimer = null
-      shake.pause()
-    }, SHAKE_IDLE_STOP_MS)
-  }
-
-  const vibrate = (pattern: VibratePattern) => {
-    if (document.hidden || typeof navigator.vibrate !== 'function') return
-    navigator.vibrate(pattern)
+    shakeIdle.restart()
   }
 
   return {
@@ -68,17 +86,15 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}) 
     },
     dispose() {
       if (typeof navigator.vibrate === 'function') navigator.vibrate(0)
-      clearShakeIdle()
-      shake.pause()
-      pour.pause()
-      for (const audio of hits) audio.pause()
+      shakeIdle.clear()
+      pauseAll()
     },
     error() {
       vibrate([35, 30, 35])
     },
     phaseChanged(next: PhysicsDicePhase) {
       phase = next
-      clearShakeIdle()
+      shakeIdle.clear()
       if (next === 'shaking') {
         if (!isMuted) play(shake, SHAKE_BASE_VOLUME)
         return
@@ -93,9 +109,7 @@ export function createRollFeedback({ muted = false }: { muted?: boolean } = {}) 
     setMuted(next: boolean) {
       isMuted = next
       if (next) {
-        shake.pause()
-        pour.pause()
-        for (const audio of hits) audio.pause()
+        pauseAll()
       } else if (phase === 'shaking') {
         play(shake, SHAKE_BASE_VOLUME)
       }

@@ -40,14 +40,20 @@ describe('RoundState', () => {
   it('굴림은 정확히 한 번씩 기록되고 다음 플레이어에게서 초기화된다', () => {
     const state = RoundState.start(1, ['player-a', 'player-b'])
 
-    const afterFirstRoll = state.recordRoll('player-a', 1, 1, noHeld(), [1, 2, 3, 4, 5])
-    const afterSecondRoll = afterFirstRoll.recordRoll(
-      'player-a',
-      1,
-      2,
-      [true, false, true, false, true],
-      [6, 6, 6, 6, 6],
-    )
+    const afterFirstRoll = state.recordRoll({
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: noHeld(),
+      rolledDice: [1, 2, 3, 4, 5],
+    })
+    const afterSecondRoll = afterFirstRoll.recordRoll({
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 2,
+      held: [true, false, true, false, true],
+      rolledDice: [6, 6, 6, 6, 6],
+    })
     const nextPlayer = afterSecondRoll.submit(
       new RoundSubmission('player-a', 1, afterSecondRoll.activeDice ?? [], 'smallStraight'),
     ).state
@@ -60,20 +66,20 @@ describe('RoundState', () => {
   })
 
   it('자동 굴림은 마지막 KEEP을 유지하고 굴림을 하나 소모한다', () => {
-    const afterFirstRoll = RoundState.start(1, ['player-a']).recordRoll(
-      'player-a',
-      1,
-      1,
-      noHeld(),
-      [6, 6, 6, 2, 1],
-    )
-    const afterSecondRoll = afterFirstRoll.recordRoll(
-      'player-a',
-      1,
-      2,
-      [true, true, true, false, false],
-      [1, 1, 1, 5, 5],
-    )
+    const afterFirstRoll = RoundState.start(1, ['player-a']).recordRoll({
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: noHeld(),
+      rolledDice: [6, 6, 6, 2, 1],
+    })
+    const afterSecondRoll = afterFirstRoll.recordRoll({
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 2,
+      held: [true, true, true, false, false],
+      rolledDice: [1, 1, 1, 5, 5],
+    })
 
     const autoRolled = afterSecondRoll.autoRoll([4, 4, 4, 4, 4])
 
@@ -96,9 +102,27 @@ describe('RoundState', () => {
 
   it('굴림을 다 썼으면 자동 굴림을 거부한다', () => {
     const state = RoundState.start(1, ['player-a'])
-      .recordRoll('player-a', 1, 1, noHeld(), [1, 2, 3, 4, 5])
-      .recordRoll('player-a', 1, 2, noHeld(), [1, 2, 3, 4, 5])
-      .recordRoll('player-a', 1, 3, noHeld(), [1, 2, 3, 4, 5])
+      .recordRoll({
+        playerId: 'player-a',
+        roundNumber: 1,
+        rollCount: 1,
+        held: noHeld(),
+        rolledDice: [1, 2, 3, 4, 5],
+      })
+      .recordRoll({
+        playerId: 'player-a',
+        roundNumber: 1,
+        rollCount: 2,
+        held: noHeld(),
+        rolledDice: [1, 2, 3, 4, 5],
+      })
+      .recordRoll({
+        playerId: 'player-a',
+        roundNumber: 1,
+        rollCount: 3,
+        held: noHeld(),
+        rolledDice: [1, 2, 3, 4, 5],
+      })
 
     expect(state.hasRollsLeft).toBe(false)
     expectReason(() => state.autoRoll([6, 6, 6, 6, 6]), 'INVALID_ROLL')
@@ -108,7 +132,14 @@ describe('RoundState', () => {
     const state = RoundState.start(1, ['player-a'])
 
     expectReason(
-      () => state.recordRoll('player-a', 1, 2, noHeld(), [1, 2, 3, 4, 5]),
+      () =>
+        state.recordRoll({
+          playerId: 'player-a',
+          roundNumber: 1,
+          rollCount: 2,
+          held: noHeld(),
+          rolledDice: [1, 2, 3, 4, 5],
+        }),
       'INVALID_ROLL',
     )
   })
@@ -132,13 +163,13 @@ describe('RoundState', () => {
   })
 
   it('서버 주사위와 다른 주사위 제출은 거부한다', () => {
-    const state = RoundState.start(1, ['player-a']).recordRoll(
-      'player-a',
-      1,
-      1,
-      noHeld(),
-      [1, 2, 3, 4, 6],
-    )
+    const state = RoundState.start(1, ['player-a']).recordRoll({
+      playerId: 'player-a',
+      roundNumber: 1,
+      rollCount: 1,
+      held: noHeld(),
+      rolledDice: [1, 2, 3, 4, 6],
+    })
 
     expectReason(
       () => state.submit(new RoundSubmission('player-a', 1, [6, 6, 6, 6, 6], 'yacht')),
@@ -179,12 +210,25 @@ describe('RoundState', () => {
   /** 종료 후 도착한 제출·굴림은 거부한다. 받아주면 끝난 게임의 점수판이 다시 바뀐다. */
   it('게임이 끝나면 제출·굴림·만료를 전부 거부한다', () => {
     const finished = RoundState.start(1, ['player-a'], 1)
-      .recordRoll('player-a', 1, 1, noHeld(), [1, 2, 3, 4, 5])
+      .recordRoll({
+        playerId: 'player-a',
+        roundNumber: 1,
+        rollCount: 1,
+        held: noHeld(),
+        rolledDice: [1, 2, 3, 4, 5],
+      })
       .submit(submission('player-a', 1)).state
 
     expectReason(() => finished.submit(submission('player-a', 1)), 'GAME_ALREADY_FINISHED')
     expectReason(
-      () => finished.recordRoll('player-a', 1, 1, noHeld(), [1, 2, 3, 4, 5]),
+      () =>
+        finished.recordRoll({
+          playerId: 'player-a',
+          roundNumber: 1,
+          rollCount: 1,
+          held: noHeld(),
+          rolledDice: [1, 2, 3, 4, 5],
+        }),
       'GAME_ALREADY_FINISHED',
     )
     expectReason(() => finished.expire(), 'GAME_ALREADY_FINISHED')
@@ -218,7 +262,13 @@ describe('RoundState', () => {
       expect(state.withoutParticipant('ghost')).toBe(state)
 
       const finished = RoundState.start(1, ['player-a', 'player-b'], 1)
-        .recordRoll('player-a', 1, 1, noHeld(), [1, 2, 3, 4, 5])
+        .recordRoll({
+          playerId: 'player-a',
+          roundNumber: 1,
+          rollCount: 1,
+          held: noHeld(),
+          rolledDice: [1, 2, 3, 4, 5],
+        })
         .submit(submission('player-a', 1))
         .state.expire().state
       expect(finished.finished).toBe(true)
@@ -234,7 +284,14 @@ describe('RoundState', () => {
       'INVALID_ROLL',
     )
     expectReason(
-      () => state.recordRoll('player-a', 1, 1, [true, false, false, false, false], [1, 2, 3, 4, 5]),
+      () =>
+        state.recordRoll({
+          playerId: 'player-a',
+          roundNumber: 1,
+          rollCount: 1,
+          held: [true, false, false, false, false],
+          rolledDice: [1, 2, 3, 4, 5],
+        }),
       'INVALID_ROLL',
     )
   })
@@ -256,7 +313,13 @@ const submission = (playerId: string, roundNumber: number): RoundSubmission =>
 const noHeld = (): boolean[] => [false, false, false, false, false]
 
 const rolled = (state: RoundState): RoundState =>
-  state.recordRoll(state.activePlayerId, state.roundNumber, 1, noHeld(), [1, 2, 3, 4, 5])
+  state.recordRoll({
+    playerId: state.activePlayerId,
+    roundNumber: state.roundNumber,
+    rollCount: 1,
+    held: noHeld(),
+    rolledDice: [1, 2, 3, 4, 5],
+  })
 
 const expectReason = (action: () => unknown, reason: RoundSyncReason): void => {
   try {

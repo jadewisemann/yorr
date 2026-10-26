@@ -6,6 +6,7 @@ import {
   type ScoreBoard,
   type ScoreBoardStore,
   type ScoreCategory,
+  type ScoreConfirmation,
   ScoreConfirmationError,
 } from '../../score/index.js'
 import type {
@@ -155,14 +156,14 @@ export class FakeScoreBoardStore implements ScoreBoardStore {
   /** 설정하면 `confirmScore`가 던진다 — 점수 저장 실패 경로 재현. */
   failure: Error | null = null
 
-  async confirmScore(
-    gameId: string,
-    playerId: string,
-    roundNumber: number,
-    category: ScoreCategory,
-    score: number,
-    requestSignature: string,
-  ): Promise<ScoreBoard> {
+  async confirmScore({
+    gameId,
+    playerId,
+    roundNumber,
+    category,
+    score,
+    requestSignature,
+  }: ScoreConfirmation): Promise<ScoreBoard> {
     if (this.failure !== null) throw this.failure
     this.confirmed.push({
       gameId,
@@ -172,11 +173,16 @@ export class FakeScoreBoardStore implements ScoreBoardStore {
       score,
       signature: requestSignature,
     })
-    return createScoreBoard({ [category]: score }, 0, 0, score)
+    return createScoreBoard({
+      categories: { [category]: score },
+      upperSubtotal: 0,
+      upperBonus: 0,
+      total: score,
+    })
   }
 
   async findScoreBoard(): Promise<ScoreBoard> {
-    return createScoreBoard({}, 0, 0, 0)
+    return createScoreBoard({ categories: {}, upperSubtotal: 0, upperBonus: 0, total: 0 })
   }
 
   failWith(reason: 'STORE_FAILURE', message = 'redis unavailable'): void {

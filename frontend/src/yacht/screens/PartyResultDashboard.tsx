@@ -1,4 +1,4 @@
-import type { RoomSnapshot } from '@/realtime/wsEvents'
+import type { PlayerId, RoomSnapshot, ScoreBoard } from '@/realtime/wsEvents'
 import { Button } from '@/shared/components/Button'
 import { PlayBoard } from '@/shared/components/Screen'
 import { useWideLayout } from '@/shared/useWideLayout'
@@ -25,26 +25,11 @@ export function PartyResultDashboard({
   return (
     <PlayBoard wide={wide}>
       <div className="flex min-h-0 flex-1 flex-col">
-        <header className="flex flex-none items-center gap-3 border-b border-border px-gutter py-3">
-          <div className="grid min-w-0 flex-1 gap-1">
-            <h1 className="m-0 text-lg font-bold">최종 결과 · 요트 다이스</h1>
-            <p className="m-0 flex items-center gap-2 text-xs text-content-muted">
-              <span className="font-mono font-bold tracking-[0.12em] text-content">
-                {session.roomCode}
-              </span>
-              <span aria-hidden="true" className="h-3 w-px bg-border-strong" />
-              참가자 {ranked.length}명
-            </p>
-          </div>
-          <Button
-            className="flex-none px-3.5 text-sm"
-            onClick={onLeaveRequest}
-            type="button"
-            variant="danger"
-          >
-            방 닫기
-          </Button>
-        </header>
+        <DashboardResultHeader
+          onLeaveRequest={onLeaveRequest}
+          playerCount={ranked.length}
+          roomCode={session.roomCode}
+        />
 
         <p className="m-0 flex flex-none items-center gap-2 border-b border-border px-gutter py-2.5 text-xs text-content-muted">
           {snapshot.game?.roundNumber ?? 12}라운드 종료
@@ -76,21 +61,64 @@ export function PartyResultDashboard({
         </footer>
       </div>
 
-      {wide && (
-        <section aria-label="전체 점수표" className="flex min-h-0 flex-col border-l border-border">
-          <h2 className="m-0 flex-none px-3 pt-2.5 pb-1.5 text-sm font-bold tracking-[0.02em]">
-            전체 점수표
-          </h2>
-          <ScoreMatrix
-            className="min-h-0 flex-1"
-            players={ranked.map((player) => ({
-              nickname: player.nickname,
-              playerId: player.playerId,
-              scoreboard: snapshot.game?.scores[player.playerId],
-            }))}
-          />
-        </section>
-      )}
+      {wide && <DashboardScoreColumn ranked={ranked} scores={snapshot.game?.scores} />}
     </PlayBoard>
+  )
+}
+
+interface DashboardResultHeaderProps {
+  onLeaveRequest: () => void
+  playerCount: number
+  roomCode: string
+}
+
+function DashboardResultHeader({
+  onLeaveRequest,
+  playerCount,
+  roomCode,
+}: DashboardResultHeaderProps) {
+  return (
+    <header className="flex flex-none items-center gap-3 border-b border-border px-gutter py-3">
+      <div className="grid min-w-0 flex-1 gap-1">
+        <h1 className="m-0 text-lg font-bold">최종 결과 · 요트 다이스</h1>
+        <p className="m-0 flex items-center gap-2 text-xs text-content-muted">
+          <span className="font-mono font-bold tracking-[0.12em] text-content">{roomCode}</span>
+          <span aria-hidden="true" className="h-3 w-px bg-border-strong" />
+          참가자 {playerCount}명
+        </p>
+      </div>
+      <Button
+        className="flex-none px-3.5 text-sm"
+        onClick={onLeaveRequest}
+        type="button"
+        variant="danger"
+      >
+        방 닫기
+      </Button>
+    </header>
+  )
+}
+
+interface DashboardScoreColumnProps {
+  ranked: RankedPlayer[]
+  scores: Record<PlayerId, ScoreBoard> | undefined
+}
+
+/** 넓은 화면에서만 순위 옆에 상주하는 전체 점수표 열. */
+function DashboardScoreColumn({ ranked, scores }: DashboardScoreColumnProps) {
+  return (
+    <section aria-label="전체 점수표" className="flex min-h-0 flex-col border-l border-border">
+      <h2 className="m-0 flex-none px-3 pt-2.5 pb-1.5 text-sm font-bold tracking-[0.02em]">
+        전체 점수표
+      </h2>
+      <ScoreMatrix
+        className="min-h-0 flex-1"
+        players={ranked.map((player) => ({
+          nickname: player.nickname,
+          playerId: player.playerId,
+          scoreboard: scores?.[player.playerId],
+        }))}
+      />
+    </section>
   )
 }

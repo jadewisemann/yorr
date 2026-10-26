@@ -12,11 +12,17 @@ import { ScorecardValueEvaluator } from '../scorecardValueEvaluator.js'
  * 달라지면 확률표·메모 키·타이브레이크 중 하나가 틀어진 것이다.
  */
 
-const emptyBoard = (): ScoreBoard => createScoreBoard({}, 0, 0, 0)
+const emptyBoard = (): ScoreBoard =>
+  createScoreBoard({ categories: {}, upperSubtotal: 0, upperBonus: 0, total: 0 })
 
 const boardWith = (filled: Readonly<Record<string, number>>, upperSubtotal: number): ScoreBoard => {
   const total = Object.values(filled).reduce((sum, score) => sum + score, 0)
-  return createScoreBoard(filled, upperSubtotal, 0, total)
+  return createScoreBoard({
+    categories: filled,
+    upperSubtotal: upperSubtotal,
+    upperBonus: 0,
+    total: total,
+  })
 }
 
 describe('ExpectimaxYachtBotPolicy', () => {

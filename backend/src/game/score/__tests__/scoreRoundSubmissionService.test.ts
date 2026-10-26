@@ -6,7 +6,7 @@ import {
   type RoundSubmissionResult,
 } from '../../round/index.js'
 import { createScoreBoard, type ScoreBoard } from '../scoreBoard.js'
-import type { ScoreBoardStore } from '../scoreBoardStore.js'
+import type { ScoreBoardStore, ScoreConfirmation } from '../scoreBoardStore.js'
 import type { ScoreCategory } from '../scoreCategory.js'
 import { ScoreConfirmationService } from '../scoreConfirmationService.js'
 import { isScoreConfirmationError, ScoreConfirmationError } from '../scoreErrors.js'
@@ -55,17 +55,22 @@ interface ConfirmCall {
 class ScriptedScoreBoardStore implements ScoreBoardStore {
   readonly calls: ConfirmCall[] = []
   failure: ScoreConfirmationError | null = null
-  scoreboard: ScoreBoard = createScoreBoard({}, 0, 0, 0)
+  scoreboard: ScoreBoard = createScoreBoard({
+    categories: {},
+    upperSubtotal: 0,
+    upperBonus: 0,
+    total: 0,
+  })
   observe: (() => Promise<readonly string[]>) | null = null
 
-  async confirmScore(
-    gameId: string,
-    playerId: string,
-    roundNumber: number,
-    category: ScoreCategory,
-    score: number,
-    requestSignature: string,
-  ): Promise<ScoreBoard> {
+  async confirmScore({
+    gameId,
+    playerId,
+    roundNumber,
+    category,
+    score,
+    requestSignature,
+  }: ScoreConfirmation): Promise<ScoreBoard> {
     const submittedAtConfirmTime = this.observe === null ? [] : await this.observe()
     this.calls.push({
       gameId,
@@ -103,14 +108,13 @@ describe('ScoreRoundSubmissionService', () => {
 
   const startRound = async (...participants: string[]): Promise<void> => {
     await rounds.initialize(ROOM_ID, RoundState.start(1, participants))
-    await rounds.recordRollAtomically(
-      ROOM_ID,
-      participants[0] as string,
-      1,
-      1,
-      [false, false, false, false, false],
-      [1, 1, 1, 1, 1],
-    )
+    await rounds.recordRollAtomically(ROOM_ID, {
+      playerId: participants[0] as string,
+      roundNumber: 1,
+      rollCount: 1,
+      held: [false, false, false, false, false],
+      rolledDice: [1, 1, 1, 1, 1],
+    })
   }
 
   beforeEach(() => {
@@ -127,7 +131,12 @@ describe('ScoreRoundSubmissionService', () => {
 
   it('라운드 제출을 기록하기 전에 점수를 확정한다', async () => {
     await startRound('player-a', 'player-b')
-    store.scoreboard = createScoreBoard({ choice: 5 }, 0, 0, 5)
+    store.scoreboard = createScoreBoard({
+      categories: { choice: 5 },
+      upperSubtotal: 0,
+      upperBonus: 0,
+      total: 5,
+    })
 
     const result = await service.submit(ROOM_ID, 'player-a', payload())
 
@@ -159,7 +168,12 @@ describe('ScoreRoundSubmissionService', () => {
     expect(afterFailure?.submittedPlayerIds).toEqual([])
 
     store.failure = null
-    store.scoreboard = createScoreBoard({ choice: 5 }, 0, 0, 5)
+    store.scoreboard = createScoreBoard({
+      categories: { choice: 5 },
+      upperSubtotal: 0,
+      upperBonus: 0,
+      total: 5,
+    })
     const retried = await service.submit(ROOM_ID, 'player-a', payload())
 
     expect(retried.round.completedRound).not.toBeNull()

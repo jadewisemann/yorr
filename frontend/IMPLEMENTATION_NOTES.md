@@ -8,6 +8,15 @@
 >
 > 형식: `## YYYY-MM-DD - 주제` 아래에 불릿. 최신이 위.
 
+## 2026-10-21 - `TurnProgress` 통합, DSP 상수 import 누락
+
+- `TurnProgress`가 여섯 벌이었고 다섯은 죽은 export였다. 정의를
+  `model/gamePlayView.ts`로 옮기고 `TutorialGuide` props는 `extends TurnProgress`.
+- `voiceDsp.mjs`가 `CALLOUT_MS`를 import 없이 참조해 유효한 녹음이면 `ReferenceError`로
+  죽었다(`2a92cc5`에서 상수 둘 누락). Vitest 대상이 아니라 초록이었다 —
+  `src/__tests__/voiceDsp.test.ts`가 잡는다(변이 시험 확인).
+- 1초 사인파는 "짧은 녹음" 경고를 만들 수 없다 — 트림·에코 꼬리로 1240ms가 된다.
+
 ## 2026-09-30 - 320px 게임 헤더의 폭 예산
 
 - **턴 라벨이 0px로 눌려 있었다.** 좁은 화면 헤더는 `나가기 · 턴 상태 · 도움말 · 채팅 ·

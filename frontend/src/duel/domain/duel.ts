@@ -117,3 +117,42 @@ export function msLabel(ms: number | null | undefined): string {
   if (!isClean(ms)) return '얼어붙음'
   return `${ms}ms`
 }
+
+/**
+ * 뽑기 한 번의 판정 — 이른 출발인가, 신호로부터 몇 ms인가, 보낼 값은 얼마인가.
+ *
+ * 왜 여기 있나: 이 세 값은 **규칙**이고(부정출발은 값을 치르는 선택이 아니라 하면 안
+ * 되는 일이다), 훅 안에 있으면 시계·타이머와 뒤섞여 테스트할 수 없다. 화면이 아니라
+ * 규칙이므로 `domain/`이 제자리다.
+ */
+export interface DrawDecision {
+  /** 신호 전에 눌렀는가 — 서버도 이 값을 부정출발로 판정한다. */
+  readonly early: boolean
+  /** 서버로 보낼 반응 시간(부정출발이면 `DUEL_FOUL`). */
+  readonly reactionMs: number
+  /** 이번 뽑기가 지는 페널티(ms). 붙는 순간 발사가 늦어진다. */
+  readonly penaltyMs: number
+  /** 총알이 향하는 곳 — 부정출발은 자기 발밑이다. */
+  readonly target: 'ground' | 'opponent'
+}
+
+/**
+ * @param phase 현재 판의 단계. `WAITING`이면 아직 신호가 아니다.
+ * @param signalSeenAt 신호를 본 로컬 시각(신호 전이면 null).
+ * @param now 지금 시각(`performance.now()`).
+ */
+export function decideDraw(
+  phase: DuelState['phase'],
+  signalSeenAt: number | null,
+  now: number,
+  source: DuelInputSource,
+): DrawDecision {
+  const early = phase === 'WAITING' || signalSeenAt === null
+  const reactionMs = early ? DUEL_FOUL : Math.round(now - signalSeenAt)
+  return {
+    early,
+    reactionMs,
+    penaltyMs: drawPenaltyMs(reactionMs, source),
+    target: early ? 'ground' : 'opponent',
+  }
+}

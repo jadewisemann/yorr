@@ -1,5 +1,6 @@
 import {
   createContext,
+  type MutableRefObject,
   type ReactNode,
   useCallback,
   useContext,
@@ -9,10 +10,20 @@ import {
   useState,
 } from 'react'
 import { useRealtimeClient } from '@/realtime/RealtimeClientContext'
-import { buildClientMessage, type Player, type PlayerId } from '@/realtime/wsEvents'
+import type { RealtimeClient } from '@/realtime/realtimeClient'
+import {
+  buildClientMessage,
+  type ControllerLinkSignal,
+  type Player,
+  type PlayerId,
+} from '@/realtime/wsEvents'
 import { useAppStore } from '@/store'
 import { CONTROLLER_ICE_SERVERS, ControllerLink, type ControllerLinkRole } from './controllerLink'
-import { type RelayableClientMessage, relayedServerMessage } from './relay'
+import {
+  type ControllerLinkFrame,
+  type RelayableClientMessage,
+  relayedServerMessage,
+} from './relay'
 
 export type ControllerLinkStatus = 'off' | 'connecting' | 'open'
 
@@ -105,44 +116,14 @@ export function ControllerLinkProvider({ children, linkRole }: ControllerLinkPro
       return
     }
 
-    let active = true
-    const publish = () => {
-      const link = linkRef.current
-      if (!active || !link) return
-      setStatus(link.openPeerIds().length > 0 ? 'open' : 'connecting')
-    }
-
-    // ICE 설정이 상수라 링크를 **그 자리에서** 만든다. 발급 REST를 기다리던 예전 배선은
-    // 응답이 안 오는 망에서 링크가 영영 안 만들어졌다(controller-link.md).
-    const link = new ControllerLink({
-      role: linkRole,
-      iceServers: CONTROLLER_ICE_SERVERS,
-      sendSignal: (to, signal) => {
-        try {
-          client.send(buildClientMessage('ctrl.signal', { to, data: signal }))
-        } catch {}
-      },
-      onFrame: (from, frame) => {
-        if (frame.kind !== 'relay' || frame.message.roomId !== roomId) return
-        // 서버가 뿌렸을 봉투와 같은 모양으로 바꿔 같은 팬아웃에 흘린다 —
-        // 소비자는 어느 전송을 타고 왔는지 모른다.
-        client.deliverLocal(relayedServerMessage(frame, from, roomId))
-      },
-      onChanged: publish,
+    return startControllerLink({
+      client,
+      linkRole,
+      roomId,
+      you,
+      linkRef,
+      setStatus,
     })
-    linkRef.current = link
-    publish()
-    // 명단이 이미 도착해 있을 수 있다. 아래 명단 effect는 이 effect보다 먼저 돌 수 없으므로
-    // 여기서 현재 값으로 한 번 맞춘다.
-    const snapshot = useAppStore.getState().roomSnapshot
-    if (snapshot?.roomId === roomId) link.syncPeers(dashboardRoster(snapshot.players, you))
-
-    return () => {
-      active = false
-      link.close()
-      linkRef.current = null
-      setStatus('off')
-    }
   }, [client, linkRole, roomId, you])
 
   useEffect(
@@ -160,6 +141,80 @@ export function ControllerLinkProvider({ children, linkRole }: ControllerLinkPro
   }, [linkRole, players, roomId, snapshotRoomId, you])
 
   return <ControllerLinkContext.Provider value={channel}>{children}</ControllerLinkContext.Provider>
+}
+
+/** 시그널 전송. 유실은 링크가 재시도한다 — 여기서 던지면 effect가 통째로 죽는다. */
+function sendSignal(client: RealtimeClient, to: PlayerId, signal: ControllerLinkSignal): void {
+  try {
+    client.send(buildClientMessage('ctrl.signal', { to, data: signal }))
+  } catch {}
+}
+
+/**
+ * 중계 프레임 도착 — 서버가 뿌린 봉투와 **같은 모양**으로 바꿔 같은 팬아웃에 흘린다.
+ * 소비자는 어느 전송을 타고 왔는지 모른다.
+ */
+function receiveFrame(
+  client: RealtimeClient,
+  roomId: string,
+  from: PlayerId,
+  frame: ControllerLinkFrame,
+): void {
+  if (frame.kind !== 'relay' || frame.message.roomId !== roomId) return
+  client.deliverLocal(relayedServerMessage(frame, from, roomId))
+}
+
+interface StartLinkOptions {
+  readonly client: RealtimeClient
+  readonly linkRole: NonNullable<ControllerLinkProviderProps['linkRole']>
+  readonly roomId: string
+  readonly you: string
+  readonly linkRef: MutableRefObject<ControllerLink | null>
+  readonly setStatus: (status: ControllerLinkStatus) => void
+}
+
+/**
+ * 링크를 만들고 정리 함수를 돌려준다.
+ *
+ * 왜 함수로 뺐나: 만들기·초기 명단 맞추기·정리가 한 effect 안에서 세 겹으로 중첩돼
+ * 있었다. 여기서는 순서만 읽히면 되고, 그 순서에 이유가 있다 —
+ * **ICE 설정이 상수라 링크를 그 자리에서 만든다**. 발급 REST를 기다리던 예전 배선은
+ * 응답이 안 오는 망에서 링크가 영영 안 만들어졌다(controller-link.md).
+ */
+function startControllerLink({
+  client,
+  linkRole,
+  roomId,
+  you,
+  linkRef,
+  setStatus,
+}: StartLinkOptions): () => void {
+  let active = true
+  const publish = () => {
+    const link = linkRef.current
+    if (active && link) setStatus(link.openPeerIds().length > 0 ? 'open' : 'connecting')
+  }
+
+  const link = new ControllerLink({
+    role: linkRole,
+    iceServers: CONTROLLER_ICE_SERVERS,
+    sendSignal: (to, signal) => sendSignal(client, to, signal),
+    onFrame: (from, frame) => receiveFrame(client, roomId, from, frame),
+    onChanged: publish,
+  })
+  linkRef.current = link
+  publish()
+  // 명단이 이미 도착해 있을 수 있다. 명단 effect는 이 effect보다 먼저 돌 수 없으므로
+  // 여기서 현재 값으로 한 번 맞춘다.
+  const snapshot = useAppStore.getState().roomSnapshot
+  if (snapshot?.roomId === roomId) link.syncPeers(dashboardRoster(snapshot.players, you))
+
+  return () => {
+    active = false
+    link.close()
+    linkRef.current = null
+    setStatus('off')
+  }
 }
 
 export function useControllerLink() {

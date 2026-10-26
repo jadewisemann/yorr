@@ -150,7 +150,12 @@ export class PingPongGameService<S extends object> {
     }
     const swungAt = judgedAt(this.now(), payload.clientTs)
     const next = await this.deps.states.mutate(roomId, (current) =>
-      swingRule(current, playerId, payload.inputSeq, swungAt, this.randomTarget()),
+      swingRule(current, {
+        playerId,
+        inputSeq: payload.inputSeq,
+        now: swungAt,
+        targetX: this.randomTarget(),
+      }),
     )
     if (next !== undefined) await this.changed(roomId, next)
   }

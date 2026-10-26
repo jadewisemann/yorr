@@ -1,11 +1,9 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { gameByCode } from '@/games'
-import { isRoomHost } from '@/room/api/roomApi'
-import { isDuoGame } from '@/room/domain/lobbyLabels'
-import { isPartyRoom } from '@/room/partyControllerStorage'
 import { playLandingSoundtrack } from '@/shared/audio/soundtrack'
 import { useAppStore } from '@/store'
+import { lobbyStateOf } from './lobbyState'
 
 const PREFETCH_FALLBACK_DELAY_MS = 500
 
@@ -35,50 +33,47 @@ export function useLobbyRoom(roomId: string) {
   const roomResumeReason = useAppStore((state) => state.roomResumeReason)
   const connectionStatus = useAppStore((state) => state.connectionStatus)
 
-  const matchingRoom = roomSession?.roomId === roomId
-  const isHost = matchingRoom && isRoomHost(snapshot, roomSession.you)
-  const capacity = snapshot?.capacity ?? 6
-  const duoGame =
-    isDuoGame(snapshot?.gameCode) || (matchingRoom && isDuoGame(roomSession?.gameCode))
-  const minPlayers = duoGame ? 2 : 1
-  const controller = matchingRoom && isPartyRoom(roomSession.roomCode)
+  const lobby = lobbyStateOf({ connectionStatus, roomId, roomResumeReason, roomSession, snapshot })
+  const { matchingRoom, inWaitingRoom, duoGame } = lobby
 
   useEffect(() => {
-    if (snapshot?.phase === 'waiting') {
-      playLandingSoundtrack(gameByCode(snapshot.gameCode).key)
-    }
-    if (!roomSession || !matchingRoom || roomResumeReason) {
-      void navigate({ to: '/', replace: true })
-      return
-    }
-    if (snapshot && snapshot.phase !== 'waiting') {
-      void navigate({
-        to: '/rooms/$roomId/game',
-        params: { roomId: roomSession.roomId },
-        replace: true,
-      })
-    }
-  }, [matchingRoom, navigate, roomResumeReason, roomSession, snapshot])
+    if (inWaitingRoom && snapshot) playLandingSoundtrack(gameByCode(snapshot.gameCode).key)
+    leaveLobbyIfStale({ matchingRoom, navigate, roomResumeReason, roomSession })
+    enterGameIfStarted({ inWaitingRoom, navigate, roomSession, snapshot })
+  }, [inWaitingRoom, matchingRoom, navigate, roomResumeReason, roomSession, snapshot])
 
   useEffect(() => {
-    if (!matchingRoom || snapshot?.phase !== 'waiting' || duoGame) return
+    if (!matchingRoom || !inWaitingRoom || duoGame) return
     return schedulePhysicsDicePrefetch()
-  }, [duoGame, matchingRoom, snapshot?.phase])
+  }, [duoGame, inWaitingRoom, matchingRoom])
 
-  return {
-    canStart:
-      isHost &&
-      connectionStatus === 'connected' &&
-      snapshot?.phase === 'waiting' &&
-      snapshot.players.length >= minPlayers,
-    capacity,
-    connectionStatus,
-    controller,
-    duoGame,
-    gameCode: snapshot?.gameCode ?? roomSession?.gameCode ?? 'YACHT_DICE',
-    isHost,
-    minPlayers,
-    session: matchingRoom && !roomResumeReason ? roomSession : null,
-    snapshot,
-  }
+  return lobby
+}
+
+/** 세션이 없거나 다시 이어 붙일 수 없으면 랜딩으로 돌려보낸다. */
+function leaveLobbyIfStale(options: {
+  matchingRoom: boolean
+  navigate: ReturnType<typeof useNavigate>
+  roomResumeReason: unknown
+  roomSession: ReturnType<typeof useAppStore.getState>['roomSession']
+}) {
+  const { matchingRoom, navigate, roomResumeReason, roomSession } = options
+  if (roomSession && matchingRoom && !roomResumeReason) return
+  void navigate({ to: '/', replace: true })
+}
+
+/** 방이 대기실을 벗어났으면 게임 화면으로 넘긴다. */
+function enterGameIfStarted(options: {
+  inWaitingRoom: boolean
+  navigate: ReturnType<typeof useNavigate>
+  roomSession: ReturnType<typeof useAppStore.getState>['roomSession']
+  snapshot: ReturnType<typeof useAppStore.getState>['roomSnapshot']
+}) {
+  const { inWaitingRoom, navigate, roomSession, snapshot } = options
+  if (!snapshot || inWaitingRoom || !roomSession) return
+  void navigate({
+    to: '/rooms/$roomId/game',
+    params: { roomId: roomSession.roomId },
+    replace: true,
+  })
 }

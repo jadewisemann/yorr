@@ -9,6 +9,7 @@ import {
 import { DICE_COUNT, type ScoreBoard } from '../../game/score/index.js'
 import { SessionAuthenticationError } from '../../user/errors.js'
 import type { UserIdentity, UserService } from '../../user/session.js'
+import { header } from '../headers.js'
 
 export interface GameQueryRouteDependencies {
   readonly users: UserService
@@ -41,15 +42,6 @@ const sendQueryError = (reply: FastifyReply, error: unknown): FastifyReply => {
   return reply.code(status).send({ code, message: error.message } satisfies GameQueryErrorResponse)
 }
 
-/** 헤더는 중복되면 배열로 온다 — 첫 값만 본다. */
-const header = (
-  headers: Record<string, string | string[] | undefined>,
-  name: string,
-): string | undefined => {
-  const value = headers[name]
-  return Array.isArray(value) ? value[0] : value
-}
-
 /** 점수판 응답. 12키는 **생략하지 않고 `null`로** 싣는다. */
 interface ScoreBoardResponse {
   readonly categories: Readonly<Record<string, number | null>>
@@ -78,65 +70,93 @@ const scoreCandidatesRequestSchema = z.object({
  * `server.ts`가 `/api/v1` 프리픽스 안에서 등록한다. 라우트 등록만 export하고
  * 배선은 하지 않는다(다른 슬라이스와 같은 관용).
  */
+/** 조회 실패는 조회 REST의 오류 모양(JSON `{code,message}`)으로 옮긴다. */
+const serveQuery = async (
+  reply: FastifyReply,
+  read: () => Promise<unknown>,
+): Promise<FastifyReply> => {
+  try {
+    return reply.send(await read())
+  } catch (error) {
+    return sendQueryError(reply, error)
+  }
+}
+
+/** 점수판 맵 — playerId 오름차순(스토어가 정한 순서)을 그대로 객체 키 순서로 옮긴다. */
+const scoreboardsResponse = async (
+  queries: GameScoreQueryService,
+  roomId: string,
+  playerId: string,
+): Promise<Record<string, ScoreBoardResponse>> => {
+  const scoreboards = await queries.getScoreboards(roomId, playerId)
+  const response: Record<string, ScoreBoardResponse> = {}
+  for (const [id, scoreboard] of scoreboards) response[id] = scoreBoardResponse(scoreboard)
+  return response
+}
+
+/** 순위 응답. 점수 필드 이름은 `total`이다(`finalScore` 아님). */
+const resultsResponse = async (
+  queries: GameScoreQueryService,
+  roomId: string,
+  playerId: string,
+): Promise<{ rankings: { rank: number; playerId: string; total: number }[]; isTie: boolean }> => {
+  const result = await queries.getResults(roomId, playerId)
+  return {
+    rankings: result.players.map((player) => ({
+      rank: player.rank,
+      playerId: player.playerId,
+      total: player.finalScore,
+    })),
+    isTie: result.isTie,
+  }
+}
+
+/**
+ * 인증 실패는 401 + JSON `AUTH_FAILED`(방 REST의 `invalid_guest_session`이 아니다).
+ * 라우트 함수 밖에 두는 이유는 중첩을 줄이고, 이 오류 모양을 이 파일 하나가
+ * 소유한다는 사실을 드러내기 위해서다.
+ */
+const authenticateOrFail = async (
+  users: UserService,
+  headers: Record<string, string | string[] | undefined>,
+  reply: FastifyReply,
+): Promise<UserIdentity | null> => {
+  try {
+    return await users.authenticate(header(headers, 'x-user-id'), header(headers, 'authorization'))
+  } catch (error) {
+    if (!(error instanceof SessionAuthenticationError)) throw error
+    reply.code(401).send({
+      code: 'AUTH_FAILED',
+      message: '유효하지 않은 사용자 세션입니다.',
+    } satisfies GameQueryErrorResponse)
+    return null
+  }
+}
+
 export const registerGameQueryRoutes = async (
   app: FastifyInstance,
   deps: GameQueryRouteDependencies,
 ): Promise<void> => {
-  const { users, queries } = deps
-
-  /** 인증 실패는 401 + JSON `AUTH_FAILED`(방 REST의 `invalid_guest_session`이 아니다). */
-  const authenticated = async (
+  const { queries } = deps
+  const authenticated = (
     headers: Record<string, string | string[] | undefined>,
     reply: FastifyReply,
-  ): Promise<UserIdentity | null> => {
-    try {
-      return await users.authenticate(
-        header(headers, 'x-user-id'),
-        header(headers, 'authorization'),
-      )
-    } catch (error) {
-      if (!(error instanceof SessionAuthenticationError)) throw error
-      reply.code(401).send({
-        code: 'AUTH_FAILED',
-        message: '유효하지 않은 사용자 세션입니다.',
-      } satisfies GameQueryErrorResponse)
-      return null
-    }
-  }
+  ) => authenticateOrFail(deps.users, headers, reply)
 
   app.get<{ Params: { roomId: string } }>('/rooms/:roomId/scores', async (request, reply) => {
     const requester = await authenticated(request.headers, reply)
     if (!requester) return reply
-    try {
-      const scoreboards = await queries.getScoreboards(request.params.roomId, requester.userId)
-      // playerId 오름차순(스토어가 정한 순서)을 그대로 객체 키 순서로 옮긴다.
-      const response: Record<string, ScoreBoardResponse> = {}
-      for (const [playerId, scoreboard] of scoreboards) {
-        response[playerId] = scoreBoardResponse(scoreboard)
-      }
-      return reply.send(response)
-    } catch (error) {
-      return sendQueryError(reply, error)
-    }
+    return serveQuery(reply, () =>
+      scoreboardsResponse(queries, request.params.roomId, requester.userId),
+    )
   })
 
   app.get<{ Params: { roomId: string } }>('/rooms/:roomId/results', async (request, reply) => {
     const requester = await authenticated(request.headers, reply)
     if (!requester) return reply
-    try {
-      const result = await queries.getResults(request.params.roomId, requester.userId)
-      return reply.send({
-        // 순위 응답의 점수 필드 이름은 `total`이다(`finalScore` 아님).
-        rankings: result.players.map((player) => ({
-          rank: player.rank,
-          playerId: player.playerId,
-          total: player.finalScore,
-        })),
-        isTie: result.isTie,
-      })
-    } catch (error) {
-      return sendQueryError(reply, error)
-    }
+    return serveQuery(reply, () =>
+      resultsResponse(queries, request.params.roomId, requester.userId),
+    )
   })
 
   /**

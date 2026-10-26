@@ -61,21 +61,12 @@ export function GameControllerPad({ activePlayer, isMyTurn, roll }: GameControll
         />
       </div>
 
-      <div className="flex items-center justify-center gap-3">
-        <RollCounter rollsUsed={settledRollCount} />
-        {motionOfferable && !motionPanelOpen && (
-          <button
-            className="cursor-pointer rounded-full border border-border bg-surface/80 px-2.5 py-1 text-2xs font-bold tracking-[0.06em] text-content-muted uppercase focus-ring pressable"
-            onClick={() => setMotionPanelOpen(true)}
-            type="button"
-          >
-            흔들기
-          </button>
-        )}
-        {rollInputMode === 'motion' && !pendingRoll && (
-          <span className="text-2xs text-content-faint">흔들어서 굴려도 돼요</span>
-        )}
-      </div>
+      <ControllerRollRow
+        motionHint={rollInputMode === 'motion' && !pendingRoll}
+        onOpenMotionPanel={() => setMotionPanelOpen(true)}
+        settledRollCount={settledRollCount}
+        showMotionChip={motionOfferable && !motionPanelOpen}
+      />
 
       {pendingRoll && rollInputMode === 'motion' && (
         <Button
@@ -96,5 +87,37 @@ export function GameControllerPad({ activePlayer, isMyTurn, roll }: GameControll
         />
       )}
     </section>
+  )
+}
+
+interface ControllerRollRowProps {
+  /** 흔들기 입력이 켜져 있고 아직 굴리는 중이 아니면 흔들어도 된다고 알려 준다. */
+  motionHint: boolean
+  onOpenMotionPanel: () => void
+  settledRollCount: number
+  /** 권한 안내를 닫은 뒤 다시 열 수 있게 남겨 두는 칩. */
+  showMotionChip: boolean
+}
+
+function ControllerRollRow({
+  motionHint,
+  onOpenMotionPanel,
+  settledRollCount,
+  showMotionChip,
+}: ControllerRollRowProps) {
+  return (
+    <div className="flex items-center justify-center gap-3">
+      <RollCounter rollsUsed={settledRollCount} />
+      {showMotionChip && (
+        <button
+          className="cursor-pointer rounded-full border border-border bg-surface/80 px-2.5 py-1 text-2xs font-bold tracking-[0.06em] text-content-muted uppercase focus-ring pressable"
+          onClick={onOpenMotionPanel}
+          type="button"
+        >
+          흔들기
+        </button>
+      )}
+      {motionHint && <span className="text-2xs text-content-faint">흔들어서 굴려도 돼요</span>}
+    </div>
   )
 }

@@ -26,6 +26,8 @@ const roomJoinPayloadSchema = z.object({
   sessionToken: z.string().nullish(),
 })
 
+type RoomJoinPayload = z.infer<typeof roomJoinPayloadSchema>
+
 export interface Identity {
   readonly playerId: string
   readonly sessionToken: string
@@ -72,49 +74,9 @@ export async function handleRoomJoin(
   socket: ClientSocket,
   message: InboundEnvelope,
 ): Promise<void> {
-  const parsed = roomJoinPayloadSchema.safeParse(message.payload)
-  if (!parsed.success) {
-    deps.sendError(socket, 'INVALID_MESSAGE', 'room.join payload가 올바르지 않습니다.', message)
-    return
-  }
-  const roomId = parsed.data.roomId ?? ''
-  if (roomId.trim().length === 0) {
-    deps.sendError(socket, 'INVALID_MESSAGE', 'roomId가 필요합니다.', message)
-    return
-  }
-
-  // 인메모리 유령 방 방지: Redis에 없는 방에는 아무도 등록하지 않는다.
-  const room = await deps.rooms.getSnapshot(roomId)
-  if (room.phase === null) {
-    deps.sendError(
-      socket,
-      'ROOM_NOT_FOUND',
-      '방이 종료됐습니다. 홈에서 새로 시작해 주세요.',
-      message,
-    )
-    return
-  }
-  deps.registry.registerGame(roomId, room.gameCode)
-  deps.registry.markPhase(roomId, toWsPhase(room.phase))
-
-  let identity: Identity
-  try {
-    identity = await resolveIdentity(deps, parsed.data)
-  } catch (error) {
-    // 만료를 INVALID_MESSAGE로 뭉개면 클라이언트가 세션 종료로 다루지 않아
-    // 대기실에서 안내 없이 멈춘다 — 두 실패는 반드시 구분된다.
-    if (error instanceof SessionAuthenticationError) {
-      deps.sendError(
-        socket,
-        'SESSION_EXPIRED',
-        '입장 정보가 만료됐습니다. 방에 다시 참가해 주세요.',
-        message,
-      )
-      return
-    }
-    deps.sendError(socket, 'INVALID_MESSAGE', '닉네임이 올바르지 않습니다.', message)
-    return
-  }
+  const request = await admitJoinRequest(deps, socket, message)
+  if (request === null) return
+  const { roomId, room, identity } = request
 
   const previous = deps.registry.find(roomId, identity.playerId)
   const playing = deps.registry.phaseOf(roomId) === 'playing'
@@ -148,23 +110,103 @@ export async function handleRoomJoin(
   // 자리를 되찾는 경우도 재접속 경로다. 최초 참가 경로로 보내면 `resume()`이
   // 불려 **되살린 마감이 새 25초로 덮인다** — 재무장이 헛일이 된다.
   if (previous || reseating) {
-    await completeReconnect(deps, socket, message, roomId, identity.playerId)
+    await completeReconnect({ deps, socket, message, roomId, identity })
     return
   }
-  await completeFirstJoin(deps, socket, roomId, identity, self)
+  await completeFirstJoin({ deps, socket, message, roomId, identity, self })
+}
+
+/**
+ * 입장 요청의 검증과 신원 확정. 실패하면 **응답을 보내고 null**을 돌려준다.
+ *
+ * 왜 함수로 뺐나: payload 검증 → 방 존재 → 좌석 등록 → 신원 확인이 한 흐름인데
+ * 각 단계가 실패 시 응답을 보내고 빠져나간다. `handleRoomJoin`에 두면 분기마다
+ * `return`이 흩어져 "어디까지 통과했나"를 놓치기 쉽다.
+ */
+async function admitJoinRequest(
+  deps: JoinDeps,
+  socket: ClientSocket,
+  message: InboundEnvelope,
+): Promise<{ roomId: string; room: RoomSnapshot; identity: Identity } | null> {
+  const parsed = roomJoinPayloadSchema.safeParse(message.payload)
+  if (!parsed.success) {
+    deps.sendError(socket, 'INVALID_MESSAGE', 'room.join payload가 올바르지 않습니다.', message)
+    return null
+  }
+  const roomId = parsed.data.roomId ?? ''
+  if (roomId.trim().length === 0) {
+    deps.sendError(socket, 'INVALID_MESSAGE', 'roomId가 필요합니다.', message)
+    return null
+  }
+
+  // 인메모리 유령 방 방지: Redis에 없는 방에는 아무도 등록하지 않는다.
+  const room = await deps.rooms.getSnapshot(roomId)
+  if (room.phase === null) {
+    deps.sendError(
+      socket,
+      'ROOM_NOT_FOUND',
+      '방이 종료됐습니다. 홈에서 새로 시작해 주세요.',
+      message,
+    )
+    return null
+  }
+  deps.registry.registerGame(roomId, room.gameCode)
+  deps.registry.markPhase(roomId, toWsPhase(room.phase))
+
+  const identity = await resolveJoinIdentity(deps, socket, message, parsed.data)
+  return identity === null ? null : { roomId, room, identity }
+}
+
+/**
+ * 신원 확정 — 만료와 닉네임 오류를 **구분해서** 알린다.
+ *
+ * 만료를 INVALID_MESSAGE로 뭉개면 클라이언트가 세션 종료로 다루지 않아 대기실에서
+ * 안내 없이 멈춘다.
+ */
+async function resolveJoinIdentity(
+  deps: JoinDeps,
+  socket: ClientSocket,
+  message: InboundEnvelope,
+  payload: RoomJoinPayload,
+): Promise<Identity | null> {
+  try {
+    return await resolveIdentity(deps, payload)
+  } catch (error) {
+    if (error instanceof SessionAuthenticationError) {
+      deps.sendError(
+        socket,
+        'SESSION_EXPIRED',
+        '입장 정보가 만료됐습니다. 방에 다시 참가해 주세요.',
+        message,
+      )
+      return null
+    }
+    deps.sendError(socket, 'INVALID_MESSAGE', '닉네임이 올바르지 않습니다.', message)
+    return null
+  }
 }
 
 /**
  * 재접속: 좌석·host를 유지한 채 소켓만 갈아끼웠다. `room.joined`·`player_joined`는
  * 나가지 않고 스냅샷 하나로 동기화 기준점을 다시 잡는다.
  */
-async function completeReconnect(
-  deps: JoinDeps,
-  socket: ClientSocket,
-  message: InboundEnvelope,
-  roomId: string,
-  playerId: string,
-): Promise<void> {
+/** 접속 하나의 문맥 — 다섯 값을 위치로 넘기면 어느 것이 무엇인지 읽을 수 없다. */
+interface JoinContext {
+  readonly deps: JoinDeps
+  readonly socket: ClientSocket
+  readonly message: InboundEnvelope
+  readonly roomId: string
+  readonly identity: Identity
+}
+
+async function completeReconnect({
+  deps,
+  socket,
+  message,
+  roomId,
+  identity,
+}: JoinContext): Promise<void> {
+  const playerId = identity.playerId
   deps.broadcaster.register(roomId, socket)
   let snapshot: unknown
   try {
@@ -189,13 +231,13 @@ async function completeReconnect(
  * 최초 참가: ① 본인에게 `room.joined` → ② 방에 `room.player_joined`(본인은 아직
  * 팬아웃 밖이라 못 받는다) → ③ 팬아웃 등록 → ④ 폐쇄 예약 취소 시 타이머 재개.
  */
-async function completeFirstJoin(
-  deps: JoinDeps,
-  socket: ClientSocket,
-  roomId: string,
-  identity: Identity,
-  self: RoomMember,
-): Promise<void> {
+async function completeFirstJoin({
+  deps,
+  socket,
+  roomId,
+  identity,
+  self,
+}: JoinContext & { readonly self: RoomMember }): Promise<void> {
   const snapshot = await deps.snapshots.snapshot(roomId)
   deps.send(
     socket,

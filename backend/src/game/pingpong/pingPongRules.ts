@@ -245,13 +245,17 @@ const missedWindow = (seat: number, pos: number): PingPongEventType | undefined 
  * - 내게 오는 공이 아님 → 입력 번호만 기록
  * - 판정 창 밖 → TOO_EARLY/TOO_LATE 이벤트. **공은 그대로 날아간다**(헛스윙)
  */
-export const swing = (
-  state: PingPongState,
-  playerId: string,
-  inputSeq: number,
-  now: number,
-  targetX: number,
-): PingPongState => {
+/** 스윙 한 번의 입력 묶음 — `now`는 이미 보정된 "친 순간"이다. */
+export interface SwingInput {
+  readonly playerId: string
+  readonly inputSeq: number
+  readonly now: number
+  /** 공이 도달할 좌우 위치(0~1). 서버 RNG가 정한다. */
+  readonly targetX: number
+}
+
+export const swing = (state: PingPongState, input: SwingInput): PingPongState => {
+  const { playerId, inputSeq, now, targetX } = input
   const seat = seatOf(state, playerId)
   if (seat < 0 || inputSeq <= lastSeqOf(state.lastInputSeq, playerId)) return state
 

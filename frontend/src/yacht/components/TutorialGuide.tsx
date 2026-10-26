@@ -5,33 +5,47 @@ import { Card, GuideTextButton } from '@/yacht/components/TutorialGuide/GuideCar
 import { lessonFor } from '@/yacht/components/TutorialGuide/lessons'
 import { HandScore } from '@/yacht/components/TutorialGuide/openHandLessons'
 import { nextOf, stepFromPlay } from '@/yacht/components/TutorialGuide/steps'
-import type { CategoryScores } from '@/yacht/domain/scoring'
+import type { GuideStep, Lesson } from '@/yacht/components/TutorialGuide/types'
+import type { TurnProgress } from '@/yacht/model/gamePlayView'
 import { dimsAroundHole, spotlightFor, useSpotlight } from '@/yacht/model/useSpotlight'
 
-interface TutorialGuideProps {
-  rolling: boolean
-  rolled: boolean
-  keptValues: number[]
-  submitted: boolean
-  rollCount: number
-  candidates: CategoryScores
-  motionNoticeVisible: boolean
-  wide: boolean
+interface TutorialGuideProps extends TurnProgress {
   onClose: () => void
 }
 
-type GuideStep =
-  | 'greet'
-  | 'roll'
-  | 'keep'
-  | 'reroll'
-  | 'keepAgain'
-  | 'askLastRoll'
-  | 'motion'
-  | 'lastRoll'
-  | 'record'
-  | 'categories'
-  | 'done'
+interface LessonActionsProps {
+  lesson: Lesson
+  onAdvance: () => void
+  onClose: () => void
+  onStep: (step: GuideStep) => void
+}
+
+/**
+ * 카드 아래 버튼 줄. 언제든 그만둘 수 있고, 버튼으로 넘어가는 단계면 다음(과 갈림길) 버튼을,
+ * 화면을 눌러야 넘어가는 단계면 안내 문구를 띄운다.
+ */
+function LessonActions({ lesson, onAdvance, onClose, onStep }: LessonActionsProps) {
+  const { secondary } = lesson
+  return (
+    <div className="mt-0.5 flex items-center justify-between gap-3">
+      <GuideTextButton label="연습 그만두기" onClick={onClose} />
+      {lesson.action ? (
+        <span className="flex items-center gap-2">
+          {secondary && (
+            <Button onClick={() => onStep(secondary.step)} size="sm" variant="ghost">
+              {secondary.label}
+            </Button>
+          )}
+          <Button onClick={onAdvance} size="sm" variant="secondary">
+            {lesson.action}
+          </Button>
+        </span>
+      ) : (
+        <span className="text-xs font-semibold text-brand-strong">표시된 곳을 눌러 보세요</span>
+      )}
+    </div>
+  )
+}
 
 export function TutorialGuide({
   candidates,
@@ -104,27 +118,7 @@ export function TutorialGuide({
           {lesson.body}
         </p>
         {lesson.hand?.score !== undefined && <HandScore score={lesson.hand.score} />}
-        <div className="mt-0.5 flex items-center justify-between gap-3">
-          <GuideTextButton label="연습 그만두기" onClick={onClose} />
-          {lesson.action ? (
-            <span className="flex items-center gap-2">
-              {lesson.secondary && (
-                <Button
-                  onClick={() => setStep(lesson.secondary?.step ?? step)}
-                  size="sm"
-                  variant="ghost"
-                >
-                  {lesson.secondary.label}
-                </Button>
-              )}
-              <Button onClick={advance} size="sm" variant="secondary">
-                {lesson.action}
-              </Button>
-            </span>
-          ) : (
-            <span className="text-xs font-semibold text-brand-strong">표시된 곳을 눌러 보세요</span>
-          )}
-        </div>
+        <LessonActions lesson={lesson} onAdvance={advance} onClose={onClose} onStep={setStep} />
       </Card>
     </div>
   )

@@ -1,4 +1,4 @@
-import type { FastifyError, FastifyInstance, FastifyReply } from 'fastify'
+import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { DomainError } from '../../errors.js'
 import {
   bindPingPongAiResult,
@@ -81,45 +81,65 @@ export const registerPingPongAiRoutes = async (
    * 파서·오류 핸들러 모두 이 스코프 밖(방·퀵매치·조회 REST)에는 영향이 없다.
    */
   await app.register(async (scope) => {
-    scope.removeContentTypeParser(['application/json'])
-    scope.addContentTypeParser<string>(
-      '*',
-      { parseAs: 'string' },
-      (_request, body, done: (error: Error | null, value?: unknown) => void) => {
-        if (typeof body !== 'string' || body.trim().length === 0) return done(null, undefined)
-        try {
-          done(null, JSON.parse(body))
-        } catch {
-          const error = new Error('malformed_json') as FastifyError
-          error.statusCode = 400
-          done(error)
-        }
-      },
+    useLenientJsonParser(scope)
+
+    scope.post<{ Body: unknown }>('/games/ping-pong/ai-results', async (request, reply) =>
+      archiveAiResult(deps, request, reply),
     )
-
-    scope.setErrorHandler((error: FastifyError, _request, reply) => {
-      const status = error.statusCode ?? 500
-      if (status < 500) return reply.code(status).send()
-      return reply.send(error)
-    })
-
-    scope.post<{ Body: unknown }>('/games/ping-pong/ai-results', async (request, reply) => {
-      const binding = bindPingPongAiResult(request.body)
-      if (!binding.ok) return reply.code(400).send()
-      try {
-        const token = bearerToken(request.headers.authorization)
-        // 세션이 없으면 임의 UUID로 남긴다 — 회원/게스트를 가르는 것은 이 헤더가
-        // 아니라 4.4의 users 테이블 조회다(게스트 세션도 `archive` 쪽으로 간다).
-        if (token === undefined) await deps.results.archiveGuest(binding.request)
-        else {
-          const user = await deps.users.authenticateSession(token)
-          await deps.results.archive(user, binding.request)
-        }
-        // 이미 보고된 resultId여서 저장되지 않았어도 204다 — 멱등이지 실패가 아니다.
-        return reply.code(204).send()
-      } catch (error) {
-        return sendAiResultError(reply, error)
-      }
-    })
   })
+}
+
+/**
+ * 이 스코프만의 JSON 파서 — 빈 본문은 `undefined`로, 깨진 JSON은 400 + 빈 본문으로.
+ *
+ * Fastify 기본 파서는 빈 본문에서 `FST_ERR_CTP_EMPTY_JSON_BODY`(프레임워크 JSON)를
+ * 던지는데, 이 API는 그 전에 핸들러까지 들어와 `invalid_ai_result`를 만들어야 한다.
+ * 오류 핸들러도 4xx를 빈 본문으로 내보내 `{statusCode,error,message}`가 계약처럼
+ * 굳지 않게 한다. 스코프 밖(방·퀵매치·조회 REST)에는 영향이 없다.
+ */
+const useLenientJsonParser = (scope: FastifyInstance): void => {
+  scope.removeContentTypeParser(['application/json'])
+  scope.addContentTypeParser<string>(
+    '*',
+    { parseAs: 'string' },
+    (_request, body, done: (error: Error | null, value?: unknown) => void) => {
+      if (typeof body !== 'string' || body.trim().length === 0) return done(null, undefined)
+      try {
+        done(null, JSON.parse(body))
+      } catch {
+        const error = new Error('malformed_json') as FastifyError
+        error.statusCode = 400
+        done(error)
+      }
+    },
+  )
+  scope.setErrorHandler((error: FastifyError, _request, reply) => {
+    const status = error.statusCode ?? 500
+    if (status < 500) return reply.code(status).send()
+    return reply.send(error)
+  })
+}
+
+/** 로컬 AI 탁구 결과 보관 — 본문 검증은 `bindPingPongAiResult`가 한다. */
+const archiveAiResult = async (
+  deps: PingPongAiRouteDependencies,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<FastifyReply> => {
+  const binding = bindPingPongAiResult(request.body)
+  if (!binding.ok) return reply.code(400).send()
+  try {
+    const token = bearerToken(request.headers.authorization)
+    // 세션이 없으면 임의 UUID로 남긴다 — 회원/게스트를 가르는 것은 이 헤더가 아니라
+    // 4.4의 users 테이블 조회다(게스트 세션도 `archive` 쪽으로 간다).
+    if (token === undefined) await deps.results.archiveGuest(binding.request)
+    else {
+      const user = await deps.users.authenticateSession(token)
+      await deps.results.archive(user, binding.request)
+    }
+    // 이미 보고된 resultId여서 저장되지 않았어도 204다 — 멱등이지 실패가 아니다.
+    return reply.code(204).send()
+  } catch (error) {
+    return sendAiResultError(reply, error)
+  }
 }
