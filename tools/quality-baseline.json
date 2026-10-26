@@ -8,7 +8,6 @@
     "duplicateLines": 40
   },
   "violations": {
-    "backend/src/game/yacht/redisYachtDiceStateStore.ts\u0000halsteadDifficulty\u0000-": 87,
     "frontend/src/landing/rendering/heroScene.ts\u0000halsteadDifficulty\u0000-": 86,
     "frontend/src/pingpong/domain/localGame.ts\u0000halsteadDifficulty\u0000-": 91,
     "frontend/src/realtime/controllerLink/controllerLink.ts\u0000halsteadDifficulty\u0000-": 81,
