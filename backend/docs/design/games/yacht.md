@@ -13,7 +13,8 @@
 
 | 파일 | 책임 |
 |---|---|
-| `yachtDiceGameModule.ts` | `GameModule` 구현 — 수명주기 훅 + 5메시지 라우팅 + 오류 매핑 + roomId 검증 |
+| `yachtDiceGameModule.ts` | `GameModule` — 라우팅 |
+| `yachtLifecycle.ts` · `yachtWsErrors.ts` | 수명주기 / 오류 |
 | `yachtTurnActionService.ts` | 사람·봇이 공유하는 행동 경계(roll/hold/submitScore) |
 | `redisYachtDiceStateStore.ts` | `RoundStateStore`의 Redis 어댑터(방 락·SETNX·TTL 복사·SCAN) |
 | `yachtDiceStateSnapshot.ts` | 저장 JSON ↔ `RoundState` 변환 |
