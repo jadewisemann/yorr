@@ -49,15 +49,25 @@ interface UseRollIncomingOptions {
 }
 
 /**
- * 서버가 보내는 굴림 관련 메시지를 로컬 판·연출·추적기에 잇는다.
- * "이 메시지가 이 화면의 것인가"는 [`incomingChecks`](./incomingChecks.ts)가 판정한다.
+ * 굴림 결과 broadcast. 내 굴림이면 보낸 요청과 짝을 맞춰 입력 방식대로 연출하고, 남의
+ * 굴림이면 원격 연출로 받는다. 어느 쪽이든 로컬 판은 서버가 정한 눈으로 맞춘다.
  */
-export function useRollIncoming(options: UseRollIncomingOptions) {
-  const { activePlayerId, currentGame, dispatch, feedback, present, roomId, roundNumber } = options
-  const { publishThrow, setLocal, showToast, tracking, you } = options
-  const realtimeClient = useRealtimeClient()
+function useBroadcastHandler(
+  options: Pick<
+    UseRollIncomingOptions,
+    | 'currentGame'
+    | 'present'
+    | 'publishThrow'
+    | 'roomId'
+    | 'setLocal'
+    | 'showToast'
+    | 'tracking'
+    | 'you'
+  >,
+) {
+  const { currentGame, present, publishThrow, roomId, setLocal, showToast, tracking, you } = options
 
-  const handleBroadcast = useCallback(
+  return useCallback(
     (message: DiceBroadcastMessage) => {
       if (!isCurrentDiceBroadcast(message, roomId, currentGame())) return
       const ownRoll = message.payload.playerId === you
@@ -114,6 +124,24 @@ export function useRollIncoming(options: UseRollIncomingOptions) {
       present,
     ],
   )
+}
+
+/** 남의 턴에 오는 흔들기·던지기·킵 신호. 지금 굴리는 사람의 것만 받는다. */
+function useRemoteSignalHandlers(
+  options: Pick<
+    UseRollIncomingOptions,
+    | 'activePlayerId'
+    | 'dispatch'
+    | 'feedback'
+    | 'present'
+    | 'roomId'
+    | 'roundNumber'
+    | 'tracking'
+    | 'you'
+  >,
+) {
+  const { activePlayerId, dispatch, feedback, present, roomId, roundNumber, tracking, you } =
+    options
 
   // 콜백 의존성에 그대로 들어가므로 렌더마다 새 객체를 만들면 매번 리스너를 다시 건다.
   const remoteContext = useMemo(
@@ -149,6 +177,20 @@ export function useRollIncoming(options: UseRollIncomingOptions) {
     },
     [dispatch, remoteContext],
   )
+
+  return { handleHeldChanged, handleShaken, handleThrown }
+}
+
+/**
+ * 서버가 보내는 굴림 관련 메시지를 로컬 판·연출·추적기에 잇는다.
+ * "이 메시지가 이 화면의 것인가"는 [`incomingChecks`](./incomingChecks.ts)가 판정한다.
+ */
+export function useRollIncoming(options: UseRollIncomingOptions) {
+  const { present, showToast, tracking } = options
+  const realtimeClient = useRealtimeClient()
+
+  const handleBroadcast = useBroadcastHandler(options)
+  const { handleHeldChanged, handleShaken, handleThrown } = useRemoteSignalHandlers(options)
 
   const handleError = useCallback(
     (message: ErrorMessage) => {
