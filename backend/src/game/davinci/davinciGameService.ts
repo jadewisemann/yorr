@@ -1,7 +1,11 @@
-import { randomInt } from 'node:crypto'
-import { ConflictError, DomainError } from '../../errors.js'
-import { gameWsType } from '../module.js'
-import { DAVINCI_CODE } from './davinciCode.js'
+import { DomainError } from '../../errors.js'
+import {
+  orderedPlayerIds,
+  requireDecidePayload,
+  requireGuessPayload,
+  requirePlacePayload,
+  shuffledDeckOrder,
+} from './davinciInput.js'
 import type {
   DavinciAudience,
   DavinciCompletionPort,
@@ -10,21 +14,19 @@ import type {
   DavinciRoomSnapshotPort,
   DavinciScoreboardPort,
 } from './davinciPorts.js'
+import { DavinciProgress } from './davinciProgress.js'
+import { DavinciResume } from './davinciResume.js'
 import {
   decide as applyDecide,
   guess as applyGuess,
   place as applyPlace,
-  DAVINCI_DECK_SIZE,
-  DAVINCI_MAX_PLAYERS,
-  DAVINCI_MIN_PLAYERS,
   type DavinciDecision,
   expire,
   forfeit,
   initialDavinciState,
   isGuessableNumber,
-  scoreOf,
 } from './davinciRules.js'
-import { type DavinciState, type DavinciView, toView } from './davinciState.js'
+import type { DavinciState, DavinciView } from './davinciState.js'
 import type { DavinciStateStore } from './davinciStateStore.js'
 
 /** WS `game.davinci_code.guess` 페이로드(정본: `frontend/src/realtime/wsEvents.ts`). */
@@ -88,24 +90,34 @@ export type DavinciSnapshot<S> = S | (S & { readonly game: DavinciView })
 export class DavinciGameService<S, K = unknown> {
   private readonly states: DavinciStateStore
   private readonly scheduler: DavinciDeadlineScheduler
-  private readonly audience: DavinciAudience<K>
-  private readonly realtimeSnapshots: DavinciRoomSnapshotPort<S>
   private readonly presence: DavinciPresence
-  private readonly completion: DavinciCompletionPort
-  private readonly scoreboard: DavinciScoreboardPort
   private readonly now: () => number
   private readonly shuffle: () => readonly number[]
+  private readonly progress: DavinciProgress<S, K>
+  private readonly resumeService: DavinciResume<S, K>
 
   constructor(deps: DavinciGameServiceDeps<S, K>, options: DavinciGameServiceOptions = {}) {
     this.states = deps.states
     this.scheduler = deps.scheduler
-    this.audience = deps.audience
-    this.realtimeSnapshots = deps.realtimeSnapshots
     this.presence = deps.presence
-    this.completion = deps.completion
-    this.scoreboard = deps.scoreboard
     this.now = options.now ?? Date.now
     this.shuffle = options.shuffle ?? shuffledDeckOrder
+    this.progress = new DavinciProgress<S, K>(
+      {
+        scheduler: deps.scheduler,
+        audience: deps.audience,
+        snapshots: deps.realtimeSnapshots,
+        scoreboard: deps.scoreboard,
+        completion: deps.completion,
+      },
+      this.now,
+      (roomId, expectedVersion) => this.timeout(roomId, expectedVersion),
+    )
+    this.resumeService = new DavinciResume<S, K>({
+      states: deps.states,
+      snapshots: deps.realtimeSnapshots,
+      progress: this.progress,
+    })
   }
 
   /**
@@ -115,28 +127,16 @@ export class DavinciGameService<S, K = unknown> {
    * 확인해 2~4인이 아니면 시작을 거부한다(라이프사이클이 그 예외로 START를 롤백한다).
    */
   async start(roomId: string, roster: DavinciStartRoster): Promise<void> {
-    const humans = roster.players.filter((player) => player.kind === 'HUMAN')
-    const players = [
-      ...humans.filter((player) => player.playerId === roster.hostId),
-      ...humans.filter((player) => player.playerId !== roster.hostId),
-    ].map((player) => player.playerId)
-    if (players.length < DAVINCI_MIN_PLAYERS || players.length > DAVINCI_MAX_PLAYERS) {
-      throw new ConflictError('davinci_requires_two_to_four_players')
-    }
-
-    const state = initialDavinciState(players, this.shuffle(), this.now())
+    const state = initialDavinciState(orderedPlayerIds(roster), this.shuffle(), this.now())
     await this.states.initialize(roomId, state)
     this.presence.markPhase(roomId, 'playing')
-    await this.broadcast(roomId, state, true)
-    this.schedule(roomId, state)
+    await this.progress.broadcast(roomId, state, true)
+    this.progress.schedule(roomId, state)
   }
 
   /** 상대 타일 하나의 숫자를 부른다. payload 검증만 여기서 하고 판정은 규칙이 한다. */
   async guess(roomId: string, playerId: string, payload: DavinciGuessPayload): Promise<void> {
-    this.requireInputSeq(payload.inputSeq)
-    if (payload.targetId.trim().length === 0 || payload.tileId.trim().length === 0) {
-      throw new DomainError('invalid_davinci_guess')
-    }
+    requireGuessPayload(payload)
     if (!isGuessableNumber(payload.number)) throw new DomainError('invalid_davinci_guess')
     const now = this.now()
     const next = await this.states.mutate(roomId, (current) =>
@@ -154,10 +154,7 @@ export class DavinciGameService<S, K = unknown> {
 
   /** 맞힌 뒤의 선택 — 이어서 부를지, 멈추고 턴을 넘길지. */
   async decide(roomId: string, playerId: string, payload: DavinciDecidePayload): Promise<void> {
-    this.requireInputSeq(payload.inputSeq)
-    if (payload.decision !== 'CONTINUE' && payload.decision !== 'STOP') {
-      throw new DomainError('invalid_davinci_decision')
-    }
+    requireDecidePayload(payload)
     const now = this.now()
     const next = await this.states.mutate(roomId, (current) =>
       applyDecide(current, {
@@ -172,10 +169,7 @@ export class DavinciGameService<S, K = unknown> {
 
   /** 조커를 놓을 자리를 정한다. */
   async place(roomId: string, playerId: string, payload: DavinciPlacePayload): Promise<void> {
-    this.requireInputSeq(payload.inputSeq)
-    if (!Number.isInteger(payload.index) || payload.index < 0) {
-      throw new DomainError('invalid_davinci_place')
-    }
+    requirePlacePayload(payload)
     const now = this.now()
     const next = await this.states.mutate(roomId, (current) =>
       applyPlace(current, {
@@ -188,37 +182,17 @@ export class DavinciGameService<S, K = unknown> {
     if (next !== null) await this.changed(roomId, next)
   }
 
-  /** 재접속 스냅샷. 상태가 없으면 방 스냅샷 그대로(대기실·이미 정리된 방). */
+  /** 재접속 스냅샷 — `davinciResume.ts`가 맡는다. */
   async reconnect(roomId: string, playerId: string): Promise<DavinciSnapshot<S>> {
-    const state = await this.states.find(roomId)
-    if (state === null) return this.realtimeSnapshots.snapshot(roomId)
-    return this.snapshot(roomId, state, playerId)
+    return this.resumeService.reconnect(roomId, playerId)
   }
 
-  /** 타이머만 되살린다 — 상태는 그대로다. 끝난 판은 예약하지 않는다. */
   async resume(roomId: string): Promise<void> {
-    const state = await this.states.find(roomId)
-    if (state === null || state.phase === 'FINISHED') return
-    this.schedule(roomId, state)
+    return this.resumeService.resume(roomId)
   }
 
-  /**
-   * 프로세스 재시작 후의 복구(옛 deploy/PLAN.md PR 6). 마감(`nextActionAt`)이 상태 안의
-   * 절대 epoch ms이고 그 상태는 Redis에 있으므로 되살리는 것은 `resume`과 같은 예약이다
-   * (이미 지난 마감은 예약기가 지연 0으로 깎아 즉시 발화한다).
-   *
-   * 이어갈 수 없으면 **던진다** — 부팅 복구에서 조용히 넘어가면 상태만 살아 있고 턴이
-   * 멈춘 방이 남는다.
-   */
   async rehydrate(roomId: string): Promise<void> {
-    const state = await this.states.find(roomId)
-    if (state === null) {
-      throw new Error(`진행 중이라던 방에 다빈치 코드 상태가 없습니다: ${roomId}`)
-    }
-    if (state.phase === 'FINISHED') {
-      throw new Error(`다빈치 코드가 이미 끝난 방입니다(종료 전이 실패): ${roomId}`)
-    }
-    this.schedule(roomId, state)
+    return this.resumeService.rehydrate(roomId)
   }
 
   async pause(roomId: string): Promise<void> {
@@ -240,13 +214,7 @@ export class DavinciGameService<S, K = unknown> {
     this.scheduler.cancelRoom(roomId)
     await this.states.remove(roomId)
     this.presence.markPhase(roomId, 'waiting')
-    const snapshot = await this.realtimeSnapshots.snapshot(roomId)
-    this.sendToAll(roomId, () => ({
-      type: gameWsType(DAVINCI_CODE, 'state.sync'),
-      ts: this.now(),
-      payload: { snapshot },
-      roomId,
-    }))
+    await this.progress.syncRoom(roomId)
   }
 
   async close(roomId: string): Promise<void> {
@@ -256,10 +224,6 @@ export class DavinciGameService<S, K = unknown> {
 
   async hasState(roomId: string): Promise<boolean> {
     return (await this.states.find(roomId)) !== null
-  }
-
-  private requireInputSeq(inputSeq: number): void {
-    if (!Number.isInteger(inputSeq) || inputSeq < 0) throw new DomainError('invalid_davinci_input')
   }
 
   /**
@@ -276,92 +240,6 @@ export class DavinciGameService<S, K = unknown> {
   }
 
   private async changed(roomId: string, state: DavinciState): Promise<void> {
-    if (state.phase !== 'FINISHED') {
-      // 턴이 넘어간 프레임에서만 방 스냅샷을 함께 보낸다 — 매 입력마다 덧붙이면
-      // 진행 중 화면이 계속 재조립된다(결투 `changed`와 같은 기준).
-      await this.broadcast(roomId, state, state.lastEvent?.kind === 'FORFEIT')
-      this.schedule(roomId, state)
-      return
-    }
-
-    this.scheduler.cancelRoom(roomId)
-    const scores = new Map<string, number>()
-    for (const playerId of state.playerOrder) {
-      scores.set(playerId, scoreOf(state, playerId))
-    }
-    await this.scoreboard.writeScores(roomId, scores)
-    // 다빈치 코드에 "점수판 완료"는 없다 — 종료 판정은 항상 강제다.
-    await this.completion.finishIfComplete(roomId, true)
-    await this.broadcast(roomId, state, true)
+    await this.progress.changed(roomId, state)
   }
-
-  private schedule(roomId: string, state: DavinciState): void {
-    if (state.phase === 'FINISHED' || state.nextActionAt <= 0) return
-    const version = state.version
-    this.scheduler.schedule(roomId, version, state.nextActionAt, () =>
-      this.timeout(roomId, version),
-    )
-  }
-
-  /**
-   * `game.davinci_code.state`는 **보는 사람 기준으로 깎은 뷰**를 그대로 싣는다.
-   * 좌석마다 payload가 다르므로 한 프레임을 재사용할 수 없다.
-   */
-  private async broadcast(
-    roomId: string,
-    state: DavinciState,
-    includeRoomSnapshot: boolean,
-  ): Promise<void> {
-    this.sendToAll(roomId, (playerId) => ({
-      type: gameWsType(DAVINCI_CODE, 'state'),
-      ts: this.now(),
-      payload: toView(state, playerId),
-      roomId,
-    }))
-    if (!includeRoomSnapshot) return
-    const room = await this.realtimeSnapshots.snapshot(roomId)
-    this.sendToAll(roomId, (playerId) => ({
-      type: gameWsType(DAVINCI_CODE, 'state.sync'),
-      ts: this.now(),
-      payload: { snapshot: { ...room, game: toView(state, playerId) } },
-      roomId,
-    }))
-  }
-
-  private sendToAll(
-    roomId: string,
-    frame: (playerId: string) => {
-      type: string
-      ts: number
-      payload: unknown
-      roomId: string
-    },
-  ): void {
-    for (const seat of this.audience.membersOf(roomId)) {
-      if (seat.socket === null) continue
-      this.audience.send(seat.socket, frame(seat.playerId))
-    }
-  }
-
-  private async snapshot(
-    roomId: string,
-    state: DavinciState,
-    viewerId: string,
-  ): Promise<S & { game: DavinciView }> {
-    const room = await this.realtimeSnapshots.snapshot(roomId)
-    return { ...room, game: toView(state, viewerId) }
-  }
-}
-
-/** 0~25의 순열. Fisher–Yates에 `crypto.randomInt`를 쓴다(예측 가능한 섞기 금지). */
-const shuffledDeckOrder = (): readonly number[] => {
-  const order = Array.from({ length: DAVINCI_DECK_SIZE }, (_, index) => index)
-  for (let index = order.length - 1; index > 0; index -= 1) {
-    const swap = randomInt(index + 1)
-    const left = order[index] as number
-    const right = order[swap] as number
-    order[index] = right
-    order[swap] = left
-  }
-  return order
 }

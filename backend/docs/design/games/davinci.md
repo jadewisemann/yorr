@@ -16,6 +16,9 @@
 | `davinciState.ts` | 상태 타입 + **시점 투영**(`toView`) — 서버 상태와 와이어 타입이 다른 유일한 게임이다 |
 | `davinciRules.ts` | 추측 판정·턴 전이·탈락·타임아웃 — **순수 함수** |
 | `davinciSetup.ts` | 시작 패 나누기·결과 점수 — **판 준비** |
+| `davinciInput.ts` | 입력 검증·시작 명단·덱 섞기 |
+| `davinciProgress.ts` | 좌석별 방송·마감 예약·종료 정산 |
+| `davinciResume.ts` | 재접속·재개·부팅 복구 |
 | `davinciStateStore.ts` | Redis 상태 저장(SETNX·락·TTL 복사·version 가드) — 결투 스토어와 같은 전략 |
 | `davinciScoreboard.ts` | 종료 시 점수 기록 |
 | `davinciGameService.ts` | 시각·난수 주입, **좌석별 전송**, 마감 예약, 종료 처리 |
