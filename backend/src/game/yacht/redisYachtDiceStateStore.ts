@@ -1,7 +1,4 @@
-import { randomUUID } from 'node:crypto'
-import { setTimeout as delay } from 'node:timers/promises'
-import { ConflictError } from '../../errors.js'
-import { type Redis, UNLOCK_IF_OWNER } from '../../infra/memoryRedis.js'
+import type { Redis } from '../../infra/memoryRedis.js'
 import { gameStateKey, ROOM_KEY_PREFIX, roomKey } from '../../room/keys.js'
 import { YACHT_DICE } from '../catalog.js'
 import {
@@ -13,7 +10,8 @@ import {
   RoundSynchronizationError,
 } from '../round/index.js'
 
-import { deserializeState, serializeState } from './yachtDiceStateSnapshot.js'
+import { RoomLock } from './redisYachtRoomLock.js'
+import { deserializeStateOrFail, serializeStateOrFail } from './redisYachtSnapshot.js'
 
 /** 락 TTL. 이 안에서 read-modify-write(+점수 확정 Lua)가 끝난다는 전제다. */
 export const LOCK_TTL_MS = 5_000
@@ -56,17 +54,16 @@ interface Change<T> {
  */
 export class RedisYachtDiceStateStore implements RoundStateStore {
   private readonly redis: Redis
-  private readonly lockTtlMs: number
-  private readonly lockWaitMs: number
-  private readonly lockRetryMs: number
-  private readonly now: () => number
+  private readonly lock: RoomLock
 
   constructor(redis: Redis, options: RedisYachtDiceStateStoreOptions = {}) {
     this.redis = redis
-    this.lockTtlMs = options.lockTtlMs ?? LOCK_TTL_MS
-    this.lockWaitMs = options.lockWaitMs ?? LOCK_WAIT_MS
-    this.lockRetryMs = options.lockRetryMs ?? LOCK_RETRY_MS
-    this.now = options.now ?? Date.now
+    this.lock = new RoomLock(redis, {
+      lockTtlMs: options.lockTtlMs ?? LOCK_TTL_MS,
+      lockWaitMs: options.lockWaitMs ?? LOCK_WAIT_MS,
+      lockRetryMs: options.lockRetryMs ?? LOCK_RETRY_MS,
+      now: options.now ?? Date.now,
+    })
   }
 
   /**
@@ -216,51 +213,18 @@ export class RedisYachtDiceStateStore implements RoundStateStore {
     })
   }
 
-  /**
-   * 방 락. SET NX PX로 잡고 최대 {@link LOCK_WAIT_MS}까지 스핀한다.
-   *
-   * 해제는 `finally`에서 **항상** 시도한다 — 락을 못 잡고 나가는 경로에서도 토큰이
-   * 다르므로 no-op이다(그게 토큰 비교의 두 번째 역할이다).
-   */
-  private async withLock<T>(roomId: string, action: () => Promise<T>): Promise<T> {
-    const lockKey = `${stateKey(roomId)}:lock`
-    const token = randomUUID()
-    const deadline = this.now() + this.lockWaitMs
-    try {
-      while ((await this.redis.set(lockKey, token, 'PX', this.lockTtlMs, 'NX')) !== 'OK') {
-        if (this.now() >= deadline) throw new ConflictError('game_state_busy')
-        await delay(this.lockRetryMs)
-      }
-      return await action()
-    } finally {
-      await this.redis.runAtomic(UNLOCK_IF_OWNER, [lockKey], [token]).catch(() => {
-        // 해제 실패는 삼킨다 — TTL이 5초 뒤에 같은 일을 한다. 여기서 던지면
-        // 정상 처리된 전이의 결과를 잃는다.
-      })
-    }
+  private withLock<T>(roomId: string, action: () => Promise<T>): Promise<T> {
+    return this.lock.withLock(`${stateKey(roomId)}:lock`, action)
   }
 
   private serialize(state: RoundState): string {
-    try {
-      return serializeState(state)
-    } catch (error) {
-      throw invalidYachtState(error)
-    }
+    return serializeStateOrFail(state)
   }
 
   private deserialize(value: string): RoundState {
-    try {
-      return deserializeState(value)
-    } catch (error) {
-      throw invalidYachtState(error)
-    }
+    return deserializeStateOrFail(value)
   }
 
-  /**
-   * 방 키의 남은 TTL을 상태 키에 복사한다. 방에 TTL이 없거나 이미 사라졌으면
-   * 아무것도 하지 않는다 — 그 경우 상태 키는 무기한으로 남고
-   * 스위퍼(2.8)가 걷어간다.
-   */
   private async copyRoomTtl(roomId: string): Promise<void> {
     const ttl = await this.redis.pttl(roomKey(roomId))
     if (ttl > 0) await this.redis.pexpire(stateKey(roomId), ttl)
@@ -268,18 +232,6 @@ export class RedisYachtDiceStateStore implements RoundStateStore {
 }
 
 const stateKey = (roomId: string): string => gameStateKey(roomId, YACHT_DICE)
-
-/**
- * 스냅샷이 손상됐을 때의 오류(`invalid_yacht_state`).
- *
- * `CodedError`의 생성자는 코드 문자열만 받으므로(오류 계약이 그 문자열이다) 원인은
- * 표준 `Error.cause`에 따로 붙인다 — 손상된 스냅샷을 진단할 때 이것만이 단서다.
- */
-const invalidYachtState = (cause: unknown): ConflictError => {
-  const failure = new ConflictError('invalid_yacht_state')
-  failure.cause = cause
-  return failure
-}
 
 /** 인메모리 구현과 같은 모양. */
 const validateRoomId = (roomId: string): void => {
