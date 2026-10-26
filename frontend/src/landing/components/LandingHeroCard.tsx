@@ -4,21 +4,12 @@ import type { LandingHeroCardProps } from '@/landing/components/LandingHeroCard/
 import { cn } from '@/shared/cn'
 import { HeroArt } from './HeroArt'
 
-export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) {
-  const wide = layout === 'wide'
+type CardPartProps = Pick<LandingHeroCardProps, 'game' | 'layout'>
 
+/** 그림 위에 겹치는 빛 — 머리 그늘·후광·안쪽 그림자·아래 그늘, 열려 있는 게임이면 밑줄. */
+function CardLighting({ game, layout }: CardPartProps) {
   return (
-    <div
-      className={cn(
-        'relative h-full w-full overflow-hidden border [background:var(--ds-landing-card)]',
-        wide ? 'rounded-sheet' : 'rounded-sheet',
-        game.live
-          ? 'border-landing-accent/42 shadow-landing-card'
-          : 'border-landing-hairline-strong shadow-landing-card-quiet',
-      )}
-    >
-      <HeroArt game={game.key} layout={layout} />
-
+    <>
       <span
         aria-hidden="true"
         className={cn(
@@ -30,7 +21,7 @@ export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) 
         aria-hidden="true"
         className={cn(
           'pointer-events-none absolute left-1/2 -translate-x-1/2 [background:var(--ds-landing-card-glow)]',
-          wide ? '-top-30 h-90 w-160' : '-top-17 h-55 w-75',
+          layout === 'wide' ? '-top-30 h-90 w-160' : '-top-17 h-55 w-75',
         )}
       />
       <span
@@ -50,59 +41,92 @@ export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) 
           className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] [background:var(--ds-landing-accent-line)]"
         />
       )}
+    </>
+  )
+}
 
-      <div
-        className={cn(
-          'absolute flex items-start justify-between',
-          cardInsetX[layout],
-          bandTop[layout],
-          wide ? 'gap-6' : 'gap-4',
-        )}
-      >
-        <div className="flex min-w-0 flex-col items-start gap-2">
-          <h2
-            className={cn(
-              'm-0 text-balance font-bold tracking-[-0.035em] text-landing-text',
-              wide ? 'text-[clamp(40px,4.6vw,66px)]/none' : 'text-[clamp(30px,9.4vw,38px)]/[1.05]',
-            )}
-          >
-            {game.name}
-          </h2>
-          {!wide && (
-            <p className="m-0 text-pretty text-sm/[1.35] font-semibold text-landing-text-strong [@media(max-height:600px)]:hidden">
-              {game.tagline}
-            </p>
+/** 위 띠 — 게임 이름. 좁은 화면은 태그라인을, 넓은 화면은 메타 정보를 함께 둔다. */
+function TopBand({ game, layout }: CardPartProps) {
+  const wide = layout === 'wide'
+  return (
+    <div
+      className={cn(
+        'absolute flex items-start justify-between',
+        cardInsetX[layout],
+        bandTop[layout],
+        wide ? 'gap-6' : 'gap-4',
+      )}
+    >
+      <div className="flex min-w-0 flex-col items-start gap-2">
+        <h2
+          className={cn(
+            'm-0 text-balance font-bold tracking-[-0.035em] text-landing-text',
+            wide ? 'text-[clamp(40px,4.6vw,66px)]/none' : 'text-[clamp(30px,9.4vw,38px)]/[1.05]',
           )}
-        </div>
-
-        {wide && (
-          <div className="flex min-w-0 shrink-0 flex-nowrap justify-end gap-2">
-            <LandingMetaPills game={game} layout="wide" />
-          </div>
-        )}
-      </div>
-
-      <div
-        className={cn(
-          'absolute flex',
-          cardInsetX[layout],
-          bandBottom[layout],
-          wide ? 'items-end justify-between gap-6' : 'flex-col items-stretch gap-2',
-        )}
-      >
-        {wide ? (
-          <p className="m-0 line-clamp-2 min-w-0 text-pretty text-[clamp(16px,1.6vw,22px)]/[1.3] font-semibold text-landing-text-strong">
+        >
+          {game.name}
+        </h2>
+        {!wide && (
+          <p className="m-0 text-pretty text-sm/[1.35] font-semibold text-landing-text-strong [@media(max-height:600px)]:hidden">
             {game.tagline}
           </p>
-        ) : (
-          <div className="flex min-w-0 flex-nowrap gap-1">
-            <LandingMetaPills game={game} layout="narrow" />
-          </div>
         )}
-        <div className={cn('flex flex-none', wide ? 'justify-end' : 'items-stretch')}>
-          <HeroCta game={game} layout={layout} onPlay={onPlay} />
-        </div>
       </div>
+
+      {wide && (
+        <div className="flex min-w-0 shrink-0 flex-nowrap justify-end gap-2">
+          <LandingMetaPills game={game} layout="wide" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 아래 띠 — 플레이 CTA. 넓은 화면은 태그라인을, 좁은 화면은 메타 정보를 곁에 둔다. */
+function BottomBand({ game, layout, onPlay }: LandingHeroCardProps) {
+  const wide = layout === 'wide'
+  return (
+    <div
+      className={cn(
+        'absolute flex',
+        cardInsetX[layout],
+        bandBottom[layout],
+        wide ? 'items-end justify-between gap-6' : 'flex-col items-stretch gap-2',
+      )}
+    >
+      {wide ? (
+        <p className="m-0 line-clamp-2 min-w-0 text-pretty text-[clamp(16px,1.6vw,22px)]/[1.3] font-semibold text-landing-text-strong">
+          {game.tagline}
+        </p>
+      ) : (
+        <div className="flex min-w-0 flex-nowrap gap-1">
+          <LandingMetaPills game={game} layout="narrow" />
+        </div>
+      )}
+      <div className={cn('flex flex-none', wide ? 'justify-end' : 'items-stretch')}>
+        <HeroCta game={game} layout={layout} onPlay={onPlay} />
+      </div>
+    </div>
+  )
+}
+
+export function LandingHeroCard({ game, layout, onPlay }: LandingHeroCardProps) {
+  const wide = layout === 'wide'
+
+  return (
+    <div
+      className={cn(
+        'relative h-full w-full overflow-hidden border [background:var(--ds-landing-card)]',
+        wide ? 'rounded-sheet' : 'rounded-sheet',
+        game.live
+          ? 'border-landing-accent/42 shadow-landing-card'
+          : 'border-landing-hairline-strong shadow-landing-card-quiet',
+      )}
+    >
+      <HeroArt game={game.key} layout={layout} />
+      <CardLighting game={game} layout={layout} />
+      <TopBand game={game} layout={layout} />
+      <BottomBand game={game} layout={layout} onPlay={onPlay} />
     </div>
   )
 }
