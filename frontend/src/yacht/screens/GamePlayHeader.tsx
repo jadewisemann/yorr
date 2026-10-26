@@ -15,50 +15,16 @@ import { TOTAL_ROUNDS } from '@/yacht/domain/yachtGame'
 export function GamePlayHeader({
   activePlayer,
   activePlayerId,
-  audioButtonRef,
-  chatUnread,
   connectionStatus,
   isMyTurn,
   leaderLabel,
-  onHelp,
   onLeave,
-  onOpenAudio,
-  onOpenChat,
-  remainingMs,
   roundNumber,
-  soundMuted,
   submitted,
   wide,
+  ...controlProps
 }: GamePlayHeaderProps) {
-  const controls = (
-    <>
-      <HeaderButton label="게임 도움말" onClick={onHelp}>
-        <IconHelp className="size-4.5" />
-      </HeaderButton>
-      {/* 넓은 화면은 채팅이 오른쪽 열에 상주한다 — 열 것이 없으니 버튼도 없다. */}
-      {!wide && (
-        <HeaderButton label={chatLabel(chatUnread)} onClick={onOpenChat}>
-          <IconChat className="size-4.5" />
-          <ChatUnreadBadge count={chatUnread} />
-        </HeaderButton>
-      )}
-      <HeaderButton
-        label={audioLabel({ muted: soundMuted })}
-        onClick={onOpenAudio}
-        ref={audioButtonRef}
-      >
-        <AudioStatusIcon muted={soundMuted} />
-      </HeaderButton>
-      {remainingMs !== null && (
-        <RoundTimer
-          compact
-          remainingMs={remainingMs}
-          roundNumber={roundNumber}
-          totalRounds={TOTAL_ROUNDS}
-        />
-      )}
-    </>
-  )
+  const controls = <HeaderControls {...controlProps} roundNumber={roundNumber} wide={wide} />
 
   return (
     <header
@@ -98,5 +64,61 @@ export function GamePlayHeader({
         controls
       )}
     </header>
+  )
+}
+
+type HeaderControlsProps = Pick<
+  GamePlayHeaderProps,
+  | 'audioButtonRef'
+  | 'chatUnread'
+  | 'onHelp'
+  | 'onOpenAudio'
+  | 'onOpenChat'
+  | 'remainingMs'
+  | 'roundNumber'
+  | 'soundMuted'
+  | 'wide'
+>
+
+/** 헤더 오른쪽 버튼 묶음 — 넓은 화면은 선두·연결 표시 뒤에, 좁은 화면은 턴 라벨 바로 뒤에 둔다. */
+function HeaderControls({
+  audioButtonRef,
+  chatUnread,
+  onHelp,
+  onOpenAudio,
+  onOpenChat,
+  remainingMs,
+  roundNumber,
+  soundMuted,
+  wide,
+}: HeaderControlsProps) {
+  return (
+    <>
+      <HeaderButton label="게임 도움말" onClick={onHelp}>
+        <IconHelp className="size-4.5" />
+      </HeaderButton>
+      {/* 넓은 화면은 채팅이 오른쪽 열에 상주한다 — 열 것이 없으니 버튼도 없다. */}
+      {!wide && (
+        <HeaderButton label={chatLabel(chatUnread)} onClick={onOpenChat}>
+          <IconChat className="size-4.5" />
+          <ChatUnreadBadge count={chatUnread} />
+        </HeaderButton>
+      )}
+      <HeaderButton
+        label={audioLabel({ muted: soundMuted })}
+        onClick={onOpenAudio}
+        ref={audioButtonRef}
+      >
+        <AudioStatusIcon muted={soundMuted} />
+      </HeaderButton>
+      {remainingMs !== null && (
+        <RoundTimer
+          compact
+          remainingMs={remainingMs}
+          roundNumber={roundNumber}
+          totalRounds={TOTAL_ROUNDS}
+        />
+      )}
+    </>
   )
 }
