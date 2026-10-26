@@ -10,7 +10,8 @@
 | 파일 | 책임 |
 |---|---|
 | `duelState.ts` | 상태·라운드 타입(와이어 그대로) |
-| `duelRules.ts` | **판정·파울·캡 — 순수 함수**. 전송·Redis를 모른다 |
+| `duelRules.ts` | **상태 전이 — 순수 함수**. 신호·드로우·라운드 넘김·종료. 전송·Redis를 모른다 |
+| `duelRound.ts` | **라운드 판정**. 반응 비교·파울 정산·쏘기, 센티넬·연출 시간 |
 | `duelStateStore.ts` | Redis 상태 저장(SETNX·락·TTL 복사·version 가드) |
 | `duelScoreboard.ts` | 종료 시 점수(잔탄) 기록 |
 | `duelGameService.ts` | 시각·난수 주입, 방송, 마감 예약, 종료 처리 |
