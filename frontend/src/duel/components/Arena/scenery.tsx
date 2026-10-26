@@ -28,7 +28,8 @@ function sun(phase: ArenaPhase): string {
   return 'radial-gradient(circle, #fff3cd 0%, #ffcf72 34%, #ff9a3c 60%, rgb(232 83 42 / 0%) 72%)'
 }
 
-export function Wasteland({ phase }: { phase: ArenaPhase }) {
+/** 하늘과 지평선에 걸린 해(번짐 + 원반). */
+function SkyAndSun({ phase }: { phase: ArenaPhase }) {
   const green = phase === 'signal'
   return (
     <>
@@ -58,7 +59,14 @@ export function Wasteland({ phase }: { phase: ArenaPhase }) {
           width: 'clamp(150px, 42vmin, 330px)',
         }}
       />
+    </>
+  )
+}
 
+/** 먼 산등성이 두 겹과 지평선의 아지랑이. */
+function Ridges({ green }: { green: boolean }) {
+  return (
+    <>
       <svg
         aria-hidden="true"
         className="absolute inset-x-0"
@@ -96,7 +104,14 @@ export function Wasteland({ phase }: { phase: ArenaPhase }) {
           top: '69%',
         }}
       />
+    </>
+  )
+}
 
+/** 땅과 그 위의 결무늬. */
+function Ground({ phase }: { phase: ArenaPhase }) {
+  return (
+    <>
       <div
         className="absolute inset-x-0 bottom-0"
         style={{ background: ground(phase), height: '28%' }}
@@ -109,7 +124,15 @@ export function Wasteland({ phase }: { phase: ArenaPhase }) {
           height: '28%',
         }}
       />
+    </>
+  )
+}
 
+/** 땅 위 소품. 회전초는 신호를 기다리는 동안에만 굴러간다. */
+function Props({ phase }: { phase: ArenaPhase }) {
+  const green = phase === 'signal'
+  return (
+    <>
       <div
         className="absolute"
         style={{ bottom: '25%', height: 'calc(var(--gs-h) * 0.6)', left: '2%' }}
@@ -136,6 +159,17 @@ export function Wasteland({ phase }: { phase: ArenaPhase }) {
           <Tumbleweed />
         </div>
       )}
+    </>
+  )
+}
+
+export function Wasteland({ phase }: { phase: ArenaPhase }) {
+  return (
+    <>
+      <SkyAndSun phase={phase} />
+      <Ridges green={phase === 'signal'} />
+      <Ground phase={phase} />
+      <Props phase={phase} />
 
       <div
         className="pointer-events-none absolute inset-0"
