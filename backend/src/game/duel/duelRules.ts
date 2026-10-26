@@ -1,14 +1,17 @@
 import { DomainError } from '../../errors.js'
-import type { DuelPlayerNumbers, DuelRound, DuelState } from './duelState.js'
+import { FOUL, MAX_HP, MISS, resolveRound } from './duelRound.js'
+import type { DuelPlayerNumbers, DuelState } from './duelState.js'
 
 /**
- * 석양이 진다 — 결투 규칙. **순수 함수라
- * 네트워크·Redis·연출을 전혀 모른다**(DESIGN.md 「코드 구조」의 도메인/전송 분리).
+ * 석양이 진다 — 결투의 **상태 전이**. 순수 함수라
+ * 네트워크·Redis·연출을 전혀 모른다(DESIGN.md 「코드 구조」의 도메인/전송 분리).
  *
  * 한 라운드 = 신호등 빨강 → (랜덤 대기) → 초록 → 더 빨리 뽑은 쪽이 쏜다 →
  * 상대 체력 -1 → 체력이 0이 되면 쓰러진다(패배).
  *
  * 반응은 ms 정수로 비교하고, 1ms까지 같으면 TIE(체력 변화 없이 다음 라운드)다.
+ * **모인 반응을 해석하는 판정은 `duelRound.ts`가 맡는다** — 이 파일은 언제 신호를
+ * 켜고 언제 라운드를 넘기는지만 안다.
  *
  * **부정출발 — 매치 통산 2번이면 패배**: 신호 전에 뽑으면 1회차는 라운드 무효(상대
  * 무피해)이고 경고만 쌓인다. 경고는 라운드마다 초기화되지 않고 **매치 내내 누적**되며,
@@ -18,18 +21,19 @@ import type { DuelPlayerNumbers, DuelRound, DuelState } from './duelState.js'
  * 아무 정보도 없어 "불리한 라운드를 파울로 회피"하는 악용은 불가능하다.)
  */
 
-/** 결투에서 버틸 수 있는 총알 수. */
-export const MAX_HP = 3
-/** 매치 통산 이 횟수째 부정출발에서 자기 발을 쏘고 결투를 잃는다. */
-export const MAX_FOULS = 2
-
-/**
- * 반응 시간 센티넬 — 실제 ms는 0 이상이다.
- * FOUL은 신호 전에 뽑음, MISS는 신호 후에도 못 뽑음(얼어붙음)이다.
- * **센티넬에 산술을 더하면 안 된다**(와이어 계약: `DUEL_FOUL`·`DUEL_MISS`).
- */
-export const FOUL = -1
-export const MISS = -2
+// 판정·센티넬·연출 시간은 duelRound.ts가 정본이다. 기존 소비자(배럴·테스트)가 이
+// 파일에서 가져가므로 여기서 re-export한다.
+export {
+  compareDraw,
+  FOUL,
+  hold,
+  KO_HOLD_MILLIS,
+  MAX_FOULS,
+  MAX_HP,
+  MISS,
+  RESULT_HOLD_MILLIS,
+  TIE_HOLD_MILLIS,
+} from './duelRound.js'
 
 /** 신호(초록)까지의 랜덤 대기 — 예측 못 하게 넉넉한 폭. 매 라운드 재추첨한다. */
 export const MIN_WAIT_MILLIS = 1_400
@@ -38,12 +42,6 @@ export const MAX_WAIT_MILLIS = 4_600
 export const GRACE_MILLIS = 700
 /** 신호 후 아무도 안 뽑으면 라운드를 무효로 넘긴다. */
 export const FREEZE_MILLIS = 2_600
-
-/* 연출 시간 — 프런트 duel.ts의 CSS 애니메이션 길이와 맞춰야 한다. */
-/** 아무도 맞지 않은 라운드(TIE·경고)는 짧게 보여준다. */
-export const TIE_HOLD_MILLIS = 1_650
-export const RESULT_HOLD_MILLIS = 2_150
-export const KO_HOLD_MILLIS = 2_900
 
 const copy = (values: DuelPlayerNumbers): Record<string, number> => ({ ...values })
 
@@ -141,7 +139,7 @@ export const draw = (state: DuelState, input: DrawInput): DuelState => {
       : Math.max(0, Math.min(Math.trunc(reportedMs), elapsed))
 
   if (reactions[playerId] === FOUL || Object.keys(reactions).length === state.playerOrder.length) {
-    return resolve(state, lastInputSeq, reactions, now)
+    return resolveRound({ state, lastInputSeq, reactions, now })
   }
   // 한쪽이 뽑았다 → 상대에게 마지막 유예. 못 뽑으면 그대로 맞는다.
   return {
@@ -161,7 +159,7 @@ export const expire = (state: DuelState, now: number): DuelState => {
   for (const player of state.playerOrder) {
     if (reactions[player] === undefined) reactions[player] = MISS
   }
-  return resolve(state, state.lastInputSeq, reactions, now)
+  return resolveRound({ state, lastInputSeq: state.lastInputSeq, reactions, now })
 }
 
 /** 결과 연출이 끝났다 → 다음 라운드의 빨간 신호등으로. */
@@ -213,143 +211,4 @@ export const forfeit = (state: DuelState, playerId: string, now: number): DuelSt
       at: now,
     },
   }
-}
-
-/**
- * 두 반응을 비교 → 0=TIE · 1=첫 번째 승 · 2=두 번째 승.
- * 둘 다 정상이면 더 빠른 쪽이 이기고 1ms까지 같으면 TIE, 한쪽만 정상이면 그쪽이 이긴다.
- * 둘 다 실패면(둘 다 성급했거나 둘 다 얼어붙음) TIE다.
- */
-export const compareDraw = (a: number, b: number): 0 | 1 | 2 => {
-  const cleanA = a >= 0
-  const cleanB = b >= 0
-  if (cleanA && cleanB) return a === b ? 0 : a < b ? 1 : 2
-  if (cleanA) return 1
-  if (cleanB) return 2
-  return 0
-}
-
-/** 연출을 붙잡아 둘 시간 — 실제로 맞은 라운드만 충분히 보여준다. */
-export const hold = (round: DuelRound): number => {
-  if (round.over) return KO_HOLD_MILLIS
-  return round.hitId === null ? TIE_HOLD_MILLIS : RESULT_HOLD_MILLIS
-}
-
-const resolve = (
-  state: DuelState,
-  lastInputSeq: DuelPlayerNumbers,
-  reactions: DuelPlayerNumbers,
-  now: number,
-): DuelState => {
-  const [first, second] = sides(state)
-  const hp = copy(state.hp)
-  const fouls = copy(state.fouls)
-
-  const foulId = foulSide(reactions, first, second)
-  const round =
-    foulId === null
-      ? shootout({ state, reactions, hp, first, second, now })
-      : penalty({ state, hp, fouls, foulId, now })
-
-  return {
-    ...state,
-    version: state.version + 1,
-    phase: 'RESULT',
-    hp,
-    fouls,
-    reactions,
-    lastInputSeq,
-    nextActionAt: now + hold(round),
-    lastRound: round,
-  }
-}
-
-/**
- * 부정출발 라운드. 상대는 무피해다 — 신호 전이라 총을 뽑지도 않았다.
- *
- * 경고는 라운드를 넘어 누적되고, 한도에 닿는 순간 자기 발을 쏘며 **남은 총알과
- * 무관하게** 결투가 끝난다. 총알 한 발로 환산하지 않는 이유는 그러면 "총알을 아끼는
- * 대신 파울을 쓴다"는 계산이 생기기 때문이다 — 부정출발은 값을 치르는 선택이 아니라
- * 하면 안 되는 일이어야 한다.
- */
-interface PenaltyInput {
-  readonly state: DuelState
-  readonly hp: Record<string, number>
-  readonly fouls: Record<string, number>
-  readonly foulId: string
-  readonly now: number
-}
-
-const penalty = ({ state, hp, fouls, foulId, now }: PenaltyInput): DuelRound => {
-  const count = at(fouls, foulId, 0) + 1
-  fouls[foulId] = count
-  if (count < MAX_FOULS) {
-    return {
-      number: state.round,
-      kind: 'WARNING',
-      shooterId: null,
-      hitId: null,
-      koId: null,
-      foulId,
-      over: false,
-      at: now,
-    }
-  }
-  hp[foulId] = Math.max(0, at(hp, foulId, 0) - 1)
-  return {
-    number: state.round,
-    kind: 'SELF_SHOT',
-    shooterId: null,
-    hitId: foulId,
-    koId: foulId,
-    foulId,
-    over: true,
-    at: now,
-  }
-}
-
-/** 정상 승부 — 더 빨리 뽑은 쪽이 상대를 쏜다. */
-interface ShootoutInput {
-  readonly state: DuelState
-  readonly reactions: DuelPlayerNumbers
-  readonly hp: Record<string, number>
-  readonly first: string
-  readonly second: string
-  readonly now: number
-}
-
-const shootout = ({ state, reactions, hp, first, second, now }: ShootoutInput): DuelRound => {
-  const winner = compareDraw(at(reactions, first, MISS), at(reactions, second, MISS))
-  if (winner === 0) {
-    return {
-      number: state.round,
-      kind: 'TIE',
-      shooterId: null,
-      hitId: null,
-      koId: null,
-      foulId: null,
-      over: false,
-      at: now,
-    }
-  }
-  const shooter = winner === 1 ? first : second
-  const hit = winner === 1 ? second : first
-  const left = Math.max(0, at(hp, hit, 0) - 1)
-  hp[hit] = left
-  return {
-    number: state.round,
-    kind: 'SHOT',
-    shooterId: shooter,
-    hitId: hit,
-    koId: left <= 0 ? hit : null,
-    foulId: null,
-    over: left <= 0,
-    at: now,
-  }
-}
-
-const foulSide = (reactions: DuelPlayerNumbers, first: string, second: string): string | null => {
-  if (at(reactions, first, MISS) === FOUL) return first
-  if (at(reactions, second, MISS) === FOUL) return second
-  return null
 }
