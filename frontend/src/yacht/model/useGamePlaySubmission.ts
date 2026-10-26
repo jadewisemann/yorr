@@ -25,6 +25,40 @@ interface UseGamePlaySubmissionOptions {
   you: PlayerId
 }
 
+/**
+ * 시간 초과로 서버가 대신 기록한 칸을 알린다. 내가 보낸 제출이 없는데 내 점수판이 바뀌었으면
+ * 그것이 자동 기록이다 — 직전 점수판과 비교해 새로 채워진 칸을 찾고, 라운드마다 한 번만 띄운다.
+ */
+function useAutomaticRecordNotice({
+  myBoard,
+  roundNumber,
+  showToast,
+  you,
+}: Pick<UseGamePlaySubmissionOptions, 'myBoard' | 'roundNumber' | 'showToast' | 'you'>) {
+  const previousBoardRef = useRef(myBoard)
+  const autoRecordedRoundRef = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    previousBoardRef.current = myBoard
+  })
+
+  return useCallback(
+    (message: ServerMessage) => {
+      if (
+        message.type !== 'game.yacht_dice.score.update' ||
+        message.payload.playerId !== you ||
+        autoRecordedRoundRef.current === roundNumber
+      ) {
+        return
+      }
+      const recorded = newlyRecordedCategory(previousBoardRef.current, message.payload.scoreboard)
+      if (!recorded) return
+      autoRecordedRoundRef.current = roundNumber
+      showToast(`시간이 지나 ${categoryLabel[recorded[0]]} ${recorded[1]}점으로 자동 기록됐어요.`)
+    },
+    [roundNumber, showToast, you],
+  )
+}
+
 export function useGamePlaySubmission({
   activePlayerId,
   dice,
@@ -38,13 +72,9 @@ export function useGamePlaySubmission({
 }: UseGamePlaySubmissionOptions) {
   const realtimeClient = useRealtimeClient()
   const pendingRef = useRef<{ msgId: string } | null>(null)
-  const previousBoardRef = useRef(myBoard)
-  const autoRecordedRoundRef = useRef<number | null>(null)
   const turnKey = `${roundNumber}:${activePlayerId ?? ''}`
   const previousTurnKeyRef = useRef(turnKey)
-  useLayoutEffect(() => {
-    previousBoardRef.current = myBoard
-  })
+  const handleAutomaticRecord = useAutomaticRecordNotice({ myBoard, roundNumber, showToast, you })
 
   useEffect(() => {
     if (previousTurnKeyRef.current === turnKey) return
@@ -74,23 +104,6 @@ export function useGamePlaySubmission({
       }
     },
     [dice, dispatch, realtimeClient, roomId, roundNumber, showToast],
-  )
-
-  const handleAutomaticRecord = useCallback(
-    (message: ServerMessage) => {
-      if (
-        message.type !== 'game.yacht_dice.score.update' ||
-        message.payload.playerId !== you ||
-        autoRecordedRoundRef.current === roundNumber
-      ) {
-        return
-      }
-      const recorded = newlyRecordedCategory(previousBoardRef.current, message.payload.scoreboard)
-      if (!recorded) return
-      autoRecordedRoundRef.current = roundNumber
-      showToast(`시간이 지나 ${categoryLabel[recorded[0]]} ${recorded[1]}점으로 자동 기록됐어요.`)
-    },
-    [roundNumber, showToast, you],
   )
 
   useEffect(
