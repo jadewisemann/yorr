@@ -8,7 +8,6 @@
     "duplicateLines": 40
   },
   "violations": {
-    "frontend/src/landing/rendering/heroScene.ts\u0000halsteadDifficulty\u0000-": 86,
-    "frontend/src/yacht/rendering/physics-dice/World.ts\u0000halsteadDifficulty\u0000-": 97
+    "frontend/src/landing/rendering/heroScene.ts\u0000halsteadDifficulty\u0000-": 86
   }
 }
