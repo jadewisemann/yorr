@@ -1,74 +1,18 @@
-import {
-  FAULT_BAND,
-  type Fault,
-  faultOf,
-  flightProgress,
-  GOOD_D,
-  IDEAL1,
-  IDEAL2,
-  MISS1,
-  MISS2,
-  NET_HIT_PROG,
-  NORMAL_SPEED,
-  OUT_END_PROG,
-  PERFECT_D,
-  SMASH_SPEED,
-  W1_HI,
-  W1_LO,
-  W2_HI,
-  W2_LO,
-  WEAK_SPEED,
-  WIN_SCORE,
-} from './court'
+import { type Fault, MISS1, MISS2, NORMAL_SPEED, WIN_SCORE } from './court'
 import type { FrameState } from './frameState'
-import { trackIncomingBall } from './playerTracking'
-import { swingQualityOf } from './swingQuality'
+import { baseSpeed, botReturn, updateBallPosition, updateFault } from './localBall'
+import { type RandomSource, randomBetween } from './localMath'
+import { SWING_MS } from './localSwing'
+
+export { type LocalSwing, swingLocalGame } from './localSwing'
 
 const POINT_COUNTDOWN_MS = 2_600
-const SWING_MS = 260
-const SWING_LOCK_MS = 260
 const SHAKE_MS = 190
 
 export type LocalPingPongMode = 'solo' | 'duo'
 export type LocalPingPongDifficulty = 'easy' | 'normal' | 'hard'
 export type LocalPingPongPhase = 'playing' | 'point' | 'over'
 export type LocalFeedbackKind = 'smash' | 'nice' | 'ok' | 'miss' | 'good' | 'bad'
-
-interface BotSkill {
-  band: number
-  missNormal: number
-  missSmash: number
-  ramp: number
-  rampCap: number
-  smashBack: number
-}
-
-const BOT: Record<LocalPingPongDifficulty, BotSkill> = {
-  easy: {
-    band: 0.02,
-    missNormal: 0.11,
-    missSmash: 0.46,
-    ramp: 0.005,
-    rampCap: 0.08,
-    smashBack: 0.05,
-  },
-  normal: {
-    band: 0.04,
-    missNormal: 0.07,
-    missSmash: 0.2,
-    ramp: 0.005,
-    rampCap: 0.08,
-    smashBack: 0.3,
-  },
-  hard: {
-    band: 0.05,
-    missNormal: 0.02,
-    missSmash: 0.14,
-    ramp: 0.005,
-    rampCap: 0.08,
-    smashBack: 0.3,
-  },
-}
 
 interface LocalBall {
   dir: 1 | -1
@@ -107,13 +51,6 @@ export interface LocalFeedback {
   kind: LocalFeedbackKind
   text: string
 }
-
-type RandomSource = () => number
-
-const lerp = (a: number, b: number, amount: number) => a + (b - a) * amount
-const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value))
-const randomBetween = (low: number, high: number, random: RandomSource) =>
-  low + random() * (high - low)
 
 function newBall(): LocalBall {
   return {
@@ -162,10 +99,6 @@ export function restartLocalGame(state: LocalPingPongState, random: RandomSource
   Object.assign(state, createLocalGame(state.mode, state.difficulty, random))
 }
 
-function baseSpeed(state: LocalPingPongState) {
-  return NORMAL_SPEED + Math.min(0.35, (state.s1 + state.s2) * 0.02)
-}
-
 function serveTo(state: LocalPingPongState, receiver: 1 | 2, random: RandomSource) {
   const ball = newBall()
   ball.speed = baseSpeed(state)
@@ -202,57 +135,6 @@ function scorePoint(state: LocalPingPongState, scorer: 1 | 2, now: number): Loca
   return pointFeedback(state, scorer)
 }
 
-function botMisses(state: LocalPingPongState, skill: BotSkill, random: RandomSource) {
-  const ball = state.ball
-  const chance = ball.smash
-    ? skill.missSmash
-    : skill.missNormal + Math.min(skill.rampCap, state.rally * skill.ramp)
-  return random() < chance
-}
-
-function setBotFault(state: LocalPingPongState, random: RandomSource) {
-  const ball = state.ball
-  ball.dir = 1
-  ball.pos = 0
-  ball.smash = false
-  ball.hit = false
-  ball.fault = random() < 0.5 ? 'out' : 'net'
-  ball.faultFrom = 0
-  ball.speed = ball.fault === 'out' ? NORMAL_SPEED : WEAK_SPEED
-  ball.x0 = ball.x
-  ball.x1 = randomBetween(0.15, 0.85, random)
-}
-
-function botReturn(state: LocalPingPongState, now: number, random: RandomSource) {
-  const skill = BOT[state.difficulty]
-  const ball = state.ball
-  state.p2SwingAt = now
-
-  if (botMisses(state, skill, random)) {
-    if (random() < 0.5) return scorePoint(state, 1, now)
-    setBotFault(state, random)
-    return null
-  }
-
-  const smash = random() < skill.smashBack
-  ball.dir = 1
-  ball.pos = 0
-  ball.smash = smash
-  ball.hit = false
-  ball.speed = smash ? SMASH_SPEED : baseSpeed(state) * randomBetween(0.95, 1.12, random)
-  ball.x0 = ball.x
-  ball.x1 = randomBetween(0.15, 0.85, random)
-  if (smash) state.shakeAt = now
-  state.rally += 1
-  return null
-}
-
-function faultPoint(state: LocalPingPongState, now: number): LocalFeedback {
-  const fault = state.ball.fault
-  scorePoint(state, state.ball.dir < 0 ? 2 : 1, now)
-  return fault === 'out' ? { kind: 'bad', text: '아웃! 🚀' } : { kind: 'bad', text: '네트… 🥅' }
-}
-
 function updatePointCountdown(
   state: LocalPingPongState,
   now: number,
@@ -263,21 +145,6 @@ function updatePointCountdown(
   const remaining = state.nextServeAt - now
   state.countdown = remaining <= 1_800 ? Math.max(0, Math.min(3, Math.ceil(remaining / 600))) : 0
   if (now >= state.nextServeAt) serveTo(state, state.serveReceiver, random)
-}
-
-function updateBallPosition(state: LocalPingPongState) {
-  const ball = state.ball
-  const progress = ball.dir > 0 ? clamp(ball.pos, 0, 1) : clamp(1 - ball.pos, 0, 1)
-  ball.x = lerp(ball.x0, ball.x1, progress)
-  trackIncomingBall(state, ball.dir, ball.x)
-}
-
-function updateFault(state: LocalPingPongState, now: number): LocalFeedback | null {
-  const ball = state.ball
-  const progress = flightProgress(ball.pos, ball.dir, ball.fault)
-  ball.x = lerp(ball.x0, ball.x1, Math.min(1, progress))
-  const end = ball.fault === 'net' ? NET_HIT_PROG : OUT_END_PROG
-  return progress >= end ? faultPoint(state, now) : null
 }
 
 export function advanceLocalGame(
@@ -294,104 +161,14 @@ export function advanceLocalGame(
 
   const ball = state.ball
   ball.pos += ball.speed * dt * ball.dir
-  if (ball.fault) return updateFault(state, now)
+  if (ball.fault) return updateFault(state, now, scorePoint)
 
   updateBallPosition(state)
   if (ball.dir > 0 && ball.pos >= MISS1) return scorePoint(state, 2, now)
   if (ball.dir >= 0) return null
-  if (state.mode === 'solo' && ball.pos <= 0) return botReturn(state, now, random)
+  if (state.mode === 'solo' && ball.pos <= 0) return botReturn(state, now, random, scorePoint)
   if (state.mode === 'duo' && ball.pos <= MISS2) return scorePoint(state, 1, now)
   return null
-}
-
-interface ReturnShot {
-  player: 1 | 2
-  /** 이상적인 타격 지점과의 거리. */
-  distance: number
-  /** 공이 아직 이상 지점에 오기 전에 쳤는가. */
-  early: boolean
-  now: number
-  random: RandomSource
-}
-
-function prepareReturn(state: LocalPingPongState, shot: ReturnShot): LocalFeedback | null {
-  const { player, distance, early, now, random } = shot
-  const ball = state.ball
-  ball.dir = player === 1 ? -1 : 1
-  ball.hit = false
-  ball.x0 = ball.x
-  ball.x1 = randomBetween(0.15, 0.85, random)
-
-  const band = state.mode === 'solo' ? BOT[state.difficulty].band : FAULT_BAND
-  const fault = faultOf(distance, early, band)
-  if (fault) {
-    ball.fault = fault
-    ball.faultFrom = flightProgress(ball.pos, ball.dir, fault)
-    ball.smash = false
-    ball.speed = fault === 'out' ? NORMAL_SPEED : WEAK_SPEED
-    return null
-  }
-
-  state.rally += 1
-  const quality = swingQualityOf(distance, { good: GOOD_D, perfect: PERFECT_D })
-  if (quality.kind === 'smash') {
-    ball.speed = SMASH_SPEED
-    ball.smash = true
-    state.flashAt = now
-    state.shakeAt = now
-    return quality
-  }
-  ball.smash = false
-  ball.speed = quality.kind === 'nice' ? NORMAL_SPEED : WEAK_SPEED
-  return quality
-}
-
-function swingP1(state: LocalPingPongState, now: number, random: RandomSource) {
-  const ball = state.ball
-  if (ball.dir < 0 || ball.hit) return null
-  state.p1X = ball.x
-  state.p1SwingAt = now
-  if (ball.pos < W1_LO) return { kind: 'miss', text: '너무 빨라요' } as const
-  if (ball.pos > W1_HI) return { kind: 'miss', text: '너무 늦었어요' } as const
-  return prepareReturn(state, {
-    distance: Math.abs(ball.pos - IDEAL1),
-    early: ball.pos < IDEAL1,
-    now,
-    player: 1,
-    random,
-  })
-}
-
-function swingP2(state: LocalPingPongState, now: number, random: RandomSource) {
-  const ball = state.ball
-  if (state.mode !== 'duo' || ball.dir > 0 || ball.hit) return null
-  state.p2X = ball.x
-  state.p2SwingAt = now
-  if (ball.pos > W2_HI) return { kind: 'miss', text: '너무 빨라요' } as const
-  if (ball.pos < W2_LO) return { kind: 'miss', text: '너무 늦었어요' } as const
-  return prepareReturn(state, {
-    distance: Math.abs(ball.pos - IDEAL2),
-    early: ball.pos > IDEAL2,
-    now,
-    player: 2,
-    random,
-  })
-}
-
-export interface LocalSwing {
-  player: 1 | 2
-  now: number
-  /** 모션 입력은 스윙 잠금을 무시한다(제스처가 이미 한 번만 발생한다). */
-  motion?: boolean
-  random?: RandomSource
-}
-
-export function swingLocalGame(state: LocalPingPongState, swing: LocalSwing): LocalFeedback | null {
-  const { player, now, motion = false, random = Math.random } = swing
-  if (state.phase !== 'playing' || state.ball.fault) return null
-  const lastSwing = player === 1 ? state.p1SwingAt : state.p2SwingAt
-  if (!motion && now - lastSwing < SWING_LOCK_MS) return null
-  return player === 1 ? swingP1(state, now, random) : swingP2(state, now, random)
 }
 
 function swingAmount(now: number, at: number) {
