@@ -1,26 +1,31 @@
 import {
-  createRollRequest,
   type DiceIndex,
   type DiceRollRequest,
   type DiceSet,
   type HeldDice,
   NO_HELD_DICE,
-  nextRollSeed,
-  toggleHeldDie,
 } from './dice'
+import type { CategoryScores, YachtCategory } from './scoring'
+import { calculateScoreSummary, type ScoreSummary } from './scoring'
 import {
-  type CategoryScores,
-  calculateScoreSummary,
-  type ScoreSummary,
-  scoreCategory,
-  type YachtCategory,
-} from './scoring'
+  canSubmit,
+  clampRollCount,
+  completeRoll,
+  completeSubmission,
+  requestRoll,
+  selectCategory,
+  startNextRound,
+  submissionOf,
+  syncHeld,
+  toggleHold,
+} from './yachtTurn'
 
 export type YachtGamePhase = 'ready' | 'rolling' | 'choosing' | 'submitting' | 'roundComplete'
 export type RollCount = 0 | 1 | 2 | 3
 export type { DiceIndex } from './dice'
-export const MAX_ROLLS = 3
+export { MAX_ROLLS, type RoundSubmission } from './yachtTurn'
 
+/** 로컬 판의 점수판 — 서버와 같은 모양(카테고리 → 확정 점수). */
 export interface YachtGameState {
   phase: YachtGamePhase
   roundNumber: number
@@ -52,13 +57,6 @@ export type YachtGameAction =
   | { type: 'submissionFailed' }
   | { type: 'nextRoundStarted' }
 
-export interface RoundSubmission {
-  roundNumber: number
-  dice: DiceSet
-  category: YachtCategory
-  score: number
-}
-
 export function createYachtGame(seed: number, roundNumber = 1): YachtGameState {
   return {
     phase: 'ready',
@@ -79,6 +77,7 @@ export interface YachtTurnProgress {
   held?: HeldDice | null
 }
 
+/** 재접속 스냅샷의 진행 상황으로 판을 되살린다. 주사위가 없으면 시작 상태다. */
 export function restoreYachtGame(
   seed: number,
   roundNumber: number,
@@ -96,6 +95,10 @@ export function restoreYachtGame(
   }
 }
 
+/**
+ * 로컬 판의 리듀서 — **어떤 액션이 어떤 전이로 가는가**만 정한다.
+ * 전이 본체는 `yachtTurn.ts`가 정본이다.
+ */
 export function yachtGameReducer(state: YachtGameState, action: YachtGameAction): YachtGameState {
   switch (action.type) {
     case 'rollRequested':
@@ -125,118 +128,12 @@ export function getPendingRoll(state: YachtGameState): DiceRollRequest | null {
   return state.phase === 'rolling' ? state.pendingRoll : null
 }
 
-export function getRoundSubmission(state: YachtGameState): RoundSubmission | null {
-  if (!canSubmit(state) || !state.dice || !state.selectedCategory) return null
-  return {
-    roundNumber: state.roundNumber,
-    dice: state.dice,
-    category: state.selectedCategory,
-    score: scoreCategory(state.dice, state.selectedCategory),
-  }
+export function getRoundSubmission(state: YachtGameState) {
+  return submissionOf(state)
 }
 
 export function getScoreSummary(state: YachtGameState): ScoreSummary {
   return calculateScoreSummary(state.scores)
-}
-
-function requestRoll(
-  state: YachtGameState,
-  action: Extract<YachtGameAction, { type: 'rollRequested' }>,
-): YachtGameState {
-  const { forced = false, held: heldOverride, requestId, rollCount, seed, targetDice } = action
-  const canRoll = forced
-    ? state.phase !== 'roundComplete' && state.rollCount < MAX_ROLLS
-    : (state.phase === 'ready' || state.phase === 'choosing') && state.rollCount < MAX_ROLLS
-  if (!canRoll) return state
-
-  const nextHeld = heldOverride ?? state.held
-  if (state.dice !== null && nextHeld.every(Boolean)) return state
-
-  return {
-    ...state,
-    phase: 'rolling',
-    selectedCategory: null,
-    pendingRoll: createRollRequest({
-      requestId,
-      seed: seed ?? state.seed,
-      held: nextHeld,
-      targetDice,
-    }),
-    held: nextHeld,
-    rollCount,
-  }
-}
-
-function completeRoll(state: YachtGameState, requestId: string, dice: DiceSet): YachtGameState {
-  if (
-    state.phase !== 'rolling' ||
-    !state.pendingRoll ||
-    state.pendingRoll.requestId !== requestId
-  ) {
-    return state
-  }
-
-  return {
-    ...state,
-    phase: 'choosing',
-    seed: nextRollSeed(state.pendingRoll.seed),
-    dice,
-    pendingRoll: null,
-  }
-}
-
-function toggleHold(state: YachtGameState, index: DiceIndex): YachtGameState {
-  if (state.phase !== 'choosing' || !state.dice || state.rollCount >= MAX_ROLLS) return state
-  return { ...state, held: toggleHeldDie(state.held, index) }
-}
-
-function syncHeld(state: YachtGameState, held: HeldDice): YachtGameState {
-  if (state.phase !== 'choosing' || !state.dice) return state
-  return { ...state, held }
-}
-
-function selectCategory(state: YachtGameState, category: YachtCategory): YachtGameState {
-  if (state.phase !== 'choosing' || !state.dice || category in state.scores) return state
-  return { ...state, selectedCategory: category }
-}
-
-function completeSubmission(state: YachtGameState): YachtGameState {
-  const submission = getRoundSubmission(state)
-  if (state.phase !== 'submitting' || !submission) return state
-
-  return {
-    ...state,
-    phase: 'roundComplete',
-    scores: { ...state.scores, [submission.category]: submission.score },
-  }
-}
-
-function startNextRound(state: YachtGameState): YachtGameState {
-  if (state.phase !== 'roundComplete') return state
-  return {
-    ...state,
-    phase: 'ready',
-    roundNumber: state.roundNumber + 1,
-    dice: null,
-    held: NO_HELD_DICE,
-    rollCount: 0,
-    selectedCategory: null,
-    pendingRoll: null,
-  }
-}
-
-function canSubmit(state: YachtGameState) {
-  return (
-    (state.phase === 'choosing' || state.phase === 'submitting') &&
-    state.dice !== null &&
-    state.selectedCategory !== null &&
-    !(state.selectedCategory in state.scores)
-  )
-}
-
-function clampRollCount(count: number): RollCount {
-  if (!Number.isInteger(count) || count < 0) return 0
-  return (count > 3 ? 3 : count) as RollCount
 }
 
 export const TOTAL_ROUNDS = 12

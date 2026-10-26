@@ -10,7 +10,6 @@
   "violations": {
     "frontend/src/landing/rendering/heroScene.ts\u0000halsteadDifficulty\u0000-": 86,
     "frontend/src/realtime/controllerLink/controllerLink.ts\u0000halsteadDifficulty\u0000-": 81,
-    "frontend/src/yacht/domain/yachtGame.ts\u0000halsteadDifficulty\u0000-": 89,
     "frontend/src/yacht/input/MotionGestureRecognizer.ts\u0000halsteadDifficulty\u0000-": 97,
     "frontend/src/yacht/rendering/physics-dice/model.ts\u0000halsteadDifficulty\u0000-": 81,
     "frontend/src/yacht/rendering/physics-dice/remap.ts\u0000halsteadDifficulty\u0000-": 110,
