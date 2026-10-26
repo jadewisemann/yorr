@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { type FormEvent, type RefObject, useEffect, useRef, useState } from 'react'
 import { cn } from '@/shared/cn'
 import { Button } from '@/shared/components/Button'
 import { CHAT_TEXT_MAX_LENGTH, type PlayerId } from '../wsEvents'
@@ -18,6 +18,79 @@ interface ChatBodyProps {
 
 const timeFormat = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' })
 
+interface ChatLogProps {
+  endRef: RefObject<HTMLDivElement | null>
+  lineVariant: 'sheet' | 'toast'
+  lines: RoomChat['lines']
+  listClassName?: string | undefined
+  you: PlayerId
+}
+
+function ChatLog({ endRef, lineVariant, lines, listClassName, you }: ChatLogProps) {
+  /*
+   * grid-cols-1(= minmax(0, 1fr))이 있어야 한다. 열을 정의하지 않으면 암시적 열이 auto라서
+   * 한 줄의 max-w-[85%]가 순환 참조로 무력화되고, 긴 말이 max-content 폭을 요구해 열이
+   * 컨테이너보다 넓어진다 — 그러면 justify-self-end인 내 말풍선이 스크롤 영역 밖으로 밀려
+   * 잘리고 가로 스크롤바가 생긴다.
+   */
+  return (
+    <div
+      aria-label="대화 내용"
+      aria-live="polite"
+      className={cn(
+        'grid auto-rows-min grid-cols-1 gap-2 overflow-y-auto overscroll-contain',
+        listClassName,
+      )}
+      role="log"
+    >
+      {lines.length === 0 ? (
+        <p className="m-0 self-center text-center text-sm text-content-faint">
+          아직 대화가 없어요. 먼저 말을 걸어 보세요.
+        </p>
+      ) : (
+        lines.map((line) => (
+          <ChatLineRow key={line.messageId} line={line} variant={lineVariant} you={you} />
+        ))
+      )}
+      <div ref={endRef} />
+    </div>
+  )
+}
+
+function ChatComposer({ send }: Pick<RoomChat, 'send'>) {
+  const [draft, setDraft] = useState('')
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    send(draft)
+    setDraft('')
+  }
+
+  return (
+    <form className="flex flex-none items-end gap-2" onSubmit={submit}>
+      <label className="min-w-0 flex-1">
+        <span className="sr-only">보낼 메시지</span>
+        <input
+          autoComplete="off"
+          className="min-h-12 w-full rounded-card border border-border bg-surface px-3.5 text-base text-content outline-none transition-[border-color,box-shadow] placeholder:text-content-faint focus-visible:border-focus focus-visible:ring-4 focus-visible:ring-focus/10"
+          enterKeyHint="send"
+          maxLength={CHAT_TEXT_MAX_LENGTH}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="메시지 입력"
+          value={draft}
+        />
+      </label>
+      <Button
+        className="min-h-12 flex-none px-4"
+        disabled={draft.trim().length === 0}
+        type="submit"
+      >
+        보내기
+      </Button>
+    </form>
+  )
+}
+
 /**
  * 대화 목록과 입력칸. 상주 패널(`ChatPanel`)과 판 위 오버레이(`ChatOverlay`)가 공유한다 —
  * 읽음 처리·마지막 줄 따라가기·거절 처리가 두 형태에서 같아야 하기 때문이다.
@@ -31,7 +104,6 @@ export function ChatBody({
   listClassName,
   you,
 }: ChatBodyProps) {
-  const [draft, setDraft] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
   const { lines, markRead, send } = chat
 
@@ -51,62 +123,16 @@ export function ChatBody({
     endRef.current?.scrollIntoView?.({ block: 'end' })
   }, [lines, active])
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
-    send(draft)
-    setDraft('')
-  }
-
   return (
     <div className={cn('flex min-h-0 flex-col gap-3', className)}>
-      {/*
-       * grid-cols-1(= minmax(0, 1fr))이 있어야 한다. 열을 정의하지 않으면 암시적 열이 auto라서
-       * 한 줄의 max-w-[85%]가 순환 참조로 무력화되고, 긴 말이 max-content 폭을 요구해 열이
-       * 컨테이너보다 넓어진다 — 그러면 justify-self-end인 내 말풍선이 스크롤 영역 밖으로 밀려
-       * 잘리고 가로 스크롤바가 생긴다.
-       */}
-      <div
-        aria-label="대화 내용"
-        aria-live="polite"
-        className={cn(
-          'grid auto-rows-min grid-cols-1 gap-2 overflow-y-auto overscroll-contain',
-          listClassName,
-        )}
-        role="log"
-      >
-        {lines.length === 0 ? (
-          <p className="m-0 self-center text-center text-sm text-content-faint">
-            아직 대화가 없어요. 먼저 말을 걸어 보세요.
-          </p>
-        ) : (
-          lines.map((line) => (
-            <ChatLineRow key={line.messageId} line={line} variant={lineVariant} you={you} />
-          ))
-        )}
-        <div ref={endRef} />
-      </div>
-
-      <form className="flex flex-none items-end gap-2" onSubmit={submit}>
-        <label className="min-w-0 flex-1">
-          <span className="sr-only">보낼 메시지</span>
-          <input
-            autoComplete="off"
-            className="min-h-12 w-full rounded-card border border-border bg-surface px-3.5 text-base text-content outline-none transition-[border-color,box-shadow] placeholder:text-content-faint focus-visible:border-focus focus-visible:ring-4 focus-visible:ring-focus/10"
-            enterKeyHint="send"
-            maxLength={CHAT_TEXT_MAX_LENGTH}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="메시지 입력"
-            value={draft}
-          />
-        </label>
-        <Button
-          className="min-h-12 flex-none px-4"
-          disabled={draft.trim().length === 0}
-          type="submit"
-        >
-          보내기
-        </Button>
-      </form>
+      <ChatLog
+        endRef={endRef}
+        lineVariant={lineVariant}
+        lines={lines}
+        listClassName={listClassName}
+        you={you}
+      />
+      <ChatComposer send={send} />
     </div>
   )
 }
