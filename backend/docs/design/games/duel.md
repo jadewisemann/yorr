@@ -14,7 +14,8 @@
 | `duelRound.ts` | **라운드 판정**. 반응 비교·파울 정산·쏘기, 센티넬·연출 시간 |
 | `duelStateStore.ts` | Redis 상태 저장(SETNX·락·TTL 복사·version 가드) |
 | `duelScoreboard.ts` | 종료 시 점수(잔탄) 기록 |
-| `duelGameService.ts` | 시각·난수 주입, 방송, 마감 예약, 종료 처리 |
+| `duelGameService.ts` | 시각·난수 주입, 입력 검증, 마감 시 전이 선택 |
+| `duelProgress.ts` | 방송·마감 예약·종료 정산(점수=잔탄, 완료 판정) |
 | `duelGameModule.ts` | WS 표면(`draw` 라우팅·검증·오류 응답) |
 | `duelPorts.ts` | 바깥 계층(ws·room·완료)의 **좁은 포트** |
 
