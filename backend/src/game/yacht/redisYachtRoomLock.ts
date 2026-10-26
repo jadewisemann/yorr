@@ -26,7 +26,12 @@ export class RoomLock {
     private readonly options: RoomLockOptions,
   ) {}
 
-  async withLock<T>(lockKey: string, action: () => Promise<T>): Promise<T> {
+  /**
+   * `keyPrefix`에 `:lock`을 붙여 잠근다. 접미사를 여기서 붙이는 이유: 잠금 키 규칙이
+   * 한 곳(이 클래스)에만 있어야 "어느 모듈이 잠금을 쓰는가"를 셀 때 오해가 없다.
+   */
+  async withLock<T>(keyPrefix: string, action: () => Promise<T>): Promise<T> {
+    const lockKey = `${keyPrefix}:lock`
     const token = randomUUID()
     const deadline = this.options.now() + this.options.lockWaitMs
     try {
