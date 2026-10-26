@@ -1,12 +1,24 @@
-import { randomUUID } from 'node:crypto'
-import { ConflictError, DomainError } from '../errors.js'
+import { ConflictError } from '../errors.js'
 import type { GameCatalog } from '../game/catalog.js'
 import type { Redis } from '../infra/memoryRedis.js'
-import { runAtomicNumber, UNLOCK_IF_OWNER } from '../infra/memoryRedis.js'
 import type { UserIdentity, UserService } from '../user/session.js'
-import { roomKey } from './keys.js'
+import {
+  QUICK_MATCH_WAIT_TTL_SECONDS,
+  quickMatchQueueKey,
+  quickMatchTicketKey,
+} from './quickMatchKeys.js'
+import { type QuickMatchGameStarter, QuickMatchRunner } from './quickMatchRunner.js'
 import type { RoomService } from './roomService.js'
-import { ROOM_TTL_SECONDS } from './roomService.js'
+
+export {
+  QUICK_MATCH_LOCK_TTL_SECONDS,
+  QUICK_MATCH_WAIT_TTL_SECONDS,
+  quickMatchLockKey,
+  quickMatchMarkerKey,
+  quickMatchQueueKey,
+  quickMatchTicketKey,
+} from './quickMatchKeys.js'
+export type { QuickMatchGameStarter } from './quickMatchRunner.js'
 
 /**
  * 퀵매치.
@@ -20,34 +32,10 @@ import { ROOM_TTL_SECONDS } from './roomService.js'
  * 한계다): 매칭과 방 생성이 한 Lua가 아니므로
  * 그 사이에 프로세스가 죽으면 방이 고아로 남을 수 있다. 락은 5초 TTL이라
  * 크래시가 큐를 영구히 막지는 않는다.
+ *
+ * 매칭·자동 시작 본체는 `quickMatchRunner.ts`, 키와 상수는 `quickMatchKeys.ts`가
+ * 정본이다. 이 클래스는 사용자에게 보이는 세 호출의 뜻만 정한다.
  */
-
-/** 대기 티켓·큐 잔류 시간. 이 시간을 넘긴 대기자는 매칭 시도마다 점수 윈도로 청소된다. */
-export const QUICK_MATCH_WAIT_TTL_SECONDS = 5 * 60
-
-/** 게임 코드별 매칭 락의 수명. 매칭 한 번(방 생성 + join N회)보다 넉넉하다. */
-export const QUICK_MATCH_LOCK_TTL_SECONDS = 5
-
-/**
- * `WebSocket.OPEN`. `ws/socket.ts`의 `SOCKET_OPEN`과 같은 값을 여기 다시 적는다 —
- * 방 도메인이 전송 계층 모듈에 의존하지 않기 위해서다(`game/round/roundPorts.ts`가
- * `RoundBroadcaster`를 직접 선언한 것과 같은 판단).
- */
-const SOCKET_OPEN = 1
-
-/** ZSET 점수는 enqueue 시각(ms)이다 — 오름차순 = 오래 기다린 순. */
-export const quickMatchQueueKey = (gameCode: string): string => `quick-match:queue:${gameCode}`
-
-/**
- * 사용자당 티켓 하나. **`UserService.clearRoom`이 이 키를 지운다**(방을 떠나면
- * 티켓도 사라진다) — 그 규약이 이미 1.2에 이식돼 있으므로 키 이름을 바꿀 수 없다.
- */
-export const quickMatchTicketKey = (userId: string): string => `quick-match:user:${userId}`
-
-export const quickMatchLockKey = (gameCode: string): string => `quick-match:lock:${gameCode}`
-
-/** 방에 붙는 "전원 접속 시 자동 시작" 마커. 시작하거나 이미 시작됐으면 지운다. */
-export const quickMatchMarkerKey = (roomCode: string): string => `${roomKey(roomCode)}:quick-match`
 
 /** 세션 해시. `user/session.ts`의 것과 같은 이름이며 그쪽은 내부 헬퍼다. */
 const userKey = (userId: string): string => `user:${userId}`
@@ -80,11 +68,6 @@ export interface QuickMatchPresence {
   ): { readonly socket: { readonly readyState: number } | null } | null
 }
 
-/** `GameLifecycleService.start`의 자리. 퀵매치는 반환값을 쓰지 않는다. */
-export interface QuickMatchGameStarter {
-  start(roomCode: string): Promise<unknown>
-}
-
 export interface QuickMatchServiceDeps {
   readonly redis: Redis
   readonly rooms: RoomService
@@ -109,19 +92,25 @@ export class QuickMatchService {
   private readonly redis: Redis
   private readonly rooms: RoomService
   private readonly users: UserService
-  private readonly catalog: GameCatalog
-  private readonly presence: QuickMatchPresence
-  private readonly games: QuickMatchGameStarter
   private readonly now: () => number
+  private readonly runner: QuickMatchRunner
 
   constructor(deps: QuickMatchServiceDeps, options: QuickMatchServiceOptions = {}) {
     this.redis = deps.redis
     this.rooms = deps.rooms
     this.users = deps.users
-    this.catalog = deps.catalog
-    this.presence = deps.presence
-    this.games = deps.games
     this.now = options.now ?? (() => Date.now())
+    this.runner = new QuickMatchRunner(
+      {
+        redis: deps.redis,
+        rooms: deps.rooms,
+        users: deps.users,
+        catalog: deps.catalog,
+        presence: deps.presence,
+        games: deps.games,
+      },
+      this.now,
+    )
   }
 
   /**
@@ -137,13 +126,13 @@ export class QuickMatchService {
     if ((await this.redis.hexists(userKey(user.userId), 'roomId')) === 1) {
       throw new ConflictError('already_in_room')
     }
-    const playerCount = this.playerCount(gameCode)
+    const playerCount = this.runner.playerCount(gameCode)
 
     const ticket = quickMatchTicketKey(user.userId)
     await this.redis.hset(ticket, { status: 'WAITING', gameCode })
     await this.redis.expire(ticket, QUICK_MATCH_WAIT_TTL_SECONDS)
     await this.redis.zadd(quickMatchQueueKey(gameCode), this.now(), user.userId)
-    await this.match(gameCode, playerCount)
+    await this.runner.match(gameCode, playerCount)
     // 내가 방금 만든 매칭이면 이 호출에서 곧바로 MATCHED가 나간다.
     return this.status(user.userId)
   }
@@ -155,7 +144,7 @@ export class QuickMatchService {
    */
   async status(userId: string): Promise<QuickMatchResponse> {
     const response = await this.statusOf(userId)
-    if (response.roomId !== null) await this.startIfReady(response.roomId)
+    if (response.roomId !== null) await this.runner.startIfReady(response.roomId)
     const current = await this.statusOf(userId)
     if (current.status === 'PLAYING') await this.redis.del(quickMatchTicketKey(userId))
     return current
@@ -171,90 +160,6 @@ export class QuickMatchService {
     }
     await this.redis.del(quickMatchTicketKey(userId))
     return notQueued(current.gameCode)
-  }
-
-  /**
-   * 게임 코드별 락 안에서 한 판을 성립시킨다. 락을 못 잡으면 **조용히 돌아간다** —
-   * 다른 요청이 지금 매칭 중이고, 그쪽이 내 큐 항목까지 함께 본다.
-   *
-   * 순서가 계약이다: 만료 대기자 청소 → 최장 대기 N명 → 세션 확인(만료자 발견 시
-   * 그 사람만 퇴출하고 **전체 중단**) → 방 생성 → join + assignRoom(도중 실패 시
-   * 방 close로 롤백하고 재throw) → 큐에서 제거 → 티켓 MATCHED → 자동 시작 마커.
-   */
-  private async match(gameCode: string, playerCount: number): Promise<void> {
-    const lockKey = quickMatchLockKey(gameCode)
-    const token = randomUUID()
-    const acquired = await this.redis.set(lockKey, token, 'EX', QUICK_MATCH_LOCK_TTL_SECONDS, 'NX')
-    if (acquired !== 'OK') return
-    try {
-      const queue = quickMatchQueueKey(gameCode)
-      await this.redis.zremrangebyscore(queue, 0, this.now() - QUICK_MATCH_WAIT_TTL_SECONDS * 1000)
-      const candidates = await this.redis.zrange(queue, 0, playerCount - 1)
-      if (candidates.length < playerCount) return
-      const identities = await Promise.all(candidates.map((userId) => this.identity(userId)))
-      if (identities.some((identity) => identity === null)) {
-        // 세션이 만료된 사람은 방에 넣을 수 없다. 그 사람만 퇴출하고 이번 판은 접는다 —
-        // 남은 사람들은 다음 enter/status의 매칭 시도에서 다시 후보가 된다.
-        for (const [index, identity] of identities.entries()) {
-          if (identity === null) await this.removeWaiting(gameCode, candidates[index] as string)
-        }
-        return
-      }
-      const players = identities as UserIdentity[]
-      // 최장 대기자가 방장이다(ZSET 오름차순의 첫 항목).
-      const host = players[0] as UserIdentity
-      const roomId = await this.rooms.createRoom(playerCount, host.userId, gameCode)
-      try {
-        for (const player of players) {
-          await this.rooms.join(roomId, player)
-          await this.users.assignRoom(player.userId, roomId, roomId, host.userId)
-        }
-      } catch (error) {
-        // 반쪽 방을 남기지 않는다. 롤백 실패는 감추지 않고 원인 예외 위로 올라간다.
-        await this.rooms.close(roomId)
-        throw error
-      }
-      await this.redis.zrem(queue, ...candidates)
-      for (const player of players) await this.markMatched(player.userId, roomId, gameCode)
-      await this.redis.set(quickMatchMarkerKey(roomId), '1', 'EX', ROOM_TTL_SECONDS)
-    } finally {
-      await runAtomicNumber(this.redis, UNLOCK_IF_OWNER, [lockKey], [token])
-    }
-  }
-
-  /**
-   * **전원 소켓 라이브 조건 자동 시작.** 마커가 붙은 방만 대상이고, 조건이 하나라도
-   * 어긋나면 아무것도 하지 않는다(다음 폴이 다시 시도한다).
-   *
-   * 이미 PLAYING인 방은 마커만 걷어낸다 — 다른 폴이 먼저 시작시킨 경우다.
-   */
-  private async startIfReady(roomId: string): Promise<void> {
-    const marker = quickMatchMarkerKey(roomId)
-    if ((await this.redis.exists(marker)) === 0) return
-    const room = await this.rooms.getSnapshot(roomId)
-    if (room.phase === 'PLAYING') {
-      await this.redis.del(marker)
-      return
-    }
-    if (room.phase !== 'LOBBY' || room.players.length !== room.capacity) return
-    for (const player of room.players) {
-      if (!this.isSocketLive(roomId, player.playerId)) return
-    }
-    try {
-      await this.games.start(roomId)
-      await this.redis.del(marker)
-    } catch (error) {
-      // 두 폴이 동시에 시작을 시도하면 진 쪽이 `game_not_ready`를 받는다. 방이 실제로
-      // PLAYING이 됐으면 그 실패는 중복 시작이므로 삼킨다(마커는 이긴 쪽이 지웠다).
-      if (!(error instanceof ConflictError)) throw error
-      if ((await this.rooms.getSnapshot(roomId)).phase !== 'PLAYING') throw error
-    }
-  }
-
-  /** 명단에 없거나 소켓이 없거나 열려 있지 않으면 라이브가 아니다. */
-  private isSocketLive(roomId: string, playerId: string): boolean {
-    const member = this.presence.find(roomId, playerId)
-    return member !== null && member.socket !== null && member.socket.readyState === SOCKET_OPEN
   }
 
   /**
@@ -280,38 +185,5 @@ export class QuickMatchService {
       return notQueued(gameCode)
     }
     return { status: room.phase === 'PLAYING' ? 'PLAYING' : 'MATCHED', roomId, gameCode }
-  }
-
-  /** 세션 해시에서 정체성을 복원한다. 만료·손상이면 null(= 매칭 대상 아님). */
-  private async identity(userId: string): Promise<UserIdentity | null> {
-    const stored = await this.redis.hgetall(userKey(userId))
-    const nickname = stored.nickname
-    const type = stored.type
-    if (nickname === undefined) return null
-    if (type !== 'GUEST' && type !== 'MEMBER') return null
-    return { userId, nickname, type }
-  }
-
-  /** 매칭된 티켓은 방과 같은 수명을 갖는다(대기 5분이 아니다 — 방이 살아 있는 동안 유효). */
-  private async markMatched(userId: string, roomId: string, gameCode: string): Promise<void> {
-    const ticket = quickMatchTicketKey(userId)
-    await this.redis.hset(ticket, { status: 'MATCHED', roomId, gameCode })
-    await this.redis.expire(ticket, ROOM_TTL_SECONDS)
-  }
-
-  private async removeWaiting(gameCode: string, userId: string): Promise<void> {
-    await this.redis.zrem(quickMatchQueueKey(gameCode), userId)
-    await this.redis.del(quickMatchTicketKey(userId))
-  }
-
-  /**
-   * 매칭 인원 = `max(2, minPlayers)`. 1인 게임(야추)도 퀵매치는 둘부터고, 정원보다
-   * 많이 필요한 게임은 큐를 열지 않는다.
-   */
-  private playerCount(gameCode: string): number {
-    const game = this.catalog.require(gameCode)
-    const playerCount = Math.max(2, game.minPlayers)
-    if (playerCount > game.maxPlayers) throw new DomainError('quick_match_not_supported')
-    return playerCount
   }
 }
