@@ -7,11 +7,10 @@ import {
 import { InvitePopover } from '@/room/components/InvitePopover'
 import { BotManagementPanel } from '@/room/components/Lobby/BotManagementPanel'
 import { LobbyPlayerList, LobbyStartPanel } from '@/room/components/Lobby/LobbyRoomContent'
-import { connectionLabel } from '@/room/domain/lobbyLabels'
+import { RoomCodeStatus } from '@/room/components/RoomCodeStatus'
 import { useLobbyActions } from '@/room/model/useLobbyActions'
 import { useLobbyChrome } from '@/room/model/useLobbyChrome'
 import { useLobbyRoom } from '@/room/model/useLobbyRoom'
-import { cn } from '@/shared/cn'
 import { AudioPopover } from '@/shared/components/AudioPopover'
 import { AudioStatusIcon, audioLabel } from '@/shared/components/AudioStatusIcon'
 import { Button } from '@/shared/components/Button'
@@ -22,17 +21,20 @@ interface LobbyPageProps {
   roomId: string
 }
 
-export function LobbyPage({ roomId }: LobbyPageProps) {
-  const room = useLobbyRoom(roomId)
-  const chrome = useLobbyChrome()
-  const actions = useLobbyActions(room)
-  const chat = useChat()
+type LobbyRoom = ReturnType<typeof useLobbyRoom>
+type LobbyChrome = ReturnType<typeof useLobbyChrome>
+type LobbySession = NonNullable<LobbyRoom['session']>
+type LobbyActions = ReturnType<typeof useLobbyActions>
 
-  const { connectionStatus, session, snapshot } = room
-  const HowTo = controllerHowTo[room.gameCode]
+interface LobbyPartProps {
+  chrome: LobbyChrome
+  room: LobbyRoom
+  session: LobbySession
+}
 
-  if (!session) return null
-
+/** 화면 위에 뜨는 것들 — 나가기 확인·소리·초대 팝오버, 게임 준비 중 덮개. */
+function LobbyOverlays({ chrome, room, roomId, session }: LobbyPartProps & { roomId: string }) {
+  const { snapshot } = room
   return (
     <>
       <RoomExitGuard onClose={chrome.cancelExit} open={chrome.exitRequested} roomId={roomId} />
@@ -53,106 +55,127 @@ export function LobbyPage({ roomId }: LobbyPageProps) {
         message="게임을 준비하고 있어요"
         open={Boolean(snapshot) && snapshot?.phase !== 'waiting'}
       />
+    </>
+  )
+}
+
+function LobbyHeader({ chrome, room, session }: LobbyPartProps) {
+  return (
+    <header className="flex items-center gap-3 border-b border-border pb-3.5">
+      <div className="grid min-w-0 flex-1 gap-1">
+        <h1 className="m-0 text-lg font-bold">대기실</h1>
+        <RoomCodeStatus connectionStatus={room.connectionStatus} roomCode={session.roomCode} />
+      </div>
+      <Button
+        aria-label={audioLabel({ muted: chrome.soundMuted })}
+        className="flex-none px-3 text-base"
+        onClick={chrome.audio.show}
+        ref={chrome.audio.buttonRef}
+        type="button"
+        variant="secondary"
+      >
+        <AudioStatusIcon muted={chrome.soundMuted} />
+      </Button>
+      <Button
+        className="flex-none px-3.5 text-sm"
+        onClick={chrome.requestExit}
+        type="button"
+        variant="danger"
+      >
+        나가기
+      </Button>
+    </header>
+  )
+}
+
+/** 참가 인원 줄 — 몇 명인지와, 컨트롤러가 아니면 초대 버튼. */
+function HeadcountRow({ chrome, room }: Omit<LobbyPartProps, 'session'>) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-sm font-semibold">참가 인원</span>
+      <span className="ml-auto font-mono text-base font-bold tabular-nums">
+        {room.snapshot?.players.length ?? 0}
+        <span className="text-content-faint"> / {room.capacity}</span>
+      </span>
+      {!room.controller && (
+        <Button
+          className="min-h-9 flex-none px-3 text-sm"
+          onClick={chrome.invite.show}
+          ref={chrome.invite.buttonRef}
+          type="button"
+          variant="secondary"
+        >
+          초대
+        </Button>
+      )}
+    </div>
+  )
+}
+
+/*
+ * 대기실 본문은 **하나의 스크롤 영역**이다. 채팅이 화면 아래를 상주로 차지하면서
+ * 좁은 화면에 남는 세로 공간이 봇 패널·참가자 목록을 다 담지 못하게 됐다 — 목록만
+ * 따로 굴리게 두면 시작 버튼이 화면 밖으로 밀려난다.
+ */
+function LobbyBody({ actions, chrome, room, session }: LobbyPartProps & { actions: LobbyActions }) {
+  const { connectionStatus, snapshot } = room
+  const HowTo = controllerHowTo[room.gameCode]
+  return (
+    <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-4 overflow-y-auto overscroll-contain">
+      {room.controller && (
+        <ControllerConnectSequence
+          howTo={HowTo ? <HowTo /> : undefined}
+          status={connectionStatus}
+        />
+      )}
+
+      <BotManagementPanel
+        adding={actions.addingBot}
+        capacity={room.capacity}
+        error={actions.botError}
+        loading={actions.botLoading}
+        onAdd={() => void actions.addBot()}
+        playerCount={snapshot?.players.length ?? 0}
+        visible={Boolean(snapshot && room.isHost && !room.duoGame)}
+      />
+
+      {!snapshot && !room.controller && (
+        <p className="m-0 text-center text-sm text-content-muted" role="status">
+          실시간 대기실에 연결하고 있어요.
+        </p>
+      )}
+
+      <HeadcountRow chrome={chrome} room={room} />
+
+      <LobbyPlayerList
+        botLoading={actions.botLoading}
+        capacity={room.capacity}
+        isHost={room.isHost}
+        onRemoveBot={actions.removeBot}
+        snapshot={snapshot}
+        you={session.you}
+      />
+    </div>
+  )
+}
+
+export function LobbyPage({ roomId }: LobbyPageProps) {
+  const room = useLobbyRoom(roomId)
+  const chrome = useLobbyChrome()
+  const actions = useLobbyActions(room)
+  const chat = useChat()
+
+  const { connectionStatus, session, snapshot } = room
+
+  if (!session) return null
+
+  return (
+    <>
+      <LobbyOverlays chrome={chrome} room={room} roomId={roomId} session={session} />
       <main className="mx-auto flex h-svh w-full max-w-2xl flex-col gap-4 overflow-x-hidden px-gutter pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-content lg:max-w-5xl lg:flex-row lg:items-stretch lg:gap-6">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-          <header className="flex items-center gap-3 border-b border-border pb-3.5">
-            <div className="grid min-w-0 flex-1 gap-1">
-              <h1 className="m-0 text-lg font-bold">대기실</h1>
-              <p className="m-0 flex items-center gap-2 text-xs text-content-muted">
-                <span className="font-mono font-bold tracking-[0.12em] text-content">
-                  {session.roomCode}
-                </span>
-                <span aria-hidden="true" className="h-3 w-px bg-border-strong" />
-                <span className="inline-flex items-center gap-1.5" role="status">
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      'size-1.5 rounded-full',
-                      connectionStatus === 'connected' ? 'bg-positive' : 'bg-warning',
-                    )}
-                  />
-                  {connectionLabel(connectionStatus)}
-                </span>
-              </p>
-            </div>
-            <Button
-              aria-label={audioLabel({ muted: chrome.soundMuted })}
-              className="flex-none px-3 text-base"
-              onClick={chrome.audio.show}
-              ref={chrome.audio.buttonRef}
-              type="button"
-              variant="secondary"
-            >
-              <AudioStatusIcon muted={chrome.soundMuted} />
-            </Button>
-            <Button
-              className="flex-none px-3.5 text-sm"
-              onClick={chrome.requestExit}
-              type="button"
-              variant="danger"
-            >
-              나가기
-            </Button>
-          </header>
-
-          {/*
-           * 대기실 본문은 **하나의 스크롤 영역**이다. 채팅이 화면 아래를 상주로 차지하면서
-           * 좁은 화면에 남는 세로 공간이 봇 패널·참가자 목록을 다 담지 못하게 됐다 — 목록만
-           * 따로 굴리게 두면 시작 버튼이 화면 밖으로 밀려난다.
-           */}
-          <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-4 overflow-y-auto overscroll-contain">
-            {room.controller && (
-              <ControllerConnectSequence
-                howTo={HowTo ? <HowTo /> : undefined}
-                status={connectionStatus}
-              />
-            )}
-
-            <BotManagementPanel
-              adding={actions.addingBot}
-              capacity={room.capacity}
-              error={actions.botError}
-              loading={actions.botLoading}
-              onAdd={() => void actions.addBot()}
-              playerCount={snapshot?.players.length ?? 0}
-              visible={Boolean(snapshot && room.isHost && !room.duoGame)}
-            />
-
-            {!snapshot && !room.controller && (
-              <p className="m-0 text-center text-sm text-content-muted" role="status">
-                실시간 대기실에 연결하고 있어요.
-              </p>
-            )}
-
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-semibold">참가 인원</span>
-              <span className="ml-auto font-mono text-base font-bold tabular-nums">
-                {snapshot?.players.length ?? 0}
-                <span className="text-content-faint"> / {room.capacity}</span>
-              </span>
-              {!room.controller && (
-                <Button
-                  className="min-h-9 flex-none px-3 text-sm"
-                  onClick={chrome.invite.show}
-                  ref={chrome.invite.buttonRef}
-                  type="button"
-                  variant="secondary"
-                >
-                  초대
-                </Button>
-              )}
-            </div>
-
-            <LobbyPlayerList
-              botLoading={actions.botLoading}
-              capacity={room.capacity}
-              isHost={room.isHost}
-              onRemoveBot={actions.removeBot}
-              snapshot={snapshot}
-              you={session.you}
-            />
-          </div>
-
+          <LobbyHeader chrome={chrome} room={room} session={session} />
+          <LobbyBody actions={actions} chrome={chrome} room={room} session={session} />
           <LobbyStartPanel
             canStart={room.canStart}
             connectionStatus={connectionStatus}
