@@ -1,11 +1,4 @@
-import {
-  type DiceIndex,
-  type DiceRollRequest,
-  type DiceSet,
-  type HeldDice,
-  NO_HELD_DICE,
-} from './dice'
-import type { CategoryScores, YachtCategory } from './scoring'
+import { type DiceRollRequest, NO_HELD_DICE } from './dice'
 import { calculateScoreSummary, type ScoreSummary } from './scoring'
 import {
   canSubmit,
@@ -19,43 +12,18 @@ import {
   syncHeld,
   toggleHold,
 } from './yachtTurn'
+import type { YachtGameAction, YachtGameState, YachtTurnProgress } from './yachtTypes'
 
-export type YachtGamePhase = 'ready' | 'rolling' | 'choosing' | 'submitting' | 'roundComplete'
-export type RollCount = 0 | 1 | 2 | 3
-export type { DiceIndex } from './dice'
-export { MAX_ROLLS, type RoundSubmission } from './yachtTurn'
-
-/** 로컬 판의 점수판 — 서버와 같은 모양(카테고리 → 확정 점수). */
-export interface YachtGameState {
-  phase: YachtGamePhase
-  roundNumber: number
-  seed: number
-  dice: DiceSet | null
-  held: HeldDice
-  rollCount: RollCount
-  scores: CategoryScores
-  selectedCategory: YachtCategory | null
-  pendingRoll: DiceRollRequest | null
-}
-
-export type YachtGameAction =
-  | {
-      type: 'rollRequested'
-      requestId: string
-      rollCount: RollCount
-      seed?: number
-      targetDice: DiceSet
-      held?: HeldDice
-      forced?: boolean
-    }
-  | { type: 'rollCompleted'; requestId: string; dice: DiceSet }
-  | { type: 'holdToggled'; index: DiceIndex }
-  | { type: 'heldSynced'; held: HeldDice }
-  | { type: 'categorySelected'; category: YachtCategory }
-  | { type: 'submissionStarted' }
-  | { type: 'submissionSucceeded' }
-  | { type: 'submissionFailed' }
-  | { type: 'nextRoundStarted' }
+export type { DiceIndex, DiceSet, HeldDice } from './dice'
+export { MAX_ROLLS } from './yachtTurn'
+export type {
+  RollCount,
+  RoundSubmission,
+  YachtGameAction,
+  YachtGamePhase,
+  YachtGameState,
+  YachtTurnProgress,
+} from './yachtTypes'
 
 export function createYachtGame(seed: number, roundNumber = 1): YachtGameState {
   return {
@@ -69,12 +37,6 @@ export function createYachtGame(seed: number, roundNumber = 1): YachtGameState {
     selectedCategory: null,
     pendingRoll: null,
   }
-}
-
-export interface YachtTurnProgress {
-  rollCount: number
-  dice?: DiceSet | null
-  held?: HeldDice | null
 }
 
 /** 재접속 스냅샷의 진행 상황으로 판을 되살린다. 주사위가 없으면 시작 상태다. */

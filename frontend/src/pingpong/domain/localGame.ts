@@ -1,56 +1,29 @@
-import { type Fault, MISS1, MISS2, NORMAL_SPEED, WIN_SCORE } from './court'
+import { MISS1, MISS2, NORMAL_SPEED, WIN_SCORE } from './court'
 import type { FrameState } from './frameState'
 import { baseSpeed, botReturn, updateBallPosition, updateFault } from './localBall'
 import { type RandomSource, randomBetween } from './localMath'
 import { SWING_MS } from './localSwing'
+import type {
+  LocalBall,
+  LocalFeedback,
+  LocalPingPongDifficulty,
+  LocalPingPongMode,
+  LocalPingPongState,
+} from './localTypes'
 
 export { type LocalSwing, swingLocalGame } from './localSwing'
+export type {
+  LocalBall,
+  LocalFeedback,
+  LocalFeedbackKind,
+  LocalPingPongDifficulty,
+  LocalPingPongMode,
+  LocalPingPongPhase,
+  LocalPingPongState,
+} from './localTypes'
 
 const POINT_COUNTDOWN_MS = 2_600
 const SHAKE_MS = 190
-
-export type LocalPingPongMode = 'solo' | 'duo'
-export type LocalPingPongDifficulty = 'easy' | 'normal' | 'hard'
-export type LocalPingPongPhase = 'playing' | 'point' | 'over'
-export type LocalFeedbackKind = 'smash' | 'nice' | 'ok' | 'miss' | 'good' | 'bad'
-
-interface LocalBall {
-  dir: 1 | -1
-  fall: number
-  fault: Fault
-  faultFrom: number
-  hit: boolean
-  pos: number
-  smash: boolean
-  speed: number
-  x: number
-  x0: number
-  x1: number
-}
-
-export interface LocalPingPongState {
-  ball: LocalBall
-  countdown: number
-  difficulty: LocalPingPongDifficulty
-  flashAt: number
-  mode: LocalPingPongMode
-  nextServeAt: number
-  p1SwingAt: number
-  p1X: number
-  p2SwingAt: number
-  p2X: number
-  phase: LocalPingPongPhase
-  rally: number
-  s1: number
-  s2: number
-  serveReceiver: 1 | 2
-  shakeAt: number
-}
-
-export interface LocalFeedback {
-  kind: LocalFeedbackKind
-  text: string
-}
 
 function newBall(): LocalBall {
   return {

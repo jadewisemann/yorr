@@ -9,7 +9,15 @@ import {
   toggleHeldDie,
 } from './dice'
 import { scoreCategory, type YachtCategory } from './scoring'
-import type { RollCount, YachtGameAction, YachtGameState } from './yachtGame'
+import type {
+  RollCount,
+  RoundSubmission,
+  YachtGameAction,
+  YachtGameState,
+  YachtTurnProgress,
+} from './yachtTypes'
+
+export type { RoundSubmission, YachtTurnProgress }
 
 /**
  * 야추 로컬 클라이언트의 **턴 전이** — 굴림 요청·완료, 킵, 카테고리 선택, 제출.
@@ -124,14 +132,6 @@ export function canSubmit(state: YachtGameState): boolean {
     state.selectedCategory !== null &&
     !(state.selectedCategory in state.scores)
   )
-}
-
-/** 제출 묶음 — 서버 `round.submit`의 모양과 같다. */
-export interface RoundSubmission {
-  roundNumber: number
-  dice: DiceSet
-  category: YachtCategory
-  score: number
 }
 
 /** 지금 제출할 수 있는 내용(없으면 null). */

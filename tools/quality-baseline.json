@@ -7,7 +7,5 @@
     "nesting": 4,
     "duplicateLines": 40
   },
-  "violations": {
-    "frontend/src/landing/rendering/heroScene.ts\u0000halsteadDifficulty\u0000-": 86
-  }
+  "violations": {}
 }
