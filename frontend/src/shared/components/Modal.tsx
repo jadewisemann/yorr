@@ -1,9 +1,11 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { type ReactNode, useEffect, useEffectEvent, useId, useRef } from 'react'
+import { type ReactNode, useId, useRef } from 'react'
 import { cn } from '@/shared/cn'
+import { DialogScrim } from '@/shared/components/DialogScrim'
 import { IconClose } from '@/shared/components/Icon'
 import { popVariants, scrimVariants } from '@/shared/motion'
 import { useDialogBackground } from '@/shared/useDialogBackground'
+import { useDialogFocus } from '@/shared/useDialogFocus'
 
 type ModalProps = {
   open: boolean
@@ -20,21 +22,13 @@ export function Modal({ children, className, onClose, open, role = 'dialog', tit
   const closeRef = useRef<HTMLButtonElement>(null)
   const alert = role === 'alertdialog'
 
-  const close = useEffectEvent(onClose)
-
   useDialogBackground(open)
-
-  useEffect(() => {
-    if (!open) return
-    const previousFocus = document.activeElement as HTMLElement | null
-    closeRef.current?.focus()
-    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && close()
-    document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.removeEventListener('keydown', closeOnEscape)
-      previousFocus?.focus()
-    }
-  }, [open])
+  useDialogFocus(open, {
+    initialFocus: () => closeRef.current,
+    onKeyDown: (event) => {
+      if (event.key === 'Escape') onClose()
+    },
+  })
 
   return (
     <AnimatePresence>
@@ -49,16 +43,10 @@ export function Modal({ children, className, onClose, open, role = 'dialog', tit
               variants={scrimVariants}
             />
           ) : (
-            <motion.button
-              animate="visible"
-              aria-label="모달 닫기"
+            <DialogScrim
               className="absolute inset-0 cursor-default bg-scrim"
-              exit="exit"
-              initial="hidden"
-              onClick={onClose}
-              tabIndex={-1}
-              type="button"
-              variants={scrimVariants}
+              label="모달 닫기"
+              onClose={onClose}
             />
           )}
           <motion.section
