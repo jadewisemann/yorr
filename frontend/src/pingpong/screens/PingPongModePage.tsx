@@ -11,6 +11,7 @@ import { Button } from '@/shared/components/Button'
 import { GameChromeButton } from '@/shared/components/GameChromeButton'
 import { IconBack, IconWarning } from '@/shared/components/Icon'
 import { GameCanvas } from '@/shared/components/Screen'
+import type { SwingPermission } from '@/shared/useSwing'
 
 export function PingPongModePage() {
   const navigate = useNavigate()
@@ -43,6 +44,100 @@ function LocalFeedbackMessage({
   )
 }
 
+function LocalHeader({
+  mode,
+  onExit,
+  permission,
+  requestPermission,
+}: {
+  mode: LocalPingPongMode
+  onExit: () => void
+  permission: SwingPermission
+  requestPermission: () => Promise<unknown>
+}) {
+  return (
+    <header className="relative z-20 flex flex-none items-center justify-between gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
+      <GameChromeButton className="gap-1.5" onClick={onExit}>
+        <IconBack className="size-4" />
+        게임 선택
+      </GameChromeButton>
+      <span className="font-mono text-xs tracking-[0.14em] text-game-content-faint">
+        {mode === 'solo' ? 'AI와 대전' : '1:1 파티 모드'}
+      </span>
+      {permission === 'unknown' ? (
+        <PingPongButton onClick={() => void requestPermission()} variant="chip">
+          폰 스윙
+        </PingPongButton>
+      ) : (
+        <span className="min-w-20 text-right text-xs text-pp-accent">스윙 ON</span>
+      )}
+    </header>
+  )
+}
+
+/** 둘이 하는 판의 좌우 구역 표시 — 어느 쪽을 탭하면 누구 라켓인지. */
+function DuoSideMarks() {
+  return (
+    <>
+      <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-border-strong" />
+      <span className="pointer-events-none absolute top-3 left-3 font-mono text-xs text-pp-side-blue-text">
+        ◀ P1
+      </span>
+      <span className="pointer-events-none absolute top-3 right-3 font-mono text-xs text-pp-danger-text">
+        P2 ▶
+      </span>
+    </>
+  )
+}
+
+function WebGlFailedNotice() {
+  return (
+    <div className="absolute inset-0 z-20 grid place-items-center bg-pp-canvas/95 px-6 text-center">
+      <div>
+        <IconWarning className="mx-auto size-10 text-pp-gold" />
+        <h2 className="mt-3 text-xl font-black">3D를 띄울 수 없어요</h2>
+        <p className="text-sm text-game-content-muted">
+          WebGL을 지원하는 최신 브라우저에서 다시 열어주세요.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function localWinnerTitle(mode: LocalPingPongMode, hud: HudState) {
+  if (mode !== 'solo') return `P${hud.s1 > hud.s2 ? 1 : 2} 승리!`
+  return hud.s1 > hud.s2 ? '승리!' : '좋은 경기였어요'
+}
+
+function LocalGameOver({
+  hud,
+  mode,
+  onExit,
+  restart,
+}: {
+  hud: HudState
+  mode: LocalPingPongMode
+  onExit: () => void
+  restart: () => void
+}) {
+  return (
+    <div className="absolute inset-0 z-20 grid place-items-center bg-scrim px-5 backdrop-blur-sm">
+      <section className="grid w-full max-w-xs gap-4 rounded-sheet border border-border-raised bg-pp-surface p-6 text-center shadow-2xl">
+        <h2 className="m-0 text-2xl font-black">{localWinnerTitle(mode, hud)}</h2>
+        <p className="m-0 text-lg text-game-content-muted">
+          {hud.s1} : {hud.s2}
+        </p>
+        <Button onClick={restart} size="lg">
+          다시 하기
+        </Button>
+        <Button onClick={onExit} size="lg" variant="secondary">
+          게임 선택
+        </Button>
+      </section>
+    </div>
+  )
+}
+
 function LocalPingPongGame({
   difficulty,
   mode,
@@ -61,22 +156,12 @@ function LocalPingPongGame({
 
   return (
     <GameCanvas className="flex flex-col bg-pp-canvas">
-      <header className="relative z-20 flex flex-none items-center justify-between gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
-        <GameChromeButton className="gap-1.5" onClick={onExit}>
-          <IconBack className="size-4" />
-          게임 선택
-        </GameChromeButton>
-        <span className="font-mono text-xs tracking-[0.14em] text-game-content-faint">
-          {mode === 'solo' ? 'AI와 대전' : '1:1 파티 모드'}
-        </span>
-        {permission === 'unknown' ? (
-          <PingPongButton onClick={() => void requestPermission()} variant="chip">
-            폰 스윙
-          </PingPongButton>
-        ) : (
-          <span className="min-w-20 text-right text-xs text-pp-accent">스윙 ON</span>
-        )}
-      </header>
+      <LocalHeader
+        mode={mode}
+        onExit={onExit}
+        permission={permission}
+        requestPermission={requestPermission}
+      />
 
       <section className="relative z-10 flex flex-none items-end justify-center gap-6 pb-2">
         <LocalScore label={p1Label} score={hud.s1} tone="blue" />
@@ -91,17 +176,7 @@ function LocalPingPongGame({
           ref={canvasRef}
         />
 
-        {mode === 'duo' && (
-          <>
-            <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-border-strong" />
-            <span className="pointer-events-none absolute top-3 left-3 font-mono text-xs text-pp-side-blue-text">
-              ◀ P1
-            </span>
-            <span className="pointer-events-none absolute top-3 right-3 font-mono text-xs text-pp-danger-text">
-              P2 ▶
-            </span>
-          </>
-        )}
+        {mode === 'duo' && <DuoSideMarks />}
 
         {hud.countdown > 0 && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center">
@@ -113,39 +188,10 @@ function LocalPingPongGame({
 
         <LocalFeedbackMessage feedback={feedback} situationLabel={situationLabel} />
 
-        {glFailed && (
-          <div className="absolute inset-0 z-20 grid place-items-center bg-pp-canvas/95 px-6 text-center">
-            <div>
-              <IconWarning className="mx-auto size-10 text-pp-gold" />
-              <h2 className="mt-3 text-xl font-black">3D를 띄울 수 없어요</h2>
-              <p className="text-sm text-game-content-muted">
-                WebGL을 지원하는 최신 브라우저에서 다시 열어주세요.
-              </p>
-            </div>
-          </div>
-        )}
+        {glFailed && <WebGlFailedNotice />}
 
         {hud.phase === 'over' && (
-          <div className="absolute inset-0 z-20 grid place-items-center bg-scrim px-5 backdrop-blur-sm">
-            <section className="grid w-full max-w-xs gap-4 rounded-sheet border border-border-raised bg-pp-surface p-6 text-center shadow-2xl">
-              <h2 className="m-0 text-2xl font-black">
-                {mode === 'solo'
-                  ? hud.s1 > hud.s2
-                    ? '승리!'
-                    : '좋은 경기였어요'
-                  : `P${hud.s1 > hud.s2 ? 1 : 2} 승리!`}
-              </h2>
-              <p className="m-0 text-lg text-game-content-muted">
-                {hud.s1} : {hud.s2}
-              </p>
-              <Button onClick={restart} size="lg">
-                다시 하기
-              </Button>
-              <Button onClick={onExit} size="lg" variant="secondary">
-                게임 선택
-              </Button>
-            </section>
-          </div>
+          <LocalGameOver hud={hud} mode={mode} onExit={onExit} restart={restart} />
         )}
       </div>
 
