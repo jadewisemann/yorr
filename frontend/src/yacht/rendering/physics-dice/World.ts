@@ -1,36 +1,20 @@
 import RAPIER from '@dimforge/rapier3d-compat'
-import * as THREE from 'three'
+import type * as THREE from 'three'
 import { disposeAppearance, syncAppearance } from './appearance'
 import { createBowl, createKeepSlots, createTray } from './arena'
-import { easedTilt, releaseDiceImpulses, spawnDiceForRoll } from './bowlMotion'
+import { releaseDiceImpulses, spawnDiceForRoll } from './bowlMotion'
 import { BowlRig } from './bowlRig'
 import { PHYSICS_DICE_CONFIG } from './config'
 import { createDiceInstances } from './diceInstances'
 import { pickDie } from './interaction'
-import {
-  lineUpDice as placeDice,
-  positionKeepSlots,
-  prepareAlignmentEntries,
-  prepareLayoutEntries,
-  resultCameraWidth,
-  updateAlignmentEntries,
-  updateLayoutEntries,
-} from './layout'
 import type { PhysicsDiceGeometries, PhysicsDiceMaterials } from './model'
 import { createPhysicsDiceRandom, type PhysicsDiceRandom } from './random'
-import { type DiceTrajectoryPlan, planDiceTrajectory } from './remap'
-import type { AlignmentEntry, DieEntry, LayoutEntry } from './runtimeTypes'
+import { ResultLayout } from './resultLayout'
+import type { DieEntry } from './runtimeTypes'
 import { containDiceInBowl } from './safety'
 import { createStage } from './stage'
-import {
-  applyTrajectoryOffset,
-  applyTrajectoryPose,
-  commitTrajectoryPose,
-  detectTrajectoryImpacts,
-  trajectoryStep,
-} from './trajectory'
+
 import type {
-  PhysicsDiceIndex,
   PhysicsDiceQuality,
   PhysicsDiceRollRequest,
   PhysicsDiceSet,
@@ -44,6 +28,8 @@ import {
   cameraHalfExtents,
   ResizeScheduler,
 } from './viewport'
+import { RollReplay } from './worldReplay'
+import { createLayoutStage, createReplayStage } from './worldStages'
 
 const CONFIG = PHYSICS_DICE_CONFIG
 const SCENE = CONFIG.scene
@@ -53,45 +39,35 @@ let rapierReady: Promise<typeof RAPIER> | undefined
 
 export class PhysicsDiceWorld {
   private active = true
-  private alignmentEntries: AlignmentEntry[] = []
-  private alignmentStartedAt = 0
   private accumulator = 0
   private bowlBody!: RAPIER.RigidBody
-  private bowlRig!: BowlRig
+  bowlRig!: BowlRig
   private bowlGroup!: THREE.Group
   private bowlInner!: THREE.Mesh
   private bowlInnerMaterial!: THREE.MeshStandardMaterial
   private bowlMaterials: THREE.Material[] = []
-  private callbacks: PhysicsDiceWorldCallbacks
+  callbacks: PhysicsDiceWorldCallbacks
   private camera!: THREE.OrthographicCamera
   private ambient!: THREE.HemisphereLight
-  private cameraHorizontal: number = SCENE.camera.resultHalfWidth
-  private committedDice: PhysicsDiceSet = INITIAL_DICE
+  cameraHorizontal: number = SCENE.camera.resultHalfWidth
+  committedDice: PhysicsDiceSet = INITIAL_DICE
   private container: HTMLElement
-  private entries: DieEntry[] = []
-  private fallingDice = [false, false, false, false, false]
+  entries: DieEntry[] = []
   private frameId: number | null = null
   private geometries!: PhysicsDiceGeometries
-  private held: PhysicsHeldDice = NO_HELD
-  private heldOrder: PhysicsDiceIndex[] = []
+  held: PhysicsHeldDice = NO_HELD
   private keyLight!: THREE.DirectionalLight
-  private keepSlotMaterials: THREE.Material[] = []
-  private keepSlots: THREE.Group[] = []
-  private lastImpactAt = [0, 0, 0, 0, 0]
+  keepSlotMaterials: THREE.Material[] = []
+  keepSlots: THREE.Group[] = []
   private lastTime = 0
-  private layoutAnimating = false
-  private layoutEntries: LayoutEntry[] = []
-  private layoutStartedAt = 0
-  private keepAll = false
   private materials!: PhysicsDiceMaterials
-  private phase: 'idle' | 'shaking' | 'pouring' | 'aligning' = 'idle'
+  phase: 'idle' | 'shaking' | 'pouring' | 'aligning' = 'idle'
   private pointerHandler = (event: PointerEvent) => this.pick(event)
   private quality: PhysicsDiceQuality
   private railLineMaterial!: THREE.MeshBasicMaterial
   private railMaterial!: THREE.MeshBasicMaterial
   private random: PhysicsDiceRandom = createPhysicsDiceRandom(0)
   private renderer!: THREE.WebGLRenderer
-  private request: PhysicsDiceRollRequest | null = null
   private resizeObserver?: ResizeObserver
   private resizeScheduler = new ResizeScheduler({
     isActive: () => this.active,
@@ -107,18 +83,22 @@ export class PhysicsDiceWorld {
     setBusy: (busy) => this.callbacks.onResizeChange(busy),
   })
   private scene!: THREE.Scene
-  private settledDice: PhysicsDiceSet | null = null
   private themeObserver?: MutationObserver
-  private trajectory: DiceTrajectoryPlan | null = null
-  private trajectoryFrameIndex = 0
-  private trajectoryStartedAt = 0
   private trayMaterials: THREE.Material[] = []
   private world!: RAPIER.World
+  private replay!: RollReplay
+  private layout!: ResultLayout
 
   constructor({ callbacks, container, quality }: PhysicsDiceWorldOptions) {
     this.callbacks = callbacks
     this.container = container
     this.quality = quality
+    // 배치·재생은 `init()` 전에도 호출된다(`syncCommittedDice`가 첫 프레임 전에 온다).
+    // 그래서 생성자에서 만든다 — 스테이지는 접근자라 초기화 순서에 안전하다.
+    // 배치·재생 절차는 월드를 `StageHost`로만 본다(그 인터페이스가 요구하는 필드만 공개).
+    // 접근자 래퍼 대신 월드 자체를 넘겨 값 복사로 인한 낡은 배열 참조를 없앤다.
+    this.layout = new ResultLayout(createLayoutStage(this))
+    this.replay = new RollReplay(createReplayStage(this, this.layout))
   }
 
   async init() {
@@ -160,27 +140,22 @@ export class PhysicsDiceWorld {
   syncCommittedDice(dice: PhysicsDiceSet | null, held: PhysicsHeldDice) {
     const heldChanged = held.some((value, index) => value !== this.held[index])
     if (dice) this.committedDice = [...dice]
-    this.updateHeldOrder(held)
+    this.layout.syncHeld(held)
     this.held = [...held]
     if (!this.world || this.phase !== 'idle') return
-    if (heldChanged) this.startLayoutTransition()
-    else this.lineUpDice()
+    if (heldChanged) this.layout.startTransition()
+    else this.layout.lineUp()
     this.invalidate()
   }
 
   startRoll(request: PhysicsDiceRollRequest) {
-    if (!this.world || this.phase !== 'idle' || this.request?.requestId === request.requestId)
-      return
-    this.request = request
-    this.settledDice = null
-    this.trajectory = null
-    this.trajectoryFrameIndex = 0
-    this.layoutAnimating = false
+    if (!this.world || this.phase !== 'idle') return
+    this.replay.begin(request)
     this.entries.forEach((entry) => {
       entry.visualOffset.identity()
     })
     this.random = createPhysicsDiceRandom(request.seed)
-    this.updateHeldOrder(request.held)
+    this.layout.syncHeld(request.held)
     this.held = [...request.held]
     this.phase = 'shaking'
     this.callbacks.onPhaseChange('shaking')
@@ -188,15 +163,13 @@ export class PhysicsDiceWorld {
     const now = performance.now()
     this.lastTime = now
     this.accumulator = 0
-    this.fallingDice.fill(false)
-    this.lastImpactAt.fill(0)
     this.bowlRig.start(now)
 
     spawnDiceForRoll({
       committedDice: this.committedDice,
       entries: this.entries,
       held: request.held,
-      heldOrder: this.heldOrder,
+      heldOrder: this.layout.holdOrder,
       random: this.random,
     })
     this.resize()
@@ -204,10 +177,9 @@ export class PhysicsDiceWorld {
   }
 
   setKeepAll(enabled: boolean) {
-    if (this.keepAll === enabled) return
-    this.keepAll = enabled
-    if (!this.world || this.phase !== 'idle' || this.layoutAnimating) return
-    this.lineUpDice()
+    if (!this.layout.setKeepAll(enabled)) return
+    if (!this.world || this.phase !== 'idle' || this.layout.running) return
+    this.layout.lineUp()
     this.invalidate()
   }
 
@@ -241,7 +213,7 @@ export class PhysicsDiceWorld {
     applyHalfExtents(this.camera, cameraHalfExtents(width / height, this.cameraHorizontal))
     this.renderer.setSize(width, height, false)
     this.resizeScheduler.record(width, height)
-    positionKeepSlots(this.keepSlots, this.occupiedKeepSlots(), this.keepSlotMaterials)
+    this.layout.placeSlots(this.layout.occupiedSlots())
     this.invalidate()
   }
 
@@ -260,28 +232,6 @@ export class PhysicsDiceWorld {
     this.container.replaceChildren()
   }
 
-  private layoutInput() {
-    return {
-      entries: this.entries,
-      held: this.held,
-      heldOrder: this.heldOrder,
-      keepAll: this.keepAll,
-    }
-  }
-
-  private lineUpDice() {
-    this.layoutAnimating = false
-    this.cameraHorizontal = resultCameraWidth()
-    this.bowlRig.hide()
-    placeDice(this.layoutInput(), this.committedDice)
-    positionKeepSlots(this.keepSlots, this.occupiedKeepSlots(), this.keepSlotMaterials)
-    this.resize()
-  }
-
-  private occupiedKeepSlots() {
-    return this.keepAll ? this.keepSlots.length : this.heldOrder.length
-  }
-
   private frame = (time: number) => {
     this.frameId = null
     if (!this.active) return
@@ -296,9 +246,9 @@ export class PhysicsDiceWorld {
       if (this.phase === 'shaking') containDiceInBowl(this.entries, this.held, this.bowlBody)
       this.accumulator -= this.world.timestep
     }
-    if (this.phase === 'aligning') this.updateResultAlignment(time)
-    else if (this.phase === 'pouring' && this.trajectory) this.updateTrajectory(time)
-    else if (this.layoutAnimating) this.updateLayoutTransition(time)
+    if (this.phase === 'aligning') this.replay.updateAlignment(time)
+    else if (this.phase === 'pouring' && this.replay.replaying) this.replay.updateTrajectory(time)
+    else if (this.layout.running) this.layout.advance(time)
     else {
       this.entries.forEach((entry) => {
         const position = entry.body.translation()
@@ -310,119 +260,21 @@ export class PhysicsDiceWorld {
       })
     }
     this.renderer.render(this.scene, this.camera)
-    if (this.phase !== 'idle' || this.layoutAnimating) this.invalidate()
+    if (this.phase !== 'idle' || this.layout.running) this.invalidate()
   }
 
   private updateBowl(time: number) {
     if (this.bowlRig.update(time, this.phase)) this.releaseFromBowl()
   }
 
-  private startLayoutTransition() {
-    this.layoutAnimating = true
-    this.layoutStartedAt = performance.now()
-    this.cameraHorizontal = resultCameraWidth()
-    this.bowlRig.hide()
-    this.layoutEntries = prepareLayoutEntries(this.layoutInput(), this.committedDice)
-    this.resize()
-    this.invalidate()
-  }
-
-  private updateLayoutTransition(time: number) {
-    const progress = Math.min(1, (time - this.layoutStartedAt) / SCENE.keepSlots.moveDurationMs)
-    updateLayoutEntries(this.layoutEntries, progress)
-    if (progress >= 1) this.layoutAnimating = false
-  }
-
   private releaseFromBowl() {
     releaseDiceImpulses({ entries: this.entries, held: this.held, random: this.random })
-    this.startTrajectoryReplay()
+    this.replay.start(this.world)
   }
 
-  private startTrajectoryReplay() {
-    const request = this.request
-    if (!request) return
-    const trajectory = planDiceTrajectory(this.world, this.entries, this.held, request.seed)
-    if (!trajectory) {
-      this.callbacks.onError(new Error('주사위 궤적을 계산하지 못했습니다.'))
-      return
-    }
-    this.trajectory = trajectory
-    this.trajectoryFrameIndex = 0
-    this.trajectoryStartedAt = performance.now()
-    applyTrajectoryOffset(this.entries, this.held, request.targetDice, trajectory.naturalDice)
-    for (const entry of this.entries) {
-      if (this.held[entry.index]) continue
-      entry.body.setBodyType(RAPIER.RigidBodyType.Fixed, true)
-    }
-  }
-
-  private updateTrajectory(time: number) {
-    const trajectory = this.trajectory
-    if (!trajectory) return
-    const step = trajectoryStep(
-      trajectory,
-      this.trajectoryStartedAt,
-      this.trajectoryFrameIndex,
-      time,
-    )
-    this.trajectoryFrameIndex = step.frameIndex
-    const impacts = detectTrajectoryImpacts({
-      entries: this.entries,
-      falling: this.fallingDice,
-      held: this.held,
-      lastImpactAt: this.lastImpactAt,
-      step,
-      time,
-    })
-    for (const impact of impacts) this.callbacks.onDiceImpact?.(impact.index, impact.strength)
-    applyTrajectoryPose(step, this.entries, this.held)
-    if (step.elapsed < trajectory.durationSeconds) return
-    commitTrajectoryPose(this.entries, this.held)
-    this.trajectory = null
-    this.startResultAlignment(time)
-  }
-
-  private startResultAlignment(time: number) {
-    if (!this.request) return
-    this.phase = 'aligning'
-    this.callbacks.onPhaseChange('aligning')
-    this.alignmentStartedAt = time
-    this.settledDice = [...this.request.targetDice]
-    this.alignmentEntries = prepareAlignmentEntries(this.layoutInput(), this.settledDice)
-    positionKeepSlots(
-      this.keepSlots,
-      Math.min(this.heldOrder.length, this.occupiedKeepSlots()),
-      this.keepSlotMaterials,
-    )
-  }
-
-  private updateResultAlignment(time: number) {
-    const progress = Math.min(1, (time - this.alignmentStartedAt) / SCENE.alignment.durationMs)
-    const eased = easedTilt(progress)
-    this.cameraHorizontal = THREE.MathUtils.lerp(
-      SCENE.camera.simulationHalfWidth,
-      resultCameraWidth(),
-      eased,
-    )
-    this.resize()
-    updateAlignmentEntries(this.alignmentEntries, progress)
-    this.updateBowlExit(time)
-    if (progress < 1 || !this.request || !this.settledDice) return
-    const completed = this.request
-    const completedDice = this.settledDice
-    this.committedDice = [...completedDice]
-    positionKeepSlots(this.keepSlots, this.occupiedKeepSlots(), this.keepSlotMaterials)
-    this.entries.forEach((entry) => {
-      entry.visualOffset.identity()
-    })
-    this.request = null
-    this.phase = 'idle'
-    this.callbacks.onPhaseChange('idle')
-    this.callbacks.onRollComplete(completed.requestId, completedDice)
-  }
-
-  private updateBowlExit(time: number) {
-    this.bowlRig.updateExit(time)
+  /** 배치 절차가 요구하는 이름 — 사발 숨기기는 리그의 몫이라 위임만 한다. */
+  hideBowl() {
+    this.bowlRig.hide()
   }
 
   private pick(event: PointerEvent) {
@@ -431,7 +283,8 @@ export class PhysicsDiceWorld {
     if (index !== null) this.callbacks.onHeldToggle(index)
   }
 
-  private invalidate() {
+  /** 다음 프레임을 예약한다 — 배치·재생 절차도 부른다. */
+  invalidate() {
     if (!this.active || !this.renderer || this.frameId !== null) return
     this.frameId = requestAnimationFrame(this.frame)
   }
@@ -454,13 +307,5 @@ export class PhysicsDiceWorld {
       railMaterial: this.railMaterial,
       trayMaterials: this.trayMaterials,
     }
-  }
-
-  private updateHeldOrder(held: PhysicsHeldDice) {
-    this.heldOrder = this.heldOrder.filter((index) => held[index])
-    held.forEach((isHeld, index) => {
-      const dieIndex = index as PhysicsDiceIndex
-      if (isHeld && !this.heldOrder.includes(dieIndex)) this.heldOrder.push(dieIndex)
-    })
   }
 }
