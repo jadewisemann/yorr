@@ -94,26 +94,38 @@ export function GamePlayBoard({
         />
       </div>
 
-      {/*
-       * 넓은 화면의 오른쪽 열은 점수표와 채팅이 나눠 쓴다 — 점수표가 남는 높이를 갖고 채팅은
-       * 아래에서 고정 높이를 지킨다. 대화가 쌓인다고 점수표가 줄어들면 안 된다.
-       *
-       * 그 대가로 720px 높이에서는 점수표 하단 족보가 스크롤 안으로 들어간다(`ScoreSheet`가
-       * overflow-auto라 굴려서 본다). 채팅을 상주시키기로 한 이상 오른쪽 열 어딘가는 줄어야
-       * 하고, 굴려서 볼 수 있는 쪽이 점수표다 — 대화는 마지막 줄이 늘 보여야 한다.
-       */}
       {wide ? (
-        <div className="flex min-h-0 flex-col border-l border-border">
-          {scoreSheet(
-            'min-h-0 flex-1',
-            <div className="flex items-baseline justify-between gap-3 px-3 pt-2.5 pb-1.5">
-              <h2 className="m-0 text-sm font-bold tracking-[0.02em] whitespace-nowrap">점수표</h2>
-              <p className="m-0 truncate text-xs text-content-faint">{sheetHint}</p>
-            </div>,
-          )}
-          {chatPanel}
-        </div>
+        <GamePlaySideColumn chatPanel={chatPanel} scoreSheet={scoreSheet} sheetHint={sheetHint} />
       ) : null}
     </PlayBoard>
+  )
+}
+
+interface GamePlaySideColumnProps {
+  chatPanel?: ReactNode
+  scoreSheet: GamePlayBoardProps['scoreSheet']
+  sheetHint: string
+}
+
+/*
+ * 넓은 화면의 오른쪽 열은 점수표와 채팅이 나눠 쓴다 — 점수표가 남는 높이를 갖고 채팅은
+ * 아래에서 고정 높이를 지킨다. 대화가 쌓인다고 점수표가 줄어들면 안 된다.
+ *
+ * 그 대가로 720px 높이에서는 점수표 하단 족보가 스크롤 안으로 들어간다(`ScoreSheet`가
+ * overflow-auto라 굴려서 본다). 채팅을 상주시키기로 한 이상 오른쪽 열 어딘가는 줄어야
+ * 하고, 굴려서 볼 수 있는 쪽이 점수표다 — 대화는 마지막 줄이 늘 보여야 한다.
+ */
+function GamePlaySideColumn({ chatPanel, scoreSheet, sheetHint }: GamePlaySideColumnProps) {
+  return (
+    <div className="flex min-h-0 flex-col border-l border-border">
+      {scoreSheet(
+        'min-h-0 flex-1',
+        <div className="flex items-baseline justify-between gap-3 px-3 pt-2.5 pb-1.5">
+          <h2 className="m-0 text-sm font-bold tracking-[0.02em] whitespace-nowrap">점수표</h2>
+          <p className="m-0 truncate text-xs text-content-faint">{sheetHint}</p>
+        </div>,
+      )}
+      {chatPanel}
+    </div>
   )
 }
