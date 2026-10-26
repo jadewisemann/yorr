@@ -7,30 +7,5 @@
     "nesting": 4,
     "duplicateLines": 40
   },
-  "violations": {
-    "backend/src/game/davinci/davinciGameService.ts\u0000halsteadDifficulty\u0000-": 110,
-    "backend/src/game/davinci/davinciRules.ts\u0000halsteadDifficulty\u0000-": 90,
-    "backend/src/game/duel/duelGameService.ts\u0000halsteadDifficulty\u0000-": 92,
-    "backend/src/game/duel/duelRules.ts\u0000halsteadDifficulty\u0000-": 107,
-    "backend/src/game/pingpong/pingPongGameService.ts\u0000halsteadDifficulty\u0000-": 99,
-    "backend/src/game/pingpong/pingPongRules.ts\u0000halsteadDifficulty\u0000-": 98,
-    "backend/src/game/round/roundStateStore.ts\u0000halsteadDifficulty\u0000-": 90,
-    "backend/src/game/round/roundTimerService.ts\u0000halsteadDifficulty\u0000-": 88,
-    "backend/src/game/yacht/bot/expectimaxYachtBotPolicy.ts\u0000halsteadDifficulty\u0000-": 109,
-    "backend/src/game/yacht/bot/yachtBotTurnCoordinator.ts\u0000halsteadDifficulty\u0000-": 104,
-    "backend/src/game/yacht/redisYachtDiceStateStore.ts\u0000halsteadDifficulty\u0000-": 87,
-    "backend/src/game/yacht/yachtDiceGameModule.ts\u0000halsteadDifficulty\u0000-": 93,
-    "backend/src/http/routes/rooms.ts\u0000halsteadDifficulty\u0000-": 87,
-    "backend/src/room/quickMatchService.ts\u0000halsteadDifficulty\u0000-": 103,
-    "backend/src/ws/handler.ts\u0000halsteadDifficulty\u0000-": 91,
-    "backend/src/ws/registry.ts\u0000halsteadDifficulty\u0000-": 102,
-    "frontend/src/landing/rendering/heroScene.ts\u0000halsteadDifficulty\u0000-": 86,
-    "frontend/src/pingpong/domain/localGame.ts\u0000halsteadDifficulty\u0000-": 91,
-    "frontend/src/realtime/controllerLink/controllerLink.ts\u0000halsteadDifficulty\u0000-": 81,
-    "frontend/src/yacht/domain/yachtGame.ts\u0000halsteadDifficulty\u0000-": 89,
-    "frontend/src/yacht/input/MotionGestureRecognizer.ts\u0000halsteadDifficulty\u0000-": 97,
-    "frontend/src/yacht/rendering/physics-dice/model.ts\u0000halsteadDifficulty\u0000-": 81,
-    "frontend/src/yacht/rendering/physics-dice/remap.ts\u0000halsteadDifficulty\u0000-": 110,
-    "frontend/src/yacht/rendering/physics-dice/World.ts\u0000halsteadDifficulty\u0000-": 97
-  }
+  "violations": {}
 }

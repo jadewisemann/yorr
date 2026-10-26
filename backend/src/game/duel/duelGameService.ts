@@ -1,7 +1,5 @@
 import { randomInt } from 'node:crypto'
 import { ConflictError, DomainError } from '../../errors.js'
-import { gameWsType } from '../module.js'
-import { DUEL_CODE } from './duelCode.js'
 import type {
   DuelBroadcaster,
   DuelCompletionPort,
@@ -10,6 +8,7 @@ import type {
   DuelRoomSnapshotPort,
   DuelScoreboardPort,
 } from './duelPorts.js'
+import { DuelProgress } from './duelProgress.js'
 import {
   draw as applyDraw,
   expire,
@@ -73,24 +72,30 @@ export type DuelSnapshot<S> = S | (S & { readonly game: DuelState })
 export class DuelGameService<S> {
   private readonly states: DuelStateStore
   private readonly scheduler: DuelDeadlineScheduler
-  private readonly broadcaster: DuelBroadcaster
   private readonly realtimeSnapshots: DuelRoomSnapshotPort<S>
   private readonly presence: DuelPresence
-  private readonly completion: DuelCompletionPort
-  private readonly scoreboard: DuelScoreboardPort
   private readonly now: () => number
   private readonly wait: () => number
+  private readonly progress: DuelProgress<S>
 
   constructor(deps: DuelGameServiceDeps<S>, options: DuelGameServiceOptions = {}) {
     this.states = deps.states
     this.scheduler = deps.scheduler
-    this.broadcaster = deps.broadcaster
     this.realtimeSnapshots = deps.realtimeSnapshots
     this.presence = deps.presence
-    this.completion = deps.completion
-    this.scoreboard = deps.scoreboard
     this.now = options.now ?? Date.now
     this.wait = options.wait ?? randomWait
+    this.progress = new DuelProgress<S>(
+      {
+        scheduler: deps.scheduler,
+        broadcaster: deps.broadcaster,
+        snapshots: deps.realtimeSnapshots,
+        scoreboard: deps.scoreboard,
+        completion: deps.completion,
+      },
+      this.now,
+      (roomId, expectedVersion) => this.timeout(roomId, expectedVersion),
+    )
   }
 
   /**
@@ -114,7 +119,7 @@ export class DuelGameService<S> {
     // 이걸 빼면 진행 중 방의 레지스트리 phase가 waiting에 머물러, 끊긴 플레이어가
     // offline이 아니라 room.player_left가 된다(IMPLEMENTATION_NOTES 2.1).
     this.presence.markPhase(roomId, 'playing')
-    await this.broadcast(roomId, state, true)
+    await this.progress.broadcastState(roomId, state, true)
     this.schedule(roomId, state)
   }
 
@@ -140,7 +145,7 @@ export class DuelGameService<S> {
   async reconnect(roomId: string): Promise<DuelSnapshot<S>> {
     const state = await this.states.find(roomId)
     if (state === null) return this.realtimeSnapshots.snapshot(roomId)
-    return this.snapshot(roomId, state)
+    return this.progress.snapshot(roomId, state)
   }
 
   /** 타이머만 되살린다 — 상태는 그대로다. 종료된 결투는 예약하지 않는다. */
@@ -191,12 +196,7 @@ export class DuelGameService<S> {
     this.scheduler.cancelRoom(roomId)
     await this.states.remove(roomId)
     this.presence.markPhase(roomId, 'waiting')
-    this.broadcaster.broadcast(roomId, {
-      type: gameWsType(DUEL_CODE, 'state.sync'),
-      ts: this.now(),
-      payload: { snapshot: await this.realtimeSnapshots.snapshot(roomId) },
-      roomId,
-    })
+    await this.progress.syncRoom(roomId)
   }
 
   async close(roomId: string): Promise<void> {
@@ -232,61 +232,11 @@ export class DuelGameService<S> {
   }
 
   private async changed(roomId: string, state: DuelState): Promise<void> {
-    if (state.phase !== 'FINISHED') {
-      // WAITING(새 라운드)에서만 방 스냅샷을 함께 보낸다 — 라운드 경계가 아닌
-      // 프레임에서 스냅샷을 덧붙이면 진행 중 화면이 매번 재조립된다.
-      await this.broadcast(roomId, state, state.phase === 'WAITING')
-      this.schedule(roomId, state)
-      return
-    }
-
-    this.scheduler.cancelRoom(roomId)
-    // 남은 총알이 그대로 점수다. 단 쓰러진 쪽은 0으로 내린다 — 부정출발 실격은
-    // 총알이 남은 채로 지므로(SELF_SHOT은 hp를 1만 깎는다), 남은 수를 그대로 쓰면
-    // 순위가 뒤집힌다.
-    const fallen = state.lastRound?.koId ?? null
-    const scores = new Map<string, number>()
-    for (const [playerId, remaining] of Object.entries(state.hp)) {
-      scores.set(playerId, playerId === fallen ? 0 : remaining)
-    }
-    await this.scoreboard.writeScores(roomId, scores)
-    // 결투에 "점수판 완료"는 없다 — 종료 판정은 항상 강제다.
-    await this.completion.finishIfComplete(roomId, true)
-    await this.broadcast(roomId, state, true)
+    await this.progress.changed(roomId, state)
   }
 
   private schedule(roomId: string, state: DuelState): void {
-    if (state.phase === 'FINISHED' || state.nextActionAt <= 0) return
-    const version = state.version
-    this.scheduler.schedule(roomId, version, state.nextActionAt, () =>
-      this.timeout(roomId, version),
-    )
-  }
-
-  /** `game.duel.state`는 **DuelState를 그대로** 싣는다(래핑 없음 — 와이어 계약). */
-  private async broadcast(
-    roomId: string,
-    state: DuelState,
-    includeRoomSnapshot: boolean,
-  ): Promise<void> {
-    this.broadcaster.broadcast(roomId, {
-      type: gameWsType(DUEL_CODE, 'state'),
-      ts: this.now(),
-      payload: state,
-      roomId,
-    })
-    if (!includeRoomSnapshot) return
-    this.broadcaster.broadcast(roomId, {
-      type: gameWsType(DUEL_CODE, 'state.sync'),
-      ts: this.now(),
-      payload: { snapshot: await this.snapshot(roomId, state) },
-      roomId,
-    })
-  }
-
-  private async snapshot(roomId: string, state: DuelState): Promise<S & { game: DuelState }> {
-    const room = await this.realtimeSnapshots.snapshot(roomId)
-    return { ...room, game: state }
+    this.progress.schedule(roomId, state)
   }
 }
 

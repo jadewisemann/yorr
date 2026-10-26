@@ -1,7 +1,9 @@
 # 3D 주사위 물리 — 던지기→예측→리맵→재생 파이프라인
 
 > SSOT: [`../../src/yacht/rendering/physics-dice/`](../../src/yacht/rendering/physics-dice/) —
-> `World.ts`(오케스트레이터) · `remap.ts`(예측·리맵) · `config.ts`(모든 상수) · `safety.ts`(봉쇄)
+> `World.ts`(오케스트레이터) · `remap.ts`(예측·리맵) · `config.ts`(모든 상수) · `safety.ts`(봉쇄) ·
+> `model.ts`(메시·자세) · `pips.ts`(눈금) · `roundedRect.ts`(테두리) ·
+> `remapSimulation.ts`(시뮬 1회) · `remapRetry.ts`(재시도 보정) · `remapScore.ts`(품질 점수)
 
 ## 문제 정의
 

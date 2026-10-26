@@ -1,16 +1,7 @@
 import type { ControllerLinkSignal, PlayerId } from '@/realtime/wsEvents'
-import {
-  type ControllerLinkFrame,
-  isRelayable,
-  parseFrame,
-  type RelayableClientMessage,
-} from './relay'
+import { canRelay, PeerSession, RESTART_DELAY_MS } from './peerSession'
+import type { ControllerLinkFrame, RelayableClientMessage } from './relay'
 
-/**
- * 연결이 죽은 뒤 다시 협상하기까지의 유예. 음성 메시(`voiceMesh.ts`)와 같은 값이다 —
- * 폰이 화면 잠금·WiFi↔LTE 전환에서 실제로 여기 걸리고, 즉시 재시도하면 아직 정리되지
- * 않은 소켓 위에 새 협상을 얹는다.
- */
 /**
  * 링크의 ICE 설정. **STUN만 쓰고 TURN을 붙이지 않는다.**
  *
@@ -23,46 +14,6 @@ import {
  * 붙지 않는 망에서는 조용히 WebSocket으로 폴백한다.
  */
 export const CONTROLLER_ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
-
-const RESTART_DELAY_MS = 2000
-
-/** RTT 측정 주기. 게임 중에도 도는 keepalive라 촘촘하게 둘 이유가 없다. */
-const PROBE_INTERVAL_MS = 2000
-
-/**
- * 채널 두 개를 나눈 기준: **유실돼도 다음 것이 덮는 신호는 unreliable, 한 번뿐인 신호는
- * reliable.** 흔들림 펄스는 60ms마다 새로 오므로 늦게 도착한 옛 펄스가 오히려 해롭고,
- * 던지기는 놓치면 대시보드의 사발이 제때 쏟아지지 않는다.
- */
-const PULSE_CHANNEL = 'yorr.ctrl.pulse'
-const EVENT_CHANNEL = 'yorr.ctrl.event'
-
-/**
- * 흔들림 펄스만 unreliable이다. 던지기와 탁구 스윙은 **한 번뿐인 신호**라 놓치면
- * 대시보드가 그 입력을 영영 모른다.
- */
-const channelFor = (type: RelayableClientMessage['type']) =>
-  type === 'game.yacht_dice.dice.shake' ? PULSE_CHANNEL : EVENT_CHANNEL
-
-/** 흔들림 펄스: 재전송 없음 + 순서 없음. TCP의 head-of-line blocking을 피하는 자리다. */
-const PULSE_INIT: RTCDataChannelInit = { ordered: false, maxRetransmits: 0 }
-
-/** 던지기: 재전송은 하되 순서는 강제하지 않는다 — 앞선 펄스를 기다릴 이유가 없다. */
-const EVENT_INIT: RTCDataChannelInit = { ordered: false }
-
-const isOpen = (channel: RTCDataChannel) => channel.readyState === 'open'
-
-function trySend(channel: RTCDataChannel, frame: ControllerLinkFrame) {
-  try {
-    channel.send(JSON.stringify(frame))
-  } catch {}
-}
-
-async function safely(action: () => Promise<unknown> | unknown) {
-  try {
-    await action()
-  } catch {}
-}
 
 /**
  * 링크의 두 역할. **대시보드가 offer를 만든다.**
@@ -83,14 +34,6 @@ export interface ControllerLinkOptions {
   onChanged: () => void
 }
 
-interface Peer {
-  connection: RTCPeerConnection
-  channels: Map<string, RTCDataChannel>
-  pendingCandidates: RTCIceCandidateInit[]
-  rttMs: number | null
-  probe: ReturnType<typeof setInterval> | null
-}
-
 /**
  * 파티 대시보드와 컨트롤러 폰 사이의 DataChannel 연결을 관리한다. 대시보드를 중심에 둔
  * 별 모양이고, 폰 쪽 피어는 언제나 하나(대시보드)다.
@@ -102,24 +45,25 @@ interface Peer {
  * 2. **remote description 전에 온 ICE 후보는 큐에 쌓았다가 flush한다.** 큐가 없으면
  *    링크가 간헐적으로, 재현이 어려운 쪽으로 안 붙는다.
  * 3. **failed면 대시보드가 다시 협상한다**(2초 뒤). 폰은 버리고 기다린다.
+ *
+ * 피어 내부 절차는 `peerSession.ts`, 채널 이름·초기화 옵션은 `linkChannels.ts`가 정본이다.
  */
 export class ControllerLink {
-  private readonly peers = new Map<PlayerId, Peer>()
+  private readonly peers = new Map<PlayerId, PeerSession>()
   private closed = false
 
   constructor(private readonly options: ControllerLinkOptions) {}
 
   /** 열려 있는(둘 중 한 채널이라도 open인) 피어. */
   openPeerIds(): PlayerId[] {
-    return [...this.peers.entries()]
-      .filter(([, peer]) => [...peer.channels.values()].some((channel) => isOpen(channel)))
-      .map(([id]) => id)
+    return [...this.peers.entries()].filter(([, session]) => session.open).map(([id]) => id)
   }
 
   /** 마지막으로 측정된 왕복 시간. 재는 쪽은 컨트롤러다. */
   rttMs(): number | null {
-    for (const peer of this.peers.values()) {
-      if (peer.rttMs !== null) return peer.rttMs
+    for (const session of this.peers.values()) {
+      const rtt = session.state.rttMs
+      if (rtt !== null) return rtt
     }
     return null
   }
@@ -146,16 +90,10 @@ export class ControllerLink {
    * 호출부에서 안 보이기 때문이다.
    */
   send(message: RelayableClientMessage): boolean {
-    if (this.closed || !isRelayable(message)) return false
-    const label = channelFor(message.type)
+    if (this.closed || !canRelay(message)) return false
     let sent = false
-    for (const peer of this.peers.values()) {
-      const channel = peer.channels.get(label)
-      if (!channel || !isOpen(channel)) continue
-      try {
-        channel.send(JSON.stringify({ kind: 'relay', message } satisfies ControllerLinkFrame))
-        sent = true
-      } catch {}
+    for (const session of this.peers.values()) {
+      if (session.send(message)) sent = true
     }
     return sent
   }
@@ -163,30 +101,14 @@ export class ControllerLink {
   /** 상대가 보낸 협상 시그널. 명단보다 시그널이 먼저 와도 그 자리에서 피어를 만든다. */
   async accept(from: PlayerId, signal: ControllerLinkSignal) {
     if (this.closed) return
-    const peer = this.peers.get(from) ?? (await this.addPeer(from))
-    if (!peer) return
+    const session = this.peers.get(from) ?? (await this.addPeer(from))
+    if (!session) return
 
     if (signal.kind === 'candidate') {
-      if (!peer.connection.remoteDescription) {
-        peer.pendingCandidates.push(signal.candidate)
-        return
-      }
-      await safely(() => peer.connection.addIceCandidate(signal.candidate))
+      await session.addCandidate(signal.candidate)
       return
     }
-
-    await safely(async () => {
-      await peer.connection.setRemoteDescription(signal.description)
-      if (signal.description.type === 'offer') {
-        const answer = await peer.connection.createAnswer()
-        await peer.connection.setLocalDescription(answer)
-        this.options.sendSignal(from, { kind: 'description', description: answer })
-      }
-      const queued = peer.pendingCandidates.splice(0)
-      for (const candidate of queued) {
-        await safely(() => peer.connection.addIceCandidate(candidate))
-      }
-    })
+    await session.applyRemoteDescription(signal.description)
   }
 
   close() {
@@ -195,84 +117,25 @@ export class ControllerLink {
     this.options.onChanged()
   }
 
-  private async addPeer(id: PlayerId): Promise<Peer | undefined> {
-    if (this.closed) return undefined
-    const connection = new RTCPeerConnection({ iceServers: this.options.iceServers })
-    const peer: Peer = {
-      connection,
-      channels: new Map(),
-      pendingCandidates: [],
-      rttMs: null,
-      probe: null,
-    }
-    this.peers.set(id, peer)
-
-    connection.addEventListener('icecandidate', (event) => {
-      if (!event.candidate) return
-      this.options.sendSignal(id, {
-        kind: 'candidate',
-        candidate: event.candidate.toJSON(),
-      })
-    })
-
-    connection.addEventListener('connectionstatechange', () => {
-      if (connection.connectionState === 'failed') this.restartPeer(id)
-      this.options.onChanged()
-    })
-
-    if (this.options.role === 'dashboard') {
-      // 채널은 offer를 만들기 전에 열어야 SDP에 실린다.
-      this.attachChannel(id, peer, connection.createDataChannel(PULSE_CHANNEL, PULSE_INIT))
-      this.attachChannel(id, peer, connection.createDataChannel(EVENT_CHANNEL, EVENT_INIT))
-      await safely(async () => {
-        const offer = await connection.createOffer()
-        await connection.setLocalDescription(offer)
-        this.options.sendSignal(id, { kind: 'description', description: offer })
-      })
-      return peer
-    }
-
-    connection.addEventListener('datachannel', (event) => {
-      this.attachChannel(id, peer, event.channel)
-    })
-    return peer
-  }
-
-  private attachChannel(id: PlayerId, peer: Peer, channel: RTCDataChannel) {
-    peer.channels.set(channel.label, channel)
-    channel.addEventListener('open', () => {
-      if (channel.label === EVENT_CHANNEL) this.startProbe(peer, channel)
-      this.options.onChanged()
-    })
-    channel.addEventListener('close', () => this.options.onChanged())
-    channel.addEventListener('message', (event) => {
-      const frame = parseFrame((event as MessageEvent).data)
-      if (!frame) return
-      if (frame.kind === 'ping') {
-        trySend(channel, { kind: 'pong', sentAt: frame.sentAt })
-        return
-      }
-      if (frame.kind === 'pong') {
-        peer.rttMs = Math.max(0, Date.now() - frame.sentAt)
-        this.options.onChanged()
-        return
-      }
-      this.options.onFrame(id, frame)
-    })
-  }
-
   /**
-   * 왕복 시간은 **컨트롤러가** 잰다 — 지연을 겪는 쪽이 폰이고, 폴백을 판단하는 코드도
-   * 폰에 있다. 대시보드는 받은 ping을 그대로 되돌려 주기만 한다.
+   * 피어를 만들고 **협상 전에 맵에 등록한다.** 등록이 먼저여야 offer를 만드는 동안
+   * 도착한 시그널이 같은 id로 두 번째 피어를 만들지 않는다(중복 offer 차단).
    */
-  private startProbe(peer: Peer, channel: RTCDataChannel) {
-    if (this.options.role !== 'controller' || peer.probe) return
-    const tick = () => {
-      if (!isOpen(channel)) return
-      trySend(channel, { kind: 'ping', sentAt: Date.now() })
-    }
-    tick()
-    peer.probe = setInterval(tick, PROBE_INTERVAL_MS)
+  private async addPeer(id: PlayerId): Promise<PeerSession | undefined> {
+    if (this.closed) return undefined
+    if (this.peers.has(id)) return this.peers.get(id)
+    const session = new PeerSession(id, {
+      role: this.options.role,
+      iceServers: this.options.iceServers,
+      sendSignal: (to, signal) => this.options.sendSignal(to, signal as ControllerLinkSignal),
+      onFrame: (from, frame) => this.options.onFrame(from, frame),
+      onChanged: () => this.options.onChanged(),
+      onFailed: (peerId) => this.restartPeer(peerId),
+      isClosed: () => this.closed,
+    })
+    this.peers.set(id, session)
+    await session.start()
+    return session
   }
 
   /**
@@ -291,15 +154,9 @@ export class ControllerLink {
   }
 
   private dropPeer(id: PlayerId) {
-    const peer = this.peers.get(id)
-    if (!peer) return
+    const session = this.peers.get(id)
+    if (!session) return
     this.peers.delete(id)
-    if (peer.probe) clearInterval(peer.probe)
-    for (const channel of peer.channels.values()) {
-      try {
-        channel.close()
-      } catch {}
-    }
-    peer.connection.close()
+    session.close()
   }
 }

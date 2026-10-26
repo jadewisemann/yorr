@@ -13,7 +13,8 @@
 
 | 파일 | 책임 |
 |---|---|
-| `yachtDiceGameModule.ts` | `GameModule` 구현 — 수명주기 훅 + 5메시지 라우팅 + 오류 매핑 + roomId 검증 |
+| `yachtDiceGameModule.ts` | `GameModule` — 라우팅 |
+| `yachtLifecycle.ts` · `yachtWsErrors.ts` | 수명주기 / 오류 |
 | `yachtTurnActionService.ts` | 사람·봇이 공유하는 행동 경계(roll/hold/submitScore) |
 | `redisYachtDiceStateStore.ts` | `RoundStateStore`의 Redis 어댑터(방 락·SETNX·TTL 복사·SCAN) |
 | `yachtDiceStateSnapshot.ts` | 저장 JSON ↔ `RoundState` 변환 |
@@ -184,13 +185,14 @@ POST /rooms/{code}/games ─ GameLifecycleService ─ START 스크립트(phase P
 
 | 파일 | 책임 |
 |---|---|
-| `botTurnOrchestrator.ts` | 연출 시계 — 지연 4종 + 방별 세대 가드 + `dice.thrown` |
-| `yachtBotTurnCoordinator.ts` | 한 스텝 원자 실행 — TurnVersion·킵 재사용·폴백 전환 |
-| `expectimaxYachtBotPolicy.ts` | 주 정책(정확 확률·메모·CPU 예산) |
-| `cooperativeBotPolicy.ts` | 탐색을 프로세스 전체에서 하나씩, 사이마다 이벤트 루프에 양보하며 돌리는 큐 |
+| `botTurnOrchestrator.ts` | 연출 시계(지연 4종·세대 가드·`dice.thrown`) |
+| `yachtBotTurnCoordinator.ts` | 한 스텝 원자 실행(제출·킵·굴림·폴백) |
+| `yachtBotTurnGuard.ts` · `yachtBotHeldIdentity.ts` | 턴 동일성 / 킵 자리 |
+| `expectimax*.ts` | 주 정책·탐색·확률·칸 선택 |
+| `cooperativeBotPolicy.ts` | 탐색을 프로세스 전체에서 하나씩, 사이마다 양보하는 큐 |
 | `localYachtBotStrategy.ts` | 폴백 정책(탐색 없음) |
 | `scorecardValueEvaluator.ts` | 봇의 가치 함수 |
-| `botPorts.ts` | 행동·라운드 조회·방·점수·정책의 좁은 포트 |
+| `botPorts.ts` | 행동·조회·방·점수의 좁은 포트 |
 | `botErrors.ts` | `BotDecisionError`·`BotSearchBudgetError` |
 
 ```text

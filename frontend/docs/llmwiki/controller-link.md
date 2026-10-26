@@ -15,7 +15,7 @@
 | 파일 | 책임 |
 |---|---|
 | `realtime/controllerLink/relay.ts` | 링크로 보낼 수 있는 메시지 목록(`RELAYABLE_TYPES`), DataChannel 프레임 파싱, 클라이언트 메시지 → **서버가 뿌렸을 봉투** 변환 |
-| `realtime/controllerLink/controllerLink.ts` | `ControllerLink` — RTCPeerConnection + DataChannel 두 개, 협상 규칙, RTT 측정. React·store를 모른다 |
+| `realtime/controllerLink/` | `controllerLink`(피어·릴레이) · `peerSession`(수명) · `linkChannels`(채널) |
 | `realtime/controllerLink/ControllerLinkContext.tsx` | 수명·시그널링 배선. `useControllerLink()`는 provider 밖에서 `NO_LINK`로 강등한다 |
 | `room/model/useControllerLinkRole.ts` | 이 기기의 역할(`dashboard`·`controller`·없음) 판정 |
 | `realtime/realtimeClient.ts` | `deliverLocal()` — 피어에게 직접 받은 봉투를 서버 메시지와 같은 팬아웃에 흘리는 유일한 주입 구멍 |

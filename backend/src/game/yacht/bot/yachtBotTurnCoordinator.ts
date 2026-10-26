@@ -10,9 +10,10 @@ import type {
 } from './botPorts.js'
 import type { BotDecision } from './expectimaxYachtBotPolicy.js'
 import { holdDecision, scoreDecision } from './expectimaxYachtBotPolicy.js'
+import { preserveHeldDiceIdentity } from './yachtBotHeldIdentity.js'
+import { activeBotId, sameHeld, sameTurn, sameTurnVersion } from './yachtBotTurnGuard.js'
 
 const NO_HELD: readonly boolean[] = Object.freeze([false, false, false, false, false])
-const FACE_COUNT = 6
 
 /**
  * 봇 턴 한 **스텝**의 결과.
@@ -74,6 +75,9 @@ export interface YachtBotTurnCoordinatorOptions {
  * 그 사이에 사람이 뭔가 했거나 타임아웃이 턴을 넘긴 것이므로 **조용히 무시**한다.
  * 2. **사람과 같은 경로.** 굴림·킵·제출을 전부 `YachtTurnActionService`로 보낸다.
  * 별도 경로를 만들면 "봇만 점수가 안 들어간다" 같은 갈라짐이 생긴다.
+ *
+ * 동일성 판정은 `yachtBotTurnGuard.ts`, 킵 자리 재해석은
+ * `yachtBotHeldIdentity.ts`가 맡는다.
  */
 export class YachtBotTurnCoordinator {
   private readonly rounds: YachtBotRoundLookup
@@ -222,103 +226,4 @@ export class YachtBotTurnCoordinator {
       return holdDecision(held, 0)
     }
   }
-}
-
-/**
- * 원하는 킵을 **면 개수 기준**으로 재해석해 이미 킵된 주사위를 그대로 둔다.
- *
- * 정책은 "6을 두 개 남긴다"까지만 말하고 어느 자리인지는 신경 쓰지 않는다. 그런데
- * 자리를 바꿔서 보내면 값은 같은데 `dice.hold_changed`가 한 번 더 나가고, 프론트에서는
- * 주사위가 이유 없이 풀렸다 다시 잡힌다. 그래서 **이미 잡혀 있는 자리에 우선권**을 준다.
- */
-const preserveHeldDiceIdentity = (
-  dice: readonly number[],
-  currentHeld: readonly boolean[] | null,
-  desiredHeld: readonly boolean[],
-): readonly boolean[] => {
-  if (
-    currentHeld === null ||
-    currentHeld.length !== dice.length ||
-    desiredHeld.length !== dice.length
-  ) {
-    return desiredHeld
-  }
-
-  const remainingByFace = new Array<number>(FACE_COUNT).fill(0)
-  for (let index = 0; index < dice.length; index += 1) {
-    if (desiredHeld[index] === true) {
-      const face = faceIndexOf(dice, index)
-      remainingByFace[face] = (remainingByFace[face] ?? 0) + 1
-    }
-  }
-
-  const resolved = new Array<boolean>(dice.length).fill(false)
-  // 1차: 지금 잡혀 있는 자리부터 채운다(같은 면이면 그 자리를 유지).
-  claimQuota(dice, resolved, remainingByFace, (index) => currentHeld[index] === true)
-  // 2차: 남은 몫을 앞자리부터 채운다.
-  claimQuota(dice, resolved, remainingByFace, () => true)
-  return Object.freeze(resolved)
-}
-
-const faceIndexOf = (dice: readonly number[], index: number): number => (dice[index] ?? 1) - 1
-
-/**
- * `eligible`인 자리부터 면별 남은 몫을 소비해 `resolved`를 켠다. 두 번 호출되며
- * (① 이미 킵된 자리 ② 남은 자리) 그 순서가 "자리 유지" 규칙의 전부다.
- */
-const claimQuota = (
-  dice: readonly number[],
-  resolved: boolean[],
-  remainingByFace: number[],
-  eligible: (index: number) => boolean,
-): void => {
-  for (let index = 0; index < dice.length; index += 1) {
-    const face = faceIndexOf(dice, index)
-    if (resolved[index] || !eligible(index)) continue
-    if ((remainingByFace[face] ?? 0) <= 0) continue
-    resolved[index] = true
-    remainingByFace[face] = (remainingByFace[face] ?? 0) - 1
-  }
-}
-
-/**
- * 예약 시점의 상태와 지금 상태가 **같은 턴의 같은 순간**인지.
- *
- * dice·held까지 보는 이유: rollCount가 같아도 사람이 킵을 바꿨거나(hold) 마감
- * 자동 굴림이 끼어들었으면 봇의 결정 근거가 이미 낡았다.
- */
-const sameTurnVersion = (scheduled: RoundState, current: RoundState): boolean =>
-  scheduled.roundNumber === current.roundNumber &&
-  scheduled.activePlayerId === current.activePlayerId &&
-  scheduled.activeRollCount === current.activeRollCount &&
-  sameNumbers(scheduled.activeDice, current.activeDice) &&
-  sameHeld(scheduled.activeHeld, current.activeHeld)
-
-/** 킵을 그대로 쓰고 다음 굴림으로 갈 때의 재확인 — dice·held는 보지 않는다. */
-const sameTurn = (before: RoundState, current: RoundState): boolean =>
-  !current.finished &&
-  current.roundNumber === before.roundNumber &&
-  current.activePlayerId === before.activePlayerId &&
-  current.activeRollCount === before.activeRollCount
-
-const sameNumbers = (left: readonly number[] | null, right: readonly number[] | null): boolean => {
-  if (left === null || right === null) return left === right
-  return left.length === right.length && left.every((value, index) => value === right[index])
-}
-
-const sameHeld = (left: readonly boolean[] | null, right: readonly boolean[] | null): boolean => {
-  if (left === null || right === null) return left === right
-  return left.length === right.length && left.every((value, index) => value === right[index])
-}
-
-/** roster에서 활성 플레이어를 찾고 **그것이 봇일 때만** id를 준다. */
-const activeBotId = (
-  room: {
-    readonly players: readonly { readonly playerId: string; readonly kind: string }[]
-  } | null,
-  activePlayerId: string,
-): string | null => {
-  const player = room?.players.find((entry) => entry.playerId === activePlayerId)
-  if (player === undefined || player.kind !== 'BOT') return null
-  return player.playerId
 }
