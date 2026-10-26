@@ -77,6 +77,95 @@ export function PreparationStatus({
   )
 }
 
+function PreparationHeader({ nickname, onLeave }: { nickname: string; onLeave: () => void }) {
+  return (
+    <header className="flex flex-none items-center justify-between gap-3">
+      <div className="grid min-w-0 gap-1">
+        <span className="font-mono text-2xs tracking-[0.18em] text-pp-side-blue-text">WARM-UP</span>
+        <strong className="truncate text-lg">{nickname}</strong>
+      </div>
+      <GameChromeButton onClick={onLeave}>나가기</GameChromeButton>
+    </header>
+  )
+}
+
+/** 연습 공을 치는 큰 면. 스윙이 감지되면 공이 튀고 라켓이 돈다. */
+function PracticePad({
+  paddleTone,
+  permission,
+  practiceAck,
+  practiced,
+  practiceAction,
+}: {
+  paddleTone: PaddleTone
+  permission: SwingPermission
+  practiceAck: boolean
+  practiced: boolean
+  practiceAction: (() => void) | undefined
+}) {
+  const paddleFace = paddleFaceClass(paddleTone)
+  return (
+    <button
+      aria-label="연습 공 치기"
+      aria-disabled={permission === 'granted'}
+      className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-pp-side-blue/35 bg-[radial-gradient(circle_at_50%_42%,rgb(43_143_224_/_24%),transparent_60%)] active:bg-surface-veil"
+      onClick={practiceAction}
+      type="button"
+    >
+      {/* 순백 고정 — 이건 표면이 아니라 탁구공 그 자체다. veil 사다리로 내리지 않는다. */}
+      <span
+        aria-hidden="true"
+        className={`absolute top-[18%] left-1/2 size-14 -translate-x-1/2 rounded-full bg-white shadow-[0_0_28px_rgb(255_255_255_/_55%)] ${practiceAck ? 'animate-pp-practice-ball' : ''}`}
+      />
+      <span
+        aria-hidden="true"
+        className={`absolute top-[46%] left-1/2 block h-[34%] aspect-square -translate-x-1/2 rounded-full border-[9px] transition-transform duration-150 ${paddleFace} ${practiceAck ? 'rotate-[-28deg] scale-110' : 'rotate-[-8deg]'}`}
+        data-player-tone={paddleTone}
+        data-testid="ping-pong-paddle-face"
+      />
+      <span
+        className={`absolute inset-x-4 bottom-5 text-center text-base font-black ${practiced ? 'text-pp-accent' : 'text-game-content'}`}
+      >
+        {practiceAck ? '스윙 감지 완료! 공을 맞혔어요' : practicePrompt(permission)}
+      </span>
+    </button>
+  )
+}
+
+/** 센서 켜기·준비 완료·전송 오류. 연습 면 아래 한 묶음이다. */
+function PreparationActions({
+  error,
+  onReady,
+  permission,
+  practiced,
+  ready,
+  requestPermission,
+}: {
+  error: string | null
+  onReady: () => void
+  permission: SwingPermission
+  practiced: boolean
+  ready: boolean
+  requestPermission: () => Promise<void>
+}) {
+  return (
+    <section className="mt-3 grid flex-none gap-2">
+      {permission === 'unknown' && (
+        <PingPongButton onClick={() => void requestPermission()}>폰 스윙 켜기</PingPongButton>
+      )}
+      <PreparationMotionStatus permission={permission} practiced={practiced} />
+      <PingPongButton disabled={!practiced || ready} onClick={onReady} tone="danger" variant="cta">
+        {readyButtonLabel(practiced, ready)}
+      </PingPongButton>
+      {error && (
+        <p className="m-0 text-center text-sm text-red-300" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  )
+}
+
 export function PingPongPreparationController({
   error,
   nickname,
@@ -109,20 +198,11 @@ export function PingPongPreparationController({
   const practiceAck =
     view.event?.type === 'PRACTICE' && view.event.playerId === playerId && view.eventAge < 1_200
   const practiceAction = selectPracticeAction(permission, requestPermission, onTouchSwing)
-  const paddleFace = paddleFaceClass(paddleTone)
   const [p1, p2] = playerSlots(state, playerId, view.opponentName)
 
   return (
     <ControllerScreen className="bg-pp-canvas">
-      <header className="flex flex-none items-center justify-between gap-3">
-        <div className="grid min-w-0 gap-1">
-          <span className="font-mono text-2xs tracking-[0.18em] text-pp-side-blue-text">
-            WARM-UP
-          </span>
-          <strong className="truncate text-lg">{nickname}</strong>
-        </div>
-        <GameChromeButton onClick={onLeave}>나가기</GameChromeButton>
-      </header>
+      <PreparationHeader nickname={nickname} onLeave={onLeave} />
 
       <section className="mt-4 grid flex-none grid-cols-2 gap-2" aria-label="참가자 준비 상태">
         <PreparationStatus label={p1.label} ready={readyPlayerIds.includes(p1.id)} tag={p1.tag} />
@@ -139,50 +219,22 @@ export function PingPongPreparationController({
         </p>
       </div>
 
-      <button
-        aria-label="연습 공 치기"
-        aria-disabled={permission === 'granted'}
-        className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-hero border border-pp-side-blue/35 bg-[radial-gradient(circle_at_50%_42%,rgb(43_143_224_/_24%),transparent_60%)] active:bg-surface-veil"
-        onClick={practiceAction}
-        type="button"
-      >
-        {/* 순백 고정 — 이건 표면이 아니라 탁구공 그 자체다. veil 사다리로 내리지 않는다. */}
-        <span
-          aria-hidden="true"
-          className={`absolute top-[18%] left-1/2 size-14 -translate-x-1/2 rounded-full bg-white shadow-[0_0_28px_rgb(255_255_255_/_55%)] ${practiceAck ? 'animate-pp-practice-ball' : ''}`}
-        />
-        <span
-          aria-hidden="true"
-          className={`absolute top-[46%] left-1/2 block h-[34%] aspect-square -translate-x-1/2 rounded-full border-[9px] transition-transform duration-150 ${paddleFace} ${practiceAck ? 'rotate-[-28deg] scale-110' : 'rotate-[-8deg]'}`}
-          data-player-tone={paddleTone}
-          data-testid="ping-pong-paddle-face"
-        />
-        <span
-          className={`absolute inset-x-4 bottom-5 text-center text-base font-black ${practiced ? 'text-pp-accent' : 'text-game-content'}`}
-        >
-          {practiceAck ? '스윙 감지 완료! 공을 맞혔어요' : practicePrompt(permission)}
-        </span>
-      </button>
+      <PracticePad
+        paddleTone={paddleTone}
+        permission={permission}
+        practiceAck={practiceAck}
+        practiced={practiced}
+        practiceAction={practiceAction}
+      />
 
-      <section className="mt-3 grid flex-none gap-2">
-        {permission === 'unknown' && (
-          <PingPongButton onClick={() => void requestPermission()}>폰 스윙 켜기</PingPongButton>
-        )}
-        <PreparationMotionStatus permission={permission} practiced={practiced} />
-        <PingPongButton
-          disabled={!practiced || ready}
-          onClick={onReady}
-          tone="danger"
-          variant="cta"
-        >
-          {readyButtonLabel(practiced, ready)}
-        </PingPongButton>
-        {error && (
-          <p className="m-0 text-center text-sm text-red-300" role="alert">
-            {error}
-          </p>
-        )}
-      </section>
+      <PreparationActions
+        error={error}
+        onReady={onReady}
+        permission={permission}
+        practiced={practiced}
+        ready={ready}
+        requestPermission={requestPermission}
+      />
     </ControllerScreen>
   )
 }
