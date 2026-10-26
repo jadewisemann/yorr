@@ -20,7 +20,6 @@ interface GameResultProps {
 }
 
 export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProps) {
-  const returnToLobby = useReturnToLobby()
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const ranked = toRanking(snapshot, session.you)
@@ -28,12 +27,6 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
   const myRank = myIndex >= 0 ? myIndex + 1 : ranked.length
   const me = ranked[myIndex]
   const myBoard = snapshot.game?.scores[session.you]
-  const isHost = isRoomHost(snapshot, session.you)
-
-  const handleReturnToLobby = async () => {
-    if (!isHost) return
-    await returnToLobby.execute()
-  }
 
   if (session.membershipRole === 'dashboard') {
     return (
@@ -57,48 +50,16 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
           게임 종료, {ranked.length}명 중 {myRank}위, {me?.total ?? 0}점
         </p>
 
-        <span className="relative inline-flex w-fit items-center gap-2 rounded-full border border-border bg-surface-veil px-3 py-1.5 font-mono text-2xs font-bold tracking-[0.16em] text-content-muted uppercase">
-          {snapshot.game?.roundNumber ?? 12}라운드 종료
-        </span>
-        <div className="relative mt-3 flex items-end gap-3">
-          <h1 className="m-0 font-mono text-[5.5rem] leading-[0.85] font-bold tracking-[-0.05em]">
-            {myRank}
-            <span className="font-sans text-[2.25rem] font-bold tracking-[-0.02em]">위</span>
-          </h1>
-          <span aria-hidden="true" className="pb-1.5 text-sm text-content-muted">
-            {ranked.length}명 중
-          </span>
-        </div>
-
-        <Panel
-          as="section"
-          className="relative mt-5 flex items-center justify-between gap-4 border-border-strong p-4.5"
-          surface="raised"
-        >
-          <div className="min-w-0">
-            <p className="m-0 flex items-center gap-2 truncate text-base font-bold">
-              {session.nickname}
-              <span className="rounded-chip bg-content px-1.5 py-0.5 font-mono text-2xs font-bold tracking-[0.1em] text-canvas">
-                ME
-              </span>
-            </p>
-            <p
-              className={cn(
-                'm-0 mt-1.5 text-xs',
-                myBoard && myBoard.upperBonus >= UPPER_BONUS_POINTS
-                  ? 'text-positive'
-                  : 'text-content-muted',
-              )}
-            >
-              {myBoard && myBoard.upperBonus >= UPPER_BONUS_POINTS
-                ? `상단 보너스 +${UPPER_BONUS_POINTS} 달성`
-                : '상단 보너스 미달'}
-            </p>
-          </div>
-          <strong className="font-mono text-4xl leading-none font-bold tabular-nums">
-            {me?.total ?? 0}
-          </strong>
-        </Panel>
+        <ResultHeadline
+          myRank={myRank}
+          playerCount={ranked.length}
+          roundNumber={snapshot.game?.roundNumber ?? 12}
+        />
+        <MyResultCard
+          bonusReached={myBoard !== undefined && myBoard.upperBonus >= UPPER_BONUS_POINTS}
+          nickname={session.nickname}
+          total={me?.total ?? 0}
+        />
 
         <div className="relative mt-6 mb-2 flex items-baseline justify-between">
           <h2 className="m-0 font-mono text-2xs font-bold tracking-[0.14em] text-content-muted uppercase">
@@ -112,36 +73,11 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
           you={session.you}
         />
 
-        <div className="relative grid flex-none gap-2 border-t border-border pt-4">
-          <Button className="w-full" onClick={() => setSheetOpen(true)} variant="ghost">
-            전체 점수표 보기
-          </Button>
-          <Button
-            disabled={!isHost}
-            loading={returnToLobby.isLoading}
-            onClick={handleReturnToLobby}
-            size="cta"
-          >
-            대기실로
-          </Button>
-          <Button
-            className="text-content-muted hover:text-content"
-            onClick={onLeaveRequest}
-            variant="ghost"
-          >
-            나가기
-          </Button>
-          <p className="m-0 text-center text-2xs text-content-muted">
-            {isHost
-              ? '대기실로 돌아가면 같은 멤버로 다시 시작할 수 있어요'
-              : '방장이 대기실로 옮기기를 기다리는 중'}
-          </p>
-          {returnToLobby.error && (
-            <p className="m-0 text-center text-sm text-danger" role="alert">
-              대기실로 돌아가지 못했어요: {returnToLobby.error.message}
-            </p>
-          )}
-        </div>
+        <ResultActions
+          isHost={isRoomHost(snapshot, session.you)}
+          onLeaveRequest={onLeaveRequest}
+          onOpenSheet={() => setSheetOpen(true)}
+        />
       </main>
 
       <BottomSheet onClose={() => setSheetOpen(false)} open={sheetOpen} title="전체 점수표">
@@ -155,5 +91,113 @@ export function GameResult({ onLeaveRequest, session, snapshot }: GameResultProp
         />
       </BottomSheet>
     </>
+  )
+}
+
+interface ResultHeadlineProps {
+  myRank: number
+  playerCount: number
+  roundNumber: number
+}
+
+function ResultHeadline({ myRank, playerCount, roundNumber }: ResultHeadlineProps) {
+  return (
+    <>
+      <span className="relative inline-flex w-fit items-center gap-2 rounded-full border border-border bg-surface-veil px-3 py-1.5 font-mono text-2xs font-bold tracking-[0.16em] text-content-muted uppercase">
+        {roundNumber}라운드 종료
+      </span>
+      <div className="relative mt-3 flex items-end gap-3">
+        <h1 className="m-0 font-mono text-[5.5rem] leading-[0.85] font-bold tracking-[-0.05em]">
+          {myRank}
+          <span className="font-sans text-[2.25rem] font-bold tracking-[-0.02em]">위</span>
+        </h1>
+        <span aria-hidden="true" className="pb-1.5 text-sm text-content-muted">
+          {playerCount}명 중
+        </span>
+      </div>
+    </>
+  )
+}
+
+interface MyResultCardProps {
+  bonusReached: boolean
+  nickname: string
+  total: number
+}
+
+function MyResultCard({ bonusReached, nickname, total }: MyResultCardProps) {
+  return (
+    <Panel
+      as="section"
+      className="relative mt-5 flex items-center justify-between gap-4 border-border-strong p-4.5"
+      surface="raised"
+    >
+      <div className="min-w-0">
+        <p className="m-0 flex items-center gap-2 truncate text-base font-bold">
+          {nickname}
+          <span className="rounded-chip bg-content px-1.5 py-0.5 font-mono text-2xs font-bold tracking-[0.1em] text-canvas">
+            ME
+          </span>
+        </p>
+        <p
+          className={cn(
+            'm-0 mt-1.5 text-xs',
+            bonusReached ? 'text-positive' : 'text-content-muted',
+          )}
+        >
+          {bonusReached ? `상단 보너스 +${UPPER_BONUS_POINTS} 달성` : '상단 보너스 미달'}
+        </p>
+      </div>
+      <strong className="font-mono text-4xl leading-none font-bold tabular-nums">{total}</strong>
+    </Panel>
+  )
+}
+
+interface ResultActionsProps {
+  isHost: boolean
+  onLeaveRequest: () => void
+  onOpenSheet: () => void
+}
+
+/** 결과 화면 아래 버튼 묶음 — 대기실 복귀 요청은 방장만 보낼 수 있다. */
+function ResultActions({ isHost, onLeaveRequest, onOpenSheet }: ResultActionsProps) {
+  const returnToLobby = useReturnToLobby()
+
+  const handleReturnToLobby = async () => {
+    if (!isHost) return
+    await returnToLobby.execute()
+  }
+
+  return (
+    <div className="relative grid flex-none gap-2 border-t border-border pt-4">
+      <Button className="w-full" onClick={onOpenSheet} variant="ghost">
+        전체 점수표 보기
+      </Button>
+      <Button
+        disabled={!isHost}
+        loading={returnToLobby.isLoading}
+        onClick={handleReturnToLobby}
+        size="cta"
+      >
+        대기실로
+      </Button>
+      <Button
+        className="text-content-muted hover:text-content"
+        onClick={onLeaveRequest}
+        variant="ghost"
+      >
+        나가기
+      </Button>
+      <p className="m-0 text-center text-2xs text-content-muted">
+        {isHost
+          ? '대기실로 돌아가면 같은 멤버로 다시 시작할 수 있어요'
+          : '방장이 대기실로 옮기기를 기다리는 중'}
+      </p>
+      {returnToLobby.error && (
+        <p className="m-0 text-center text-sm text-danger" role="alert">
+          대기실로 돌아가지 못했어요: {returnToLobby.error.message}
+        </p>
+      )}
+    </div>
   )
 }
