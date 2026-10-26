@@ -9,6 +9,82 @@ interface ReactionDockProps {
   players: Player[]
 }
 
+type ReactionDockState = ReturnType<typeof useReactionDock>
+
+/** 막 도착한 리액션들. 독 위로 떠오르며 사라진다 — 스크린 리더에는 live 영역이 읽어 준다. */
+function FlyingReactions({ flying }: { flying: ReactionDockState['flying'] }) {
+  return (
+    <>
+      {flying.map((item) => (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute right-0 bottom-full flex w-tap translate-x-(--drift) translate-y-(--lift) flex-col items-end gap-1 animate-reaction-float motion-reduce:animate-none"
+          key={item.id}
+          style={
+            {
+              '--drift': DRIFTS[item.id % DRIFTS.length],
+              '--lift': LIFTS[item.id % LIFTS.length],
+            } as CSSProperties
+          }
+        >
+          <span className="text-3xl leading-none drop-shadow-[0_2px_10px_rgb(0_0_0_/_60%)]">
+            {item.emoji}
+          </span>
+          {item.nickname && (
+            <span className="max-w-24 truncate rounded-full bg-surface-overlay/90 px-1.5 py-px text-2xs font-semibold whitespace-nowrap text-content-muted">
+              {item.nickname}
+            </span>
+          )}
+        </span>
+      ))}
+    </>
+  )
+}
+
+/** 트리거 왼쪽으로 펼쳐지는 리액션 칩 줄. 키보드 포커스가 칩 사이를 도는(roving tabindex) toolbar다. */
+function ReactionPicker({
+  chipsRef,
+  focusedChip,
+  onChipKeyDown,
+  onSend,
+  open,
+  pickerId,
+}: Pick<ReactionDockState, 'chipsRef' | 'focusedChip' | 'open' | 'pickerId'> & {
+  onChipKeyDown: ReactionDockState['handleChipKeyDown']
+  onSend: ReactionDockState['send']
+}) {
+  return (
+    <div
+      aria-label="리액션 고르기"
+      aria-orientation="horizontal"
+      className={cn(
+        'absolute top-1/2 right-full mr-2 flex -translate-y-1/2 gap-1 rounded-panel border border-border bg-surface-overlay/95 p-1 shadow-raised transition-all duration-(--ds-motion-fast) ease-snappy',
+        open ? 'scale-100 opacity-100' : 'pointer-events-none scale-90 opacity-0',
+      )}
+      id={pickerId}
+      onKeyDown={onChipKeyDown}
+      role="toolbar"
+      style={{ transformOrigin: 'right center' }}
+    >
+      {REACTIONS.map((reaction, index) => (
+        <button
+          aria-label={reaction.label}
+          className="reaction-chip focus-ring active:scale-90"
+          key={reaction.type}
+          onClick={() => onSend(reaction.type)}
+          ref={(element) => {
+            chipsRef.current[index] = element
+          }}
+          tabIndex={open && index === focusedChip ? 0 : -1}
+          type="button"
+        >
+          {reaction.emoji}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function ReactionDock({ className, players }: ReactionDockProps) {
   const {
     chipsRef,
@@ -32,57 +108,16 @@ export function ReactionDock({ className, players }: ReactionDockProps) {
         {latest ? `${latest.nickname} ${latest.label}` : ''}
       </p>
 
-      {flying.map((item) => (
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute right-0 bottom-full flex w-tap translate-x-(--drift) translate-y-(--lift) flex-col items-end gap-1 animate-reaction-float motion-reduce:animate-none"
-          key={item.id}
-          style={
-            {
-              '--drift': DRIFTS[item.id % DRIFTS.length],
-              '--lift': LIFTS[item.id % LIFTS.length],
-            } as CSSProperties
-          }
-        >
-          <span className="text-3xl leading-none drop-shadow-[0_2px_10px_rgb(0_0_0_/_60%)]">
-            {item.emoji}
-          </span>
-          {item.nickname && (
-            <span className="max-w-24 truncate rounded-full bg-surface-overlay/90 px-1.5 py-px text-2xs font-semibold whitespace-nowrap text-content-muted">
-              {item.nickname}
-            </span>
-          )}
-        </span>
-      ))}
+      <FlyingReactions flying={flying} />
 
-      <div
-        aria-label="리액션 고르기"
-        aria-orientation="horizontal"
-        className={cn(
-          'absolute top-1/2 right-full mr-2 flex -translate-y-1/2 gap-1 rounded-panel border border-border bg-surface-overlay/95 p-1 shadow-raised transition-all duration-(--ds-motion-fast) ease-snappy',
-          open ? 'scale-100 opacity-100' : 'pointer-events-none scale-90 opacity-0',
-        )}
-        id={pickerId}
-        onKeyDown={handleChipKeyDown}
-        role="toolbar"
-        style={{ transformOrigin: 'right center' }}
-      >
-        {REACTIONS.map((reaction, index) => (
-          <button
-            aria-label={reaction.label}
-            className="reaction-chip focus-ring active:scale-90"
-            key={reaction.type}
-            onClick={() => send(reaction.type)}
-            ref={(element) => {
-              chipsRef.current[index] = element
-            }}
-            tabIndex={open && index === focusedChip ? 0 : -1}
-            type="button"
-          >
-            {reaction.emoji}
-          </button>
-        ))}
-      </div>
+      <ReactionPicker
+        chipsRef={chipsRef}
+        focusedChip={focusedChip}
+        onChipKeyDown={handleChipKeyDown}
+        onSend={send}
+        open={open}
+        pickerId={pickerId}
+      />
 
       {/* 글리프가 말풍선이 아니라 웃는 얼굴인 이유: 같은 화면의 채팅 버튼이 말풍선을 쓴다. */}
       <button
