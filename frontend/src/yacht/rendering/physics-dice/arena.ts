@@ -6,7 +6,8 @@ import type { PhysicsDiceGeometries } from './model'
 const SCENE = PHYSICS_DICE_CONFIG.scene
 const UP = new THREE.Vector3(0, 1, 0)
 
-export function createTray(scene: THREE.Scene, world: RAPIER.World) {
+/** 트레이 바닥·세 벽·진입 앞판 콜라이더. +x 쪽은 벽 없이 진입 앞판으로 이어진다. */
+function createTrayColliders(world: RAPIER.World) {
   const tray = SCENE.tray
   const centerZ = (tray.rollingMinZ + tray.rollingMaxZ) / 2
   const halfDepth = (tray.rollingMaxZ - tray.rollingMinZ) / 2
@@ -35,7 +36,11 @@ export function createTray(scene: THREE.Scene, world: RAPIER.World) {
       .setFriction(0.76)
       .setRestitution(0.2),
   )
+}
 
+/** 그림자 받는 바닥판과 킵 레일(평면색 판·구분선·그림자판). */
+function createTrayMeshes(scene: THREE.Scene) {
+  const tray = SCENE.tray
   const RAIL_SPAN = 40
   const floorMaterial = new THREE.ShadowMaterial({ opacity: 0.3 })
   const railMaterial = new THREE.MeshBasicMaterial()
@@ -93,7 +98,13 @@ export function createTray(scene: THREE.Scene, world: RAPIER.World) {
   return { floorMaterial, railMaterial, railLineMaterial, trayMaterials }
 }
 
-export function createBowl(scene: THREE.Scene, world: RAPIER.World) {
+export function createTray(scene: THREE.Scene, world: RAPIER.World) {
+  createTrayColliders(world)
+  return createTrayMeshes(scene)
+}
+
+/** 사발의 겉모습 — 바깥 껍데기·안쪽 바닥·테두리. 처음에는 숨겨 둔다. */
+function createBowlMeshes(scene: THREE.Scene) {
   const visual = SCENE.bowl.visual
   const bowlGroup = new THREE.Group()
   bowlGroup.visible = false
@@ -149,6 +160,14 @@ export function createBowl(scene: THREE.Scene, world: RAPIER.World) {
   bowlGroup.add(shell, bowlInner, rim)
   scene.add(bowlGroup)
 
+  return { bowlGroup, bowlInner, bowlInnerMaterial, bowlMaterials }
+}
+
+/**
+ * 사발 물리 바디 — 바닥 원기둥, 둘레 14장의 벽, 흔드는 동안 막아 두는 뚜껑. 키네마틱이라
+ * 코드가 위치를 직접 옮기며, 처음에는 트레이 밖에 둔다.
+ */
+function createBowlBody(world: RAPIER.World) {
   const bowlBody = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased())
   world.createCollider(
     RAPIER.ColliderDesc.cylinder(
@@ -187,8 +206,13 @@ export function createBowl(scene: THREE.Scene, world: RAPIER.World) {
     bowlBody,
   )
   bowlBody.setTranslation({ x: 10, y: -5, z: 0 }, false)
+  return bowlBody
+}
 
-  return { bowlBody, bowlGroup, bowlInner, bowlInnerMaterial, bowlMaterials }
+export function createBowl(scene: THREE.Scene, world: RAPIER.World) {
+  const meshes = createBowlMeshes(scene)
+  const bowlBody = createBowlBody(world)
+  return { bowlBody, ...meshes }
 }
 
 export function createKeepSlots(scene: THREE.Scene, geometries: PhysicsDiceGeometries) {
