@@ -40,6 +40,76 @@ const intents = {
   },
 } as const
 
+type NicknameEntry = ReturnType<typeof useNicknameEntry>
+
+function NicknameHeader({
+  chip,
+  onBack,
+  roomCode,
+}: {
+  chip: string | null
+  onBack: () => void
+  roomCode: string | undefined
+}) {
+  return (
+    <header className="relative flex items-center gap-3">
+      <button
+        aria-label="뒤로 가기"
+        className="grid size-11 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-content transition-colors hover:bg-surface-raised focus-ring pressable"
+        onClick={onBack}
+        type="button"
+      >
+        <IconBack className="size-4.5" />
+      </button>
+      <span className="inline-flex h-[2.125rem] items-center gap-2 rounded-full border border-border bg-surface-veil px-3.5 text-xs font-semibold">
+        {roomCode ? (
+          <>
+            초대 코드{' '}
+            <span className="font-mono font-bold tracking-[0.1em] text-content">{roomCode}</span>
+          </>
+        ) : (
+          chip
+        )}
+      </span>
+    </header>
+  )
+}
+
+/** 제출 버튼 위의 안내 — 로그인 필요·호스트 안내·제출 실패. */
+function EntryNotices({ entry, roomCode }: { entry: NicknameEntry; roomCode: string | undefined }) {
+  return (
+    <>
+      {entry.signInRequired && (
+        <Alert tone="danger">
+          빠른 대전은 로그인이 필요해요. 홈에서 로그인한 뒤 다시 시도해 주세요.
+        </Alert>
+      )}
+      {!roomCode && !entry.quick && (
+        <Alert className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="grid size-5 flex-none place-items-center rounded-chip bg-border text-2xs leading-none font-bold text-content"
+          >
+            1
+          </span>
+          방을 만든 사람이 호스트가 돼요
+        </Alert>
+      )}
+      {entry.userError && (
+        <Alert className="grid gap-2 text-left" tone="danger">
+          {/* role은 Alert가 든다 — 여기 또 적으면 이중으로 읽힌다 */}
+          <p className="m-0">{entry.userError.message}</p>
+          {entry.userError.canChangeRoom && (
+            <Button type="button" variant="secondary" onClick={entry.goHome}>
+              {roomCode ? '다른 코드 입력' : '홈으로'}
+            </Button>
+          )}
+        </Alert>
+      )}
+    </>
+  )
+}
+
 export function NicknamePage({ gameKey, mode, party = false, roomCode }: NicknamePageProps) {
   const entry = useNicknameEntry({ gameKey, mode, party, roomCode })
   const copy = intents[roomCode ? 'join' : entry.quick ? 'quick' : 'create']
@@ -53,26 +123,7 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
         {roomCode ?? 'YORR'}
       </span>
 
-      <header className="relative flex items-center gap-3">
-        <button
-          aria-label="뒤로 가기"
-          className="grid size-11 flex-none cursor-pointer place-items-center rounded-card border border-border bg-surface text-content transition-colors hover:bg-surface-raised focus-ring pressable"
-          onClick={entry.goHome}
-          type="button"
-        >
-          <IconBack className="size-4.5" />
-        </button>
-        <span className="inline-flex h-[2.125rem] items-center gap-2 rounded-full border border-border bg-surface-veil px-3.5 text-xs font-semibold">
-          {roomCode ? (
-            <>
-              초대 코드{' '}
-              <span className="font-mono font-bold tracking-[0.1em] text-content">{roomCode}</span>
-            </>
-          ) : (
-            copy.chip
-          )}
-        </span>
-      </header>
+      <NicknameHeader chip={copy.chip} onBack={entry.goHome} roomCode={roomCode} />
 
       <div className="relative mt-11 grid gap-2">
         <h1 className="m-0 text-2xl leading-[1.3] font-bold tracking-[-0.02em]">
@@ -103,33 +154,7 @@ export function NicknamePage({ gameKey, mode, party = false, roomCode }: Nicknam
           onChange={(event) => entry.handleNicknameChange(event.target.value)}
         />
         <div className="mt-auto grid gap-3">
-          {entry.signInRequired && (
-            <Alert tone="danger">
-              빠른 대전은 로그인이 필요해요. 홈에서 로그인한 뒤 다시 시도해 주세요.
-            </Alert>
-          )}
-          {!roomCode && !entry.quick && (
-            <Alert className="flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                className="grid size-5 flex-none place-items-center rounded-chip bg-border text-2xs leading-none font-bold text-content"
-              >
-                1
-              </span>
-              방을 만든 사람이 호스트가 돼요
-            </Alert>
-          )}
-          {entry.userError && (
-            <Alert className="grid gap-2 text-left" tone="danger">
-              {/* role은 Alert가 든다 — 여기 또 적으면 이중으로 읽힌다 */}
-              <p className="m-0">{entry.userError.message}</p>
-              {entry.userError.canChangeRoom && (
-                <Button type="button" variant="secondary" onClick={entry.goHome}>
-                  {roomCode ? '다른 코드 입력' : '홈으로'}
-                </Button>
-              )}
-            </Alert>
-          )}
+          <EntryNotices entry={entry} roomCode={roomCode} />
           <Button
             className="w-full"
             disabled={entry.signInRequired}
