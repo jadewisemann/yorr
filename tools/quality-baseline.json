@@ -9,7 +9,6 @@
   },
   "violations": {
     "backend/src/game/davinci/davinciGameService.ts\u0000halsteadDifficulty\u0000-": 110,
-    "backend/src/game/davinci/davinciRules.ts\u0000halsteadDifficulty\u0000-": 90,
     "backend/src/game/duel/duelGameService.ts\u0000halsteadDifficulty\u0000-": 92,
     "backend/src/game/pingpong/pingPongGameService.ts\u0000halsteadDifficulty\u0000-": 99,
     "backend/src/game/round/roundStateStore.ts\u0000halsteadDifficulty\u0000-": 90,
