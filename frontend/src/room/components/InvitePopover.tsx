@@ -10,15 +10,10 @@ interface InvitePopoverProps {
   roomCode: string
 }
 
-export function InvitePopover({ anchorRef, onClose, open, roomCode }: InvitePopoverProps) {
-  const inviteUrl = createInviteUrl(roomCode)
+/** 초대 링크 복사·공유와 그 결과 문구. 문구는 팝오버를 닫을 때 지운다. */
+function useInviteSharing(roomCode: string, inviteUrl: string) {
   const [copyMessage, setCopyMessage] = useState<string | null>(null)
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
-
-  const close = () => {
-    setCopyMessage(null)
-    onClose()
-  }
 
   const copyInvite = async () => {
     try {
@@ -42,46 +37,70 @@ export function InvitePopover({ anchorRef, onClose, open, roomCode }: InvitePopo
     }
   }
 
+  return {
+    canShare,
+    clearMessage: () => setCopyMessage(null),
+    copyInvite,
+    copyMessage,
+    shareInvite,
+  }
+}
+
+function InviteCode({ inviteUrl, roomCode }: { inviteUrl: string; roomCode: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <QrFallback>
+        {/* 순백 고정 — QR 정숙 구역(quiet zone)은 스캐너가 코드를 찾는 기준이라
+            테마를 따라가면 안 된다. 라이트 모드에서도 이 자리는 흰색이다. */}
+        <QRCodeSVG
+          className="size-28 flex-none rounded-card bg-white p-2"
+          value={inviteUrl}
+          level="M"
+          marginSize={1}
+          title={`방 ${roomCode} 초대 QR 코드`}
+        />
+      </QrFallback>
+      <div className="grid min-w-0 flex-1 gap-1">
+        <span className="font-mono text-2xs font-bold tracking-[0.14em] text-content-muted uppercase">
+          Room Code
+        </span>
+        <span className="block truncate font-mono text-xl leading-none font-bold tracking-[0.1em]">
+          {roomCode}
+        </span>
+        <p className="m-0 truncate font-mono text-2xs text-content-muted">{inviteUrl}</p>
+      </div>
+    </div>
+  )
+}
+
+export function InvitePopover({ anchorRef, onClose, open, roomCode }: InvitePopoverProps) {
+  const inviteUrl = createInviteUrl(roomCode)
+  const sharing = useInviteSharing(roomCode, inviteUrl)
+
+  const close = () => {
+    sharing.clearMessage()
+    onClose()
+  }
+
   return (
     <Popover anchorRef={anchorRef} label="친구 초대하기" onClose={close} open={open}>
       <PopoverHeader onClose={close}>친구 초대</PopoverHeader>
 
       <div className="mt-3 grid gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <QrFallback>
-            {/* 순백 고정 — QR 정숙 구역(quiet zone)은 스캐너가 코드를 찾는 기준이라
-                테마를 따라가면 안 된다. 라이트 모드에서도 이 자리는 흰색이다. */}
-            <QRCodeSVG
-              className="size-28 flex-none rounded-card bg-white p-2"
-              value={inviteUrl}
-              level="M"
-              marginSize={1}
-              title={`방 ${roomCode} 초대 QR 코드`}
-            />
-          </QrFallback>
-          <div className="grid min-w-0 flex-1 gap-1">
-            <span className="font-mono text-2xs font-bold tracking-[0.14em] text-content-muted uppercase">
-              Room Code
-            </span>
-            <span className="block truncate font-mono text-xl leading-none font-bold tracking-[0.1em]">
-              {roomCode}
-            </span>
-            <p className="m-0 truncate font-mono text-2xs text-content-muted">{inviteUrl}</p>
-          </div>
-        </div>
+        <InviteCode inviteUrl={inviteUrl} roomCode={roomCode} />
         <div className="flex gap-2">
           <Button
             className="min-h-11 flex-1 px-3 text-sm"
-            onClick={copyInvite}
+            onClick={sharing.copyInvite}
             type="button"
             variant="secondary"
           >
             링크 복사
           </Button>
-          {canShare && (
+          {sharing.canShare && (
             <Button
               className="min-h-11 flex-1 px-3 text-sm"
-              onClick={shareInvite}
+              onClick={sharing.shareInvite}
               type="button"
               variant="ghost"
             >
@@ -90,9 +109,9 @@ export function InvitePopover({ anchorRef, onClose, open, roomCode }: InvitePopo
           )}
         </div>
       </div>
-      {copyMessage && (
+      {sharing.copyMessage && (
         <p className="m-0 mt-3 text-sm text-content-muted" role="status" aria-live="polite">
-          {copyMessage}
+          {sharing.copyMessage}
         </p>
       )}
     </Popover>
